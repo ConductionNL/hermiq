@@ -42,6 +42,156 @@
             "example": "This is an example"
           }
         }
+      },
+      "Schedule": {
+        "slug": "schedule",
+        "icon": "ClockOutline",
+        "version": "0.1.0",
+        "title": "Schedule",
+        "description": "A schedule that fires an OpenRegister agent on a cron expression, a fixed interval, or once at a future time.",
+        "type": "object",
+        "required": [
+          "name",
+          "agentId",
+          "kind",
+          "deliver",
+          "enabled"
+        ],
+        "x-openregister": {
+          "publicRead": false,
+          "publicWrite": false,
+          "schemaOrgType": "Schedule"
+        },
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Human-readable label for the schedule",
+            "example": "Daily briefing"
+          },
+          "agentId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the OpenRegister Agent this schedule runs (reference to the Agent entity owned by OpenRegister)",
+            "example": "00000000-0000-0000-0000-000000000000"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "once",
+              "interval",
+              "cron"
+            ],
+            "description": "Trigger type: run once, on a fixed interval, or on a cron expression"
+          },
+          "cronExpr": {
+            "type": "string",
+            "description": "5- or 6-field cron expression (required when kind=cron)",
+            "example": "0 8 * * *"
+          },
+          "intervalMinutes": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Interval in minutes between runs (required when kind=interval)",
+            "example": 1440
+          },
+          "runAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the single run (required when kind=once)"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Optional task text passed to the agent run"
+          },
+          "deliver": {
+            "type": "string",
+            "enum": [
+              "talk",
+              "notification",
+              "none"
+            ],
+            "description": "Where the run output is delivered"
+          },
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Disabled schedules are skipped by the dispatcher"
+          },
+          "repeat": {
+            "type": "object",
+            "description": "Optional finite-repeat control; omit or null to run forever",
+            "properties": {
+              "times": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Total number of runs before the schedule is removed"
+              },
+              "completed": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 0,
+                "description": "Runs completed so far"
+              }
+            }
+          },
+          "nextRun": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Derived: next fire time — written by the dispatcher, not the user"
+          },
+          "lastStatus": {
+            "type": "string",
+            "description": "Derived: outcome of the last run — written by the dispatcher"
+          },
+          "lastError": {
+            "type": "string",
+            "description": "Derived: error message from the last run, if any — written by the dispatcher"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "cron"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "cronExpr"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "interval"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "intervalMinutes"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "kind": {
+                  "const": "once"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "runAt"
+              ]
+            }
+          }
+        ]
       }
     }
   }

@@ -2,14 +2,14 @@
 
 ## 1. Declare the Schedule schema (register patch)
 
-- [ ] 1.1 Add a `Schedule` entry under `components.schemas` in `lib/Settings/hermiq_register.json` (title, slug, icon, version, Schema.org `Schedule` type, `x-openregister`).
-- [ ] 1.2 Declare core properties `name` (string, required) and `agentId` (string uuid, required, reference to OpenRegister `Agent`).
-- [ ] 1.3 Declare `kind` as a required enum `once`|`interval`|`cron`.
-- [ ] 1.4 Declare trigger fields `cronExpr` (string), `intervalMinutes` (integer, minimum 1), `runAt` (datetime).
-- [ ] 1.5 Declare conditional requirements so `kind` selects its trigger field (cron→`cronExpr`, interval→`intervalMinutes`, once→`runAt`).
-- [ ] 1.6 Declare `prompt` (string, optional), `deliver` (required enum `talk`|`notification`|`none`), `enabled` (boolean, required, default true).
-- [ ] 1.7 Declare `repeat` (optional object `{times:int, completed:int}`) and derived fields `nextRun` (datetime), `lastStatus` (string), `lastError` (string).
-- [ ] 1.8 Re-validate `hermiq_register.json` as well-formed JSON and confirm the existing `example` schema is untouched (union import, no regression).
+- [x] 1.1 Add a `Schedule` entry under `components.schemas` in `lib/Settings/hermiq_register.json` (title, slug, icon, version, Schema.org `Schedule` type, `x-openregister`).
+- [x] 1.2 Declare core properties `name` (string, required) and `agentId` (string uuid, required, reference to OpenRegister `Agent`).
+- [x] 1.3 Declare `kind` as a required enum `once`|`interval`|`cron`.
+- [x] 1.4 Declare trigger fields `cronExpr` (string), `intervalMinutes` (integer, minimum 1), `runAt` (datetime).
+- [x] 1.5 Declare conditional requirements so `kind` selects its trigger field (cron→`cronExpr`, interval→`intervalMinutes`, once→`runAt`).
+- [x] 1.6 Declare `prompt` (string, optional), `deliver` (required enum `talk`|`notification`|`none`), `enabled` (boolean, required, default true).
+- [x] 1.7 Declare `repeat` (optional object `{times:int, completed:int}`) and derived fields `nextRun` (datetime), `lastStatus` (string), `lastError` (string).
+- [x] 1.8 Re-validate `hermiq_register.json` as well-formed JSON and confirm the existing `example` schema is untouched (union import, no regression).
 
 ## 2. Verify import and persistence
 
