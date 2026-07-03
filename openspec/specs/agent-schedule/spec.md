@@ -1,10 +1,12 @@
 # Agent Schedule Specification
 
-**Status**: planned
+**Status**: in-progress
 **Standards**: cron (POSIX 5/6-field), OpenAPI
 **Feature tier**: MVP
 
-**OpenSpec changes:** _(none yet — run `/opsx-ff agent-schedule`)_
+**OpenSpec changes:**
+- `openspec/changes/agent-schedule-schema/` — declarative `Schedule` schema (kind: config)
+- `openspec/changes/agent-schedule-dispatcher/` — `ScheduleTask` + `ScheduleService` (kind: code, depends_on schema)
 
 ## Purpose
 
