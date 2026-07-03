@@ -1,0 +1,340 @@
+<title>Hermiq — Hermes → Nextcloud Port Plan</title>
+<style>
+  :root{
+    --ground:#F6F7F9; --panel:#FFFFFF; --ink:#141A2B; --ink-soft:#3B4358;
+    --muted:#6B7688; --line:#E3E6EC; --line-soft:#EEF0F4;
+    --cobalt:#21468B; --cobalt-soft:#E9EEF7;
+    --new:#B26A16; --new-bg:#FBF1E4;
+    --reuse:#1F7A5A; --reuse-bg:#E7F3EE;
+    --drop:#6B7688; --drop-bg:#EEF0F3;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body,.wrap{margin:0}
+  .wrap{background:var(--ground);color:var(--ink);font-family:var(--sans);
+    line-height:1.6;-webkit-font-smoothing:antialiased;font-size:16px}
+  .col{max-width:920px;margin:0 auto;padding:0 24px}
+  a{color:var(--cobalt)}
+  h1,h2,h3{text-wrap:balance;line-height:1.15;margin:0}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--cobalt);font-weight:600}
+  .mono{font-family:var(--mono)}
+
+  /* header */
+  header.hero{border-bottom:1px solid var(--line);background:
+    linear-gradient(180deg,#FFFFFF 0%,var(--ground) 100%)}
+  .hero-inner{padding:52px 0 40px}
+  .hero h1{font-size:clamp(30px,5vw,46px);font-weight:700;letter-spacing:-.02em;margin:14px 0 0}
+  .hero .lede{font-size:19px;color:var(--ink-soft);margin:18px 0 0;max-width:64ch}
+  .hero .lede b{color:var(--ink);font-weight:650}
+  .kicker{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}
+  .tag{font-family:var(--mono);font-size:11.5px;letter-spacing:.04em;color:var(--muted);
+    border:1px solid var(--line);border-radius:999px;padding:3px 10px;background:#fff}
+
+  /* metric strip */
+  .metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:30px 0 4px}
+  .metric{background:var(--panel);padding:16px 18px}
+  .metric .v{font-family:var(--mono);font-size:22px;font-weight:600;letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums;color:var(--cobalt)}
+  .metric .k{font-size:12px;color:var(--muted);margin-top:3px}
+  .metric.good .v{color:var(--reuse)}
+  @media(max-width:720px){.metrics{grid-template-columns:repeat(2,1fr)}}
+
+  section{padding:40px 0}
+  section + section{border-top:1px solid var(--line-soft)}
+  h2{font-size:24px;font-weight:680;letter-spacing:-.01em}
+  h2 + .sub{color:var(--muted);margin:8px 0 0;font-size:15px}
+  .lead-p{color:var(--ink-soft);margin:18px 0 0;max-width:68ch}
+  .lead-p b{color:var(--ink)}
+
+  /* boundary line */
+  .boundary{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:24px}
+  .bcell{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .bcell .who{font-family:var(--mono);font-size:12px;letter-spacing:.04em;color:var(--muted);
+    text-transform:uppercase}
+  .bcell .what{font-size:17px;font-weight:650;margin-top:6px}
+  .bcell.me{border-color:var(--cobalt);box-shadow:0 0 0 1px var(--cobalt)}
+  .bcell.me .who{color:var(--cobalt)}
+  @media(max-width:720px){.boundary{grid-template-columns:repeat(2,1fr)}}
+
+  /* subsystem cards */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:22px 22px 8px;margin-top:18px}
+  .card-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    border-bottom:1px solid var(--line-soft);padding-bottom:14px}
+  .card-head h3{font-size:18px;font-weight:670}
+  .card-head .eff{font-family:var(--mono);font-size:13px;color:var(--ink);
+    font-variant-numeric:tabular-nums;white-space:nowrap}
+  .card-head .eff span{color:var(--muted)}
+  .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:0}
+  .cols > div{padding:16px 16px 18px;border-right:1px solid var(--line-soft)}
+  .cols > div:last-child{border-right:0}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);
+    font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+    padding:3px 8px;border-radius:6px}
+  .chip.new{color:var(--new);background:var(--new-bg)}
+  .chip.reuse{color:var(--reuse);background:var(--reuse-bg)}
+  .chip.drop{color:var(--drop);background:var(--drop-bg)}
+  .cols ul{list-style:none;margin:12px 0 0;padding:0}
+  .cols li{font-size:13.5px;color:var(--ink-soft);padding:6px 0 6px 15px;position:relative;
+    border-top:1px solid var(--line-soft);line-height:1.45}
+  .cols li:first-child{border-top:0}
+  .cols li::before{content:"";position:absolute;left:0;top:13px;width:5px;height:5px;
+    border-radius:50%;background:currentColor;opacity:.35}
+  .cols li b{color:var(--ink);font-weight:640}
+  .cols code{font-family:var(--mono);font-size:12px;background:var(--ground);
+    padding:1px 5px;border-radius:4px;color:var(--cobalt)}
+  @media(max-width:720px){.cols{grid-template-columns:1fr}
+    .cols > div{border-right:0;border-top:1px solid var(--line-soft)}
+    .cols > div:first-child{border-top:0}}
+
+  /* tables */
+  .scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px;margin-top:22px}
+  table{border-collapse:collapse;width:100%;font-size:14px;background:var(--panel)}
+  th,td{text-align:left;padding:12px 16px;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  thead th{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    color:var(--muted);background:#FbFCFD;position:sticky;top:0}
+  tbody tr:last-child td{border-bottom:0}
+  td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+  tr.total td{background:var(--cobalt-soft);font-weight:650}
+  tr.total td.num{color:var(--cobalt)}
+  .phase{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+  /* facts / risks */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+  .box.facts{border-left:3px solid var(--reuse)}
+  .box.risks{border-left:3px solid var(--new)}
+  .box h4{margin:0 0 4px;font-size:13px;font-family:var(--mono);letter-spacing:.06em;
+    text-transform:uppercase;color:var(--ink-soft)}
+  .box ul{margin:10px 0 0;padding:0;list-style:none}
+  .box li{font-size:13.5px;color:var(--ink-soft);padding:9px 0 9px 22px;position:relative;
+    border-top:1px solid var(--line-soft);line-height:1.5}
+  .box li:first-of-type{border-top:0}
+  .box li b{color:var(--ink)}
+  .box .m{position:absolute;left:0;top:9px;font-family:var(--mono);font-size:13px;font-weight:700}
+  .facts .m{color:var(--reuse)}
+  .risks .m{color:var(--new)}
+
+  /* next steps */
+  ol.steps{counter-reset:s;list-style:none;margin:22px 0 0;padding:0;
+    display:grid;gap:10px}
+  ol.steps li{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:14px 16px 14px 52px;position:relative;font-size:14.5px;color:var(--ink-soft)}
+  ol.steps li b{color:var(--ink)}
+  ol.steps li::before{counter-increment:s;content:counter(s);position:absolute;left:14px;top:12px;
+    width:24px;height:24px;border-radius:7px;background:var(--cobalt);color:#fff;
+    font-family:var(--mono);font-size:13px;font-weight:600;display:grid;place-items:center}
+  ol.steps code{font-family:var(--mono);font-size:12.5px;background:var(--cobalt-soft);
+    padding:1px 6px;border-radius:5px;color:var(--cobalt)}
+
+  footer{border-top:1px solid var(--line);color:var(--muted);font-size:12.5px;padding:26px 0 40px}
+  footer .mono{color:var(--ink-soft)}
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="col hero-inner">
+      <div class="kicker">
+        <span class="eyebrow">ADR&#8209;001 · Option&nbsp;C+</span>
+        <span class="tag">Conduction</span>
+        <span class="tag">OpenRegister</span>
+        <span class="tag">Hermes → Nextcloud</span>
+      </div>
+      <h1>Hermiq: porting Hermes into Nextcloud</h1>
+      <p class="lede">A source&#8209;level plan to bring <b>NousResearch&nbsp;Hermes</b> — a self&#8209;hosted autonomous agent with memory, self&#8209;improving skills and a cron scheduler — into Nextcloud as a <b>thin, multi&#8209;tenant, OpenRegister&#8209;governed</b> app. The engine already exists; Hermiq builds the parts that don&rsquo;t.</p>
+    </div>
+  </header>
+
+  <div class="col">
+    <div class="metrics">
+      <div class="metric good"><div class="v">GO</div><div class="k">Concept verdict</div></div>
+      <div class="metric"><div class="v">4/10</div><div class="k">Build complexity</div></div>
+      <div class="metric"><div class="v">4–6<span style="font-size:14px"> wk</span></div><div class="k">MVP (backend)</div></div>
+      <div class="metric"><div class="v">59–83</div><div class="k">Full port · dev&#8209;days</div></div>
+      <div class="metric"><div class="v">€30–75M</div><div class="k">Serviceable market</div></div>
+    </div>
+  </div>
+
+  <section>
+    <div class="col">
+      <span class="eyebrow">The decision</span>
+      <h2 style="margin-top:10px">One boundary keeps the fleet coherent</h2>
+      <p class="lead-p">A source study proved OpenRegister already ships the agent engine — run loop, MCP tools, LLPhant/Ollama, and a hash&#8209;chained audit trail. So Hermiq owns only <b>scheduling</b> and a <b>richer agent&#8209;management UX</b>, and delegates everything else. This is the line to hold in docs, UI, and review.</p>
+      <div class="boundary">
+        <div class="bcell me"><div class="who">Hermiq</div><div class="what">Agents</div></div>
+        <div class="bcell"><div class="who">n8n&#8209;nextcloud</div><div class="what">Workflows</div></div>
+        <div class="bcell"><div class="who">OpenConnector</div><div class="what">Integrations</div></div>
+        <div class="bcell"><div class="who">OpenRegister</div><div class="what">Agent&#8209;core + governance</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <span class="eyebrow">The port matrix</span>
+      <h2 style="margin-top:10px">Four subsystems, mostly reused</h2>
+      <p class="sub">For each Hermes subsystem: what Hermiq <b>builds</b>, what it <b>reuses</b> from OpenRegister / Nextcloud, and what it <b>drops</b>.</p>
+
+      <article class="card">
+        <div class="card-head"><h3>Scheduling &amp; Triggers</h3><div class="eff">8–11 <span>dev&#8209;days</span></div></div>
+        <div class="cols">
+          <div><span class="chip new">Net&#8209;new</span><ul>
+            <li><b>Schedule</b> OpenRegister object (cron / interval / once)</li>
+            <li><code>ScheduleTask extends TimedJob</code> poll + dispatch</li>
+            <li><code>dragonmantank/cron-expression</code> next&#8209;run calc</li>
+            <li>Natural&#8209;language → schedule via LLPhant</li>
+          </ul></div>
+          <div><span class="chip reuse">Reused</span><ul>
+            <li>OR <b>AgentHandler</b> / ChatService for execution</li>
+            <li>OpenConnector <code>JobTask</code> scheduler pattern</li>
+            <li>OR audit trail for run records</li>
+          </ul></div>
+          <div><span class="chip drop">Dropped</span><ul>
+            <li>Chronos NAS webhook / scale&#8209;to&#8209;zero</li>
+            <li>JSON file job&#8209;store + file locks</li>
+            <li>Gateway self&#8209;restart lifecycle guard</li>
+          </ul></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h3>Memory &amp; Skills</h3><div class="eff">22–30 <span>dev&#8209;days</span></div></div>
+        <div class="cols">
+          <div><span class="chip new">Net&#8209;new</span><ul>
+            <li>6 schemas: <b>Memory, UserProfile, Session, SessionTurn, Skill, SkillSource</b></li>
+            <li><b>SkillSerializer</b> — agentskills.io round&#8209;trip</li>
+            <li><b>SkillCatalogService</b> — hub adapters + quarantine</li>
+            <li>Curator background job (state lifecycle)</li>
+          </ul></div>
+          <div><span class="chip reuse">Reused</span><ul>
+            <li>OR object storage + versioning</li>
+            <li><b>SearchTrail</b> + VectorizationService for recall</li>
+            <li>SecurityService for skill scanning</li>
+            <li>Group RBAC from <code>ObjectEntity</code></li>
+          </ul></div>
+          <div><span class="chip drop">Dropped</span><ul>
+            <li>SQLite FTS5 index + triggers + trigram</li>
+            <li><code>.bak</code> drift&#8209;backup mechanism</li>
+            <li>Bundled&#8209;manifest sync + HubLockFile</li>
+          </ul></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h3>Tools, Integrations &amp; Channels</h3><div class="eff">11–16 <span>dev&#8209;days</span></div></div>
+        <div class="cols">
+          <div><span class="chip new">Net&#8209;new</span><ul>
+            <li>One <b>Nextcloud Talk</b> delivery adapter</li>
+            <li>Thin <code>IMcpToolProvider</code> wrappers — Files, Contacts, Calendar, Deck</li>
+            <li>IMailer outbound channel</li>
+          </ul></div>
+          <div><span class="chip reuse">Reused</span><ul>
+            <li>OR <b>MCP</b> server + client + ToolRegistry</li>
+            <li>LLPhant <code>OllamaChat</code> (local Qwen)</li>
+            <li>OR <code>AgentTool</code> for delegation</li>
+            <li>OpenConnector <code>CallService</code> for remotes</li>
+          </ul></div>
+          <div><span class="chip drop">Dropped</span><ul>
+            <li>22&#8209;platform gateway daemon</li>
+            <li>Provider&#8209;profile layer (40 providers)</li>
+            <li>Own MCP client/server + tool engine</li>
+          </ul></div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h3>Run Observability &amp; AI Governance</h3><div class="eff">18–26 <span>dev&#8209;days</span></div></div>
+        <div class="cols">
+          <div><span class="chip new">Net&#8209;new</span><ul>
+            <li>Durable <b>Approval</b> + tenant <b>kill&#8209;switch</b> object states</li>
+            <li><code>redact.py</code> → PHP, run <b>before</b> persist</li>
+            <li>Per&#8209;tenant AI&#8209;Act evidence&#8209;pack export UI</li>
+          </ul></div>
+          <div><span class="chip reuse">Reused</span><ul>
+            <li>OR <b>AuditTrail</b> — hash/previousHash chain</li>
+            <li>GDPR Art.30 verwerkingsregister + DSAR endpoints</li>
+            <li>SearchTrail for tool&#8209;search transparency</li>
+            <li>Nextcloud groups → multi&#8209;tenant RBAC</li>
+          </ul></div>
+          <div><span class="chip drop">Dropped</span><ul>
+            <li>Credential&#8209;pool + secret&#8209;scope</li>
+            <li>Shadow&#8209;git checkpoints</li>
+            <li>In&#8209;memory approval queue</li>
+          </ul></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <span class="eyebrow">Effort &amp; phasing</span>
+      <h2 style="margin-top:10px">A quarter of work, shippable in slices</h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Slice</th><th>Backend</th><th>Ships in</th><th>What the user gets</th></tr></thead>
+          <tbody>
+            <tr><td>Scheduling &amp; Triggers</td><td class="num">8–11 dd</td><td class="phase">MVP</td><td>Agents that run on a cron</td></tr>
+            <tr><td>Tools &amp; Channels</td><td class="num">11–16 dd</td><td class="phase">MVP</td><td>Delivery to Nextcloud Talk + Mail</td></tr>
+            <tr><td>Run Observability &amp; Governance</td><td class="num">18–26 dd</td><td class="phase">V1</td><td>Audit trail, approval gate, kill&#8209;switch</td></tr>
+            <tr><td>Memory &amp; Skills</td><td class="num">22–30 dd</td><td class="phase">V1 → V2</td><td>Memory editor + skills marketplace</td></tr>
+            <tr class="total"><td>Total backend (excl. UI)</td><td class="num">59–83 dd</td><td class="phase">≈ 12–17 wk</td><td>The full Nextcloud Hermes</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="lead-p" style="margin-top:16px"><b>MVP (~4–6 weeks):</b> a <code style="font-family:var(--mono);font-size:13px">Schedule</code> object + <code style="font-family:var(--mono);font-size:13px">TimedJob</code> that fires OpenRegister&rsquo;s existing agent, delivers to Talk, and logs to the audit trail — a schedulable, audited agent. Everything after is additive.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <span class="eyebrow">Ground truth</span>
+      <h2 style="margin-top:10px">Verified in the code — and what to watch</h2>
+      <div class="grid2">
+        <div class="box facts">
+          <h4>Already there (reused)</h4>
+          <ul>
+            <li><span class="m">✓</span><b>AuditTrail</b> ships a hash&#8209;chained, tamper&#8209;evident log with tenant scoping, GDPR Art.30 register, DSAR + <code>verify()</code> endpoints — AI&#8209;Act record&#8209;keeping is inherited.</li>
+            <li><span class="m">✓</span><b>MCP + LLPhant + Ollama</b> and <code>AgentTool</code> exist — the tool, provider and delegation layers are deleted, not ported.</li>
+            <li><span class="m">✓</span><code>ObjectEntity</code> carries <b>owner / organisation / groups / version / locked / deleted</b> — multi&#8209;tenant RBAC and rollback come free.</li>
+          </ul>
+        </div>
+        <div class="box risks">
+          <h4>Risks &amp; dependencies</h4>
+          <ul>
+            <li><span class="m">!</span><b>Talk (spreed) isn&rsquo;t installed</b> on the instance (only <code>opentalk</code> video) — the primary channel is an operator dependency; falls back to OCS polling.</li>
+            <li><span class="m">!</span><b>Ollama/Qwen function&#8209;calling fidelity</b> is the main quality risk; the fleet <code>OllamaChat.php</code> <code>think:false</code>/<code>keep_alive</code> patch must be applied.</li>
+            <li><span class="m">!</span><b>Redaction must run before persist</b> and every write must go through <code>ObjectService</code> — enforce both as a CI gate or the immutable log leaks or gaps.</li>
+            <li><span class="m">!</span>NC&rsquo;s single <code>TimedJob</code> polls — sub&#8209;5&#8209;minute schedules need webcron/systemd.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="col">
+      <span class="eyebrow">From here</span>
+      <h2 style="margin-top:10px">Next steps</h2>
+      <ol class="steps">
+        <li>Approve <b>ADR&#8209;001</b> (this boundary) — then it seeds the app&rsquo;s <code>openspec/architecture/</code>.</li>
+        <li>Run <b>/app-design hermiq</b> — turn the port matrix into <code>ARCHITECTURE.md</code>, a feature matrix (MVP/V1/V2) and wireframes.</li>
+        <li>Run <b>/app-create hermiq</b> — scaffold the repo, <code>openspec/</code> config, template and branches.</li>
+        <li>Optionally resume <b>/specter-research-app</b> phases 2–9 to promote the concept from <code>concept → idea</code> with stakeholders &amp; user stories.</li>
+        <li>Per spec: <b>/opsx-ff</b> → hand off to the Hydra build / test / review pipeline.</li>
+      </ol>
+    </div>
+  </section>
+
+  <footer>
+    <div class="col">
+      <span class="mono">Hermiq</span> · Nextcloud&#8209;native, multi&#8209;tenant port of NousResearch Hermes (MIT) ·
+      Specter concept + source&#8209;level port study, 2026&#8209;07&#8209;03 ·
+      evidence in the Specter intelligence DB under <span class="mono">app = hermiq</span>.
+    </div>
+  </footer>
+</div>

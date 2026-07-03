@@ -1,0 +1,36 @@
+schema: conduction
+
+context: |
+  Project: Hermiq
+  Repo: Conduction/hermiq
+  Type: Nextcloud App (PHP backend + Vue 2 frontend)
+  Description: Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — all inside your own Nextcloud. Agents, their memory and skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.
+  Key components: Dashboard, Settings, Example objects
+  Database: PostgreSQL (via OpenRegister's ObjectService)
+  Mount path: /var/www/html/custom_apps/hermiq
+
+  Architecture:
+    Pattern: Thin client — Hermiq owns no database tables
+    Data layer: OpenRegister (JSON object storage with schema validation)
+    Frontend: Vue 2.7 + Pinia stores querying OpenRegister API directly
+    Backend: Minimal — SettingsController + SettingsService for register setup
+
+  Shared specs: See ../openspec/specs/ for cross-project conventions
+  Project guidelines: See ../project.md for workspace-wide standards
+
+rules:
+  proposal:
+    - Reference shared nextcloud-app spec for app structure requirements
+    - Consider impact on other Conduction apps
+  specs:
+    - Use Schema.org type annotations for all entities
+    - Specify which Nextcloud OCP interfaces are used for integration features
+  design:
+    - Uses OpenRegister API directly from frontend (no own backend CRUD)
+    - Register config in lib/Settings/hermiq_register.json (OpenAPI 3.0.0 format)
+    - Imported via ConfigurationService::importFromApp() in repair step
+  tasks:
+    - Test with OpenRegister to verify schema validation works
+  review:
+    - Cross-reference shared specs (nextcloud-app, api-patterns, nl-design, docker)
+    - Flag spec deviations with WARNING and justification

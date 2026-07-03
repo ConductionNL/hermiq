@@ -1,0 +1,44 @@
+version = 1
+
+# REUSE compliance for Hermiq.
+#
+# PHP files carry SPDX-FileCopyrightText / SPDX-License-Identifier inside the
+# main file docblock (alongside the @license / @copyright / @author PHPDoc
+# tags) per ADR-014. This REUSE.toml provides the same metadata for non-PHP
+# source files that have no docblock to carry it, plus a fallback for any
+# PHP file that has not yet had its SPDX header added.
+
+[[annotations]]
+path = "**/*.php"
+SPDX-FileCopyrightText = "2026 Conduction B.V. <info@conduction.nl>"
+SPDX-License-Identifier = "EUPL-1.2"
+
+[[annotations]]
+path = [
+    "**/*.vue",
+    "**/*.js",
+    "**/*.ts",
+    "**/*.css",
+    "**/*.scss",
+    "**/*.sh",
+]
+SPDX-FileCopyrightText = "2026 Conduction B.V. <info@conduction.nl>"
+SPDX-License-Identifier = "EUPL-1.2"
+
+# Config / data / generated files — CC0 (same treatment as many
+# upstream Nextcloud apps). Adjust if a specific asset warrants a
+# different licence.
+[[annotations]]
+path = [
+    "**/*.json",
+    "**/*.yml",
+    "**/*.yaml",
+    "**/*.xml",
+    "**/*.md",
+    "img/**",
+    "l10n/**",
+    "composer.lock",
+    "package-lock.json",
+]
+SPDX-FileCopyrightText = "2026 Conduction B.V. <info@conduction.nl>"
+SPDX-License-Identifier = "CC0-1.0"

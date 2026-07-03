@@ -1,0 +1,11 @@
+{
+  "label": "Admin guide",
+  "position": 2,
+  "collapsible": true,
+  "collapsed": true,
+  "link": {
+    "type": "generated-index",
+    "title": "Admin guide",
+    "description": "Org-wide administration — toggling features, configuring policies, and managing users or groups."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "hermiq",
+  "name": "Hermiq",
+  "namespace": "Hermiq",
+  "summary": "Schedule autonomous AI agents in Nextcloud",
+  "goal": "Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — daily reports, inbox triage, monitoring, morning briefings — all inside your own Nextcloud, delivered to Nextcloud Talk. Agents, their memory and their self-improving skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant. Hermiq is the Nextcloud-native, self-hostable, sovereign take on the autonomous-agent platform, inspired by NousResearch Hermes. Architecturally (ADR-001, Option C+) Hermiq is a thin app: it owns scheduling/triggers and the agent-management UX (agent catalog, skills marketplace, run analytics) and delegates the agent core, tools and governance to OpenRegister, connectors to OpenConnector, and heavy visual workflows to n8n.",
+  "category": "integration",
+  "version": "0.1.0",
+  "license": "EUPL-1.2",
+  "author": "Conduction B.V.",
+  "repository": "https://codeberg.org/Conduction/hermiq",
+  "dependencies": {
+    "requiresOpenRegister": true,
+    "additionalCiApps": [
+      {"repo": "ConductionNL/openregister", "app": "openregister", "ref": "main"}
+    ]
+  },
+  "cicd": {
+    "phpVersions": ["8.3", "8.4"],
+    "nextcloudRefs": ["stable31", "stable32"],
+    "enableNewman": false
+  },
+  "createdAt": "2026-07-03",
+  "updatedAt": "2026-07-03"
+}

@@ -1,0 +1,214 @@
+{
+	"$schema": "https://codeberg.org/Conduction/nextcloud-vue/raw/branch/main/src/schemas/app-manifest-v2.schema.json",
+	"version": "0.2.0",
+	"dependencies": [
+		"openregister"
+	],
+	"menu": [
+		{
+			"id": "Dashboard",
+			"label": "Dashboard",
+			"icon": "icon-category-dashboard",
+			"route": "Dashboard",
+			"order": 10
+		},
+		{
+			"id": "Examples",
+			"label": "Examples",
+			"icon": "icon-files",
+			"route": "Examples",
+			"order": 20
+		},
+		{
+			"id": "Documentation",
+			"label": "Documentation",
+			"icon": "icon-info",
+			"href": "https://www.conduction.nl/academy",
+			"section": "footer",
+			"order": 90
+		},
+		{
+			"id": "FeaturesRoadmapMenu",
+			"label": "Features & roadmap",
+			"icon": "icon-toggle",
+			"route": "FeaturesRoadmap",
+			"section": "footer",
+			"order": 100
+		}
+	],
+	"pages": [
+		{
+			"id": "Dashboard",
+			"route": "/",
+			"type": "dashboard",
+			"title": "Dashboard",
+			"config": {
+				"widgets": [
+					{
+						"id": "open-examples",
+						"title": "Open examples",
+						"type": "stats-block",
+						"iconClass": "icon-files",
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "example",
+							"aggregate": "count"
+						},
+						"props": {
+							"countLabel": "examples",
+							"variant": "primary"
+						}
+					},
+					{
+						"id": "in-progress",
+						"title": "In progress",
+						"type": "stats-block",
+						"iconClass": "icon-loading",
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "example",
+							"aggregate": "count"
+						},
+						"props": {
+							"countLabel": "examples",
+							"variant": "warning"
+						}
+					},
+					{
+						"id": "closed",
+						"title": "Closed",
+						"type": "stats-block",
+						"iconClass": "icon-checkmark",
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "example",
+							"aggregate": "count"
+						},
+						"props": {
+							"countLabel": "examples",
+							"variant": "success"
+						}
+					}
+				],
+				"layout": [
+					{ "id": 1, "widgetId": "open-examples", "gridX": 0, "gridY": 0, "gridWidth": 3, "gridHeight": 1 },
+					{ "id": 2, "widgetId": "in-progress", "gridX": 3, "gridY": 0, "gridWidth": 3, "gridHeight": 1 },
+					{ "id": 3, "widgetId": "closed", "gridX": 6, "gridY": 0, "gridWidth": 3, "gridHeight": 1 }
+				]
+			},
+			"widgets": []
+		},
+		{
+			"id": "Examples",
+			"route": "/examples",
+			"type": "index",
+			"title": "Examples",
+			"config": {
+				"register": "hermiq",
+				"schema": "example",
+				"columns": [
+					"title",
+					"status",
+					"updatedAt"
+				],
+				"sidebar": {
+					"enabled": true,
+					"showMetadata": true
+				}
+			},
+			"widgets": [
+				{
+					"widgetKey": "object-table",
+					"slot": "body",
+					"gridX": 0,
+					"gridY": 0,
+					"gridWidth": 12,
+					"gridHeight": 6
+				}
+			]
+		},
+		{
+			"id": "ExampleDetail",
+			"route": "/examples/:id",
+			"type": "detail",
+			"title": "Example",
+			"config": {
+				"register": "hermiq",
+				"schema": "example",
+				"sidebar": true
+			},
+			"widgets": [
+				{
+					"widgetKey": "object-data",
+					"slot": "sidebar",
+					"tabGroup": "data",
+					"gridX": 0,
+					"gridY": 0,
+					"gridWidth": 1,
+					"gridHeight": 1
+				},
+				{
+					"widgetKey": "audit-trail",
+					"slot": "sidebar",
+					"tabGroup": "audit",
+					"gridX": 0,
+					"gridY": 0,
+					"gridWidth": 1,
+					"gridHeight": 1
+				}
+			]
+		},
+		{
+			"id": "Settings",
+			"route": "/settings",
+			"type": "settings",
+			"title": "Settings",
+			"config": {
+				"saveEndpoint": "/index.php/apps/hermiq/api/settings",
+				"sections": [
+					{
+						"title": "Version",
+						"widgets": [
+							{
+								"type": "version-info",
+								"props": {
+									"appName": "Hermiq",
+									"showUpdateButton": false,
+									"isUpToDate": true,
+									"title": "Version Information",
+									"description": "Information about the current installation."
+								}
+							}
+						]
+					}
+				]
+			},
+			"widgets": [
+				{
+					"widgetKey": "version-info",
+					"slot": "section:version",
+					"gridX": 0,
+					"gridY": 0,
+					"gridWidth": 12,
+					"gridHeight": 1,
+					"props": {
+						"appName": "Hermiq",
+						"showUpdateButton": false,
+						"isUpToDate": true,
+						"title": "Version Information",
+						"description": "Information about the current installation."
+					}
+				}
+			]
+		},
+		{
+			"id": "FeaturesRoadmap",
+			"route": "/features-roadmap",
+			"type": "roadmap",
+			"title": "Features & roadmap",
+			"config": {
+				"documentationUrl": "https://hermiq.conduction.nl"
+			}
+		}
+	]
+}

@@ -1,0 +1,6 @@
+/* Global app styles for hermiq */
+/* Use CSS variables from NL Design System — no hardcoded colors */
+
+#content {
+	height: 100%;
+}

@@ -1,0 +1,8 @@
+{
+  "spec_slug": "apphost-tutorial-overwrite",
+  "title": "App template: AppHost three-layer tutorial restructure",
+  "app": "nextcloud-app-template",
+  "repo": "https://codeberg.org/Conduction/nextcloud-app-template",
+  "depends_on": ["apphost-observability-engine", "apphost-boilerplate-controllers"],
+  "issue": null
+}

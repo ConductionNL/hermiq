@@ -1,0 +1,11 @@
+{
+  "label": "Tutorials",
+  "position": 2,
+  "collapsible": true,
+  "collapsed": false,
+  "link": {
+    "type": "generated-index",
+    "title": "Tutorials",
+    "description": "Step-by-step walkthroughs for everyday tasks. The user track covers individual workflows; the admin track covers org-wide configuration."
+  }
+}

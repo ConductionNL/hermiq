@@ -1,0 +1,121 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-first websites.
+ */
+
+/* Import Poppins font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* You can override the default Infima variables here. */
+:root {
+  /* Primary color: Conduction Cobalt (matches hexagon logo #4376FC) */
+  --ifm-color-primary: #4376FC;
+  --ifm-color-primary-dark: #2a62fb;
+  --ifm-color-primary-darker: #1d57fb;
+  --ifm-color-primary-darkest: #053fe8;
+  --ifm-color-primary-light: #5c8afd;
+  --ifm-color-primary-lighter: #6a96fd;
+  --ifm-color-primary-lightest: #94b3fe;
+
+  /* Typography settings */
+  --ifm-font-family-base: 'Poppins', system-ui, -apple-system, sans-serif;
+  --ifm-heading-font-family: 'Poppins', system-ui, -apple-system, sans-serif;
+  --ifm-font-weight-semibold: 600;
+  --ifm-heading-font-weight: 600;
+  --ifm-h1-font-size: 2.5rem;
+  --ifm-h2-font-size: 2rem;
+  --ifm-h3-font-size: 1.5rem;
+  --ifm-h4-font-size: 1.25rem;
+
+  /* Code settings */
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode color palette */
+[data-theme='dark'] {
+  /* Primary colors */
+  --ifm-color-primary: #6a96fd;
+  --ifm-color-primary-dark: #4376FC;
+  --ifm-color-primary-darker: #2a62fb;
+  --ifm-color-primary-darkest: #1d57fb;
+  --ifm-color-primary-light: #80a6fd;
+  --ifm-color-primary-lighter: #94b3fe;
+  --ifm-color-primary-lightest: #b3c8fe;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+
+  /* Background colors */
+  --ifm-background-color: #1e1e1e;
+  --ifm-background-surface-color: #242526;
+
+  /* Text colors */
+  --ifm-font-color-base: #e5e5e5;
+  --ifm-heading-color: #ffffff;
+  --ifm-color-content: #e5e5e5;
+  --ifm-color-content-secondary: #b0b0b0;
+
+  /* Navbar */
+  --ifm-navbar-background-color: #242526;
+  --ifm-navbar-link-color: #e5e5e5;
+  --ifm-navbar-link-hover-color: #6a96fd;
+
+  /* Sidebar */
+  --ifm-sidebar-background-color: #1e1e1e;
+  --ifm-menu-color: #e5e5e5;
+  --ifm-menu-color-active: #6a96fd;
+
+  /* Code blocks */
+  --ifm-code-background: rgba(0, 0, 0, 0.3);
+  --ifm-code-color: #e5e5e5;
+
+  /* Tables */
+  --ifm-table-border-color: #3a3a3a;
+  --ifm-table-stripe-background: rgba(255, 255, 255, 0.05);
+
+  /* Cards */
+  --ifm-card-background-color: #242526;
+  --ifm-card-border-color: #3a3a3a;
+
+  /* Performance optimizations */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography adjustments */
+.markdown {
+  font-weight: 400;
+  line-height: 1.8;
+}
+
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+/* Navbar adjustments */
+.navbar {
+  font-weight: 500;
+}
+
+/* Sidebar adjustments */
+.menu {
+  font-weight: 400;
+}
+
+/* Smooth transitions for theme switching */
+html {
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

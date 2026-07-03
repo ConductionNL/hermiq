@@ -1,0 +1,50 @@
+publiccodeYmlVersion: "0.3"
+
+name: "Hermiq"
+url: "https://codeberg.org/Conduction/hermiq"
+softwareVersion: "0.1.2"
+releaseDate: "2026-01-01"
+softwareType: "addon"
+
+platforms:
+  - nextcloud
+
+categories:
+  - content-management
+
+developmentStatus: development
+
+description:
+  en:
+    shortDescription: "Schedule autonomous AI agents in Nextcloud"
+    longDescription: |
+      Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give
+      it tools, and run it on a schedule — daily reports, inbox triage,
+      monitoring, morning briefings — all inside your own Nextcloud,
+      delivered to Nextcloud Talk. Agents, their memory and their
+      self-improving skills are stored as OpenRegister objects, so every run
+      is governed, auditable and multi-tenant.
+    features:
+      - OpenRegister register and schema initialisation
+      - Manifest-driven SPA with CnAppRoot
+      - AI Chat Companion (MCP tool provider) scaffold
+      - Admin settings panel
+      - Playwright e2e test setup
+
+legal:
+  license: EUPL-1.2
+  mainCopyrightOwner: "Conduction B.V."
+  repoOwner: "ConductionNL"
+
+maintenance:
+  type: internal
+  contacts:
+    - name: "Conduction B.V."
+      email: "info@conduction.nl"
+      affiliation: "Conduction B.V."
+
+localisation:
+  localisationReady: true
+  availableLanguages:
+    - en
+    - nl

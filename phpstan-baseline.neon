@@ -1,0 +1,12 @@
+# Per-app phpstan lint debt baseline.
+#
+# Regenerate with: ./vendor/bin/phpstan analyse --generate-baseline
+# Apps without lint debt ship this file empty.
+#
+# Tracked-debt entries here MUST have an open GitHub issue. The directive for the
+# Conduction fleet is "no per-app validation rules; if we need exceptions then
+# they are for all apps." A baseline entry is acceptable only as a temporary
+# tracked-debt marker with a removal timeline.
+
+parameters:
+    ignoreErrors: []

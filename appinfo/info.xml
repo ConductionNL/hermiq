@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+<info xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="https://apps.nextcloud.com/schema/apps/info.xsd">
+    <id>hermiq</id>
+    <name lang="en">Hermiq</name>
+    <name lang="nl">Hermiq</name>
+    <summary lang="en">Schedule autonomous AI agents in Nextcloud</summary>
+    <summary lang="nl">Schedule autonomous AI agents in Nextcloud</summary>
+    <description lang="en"><![CDATA[Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — daily reports, inbox triage, monitoring, morning briefings — all inside your own Nextcloud, delivered to Nextcloud Talk. Agents, their memory and their self-improving skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.]]></description>
+    <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.]]></description>
+    <version>0.1.2</version>
+    <licence>eupl</licence>
+    <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
+    <namespace>Hermiq</namespace>
+    <documentation>
+        <user>https://codeberg.org/Conduction/hermiq</user>
+        <admin>https://codeberg.org/Conduction/hermiq</admin>
+        <developer>https://codeberg.org/Conduction/hermiq</developer>
+    </documentation>
+    <category>integration</category>
+    <website>https://codeberg.org/Conduction/hermiq</website>
+    <discussion>https://codeberg.org/Conduction/hermiq/issues</discussion>
+    <bugs>https://codeberg.org/Conduction/hermiq/issues</bugs>
+    <repository>https://codeberg.org/Conduction/hermiq</repository>
+
+    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/app-store.svg</screenshot>
+
+    <dependencies>
+        <nextcloud min-version="28" max-version="34"/>
+        <php min-version="8.3"/>
+    </dependencies>
+
+    <navigations>
+        <navigation>
+            <id>hermiq</id>
+            <name>Hermiq</name>
+            <route>hermiq.dashboard.page</route>
+            <icon>app.svg</icon>
+        </navigation>
+    </navigations>
+
+    <!-- @spec openspec/architecture/adr-023-action-authorization.md -->
+    <repair-steps>
+        <install>
+            <step>OCA\Hermiq\Repair\InitializeSettings</step>
+            <step>OCA\Hermiq\Repair\InitializeActions</step>
+        </install>
+        <post-migration>
+            <step>OCA\Hermiq\Repair\InitializeSettings</step>
+            <step>OCA\Hermiq\Repair\InitializeActions</step>
+        </post-migration>
+    </repair-steps>
+
+    <settings>
+        <admin>OCA\Hermiq\Settings\AdminSettings</admin>
+        <admin-section>OCA\Hermiq\Sections\SettingsSection</admin-section>
+    </settings>
+</info>

@@ -1,0 +1,11 @@
+{
+  "label": "User guide",
+  "position": 1,
+  "collapsible": true,
+  "collapsed": false,
+  "link": {
+    "type": "generated-index",
+    "title": "User guide",
+    "description": "Workflows for individual users — opening the app, customizing what's on screen, and getting day-to-day work done."
+  }
+}
