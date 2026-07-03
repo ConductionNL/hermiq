@@ -1,5 +1,4 @@
 <?php
-// SPDX-License-Identifier: EUPL-1.2
 
 /**
  * Hermiq Application
@@ -20,10 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/example-change/tasks.md#task-N
- *   (file-level @spec tag — link back to the OpenSpec change that created or
- *   last modified this file. Multiple @spec tags allowed. Public methods SHOULD
- *   also carry their own @spec tag. ADR-003.)
+ * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
  */
 
 declare(strict_types=1);
@@ -41,6 +37,8 @@ use OCP\AppFramework\Bootstrap\IRegistrationContext;
 
 /**
  * Main application class for the Hermiq Nextcloud app.
+ *
+ * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
  */
 class Application extends App implements IBootstrap
 {
@@ -64,9 +62,17 @@ class Application extends App implements IBootstrap
      * @return void
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     *
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
      */
     public function register(IRegistrationContext $context): void
     {
+        // Load the app's own composer autoloader so bundled dependencies (e.g.
+        // dragonmantank/cron-expression, used by ScheduleService) resolve at
+        // runtime — Nextcloud does not auto-load an app's vendor/autoload.php.
+        // Mirrors openregister/openconnector (ADR-002 dispatcher chain).
+        include_once __DIR__.'/../../vendor/autoload.php';
+
         // Register deep link patterns with OpenRegister's unified search provider.
         // Only fires when OpenRegister is installed and dispatches the event.
         $context->registerEventListener(

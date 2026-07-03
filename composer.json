@@ -20,7 +20,8 @@
 		}
 	},
 	"require": {
-		"php": "^8.3"
+		"php": "^8.3",
+		"dragonmantank/cron-expression": "^3.6"
 	},
 	"require-dev": {
 		"cyclonedx/cyclonedx-php-composer": "^6.2",
