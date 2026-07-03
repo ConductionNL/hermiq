@@ -124,8 +124,13 @@ realistic-looking UUID or secret.
 - **Conditional-requirement expressiveness.** If the register's validator does not
   support full `if`/`then` conditional requirements, the fallback is to declare the
   trigger fields as optional at the schema level and enforce the cron/interval/once
-  rule in the dispatcher/UI. Provisional decision: declare conditional requirements
-  declaratively; downgrade to soft validation only if the validator rejects them.
+  rule in the dispatcher/UI. **Outcome: the validator rejected `if`/`then`.** Live import
+  on NC 34 + OpenRegister 0.2.17 failed with `SchemaMapper::loadSchema(): Argument #1
+  ($identifier) must be of type string|int, array given` when the schema carried an `allOf`
+  block of `if`/`then` conditionals. The `allOf` block was removed; trigger fields are
+  optional at the schema level and the kind→trigger rule is enforced downstream in
+  `agent-schedule-dispatcher`. Required-field validation and the object round-trip were
+  verified live.
 - **Union import.** The register import unions duplicate schema definitions; the new
   `Schedule` schema must not collide with any existing schema name (`example` only
   today), and the import must be re-validated as valid JSON after merge.

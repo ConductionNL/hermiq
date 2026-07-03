@@ -147,51 +147,7 @@
             "type": "string",
             "description": "Derived: error message from the last run, if any — written by the dispatcher"
           }
-        },
-        "allOf": [
-          {
-            "if": {
-              "properties": {
-                "kind": {
-                  "const": "cron"
-                }
-              }
-            },
-            "then": {
-              "required": [
-                "cronExpr"
-              ]
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "kind": {
-                  "const": "interval"
-                }
-              }
-            },
-            "then": {
-              "required": [
-                "intervalMinutes"
-              ]
-            }
-          },
-          {
-            "if": {
-              "properties": {
-                "kind": {
-                  "const": "once"
-                }
-              }
-            },
-            "then": {
-              "required": [
-                "runAt"
-              ]
-            }
-          }
-        ]
+        }
       }
     }
   }
