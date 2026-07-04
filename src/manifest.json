@@ -6,18 +6,25 @@
 	],
 	"menu": [
 		{
+			"id": "AgentCatalog",
+			"label": "Agents",
+			"icon": "icon-category-integration",
+			"route": "AgentCatalog",
+			"order": 10
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
 			"route": "Dashboard",
-			"order": 10
+			"order": 20
 		},
 		{
 			"id": "Examples",
 			"label": "Examples",
 			"icon": "icon-files",
 			"route": "Examples",
-			"order": 20
+			"order": 30
 		},
 		{
 			"id": "Documentation",
@@ -38,8 +45,24 @@
 	],
 	"pages": [
 		{
-			"id": "Dashboard",
+			"id": "AgentCatalog",
 			"route": "/",
+			"type": "custom",
+			"component": "AgentCatalog",
+			"title": "Agents",
+			"_note": "Custom page: the agent catalog needs bespoke behaviour (OpenRegister agents resource + schedule-attached/last-run derivation + create modal) that the built-in index page type cannot express. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "AgentDetail",
+			"route": "/agents/:id",
+			"type": "custom",
+			"component": "AgentDetail",
+			"title": "Agent",
+			"_note": "Custom page: agent detail combines the agents resource, schedule attach/edit (createObjectStore), the thin Run-now endpoint, and run history — not expressible via the built-in detail page type."
+		},
+		{
+			"id": "Dashboard",
+			"route": "/dashboard",
 			"type": "dashboard",
 			"title": "Dashboard",
 			"config": {

@@ -42,6 +42,8 @@ import ExampleModal from './modals/ExampleModal.vue'
 import EmailField from './formFields/EmailField.vue'
 import StatusBadge from './cellRenderers/StatusBadge.vue'
 import CustomExample from './views/CustomExample.vue'
+import AgentCatalog from './views/AgentCatalog.vue'
+import AgentDetail from './views/AgentDetail.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -104,6 +106,23 @@ export default {
 	CustomExample: {
 		kind: 'page',
 		component: CustomExample,
+	},
+
+	/**
+	 * Agent catalog — the Hermiq main nav page (agent-management-ui). Standard
+	 * nav page (not a dashboard), so no dashboard-in-dashboard nesting.
+	 */
+	AgentCatalog: {
+		kind: 'page',
+		component: AgentCatalog,
+	},
+
+	/**
+	 * Agent detail — schedule attach/edit, Run now, and run history for one agent.
+	 */
+	AgentDetail: {
+		kind: 'page',
+		component: AgentDetail,
 	},
 
 	// -------------------------------------------------------------------------

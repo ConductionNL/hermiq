@@ -163,6 +163,47 @@ class ScheduleService
     }//end run()
 
     /**
+     * Run one schedule immediately, on demand (the "Run now" action).
+     *
+     * Reuses the SAME run-one path as a scheduler tick: it delegates to the private
+     * dispatch() — compute + commit run-state (at-most-once), impersonate the owner,
+     * invoke the OpenRegister agent, deliver, and write the explicit `action='run'`
+     * AuditTrail entry — so a manual run is indistinguishable from a scheduled one and
+     * there is zero duplicated dispatch logic. Because dispatch() shares the tick's
+     * commit-before-run semantics, running a `once` schedule consumes it (disables it)
+     * and a finite `repeat` bumps `completed`, exactly as a tick would.
+     *
+     * An OpenRegister agent-turn error is caught INSIDE dispatch(), recorded on the
+     * schedule as `lastStatus='error'` and audited, so this method returns normally for
+     * that (expected, given the OR agent-execution WIP) case; the caller reads the
+     * refreshed schedule status to surface the error in the UI. Only a catastrophic
+     * failure (e.g. the commit write itself) escapes dispatch(): it is recorded via the
+     * same recordFailure() isolation as the tick and re-thrown so the controller can
+     * return a graceful error response.
+     *
+     * @param ObjectEntity $schedule The schedule to run right now.
+     *
+     * @return void
+     *
+     * @throws Throwable When the run fails catastrophically (re-thrown after recording).
+     *
+     * @spec openspec/changes/agent-management-ui/tasks.md#task-1-1
+     */
+    public function runNow(ObjectEntity $schedule): void
+    {
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        try {
+            $this->dispatch(schedule: $schedule, now: $now);
+        } catch (Throwable $e) {
+            // Same isolation as the tick loop, then re-throw so the caller can surface it.
+            $this->recordFailure(schedule: $schedule, error: $e);
+            throw $e;
+        }
+
+    }//end runNow()
+
+    /**
      * Find enabled schedules that are due at or before the given moment.
      *
      * Enabled schedules are fetched register/schema-wide (RBAC/multi-tenancy off —

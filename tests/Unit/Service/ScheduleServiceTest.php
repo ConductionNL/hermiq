@@ -1048,4 +1048,43 @@ class ScheduleServiceTest extends TestCase
         );
 
     }//end testRunAuditSummaryIsRedactedBeforeWrite()
+
+    /**
+     * runNow() drives the SAME dispatch path as a tick for one schedule: it persists
+     * the run-state, invokes the agent, and writes exactly one action='run' audit
+     * entry with status=ok — without going through findDueSchedules().
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-management-ui/tasks.md#task-1-3
+     */
+    public function testRunNowDrivesDispatchPath(): void
+    {
+        $schedule = $this->schedule(
+            [
+                'kind'            => 'interval',
+                'intervalMinutes' => 60,
+                'agentId'         => 'agent-uuid',
+                'prompt'          => 'run me now',
+                'deliver'         => 'none',
+                'enabled'         => true,
+                'nextRun'         => '2030-01-01T00:00:00+00:00',
+                'repeat'          => ['times' => 0, 'completed' => 0],
+            ],
+            'now-sched'
+        );
+
+        // findDueSchedules() must NOT be consulted — runNow targets one schedule directly.
+        $this->objectService->expects($this->never())->method('findAll');
+        $this->objectService->expects($this->atLeastOnce())->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow($schedule);
+
+        // status=ok proves the agent turn ran (setUp stubs processMessage → 'agent output').
+        $this->assertCount(1, $this->auditCalls, 'A manual run must write exactly one run audit entry.');
+        $this->assertSame('run', $this->auditCalls[0]['action']);
+        $this->assertSame('ok', $this->auditCalls[0]['context']['status']);
+        $this->assertSame('agent-uuid', $this->auditCalls[0]['context']['agentId']);
+
+    }//end testRunNowDrivesDispatchPath()
 }//end class

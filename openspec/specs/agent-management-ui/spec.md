@@ -1,10 +1,11 @@
 # Agent Management UI Specification
 
-**Status**: planned
+**Status**: in-progress
 **Standards**: WCAG 2.1 AA
 **Feature tier**: MVP
 
-**OpenSpec changes:** _(none yet — run `/opsx-ff agent-management-ui`)_
+**OpenSpec changes:**
+- `openspec/changes/agent-management-ui/` — agent catalog + detail + schedule modals + run-now endpoint + run-history view (kind: code)
 
 ## Purpose
 

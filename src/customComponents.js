@@ -25,6 +25,8 @@
 // See hydra ADR-036 for the v2 registry design.
 
 import CustomExample from './views/CustomExample.vue'
+import AgentCatalog from './views/AgentCatalog.vue'
+import AgentDetail from './views/AgentDetail.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -39,6 +41,11 @@ export default {
 	// cloners. Wire it up by adding a `type: "custom"` page entry to
 	// `src/manifest.json` with `"component": "CustomExample"`.
 	CustomExample,
+	// Agent-management-ui pages (agent-management-ui change). Custom pages because
+	// they need bespoke behaviour (agents resource + Run now + run history) that the
+	// built-in index/detail page types cannot express.
+	AgentCatalog,
+	AgentDetail,
 	// Features & Roadmap page (lib's CnFeaturesAndRoadmapView) — wired up
 	// in src/manifest.json (the `FeaturesRoadmap` custom page + the
 	// `FeaturesRoadmapMenu` settings entry).
