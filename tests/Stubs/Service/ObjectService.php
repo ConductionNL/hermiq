@@ -120,6 +120,21 @@ class ObjectService
     }//end saveObject()
 
     /**
+     * Get the audit log entries for an object.
+     *
+     * @param string $uuid          The object UUID.
+     * @param array  $filters       Optional audit filters (e.g. ['action' => 'run']).
+     * @param bool   $_rbac         Whether RBAC applies.
+     * @param bool   $_multitenancy Whether multi-tenancy applies.
+     *
+     * @return array<int, mixed> AuditTrail entries (loose element type, matching the real service).
+     */
+    public function getLogs(string $uuid, array $filters=[], bool $_rbac=true, bool $_multitenancy=true): array
+    {
+        return [];
+    }//end getLogs()
+
+    /**
      * Delete an object by UUID.
      *
      * @param string $uuid          The object UUID.

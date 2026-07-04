@@ -35,6 +35,7 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\AgentMapper;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\Conversation;
 use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -103,6 +104,11 @@ class ScheduleService
      * @param IConfig            $config             Reads owner/instance timezone.
      * @param LoggerInterface    $logger             PSR-3 logger (delivery seam + diagnostics).
      * @param DeliveryService    $deliveryService    Real Talk/notification delivery (talk-delivery).
+     * @param AuditTrailMapper   $auditTrailMapper   OR audit write-path for the explicit per-run entry (run-audit-log).
+     * @param RedactionService   $redactionService   Masks secrets/PII BEFORE the audit write (run-audit-log).
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
+     *   a distinct injected collaborator, not a logic-bearing argument list.
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -114,6 +120,8 @@ class ScheduleService
         private readonly IConfig $config,
         private readonly LoggerInterface $logger,
         private readonly DeliveryService $deliveryService,
+        private readonly AuditTrailMapper $auditTrailMapper,
+        private readonly RedactionService $redactionService,
     ) {
     }//end __construct()
 
@@ -240,6 +248,10 @@ class ScheduleService
 
         $this->persist(schedule: $schedule, data: $data);
 
+        // Wall-clock start of the agent turn, for the run-audit timing (run-audit-log).
+        $startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $summary   = '';
+
         // Run the agent + deliver + finalise inside a try/catch that operates on the
         // SAME $data that already carries the committed advance (nextRun / disabled
         // one-shot / bumped repeat). CRASH-SAFETY INVARIANT (task 4.2): whether the
@@ -267,6 +279,7 @@ class ScheduleService
             $data['lastStatus']        = 'ok';
             $data['lastError']         = null;
             $data['lastDeliveryError'] = $delivery->getWarning();
+            $summary = $output;
         } catch (Throwable $e) {
             // Record the failure on the advanced $data — the advance is preserved.
             $this->logger->warning(
@@ -275,7 +288,14 @@ class ScheduleService
             );
             $data['lastStatus'] = 'error';
             $data['lastError']  = $e->getMessage();
+            $summary            = 'error: '.$e->getMessage();
         }//end try
+
+        // Write the explicit, redacted per-run AuditTrail entry (run-audit-log). Done
+        // for BOTH success and error, and BEFORE any delete, so no run — including the
+        // final occurrence of a finite repeat — escapes the immutable trail. Never
+        // fatal to the tick (ADR-004): a redaction/audit failure is logged, not raised.
+        $this->writeRunAudit(schedule: $schedule, data: $data, summary: $summary, startedAt: $startedAt);
 
         if ($limitReached === true) {
             $this->deleteSchedule(schedule: $schedule);
@@ -285,6 +305,62 @@ class ScheduleService
         $this->persist(schedule: $schedule, data: $data);
 
     }//end dispatch()
+
+    /**
+     * Write the explicit per-run AuditTrail entry via OpenRegister (run-audit-log).
+     *
+     * REDACTION-BEFORE-PERSIST (ADR-004): the output/error summary is masked by
+     * RedactionService BEFORE it is placed in the immutable, hash-chained audit
+     * context — the trail is append-only, so a secret written once cannot be
+     * removed. The entry inherits the impersonated owner as `user` and the
+     * Schedule's `organisation`, and joins OpenRegister's verify() hash chain.
+     *
+     * Non-fatal by contract: any failure here is logged and swallowed so auditing
+     * never fails the run (the dispatcher's own ObjectService saves already leave
+     * auto-audit traces regardless).
+     *
+     * @param ObjectEntity        $schedule  The schedule that ran.
+     * @param array<string,mixed> $data      The finalised schedule payload (status/agentId).
+     * @param string              $summary   The raw run output / error (redacted here).
+     * @param DateTimeImmutable   $startedAt When the agent turn began (UTC).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-audit-log/tasks.md#task-2-2
+     * @spec openspec/changes/run-audit-log/tasks.md#task-2-3
+     */
+    private function writeRunAudit(ObjectEntity $schedule, array $data, string $summary, DateTimeImmutable $startedAt): void
+    {
+        try {
+            $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+            $context = [
+                'status'     => (string) ($data['lastStatus'] ?? 'unknown'),
+                'agentId'    => (string) ($data['agentId'] ?? ''),
+                'startedAt'  => $startedAt->format('c'),
+                'endedAt'    => $endedAt->format('c'),
+                'durationMs' => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
+                // REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write.
+                'summary'    => $this->redactionService->redact($summary),
+            ];
+
+            $this->auditTrailMapper->createAuditTrailEntry(
+                object: $schedule,
+                action: 'run',
+                context: $context
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf(
+                    'Hermiq could not write run audit for schedule %s: %s',
+                    (string) $schedule->getUuid(),
+                    $e->getMessage()
+                ),
+                ['exception' => $e]
+            );
+        }//end try
+
+    }//end writeRunAudit()
 
     /**
      * Compute the next run time for a schedule, anchored to the owner's timezone.

@@ -31,9 +31,12 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
+use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
+use OCA\OpenRegister\Db\AuditTrail;
+use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\Conversation;
 use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -112,6 +115,27 @@ class ScheduleServiceTest extends TestCase
     private DeliveryService $deliveryService;
 
     /**
+     * Mock AuditTrailMapper (captures explicit per-run entries).
+     *
+     * @var AuditTrailMapper&MockObject
+     */
+    private AuditTrailMapper $auditTrailMapper;
+
+    /**
+     * Real RedactionService (force-redacts the audited summary).
+     *
+     * @var RedactionService
+     */
+    private RedactionService $redactionService;
+
+    /**
+     * Recorded createAuditTrailEntry() calls: each ['action' => ..., 'context' => ...].
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    private array $auditCalls = [];
+
+    /**
      * Service under test.
      *
      * @var ScheduleService
@@ -173,7 +197,34 @@ class ScheduleServiceTest extends TestCase
             new DeliveryResult(delivered: true, channel: 'none', fellBack: false, warning: null)
         );
 
-        $this->service = new ScheduleService(
+        // Capture every explicit per-run audit entry the dispatcher writes.
+        $this->auditCalls       = [];
+        $this->auditTrailMapper = $this->createMock(AuditTrailMapper::class);
+        $this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
+            function (ObjectEntity $object, string $action, array $context=[]): AuditTrail {
+                $this->auditCalls[] = ['action' => $action, 'context' => $context];
+                $entry = new AuditTrail();
+                $entry->setAction($action);
+                $entry->setChanged($context);
+                return $entry;
+            }
+        );
+
+        // Real redactor (force-redacts regardless of the frozen toggle).
+        $this->redactionService = new RedactionService($this->config);
+
+        $this->service = $this->makeService();
+
+    }//end setUp()
+
+    /**
+     * Build a ScheduleService wired to the current mocks.
+     *
+     * @return ScheduleService
+     */
+    private function makeService(): ScheduleService
+    {
+        return new ScheduleService(
             objectService: $this->objectService,
             agentMapper: $this->agentMapper,
             conversationMapper: $this->conversationMapper,
@@ -183,9 +234,11 @@ class ScheduleServiceTest extends TestCase
             config: $this->config,
             logger: $this->createMock(LoggerInterface::class),
             deliveryService: $this->deliveryService,
+            auditTrailMapper: $this->auditTrailMapper,
+            redactionService: $this->redactionService,
         );
 
-    }//end setUp()
+    }//end makeService()
 
     /**
      * Build a schedule ObjectEntity with the given payload.
@@ -742,17 +795,7 @@ class ScheduleServiceTest extends TestCase
         $this->deliveryService->method('deliver')->willReturn(
             new DeliveryResult(delivered: true, channel: 'notification', fellBack: true, warning: 'talk unavailable')
         );
-        $this->service = new ScheduleService(
-            objectService: $this->objectService,
-            agentMapper: $this->agentMapper,
-            conversationMapper: $this->conversationMapper,
-            chatService: $this->chatService,
-            userSession: $this->userSession,
-            userManager: $this->userManager,
-            config: $this->config,
-            logger: $this->createMock(LoggerInterface::class),
-            deliveryService: $this->deliveryService,
-        );
+        $this->service = $this->makeService();
 
         $this->objectService->method('findAll')->willReturn(
             [
@@ -832,4 +875,177 @@ class ScheduleServiceTest extends TestCase
         $this->assertNull($final['lastDeliveryError'], 'A clean delivery must clear lastDeliveryError.');
 
     }//end testSuccessfulDeliveryClearsLastDeliveryError()
+
+    /**
+     * A successful run writes an explicit action='run' audit entry with owner status.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-audit-log/tasks.md#task-2-4
+     */
+    public function testSuccessfulRunWritesRunAuditEntry(): void
+    {
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'            => 'interval',
+                        'intervalMinutes' => 60,
+                        'agentId'         => 'agent-uuid',
+                        'prompt'          => 'go',
+                        'deliver'         => 'none',
+                        'enabled'         => true,
+                        'nextRun'         => '2020-01-01T00:00:00+00:00',
+                        'repeat'          => ['times' => 0, 'completed' => 0],
+                    ]
+                ),
+            ]
+        );
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->run();
+
+        $this->assertCount(1, $this->auditCalls, 'Exactly one run audit entry must be written.');
+        $this->assertSame('run', $this->auditCalls[0]['action']);
+        $context = $this->auditCalls[0]['context'];
+        $this->assertSame('ok', $context['status'], 'A successful run must record status=ok.');
+        $this->assertSame('agent-uuid', $context['agentId']);
+        $this->assertArrayHasKey('startedAt', $context);
+        $this->assertArrayHasKey('endedAt', $context);
+        $this->assertArrayHasKey('summary', $context);
+
+    }//end testSuccessfulRunWritesRunAuditEntry()
+
+    /**
+     * A failed run still writes an audit entry with status=error.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-audit-log/tasks.md#task-2-4
+     */
+    public function testFailedRunStillWritesRunAuditEntry(): void
+    {
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'    => 'once',
+                        'runAt'   => '2000-01-01T00:00:00+00:00',
+                        'agentId' => 'agent-uuid',
+                        'prompt'  => 'will fail',
+                        'deliver' => 'none',
+                        'enabled' => true,
+                        'nextRun' => '2000-01-01T00:00:00+00:00',
+                        'repeat'  => ['times' => 0, 'completed' => 0],
+                    ],
+                    'crash-sched',
+                    'alice'
+                ),
+            ]
+        );
+        $this->chatService->method('processMessage')->willThrowException(new \RuntimeException('boom'));
+        $this->objectService->method('find')->willReturn(null);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->run();
+
+        $this->assertCount(1, $this->auditCalls, 'A failed run must still be audited.');
+        $this->assertSame('error', $this->auditCalls[0]['context']['status']);
+
+    }//end testFailedRunStillWritesRunAuditEntry()
+
+    /**
+     * An audit-write failure is swallowed — it must not abort the tick.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-audit-log/tasks.md#task-2-4
+     */
+    public function testAuditWriteFailureDoesNotFailTheTick(): void
+    {
+        // A mapper that throws on every audit write.
+        $this->auditTrailMapper = $this->createMock(AuditTrailMapper::class);
+        $this->auditTrailMapper->method('createAuditTrailEntry')->willThrowException(
+            new \RuntimeException('audit backend down')
+        );
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'            => 'interval',
+                        'intervalMinutes' => 60,
+                        'agentId'         => 'agent-uuid',
+                        'prompt'          => 'go',
+                        'deliver'         => 'none',
+                        'enabled'         => true,
+                        'nextRun'         => '2020-01-01T00:00:00+00:00',
+                        'repeat'          => ['times' => 0, 'completed' => 0],
+                    ]
+                ),
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        // Must not throw despite the audit backend failing.
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('ok', $final['lastStatus'], 'The run must still finalise despite an audit-write failure.');
+
+    }//end testAuditWriteFailureDoesNotFailTheTick()
+
+    /**
+     * The audited summary is redacted BEFORE the write (append-only chain).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-audit-log/tasks.md#task-2-4
+     */
+    public function testRunAuditSummaryIsRedactedBeforeWrite(): void
+    {
+        // The agent output leaks an API-key-shaped token.
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willReturn(
+            ['message' => 'done, key=sk-ABCDEF1234567890XYZ used']
+        );
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'            => 'interval',
+                        'intervalMinutes' => 60,
+                        'agentId'         => 'agent-uuid',
+                        'prompt'          => 'go',
+                        'deliver'         => 'none',
+                        'enabled'         => true,
+                        'nextRun'         => '2020-01-01T00:00:00+00:00',
+                        'repeat'          => ['times' => 0, 'completed' => 0],
+                    ]
+                ),
+            ]
+        );
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->run();
+
+        $this->assertCount(1, $this->auditCalls);
+        $summary = (string) $this->auditCalls[0]['context']['summary'];
+        $this->assertStringNotContainsString(
+            'sk-ABCDEF1234567890XYZ',
+            $summary,
+            'The raw API key must never reach the immutable audit context.'
+        );
+
+    }//end testRunAuditSummaryIsRedactedBeforeWrite()
 }//end class

@@ -1,10 +1,11 @@
 # Run Audit Log Specification
 
-**Status**: planned
+**Status**: in-progress
 **Standards**: EU AI Act (Reg. 2024/1689) Art. 12 & 19, AVG/GDPR Art. 30
 **Feature tier**: MVP
 
-**OpenSpec changes:** _(none yet — run `/opsx-ff run-audit-log`)_
+**OpenSpec changes:**
+- `openspec/changes/run-audit-log/` — explicit `action='run'` audit write + full redact.py port + owner-scoped run-history read (kind: code)
 
 ## Purpose
 
