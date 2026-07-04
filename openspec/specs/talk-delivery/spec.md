@@ -1,10 +1,12 @@
 # Talk Delivery Specification
 
-**Status**: planned
+**Status**: in-progress
 **Standards**: Nextcloud Talk (spreed) OCS API, Nextcloud Notifications
 **Feature tier**: MVP
 
-**OpenSpec changes:** _(none yet — run `/opsx-ff talk-delivery`)_
+**OpenSpec changes:**
+- `openspec/changes/talk-delivery-schema/` — `deliverTarget` + `lastDeliveryError` Schedule fields (kind: config) — **done**
+- `openspec/changes/talk-delivery/` — the delivery service + dispatcher wiring (kind: code, depends_on talk-delivery-schema)
 
 ## Purpose
 

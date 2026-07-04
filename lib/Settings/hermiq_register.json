@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "x-openregister": {
     "type": "application",
@@ -146,6 +146,15 @@
           "lastError": {
             "type": "string",
             "description": "Derived: error message from the last run, if any — written by the dispatcher"
+          },
+          "deliverTarget": {
+            "type": "string",
+            "description": "When deliver=talk, the Nextcloud Talk room token to post to (the owner must be a member). If empty, delivery falls back to the owner's Note-to-self conversation.",
+            "example": "abcd1234"
+          },
+          "lastDeliveryError": {
+            "type": "string",
+            "description": "Derived: the delivery error from the last run, if any — written by the delivery layer; cleared on a successful delivery"
           }
         }
       }
