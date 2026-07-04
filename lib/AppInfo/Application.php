@@ -29,6 +29,7 @@ namespace OCA\Hermiq\AppInfo;
 use OCA\Hermiq\Dashboard\ExampleWidget;
 use OCA\Hermiq\Listener\DeepLinkRegistrationListener;
 use OCA\Hermiq\Mcp\ExampleToolProvider;
+use OCA\Hermiq\Notification\Notifier;
 use OCA\OpenRegister\Event\DeepLinkRegistrationEvent;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
@@ -84,6 +85,11 @@ class Application extends App implements IBootstrap
         // Delete this line and the ExampleWidget files if your app has no
         // dashboard widgets.
         $context->registerDashboardWidget(ExampleWidget::class);
+
+        // Renders Hermiq's Nextcloud notifications (talk-delivery): the notification
+        // delivery channel and the Talk fallback both raise notifications that this
+        // INotifier turns into localised bell-menu entries. See lib/Notification/Notifier.php.
+        $context->registerNotifierService(Notifier::class);
 
         // AI Chat Companion (hydra ADR-034/035): expose this app's capabilities to the in-app AI
         // by registering an IMcpToolProvider under the alias OCA\OpenRegister\Mcp\IMcpToolProvider::{appId}.

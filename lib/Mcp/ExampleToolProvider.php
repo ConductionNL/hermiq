@@ -120,9 +120,9 @@ class ExampleToolProvider extends AbstractToolHandler implements IMcpToolProvide
      * and a way to read the app manifest ({@see IAppManager}). Real providers
      * usually also inject their service layer (see DecideskToolProvider).
      *
-     * @param IUserSession $userSession  The current user session (for auth checks)
+     * @param IUserSession  $userSession  The current user session (for auth checks)
      * @param IGroupManager $groupManager The group manager (for admin checks)
-     * @param IAppManager  $appManager  The app manager (for reading info.xml)
+     * @param IAppManager   $appManager   The app manager (for reading info.xml)
      */
     public function __construct(
         IUserSession $userSession,

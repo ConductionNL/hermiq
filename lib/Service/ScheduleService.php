@@ -102,6 +102,7 @@ class ScheduleService
      * @param IUserManager       $userManager        Resolves the owner UID to an IUser.
      * @param IConfig            $config             Reads owner/instance timezone.
      * @param LoggerInterface    $logger             PSR-3 logger (delivery seam + diagnostics).
+     * @param DeliveryService    $deliveryService    Real Talk/notification delivery (talk-delivery).
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -112,6 +113,7 @@ class ScheduleService
         private readonly IUserManager $userManager,
         private readonly IConfig $config,
         private readonly LoggerInterface $logger,
+        private readonly DeliveryService $deliveryService,
     ) {
     }//end __construct()
 
@@ -253,15 +255,18 @@ class ScheduleService
                 prompt: (string) ($data['prompt'] ?? '')
             );
 
-            $this->deliver(
+            $delivery = $this->deliver(
                 channel: (string) ($data['deliver'] ?? 'none'),
                 output: $output,
                 schedule: $schedule
             );
 
-            // Finalise success state on the advanced $data.
-            $data['lastStatus'] = 'ok';
-            $data['lastError']  = null;
+            // Finalise success state on the advanced $data. A delivery problem is
+            // NEVER fatal: the run stays 'ok' and any delivery warning is persisted
+            // to lastDeliveryError (cleared to null on a clean delivery).
+            $data['lastStatus']        = 'ok';
+            $data['lastError']         = null;
+            $data['lastDeliveryError'] = $delivery->getWarning();
         } catch (Throwable $e) {
             // Record the failure on the advanced $data — the advance is preserved.
             $this->logger->warning(
@@ -384,33 +389,27 @@ class ScheduleService
     }//end runAgentAsOwner()
 
     /**
-     * Delivery seam.
+     * Delivery seam — delegates to the real DeliveryService (talk-delivery).
      *
-     * Logs the intended delivery for `talk`/`notification` and skips `none`. The real
-     * Talk/notification adapter is the separate `talk-delivery` change; this seam keeps
-     * the dispatcher testable in isolation without being an empty no-op.
+     * Replaces the former logging-only no-op. DeliveryService performs the actual
+     * Talk/notification delivery and NEVER throws for a delivery problem: it returns a
+     * DeliveryResult carrying any warning to persist as lastDeliveryError, so a failed
+     * delivery can never fail the run.
      *
      * @param string       $channel  Delivery channel: talk|notification|none.
      * @param string       $output   The agent output to deliver.
      * @param ObjectEntity $schedule The schedule the output belongs to.
      *
-     * @return void
+     * @return DeliveryResult The delivery outcome (warning ⇒ lastDeliveryError).
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-5
+     * @spec openspec/changes/talk-delivery/tasks.md#task-3-1
      */
-    private function deliver(string $channel, string $output, ObjectEntity $schedule): void
+    private function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult
     {
-        if ($channel === 'none' || $channel === '') {
-            return;
-        }
-
-        $this->logger->info(
-            sprintf(
-                'Hermiq schedule %s would deliver via %s (%d chars) — talk-delivery seam',
-                (string) $schedule->getUuid(),
-                $channel,
-                strlen($output)
-            )
+        return $this->deliveryService->deliver(
+            channel: $channel,
+            output: $output,
+            schedule: $schedule
         );
 
     }//end deliver()

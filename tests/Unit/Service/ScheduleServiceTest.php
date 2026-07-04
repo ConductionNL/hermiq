@@ -29,6 +29,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\DeliveryResult;
+use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
@@ -103,6 +105,13 @@ class ScheduleServiceTest extends TestCase
     private IConfig $config;
 
     /**
+     * Mock DeliveryService.
+     *
+     * @var DeliveryService&MockObject
+     */
+    private DeliveryService $deliveryService;
+
+    /**
      * Service under test.
      *
      * @var ScheduleService
@@ -158,6 +167,12 @@ class ScheduleServiceTest extends TestCase
         );
         $this->chatService->method('processMessage')->willReturn(['message' => 'agent output']);
 
+        // Delivery succeeds cleanly by default (no warning ⇒ lastDeliveryError null).
+        $this->deliveryService = $this->createMock(DeliveryService::class);
+        $this->deliveryService->method('deliver')->willReturn(
+            new DeliveryResult(delivered: true, channel: 'none', fellBack: false, warning: null)
+        );
+
         $this->service = new ScheduleService(
             objectService: $this->objectService,
             agentMapper: $this->agentMapper,
@@ -167,6 +182,7 @@ class ScheduleServiceTest extends TestCase
             userManager: $this->userManager,
             config: $this->config,
             logger: $this->createMock(LoggerInterface::class),
+            deliveryService: $this->deliveryService,
         );
 
     }//end setUp()
@@ -711,4 +727,109 @@ class ScheduleServiceTest extends TestCase
         }
 
     }//end testFiniteRepeatIsPreservedOnSave()
+
+    /**
+     * A delivery failure keeps the run 'ok' and persists lastDeliveryError (never fatal).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/talk-delivery/tasks.md#task-3-3
+     */
+    public function testDeliveryFailurePersistsLastDeliveryErrorAndKeepsRunOk(): void
+    {
+        // Delivery reports a warning (degraded) rather than throwing.
+        $this->deliveryService = $this->createMock(DeliveryService::class);
+        $this->deliveryService->method('deliver')->willReturn(
+            new DeliveryResult(delivered: true, channel: 'notification', fellBack: true, warning: 'talk unavailable')
+        );
+        $this->service = new ScheduleService(
+            objectService: $this->objectService,
+            agentMapper: $this->agentMapper,
+            conversationMapper: $this->conversationMapper,
+            chatService: $this->chatService,
+            userSession: $this->userSession,
+            userManager: $this->userManager,
+            config: $this->config,
+            logger: $this->createMock(LoggerInterface::class),
+            deliveryService: $this->deliveryService,
+        );
+
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'            => 'interval',
+                        'intervalMinutes' => 60,
+                        'agentId'         => 'agent-uuid',
+                        'prompt'          => 'go',
+                        'deliver'         => 'talk',
+                        'deliverTarget'   => 'room-x',
+                        'enabled'         => true,
+                        'nextRun'         => '2020-01-01T00:00:00+00:00',
+                        'repeat'          => ['times' => 0, 'completed' => 0],
+                    ]
+                ),
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('ok', $final['lastStatus'], 'A delivery failure must NOT fail the run.');
+        $this->assertNull($final['lastError'], 'No run error on a delivery-only failure.');
+        $this->assertSame('talk unavailable', $final['lastDeliveryError'], 'The warning must persist as lastDeliveryError.');
+
+    }//end testDeliveryFailurePersistsLastDeliveryErrorAndKeepsRunOk()
+
+    /**
+     * A clean delivery clears lastDeliveryError (null).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/talk-delivery/tasks.md#task-3-3
+     */
+    public function testSuccessfulDeliveryClearsLastDeliveryError(): void
+    {
+        // Default deliveryService (setUp) returns a clean result (warning null).
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'              => 'interval',
+                        'intervalMinutes'   => 60,
+                        'agentId'           => 'agent-uuid',
+                        'prompt'            => 'go',
+                        'deliver'           => 'talk',
+                        'enabled'           => true,
+                        'nextRun'           => '2020-01-01T00:00:00+00:00',
+                        'repeat'            => ['times' => 0, 'completed' => 0],
+                        'lastDeliveryError' => 'a previous failure',
+                    ]
+                ),
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('ok', $final['lastStatus']);
+        $this->assertNull($final['lastDeliveryError'], 'A clean delivery must clear lastDeliveryError.');
+
+    }//end testSuccessfulDeliveryClearsLastDeliveryError()
 }//end class

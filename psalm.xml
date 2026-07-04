@@ -81,6 +81,13 @@
                 <referencedClass name="OCA\OpenRegister\Service\RiskLevelService"/>
                 <referencedClass name="OCA\OpenRegister\Db\EntityRelationMapper"/>
                 <referencedClass name="OCA\OpenRegister\Mcp\IMcpToolProvider"/>
+                <!-- Nextcloud Talk (spreed) — optional runtime dependency, resolved lazily -->
+                <referencedClass name="OCA\Talk\Manager"/>
+                <referencedClass name="OCA\Talk\Room"/>
+                <referencedClass name="OCA\Talk\Chat\ChatManager"/>
+                <referencedClass name="OCA\Talk\Model\Participant"/>
+                <referencedClass name="OCA\Talk\Service\ParticipantService"/>
+                <referencedClass name="OCA\Talk\Service\NoteToSelfService"/>
                 <!-- Additional OCP infrastructure types used across the fleet -->
                 <referencedClass name="OCP\AppFramework\Bootstrap\IBootContext"/>
                 <referencedClass name="OCP\AppFramework\Bootstrap\IRegistrationContext"/>
