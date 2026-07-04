@@ -1,0 +1,70 @@
+# Nextcloud-Native Tools Specification
+
+**Status**: idea
+
+**Feature tier**: V1
+
+**OpenSpec changes:** _(none yet)_
+
+## Purpose
+
+Exposes Nextcloud-native capabilities — Files, Contacts, Calendar, Deck, and outbound email — as
+agent tools through OpenRegister's MCP `IMcpToolProvider` interface, so Hermiq agents can act inside
+the host Nextcloud instance without a second tool-registration mechanism. Anything outside Nextcloud
+routes through OpenConnector's `CallService` instead of a bespoke integration layer.
+
+## Requirements
+
+### Requirement: NC-native capabilities registered as IMcpToolProvider tools
+The system MUST register Files (`IRootFolder`), Contacts (addressbook `IManager`), Calendar
+(`ICalendarManager`), Deck, and outbound email (`IMailer`) as tools through OpenRegister's
+`IMcpToolProvider` interface, so they appear in the same tool registry as OR's other MCP tools.
+
+#### Scenario: An agent lists available tools including NC-native ones
+- GIVEN Hermiq's NC-native tool providers are registered with OR's `ToolRegistry`
+- WHEN an agent run queries available tools via MCP
+- THEN the Files, Contacts, Calendar, Deck, and email tools MUST appear in the returned tool list
+- AND they MUST be indistinguishable in registration mechanism from OR's own MCP tools
+
+### Requirement: Per-object IDOR guard on every provider
+Every NC-native tool provider MUST enforce a per-object authorization guard before acting on a
+specific Files/Contacts/Calendar/Deck object, so an agent acting on behalf of one user cannot access
+another user's objects by ID.
+
+#### Scenario: An agent tool call targets an object outside the caller's access
+- GIVEN an agent is running on behalf of user U
+- WHEN a tool call requests a Files/Contacts/Calendar/Deck object ID that U does not have access to
+- THEN the system MUST deny the tool call
+- AND the system MUST NOT return any content from the inaccessible object
+
+### Requirement: Remote systems route through OpenConnector
+The system MUST NOT implement direct HTTP/API calls to third-party or remote systems inside Hermiq's
+tool providers; such calls MUST route through OpenConnector's `CallService`.
+
+#### Scenario: An agent tool needs to reach an external, non-Nextcloud system
+- GIVEN a tool call requires contacting a third-party API
+- WHEN the tool provider handles the call
+- THEN the system MUST delegate the outbound call to OpenConnector's `CallService`
+- AND Hermiq's own code MUST NOT open a direct HTTP client connection to the third-party system
+
+## User Stories
+
+- As an agent builder, I want my agent to read and write Files/Contacts/Calendar/Deck so that it can act on real Nextcloud data.
+- As an agent builder, I want my agent to send email on my behalf so that it can complete tasks that require outbound communication.
+- As a security reviewer, I want every NC-native tool to enforce per-object authorization so that agents cannot access data outside the acting user's permissions.
+- As a platform architect, I want remote-system calls centralized in OpenConnector so that Hermiq doesn't grow a second integration layer.
+
+## Acceptance Criteria
+
+- [ ] Files, Contacts, Calendar, Deck tool providers implement OR's `IMcpToolProvider`
+- [ ] An `IMailer`-backed outbound email tool is registered the same way
+- [ ] Every provider enforces a per-object IDOR guard before returning or mutating data
+- [ ] No direct third-party HTTP calls exist in Hermiq tool provider code; all route via OpenConnector `CallService`
+- [ ] Tools appear in the standard OR `ToolRegistry` tool listing alongside OR's native MCP tools
+
+## Notes
+
+Depends on OpenRegister's MCP stack (`McpServerController`, `McpToolsService`, `McpProviderBridge`,
+`ToolRegistry`) and OpenConnector's `CallService`. Related: ADR-001 (Option C+ — Hermiq delegates
+tools/governance to OR, connectors to OpenConnector). IDOR guard pattern should follow the
+`hydra-gate-no-admin-idor` convention used elsewhere in the fleet.

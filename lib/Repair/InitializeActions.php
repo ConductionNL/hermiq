@@ -75,11 +75,10 @@ class InitializeActions implements IRepairStep
     {
         $existing = $this->actionAuth->getMatrix();
         if (count($existing) > 0) {
-            $count = count($existing);
+            $count  = count($existing);
+            $plural = 'ies';
             if ($count === 1) {
                 $plural = 'y';
-            } else {
-                $plural = 'ies';
             }
 
             $output->info(
@@ -125,11 +124,10 @@ class InitializeActions implements IRepairStep
             return;
         }
 
-        $count = count($actions);
+        $count  = count($actions);
+        $plural = 's';
         if ($count === 1) {
             $plural = '';
-        } else {
-            $plural = 's';
         }
 
         $output->info(

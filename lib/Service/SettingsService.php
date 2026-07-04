@@ -135,6 +135,9 @@ class SettingsService
      *
      * @return array<string,mixed> Result with success flag, message, and version.
      *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$force` is a standard idempotent-import
+     *   override toggle (skip-if-configured vs. re-import), not a behavioural mode switch.
+     *
      * @spec openspec/specs/settings-management/spec.md#REQ-CFG-003
      */
     public function loadConfiguration(bool $force=false): array

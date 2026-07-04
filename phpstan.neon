@@ -40,6 +40,12 @@ parameters:
         - '#has invalid return type OCA\\OpenRegister\\#'
         - '#has invalid type OCA\\OpenRegister\\#'
         - '#implements unknown interface OCA\\OpenRegister\\#'
+        # Nextcloud Talk (spreed) — optional runtime dependency, resolved lazily; not in static analysis
+        - '#unknown class OCA\\Talk\\#'
+        - '#OCA\\Talk\\[a-zA-Z\\]+.*not found#'
+        - '#on an unknown class OCA\\Talk\\#'
+        - '#has invalid return type OCA\\Talk\\#'
+        - '#should return OCA\\Talk\\[a-zA-Z\\]+ but returns mixed#'
         # GuzzleHttp is available at runtime via Nextcloud but not in composer require
         - '#unknown class GuzzleHttp\\#'
         - '#GuzzleHttp\\[a-zA-Z\\]+.*not found#'
