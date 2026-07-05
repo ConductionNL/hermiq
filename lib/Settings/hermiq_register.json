@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "x-openregister": {
     "type": "application",
@@ -193,6 +193,34 @@
           "decidedAt": { "type": "string", "format": "date-time", "description": "Derived: when the decision was made — written by the decision endpoint." },
           "decidedBy": { "type": "string", "description": "Derived: the user id who approved or denied — written by the decision endpoint." },
           "reason": { "type": "string", "description": "Optional decision reason (typically supplied on denial)." }
+        }
+      },
+      "AiFeature": {
+        "slug": "agentaifeature",
+        "icon": "RobotOutline",
+        "version": "0.1.0",
+        "title": "AI feature",
+        "description": "A design-time inventory entry for a high-risk AI feature this platform provides (EU AI Act registration/oversight). Risk-classified and gated by a declarative lifecycle whose enable transition requires a DPO acknowledgement.",
+        "type": "object",
+        "required": ["slug", "name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "x-openregister-lifecycle": {
+          "property": "lifecycle",
+          "initial": "disabled",
+          "transitions": {
+            "enable": { "from": "disabled", "to": "enabled", "requires": "OCA\\Hermiq\\Lifecycle\\AiFeatureDpoAckGuard" },
+            "disable": { "from": "enabled", "to": "disabled" }
+          }
+        },
+        "properties": {
+          "slug": { "type": "string", "description": "The machine identifier of the AI feature (also the IAppConfig dpo_ack key suffix)." },
+          "name": { "type": "string", "description": "Human-readable name of the AI feature." },
+          "description": { "type": "string", "description": "What the AI feature does and why it is risk-relevant." },
+          "riskCategory": { "type": "string", "enum": ["minimal", "limited", "high", "unacceptable"], "description": "EU AI Act risk classification of the feature." },
+          "lifecycle": { "type": "string", "enum": ["disabled", "enabled"], "default": "disabled", "description": "Activation state, managed by the OpenRegister lifecycle engine (never set directly)." },
+          "tenantId": { "type": "string", "description": "The hermiq multi-tenancy scope used to key the DPO acknowledgement." },
+          "dpoAckBy": { "type": "string", "description": "Derived: the user id of the DPO who acknowledged the feature — written by the acknowledge endpoint." },
+          "dpoAckAt": { "type": "string", "format": "date-time", "description": "Derived: when the DPO acknowledgement was recorded — written by the acknowledge endpoint." }
         }
       },
       "TenantControl": {

@@ -61,6 +61,12 @@ return [
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillMarketplace#publish',           'url' => '/api/skills/{id}/publish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // AI-feature governance register (ai-feature-governance-register): list + DPO-ack + enable/disable.
+        ['name' => 'aiFeature#index',       'url' => '/api/ai-features', 'verb' => 'GET'],
+        ['name' => 'aiFeature#acknowledge', 'url' => '/api/ai-features/{slug}/acknowledge', 'verb' => 'POST', 'requirements' => ['slug' => '[^/]+']],
+        ['name' => 'aiFeature#enable',      'url' => '/api/ai-features/{id}/enable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'aiFeature#disable',     'url' => '/api/ai-features/{id}/disable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
         // First-run wizard support (SetupController): server-side LLM probe + owned-org list.
         ['name' => 'setup#llmTest',       'url' => '/api/setup/llm-test', 'verb' => 'GET'],
         ['name' => 'setup#organisations', 'url' => '/api/setup/organisations', 'verb' => 'GET'],
