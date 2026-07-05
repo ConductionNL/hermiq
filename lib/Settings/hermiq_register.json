@@ -50,6 +50,7 @@
         "title": "Schedule",
         "description": "A schedule that fires an OpenRegister agent on a cron expression, a fixed interval, or once at a future time.",
         "type": "object",
+        "x-schema-org": "schema:Schedule",
         "required": [
           "name",
           "agentId",
@@ -59,8 +60,7 @@
         ],
         "x-openregister": {
           "publicRead": false,
-          "publicWrite": false,
-          "schemaOrgType": "Schedule"
+          "publicWrite": false
         },
         "properties": {
           "name": {
