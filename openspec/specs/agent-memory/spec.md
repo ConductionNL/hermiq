@@ -1,10 +1,10 @@
 # Agent Memory Specification
 
-**Status**: idea
+**Status**: building
 
 **Feature tier**: V1
 
-**OpenSpec changes:** _(none yet)_
+**OpenSpec changes:** `agent-memory` (management surface: schemas + char-budget write path + tenant-scoped recall + memory UI; run-loop consumption is an OR seam)
 
 ## Purpose
 

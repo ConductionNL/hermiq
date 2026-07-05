@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.3.0"
+    "version": "0.4.1"
   },
   "x-openregister": {
     "type": "application",
@@ -209,6 +209,72 @@
           "reason": { "type": "string", "description": "Optional reason for engaging the kill-switch." },
           "engagedAt": { "type": "string", "format": "date-time", "description": "When the kill-switch was engaged." },
           "engagedBy": { "type": "string", "description": "The user id who engaged/disengaged the kill-switch." }
+        }
+      },
+      "Memory": {
+        "slug": "memory",
+        "icon": "BrainOutline",
+        "version": "0.1.0",
+        "title": "Agent memory",
+        "description": "An agent's long-term memory (the MEMORY.md port): durable facts stored as JSON entries with a character budget. Exceeding the budget flags needsConsolidation — a nudge to summarise, never a silent truncation.",
+        "type": "object",
+        "required": ["agentId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent this memory belongs to.", "example": "00000000-0000-0000-0000-000000000000" },
+          "entries": { "type": "array", "default": [], "description": "Memory entries as a JSON array.", "items": { "type": "object", "properties": { "text": { "type": "string", "description": "The remembered fact." }, "createdAt": { "type": "string", "format": "date-time", "description": "When the entry was recorded." } } } },
+          "charBudget": { "type": "integer", "default": 8000, "description": "Character budget for entries; exceeding it flags needsConsolidation (approximate, not a hard cap)." },
+          "needsConsolidation": { "type": "boolean", "default": false, "description": "True when the entries exceed charBudget — a nudge to consolidate; older entries are never dropped silently." }
+        }
+      },
+      "UserProfile": {
+        "slug": "userprofile",
+        "icon": "AccountDetailsOutline",
+        "version": "0.1.0",
+        "title": "User profile",
+        "description": "Facts an agent keeps about a subject user (the USER.md port): durable entries with a character budget and consolidation nudge, scoped to the owning organisation.",
+        "type": "object",
+        "required": ["agentId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent maintaining this profile.", "example": "00000000-0000-0000-0000-000000000000" },
+          "subjectUid": { "type": "string", "description": "The user id the profile describes." },
+          "entries": { "type": "array", "default": [], "description": "Profile entries as a JSON array.", "items": { "type": "object", "properties": { "text": { "type": "string" }, "createdAt": { "type": "string", "format": "date-time" } } } },
+          "charBudget": { "type": "integer", "default": 4000, "description": "Character budget for entries; exceeding it flags needsConsolidation." },
+          "needsConsolidation": { "type": "boolean", "default": false, "description": "True when the entries exceed charBudget." }
+        }
+      },
+      "Session": {
+        "slug": "agentsession",
+        "icon": "ChatOutline",
+        "version": "0.1.0",
+        "title": "Session",
+        "description": "A conversation session between a user and an agent (the FTS5 session port). Turns are stored as SessionTurn children so each is individually searchable and org-scoped.",
+        "type": "object",
+        "required": ["agentId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent in this session.", "example": "00000000-0000-0000-0000-000000000000" },
+          "title": { "type": "string", "description": "Human-readable session title." },
+          "startedAt": { "type": "string", "format": "date-time", "description": "When the session started." },
+          "lastActivityAt": { "type": "string", "format": "date-time", "description": "When the most recent turn was recorded." }
+        }
+      },
+      "SessionTurn": {
+        "slug": "agentsessionturn",
+        "icon": "MessageOutline",
+        "version": "0.1.0",
+        "title": "Session turn",
+        "description": "A single turn within a Session — the searchable unit for cross-session recall via OpenRegister search/vectorization (no bespoke SQLite/FTS5 index).",
+        "type": "object",
+        "required": ["sessionId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "sessionId": { "type": "string", "format": "uuid", "description": "UUID of the parent Session.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent (denormalised for recall filtering)." },
+          "role": { "type": "string", "enum": ["user", "assistant", "system", "tool"], "description": "Who produced this turn." },
+          "content": { "type": "string", "description": "The turn content — the field searched for recall." },
+          "createdAt": { "type": "string", "format": "date-time", "description": "When the turn was recorded." }
         }
       }
     }

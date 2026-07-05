@@ -35,6 +35,14 @@ return [
         ['name' => 'tenantControl#show',   'url' => '/api/tenant-control/{organisation}', 'verb' => 'GET', 'requirements' => ['organisation' => '[^/]+']],
         ['name' => 'tenantControl#toggle', 'url' => '/api/tenant-control/{organisation}/toggle', 'verb' => 'POST', 'requirements' => ['organisation' => '[^/]+']],
 
+        // Agent memory (agent-memory): tenant-scoped memory, profiles, sessions, consolidate, recall.
+        ['name' => 'memory#memory',        'url' => '/api/agents/{agentId}/memory', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'memory#addMemory',     'url' => '/api/agents/{agentId}/memory', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'memory#userProfiles',  'url' => '/api/agents/{agentId}/user-profiles', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'memory#sessions',      'url' => '/api/agents/{agentId}/sessions', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'memory#consolidate',   'url' => '/api/agents/{agentId}/memory/consolidate', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'memory#recall',        'url' => '/api/agents/{agentId}/recall', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],
