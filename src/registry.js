@@ -46,6 +46,7 @@ import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
+import SkillsCatalog from './views/SkillsCatalog.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -143,6 +144,15 @@ export default {
 	AgentMemory: {
 		kind: 'page',
 		component: AgentMemory,
+	},
+
+	/**
+	 * Skills catalog — browse tenant skills, import/export agentskills.io packages, and
+	 * install a skill onto an agent (skills-catalog). Standard nav page.
+	 */
+	SkillsCatalog: {
+		kind: 'page',
+		component: SkillsCatalog,
 	},
 
 	// -------------------------------------------------------------------------

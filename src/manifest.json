@@ -27,6 +27,13 @@
 			"order": 17
 		},
 		{
+			"id": "SkillsCatalog",
+			"label": "Skills",
+			"icon": "icon-category-customization",
+			"route": "SkillsCatalog",
+			"order": 18
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
@@ -89,6 +96,14 @@
 			"component": "AgentMemory",
 			"title": "Memory",
 			"_note": "Custom page: agent memory combines the OpenRegister agents resource (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "SkillsCatalog",
+			"route": "/skills",
+			"type": "custom",
+			"component": "SkillsCatalog",
+			"title": "Skills",
+			"_note": "Custom page: the skills catalog imports/exports agentskills.io packages (lossless SkillSerializer round-trip) and installs a skill onto an agent (installedOn association) — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "Dashboard",

@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.4.1"
+    "version": "0.5.0"
   },
   "x-openregister": {
     "type": "application",
@@ -275,6 +275,41 @@
           "role": { "type": "string", "enum": ["user", "assistant", "system", "tool"], "description": "Who produced this turn." },
           "content": { "type": "string", "description": "The turn content — the field searched for recall." },
           "createdAt": { "type": "string", "format": "date-time", "description": "When the turn was recorded." }
+        }
+      },
+      "Skill": {
+        "slug": "agentskill",
+        "icon": "PuzzleOutline",
+        "version": "0.1.0",
+        "title": "Skill",
+        "description": "A self-improving agent skill in the agentskills.io format (ported from Hermes). Stores the raw frontmatter block (byte-preserved for lossless round-trip), the body, auxiliary files, a lifecycle state, and which agents it is installed on. Slug namespaced (agentskill) to avoid a cross-app slug collision.",
+        "type": "object",
+        "required": ["name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "name": { "type": "string", "description": "The skill name (from agentskills.io frontmatter)." },
+          "description": { "type": "string", "description": "The skill description (from frontmatter)." },
+          "frontmatter": { "type": "string", "description": "The raw agentskills.io YAML frontmatter block, preserved byte-for-byte for lossless serialisation." },
+          "body": { "type": "string", "description": "The skill body (markdown)." },
+          "files": { "type": "array", "default": [], "description": "Auxiliary files.", "items": { "type": "object", "properties": { "name": { "type": "string" }, "content": { "type": "string" } } } },
+          "state": { "type": "string", "enum": ["active", "stale", "archived"], "default": "active", "description": "Skill lifecycle state." },
+          "createdBy": { "type": "string", "description": "The user id who imported/created the skill." },
+          "installedOn": { "type": "array", "default": [], "description": "Agent UUIDs this skill is installed on.", "items": { "type": "string", "format": "uuid" } }
+        }
+      },
+      "SkillSource": {
+        "slug": "agentskillsource",
+        "icon": "SourceBranch",
+        "version": "0.1.0",
+        "title": "Skill source",
+        "description": "The origin of a skill (a package, an external agentskills.io hub, or local) — the seam for the V2 skills-marketplace cross-org sharing.",
+        "type": "object",
+        "required": ["name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "name": { "type": "string", "description": "The source name." },
+          "url": { "type": "string", "description": "The source URL (for a hub/package)." },
+          "type": { "type": "string", "enum": ["package", "hub", "local"], "default": "package", "description": "The source kind." }
         }
       }
     }

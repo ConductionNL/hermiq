@@ -29,6 +29,7 @@ import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
+import SkillsCatalog from './views/SkillsCatalog.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -55,6 +56,9 @@ export default {
 	// Agent memory (agent-memory change). Custom page: agent picker + tenant-scoped
 	// Memory/Session objects + char-budget bar + consolidation nudge + OR-search recall.
 	AgentMemory,
+	// Skills catalog (skills-catalog change). Custom page: import/export agentskills.io
+	// packages + install a skill onto an agent.
+	SkillsCatalog,
 	// Features & Roadmap page (lib's CnFeaturesAndRoadmapView) — wired up
 	// in src/manifest.json (the `FeaturesRoadmap` custom page + the
 	// `FeaturesRoadmapMenu` settings entry).

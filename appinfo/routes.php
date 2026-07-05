@@ -43,6 +43,12 @@ return [
         ['name' => 'memory#consolidate',   'url' => '/api/agents/{agentId}/memory/consolidate', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+']],
         ['name' => 'memory#recall',        'url' => '/api/agents/{agentId}/recall', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
 
+        // Skills catalog (skills-catalog): browse, import/export agentskills.io packages, install onto an agent.
+        ['name' => 'skill#index',   'url' => '/api/skills', 'verb' => 'GET'],
+        ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],
+        ['name' => 'skill#export',  'url' => '/api/skills/{id}/export', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skill#install', 'url' => '/api/skills/{id}/install', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],

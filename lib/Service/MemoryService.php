@@ -300,7 +300,12 @@ class MemoryService
             schema: self::SESSION_TURN_SCHEMA
         );
 
-        $session = $this->findOne(schema: self::SESSION_SCHEMA, filters: ['uuid' => $sessionId]);
+        // Fetch by UUID via find() (a uuid is metadata, not an object-property filter).
+        $session = $this->objectService->find(
+            id: $sessionId,
+            register: self::REGISTER_SLUG,
+            schema: self::SESSION_SCHEMA
+        );
         if ($session !== null) {
             $data = $session->getObject();
             $data['lastActivityAt'] = $now;
