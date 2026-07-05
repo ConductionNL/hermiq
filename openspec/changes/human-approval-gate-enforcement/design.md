@@ -101,16 +101,19 @@ returns 404 otherwise. The schedule owner is NOT admitted unless owner == review
 enforcing separation of duties. `approve` reuses `ScheduleService::runNow` for the
 bound schedule after the transition; `deny` records only.
 
-**Kill-switch toggle guard = org sub-admin or instance admin (`IGroupManager`).** The
-toggle is NOT owner-guarded. It admits a Nextcloud instance admin
-(`IGroupManager::isAdmin($uid)`) or a **sub-admin of the NC group that maps to the
-organisation** (the group sub-admin API). **Org→group mapping assumption:** the tenant
-`organisation` value on `ObjectEntity` corresponds to an NC group id (OpenRegister's
-multi-tenancy is built on NC groups per ADR-001); the guard resolves the target
-organisation's group and checks sub-admin membership. If OR exposes a distinct
-org→group resolver, use it; otherwise the documented assumption is
-`organisation == group id`. A cross-tenant toggle (admin of a different org) is
-refused. Routes are registered in `appinfo/routes.php` with explicit auth attributes
+**Kill-switch toggle guard = OpenRegister org owner or instance admin.** The toggle
+admits a Nextcloud instance admin (`IGroupManager::isAdmin($uid)`) or the **owner of the
+target OpenRegister organisation** (`Organisation.owner`, resolved via
+`OrganisationMapper::findByUuid`). A plain org member is refused, so a member cannot halt
+every colleague's runs. **Tenant model (corrected):** the tenant `organisation` value on
+`ObjectEntity` is an **OpenRegister organisation UUID** (OpenRegister multi-tenancy is its
+own `Organisation` entity, NOT NC groups — the earlier `organisation == NC group id`
+assumption was wrong: schedules carry an OR org UUID in `_organisation`, so a
+group-keyed control never matched). The toggle pins the created `TenantControl` to the
+target org via `@self.organisation` (OpenRegister honours it for an admin or verified
+member) so it is stored under — and re-found by — the target org, matching exactly the
+schedules it halts. A cross-tenant toggle (a non-admin targeting an org they do not own)
+is refused. Routes are registered in `appinfo/routes.php` with explicit auth attributes
 (route-auth gate).
 
 **Skip status vocabulary.** A kill-switch skip sets `lastStatus='skipped_killswitch'`
@@ -150,11 +153,14 @@ hash-chained `AuditTrail` are inherited; no new schema is introduced.
   designation on the `Schedule` (user or group), copied onto the `Approval`; empty
   defaults to the owner. Approve/deny guarded to the reviewer (or group member) or
   instance admin.
-- **RESOLVED — Kill-switch auth.** Toggle admits an NC sub-admin of the organisation's
-  group or an instance admin (via `IGroupManager`), not the owner. See the org→group
-  mapping assumption in Decisions.
+- **RESOLVED — Kill-switch auth.** Toggle admits the owner of the target OpenRegister
+  organisation (`Organisation.owner`) or an instance admin. See the corrected tenant
+  model in Decisions.
 - **RESOLVED — UI.** Built now as the dependent `human-approval-gate-ui` change (split
   out to respect the ≤20-task cap and keep this change single-kind).
-- **Open — org→group resolver.** The guard assumes `organisation == NC group id`
-  (ADR-001 multi-tenancy on NC groups). If OpenRegister ships an explicit org→group
-  resolver, the implementer should prefer it over the assumption.
+- **RESOLVED — tenant identity.** The `organisation` is an OpenRegister organisation
+  UUID (schedules' `_organisation`), NOT an NC group id. The initial `organisation ==
+  group id` assumption was corrected during live verification: a group-keyed
+  `TenantControl` never matched a schedule's OR org, so an NC-group-based toggle halted
+  nothing. Both the toggle guard (`OrganisationMapper` owner check) and the UI picker
+  (`DashboardController` provides OpenRegister organisations) now key on the OR org UUID.

@@ -13,6 +13,13 @@
 			"order": 10
 		},
 		{
+			"id": "ApprovalInbox",
+			"label": "Approvals",
+			"icon": "icon-checkmark",
+			"route": "ApprovalInbox",
+			"order": 15
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
@@ -59,6 +66,14 @@
 			"component": "AgentDetail",
 			"title": "Agent",
 			"_note": "Custom page: agent detail combines the agents resource, schedule attach/edit (createObjectStore), the thin Run-now endpoint, and run history — not expressible via the built-in detail page type."
+		},
+		{
+			"id": "ApprovalInbox",
+			"route": "/approvals",
+			"type": "custom",
+			"component": "ApprovalInbox",
+			"title": "Approvals",
+			"_note": "Custom page: the reviewer inbox is reviewer-scoped (not owner-scoped OR objects) with guarded approve/deny actions and the org kill-switch — not expressible via the built-in index page type. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "Dashboard",

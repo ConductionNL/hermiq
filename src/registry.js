@@ -44,6 +44,7 @@ import StatusBadge from './cellRenderers/StatusBadge.vue'
 import CustomExample from './views/CustomExample.vue'
 import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
+import ApprovalInbox from './views/ApprovalInbox.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -123,6 +124,15 @@ export default {
 	AgentDetail: {
 		kind: 'page',
 		component: AgentDetail,
+	},
+
+	/**
+	 * Approval inbox — the reviewer's pending human-approval-gate queue plus the
+	 * org kill-switch (human-approval-gate-ui). Standard nav page, not a dashboard.
+	 */
+	ApprovalInbox: {
+		kind: 'page',
+		component: ApprovalInbox,
 	},
 
 	// -------------------------------------------------------------------------

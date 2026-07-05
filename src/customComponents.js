@@ -27,6 +27,7 @@
 import CustomExample from './views/CustomExample.vue'
 import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
+import ApprovalInbox from './views/ApprovalInbox.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -46,6 +47,10 @@ export default {
 	// built-in index/detail page types cannot express.
 	AgentCatalog,
 	AgentDetail,
+	// Approval inbox (human-approval-gate-ui change). Custom page: reviewer-scoped
+	// pending Approvals + guarded approve/deny + org kill-switch — not expressible
+	// via the built-in index page type.
+	ApprovalInbox,
 	// Features & Roadmap page (lib's CnFeaturesAndRoadmapView) — wired up
 	// in src/manifest.json (the `FeaturesRoadmap` custom page + the
 	// `FeaturesRoadmapMenu` settings entry).

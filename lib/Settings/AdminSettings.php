@@ -81,6 +81,8 @@ class AdminSettings implements ISettings
      * Get the priority for ordering within the section.
      *
      * @return int
+     *
+     * @spec exclude Trivial settings-ordering priority; no behavioural spec.
      */
     public function getPriority(): int
     {

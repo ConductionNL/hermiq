@@ -16,6 +16,7 @@
 	},
 	"autoload-dev": {
 		"psr-4": {
+			"OCP\\": "vendor/nextcloud/ocp/OCP/",
 			"OCA\\OpenRegister\\": "tests/Stubs/",
 			"OCA\\Talk\\": "tests/Stubs/Talk/"
 		}

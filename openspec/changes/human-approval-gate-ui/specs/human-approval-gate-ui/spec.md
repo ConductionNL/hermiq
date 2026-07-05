@@ -54,21 +54,24 @@ so screen-reader association is correct (ADR-004 nc-input-labels, WCAG 2.1 AA).
 
 ### Requirement: Org admin kill-switch toggle surface
 
-The system MUST provide a kill-switch toggle control, visible only to a Nextcloud
-sub-admin of the organisation's group or an instance admin, that shows the current
-engaged state of the organisation's `TenantControl` and toggles it via the enforcement
-endpoint. A user without the required admin rights MUST NOT see or be able to use the
-toggle.
+The system MUST provide a kill-switch toggle control, visible only to the owner of an
+OpenRegister organisation or an instance admin, that shows the current engaged state of
+the selected organisation's `TenantControl` and toggles it via the enforcement endpoint.
+The organisations offered MUST be OpenRegister organisations (every organisation for an
+instance admin, the organisations the user owns otherwise), each identified by its
+OpenRegister organisation UUID — the same value schedules carry — so the control matches
+the runs it halts. A user without the required admin rights MUST NOT see or be able to use
+the toggle.
 
 #### Scenario: Org admin engages the kill-switch from the UI
 
-- **GIVEN** the current user is an org sub-admin or instance admin
-- **WHEN** they use the kill-switch toggle to engage it
+- **GIVEN** the current user is an OpenRegister organisation owner or instance admin
+- **WHEN** they select an organisation and use the kill-switch toggle to engage it
 - **THEN** the UI MUST call the toggle endpoint and reflect the engaged state
 
 #### Scenario: A non-admin does not see the toggle
 
-- **GIVEN** the current user is neither an org sub-admin nor an instance admin
+- **GIVEN** the current user is neither an OpenRegister organisation owner nor an instance admin
 - **WHEN** they open the Approvals view
 - **THEN** the kill-switch toggle MUST NOT be shown or actionable for them
 

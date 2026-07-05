@@ -3,9 +3,11 @@
 /**
  * Unit tests for TenantControlController (human-approval-gate-enforcement).
  *
- * Focuses on the kill-switch authorization: only a Nextcloud instance admin or a
- * sub-admin of the organisation's NC group may read/toggle the kill-switch; a plain
- * user (or a foreign-org admin) is refused and never reaches the write path.
+ * Focuses on the kill-switch authorization: only a Nextcloud instance admin or the
+ * owner of the target OpenRegister organisation may read/toggle the kill-switch; a plain
+ * user, a plain org member, or a foreign-org admin is refused and never reaches the
+ * write path. The `organisation` is an OpenRegister organisation UUID (schedules'
+ * `_organisation`), not an NC group id.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Controller
@@ -26,9 +28,10 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\TenantControlController;
 use OCA\Hermiq\Service\TenantControlService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Db\Organisation;
+use OCA\OpenRegister\Db\OrganisationMapper;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
-use OCP\Group\ISubAdmin;
-use OCP\IGroup;
 use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
@@ -84,13 +87,37 @@ class TenantControlControllerTest extends TestCase
     }//end request()
 
     /**
+     * An OrganisationMapper that resolves the target org to one owned by $ownerUid.
+     *
+     * When $ownerUid is null the mapper throws DoesNotExistException (unknown org).
+     *
+     * @param string|null $ownerUid The owner UID of the resolved organisation, or null.
+     *
+     * @return OrganisationMapper
+     */
+    private function orgMapper(?string $ownerUid): OrganisationMapper
+    {
+        $mapper = $this->createMock(OrganisationMapper::class);
+        if ($ownerUid === null) {
+            $mapper->method('findByUuid')->willThrowException(new DoesNotExistException('no org'));
+            return $mapper;
+        }
+
+        $org = $this->createMock(Organisation::class);
+        $org->method('getOwner')->willReturn($ownerUid);
+        $mapper->method('findByUuid')->willReturn($org);
+        return $mapper;
+
+    }//end orgMapper()
+
+    /**
      * Build the controller with the given collaborators.
      *
      * @param IRequest             $request      The request.
      * @param TenantControlService $service      The kill-switch service.
      * @param IUserSession         $session      The user session.
      * @param IGroupManager        $groupManager The group manager.
-     * @param ISubAdmin            $subAdmin     The sub-admin service.
+     * @param OrganisationMapper   $orgMapper    The organisation mapper (owner check).
      *
      * @return TenantControlController
      */
@@ -99,14 +126,14 @@ class TenantControlControllerTest extends TestCase
         TenantControlService $service,
         IUserSession $session,
         IGroupManager $groupManager,
-        ISubAdmin $subAdmin
+        OrganisationMapper $orgMapper
     ): TenantControlController {
         return new TenantControlController(
             $request,
             $service,
             $session,
             $groupManager,
-            $subAdmin,
+            $orgMapper,
             $this->createMock(LoggerInterface::class)
         );
 
@@ -135,7 +162,7 @@ class TenantControlControllerTest extends TestCase
             $service,
             $this->session('root'),
             $groupManager,
-            $this->createMock(ISubAdmin::class)
+            $this->orgMapper(null)
         );
         $response = $controller->show('org-x');
 
@@ -145,13 +172,13 @@ class TenantControlControllerTest extends TestCase
     }//end testInstanceAdminCanShow()
 
     /**
-     * A group sub-admin can toggle their organisation's kill-switch.
+     * The owner of the target OpenRegister organisation can toggle its kill-switch.
      *
      * @return void
      *
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
      */
-    public function testSubAdminCanToggle(): void
+    public function testOrgOwnerCanToggle(): void
     {
         $saved = new ObjectEntity();
         $saved->setObject(['engaged' => true]);
@@ -161,56 +188,48 @@ class TenantControlControllerTest extends TestCase
 
         $groupManager = $this->createMock(IGroupManager::class);
         $groupManager->method('isAdmin')->willReturn(false);
-        $groupManager->method('get')->willReturn($this->createMock(IGroup::class));
-
-        $subAdmin = $this->createMock(ISubAdmin::class);
-        $subAdmin->method('isSubAdminOfGroup')->willReturn(true);
 
         $controller = $this->controller(
             $this->request(['engaged' => 'true', 'reason' => 'pause']),
             $service,
             $this->session('bob'),
             $groupManager,
-            $subAdmin
+            $this->orgMapper('bob')
         );
         $response = $controller->toggle('org-x');
 
         $this->assertSame(Http::STATUS_OK, $response->getStatus());
         $this->assertTrue($response->getData()['engaged']);
 
-    }//end testSubAdminCanToggle()
+    }//end testOrgOwnerCanToggle()
 
     /**
-     * A plain user (not admin, not sub-admin) cannot toggle — 403, never writes.
+     * A plain member (not admin, not owner) cannot toggle — 403, never writes.
      *
      * @return void
      *
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
      */
-    public function testNonAdminCannotToggle(): void
+    public function testNonOwnerCannotToggle(): void
     {
         $service = $this->createMock(TenantControlService::class);
         $service->expects($this->never())->method('toggle');
 
         $groupManager = $this->createMock(IGroupManager::class);
         $groupManager->method('isAdmin')->willReturn(false);
-        $groupManager->method('get')->willReturn($this->createMock(IGroup::class));
-
-        $subAdmin = $this->createMock(ISubAdmin::class);
-        $subAdmin->method('isSubAdminOfGroup')->willReturn(false);
 
         $controller = $this->controller(
             $this->request(['engaged' => 'true']),
             $service,
             $this->session('mallory'),
             $groupManager,
-            $subAdmin
+            $this->orgMapper('someone-else')
         );
         $response = $controller->toggle('org-x');
 
         $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 
-    }//end testNonAdminCannotToggle()
+    }//end testNonOwnerCannotToggle()
 
     /**
      * A non-admin cannot even read another organisation's state — 404 (no leak).
@@ -219,27 +238,26 @@ class TenantControlControllerTest extends TestCase
      *
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
      */
-    public function testNonAdminShowIsNotFound(): void
+    public function testNonOwnerShowIsNotFound(): void
     {
         $service = $this->createMock(TenantControlService::class);
         $service->expects($this->never())->method('getForOrganisation');
 
         $groupManager = $this->createMock(IGroupManager::class);
         $groupManager->method('isAdmin')->willReturn(false);
-        $groupManager->method('get')->willReturn(null);
 
         $controller = $this->controller(
             $this->request(),
             $service,
             $this->session('mallory'),
             $groupManager,
-            $this->createMock(ISubAdmin::class)
+            $this->orgMapper(null)
         );
         $response = $controller->show('org-x');
 
         $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-    }//end testNonAdminShowIsNotFound()
+    }//end testNonOwnerShowIsNotFound()
 
     /**
      * An unauthenticated caller gets 401.
@@ -255,7 +273,7 @@ class TenantControlControllerTest extends TestCase
             $this->createMock(TenantControlService::class),
             $this->session(null),
             $this->createMock(IGroupManager::class),
-            $this->createMock(ISubAdmin::class)
+            $this->createMock(OrganisationMapper::class)
         );
         $response = $controller->toggle('org-x');
 

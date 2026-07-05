@@ -72,10 +72,11 @@ class TenantControlService
     /**
      * Get the TenantControl object for an organisation, if one exists.
      *
-     * Matched by `ObjectEntity.organisation` (the tenant scope) rather than a payload
-     * field. There is at most one control per organisation.
+     * Matched by `ObjectEntity.organisation` (the tenant scope, an OpenRegister
+     * organisation UUID — the same value schedules carry) rather than a payload field.
+     * There is at most one control per organisation.
      *
-     * @param string $organisation The organisation identifier.
+     * @param string $organisation The organisation identifier (OpenRegister org UUID).
      *
      * @return ObjectEntity|null The control object, or null when none exists.
      *
@@ -145,6 +146,16 @@ class TenantControlService
         $data['reason']    = $reasonValue;
         $data['engagedBy'] = $actorUid;
         $data['engagedAt'] = $now;
+
+        // Pin the control to the TARGET organisation (an OpenRegister organisation UUID),
+        // not the actor's active organisation. Without this, saveObject() stamps the
+        // caller's active org via getOrganisationForNewEntity(), so an admin toggling a
+        // different tenant would write into their own org and getForOrganisation() could
+        // never find it again (creating a duplicate on every toggle). OpenRegister only
+        // honours @self.organisation for an admin or a verified member of that org.
+        $self = (array) ($data['@self'] ?? []);
+        $self['organisation'] = $organisation;
+        $data['@self']        = $self;
 
         return $this->objectService->saveObject(
             object: $data,

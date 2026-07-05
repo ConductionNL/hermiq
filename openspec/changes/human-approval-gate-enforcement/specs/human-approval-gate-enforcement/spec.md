@@ -124,28 +124,32 @@ organisations without an engaged control MUST proceed unaffected.
   `AuditTrail` entry
 - **AND** due schedules in organisations without an engaged control MUST run normally
 
-### Requirement: Org subadmin or instance admin can engage and disengage the kill-switch
+### Requirement: Org owner or instance admin can engage and disengage the kill-switch
 
-The system MUST allow only a Nextcloud **sub-admin of the organisation's group** or a
-**Nextcloud instance admin** to engage and disengage that organisation's kill-switch
-through a guarded endpoint that writes the `TenantControl` object via `ObjectService`
-(so the toggle is auditable). A plain owner or any other authenticated user MUST NOT be able
-to toggle it. The guard MUST use `IGroupManager` (instance-admin via `isAdmin`, and
-group sub-admin via the group sub-admin check) against the NC group that maps to the
-organisation, and MUST be scoped so a caller can only toggle a `TenantControl` for an
-organisation they administer; a cross-tenant toggle MUST be refused.
+The system MUST allow only the **owner of the target OpenRegister organisation**
+(`Organisation.owner`) or a **Nextcloud instance admin** to engage and disengage that
+organisation's kill-switch through a guarded endpoint that writes the `TenantControl`
+object via `ObjectService` (so the toggle is auditable). A plain schedule owner, a plain
+org member, or any other authenticated user MUST NOT be able to toggle it. The guard MUST
+use `IGroupManager::isAdmin` for the instance-admin path and resolve the target
+OpenRegister organisation (via `OrganisationMapper`) to compare its `owner` to the
+caller, and MUST be scoped so a caller can only toggle a `TenantControl` for an
+organisation they administer; a cross-tenant toggle MUST be refused. The `organisation`
+identifier is an **OpenRegister organisation UUID** — the same value schedules carry in
+`_organisation`, so an engaged control matches exactly the runs it halts (NOT an NC group
+id; OpenRegister multi-tenancy is its own organisation entity).
 
-#### Scenario: Org subadmin engages the kill-switch
+#### Scenario: Org owner engages the kill-switch
 
-- **GIVEN** a caller who is a sub-admin of the organisation's NC group (or an instance
-  admin)
+- **GIVEN** a caller who is the owner of the target OpenRegister organisation (or an
+  instance admin)
 - **WHEN** they call the toggle endpoint to engage that organisation's `TenantControl`
 - **THEN** the `TenantControl` MUST persist with `engaged=true`, `engagedBy`, and
-  `engagedAt` via `ObjectService`
+  `engagedAt` via `ObjectService`, pinned to the target organisation UUID (`@self.organisation`)
 
 #### Scenario: A non-admin cannot toggle the kill-switch
 
-- **WHEN** an authenticated user who is neither an instance admin nor a sub-admin of
-  the target organisation's group calls the toggle endpoint (including a schedule
-  owner with no admin rights, or an admin of a different organisation)
+- **WHEN** an authenticated user who is neither an instance admin nor the owner of
+  the target OpenRegister organisation calls the toggle endpoint (including a schedule
+  owner with no admin rights, a plain org member, or an admin of a different organisation)
 - **THEN** the system MUST refuse the toggle and MUST NOT write the `TenantControl`

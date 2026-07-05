@@ -9,12 +9,11 @@
  *
  * Security (ADR-005 / OWASP A01): `@NoAdminRequired` opens the route to any
  * authenticated user, so the method body is the guard. A toggle is admitted ONLY for
- * a Nextcloud instance admin (`IGroupManager::isAdmin`) or a sub-admin of the NC group
- * that maps to the organisation (`ISubAdmin::isSubAdminOfGroup`). A plain schedule
- * owner or a foreign-org admin is refused. Org→group mapping assumption: the tenant
- * `organisation` value equals the NC group id (OpenRegister multi-tenancy is built on
- * NC groups, ADR-001); if OpenRegister later exposes an explicit org→group resolver,
- * prefer it over this assumption.
+ * a Nextcloud instance admin (`IGroupManager::isAdmin`) or the owner of the target
+ * OpenRegister organisation (`Organisation::getOwner`). A plain schedule owner, a plain
+ * org member, or a foreign-org admin is refused. Tenant model: the `organisation` value
+ * is an OpenRegister organisation UUID — the same value schedules carry in
+ * `_organisation` (ADR-001 multi-tenancy), so halting an org actually stops its runs.
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -38,10 +37,10 @@ namespace OCA\Hermiq\Controller;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\TenantControlService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
-use OCP\Group\ISubAdmin;
 use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
@@ -50,7 +49,7 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Org-subadmin/instance-admin-guarded kill-switch read + toggle endpoints.
+ * Org-owner/instance-admin-guarded kill-switch read + toggle endpoints.
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
@@ -62,8 +61,8 @@ class TenantControlController extends Controller
      * @param IRequest             $request              The request object.
      * @param TenantControlService $tenantControlService The kill-switch read/write path.
      * @param IUserSession         $userSession          Resolves the requesting user.
-     * @param IGroupManager        $groupManager         Instance-admin + org-group resolution.
-     * @param ISubAdmin            $subAdmin             Group sub-admin check.
+     * @param IGroupManager        $groupManager         Instance-admin check.
+     * @param OrganisationMapper   $organisationMapper   OpenRegister organisation lookup (owner check).
      * @param LoggerInterface      $logger               PSR-3 logger.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: distinct collaborators.
@@ -75,7 +74,7 @@ class TenantControlController extends Controller
         private readonly TenantControlService $tenantControlService,
         private readonly IUserSession $userSession,
         private readonly IGroupManager $groupManager,
-        private readonly ISubAdmin $subAdmin,
+        private readonly OrganisationMapper $organisationMapper,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
@@ -84,7 +83,7 @@ class TenantControlController extends Controller
     /**
      * Show the current kill-switch state for an organisation the caller administers.
      *
-     * @param string $organisation The organisation identifier (== NC group id).
+     * @param string $organisation The organisation identifier (OpenRegister org UUID).
      *
      * @return JSONResponse The control state, or an error status.
      *
@@ -118,7 +117,7 @@ class TenantControlController extends Controller
     /**
      * Engage or disengage the kill-switch for an organisation.
      *
-     * @param string $organisation The organisation identifier (== NC group id).
+     * @param string $organisation The organisation identifier (OpenRegister org UUID).
      *
      * @return JSONResponse The new control state, or an error status.
      *
@@ -163,10 +162,11 @@ class TenantControlController extends Controller
     /**
      * Whether the user may administer the organisation's kill-switch.
      *
-     * Instance admin OR sub-admin of the organisation's NC group (org == group id
-     * assumption). A user who administers no matching group is refused.
+     * Instance admin OR the owner of the target OpenRegister organisation. A plain org
+     * member or a user who owns no matching organisation is refused, so a member cannot
+     * halt every colleague's runs.
      *
-     * @param string $organisation The organisation identifier.
+     * @param string $organisation The organisation identifier (OpenRegister org UUID).
      * @param IUser  $user         The requesting user.
      *
      * @return bool
@@ -183,12 +183,13 @@ class TenantControlController extends Controller
             return true;
         }
 
-        $group = $this->groupManager->get($organisation);
-        if ($group === null) {
+        try {
+            $org = $this->organisationMapper->findByUuid($organisation);
+        } catch (Throwable $e) {
             return false;
         }
 
-        return $this->subAdmin->isSubAdminOfGroup($user, $group);
+        return (string) ($org->getOwner() ?? '') === $user->getUID();
 
     }//end mayAdminister()
 

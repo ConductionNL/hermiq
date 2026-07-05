@@ -95,6 +95,27 @@
 				{{ t('hermiq', 'Enabled') }}
 			</NcCheckboxRadioSwitch>
 
+			<NcCheckboxRadioSwitch :checked.sync="form.requiresApproval" type="switch">
+				{{ t('hermiq', 'Requires approval') }}
+			</NcCheckboxRadioSwitch>
+
+			<template v-if="form.requiresApproval">
+				<div class="schedule-form__field">
+					<NcSelect
+						v-model="reviewerTypeOption"
+						:input-label="t('hermiq', 'Reviewer type')"
+						:options="reviewerTypeOptions"
+						:clearable="false"
+						label="label"
+						track-by="value" />
+				</div>
+
+				<NcTextField
+					:value.sync="form.reviewer"
+					:label="form.reviewerType === 'group' ? t('hermiq', 'Reviewer group id') : t('hermiq', 'Reviewer user id')"
+					:placeholder="t('hermiq', 'Leave empty to use the schedule owner')" />
+			</template>
+
 			<div class="schedule-form__actions">
 				<NcButton :disabled="saving" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
@@ -166,6 +187,10 @@ export default {
 				{ label: this.t('hermiq', 'Notification'), value: 'notification' },
 				{ label: this.t('hermiq', 'None'), value: 'none' },
 			],
+			reviewerTypeOptions: [
+				{ label: this.t('hermiq', 'User'), value: 'user' },
+				{ label: this.t('hermiq', 'Group'), value: 'group' },
+			],
 		}
 	},
 
@@ -200,6 +225,18 @@ export default {
 			},
 			set(option) {
 				this.form.deliver = option ? option.value : 'none'
+			},
+		},
+
+		/**
+		 * Two-way bridge between the `reviewerType` string and the NcSelect option.
+		 */
+		reviewerTypeOption: {
+			get() {
+				return this.reviewerTypeOptions.find((option) => option.value === this.form.reviewerType) || this.reviewerTypeOptions[0]
+			},
+			set(option) {
+				this.form.reviewerType = option ? option.value : 'user'
 			},
 		},
 	},
@@ -238,6 +275,9 @@ export default {
 				deliverTarget: '',
 				enabled: true,
 				repeatTimes: '',
+				requiresApproval: false,
+				reviewer: '',
+				reviewerType: 'user',
 			}
 		},
 
@@ -264,6 +304,9 @@ export default {
 				deliverTarget: source.deliverTarget || '',
 				enabled: source.enabled !== false,
 				repeatTimes: source.repeat && source.repeat.times ? source.repeat.times : '',
+				requiresApproval: source.requiresApproval === true,
+				reviewer: source.reviewer || '',
+				reviewerType: source.reviewerType || 'user',
 			}
 		},
 
@@ -294,6 +337,13 @@ export default {
 			const times = Number(this.form.repeatTimes)
 			if (times >= 1) {
 				payload.repeat = { times, completed: 0 }
+			}
+			// Human-approval gate (human-approval-gate-ui). An empty reviewer means
+			// the dispatcher defaults the reviewer to the schedule owner.
+			payload.requiresApproval = this.form.requiresApproval
+			if (this.form.requiresApproval) {
+				payload.reviewer = this.form.reviewer || ''
+				payload.reviewerType = this.form.reviewerType || 'user'
 			}
 			// Preserve the object id on edit so saveObject issues a PUT.
 			if (this.schedule && this.schedule.id) {
