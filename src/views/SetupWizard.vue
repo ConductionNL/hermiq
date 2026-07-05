@@ -132,7 +132,7 @@
 
 <script>
 import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
-import { llmTest, listOrganisations, setPreference } from '../api/setup.js'
+import { llmTest, listOrganisations, setPreference } from '../api/wizard.js'
 import { createAgent } from '../api/agents.js'
 
 export default {

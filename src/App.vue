@@ -83,7 +83,7 @@ import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { CnAppRoot, CnObjectSidebar } from '@conduction/nextcloud-vue'
 import SetupWizard from './views/SetupWizard.vue'
-import { getPreference, setPreference } from './api/setup.js'
+import { getPreference, setPreference } from './api/wizard.js'
 
 export default {
 	name: 'App',

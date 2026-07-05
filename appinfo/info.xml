@@ -8,7 +8,7 @@
     <summary lang="nl">Schedule autonomous AI agents in Nextcloud</summary>
     <description lang="en"><![CDATA[Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — daily reports, inbox triage, monitoring, morning briefings — all inside your own Nextcloud, delivered to Nextcloud Talk. Agents, their memory and their self-improving skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.]]></description>
     <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.]]></description>
-    <version>0.1.37</version>
+    <version>0.1.38</version>
     <licence>eupl</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
