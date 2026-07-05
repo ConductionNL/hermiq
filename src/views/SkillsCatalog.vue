@@ -49,6 +49,16 @@
 				</template>
 				{{ t('hermiq', 'Import') }}
 			</NcButton>
+			<NcButton
+				type="secondary"
+				:disabled="busy || !importText.trim()"
+				:aria-label="t('hermiq', 'Install from hub (quarantine)')"
+				@click="doImportFromHub">
+				{{ t('hermiq', 'Install from hub (quarantine)') }}
+			</NcButton>
+			<p class="skills-catalog__import-note">
+				{{ t('hermiq', 'Skills installed from a hub or another organisation start quarantined and must be approved before an agent can use them.') }}
+			</p>
 		</section>
 
 		<!-- Skills list -->
@@ -97,10 +107,25 @@
 							{{ t('hermiq', 'Install') }}
 						</NcButton>
 						<NcButton
+							v-if="skill.state === 'quarantined'"
+							type="primary"
+							:disabled="busy"
+							:aria-label="t('hermiq', 'Approve quarantined skill')"
+							@click="doApprove(skill)">
+							{{ t('hermiq', 'Approve') }}
+						</NcButton>
+						<NcButton
 							type="tertiary"
 							:aria-label="t('hermiq', 'Export skill')"
 							@click="doExport(skill)">
 							{{ t('hermiq', 'Export') }}
+						</NcButton>
+						<NcButton
+							type="tertiary"
+							:disabled="busy"
+							:aria-label="t('hermiq', 'Publish skill to a hub')"
+							@click="doPublish(skill)">
+							{{ t('hermiq', 'Publish') }}
 						</NcButton>
 					</div>
 				</li>
@@ -121,7 +146,7 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcModal, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import PuzzleIcon from 'vue-material-design-icons/PuzzleOutline.vue'
 import { listAgents } from '../api/agents.js'
-import { exportSkill, importSkill, installSkill, listSkills } from '../api/skills.js'
+import { approveSkill, exportSkill, importSkill, installFromSource, installSkill, listSkills, publishSkill } from '../api/skills.js'
 
 export default {
 	name: 'SkillsCatalog',
@@ -223,6 +248,69 @@ export default {
 				await importSkill(pkg)
 				this.importText = ''
 				await this.load()
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
+		 * Install the pasted package from an external source — lands in quarantine.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async doImportFromHub() {
+			const pkg = this.importText.trim()
+			if (!pkg) {
+				return
+			}
+			this.busy = true
+			this.error = ''
+			try {
+				await installFromSource(pkg, 'hub')
+				this.importText = ''
+				await this.load()
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
+		 * Approve a quarantined skill (the review gate → active).
+		 *
+		 * @param {object} skill The skill record.
+		 * @return {Promise<void>}
+		 */
+		async doApprove(skill) {
+			this.busy = true
+			this.error = ''
+			try {
+				await approveSkill(skill.uuid)
+				await this.load()
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
+		 * Publish a skill to an external hub (structured seam error when unavailable).
+		 *
+		 * @param {object} skill The skill record.
+		 * @return {Promise<void>}
+		 */
+		async doPublish(skill) {
+			this.busy = true
+			this.error = ''
+			try {
+				const result = await publishSkill(skill.uuid)
+				if (result && result.error) {
+					this.error = result.error.message || this.t('hermiq', 'Publishing is not available.')
+				}
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {
@@ -356,6 +444,27 @@ export default {
 
 .skills-catalog__skill-state--archived {
 	color: var(--color-text-maxcontrast);
+}
+
+.skills-catalog__skill-state--stale {
+	color: var(--color-warning);
+}
+
+.skills-catalog__skill-state--quarantined {
+	color: var(--color-error);
+	background: var(--color-error-hover, var(--color-background-dark));
+}
+
+.skills-catalog__import-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.skills-catalog__import-note {
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+	margin: 6px 0 0;
 }
 
 .skills-catalog__skill-desc {

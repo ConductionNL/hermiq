@@ -74,3 +74,39 @@ export async function installSkill(id, agentId) {
 	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/install`), { agentId })
 	return response.data
 }
+
+/**
+ * Install a skill from an external source (another org / hub) into quarantine
+ * (skills-marketplace). The skill is NOT usable until it passes the review gate.
+ *
+ * @param {string} pkg The agentskills.io package string.
+ * @param {string} source The source ('org' | 'hub').
+ * @return {Promise<object>} The quarantined Skill.
+ */
+export async function installFromSource(pkg, source = 'hub') {
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/install-from-source`), { package: pkg, source })
+	return response.data
+}
+
+/**
+ * Approve a quarantined skill — the review gate → active (skills-marketplace).
+ *
+ * @param {string} id The Skill UUID.
+ * @return {Promise<object>} The updated Skill.
+ */
+export async function approveSkill(id) {
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/approve`))
+	return response.data
+}
+
+/**
+ * Publish a skill to an external hub via OpenConnector (skills-marketplace).
+ *
+ * @param {string} id The Skill UUID.
+ * @param {string} hubId The target hub id.
+ * @return {Promise<object>} The publish result (or a structured seam error).
+ */
+export async function publishSkill(id, hubId = 'default') {
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/publish`), { hubId })
+	return response.data
+}
