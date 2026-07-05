@@ -43,6 +43,9 @@ return [
         ['name' => 'memory#consolidate',   'url' => '/api/agents/{agentId}/memory/consolidate', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+']],
         ['name' => 'memory#recall',        'url' => '/api/agents/{agentId}/recall', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
 
+        // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
+        ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
+
         // Skills catalog (skills-catalog): browse, import/export agentskills.io packages, install onto an agent.
         ['name' => 'skill#index',   'url' => '/api/skills', 'verb' => 'GET'],
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],

@@ -47,6 +47,7 @@ import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
+import RunAnalytics from './views/RunAnalytics.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -153,6 +154,15 @@ export default {
 	SkillsCatalog: {
 		kind: 'page',
 		component: SkillsCatalog,
+	},
+
+	/**
+	 * Run analytics — tenant-scoped run metrics from the OpenRegister AuditTrail
+	 * (run-analytics). Standard nav page.
+	 */
+	RunAnalytics: {
+		kind: 'page',
+		component: RunAnalytics,
 	},
 
 	// -------------------------------------------------------------------------

@@ -34,6 +34,13 @@
 			"order": 18
 		},
 		{
+			"id": "RunAnalytics",
+			"label": "Analytics",
+			"icon": "icon-category-monitoring",
+			"route": "RunAnalytics",
+			"order": 19
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
@@ -104,6 +111,14 @@
 			"component": "SkillsCatalog",
 			"title": "Skills",
 			"_note": "Custom page: the skills catalog imports/exports agentskills.io packages (lossless SkillSerializer round-trip) and installs a skill onto an agent (installedOn association) — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "RunAnalytics",
+			"route": "/analytics",
+			"type": "custom",
+			"component": "RunAnalytics",
+			"title": "Analytics",
+			"_note": "Custom page: run analytics aggregates the OpenRegister run AuditTrail (success rate, latency, status breakdown, per-agent) tenant-scoped with an agent filter — a computed read surface not expressible via the built-in index/dashboard page types. Standard nav page."
 		},
 		{
 			"id": "Dashboard",

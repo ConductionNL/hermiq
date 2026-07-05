@@ -1,10 +1,10 @@
 # Run Analytics Specification
 
-**Status**: idea
+**Status**: active (live-verified; cost/token/tool-usage await an OpenRegister recording seam)
 
 **Feature tier**: V2
 
-**OpenSpec changes:** _(none yet)_
+**OpenSpec changes:** `run-analytics` — DONE: `AnalyticsService` computes totalRuns/successRate/statusBreakdown/latency/perAgent from the `action='run'` OR AuditTrail entries (no separate store), tenant-scoped to the caller's own schedules; `AnalyticsController` (`/api/analytics`, optional `agentId`); `RunAnalytics` UI (metric cards + status breakdown + per-agent table + agent filter). Cost/token/tool-usage surfaced as "not recorded yet" (an OpenRegister seam, not fabricated).
 
 ## Purpose
 

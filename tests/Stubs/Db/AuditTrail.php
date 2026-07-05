@@ -66,6 +66,13 @@ class AuditTrail
     private ?DateTime $created = null;
 
     /**
+     * The UUID of the object this audit entry belongs to.
+     *
+     * @var string|null
+     */
+    private ?string $objectUuid = null;
+
+    /**
      * Get the UUID.
      *
      * @return string|null
@@ -74,6 +81,28 @@ class AuditTrail
     {
         return $this->uuid;
     }//end getUuid()
+
+    /**
+     * Get the object UUID.
+     *
+     * @return string|null
+     */
+    public function getObjectUuid(): ?string
+    {
+        return $this->objectUuid;
+    }//end getObjectUuid()
+
+    /**
+     * Set the object UUID.
+     *
+     * @param string|null $objectUuid The object UUID.
+     *
+     * @return void
+     */
+    public function setObjectUuid(?string $objectUuid): void
+    {
+        $this->objectUuid = $objectUuid;
+    }//end setObjectUuid()
 
     /**
      * Set the UUID.
