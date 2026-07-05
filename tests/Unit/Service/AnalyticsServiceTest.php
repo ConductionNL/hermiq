@@ -141,7 +141,8 @@ class AnalyticsServiceTest extends TestCase
         $this->assertSame(1, $perAgent['agentB']['runs']);
         $this->assertArrayNotHasKey('agentX', $perAgent);
 
-        $this->assertFalse($m['cost']['available']);
+        // No run entry carried usage in this fixture → tokens unavailable (not fabricated).
+        $this->assertFalse($m['tokens']['available']);
 
     }//end testAggregatesAndScopesToCallersSchedules()
 

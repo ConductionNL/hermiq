@@ -55,6 +55,10 @@
 					<span class="run-analytics__card-value">{{ avgLatency }}</span>
 					<span class="run-analytics__card-label">{{ t('hermiq', 'Avg latency') }}</span>
 				</div>
+				<div class="run-analytics__card">
+					<span class="run-analytics__card-value">{{ totalTokens }}</span>
+					<span class="run-analytics__card-label">{{ t('hermiq', 'Tokens') }}</span>
+				</div>
 			</div>
 
 			<section class="run-analytics__section">
@@ -105,8 +109,11 @@
 				</table>
 			</section>
 
-			<p class="run-analytics__seam">
-				{{ t('hermiq', 'Cost, token and tool-usage metrics are not recorded yet — they await OpenRegister run-cost recording.') }}
+			<p v-if="metrics.tokens && metrics.tokens.available" class="run-analytics__seam">
+				{{ t('hermiq', 'Tokens: {prompt} prompt + {completion} completion, recorded from OpenRegister run-cost.', { prompt: metrics.tokens.prompt, completion: metrics.tokens.completion }) }}
+			</p>
+			<p v-else class="run-analytics__seam">
+				{{ t('hermiq', 'Token usage will appear here once an agent run records it (OpenRegister run-cost). Tool-usage metrics are still a follow-up.') }}
 			</p>
 		</template>
 	</div>
@@ -176,6 +183,18 @@ export default {
 				return (ms / 1000).toFixed(1) + ' s'
 			}
 			return ms + ' ms'
+		},
+
+		/**
+		 * Total LLM tokens across the runs, or a dash when none recorded.
+		 *
+		 * @return {string|number} The total tokens, or a dash.
+		 */
+		totalTokens() {
+			if (this.metrics.tokens && this.metrics.tokens.available) {
+				return this.metrics.tokens.total
+			}
+			return '—'
 		},
 	},
 

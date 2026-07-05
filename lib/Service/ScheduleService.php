@@ -100,6 +100,14 @@ class ScheduleService
     private const DATE_TIME_FIELDS = ['nextRun', 'runAt'];
 
     /**
+     * Per-run LLM token/latency usage captured from OpenRegister's ChatService result, so
+     * writeRunAudit can record it for run-analytics (run-cost recording). Reset per run.
+     *
+     * @var array<string, int|float>
+     */
+    private array $lastRunUsage = [];
+
+    /**
      * Constructor.
      *
      * @param ObjectService      $objectService      OpenRegister object read/write (single write-path).
@@ -563,6 +571,8 @@ class ScheduleService
                 'startedAt'  => $startedAt->format('c'),
                 'endedAt'    => $endedAt->format('c'),
                 'durationMs' => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
+                // Per-run LLM token/latency usage from OpenRegister's ChatService (run-analytics).
+                'usage'      => $this->lastRunUsage,
                 // REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write.
                 'summary'    => $this->redactionService->redact($summary),
             ];
@@ -656,6 +666,9 @@ class ScheduleService
      */
     private function runAgentAsOwner(string $owner, string $agentId, string $prompt): string
     {
+        // Reset per-run usage so a failed run never records the previous run's tokens.
+        $this->lastRunUsage = [];
+
         $user = $this->userManager->get($owner);
         if ($user === null) {
             throw new RuntimeException("Schedule owner '{$owner}' does not exist");
@@ -679,11 +692,18 @@ class ScheduleService
                 userMessage: $prompt
             );
 
+            // Capture the LLM token/latency usage OpenRegister now reports, so writeRunAudit
+            // records it for run-analytics (run-cost recording). Empty when unavailable.
+            $usage = ($result['usage'] ?? []);
+            if (is_array($usage) === true) {
+                $this->lastRunUsage = $usage;
+            }
+
             return (string) ($result['message'] ?? '');
         } finally {
             // Restore the pre-impersonation identity (OpenConnector #1006 pattern).
             $this->userSession->setUser($priorUser);
-        }
+        }//end try
 
     }//end runAgentAsOwner()
 

@@ -10,10 +10,12 @@
  * only ever aggregate run entries that belong to a schedule the caller may see, so no
  * cross-tenant run data leaks.
  *
- * Cost/token/tool-usage are NOT recorded on Hermiq's run entry (they belong to
- * OpenRegister's ChatService/SearchTrail audit of the LLM call) — reported as unavailable,
- * never fabricated. This is an ADR-031 imperative read-surface service: it reads and shapes
- * an audit list, owning no schema, no write path, no store.
+ * LLM token usage is recorded per run when OpenRegister's ChatService reports it (run-cost
+ * recording): ScheduleService copies the `usage` from the agent-run result into the run
+ * audit entry, and this service sums it. When a run recorded no usage, tokens are reported
+ * as unavailable rather than a fabricated zero. Tool-usage remains a follow-up. This is an
+ * ADR-031 imperative read-surface service: it reads and shapes an audit list, owning no
+ * schema, no write path, no store.
  *
  * @category Service
  * @package  OCA\Hermiq\Service
@@ -102,11 +104,14 @@ class AnalyticsService
         // never be counted.
         $scheduleUuidToAgent = $this->loadScheduleUuidToAgent(agentId: $agentId);
 
-        $totalRuns       = 0;
-        $successRuns     = 0;
-        $statusBreakdown = [];
-        $durations       = [];
-        $perAgent        = [];
+        $totalRuns        = 0;
+        $successRuns      = 0;
+        $statusBreakdown  = [];
+        $durations        = [];
+        $perAgent         = [];
+        $promptTokens     = 0;
+        $completionTokens = 0;
+        $tokensRecorded   = false;
 
         if ($scheduleUuidToAgent !== []) {
             $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTION]);
@@ -130,6 +135,14 @@ class AnalyticsService
 
                 if (isset($context['durationMs']) === true && is_numeric($context['durationMs']) === true) {
                     $durations[] = (int) $context['durationMs'];
+                }
+
+                // Accumulate LLM token usage when OpenRegister recorded it (run-cost).
+                $usage = ($context['usage'] ?? null);
+                if (is_array($usage) === true && (isset($usage['promptTokens']) === true || isset($usage['completionTokens']) === true)) {
+                    $promptTokens     += (int) ($usage['promptTokens'] ?? 0);
+                    $completionTokens += (int) ($usage['completionTokens'] ?? 0);
+                    $tokensRecorded    = true;
                 }
 
                 if (isset($perAgent[$runAgent]) === false) {
@@ -157,9 +170,14 @@ class AnalyticsService
             'statusBreakdown' => $statusBreakdown,
             'latency'         => $this->latency(durations: $durations),
             'perAgent'        => array_values($perAgent),
-            // Cost/token/tool-usage are recorded by OpenRegister's LLM audit, not Hermiq's
-            // run entry — reported as unavailable until OR exposes them (never fabricated).
-            'cost'            => ['available' => false, 'note' => 'Awaiting OpenRegister run-cost recording.'],
+            // LLM token usage from OpenRegister's ChatService (run-cost recording). When no
+            // run recorded usage yet, availability is false rather than a fabricated zero.
+            'tokens'          => [
+                'available'  => $tokensRecorded,
+                'prompt'     => $promptTokens,
+                'completion' => $completionTokens,
+                'total'      => ($promptTokens + $completionTokens),
+            ],
         ];
 
     }//end computeAnalytics()
