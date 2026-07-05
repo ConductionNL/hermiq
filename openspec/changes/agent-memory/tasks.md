@@ -2,35 +2,35 @@
 
 ## 1. Schemas (register patch)
 
-- [ ] 1.1 Add a `Memory` schema to `lib/Settings/hermiq_register.json` (slug `memory`): required `agentId` (uuid); `entries` (array of `{text, createdAt}`, default `[]`); `charBudget` (int, default 8000); `needsConsolidation` (bool, default false). Flat, no `if`/`then`.
-- [ ] 1.2 Add a `UserProfile` schema (slug `userprofile`): required `agentId` (uuid); `subjectUid` (string); `entries` (array); `charBudget` (int, default 4000); `needsConsolidation` (bool, default false).
-- [ ] 1.3 Add a `Session` schema (slug `session`): required `agentId` (uuid); `title` (string); `startedAt`, `lastActivityAt` (date-time).
-- [ ] 1.4 Add a `SessionTurn` schema (slug `sessionturn`): required `sessionId` (uuid); `agentId` (uuid); `role` (enum `user|assistant|system|tool`); `content` (string); `createdAt` (date-time).
-- [ ] 1.5 Bump the register `info.version`; re-validate the JSON; import via the repair step against live OR and confirm the four schemas are created cleanly (existing schemas unchanged — union import, no regression).
+- [x] 1.1 Add a `Memory` schema to `lib/Settings/hermiq_register.json` (slug `memory`): required `agentId` (uuid); `entries` (array of `{text, createdAt}`, default `[]`); `charBudget` (int, default 8000); `needsConsolidation` (bool, default false). Flat, no `if`/`then`.
+- [x] 1.2 Add a `UserProfile` schema (slug `userprofile`): required `agentId` (uuid); `subjectUid` (string); `entries` (array); `charBudget` (int, default 4000); `needsConsolidation` (bool, default false).
+- [x] 1.3 Add a `Session` schema (slug **`agentsession`** — a bare `session` slug collides with another register's schema via OR's lower(slug) resolution): required `agentId` (uuid); `title` (string); `startedAt`, `lastActivityAt` (date-time).
+- [x] 1.4 Add a `SessionTurn` schema (slug **`agentsessionturn`**): required `sessionId` (uuid); `agentId` (uuid); `role` (enum `user|assistant|system|tool`); `content` (string); `createdAt` (date-time).
+- [x] 1.5 Bump the register `info.version`; re-validate the JSON; import via the repair step against live OR and confirm the four schemas are created cleanly (existing schemas unchanged — union import, no regression).
 
 ## 2. MemoryService
 
-- [ ] 2.1 Create `lib/Service/MemoryService.php` (SPDX docblock) with `getMemory(agentId)` / `getUserProfile(agentId, subjectUid)` (get-or-create via `ObjectService`, owner-impersonated so `owner`/`organisation` inherit).
-- [ ] 2.2 `appendMemoryEntry(agentId, text)` / `appendUserProfileEntry(agentId, subjectUid, text)`: append the entry with `createdAt`, recompute total character count, set `needsConsolidation=true` when the count exceeds `charBudget` — persist the entry regardless (never drop older entries), save via `ObjectService`.
-- [ ] 2.3 `consolidate(objectUuid, newEntries)`: replace `entries` with the consolidated set and clear `needsConsolidation`; save through `ObjectService`.
-- [ ] 2.4 `recordTurn(sessionId, agentId, role, content)`: append a `SessionTurn` and touch the parent `Session.lastActivityAt`; `startSession(agentId, title)` creates a `Session`.
-- [ ] 2.5 `recallSessions(agentId, query)`: tenant-scoped search over `SessionTurn.content` via OR `ObjectService` search (reuse OR's search/vectorization — no bespoke index), scoped to the caller's organisation; MUST NOT return turns from another organisation.
+- [x] 2.1 Create `lib/Service/MemoryService.php` (SPDX docblock) with `getMemory(agentId)` / `getUserProfile(agentId, subjectUid)` (get-or-create via `ObjectService`, owner-impersonated so `owner`/`organisation` inherit).
+- [x] 2.2 `appendMemoryEntry(agentId, text)` / `appendUserProfileEntry(agentId, subjectUid, text)`: append the entry with `createdAt`, recompute total character count, set `needsConsolidation=true` when the count exceeds `charBudget` — persist the entry regardless (never drop older entries), save via `ObjectService`.
+- [x] 2.3 `consolidate(objectUuid, newEntries)`: replace `entries` with the consolidated set and clear `needsConsolidation`; save through `ObjectService`.
+- [x] 2.4 `recordTurn(sessionId, agentId, role, content)`: append a `SessionTurn` and touch the parent `Session.lastActivityAt`; `startSession(agentId, title)` creates a `Session`.
+- [x] 2.5 `recallSessions(agentId, query)`: tenant-scoped search over `SessionTurn.content` via OR `ObjectService` search (reuse OR's search/vectorization — no bespoke index), scoped to the caller's organisation; MUST NOT return turns from another organisation.
 
 ## 3. Controller + routes
 
-- [ ] 3.1 Create `lib/Controller/MemoryController.php` (`@NoAdminRequired`, `@NoCSRFRequired`): `memory(agentId)`, `userProfiles(agentId)`, `sessions(agentId)`, `consolidate(objectId)`, `recall(agentId, q)` — each loads RBAC-scoped and refuses cross-tenant access (404, no content leak).
-- [ ] 3.2 Register the routes in `appinfo/routes.php` (`/api/agents/{agentId}/memory`, `/user-profiles`, `/sessions`, `/api/memory/{objectId}/consolidate`, `/api/agents/{agentId}/recall`) with explicit auth attributes.
+- [x] 3.1 Create `lib/Controller/MemoryController.php` (`@NoAdminRequired`, `@NoCSRFRequired`): `memory(agentId)`, `addMemory(agentId)` (operator-seed append), `userProfiles(agentId)`, `sessions(agentId)`, `consolidate(agentId)` (keyed on the agent's Memory; empty body ⇒ de-dupe), `recall(agentId, q)` — each loads RBAC-scoped and refuses cross-tenant access (404/empty, no content leak).
+- [x] 3.2 Register the routes in `appinfo/routes.php` (`/api/agents/{agentId}/memory` GET+POST, `/user-profiles`, `/sessions`, `/memory/consolidate`, `/recall`) with explicit auth attributes.
 
 ## 4. UI
 
-- [ ] 4.1 Add `src/api/memory.js` wrapping the memory/user-profile/session/consolidate/recall endpoints.
-- [ ] 4.2 Add `src/views/AgentMemory.vue` (mirror `ApprovalInbox.vue`): agent picker → memory entries list, a char-budget bar, a `needsConsolidation` badge with a "Consolidate" action, and a sessions list; `NcEmptyContent` + loading states; every `NcSelect` carries `inputLabel` (ADR-004).
-- [ ] 4.2 Register the Memory page in `src/manifest.json` (`route: /memory`, nav entry) + `src/registry.js` + `src/customComponents.js` (no bespoke router file).
+- [x] 4.1 Add `src/api/memory.js` wrapping the memory/user-profile/session/consolidate/recall endpoints.
+- [x] 4.2 Add `src/views/AgentMemory.vue` (mirror `ApprovalInbox.vue`): agent picker → memory entries list, a char-budget bar, a `needsConsolidation` badge with a "Consolidate" action, and a sessions list; `NcEmptyContent` + loading states; every `NcSelect` carries `inputLabel` (ADR-004).
+- [x] 4.2 Register the Memory page in `src/manifest.json` (`route: /memory`, nav entry) + `src/registry.js` + `src/customComponents.js` (no bespoke router file).
 
 ## 5. Verify
 
-- [ ] 5.1 Unit-test `MemoryService` the CI way (php:8.3-cli + stubs): append under/over budget (flag flips, nothing dropped), consolidate clears the flag, recall is org-scoped. Add OR stubs as needed.
-- [ ] 5.2 Verify live on NC + OR: append entries until the budget flips `needsConsolidation`; consolidate clears it; a second-org user cannot read the memory (cross-tenant denied). Then Playwright-test the Memory view in the browser (entries render, budget bar, consolidate action, session list) with 0 console errors.
+- [x] 5.1 Unit-test `MemoryService` the CI way (php:8.3-cli + stubs): append under/over budget (flag flips, nothing dropped), consolidate clears the flag, recall is org-scoped. Add OR stubs as needed.
+- [x] 5.2 Verify live on NC + OR: append entries until the budget flips `needsConsolidation`; consolidate clears it; a second-org user cannot read the memory (cross-tenant denied). Then Playwright-test the Memory view in the browser (entries render, budget bar, consolidate action, session list) with 0 console errors.
 
 ## Acceptance criteria
 
