@@ -80,6 +80,13 @@ class ScheduleService
     private const SCHEMA_SLUG = 'schedule';
 
     /**
+     * OpenRegister schema slug for tenant-control (kill-switch) objects.
+     *
+     * @var string
+     */
+    private const TENANT_CONTROL_SCHEMA = 'tenantcontrol';
+
+    /**
      * Schedule properties declared as `date-time` in the schema.
      *
      * OpenRegister's getObject() returns stored date-times as `Y-m-d H:i:s`
@@ -106,6 +113,7 @@ class ScheduleService
      * @param DeliveryService    $deliveryService    Real Talk/notification delivery (talk-delivery).
      * @param AuditTrailMapper   $auditTrailMapper   OR audit write-path for the explicit per-run entry (run-audit-log).
      * @param RedactionService   $redactionService   Masks secrets/PII BEFORE the audit write (run-audit-log).
+     * @param ApprovalService    $approvalService    Human-approval gate: ensures a pending Approval for gated runs (human-approval-gate-enforcement).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -122,6 +130,7 @@ class ScheduleService
         private readonly DeliveryService $deliveryService,
         private readonly AuditTrailMapper $auditTrailMapper,
         private readonly RedactionService $redactionService,
+        private readonly ApprovalService $approvalService,
     ) {
     }//end __construct()
 
@@ -151,16 +160,73 @@ class ScheduleService
             return;
         }
 
+        // Load engaged kill-switches ONCE per tick: any schedule whose organisation is
+        // in this set is halted synchronously before its agent runs (ADR-004 Art. 14).
+        $engagedOrganisations = $this->loadEngagedOrganisations();
+
         foreach ($due as $schedule) {
             // Per-schedule isolation: one bad schedule must not block the tick.
             try {
-                $this->dispatch(schedule: $schedule, now: $now);
+                $this->dispatch(schedule: $schedule, now: $now, engagedOrganisations: $engagedOrganisations);
             } catch (Throwable $e) {
                 $this->recordFailure(schedule: $schedule, error: $e);
             }
         }
 
     }//end run()
+
+    /**
+     * Load the set of organisations whose kill-switch (TenantControl) is engaged.
+     *
+     * Read once per tick (and per runNow) via a single register/schema-wide query.
+     * When engaged, ALL runs for that organisation are halted in dispatch(). A read
+     * failure is logged and treated as "no organisation engaged" so a transient
+     * TenantControl read error never silently halts every tenant — the dispatcher
+     * fails open on the read but the halt itself is a hard, synchronous block.
+     *
+     * @return array<int, string> The engaged organisation identifiers.
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-1
+     */
+    private function loadEngagedOrganisations(): array
+    {
+        try {
+            $objects = $this->objectService
+                ->setRegister(self::REGISTER_SLUG)
+                ->setSchema(self::TENANT_CONTROL_SCHEMA)
+                ->findAll(
+                    config: ['filters' => ['engaged' => true]],
+                    _rbac: false,
+                    _multitenancy: false
+                );
+        } catch (Throwable $e) {
+            $this->logger->error(
+                'Hermiq could not load engaged kill-switches: '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return [];
+        }
+
+        $organisations = [];
+        foreach ($objects as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $data = $object->getObject();
+            if (($data['engaged'] ?? false) !== true) {
+                continue;
+            }
+
+            $organisation = (string) ($object->getOrganisation() ?? '');
+            if ($organisation !== '') {
+                $organisations[] = $organisation;
+            }
+        }
+
+        return array_values(array_unique($organisations));
+
+    }//end loadEngagedOrganisations()
 
     /**
      * Run one schedule immediately, on demand (the "Run now" action).
@@ -181,20 +247,39 @@ class ScheduleService
      * same recordFailure() isolation as the tick and re-thrown so the controller can
      * return a graceful error response.
      *
-     * @param ObjectEntity $schedule The schedule to run right now.
+     * The kill-switch and the human-approval gate apply here exactly as on a tick: a
+     * "Run now" on a gated schedule creates a pending Approval instead of running, and
+     * a run for a halted organisation is skipped. The one exception is the authorised
+     * approval-run: ApprovalService approves the Approval and calls this method with
+     * `bypassApprovalGate=true`, which runs THIS occurrence without re-gating (the
+     * kill-switch still applies).
+     *
+     * @param ObjectEntity $schedule           The schedule to run right now.
+     * @param bool         $bypassApprovalGate When true, skip the requiresApproval gate
+     *                                         for this authorised occurrence (approval-run).
      *
      * @return void
      *
      * @throws Throwable When the run fails catastrophically (re-thrown after recording).
      *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) The bypass is a genuine two-mode
+     *   authorisation input (normal run vs. an already-approved occurrence), not a
+     *   responsibility split — both modes share the identical dispatch path.
+     *
      * @spec openspec/changes/agent-management-ui/tasks.md#task-1-1
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
      */
-    public function runNow(ObjectEntity $schedule): void
+    public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate=false): void
     {
         $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
         try {
-            $this->dispatch(schedule: $schedule, now: $now);
+            $this->dispatch(
+                schedule: $schedule,
+                now: $now,
+                engagedOrganisations: $this->loadEngagedOrganisations(),
+                bypassApprovalGate: $bypassApprovalGate
+            );
         } catch (Throwable $e) {
             // Same isolation as the tick loop, then re-throw so the caller can surface it.
             $this->recordFailure(schedule: $schedule, error: $e);
@@ -249,7 +334,104 @@ class ScheduleService
     }//end findDueSchedules()
 
     /**
-     * Process one due schedule end-to-end.
+     * Process one due schedule, applying the synchronous oversight gates first.
+     *
+     * Two hard blocks run BEFORE the agent is ever invoked (EU AI Act Art. 14):
+     *   1. KILL-SWITCH — if the schedule's organisation has an engaged TenantControl,
+     *      the run is skipped (never runs, even for an authorised approval-run).
+     *   2. APPROVAL GATE — if the schedule requires approval and this occurrence is not
+     *      authorised (bypass), a single pending Approval is ensured (idempotent) and
+     *      the reviewer notified; the agent does NOT run.
+     * Only when neither gate applies does the normal commit-before-run dispatch fire.
+     *
+     * @param ObjectEntity      $schedule             The schedule object to fire.
+     * @param DateTimeImmutable $now                  The current UTC moment.
+     * @param array<int,string> $engagedOrganisations Organisations whose kill-switch is engaged.
+     * @param bool              $bypassApprovalGate   When true, skip the requiresApproval gate
+     *                                                (an approved occurrence running via approve()).
+     *
+     * @return void
+     *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) The bypass is a genuine two-mode
+     *   authorisation input (normal run vs. an already-approved occurrence), not a
+     *   responsibility split — both modes share the identical dispatch path.
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-2
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-1
+     */
+    private function dispatch(
+        ObjectEntity $schedule,
+        DateTimeImmutable $now,
+        array $engagedOrganisations=[],
+        bool $bypassApprovalGate=false
+    ): void {
+        $data         = $schedule->getObject();
+        $owner        = (string) ($schedule->getOwner() ?? '');
+        $organisation = (string) ($schedule->getOrganisation() ?? '');
+
+        // GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
+        if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
+            $this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'skipped_killswitch');
+            return;
+        }
+
+        // GATE 2 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not
+        // run: ensure a single pending Approval (idempotent) and mark awaiting_approval.
+        if ($bypassApprovalGate === false && ($data['requiresApproval'] ?? false) === true) {
+            try {
+                $this->approvalService->ensurePendingApproval(schedule: $schedule);
+            } catch (Throwable $e) {
+                // Gate-setup failure is non-fatal: log and still block the run.
+                $this->logger->warning(
+                    sprintf('Hermiq approval gate setup failed for %s: %s', (string) $schedule->getUuid(), $e->getMessage()),
+                    ['exception' => $e]
+                );
+            }
+
+            $this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'awaiting_approval');
+            return;
+        }
+
+        $this->runDue(schedule: $schedule, now: $now);
+
+    }//end dispatch()
+
+    /**
+     * Record a gate skip: advance nextRun, set the gate status, persist, and audit.
+     *
+     * A gated/halted occurrence does NOT consume the repeat counter and does NOT
+     * disable the schedule — it simply does not run. nextRun IS advanced (per the gate
+     * contract) so a recurring schedule is not perpetually due while gated/halted. One
+     * redacted audit entry records the skip so no gated occurrence escapes the trail
+     * (ADR-004). Non-fatal by contract.
+     *
+     * @param ObjectEntity        $schedule The gated schedule.
+     * @param array<string,mixed> $data     The schedule payload (advanced + finalised here).
+     * @param string              $owner    The owner UID (for timezone-anchored next-run).
+     * @param DateTimeImmutable   $now      The current UTC moment.
+     * @param string              $status   The gate status (skipped_killswitch|awaiting_approval).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-1
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-2
+     */
+    private function recordGateSkip(ObjectEntity $schedule, array $data, string $owner, DateTimeImmutable $now, string $status): void
+    {
+        $startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        $nextRun            = $this->computeNextRun(kind: (string) ($data['kind'] ?? ''), data: $data, owner: $owner, now: $now);
+        $data['nextRun']    = $nextRun?->format('c');
+        $data['lastStatus'] = $status;
+        $data['lastError']  = null;
+
+        $this->persist(schedule: $schedule, data: $data);
+        $this->writeRunAudit(schedule: $schedule, data: $data, summary: '', startedAt: $startedAt);
+
+    }//end recordGateSkip()
+
+    /**
+     * Run one due schedule end-to-end (the normal, ungated path).
      *
      * Order matters for at-most-once safety: run-state (`nextRun`, `lastStatus`,
      * `repeat.completed`) is committed BEFORE the agent turn, so a crash during the
@@ -264,7 +446,7 @@ class ScheduleService
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-4
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-6
      */
-    private function dispatch(ObjectEntity $schedule, DateTimeImmutable $now): void
+    private function runDue(ObjectEntity $schedule, DateTimeImmutable $now): void
     {
         $data  = $schedule->getObject();
         $owner = (string) ($schedule->getOwner() ?? '');
@@ -345,7 +527,7 @@ class ScheduleService
 
         $this->persist(schedule: $schedule, data: $data);
 
-    }//end dispatch()
+    }//end runDue()
 
     /**
      * Write the explicit per-run AuditTrail entry via OpenRegister (run-audit-log).

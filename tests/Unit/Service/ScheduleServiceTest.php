@@ -29,6 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\RedactionService;
@@ -136,6 +137,13 @@ class ScheduleServiceTest extends TestCase
     private array $auditCalls = [];
 
     /**
+     * Mock ApprovalService (human-approval gate).
+     *
+     * @var ApprovalService&MockObject
+     */
+    private ApprovalService $approvalService;
+
+    /**
      * Service under test.
      *
      * @var ScheduleService
@@ -213,6 +221,9 @@ class ScheduleServiceTest extends TestCase
         // Real redactor (force-redacts regardless of the frozen toggle).
         $this->redactionService = new RedactionService($this->config);
 
+        // Approval gate is not exercised by the base dispatcher tests.
+        $this->approvalService = $this->createMock(ApprovalService::class);
+
         $this->service = $this->makeService();
 
     }//end setUp()
@@ -236,6 +247,7 @@ class ScheduleServiceTest extends TestCase
             deliveryService: $this->deliveryService,
             auditTrailMapper: $this->auditTrailMapper,
             redactionService: $this->redactionService,
+            approvalService: $this->approvalService,
         );
 
     }//end makeService()
@@ -1074,8 +1086,9 @@ class ScheduleServiceTest extends TestCase
             'now-sched'
         );
 
-        // findDueSchedules() must NOT be consulted — runNow targets one schedule directly.
-        $this->objectService->expects($this->never())->method('findAll');
+        // findDueSchedules() must NOT be consulted — runNow targets one schedule
+        // directly. It does call findAll once to load engaged kill-switches (none here).
+        $this->objectService->method('findAll')->willReturn([]);
         $this->objectService->expects($this->atLeastOnce())->method('saveObject')->willReturn(new ObjectEntity());
 
         $this->service->runNow($schedule);
@@ -1087,4 +1100,242 @@ class ScheduleServiceTest extends TestCase
         $this->assertSame('agent-uuid', $this->auditCalls[0]['context']['agentId']);
 
     }//end testRunNowDrivesDispatchPath()
+
+    /**
+     * An engaged kill-switch halts a due schedule for that organisation: the agent
+     * NEVER runs, the schedule records lastStatus='skipped_killswitch', and one audit
+     * entry captures the skip. Runs for other organisations are unaffected.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-2
+     */
+    public function testKillSwitchSkipsRun(): void
+    {
+        // The agent must never be invoked for a halted organisation.
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+        $this->service = $this->makeService();
+
+        $killed = $this->schedule(
+            [
+                'kind'            => 'interval',
+                'intervalMinutes' => 60,
+                'agentId'         => 'agent-uuid',
+                'prompt'          => 'go',
+                'deliver'         => 'none',
+                'enabled'         => true,
+                'nextRun'         => '2000-01-01T00:00:00+00:00',
+                'repeat'          => ['times' => 0, 'completed' => 0],
+            ],
+            'killed-sched'
+        );
+        $killed->setOrganisation('org-x');
+
+        $control = new ObjectEntity();
+        $control->setUuid('ctrl-1');
+        $control->setOrganisation('org-x');
+        $control->setObject(['engaged' => true]);
+
+        // findAll: call 1 = due schedules; call 2 = engaged kill-switches.
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$killed], [$control]);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $this->assertNotEmpty($saved, 'A halted schedule must still persist its skip state.');
+        $final = end($saved);
+        $this->assertSame('skipped_killswitch', $final['lastStatus'], 'A killed run must record skipped_killswitch.');
+        $this->assertCount(1, $this->auditCalls, 'A halted run must still be audited.');
+        $this->assertSame('skipped_killswitch', $this->auditCalls[0]['context']['status']);
+
+    }//end testKillSwitchSkipsRun()
+
+    /**
+     * A schedule requiring approval does NOT run its agent: the gate ensures a pending
+     * Approval (idempotent, once per due occurrence) and records lastStatus=awaiting_approval.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-1
+     */
+    public function testApprovalGateCreatesPendingAndSkipsRun(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+
+        // The gate must ask ApprovalService for exactly one pending Approval.
+        $this->approvalService = $this->createMock(ApprovalService::class);
+        $this->approvalService->expects($this->once())->method('ensurePendingApproval');
+        $this->service = $this->makeService();
+
+        $gated = $this->schedule(
+            [
+                'kind'             => 'interval',
+                'intervalMinutes'  => 60,
+                'agentId'          => 'agent-uuid',
+                'prompt'           => 'sensitive',
+                'deliver'          => 'none',
+                'enabled'          => true,
+                'requiresApproval' => true,
+                'nextRun'          => '2000-01-01T00:00:00+00:00',
+                'repeat'           => ['times' => 0, 'completed' => 0],
+            ],
+            'gated-sched'
+        );
+
+        // call 1 = due; call 2 = engaged kill-switches (none).
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$gated], []);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('awaiting_approval', $final['lastStatus'], 'A gated run must await approval, not run.');
+        $this->assertSame('awaiting_approval', $this->auditCalls[0]['context']['status']);
+
+    }//end testApprovalGateCreatesPendingAndSkipsRun()
+
+    /**
+     * "Run now" on a gated schedule also gates: the agent does not run and a pending
+     * Approval is ensured (default bypass=false).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-1
+     */
+    public function testRunNowGatesApprovalWhenNotBypassed(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+
+        $this->approvalService = $this->createMock(ApprovalService::class);
+        $this->approvalService->expects($this->once())->method('ensurePendingApproval');
+        $this->service = $this->makeService();
+
+        $gated = $this->schedule(
+            [
+                'kind'             => 'interval',
+                'intervalMinutes'  => 60,
+                'agentId'          => 'agent-uuid',
+                'prompt'           => 'sensitive',
+                'deliver'          => 'none',
+                'enabled'          => true,
+                'requiresApproval' => true,
+                'nextRun'          => '2030-01-01T00:00:00+00:00',
+                'repeat'           => ['times' => 0, 'completed' => 0],
+            ],
+            'gated-sched'
+        );
+
+        // runNow only loads engaged kill-switches (none) — no due-schedule scan.
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow($gated);
+
+        $this->assertSame('awaiting_approval', $this->auditCalls[0]['context']['status']);
+
+    }//end testRunNowGatesApprovalWhenNotBypassed()
+
+    /**
+     * An authorised approval-run (runNow bypass=true) executes the agent WITHOUT
+     * re-gating — it never creates another pending Approval.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+     */
+    public function testApprovalBypassRunsAgentWithoutGating(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->once())->method('processMessage')->willReturn(['message' => 'ran']);
+
+        $this->approvalService = $this->createMock(ApprovalService::class);
+        $this->approvalService->expects($this->never())->method('ensurePendingApproval');
+        $this->service = $this->makeService();
+
+        $gated = $this->schedule(
+            [
+                'kind'             => 'interval',
+                'intervalMinutes'  => 60,
+                'agentId'          => 'agent-uuid',
+                'prompt'           => 'authorised',
+                'deliver'          => 'none',
+                'enabled'          => true,
+                'requiresApproval' => true,
+                'nextRun'          => '2030-01-01T00:00:00+00:00',
+                'repeat'           => ['times' => 0, 'completed' => 0],
+            ],
+            'gated-sched'
+        );
+
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow($gated, true);
+
+        $this->assertSame('run', $this->auditCalls[0]['action']);
+        $this->assertSame('ok', $this->auditCalls[0]['context']['status'], 'An approved run must execute the agent.');
+
+    }//end testApprovalBypassRunsAgentWithoutGating()
+
+    /**
+     * The kill-switch takes priority over an authorised approval-run: even with the
+     * approval gate bypassed, a halted organisation's run is skipped.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-2
+     */
+    public function testKillSwitchOverridesApprovalBypass(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+        $this->service = $this->makeService();
+
+        $gated = $this->schedule(
+            [
+                'kind'             => 'interval',
+                'intervalMinutes'  => 60,
+                'agentId'          => 'agent-uuid',
+                'prompt'           => 'authorised but halted',
+                'deliver'          => 'none',
+                'enabled'          => true,
+                'requiresApproval' => true,
+                'nextRun'          => '2030-01-01T00:00:00+00:00',
+                'repeat'           => ['times' => 0, 'completed' => 0],
+            ],
+            'gated-sched'
+        );
+        $gated->setOrganisation('org-x');
+
+        $control = new ObjectEntity();
+        $control->setUuid('ctrl-1');
+        $control->setOrganisation('org-x');
+        $control->setObject(['engaged' => true]);
+
+        // runNow loads engaged kill-switches → org-x engaged.
+        $this->objectService->method('findAll')->willReturn([$control]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow($gated, true);
+
+        $this->assertSame('skipped_killswitch', $this->auditCalls[0]['context']['status']);
+
+    }//end testKillSwitchOverridesApprovalBypass()
 }//end class

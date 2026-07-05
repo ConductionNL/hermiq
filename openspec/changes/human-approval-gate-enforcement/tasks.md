@@ -2,35 +2,35 @@
 
 ## 1. ApprovalService (create pending + apply decision)
 
-- [ ] 1.1 Create `lib/Service/ApprovalService.php` (SPDX docblock) with `createPending(ObjectEntity $schedule)` that builds a `status=pending` `Approval` payload (`scheduleId`, `agentId`, `prompt`, `requestedAt`) plus the resolved `reviewer`/`reviewerType`, and saves it via `ObjectService`, inheriting the schedule `owner`/`organisation`.
-- [ ] 1.2 Add a `resolveReviewer(ObjectEntity $schedule)` helper: use the schedule's `reviewer`/`reviewerType`; default to the owner (`reviewerType=user`) when `reviewer` is empty; expose an `isReviewer($approval, string $uid)` check that admits the reviewer user, a member of the reviewer group (via `IGroupManager`), or an instance admin.
-- [ ] 1.3 Add `applyDecision($approval, string $decision, string $uid, ?string $reason)` that sets `status` (`approved`|`denied`), `decidedAt`, `decidedBy`, `reason` and saves via `ObjectService`; write a redacted decision `AuditTrail` entry (mirror `writeRunAudit()`).
-- [ ] 1.4 Guard against duplicate pending approvals: do not create a second pending `Approval` for a schedule that already has one open.
+- [x] 1.1 Create `lib/Service/ApprovalService.php` (SPDX docblock) with `ensurePendingApproval(ObjectEntity $schedule)` (idempotent; implements the `createPending` intent) that builds a `status=pending` `Approval` payload (`scheduleId`, `agentId`, `prompt`, `requestedAt`) plus the resolved `reviewer`/`reviewerType`, and saves it via `ObjectService`, impersonating the owner so `owner`/`organisation` are inherited.
+- [x] 1.2 Add a `resolveReviewer(ObjectEntity $schedule)` helper: use the schedule's `reviewer`/`reviewerType`; default to the owner (`reviewerType=user`) when `reviewer` is empty; expose an `isReviewer($approval, string $uid)` check that admits the reviewer user, a member of the reviewer group (via `IGroupManager`), or an instance admin.
+- [x] 1.3 Add `approve()` / `deny($reason)` (implementing the `applyDecision` intent) that set `status` (`approved`|`denied`), `decidedAt`, `decidedBy`, `reason` and save via `ObjectService`; write a redacted decision `AuditTrail` entry (mirror `writeRunAudit()`).
+- [x] 1.4 Guard against duplicate pending approvals: `ensurePendingApproval` checks `findPendingApprovalForSchedule(scheduleId)` first and no-ops (no create, no re-notify) when one is already open.
 
 ## 2. Dispatcher approval gate (ScheduleService)
 
-- [ ] 2.1 In `dispatch()`, before `runAgentAsOwner()`, branch when the schedule's `requiresApproval=true`: call `ApprovalService::createPending()` (which resolves + copies the reviewer), set `lastStatus='awaiting_approval'`, write an `action='gated'` audit entry, and return without running (keep the commit-before-run advance so no re-enqueue).
-- [ ] 2.2 Notify the resolved reviewer (designated user, or each member of the reviewer group — not the owner unless owner==reviewer) of the new pending `Approval` by reusing `DeliveryService` (Talk with Notifications fallback, deep-linked); a notification failure is a warning, never fatal to the tick.
+- [x] 2.1 In `dispatch()`, before `runAgentAsOwner()`, branch when the schedule's `requiresApproval=true`: call `ApprovalService::ensurePendingApproval()` (which resolves + copies the reviewer), set `lastStatus='awaiting_approval'`, write a redacted audit entry, and return without running (advance `nextRun` so no perpetual re-enqueue; repeat/enabled untouched).
+- [x] 2.2 Notify the resolved reviewer (designated user, or each member of the reviewer group — not the owner unless owner==reviewer) of the new pending `Approval` via `DeliveryService::deliverApprovalRequest` (per-reviewer notification + best-effort Talk note-to-self, deep-linked); a notification failure is a warning, never fatal to the tick.
 
 ## 3. Dispatcher kill-switch (ScheduleService)
 
-- [ ] 3.1 In `run()`, load engaged controls once per tick (`findAll(TenantControl, filters:{engaged:true}, _rbac:false, _multitenancy:false)`) into a set of engaged organisations.
-- [ ] 3.2 In `dispatch()`, before firing (and before the approval gate), skip any schedule whose organisation is engaged: set `lastStatus='skipped_killswitch'`, write an `action='skipped'` redacted audit entry, and return without running.
+- [x] 3.1 In `run()`, load engaged controls once per tick (`loadEngagedOrganisations()` → `findAll(tenantcontrol, filters:{engaged:true}, _rbac:false, _multitenancy:false)`) into a set of engaged organisations (also loaded in `runNow`).
+- [x] 3.2 In `dispatch()`, before the approval gate, skip any schedule whose organisation is engaged: set `lastStatus='skipped_killswitch'`, write a redacted audit entry, and return without running (priority over the approval bypass).
 
 ## 4. Approve / deny endpoints (reviewer/admin-guarded)
 
-- [ ] 4.1 Create `lib/Controller/ApprovalController.php` mirroring `RunNowController`: `@NoAdminRequired` + `@NoCSRFRequired`, a `loadDecidableApproval()` that fetches with RBAC and returns 404 unless the caller passes `ApprovalService::isReviewer()` (reviewer user / reviewer-group member / instance admin) — NOT the owner unless owner==reviewer.
-- [ ] 4.2 `approve($approvalId)` → `ApprovalService::applyDecision(...,'approved',...)` then execute the gated run via `ScheduleService::runNow` for the bound schedule; return the outcome.
-- [ ] 4.3 `deny($approvalId)` → `ApprovalService::applyDecision(...,'denied', reason)` and record it; the gated run MUST NOT execute.
+- [x] 4.1 Create `lib/Controller/ApprovalController.php` mirroring `RunNowController`: `@NoAdminRequired` + `@NoCSRFRequired`, an `ensureDecidableApproval()` guard that loads the Approval RBAC-off and returns 404 unless the caller passes `ApprovalService::isReviewer()` (reviewer user / reviewer-group member / instance admin) — NOT the owner unless owner==reviewer — plus 409 when already decided.
+- [x] 4.2 `approve($approvalId)` → `ApprovalService::approve()` (sets approved) then executes the gated run via `ScheduleService::runNow(schedule, bypassApprovalGate:true)` (resolved lazily from the container); returns the outcome.
+- [x] 4.3 `deny($approvalId)` → `ApprovalService::deny(reason)` and record it; the gated run MUST NOT execute.
 
 ## 5. Kill-switch toggle endpoint (subadmin/instance-admin-guarded)
 
-- [ ] 5.1 Add a toggle (controller or method) that engages/disengages an organisation's `TenantControl` via `ObjectService` (`engaged`, `engagedBy`, `engagedAt`); guard with `IGroupManager` so only an instance admin (`isAdmin`) or a sub-admin of the organisation's NC group may toggle it (org→group per the design assumption); refuse a plain owner and any cross-tenant toggle.
+- [x] 5.1 Add `TenantControlService` (read/toggle `TenantControl` via `ObjectService`: `engaged`, `engagedBy`, `engagedAt`) + `TenantControlController` (show/toggle) guarded with `IGroupManager`/`ISubAdmin` so only an instance admin (`isAdmin`) or a sub-admin of the organisation's NC group may toggle it (org==group id per the design assumption); refuse a plain owner and any cross-tenant toggle.
 
 ## 6. Routes and verification
 
-- [ ] 6.1 Register the approve/deny/kill-switch routes in `appinfo/routes.php` with explicit auth attributes (route-auth gate); confirm each route resolves to an existing controller method (route-reachability).
-- [ ] 6.2 Verify live on NC + OpenRegister: a `requiresApproval=true` schedule with a group reviewer creates a pending `Approval` routed to + notifying the reviewer (no agent run, owner not notified); a reviewer-group member approves → agent runs; deny blocks it; the owner (≠ reviewer) gets 404 on approve/deny; an engaged `TenantControl` skips all of that org's runs while other orgs run; a non-subadmin gets refused on toggle.
+- [x] 6.1 Register the approve/deny/kill-switch routes in `appinfo/routes.php` with explicit auth attributes (route-auth gate); each route resolves to an existing controller method (route-reachability gate PASS).
+- [x] 6.2 Verified live on NC 34 + OR 0.2.17: a `requiresApproval=true` schedule (reviewer = a distinct user) run → `awaiting_approval`, no agent run, exactly ONE pending `Approval` routed to the reviewer, `nextRun` advanced; a second run created NO duplicate (idempotent); an unauthorized user (neither owner/admin/reviewer) got HTTP 404 on approve; the reviewer approved → agent ran (`ran:true`, schedule `lastStatus=ok`); the instance admin can also approve; deny → `status=denied`, no run (schedule stays `awaiting_approval`); engaging the org's `TenantControl` (as instance admin) → a normal run returned `skipped_killswitch` (no agent, `nextRun` advanced); a non-subadmin/non-admin got HTTP 403 on toggle; disengage OK. (Group-reviewer path is unit-tested; verified the user-reviewer path live.)
 
 ## Acceptance criteria
 

@@ -26,6 +26,15 @@ return [
         // Run now — owner-scoped immediate run of a schedule's agent (agent-management-ui).
         ['name' => 'runNow#run', 'url' => '/api/schedules/{scheduleId}/run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
+        // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
+        ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
+        ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+        ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
+
+        // Per-organisation kill-switch (human-approval-gate-enforcement): read + toggle.
+        ['name' => 'tenantControl#show',   'url' => '/api/tenant-control/{organisation}', 'verb' => 'GET', 'requirements' => ['organisation' => '[^/]+']],
+        ['name' => 'tenantControl#toggle', 'url' => '/api/tenant-control/{organisation}/toggle', 'verb' => 'POST', 'requirements' => ['organisation' => '[^/]+']],
+
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],
