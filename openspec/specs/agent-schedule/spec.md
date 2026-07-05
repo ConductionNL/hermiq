@@ -1,6 +1,6 @@
 # Agent Schedule Specification
 
-**Status**: in-progress
+**Status**: active (shipped to `main` v0.1.10; cron/interval/once dispatcher with commit-before-run at-most-once, live-verified)
 **Standards**: cron (POSIX 5/6-field), OpenAPI
 **Feature tier**: MVP
 

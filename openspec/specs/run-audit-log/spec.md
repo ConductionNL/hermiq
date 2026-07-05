@@ -1,6 +1,6 @@
 # Run Audit Log Specification
 
-**Status**: in-progress
+**Status**: active (shipped to `main` v0.1.10; run entries in OR AuditTrail, owner-scoped history read, live-verified)
 **Standards**: EU AI Act (Reg. 2024/1689) Art. 12 & 19, AVG/GDPR Art. 30
 **Feature tier**: MVP
 

@@ -1,6 +1,6 @@
 # Talk Delivery Specification
 
-**Status**: in-progress
+**Status**: active (shipped to `main` v0.1.10; Talk room → note-to-self → notification fallback, live-verified)
 **Standards**: Nextcloud Talk (spreed) OCS API, Nextcloud Notifications
 **Feature tier**: MVP
 

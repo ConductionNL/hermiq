@@ -1,6 +1,6 @@
 # Agent Management UI Specification
 
-**Status**: in-progress
+**Status**: active (shipped to `main` v0.1.10; agent catalog + attach-schedule + Run-now + run-history live-verified)
 **Standards**: WCAG 2.1 AA
 **Feature tier**: MVP
 
