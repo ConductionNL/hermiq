@@ -122,16 +122,36 @@ class SkillMarketplaceController extends Controller
         }
 
         try {
-            $skill = $this->skillMarketplaceService->approveQuarantined(skillId: $id);
+            $force = (bool) $this->request->getParam('force', false);
+            $skill = $this->skillMarketplaceService->approveQuarantined(skillId: $id, force: $force);
             if ($skill === null) {
                 return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
             }
 
-            return new JSONResponse($this->shape(object: $skill));
+            $shaped = $this->shape(object: $skill);
+
+            // A non-forced approve leaves the skill quarantined ONLY when the content scanner
+            // blocked it (a dangerous verdict). Signal 409 so the UI can present the findings
+            // (from the recorded scanReport, and always the quarantineReason) and offer an
+            // explicit override. State-based detection is robust even if the store drops the
+            // scanReport object.
+            if (($shaped['state'] ?? '') === 'quarantined' && $force === false) {
+                return new JSONResponse(
+                    [
+                        'error'            => 'Approval blocked: content scan flagged dangerous patterns.',
+                        'scanReport'       => ($shaped['scanReport'] ?? []),
+                        'quarantineReason' => ($shaped['quarantineReason'] ?? ''),
+                        'skill'            => $shaped,
+                    ],
+                    Http::STATUS_CONFLICT
+                );
+            }
+
+            return new JSONResponse($shaped);
         } catch (Throwable $e) {
             $this->logger->error('Hermiq skill approve failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Approve failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+        }//end try
 
     }//end approve()
 

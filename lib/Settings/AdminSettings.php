@@ -71,6 +71,8 @@ class AdminSettings implements ISettings
      * Get the section ID this settings page belongs to.
      *
      * @return string
+     *
+     * @spec exclude Trivial settings-section binding; no behavioural spec.
      */
     public function getSection(): string
     {

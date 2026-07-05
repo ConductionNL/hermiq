@@ -299,7 +299,8 @@
           "staleSince": { "type": "string", "format": "date-time", "description": "When the Curator marked the skill stale." },
           "archivedAt": { "type": "string", "format": "date-time", "description": "When the Curator archived the skill (never hard-deleted)." },
           "createdBy": { "type": "string", "description": "The user id who imported/created the skill." },
-          "installedOn": { "type": "array", "default": [], "description": "Agent UUIDs this skill is installed on.", "items": { "type": "string", "format": "uuid" } }
+          "installedOn": { "type": "array", "default": [], "description": "Agent UUIDs this skill is installed on.", "items": { "type": "string", "format": "uuid" } },
+          "scanReport": { "type": "object", "description": "Heuristic content-scan verdict from OpenRegister ContentScanService, recorded at install and re-checked at approval (skills-marketplace). A 'dangerous' verdict blocks one-click approval.", "properties": { "severity": { "type": "string", "enum": ["clean", "suspicious", "dangerous"], "description": "Worst verdict across findings." }, "safe": { "type": "boolean", "description": "True only when severity is 'clean'." }, "scannedAt": { "type": "string", "format": "date-time", "description": "When the scan ran." }, "findings": { "type": "array", "description": "Matched dangerous patterns.", "items": { "type": "object", "properties": { "category": { "type": "string" }, "severity": { "type": "string" }, "reason": { "type": "string" }, "excerpt": { "type": "string" } } } } } }
         }
       },
       "SkillSource": {

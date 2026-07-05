@@ -9,11 +9,14 @@
  * OpenConnector. All persistence flows through OpenRegister ObjectService (single
  * write-path, native tenant scoping, ADR-001 Option C+/ADR-003).
  *
- * OpenRegister has no content-scanning service (its SecurityService is auth rate-limiting),
- * so the "security scan" is realised as an explicit review gate (approveQuarantined); the
- * quarantine invariant — an externally-sourced skill is never auto-active — holds regardless.
- * Hub submission goes through OpenConnector's CallService (no direct HTTP); with no hub
- * connector configured it returns a structured error.
+ * Externally-sourced skill content is heuristically scanned on install via OpenRegister's
+ * ContentScanService (remote-code / destructive-shell / exfiltration / embedded-secret /
+ * prompt-injection patterns); the verdict is recorded on the skill and a `dangerous` verdict
+ * blocks one-click approval, so a reviewer must consciously override it. The quarantine
+ * invariant — an externally-sourced skill is never auto-active — holds regardless, with the
+ * scan enriching the review gate rather than replacing it. Hub submission goes through
+ * OpenConnector's CallService (no direct HTTP); with no hub connector configured it returns
+ * a structured error.
  *
  * @category Service
  * @package  OCA\Hermiq\Service
@@ -38,6 +41,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
 use Psr\Container\ContainerInterface;
@@ -83,12 +87,13 @@ class SkillMarketplaceService
     /**
      * Constructor.
      *
-     * @param ObjectService      $objectService   OpenRegister object read/write (single write-path).
-     * @param SkillService       $skillService    Catalog service (get-by-uuid).
-     * @param SkillSerializer    $skillSerializer agentskills.io (de)serialiser.
-     * @param IAppConfig         $appConfig       App config (curator thresholds).
-     * @param ContainerInterface $container       Lazy OpenConnector CallService resolution.
-     * @param LoggerInterface    $logger          PSR-3 logger.
+     * @param ObjectService      $objectService      OpenRegister object read/write (single write-path).
+     * @param SkillService       $skillService       Catalog service (get-by-uuid).
+     * @param SkillSerializer    $skillSerializer    agentskills.io (de)serialiser.
+     * @param ContentScanService $contentScanService OpenRegister heuristic content scanner.
+     * @param IAppConfig         $appConfig          App config (curator thresholds).
+     * @param ContainerInterface $container          Lazy OpenConnector CallService resolution.
+     * @param LoggerInterface    $logger             PSR-3 logger.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Distinct collaborators.
      */
@@ -96,6 +101,7 @@ class SkillMarketplaceService
         private readonly ObjectService $objectService,
         private readonly SkillService $skillService,
         private readonly SkillSerializer $skillSerializer,
+        private readonly ContentScanService $contentScanService,
         private readonly IAppConfig $appConfig,
         private readonly ContainerInterface $container,
         private readonly LoggerInterface $logger,
@@ -122,6 +128,12 @@ class SkillMarketplaceService
             $name = 'Untitled skill';
         }
 
+        // Heuristically scan the skill body + frontmatter for dangerous patterns before it is
+        // ever stored as trusted content. The verdict is recorded; a 'dangerous' verdict is
+        // surfaced in the quarantine reason and later blocks one-click approval.
+        $scan   = $this->scanContent(body: (string) $parsed['body'], frontmatter: $parsed['frontmatter']);
+        $reason = $this->quarantineReasonFor(source: $source, scan: $scan);
+
         return $this->objectService->saveObject(
             object: [
                 'name'             => $name,
@@ -131,7 +143,8 @@ class SkillMarketplaceService
                 'files'            => [],
                 'state'            => 'quarantined',
                 'source'           => $source,
-                'quarantineReason' => 'Installed from '.$source.'; awaiting review before activation.',
+                'quarantineReason' => $reason,
+                'scanReport'       => $scan,
                 'lastActivityAt'   => $this->now(),
                 'createdBy'        => $createdBy,
                 'installedOn'      => [],
@@ -145,13 +158,18 @@ class SkillMarketplaceService
     /**
      * The review gate: transition a quarantined skill to active.
      *
+     * A `dangerous` content-scan verdict blocks one-click approval — the skill stays
+     * quarantined and the caller is told to override explicitly (approveQuarantined with
+     * $force=true), so a reviewer cannot activate malicious content by reflex.
+     *
      * @param string $skillId The Skill UUID.
+     * @param bool   $force   Override a `dangerous` scan verdict (a conscious reviewer decision).
      *
      * @return ObjectEntity|null The updated Skill, or null when not found.
      *
      * @spec openspec/changes/skills-marketplace/tasks.md#task-2-2
      */
-    public function approveQuarantined(string $skillId): ?ObjectEntity
+    public function approveQuarantined(string $skillId, bool $force=false): ?ObjectEntity
     {
         $skill = $this->skillService->getSkill(skillId: $skillId);
         if ($skill === null) {
@@ -162,6 +180,19 @@ class SkillMarketplaceService
         if ((string) ($data['state'] ?? '') !== 'quarantined') {
             // Not quarantined — nothing to approve; return unchanged.
             return $skill;
+        }
+
+        // Re-scan at the gate (content is authoritative; the stored report may be stale) and
+        // refuse to auto-activate a dangerous skill unless a reviewer explicitly overrides.
+        $scan = $this->scanContent(body: (string) ($data['body'] ?? ''), frontmatter: ($data['frontmatter'] ?? []));
+        $data['scanReport'] = $scan;
+        if (($scan['severity'] ?? '') === ContentScanService::SEVERITY_DANGEROUS && $force === false) {
+            $data['quarantineReason'] = $this->quarantineReasonFor(source: (string) ($data['source'] ?? 'org'), scan: $scan);
+            $this->logger->warning(
+                'Hermiq blocked one-click approval of a dangerous skill',
+                ['skillId' => $skillId, 'findings' => count($scan['findings'] ?? [])]
+            );
+            return $this->save(data: $data, uuid: (string) $skill->getUuid());
         }
 
         $data['state']            = 'active';
@@ -357,6 +388,63 @@ class SkillMarketplaceService
         return (($now - $ts) >= $thresholdSeconds);
 
     }//end olderThanDays()
+
+    /**
+     * Run the OpenRegister content scanner over a skill's body + frontmatter and return a
+     * report augmented with the scan time (for the scanReport field).
+     *
+     * Frontmatter arrives as raw YAML (a string) from the agentskills.io serializer, or as a
+     * decoded array elsewhere; a string is scanned inline with the body, an array is folded in
+     * as structured metadata.
+     *
+     * @param string $body        The skill body (markdown/instructions).
+     * @param mixed  $frontmatter The skill frontmatter (raw YAML string or decoded array).
+     *
+     * @return array<string, mixed> The scan report { severity, safe, findings, scannedAt, … }.
+     */
+    private function scanContent(string $body, mixed $frontmatter): array
+    {
+        $content  = $body;
+        $metadata = [];
+        if (is_array($frontmatter) === true) {
+            $metadata = $frontmatter;
+        } else if (is_string($frontmatter) === true && $frontmatter !== '') {
+            $content .= "\n".$frontmatter;
+        }
+
+        $report = $this->contentScanService->scan(content: $content, metadata: $metadata);
+        $report['scannedAt'] = $this->now();
+
+        return $report;
+
+    }//end scanContent()
+
+    /**
+     * The quarantine reason for a freshly-installed or re-scanned skill, reflecting the scan
+     * verdict so a reviewer sees why it needs attention.
+     *
+     * @param string               $source The install source (`org`|`hub`|`local`).
+     * @param array<string, mixed> $scan   The scan report from scanContent().
+     *
+     * @return string The human-readable quarantine reason.
+     */
+    private function quarantineReasonFor(string $source, array $scan): string
+    {
+        $severity = (string) ($scan['severity'] ?? ContentScanService::SEVERITY_CLEAN);
+        $count    = count(($scan['findings'] ?? []));
+
+        if ($severity === ContentScanService::SEVERITY_DANGEROUS) {
+            return 'Installed from '.$source.'; content scan flagged '.$count.' DANGEROUS pattern(s) — '
+                .'review before activation (approval is blocked until overridden).';
+        }
+
+        if ($severity === ContentScanService::SEVERITY_SUSPICIOUS) {
+            return 'Installed from '.$source.'; content scan flagged '.$count.' suspicious pattern(s) — review before activation.';
+        }
+
+        return 'Installed from '.$source.'; awaiting review before activation.';
+
+    }//end quarantineReasonFor()
 
     /**
      * The current UTC timestamp in ISO-8601.
