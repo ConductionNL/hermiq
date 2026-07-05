@@ -5,8 +5,8 @@
  *
  * Stands in for OCA\OpenRegister\Db\ObjectEntity when OpenRegister is not
  * installed (standalone CI). Exposes only the accessors Hermiq's ScheduleService
- * reads/writes: uuid, owner, and the JSON object payload. The real entity ships
- * with OpenRegister at runtime.
+ * and ApprovalService read/write: uuid, owner, organisation, and the JSON object
+ * payload. The real entity ships with OpenRegister at runtime.
  *
  * @category Test
  * @package  OCA\OpenRegister\Db
@@ -41,6 +41,13 @@ class ObjectEntity
      * @var string|null
      */
     private ?string $owner = null;
+
+    /**
+     * The organisation identifier (tenant scope).
+     *
+     * @var string|null
+     */
+    private ?string $organisation = null;
 
     /**
      * The JSON object payload.
@@ -92,6 +99,28 @@ class ObjectEntity
     {
         $this->owner = $owner;
     }//end setOwner()
+
+    /**
+     * Get the organisation identifier.
+     *
+     * @return string|null
+     */
+    public function getOrganisation(): ?string
+    {
+        return $this->organisation;
+    }//end getOrganisation()
+
+    /**
+     * Set the organisation identifier.
+     *
+     * @param string|null $organisation The organisation identifier.
+     *
+     * @return void
+     */
+    public function setOrganisation(?string $organisation): void
+    {
+        $this->organisation = $organisation;
+    }//end setOrganisation()
 
     /**
      * Get the JSON object payload.

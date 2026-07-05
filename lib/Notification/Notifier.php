@@ -104,7 +104,8 @@ class Notifier implements INotifier
             throw new UnknownNotificationException('Notification not handled by Hermiq');
         }
 
-        if ($notification->getSubject() !== 'run_complete') {
+        $subjectKey = $notification->getSubject();
+        if (in_array($subjectKey, ['run_complete', 'approval_requested'], true) === false) {
             throw new UnknownNotificationException('Unknown Hermiq notification subject');
         }
 
@@ -112,13 +113,24 @@ class Notifier implements INotifier
         $subjectRaw = $notification->getSubjectParameters();
         $name       = (string) ($subjectRaw['name'] ?? '');
 
+        // Default to the run-complete wording; the approval-request branch overrides it.
         $subject = $l->t('Scheduled agent run complete');
+        $message = $l->t('Your scheduled agent run has produced output.');
         if ($name !== '') {
             $subject = $l->t('“%s” finished', [$name]);
         }
 
+        if ($subjectKey === 'approval_requested') {
+            $subject = $l->t('Approval needed for a scheduled agent run');
+            if ($name !== '') {
+                $subject = $l->t('Approval needed: “%s”', [$name]);
+            }
+
+            $message = $l->t('A scheduled agent run is waiting for your approval before it can execute.');
+        }
+
         $notification->setParsedSubject($subject);
-        $notification->setParsedMessage($l->t('Your scheduled agent run has produced output.'));
+        $notification->setParsedMessage($message);
         $notification->setIcon(
             $this->urlGenerator->getAbsoluteURL($this->urlGenerator->imagePath(self::APP_ID, 'app-dark.svg'))
         );

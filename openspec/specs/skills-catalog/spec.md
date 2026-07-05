@@ -1,10 +1,10 @@
 # Skills Catalog Specification
 
-**Status**: idea
+**Status**: active (management surface live-verified; run-loop consumption is an OR seam)
 
 **Feature tier**: V1
 
-**OpenSpec changes:** _(none yet)_
+**OpenSpec changes:** `skills-catalog` — DONE: `agentskill`/`agentskillsource` schemas; dependency-free `SkillSerializer` (byte-for-byte agentskills.io round-trip); `SkillService` (import/export/list/install-onto-agent); `SkillController` endpoints; `SkillsCatalog` UI (Playwright-verified: browse, import, install, export). Run-loop consumption of `installedOn` (skill available during a turn) is an OpenRegister seam.
 
 ## Purpose
 

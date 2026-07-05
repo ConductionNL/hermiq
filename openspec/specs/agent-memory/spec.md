@@ -1,10 +1,10 @@
 # Agent Memory Specification
 
-**Status**: idea
+**Status**: active (management surface live-verified; run-loop consumption is an OR seam)
 
 **Feature tier**: V1
 
-**OpenSpec changes:** _(none yet)_
+**OpenSpec changes:** `agent-memory` — DONE: Memory/UserProfile/agentsession/agentsessionturn schemas; MemoryService char-budget write path (append flags `needsConsolidation` over budget, never truncates) + tenant-scoped OR-search recall; MemoryController endpoints; AgentMemory UI (Playwright-verified). Run-loop consumption (recordTurn/recall/consolidate during an agent turn) is an OpenRegister seam.
 
 ## Purpose
 

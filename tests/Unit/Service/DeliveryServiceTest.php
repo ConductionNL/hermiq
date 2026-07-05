@@ -474,4 +474,33 @@ class DeliveryServiceTest extends TestCase
         $this->assertStringContainsString('notification failed', (string) $result->getWarning());
 
     }//end testDeliveryFailureIsReportedNotThrown()
+
+    /**
+     * deliverApprovalRequest raises one notification per resolved reviewer (Art. 14),
+     * deep-linked to the approvals inbox, and never throws for a delivery problem.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+     */
+    public function testApprovalRequestNotifiesEachReviewer(): void
+    {
+        // Talk unavailable → notification-only path.
+        $this->talkBroker->method('hasBackend')->willReturn(false);
+        $this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+        $this->notificationManager->expects($this->exactly(2))->method('notify');
+
+        $approval = new ObjectEntity();
+        $approval->setUuid('appr-1');
+
+        $result = $this->service->deliverApprovalRequest(
+            schedule: $this->schedule(['name' => 'Permit drafts']),
+            approval: $approval,
+            reviewerUids: ['bob', 'carol']
+        );
+
+        $this->assertTrue($result->isDelivered(), 'At least one reviewer must be notified.');
+        $this->assertNull($result->getWarning(), 'A clean notification run carries no warning.');
+
+    }//end testApprovalRequestNotifiesEachReviewer()
 }//end class

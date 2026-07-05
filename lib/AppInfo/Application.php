@@ -28,7 +28,7 @@ namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Dashboard\ExampleWidget;
 use OCA\Hermiq\Listener\DeepLinkRegistrationListener;
-use OCA\Hermiq\Mcp\ExampleToolProvider;
+use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
 use OCA\OpenRegister\Event\DeepLinkRegistrationEvent;
 use OCP\AppFramework\App;
@@ -91,12 +91,15 @@ class Application extends App implements IBootstrap
         // INotifier turns into localised bell-menu entries. See lib/Notification/Notifier.php.
         $context->registerNotifierService(Notifier::class);
 
-        // AI Chat Companion (hydra ADR-034/035): expose this app's capabilities to the in-app AI
-        // by registering an IMcpToolProvider under the alias OCA\OpenRegister\Mcp\IMcpToolProvider::{appId}.
-        // OpenRegister's McpToolsService discovers providers by this alias. See lib/Mcp/ExampleToolProvider.php.
+        // NC-native agent tools (nc-native-tools): expose Files/Contacts/Calendar/Deck/email
+        // to the agent runtime as an IMcpToolProvider. OpenRegister's McpToolsService
+        // discovers per-app providers by the alias OCA\OpenRegister\Mcp\IMcpToolProvider::{appId}
+        // AND, as a fallback, by the conventional FQCN OCA\Hermiq\Mcp\HermiqToolProvider —
+        // the class is named to match that convention so discovery resolves it even when the
+        // alias is not visible from OR's container. See lib/Mcp/HermiqToolProvider.php.
         $context->registerServiceAlias(
             'OCA\\OpenRegister\\Mcp\\IMcpToolProvider::'.self::APP_ID,
-            ExampleToolProvider::class
+            HermiqToolProvider::class
         );
 
     }//end register()

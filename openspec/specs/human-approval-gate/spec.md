@@ -1,10 +1,13 @@
 # Human Approval Gate Specification
 
-**Status**: idea
+**Status**: active (all three changes merged to `development` + live-verified; tenant model = OR org UUID)
 
 **Feature tier**: V1
 
-**OpenSpec changes:** _(none yet)_
+**OpenSpec changes:**
+- `openspec/changes/human-approval-gate-schema/` — Approval + TenantControl schemas + Schedule.requiresApproval/reviewer/reviewerType (kind: config) — **done**
+- `openspec/changes/human-approval-gate-enforcement/` — dispatcher gate + kill-switch + approve/deny/kill-switch endpoints (kind: code) — **done, live-verified**
+- `openspec/changes/human-approval-gate-ui/` — approval inbox + kill-switch toggle + reviewer picker (kind: code) — **done, Playwright-verified** (kill-switch keys on the OpenRegister organisation UUID, not an NC group)
 
 ## Purpose
 

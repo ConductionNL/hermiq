@@ -13,6 +13,34 @@
 			"order": 10
 		},
 		{
+			"id": "ApprovalInbox",
+			"label": "Approvals",
+			"icon": "icon-checkmark",
+			"route": "ApprovalInbox",
+			"order": 15
+		},
+		{
+			"id": "AgentMemory",
+			"label": "Memory",
+			"icon": "icon-category-monitoring",
+			"route": "AgentMemory",
+			"order": 17
+		},
+		{
+			"id": "SkillsCatalog",
+			"label": "Skills",
+			"icon": "icon-category-customization",
+			"route": "SkillsCatalog",
+			"order": 18
+		},
+		{
+			"id": "RunAnalytics",
+			"label": "Analytics",
+			"icon": "icon-category-monitoring",
+			"route": "RunAnalytics",
+			"order": 19
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
@@ -41,6 +69,13 @@
 			"route": "FeaturesRoadmap",
 			"section": "footer",
 			"order": 100
+		},
+		{
+			"id": "TenantOps",
+			"label": "Tenant ops",
+			"icon": "icon-category-security",
+			"route": "TenantOps",
+			"order": 20
 		}
 	],
 	"pages": [
@@ -59,6 +94,38 @@
 			"component": "AgentDetail",
 			"title": "Agent",
 			"_note": "Custom page: agent detail combines the agents resource, schedule attach/edit (createObjectStore), the thin Run-now endpoint, and run history — not expressible via the built-in detail page type."
+		},
+		{
+			"id": "ApprovalInbox",
+			"route": "/approvals",
+			"type": "custom",
+			"component": "ApprovalInbox",
+			"title": "Approvals",
+			"_note": "Custom page: the reviewer inbox is reviewer-scoped (not owner-scoped OR objects) with guarded approve/deny actions and the org kill-switch — not expressible via the built-in index page type. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "AgentMemory",
+			"route": "/memory",
+			"type": "custom",
+			"component": "AgentMemory",
+			"title": "Memory",
+			"_note": "Custom page: agent memory combines the OpenRegister agents resource (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "SkillsCatalog",
+			"route": "/skills",
+			"type": "custom",
+			"component": "SkillsCatalog",
+			"title": "Skills",
+			"_note": "Custom page: the skills catalog imports/exports agentskills.io packages (lossless SkillSerializer round-trip) and installs a skill onto an agent (installedOn association) — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "RunAnalytics",
+			"route": "/analytics",
+			"type": "custom",
+			"component": "RunAnalytics",
+			"title": "Analytics",
+			"_note": "Custom page: run analytics aggregates the OpenRegister run AuditTrail (success rate, latency, status breakdown, per-agent) tenant-scoped with an agent filter — a computed read surface not expressible via the built-in index/dashboard page types. Standard nav page."
 		},
 		{
 			"id": "Dashboard",
@@ -114,9 +181,30 @@
 					}
 				],
 				"layout": [
-					{ "id": 1, "widgetId": "open-examples", "gridX": 0, "gridY": 0, "gridWidth": 3, "gridHeight": 1 },
-					{ "id": 2, "widgetId": "in-progress", "gridX": 3, "gridY": 0, "gridWidth": 3, "gridHeight": 1 },
-					{ "id": 3, "widgetId": "closed", "gridX": 6, "gridY": 0, "gridWidth": 3, "gridHeight": 1 }
+					{
+						"id": 1,
+						"widgetId": "open-examples",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 1
+					},
+					{
+						"id": 2,
+						"widgetId": "in-progress",
+						"gridX": 3,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 1
+					},
+					{
+						"id": 3,
+						"widgetId": "closed",
+						"gridX": 6,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 1
+					}
 				]
 			},
 			"widgets": []
@@ -232,6 +320,14 @@
 			"config": {
 				"documentationUrl": "https://hermiq.conduction.nl"
 			}
+		},
+		{
+			"id": "TenantOps",
+			"route": "/tenant-ops",
+			"type": "custom",
+			"component": "TenantOps",
+			"title": "Tenant ops",
+			"_note": "Custom page: per-org quota usage + EU AI Act audit export (download) over OpenRegister objects/AuditTrail, capability-gated to org owners/admins — not expressible via the built-in index/dashboard page types. Standard nav page."
 		}
 	]
 }

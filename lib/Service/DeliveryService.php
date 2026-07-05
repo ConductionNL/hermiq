@@ -155,6 +155,73 @@ class DeliveryService
     }//end deliver()
 
     /**
+     * Notify a schedule's resolved reviewer(s) that an approval is pending (Art. 14).
+     *
+     * The human-approval gate created a pending Approval and needs the reviewer — the
+     * designated user, or every member of the reviewer group — alerted where they
+     * work. Each reviewer receives a Nextcloud notification (rendered by the Hermiq
+     * INotifier and deep-linked to the approvals inbox) and, when Talk is available, a
+     * best-effort Note-to-self message. NEVER throws for a delivery problem: any
+     * failure is caught and reported through a DeliveryResult so the dispatch tick is
+     * never failed by a notification.
+     *
+     * @param ObjectEntity      $schedule     The gated schedule.
+     * @param ObjectEntity      $approval     The pending approval to link to.
+     * @param array<int,string> $reviewerUids The resolved reviewer user ids.
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+     */
+    public function deliverApprovalRequest(ObjectEntity $schedule, ObjectEntity $approval, array $reviewerUids): DeliveryResult
+    {
+        $approvalUuid = (string) $approval->getUuid();
+        $scheduleName = (string) ($schedule->getObject()['name'] ?? '');
+        $talkOk       = $this->isTalkAvailable();
+        $warnings     = [];
+        $delivered    = false;
+
+        foreach ($reviewerUids as $uid) {
+            $uid = (string) $uid;
+            if ($uid === '') {
+                continue;
+            }
+
+            try {
+                $notification = $this->notificationManager->createNotification();
+                $notification->setApp('hermiq')
+                    ->setUser($uid)
+                    ->setDateTime(new DateTime())
+                    ->setObject('approval', $approvalUuid)
+                    ->setSubject('approval_requested', ['name' => $scheduleName])
+                    ->setMessage('approval_summary', ['scheduleId' => (string) $schedule->getUuid()])
+                    ->setLink($this->buildApprovalLink(uuid: $approvalUuid));
+                $this->notificationManager->notify($notification);
+                $delivered = true;
+            } catch (Throwable $e) {
+                $warnings[] = sprintf("notify %s failed: %s", $uid, $e->getMessage());
+            }
+
+            // Best-effort Talk Note-to-self — a bonus channel, never required.
+            if ($talkOk === true) {
+                $this->tryPostToNoteToSelf(
+                    owner: $uid,
+                    output: sprintf('Approval needed for “%s”. Review it in Hermiq.', $scheduleName)
+                );
+            }
+        }//end foreach
+
+        $warning = null;
+        if ($warnings !== []) {
+            $warning = implode('; ', $warnings);
+        }
+
+        $this->logWarning(warning: $warning, uuid: $approvalUuid, channel: 'approval');
+        return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
+
+    }//end deliverApprovalRequest()
+
+    /**
      * Deliver via the Talk fallback chain: target room → Note-to-self → notification.
      *
      * Each fall-through accumulates a warning; the returned DeliveryResult carries the
@@ -419,6 +486,21 @@ class DeliveryService
         return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/schedules/'.$uuid);
 
     }//end buildScheduleLink()
+
+    /**
+     * Build an absolute deep link to the approvals inbox for a notification.
+     *
+     * @param string $uuid The approval UUID.
+     *
+     * @return string The absolute URL.
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+     */
+    private function buildApprovalLink(string $uuid): string
+    {
+        return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/approvals/'.$uuid);
+
+    }//end buildApprovalLink()
 
     /**
      * Emit a PSR-3 warning for a degraded/failed delivery (no-op when clean).

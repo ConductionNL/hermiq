@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.2.0"
+    "version": "0.6.0"
   },
   "x-openregister": {
     "type": "application",
@@ -50,6 +50,7 @@
         "title": "Schedule",
         "description": "A schedule that fires an OpenRegister agent on a cron expression, a fixed interval, or once at a future time.",
         "type": "object",
+        "x-schema-org": "schema:Schedule",
         "required": [
           "name",
           "agentId",
@@ -59,8 +60,7 @@
         ],
         "x-openregister": {
           "publicRead": false,
-          "publicWrite": false,
-          "schemaOrgType": "Schedule"
+          "publicWrite": false
         },
         "properties": {
           "name": {
@@ -155,7 +155,167 @@
           "lastDeliveryError": {
             "type": "string",
             "description": "Derived: the delivery error from the last run, if any — written by the delivery layer; cleared on a successful delivery"
+          },
+          "requiresApproval": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, a due run does not execute automatically — the dispatcher creates a pending Approval and notifies the reviewer; the run proceeds only after approval (EU AI Act Art. 14 human oversight)."
+          },
+          "reviewer": {
+            "type": "string",
+            "description": "Who must approve a gated run — a Nextcloud user id or group id (see reviewerType). If empty, the schedule owner is the reviewer."
+          },
+          "reviewerType": {
+            "type": "string",
+            "enum": ["user", "group"],
+            "default": "user",
+            "description": "Whether reviewer is a Nextcloud user id or a group id."
           }
+        }
+      },
+      "Approval": {
+        "slug": "approval",
+        "icon": "CheckDecagramOutline",
+        "version": "0.1.0",
+        "title": "Approval",
+        "description": "A human-oversight approval request for a gated agent run (EU AI Act Art. 14); its status is the audited pending→approved/denied decision.",
+        "type": "object",
+        "required": ["status", "scheduleId", "agentId", "requestedAt"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "status": { "type": "string", "enum": ["pending", "approved", "denied"], "description": "The approval state machine." },
+          "scheduleId": { "type": "string", "format": "uuid", "description": "UUID of the Schedule whose run is gated.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent the gated run would invoke.", "example": "00000000-0000-0000-0000-000000000000" },
+          "prompt": { "type": "string", "description": "The prompt the gated run would send to the agent." },
+          "requestedAt": { "type": "string", "format": "date-time", "description": "When the approval was requested (the dispatcher gated the run)." },
+          "reviewer": { "type": "string", "description": "Resolved reviewer copied from the Schedule — a user id or group id (see reviewerType)." },
+          "reviewerType": { "type": "string", "enum": ["user", "group"], "description": "Whether reviewer is a user id or a group id." },
+          "decidedAt": { "type": "string", "format": "date-time", "description": "Derived: when the decision was made — written by the decision endpoint." },
+          "decidedBy": { "type": "string", "description": "Derived: the user id who approved or denied — written by the decision endpoint." },
+          "reason": { "type": "string", "description": "Optional decision reason (typically supplied on denial)." }
+        }
+      },
+      "TenantControl": {
+        "slug": "tenantcontrol",
+        "icon": "StopCircleOutline",
+        "version": "0.1.0",
+        "title": "Tenant control",
+        "description": "Per-organisation kill-switch. When engaged, the dispatcher halts all agent runs for the organisation (tenant scope comes from ObjectEntity.organisation).",
+        "type": "object",
+        "required": ["engaged"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "engaged": { "type": "boolean", "default": false, "description": "When true, all agent runs for this organisation are halted." },
+          "reason": { "type": "string", "description": "Optional reason for engaging the kill-switch." },
+          "engagedAt": { "type": "string", "format": "date-time", "description": "When the kill-switch was engaged." },
+          "engagedBy": { "type": "string", "description": "The user id who engaged/disengaged the kill-switch." }
+        }
+      },
+      "Memory": {
+        "slug": "memory",
+        "icon": "BrainOutline",
+        "version": "0.1.0",
+        "title": "Agent memory",
+        "description": "An agent's long-term memory (the MEMORY.md port): durable facts stored as JSON entries with a character budget. Exceeding the budget flags needsConsolidation — a nudge to summarise, never a silent truncation.",
+        "type": "object",
+        "required": ["agentId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent this memory belongs to.", "example": "00000000-0000-0000-0000-000000000000" },
+          "entries": { "type": "array", "default": [], "description": "Memory entries as a JSON array.", "items": { "type": "object", "properties": { "text": { "type": "string", "description": "The remembered fact." }, "createdAt": { "type": "string", "format": "date-time", "description": "When the entry was recorded." } } } },
+          "charBudget": { "type": "integer", "default": 8000, "description": "Character budget for entries; exceeding it flags needsConsolidation (approximate, not a hard cap)." },
+          "needsConsolidation": { "type": "boolean", "default": false, "description": "True when the entries exceed charBudget — a nudge to consolidate; older entries are never dropped silently." }
+        }
+      },
+      "UserProfile": {
+        "slug": "userprofile",
+        "icon": "AccountDetailsOutline",
+        "version": "0.1.0",
+        "title": "User profile",
+        "description": "Facts an agent keeps about a subject user (the USER.md port): durable entries with a character budget and consolidation nudge, scoped to the owning organisation.",
+        "type": "object",
+        "required": ["agentId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent maintaining this profile.", "example": "00000000-0000-0000-0000-000000000000" },
+          "subjectUid": { "type": "string", "description": "The user id the profile describes." },
+          "entries": { "type": "array", "default": [], "description": "Profile entries as a JSON array.", "items": { "type": "object", "properties": { "text": { "type": "string" }, "createdAt": { "type": "string", "format": "date-time" } } } },
+          "charBudget": { "type": "integer", "default": 4000, "description": "Character budget for entries; exceeding it flags needsConsolidation." },
+          "needsConsolidation": { "type": "boolean", "default": false, "description": "True when the entries exceed charBudget." }
+        }
+      },
+      "Session": {
+        "slug": "agentsession",
+        "icon": "ChatOutline",
+        "version": "0.1.0",
+        "title": "Session",
+        "description": "A conversation session between a user and an agent (the FTS5 session port). Turns are stored as SessionTurn children so each is individually searchable and org-scoped.",
+        "type": "object",
+        "required": ["agentId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent in this session.", "example": "00000000-0000-0000-0000-000000000000" },
+          "title": { "type": "string", "description": "Human-readable session title." },
+          "startedAt": { "type": "string", "format": "date-time", "description": "When the session started." },
+          "lastActivityAt": { "type": "string", "format": "date-time", "description": "When the most recent turn was recorded." }
+        }
+      },
+      "SessionTurn": {
+        "slug": "agentsessionturn",
+        "icon": "MessageOutline",
+        "version": "0.1.0",
+        "title": "Session turn",
+        "description": "A single turn within a Session — the searchable unit for cross-session recall via OpenRegister search/vectorization (no bespoke SQLite/FTS5 index).",
+        "type": "object",
+        "required": ["sessionId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "sessionId": { "type": "string", "format": "uuid", "description": "UUID of the parent Session.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent (denormalised for recall filtering)." },
+          "role": { "type": "string", "enum": ["user", "assistant", "system", "tool"], "description": "Who produced this turn." },
+          "content": { "type": "string", "description": "The turn content — the field searched for recall." },
+          "createdAt": { "type": "string", "format": "date-time", "description": "When the turn was recorded." }
+        }
+      },
+      "Skill": {
+        "slug": "agentskill",
+        "icon": "PuzzleOutline",
+        "version": "0.1.0",
+        "title": "Skill",
+        "description": "A self-improving agent skill in the agentskills.io format (ported from Hermes). Stores the raw frontmatter block (byte-preserved for lossless round-trip), the body, auxiliary files, a lifecycle state, and which agents it is installed on. Slug namespaced (agentskill) to avoid a cross-app slug collision.",
+        "type": "object",
+        "required": ["name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "name": { "type": "string", "description": "The skill name (from agentskills.io frontmatter)." },
+          "description": { "type": "string", "description": "The skill description (from frontmatter)." },
+          "frontmatter": { "type": "string", "description": "The raw agentskills.io YAML frontmatter block, preserved byte-for-byte for lossless serialisation." },
+          "body": { "type": "string", "description": "The skill body (markdown)." },
+          "files": { "type": "array", "default": [], "description": "Auxiliary files.", "items": { "type": "object", "properties": { "name": { "type": "string" }, "content": { "type": "string" } } } },
+          "state": { "type": "string", "enum": ["active", "stale", "archived", "quarantined"], "default": "active", "description": "Skill lifecycle state. A skill installed from another org or an external hub starts 'quarantined' and must pass review before 'active' (skills-marketplace)." },
+          "source": { "type": "string", "enum": ["local", "org", "hub"], "default": "local", "description": "Where the skill came from: locally authored, another organisation, or an external hub." },
+          "quarantineReason": { "type": "string", "description": "Why the skill is quarantined (set when installed from an external source)." },
+          "lastActivityAt": { "type": "string", "format": "date-time", "description": "When the skill was last created/imported/approved — the Curator's staleness clock." },
+          "staleSince": { "type": "string", "format": "date-time", "description": "When the Curator marked the skill stale." },
+          "archivedAt": { "type": "string", "format": "date-time", "description": "When the Curator archived the skill (never hard-deleted)." },
+          "createdBy": { "type": "string", "description": "The user id who imported/created the skill." },
+          "installedOn": { "type": "array", "default": [], "description": "Agent UUIDs this skill is installed on.", "items": { "type": "string", "format": "uuid" } },
+          "scanReport": { "type": "object", "description": "Heuristic content-scan verdict from OpenRegister ContentScanService, recorded at install and re-checked at approval (skills-marketplace). A 'dangerous' verdict blocks one-click approval.", "properties": { "severity": { "type": "string", "enum": ["clean", "suspicious", "dangerous"], "description": "Worst verdict across findings." }, "safe": { "type": "boolean", "description": "True only when severity is 'clean'." }, "scannedAt": { "type": "string", "format": "date-time", "description": "When the scan ran." }, "findings": { "type": "array", "description": "Matched dangerous patterns.", "items": { "type": "object", "properties": { "category": { "type": "string" }, "severity": { "type": "string" }, "reason": { "type": "string" }, "excerpt": { "type": "string" } } } } } }
+        }
+      },
+      "SkillSource": {
+        "slug": "agentskillsource",
+        "icon": "SourceBranch",
+        "version": "0.1.0",
+        "title": "Skill source",
+        "description": "The origin of a skill (a package, an external agentskills.io hub, or local) — the seam for the V2 skills-marketplace cross-org sharing.",
+        "type": "object",
+        "required": ["name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "name": { "type": "string", "description": "The source name." },
+          "url": { "type": "string", "description": "The source URL (for a hub/package)." },
+          "type": { "type": "string", "enum": ["package", "hub", "local"], "default": "package", "description": "The source kind." }
         }
       }
     }

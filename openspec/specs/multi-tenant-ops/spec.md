@@ -1,10 +1,10 @@
 # Multi-Tenant Ops Specification
 
-**Status**: idea
+**Status**: active (Hermiq surface live-verified; create-time hard quota reject + agent inventory are OpenRegister seams)
 
 **Feature tier**: V2
 
-**OpenSpec changes:** _(none yet)_
+**OpenSpec changes:** `multi-tenant-ops` — DONE: `TenantOpsService` (per-org quota status — schedules + agents-in-use vs. configurable limits; per-tenant EU AI Act audit export scoped to the caller's own objects from OR's hash-chained AuditTrail); `TenantOpsController` (`/api/tenant-ops/quota`, `/api/tenant-ops/audit-export`); `TenantOps` UI (quota cards + audit export download, capability-gated). Isolation is native (all objects carry OR organisation/owner/groups, RBAC-on reads — the org-scoped export is the proof). Local inference = agent Ollama config. Hard create-time quota reject + the authoritative agent inventory are OpenRegister seams (creation flows through OR's object API).
 
 ## Purpose
 
