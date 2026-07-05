@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "x-openregister": {
     "type": "application",
@@ -155,7 +155,60 @@
           "lastDeliveryError": {
             "type": "string",
             "description": "Derived: the delivery error from the last run, if any — written by the delivery layer; cleared on a successful delivery"
+          },
+          "requiresApproval": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, a due run does not execute automatically — the dispatcher creates a pending Approval and notifies the reviewer; the run proceeds only after approval (EU AI Act Art. 14 human oversight)."
+          },
+          "reviewer": {
+            "type": "string",
+            "description": "Who must approve a gated run — a Nextcloud user id or group id (see reviewerType). If empty, the schedule owner is the reviewer."
+          },
+          "reviewerType": {
+            "type": "string",
+            "enum": ["user", "group"],
+            "default": "user",
+            "description": "Whether reviewer is a Nextcloud user id or a group id."
           }
+        }
+      },
+      "Approval": {
+        "slug": "approval",
+        "icon": "CheckDecagramOutline",
+        "version": "0.1.0",
+        "title": "Approval",
+        "description": "A human-oversight approval request for a gated agent run (EU AI Act Art. 14); its status is the audited pending→approved/denied decision.",
+        "type": "object",
+        "required": ["status", "scheduleId", "agentId", "requestedAt"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "status": { "type": "string", "enum": ["pending", "approved", "denied"], "description": "The approval state machine." },
+          "scheduleId": { "type": "string", "format": "uuid", "description": "UUID of the Schedule whose run is gated.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "description": "UUID of the agent the gated run would invoke.", "example": "00000000-0000-0000-0000-000000000000" },
+          "prompt": { "type": "string", "description": "The prompt the gated run would send to the agent." },
+          "requestedAt": { "type": "string", "format": "date-time", "description": "When the approval was requested (the dispatcher gated the run)." },
+          "reviewer": { "type": "string", "description": "Resolved reviewer copied from the Schedule — a user id or group id (see reviewerType)." },
+          "reviewerType": { "type": "string", "enum": ["user", "group"], "description": "Whether reviewer is a user id or a group id." },
+          "decidedAt": { "type": "string", "format": "date-time", "description": "Derived: when the decision was made — written by the decision endpoint." },
+          "decidedBy": { "type": "string", "description": "Derived: the user id who approved or denied — written by the decision endpoint." },
+          "reason": { "type": "string", "description": "Optional decision reason (typically supplied on denial)." }
+        }
+      },
+      "TenantControl": {
+        "slug": "tenantcontrol",
+        "icon": "StopCircleOutline",
+        "version": "0.1.0",
+        "title": "Tenant control",
+        "description": "Per-organisation kill-switch. When engaged, the dispatcher halts all agent runs for the organisation (tenant scope comes from ObjectEntity.organisation).",
+        "type": "object",
+        "required": ["engaged"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "engaged": { "type": "boolean", "default": false, "description": "When true, all agent runs for this organisation are halted." },
+          "reason": { "type": "string", "description": "Optional reason for engaging the kill-switch." },
+          "engagedAt": { "type": "string", "format": "date-time", "description": "When the kill-switch was engaged." },
+          "engagedBy": { "type": "string", "description": "The user id who engaged/disengaged the kill-switch." }
         }
       }
     }

@@ -1,10 +1,13 @@
 # Human Approval Gate Specification
 
-**Status**: idea
+**Status**: in-progress
 
 **Feature tier**: V1
 
-**OpenSpec changes:** _(none yet)_
+**OpenSpec changes:**
+- `openspec/changes/human-approval-gate-schema/` — Approval + TenantControl schemas + Schedule.requiresApproval/reviewer/reviewerType (kind: config) — **done**
+- `openspec/changes/human-approval-gate-enforcement/` — dispatcher gate + kill-switch + approve/deny/kill-switch endpoints (kind: code, depends_on schema)
+- `openspec/changes/human-approval-gate-ui/` — approval inbox + kill-switch toggle + reviewer picker (kind: code, depends_on enforcement)
 
 ## Purpose
 
