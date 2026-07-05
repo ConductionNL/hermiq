@@ -37,6 +37,10 @@ module.exports = defineConfig([{
 		'vue/first-attribute-linebreak': 'off',
 		'@typescript-eslint/no-explicit-any': 'off',
 		'n/no-missing-import': 'off',
+		// Hermiq is a Nextcloud app, never published to npm, so "unpublished import"
+		// has no meaning — local relative imports (e.g. the app shell wiring in App.vue)
+		// are legitimate. Consistent with n/no-missing-import above.
+		'n/no-unpublished-import': 'off',
 		'import/namespace': 'off', // disable namespace checking to avoid parser requirement
 		'import/default': 'off', // disable default import checking to avoid parser requirement
 		'import/no-named-as-default': 'off', // disable named-as-default checking to avoid parser requirement

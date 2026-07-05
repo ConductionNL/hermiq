@@ -4,15 +4,17 @@
 <!--
   SkillsCatalog — the Hermiq "Skills" nav page (skills-catalog).
 
-  Browse the tenant's skills (name, description, state, installed count), import an
+  Browse the tenant's skills (name, state, description, installed count), import an
   agentskills.io package (paste + Import), export a skill back to a package, and install
-  a skill onto an agent (agent picker + Install). All reads/writes go through the
-  tenant-scoped SkillController endpoints (src/api/skills.js) — no new write path, no
-  custom Pinia store.
+  a skill onto an agent. All reads/writes go through the tenant-scoped SkillController
+  endpoints (src/api/skills.js) — no new write path, no custom Pinia store.
 
-  A standard nav page — NOT a dashboard (dashboard-antipattern gate). The agent run loop
-  that makes an installed skill available during a run is an OpenRegister seam (ADR-001
-  Option C+). Every NcSelect carries an inputLabel (ADR-004, WCAG 2.1 AA).
+  The skills list renders through the shared CnDataTable (the same widget the manifest
+  `type: index` pages use) so it matches the standard index-page design, while keeping the
+  skill-specific import/install/approve/export/publish actions in the row-actions slot.
+
+  A standard nav page — NOT a dashboard (dashboard-antipattern gate). Every NcSelect carries
+  an inputLabel (ADR-004, WCAG 2.1 AA).
 
   @spec openspec/changes/skills-catalog/tasks.md#task-5-2
   @spec openspec/changes/skills-catalog/specs/skills-catalog/spec.md
@@ -39,23 +41,25 @@
 				class="skills-catalog__textarea"
 				:disabled="busy"
 				:placeholder="importPlaceholder" />
-			<NcButton
-				type="primary"
-				:disabled="busy || !importText.trim()"
-				:aria-label="t('hermiq', 'Import skill')"
-				@click="doImport">
-				<template v-if="busy" #icon>
-					<NcLoadingIcon :size="18" />
-				</template>
-				{{ t('hermiq', 'Import') }}
-			</NcButton>
-			<NcButton
-				type="secondary"
-				:disabled="busy || !importText.trim()"
-				:aria-label="t('hermiq', 'Install from hub (quarantine)')"
-				@click="doImportFromHub">
-				{{ t('hermiq', 'Install from hub (quarantine)') }}
-			</NcButton>
+			<div class="skills-catalog__import-actions">
+				<NcButton
+					type="primary"
+					:disabled="busy || !importText.trim()"
+					:aria-label="t('hermiq', 'Import skill')"
+					@click="doImport">
+					<template v-if="busy" #icon>
+						<NcLoadingIcon :size="18" />
+					</template>
+					{{ t('hermiq', 'Import') }}
+				</NcButton>
+				<NcButton
+					type="secondary"
+					:disabled="busy || !importText.trim()"
+					:aria-label="t('hermiq', 'Install from hub (quarantine)')"
+					@click="doImportFromHub">
+					{{ t('hermiq', 'Install from hub (quarantine)') }}
+				</NcButton>
+			</div>
 			<p class="skills-catalog__import-note">
 				{{ t('hermiq', 'Skills installed from a hub or another organisation start quarantined and must be approved before an agent can use them.') }}
 			</p>
@@ -67,12 +71,8 @@
 				{{ t('hermiq', 'Skills') }} ({{ skills.length }})
 			</h3>
 
-			<div v-if="loading" class="skills-catalog__loading">
-				<NcLoadingIcon :size="32" />
-			</div>
-
 			<NcEmptyContent
-				v-else-if="skills.length === 0"
+				v-if="!loading && skills.length === 0"
 				:name="t('hermiq', 'No skills yet')"
 				:description="t('hermiq', 'Import an agentskills.io package to add a skill.')">
 				<template #icon>
@@ -80,19 +80,25 @@
 				</template>
 			</NcEmptyContent>
 
-			<ul v-else class="skills-catalog__list">
-				<li v-for="skill in skills" :key="skill.uuid" class="skills-catalog__skill">
-					<div class="skills-catalog__skill-main">
-						<span class="skills-catalog__skill-name">{{ skill.name }}</span>
-						<span class="skills-catalog__skill-state" :class="`skills-catalog__skill-state--${skill.state}`">{{ skill.state }}</span>
-						<span class="skills-catalog__skill-desc">{{ skill.description || '—' }}</span>
-						<span class="skills-catalog__skill-installed">
-							{{ n('hermiq', 'installed on %n agent', 'installed on %n agents', installedCount(skill)) }}
-						</span>
-					</div>
+			<CnDataTable
+				v-else
+				:columns="columns"
+				:rows="rows"
+				:loading="loading"
+				row-key="id"
+				:empty-text="t('hermiq', 'No skills yet')">
+				<template #column-state="{ row }">
+					<span class="skills-catalog__skill-state" :class="`skills-catalog__skill-state--${row.state}`">
+						{{ row.state }}
+					</span>
+				</template>
+				<template #column-installed="{ row }">
+					{{ n('hermiq', 'installed on %n agent', 'installed on %n agents', row.installed) }}
+				</template>
+				<template #row-actions="{ row }">
 					<div class="skills-catalog__skill-actions">
 						<NcSelect
-							v-model="installTarget[skill.uuid]"
+							v-model="installTarget[row.id]"
 							class="skills-catalog__agent-select"
 							:input-label="t('hermiq', 'Agent')"
 							:options="agentOptions"
@@ -101,35 +107,35 @@
 							track-by="value" />
 						<NcButton
 							type="secondary"
-							:disabled="busy || !installTarget[skill.uuid]"
+							:disabled="busy || !installTarget[row.id]"
 							:aria-label="t('hermiq', 'Install on agent')"
-							@click="doInstall(skill)">
+							@click="doInstall(row.skill)">
 							{{ t('hermiq', 'Install') }}
 						</NcButton>
 						<NcButton
-							v-if="skill.state === 'quarantined'"
+							v-if="row.state === 'quarantined'"
 							type="primary"
 							:disabled="busy"
 							:aria-label="t('hermiq', 'Approve quarantined skill')"
-							@click="doApprove(skill)">
+							@click="doApprove(row.skill)">
 							{{ t('hermiq', 'Approve') }}
 						</NcButton>
 						<NcButton
 							type="tertiary"
 							:aria-label="t('hermiq', 'Export skill')"
-							@click="doExport(skill)">
+							@click="doExport(row.skill)">
 							{{ t('hermiq', 'Export') }}
 						</NcButton>
 						<NcButton
 							type="tertiary"
 							:disabled="busy"
 							:aria-label="t('hermiq', 'Publish skill to a hub')"
-							@click="doPublish(skill)">
+							@click="doPublish(row.skill)">
 							{{ t('hermiq', 'Publish') }}
 						</NcButton>
 					</div>
-				</li>
-			</ul>
+				</template>
+			</CnDataTable>
 		</section>
 
 		<!-- Export result -->
@@ -144,6 +150,7 @@
 
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcModal, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import { CnDataTable } from '@conduction/nextcloud-vue'
 import PuzzleIcon from 'vue-material-design-icons/PuzzleOutline.vue'
 import { listAgents } from '../api/agents.js'
 import { approveSkill, exportSkill, importSkill, installFromSource, installSkill, listSkills, publishSkill } from '../api/skills.js'
@@ -152,6 +159,7 @@ export default {
 	name: 'SkillsCatalog',
 
 	components: {
+		CnDataTable,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
@@ -185,6 +193,36 @@ export default {
 			return this.agents.map((agent) => ({
 				label: agent.name || agent.uuid || agent.id,
 				value: agent.uuid || agent.id,
+			}))
+		},
+
+		/**
+		 * Column definitions for the shared index table.
+		 *
+		 * @return {Array<object>} CnDataTable column descriptors.
+		 */
+		columns() {
+			return [
+				{ key: 'name', label: this.t('hermiq', 'Name') },
+				{ key: 'state', label: this.t('hermiq', 'State') },
+				{ key: 'description', label: this.t('hermiq', 'Description') },
+				{ key: 'installed', label: this.t('hermiq', 'Installed') },
+			]
+		},
+
+		/**
+		 * Skills projected onto flat rows for the index table.
+		 *
+		 * @return {Array<object>} The table rows.
+		 */
+		rows() {
+			return this.skills.map((skill) => ({
+				id: skill.uuid,
+				name: skill.name,
+				state: skill.state,
+				description: skill.description || '—',
+				installed: this.installedCount(skill),
+				skill,
 			}))
 		},
 
@@ -363,7 +401,7 @@ export default {
 <style scoped>
 .skills-catalog {
 	padding: 20px;
-	max-width: 900px;
+	max-width: 960px;
 	margin: 0 auto;
 }
 
@@ -394,39 +432,6 @@ export default {
 
 .skills-catalog__section {
 	margin-bottom: 24px;
-}
-
-.skills-catalog__loading {
-	display: flex;
-	justify-content: center;
-	padding: 32px 0;
-}
-
-.skills-catalog__list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.skills-catalog__skill {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	padding: 12px;
-	border-bottom: 1px solid var(--color-border);
-	flex-wrap: wrap;
-}
-
-.skills-catalog__skill-main {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	flex: 1 1 320px;
-}
-
-.skills-catalog__skill-name {
-	font-weight: 600;
 }
 
 .skills-catalog__skill-state {
@@ -467,19 +472,11 @@ export default {
 	margin: 6px 0 0;
 }
 
-.skills-catalog__skill-desc {
-	color: var(--color-text-maxcontrast);
-}
-
-.skills-catalog__skill-installed {
-	font-size: 12px;
-	color: var(--color-text-maxcontrast);
-}
-
 .skills-catalog__skill-actions {
 	display: flex;
 	align-items: flex-end;
 	gap: 8px;
+	flex-wrap: wrap;
 }
 
 .skills-catalog__agent-select {

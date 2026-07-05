@@ -45,7 +45,7 @@
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
 			"route": "Dashboard",
-			"order": 20
+			"order": 5
 		},
 		{
 			"id": "Examples",
@@ -76,12 +76,27 @@
 			"icon": "icon-category-security",
 			"route": "TenantOps",
 			"order": 20
+		},
+		{
+			"id": "McpTools",
+			"label": "MCP tools",
+			"icon": "icon-category-integration",
+			"route": "McpTools",
+			"order": 22
+		},
+		{
+			"id": "Support",
+			"label": "Support & sponsor",
+			"icon": "icon-favorite",
+			"route": "Support",
+			"section": "footer",
+			"order": 95
 		}
 	],
 	"pages": [
 		{
 			"id": "AgentCatalog",
-			"route": "/",
+			"route": "/agents",
 			"type": "custom",
 			"component": "AgentCatalog",
 			"title": "Agents",
@@ -129,61 +144,61 @@
 		},
 		{
 			"id": "Dashboard",
-			"route": "/dashboard",
+			"route": "/",
 			"type": "dashboard",
 			"title": "Dashboard",
 			"config": {
 				"widgets": [
 					{
-						"id": "open-examples",
-						"title": "Open examples",
+						"id": "schedules",
+						"title": "Schedules",
 						"type": "stats-block",
-						"iconClass": "icon-files",
+						"iconClass": "icon-category-monitoring",
 						"dataSource": {
 							"register": "hermiq",
-							"schema": "example",
+							"schema": "schedule",
 							"aggregate": "count"
 						},
 						"props": {
-							"countLabel": "examples",
+							"countLabel": "schedules",
 							"variant": "primary"
 						}
 					},
 					{
-						"id": "in-progress",
-						"title": "In progress",
+						"id": "skills",
+						"title": "Skills",
 						"type": "stats-block",
-						"iconClass": "icon-loading",
+						"iconClass": "icon-category-customization",
 						"dataSource": {
 							"register": "hermiq",
-							"schema": "example",
+							"schema": "agentskill",
 							"aggregate": "count"
 						},
 						"props": {
-							"countLabel": "examples",
-							"variant": "warning"
+							"countLabel": "skills",
+							"variant": "success"
 						}
 					},
 					{
-						"id": "closed",
-						"title": "Closed",
+						"id": "approvals",
+						"title": "Approvals",
 						"type": "stats-block",
 						"iconClass": "icon-checkmark",
 						"dataSource": {
 							"register": "hermiq",
-							"schema": "example",
+							"schema": "approval",
 							"aggregate": "count"
 						},
 						"props": {
-							"countLabel": "examples",
-							"variant": "success"
+							"countLabel": "approvals",
+							"variant": "warning"
 						}
 					}
 				],
 				"layout": [
 					{
 						"id": 1,
-						"widgetId": "open-examples",
+						"widgetId": "schedules",
 						"gridX": 0,
 						"gridY": 0,
 						"gridWidth": 3,
@@ -191,7 +206,7 @@
 					},
 					{
 						"id": 2,
-						"widgetId": "in-progress",
+						"widgetId": "skills",
 						"gridX": 3,
 						"gridY": 0,
 						"gridWidth": 3,
@@ -199,7 +214,7 @@
 					},
 					{
 						"id": 3,
-						"widgetId": "closed",
+						"widgetId": "approvals",
 						"gridX": 6,
 						"gridY": 0,
 						"gridWidth": 3,
@@ -328,6 +343,22 @@
 			"component": "TenantOps",
 			"title": "Tenant ops",
 			"_note": "Custom page: per-org quota usage + EU AI Act audit export (download) over OpenRegister objects/AuditTrail, capability-gated to org owners/admins — not expressible via the built-in index/dashboard page types. Standard nav page."
+		},
+		{
+			"id": "McpTools",
+			"route": "/mcp-tools",
+			"type": "custom",
+			"component": "McpTools",
+			"title": "MCP tools",
+			"_note": "Custom page: catalogue of MCP tools available to agents, read from OpenRegister's agents/tools resource (not register/schema objects), so the built-in index page type cannot express it. Read-only nav page."
+		},
+		{
+			"id": "Support",
+			"route": "/support",
+			"type": "custom",
+			"component": "Support",
+			"title": "Support & sponsor",
+			"_note": "Custom page: static Conduction support/partner CTA for the open-source app. No data source; a plain informational page."
 		}
 	]
 }

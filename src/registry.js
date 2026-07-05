@@ -49,6 +49,8 @@ import AgentMemory from './views/AgentMemory.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
 import RunAnalytics from './views/RunAnalytics.vue'
 import TenantOps from './views/TenantOps.vue'
+import McpTools from './views/McpTools.vue'
+import Support from './views/Support.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -173,6 +175,24 @@ export default {
 	TenantOps: {
 		kind: 'page',
 		component: TenantOps,
+	},
+
+	/**
+	 * MCP tools — the catalogue of Model Context Protocol tools available to
+	 * agents across the instance (read-only). Standard nav page.
+	 */
+	McpTools: {
+		kind: 'page',
+		component: McpTools,
+	},
+
+	/**
+	 * Support & sponsor — Conduction partner/support routes for the open-source
+	 * app (footer nav). Standard nav page, no backend.
+	 */
+	Support: {
+		kind: 'page',
+		component: Support,
 	},
 
 	// -------------------------------------------------------------------------

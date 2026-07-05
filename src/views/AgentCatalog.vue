@@ -2,7 +2,7 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
-  AgentCatalog — the Hermiq main nav page (agent-management-ui).
+  AgentCatalog — the Hermiq "Agents" nav page (agent-management-ui).
 
   Lists the agents the user may see (RBAC-filtered by OpenRegister's
   AgentsController), showing name, model, whether a schedule is attached, and the
@@ -10,9 +10,11 @@
   schedule-attached + last-run columns are derived by matching Schedule.agentId
   against each agent's uuid from the createObjectStore schedule collection.
 
-  This is a standard nav page — NOT a dashboard, so there is no dashboard-in-
-  dashboard nesting (dashboard-antipattern gate). Create/edit uses the isolated
-  AgentFormModal (ADR-004).
+  Renders through the shared CnDataTable (the same widget the manifest `type: index`
+  pages use via `object-table`) so the list matches the standard index-page design,
+  while keeping the agent-specific create/open actions (which the register-bound
+  index kind cannot express — agents are an OpenRegister resource, not
+  register/schema objects). Create/edit uses the isolated AgentFormModal (ADR-004).
 
   @spec openspec/changes/agent-management-ui/tasks.md#task-3-1
   @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
@@ -35,12 +37,8 @@
 			{{ error }}
 		</NcNoteCard>
 
-		<div v-if="loading" class="agent-catalog__loading">
-			<NcLoadingIcon :size="32" />
-		</div>
-
 		<NcEmptyContent
-			v-else-if="agents.length === 0"
+			v-if="!loading && agents.length === 0 && !error"
 			:name="t('hermiq', 'No agents yet')"
 			:description="t('hermiq', 'Create your first agent to run it on a schedule.')">
 			<template #icon>
@@ -53,49 +51,27 @@
 			</template>
 		</NcEmptyContent>
 
-		<table v-else class="agent-catalog__table">
-			<thead>
-				<tr>
-					<th scope="col">
-						{{ t('hermiq', 'Name') }}
-					</th>
-					<th scope="col">
-						{{ t('hermiq', 'Model') }}
-					</th>
-					<th scope="col">
-						{{ t('hermiq', 'Schedule') }}
-					</th>
-					<th scope="col">
-						{{ t('hermiq', 'Last run') }}
-					</th>
-					<th scope="col">
-						<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
-					</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr v-for="agent in agents" :key="agent.uuid || agent.id">
-					<td class="agent-catalog__name">
-						{{ agent.name || t('hermiq', 'Untitled agent') }}
-					</td>
-					<td>{{ agent.model || '—' }}</td>
-					<td>
-						<span :class="scheduleFor(agent) ? 'agent-catalog__badge--on' : 'agent-catalog__badge--off'">
-							{{ scheduleFor(agent) ? t('hermiq', 'Attached') : t('hermiq', 'None') }}
-						</span>
-					</td>
-					<td>{{ lastRunLabel(agent) }}</td>
-					<td class="agent-catalog__row-actions">
-						<NcButton
-							type="tertiary"
-							:aria-label="t('hermiq', 'Open agent')"
-							@click="openAgent(agent)">
-							{{ t('hermiq', 'Open') }}
-						</NcButton>
-					</td>
-				</tr>
-			</tbody>
-		</table>
+		<CnDataTable
+			v-else
+			:columns="columns"
+			:rows="rows"
+			:loading="loading"
+			row-key="id"
+			:empty-text="t('hermiq', 'No agents yet')">
+			<template #column-schedule="{ row }">
+				<span :class="row.scheduleAttached ? 'agent-catalog__badge--on' : 'agent-catalog__badge--off'">
+					{{ row.schedule }}
+				</span>
+			</template>
+			<template #row-actions="{ row }">
+				<NcButton
+					type="tertiary"
+					:aria-label="t('hermiq', 'Open agent')"
+					@click="openAgent(row.agent)">
+					{{ t('hermiq', 'Open') }}
+				</NcButton>
+			</template>
+		</CnDataTable>
 
 		<AgentFormModal
 			:show="showCreate"
@@ -106,7 +82,8 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
+import { CnDataTable } from '@conduction/nextcloud-vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
 import { listAgents } from '../api/agents.js'
@@ -118,9 +95,9 @@ export default {
 
 	components: {
 		AgentFormModal,
+		CnDataTable,
 		NcButton,
 		NcEmptyContent,
-		NcLoadingIcon,
 		NcNoteCard,
 		Plus,
 		Robot,
@@ -134,6 +111,43 @@ export default {
 			error: '',
 			showCreate: false,
 		}
+	},
+
+	computed: {
+		/**
+		 * Column definitions for the shared index table.
+		 *
+		 * @return {Array<object>} CnDataTable column descriptors.
+		 */
+		columns() {
+			return [
+				{ key: 'name', label: this.t('hermiq', 'Name') },
+				{ key: 'model', label: this.t('hermiq', 'Model') },
+				{ key: 'schedule', label: this.t('hermiq', 'Schedule') },
+				{ key: 'lastRun', label: this.t('hermiq', 'Last run') },
+			]
+		},
+
+		/**
+		 * Agents projected onto flat rows for the index table. Keeps the original
+		 * agent object under `agent` so row actions can navigate to its detail.
+		 *
+		 * @return {Array<object>} The table rows.
+		 */
+		rows() {
+			return this.agents.map((agent) => {
+				const schedule = this.scheduleFor(agent)
+				return {
+					id: agent.uuid || agent.id,
+					name: agent.name || this.t('hermiq', 'Untitled agent'),
+					model: agent.model || '—',
+					schedule: schedule ? this.t('hermiq', 'Attached') : this.t('hermiq', 'None'),
+					scheduleAttached: !!schedule,
+					lastRun: this.lastRunLabel(agent),
+					agent,
+				}
+			})
+		},
 	},
 
 	created() {
@@ -251,32 +265,6 @@ export default {
 	font-weight: 600;
 }
 
-.agent-catalog__loading {
-	display: flex;
-	justify-content: center;
-	padding: 48px 0;
-}
-
-.agent-catalog__table {
-	width: 100%;
-	border-collapse: collapse;
-}
-
-.agent-catalog__table th,
-.agent-catalog__table td {
-	text-align: left;
-	padding: 10px 12px;
-	border-bottom: 1px solid var(--color-border);
-}
-
-.agent-catalog__name {
-	font-weight: 600;
-}
-
-.agent-catalog__row-actions {
-	text-align: right;
-}
-
 .agent-catalog__badge--on {
 	color: var(--color-success-text, var(--color-success));
 	font-weight: 600;
@@ -284,13 +272,5 @@ export default {
 
 .agent-catalog__badge--off {
 	color: var(--color-text-maxcontrast);
-}
-
-.hidden-visually {
-	position: absolute;
-	width: 1px;
-	height: 1px;
-	overflow: hidden;
-	clip: rect(0 0 0 0);
 }
 </style>

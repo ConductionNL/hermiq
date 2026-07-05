@@ -183,9 +183,12 @@ export default {
 			try {
 				const tools = await listTools()
 				this.toolOptions = tools.map((tool) => {
-					const value = tool.name || tool.id || tool.key || String(tool)
+					// Agents reference a tool by its id (e.g. "opencatalogi.cms"); show the
+					// human name in the label but persist the id as the value.
+					const value = tool.id || tool.name || tool.key || String(tool)
+					const label = tool.name || value
 					const description = tool.description ? ` — ${tool.description}` : ''
-					return { label: `${value}${description}`, value }
+					return { label: `${label}${description}`, value }
 				})
 			} catch (e) {
 				// Non-fatal: the picker just stays empty; the agent can still be saved.

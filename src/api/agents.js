@@ -57,11 +57,23 @@ export async function listAgents() {
 /**
  * List the tools available for agent configuration (from every registered app).
  *
- * @return {Promise<Array<object>>} The tool metadata objects.
+ * The OpenRegister agents/tools resource returns a MAP keyed by tool id
+ * (`{"opencatalogi.cms": {name, description, app, icon}, …}`), not an array, so
+ * `toList()` alone yields nothing. Normalise the map into an array and inject the
+ * key as `id` (the identifier agents reference a tool by).
+ *
+ * @return {Promise<Array<object>>} The tool metadata objects (each with an `id`).
  */
 export async function listTools() {
 	const response = await axios.get(generateUrl(`${AGENTS_BASE}/tools`))
-	return toList(response.data)
+	const results = response.data?.results ?? response.data
+	if (Array.isArray(results)) {
+		return results
+	}
+	if (results && typeof results === 'object') {
+		return Object.entries(results).map(([id, tool]) => ({ id, ...tool }))
+	}
+	return []
 }
 
 /**

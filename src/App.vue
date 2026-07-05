@@ -2,69 +2,88 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
- App template app shell. Mounts CnAppRoot with the bundled manifest and
- the customComponents registry; provides the `objectSidebarState` channel
- so detail pages (CnDetailPage) can drive a single host-rendered
- CnObjectSidebar through the #sidebar slot.
+ Hermiq app shell. Mounts CnAppRoot with the bundled manifest and the
+ registry; provides the `objectSidebarState` channel so detail pages
+ (CnDetailPage) can drive a single host-rendered CnObjectSidebar through
+ the #sidebar slot.
 
- This file is the canonical Tier-4 scaffold for the JSON manifest
- renderer pattern (hydra ADR-024). New apps cloning this template
- inherit the pattern unchanged.
-
- The Settings menu entry uses action: "user-settings" → opens
- NcAppSettingsDialog via CnAppRoot's cnOpenUserSettings inject.
- Feed your settings sections into the #user-settings slot below.
+ On first run (per-user `wizardCompleted` preference unset) it overlays the
+ SetupWizard walkthrough; the Settings dialog can re-open it. The wrapper uses
+ `display: contents` so CnAppRoot still behaves as the direct child of #content.
 
  @spec openspec/changes/template-manifest-v1/specs/template-manifest-v1/spec.md
  @spec openspec/changes/scaffold-v2/specs/scaffold-v2/spec.md
 -->
 <template>
-	<CnAppRoot
-		:manifest="manifest"
-		:custom-components="customComponents"
-		:page-types="pageTypes"
-		:registry="registry"
-		app-id="hermiq"
-		:translate="translateForApp"
-		:permissions="permissions"
-		:requires-apps="[]">
-		<template #sidebar>
-			<CnObjectSidebar
-				v-if="objectSidebarState.active"
-				:title="objectSidebarState.title"
-				:subtitle="objectSidebarState.subtitle"
-				:object-type="objectSidebarState.objectType"
-				:object-id="objectSidebarState.objectId"
-				:register="objectSidebarState.register"
-				:schema="objectSidebarState.schema"
-				:hidden-tabs="objectSidebarState.hiddenTabs"
-				:tabs="objectSidebarState.tabs"
-				:open="objectSidebarState.open"
-				@update:open="objectSidebarState.open = $event" />
-		</template>
-		<!--
-		  user-settings slot: NcAppSettingsSection children rendered inside
-		  CnAppRoot's hosted NcAppSettingsDialog. CnAppNav opens it when the
-		  user clicks the manifest menu entry with action: "user-settings".
-		  Replace the placeholder section with your app's actual settings.
-		-->
-		<template #user-settings>
-			<NcAppSettingsSection
-				id="general"
-				:name="t('hermiq', 'General')">
-				<p class="app-root__settings-hint">
-					{{ t('hermiq', 'Add your settings fields here. See src/views/AdminRoot.vue for the pre-boot admin panel.') }}
-				</p>
-			</NcAppSettingsSection>
-		</template>
-	</CnAppRoot>
+	<div class="hermiq-root">
+		<CnAppRoot
+			:manifest="manifest"
+			:custom-components="customComponents"
+			:page-types="pageTypes"
+			:registry="registry"
+			app-id="hermiq"
+			:translate="translateForApp"
+			:permissions="permissions"
+			:requires-apps="[]">
+			<template #sidebar>
+				<CnObjectSidebar
+					v-if="objectSidebarState.active"
+					:title="objectSidebarState.title"
+					:subtitle="objectSidebarState.subtitle"
+					:object-type="objectSidebarState.objectType"
+					:object-id="objectSidebarState.objectId"
+					:register="objectSidebarState.register"
+					:schema="objectSidebarState.schema"
+					:hidden-tabs="objectSidebarState.hiddenTabs"
+					:tabs="objectSidebarState.tabs"
+					:open="objectSidebarState.open"
+					@update:open="objectSidebarState.open = $event" />
+			</template>
+			<!--
+			  user-settings slot: NcAppSettingsSection children rendered inside
+			  CnAppRoot's hosted NcAppSettingsDialog. CnAppNav opens it when the
+			  user clicks the manifest menu entry with action: "user-settings".
+			-->
+			<template #user-settings>
+				<NcAppSettingsSection
+					id="about"
+					:name="t('hermiq', 'About Hermiq')">
+					<p class="hermiq-settings__text">
+						{{ t('hermiq', 'Hermiq brings autonomous AI agents to Nextcloud — define an agent, give it tools, and run it on a schedule. Open source, EUPL-1.2, by Conduction.') }}
+					</p>
+					<ul class="hermiq-settings__links">
+						<li>
+							<a href="https://www.conduction.nl/academy" target="_blank" rel="noopener noreferrer">{{ t('hermiq', 'Documentation') }}</a>
+						</li>
+						<li>
+							<a href="https://codeberg.org/Conduction/hermiq" target="_blank" rel="noopener noreferrer">{{ t('hermiq', 'Source code (Codeberg)') }}</a>
+						</li>
+					</ul>
+				</NcAppSettingsSection>
+				<NcAppSettingsSection
+					id="setup"
+					:name="t('hermiq', 'Setup')">
+					<p class="hermiq-settings__text">
+						{{ t('hermiq', 'Re-run the first-run walkthrough to reconfigure your LLM connection, delivery, organisation or seed a demo agent.') }}
+					</p>
+					<NcButton type="secondary" @click="reRunWizard">
+						{{ t('hermiq', 'Run setup wizard') }}
+					</NcButton>
+				</NcAppSettingsSection>
+			</template>
+		</CnAppRoot>
+
+		<SetupWizard v-if="showWizard" @done="onWizardDone" />
+	</div>
 </template>
 
 <script>
 import Vue from 'vue'
 import { translate as ncT } from '@nextcloud/l10n'
-import { NcAppSettingsSection } from '@nextcloud/vue'
+import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { CnAppRoot, CnObjectSidebar } from '@conduction/nextcloud-vue'
+import SetupWizard from './views/SetupWizard.vue'
+import { getPreference, setPreference } from './api/setup.js'
 
 export default {
 	name: 'App',
@@ -73,6 +92,8 @@ export default {
 		CnAppRoot,
 		CnObjectSidebar,
 		NcAppSettingsSection,
+		NcButton,
+		SetupWizard,
 	},
 
 	/**
@@ -124,9 +145,6 @@ export default {
 		 * v2 five-kind component registry — `{ "<key>": { kind, component, ...metadata } }`.
 		 * Introduced by hydra ADR-036; passed through to CnAppRoot which provides
 		 * it via `cnRegistry` for v2 manifest widget resolution.
-		 * Both `customComponents` (v1) and `registry` (v2) can coexist during
-		 * the transition period. Once fully migrated to v2, `customComponents`
-		 * can be removed.
 		 */
 		registry: {
 			type: Object,
@@ -136,6 +154,7 @@ export default {
 
 	data() {
 		return {
+			showWizard: false,
 			objectSidebarState: Vue.observable({
 				active: false,
 				open: true,
@@ -163,16 +182,56 @@ export default {
 		},
 	},
 
+	created() {
+		this.maybeShowWizard()
+	},
+
 	methods: {
 		/**
-		 * Translate function passed down to CnAppRoot / CnAppNav /
-		 * CnPageRenderer. Closes over the Nextcloud `translate` import so
-		 * the lib never has to know our app id.
+		 * Show the first-run wizard unless the user has completed (or skipped) it.
+		 * Fail-open: any error just leaves the wizard hidden — it never blocks boot.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async maybeShowWizard() {
+			try {
+				const done = await getPreference('wizardcompleted')
+				this.showWizard = !done
+			} catch (e) {
+				this.showWizard = false
+			}
+		},
+
+		/**
+		 * Hide the wizard once it reports done (it persists the flag itself).
+		 *
+		 * @return {void}
+		 */
+		onWizardDone() {
+			this.showWizard = false
+		},
+
+		/**
+		 * Re-open the wizard from Settings by clearing the completed flag.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async reRunWizard() {
+			try {
+				await setPreference('wizardcompleted', '')
+			} catch (e) {
+				// Non-fatal — still open the wizard for this session.
+			}
+			this.showWizard = true
+		},
+
+		/**
+		 * Translate function passed down to CnAppRoot / CnAppNav / CnPageRenderer.
+		 * Closes over the Nextcloud `translate` import so the lib never has to
+		 * know our app id.
 		 *
 		 * @spec exclude i18n wrapper — binds the Nextcloud `translate` import
-		 *   to this app's id so the shared lib stays app-agnostic. Pure
-		 *   localisation plumbing, no domain behaviour; the canonical example
-		 *   of an excludable i18n wrapper for template-derived apps.
+		 *   to this app's id so the shared lib stays app-agnostic.
 		 * @param {string} key Translation key.
 		 * @return {string} Translated string (or the key on miss).
 		 */
@@ -182,3 +241,26 @@ export default {
 	},
 }
 </script>
+
+<style scoped>
+/* display: contents so this wrapper adds no box — CnAppRoot still fills #content. */
+.hermiq-root {
+	display: contents;
+}
+
+.hermiq-settings__text {
+	color: var(--color-text-maxcontrast);
+	margin: 0 0 8px;
+}
+
+.hermiq-settings__links {
+	list-style: none;
+	margin: 0 0 8px;
+	padding: 0;
+}
+
+.hermiq-settings__links a {
+	color: var(--color-primary-element, var(--color-primary));
+	text-decoration: underline;
+}
+</style>
