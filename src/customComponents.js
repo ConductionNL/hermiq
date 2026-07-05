@@ -28,6 +28,7 @@ import CustomExample from './views/CustomExample.vue'
 import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
+import AgentMemory from './views/AgentMemory.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -51,6 +52,9 @@ export default {
 	// pending Approvals + guarded approve/deny + org kill-switch — not expressible
 	// via the built-in index page type.
 	ApprovalInbox,
+	// Agent memory (agent-memory change). Custom page: agent picker + tenant-scoped
+	// Memory/Session objects + char-budget bar + consolidation nudge + OR-search recall.
+	AgentMemory,
 	// Features & Roadmap page (lib's CnFeaturesAndRoadmapView) — wired up
 	// in src/manifest.json (the `FeaturesRoadmap` custom page + the
 	// `FeaturesRoadmapMenu` settings entry).

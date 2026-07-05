@@ -20,6 +20,13 @@
 			"order": 15
 		},
 		{
+			"id": "AgentMemory",
+			"label": "Memory",
+			"icon": "icon-category-monitoring",
+			"route": "AgentMemory",
+			"order": 17
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
@@ -74,6 +81,14 @@
 			"component": "ApprovalInbox",
 			"title": "Approvals",
 			"_note": "Custom page: the reviewer inbox is reviewer-scoped (not owner-scoped OR objects) with guarded approve/deny actions and the org kill-switch — not expressible via the built-in index page type. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "AgentMemory",
+			"route": "/memory",
+			"type": "custom",
+			"component": "AgentMemory",
+			"title": "Memory",
+			"_note": "Custom page: agent memory combines the OpenRegister agents resource (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "Dashboard",

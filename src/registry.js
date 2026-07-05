@@ -45,6 +45,7 @@ import CustomExample from './views/CustomExample.vue'
 import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
+import AgentMemory from './views/AgentMemory.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -133,6 +134,15 @@ export default {
 	ApprovalInbox: {
 		kind: 'page',
 		component: ApprovalInbox,
+	},
+
+	/**
+	 * Agent memory — a selected agent's long-term memory (char budget + consolidation
+	 * nudge), sessions, and OR-search recall (agent-memory). Standard nav page.
+	 */
+	AgentMemory: {
+		kind: 'page',
+		component: AgentMemory,
 	},
 
 	// -------------------------------------------------------------------------
