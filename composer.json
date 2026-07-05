@@ -19,7 +19,10 @@
 			"OCP\\": "vendor/nextcloud/ocp/OCP/",
 			"OCA\\OpenRegister\\": "tests/Stubs/",
 			"OCA\\Talk\\": "tests/Stubs/Talk/"
-		}
+		},
+		"classmap": [
+			"tests/Stubs/OC/"
+		]
 	},
 	"require": {
 		"php": "^8.3",
