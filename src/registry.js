@@ -48,6 +48,7 @@ import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
 import RunAnalytics from './views/RunAnalytics.vue'
+import TenantOps from './views/TenantOps.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -163,6 +164,15 @@ export default {
 	RunAnalytics: {
 		kind: 'page',
 		component: RunAnalytics,
+	},
+
+	/**
+	 * Tenant ops — per-org quota usage + EU AI Act audit export (multi-tenant-ops).
+	 * Standard nav page, capability-gated to org owners/admins.
+	 */
+	TenantOps: {
+		kind: 'page',
+		component: TenantOps,
 	},
 
 	// -------------------------------------------------------------------------

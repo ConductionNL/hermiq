@@ -69,6 +69,13 @@
 			"route": "FeaturesRoadmap",
 			"section": "footer",
 			"order": 100
+		},
+		{
+			"id": "TenantOps",
+			"label": "Tenant ops",
+			"icon": "icon-category-security",
+			"route": "TenantOps",
+			"order": 20
 		}
 	],
 	"pages": [
@@ -174,9 +181,30 @@
 					}
 				],
 				"layout": [
-					{ "id": 1, "widgetId": "open-examples", "gridX": 0, "gridY": 0, "gridWidth": 3, "gridHeight": 1 },
-					{ "id": 2, "widgetId": "in-progress", "gridX": 3, "gridY": 0, "gridWidth": 3, "gridHeight": 1 },
-					{ "id": 3, "widgetId": "closed", "gridX": 6, "gridY": 0, "gridWidth": 3, "gridHeight": 1 }
+					{
+						"id": 1,
+						"widgetId": "open-examples",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 1
+					},
+					{
+						"id": 2,
+						"widgetId": "in-progress",
+						"gridX": 3,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 1
+					},
+					{
+						"id": 3,
+						"widgetId": "closed",
+						"gridX": 6,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 1
+					}
 				]
 			},
 			"widgets": []
@@ -292,6 +320,14 @@
 			"config": {
 				"documentationUrl": "https://hermiq.conduction.nl"
 			}
+		},
+		{
+			"id": "TenantOps",
+			"route": "/tenant-ops",
+			"type": "custom",
+			"component": "TenantOps",
+			"title": "Tenant ops",
+			"_note": "Custom page: per-org quota usage + EU AI Act audit export (download) over OpenRegister objects/AuditTrail, capability-gated to org owners/admins — not expressible via the built-in index/dashboard page types. Standard nav page."
 		}
 	]
 }
