@@ -46,6 +46,7 @@ import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
+import AiFeatureRegister from './views/AiFeatureRegister.vue'
 import RunAnalytics from './views/RunAnalytics.vue'
 import TenantOps from './views/TenantOps.vue'
 import McpTools from './views/McpTools.vue'
@@ -132,6 +133,16 @@ export default {
 	SkillsCatalog: {
 		kind: 'page',
 		component: SkillsCatalog,
+	},
+
+	/**
+	 * AI-feature governance register — the design-time inventory of high-risk AI
+	 * features, risk-classified and gated by a DPO-acknowledgement lifecycle
+	 * (ai-feature-governance-register). Standard nav page, not a dashboard.
+	 */
+	AiFeatureRegister: {
+		kind: 'page',
+		component: AiFeatureRegister,
 	},
 
 	/**
