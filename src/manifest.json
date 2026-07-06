@@ -41,6 +41,13 @@
 			"order": 18
 		},
 		{
+			"id": "AiFeatureRegister",
+			"label": "AI features",
+			"icon": "icon-category-security",
+			"route": "AiFeatureRegister",
+			"order": 21
+		},
+		{
 			"id": "RunAnalytics",
 			"label": "Analytics",
 			"icon": "icon-category-monitoring",
@@ -140,6 +147,14 @@
 			"component": "SkillsCatalog",
 			"title": "Skills",
 			"_note": "Custom page: the skills catalog imports/exports agentskills.io packages (lossless SkillSerializer round-trip) and installs a skill onto an agent (installedOn association) — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "AiFeatureRegister",
+			"route": "/ai-features",
+			"type": "custom",
+			"component": "AiFeatureRegister",
+			"title": "AI features",
+			"_note": "Custom page: the AI-feature governance register drives action-auth-gated DPO-acknowledgement + a declarative OpenRegister enable/disable lifecycle (enable is blocked until the DPO acknowledges) — governance actions not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "RunAnalytics",

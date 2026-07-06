@@ -61,6 +61,12 @@ return [
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillMarketplace#publish',           'url' => '/api/skills/{id}/publish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // AI-feature governance register (ai-feature-governance-register): list + DPO-ack + enable/disable.
+        ['name' => 'aiFeature#index',       'url' => '/api/ai-features', 'verb' => 'GET'],
+        ['name' => 'aiFeature#acknowledge', 'url' => '/api/ai-features/{slug}/acknowledge', 'verb' => 'POST', 'requirements' => ['slug' => '[^/]+']],
+        ['name' => 'aiFeature#enable',      'url' => '/api/ai-features/{id}/enable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'aiFeature#disable',     'url' => '/api/ai-features/{id}/disable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
         // First-time setup wizard (ADR-042) — the standard CnSetupWizard contract.
         ['name' => 'setup#status',     'url' => '/api/setup/status',            'verb' => 'GET'],
         ['name' => 'setup#saveConfig', 'url' => '/api/setup/config',            'verb' => 'POST'],
