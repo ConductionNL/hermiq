@@ -30,7 +30,6 @@ import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
-import RunAnalytics from './views/RunAnalytics.vue'
 import TenantOps from './views/TenantOps.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
@@ -61,9 +60,6 @@ export default {
 	// Skills catalog (skills-catalog change). Custom page: import/export agentskills.io
 	// packages + install a skill onto an agent.
 	SkillsCatalog,
-	// Run analytics (run-analytics change). Custom page: computed metrics over the OR
-	// run AuditTrail (success rate/latency/status/per-agent), tenant-scoped.
-	RunAnalytics,
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,

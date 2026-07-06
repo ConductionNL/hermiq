@@ -40,7 +40,11 @@ use OCA\Talk\Model\Participant;
 use OCA\Talk\Room;
 use OCA\Talk\Service\NoteToSelfService;
 use OCA\Talk\Service\ParticipantService;
+use OCA\Talk\Service\RoomService;
+use OCP\IConfig;
 use OCP\IURLGenerator;
+use OCP\IUser;
+use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
 use OCP\Talk\IBroker;
@@ -93,6 +97,20 @@ class DeliveryServiceTest extends TestCase
     private array $services = [];
 
     /**
+     * Mock config (owner default-room preference).
+     *
+     * @var IConfig&MockObject
+     */
+    private IConfig $config;
+
+    /**
+     * Mock user manager (owner IUser resolution for room creation).
+     *
+     * @var IUserManager&MockObject
+     */
+    private IUserManager $userManager;
+
+    /**
      * Service under test.
      *
      * @var DeliveryService
@@ -111,8 +129,12 @@ class DeliveryServiceTest extends TestCase
         $this->talkBroker          = $this->createMock(IBroker::class);
         $this->urlGenerator        = $this->createMock(IURLGenerator::class);
         $this->container           = $this->createMock(ContainerInterface::class);
+        $this->config              = $this->createMock(IConfig::class);
+        $this->userManager         = $this->createMock(IUserManager::class);
         $this->services            = [];
 
+        // getUserValue is left unstubbed → returns '' (no default-room pref) by
+        // default; tests that exercise the default-room path stub it explicitly.
         $this->urlGenerator->method('imagePath')->willReturn('/img/app-dark.svg');
         $this->urlGenerator->method('getAbsoluteURL')->willReturnArgument(0);
 
@@ -132,6 +154,8 @@ class DeliveryServiceTest extends TestCase
             talkBroker: $this->talkBroker,
             urlGenerator: $this->urlGenerator,
             container: $this->container,
+            config: $this->config,
+            userManager: $this->userManager,
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -265,6 +289,118 @@ class DeliveryServiceTest extends TestCase
         $this->assertNull($result->getWarning());
 
     }//end testEmptyDeliverTargetUsesNoteToSelf()
+
+    /**
+     * No schedule target but a stored default-room preference posts to that room
+     * (no creation, no Note-to-self).
+     *
+     * @return void
+     *
+     * @spec exclude Per-user default-room fallback; no behavioural spec yet.
+     */
+    public function testEmptyTargetUsesStoredDefaultRoom(): void
+    {
+        $this->talkBroker->method('hasBackend')->willReturn(true);
+        $this->config->method('getUserValue')
+            ->with('alice', 'hermiq', 'pref_delivertarget', '')
+            ->willReturn('default-room');
+
+        $manager = $this->createMock(Manager::class);
+        $manager->expects($this->once())
+            ->method('getRoomForUserByToken')
+            ->with('default-room', 'alice')
+            ->willReturn(new Room());
+
+        // A stored default must NOT create a room nor fall to Note-to-self.
+        $roomService = $this->createMock(RoomService::class);
+        $roomService->expects($this->never())->method('createConversation');
+        $noteToSelf = $this->createMock(NoteToSelfService::class);
+        $noteToSelf->expects($this->never())->method('ensureNoteToSelfExistsForUser');
+
+        $participantService = $this->createMock(ParticipantService::class);
+        $participantService->method('getParticipant')->willReturn(new Participant());
+        $chatManager = $this->createMock(ChatManager::class);
+        $chatManager->expects($this->once())->method('sendMessage');
+
+        $this->services = [
+            Manager::class            => $manager,
+            RoomService::class        => $roomService,
+            NoteToSelfService::class  => $noteToSelf,
+            ParticipantService::class => $participantService,
+            ChatManager::class        => $chatManager,
+        ];
+
+        $result = $this->service->deliver(
+            channel: 'talk',
+            output: 'Briefing',
+            schedule: $this->schedule(['deliver' => 'talk', 'deliverTarget' => ''])
+        );
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertSame('talk', $result->getChannel());
+        $this->assertFalse($result->didFallBack());
+
+    }//end testEmptyTargetUsesStoredDefaultRoom()
+
+    /**
+     * No target and no stored preference lazily creates a "Hermiq" room, persists
+     * its token as the owner's preference, and delivers there.
+     *
+     * @return void
+     *
+     * @spec exclude Lazy default-room creation; no behavioural spec yet.
+     */
+    public function testEmptyTargetLazilyCreatesHermiqRoom(): void
+    {
+        $this->talkBroker->method('hasBackend')->willReturn(true);
+        // No stored pref (default '' from the unstubbed mock).
+        $this->userManager->method('get')->with('alice')->willReturn($this->createMock(IUser::class));
+
+        $createdRoom = $this->createMock(Room::class);
+        $createdRoom->method('getToken')->willReturn('new-hermiq-token');
+
+        $roomService = $this->createMock(RoomService::class);
+        $roomService->expects($this->once())
+            ->method('createConversation')
+            ->with(2, 'Hermiq', $this->anything())
+            ->willReturn($createdRoom);
+
+        // The freshly-created token must be persisted as the owner's default.
+        $this->config->expects($this->once())
+            ->method('setUserValue')
+            ->with('alice', 'hermiq', 'pref_delivertarget', 'new-hermiq-token');
+
+        $manager = $this->createMock(Manager::class);
+        $manager->expects($this->once())
+            ->method('getRoomForUserByToken')
+            ->with('new-hermiq-token', 'alice')
+            ->willReturn(new Room());
+
+        $noteToSelf = $this->createMock(NoteToSelfService::class);
+        $noteToSelf->expects($this->never())->method('ensureNoteToSelfExistsForUser');
+        $participantService = $this->createMock(ParticipantService::class);
+        $participantService->method('getParticipant')->willReturn(new Participant());
+        $chatManager = $this->createMock(ChatManager::class);
+        $chatManager->expects($this->once())->method('sendMessage');
+
+        $this->services = [
+            Manager::class            => $manager,
+            RoomService::class        => $roomService,
+            NoteToSelfService::class  => $noteToSelf,
+            ParticipantService::class => $participantService,
+            ChatManager::class        => $chatManager,
+        ];
+
+        $result = $this->service->deliver(
+            channel: 'talk',
+            output: 'First run',
+            schedule: $this->schedule(['deliver' => 'talk', 'deliverTarget' => ''])
+        );
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertSame('talk', $result->getChannel());
+
+    }//end testEmptyTargetLazilyCreatesHermiqRoom()
 
     /**
      * A non-member / RoomNotFound target falls back to Note-to-self and records a warning.
