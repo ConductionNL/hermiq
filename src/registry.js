@@ -37,7 +37,6 @@
 //
 // See: https://codeberg.org/Conduction/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 
-import ExampleWidget from './widgets/ExampleWidget.vue'
 import ExampleModal from './modals/ExampleModal.vue'
 import EmailField from './formFields/EmailField.vue'
 import StatusBadge from './cellRenderers/StatusBadge.vue'
@@ -53,30 +52,6 @@ import McpTools from './views/McpTools.vue'
 import Support from './views/Support.vue'
 
 export default {
-	// -------------------------------------------------------------------------
-	// kind: "widget" — placeable in any allowed slot via grid coordinates
-	// -------------------------------------------------------------------------
-
-	/**
-	 * Example custom widget. Keep or delete when scaffolding a new app.
-	 * Not referenced by src/manifest.json by default — wire it up by
-	 * adding a widgets[] entry with widgetKey: "example-widget".
-	 */
-	'example-widget': {
-		kind: 'widget',
-		component: ExampleWidget,
-		defaultSize: { w: 3, h: 1 },
-		minSize: { w: 2, h: 1 },
-		maxSize: { w: 12, h: 4 },
-		allowedSlots: ['body', 'sidebar'],
-		propsSchema: {
-			type: 'object',
-			properties: {
-				message: { type: 'string' },
-			},
-		},
-	},
-
 	// -------------------------------------------------------------------------
 	// kind: "modal" — opened via actions[].type: "open-modal"
 	// -------------------------------------------------------------------------

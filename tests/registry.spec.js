@@ -8,10 +8,17 @@
 //   node tests/registry.spec.js
 //
 // Exit codes:
-//   0 — registry has all five kinds represented and each entry has the
+//   0 — registry has all required kinds represented and each entry has the
 //       required metadata for its kind.
-//   1 — one or more kinds are missing, or an entry is missing required
-//       metadata.
+//   1 — one or more required kinds are missing, or an entry is missing
+//       required metadata.
+//
+// kind: "widget" is deliberately NOT required (hydra ADR-049, Decision 5):
+// the scaffold ships ZERO custom widgets — dashboard lists and KPI cards are
+// built-in manifest widgets (object-table / stats-block). When a consumer
+// app does add a kind: "widget" entry, it MUST carry a `_note` justifying
+// why no built-in widget fits (mirrors hydra gate 29,
+// hydra-gate-custom-widget-ratchet).
 //
 // This is a Node CJS script (no transpilation), consistent with the existing
 // validate-manifest.js / validate-register.js pattern. It uses the
@@ -28,7 +35,10 @@ const vm = require('vm')
 const REPO_ROOT = path.resolve(__dirname, '..')
 const REGISTRY_PATH = path.join(REPO_ROOT, 'src', 'registry.js')
 
-const REQUIRED_KINDS = ['widget', 'modal', 'page', 'form-field', 'cell-renderer']
+// All kinds the registry may carry. kind: "widget" is valid but NOT required
+// (ADR-049 Decision 5 — the scaffold ships zero custom widgets).
+const VALID_KINDS = ['widget', 'modal', 'page', 'form-field', 'cell-renderer']
+const REQUIRED_KINDS = ['modal', 'page', 'form-field', 'cell-renderer']
 
 // Required metadata fields per kind (mirrors CnAppRoot registry validation).
 const KIND_REQUIRED_META = {
@@ -115,8 +125,8 @@ function main() {
 			continue
 		}
 
-		if (!REQUIRED_KINDS.includes(kind)) {
-			errors.push(`entry "${key}": unknown kind "${kind}" (must be one of: ${REQUIRED_KINDS.join(', ')})`)
+		if (!VALID_KINDS.includes(kind)) {
+			errors.push(`entry "${key}": unknown kind "${kind}" (must be one of: ${VALID_KINDS.join(', ')})`)
 			continue
 		}
 
@@ -149,9 +159,15 @@ function main() {
 				errors.push(`entry "${key}" (kind=cell-renderer): appliesTo must have "schema" and "property"`)
 			}
 		}
+
+		// Extra: widget entries need a _note justifying why no built-in widget
+		// fits (ADR-049 built-in-first rule; mirrors hydra gate 29)
+		if (kind === 'widget' && (typeof entry._note !== 'string' || entry._note.trim().length === 0)) {
+			errors.push(`entry "${key}" (kind=widget): missing "_note" — custom widgets require a justification why no built-in widget (object-table, stats-block, …) fits (hydra ADR-049)`)
+		}
 	}
 
-	// Check all five kinds are represented
+	// Check all required kinds are represented (widget is deliberately optional)
 	for (const kind of REQUIRED_KINDS) {
 		if (!foundKinds.has(kind)) {
 			errors.push(`missing kind: no entry with kind="${kind}" found in registry`)
@@ -159,7 +175,8 @@ function main() {
 	}
 
 	if (errors.length === 0) {
-		console.log(`[registry.spec] all five kinds present: ${[...foundKinds].sort().join(', ')}`)
+		console.log(`[registry.spec] required kinds present: ${[...foundKinds].sort().join(', ')}`)
+		console.log(`[registry.spec] custom kind="widget" entries: ${entries.filter(([, e]) => e && e.kind === 'widget').length} (scaffold target: 0 — ADR-049)`)
 		console.log('[registry.spec] registry validation: PASS (0 errors)')
 		process.exit(0)
 	}
