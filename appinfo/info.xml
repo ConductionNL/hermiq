@@ -50,6 +50,7 @@
             <step>OCA\Hermiq\Repair\InitializeSettings</step>
             <step>OCA\Hermiq\Repair\InitializeActions</step>
             <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
+            <step>OCA\Hermiq\Repair\MigrateAgentData</step>
         </post-migration>
     </repair-steps>
 

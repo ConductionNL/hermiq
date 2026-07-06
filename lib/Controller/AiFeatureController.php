@@ -201,9 +201,11 @@ class AiFeatureController extends Controller
         }
 
         try {
-            $result = ($enable === true)
-                ? $this->aiFeatureService->enable(id: $id)
-                : $this->aiFeatureService->disable(id: $id);
+            if ($enable === true) {
+                $result = $this->aiFeatureService->enable(id: $id);
+            } else {
+                $result = $this->aiFeatureService->disable(id: $id);
+            }
 
             return $this->mapTransition(id: $id, result: $result);
         } catch (Throwable $e) {
