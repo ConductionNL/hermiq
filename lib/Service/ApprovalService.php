@@ -3,15 +3,25 @@
 /**
  * Hermiq ApprovalService.
  *
- * The human-approval gate write-path (EU AI Act Art. 14). When the dispatcher meets a
- * schedule that requires approval it asks this service to ensure exactly ONE pending
- * `Approval` OpenRegister object exists for that schedule (idempotent — never one per
- * tick), routed to the schedule's resolved reviewer, and notifies that reviewer via
- * DeliveryService. A reviewer (or an instance admin) later approves or denies: approve
- * transitions the object to `approved` and executes the gated run by reusing
- * ScheduleService::runNow() with the approval gate bypassed for that authorised
- * occurrence; deny transitions to `denied` and never runs. Every decision is written
- * to OpenRegister's hash-chained AuditTrail after redaction.
+ * The human-approval gate write-path (EU AI Act Art. 14). Gates two kinds of run:
+ *
+ * - A **scheduled** run (`sourceType: "schedule"`, the original shape): when the
+ *   dispatcher meets a schedule that requires approval it asks this service to
+ *   ensure exactly ONE pending `Approval` OpenRegister object exists for that
+ *   schedule (idempotent — never one per tick), routed to the schedule's
+ *   resolved reviewer. Approval re-runs via `ScheduleService::runNow()` with the
+ *   approval gate bypassed.
+ * - A **flow-triggered** run (`sourceType: "flow"`, from OpenRegister's
+ *   `AgentRunRequestedEvent` — ADR-041): `FlowAgentRunService` asks this service
+ *   to ensure a pending Approval carrying the run's resume context
+ *   (`flowContext`), keyed by the event's `correlationId` for idempotency.
+ *   Approval re-runs via `FlowAgentRunService::run()` with the gate bypassed.
+ *
+ * Either way, a reviewer (or an instance admin) later approves or denies:
+ * approve transitions the object to `approved`, audits the decision, and
+ * dispatches the resume path matching `sourceType`; deny transitions to
+ * `denied` and never runs. Every decision is written to OpenRegister's
+ * hash-chained AuditTrail after redaction.
  *
  * This is a recognised ADR-031 imperative exception: a side-effecting governance
  * service, not a derived value or declarative lifecycle. All persistence flows through
@@ -143,6 +153,7 @@ class ApprovalService
 
         $payload = [
             'status'       => 'pending',
+            'sourceType'   => 'schedule',
             'scheduleId'   => $scheduleId,
             'agentId'      => (string) ($data['agentId'] ?? ''),
             'prompt'       => (string) ($data['prompt'] ?? ''),
@@ -171,6 +182,80 @@ class ApprovalService
         }
 
     }//end ensurePendingApproval()
+
+    /**
+     * Idempotently ensure a single pending Approval exists for a gated
+     * flow-triggered agent run (OpenRegister's `AgentRunRequestedEvent`, ADR-041).
+     *
+     * Mirrors `ensurePendingApproval()` for the schedule case, but the run has no
+     * "schedule owner" to impersonate or notify through the same reviewer-resolution
+     * path — the reviewer defaults to the agent's own `owner` (the same account the
+     * run itself acts as; see `FlowAgentRunService`), falling back to the `admin`
+     * group when the agent has no owner. Idempotency is keyed by the event's
+     * `correlationId` rather than a `scheduleId` (there is no Schedule object here).
+     *
+     * @param array<string,mixed> $context    The flow-run payload (subjectUuid/subjectRegister/
+     *                                        subjectSchema/agent/skill/prompt/resultField/mode/
+     *                                        flowName/correlationId) from
+     *                                        AgentRunRequestedEvent::getPayload().
+     * @param string              $agentOwner The agent's acting user (reviewer default + impersonation).
+     *
+     * @return ObjectEntity The pending (or already-pending) Approval.
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-1
+     */
+    public function ensurePendingApprovalForFlowRun(array $context, string $agentOwner): ObjectEntity
+    {
+        $correlationId = (string) ($context['correlationId'] ?? '');
+
+        if ($correlationId !== '') {
+            $existing = $this->findPendingApprovalForCorrelation(correlationId: $correlationId);
+            if ($existing !== null) {
+                return $existing;
+            }
+        }
+
+        $reviewer     = $agentOwner;
+        $reviewerType = 'user';
+        if ($reviewer === '') {
+            $reviewer     = 'admin';
+            $reviewerType = 'group';
+        }
+
+        $payload = [
+            'status'        => 'pending',
+            'sourceType'    => 'flow',
+            'correlationId' => $correlationId,
+            'flowContext'   => $context,
+            'agentId'       => (string) ($context['agent'] ?? ''),
+            'prompt'        => (string) ($context['prompt'] ?? ''),
+            'requestedAt'   => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+            'reviewer'      => $reviewer,
+            'reviewerType'  => $reviewerType,
+            'decidedAt'     => null,
+            'decidedBy'     => null,
+            'reason'        => null,
+        ];
+
+        $approval = $this->persistApproval(data: $payload, uuid: null, owner: $agentOwner);
+
+        // Notify the resolved reviewer(s). Never fatal to the run.
+        try {
+            $this->deliveryService->deliverApprovalRequestForFlowRun(
+                approval: $approval,
+                reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Hermiq could not notify reviewer for flow-run approval '
+                .((string) $approval->getUuid()).': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+        return $approval;
+
+    }//end ensurePendingApprovalForFlowRun()
 
     /**
      * List the pending Approvals routed to the given user as reviewer.
@@ -299,9 +384,11 @@ class ApprovalService
      * Approve a pending Approval and execute the gated run.
      *
      * Transitions the Approval to `approved` (decidedBy/decidedAt), audits the
-     * decision, then runs the bound schedule by reusing ScheduleService::runNow() with
-     * the approval gate bypassed for this authorised occurrence — it does NOT loop
-     * back into another pending Approval. A non-pending Approval is a no-op (no run).
+     * decision, then resumes the gated run matching `sourceType`: a Schedule via
+     * `ScheduleService::runNow()` (the original path), or a flow-triggered agent run
+     * via `FlowAgentRunService::run()` — both with the approval gate bypassed for this
+     * authorised occurrence, and neither loops back into another pending Approval. A
+     * non-pending Approval is a no-op (no run).
      *
      * @param ObjectEntity $approval   The pending approval to authorise.
      * @param string       $deciderUid The reviewer/admin making the decision.
@@ -309,6 +396,7 @@ class ApprovalService
      * @return array{status:string, ran:bool} The resulting status and whether a run fired.
      *
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-3
      */
     public function approve(ObjectEntity $approval, string $deciderUid): array
     {
@@ -328,7 +416,17 @@ class ApprovalService
         );
         $this->writeDecisionAudit(approval: $approval, action: 'approve', reason: '');
 
-        $ran = $this->runApprovedSchedule(scheduleId: (string) ($data['scheduleId'] ?? ''));
+        $sourceType = (string) ($data['sourceType'] ?? 'schedule');
+        if ($sourceType === 'flow') {
+            $flowContext = $data['flowContext'] ?? [];
+            if (is_array($flowContext) === false) {
+                $flowContext = [];
+            }
+
+            $ran = $this->runApprovedFlowRun(flowContext: $flowContext);
+        } else {
+            $ran = $this->runApprovedSchedule(scheduleId: (string) ($data['scheduleId'] ?? ''));
+        }
 
         return ['status' => 'approved', 'ran' => $ran];
 
@@ -413,6 +511,44 @@ class ApprovalService
         return null;
 
     }//end findPendingApprovalForSchedule()
+
+    /**
+     * Find the open pending Approval for a flow-triggered run's correlation id,
+     * if one exists — the flow-run counterpart to `findPendingApprovalForSchedule()`.
+     *
+     * @param string $correlationId The AgentRunRequestedEvent dispatch's correlation id.
+     *
+     * @return ObjectEntity|null The pending approval, or null.
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-1
+     */
+    private function findPendingApprovalForCorrelation(string $correlationId): ?ObjectEntity
+    {
+        $objects = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::APPROVAL_SCHEMA)
+            ->findAll(
+                config: ['filters' => ['correlationId' => $correlationId, 'status' => 'pending']],
+                _rbac: false,
+                _multitenancy: false
+            );
+
+        foreach ($objects as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $data = $object->getObject();
+            if ((string) ($data['correlationId'] ?? '') === $correlationId
+                && (string) ($data['status'] ?? '') === 'pending'
+            ) {
+                return $object;
+            }
+        }
+
+        return null;
+
+    }//end findPendingApprovalForCorrelation()
 
     /**
      * Resolve the reviewer for a schedule: [reviewer, reviewerType].
@@ -545,6 +681,38 @@ class ApprovalService
         return true;
 
     }//end runApprovedSchedule()
+
+    /**
+     * Run an approved flow-triggered agent run via `FlowAgentRunService`, bypassing
+     * the gate — the flow-run counterpart to `runApprovedSchedule()`.
+     *
+     * `FlowAgentRunService` is resolved lazily from the server container, mirroring
+     * `ScheduleService`'s lazy resolution above, so the two services need no
+     * circular constructor dependency. The bypass runs THIS authorised occurrence
+     * without re-creating a pending Approval; the kill-switch still applies inside
+     * `FlowAgentRunService::run()`.
+     *
+     * @param array<string,mixed> $flowContext The approval's stored resume context
+     *                                         (subjectUuid/subjectRegister/subjectSchema/
+     *                                         agent/skill/prompt/resultField/mode/flowName/
+     *                                         correlationId).
+     *
+     * @return bool Whether the agent run actually executed.
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-3
+     */
+    private function runApprovedFlowRun(array $flowContext): bool
+    {
+        if ($flowContext === []) {
+            $this->logger->warning('Hermiq approved flow-run has no stored flowContext to resume.');
+            return false;
+        }
+
+        $flowAgentRunService = $this->container->get(FlowAgentRunService::class);
+
+        return $flowAgentRunService->run(payload: $flowContext, bypassApprovalGate: true);
+
+    }//end runApprovedFlowRun()
 
     /**
      * Persist an Approval payload through OpenRegister, impersonating the owner.

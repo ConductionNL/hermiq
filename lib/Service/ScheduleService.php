@@ -283,6 +283,30 @@ class ScheduleService
     }//end loadEngagedOrganisations()
 
     /**
+     * Whether the given organisation's kill-switch (TenantControl) is currently
+     * engaged — GATE 1 for any governed run, not just a Schedule tick.
+     *
+     * Reused by `FlowAgentRunService` so a flow-triggered agent run (from OR's
+     * `AgentRunRequestedEvent`, ADR-041) is halted by the SAME kill-switch data
+     * source a scheduled run already respects — one query, one source of truth.
+     *
+     * @param string $organisation The organisation identifier to check.
+     *
+     * @return bool True when the organisation's kill-switch is engaged.
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-1
+     */
+    public function isOrganisationEngaged(string $organisation): bool
+    {
+        if ($organisation === '') {
+            return false;
+        }
+
+        return in_array($organisation, $this->loadEngagedOrganisations(), true);
+
+    }//end isOrganisationEngaged()
+
+    /**
      * Run one schedule immediately, on demand (the "Run now" action).
      *
      * Reuses the SAME run-one path as a scheduler tick: it delegates to the private
@@ -703,14 +727,23 @@ class ScheduleService
     }//end computeNextRun()
 
     /**
-     * Invoke the OpenRegister agent as the schedule owner and return its output.
+     * Invoke the OpenRegister agent as the given owner and return its output.
      *
      * Impersonates the owner (IUserSession/IUserManager, mirroring OpenConnector's
-     * JobService), resolves the agent UUID, opens a conversation bound to that agent,
-     * and runs ChatService::processMessage with the prompt. The prior session user is
-     * always restored so identity never bleeds across schedules in the same tick.
+     * JobService), then dispatches through the SAME feature-flagged engine branch a
+     * scheduled tick uses (OpenRegister ChatService by default, or the in-app Engine
+     * facade when `hermiq`.`engine.enabled` is on — see isEngineEnabled()/
+     * runAgentViaEngine()). The prior session user is always restored so identity
+     * never bleeds across runs.
      *
-     * @param string $owner   The schedule owner UID.
+     * PUBLIC (not just ScheduleService-internal): FlowAgentRunService calls this
+     * directly so a flow-triggered agent run (OpenRegister's AgentRunRequestedEvent,
+     * ADR-041) goes through the identical dispatch path a scheduled run does —
+     * SPECTR-NEXTCLOUD-PLAN.md §5.2 point 2 ("the same ScheduleService/Engine path
+     * scheduled runs use"). `$owner` is the schedule owner for a scheduled run, or
+     * the agent's own `owner` (acting user) for a flow-triggered run.
+     *
+     * @param string $owner   The uid to impersonate for this run.
      * @param string $agentId The bound agent UUID.
      * @param string $prompt  The prompt to run.
      *
@@ -721,8 +754,9 @@ class ScheduleService
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-4
      * @spec openspec/changes/agent-engine-port/tasks.md#task-6-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-2
      */
-    private function runAgentAsOwner(string $owner, string $agentId, string $prompt): string
+    public function runAgentAsOwner(string $owner, string $agentId, string $prompt): string
     {
         // Reset per-run usage so a failed run never records the previous run's tokens.
         $this->lastRunUsage  = [];

@@ -198,15 +198,18 @@
       "Approval": {
         "slug": "approval",
         "icon": "CheckDecagramOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "Approval",
-        "description": "A human-oversight approval request for a gated agent run (EU AI Act Art. 14); its status is the audited pending→approved/denied decision.",
+        "description": "A human-oversight approval request for a gated agent run (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates either a scheduled run (sourceType=schedule, the original shape) or a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent).",
         "type": "object",
-        "required": ["status", "scheduleId", "agentId", "requestedAt"],
+        "required": ["status", "agentId", "requestedAt"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
           "status": { "type": "string", "enum": ["pending", "approved", "denied"], "title": "Status", "description": "The approval state machine." },
-          "scheduleId": { "type": "string", "format": "uuid", "title": "Schedule", "description": "UUID of the Schedule whose run is gated.", "example": "00000000-0000-0000-0000-000000000000" },
+          "sourceType": { "type": "string", "enum": ["schedule", "flow"], "default": "schedule", "title": "Source type", "description": "What the gated run resumes into on approval: a Hermiq Schedule (default, back-compatible) or a flow-triggered agent run." },
+          "scheduleId": { "type": "string", "format": "uuid", "title": "Schedule", "description": "UUID of the Schedule whose run is gated. Present only when sourceType=schedule.", "example": "00000000-0000-0000-0000-000000000000" },
+          "correlationId": { "type": "string", "title": "Correlation ID", "description": "Idempotency key for a flow-triggered approval — the dispatch's correlationId (OpenRegister AgentRunRequestedEvent). Present only when sourceType=flow; scheduleId serves this role for sourceType=schedule." },
+          "flowContext": { "type": "object", "title": "Flow context", "description": "The flow-triggered run's resume context (subjectUuid/subjectRegister/subjectSchema/resultField/skill/mode/flowName/correlationId). Present only when sourceType=flow." },
           "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent the gated run would invoke.", "example": "00000000-0000-0000-0000-000000000000" },
           "prompt": { "type": "string", "title": "Prompt", "description": "The prompt the gated run would send to the agent." },
           "requestedAt": { "type": "string", "format": "date-time", "title": "Requested at", "description": "When the approval was requested (the dispatcher gated the run)." },
@@ -240,7 +243,7 @@
           "description": { "type": "string", "title": "Description", "description": "What the AI feature does and why it is risk-relevant." },
           "riskCategory": { "type": "string", "enum": ["minimal", "limited", "high", "unacceptable"], "title": "Risk category", "description": "EU AI Act risk classification of the feature." },
           "lifecycle": { "type": "string", "enum": ["disabled", "enabled"], "default": "disabled", "title": "Lifecycle", "description": "Activation state, managed by the OpenRegister lifecycle engine (never set directly)." },
-          "tenantId": { "type": "string", "title": "Tenant", "description": "The hermiq multi-tenancy scope used to key the DPO acknowledgement." },
+          "tenantId": { "type": "string", "title": "Tenant ID", "description": "The hermiq multi-tenancy scope used to key the DPO acknowledgement." },
           "dpoAckBy": { "type": "string", "title": "DPO acknowledged by", "description": "Derived: the user id of the DPO who acknowledged the feature — written by the acknowledge endpoint." },
           "dpoAckAt": { "type": "string", "format": "date-time", "title": "DPO acknowledged at", "description": "Derived: when the DPO acknowledgement was recorded — written by the acknowledge endpoint." }
         }

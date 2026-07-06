@@ -639,4 +639,40 @@ class DeliveryServiceTest extends TestCase
         $this->assertNull($result->getWarning(), 'A clean notification run carries no warning.');
 
     }//end testApprovalRequestNotifiesEachReviewer()
+
+    /**
+     * deliverApprovalRequestForFlowRun — the flow-triggered counterpart to
+     * deliverApprovalRequest — raises one notification per resolved reviewer using
+     * the approval's own flowContext (no Schedule ObjectEntity involved), and never
+     * throws for a delivery problem.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-2
+     */
+    public function testFlowRunApprovalRequestNotifiesEachReviewer(): void
+    {
+        // Talk unavailable → notification-only path.
+        $this->talkBroker->method('hasBackend')->willReturn(false);
+        $this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+        $this->notificationManager->expects($this->exactly(2))->method('notify');
+
+        $approval = new ObjectEntity();
+        $approval->setUuid('appr-flow-1');
+        $approval->setObject([
+            'status'      => 'pending',
+            'sourceType'  => 'flow',
+            'agentId'     => 'agent-uuid-1',
+            'flowContext' => ['flowName' => 'classify-tender', 'correlationId' => 'corr-1'],
+        ]);
+
+        $result = $this->service->deliverApprovalRequestForFlowRun(
+            approval: $approval,
+            reviewerUids: ['bob', 'carol']
+        );
+
+        $this->assertTrue($result->isDelivered(), 'At least one reviewer must be notified.');
+        $this->assertNull($result->getWarning(), 'A clean notification run carries no warning.');
+
+    }//end testFlowRunApprovalRequestNotifiesEachReviewer()
 }//end class

@@ -26,9 +26,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\AppInfo;
 
+use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\DeepLinkRegistrationListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
+use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Event\DeepLinkRegistrationEvent;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
@@ -78,6 +80,17 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(
             event: DeepLinkRegistrationEvent::class,
             listener: DeepLinkRegistrationListener::class
+        );
+
+        // Flow-triggered agent runs (SPECTR-NEXTCLOUD-PLAN.md §5.2, ADR-041): a
+        // declarative `x-openregister-flows` action of `type: "agent"` dispatches
+        // OpenRegister's AgentRunRequestedEvent; this listener enqueues the governed
+        // dispatch (AgentRunRequestedJob → FlowAgentRunService). OpenRegister is
+        // already a hard dependency of Hermiq, so no class_exists() guard is needed
+        // here — mirrors the DeepLinkRegistrationEvent registration above.
+        $context->registerEventListener(
+            event: AgentRunRequestedEvent::class,
+            listener: AgentRunRequestedListener::class
         );
 
         // Renders Hermiq's Nextcloud notifications (talk-delivery): the notification

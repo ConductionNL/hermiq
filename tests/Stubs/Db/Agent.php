@@ -4,8 +4,10 @@
  * Test stub for OpenRegister Agent entity.
  *
  * Stands in for OCA\OpenRegister\Db\Agent when OpenRegister is not installed
- * (standalone CI). Exposes only getId, used by ScheduleService to bind a
- * conversation to the resolved agent. The real entity ships with OpenRegister.
+ * (standalone CI). Exposes getId (used by ScheduleService to bind a conversation
+ * to the resolved agent) plus getUuid/getOwner (used by FlowAgentRunService to
+ * resolve the agent reference and its acting-user impersonation target). The
+ * real entity ships with OpenRegister.
  *
  * @category Test
  * @package  OCA\OpenRegister\Db
@@ -35,6 +37,20 @@ class Agent
     private ?int $id = null;
 
     /**
+     * Agent UUID.
+     *
+     * @var string|null
+     */
+    private ?string $uuid = null;
+
+    /**
+     * Owner user id (the agent's acting user).
+     *
+     * @var string|null
+     */
+    private ?string $owner = null;
+
+    /**
      * Get the agent id.
      *
      * @return int|null
@@ -55,4 +71,48 @@ class Agent
     {
         $this->id = $id;
     }//end setId()
+
+    /**
+     * Get the agent UUID.
+     *
+     * @return string|null
+     */
+    public function getUuid(): ?string
+    {
+        return $this->uuid;
+    }//end getUuid()
+
+    /**
+     * Set the agent UUID.
+     *
+     * @param string|null $uuid The UUID.
+     *
+     * @return void
+     */
+    public function setUuid(?string $uuid): void
+    {
+        $this->uuid = $uuid;
+    }//end setUuid()
+
+    /**
+     * Get the owner user id.
+     *
+     * @return string|null
+     */
+    public function getOwner(): ?string
+    {
+        return $this->owner;
+    }//end getOwner()
+
+    /**
+     * Set the owner user id.
+     *
+     * @param string|null $owner The owner user id.
+     *
+     * @return void
+     */
+    public function setOwner(?string $owner): void
+    {
+        $this->owner = $owner;
+    }//end setOwner()
 }//end class

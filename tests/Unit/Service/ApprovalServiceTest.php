@@ -31,6 +31,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
+use OCA\Hermiq\Service\FlowAgentRunService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -254,6 +255,109 @@ class ApprovalServiceTest extends TestCase
     }//end testEmptyReviewerDefaultsToOwner()
 
     /**
+     * ensurePendingApprovalForFlowRun creates exactly one pending Approval tagged
+     * sourceType=flow, carrying the flowContext resume payload and the agent owner
+     * as reviewer, and notifies via the flow-run delivery path.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-1
+     */
+    public function testEnsurePendingApprovalForFlowRunCreatesAndNotifies(): void
+    {
+        $this->objectService->method('findAll')->willReturn([]);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                $entity  = new ObjectEntity();
+                $entity->setUuid('appr-flow-new');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+        $this->deliveryService->expects($this->once())->method('deliverApprovalRequestForFlowRun');
+
+        $context = [
+            'subjectUuid'      => 'obj-1',
+            'subjectRegister'  => '1',
+            'subjectSchema'    => '10',
+            'agent'            => 'agent-uuid-1',
+            'skill'            => null,
+            'prompt'           => 'Classify this',
+            'resultField'      => 'categorySlug',
+            'requiresApproval' => true,
+            'mode'             => 'async',
+            'flowName'         => 'classify-tender',
+            'correlationId'    => 'corr-1',
+        ];
+
+        $approval = $this->service()->ensurePendingApprovalForFlowRun($context, 'dave');
+
+        $this->assertCount(1, $saved, 'Exactly one pending Approval must be created.');
+        $this->assertSame('pending', $saved[0]['status']);
+        $this->assertSame('flow', $saved[0]['sourceType']);
+        $this->assertSame('corr-1', $saved[0]['correlationId']);
+        $this->assertSame($context, $saved[0]['flowContext']);
+        $this->assertSame('agent-uuid-1', $saved[0]['agentId']);
+        $this->assertSame('dave', $saved[0]['reviewer'], 'The agent owner defaults as reviewer.');
+        $this->assertSame('user', $saved[0]['reviewerType']);
+        $this->assertSame('appr-flow-new', $approval->getUuid());
+
+    }//end testEnsurePendingApprovalForFlowRunCreatesAndNotifies()
+
+    /**
+     * An existing pending Approval for the same correlationId makes
+     * ensurePendingApprovalForFlowRun a no-op: it returns the existing approval
+     * without creating a second one or re-notifying.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-1
+     */
+    public function testEnsurePendingApprovalForFlowRunIsIdempotent(): void
+    {
+        $existing = $this->approval(['status' => 'pending', 'sourceType' => 'flow', 'correlationId' => 'corr-1']);
+        $this->objectService->method('findAll')->willReturn([$existing]);
+
+        $this->objectService->expects($this->never())->method('saveObject');
+        $this->deliveryService->expects($this->never())->method('deliverApprovalRequestForFlowRun');
+
+        $result = $this->service()->ensurePendingApprovalForFlowRun(['correlationId' => 'corr-1'], 'dave');
+
+        $this->assertSame($existing, $result);
+
+    }//end testEnsurePendingApprovalForFlowRunIsIdempotent()
+
+    /**
+     * With no agent owner resolvable, the reviewer defaults to the `admin` group
+     * rather than an empty/unroutable reviewer.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-1
+     */
+    public function testEnsurePendingApprovalForFlowRunDefaultsToAdminGroupWithNoAgentOwner(): void
+    {
+        $this->objectService->method('findAll')->willReturn([]);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service()->ensurePendingApprovalForFlowRun(['correlationId' => 'corr-2'], '');
+
+        $this->assertSame('admin', $saved[0]['reviewer']);
+        $this->assertSame('group', $saved[0]['reviewerType']);
+
+    }//end testEnsurePendingApprovalForFlowRunDefaultsToAdminGroupWithNoAgentOwner()
+
+    /**
      * isReviewer: the reviewer user is admitted; a different non-admin user (incl. the
      * owner when owner != reviewer) is refused; an instance admin is always admitted.
      *
@@ -353,6 +457,50 @@ class ApprovalServiceTest extends TestCase
         $this->assertFalse($result['ran'], 'An already-decided approval must not run again.');
 
     }//end testApproveNonPendingIsNoop()
+
+    /**
+     * approve on a sourceType=flow Approval resumes via FlowAgentRunService::run()
+     * with the approval gate bypassed — the flow-run counterpart to
+     * testApproveTransitionsAndRunsBypassed. It does NOT touch ScheduleService.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-3
+     */
+    public function testApproveFlowSourceTypeRunsFlowAgentRunServiceBypassed(): void
+    {
+        $flowContext = ['subjectUuid' => 'obj-1', 'subjectRegister' => '1', 'subjectSchema' => '10', 'agent' => 'agent-uuid-1'];
+        $approval    = $this->approval([
+            'status'      => 'pending',
+            'sourceType'  => 'flow',
+            'correlationId' => 'corr-1',
+            'flowContext' => $flowContext,
+            'reviewer'    => 'bob',
+            'reviewerType' => 'user',
+        ]);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $flowAgentRunService = $this->createMock(FlowAgentRunService::class);
+        $flowAgentRunService->expects($this->once())
+            ->method('run')
+            ->with($flowContext, true)
+            ->willReturn(true);
+        $this->container->method('get')->willReturn($flowAgentRunService);
+
+        $result = $this->service()->approve($approval, 'bob');
+
+        $this->assertSame('approved', $result['status']);
+        $this->assertTrue($result['ran'], 'Approving a flow-run must run the gated agent turn.');
+        $this->assertSame('approved', $saved[0]['status']);
+
+    }//end testApproveFlowSourceTypeRunsFlowAgentRunServiceBypassed()
 
     /**
      * deny transitions the Approval to denied with a reason and never runs.

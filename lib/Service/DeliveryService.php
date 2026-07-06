@@ -259,6 +259,74 @@ class DeliveryService
     }//end deliverApprovalRequest()
 
     /**
+     * Notify a flow-triggered agent run's resolved reviewer(s) that an approval is
+     * pending (Art. 14) — the `sourceType: "flow"` counterpart to
+     * `deliverApprovalRequest()`. There is no Schedule ObjectEntity to read a display
+     * name from; the approval's own `flowContext.flowName` (or agentId as a fallback)
+     * is used instead. NEVER throws for a delivery problem.
+     *
+     * @param ObjectEntity      $approval     The pending approval to link to.
+     * @param array<int,string> $reviewerUids The resolved reviewer user ids.
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-2
+     */
+    public function deliverApprovalRequestForFlowRun(ObjectEntity $approval, array $reviewerUids): DeliveryResult
+    {
+        $approvalUuid = (string) $approval->getUuid();
+        $data         = $approval->getObject();
+        $flowContext  = $data['flowContext'] ?? [];
+        if (is_array($flowContext) === false) {
+            $flowContext = [];
+        }
+
+        $displayName = (string) ($flowContext['flowName'] ?? ($data['agentId'] ?? ''));
+        $talkOk      = $this->isTalkAvailable();
+        $warnings    = [];
+        $delivered   = false;
+
+        foreach ($reviewerUids as $uid) {
+            $uid = (string) $uid;
+            if ($uid === '') {
+                continue;
+            }
+
+            try {
+                $notification = $this->notificationManager->createNotification();
+                $notification->setApp('hermiq')
+                    ->setUser($uid)
+                    ->setDateTime(new DateTime())
+                    ->setObject('approval', $approvalUuid)
+                    ->setSubject('approval_requested', ['name' => $displayName])
+                    ->setMessage('approval_summary', ['correlationId' => (string) ($flowContext['correlationId'] ?? '')])
+                    ->setLink($this->buildApprovalLink(uuid: $approvalUuid));
+                $this->notificationManager->notify($notification);
+                $delivered = true;
+            } catch (Throwable $e) {
+                $warnings[] = sprintf("notify %s failed: %s", $uid, $e->getMessage());
+            }
+
+            // Best-effort Talk Note-to-self — a bonus channel, never required.
+            if ($talkOk === true) {
+                $this->tryPostToNoteToSelf(
+                    owner: $uid,
+                    output: sprintf('Approval needed for “%s”. Review it in Hermiq.', $displayName)
+                );
+            }
+        }//end foreach
+
+        $warning = null;
+        if ($warnings !== []) {
+            $warning = implode('; ', $warnings);
+        }
+
+        $this->logWarning(warning: $warning, uuid: $approvalUuid, channel: 'approval');
+        return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
+
+    }//end deliverApprovalRequestForFlowRun()
+
+    /**
      * Deliver via the Talk fallback chain: target room → Note-to-self → notification.
      *
      * Each fall-through accumulates a warning; the returned DeliveryResult carries the

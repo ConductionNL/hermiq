@@ -121,12 +121,15 @@ class Notifier implements INotifier
         }
 
         if ($subjectKey === 'approval_requested') {
-            $subject = $l->t('Approval needed for a scheduled agent run');
+            $subject = $l->t('Approval needed for an agent run');
             if ($name !== '') {
                 $subject = $l->t('Approval needed: “%s”', [$name]);
             }
 
-            $message = $l->t('A scheduled agent run is waiting for your approval before it can execute.');
+            // Source-agnostic wording — the gated run may be a Schedule or a
+            // flow-triggered run (OpenRegister AgentRunRequestedEvent, ADR-041);
+            // both share this notification path.
+            $message = $l->t('An agent run is waiting for your approval before it can execute.');
         }
 
         $notification->setParsedSubject($subject);

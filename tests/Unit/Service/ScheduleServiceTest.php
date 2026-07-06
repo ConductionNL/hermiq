@@ -1183,6 +1183,30 @@ class ScheduleServiceTest extends TestCase
     }//end testKillSwitchSkipsRun()
 
     /**
+     * isOrganisationEngaged() — the reusable public kill-switch check
+     * FlowAgentRunService calls so a flow-triggered run is halted by the SAME
+     * TenantControl data source a scheduled tick already respects.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-1
+     */
+    public function testIsOrganisationEngagedReflectsTenantControl(): void
+    {
+        $control = new ObjectEntity();
+        $control->setUuid('ctrl-1');
+        $control->setOrganisation('org-x');
+        $control->setObject(['engaged' => true]);
+
+        $this->objectService->method('findAll')->willReturn([$control]);
+
+        $this->assertTrue($this->service->isOrganisationEngaged(organisation: 'org-x'));
+        $this->assertFalse($this->service->isOrganisationEngaged(organisation: 'org-y'));
+        $this->assertFalse($this->service->isOrganisationEngaged(organisation: ''));
+
+    }//end testIsOrganisationEngagedReflectsTenantControl()
+
+    /**
      * A schedule requiring approval does NOT run its agent: the gate ensures a pending
      * Approval (idempotent, once per due occurrence) and records lastStatus=awaiting_approval.
      *
