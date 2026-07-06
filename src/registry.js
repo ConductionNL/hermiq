@@ -50,7 +50,6 @@ import SkillsCatalog from './views/SkillsCatalog.vue'
 import RunAnalytics from './views/RunAnalytics.vue'
 import TenantOps from './views/TenantOps.vue'
 import McpTools from './views/McpTools.vue'
-import Support from './views/Support.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -184,15 +183,6 @@ export default {
 	McpTools: {
 		kind: 'page',
 		component: McpTools,
-	},
-
-	/**
-	 * Support & sponsor — Conduction partner/support routes for the open-source
-	 * app (footer nav). Standard nav page, no backend.
-	 */
-	Support: {
-		kind: 'page',
-		component: Support,
 	},
 
 	// -------------------------------------------------------------------------

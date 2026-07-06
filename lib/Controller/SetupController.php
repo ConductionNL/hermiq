@@ -1,19 +1,20 @@
 <?php
 
 /**
- * Hermiq SetupController.
+ * Hermiq first-time setup contract (ADR-042).
  *
- * Backs the first-run configuration wizard (src/views/SetupWizard.vue) with the two
- * things the browser cannot do itself:
- *   - llmTest: probe an LLM endpoint (Ollama /api/tags) server-side, because the browser
- *     cannot reach the model host directly (network + CORS). The endpoint is allow-listed
- *     to loopback / host.docker.internal to avoid turning this into an SSRF primitive.
- *   - organisations: list the OpenRegister organisations the caller OWNS, so the wizard can
- *     offer a tenancy scope without leaking other tenants' organisation names.
+ * Backs the shared CnSetupWizard the same way every other Conduction app does:
+ *   - status    (GET  /api/setup/status)            — per-step completion for the wizard + summary.
+ *   - saveConfig (POST /api/setup/config)           — persist `config-fields` values to app-config.
+ *   - runAction  (POST /api/setup/action/{actionId})— run a privileged server-side action; here the
+ *                                                      only action is `test-llm`, which probes the
+ *                                                      configured Ollama endpoint (the browser cannot
+ *                                                      reach the model host directly) and records the
+ *                                                      first advertised model as the default.
  *
- * Everything else the wizard needs (persisting the completed flag + defaults, seeding a demo
- * agent) reuses existing endpoints (PreferencesController, OpenRegister agents), so this
- * controller stays minimal.
+ * The endpoint probe is allow-listed to loopback / host.docker.internal so it can never become an
+ * SSRF primitive. saveConfig/runAction are admin-only (no @NoAdminRequired → admin by default);
+ * status is readable by any logged-in user so the shell never 403s on load.
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -33,24 +34,49 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
-use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\Http\Client\IClientService;
+use OCP\IAppConfig;
 use OCP\IRequest;
-use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * First-run wizard support endpoints.
+ * First-time setup status + actions for the shared CnSetupWizard.
+ *
+ * @spec exclude Standard ADR-042 setup contract adoption — framework wiring for
+ *   the shared CnSetupWizard, no per-app behavioural spec of its own.
  */
 class SetupController extends Controller
 {
 
     /**
-     * Hosts an LLM endpoint may point at. Keeps llmTest from becoming an SSRF
+     * Setup contract version; matches manifest.setup.version.
+     *
+     * @var int
+     */
+    private const SETUP_VERSION = 1;
+
+    /**
+     * App-config keys the wizard is allowed to write via saveConfig. Kept to an
+     * allow-list so the setup endpoint can never be used to write arbitrary
+     * app-config values.
+     *
+     * @var array<int, string>
+     */
+    private const WRITABLE_KEYS = ['llmendpoint', 'delivertarget'];
+
+    /**
+     * Default Ollama endpoint when the admin has not configured one yet.
+     *
+     * @var string
+     */
+    private const DEFAULT_ENDPOINT = 'http://host.docker.internal:11434';
+
+    /**
+     * Hosts an LLM endpoint may point at. Keeps the probe from becoming an SSRF
      * primitive — the realistic Ollama locations in a Nextcloud deployment are
      * the loopback interface or the Docker host gateway.
      *
@@ -61,17 +87,15 @@ class SetupController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest           $request            The request.
-     * @param IClientService     $clientService      Nextcloud HTTP client factory.
-     * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup.
-     * @param IUserSession       $userSession        The user session.
-     * @param LoggerInterface    $logger             PSR-3 logger.
+     * @param IRequest        $request       The request.
+     * @param IClientService  $clientService Nextcloud HTTP client factory.
+     * @param IAppConfig      $appConfig     App-config reader/writer.
+     * @param LoggerInterface $logger        PSR-3 logger.
      */
     public function __construct(
         IRequest $request,
         private readonly IClientService $clientService,
-        private readonly OrganisationMapper $organisationMapper,
-        private readonly IUserSession $userSession,
+        private readonly IAppConfig $appConfig,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
@@ -79,33 +103,105 @@ class SetupController extends Controller
     }//end __construct()
 
     /**
-     * Probe an LLM endpoint and return the models it advertises (Ollama /api/tags).
+     * Report per-step setup status for the wizard.
      *
-     * @param string $endpoint The base URL of the LLM host (defaults to the Docker host gateway).
+     * @return JSONResponse `{ version, completed, steps: { <id>: { done } } }`.
      *
-     * @return JSONResponse `{reachable: bool, models: string[], error?: string}`.
-     *
-     * @spec exclude First-run wizard connectivity probe; no behavioural spec.
+     * @spec exclude First-time-setup status; no behavioural spec.
      *
      * @NoAdminRequired
-     * @NoCSRFRequired
      */
-    public function llmTest(string $endpoint=''): JSONResponse
+    public function status(): JSONResponse
     {
-        if ($this->userSession->getUser() === null) {
-            return new JSONResponse(data: ['reachable' => false, 'error' => 'Not logged in'], statusCode: Http::STATUS_UNAUTHORIZED);
+        $llmTested = $this->config(key: 'setup_llm_tested') === '1';
+        $completed = $llmTested;
+
+        if ($completed === true) {
+            $this->appConfig->setValueString(Application::APP_ID, 'setup_completed_version', (string) self::SETUP_VERSION);
         }
 
-        $base = trim($endpoint);
+        return new JSONResponse(
+            data: [
+                'version'   => self::SETUP_VERSION,
+                'completed' => $completed,
+                'steps'     => [
+                    'test-llm' => ['done' => $llmTested],
+                ],
+            ]
+        );
+
+    }//end status()
+
+    /**
+     * Persist app-config values from a `config-fields` step (admin-only).
+     *
+     * @return JSONResponse `{ success }`.
+     *
+     * @spec exclude First-time-setup config persistence; no behavioural spec.
+     */
+    public function saveConfig(): JSONResponse
+    {
+        foreach ($this->request->getParams() as $key => $value) {
+            if (in_array($key, self::WRITABLE_KEYS, true) === false) {
+                continue;
+            }
+
+            $stored = '';
+            if (is_scalar($value) === true) {
+                $stored = (string) $value;
+            }
+
+            $this->appConfig->setValueString(
+                Application::APP_ID,
+                (string) $key,
+                $stored,
+            );
+        }
+
+        return new JSONResponse(data: ['success' => true]);
+
+    }//end saveConfig()
+
+    /**
+     * Run a privileged server-side setup action (admin-only).
+     *
+     * @param string $actionId The action to run (only `test-llm`).
+     *
+     * @return JSONResponse `{ success, message }`.
+     *
+     * @spec exclude First-time-setup action dispatch; no behavioural spec.
+     */
+    public function runAction(string $actionId): JSONResponse
+    {
+        if ($actionId === 'test-llm') {
+            return $this->testLlm();
+        }
+
+        return new JSONResponse(
+            data: ['success' => false, 'message' => 'Unknown setup action: '.$actionId],
+            statusCode: Http::STATUS_NOT_FOUND,
+        );
+
+    }//end runAction()
+
+    /**
+     * Probe the configured LLM endpoint (Ollama /api/tags), record the first
+     * advertised model as the default, and mark the LLM step done.
+     *
+     * @return JSONResponse `{ success, message }`.
+     */
+    private function testLlm(): JSONResponse
+    {
+        $base = trim($this->config(key: 'llmendpoint'));
         if ($base === '') {
-            $base = 'http://host.docker.internal:11434';
+            $base = self::DEFAULT_ENDPOINT;
         }
 
         if ($this->isAllowedEndpoint(endpoint: $base) === false) {
             return new JSONResponse(
                 data: [
-                    'reachable' => false,
-                    'error'     => 'Endpoint host not allowed. Use localhost or host.docker.internal '
+                    'success' => false,
+                    'message' => 'Endpoint host not allowed. Use localhost or host.docker.internal '
                         .'(configure a remote model host in OpenRegister).',
                 ]
             );
@@ -137,52 +233,41 @@ class SetupController extends Controller
                 }
             }
 
-            return new JSONResponse(data: ['reachable' => true, 'models' => $models]);
+            if ($models === []) {
+                return new JSONResponse(
+                    data: ['success' => false, 'message' => 'Reachable, but the host advertises no models. Pull a model on the Ollama host first.']
+                );
+            }
+
+            $this->appConfig->setValueString(Application::APP_ID, 'defaultmodel', $models[0]);
+            $this->appConfig->setValueString(Application::APP_ID, 'setup_llm_tested', '1');
+
+            $sample = implode(', ', array_slice($models, 0, 4));
+            $plural = 's';
+            if (count($models) === 1) {
+                $plural = '';
+            }
+
+            return new JSONResponse(
+                data: [
+                    'success' => true,
+                    'message' => sprintf(
+                        'Connected — %d model%s (%s). Default set to "%s".',
+                        count($models),
+                        $plural,
+                        $sample,
+                        $models[0],
+                    ),
+                ]
+            );
         } catch (Throwable $e) {
             $this->logger->debug('[Hermiq] LLM test failed: '.$e->getMessage());
-            return new JSONResponse(data: ['reachable' => false, 'models' => [], 'error' => $e->getMessage()]);
+            return new JSONResponse(
+                data: ['success' => false, 'message' => 'Not reachable: '.$e->getMessage()]
+            );
         }//end try
 
-    }//end llmTest()
-
-    /**
-     * List the OpenRegister organisations the caller owns (tenancy scope choices).
-     *
-     * @return JSONResponse `{results: Array<{uuid: string, name: string}>}`.
-     *
-     * @spec exclude First-run wizard tenancy-scope list; no behavioural spec.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     */
-    public function organisations(): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(data: ['message' => 'Not logged in'], statusCode: Http::STATUS_UNAUTHORIZED);
-        }
-
-        $uid = $user->getUID();
-        $out = [];
-        try {
-            foreach ($this->organisationMapper->findAll(limit: 200) as $organisation) {
-                // Only surface organisations the caller owns — never leak other tenants' names.
-                if ((string) $organisation->getOwner() !== $uid) {
-                    continue;
-                }
-
-                $out[] = [
-                    'uuid' => (string) $organisation->getUuid(),
-                    'name' => (string) $organisation->getName(),
-                ];
-            }
-        } catch (Throwable $e) {
-            $this->logger->debug('[Hermiq] organisation list failed: '.$e->getMessage());
-        }
-
-        return new JSONResponse(data: ['results' => $out]);
-
-    }//end organisations()
+    }//end testLlm()
 
     /**
      * Whether an LLM endpoint URL is a well-formed http(s) URL pointing at an allow-listed host.
@@ -205,4 +290,17 @@ class SetupController extends Controller
         return in_array(strtolower($parts['host']), self::ALLOWED_LLM_HOSTS, true);
 
     }//end isAllowedEndpoint()
+
+    /**
+     * Read a Hermiq app-config string value.
+     *
+     * @param string $key The config key.
+     *
+     * @return string The value, or '' when unset.
+     */
+    private function config(string $key): string
+    {
+        return $this->appConfig->getValueString(Application::APP_ID, $key, '');
+
+    }//end config()
 }//end class

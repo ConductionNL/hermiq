@@ -61,9 +61,10 @@ return [
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillMarketplace#publish',           'url' => '/api/skills/{id}/publish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
-        // First-run wizard support (SetupController): server-side LLM probe + owned-org list.
-        ['name' => 'setup#llmTest',       'url' => '/api/setup/llm-test', 'verb' => 'GET'],
-        ['name' => 'setup#organisations', 'url' => '/api/setup/organisations', 'verb' => 'GET'],
+        // First-time setup wizard (ADR-042) — the standard CnSetupWizard contract.
+        ['name' => 'setup#status',     'url' => '/api/setup/status',            'verb' => 'GET'],
+        ['name' => 'setup#saveConfig', 'url' => '/api/setup/config',            'verb' => 'POST'],
+        ['name' => 'setup#runAction',  'url' => '/api/setup/action/{actionId}', 'verb' => 'POST', 'requirements' => ['actionId' => '[^/]+']],
 
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).

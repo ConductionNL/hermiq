@@ -83,14 +83,6 @@
 			"icon": "icon-category-integration",
 			"route": "McpTools",
 			"order": 22
-		},
-		{
-			"id": "Support",
-			"label": "Support & sponsor",
-			"icon": "icon-favorite",
-			"route": "Support",
-			"section": "footer",
-			"order": 95
 		}
 	],
 	"pages": [
@@ -351,14 +343,131 @@
 			"component": "McpTools",
 			"title": "MCP tools",
 			"_note": "Custom page: catalogue of MCP tools available to agents, read from OpenRegister's agents/tools resource (not register/schema objects), so the built-in index page type cannot express it. Read-only nav page."
-		},
-		{
-			"id": "Support",
-			"route": "/support",
-			"type": "custom",
-			"component": "Support",
-			"title": "Support & sponsor",
-			"_note": "Custom page: static Conduction support/partner CTA for the open-source app. No data source; a plain informational page."
 		}
-	]
+	],
+	"setup": {
+		"enabled": true,
+		"version": 1,
+		"completionConfigKey": "setup_completed_version",
+		"steps": [
+			{
+				"id": "welcome",
+				"type": "info",
+				"title": "Welcome to Hermiq",
+				"body": "Hermiq runs autonomous agents against a local LLM. Point it at your Ollama host and test the connection once — agents can't run without a reachable model."
+			},
+			{
+				"id": "llm-endpoint",
+				"type": "config-fields",
+				"title": "LLM endpoint",
+				"schema": {
+					"type": "object",
+					"properties": {
+						"llmendpoint": {
+							"type": "string",
+							"title": "LLM endpoint (Ollama)",
+							"default": "http://host.docker.internal:11434"
+						}
+					}
+				}
+			},
+			{
+				"id": "test-llm",
+				"type": "run-action",
+				"title": "Test connection",
+				"action": "test-llm",
+				"body": "Probe the endpoint and confirm Hermiq can reach your models. The first model discovered becomes the default."
+			},
+			{
+				"id": "talk-delivery",
+				"type": "config-fields",
+				"title": "Talk delivery",
+				"schema": {
+					"type": "object",
+					"properties": {
+						"delivertarget": {
+							"type": "string",
+							"title": "Default Talk room token (optional)"
+						}
+					}
+				}
+			},
+			{
+				"id": "done",
+				"type": "summary",
+				"title": "All set",
+				"healthCheck": true
+			}
+		]
+	},
+	"walkthrough": {
+		"enabled": true,
+		"version": 1,
+		"completionConfigKey": "walkthrough_completed_version",
+		"tours": [
+			{
+				"id": "hermiq:getting-started",
+				"title": "Getting started",
+				"trigger": "first-visit",
+				"minAppVersion": "0.1.38",
+				"steps": [
+					{
+						"id": "welcome",
+						"sinceVersion": "0.1.38",
+						"placement": "center",
+						"title": "Welcome to Hermiq",
+						"body": "Let's take a quick tour. Hermiq lets you build autonomous AI agents, give them skills and tools, and run them on a schedule.",
+						"target": { "kind": "page", "ref": "Dashboard" },
+						"advanceOn": { "type": "manual" }
+					},
+					{
+						"id": "go-agents",
+						"sinceVersion": "0.1.38",
+						"placement": "right",
+						"body": "Agents are the heart of Hermiq. Open Agents to see them and define your own.",
+						"task": "Click Agents in the menu",
+						"target": { "kind": "nav-item", "ref": "AgentCatalog" },
+						"advanceOn": { "type": "route-match", "route": "AgentCatalog" }
+					},
+					{
+						"id": "agents-intro",
+						"sinceVersion": "0.1.38",
+						"placement": "center",
+						"allowManualNext": true,
+						"title": "Your agent catalog",
+						"body": "This is where your agents live. Use New to create one — give it a prompt, pick a model, and add optional tools and skills.",
+						"target": { "kind": "page", "ref": "AgentCatalog" },
+						"advanceOn": { "type": "manual" }
+					},
+					{
+						"id": "go-skills",
+						"sinceVersion": "0.1.38",
+						"placement": "right",
+						"body": "Skills give agents new abilities. Browse the Skills catalog to see what you can add.",
+						"task": "Click Skills in the menu",
+						"target": { "kind": "nav-item", "ref": "SkillsCatalog" },
+						"advanceOn": { "type": "route-match", "route": "SkillsCatalog" }
+					},
+					{
+						"id": "go-mcp",
+						"sinceVersion": "0.1.38",
+						"placement": "right",
+						"body": "MCP tools connect your agents to external systems over the Model Context Protocol.",
+						"task": "Click MCP tools in the menu",
+						"target": { "kind": "nav-item", "ref": "McpTools" },
+						"advanceOn": { "type": "route-match", "route": "McpTools" }
+					},
+					{
+						"id": "done",
+						"sinceVersion": "0.1.38",
+						"placement": "center",
+						"title": "You're all set",
+						"body": "That's the tour. Open Settings any time to re-run this walkthrough or the setup wizard.",
+						"target": { "kind": "page", "ref": "Dashboard" },
+						"advanceOn": { "type": "manual" }
+					}
+				]
+			}
+		]
+	}
 }

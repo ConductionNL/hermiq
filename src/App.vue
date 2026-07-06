@@ -7,9 +7,13 @@
  (CnDetailPage) can drive a single host-rendered CnObjectSidebar through
  the #sidebar slot.
 
- On first run (per-user `wizardCompleted` preference unset) it overlays the
- SetupWizard walkthrough; the Settings dialog can re-open it. The wrapper uses
- `display: contents` so CnAppRoot still behaves as the direct child of #content.
+ Onboarding uses the standard nc-vue system (the same one every other app uses):
+ the first-visit product tour is declared in `manifest.walkthrough` and mounted
+ automatically by CnAppRoot (which also auto-adds a "Restart walkthrough"
+ settings section), and the first-time setup wizard is `manifest.setup` rendered
+ by the shared CnSetupWizard — opened on demand from the admin-only "Run setup
+ wizard" settings button below. The wrapper uses `display: contents` so CnAppRoot
+ still behaves as the direct child of #content.
 
  @spec openspec/changes/template-manifest-v1/specs/template-manifest-v1/spec.md
  @spec openspec/changes/scaffold-v2/specs/scaffold-v2/spec.md
@@ -61,19 +65,26 @@
 					</ul>
 				</NcAppSettingsSection>
 				<NcAppSettingsSection
+					v-if="isAdmin"
 					id="setup"
 					:name="t('hermiq', 'Setup')">
 					<p class="hermiq-settings__text">
-						{{ t('hermiq', 'Re-run the first-run walkthrough to reconfigure your LLM connection, delivery, organisation or seed a demo agent.') }}
+						{{ t('hermiq', 'Re-run the first-time setup wizard to point Hermiq at your LLM host and test the connection.') }}
 					</p>
-					<NcButton type="secondary" @click="reRunWizard">
+					<NcButton type="secondary" @click="showSetup = true">
 						{{ t('hermiq', 'Run setup wizard') }}
 					</NcButton>
 				</NcAppSettingsSection>
 			</template>
 		</CnAppRoot>
 
-		<SetupWizard v-if="showWizard" @done="onWizardDone" />
+		<CnSetupWizard
+			v-if="showSetup"
+			app-id="hermiq"
+			:steps="setupSteps"
+			:dialog-title="t('hermiq', 'Set up Hermiq')"
+			@complete="showSetup = false"
+			@close="showSetup = false" />
 	</div>
 </template>
 
@@ -81,9 +92,7 @@
 import Vue from 'vue'
 import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
-import { CnAppRoot, CnObjectSidebar } from '@conduction/nextcloud-vue'
-import SetupWizard from './views/SetupWizard.vue'
-import { getPreference, setPreference } from './api/wizard.js'
+import { CnAppRoot, CnObjectSidebar, CnSetupWizard } from '@conduction/nextcloud-vue'
 
 export default {
 	name: 'App',
@@ -91,9 +100,9 @@ export default {
 	components: {
 		CnAppRoot,
 		CnObjectSidebar,
+		CnSetupWizard,
 		NcAppSettingsSection,
 		NcButton,
-		SetupWizard,
 	},
 
 	/**
@@ -154,7 +163,7 @@ export default {
 
 	data() {
 		return {
-			showWizard: false,
+			showSetup: false,
 			objectSidebarState: Vue.observable({
 				active: false,
 				open: true,
@@ -180,51 +189,27 @@ export default {
 		permissions() {
 			return window.OC?.currentUser?.permissions ?? []
 		},
-	},
 
-	created() {
-		this.maybeShowWizard()
+		/**
+		 * @spec exclude framework passthrough — the `manifest.setup.steps` array
+		 *   handed straight to CnSetupWizard. No domain logic; the wizard owns
+		 *   the setup contract.
+		 */
+		setupSteps() {
+			return (this.manifest && this.manifest.setup && this.manifest.setup.steps) || []
+		},
+
+		/**
+		 * @spec exclude framework passthrough — whether the current Nextcloud
+		 *   user is an admin. The setup wizard writes app-config via admin-scoped
+		 *   endpoints, so only admins see the "Run setup wizard" entry.
+		 */
+		isAdmin() {
+			return window.OC?.isUserAdmin?.() === true
+		},
 	},
 
 	methods: {
-		/**
-		 * Show the first-run wizard unless the user has completed (or skipped) it.
-		 * Fail-open: any error just leaves the wizard hidden — it never blocks boot.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async maybeShowWizard() {
-			try {
-				const done = await getPreference('wizardcompleted')
-				this.showWizard = !done
-			} catch (e) {
-				this.showWizard = false
-			}
-		},
-
-		/**
-		 * Hide the wizard once it reports done (it persists the flag itself).
-		 *
-		 * @return {void}
-		 */
-		onWizardDone() {
-			this.showWizard = false
-		},
-
-		/**
-		 * Re-open the wizard from Settings by clearing the completed flag.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async reRunWizard() {
-			try {
-				await setPreference('wizardcompleted', '')
-			} catch (e) {
-				// Non-fatal — still open the wizard for this session.
-			}
-			this.showWizard = true
-		},
-
 		/**
 		 * Translate function passed down to CnAppRoot / CnAppNav / CnPageRenderer.
 		 * Closes over the Nextcloud `translate` import so the lib never has to
