@@ -26,7 +26,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\AppInfo;
 
-use OCA\Hermiq\Dashboard\ExampleWidget;
 use OCA\Hermiq\Listener\DeepLinkRegistrationListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
@@ -80,11 +79,6 @@ class Application extends App implements IBootstrap
             event: DeepLinkRegistrationEvent::class,
             listener: DeepLinkRegistrationListener::class
         );
-
-        // Sample dashboard widget — see lib/Dashboard/ExampleWidget.php.
-        // Delete this line and the ExampleWidget files if your app has no
-        // dashboard widgets.
-        $context->registerDashboardWidget(ExampleWidget::class);
 
         // Renders Hermiq's Nextcloud notifications (talk-delivery): the notification
         // delivery channel and the Talk fallback both raise notifications that this
