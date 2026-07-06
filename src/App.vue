@@ -17,6 +17,7 @@
 <template>
 	<div class="hermiq-root">
 		<CnAppRoot
+			:ai-companion="true"
 			:manifest="manifest"
 			:custom-components="customComponents"
 			:page-types="pageTypes"
