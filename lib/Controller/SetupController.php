@@ -66,7 +66,7 @@ class SetupController extends Controller
      *
      * @var array<int, string>
      */
-    private const WRITABLE_KEYS = ['llmendpoint', 'delivertarget'];
+    private const WRITABLE_KEYS = ['llmendpoint'];
 
     /**
      * Default Ollama endpoint when the admin has not configured one yet.

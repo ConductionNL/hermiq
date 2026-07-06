@@ -379,20 +379,6 @@
 				"body": "Probe the endpoint and confirm Hermiq can reach your models. The first model discovered becomes the default."
 			},
 			{
-				"id": "talk-delivery",
-				"type": "config-fields",
-				"title": "Talk delivery",
-				"schema": {
-					"type": "object",
-					"properties": {
-						"delivertarget": {
-							"type": "string",
-							"title": "Default Talk room token (optional)"
-						}
-					}
-				}
-			},
-			{
 				"id": "done",
 				"type": "summary",
 				"title": "All set",
