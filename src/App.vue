@@ -65,6 +65,11 @@
 					</ul>
 				</NcAppSettingsSection>
 				<NcAppSettingsSection
+					id="talk-delivery"
+					:name="t('hermiq', 'Talk delivery')">
+					<TalkDeliverySettings />
+				</NcAppSettingsSection>
+				<NcAppSettingsSection
 					v-if="isAdmin"
 					id="setup"
 					:name="t('hermiq', 'Setup')">
@@ -93,6 +98,7 @@ import Vue from 'vue'
 import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { CnAppRoot, CnObjectSidebar, CnSetupWizard } from '@conduction/nextcloud-vue'
+import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
 
 export default {
 	name: 'App',
@@ -103,6 +109,7 @@ export default {
 		CnSetupWizard,
 		NcAppSettingsSection,
 		NcButton,
+		TalkDeliverySettings,
 	},
 
 	/**
