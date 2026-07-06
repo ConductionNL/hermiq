@@ -6,7 +6,7 @@
 
   Pick an agent, then view + curate its long-term Memory: the durable entries, the
   character-budget usage bar, the needsConsolidation nudge with a manual "Consolidate"
-  action, plus the agent's sessions and an OR-search recall box. All reads/writes go
+  action. All reads/writes go
   through the tenant-scoped MemoryController endpoints (src/api/memory.js) — no new
   write path, no custom Pinia store.
 
@@ -117,52 +117,6 @@
 				</ul>
 			</section>
 
-			<!-- Recall -->
-			<section class="agent-memory__section">
-				<h3 class="agent-memory__subhead">
-					{{ t('hermiq', 'Recall sessions') }}
-				</h3>
-				<div class="agent-memory__recall">
-					<NcTextField
-						:value.sync="recallQuery"
-						:label="t('hermiq', 'Search prior conversation turns')"
-						:disabled="busy"
-						@keydown.enter="runRecall" />
-					<NcButton type="secondary" :disabled="busy" @click="runRecall">
-						{{ t('hermiq', 'Recall') }}
-					</NcButton>
-				</div>
-				<ul v-if="recallResults.length > 0" class="agent-memory__entries">
-					<li v-for="turn in recallResults" :key="turn.uuid" class="agent-memory__entry">
-						<span class="agent-memory__entry-role">{{ turn.role }}</span>
-						<span class="agent-memory__entry-text">{{ turn.content }}</span>
-					</li>
-				</ul>
-				<p v-else-if="recallRan" class="agent-memory__muted">
-					{{ t('hermiq', 'No matching turns.') }}
-				</p>
-			</section>
-
-			<!-- Sessions -->
-			<section class="agent-memory__section">
-				<h3 class="agent-memory__subhead">
-					{{ t('hermiq', 'Sessions') }} ({{ sessions.length }})
-				</h3>
-				<NcEmptyContent
-					v-if="sessions.length === 0"
-					:name="t('hermiq', 'No sessions yet')"
-					:description="t('hermiq', 'Conversation sessions recorded by agent runs will appear here.')">
-					<template #icon>
-						<ChatIcon :size="20" />
-					</template>
-				</NcEmptyContent>
-				<ul v-else class="agent-memory__entries">
-					<li v-for="session in sessions" :key="session.uuid" class="agent-memory__entry">
-						<span class="agent-memory__entry-text">{{ session.title || t('hermiq', 'Untitled session') }}</span>
-						<span class="agent-memory__entry-date">{{ formatDate(session.lastActivityAt) }}</span>
-					</li>
-				</ul>
-			</section>
 		</template>
 	</div>
 </template>
@@ -171,9 +125,8 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
-import ChatIcon from 'vue-material-design-icons/ChatOutline.vue'
 import { listAgents } from '../api/agents.js'
-import { addMemory, consolidateMemory, getMemory, listSessions, recall } from '../api/memory.js'
+import { addMemory, consolidateMemory, getMemory } from '../api/memory.js'
 
 export default {
 	name: 'AgentMemory',
@@ -181,7 +134,6 @@ export default {
 	components: {
 		AlertIcon,
 		BrainIcon,
-		ChatIcon,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
@@ -195,11 +147,7 @@ export default {
 			agents: [],
 			selectedAgent: null,
 			memory: { entries: [], charBudget: 8000, needsConsolidation: false },
-			sessions: [],
 			newEntry: '',
-			recallQuery: '',
-			recallResults: [],
-			recallRan: false,
 			loading: true,
 			busy: false,
 			error: '',
@@ -291,13 +239,11 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async onAgentChange() {
-			this.recallResults = []
-			this.recallRan = false
 			await this.loadAgent()
 		},
 
 		/**
-		 * Load the selected agent's memory + sessions.
+		 * Load the selected agent's memory.
 		 *
 		 * @return {Promise<void>}
 		 */
@@ -308,12 +254,8 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				const [memory, sessions] = await Promise.all([
-					getMemory(this.selectedAgent.value),
-					listSessions(this.selectedAgent.value),
-				])
+				const memory = await getMemory(this.selectedAgent.value)
 				this.memory = memory || { entries: [], charBudget: 8000, needsConsolidation: false }
-				this.sessions = sessions
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {
@@ -356,27 +298,6 @@ export default {
 			this.error = ''
 			try {
 				this.memory = await consolidateMemory(this.selectedAgent.value)
-			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
-		},
-
-		/**
-		 * Run a tenant-scoped recall search over the agent's session turns.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async runRecall() {
-			if (!this.selectedAgent) {
-				return
-			}
-			this.busy = true
-			this.error = ''
-			try {
-				this.recallResults = await recall(this.selectedAgent.value, this.recallQuery.trim())
-				this.recallRan = true
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {

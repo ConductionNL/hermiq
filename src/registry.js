@@ -46,6 +46,7 @@ import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
+import AgentSessions from './views/AgentSessions.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
 import RunAnalytics from './views/RunAnalytics.vue'
 import TenantOps from './views/TenantOps.vue'
@@ -142,11 +143,20 @@ export default {
 
 	/**
 	 * Agent memory — a selected agent's long-term memory (char budget + consolidation
-	 * nudge), sessions, and OR-search recall (agent-memory). Standard nav page.
+	 * nudge) and OR-search recall (agent-memory). Standard nav page.
 	 */
 	AgentMemory: {
 		kind: 'page',
 		component: AgentMemory,
+	},
+
+	/**
+	 * Agent sessions — a selected agent's recorded conversation sessions plus a
+	 * turn-search (recall) box. Split out from Memory so chats are their own thing.
+	 */
+	AgentSessions: {
+		kind: 'page',
+		component: AgentSessions,
 	},
 
 	/**
