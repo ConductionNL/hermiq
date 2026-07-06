@@ -41,7 +41,9 @@ namespace OCA\Hermiq\Service;
 
 use DateTime;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCP\IConfig;
 use OCP\IURLGenerator;
+use OCP\IUserManager;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Talk\IBroker;
 use Psr\Container\ContainerInterface;
@@ -94,6 +96,37 @@ class DeliveryService
     private const TALK_CHAT_MANAGER = 'OCA\\Talk\\Chat\\ChatManager';
 
     /**
+     * Fully-qualified spreed room service (resolved lazily) for creating the
+     * per-user default "Hermiq" delivery room.
+     *
+     * @var string
+     */
+    private const TALK_ROOM_SERVICE = 'OCA\\Talk\\Service\\RoomService';
+
+    /**
+     * Talk group-conversation type (spreed Room::TYPE_GROUP).
+     *
+     * @var int
+     */
+    private const ROOM_TYPE_GROUP = 2;
+
+    /**
+     * Name of the per-user default delivery room created on first delivery.
+     *
+     * @var string
+     */
+    private const DEFAULT_ROOM_NAME = 'Hermiq';
+
+    /**
+     * User-config key (under app 'hermiq') storing the owner's default delivery
+     * room token. Matches PreferencesController's `pref_` prefix so the Personal
+     * settings picker and this fallback read/write the same value.
+     *
+     * @var string
+     */
+    private const DELIVER_TARGET_PREF = 'pref_delivertarget';
+
+    /**
      * Constructor.
      *
      * All constructor dependencies are ALWAYS-present Nextcloud services. The optional
@@ -104,6 +137,8 @@ class DeliveryService
      * @param IBroker              $talkBroker          Core Talk availability probe (hasBackend()).
      * @param IURLGenerator        $urlGenerator        Builds the schedule/run deep link for notifications.
      * @param ContainerInterface   $container           Server container for lazy spreed resolution.
+     * @param IConfig              $config              Reads/writes the owner's default-room preference.
+     * @param IUserManager         $userManager         Resolves the owner IUser for room creation.
      * @param LoggerInterface      $logger              PSR-3 logger for delivery warnings.
      */
     public function __construct(
@@ -111,6 +146,8 @@ class DeliveryService
         private readonly IBroker $talkBroker,
         private readonly IURLGenerator $urlGenerator,
         private readonly ContainerInterface $container,
+        private readonly IConfig $config,
+        private readonly IUserManager $userManager,
         private readonly LoggerInterface $logger,
     ) {
     }//end __construct()
@@ -249,6 +286,15 @@ class DeliveryService
                 fellBack: true,
                 reason: 'Talk (spreed) is not available'
             );
+        }
+
+        // When the schedule names no room, fall back to the owner's default
+        // delivery room (Personal settings) — lazily creating a "Hermiq" room the
+        // first time so a user with nothing configured still gets a real room
+        // rather than only Note-to-self. Any failure leaves $target empty and the
+        // Note-to-self fallback below still applies.
+        if ($target === '') {
+            $target = $this->resolveDefaultRoom(owner: $owner);
         }
 
         // 1) Targeted room (membership-checked) when deliverTarget is set.
@@ -460,6 +506,71 @@ class DeliveryService
         return $this->container->get(self::TALK_CHAT_MANAGER);
 
     }//end talkChatManager()
+
+    /**
+     * Lazily resolve the spreed room service from the server container.
+     *
+     * @return \OCA\Talk\Service\RoomService The spreed room service.
+     *
+     * @spec exclude Lazy spreed resolver; mirrors the other Talk resolvers.
+     */
+    private function talkRoomService(): object
+    {
+        return $this->container->get(self::TALK_ROOM_SERVICE);
+
+    }//end talkRoomService()
+
+    /**
+     * Resolve the owner's default delivery-room token, creating a "Hermiq" room on
+     * first use.
+     *
+     * Reads the owner's `delivertarget` preference (set from Personal settings);
+     * when unset, lazily creates a group Talk room named "Hermiq" owned by the
+     * user, persists its token as that preference, and returns it. Any failure
+     * (Talk unavailable, unknown user, creation error) returns '' so the caller
+     * cleanly falls through to Note-to-self.
+     *
+     * @param string $owner The schedule owner UID.
+     *
+     * @return string The room token, or '' when none could be resolved/created.
+     *
+     * @spec exclude Per-user default-room resolution; no behavioural spec yet.
+     */
+    private function resolveDefaultRoom(string $owner): string
+    {
+        if ($owner === '') {
+            return '';
+        }
+
+        $stored = (string) $this->config->getUserValue($owner, 'hermiq', self::DELIVER_TARGET_PREF, '');
+        if ($stored !== '') {
+            return $stored;
+        }
+
+        try {
+            $ownerUser = $this->userManager->get($owner);
+            if ($ownerUser === null) {
+                return '';
+            }
+
+            $room  = $this->talkRoomService()->createConversation(
+                self::ROOM_TYPE_GROUP,
+                self::DEFAULT_ROOM_NAME,
+                $ownerUser,
+            );
+            $token = (string) $room->getToken();
+            if ($token === '') {
+                return '';
+            }
+
+            $this->config->setUserValue($owner, 'hermiq', self::DELIVER_TARGET_PREF, $token);
+            return $token;
+        } catch (Throwable $e) {
+            $this->logger->debug('[Hermiq] default Talk room creation failed: '.$e->getMessage());
+            return '';
+        }//end try
+
+    }//end resolveDefaultRoom()
 
     /**
      * Whether Talk is usable right now (core probe + spreed classes present).
