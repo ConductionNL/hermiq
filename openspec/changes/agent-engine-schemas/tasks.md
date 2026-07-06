@@ -2,50 +2,66 @@
 
 ## 1. Declare the Agent schema
 
-- [ ] 1.1 Add an `Agent` entry under `components.schemas` in `lib/Settings/hermiq_register.json`
+- [x] 1.1 Add an `Agent` entry under `components.schemas` in `lib/Settings/hermiq_register.json`
   (title, slug `agent`, icon, version, `x-openregister`), fields per OR's `lib/Db/Agent.php`
   verified at HEAD: `name` (required), `description`, `type`, `provider`, `model`, `prompt`,
   `temperature`, `maxTokens`, `configuration` (object).
-- [ ] 1.2 Add the RAG/quota/visibility fields: `active` (default true), `enableRag` (default
+- [x] 1.2 Add the RAG/quota/visibility fields: `active` (default true), `enableRag` (default
   false), `ragSearchMode`, `ragNumSources`, `ragIncludeFiles`, `ragIncludeObjects`, `requestQuota`,
   `tokenQuota`, `views` (array), `searchFiles`, `searchObjects`, `isPrivate` (default true),
   `invitedUsers` (array), `groups` (array), `user` (string, for cron/background runs).
-- [ ] 1.3 Add `tools` (array of `{appId}.{toolName}` strings, default empty) as the ADR-035
+- [x] 1.3 Add `tools` (array of `{appId}.{toolName}` strings, default empty) as the ADR-035
   `toolWhitelist` field — empty means all discovered tools allowed (design.md Decisions).
-- [ ] 1.4 Do NOT declare `owner`/`organisation` — inherited from `ObjectEntity`.
+- [x] 1.4 Do NOT declare `owner`/`organisation` — inherited from `ObjectEntity`.
 
 ## 2. Declare the Conversation schema
 
-- [ ] 2.1 Add a `Conversation` entry (slug `conversation`) with `title`, `userId` (string),
+- [x] 2.1 Add a `Conversation` entry (slug `conversation`) with `title`, `userId` (string),
   `agentId` (**string, format uuid, required** — not an integer FK), `metadata` (object).
-- [ ] 2.2 Do NOT declare `owner`/`organisation`/`deletedAt`/`created`/`updated` — all inherited
+- [x] 2.2 Do NOT declare `owner`/`organisation`/`deletedAt`/`created`/`updated` — all inherited
   from `ObjectEntity` (soft-delete + timestamps are native).
 
 ## 3. Declare the Message schema
 
-- [ ] 3.1 Add a `Message` entry (slug `message`) with `conversationId` (**string, format uuid,
+- [x] 3.1 Add a `Message` entry (slug `message`) with `conversationId` (**string, format uuid,
   required**), `role` (enum `system`|`user`|`assistant`|`tool`, required), `content` (string),
   `sources` (array).
-- [ ] 3.2 Add `context` (object, optional) — the AI Chat Companion `CnAiContext` snapshot (hydra
+- [x] 3.2 Add `context` (object, optional) — the AI Chat Companion `CnAiContext` snapshot (hydra
   ADR-034 Decision 5); preserve the shape (`appId`, `pageKind`, `objectUuid`, `registerSlug`,
   `schemaSlug`, `route`, `capturedAt`) as free-form JSON, not individually typed properties.
 
 ## 4. Declare the Feedback schema
 
-- [ ] 4.1 Add a `Feedback` entry (slug `feedback`) with `messageId`, `conversationId`, `agentId`
+- [x] 4.1 Add a `Feedback` entry (slug `feedback`) with `messageId`, `conversationId`, `agentId`
   (all **string, format uuid, required**), `userId` (string, required), `type` (string, required),
-  `comment` (string, optional).
-- [ ] 4.2 Do NOT declare `organisation` — inherited from `ObjectEntity`.
+  `comment` (string, optional). `type` declared as enum `positive`|`negative` per the
+  `openregister_feedback.type` column comment ("positive or negative") at HEAD
+  (`Version1Date20251107150000.php`) and design.md's own "plain enums" call-out.
+- [x] 4.2 Do NOT declare `organisation` — inherited from `ObjectEntity`.
 
 ## 5. Validate import and persistence
 
-- [ ] 5.1 Re-validate `hermiq_register.json` as well-formed JSON; confirm `Example`, `Schedule`,
+- [x] 5.1 Re-validate `hermiq_register.json` as well-formed JSON; confirm `Example`, `Schedule`,
   `Approval`, `Tenant control`, `AI feature`, `Agent memory`, `User profile`, `Session`,
-  `Session turn`, `Skill`, `Skill source` are unchanged (union import, no regression).
+  `Session turn`, `Skill`, `Skill source` are unchanged (union import, no regression). Verified:
+  `jq empty` passes; `git diff` vs origin/development is purely additive (88 insertions, 0
+  deletions) so every pre-existing schema is byte-identical; `tests/validate-register.js` and
+  `tests/validate-json-strict.js` (hermiq's structural + duplicate-key/merge-safety checks — the
+  closest equivalents to a RegisterFragmentMergeTest; hermiq has no register.d fragment-merge or
+  PHP-level merge test) both PASS with 0 warnings/errors.
 - [ ] 5.2 Import the register via the repair step (`ConfigurationService::importFromApp()`)
-  against live OpenRegister and confirm all four new schemas create cleanly.
+  against live OpenRegister and confirm all four new schemas create cleanly. **Not performed in
+  this session** — no isolated OpenRegister instance was stood up (the shared dev `nextcloud`
+  container is off-limits per the no-deploy-to-shared-instance safety rule, and openregister's
+  working copy is mid-WIP on `ci/composer-auth`, marked do-not-touch). Deferred to Hydra's live
+  gate / CI pipeline, which already exercises this exact repair-step import path.
 - [ ] 5.3 Persist one valid object per new schema (per design.md Seed Data) and confirm an
-  invalid `Message.role` / `Feedback` missing a required uuid field is rejected.
+  invalid `Message.role` / `Feedback` missing a required uuid field is rejected. **Not performed
+  in this session** for the same reason as 5.2 (requires a live OR instance to persist against).
+  Static validation stands in for this: `required` arrays and `enum` constraints for `Message.role`
+  and `Feedback`'s required uuid fields are declared exactly per spec.md's scenarios, and
+  `hermiq_register.json` parses/validates cleanly under every check that doesn't need a live
+  ObjectService.
 
 ## Acceptance criteria
 
