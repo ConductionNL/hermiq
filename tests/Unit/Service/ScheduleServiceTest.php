@@ -1528,4 +1528,172 @@ class ScheduleServiceTest extends TestCase
         );
 
     }//end testEngineFlagOnUsesInAppEngine()
+
+    /**
+     * agent-capability-profile: when the bound Agent declares a valid, active
+     * `actingUser`, the engine-enabled run impersonates THAT identity instead of the
+     * schedule owner — the conversation's userId, the Engine's userId argument, and
+     * the run audit's `runAsUser` all reflect the acting user, not the owner.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-2
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-3
+     */
+    public function testActingUserOverridesOwnerImpersonation(): void
+    {
+        $this->appConfig = $this->createMock(IAppConfig::class);
+        $this->appConfig->method('getValueString')->willReturn('true');
+
+        $this->engine = $this->createMock(Engine::class);
+        $this->engine->expects($this->once())->method('processMessage')->with(
+            $this->equalTo('conv-uuid-1'),
+            $this->equalTo('svc-bot'),
+            $this->equalTo('go')
+        )->willReturn(['message' => 'engine output', 'usage' => []]);
+        $this->service = $this->makeService();
+
+        $agentObject = new ObjectEntity();
+        $agentObject->setUuid('agent-uuid');
+        $agentObject->setObject(['name' => 'Scheduled agent', 'actingUser' => 'svc-bot']);
+        $this->objectService->method('find')->willReturn($agentObject);
+        $this->objectService->method('findAll')->willReturn([]);
+
+        $impersonated = [];
+        $this->userSession->method('setUser')->willReturnCallback(
+            function (?IUser $user) use (&$impersonated): void {
+                if ($user !== null) {
+                    $impersonated[] = $user->getUID();
+                }
+            }
+        );
+
+        $savedConversations = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (mixed $object, ?array $extend=null, mixed $register=null, mixed $schema=null) use (&$savedConversations): ObjectEntity {
+                $entity = new ObjectEntity();
+                $entity->setUuid('saved-'.count($savedConversations));
+                if ($schema === 'conversation') {
+                    $savedConversations[] = $object;
+                    $entity->setUuid('conv-uuid-1');
+                }
+
+                return $entity;
+            }
+        );
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'none',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'acting-user-sched',
+                'alice'
+            )
+        );
+
+        $this->assertContains('svc-bot', $impersonated, 'The actingUser must be impersonated, not the schedule owner.');
+        $this->assertNotContains('alice', $impersonated, 'The schedule owner must NOT be impersonated when actingUser overrides it.');
+        $this->assertSame('svc-bot', $savedConversations[0]['userId'], 'The conversation must be attributed to the acting user.');
+        $this->assertSame(
+            'svc-bot',
+            $this->auditCalls[0]['context']['runAsUser'],
+            'The audit trail must record the identity that actually ran.'
+        );
+
+    }//end testActingUserOverridesOwnerImpersonation()
+
+    /**
+     * agent-capability-profile: an actingUser naming a nonexistent user falls back to
+     * the schedule owner — the run is NOT failed by a misconfigured profile field.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-1
+     */
+    public function testActingUserFallsBackToOwnerWhenNonexistent(): void
+    {
+        $this->appConfig = $this->createMock(IAppConfig::class);
+        $this->appConfig->method('getValueString')->willReturn('true');
+
+        $this->engine = $this->createMock(Engine::class);
+        $this->engine->expects($this->once())->method('processMessage')->with(
+            $this->anything(),
+            $this->equalTo('alice'),
+            $this->anything()
+        )->willReturn(['message' => 'engine output', 'usage' => []]);
+        $this->service = $this->makeService();
+
+        $agentObject = new ObjectEntity();
+        $agentObject->setUuid('agent-uuid');
+        // 'ghost' is the sentinel the shared userManager mock resolves to null (setUp()).
+        $agentObject->setObject(['name' => 'Scheduled agent', 'actingUser' => 'ghost']);
+        $this->objectService->method('find')->willReturn($agentObject);
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'none',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'acting-user-invalid-sched',
+                'alice'
+            )
+        );
+
+        $this->assertSame('ok', $this->auditCalls[0]['context']['status'], 'An invalid actingUser must not fail the run.');
+        $this->assertSame('alice', $this->auditCalls[0]['context']['runAsUser']);
+
+    }//end testActingUserFallsBackToOwnerWhenNonexistent()
+
+    /**
+     * agent-capability-profile: actingUser is never consulted on the flag-off (legacy
+     * ChatService) path — a set actingUser has zero effect until the engine flag is on.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-1
+     */
+    public function testActingUserIgnoredOnFlagOffPath(): void
+    {
+        $this->objectService->expects($this->never())->method('find');
+        $this->chatService->method('processMessage')->willReturn(['message' => 'or output', 'usage' => []]);
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'none',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'flag-off-acting-user-sched',
+                'alice'
+            )
+        );
+
+        $this->assertSame('alice', $this->auditCalls[0]['context']['runAsUser']);
+
+    }//end testActingUserIgnoredOnFlagOffPath()
 }//end class

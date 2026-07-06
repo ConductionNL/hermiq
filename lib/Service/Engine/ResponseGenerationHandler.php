@@ -96,17 +96,22 @@ class ResponseGenerationHandler
     /**
      * Generate a response using the configured LLM provider.
      *
-     * @param string                  $userMessage    User's message text.
-     * @param array                   $context        RAG context with 'text' and 'sources' keys.
-     * @param array                   $messageHistory Array of LLPhant Message objects.
-     * @param ObjectEntity|null       $agent          Agent object (optional).
-     * @param array                   $selectedTools  Tools selected for this request (optional).
-     * @param StreamYieldChannel|null $channel        Streaming channel; when supplied the handler
-     *                                                attempts the LLPhant streaming surface and
-     *                                                forwards token / tool-call / tool-result
-     *                                                events to the channel. When null the handler
-     *                                                runs in blocking mode.
-     * @param array                   $cnAiContext    Optional AI Chat Companion context snapshot.
+     * @param string                  $userMessage     User's message text.
+     * @param array                   $context         RAG context with 'text' and 'sources' keys.
+     * @param array                   $messageHistory  Array of LLPhant Message objects.
+     * @param ObjectEntity|null       $agent           Agent object (optional).
+     * @param array                   $selectedTools   Tools selected for this request (optional).
+     * @param StreamYieldChannel|null $channel         Streaming channel; when supplied the handler
+     *                                                 attempts the LLPhant streaming surface and
+     *                                                 forwards token / tool-call / tool-result
+     *                                                 events to the channel. When null the handler
+     *                                                 runs in blocking mode.
+     * @param array                   $cnAiContext     Optional AI Chat Companion context snapshot.
+     * @param string                  $contextPreamble Optional assembled Context preamble
+     *                                                 (agent-context-system, from
+     *                                                 `ContextAssembler::assembleForAgent()`);
+     *                                                 prepended to the system prompt right after
+     *                                                 `Agent.prompt`, ahead of CnAiContext/RAG.
      *
      * @return string Generated response text.
      *
@@ -114,16 +119,20 @@ class ResponseGenerationHandler
      *
      * @psalm-param array{text: string, sources: list<array>} $context
      *
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)  Response generation requires many conditional API calls
-     * @SuppressWarnings(PHPMD.NPathComplexity)       Response generation requires many conditional API calls
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Ported orchestration kept structurally intact
-     * @SuppressWarnings(PHPMD.StaticAccess)          LLPhant's Message role factories are the
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)   Response generation requires many conditional API calls
+     * @SuppressWarnings(PHPMD.NPathComplexity)        Response generation requires many conditional API calls
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)  Ported orchestration kept structurally intact
+     * @SuppressWarnings(PHPMD.StaticAccess)           LLPhant's Message role factories are the
      * library's public API — there is no injectable seam.
-     * @SuppressWarnings(PHPMD.ElseExpression)        Ported fireworks-vs-LLPhant provider fork kept
+     * @SuppressWarnings(PHPMD.ElseExpression)         Ported fireworks-vs-LLPhant provider fork kept
      * structurally intact from the OR original for parity reviewability.
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Each parameter is a distinct, independently
+     * optional input to prompt assembly (agent-context-system adds one more to an already-wide,
+     * long-established list) — grouping them would obscure, not simplify, the call site.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+     * @spec openspec/changes/agent-context-system/tasks.md#task-3-2
      */
     public function generateResponse(
         string $userMessage,
@@ -132,7 +141,8 @@ class ResponseGenerationHandler
         ?ObjectEntity $agent,
         array $selectedTools=[],
         ?StreamYieldChannel $channel=null,
-        array $cnAiContext=[]
+        array $cnAiContext=[],
+        string $contextPreamble=''
     ): string {
         $startTime = microtime(true);
         $agentData = [];
@@ -211,6 +221,13 @@ class ResponseGenerationHandler
             // Build system prompt.
             $defaultPrompt = 'You are a helpful AI assistant that helps users find and understand their data.';
             $systemPrompt  = $agentData['prompt'] ?? $defaultPrompt;
+
+            // Prepend the assembled Context preamble (agent-context-system) right after
+            // Agent.prompt — same category ("who you are / what you know statically") as
+            // the prompt itself, ahead of the per-turn CnAiContext/RAG blocks below.
+            if ($contextPreamble !== '') {
+                $systemPrompt .= "\n\n".$contextPreamble;
+            }
 
             // Inject the CnAiContext snapshot the widget sends with each
             // message. Without this the LLM has no idea which app the user

@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use Exception;
+use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
 use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
 use OCA\Hermiq\Service\Engine\Engine;
@@ -71,6 +72,12 @@ class EngineTest extends TestCase
      * @param ResponseGenerationHandler|MockObject     $responseHandler     Response handler mock.
      * @param ConversationManagementHandler|MockObject $conversationHandler Conversation handler mock.
      * @param MessageHistoryHandler|MockObject         $historyHandler      History handler mock.
+     * @param ContextAssembler|MockObject|null         $contextAssembler    Context assembler mock
+     *                                                                     (agent-context-system); a
+     *                                                                     default stub returning `''`
+     *                                                                     is used when omitted, so
+     *                                                                     existing callers need not
+     *                                                                     care about it.
      *
      * @return Engine
      */
@@ -79,14 +86,21 @@ class EngineTest extends TestCase
         ContextRetrievalHandler|MockObject $contextHandler,
         ResponseGenerationHandler|MockObject $responseHandler,
         ConversationManagementHandler|MockObject $conversationHandler,
-        MessageHistoryHandler|MockObject $historyHandler
+        MessageHistoryHandler|MockObject $historyHandler,
+        ContextAssembler|MockObject|null $contextAssembler=null
     ): Engine {
+        if ($contextAssembler === null) {
+            $contextAssembler = $this->createMock(ContextAssembler::class);
+            $contextAssembler->method('assembleForAgent')->willReturn('');
+        }
+
         return new Engine(
             $objectService,
             $contextHandler,
             $responseHandler,
             $conversationHandler,
             $historyHandler,
+            $contextAssembler,
             new NullLogger()
         );
 

@@ -143,6 +143,19 @@ class MigrateAgentData implements IRepairStep
     ];
 
     /**
+     * Column → schema-property name overrides for columns whose target property does
+     * NOT match the generic snake→camel derivation (`camelCase()`). Currently just the
+     * legacy `user` column (OR's `openregister_agents.user`), which now targets the
+     * renamed `actingUser` Agent property (agent-capability-profile) — the DB column
+     * itself cannot be renamed, so this is the one explicit exception.
+     *
+     * @var array<string, string>
+     */
+    private const PROPERTY_OVERRIDES = [
+        'user' => 'actingUser',
+    ];
+
+    /**
      * Conversation data columns (agentId is resolved from the int FK separately).
      *
      * @var array<string, string>
@@ -707,7 +720,10 @@ class MigrateAgentData implements IRepairStep
      * @param array<string, mixed>  $row    The source DB row.
      * @param array<string, string> $fields Column → type map (string|int|float|bool|json).
      *
-     * @return array<string, mixed> The mapped object payload keyed by camelCase schema property.
+     * @return array<string, mixed> The mapped object payload keyed by schema property
+     *                              (camelCase derivation, or an explicit
+     *                              `PROPERTY_OVERRIDES` entry when the target property
+     *                              name diverges from the column name).
      */
     private function buildData(array $row, array $fields): array
     {
@@ -722,7 +738,8 @@ class MigrateAgentData implements IRepairStep
                 continue;
             }
 
-            $data[$this->camelCase(column: $column)] = $value;
+            $property        = (self::PROPERTY_OVERRIDES[$column] ?? $this->camelCase(column: $column));
+            $data[$property] = $value;
         }
 
         return $data;

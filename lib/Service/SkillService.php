@@ -31,6 +31,8 @@ namespace OCA\Hermiq\Service;
 
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Reads and writes agent skills (Skill objects) via OpenRegister.
@@ -55,14 +57,24 @@ class SkillService
     private const SKILL_SCHEMA = 'agentskill';
 
     /**
+     * Schema slug for agent objects (agent-capability-profile: installOnAgent() keeps
+     * Agent.skillInstalls in sync with Skill.installedOn).
+     *
+     * @var string
+     */
+    private const AGENT_SCHEMA = 'agent';
+
+    /**
      * Constructor.
      *
      * @param ObjectService   $objectService   OpenRegister object read/write (single write-path).
      * @param SkillSerializer $skillSerializer The agentskills.io (de)serialiser.
+     * @param LoggerInterface $logger          Logger (best-effort agent-side sync warnings).
      */
     public function __construct(
         private readonly ObjectService $objectService,
         private readonly SkillSerializer $skillSerializer,
+        private readonly LoggerInterface $logger,
     ) {
     }//end __construct()
 
@@ -168,7 +180,10 @@ class SkillService
     }//end getSkill()
 
     /**
-     * Install a skill onto an agent — append the agent uuid to installedOn (idempotent).
+     * Install a skill onto an agent — append the agent uuid to installedOn (idempotent),
+     * and keep the agent's own `skillInstalls` allowlist in sync (agent-capability-profile:
+     * a genuine bidirectional join, not a second source of truth — this is the ONLY write
+     * path for both directions).
      *
      * @param string $skillId The Skill UUID.
      * @param string $agentId The agent UUID.
@@ -176,6 +191,7 @@ class SkillService
      * @return ObjectEntity|null The updated Skill object, or null when not found.
      *
      * @spec openspec/changes/skills-catalog/tasks.md#task-3-2
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-4-1
      */
     public function installOnAgent(string $skillId, string $agentId): ?ObjectEntity
     {
@@ -196,12 +212,77 @@ class SkillService
 
         $data['installedOn'] = array_values($installed);
 
-        return $this->objectService->saveObject(
+        $updated = $this->objectService->saveObject(
             object: $data,
             register: self::REGISTER_SLUG,
             schema: self::SKILL_SCHEMA,
             uuid: (string) $skill->getUuid()
         );
 
+        $this->syncAgentSkillInstalls(agentId: $agentId, skillId: $skillId);
+
+        return $updated;
+
     }//end installOnAgent()
+
+    /**
+     * Append a skill uuid to the target agent's `skillInstalls` (idempotent,
+     * best-effort). A missing/unreadable agent does not fail the skill-side install —
+     * `Skill.installedOn` remains the authoritative "installed somewhere" record;
+     * `Agent.skillInstalls` is a convenience forward-ref for a future run loop.
+     *
+     * @param string $agentId The agent UUID.
+     * @param string $skillId The Skill UUID to record.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-4-1
+     */
+    private function syncAgentSkillInstalls(string $agentId, string $skillId): void
+    {
+        try {
+            $agent = $this->objectService->find(
+                id: $agentId,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA
+            );
+            if ($agent === null) {
+                return;
+            }
+
+            $data      = $agent->getObject();
+            $installed = ($data['skillInstalls'] ?? []);
+            if (is_array($installed) === false) {
+                $installed = [];
+            }
+
+            if (in_array($skillId, $installed, true) === true) {
+                // Already in sync — no write needed.
+                return;
+            }
+
+            $installed[]           = $skillId;
+            $data['skillInstalls'] = array_values($installed);
+
+            $this->objectService->saveObject(
+                object: $data,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA,
+                uuid: (string) $agent->getUuid()
+            );
+        } catch (Throwable $e) {
+            // Best-effort: Skill.installedOn (already saved above) remains the
+            // authoritative "installed somewhere" record regardless of this outcome.
+            $this->logger->warning(
+                sprintf(
+                    'Hermiq could not sync skillInstalls onto agent %s for skill %s: %s',
+                    $agentId,
+                    $skillId,
+                    $e->getMessage()
+                ),
+                ['exception' => $e]
+            );
+        }//end try
+
+    }//end syncAgentSkillInstalls()
 }//end class

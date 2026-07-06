@@ -134,6 +134,39 @@ class MigrateAgentDataTest extends TestCase
     }//end testAgentMigratedWithUuidAndOwnerPreserved()
 
     /**
+     * The legacy `user` DB column retargets onto the renamed `actingUser` schema
+     * property (agent-capability-profile) — the generic snake→camel derivation would
+     * otherwise still write `user`, which no longer exists on the Agent schema.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-2-1
+     */
+    public function testLegacyUserColumnMapsToActingUserProperty(): void
+    {
+        $row               = $this->agentRow(1, 'agent-uuid-1', 'alice');
+        $row['user']       = 'svc-bot';
+        $db      = $this->makeDb(tables: ['openregister_agents' => [$row]]);
+        $subject = $this->makeSubject(db: $db, flag: 'true');
+
+        $subject->run($this->makeOutput());
+
+        $agent = $this->savedFor(schema: 'agent');
+        $this->assertCount(1, $agent);
+        $this->assertSame(
+            'svc-bot',
+            $agent[0]['data']['actingUser'],
+            'The user column must land on the actingUser property, not user.'
+        );
+        $this->assertArrayNotHasKey(
+            'user',
+            $agent[0]['data'],
+            'The renamed property must not ALSO be written under its old name.'
+        );
+
+    }//end testLegacyUserColumnMapsToActingUserProperty()
+
+    /**
      * Conversation.agentId resolves from the integer FK to the Agent's uuid.
      *
      * @return void

@@ -141,6 +141,15 @@ class ScheduleService
     private array $lastRunUsage = [];
 
     /**
+     * The identity that actually ran the last agent turn (schedule owner, unless
+     * `Agent.actingUser` was set and resolved to a valid, active user), so
+     * writeRunAudit can record it (agent-capability-profile). Reset per run.
+     *
+     * @var string
+     */
+    private string $lastRunAsUser = '';
+
+    /**
      * Constructor.
      *
      * @param ObjectService      $objectService      OpenRegister object read/write (single write-path).
@@ -414,6 +423,13 @@ class ScheduleService
         $owner        = (string) ($schedule->getOwner() ?? '');
         $organisation = (string) ($schedule->getOrganisation() ?? '');
 
+        // Reset per-schedule run-identity/usage BEFORE either gate can short-circuit to
+        // writeRunAudit(): without this, a gate-skipped schedule's audit entry could leak
+        // a PREVIOUS schedule's lastRunAsUser/lastRunUsage from earlier in the same tick.
+        // A skip never runs an agent, so both reflect "nothing ran" (owner, empty usage).
+        $this->lastRunAsUser = $owner;
+        $this->lastRunUsage  = [];
+
         // GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
         if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
             $this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'skipped_killswitch');
@@ -610,6 +626,9 @@ class ScheduleService
                 'durationMs' => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
                 // Per-run LLM token/latency usage from OpenRegister's ChatService (run-analytics).
                 'usage'      => $this->lastRunUsage,
+                // The identity that actually ran the turn — the schedule owner, unless
+                // Agent.actingUser overrode it (agent-capability-profile).
+                'runAsUser'  => $this->lastRunAsUser,
                 // REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write.
                 'summary'    => $this->redactionService->redact($summary),
             ];
@@ -706,11 +725,23 @@ class ScheduleService
     private function runAgentAsOwner(string $owner, string $agentId, string $prompt): string
     {
         // Reset per-run usage so a failed run never records the previous run's tokens.
-        $this->lastRunUsage = [];
+        $this->lastRunUsage  = [];
+        $this->lastRunAsUser = $owner;
 
-        $user = $this->userManager->get($owner);
+        // Agent-capability-profile: on the engine-enabled path only, an Agent may name
+        // an actingUser to impersonate instead of the schedule owner. Resolved BEFORE
+        // impersonation so the whole turn (conversation + messages + tool writes) runs
+        // as that identity; falls back to $owner (silently, logged) when unset/invalid.
+        $impersonateAs = $owner;
+        if ($this->isEngineEnabled() === true) {
+            $impersonateAs = $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
+        }
+
+        $this->lastRunAsUser = $impersonateAs;
+
+        $user = $this->userManager->get($impersonateAs);
         if ($user === null) {
-            throw new RuntimeException("Schedule owner '{$owner}' does not exist");
+            throw new RuntimeException("Run-as user '{$impersonateAs}' does not exist");
         }
 
         $priorUser = $this->userSession->getUser();
@@ -724,7 +755,7 @@ class ScheduleService
             // (default) the OpenRegister ChatService path below is byte-for-byte the
             // pre-flag behavior.
             if ($this->isEngineEnabled() === true) {
-                return $this->runAgentViaEngine(owner: $owner, agentId: $agentId, prompt: $prompt);
+                return $this->runAgentViaEngine(owner: $impersonateAs, agentId: $agentId, prompt: $prompt);
             }
 
             $agent        = $this->agentMapper->findByUuid($agentId);
@@ -771,6 +802,68 @@ class ScheduleService
     }//end isEngineEnabled()
 
     /**
+     * Resolve the identity to impersonate for an agent turn: the Agent's
+     * `actingUser` when set and valid, otherwise the schedule owner.
+     *
+     * Reads the hermiq-register `agent` object system-wide (`_rbac`/`_multitenancy`
+     * off — mirrors `findDueSchedules()`/`loadEngagedOrganisations()`: no user is
+     * impersonated yet at this point in the call chain). A missing agent, a read
+     * failure, an unset `actingUser`, or an `actingUser` that does not resolve to an
+     * existing, ENABLED NC user all fail open to `$fallbackOwner` (logged at
+     * `warning` for the invalid-override cases) — a misconfigured profile field must
+     * never brick a schedule (agent-capability-profile).
+     *
+     * @param string $agentId       The bound agent UUID (hermiq register `agent` object).
+     * @param string $fallbackOwner The schedule owner UID to fall back to.
+     *
+     * @return string The resolved run-as user id.
+     *
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-1
+     */
+    private function resolveActingUser(string $agentId, string $fallbackOwner): string
+    {
+        try {
+            $agent = $this->objectService->find(
+                id: $agentId,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA,
+                _rbac: false,
+                _multitenancy: false
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf('Hermiq could not resolve actingUser for agent %s: %s', $agentId, $e->getMessage()),
+                ['exception' => $e]
+            );
+            return $fallbackOwner;
+        }
+
+        if ($agent === null) {
+            return $fallbackOwner;
+        }
+
+        $actingUser = (string) ($agent->getObject()['actingUser'] ?? '');
+        if (trim($actingUser) === '') {
+            return $fallbackOwner;
+        }
+
+        $candidate = $this->userManager->get($actingUser);
+        if ($candidate === null || $candidate->isEnabled() === false) {
+            $this->logger->warning(
+                sprintf(
+                    "Hermiq agent %s declares actingUser '%s', which is not an existing, active user — falling back to the schedule owner.",
+                    $agentId,
+                    $actingUser
+                )
+            );
+            return $fallbackOwner;
+        }
+
+        return $actingUser;
+
+    }//end resolveActingUser()
+
+    /**
      * Run the agent turn through the in-app Engine against hermiq-register
      * objects (feature-flag ON path of runAgentAsOwner()).
      *
@@ -779,9 +872,11 @@ class ScheduleService
      * a `conversation` object bound to it, and calls Engine::processMessage().
      * The per-run `usage` capture into $this->lastRunUsage is identical to the
      * flag-off path so run-analytics never loses cost data (spec scenario:
-     * usage shape must survive). Callers hold the owner impersonation.
+     * usage shape must survive). Callers hold the impersonation (schedule owner,
+     * or the Agent's `actingUser` when set/valid — agent-capability-profile).
      *
-     * @param string $owner   The schedule owner UID.
+     * @param string $owner   The identity to run as (schedule owner, or the
+     *                        resolved `actingUser` — see resolveActingUser()).
      * @param string $agentId The bound agent UUID (hermiq register `agent` object).
      * @param string $prompt  The prompt to run.
      *
@@ -790,6 +885,7 @@ class ScheduleService
      * @throws RuntimeException When the agent cannot be resolved in the hermiq register.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
+     * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-3
      */
     private function runAgentViaEngine(string $owner, string $agentId, string $prompt): string
     {

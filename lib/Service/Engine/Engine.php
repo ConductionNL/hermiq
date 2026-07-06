@@ -67,6 +67,9 @@ use Psr\Log\LoggerInterface;
  * - ConversationManagementHandler: titles, summaries
  * - MessageHistoryHandler: message storage and history
  * - ToolLoop: tool/function calling via the OR ToolRegistryFacade
+ * - ContextAssembler: resolves an agent's attached Context objects into a budgeted
+ *   system-prompt preamble (agent-context-system, distinct from ContextRetrievalHandler's
+ *   per-turn RAG search)
  *
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
@@ -115,11 +118,15 @@ class Engine
      * @param ResponseGenerationHandler     $responseHandler     LLM response handler.
      * @param ConversationManagementHandler $conversationHandler Title/summary handler.
      * @param MessageHistoryHandler         $historyHandler      Message storage/history handler.
+     * @param ContextAssembler              $contextAssembler    Resolves an agent's attached
+     *                                                           Context objects into a system-prompt
+     *                                                           preamble (agent-context-system).
      * @param LoggerInterface               $logger              Logger.
      *
      * @return void
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+     * @spec openspec/changes/agent-context-system/tasks.md#task-3-1
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -127,6 +134,7 @@ class Engine
         private readonly ResponseGenerationHandler $responseHandler,
         private readonly ConversationManagementHandler $conversationHandler,
         private readonly MessageHistoryHandler $historyHandler,
+        private readonly ContextAssembler $contextAssembler,
         private readonly LoggerInterface $logger
     ) {
     }//end __construct()
@@ -221,6 +229,12 @@ class Engine
             // be silently overwritten and the LLM would never see it.
             $cnAiContext = $context;
 
+            // Resolve the agent's attached Context objects (agent-context-system) into a
+            // budgeted preamble BEFORE the RAG context call, so it lands ahead of the RAG
+            // block in the system prompt (ResponseGenerationHandler prepends it right
+            // after Agent.prompt). '' when the agent has none — no-op for most agents.
+            $contextPreamble = $this->contextAssembler->assembleForAgent(agent: $agent, actingUserId: $userId);
+
             // Store user message with the CnAiContext snapshot.
             $this->historyHandler->storeMessage(
                 conversationId: $conversationId,
@@ -261,7 +275,8 @@ class Engine
                 agent: $agent,
                 selectedTools: $selectedTools,
                 channel: $channel,
-                cnAiContext: $cnAiContext
+                cnAiContext: $cnAiContext,
+                contextPreamble: $contextPreamble
             );
             $llmTime      = microtime(true) - $llmStartTime;
 
