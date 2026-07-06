@@ -144,10 +144,27 @@
 		{
 			"id": "RunAnalytics",
 			"route": "/analytics",
-			"type": "custom",
-			"component": "RunAnalytics",
+			"type": "dashboard",
 			"title": "Analytics",
-			"_note": "Custom page: run analytics aggregates the OpenRegister run AuditTrail (success rate, latency, status breakdown, per-agent) tenant-scoped with an agent filter — a computed read surface not expressible via the built-in index/dashboard page types. Standard nav page."
+			"_note": "Dashboard page: run analytics as two custom widgets (KPIs + status/per-agent breakdown) over the computed /api/analytics endpoint. Runs are not OR-schema objects, so these are custom kind:widget components, not declarative stats-block dataSources.",
+			"widgets": [
+				{
+					"widgetKey": "analytics-kpis",
+					"slot": "body",
+					"gridX": 0,
+					"gridY": 0,
+					"gridWidth": 12,
+					"gridHeight": 2
+				},
+				{
+					"widgetKey": "analytics-breakdown",
+					"slot": "body",
+					"gridX": 0,
+					"gridY": 2,
+					"gridWidth": 12,
+					"gridHeight": 3
+				}
+			]
 		},
 		{
 			"id": "Dashboard",

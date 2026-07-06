@@ -38,6 +38,8 @@
 // See: https://codeberg.org/Conduction/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 
 import ExampleWidget from './widgets/ExampleWidget.vue'
+import AnalyticsKpiWidget from './widgets/AnalyticsKpiWidget.vue'
+import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 import ExampleModal from './modals/ExampleModal.vue'
 import EmailField from './formFields/EmailField.vue'
 import StatusBadge from './cellRenderers/StatusBadge.vue'
@@ -48,7 +50,6 @@ import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import AgentSessions from './views/AgentSessions.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
-import RunAnalytics from './views/RunAnalytics.vue'
 import TenantOps from './views/TenantOps.vue'
 import McpTools from './views/McpTools.vue'
 
@@ -169,12 +170,29 @@ export default {
 	},
 
 	/**
-	 * Run analytics — tenant-scoped run metrics from the OpenRegister AuditTrail
-	 * (run-analytics). Standard nav page.
+	 * Run-analytics KPIs (total runs, success rate, avg latency, tokens) — a
+	 * dashboard widget over the computed /api/analytics endpoint.
 	 */
-	RunAnalytics: {
-		kind: 'page',
-		component: RunAnalytics,
+	'analytics-kpis': {
+		kind: 'widget',
+		component: AnalyticsKpiWidget,
+		defaultSize: { w: 12, h: 1 },
+		minSize: { w: 4, h: 1 },
+		maxSize: { w: 12, h: 2 },
+		allowedSlots: ['body'],
+	},
+
+	/**
+	 * Run-analytics detail — status breakdown + per-agent table — as a dashboard
+	 * widget over the computed /api/analytics endpoint.
+	 */
+	'analytics-breakdown': {
+		kind: 'widget',
+		component: AnalyticsBreakdownWidget,
+		defaultSize: { w: 12, h: 3 },
+		minSize: { w: 4, h: 2 },
+		maxSize: { w: 12, h: 6 },
+		allowedSlots: ['body'],
 	},
 
 	/**
