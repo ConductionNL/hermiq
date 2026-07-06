@@ -30,6 +30,8 @@ use OCP\Settings\IIconSection;
 
 /**
  * Defines the Hermiq section in the Nextcloud admin settings.
+ *
+ * @spec exclude Trivial IIconSection scaffolding — four static accessors; no behavioural spec.
  */
 class SettingsSection implements IIconSection
 {
@@ -51,6 +53,8 @@ class SettingsSection implements IIconSection
      * Get the section identifier.
      *
      * @return string
+     *
+     * @spec exclude Trivial IIconSection accessor; no behavioural spec.
      */
     public function getID(): string
     {
@@ -61,6 +65,8 @@ class SettingsSection implements IIconSection
      * Get the display name of this section.
      *
      * @return string
+     *
+     * @spec exclude Trivial IIconSection accessor; no behavioural spec.
      */
     public function getName(): string
     {
@@ -71,6 +77,8 @@ class SettingsSection implements IIconSection
      * Get the priority for ordering this section.
      *
      * @return int
+     *
+     * @spec exclude Trivial IIconSection accessor; no behavioural spec.
      */
     public function getPriority(): int
     {
@@ -81,6 +89,8 @@ class SettingsSection implements IIconSection
      * Get the icon path for this section.
      *
      * @return string
+     *
+     * @spec exclude Trivial IIconSection accessor; no behavioural spec.
      */
     public function getIcon(): string
     {

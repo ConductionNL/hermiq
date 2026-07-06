@@ -110,8 +110,7 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
 import { approveApproval, listPendingApprovals } from '../api/approvals.js'
-import { listAgents } from '../api/agents.js'
-import { useScheduleStore } from '../store/store.js'
+import { useAgentStore, useScheduleStore } from '../store/store.js'
 import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 
@@ -144,6 +143,8 @@ export default {
 	created() {
 		this.store = useScheduleStore()
 		this.store.registerObjectType('schedule', 'schedule', 'hermiq')
+		this.agentStore = useAgentStore()
+		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.load()
 	},
 
@@ -160,7 +161,7 @@ export default {
 				const [approvals, schedules, agents] = await Promise.all([
 					listPendingApprovals(),
 					this.store.fetchCollection('schedule'),
-					listAgents(),
+					this.agentStore.fetchCollection('agent'),
 				])
 				this.approvals = Array.isArray(approvals) ? approvals : []
 				this.scheduleMap = this.byUuid(Array.isArray(schedules) ? schedules : [])

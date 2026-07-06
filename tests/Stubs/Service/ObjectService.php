@@ -120,6 +120,35 @@ class ObjectService
     }//end saveObject()
 
     /**
+     * Unified paginated/faceted search (`_search` full-text term, `_limit`, ...).
+     *
+     * @param array       $query         The search query array (`_search`, `_limit`,
+     *                                   `_register`, `_schema`, ...).
+     * @param bool        $_rbac         Whether RBAC applies.
+     * @param bool        $_multitenancy Whether multi-tenancy applies.
+     * @param bool        $deleted       Whether to include deleted objects.
+     * @param array|null  $ids           Optional array of object IDs to filter by.
+     * @param string|null $uses          Optional uses parameter for filtering.
+     * @param array|null  $views         Optional array of view IDs to apply filters from.
+     *
+     * @return array<string, mixed> Paginated result shape (results, total, ...).
+     */
+    public function searchObjectsPaginated(
+        array $query=[],
+        bool $_rbac=true,
+        bool $_multitenancy=true,
+        bool $deleted=false,
+        ?array $ids=null,
+        ?string $uses=null,
+        ?array $views=null
+    ): array {
+        return [
+            'results' => [],
+            'total'   => 0,
+        ];
+    }//end searchObjectsPaginated()
+
+    /**
      * Get the audit log entries for an object.
      *
      * @param string $uuid          The object UUID.

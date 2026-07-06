@@ -31,6 +31,8 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Repair step that initializes Hermiq configuration via SettingsService.
+ *
+ * @spec openspec/specs/configuration-initialization/spec.md#REQ-INIT-002
  */
 class InitializeSettings implements IRepairStep
 {
@@ -52,6 +54,8 @@ class InitializeSettings implements IRepairStep
      * Get the name of this repair step.
      *
      * @return string
+     *
+     * @spec exclude Trivial IRepairStep display-name accessor; no behavioural spec.
      */
     public function getName(): string
     {

@@ -51,6 +51,10 @@ use Throwable;
 /**
  * Quarantine + Curator + hub-publish surface for agent skills.
  *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) The marketplace lifecycle spans
+ * install-from-source (HTTP), content scanning (OR ContentScanService), skill CRUD,
+ * curation (cron) and hub publish; each dependency is one lifecycle stage.
+ *
  * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
  */
 class SkillMarketplaceService
@@ -166,6 +170,10 @@ class SkillMarketplaceService
      * @param bool   $force   Override a `dangerous` scan verdict (a conscious reviewer decision).
      *
      * @return ObjectEntity|null The updated Skill, or null when not found.
+     *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$force` is a genuine two-mode
+     * reviewer decision (explicit dangerous-verdict override), part of the public
+     * seam the controller exposes — not an SRP smell.
      *
      * @spec openspec/changes/skills-marketplace/tasks.md#task-2-2
      */
@@ -312,6 +320,10 @@ class SkillMarketplaceService
      * @param bool                 $systemWide Whether to save with RBAC/multitenancy off (the cron).
      *
      * @return ObjectEntity The persisted object.
+     *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$systemWide` is a genuine two-mode
+     * seam (sessionless Curator cron vs user-context save); the RBAC toggle is the
+     * documented point of the parameter.
      */
     private function save(array $data, string $uuid, bool $systemWide=false): ObjectEntity
     {
@@ -380,12 +392,12 @@ class SkillMarketplaceService
         }
 
         try {
-            $ts = (new DateTimeImmutable($timestamp))->getTimestamp();
+            $stamp = (new DateTimeImmutable($timestamp))->getTimestamp();
         } catch (Throwable $e) {
             return true;
         }
 
-        return (($now - $ts) >= $thresholdSeconds);
+        return (($now - $stamp) >= $thresholdSeconds);
 
     }//end olderThanDays()
 

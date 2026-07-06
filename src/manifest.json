@@ -6,6 +6,13 @@
 	],
 	"menu": [
 		{
+			"id": "Chat",
+			"label": "Chat",
+			"icon": "icon-comment",
+			"route": "Chat",
+			"order": 8
+		},
+		{
 			"id": "AgentCatalog",
 			"label": "Agents",
 			"icon": "icon-category-integration",
@@ -101,12 +108,20 @@
 	],
 	"pages": [
 		{
+			"id": "Chat",
+			"route": "/chat",
+			"type": "custom",
+			"component": "Chat",
+			"title": "Chat",
+			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a conversation archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
+		},
+		{
 			"id": "AgentCatalog",
 			"route": "/agents",
 			"type": "custom",
 			"component": "AgentCatalog",
 			"title": "Agents",
-			"_note": "Custom page: the agent catalog needs bespoke behaviour (OpenRegister agents resource + schedule-attached/last-run derivation + create modal) that the built-in index page type cannot express. Standard nav page — not a dashboard."
+			"_note": "Custom page: the agent catalog needs bespoke behaviour (createObjectStore agents in the hermiq register + schedule-attached/last-run derivation + create modal) that the built-in index page type cannot express. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "AgentDetail",
@@ -114,7 +129,7 @@
 			"type": "custom",
 			"component": "AgentDetail",
 			"title": "Agent",
-			"_note": "Custom page: agent detail combines the agents resource, schedule attach/edit (createObjectStore), the thin Run-now endpoint, and run history — not expressible via the built-in detail page type."
+			"_note": "Custom page: agent detail combines the createObjectStore agent object, schedule attach/edit (createObjectStore), the thin Run-now endpoint, and run history — not expressible via the built-in detail page type."
 		},
 		{
 			"id": "ApprovalInbox",
@@ -130,7 +145,7 @@
 			"type": "custom",
 			"component": "AgentMemory",
 			"title": "Memory",
-			"_note": "Custom page: agent memory combines the OpenRegister agents resource (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+			"_note": "Custom page: agent memory combines the createObjectStore agent collection (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "AgentSessions",
@@ -389,7 +404,7 @@
 			"type": "custom",
 			"component": "McpTools",
 			"title": "MCP tools",
-			"_note": "Custom page: catalogue of MCP tools available to agents, read from OpenRegister's agents/tools resource (not register/schema objects), so the built-in index page type cannot express it. Read-only nav page."
+			"_note": "Custom page: catalogue of MCP tools available to agents, read from Hermiq's facade-backed /api/agents/tools endpoint (not register/schema objects), so the built-in index page type cannot express it. Read-only nav page."
 		}
 	],
 	"setup": {

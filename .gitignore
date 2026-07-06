@@ -21,6 +21,9 @@
 /coverage/
 /coverage-frontend/
 
+# Parity harness raw observation dumps (agent-engine-port task 7.1)
+/tests/parity/out/
+
 # Quality reports
 /quality-reports/
 quality-baseline.json

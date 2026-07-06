@@ -116,7 +116,6 @@
 					</li>
 				</ul>
 			</section>
-
 		</template>
 	</div>
 </template>
@@ -125,8 +124,8 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
-import { listAgents } from '../api/agents.js'
 import { addMemory, consolidateMemory, getMemory } from '../api/memory.js'
+import { useAgentStore } from '../store/store.js'
 
 export default {
 	name: 'AgentMemory',
@@ -208,12 +207,15 @@ export default {
 	},
 
 	created() {
+		this.agentStore = useAgentStore()
+		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.loadAgents()
 	},
 
 	methods: {
 		/**
-		 * Load the agents the user may see and select the first one.
+		 * Load the agents (createObjectStore, hermiq register) and select the
+		 * first one.
 		 *
 		 * @return {Promise<void>}
 		 */
@@ -221,7 +223,11 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				this.agents = await listAgents()
+				const agents = await this.agentStore.fetchCollection('agent')
+				this.agents = Array.isArray(agents) ? agents : []
+				if (this.agentStore.errors?.agent) {
+					this.error = this.agentStore.errors.agent.message || this.t('hermiq', 'Unknown error')
+				}
 				if (this.agentOptions.length > 0) {
 					this.selectedAgent = this.agentOptions[0]
 					await this.loadAgent()

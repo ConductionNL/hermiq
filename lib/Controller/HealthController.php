@@ -43,6 +43,8 @@ use Psr\Log\LoggerInterface;
  * Verifies OpenRegister connectivity. Returns 200 when healthy, 503 otherwise.
  * Public (`@PublicPage` + `@NoCSRFRequired`) so external probes (Prometheus
  * blackbox exporter, K8s liveness/readiness) can poll without auth.
+ *
+ * @spec openspec/specs/observability/spec.md
  */
 class HealthController extends Controller
 {

@@ -106,6 +106,8 @@ class Application extends App implements IBootstrap
      * @return void
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     *
+     * @spec exclude Empty framework boot hook — all wiring happens in register(); no behavioural contract.
      */
     public function boot(IBootContext $context): void
     {

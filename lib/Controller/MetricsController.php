@@ -42,6 +42,8 @@ use Psr\Log\LoggerInterface;
  * Returns `text/plain; version=0.0.4` with `{app}_` prefixed metrics.
  * MUST include `{app}_health_status` and `{app}_info` per ADR-006.
  * Admin-only (no `@NoAdminRequired`) — ADR-006 mandates admin auth.
+ *
+ * @spec openspec/specs/observability/spec.md
  */
 class MetricsController extends Controller
 {

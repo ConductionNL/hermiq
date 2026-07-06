@@ -38,6 +38,8 @@ use OCP\Settings\ISettings;
  * OCP\Settings\IDelegatedSettings for the interface contract and
  * https://docs.nextcloud.com/server/latest/developer_manual/app_development/settings.html
  * for usage guidance. For most apps, ISettings is the correct choice.
+ *
+ * @spec exclude Trivial ISettings binding (template + section + priority); no behavioural spec.
  */
 class AdminSettings implements ISettings
 {
@@ -55,6 +57,8 @@ class AdminSettings implements ISettings
      * Get the settings form template.
      *
      * @return TemplateResponse
+     *
+     * @spec exclude Trivial ISettings template accessor; no behavioural spec.
      */
     public function getForm(): TemplateResponse
     {

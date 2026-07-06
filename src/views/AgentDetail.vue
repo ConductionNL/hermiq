@@ -191,8 +191,8 @@ import ArrowLeft from 'vue-material-design-icons/ArrowLeft.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
-import { listAgents, listRuns, runScheduleNow } from '../api/agents.js'
-import { useScheduleStore } from '../store/store.js'
+import { listRuns, runScheduleNow } from '../api/agents.js'
+import { useAgentStore, useScheduleStore } from '../store/store.js'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 
@@ -268,23 +268,26 @@ export default {
 	created() {
 		this.store = useScheduleStore()
 		this.store.registerObjectType('schedule', 'schedule', 'hermiq')
+		this.agentStore = useAgentStore()
+		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.load()
 	},
 
 	methods: {
 		/**
-		 * Load the agent, its attached schedule, and its run history.
+		 * Load the agent (createObjectStore, hermiq register), its attached
+		 * schedule, and its run history.
 		 *
 		 * @return {Promise<void>}
 		 */
 		async load() {
 			this.loading = true
 			try {
-				const [agents, schedules] = await Promise.all([
-					listAgents(),
+				const [agent, schedules] = await Promise.all([
+					this.agentStore.fetchObject('agent', this.agentUuid),
 					this.store.fetchCollection('schedule'),
 				])
-				this.agent = agents.find((candidate) => (candidate.uuid || candidate.id) === this.agentUuid) || null
+				this.agent = agent || null
 				this.schedule = (Array.isArray(schedules) ? schedules : [])
 					.find((candidate) => candidate.agentId === this.agentUuid) || null
 				await this.loadRuns()

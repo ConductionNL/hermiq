@@ -50,16 +50,16 @@ class SkillMarketplaceController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest                $request                 The request object.
-     * @param SkillMarketplaceService $skillMarketplaceService The marketplace service.
-     * @param IUserSession            $userSession             Resolves the requesting user.
-     * @param LoggerInterface         $logger                  PSR-3 logger.
+     * @param IRequest                $request            The request object.
+     * @param SkillMarketplaceService $marketplaceService The marketplace service.
+     * @param IUserSession            $userSession        Resolves the requesting user.
+     * @param LoggerInterface         $logger             PSR-3 logger.
      *
      * @spec openspec/changes/skills-marketplace/tasks.md#task-4-1
      */
     public function __construct(
         IRequest $request,
-        private readonly SkillMarketplaceService $skillMarketplaceService,
+        private readonly SkillMarketplaceService $marketplaceService,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
     ) {
@@ -94,7 +94,7 @@ class SkillMarketplaceController extends Controller
         }
 
         try {
-            $skill = $this->skillMarketplaceService->installFromSource(package: $package, source: $source, createdBy: $user->getUID());
+            $skill = $this->marketplaceService->installFromSource(package: $package, source: $source, createdBy: $user->getUID());
             return new JSONResponse($this->shape(object: $skill));
         } catch (Throwable $e) {
             $this->logger->error('Hermiq install-from-source failed: '.$e->getMessage(), ['exception' => $e]);
@@ -123,7 +123,7 @@ class SkillMarketplaceController extends Controller
 
         try {
             $force = (bool) $this->request->getParam('force', false);
-            $skill = $this->skillMarketplaceService->approveQuarantined(skillId: $id, force: $force);
+            $skill = $this->marketplaceService->approveQuarantined(skillId: $id, force: $force);
             if ($skill === null) {
                 return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
             }
@@ -176,7 +176,7 @@ class SkillMarketplaceController extends Controller
         $hubId = (string) $this->request->getParam('hubId', 'default');
 
         try {
-            return new JSONResponse($this->skillMarketplaceService->publishToHub(skillId: $id, hubId: $hubId));
+            return new JSONResponse($this->marketplaceService->publishToHub(skillId: $id, hubId: $hubId));
         } catch (Throwable $e) {
             $this->logger->error('Hermiq skill publish failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);

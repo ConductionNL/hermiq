@@ -32,6 +32,8 @@ use OCP\IRequest;
 
 /**
  * Controller for managing Hermiq application settings.
+ *
+ * @spec openspec/specs/settings-management/spec.md
  */
 class SettingsController extends Controller
 {

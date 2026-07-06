@@ -4,19 +4,20 @@
 <!--
   AgentCatalog — the Hermiq "Agents" nav page (agent-management-ui).
 
-  Lists the agents the user may see (RBAC-filtered by OpenRegister's
-  AgentsController), showing name, model, whether a schedule is attached, and the
-  last-run status. Agents come from the plain agents API helper; the
+  Lists the agents, showing name, model, whether a schedule is attached, and the
+  last-run status. Agents are plain OR objects in the hermiq register
+  (agent-engine-schemas) read through the createObjectStore agent store; the
   schedule-attached + last-run columns are derived by matching Schedule.agentId
   against each agent's uuid from the createObjectStore schedule collection.
 
   Renders through the shared CnDataTable (the same widget the manifest `type: index`
   pages use via `object-table`) so the list matches the standard index-page design,
-  while keeping the agent-specific create/open actions (which the register-bound
-  index kind cannot express — agents are an OpenRegister resource, not
-  register/schema objects). Create/edit uses the isolated AgentFormModal (ADR-004).
+  while keeping the agent-specific create/open actions (schedule/last-run
+  derivation + create modal, which the register-bound index kind cannot
+  express). Create/edit uses the isolated AgentFormModal (ADR-004).
 
   @spec openspec/changes/agent-management-ui/tasks.md#task-3-1
+  @spec openspec/changes/agent-engine-port/tasks.md#task-5-2
   @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
 -->
 <template>
@@ -86,8 +87,7 @@ import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
-import { listAgents } from '../api/agents.js'
-import { useScheduleStore } from '../store/store.js'
+import { useAgentStore, useScheduleStore } from '../store/store.js'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 
 export default {
@@ -153,12 +153,15 @@ export default {
 	created() {
 		this.store = useScheduleStore()
 		this.store.registerObjectType('schedule', 'schedule', 'hermiq')
+		this.agentStore = useAgentStore()
+		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.load()
 	},
 
 	methods: {
 		/**
-		 * Load agents (RBAC-scoped) and the schedule collection in parallel.
+		 * Load the agent and schedule collections in parallel (both via
+		 * createObjectStore against the hermiq register).
 		 *
 		 * @return {Promise<void>}
 		 */
@@ -167,11 +170,15 @@ export default {
 			this.error = ''
 			try {
 				const [agents, schedules] = await Promise.all([
-					listAgents(),
+					this.agentStore.fetchCollection('agent'),
 					this.store.fetchCollection('schedule'),
 				])
-				this.agents = agents
+				this.agents = Array.isArray(agents) ? agents : []
 				this.schedules = Array.isArray(schedules) ? schedules : []
+				// fetchCollection surfaces failures via store.errors, not throws.
+				if (this.agentStore.errors?.agent) {
+					this.error = this.agentStore.errors.agent.message || this.t('hermiq', 'Unknown error')
+				}
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {

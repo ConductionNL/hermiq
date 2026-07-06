@@ -50,6 +50,8 @@ use OCP\IUser;
  * Enforces ADR-023 action RBAC: controllers call requireAction with a
  * dot-separated action name; this service checks the admin-configured
  * action-to-group mapping stored in IAppConfig.
+ *
+ * @spec openspec/architecture/adr-023-action-authorization.md
  */
 class ActionAuthService
 {
@@ -238,6 +240,8 @@ class ActionAuthService
      * List all action keys currently in the matrix.
      *
      * @return array<int, string>
+     *
+     * @spec openspec/architecture/adr-023-action-authorization.md
      */
     public function getActions(): array
     {

@@ -43,6 +43,7 @@ import ExampleModal from './modals/ExampleModal.vue'
 import EmailField from './formFields/EmailField.vue'
 import StatusBadge from './cellRenderers/StatusBadge.vue'
 import CustomExample from './views/CustomExample.vue'
+import Chat from './views/Chat.vue'
 import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
@@ -90,6 +91,17 @@ export default {
 	CustomExample: {
 		kind: 'page',
 		component: CustomExample,
+	},
+
+	/**
+	 * Chat — the AI chat page merged from OpenRegister's chat surface
+	 * (agent-engine-port task 5.1): conversation list + streaming thread +
+	 * composer + agent selector + feedback, against the Hermiq engine routes.
+	 * Standard nav page, not a dashboard.
+	 */
+	Chat: {
+		kind: 'page',
+		component: Chat,
 	},
 
 	/**

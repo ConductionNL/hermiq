@@ -35,6 +35,8 @@ use OCP\EventDispatcher\IEventListener;
  * will link directly to the relevant detail views in the app.
  *
  * @implements IEventListener<Event>
+ *
+ * @spec openspec/specs/deep-linking/spec.md#REQ-LINK-001
  */
 class DeepLinkRegistrationListener implements IEventListener
 {

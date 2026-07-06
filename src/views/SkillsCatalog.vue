@@ -126,8 +126,8 @@
 import { NcButton, NcEmptyContent, NcModal, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
 import PuzzleIcon from 'vue-material-design-icons/PuzzleOutline.vue'
-import { listAgents } from '../api/agents.js'
 import { approveSkill, exportSkill, installSkill, listSkills, publishSkill } from '../api/skills.js'
+import { useAgentStore } from '../store/store.js'
 import SkillImportModal from '../modals/SkillImportModal.vue'
 
 export default {
@@ -203,12 +203,14 @@ export default {
 	},
 
 	created() {
+		this.agentStore = useAgentStore()
+		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.load()
 	},
 
 	methods: {
 		/**
-		 * Load the skills + agents.
+		 * Load the skills + agents (agents via createObjectStore).
 		 *
 		 * @return {Promise<void>}
 		 */
@@ -216,9 +218,12 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				const [skills, agents] = await Promise.all([listSkills(), listAgents()])
+				const [skills, agents] = await Promise.all([
+					listSkills(),
+					this.agentStore.fetchCollection('agent'),
+				])
 				this.skills = skills
-				this.agents = agents
+				this.agents = Array.isArray(agents) ? agents : []
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {

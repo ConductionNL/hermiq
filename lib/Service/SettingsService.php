@@ -34,6 +34,8 @@ use Psr\Log\LoggerInterface;
 
 /**
  * Service for managing Hermiq application configuration and settings.
+ *
+ * @spec openspec/specs/settings-management/spec.md
  */
 class SettingsService
 {
@@ -73,6 +75,8 @@ class SettingsService
      * Check whether OpenRegister is installed and available.
      *
      * @return bool
+     *
+     * @spec exclude Trivial app-availability probe delegating to IAppManager; no behavioural spec.
      */
     public function isOpenRegisterAvailable(): bool
     {

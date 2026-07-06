@@ -95,6 +95,11 @@ class AnalyticsService
      *
      * @return array<string, mixed> The metrics payload.
      *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Single aggregation pass over the
+     * audit-trail rows (status/usage/duration/agent buckets); splitting the pass would
+     * iterate the same rows multiple times.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same single-pass aggregation rationale.
+     *
      * @spec openspec/changes/run-analytics/tasks.md#task-1-3
      */
     public function computeAnalytics(?string $agentId=null): array

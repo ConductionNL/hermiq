@@ -72,6 +72,50 @@ return [
         ['name' => 'setup#saveConfig', 'url' => '/api/setup/config',            'verb' => 'POST'],
         ['name' => 'setup#runAction',  'url' => '/api/setup/action/{actionId}', 'verb' => 'POST', 'requirements' => ['actionId' => '[^/]+']],
 
+        // ---------------------------------------------------------------------------
+        // Agent engine API (agent-engine-port): route-for-route mirror of OpenRegister's
+        // chat/conversation/agent surface onto the in-app Engine. Ids are hermiq-register
+        // object UUIDs ('[^/]+'), not OR's int row ids. OR's TemplateResponse page routes
+        // (agents#page GET /agents, ui#chat) are deliberately NOT mirrored: hermiq's SPA
+        // catch-all (dashboard#catchAll, last entry below) already serves every page URL.
+        // ---------------------------------------------------------------------------
+
+        // Agents: stats + tools MUST be registered before the /api/agents/{id} routes,
+        // or 'stats'/'tools' would be captured as an {id}. The existing
+        // /api/agents/{agentId}/memory block above matches longer paths — no conflict.
+        ['name' => 'agents#stats',   'url' => '/api/agents/stats', 'verb' => 'GET'],
+        ['name' => 'agents#tools',   'url' => '/api/agents/tools', 'verb' => 'GET'],
+        ['name' => 'agents#index',   'url' => '/api/agents', 'verb' => 'GET'],
+        ['name' => 'agents#create',  'url' => '/api/agents', 'verb' => 'POST'],
+        ['name' => 'agents#show',    'url' => '/api/agents/{id}', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agents#update',  'url' => '/api/agents/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agents#patch',   'url' => '/api/agents/{id}', 'verb' => 'PATCH', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agents#destroy', 'url' => '/api/agents/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
+
+        // Chat: send/history/stats + per-message feedback (messageId is a UUID here,
+        // where OR required '\d+').
+        ['name' => 'chat#sendMessage',  'url' => '/api/chat/send', 'verb' => 'POST'],
+        ['name' => 'chat#getHistory',   'url' => '/api/chat/history', 'verb' => 'GET'],
+        ['name' => 'chat#clearHistory', 'url' => '/api/chat/history', 'verb' => 'DELETE'],
+        ['name' => 'chat#getChatStats', 'url' => '/api/chat/stats', 'verb' => 'GET'],
+        ['name' => 'chat#sendFeedback', 'url' => '/api/conversations/{conversationUuid}/messages/{messageId}/feedback', 'verb' => 'POST', 'requirements' => ['conversationUuid' => '[^/]+', 'messageId' => '[^/]+']],
+
+        // Chat health probe (PublicPage — widget probes before authenticating).
+        ['name' => 'chatHealth#health', 'url' => '/api/chat/health', 'verb' => 'GET'],
+
+        // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
+        ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
+
+        // Conversations: CRUD + messages + archive lifecycle (restore/permanent).
+        ['name' => 'conversation#index',            'url' => '/api/conversations', 'verb' => 'GET'],
+        ['name' => 'conversation#create',           'url' => '/api/conversations', 'verb' => 'POST'],
+        ['name' => 'conversation#show',             'url' => '/api/conversations/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'conversation#messages',         'url' => '/api/conversations/{uuid}/messages', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'conversation#update',           'url' => '/api/conversations/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'conversation#destroy',          'url' => '/api/conversations/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'conversation#restore',          'url' => '/api/conversations/{uuid}/restore', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'conversation#destroyPermanent', 'url' => '/api/conversations/{uuid}/permanent', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],

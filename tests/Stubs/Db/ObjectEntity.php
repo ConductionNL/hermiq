@@ -4,8 +4,9 @@
  * Test stub for OpenRegister ObjectEntity.
  *
  * Stands in for OCA\OpenRegister\Db\ObjectEntity when OpenRegister is not
- * installed (standalone CI). Exposes only the accessors Hermiq's ScheduleService
- * and ApprovalService read/write: uuid, owner, organisation, and the JSON object
+ * installed (standalone CI). Exposes the accessors Hermiq's ScheduleService,
+ * ApprovalService, and the agent-engine-port Engine/Llm classes read/write: id,
+ * uuid, owner, organisation, created/updated timestamps, and the JSON object
  * payload. The real entity ships with OpenRegister at runtime.
  *
  * @category Test
@@ -22,6 +23,8 @@ declare(strict_types=1);
 
 namespace OCA\OpenRegister\Db;
 
+use DateTime;
+
 /**
  * Minimal ObjectEntity stub for standalone unit runs.
  */
@@ -29,11 +32,32 @@ class ObjectEntity
 {
 
     /**
+     * The numeric object id.
+     *
+     * @var int|null
+     */
+    private ?int $id = null;
+
+    /**
      * The object UUID.
      *
      * @var string|null
      */
     private ?string $uuid = null;
+
+    /**
+     * The creation timestamp.
+     *
+     * @var DateTime|null
+     */
+    private ?DateTime $created = null;
+
+    /**
+     * The last-updated timestamp.
+     *
+     * @var DateTime|null
+     */
+    private ?DateTime $updated = null;
 
     /**
      * The owner UID.
@@ -55,6 +79,28 @@ class ObjectEntity
      * @var array<string,mixed>
      */
     private array $object = [];
+
+    /**
+     * Get the numeric object id.
+     *
+     * @return int|null
+     */
+    public function getId(): ?int
+    {
+        return $this->id;
+    }//end getId()
+
+    /**
+     * Set the numeric object id.
+     *
+     * @param int|null $id The object id.
+     *
+     * @return void
+     */
+    public function setId(?int $id): void
+    {
+        $this->id = $id;
+    }//end setId()
 
     /**
      * Get the object UUID.
@@ -143,4 +189,48 @@ class ObjectEntity
     {
         $this->object = ($object ?? []);
     }//end setObject()
+
+    /**
+     * Get the creation timestamp.
+     *
+     * @return DateTime|null
+     */
+    public function getCreated(): ?DateTime
+    {
+        return $this->created;
+    }//end getCreated()
+
+    /**
+     * Set the creation timestamp.
+     *
+     * @param DateTime|null $created The creation timestamp.
+     *
+     * @return void
+     */
+    public function setCreated(?DateTime $created): void
+    {
+        $this->created = $created;
+    }//end setCreated()
+
+    /**
+     * Get the last-updated timestamp.
+     *
+     * @return DateTime|null
+     */
+    public function getUpdated(): ?DateTime
+    {
+        return $this->updated;
+    }//end getUpdated()
+
+    /**
+     * Set the last-updated timestamp.
+     *
+     * @param DateTime|null $updated The last-updated timestamp.
+     *
+     * @return void
+     */
+    public function setUpdated(?DateTime $updated): void
+    {
+        $this->updated = $updated;
+    }//end setUpdated()
 }//end class

@@ -36,3 +36,14 @@ if (!defined('OC_CONSOLE') && file_exists(__DIR__ . '/../../../lib/base.php')) {
 if (interface_exists(\OCA\OpenRegister\Mcp\IMcpToolProvider::class) === false) {
     require_once __DIR__ . '/Stubs/Mcp/IMcpToolProvider.php';
 }
+
+// Load minimal Doctrine\DBAL stubs when doctrine/dbal is absent (standalone
+// CI: php:8.3-cli + OCP stubs). The OCP IQueryBuilder stub initialises its
+// PARAM_* class constants from Doctrine constants at class-load, so mocking
+// OCP\IDBConnection (agent-engine-port ChatStreamController tests) fatals
+// without them. The real classes ship with the Nextcloud server at runtime.
+if (class_exists(\Doctrine\DBAL\ParameterType::class) === false) {
+    require_once __DIR__ . '/Stubs/Doctrine/ParameterType.php';
+    require_once __DIR__ . '/Stubs/Doctrine/ArrayParameterType.php';
+    require_once __DIR__ . '/Stubs/Doctrine/Types.php';
+}

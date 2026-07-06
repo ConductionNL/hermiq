@@ -32,6 +32,7 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
+use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Agent;
@@ -43,6 +44,7 @@ use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IUser;
 use OCP\IUserManager;
@@ -144,6 +146,20 @@ class ScheduleServiceTest extends TestCase
     private ApprovalService $approvalService;
 
     /**
+     * Mock IAppConfig (agent-engine-port feature flag, default off).
+     *
+     * @var IAppConfig&MockObject
+     */
+    private IAppConfig $appConfig;
+
+    /**
+     * Mock in-app Engine facade (agent-engine-port; only used when the flag is on).
+     *
+     * @var Engine&MockObject
+     */
+    private Engine $engine;
+
+    /**
      * Service under test.
      *
      * @var ScheduleService
@@ -224,6 +240,12 @@ class ScheduleServiceTest extends TestCase
         // Approval gate is not exercised by the base dispatcher tests.
         $this->approvalService = $this->createMock(ApprovalService::class);
 
+        // Agent-engine-port feature flag defaults OFF; the in-app Engine mock is
+        // untouched unless a test flips the flag to 'true'.
+        $this->appConfig = $this->createMock(IAppConfig::class);
+        $this->appConfig->method('getValueString')->willReturn('false');
+        $this->engine = $this->createMock(Engine::class);
+
         $this->service = $this->makeService();
 
     }//end setUp()
@@ -248,6 +270,8 @@ class ScheduleServiceTest extends TestCase
             auditTrailMapper: $this->auditTrailMapper,
             redactionService: $this->redactionService,
             approvalService: $this->approvalService,
+            appConfig: $this->appConfig,
+            engine: $this->engine,
         );
 
     }//end makeService()
@@ -1338,4 +1362,170 @@ class ScheduleServiceTest extends TestCase
         $this->assertSame('skipped_killswitch', $this->auditCalls[0]['context']['status']);
 
     }//end testKillSwitchOverridesApprovalBypass()
+
+    /**
+     * Flag OFF (default): the run goes through OpenRegister's ChatService exactly
+     * as before agent-engine-port — the in-app Engine is NEVER touched — and the
+     * usage shape from the ChatService result is captured into the run audit.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
+     */
+    public function testEngineFlagOffUsesOrChatService(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->once())->method('processMessage')->willReturn(
+            [
+                'message' => 'or output',
+                'usage'   => [
+                    'promptTokens'     => 3,
+                    'completionTokens' => 7,
+                ],
+            ]
+        );
+        $this->engine = $this->createMock(Engine::class);
+        $this->engine->expects($this->never())->method('processMessage');
+        $this->service = $this->makeService();
+
+        // runNow loads engaged kill-switches (none) via findAll.
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'none',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'flag-off-sched'
+            )
+        );
+
+        $this->assertCount(1, $this->auditCalls);
+        $this->assertSame('ok', $this->auditCalls[0]['context']['status']);
+        $this->assertSame(
+            [
+                'promptTokens'     => 3,
+                'completionTokens' => 7,
+            ],
+            $this->auditCalls[0]['context']['usage'],
+            'The flag-off path must keep capturing the ChatService usage shape.'
+        );
+
+    }//end testEngineFlagOffUsesOrChatService()
+
+    /**
+     * Flag ON: the run goes through the in-app Engine against hermiq-register
+     * objects — OpenRegister's ChatService, AgentMapper and ConversationMapper
+     * are NEVER touched — the agent resolves via ObjectService against the
+     * `agent` schema, a hermiq `conversation` object is created, and the
+     * engine-reported usage shape is captured identically to the flag-off path.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
+     */
+    public function testEngineFlagOnUsesInAppEngine(): void
+    {
+        // Flip the feature flag ON.
+        $this->appConfig = $this->createMock(IAppConfig::class);
+        $this->appConfig->method('getValueString')->willReturn('true');
+
+        // The OR chat path must be fully bypassed.
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+        $this->agentMapper = $this->createMock(AgentMapper::class);
+        $this->agentMapper->expects($this->never())->method('findByUuid');
+        $this->conversationMapper = $this->createMock(ConversationMapper::class);
+        $this->conversationMapper->expects($this->never())->method('insert');
+
+        // The in-app Engine runs the turn against the created conversation UUID.
+        $this->engine = $this->createMock(Engine::class);
+        $this->engine->expects($this->once())->method('processMessage')->with(
+            $this->equalTo('conv-uuid-1'),
+            $this->equalTo('alice'),
+            $this->equalTo('go')
+        )->willReturn(
+            [
+                'message' => 'engine output',
+                'usage'   => [
+                    'promptTokens'     => 11,
+                    'completionTokens' => 22,
+                ],
+            ]
+        );
+        $this->service = $this->makeService();
+
+        // The agent resolves as a hermiq-register object (not via AgentMapper).
+        $agentObject = new ObjectEntity();
+        $agentObject->setUuid('agent-uuid');
+        $agentObject->setObject(['name' => 'Scheduled agent']);
+        $this->objectService->method('find')->willReturn($agentObject);
+
+        // runNow loads engaged kill-switches (none) via findAll.
+        $this->objectService->method('findAll')->willReturn([]);
+
+        // Capture the conversation write; run-state persists share the same mock.
+        $savedConversations = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (mixed $object, ?array $extend=null, mixed $register=null, mixed $schema=null) use (&$savedConversations): ObjectEntity {
+                $entity = new ObjectEntity();
+                $entity->setUuid('saved-'.count($savedConversations));
+                if ($schema === 'conversation') {
+                    $savedConversations[] = $object;
+                    $entity->setUuid('conv-uuid-1');
+                }
+
+                return $entity;
+            }
+        );
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'none',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'flag-on-sched'
+            )
+        );
+
+        // The hermiq conversation object carries the ported title/owner/agent shape.
+        $this->assertCount(1, $savedConversations);
+        $this->assertSame(
+            [
+                'title'   => 'Hermiq scheduled run',
+                'userId'  => 'alice',
+                'agentId' => 'agent-uuid',
+            ],
+            $savedConversations[0]
+        );
+
+        // The run finalised ok and the engine usage shape survived into the audit.
+        $this->assertCount(1, $this->auditCalls);
+        $this->assertSame('ok', $this->auditCalls[0]['context']['status']);
+        $this->assertSame(
+            [
+                'promptTokens'     => 11,
+                'completionTokens' => 22,
+            ],
+            $this->auditCalls[0]['context']['usage'],
+            'The flag-on path must capture the Engine usage shape identically.'
+        );
+
+    }//end testEngineFlagOnUsesInAppEngine()
 }//end class

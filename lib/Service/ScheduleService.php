@@ -34,6 +34,8 @@ use Cron\CronExpression;
 use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\Conversation;
@@ -41,6 +43,7 @@ use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -59,6 +62,10 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small single-purpose
  *   defensive helpers (date/repeat sanitisers, per-kind next-run, impersonation);
  *   each method stays simple, but a poll-dispatch job legitimately has many of them.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     The agent-engine-port feature-flag
+ *   pivot (runAgentAsOwner dual path) pushed the dispatcher just over the 1000-line
+ *   threshold; the flag-off branch is removed wholesale by or-chat-proxy-deprecation,
+ *   which brings the class back under it — splitting now would be churn.
  *
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  */
@@ -85,6 +92,32 @@ class ScheduleService
      * @var string
      */
     private const TENANT_CONTROL_SCHEMA = 'tenantcontrol';
+
+    /**
+     * OpenRegister schema slug for agent objects (agent-engine-port; only read
+     * when the in-app engine feature flag is on).
+     *
+     * @var string
+     */
+    private const AGENT_SCHEMA = 'agent';
+
+    /**
+     * OpenRegister schema slug for conversation objects (agent-engine-port;
+     * only written when the in-app engine feature flag is on).
+     *
+     * @var string
+     */
+    private const CONVERSATION_SCHEMA = 'conversation';
+
+    /**
+     * IAppConfig key (app `hermiq`) gating which engine runAgentAsOwner()
+     * calls: 'true' routes through the in-app Engine facade against
+     * hermiq-register objects; anything else (default 'false') keeps the
+     * OpenRegister ChatService path byte-for-byte unchanged.
+     *
+     * @var string
+     */
+    private const ENGINE_FLAG_KEY = 'engine.enabled';
 
     /**
      * Schedule properties declared as `date-time` in the schema.
@@ -122,6 +155,8 @@ class ScheduleService
      * @param AuditTrailMapper   $auditTrailMapper   OR audit write-path for the explicit per-run entry (run-audit-log).
      * @param RedactionService   $redactionService   Masks secrets/PII BEFORE the audit write (run-audit-log).
      * @param ApprovalService    $approvalService    Human-approval gate: ensures a pending Approval for gated runs (human-approval-gate-enforcement).
+     * @param IAppConfig         $appConfig          Reads the `hermiq`.`engine.enabled` feature flag (agent-engine-port).
+     * @param Engine             $engine             In-app agent engine facade, used only when the flag is on (agent-engine-port).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -139,6 +174,8 @@ class ScheduleService
         private readonly AuditTrailMapper $auditTrailMapper,
         private readonly RedactionService $redactionService,
         private readonly ApprovalService $approvalService,
+        private readonly IAppConfig $appConfig,
+        private readonly Engine $engine,
     ) {
     }//end __construct()
 
@@ -663,6 +700,8 @@ class ScheduleService
      * @throws RuntimeException When the owner or agent cannot be resolved.
      *
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-4
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
      */
     private function runAgentAsOwner(string $owner, string $agentId, string $prompt): string
     {
@@ -678,6 +717,16 @@ class ScheduleService
         $this->userSession->setUser($user);
 
         try {
+            // Agent-engine-port pivot (task 6.2): with the feature flag ON, the run
+            // goes through the in-app Engine against hermiq-register objects — still
+            // inside the same impersonation try/finally, and only reached AFTER the
+            // kill-switch/approval gating upstream of this method. With the flag OFF
+            // (default) the OpenRegister ChatService path below is byte-for-byte the
+            // pre-flag behavior.
+            if ($this->isEngineEnabled() === true) {
+                return $this->runAgentViaEngine(owner: $owner, agentId: $agentId, prompt: $prompt);
+            }
+
             $agent        = $this->agentMapper->findByUuid($agentId);
             $conversation = new Conversation();
             $conversation->setUserId($owner);
@@ -706,6 +755,84 @@ class ScheduleService
         }//end try
 
     }//end runAgentAsOwner()
+
+    /**
+     * Whether the in-app agent engine feature flag (`hermiq`.`engine.enabled`)
+     * is on. Defaults to 'false' — existing installs see zero behavior change.
+     *
+     * @return bool True when the in-app Engine must be used.
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-1
+     */
+    private function isEngineEnabled(): bool
+    {
+        return $this->appConfig->getValueString(Application::APP_ID, self::ENGINE_FLAG_KEY, 'false') === 'true';
+
+    }//end isEngineEnabled()
+
+    /**
+     * Run the agent turn through the in-app Engine against hermiq-register
+     * objects (feature-flag ON path of runAgentAsOwner()).
+     *
+     * Resolves the agent as a hermiq-register `agent` object via ObjectService
+     * (NOT AgentMapper — with the flag on no OR chat table is touched), creates
+     * a `conversation` object bound to it, and calls Engine::processMessage().
+     * The per-run `usage` capture into $this->lastRunUsage is identical to the
+     * flag-off path so run-analytics never loses cost data (spec scenario:
+     * usage shape must survive). Callers hold the owner impersonation.
+     *
+     * @param string $owner   The schedule owner UID.
+     * @param string $agentId The bound agent UUID (hermiq register `agent` object).
+     * @param string $prompt  The prompt to run.
+     *
+     * @return string The agent's response text.
+     *
+     * @throws RuntimeException When the agent cannot be resolved in the hermiq register.
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
+     */
+    private function runAgentViaEngine(string $owner, string $agentId, string $prompt): string
+    {
+        $agent = $this->objectService->find(
+            id: $agentId,
+            register: self::REGISTER_SLUG,
+            schema: self::AGENT_SCHEMA
+        );
+        if ($agent === null) {
+            throw new RuntimeException("Agent '{$agentId}' does not exist in the hermiq register");
+        }
+
+        $conversation = $this->objectService->saveObject(
+            object: [
+                'title'   => 'Hermiq scheduled run',
+                'userId'  => $owner,
+                'agentId' => (string) $agent->getUuid(),
+            ],
+            register: self::REGISTER_SLUG,
+            schema: self::CONVERSATION_SCHEMA
+        );
+
+        $result = $this->engine->processMessage(
+            conversationId: (string) $conversation->getUuid(),
+            userId: $owner,
+            userMessage: $prompt
+        );
+
+        // Capture the LLM token/latency usage identically to the flag-off path, so
+        // writeRunAudit records it for run-analytics (run-cost recording). The
+        // defensive shape checks mirror the flag-off path so a future engine
+        // return-shape change can never silently break run-cost recording (hence
+        // the phpstan ignores on the shape-narrowed reads).
+        // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+        $usage = ($result['usage'] ?? []);
+        if (is_array($usage) === true) {
+            $this->lastRunUsage = $usage;
+        }
+
+        // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+        return (string) ($result['message'] ?? '');
+
+    }//end runAgentViaEngine()
 
     /**
      * Delivery seam — delegates to the real DeliveryService (talk-delivery).

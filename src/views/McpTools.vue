@@ -6,10 +6,10 @@
 
   Lists the MCP tools discoverable across the instance that an agent can be given
   (Files/Contacts/Calendar/Deck/email plus every app that registers an
-  IMcpToolProvider). Tools are read from OpenRegister's agents/tools resource
-  (the same source the agent-config tool picker uses), grouped by their source
-  app so an operator can see what capabilities are available before wiring them
-  onto an agent.
+  IMcpToolProvider). Tools are read from Hermiq's facade-backed
+  /api/agents/tools endpoint (agent-engine-port; the same source the
+  agent-config tool picker uses), grouped by their source app so an operator
+  can see what capabilities are available before wiring them onto an agent.
 
   A standard nav page — NOT a dashboard. Read-only: assigning a tool to an agent
   happens in the agent editor (AgentFormModal); this page is the catalogue.

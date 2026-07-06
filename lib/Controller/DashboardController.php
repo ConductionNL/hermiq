@@ -100,6 +100,10 @@ class DashboardController extends Controller
      *
      * @return void
      *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Single defensive capability
+     * assembly (admin/ownership/fallback branches); splitting would separate the
+     * checks from the payload they guard.
+     *
      * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
      */
     private function provideKillSwitchCapability(): void
@@ -120,7 +124,9 @@ class DashboardController extends Controller
             try {
                 if ($isAdmin === true) {
                     $orgs = $this->organisationMapper->findAll(limit: 500);
-                } else {
+                }
+
+                if ($isAdmin === false) {
                     $orgs = $this->organisationMapper->findByUserId($uid);
                 }
             } catch (Throwable $e) {

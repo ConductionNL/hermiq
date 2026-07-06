@@ -236,6 +236,10 @@ class MemoryController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
+     * @SuppressWarnings(PHPMD.ShortVariable) `$q` is the public query-parameter name
+     * (`GET /api/agents/{agentId}/recall?q=…`) — NC binds route params by name, so
+     * renaming it would break the API contract.
+     *
      * @spec openspec/changes/agent-memory/tasks.md#task-3-1
      */
     public function recall(string $agentId, string $q=''): JSONResponse

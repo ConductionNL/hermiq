@@ -62,6 +62,8 @@ use OCP\IUserSession;
  * See hydra/openspec/architecture/adr-034-ai-chat-companion.md and adr-035 for
  * the full design, and decidesk's `OCA\Decidesk\Mcp\DecideskToolProvider` for a
  * production example with five real tools, deep links, and source descriptors.
+ *
+ * @spec exclude Scaffold example provider (template documentation artifact) — replace-me code, no behavioural spec.
  */
 class ExampleToolProvider extends AbstractToolHandler implements IMcpToolProvider
 {
@@ -137,6 +139,8 @@ class ExampleToolProvider extends AbstractToolHandler implements IMcpToolProvide
      * Returns the app id that namespaces every tool id this provider exposes.
      *
      * @return string The app slug — must match the `<id>` in appinfo/info.xml.
+     *
+     * @spec exclude Scaffold example provider — replace-me code, no behavioural spec.
      */
     public function getAppId(): string
     {
@@ -151,6 +155,8 @@ class ExampleToolProvider extends AbstractToolHandler implements IMcpToolProvide
      * per-object authorisation is enforced in {@see invokeTool()}, not here.
      *
      * @return array<int, array<string, mixed>>
+     *
+     * @spec exclude Scaffold example provider — replace-me code, no behavioural spec.
      */
     public function getTools(): array
     {
@@ -174,6 +180,8 @@ class ExampleToolProvider extends AbstractToolHandler implements IMcpToolProvide
      * @param array<string, mixed> $arguments Tool arguments from the LLM call
      *
      * @return array<string, mixed>
+     *
+     * @spec exclude Scaffold example provider — replace-me code, no behavioural spec.
      */
     public function invokeTool(string $toolId, array $arguments): array
     {

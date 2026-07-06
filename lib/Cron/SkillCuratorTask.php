@@ -41,14 +41,14 @@ class SkillCuratorTask extends TimedJob
     /**
      * Constructor.
      *
-     * @param ITimeFactory            $time                    Time factory for TimedJob scheduling.
-     * @param SkillMarketplaceService $skillMarketplaceService Service that curates skill lifecycle.
+     * @param ITimeFactory            $time               Time factory for TimedJob scheduling.
+     * @param SkillMarketplaceService $marketplaceService Service that curates skill lifecycle.
      *
      * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
      */
     public function __construct(
         ITimeFactory $time,
-        private readonly SkillMarketplaceService $skillMarketplaceService,
+        private readonly SkillMarketplaceService $marketplaceService,
     ) {
         parent::__construct(time: $time);
 
@@ -71,7 +71,7 @@ class SkillCuratorTask extends TimedJob
      */
     public function run(mixed $argument): void
     {
-        $this->skillMarketplaceService->curate();
+        $this->marketplaceService->curate();
 
     }//end run()
 }//end class
