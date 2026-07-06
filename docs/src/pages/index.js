@@ -164,8 +164,8 @@ function SettingsPanel() {
 
 const WIDGETS = [
   {
-    title: 'Dashboard widget, ready to copy',
-    desc: 'Hermiq ships a working ExampleWidget — PHP IWidget class, webpack entry, and a NcDashboardWidget renderer. Three files plus two registration points; rename and replace the data.',
+    title: 'Dashboard widget, ready to build',
+    desc: 'Add a Nextcloud Dashboard widget in three files — a PHP IWidget class, a webpack entry, and a NcDashboardWidget renderer — plus two registration points in Application.php and webpack.config.js.',
     panel: <DashboardPanel />,
   },
   {

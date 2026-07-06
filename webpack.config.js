@@ -29,10 +29,6 @@ webpackConfig.entry = {
 		import: path.join(__dirname, 'src', 'settings.js'),
 		filename: appId + '-settings.js',
 	},
-	exampleWidget: {
-		import: path.join(__dirname, 'src', 'exampleWidget.js'),
-		filename: appId + '-exampleWidget.js',
-	},
 }
 
 // Use local source when available (monorepo dev), otherwise fall back to npm package
@@ -85,7 +81,7 @@ webpackConfig.plugins = [
 // navigations between this app's pages.
 //
 // Each widget's PHP `load()` MUST attach the shared chunks before the per-widget
-// bundle (see `lib/Dashboard/ExampleWidget.php`). Order in PHP:
+// bundle. Order in PHP:
 //   1. <appId>-shared-vendor   (Vue, pinia, icons)
 //   2. <appId>-shared-nc-vue   (@nextcloud/vue, @conduction/nextcloud-vue)
 //   3. <appId>-<widget>Widget  (your widget code)
