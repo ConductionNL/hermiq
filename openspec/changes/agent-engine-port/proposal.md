@@ -135,3 +135,16 @@ Decision 2, answer 3).
    (design.md, agent-engine-schemas). Whether the ported Engine gives it real meaning (e.g.
    `chat`|`scheduled`) or leaves it an unused free string is deferred to implementation; no plan
    text specifies it.
+
+## Decisions (Ruben, 2026-07-06)
+
+- **Cross-repo depends_on: Hydra's dependency checker is extended FIRST** (new
+  prerequisite change in the hydra repo: cross-repo `repo#NNN` refs resolved via
+  the Codeberg API, same closed/open/missing/error states). This chain does not
+  build until that lands.
+- Parity bar: **structural-only** (tool calls, persistence shape, gate behavior);
+  response-text diffs logged for human review, no similarity threshold.
+- `nextcloud` TaskProcessing driver: configured via the existing provider
+  dropdown in the hermiq.llm settings section (hasProviders() status hint).
+- `Agent.type`: carried as a free nullable string; semantics defined when a
+  consumer appears.

@@ -93,3 +93,9 @@ facing action or controller endpoint (ADR-035 Decision 2, answer 3).
    rows are a plausible pre-existing state. This change's tasks.md requires the migration to skip
    (log + continue) rather than fail on an unresolvable FK, but the exact log/reporting shape is
    deferred to implementation.
+
+## Decisions (Ruben, 2026-07-06)
+
+- Migration trigger: **auto repair-step on upgrade, gated on the engine feature
+  flag**; idempotent (skips already-migrated uuids). Dangling references are
+  nulled, logged, and counted in the repair output (no abort).
