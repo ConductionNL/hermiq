@@ -25,45 +25,14 @@
 			<h2 class="skills-catalog__heading">
 				{{ t('hermiq', 'Skills') }}
 			</h2>
+			<NcButton type="primary" @click="showImport = true">
+				{{ t('hermiq', 'Import skill') }}
+			</NcButton>
 		</div>
 
 		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Skills error')">
 			{{ error }}
 		</NcNoteCard>
-
-		<!-- Import an agentskills.io package -->
-		<section class="skills-catalog__import">
-			<h3 class="skills-catalog__subhead">
-				{{ t('hermiq', 'Import a skill') }}
-			</h3>
-			<textarea
-				v-model="importText"
-				class="skills-catalog__textarea"
-				:disabled="busy"
-				:placeholder="importPlaceholder" />
-			<div class="skills-catalog__import-actions">
-				<NcButton
-					type="primary"
-					:disabled="busy || !importText.trim()"
-					:aria-label="t('hermiq', 'Import skill')"
-					@click="doImport">
-					<template v-if="busy" #icon>
-						<NcLoadingIcon :size="18" />
-					</template>
-					{{ t('hermiq', 'Import') }}
-				</NcButton>
-				<NcButton
-					type="secondary"
-					:disabled="busy || !importText.trim()"
-					:aria-label="t('hermiq', 'Install from hub (quarantine)')"
-					@click="doImportFromHub">
-					{{ t('hermiq', 'Install from hub (quarantine)') }}
-				</NcButton>
-			</div>
-			<p class="skills-catalog__import-note">
-				{{ t('hermiq', 'Skills installed from a hub or another organisation start quarantined and must be approved before an agent can use them.') }}
-			</p>
-		</section>
 
 		<!-- Skills list -->
 		<section class="skills-catalog__section">
@@ -145,15 +114,21 @@
 				<textarea class="skills-catalog__textarea" readonly :value="exportedPackage" />
 			</div>
 		</NcModal>
+
+		<SkillImportModal
+			v-if="showImport"
+			@imported="load"
+			@close="showImport = false" />
 	</div>
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcModal, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcModal, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
 import PuzzleIcon from 'vue-material-design-icons/PuzzleOutline.vue'
 import { listAgents } from '../api/agents.js'
-import { approveSkill, exportSkill, importSkill, installFromSource, installSkill, listSkills, publishSkill } from '../api/skills.js'
+import { approveSkill, exportSkill, installSkill, listSkills, publishSkill } from '../api/skills.js'
+import SkillImportModal from '../modals/SkillImportModal.vue'
 
 export default {
 	name: 'SkillsCatalog',
@@ -162,9 +137,9 @@ export default {
 		CnDataTable,
 		NcButton,
 		NcEmptyContent,
-		NcLoadingIcon,
 		NcModal,
 		NcNoteCard,
+		SkillImportModal,
 		NcSelect,
 		PuzzleIcon,
 	},
@@ -174,9 +149,9 @@ export default {
 			skills: [],
 			agents: [],
 			installTarget: {},
-			importText: '',
 			exportedPackage: '',
 			showExport: false,
+			showImport: false,
 			loading: true,
 			busy: false,
 			error: '',
@@ -225,15 +200,6 @@ export default {
 				skill,
 			}))
 		},
-
-		/**
-		 * The import textarea placeholder (an agentskills.io skeleton).
-		 *
-		 * @return {string} The placeholder text.
-		 */
-		importPlaceholder() {
-			return '---\nname: My Skill\ndescription: What it does\n---\n# My Skill\n\nInstructions…'
-		},
 	},
 
 	created() {
@@ -268,52 +234,6 @@ export default {
 		 */
 		installedCount(skill) {
 			return Array.isArray(skill.installedOn) ? skill.installedOn.length : 0
-		},
-
-		/**
-		 * Import the pasted agentskills.io package.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async doImport() {
-			const pkg = this.importText.trim()
-			if (!pkg) {
-				return
-			}
-			this.busy = true
-			this.error = ''
-			try {
-				await importSkill(pkg)
-				this.importText = ''
-				await this.load()
-			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
-		},
-
-		/**
-		 * Install the pasted package from an external source — lands in quarantine.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async doImportFromHub() {
-			const pkg = this.importText.trim()
-			if (!pkg) {
-				return
-			}
-			this.busy = true
-			this.error = ''
-			try {
-				await installFromSource(pkg, 'hub')
-				this.importText = ''
-				await this.load()
-			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
 		},
 
 		/**
