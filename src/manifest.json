@@ -343,7 +343,8 @@
 						{
 							"id": "audit",
 							"label": "History",
-							"component": "CnAuditTrailTab"
+							"icon": "History",
+							"widgets": [ { "type": "audit" } ]
 						}
 					]
 				}
