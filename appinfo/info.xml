@@ -30,7 +30,7 @@
     <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/app-store.svg</screenshot>
 
     <dependencies>
-        <nextcloud min-version="28" max-version="34"/>
+        <nextcloud min-version="30" max-version="34"/>
         <php min-version="8.3"/>
     </dependencies>
 
