@@ -315,28 +315,39 @@
 			"config": {
 				"register": "hermiq",
 				"schema": "example",
-				"sidebar": true
-			},
-			"widgets": [
-				{
-					"widgetKey": "object-data",
-					"slot": "sidebar",
-					"tabGroup": "data",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 1,
-					"gridHeight": 1
-				},
-				{
-					"widgetKey": "audit-trail",
-					"slot": "sidebar",
-					"tabGroup": "audit",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 1,
-					"gridHeight": 1
+				"_note": "Document archetype for the app's scaffold 'example' schema, which the register itself documents as 'replace with your app's actual schemas' (lib/Settings/hermiq_register.json). Hermiq's real domain objects (Agent, Conversation, Message, Session, SessionTurn, Skill, SkillSource, Approval, AiFeature, TenantControl, Memory) already have purpose-built custom Vue pages (AgentCatalog/AgentDetail, Chat, ApprovalInbox, AgentMemory, AgentSessions, SkillsCatalog, AiFeatureRegister, TenantOps) whose own _notes explain why the generic detail-page config cannot express their run-now/approve-deny/consolidate/import-export behaviour, so ExampleDetail is the app's only manifest-declarative detail page. The example schema carries just two fields (title, description), no other hermiq schema declares a FK pointing at it, and it has no linkedTypes or lifecycle — so the body is a single 2-column Data widget and nothing else: no object-list (nothing references example), no Related panel (example has no outbound refs), no content leaves (no files/calendar/contacts/notes linkedType on the schema). Audit history moves to the sidebar per the standard pattern.",
+				"widgets": [
+					{
+						"id": "example-data",
+						"type": "data",
+						"title": "Example details",
+						"content": {
+							"columns": 2
+						}
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "example-data",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 4
+					}
+				],
+				"sidebar": {
+					"enabled": true,
+					"showMetadata": true,
+					"tabs": [
+						{
+							"id": "audit",
+							"label": "History",
+							"component": "CnAuditTrailTab"
+						}
+					]
 				}
-			]
+			}
 		},
 		{
 			"id": "Settings",
