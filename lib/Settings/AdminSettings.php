@@ -27,21 +27,20 @@ namespace OCA\Hermiq\Settings;
 use OCA\Hermiq\AppInfo\Application;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Http\TemplateResponse;
-use OCP\Settings\ISettings;
+use OCP\Settings\IDelegatedSettings;
 
 /**
  * Provides the admin settings form for the Hermiq application.
  *
- * Implements ISettings (full-admin-only access). If your app needs delegated
- * admin support — allowing group-restricted sub-admins to manage settings —
- * migrate to IDelegatedSettings and implement getAuthorizedGroupId(). See
- * OCP\Settings\IDelegatedSettings for the interface contract and
- * https://docs.nextcloud.com/server/latest/developer_manual/app_development/settings.html
- * for usage guidance. For most apps, ISettings is the correct choice.
+ * Implements IDelegatedSettings (the delegated-admin-capable ISettings variant) so
+ * the LLM-provider endpoints can guard on `#[AuthorizedAdminSetting(AdminSettings::class)]`
+ * — that attribute requires a `class-string<IDelegatedSettings>`. Access still
+ * defaults to full admins: getName()/getAuthorizedAppConfig() return the
+ * no-delegation defaults (matching decidesk's AdminSettings).
  *
- * @spec exclude Trivial ISettings binding (template + section + priority); no behavioural spec.
+ * @spec exclude Trivial IDelegatedSettings binding (template + section + priority); no behavioural spec.
  */
-class AdminSettings implements ISettings
+class AdminSettings implements IDelegatedSettings
 {
     /**
      * Constructor.
@@ -94,4 +93,34 @@ class AdminSettings implements ISettings
     {
         return 10;
     }//end getPriority()
+
+    /**
+     * The name of this settings sub-section within the Hermiq admin section.
+     *
+     * Returns null (no named sub-section — the single Hermiq panel), matching the
+     * decidesk AdminSettings default.
+     *
+     * @return string|null
+     *
+     * @spec exclude Trivial IDelegatedSettings sub-section name; no behavioural spec.
+     */
+    public function getName(): ?string
+    {
+        return null;
+    }//end getName()
+
+    /**
+     * App config keys an authorized (delegated) admin may manage.
+     *
+     * Empty — no delegated app-config keys are exposed; access defaults to full
+     * admins (matching decidesk's AdminSettings).
+     *
+     * @return array
+     *
+     * @spec exclude Trivial IDelegatedSettings delegation list (empty); no behavioural spec.
+     */
+    public function getAuthorizedAppConfig(): array
+    {
+        return [];
+    }//end getAuthorizedAppConfig()
 }//end class

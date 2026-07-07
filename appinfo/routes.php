@@ -11,6 +11,12 @@ return [
         ['name' => 'settings#create', 'url' => '/api/settings', 'verb' => 'POST'],
         ['name' => 'settings#load',  'url' => '/api/settings/load', 'verb' => 'POST'],
 
+        // Admin LLM provider selection (SPECTR-NEXTCLOUD-PLAN.md §8 move 1 — makes the
+        // `nextcloud` TaskProcessing driver, and the pre-existing openai/ollama/fireworks
+        // drivers, selectable from the admin panel instead of only via `occ`).
+        ['name' => 'Settings\LlmSettings#get',    'url' => '/api/settings/llm', 'verb' => 'GET'],
+        ['name' => 'Settings\LlmSettings#update', 'url' => '/api/settings/llm', 'verb' => 'PATCH'],
+
         // Generic per-user preferences (used by shared nextcloud-vue widgets, e.g. CnSupportDialog).
         ['name' => 'preferences#getPreference', 'url' => '/api/preferences/{key}', 'verb' => 'GET'],
         ['name' => 'preferences#setPreference', 'url' => '/api/preferences/{key}', 'verb' => 'PUT'],

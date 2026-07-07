@@ -56,6 +56,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Llm;
 
 use Exception;
+use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
@@ -350,6 +351,70 @@ class ProviderFactory
         return $output;
 
     }//end generateViaNextcloud()
+
+    /**
+     * Generate free text against whichever chat provider `hermiq.llm` currently
+     * selects — one blocking (non-streaming) call, resolving the driver and
+     * dispatching per provider (openai/ollama via LLPhant's `generateText()`,
+     * fireworks via direct HTTP, nextcloud via TaskProcessing).
+     *
+     * This is the shared entry point for background/non-interactive generation
+     * that is NOT part of the ported ChatService orchestration — used by Hermiq's
+     * TaskProcessing PROVIDER implementations (plan §8 move 2), which run the
+     * whole instance's text2text work through Hermiq's configured LLM.
+     *
+     * @param string      $prompt         The prompt text.
+     * @param string|null $userId         The user id (forwarded to the nextcloud driver).
+     * @param bool        $allowNextcloud When false, selecting the `nextcloud` driver is
+     *                                    rejected. TaskProcessing providers pass false: a
+     *                                    Hermiq TaskProcessing provider backed by the
+     *                                    `nextcloud` (TaskProcessing) driver would recurse
+     *                                    into TaskProcessing endlessly.
+     *
+     * @return string The generated text.
+     *
+     * @throws ProviderUnavailableException When no provider is configured/reachable, or
+     *                                      `nextcloud` is selected while `$allowNextcloud`
+     *                                      is false.
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess)        LLPhant's Message::user() factory is the
+     * library's public API — there is no injectable seam.
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$allowNextcloud` is a genuine
+     * two-mode recursion guard (background-work caller allows the TaskProcessing
+     * driver; a TaskProcessing provider-backed caller forbids it to avoid recursing),
+     * not a responsibility split — both modes share the identical generation path.
+     * Mirrors the accepted `ScheduleService::runNow($bypassApprovalGate)` precedent.
+     *
+     * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
+     */
+    public function generateText(string $prompt, ?string $userId=null, bool $allowNextcloud=true): string
+    {
+        $llmConfig = $this->getLlmConfig();
+        $driver    = $this->createChatDriver(llmConfig: $llmConfig);
+
+        if ($driver->provider === 'fireworks') {
+            return $this->callFireworksChat(
+                apiKey: (string) $driver->apiKey,
+                model: $driver->model,
+                baseUrl: (string) $driver->baseUrl,
+                messageHistory: [LLPhantMessage::user($prompt)]
+            );
+        }
+
+        if ($driver->provider === 'nextcloud') {
+            if ($allowNextcloud === false) {
+                $message  = "The 'nextcloud' chat provider cannot back a Nextcloud TaskProcessing provider ";
+                $message .= '(it would recurse). Configure openai, ollama, or fireworks.';
+                throw new ProviderUnavailableException($message, 400);
+            }
+
+            return $this->generateViaNextcloud(prompt: $prompt, userId: $userId);
+        }
+
+        // OpenAI / Ollama: driver->chat is a ready LLPhant chat instance.
+        return $driver->chat->generateText($prompt);
+
+    }//end generateText()
 
     /**
      * Build the `ollama` driver: native OllamaConfig + OllamaChat.

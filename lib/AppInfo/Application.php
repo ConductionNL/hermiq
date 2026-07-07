@@ -30,6 +30,10 @@ use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\DeepLinkRegistrationListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
+use OCA\Hermiq\TaskProcessing\ContextAgentProvider;
+use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
+use OCA\Hermiq\TaskProcessing\Text2TextProvider;
+use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Event\DeepLinkRegistrationEvent;
 use OCP\AppFramework\App;
@@ -108,6 +112,17 @@ class Application extends App implements IBootstrap
             'OCA\\OpenRegister\\Mcp\\IMcpToolProvider::'.self::APP_ID,
             HermiqToolProvider::class
         );
+
+        // TaskProcessing PROVIDERS (SPECTR-NEXTCLOUD-PLAN.md §8 moves 2 + 3). Hermiq
+        // backs Nextcloud's own AI API with its configured LLM, so the whole instance
+        // (Assistant, Mail, decidesk — which 503s without any provider) gets AI from
+        // one Hermiq config. The text2text family shares the identical input→output
+        // shape; the contextagent provider is the governed alternative to NC's stock
+        // `context_agent` ExApp (admin picks the preferred provider per task type).
+        $context->registerTaskProcessingProvider(Text2TextProvider::class);
+        $context->registerTaskProcessingProvider(Text2TextSummaryProvider::class);
+        $context->registerTaskProcessingProvider(Text2TextHeadlineProvider::class);
+        $context->registerTaskProcessingProvider(ContextAgentProvider::class);
 
     }//end register()
 
