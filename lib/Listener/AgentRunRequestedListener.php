@@ -11,10 +11,14 @@
  * off the triggering request (`mode: "async"` — SPECTR-NEXTCLOUD-PLAN.md §5.2 point 5:
  * classification lands seconds later, never inline on the save that fired it).
  *
- * OpenRegister is a hard dependency of Hermiq already (ChatService, ObjectService,
- * AgentMapper, …), so this listener references OR's real event class directly — no
- * class_exists() guard is needed on the registration side, mirroring the existing
- * DeepLinkRegistrationListener precedent.
+ * OpenRegister is a de facto hard dependency of Hermiq (ChatService, ObjectService,
+ * AgentMapper, …) but NOT an NC-enforceable one — info.xml has no mechanism to pin
+ * another app's version, so this is documented in <description> and checked at
+ * install/upgrade by Repair\CheckOpenRegisterCompatibility. This listener still
+ * references OR's real event class directly with no class_exists() guard on the
+ * registration side (mirroring the existing DeepLinkRegistrationListener precedent),
+ * because `::class` is a compile-time string constant and does not require the
+ * class to actually be loaded.
  *
  * @category Listener
  * @package  OCA\Hermiq\Listener

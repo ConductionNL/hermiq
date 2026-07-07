@@ -89,9 +89,13 @@ class Application extends App implements IBootstrap
         // Flow-triggered agent runs (SPECTR-NEXTCLOUD-PLAN.md §5.2, ADR-041): a
         // declarative `x-openregister-flows` action of `type: "agent"` dispatches
         // OpenRegister's AgentRunRequestedEvent; this listener enqueues the governed
-        // dispatch (AgentRunRequestedJob → FlowAgentRunService). OpenRegister is
-        // already a hard dependency of Hermiq, so no class_exists() guard is needed
-        // here — mirrors the DeepLinkRegistrationEvent registration above.
+        // dispatch (AgentRunRequestedJob → FlowAgentRunService). No class_exists()
+        // guard is needed on THIS line specifically — `::class` is a compile-time
+        // string, it does not require the class to be loaded — but OpenRegister is
+        // NOT enforceable as a versioned dependency via info.xml (NC has no
+        // inter-app version-pin mechanism); it is documented in <description> and
+        // checked at install/upgrade by Repair\CheckOpenRegisterCompatibility,
+        // which is what actually catches a stale-OpenRegister fleet instance.
         $context->registerEventListener(
             event: AgentRunRequestedEvent::class,
             listener: AgentRunRequestedListener::class

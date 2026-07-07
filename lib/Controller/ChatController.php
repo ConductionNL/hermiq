@@ -204,15 +204,7 @@ class ChatController extends Controller
                 $statusCode = 500;
             }
 
-            $this->logger->error(
-                message: '[ChatController] Failed to send message',
-                context: [
-                    'file'  => __FILE__,
-                    'line'  => __LINE__,
-                    'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString(),
-                ]
-            );
+            $this->logSendMessageFailure(exception: $e, statusCode: $statusCode);
 
             // Determine appropriate error message based on status code.
             $errorType = match ($statusCode) {
@@ -233,6 +225,47 @@ class ChatController extends Controller
             );
         }//end try
     }//end sendMessage()
+
+    /**
+     * Log a sendMessage() failure at the level matching its severity.
+     *
+     * Client input-validation failures (missing/invalid conversation or
+     * agentUuid, unknown conversation, ownership mismatch, …) are expected 4xx
+     * user error, not a server-side fault — logged at WARNING without a stack
+     * trace. Genuine 5xx / unexpected exceptions stay at ERROR with the full
+     * trace attached.
+     *
+     * @param Exception $exception  The caught exception.
+     * @param int       $statusCode The resolved HTTP status code (already clamped to 400-599).
+     *
+     * @return void
+     *
+     * @spec exclude Log-level-only helper split out of sendMessage() to stay under
+     * the phpmd method-length threshold; no behavioural contract beyond the log level.
+     */
+    private function logSendMessageFailure(Exception $exception, int $statusCode): void
+    {
+        if ($statusCode < 500) {
+            $this->logger->warning(
+                message: '[ChatController] Rejected message: '.$exception->getMessage(),
+                context: [
+                    'file' => __FILE__,
+                    'line' => __LINE__,
+                ]
+            );
+            return;
+        }
+
+        $this->logger->error(
+            message: '[ChatController] Failed to send message',
+            context: [
+                'file'  => __FILE__,
+                'line'  => __LINE__,
+                'error' => $exception->getMessage(),
+                'trace' => $exception->getTraceAsString(),
+            ]
+        );
+    }//end logSendMessageFailure()
 
     /**
      * Get conversation history (messages).
@@ -553,6 +586,14 @@ class ChatController extends Controller
     public function getChatStats(): JSONResponse
     {
         try {
+            // Explicit in-body authentication guard (gate-7 no-admin-idor):
+            // #[NoAdminRequired] alone only requires an NC login, not a domain
+            // check — the org-scoping below comes from ObjectService, but every
+            // other endpoint in this class resolves the caller first too, so
+            // this keeps the convention consistent and the guard visible in the
+            // method body rather than implicit in the framework annotation.
+            $this->requireUserId();
+
             return new JSONResponse(
                 data: [
                     'total_agents'        => $this->countObjects(schema: self::AGENT_SCHEMA),

@@ -74,6 +74,13 @@ class ChatControllerTest extends TestCase
     private IUserSession $userSession;
 
     /**
+     * Mock logger (settable expectations per test — log-level assertions).
+     *
+     * @var LoggerInterface&MockObject
+     */
+    private LoggerInterface $logger;
+
+    /**
      * Wire fresh mocks before each test.
      *
      * @return void
@@ -86,6 +93,7 @@ class ChatControllerTest extends TestCase
         $this->objectService = $this->createMock(ObjectService::class);
         $this->objectService->method('setRegister')->willReturnSelf();
         $this->objectService->method('setSchema')->willReturnSelf();
+        $this->logger         = $this->createMock(LoggerInterface::class);
 
         $user = $this->createMock(IUser::class);
         $user->method('getUID')->willReturn('alice');
@@ -110,7 +118,7 @@ class ChatControllerTest extends TestCase
             $this->objectService,
             $this->userSession,
             $l10n,
-            $this->createMock(LoggerInterface::class)
+            $this->logger
         );
 
     }//end controller()
@@ -247,6 +255,53 @@ class ChatControllerTest extends TestCase
         $this->assertSame('conv-1', $response->getData()['conversation']);
 
     }//end testSendMessageDelegatesToEngine()
+
+    /**
+     * A missing conversation AND agentUuid is a 400 (resolveConversation's
+     * input-validation guard) and must log at WARNING — not ERROR with a full
+     * stack trace — because it is expected client input error, not a server fault.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     */
+    public function testSendMessageMissingAgentUuidLogsWarningNotError(): void
+    {
+        $this->stubParams(['message' => 'hi']);
+        $this->engine->expects($this->never())->method('processMessage');
+        $this->logger->expects($this->once())->method('warning');
+        $this->logger->expects($this->never())->method('error');
+
+        $response = $this->controller()->sendMessage();
+
+        $this->assertSame(400, $response->getStatus());
+
+    }//end testSendMessageMissingAgentUuidLogsWarningNotError()
+
+    /**
+     * A genuine server-side failure (engine throws an uncoded exception, so the
+     * catch block defaults it to 500) must still log at ERROR with the trace —
+     * only the 4xx client-validation branch is downgraded.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     */
+    public function testSendMessageServerFailureStillLogsError(): void
+    {
+        $this->stubParams(['conversation' => 'conv-1', 'message' => 'hi there']);
+        $this->objectService->method('find')->willReturn(
+            $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
+        );
+        $this->engine->method('processMessage')->willThrowException(new \RuntimeException('boom'));
+        $this->logger->expects($this->once())->method('error');
+        $this->logger->expects($this->never())->method('warning');
+
+        $response = $this->controller()->sendMessage();
+
+        $this->assertSame(500, $response->getStatus());
+
+    }//end testSendMessageServerFailureStillLogsError()
 
     /**
      * getHistory without a conversationId is a 400.
