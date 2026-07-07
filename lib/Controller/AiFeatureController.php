@@ -37,6 +37,8 @@ namespace OCA\Hermiq\Controller;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AlgoritmekaderMapper;
+use OCA\Hermiq\Service\PublicationGateway;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -50,6 +52,10 @@ use Throwable;
 /**
  * Action-auth-gated AI-feature governance endpoints.
  *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) The controller orchestrates the
+ *   governance service, the ADR-023 action-auth gate, the Algoritmekader readiness/mapper,
+ *   and the runtime publication seam — each a distinct single-responsibility collaborator.
+ *
  * @spec openspec/changes/ai-feature-governance-register/tasks.md#3-controller-action-auth-adr-023-mirror-approvalcontroller
  */
 class AiFeatureController extends Controller
@@ -57,13 +63,15 @@ class AiFeatureController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest          $request          The request object.
-     * @param AiFeatureService  $aiFeatureService The AiFeature read/govern path.
-     * @param ActionAuthService $actionAuth       The ADR-023 action-authorization service.
-     * @param IUserSession      $userSession      Resolves the requesting user.
-     * @param LoggerInterface   $logger           PSR-3 logger.
+     * @param IRequest             $request            The request object.
+     * @param AiFeatureService     $aiFeatureService   The AiFeature read/govern path.
+     * @param ActionAuthService    $actionAuth         The ADR-023 action-authorization service.
+     * @param IUserSession         $userSession        Resolves the requesting user.
+     * @param LoggerInterface      $logger             PSR-3 logger.
+     * @param AlgoritmekaderMapper $algoritmekader     Publish-readiness gate + Algoritmekader mapping.
+     * @param PublicationGateway   $publicationGateway Runtime seam to the fleet publication path (OpenCatalogi).
      *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-3-2
+     * @spec openspec/changes/algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
      */
     public function __construct(
         IRequest $request,
@@ -71,6 +79,8 @@ class AiFeatureController extends Controller
         private readonly ActionAuthService $actionAuth,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
+        private readonly AlgoritmekaderMapper $algoritmekader,
+        private readonly PublicationGateway $publicationGateway,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -177,6 +187,137 @@ class AiFeatureController extends Controller
     }//end disable()
 
     /**
+     * Publish a feature to the national Algoritmeregister (delegated; action-auth-gated).
+     *
+     * 401 → action-auth → load RBAC-scoped (404 cross-tenant) → publish-readiness gate
+     * (422 naming the failing conditions) → hand the mapped Algoritmekader publication to
+     * the fleet publication path via the runtime seam (503 when OpenCatalogi is absent — the
+     * feature stays internally governable, no national-portal call from hermiq). On success
+     * stamp `algoritmeregisterStatus = gepubliceerd` + the returned reference.
+     *
+     * @param string $id The AiFeature UUID.
+     *
+     * @return JSONResponse The publication outcome, or an error status.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+     */
+    public function publishToAlgoritmeregister(string $id): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $this->actionAuth->requireAction(user: $user, action: 'aifeature.publish-to-algoritmeregister');
+        } catch (OCSForbiddenException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+        }
+
+        try {
+            $feature = $this->aiFeatureService->getFeature(id: $id);
+            if ($feature === null) {
+                return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            $data    = $feature->getObject();
+            $failing = $this->algoritmekader->assessReadiness(feature: $data);
+            if ($failing !== []) {
+                // Fail-closed: never a partial/placeholder national-register entry.
+                return new JSONResponse(
+                    [
+                        'error'   => 'Not ready to publish to the Algoritmeregister.',
+                        'missing' => $failing,
+                    ],
+                    Http::STATUS_UNPROCESSABLE_ENTITY
+                );
+            }
+
+            if ($this->publicationGateway->isAvailable() === false) {
+                // OpenCatalogi absent — the feature remains internally governable.
+                return new JSONResponse(
+                    ['error' => 'The publication path (OpenCatalogi) is not available.'],
+                    Http::STATUS_SERVICE_UNAVAILABLE
+                );
+            }
+
+            $reference = $this->publicationGateway->publish(
+                publication: $this->algoritmekader->map(feature: $data)
+            );
+            if ($reference === null) {
+                return new JSONResponse(
+                    ['error' => 'The publication path (OpenCatalogi) is not available.'],
+                    Http::STATUS_SERVICE_UNAVAILABLE
+                );
+            }
+
+            $stamped = $this->aiFeatureService->recordPublication(id: $id, reference: $reference);
+            if ($stamped === null) {
+                return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            return new JSONResponse($this->shape(object: $stamped));
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq Algoritmeregister publish failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }//end try
+
+    }//end publishToAlgoritmeregister()
+
+    /**
+     * Withdraw a feature from the national Algoritmeregister (intrekken; action-auth-gated).
+     *
+     * 401 → action-auth → load RBAC-scoped (404 cross-tenant) → request unpublication
+     * through the runtime seam → stamp `algoritmeregisterStatus = ingetrokken`.
+     *
+     * @param string $id The AiFeature UUID.
+     *
+     * @return JSONResponse The withdrawal outcome, or an error status.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+     */
+    public function withdrawFromAlgoritmeregister(string $id): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $this->actionAuth->requireAction(user: $user, action: 'aifeature.withdraw-from-algoritmeregister');
+        } catch (OCSForbiddenException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+        }
+
+        try {
+            $feature = $this->aiFeatureService->getFeature(id: $id);
+            if ($feature === null) {
+                return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            $reference = (string) ($feature->getObject()['algoritmeregisterRef'] ?? '');
+            $this->publicationGateway->withdraw(reference: $reference);
+
+            $stamped = $this->aiFeatureService->recordWithdrawal(id: $id);
+            if ($stamped === null) {
+                return new JSONResponse(['error' => 'AI feature not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            return new JSONResponse($this->shape(object: $stamped));
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq Algoritmeregister withdraw failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Withdraw failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }//end try
+
+    }//end withdrawFromAlgoritmeregister()
+
+    /**
      * Shared enable/disable driver: 401 → action-auth → transition → HTTP mapping.
      *
      * @param string $id     The AiFeature UUID.
@@ -202,12 +343,10 @@ class AiFeatureController extends Controller
 
         try {
             if ($enable === true) {
-                $result = $this->aiFeatureService->enable(id: $id);
-            } else {
-                $result = $this->aiFeatureService->disable(id: $id);
+                return $this->mapTransition(id: $id, result: $this->aiFeatureService->enable(id: $id));
             }
 
-            return $this->mapTransition(id: $id, result: $result);
+            return $this->mapTransition(id: $id, result: $this->aiFeatureService->disable(id: $id));
         } catch (Throwable $e) {
             $this->logger->error('Hermiq AI-feature transition failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Transition failed'], Http::STATUS_INTERNAL_SERVER_ERROR);

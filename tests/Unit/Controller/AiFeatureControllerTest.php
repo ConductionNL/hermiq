@@ -27,6 +27,8 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\AiFeatureController;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\AiFeatureService;
+use OCA\Hermiq\Service\AlgoritmekaderMapper;
+use OCA\Hermiq\Service\PublicationGateway;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSForbiddenException;
@@ -84,23 +86,29 @@ class AiFeatureControllerTest extends TestCase
     /**
      * Build the controller with the given collaborators.
      *
-     * @param AiFeatureService  $service    The AiFeature service.
-     * @param ActionAuthService $actionAuth The action-auth service.
-     * @param IUserSession      $session    The user session.
+     * @param AiFeatureService         $service    The AiFeature service.
+     * @param ActionAuthService        $actionAuth The action-auth service.
+     * @param IUserSession             $session    The user session.
+     * @param AlgoritmekaderMapper|null $mapper    The Algoritmekader mapper (readiness + map).
+     * @param PublicationGateway|null   $gateway   The publication gateway (runtime seam).
      *
      * @return AiFeatureController
      */
     private function controller(
         AiFeatureService $service,
         ActionAuthService $actionAuth,
-        IUserSession $session
+        IUserSession $session,
+        ?AlgoritmekaderMapper $mapper=null,
+        ?PublicationGateway $gateway=null
     ): AiFeatureController {
         return new AiFeatureController(
             $this->createMock(IRequest::class),
             $service,
             $actionAuth,
             $session,
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            ($mapper ?? $this->createMock(AlgoritmekaderMapper::class)),
+            ($gateway ?? $this->createMock(PublicationGateway::class))
         );
 
     }//end controller()
@@ -352,4 +360,208 @@ class AiFeatureControllerTest extends TestCase
         $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 
     }//end testDisableForbiddenForNonAdmin()
+
+    /**
+     * An unauthenticated caller gets 401 on publish (before action-auth).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
+     */
+    public function testPublishUnauthenticated(): void
+    {
+        $actionAuth = $this->createMock(ActionAuthService::class);
+        $actionAuth->expects($this->never())->method('requireAction');
+
+        $response = $this->controller(
+            $this->createMock(AiFeatureService::class),
+            $actionAuth,
+            $this->session(null)
+        )->publishToAlgoritmeregister('feat-1');
+
+        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+
+    }//end testPublishUnauthenticated()
+
+    /**
+     * A non-admin caller is refused (403) on publish, never reaching the service.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
+     */
+    public function testPublishForbiddenForNonAdmin(): void
+    {
+        $service = $this->createMock(AiFeatureService::class);
+        $service->expects($this->never())->method('getFeature');
+
+        $actionAuth = $this->createMock(ActionAuthService::class);
+        $actionAuth->method('requireAction')->willThrowException(new OCSForbiddenException('nope'));
+
+        $response = $this->controller($service, $actionAuth, $this->session('mallory'))->publishToAlgoritmeregister('feat-1');
+
+        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+
+    }//end testPublishForbiddenForNonAdmin()
+
+    /**
+     * Publishing a missing / cross-tenant feature is 404.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
+     */
+    public function testPublishNotFound(): void
+    {
+        $service = $this->createMock(AiFeatureService::class);
+        $service->method('getFeature')->willReturn(null);
+
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('admin'))
+            ->publishToAlgoritmeregister('missing');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testPublishNotFound()
+
+    /**
+     * A not-ready feature is refused fail-closed (422) with the failing conditions named.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+     */
+    public function testPublishRefusedWhenNotReady(): void
+    {
+        $service = $this->createMock(AiFeatureService::class);
+        $service->method('getFeature')->willReturn($this->feature());
+        $service->expects($this->never())->method('recordPublication');
+
+        $mapper = $this->createMock(AlgoritmekaderMapper::class);
+        $mapper->method('assessReadiness')->willReturn(['wettelijkeGrondslag']);
+
+        $gateway = $this->createMock(PublicationGateway::class);
+        $gateway->expects($this->never())->method('publish');
+
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('admin'), $mapper, $gateway)
+            ->publishToAlgoritmeregister('feat-1');
+
+        $this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
+        $this->assertSame(['wettelijkeGrondslag'], $response->getData()['missing']);
+
+    }//end testPublishRefusedWhenNotReady()
+
+    /**
+     * When OpenCatalogi is absent, publish is unavailable (503) — the feature stays governable.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+     */
+    public function testPublishUnavailableWithoutOpenCatalogi(): void
+    {
+        $service = $this->createMock(AiFeatureService::class);
+        $service->method('getFeature')->willReturn($this->feature());
+        $service->expects($this->never())->method('recordPublication');
+
+        $mapper = $this->createMock(AlgoritmekaderMapper::class);
+        $mapper->method('assessReadiness')->willReturn([]);
+
+        $gateway = $this->createMock(PublicationGateway::class);
+        $gateway->method('isAvailable')->willReturn(false);
+        $gateway->expects($this->never())->method('publish');
+
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('admin'), $mapper, $gateway)
+            ->publishToAlgoritmeregister('feat-1');
+
+        $this->assertSame(Http::STATUS_SERVICE_UNAVAILABLE, $response->getStatus());
+
+    }//end testPublishUnavailableWithoutOpenCatalogi()
+
+    /**
+     * A ready publish delegates to the seam and records the external reference (200).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+     */
+    public function testPublishDelegatesAndRecordsReference(): void
+    {
+        $stamped = $this->feature();
+        $stamped->setObject(['slug' => 'x', 'algoritmeregisterStatus' => 'gepubliceerd', 'algoritmeregisterRef' => 'pub-9']);
+
+        $service = $this->createMock(AiFeatureService::class);
+        $service->method('getFeature')->willReturn($this->feature());
+        $service->expects($this->once())
+            ->method('recordPublication')
+            ->with('feat-1', 'pub-9')
+            ->willReturn($stamped);
+
+        $mapper = $this->createMock(AlgoritmekaderMapper::class);
+        $mapper->method('assessReadiness')->willReturn([]);
+        $mapper->method('map')->willReturn(['title' => 'x']);
+
+        $gateway = $this->createMock(PublicationGateway::class);
+        $gateway->method('isAvailable')->willReturn(true);
+        $gateway->expects($this->once())->method('publish')->with(['title' => 'x'])->willReturn('pub-9');
+
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('admin'), $mapper, $gateway)
+            ->publishToAlgoritmeregister('feat-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame('gepubliceerd', $response->getData()['algoritmeregisterStatus']);
+        $this->assertSame('pub-9', $response->getData()['algoritmeregisterRef']);
+
+    }//end testPublishDelegatesAndRecordsReference()
+
+    /**
+     * An unauthenticated caller gets 401 on withdraw (before action-auth).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/algoritmeregister-publication/tasks.md#3-publish-withdraw-action-delegated-to-opencatalogi
+     */
+    public function testWithdrawUnauthenticated(): void
+    {
+        $actionAuth = $this->createMock(ActionAuthService::class);
+        $actionAuth->expects($this->never())->method('requireAction');
+
+        $response = $this->controller(
+            $this->createMock(AiFeatureService::class),
+            $actionAuth,
+            $this->session(null)
+        )->withdrawFromAlgoritmeregister('feat-1');
+
+        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+
+    }//end testWithdrawUnauthenticated()
+
+    /**
+     * Withdraw requests unpublication via the seam and stamps `ingetrokken` (200).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+     */
+    public function testWithdrawStampsIngetrokken(): void
+    {
+        $published = $this->feature();
+        $published->setObject(['slug' => 'x', 'algoritmeregisterRef' => 'pub-9']);
+
+        $stamped = $this->feature();
+        $stamped->setObject(['slug' => 'x', 'algoritmeregisterStatus' => 'ingetrokken']);
+
+        $service = $this->createMock(AiFeatureService::class);
+        $service->method('getFeature')->willReturn($published);
+        $service->method('recordWithdrawal')->willReturn($stamped);
+
+        $gateway = $this->createMock(PublicationGateway::class);
+        $gateway->expects($this->once())->method('withdraw')->with('pub-9')->willReturn(true);
+
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('admin'), null, $gateway)
+            ->withdrawFromAlgoritmeregister('feat-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame('ingetrokken', $response->getData()['algoritmeregisterStatus']);
+
+    }//end testWithdrawStampsIngetrokken()
 }//end class

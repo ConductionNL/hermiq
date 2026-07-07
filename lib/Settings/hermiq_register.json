@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.9.0"
+    "version": "0.9.1"
   },
   "x-openregister": {
     "type": "application",
@@ -223,7 +223,7 @@
       "AiFeature": {
         "slug": "agentaifeature",
         "icon": "RobotOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "AI feature",
         "description": "A design-time inventory entry for a high-risk AI feature this platform provides (EU AI Act registration/oversight). Risk-classified and gated by a declarative lifecycle whose enable transition requires a DPO acknowledgement.",
         "type": "object",
@@ -245,7 +245,16 @@
           "lifecycle": { "type": "string", "enum": ["disabled", "enabled"], "default": "disabled", "title": "Lifecycle", "description": "Activation state, managed by the OpenRegister lifecycle engine (never set directly)." },
           "tenantId": { "type": "string", "title": "Tenant ID", "description": "The hermiq multi-tenancy scope used to key the DPO acknowledgement." },
           "dpoAckBy": { "type": "string", "title": "DPO acknowledged by", "description": "Derived: the user id of the DPO who acknowledged the feature — written by the acknowledge endpoint." },
-          "dpoAckAt": { "type": "string", "format": "date-time", "title": "DPO acknowledged at", "description": "Derived: when the DPO acknowledgement was recorded — written by the acknowledge endpoint." }
+          "dpoAckAt": { "type": "string", "format": "date-time", "title": "DPO acknowledged at", "description": "Derived: when the DPO acknowledgement was recorded — written by the acknowledge endpoint." },
+          "doel": { "type": "string", "title": "Doel", "description": "Algoritmekader: the purpose of the algorithm — why the public body deploys it. Mandatory only to publish to the Algoritmeregister." },
+          "wettelijkeGrondslag": { "type": "string", "title": "Wettelijke grondslag", "description": "Algoritmekader: the legal basis for using the algorithm. Mandatory only to publish." },
+          "impacttoetsen": { "type": "array", "title": "Impacttoetsen", "description": "Algoritmekader: the impact assessments performed (IAMA / DPIA / FRAIA) with a reference to each. Mandatory only to publish.", "items": { "type": "object", "properties": { "soort": { "type": "string", "enum": ["IAMA", "DPIA", "FRAIA"], "title": "Soort", "description": "Which impact assessment was performed." }, "referentie": { "type": "string", "title": "Referentie", "description": "A reference (document id / URL) to the completed assessment." } } } },
+          "dataBronnen": { "type": "string", "title": "Databronnen", "description": "Algoritmekader: the data sources and data categories the algorithm uses. Mandatory only to publish." },
+          "menselijkeTussenkomst": { "type": "string", "title": "Menselijke tussenkomst", "description": "Algoritmekader: the human-oversight arrangement (links to the human-approval gate). Mandatory only to publish." },
+          "verantwoordelijke": { "type": "object", "title": "Verantwoordelijke", "description": "Algoritmekader: the responsible organisation and its contact. Mandatory only to publish.", "properties": { "organisatie": { "type": "string", "title": "Organisatie", "description": "The owning public organisation." }, "contact": { "type": "string", "title": "Contact", "description": "A contact point (email / department) for the algorithm." } } },
+          "publicatiecategorie": { "type": "string", "title": "Publicatiecategorie", "description": "Algoritmekader: the publication category of the algorithm in the national register. Mandatory only to publish." },
+          "algoritmeregisterStatus": { "type": "string", "enum": ["niet-gepubliceerd", "gepubliceerd", "ingetrokken"], "default": "niet-gepubliceerd", "title": "Algoritmeregister status", "description": "Publication state in the national Algoritmeregister. Managed by the publish / withdraw actions (never set directly)." },
+          "algoritmeregisterRef": { "type": "string", "title": "Algoritmeregister reference", "description": "Derived: the external register id / URL of the published entry, empty until published." }
         }
       },
       "TenantControl": {

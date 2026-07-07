@@ -26,6 +26,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
 use OCP\AppFramework\Services\IInitialState;
@@ -52,6 +53,7 @@ class DashboardController extends Controller
      * @param IUserSession       $userSession        Resolves the current user.
      * @param IGroupManager      $groupManager       Instance-admin check.
      * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (tenant scope).
+     * @param IAppManager        $appManager         Runtime app availability (OpenCatalogi publication seam).
      *
      * @return void
      */
@@ -61,6 +63,7 @@ class DashboardController extends Controller
         private readonly IUserSession $userSession,
         private readonly IGroupManager $groupManager,
         private readonly OrganisationMapper $organisationMapper,
+        private readonly IAppManager $appManager,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -159,6 +162,13 @@ class DashboardController extends Controller
 
         $this->initialState->provideInitialState('can_manage_killswitch', $canManage);
         $this->initialState->provideInitialState('managed_organisations', $organisations);
+
+        // Algoritmeregister publication (algoritmeregister-publication): admin-only publish
+        // /withdraw actions, and hidden entirely when the fleet publication leaf is absent.
+        // UX gating only — the action-auth gate + runtime seam remain the real boundaries.
+        $isAdminNow = ($user !== null && $this->groupManager->isAdmin($user->getUID()) === true);
+        $this->initialState->provideInitialState('is_admin', $isAdminNow);
+        $this->initialState->provideInitialState('opencatalogi_available', $this->appManager->isInstalled('opencatalogi'));
 
     }//end provideKillSwitchCapability()
 
