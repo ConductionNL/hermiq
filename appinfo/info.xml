@@ -27,7 +27,9 @@
     <bugs>https://codeberg.org/Conduction/hermiq/issues</bugs>
     <repository>https://codeberg.org/Conduction/hermiq</repository>
 
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/app-store.svg</screenshot>
+    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-dashboard.png</screenshot>
+    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-agents.png</screenshot>
+    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-skills.png</screenshot>
 
     <dependencies>
         <nextcloud min-version="28" max-version="34"/>
