@@ -193,6 +193,43 @@ class SkillController extends Controller
     }//end install()
 
     /**
+     * Detach a Skill from an agent (removes the agent from installedOn).
+     *
+     * @param string $id      The Skill UUID.
+     * @param string $agentId The agent UUID (route param).
+     *
+     * @return JSONResponse The updated skill, or an error status.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    public function uninstall(string $id, string $agentId): JSONResponse
+    {
+        if ($this->userSession->getUser() === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        if (trim($agentId) === '') {
+            return new JSONResponse(['error' => 'An agentId is required'], Http::STATUS_BAD_REQUEST);
+        }
+
+        try {
+            $skill = $this->skillService->uninstallFromAgent(skillId: $id, agentId: $agentId);
+            if ($skill === null) {
+                return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            return new JSONResponse($this->shape(object: $skill));
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq skill uninstall failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Uninstall failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+    }//end uninstall()
+
+    /**
      * Shape a Skill ObjectEntity into a UUID + payload response map.
      *
      * @param ObjectEntity $object The skill object.

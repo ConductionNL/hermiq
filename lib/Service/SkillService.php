@@ -285,4 +285,109 @@ class SkillService
         }//end try
 
     }//end syncAgentSkillInstalls()
+
+    /**
+     * Detach a skill from an agent — remove the agent uuid from installedOn (idempotent),
+     * and keep the agent's own `skillInstalls` allowlist in sync (the mirror of
+     * installOnAgent: a genuine bidirectional join, the ONLY write path for both
+     * directions).
+     *
+     * @param string $skillId The Skill UUID.
+     * @param string $agentId The agent UUID.
+     *
+     * @return ObjectEntity|null The updated Skill object, or null when not found.
+     *
+     * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    public function uninstallFromAgent(string $skillId, string $agentId): ?ObjectEntity
+    {
+        $skill = $this->getSkill(skillId: $skillId);
+        if ($skill === null) {
+            return null;
+        }
+
+        $data      = $skill->getObject();
+        $installed = ($data['installedOn'] ?? []);
+        if (is_array($installed) === false) {
+            $installed = [];
+        }
+
+        $data['installedOn'] = array_values(
+            array_filter($installed, static fn ($id): bool => $id !== $agentId)
+        );
+
+        $updated = $this->objectService->saveObject(
+            object: $data,
+            register: self::REGISTER_SLUG,
+            schema: self::SKILL_SCHEMA,
+            uuid: (string) $skill->getUuid()
+        );
+
+        $this->desyncAgentSkillInstalls(agentId: $agentId, skillId: $skillId);
+
+        return $updated;
+
+    }//end uninstallFromAgent()
+
+    /**
+     * Remove a skill uuid from the target agent's `skillInstalls` (idempotent,
+     * best-effort). The mirror of syncAgentSkillInstalls: a missing/unreadable agent
+     * does not fail the skill-side detach — `Skill.installedOn` remains the authoritative
+     * "installed somewhere" record.
+     *
+     * @param string $agentId The agent UUID.
+     * @param string $skillId The Skill UUID to remove.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    private function desyncAgentSkillInstalls(string $agentId, string $skillId): void
+    {
+        try {
+            $agent = $this->objectService->find(
+                id: $agentId,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA
+            );
+            if ($agent === null) {
+                return;
+            }
+
+            $data      = $agent->getObject();
+            $installed = ($data['skillInstalls'] ?? []);
+            if (is_array($installed) === false) {
+                $installed = [];
+            }
+
+            if (in_array($skillId, $installed, true) === false) {
+                // Already in sync — no write needed.
+                return;
+            }
+
+            $data['skillInstalls'] = array_values(
+                array_filter($installed, static fn ($id): bool => $id !== $skillId)
+            );
+
+            $this->objectService->saveObject(
+                object: $data,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA,
+                uuid: (string) $agent->getUuid()
+            );
+        } catch (Throwable $e) {
+            // Best-effort: Skill.installedOn (already saved above) remains the
+            // authoritative "installed somewhere" record regardless of this outcome.
+            $this->logger->warning(
+                sprintf(
+                    'Hermiq could not desync skillInstalls on agent %s for skill %s: %s',
+                    $agentId,
+                    $skillId,
+                    $e->getMessage()
+                ),
+                ['exception' => $e]
+            );
+        }//end try
+
+    }//end desyncAgentSkillInstalls()
 }//end class
