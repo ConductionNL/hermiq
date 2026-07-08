@@ -76,6 +76,19 @@ export async function installSkill(id, agentId) {
 }
 
 /**
+ * Detach a Skill from an agent (removes the agent from installedOn and the skill from
+ * the agent's skillInstalls — the mirror of installSkill).
+ *
+ * @param {string} id The Skill UUID.
+ * @param {string} agentId The agent UUID.
+ * @return {Promise<object>} The updated Skill.
+ */
+export async function uninstallSkill(id, agentId) {
+	const response = await axios.delete(generateUrl(`${SKILLS_BASE}/${id}/install/${agentId}`))
+	return response.data
+}
+
+/**
  * Install a skill from an external source (another org / hub) into quarantine
  * (skills-marketplace). The skill is NOT usable until it passes the review gate.
  *

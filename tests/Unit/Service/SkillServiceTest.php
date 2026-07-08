@@ -222,4 +222,116 @@ class SkillServiceTest extends TestCase
         $this->assertNull($result);
 
     }//end testInstallOnAgentReturnsNullForMissingSkill()
+
+    /**
+     * uninstallFromAgent removes the agent uuid from Skill.installedOn AND the skill uuid
+     * from Agent.skillInstalls — the bidirectional mirror of installOnAgent.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    public function testUninstallFromAgentDesyncsBothDirections(): void
+    {
+        $skill = $this->skill(['name' => 'Gap report', 'installedOn' => ['agent-uuid', 'other-agent']]);
+        $agent = $this->agent(['name' => 'Analyst', 'skillInstalls' => ['skill-uuid', 'other-skill']]);
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturnCallback(
+            function (string $id) use ($skill, $agent): ?ObjectEntity {
+                if ($id === 'skill-uuid') {
+                    return $skill;
+                }
+
+                if ($id === 'agent-uuid') {
+                    return $agent;
+                }
+
+                return null;
+            }
+        );
+
+        $saved = [];
+        $objectService->method('saveObject')->willReturnCallback(
+            function (array $object, ?array $extend=null, mixed $register=null, mixed $schema=null, mixed $uuid=null) use (&$saved): ObjectEntity {
+                $saved[] = ['schema' => $schema, 'uuid' => $uuid, 'data' => $object];
+                $entity  = new ObjectEntity();
+                $entity->setUuid((string) $uuid);
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $service->uninstallFromAgent(skillId: 'skill-uuid', agentId: 'agent-uuid');
+
+        $this->assertCount(2, $saved, 'Both the skill and the agent must be saved.');
+
+        $skillSave = current(array_filter($saved, static fn (array $s): bool => $s['schema'] === 'agentskill'));
+        $this->assertSame(['other-agent'], $skillSave['data']['installedOn'], 'Only the target agent is removed from installedOn.');
+
+        $agentSave = current(array_filter($saved, static fn (array $s): bool => $s['schema'] === 'agent'));
+        $this->assertSame(['other-skill'], $agentSave['data']['skillInstalls'], 'Only the target skill is removed from skillInstalls.');
+
+    }//end testUninstallFromAgentDesyncsBothDirections()
+
+    /**
+     * Detaching a skill that is not associated with the agent is idempotent — the skill-side
+     * save is a no-op filter and the agent-side write is skipped entirely when already absent.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    public function testUninstallFromAgentIsIdempotent(): void
+    {
+        $skill = $this->skill(['name' => 'Gap report', 'installedOn' => []]);
+        $agent = $this->agent(['name' => 'Analyst', 'skillInstalls' => []]);
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturnCallback(
+            fn (string $id): ?ObjectEntity => ($id === 'skill-uuid') ? $skill : $agent
+        );
+
+        $agentSaveCount = 0;
+        $objectService->method('saveObject')->willReturnCallback(
+            function (array $object, ?array $extend=null, mixed $register=null, mixed $schema=null, mixed $uuid=null) use (&$agentSaveCount): ObjectEntity {
+                if ($schema === 'agent') {
+                    $agentSaveCount++;
+                }
+
+                $entity = new ObjectEntity();
+                $entity->setUuid((string) $uuid);
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $result  = $service->uninstallFromAgent(skillId: 'skill-uuid', agentId: 'agent-uuid');
+
+        $this->assertNotNull($result, 'The skill-side detach still succeeds.');
+        $this->assertSame(0, $agentSaveCount, 'An already-absent skillInstalls entry must not trigger a redundant save.');
+
+    }//end testUninstallFromAgentIsIdempotent()
+
+    /**
+     * A skill that does not exist returns null and never touches the agent.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-detail-surface/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    public function testUninstallFromAgentReturnsNullForMissingSkill(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn(null);
+        $objectService->expects($this->never())->method('saveObject');
+
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $result  = $service->uninstallFromAgent(skillId: 'ghost-skill', agentId: 'agent-uuid');
+
+        $this->assertNull($result);
+
+    }//end testUninstallFromAgentReturnsNullForMissingSkill()
 }//end class

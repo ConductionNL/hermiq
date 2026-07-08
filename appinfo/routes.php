@@ -61,6 +61,7 @@ return [
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],
         ['name' => 'skill#export',  'url' => '/api/skills/{id}/export', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skill#install', 'url' => '/api/skills/{id}/install', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skill#uninstall', 'url' => '/api/skills/{id}/install/{agentId}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+', 'agentId' => '[^/]+']],
 
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
