@@ -76,7 +76,8 @@
             "format": "uuid",
             "title": "Agent",
             "description": "UUID of the OpenRegister Agent this schedule runs (reference to the Agent entity owned by OpenRegister)",
-            "example": "00000000-0000-0000-0000-000000000000"
+            "example": "00000000-0000-0000-0000-000000000000",
+            "$ref": "Agent"
           },
           "kind": {
             "type": "string",
@@ -207,10 +208,10 @@
         "properties": {
           "status": { "type": "string", "enum": ["pending", "approved", "denied"], "title": "Status", "description": "The approval state machine." },
           "sourceType": { "type": "string", "enum": ["schedule", "flow"], "default": "schedule", "title": "Source type", "description": "What the gated run resumes into on approval: a Hermiq Schedule (default, back-compatible) or a flow-triggered agent run." },
-          "scheduleId": { "type": "string", "format": "uuid", "title": "Schedule", "description": "UUID of the Schedule whose run is gated. Present only when sourceType=schedule.", "example": "00000000-0000-0000-0000-000000000000" },
+          "scheduleId": { "type": "string", "format": "uuid", "title": "Schedule", "description": "UUID of the Schedule whose run is gated. Present only when sourceType=schedule.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Schedule", "x-relation-filter": { "agentId": "@object.agentId" } },
           "correlationId": { "type": "string", "title": "Correlation ID", "description": "Idempotency key for a flow-triggered approval — the dispatch's correlationId (OpenRegister AgentRunRequestedEvent). Present only when sourceType=flow; scheduleId serves this role for sourceType=schedule." },
           "flowContext": { "type": "object", "title": "Flow context", "description": "The flow-triggered run's resume context (subjectUuid/subjectRegister/subjectSchema/resultField/skill/mode/flowName/correlationId). Present only when sourceType=flow." },
-          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent the gated run would invoke.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent the gated run would invoke.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "prompt": { "type": "string", "title": "Prompt", "description": "The prompt the gated run would send to the agent." },
           "requestedAt": { "type": "string", "format": "date-time", "title": "Requested at", "description": "When the approval was requested (the dispatcher gated the run)." },
           "reviewer": { "type": "string", "title": "Reviewer", "description": "Resolved reviewer copied from the Schedule — a user id or group id (see reviewerType)." },
@@ -274,7 +275,7 @@
         "required": ["agentId"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
-          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent this memory belongs to.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent this memory belongs to.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "entries": { "type": "array", "default": [], "title": "Entries", "description": "Memory entries as a JSON array.", "items": { "type": "object", "properties": { "text": { "type": "string", "title": "Text", "description": "The remembered fact." }, "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the entry was recorded." } } } },
           "charBudget": { "type": "integer", "default": 8000, "title": "Character budget", "description": "Character budget for entries; exceeding it flags needsConsolidation (approximate, not a hard cap)." },
           "needsConsolidation": { "type": "boolean", "default": false, "title": "Needs consolidation", "description": "True when the entries exceed charBudget — a nudge to consolidate; older entries are never dropped silently." }
@@ -290,7 +291,7 @@
         "required": ["agentId"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
-          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent maintaining this profile.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent maintaining this profile.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "subjectUid": { "type": "string", "title": "Subject user", "description": "The user id the profile describes." },
           "entries": { "type": "array", "default": [], "title": "Entries", "description": "Profile entries as a JSON array.", "items": { "type": "object", "properties": { "text": { "type": "string", "title": "Text", "description": "The remembered fact about the subject user." }, "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the entry was recorded." } } } },
           "charBudget": { "type": "integer", "default": 4000, "title": "Character budget", "description": "Character budget for entries; exceeding it flags needsConsolidation." },
@@ -307,7 +308,7 @@
         "required": ["agentId"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
-          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent in this session.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent in this session.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "title": { "type": "string", "title": "Title", "description": "Human-readable session title." },
           "startedAt": { "type": "string", "format": "date-time", "title": "Started at", "description": "When the session started." },
           "lastActivityAt": { "type": "string", "format": "date-time", "title": "Last activity at", "description": "When the most recent turn was recorded." }
@@ -323,8 +324,8 @@
         "required": ["sessionId"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
-          "sessionId": { "type": "string", "format": "uuid", "title": "Session", "description": "UUID of the parent Session.", "example": "00000000-0000-0000-0000-000000000000" },
-          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent (denormalised for recall filtering)." },
+          "sessionId": { "type": "string", "format": "uuid", "title": "Session", "description": "UUID of the parent Session.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Session", "x-relation-filter": { "agentId": "@object.agentId" } },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent (denormalised copy of the parent Session's agentId, kept for recall-filter performance — not the canonical source; Session.agentId is authoritative).", "$ref": "Agent" },
           "role": { "type": "string", "enum": ["user", "assistant", "system", "tool"], "title": "Role", "description": "Who produced this turn." },
           "content": { "type": "string", "title": "Content", "description": "The turn content — the field searched for recall." },
           "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the turn was recorded." }
@@ -352,7 +353,7 @@
           "staleSince": { "type": "string", "format": "date-time", "title": "Stale since", "description": "When the Curator marked the skill stale." },
           "archivedAt": { "type": "string", "format": "date-time", "title": "Archived at", "description": "When the Curator archived the skill (never hard-deleted)." },
           "createdBy": { "type": "string", "title": "Created by", "description": "The user id who imported/created the skill." },
-          "installedOn": { "type": "array", "default": [], "title": "Installed on", "description": "Agent UUIDs this skill is installed on.", "items": { "type": "string", "format": "uuid" } },
+          "installedOn": { "type": "array", "default": [], "title": "Installed on", "description": "Agent UUIDs this skill is installed on.", "items": { "type": "string", "format": "uuid", "$ref": "Agent" } },
           "scanReport": { "type": "object", "title": "Scan report", "description": "Heuristic content-scan verdict from OpenRegister ContentScanService, recorded at install and re-checked at approval (skills-marketplace). A 'dangerous' verdict blocks one-click approval.", "properties": { "severity": { "type": "string", "enum": ["clean", "suspicious", "dangerous"], "title": "Severity", "description": "Worst verdict across findings." }, "safe": { "type": "boolean", "title": "Safe", "description": "True only when severity is 'clean'." }, "scannedAt": { "type": "string", "format": "date-time", "title": "Scanned at", "description": "When the scan ran." }, "findings": { "type": "array", "title": "Findings", "description": "Matched dangerous patterns.", "items": { "type": "object", "properties": { "category": { "type": "string", "title": "Category", "description": "The kind of dangerous pattern matched (e.g. remote-code, exfiltration)." }, "severity": { "type": "string", "title": "Severity", "description": "The severity of this individual finding." }, "reason": { "type": "string", "title": "Reason", "description": "Why this content was flagged." }, "excerpt": { "type": "string", "title": "Excerpt", "description": "The matched excerpt from the scanned content." } } } } } }
         }
       },
@@ -406,8 +407,8 @@
           "groups": { "type": "array", "default": [], "title": "Groups", "description": "Nextcloud group ids with access to this agent.", "items": { "type": "string" } },
           "tools": { "type": "array", "default": [], "title": "Tools", "description": "The fleet MCP tool allowlist as {appId}.{toolName} strings, enforced at turn assembly; an empty array means every discovered tool is allowed.", "items": { "type": "string" } },
           "actingUser": { "type": "string", "title": "Acting user", "description": "NC user id the agent impersonates for this run's ObjectService writes/Files/deliveries. Must be an existing, active user; when unset, runs impersonate the schedule owner (default, unchanged behavior)." },
-          "skillInstalls": { "type": "array", "default": [], "title": "Skill installs", "description": "Skill uuids explicitly installed on this agent; the allowlist a future run loop uses to decide which skills are exposed to it. Kept in sync by SkillService::installOnAgent().", "items": { "type": "string", "format": "uuid" } },
-          "contextRefs": { "type": "array", "default": [], "title": "Context refs", "description": "Context object uuids attached to this agent; each is assembled into a budgeted text preamble prepended to the system prompt at run start.", "items": { "type": "string", "format": "uuid" } }
+          "skillInstalls": { "type": "array", "default": [], "title": "Skill installs", "description": "Skill uuids explicitly installed on this agent; the allowlist a future run loop uses to decide which skills are exposed to it. Kept in sync by SkillService::installOnAgent().", "items": { "type": "string", "format": "uuid", "$ref": "Skill" } },
+          "contextRefs": { "type": "array", "default": [], "title": "Context refs", "description": "Context object uuids attached to this agent; each is assembled into a budgeted text preamble prepended to the system prompt at run start.", "items": { "type": "string", "format": "uuid", "$ref": "Context" } }
         }
       },
       "Conversation": {
@@ -422,7 +423,7 @@
         "properties": {
           "title": { "type": "string", "title": "Title", "description": "Human-readable conversation title (typically auto-generated by the LLM)." },
           "userId": { "type": "string", "title": "User ID", "description": "The user id who owns this conversation." },
-          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the Agent object this conversation runs against.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the Agent object this conversation runs against.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "metadata": { "type": "object", "title": "Metadata", "description": "Additional JSON metadata such as a summary, token count, or message count." }
         }
       },
@@ -436,7 +437,7 @@
         "required": ["conversationId", "role"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
-          "conversationId": { "type": "string", "format": "uuid", "title": "Conversation", "description": "UUID of the Conversation object this message belongs to.", "example": "00000000-0000-0000-0000-000000000000" },
+          "conversationId": { "type": "string", "format": "uuid", "title": "Conversation", "description": "UUID of the Conversation object this message belongs to.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Conversation" },
           "role": { "type": "string", "enum": ["system", "user", "assistant", "tool"], "title": "Role", "description": "Who produced this message: system, user, assistant, or tool." },
           "content": { "type": "string", "title": "Content", "description": "The message text." },
           "sources": { "type": "array", "default": [], "title": "Sources", "description": "RAG sources used to generate the response (assistant messages only).", "items": { "type": "object", "properties": { "id": { "type": "string", "title": "Source ID", "description": "UUID of the source file or object." }, "type": { "type": "string", "title": "Source type", "description": "Whether the source is a file or an object." }, "name": { "type": "string", "title": "Source name", "description": "Human-readable name of the source." }, "similarity": { "type": "number", "title": "Similarity", "description": "Similarity score of the source to the query." }, "text": { "type": "string", "title": "Excerpt", "description": "Relevant excerpt from the source." } } } },
@@ -453,9 +454,9 @@
         "required": ["messageId", "conversationId", "agentId", "userId", "type"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
-          "messageId": { "type": "string", "format": "uuid", "title": "Message", "description": "UUID of the Message this feedback rates.", "example": "00000000-0000-0000-0000-000000000000", "x-relation-filter": { "conversationId": "@object.conversationId" } },
-          "conversationId": { "type": "string", "format": "uuid", "title": "Conversation", "description": "UUID of the Conversation the rated message belongs to.", "example": "00000000-0000-0000-0000-000000000000" },
-          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the Agent that produced the rated message.", "example": "00000000-0000-0000-0000-000000000000" },
+          "messageId": { "type": "string", "format": "uuid", "title": "Message", "description": "UUID of the Message this feedback rates.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Message", "x-relation-filter": { "conversationId": "@object.conversationId" } },
+          "conversationId": { "type": "string", "format": "uuid", "title": "Conversation", "description": "UUID of the Conversation the rated message belongs to.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Conversation" },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the Agent that produced the rated message.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "userId": { "type": "string", "title": "User ID", "description": "The user id who submitted this feedback." },
           "type": { "type": "string", "enum": ["positive", "negative"], "title": "Type", "description": "Whether the feedback is positive or negative." },
           "comment": { "type": "string", "title": "Comment", "description": "Optional free-text comment explaining the feedback." }
