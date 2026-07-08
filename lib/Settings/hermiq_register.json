@@ -453,7 +453,7 @@
         "required": ["messageId", "conversationId", "agentId", "userId", "type"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
-          "messageId": { "type": "string", "format": "uuid", "title": "Message", "description": "UUID of the Message this feedback rates.", "example": "00000000-0000-0000-0000-000000000000" },
+          "messageId": { "type": "string", "format": "uuid", "title": "Message", "description": "UUID of the Message this feedback rates.", "example": "00000000-0000-0000-0000-000000000000", "x-relation-filter": { "conversationId": "@object.conversationId" } },
           "conversationId": { "type": "string", "format": "uuid", "title": "Conversation", "description": "UUID of the Conversation the rated message belongs to.", "example": "00000000-0000-0000-0000-000000000000" },
           "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the Agent that produced the rated message.", "example": "00000000-0000-0000-0000-000000000000" },
           "userId": { "type": "string", "title": "User ID", "description": "The user id who submitted this feedback." },
