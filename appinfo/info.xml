@@ -13,7 +13,7 @@
 
 **Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.13 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan.]]></description>
     <version>0.1.46</version>
-    <licence>eupl</licence>
+    <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
     <documentation>
@@ -27,7 +27,9 @@
     <bugs>https://codeberg.org/Conduction/hermiq/issues</bugs>
     <repository>https://codeberg.org/Conduction/hermiq</repository>
 
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/app-store.svg</screenshot>
+    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-dashboard.png</screenshot>
+    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-agents.png</screenshot>
+    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-skills.png</screenshot>
 
     <dependencies>
         <nextcloud min-version="30" max-version="34"/>
