@@ -61,6 +61,7 @@ return [
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],
         ['name' => 'skill#export',  'url' => '/api/skills/{id}/export', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skill#install', 'url' => '/api/skills/{id}/install', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skill#uninstall', 'url' => '/api/skills/{id}/install/{agentId}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+', 'agentId' => '[^/]+']],
 
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
@@ -72,6 +73,12 @@ return [
         ['name' => 'aiFeature#acknowledge', 'url' => '/api/ai-features/{slug}/acknowledge', 'verb' => 'POST', 'requirements' => ['slug' => '[^/]+']],
         ['name' => 'aiFeature#enable',      'url' => '/api/ai-features/{id}/enable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'aiFeature#disable',     'url' => '/api/ai-features/{id}/disable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
+        // Algoritmeregister publication (algoritmeregister-publication): publish/withdraw a
+        // high-risk feature to the national register, delegated to OpenCatalogi's publication
+        // path via the runtime seam (action-auth-gated; NO direct national-portal call).
+        ['name' => 'aiFeature#publishToAlgoritmeregister',    'url' => '/api/ai-features/{id}/publish',  'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'aiFeature#withdrawFromAlgoritmeregister', 'url' => '/api/ai-features/{id}/withdraw', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
         // First-time setup wizard (ADR-042) — the standard CnSetupWizard contract.
         ['name' => 'setup#status',     'url' => '/api/setup/status',            'verb' => 'GET'],

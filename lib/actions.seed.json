@@ -3,6 +3,8 @@
   "actions": {
     "aifeature.acknowledge": ["admin"],
     "aifeature.enable": ["admin"],
-    "aifeature.disable": ["admin"]
+    "aifeature.disable": ["admin"],
+    "aifeature.publish-to-algoritmeregister": ["admin"],
+    "aifeature.withdraw-from-algoritmeregister": ["admin"]
   }
 }

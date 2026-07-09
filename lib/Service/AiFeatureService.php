@@ -246,6 +246,71 @@ class AiFeatureService
     }//end acknowledge()
 
     /**
+     * Record a successful Algoritmeregister publication on the feature.
+     *
+     * Sets `algoritmeregisterStatus = gepubliceerd` and stores the external register
+     * reference through the single ObjectService write-path (auto-audited). Returns null
+     * when the feature is absent / cross-tenant.
+     *
+     * @param string $id        The AiFeature UUID.
+     * @param string $reference The external register reference returned by the seam.
+     *
+     * @return ObjectEntity|null The stamped feature, or null when absent.
+     *
+     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+     */
+    public function recordPublication(string $id, string $reference): ?ObjectEntity
+    {
+        $feature = $this->getFeature(id: $id);
+        if ($feature === null) {
+            return null;
+        }
+
+        $data = $feature->getObject();
+        $data['algoritmeregisterStatus'] = 'gepubliceerd';
+        $data['algoritmeregisterRef']    = $reference;
+
+        return $this->objectService->saveObject(
+            object: $data,
+            register: self::REGISTER_SLUG,
+            schema: self::AIFEATURE_SCHEMA,
+            uuid: (string) $feature->getUuid()
+        );
+
+    }//end recordPublication()
+
+    /**
+     * Record a withdrawal (intrekken) from the Algoritmeregister on the feature.
+     *
+     * Sets `algoritmeregisterStatus = ingetrokken` through the single ObjectService
+     * write-path. Returns null when the feature is absent / cross-tenant.
+     *
+     * @param string $id The AiFeature UUID.
+     *
+     * @return ObjectEntity|null The stamped feature, or null when absent.
+     *
+     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+     */
+    public function recordWithdrawal(string $id): ?ObjectEntity
+    {
+        $feature = $this->getFeature(id: $id);
+        if ($feature === null) {
+            return null;
+        }
+
+        $data = $feature->getObject();
+        $data['algoritmeregisterStatus'] = 'ingetrokken';
+
+        return $this->objectService->saveObject(
+            object: $data,
+            register: self::REGISTER_SLUG,
+            schema: self::AIFEATURE_SCHEMA,
+            uuid: (string) $feature->getUuid()
+        );
+
+    }//end recordWithdrawal()
+
+    /**
      * Drive the `enable` lifecycle transition (guarded by the DPO-ack guard).
      *
      * @param string $id The AiFeature UUID.
