@@ -4,11 +4,10 @@
 <!--
   AgentMemory — the Hermiq "Memory" nav page (agent-memory).
 
-  Pick an agent, then view + curate its long-term Memory: the durable entries, the
-  character-budget usage bar, the needsConsolidation nudge with a manual "Consolidate"
-  action. All reads/writes go
-  through the tenant-scoped MemoryController endpoints (src/api/memory.js) — no new
-  write path, no custom Pinia store.
+  Pick an agent, then view + curate its long-term Memory. The memory surface itself
+  (budget bar, consolidation nudge, add-a-fact, entry list) lives in the shared
+  AgentMemoryPanel component (agent-capability-detail-surface) so the same panel renders
+  here and in-place on the agent detail page — one implementation, no duplicated markup.
 
   A standard nav page — NOT a dashboard (dashboard-antipattern gate). The agent run loop
   that populates memory/turns during a run is an OpenRegister seam (ADR-001 Option C+);
@@ -17,6 +16,7 @@
 
   @spec openspec/changes/agent-memory/tasks.md#task-4-1
   @spec openspec/changes/agent-memory/specs/agent-memory/spec.md
+  @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 -->
 <template>
 	<div class="agent-memory">
@@ -32,8 +32,7 @@
 					:clearable="false"
 					:placeholder="t('hermiq', 'Select an agent')"
 					label="label"
-					track-by="value"
-					@input="onAgentChange" />
+					track-by="value" />
 			</div>
 		</div>
 
@@ -54,101 +53,33 @@
 			</template>
 		</NcEmptyContent>
 
-		<template v-else>
-			<!-- Char-budget bar + consolidation nudge -->
-			<section class="agent-memory__budget">
-				<div class="agent-memory__budget-head">
-					<span class="agent-memory__budget-label">{{ t('hermiq', 'Memory budget') }}</span>
-					<span class="agent-memory__budget-count">{{ charCount }} / {{ charBudget }} {{ t('hermiq', 'characters') }}</span>
-				</div>
-				<div class="agent-memory__budget-bar" :class="{ 'agent-memory__budget-bar--over': memory.needsConsolidation }">
-					<div class="agent-memory__budget-fill" :style="{ width: budgetPct + '%' }" />
-				</div>
-				<div v-if="memory.needsConsolidation" class="agent-memory__nudge">
-					<AlertIcon :size="18" class="agent-memory__nudge-icon" />
-					<span>{{ t('hermiq', 'Over budget — consolidation suggested. No entries were dropped.') }}</span>
-					<NcButton
-						type="secondary"
-						:disabled="busy"
-						:aria-label="t('hermiq', 'Consolidate memory')"
-						@click="consolidate">
-						<template v-if="busy" #icon>
-							<NcLoadingIcon :size="18" />
-						</template>
-						{{ t('hermiq', 'Consolidate') }}
-					</NcButton>
-				</div>
-			</section>
-
-			<!-- Add a fact -->
-			<section class="agent-memory__add">
-				<NcTextField
-					:value.sync="newEntry"
-					:label="t('hermiq', 'Add a fact the agent should remember')"
-					:disabled="busy"
-					@keydown.enter="addFact" />
-				<NcButton
-					type="primary"
-					:disabled="busy || !newEntry.trim()"
-					:aria-label="t('hermiq', 'Add fact')"
-					@click="addFact">
-					{{ t('hermiq', 'Remember') }}
-				</NcButton>
-			</section>
-
-			<!-- Memory entries -->
-			<section class="agent-memory__section">
-				<h3 class="agent-memory__subhead">
-					{{ t('hermiq', 'Memory entries') }} ({{ entries.length }})
-				</h3>
-				<NcEmptyContent
-					v-if="entries.length === 0"
-					:name="t('hermiq', 'No memory yet')"
-					:description="t('hermiq', 'Facts the agent remembers will appear here.')">
-					<template #icon>
-						<BrainIcon :size="20" />
-					</template>
-				</NcEmptyContent>
-				<ul v-else class="agent-memory__entries">
-					<li v-for="(entry, i) in entries" :key="i" class="agent-memory__entry">
-						<span class="agent-memory__entry-text">{{ entry.text }}</span>
-						<span class="agent-memory__entry-date">{{ formatDate(entry.createdAt) }}</span>
-					</li>
-				</ul>
-			</section>
-		</template>
+		<AgentMemoryPanel v-else :agent-id="selectedAgent.value" />
 	</div>
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
-import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
+import { NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
-import { addMemory, consolidateMemory, getMemory } from '../api/memory.js'
+import AgentMemoryPanel from '../components/AgentMemoryPanel.vue'
 import { useAgentStore } from '../store/store.js'
 
 export default {
 	name: 'AgentMemory',
 
 	components: {
-		AlertIcon,
+		AgentMemoryPanel,
 		BrainIcon,
-		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
 		NcSelect,
-		NcTextField,
 	},
 
 	data() {
 		return {
 			agents: [],
 			selectedAgent: null,
-			memory: { entries: [], charBudget: 8000, needsConsolidation: false },
-			newEntry: '',
 			loading: true,
-			busy: false,
 			error: '',
 		}
 	},
@@ -164,45 +95,6 @@ export default {
 				label: agent.name || agent.uuid || agent.id,
 				value: agent.uuid || agent.id,
 			}))
-		},
-
-		/**
-		 * The current memory entries.
-		 *
-		 * @return {Array<object>} The entry list.
-		 */
-		entries() {
-			return Array.isArray(this.memory.entries) ? this.memory.entries : []
-		},
-
-		/**
-		 * The total character count across entry texts.
-		 *
-		 * @return {number} The summed length.
-		 */
-		charCount() {
-			return this.entries.reduce((sum, e) => sum + String(e.text || '').length, 0)
-		},
-
-		/**
-		 * The configured character budget.
-		 *
-		 * @return {number} The budget.
-		 */
-		charBudget() {
-			return Number(this.memory.charBudget) || 8000
-		},
-
-		/**
-		 * The budget-bar fill percentage (capped at 100).
-		 *
-		 * @return {number} The percentage.
-		 */
-		budgetPct() {
-			if (this.charBudget <= 0) {
-				return 0
-			}
-			return Math.min(100, Math.round((this.charCount / this.charBudget) * 100))
 		},
 	},
 
@@ -230,102 +122,12 @@ export default {
 				}
 				if (this.agentOptions.length > 0) {
 					this.selectedAgent = this.agentOptions[0]
-					await this.loadAgent()
 				}
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}
-		},
-
-		/**
-		 * React to the agent picker changing.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async onAgentChange() {
-			await this.loadAgent()
-		},
-
-		/**
-		 * Load the selected agent's memory.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async loadAgent() {
-			if (!this.selectedAgent) {
-				return
-			}
-			this.loading = true
-			this.error = ''
-			try {
-				const memory = await getMemory(this.selectedAgent.value)
-				this.memory = memory || { entries: [], charBudget: 8000, needsConsolidation: false }
-			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.loading = false
-			}
-		},
-
-		/**
-		 * Append a fact to the agent's memory.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async addFact() {
-			const text = this.newEntry.trim()
-			if (!text || !this.selectedAgent) {
-				return
-			}
-			this.busy = true
-			this.error = ''
-			try {
-				this.memory = await addMemory(this.selectedAgent.value, text)
-				this.newEntry = ''
-			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
-		},
-
-		/**
-		 * Consolidate the agent's memory (server de-duplicates when no strategy supplied).
-		 *
-		 * @return {Promise<void>}
-		 */
-		async consolidate() {
-			if (!this.selectedAgent) {
-				return
-			}
-			this.busy = true
-			this.error = ''
-			try {
-				this.memory = await consolidateMemory(this.selectedAgent.value)
-			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.busy = false
-			}
-		},
-
-		/**
-		 * Human-friendly timestamp.
-		 *
-		 * @param {string} value The ISO timestamp.
-		 * @return {string} The formatted date, or a dash.
-		 */
-		formatDate(value) {
-			if (!value) {
-				return '—'
-			}
-			const date = new Date(value)
-			if (Number.isNaN(date.getTime())) {
-				return String(value)
-			}
-			return date.toLocaleString()
 		},
 	},
 }
@@ -361,116 +163,5 @@ export default {
 	display: flex;
 	justify-content: center;
 	padding: 48px 0;
-}
-
-.agent-memory__budget {
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large, 8px);
-	padding: 12px 16px;
-	margin-bottom: 16px;
-}
-
-.agent-memory__budget-head {
-	display: flex;
-	justify-content: space-between;
-	margin-bottom: 8px;
-	font-weight: 600;
-}
-
-.agent-memory__budget-count {
-	color: var(--color-text-maxcontrast);
-	font-weight: normal;
-}
-
-.agent-memory__budget-bar {
-	height: 8px;
-	background: var(--color-background-dark);
-	border-radius: 4px;
-	overflow: hidden;
-}
-
-.agent-memory__budget-fill {
-	height: 100%;
-	background: var(--color-primary-element);
-	transition: width 0.3s ease;
-}
-
-.agent-memory__budget-bar--over .agent-memory__budget-fill {
-	background: var(--color-error);
-}
-
-.agent-memory__nudge {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	margin-top: 10px;
-	color: var(--color-error);
-}
-
-.agent-memory__nudge-icon {
-	flex: 0 0 auto;
-}
-
-.agent-memory__nudge .button-vue {
-	margin-inline-start: auto;
-}
-
-.agent-memory__add,
-.agent-memory__recall {
-	display: flex;
-	align-items: flex-end;
-	gap: 8px;
-	margin-bottom: 20px;
-}
-
-.agent-memory__add .input-field,
-.agent-memory__recall .input-field {
-	flex: 1 1 auto;
-}
-
-.agent-memory__section {
-	margin-bottom: 24px;
-}
-
-.agent-memory__subhead {
-	font-size: 16px;
-	font-weight: 600;
-	margin: 0 0 8px;
-}
-
-.agent-memory__entries {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.agent-memory__entry {
-	display: flex;
-	align-items: baseline;
-	gap: 12px;
-	padding: 8px 12px;
-	border-bottom: 1px solid var(--color-border);
-}
-
-.agent-memory__entry-text {
-	flex: 1 1 auto;
-}
-
-.agent-memory__entry-role {
-	font-size: 12px;
-	text-transform: uppercase;
-	color: var(--color-text-maxcontrast);
-	flex: 0 0 auto;
-	min-width: 64px;
-}
-
-.agent-memory__entry-date {
-	color: var(--color-text-maxcontrast);
-	font-size: 12px;
-	white-space: nowrap;
-}
-
-.agent-memory__muted {
-	color: var(--color-text-maxcontrast);
 }
 </style>
