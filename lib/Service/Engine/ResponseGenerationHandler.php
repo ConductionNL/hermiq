@@ -271,7 +271,7 @@ class ResponseGenerationHandler
                 // now ProviderFactory::callFireworksChat). Function calling is not
                 // supported there; functions are logged + ignored inside the call.
                 $response = $this->providerFactory->callFireworksChat(
-                    apiKey: (string) $driver->apiKey,
+                    credentialId: (string) $driver->credentialId,
                     model: $driver->model,
                     baseUrl: (string) $driver->baseUrl,
                     messageHistory: $messageHistory,

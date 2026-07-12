@@ -133,7 +133,7 @@ class LlmSettingsHandlerTest extends TestCase
                 'enabled'      => true,
                 'chatProvider' => 'openai',
                 'openaiConfig' => [
-                    'apiKey'         => 'sk-existing',
+                    'credentialId'   => 'cred-uuid-openai',
                     'model'          => null,
                     'chatModel'      => 'gpt-4o-mini',
                     'organizationId' => '',
@@ -145,18 +145,52 @@ class LlmSettingsHandlerTest extends TestCase
         $handler = new LlmSettingsHandler($this->appConfig($stored, $written));
         $result  = $handler->updateLLMSettingsOnly(['chatProvider' => 'nextcloud']);
 
-        // The new provider is applied; the untouched OpenAI key survives.
+        // The new provider is applied; the untouched credential reference survives.
         $this->assertSame('nextcloud', $result['chatProvider']);
-        $this->assertSame('sk-existing', $result['openaiConfig']['apiKey']);
+        $this->assertSame('cred-uuid-openai', $result['openaiConfig']['credentialId']);
         $this->assertTrue($result['enabled']);
 
         // And the same merged shape was persisted.
         $this->assertNotNull($written);
         $persisted = json_decode($written, true);
         $this->assertSame('nextcloud', $persisted['chatProvider']);
-        $this->assertSame('sk-existing', $persisted['openaiConfig']['apiKey']);
+        $this->assertSame('cred-uuid-openai', $persisted['openaiConfig']['credentialId']);
 
     }//end testUpdateMergesPatchStyle()
+
+    /**
+     * A submitted `apiKey` is never carried into the persisted blob.
+     *
+     * The keys used to live here in CLEARTEXT — not merely app-held, but unencrypted in
+     * `oc_appconfig`, printed verbatim by `occ config:app:get hermiq llm`. Hermiq holds no
+     * LLM key now, so a client that still sends one must not have it written.
+     *
+     * @return void
+     */
+    public function testASubmittedApiKeyIsNeverPersisted(): void
+    {
+        $stored = json_encode(['enabled' => true, 'chatProvider' => 'openai', 'openaiConfig' => []]);
+
+        $written = null;
+        $handler = new LlmSettingsHandler($this->appConfig($stored, $written));
+
+        $handler->updateLLMSettingsOnly(
+            [
+                'openaiConfig' => [
+                    'apiKey'       => 'sk-MUST-NOT-BE-STORED',
+                    'credentialId' => 'cred-uuid-openai',
+                ],
+            ]
+        );
+
+        $this->assertNotNull($written);
+        $this->assertStringNotContainsString('sk-MUST-NOT-BE-STORED', (string) $written);
+
+        $persisted = json_decode((string) $written, true);
+        $this->assertArrayNotHasKey('apiKey', $persisted['openaiConfig']);
+        $this->assertSame('cred-uuid-openai', $persisted['openaiConfig']['credentialId']);
+
+    }//end testASubmittedApiKeyIsNeverPersisted()
 
     /**
      * The allowed chatProvider list carries the additive 4th `nextcloud` value.

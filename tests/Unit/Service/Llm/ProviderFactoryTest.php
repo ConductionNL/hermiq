@@ -30,6 +30,8 @@ use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCP\IUser;
+use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
@@ -57,7 +59,14 @@ class ProviderFactoryTest extends TestCase
         $manager->method('hasProviders')->willReturn($hasProviders);
 
         $settings = $this->createMock(LlmSettingsHandler::class);
-        $factory  = new ProviderFactory($settings, $manager, new NullLogger());
+
+        // The broker's ownership guard needs an identity to check the credential against.
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn('alice');
+        $userSession = $this->createMock(IUserSession::class);
+        $userSession->method('getUser')->willReturn($user);
+
+        $factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger());
 
         return [$factory, $manager];
 
@@ -165,7 +174,7 @@ class ProviderFactoryTest extends TestCase
         $factory->createChatDriver(
             llmConfig: [
                 'chatProvider' => 'openai',
-                'openaiConfig' => ['apiKey' => ''],
+                'openaiConfig' => ['credentialId' => ''],
             ]
         );
 
@@ -187,8 +196,9 @@ class ProviderFactoryTest extends TestCase
             llmConfig: [
                 'chatProvider' => 'openai',
                 'openaiConfig' => [
-                    'apiKey'    => 'sk-test',
-                    'chatModel' => 'gpt-4o-mini',
+                    // A broker credential UUID, not a key. Hermiq has no OpenAI key.
+                    'credentialId' => 'cred-uuid-openai',
+                    'chatModel'    => 'gpt-4o-mini',
                 ],
             ]
         );
@@ -215,7 +225,7 @@ class ProviderFactoryTest extends TestCase
         $factory->createChatDriver(
             llmConfig: [
                 'chatProvider'    => 'fireworks',
-                'fireworksConfig' => ['apiKey' => ''],
+                'fireworksConfig' => ['credentialId' => ''],
             ]
         );
 
@@ -237,15 +247,17 @@ class ProviderFactoryTest extends TestCase
             llmConfig: [
                 'chatProvider'    => 'fireworks',
                 'fireworksConfig' => [
-                    'apiKey'  => 'fw-test',
-                    'baseUrl' => 'https://api.fireworks.ai/inference/',
+                    'credentialId' => 'cred-uuid-fireworks',
+                    'baseUrl'      => 'https://api.fireworks.ai/inference/',
                 ],
             ]
         );
 
         $this->assertSame('fireworks', $driver->provider);
         $this->assertNull($driver->chat);
-        $this->assertSame('fw-test', $driver->apiKey);
+        // The driver carries a REFERENCE, not a secret. This field used to hold the raw
+        // Fireworks key, which meant every handler touching a ChatDriver held a live secret.
+        $this->assertSame('cred-uuid-fireworks', $driver->credentialId);
         $this->assertSame('https://api.fireworks.ai/inference/v1', $driver->baseUrl);
         $this->assertSame('accounts/fireworks/models/llama-v3p1-8b-instruct', $driver->model);
 

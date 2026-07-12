@@ -437,7 +437,7 @@ class ConversationManagementHandler
 
         if ($driver->provider === 'fireworks') {
             return $this->providerFactory->callFireworksChat(
-                apiKey: (string) $driver->apiKey,
+                credentialId: (string) $driver->credentialId,
                 model: $driver->model,
                 baseUrl: (string) $driver->baseUrl,
                 messageHistory: [LLPhantMessage::user($prompt)]

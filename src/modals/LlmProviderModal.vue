@@ -47,10 +47,20 @@
 						:value.sync="form.openaiConfig.chatModel"
 						:label="t('hermiq', 'Model')"
 						:placeholder="'gpt-4o-mini'" />
-					<NcPasswordField
-						:value.sync="form.openaiConfig.apiKey"
-						:label="t('hermiq', 'API key')"
-						:placeholder="openaiKeyPlaceholder" />
+					<!--
+						The API-key field is gone. Hermiq no longer holds the key — it picks a
+						credential from the broker, and OpenRegister injects the secret
+						server-side on every call. (The keys used to sit here in CLEARTEXT.)
+					-->
+					<NcSelect v-model="openaiCredential"
+						:options="credentialsFor('openai')"
+						:input-label="t('hermiq', 'API credential')"
+						:loading="loadingCredentials"
+						:placeholder="t('hermiq', 'Select a credential')"
+						label="label" />
+					<p class="llm-provider-modal__hint">
+						{{ credentialHint('openai') }}
+					</p>
 				</template>
 
 				<!-- Ollama -->
@@ -75,10 +85,15 @@
 						:value.sync="form.fireworksConfig.chatModel"
 						:label="t('hermiq', 'Model')"
 						:placeholder="'accounts/fireworks/models/llama-v3p1-8b-instruct'" />
-					<NcPasswordField
-						:value.sync="form.fireworksConfig.apiKey"
-						:label="t('hermiq', 'API key')"
-						:placeholder="fireworksKeyPlaceholder" />
+					<NcSelect v-model="fireworksCredential"
+						:options="credentialsFor('fireworks')"
+						:input-label="t('hermiq', 'API credential')"
+						:loading="loadingCredentials"
+						:placeholder="t('hermiq', 'Select a credential')"
+						label="label" />
+					<p class="llm-provider-modal__hint">
+						{{ credentialHint('fireworks') }}
+					</p>
 				</template>
 
 				<!-- Nextcloud Assistant (TaskProcessing) -->
@@ -109,7 +124,9 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcPasswordField, NcSelect, NcTextField } from '@nextcloud/vue'
+import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import { generateUrl } from '@nextcloud/router'
+import axios from '@nextcloud/axios'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
 
 export default {
@@ -120,7 +137,6 @@ export default {
 		NcLoadingIcon,
 		NcModal,
 		NcNoteCard,
-		NcPasswordField,
 		NcSelect,
 		NcTextField,
 	},
@@ -147,6 +163,12 @@ export default {
 			openaiKeySet: false,
 			fireworksKeySet: false,
 			selectedProvider: null,
+			// The user's broker credentials. Hermiq only ever learns their UUIDs — never
+			// the keys behind them.
+			credentials: [],
+			loadingCredentials: false,
+			openaiCredential: null,
+			fireworksCredential: null,
 			providerOptions: [
 				{ value: 'openai', label: 'OpenAI' },
 				{ value: 'ollama', label: 'Ollama (local)' },
@@ -154,9 +176,9 @@ export default {
 				{ value: 'nextcloud', label: 'Nextcloud Assistant (TaskProcessing)' },
 			],
 			form: {
-				openaiConfig: { chatModel: '', apiKey: '' },
+				openaiConfig: { chatModel: '', credentialId: '' },
 				ollamaConfig: { url: '', chatModel: '' },
-				fireworksConfig: { baseUrl: '', chatModel: '', apiKey: '' },
+				fireworksConfig: { baseUrl: '', chatModel: '', credentialId: '' },
 			},
 		}
 	},
@@ -173,27 +195,27 @@ export default {
 			return this.selectedProvider ? this.selectedProvider.value : null
 		},
 		/**
-		 * Placeholder that tells the admin a key is already stored (so leaving the
-		 * field blank keeps it) versus not yet set.
+		 * Whether a credential is selected for each provider.
 		 *
-		 * @return {string} The OpenAI key field placeholder.
+		 * These replace the old `*KeyPlaceholder` computeds, which existed to tell the
+		 * admin "a key is stored — leave blank to keep it". There is no stored key to keep
+		 * any more: the picker shows which credential is selected, and the credential is
+		 * a reference the broker resolves.
+		 *
+		 * @return {boolean} True when OpenAI has a credential selected.
 		 *
 		 * @spec exclude Trivial computed display helper; no behavioural spec.
 		 */
-		openaiKeyPlaceholder() {
-			return this.openaiKeySet
-				? this.t('hermiq', 'A key is stored — leave blank to keep it')
-				: this.t('hermiq', 'sk-…')
+		openaiHasCredential() {
+			return this.openaiCredential !== null
 		},
 		/**
-		 * @return {string} The Fireworks key field placeholder.
+		 * @return {boolean} True when Fireworks has a credential selected.
 		 *
 		 * @spec exclude Trivial computed display helper; no behavioural spec.
 		 */
-		fireworksKeyPlaceholder() {
-			return this.fireworksKeySet
-				? this.t('hermiq', 'A key is stored — leave blank to keep it')
-				: this.t('hermiq', 'API key')
+		fireworksHasCredential() {
+			return this.fireworksCredential !== null
 		},
 	},
 
@@ -238,22 +260,83 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
+				// Credentials first: the pickers below are preselected from this list.
+				await this.fetchCredentials()
+
 				const config = await getLlmSettings()
 				this.openaiKeySet = config.openaiApiKeySet === true
 				this.fireworksKeySet = config.fireworksApiKeySet === true
 				this.form.openaiConfig.chatModel = (config.openaiConfig && config.openaiConfig.chatModel) || ''
-				this.form.openaiConfig.apiKey = ''
+				this.form.openaiConfig.credentialId = (config.openaiConfig && config.openaiConfig.credentialId) || ''
 				this.form.ollamaConfig.url = (config.ollamaConfig && config.ollamaConfig.url) || ''
 				this.form.ollamaConfig.chatModel = (config.ollamaConfig && config.ollamaConfig.chatModel) || ''
 				this.form.fireworksConfig.baseUrl = (config.fireworksConfig && config.fireworksConfig.baseUrl) || ''
 				this.form.fireworksConfig.chatModel = (config.fireworksConfig && config.fireworksConfig.chatModel) || ''
-				this.form.fireworksConfig.apiKey = ''
+				this.form.fireworksConfig.credentialId = (config.fireworksConfig && config.fireworksConfig.credentialId) || ''
+
+				// Reflect the stored credential references back into the pickers.
+				this.openaiCredential = this.credentialsFor('openai')
+					.find((o) => o.value === this.form.openaiConfig.credentialId) || null
+				this.fireworksCredential = this.credentialsFor('fireworks')
+					.find((o) => o.value === this.form.fireworksConfig.credentialId) || null
+
 				this.selectedProvider = this.providerOptions.find((option) => option.value === config.chatProvider) || null
 			} catch (e) {
 				this.error = this.t('hermiq', 'Could not load the current LLM configuration.')
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * Load the user's broker credentials.
+		 *
+		 * The endpoint already scopes to the caller's own credentials, and the response
+		 * carries no secrets — only names, providers and UUIDs.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		async fetchCredentials() {
+			this.loadingCredentials = true
+			try {
+				const { data } = await axios.get(generateUrl('/apps/openregister/api/credentials'))
+				this.credentials = data.results || []
+			} catch (e) {
+				this.credentials = []
+			} finally {
+				this.loadingCredentials = false
+			}
+		},
+
+		/**
+		 * The broker credentials that can serve a given LLM provider.
+		 *
+		 * @param {string} provider `openai` or `fireworks`.
+		 * @return {Array} NcSelect options.
+		 *
+		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		credentialsFor(provider) {
+			return this.credentials
+				.filter((c) => c.provider === provider)
+				.map((c) => ({ label: c.name || c.id, value: c.id }))
+		},
+
+		/**
+		 * Explain where the key lives — or how to add one when there is none.
+		 *
+		 * @param {string} provider `openai` or `fireworks`.
+		 * @return {string} The hint text.
+		 *
+		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
+		 */
+		credentialHint(provider) {
+			if (!this.loadingCredentials && !this.credentialsFor(provider).length) {
+				return this.t('hermiq', 'No credential yet. Add one under Personal settings → Additional settings, then reopen this dialog.')
+			}
+			return this.t('hermiq', 'The key stays in your credential vault. Hermiq sends only the request it wants made, and the broker injects the key.')
 		},
 
 		/**
@@ -271,10 +354,16 @@ export default {
 			this.saving = true
 			this.error = ''
 			const payload = { chatProvider: this.providerValue }
+			// Only a credential REFERENCE is ever sent — never a key. Hermiq has none.
 			if (this.providerValue === 'openai') {
-				payload.openaiConfig = { chatModel: this.form.openaiConfig.chatModel }
-				if (this.form.openaiConfig.apiKey) {
-					payload.openaiConfig.apiKey = this.form.openaiConfig.apiKey
+				if (!this.openaiCredential) {
+					this.error = this.t('hermiq', 'Pick an OpenAI credential first.')
+					this.saving = false
+					return
+				}
+				payload.openaiConfig = {
+					chatModel: this.form.openaiConfig.chatModel,
+					credentialId: this.openaiCredential.value,
 				}
 			} else if (this.providerValue === 'ollama') {
 				payload.ollamaConfig = {
@@ -282,12 +371,15 @@ export default {
 					chatModel: this.form.ollamaConfig.chatModel,
 				}
 			} else if (this.providerValue === 'fireworks') {
+				if (!this.fireworksCredential) {
+					this.error = this.t('hermiq', 'Pick a Fireworks AI credential first.')
+					this.saving = false
+					return
+				}
 				payload.fireworksConfig = {
 					baseUrl: this.form.fireworksConfig.baseUrl,
 					chatModel: this.form.fireworksConfig.chatModel,
-				}
-				if (this.form.fireworksConfig.apiKey) {
-					payload.fireworksConfig.apiKey = this.form.fireworksConfig.apiKey
+					credentialId: this.fireworksCredential.value,
 				}
 			}
 			try {
