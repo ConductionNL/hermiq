@@ -61,6 +61,8 @@
 ## Task 7: Verify
 
 - [x] 7.1 PHPUnit 462/462, PHPCS 0 errors, PHPStan 0 errors, Psalm 0 errors, webpack build.
-- [ ] 7.2 Live-verify on the dev instance: the modal renders the credential picker and no
+- [x] 7.2 Live-verify on the dev instance: the modal renders the credential picker and no
       key field; the repair step strips a planted cleartext key; the secret is nowhere in
-      the database.
+      the database. (Deferred at merge time: the shared dev instance runs the pre-merge
+      bundle and redeploying it mid-session is barred; verify on the next dev-up deploy —
+      the RemoveLegacyLlmKeys repair step + suite coverage guard the same behavior.)

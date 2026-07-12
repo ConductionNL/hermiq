@@ -28,8 +28,10 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
+use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
@@ -127,6 +129,74 @@ class ProviderFactoryTest extends TestCase
         );
 
     }//end testOllamaWithoutUrlThrowsUnavailable()
+
+    /**
+     * An out-of-policy (provider, model) pair is refused with the 422 violation at
+     * the single createChatDriver() chokepoint (tenant-model-policy).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+     */
+    public function testOutOfPolicyPairIsRefusedAtTheChokepoint(): void
+    {
+        $manager     = $this->createMock(IManager::class);
+        $settings    = $this->createMock(LlmSettingsHandler::class);
+        $userSession = $this->createMock(IUserSession::class);
+
+        $policy = $this->createMock(TenantModelPolicyService::class);
+        $policy->method('isAllowed')->willReturn(false);
+
+        $factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
+
+        $this->expectException(ModelPolicyViolationException::class);
+        $this->expectExceptionCode(422);
+        $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider' => 'ollama',
+                'ollamaConfig' => [
+                    'url'       => 'http://localhost:11434',
+                    'chatModel' => 'llama2',
+                ],
+            ],
+            organisation: 'org-a'
+        );
+
+    }//end testOutOfPolicyPairIsRefusedAtTheChokepoint()
+
+    /**
+     * An in-policy pair passes the enforcement gate and resolves the driver
+     * (the gate is consulted exactly once).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+     */
+    public function testInPolicyPairResolvesTheDriver(): void
+    {
+        $manager     = $this->createMock(IManager::class);
+        $settings    = $this->createMock(LlmSettingsHandler::class);
+        $userSession = $this->createMock(IUserSession::class);
+
+        $policy = $this->createMock(TenantModelPolicyService::class);
+        $policy->expects($this->once())->method('isAllowed')->willReturn(true);
+
+        $factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider' => 'ollama',
+                'ollamaConfig' => [
+                    'url'       => 'http://localhost:11434',
+                    'chatModel' => 'llama2',
+                ],
+            ],
+            organisation: 'org-a'
+        );
+
+        $this->assertSame('ollama', $driver->provider);
+
+    }//end testInPolicyPairResolvesTheDriver()
 
     /**
      * Ollama resolves to an OllamaChat instance; the agent model override wins

@@ -121,13 +121,18 @@ class ConversationManagementHandler
      * Uses the configured LLM; falls back to a truncated-message title when no
      * provider is configured or generation fails.
      *
-     * @param string $firstMessage First user message.
+     * @param string      $firstMessage First user message.
+     * @param string|null $organisation The conversation's organisation
+     *                                  (tenant-model-policy); null skips policy
+     *                                  enforcement (backward-compatible default —
+     *                                  see ProviderFactory::createChatDriver()).
      *
      * @return string Generated title.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
      */
-    public function generateConversationTitle(string $firstMessage): string
+    public function generateConversationTitle(string $firstMessage, ?string $organisation=null): string
     {
         $this->logger->info(
             message: '[ConversationManagementHandler] Generating conversation title',
@@ -140,7 +145,7 @@ class ConversationManagementHandler
         $prompt .= 'Title:';
 
         try {
-            $title = $this->generateTextViaConfiguredLlm(prompt: $prompt);
+            $title = $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);
         } catch (Throwable $e) {
             $this->logger->warning(
                 message: '[ConversationManagementHandler] Failed to generate title, using fallback',
@@ -322,7 +327,10 @@ class ConversationManagementHandler
                 return;
             }
 
-            $summary = $this->generateSummary(messages: $messagesToSummarize);
+            // tenant-model-policy: the Conversation object already carries its
+            // organisation (ObjectEntity metadata) — no new lookup needed.
+            $organisation = (string) ($conversation->getOrganisation() ?? '');
+            $summary      = $this->generateSummary(messages: $messagesToSummarize, organisation: $organisation);
 
             $metadata['summary']         = $summary;
             $metadata['last_summary_at'] = (new DateTime())->format('c');
@@ -387,14 +395,19 @@ class ConversationManagementHandler
      * Generate a concise summary of a set of Message objects via the
      * configured LLM.
      *
-     * @param array<int, ObjectEntity> $messages Messages to summarise, oldest-first.
+     * @param array<int, ObjectEntity> $messages     Messages to summarise, oldest-first.
+     * @param string|null              $organisation The conversation's organisation
+     *                                               (tenant-model-policy); null skips
+     *                                               policy enforcement.
      *
      * @return string Summary text.
      *
      * @throws \OCA\Hermiq\Service\Llm\ProviderUnavailableException When no chat
      *         provider is configured or reachable.
+     * @throws \OCA\Hermiq\Service\Llm\ModelPolicyViolationException When `$organisation`
+     *         is given and the resolved pair is outside its effective policy.
      */
-    private function generateSummary(array $messages): string
+    private function generateSummary(array $messages, ?string $organisation=null): string
     {
         $conversationText = '';
         foreach ($messages as $message) {
@@ -412,7 +425,7 @@ class ConversationManagementHandler
         $prompt .= $conversationText;
         $prompt .= "\n\nSummary:";
 
-        return $this->generateTextViaConfiguredLlm(prompt: $prompt);
+        return $this->generateTextViaConfiguredLlm(prompt: $prompt, organisation: $organisation);
 
     }//end generateSummary()
 
@@ -420,20 +433,27 @@ class ConversationManagementHandler
      * Generate free text against whichever chat provider `hermiq.llm` currently
      * selects. Shared by title generation and summarisation.
      *
-     * @param string $prompt The prompt text.
+     * @param string      $prompt       The prompt text.
+     * @param string|null $organisation The calling organisation (tenant-model-policy);
+     *                                  null skips policy enforcement (background
+     *                                  callers with no organisation context).
      *
      * @return string Generated text.
      *
      * @throws \OCA\Hermiq\Service\Llm\ProviderUnavailableException When no chat
      *         provider is configured or reachable.
+     * @throws \OCA\Hermiq\Service\Llm\ModelPolicyViolationException When `$organisation`
+     *         is given and the resolved pair is outside its effective policy.
      *
      * @SuppressWarnings(PHPMD.StaticAccess) LLPhant's Message::user() factory is the
      * library's public API — there is no injectable seam.
+     *
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
      */
-    private function generateTextViaConfiguredLlm(string $prompt): string
+    private function generateTextViaConfiguredLlm(string $prompt, ?string $organisation=null): string
     {
         $llmConfig = $this->providerFactory->getLlmConfig();
-        $driver    = $this->providerFactory->createChatDriver(llmConfig: $llmConfig);
+        $driver    = $this->providerFactory->createChatDriver(llmConfig: $llmConfig, organisation: $organisation);
 
         if ($driver->provider === 'fireworks') {
             return $this->providerFactory->callFireworksChat(

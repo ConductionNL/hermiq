@@ -36,14 +36,30 @@ another tenant's objects in any API response.
 - **AND** objects belonging to organisation B MUST NOT appear in the response
 
 ### Requirement: Per-tenant sovereignty — local inference + AI-Act export
-The system MUST allow each organisation to configure local-only inference (Ollama/Qwen) and MUST
-provide a per-tenant export of AI Act-relevant audit records scoped strictly to that organisation.
+The system MUST allow each organisation to configure local-only inference (Ollama/Qwen) and
+MUST provide a per-tenant export of AI Act-relevant audit records scoped strictly to that
+organisation. The system MUST also allow each organisation to configure a `ModelPolicy` that
+enforces which chat providers and models its agents may use, and MUST refuse — with a clear,
+audited error — any agent run that would resolve to a provider or model outside that
+organisation's effective policy, so that a sovereignty guarantee (e.g. "no data leaves this
+instance") is a binding constraint rather than an unenforced configuration option.
 
 #### Scenario: An org admin exports their AI Act audit trail
-- GIVEN organisation A has run history recorded in OR `AuditTrail`
-- WHEN an org admin of organisation A requests an AI Act audit export
-- THEN the system MUST produce an export containing only organisation A's records
-- AND the export MUST NOT require data to leave the local/self-hosted instance when local Ollama inference is configured
+- **GIVEN** organisation A has run history recorded in OR `AuditTrail`
+- **WHEN** an org admin of organisation A requests an AI Act audit export
+- **THEN** the system MUST produce an export containing only organisation A's records
+- **AND** the export MUST NOT require data to leave the local/self-hosted instance when local
+  Ollama inference is configured
+
+#### Scenario: An organisation enforces a no-external-cloud model policy
+- **GIVEN** organisation A has configured a `ModelPolicy` allowing only the `ollama` provider
+- **WHEN** any agent belonging to organisation A attempts to run using the `openai` or
+  `fireworks` provider (whether via an agent's own override or the instance's configured
+  provider)
+- **THEN** the system MUST refuse the run before any request reaches an external provider
+- **AND** the refusal MUST be recorded in the run's audit entry, giving the organisation
+  verifiable proof — not just a configuration assertion — that no data left the local
+  instance
 
 ### Requirement: Per-scope budget guardrails — soft threshold and hard cap
 The system MUST allow an organisation admin to configure a `Budget` (scoped to an organisation or

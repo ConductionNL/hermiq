@@ -104,6 +104,14 @@ return [
         ['name' => 'budget#destroy', 'url' => '/api/budgets/{budgetId}', 'verb' => 'DELETE', 'requirements' => ['budgetId' => '[^/]+']],
         ['name' => 'budget#estimate', 'url' => '/api/agents/{agentId}/budget-estimate', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
 
+        // Tenant model policy (tenant-model-policy): per-organisation provider/model
+        // allowlists. 'effective' is registered before the {policyId} routes so the
+        // literal path never falls into the id matcher.
+        ['name' => 'tenantModelPolicy#effective', 'url' => '/api/model-policy/effective', 'verb' => 'GET'],
+        ['name' => 'tenantModelPolicy#index',  'url' => '/api/model-policy', 'verb' => 'GET'],
+        ['name' => 'tenantModelPolicy#create', 'url' => '/api/model-policy', 'verb' => 'POST'],
+        ['name' => 'tenantModelPolicy#update', 'url' => '/api/model-policy/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
+
         // Skills catalog (skills-catalog): browse, import/export agentskills.io packages, install onto an agent.
         ['name' => 'skill#index',   'url' => '/api/skills', 'verb' => 'GET'],
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],

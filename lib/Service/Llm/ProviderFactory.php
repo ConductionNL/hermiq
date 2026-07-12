@@ -62,6 +62,7 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
+use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
@@ -94,17 +95,31 @@ class ProviderFactory
      * @param LoggerInterface    $logger          Logger.
      * @param string             $appName         App id used when scheduling
      *                                            TaskProcessing tasks.
+     * @param TenantModelPolicyService|null $modelPolicyService Resolves the calling
+     *                                            organisation's effective ModelPolicy
+     *                                            (tenant-model-policy). Nullable —
+     *                                            defaulted so every existing call site
+     *                                            (all constructed before this change)
+     *                                            keeps working unchanged; NC's DI
+     *                                            container autowires a real instance in
+     *                                            production regardless of the default.
+     *                                            When `$organisation` is not passed to
+     *                                            `createChatDriver()`, no enforcement
+     *                                            call is made at all (opt-in threading,
+     *                                            see design.md).
      *
      * @return void
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
      */
     public function __construct(
         private readonly LlmSettingsHandler $settingsHandler,
         private readonly IManager $taskManager,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
-        private readonly string $appName='hermiq'
+        private readonly string $appName='hermiq',
+        private readonly ?TenantModelPolicyService $modelPolicyService=null
     ) {
     }//end __construct()
 
@@ -128,20 +143,36 @@ class ProviderFactory
      *                                      (LlmSettingsHandler::getLLMSettingsOnly()).
      * @param string|null $agentModel       Agent-level model override, when set and non-empty.
      * @param float|null  $agentTemperature Agent-level temperature override.
+     * @param string|null $organisation     The calling agent's organisation
+     *                                      (tenant-model-policy). When non-null (including
+     *                                      `''` for an organisation-less agent/instance
+     *                                      scope), the resolved (provider, model) pair is
+     *                                      checked against the effective ModelPolicy for
+     *                                      that organisation BEFORE the driver is returned
+     *                                      — this is the single enforcement chokepoint every
+     *                                      trigger path (schedule, Run now, conversation,
+     *                                      flow listener) shares. When null, no check is made
+     *                                      (opt-in; existing callers that do not pass an
+     *                                      organisation see zero behavior change).
      *
      * @return ChatDriver The resolved driver.
      *
      * @throws ProviderUnavailableException When no provider is configured, the selected
      *                                      provider is missing required credentials, or
      *                                      the provider identifier is not recognised.
+     * @throws ModelPolicyViolationException When `$organisation` is given and the resolved
+     *                                      (provider, model) pair falls outside its
+     *                                      effective ModelPolicy.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
      */
     public function createChatDriver(
         array $llmConfig,
         ?string $agentModel=null,
-        ?float $agentTemperature=null
+        ?float $agentTemperature=null,
+        ?string $organisation=null
     ): ChatDriver {
         $chatProvider = $llmConfig['chatProvider'] ?? null;
 
@@ -153,35 +184,84 @@ class ProviderFactory
         }
 
         if ($chatProvider === 'ollama') {
-            return $this->createOllamaDriver(
+            $driver = $this->createOllamaDriver(
                 ollamaConfig: $llmConfig['ollamaConfig'] ?? [],
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature
             );
-        }
-
-        if ($chatProvider === 'openai') {
-            return $this->createOpenAiDriver(
+        } elseif ($chatProvider === 'openai') {
+            $driver = $this->createOpenAiDriver(
                 openaiConfig: $llmConfig['openaiConfig'] ?? [],
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature
             );
-        }
-
-        if ($chatProvider === 'fireworks') {
-            return $this->createFireworksDriver(
+        } elseif ($chatProvider === 'fireworks') {
+            $driver = $this->createFireworksDriver(
                 fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
                 agentModel: $agentModel
             );
+        } elseif ($chatProvider === 'nextcloud') {
+            $driver = $this->createNextcloudDriver();
+        } else {
+            throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}");
         }
 
-        if ($chatProvider === 'nextcloud') {
-            return $this->createNextcloudDriver();
-        }
+        // tenant-model-policy: the single enforcement chokepoint. Runs AFTER the
+        // agent override is applied (createOllamaDriver()/createOpenAiDriver()/
+        // createFireworksDriver() already resolved agentModel ?? providerConfig
+        // into $driver->model) so a policy cannot be bypassed by leaving the
+        // per-agent model field blank — see design.md "Decisions". Runs BEFORE
+        // any network call: driver construction above only builds client value
+        // objects, it never sends a request.
+        $this->enforceModelPolicy(organisation: $organisation, provider: $driver->provider, model: $driver->model);
 
-        throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}");
+        return $driver;
 
     }//end createChatDriver()
+
+    /**
+     * Check a resolved (provider, model) pair against the calling organisation's
+     * effective ModelPolicy; throw when out of policy. A no-op when either
+     * `$organisation` is null (caller opted out of enforcement, e.g. a purely
+     * instance-wide background call) or no policy service was injected
+     * (backward-compatible default for pre-existing call sites/tests).
+     *
+     * @param string|null $organisation The calling organisation, or null to skip the check.
+     * @param string      $provider     The resolved provider.
+     * @param string      $model        The resolved model id.
+     *
+     * @return void
+     *
+     * @throws ModelPolicyViolationException When the pair is outside the effective policy.
+     *
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+     */
+    private function enforceModelPolicy(?string $organisation, string $provider, string $model): void
+    {
+        if ($organisation === null || $this->modelPolicyService === null) {
+            return;
+        }
+
+        if ($this->modelPolicyService->isAllowed(organisation: $organisation, provider: $provider, model: $model) === true) {
+            return;
+        }
+
+        $orgLabel = $organisation;
+        if ($orgLabel === '') {
+            $orgLabel = '(instance-wide)';
+        }
+
+        throw new ModelPolicyViolationException(
+            sprintf(
+                "Model policy violation: organisation '%s' does not permit provider '%s' model '%s'.",
+                $orgLabel,
+                $provider,
+                $model
+            ),
+            422
+        );
+
+    }//end enforceModelPolicy()
 
     /**
      * Call Fireworks AI's chat completions endpoint directly with full message history.

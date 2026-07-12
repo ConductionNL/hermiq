@@ -28,27 +28,46 @@ a create form, and MUST let a user edit an existing agent's configuration fields
 the agent detail view using a schema-driven, click-to-edit widget, persisting via
 OpenRegister. Tenancy/noise fields (invited users, groups, views, private flag, quotas,
 acting user, configuration, context refs, skill installs) MUST NOT be shown in the inline
-config widget.
+config widget. The Provider and Model fields MUST be presented as selectable options drawn
+from the caller's effective `ModelPolicy` rather than free text, and the system MUST reject
+saving an agent whose provider/model falls outside that effective policy.
 
 #### Scenario: Create an agent
-- GIVEN the create form
-- WHEN the user fills in name, selects a model, writes a prompt, and saves
-- THEN the system MUST create the agent as an OpenRegister object owned by the user's organisation
+- **GIVEN** the create form
+- **WHEN** the user fills in name, selects a model, writes a prompt, and saves
+- **THEN** the system MUST create the agent as an OpenRegister object owned by the user's organisation
 @e2e exclude pre-existing behaviour (config-only create modal, unchanged by this change); live-verified during this change's verification (created an agent via the form → 201). Playwright coverage owned by the agent-management-ui base change.
 
 #### Scenario: Edit a config field inline from the detail view
-- GIVEN an agent detail view rendering the schema-driven config widget
-- WHEN the user clicks a config field (e.g. name, prompt, temperature) and saves a new value
-- THEN the system MUST persist the change via OpenRegister
-- AND the detail view MUST reflect the saved value without opening the Edit modal
+- **GIVEN** an agent detail view rendering the schema-driven config widget
+- **WHEN** the user clicks a config field (e.g. name, prompt, temperature) and saves a new value
+- **THEN** the system MUST persist the change via OpenRegister
+- **AND** the detail view MUST reflect the saved value without opening the Edit modal
 @e2e exclude live-verified: the schema-driven CnObjectDataWidget click-to-edit + whole-object PUT round-trip returned 200 and the cell reflected the saved value. Dedicated Playwright coverage deferred.
 
 #### Scenario: Edit the tool allowlist inline from the detail view
-- GIVEN an agent detail view rendering the schema-driven config widget
-- WHEN the user opens the tools field
-- THEN the system MUST present the current, dynamically-fetched tool catalog as selectable options
-- AND selecting or deselecting tools and saving MUST persist the updated tool allowlist via OpenRegister
+- **GIVEN** an agent detail view rendering the schema-driven config widget
+- **WHEN** the user opens the tools field
+- **THEN** the system MUST present the current, dynamically-fetched tool catalog as selectable options
+- **AND** selecting or deselecting tools and saving MUST persist the updated tool allowlist via OpenRegister
 @e2e exclude live-verified end-to-end: opening the tools field rendered the dynamic /api/agents/tools catalog, selecting a tool and confirming issued the agent PUT (200), and the Tools cell displayed the saved tool. Dedicated Playwright coverage deferred.
+
+#### Scenario: Model and Provider choices are filtered to the organisation's policy
+- **GIVEN** the create/edit agent form for a user in an organisation whose effective
+  `ModelPolicy` allows only `ollama` (any model)
+- **WHEN** the user opens the Provider field
+- **THEN** the system MUST offer only `ollama` as a selectable provider
+- **AND** the Model field MUST be populated from the models available for the chosen provider
+  under the effective policy, not a free-text input
+
+#### Scenario: Saving an out-of-policy provider/model is rejected
+- **GIVEN** an agent form pre-filled (e.g. via a raw API edit or a stale form state) with a
+  provider/model combination outside the caller's effective policy
+- **WHEN** the user attempts to save
+- **THEN** the system MUST reject the save with a clear error naming the disallowed
+  provider/model
+- **AND** the agent's previously-saved (in-policy or unset) configuration MUST remain
+  unchanged
 
 ### Requirement: Attach a schedule and run now [MVP]
 From an agent's detail view the user MUST be able to add/edit a schedule (see `agent-schedule`) and trigger an immediate run.
