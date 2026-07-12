@@ -79,8 +79,8 @@
 <script>
 import { NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import ChartIcon from 'vue-material-design-icons/ChartBar.vue'
-import { listAgents } from '../api/agents.js'
 import { getAnalytics } from '../api/analytics.js'
+import { useAgentStore } from '../store/store.js'
 
 export default {
 	name: 'AnalyticsBreakdownWidget',
@@ -127,12 +127,14 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
+				const agentStore = useAgentStore()
+				agentStore.registerObjectType('agent', 'agent', 'hermiq')
 				const [metrics, agents] = await Promise.all([
 					getAnalytics(''),
-					listAgents().catch(() => []),
+					agentStore.fetchCollection('agent').catch(() => []),
 				])
 				this.metrics = metrics
-				this.agents = agents
+				this.agents = Array.isArray(agents) ? agents : []
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {

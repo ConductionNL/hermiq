@@ -178,6 +178,8 @@ export default {
 		minSize: { w: 4, h: 1 },
 		maxSize: { w: 12, h: 2 },
 		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'KPI values come from the computed /api/analytics endpoint (success rate, cost, latency aggregates), not from an OR object collection — stats-block can only bind object queries, so a custom fetch widget is required (ADR-049).',
 	},
 
 	/**
@@ -191,6 +193,8 @@ export default {
 		minSize: { w: 4, h: 2 },
 		maxSize: { w: 12, h: 6 },
 		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Renders the status breakdown + per-agent table from the computed /api/analytics endpoint; object-table cannot bind a computed aggregate endpoint, so a custom widget is required (ADR-049).',
 	},
 
 	/**
