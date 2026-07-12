@@ -8,9 +8,27 @@ define('PHPUNIT_RUN', 1);
 // Include Composer's autoloader.
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// Register the nextcloud/ocp stubs for OCP\* — but ONLY here, in the test entry
+// point, and only when no live Nextcloud already supplies them.
+//
+// This mapping must NEVER live in composer.json. `autoload-dev` IS baked into the
+// generated autoloader by a plain `composer install`, and in the dev topology the
+// app checkout IS the served app — Application.php requires vendor/autoload.php, so
+// the stubs would shadow core's OCP on every request. With stubs pinned to a
+// different Nextcloud major than the running server, core's `#[\Override]`
+// attributes then have no matching parent method and PHP raises a COMPILE-TIME
+// fatal that takes down the WHOLE instance (occ dead, 0 apps, every route 404/500).
+// That is the 2026-07-12 outage. Static analysis does not need the mapping either:
+// PHPStan reads the stubs via `scanDirectories`, Psalm via `<extraFiles>`.
+if (interface_exists(\OCP\IUser::class) === false && is_dir(__DIR__ . '/../vendor/nextcloud/ocp/OCP') === true) {
+    $ocpLoader = new \Composer\Autoload\ClassLoader();
+    $ocpLoader->addPsr4('OCP\\', __DIR__ . '/../vendor/nextcloud/ocp/OCP/');
+    $ocpLoader->register();
+}
+
 // Bootstrap Nextcloud only when a server tree is present (e.g. running inside a
 // full checkout). In CI / standalone unit runs there is no ../../../lib/base.php, so
-// the OCP interfaces come from the composer stubs and unit tests mock every
+// the OCP interfaces come from the stubs registered above and unit tests mock every
 // collaborator — no live server is required. Guard the OC_* calls with class_exists so
 // the suite runs in either environment.
 if (!defined('OC_CONSOLE') && file_exists(__DIR__ . '/../../../lib/base.php')) {
