@@ -49,12 +49,31 @@
 				:label="t('hermiq', 'Description')"
 				:placeholder="t('hermiq', 'What does this agent do?')" />
 
-			<NcTextField
-				:value.sync="form.provider"
-				:label="t('hermiq', 'Provider')"
-				:placeholder="t('hermiq', 'ollama')" />
+			<!-- Provider/Model are policy-filtered pickers (tenant-model-policy):
+			     only the caller's effective policy's providers are offered, and the
+			     model list is scoped to the chosen provider. An empty models list on
+			     the policy means "any model" → free entry. -->
+			<div class="agent-form__field">
+				<NcSelect
+					v-model="providerOption"
+					:input-label="t('hermiq', 'Provider')"
+					:options="providerOptions"
+					:clearable="false"
+					label="label"
+					track-by="value" />
+			</div>
 
+			<div v-if="allowedModelsForProvider.length > 0" class="agent-form__field">
+				<NcSelect
+					v-model="modelOption"
+					:input-label="t('hermiq', 'Model')"
+					:options="modelOptions"
+					:clearable="false"
+					label="label"
+					track-by="value" />
+			</div>
 			<NcTextField
+				v-else
 				:value.sync="form.model"
 				:label="t('hermiq', 'Model')"
 				:placeholder="t('hermiq', 'qwen2.5')" />
@@ -143,6 +162,7 @@
 <script>
 import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
 import { listTools } from '../api/agents.js'
+import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { useAgentStore } from '../store/store.js'
 
 export default {
@@ -181,7 +201,19 @@ export default {
 			toolsLoading: false,
 			saving: false,
 			error: '',
+			// Effective model policy (tenant-model-policy); null until loaded.
+			policy: null,
 		}
+	},
+
+	watch: {
+		show(open) {
+			if (open) {
+				this.resetForm()
+				this.loadTools()
+				this.loadPolicy()
+			}
+		},
 	},
 
 	computed: {
@@ -193,14 +225,67 @@ export default {
 		heading() {
 			return this.agent ? this.t('hermiq', 'Edit agent') : this.t('hermiq', 'Create agent')
 		},
-	},
 
-	watch: {
-		show(open) {
-			if (open) {
-				this.resetForm()
-				this.loadTools()
-			}
+		/**
+		 * The effective policy's providers as NcSelect options.
+		 *
+		 * @return {Array<object>} The { label, value } options.
+		 */
+		providerOptions() {
+			const allowed = this.policy?.allowed || []
+			return allowed.map((entry) => ({ label: entry.provider, value: entry.provider }))
+		},
+
+		/**
+		 * Two-way bridge between form.provider and the NcSelect option object.
+		 */
+		providerOption: {
+			get() {
+				return this.providerOptions.find((option) => option.value === this.form.provider) || null
+			},
+			set(option) {
+				this.form.provider = option ? option.value : ''
+				// Changing provider invalidates a model outside its allowlist.
+				if (this.allowedModelsForProvider.length > 0
+					&& !this.allowedModelsForProvider.includes(this.form.model)) {
+					this.form.model = this.policy?.defaultModel
+						&& this.allowedModelsForProvider.includes(this.policy.defaultModel)
+						? this.policy.defaultModel
+						: (this.allowedModelsForProvider[0] || '')
+				}
+			},
+		},
+
+		/**
+		 * The chosen provider's allowed models ([] means "any model" → free entry).
+		 *
+		 * @return {Array<string>} The allowed model ids.
+		 */
+		allowedModelsForProvider() {
+			const allowed = this.policy?.allowed || []
+			const entry = allowed.find((candidate) => candidate.provider === this.form.provider)
+			return Array.isArray(entry?.models) ? entry.models : []
+		},
+
+		/**
+		 * The allowed models as NcSelect options.
+		 *
+		 * @return {Array<object>} The { label, value } options.
+		 */
+		modelOptions() {
+			return this.allowedModelsForProvider.map((model) => ({ label: model, value: model }))
+		},
+
+		/**
+		 * Two-way bridge between form.model and the NcSelect option object.
+		 */
+		modelOption: {
+			get() {
+				return this.modelOptions.find((option) => option.value === this.form.model) || null
+			},
+			set(option) {
+				this.form.model = option ? option.value : ''
+			},
 		},
 	},
 
@@ -287,6 +372,35 @@ export default {
 		},
 
 		/**
+		 * Load the caller's effective model policy for the pickers
+		 * (tenant-model-policy). Non-fatal: with no policy loaded the form keeps
+		 * free entry and the server still enforces at run time.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadPolicy() {
+			this.policy = await getEffectiveModelPolicy().catch(() => null)
+		},
+
+		/**
+		 * Whether the current provider/model pair violates the loaded policy
+		 * (client-side mirror of the ProviderFactory enforcement).
+		 *
+		 * @return {boolean} True when the pair is out of policy.
+		 */
+		violatesPolicy() {
+			const allowed = this.policy?.allowed
+			if (!Array.isArray(allowed) || allowed.length === 0 || !this.form.provider) {
+				return false
+			}
+			const entry = allowed.find((candidate) => candidate.provider === this.form.provider)
+			if (!entry) {
+				return true
+			}
+			return entry.models.length > 0 && !!this.form.model && !entry.models.includes(this.form.model)
+		},
+
+		/**
 		 * Build the save payload. On edit, spread the existing agent payload
 		 * first so schema fields this form does not surface survive the PUT
 		 * (the generic objects path replaces the payload wholesale); `@self`
@@ -337,6 +451,10 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async save() {
+			if (this.violatesPolicy()) {
+				this.error = this.t('hermiq', 'The chosen provider/model is not allowed by your organisation\'s model policy.')
+				return
+			}
 			this.saving = true
 			this.error = ''
 			try {

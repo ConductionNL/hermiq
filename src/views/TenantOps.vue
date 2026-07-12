@@ -125,6 +125,53 @@
 					</div>
 				</section>
 
+				<!-- Model policy (tenant-model-policy): which providers/models each
+				     organisation's agents may use; the instance default applies when an
+				     organisation has no policy of its own. -->
+				<section class="tenant-ops__section">
+					<div class="tenant-ops__section-head">
+						<h3 class="tenant-ops__subhead">
+							{{ t('hermiq', 'Model policy') }}
+						</h3>
+					</div>
+
+					<NcNoteCard v-if="policyError" type="error" :heading="t('hermiq', 'Model policy error')">
+						{{ policyError }}
+					</NcNoteCard>
+
+					<p v-if="modelPolicies.length === 0 && !policyError" class="tenant-ops__note">
+						{{ t('hermiq', 'No model policies configured — agents fall back to the instance-wide LLM configuration.') }}
+					</p>
+
+					<div v-for="policy in modelPolicies" :key="policy.id" class="tenant-ops__policy">
+						<div class="tenant-ops__policy-head">
+							<strong>{{ policy.organisation ? policyOrgLabel(policy.organisation) : t('hermiq', 'Instance default') }}</strong>
+							<NcButton type="tertiary" @click="togglePolicyEdit(policy)">
+								{{ editingPolicyId === policy.id ? t('hermiq', 'Cancel') : t('hermiq', 'Edit') }}
+							</NcButton>
+						</div>
+						<p v-if="editingPolicyId !== policy.id" class="tenant-ops__note">
+							{{ policySummary(policy) }}
+						</p>
+						<div v-else class="tenant-ops__policy-edit">
+							<NcTextArea
+								:value.sync="policyDraft.allowedText"
+								:label="t('hermiq', 'Allowed providers and models')"
+								:placeholder="t('hermiq', 'One per line: provider or provider: model1, model2')"
+								resize="vertical" />
+							<NcTextField
+								:value.sync="policyDraft.defaultModel"
+								:label="t('hermiq', 'Default model (optional)')"
+								placeholder="qwen2.5" />
+							<div class="tenant-ops__card-actions">
+								<NcButton type="primary" :disabled="policySaving" @click="savePolicy(policy)">
+									{{ t('hermiq', 'Save policy') }}
+								</NcButton>
+							</div>
+						</div>
+					</div>
+				</section>
+
 				<section class="tenant-ops__section">
 					<h3 class="tenant-ops__subhead">
 						{{ t('hermiq', 'EU AI Act audit export') }}
@@ -159,12 +206,13 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
 import { loadState } from '@nextcloud/initial-state'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getAuditExport, getQuota } from '../api/tenantOps.js'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
+import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
 
 export default {
@@ -177,6 +225,8 @@ export default {
 		NcLoadingIcon,
 		NcNoteCard,
 		NcSelect,
+		NcTextArea,
+		NcTextField,
 		ShieldIcon,
 	},
 
@@ -200,6 +250,12 @@ export default {
 			budgetError: '',
 			showBudgetForm: false,
 			editingBudget: null,
+			// Model policy (tenant-model-policy): caller-visible policies + inline editor.
+			modelPolicies: [],
+			policyError: '',
+			editingPolicyId: null,
+			policyDraft: { allowedText: '', defaultModel: '' },
+			policySaving: false,
 		}
 	},
 
@@ -239,6 +295,9 @@ export default {
 		if (this.canManage && this.organisations.length > 0) {
 			this.selectedOrg = this.organisations[0].id
 			this.loadBudgets()
+		}
+		if (this.canManage) {
+			this.loadModelPolicies()
 		}
 	},
 
@@ -383,6 +442,110 @@ export default {
 		},
 
 		/**
+		 * Load the caller-visible model policies (tenant-model-policy).
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadModelPolicies() {
+			this.policyError = ''
+			try {
+				this.modelPolicies = await listModelPolicies()
+			} catch (e) {
+				this.policyError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			}
+		},
+
+		/**
+		 * Human label for a policy's organisation id.
+		 *
+		 * @param {string} orgId The organisation identifier.
+		 * @return {string} The organisation label, or the raw id.
+		 */
+		policyOrgLabel(orgId) {
+			const org = this.organisations.find((candidate) => candidate.id === orgId)
+			return org ? (org.label || org.id) : orgId
+		},
+
+		/**
+		 * One-line summary of a policy's allowed providers/models.
+		 *
+		 * @param {object} policy The ModelPolicy record.
+		 * @return {string} The summary line.
+		 */
+		policySummary(policy) {
+			const allowed = Array.isArray(policy.allowed) ? policy.allowed : []
+			if (allowed.length === 0) {
+				return this.t('hermiq', 'No providers allowed (fail closed).')
+			}
+			const parts = allowed.map((entry) => entry.models && entry.models.length > 0
+				? `${entry.provider}: ${entry.models.join(', ')}`
+				: entry.provider)
+			const suffix = policy.defaultModel
+				? ` — ${this.t('hermiq', 'default')}: ${policy.defaultModel}`
+				: ''
+			return parts.join(' · ') + suffix
+		},
+
+		/**
+		 * Open/close the inline editor for a policy, seeding the draft from it.
+		 * Draft format: one line per provider — `provider` (any model) or
+		 * `provider: model1, model2` (allowlisted models).
+		 *
+		 * @param {object} policy The ModelPolicy record.
+		 * @return {void}
+		 */
+		togglePolicyEdit(policy) {
+			if (this.editingPolicyId === policy.id) {
+				this.editingPolicyId = null
+				return
+			}
+			const allowed = Array.isArray(policy.allowed) ? policy.allowed : []
+			this.policyDraft = {
+				allowedText: allowed.map((entry) => entry.models && entry.models.length > 0
+					? `${entry.provider}: ${entry.models.join(', ')}`
+					: entry.provider).join('\n'),
+				defaultModel: policy.defaultModel || '',
+			}
+			this.editingPolicyId = policy.id
+		},
+
+		/**
+		 * Persist the inline policy draft via PUT /api/model-policy/{uuid}.
+		 *
+		 * @param {object} policy The ModelPolicy record being edited.
+		 * @return {Promise<void>}
+		 */
+		async savePolicy(policy) {
+			const allowed = this.policyDraft.allowedText
+				.split('\n')
+				.map((line) => line.trim())
+				.filter((line) => line !== '')
+				.map((line) => {
+					const [provider, models] = line.split(':')
+					return {
+						provider: provider.trim(),
+						models: models
+							? models.split(',').map((model) => model.trim()).filter((model) => model !== '')
+							: [],
+					}
+				})
+			this.policySaving = true
+			try {
+				await updateModelPolicy(policy.id, {
+					allowed,
+					defaultModel: this.policyDraft.defaultModel || null,
+				})
+				showSuccess(this.t('hermiq', 'Model policy saved.'))
+				this.editingPolicyId = null
+				await this.loadModelPolicies()
+			} catch (e) {
+				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the model policy.'))
+			} finally {
+				this.policySaving = false
+			}
+		},
+
+		/**
 		 * Delete a budget and refresh the list.
 		 *
 		 * @param {object} entry The budget to delete.
@@ -503,5 +666,26 @@ export default {
 	display: flex;
 	gap: 8px;
 	margin-top: 4px;
+}
+
+.tenant-ops__policy {
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	padding: 12px;
+	margin-bottom: 8px;
+}
+
+.tenant-ops__policy-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.tenant-ops__policy-edit {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 8px;
 }
 </style>

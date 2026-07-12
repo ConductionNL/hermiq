@@ -237,7 +237,7 @@ class TenantModelPolicyService
     {
         $policy = $this->effectivePolicyFor(organisation: $organisation);
 
-        return $this->matchesAllowed(allowed: ($policy['allowed'] ?? []), provider: $provider, model: $model);
+        return $this->matchesAllowed(allowed: $policy['allowed'], provider: $provider, model: $model);
 
     }//end isAllowed()
 
@@ -455,12 +455,12 @@ class TenantModelPolicyService
     private function matchesAllowed(array $allowed, string $provider, string $model): bool
     {
         foreach ($allowed as $entry) {
-            if (($entry['provider'] ?? '') !== $provider) {
+            if ($entry['provider'] !== $provider) {
                 continue;
             }
 
-            $models = $entry['models'] ?? [];
-            if (is_array($models) === false || $models === []) {
+            $models = $entry['models'];
+            if ($models === []) {
                 return true;
             }
 
