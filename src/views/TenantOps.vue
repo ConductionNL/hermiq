@@ -62,6 +62,69 @@
 					</p>
 				</section>
 
+				<section v-if="organisations.length > 0" class="tenant-ops__section">
+					<div class="tenant-ops__section-head">
+						<h3 class="tenant-ops__subhead">
+							{{ t('hermiq', 'Cost guardrails') }}
+						</h3>
+						<NcButton type="secondary" @click="openCreateBudget">
+							{{ t('hermiq', 'Add budget') }}
+						</NcButton>
+					</div>
+
+					<div v-if="organisations.length > 1" class="tenant-ops__org-picker">
+						<NcSelect
+							v-model="orgOption"
+							:input-label="t('hermiq', 'Organisation')"
+							:options="orgOptions"
+							:clearable="false"
+							label="label"
+							track-by="value" />
+					</div>
+
+					<NcNoteCard v-if="budgetError" type="error" :heading="t('hermiq', 'Budget error')">
+						{{ budgetError }}
+					</NcNoteCard>
+
+					<div v-if="budgetsLoading" class="tenant-ops__loading">
+						<NcLoadingIcon :size="24" />
+					</div>
+
+					<p v-else-if="budgets.length === 0" class="tenant-ops__note">
+						{{ t('hermiq', 'No budgets configured yet for this organisation.') }}
+					</p>
+
+					<div v-else class="tenant-ops__cards">
+						<div
+							v-for="entry in budgets"
+							:key="entry.id"
+							class="tenant-ops__card tenant-ops__card--budget"
+							:class="{ 'tenant-ops__card--warn': entry.status && (entry.status.hardCapReached || entry.status.softThresholdReached) }">
+							<span class="tenant-ops__card-label">
+								{{ entry.scope === 'agent' ? t('hermiq', 'Agent budget') : t('hermiq', 'Organisation budget') }}
+								<span v-if="entry.scope === 'agent'" class="tenant-ops__card-sub">({{ entry.agentId }})</span>
+							</span>
+							<span class="tenant-ops__card-value">
+								{{ budgetUsageLabel(entry) }}
+							</span>
+							<span v-if="entry.status && entry.status.hardCapReached" class="tenant-ops__card-warn">
+								{{ t('hermiq', 'Hard cap reached — new runs are blocked') }}
+							</span>
+							<span v-else-if="entry.status && entry.status.softThresholdReached" class="tenant-ops__card-warn">
+								{{ t('hermiq', 'Soft threshold crossed') }}
+							</span>
+							<div class="tenant-ops__card-actions">
+								<NcButton type="tertiary" @click="openEditBudget(entry)">
+									{{ t('hermiq', 'Edit') }}
+								</NcButton>
+								<NcButton type="tertiary" @click="removeBudget(entry)">
+									{{ t('hermiq', 'Delete') }}
+								</NcButton>
+							</div>
+						</div>
+					</div>
+				</section>
+
 				<section class="tenant-ops__section">
 					<h3 class="tenant-ops__subhead">
 						{{ t('hermiq', 'EU AI Act audit export') }}
@@ -85,37 +148,86 @@
 				</section>
 			</template>
 		</template>
+
+		<BudgetFormModal
+			:show="showBudgetForm"
+			:organisation="selectedOrg"
+			:budget="editingBudget"
+			@close="showBudgetForm = false"
+			@saved="onBudgetSaved" />
 	</div>
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { loadState } from '@nextcloud/initial-state'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getAuditExport, getQuota } from '../api/tenantOps.js'
+import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
+import BudgetFormModal from '../modals/BudgetFormModal.vue'
 
 export default {
 	name: 'TenantOps',
 
 	components: {
+		BudgetFormModal,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
+		NcSelect,
 		ShieldIcon,
 	},
 
 	data() {
+		// Capability + manageable organisations come from the backend via
+		// IInitialState (loadState) — never a DOM data-attribute read (ADR-004).
+		const organisations = loadState('hermiq', 'managed_organisations', [])
 		return {
-			// Capability flag from the backend (org owner / instance admin), read via
-			// loadState — never a DOM data-attribute read (ADR-004).
 			canManage: loadState('hermiq', 'can_manage_killswitch', false) === true,
 			quota: {},
 			loading: true,
 			exporting: false,
 			lastExportCount: null,
 			error: '',
+			// Cost-guardrails (cost-guardrails): budgets are org-scoped, so admins who
+			// manage more than one organisation need an org picker (mirrors KillSwitchToggle).
+			organisations: Array.isArray(organisations) ? organisations : [],
+			selectedOrg: '',
+			budgets: [],
+			budgetsLoading: false,
+			budgetError: '',
+			showBudgetForm: false,
+			editingBudget: null,
 		}
+	},
+
+	computed: {
+		/**
+		 * The manageable organisations as NcSelect options.
+		 *
+		 * @return {Array<object>} The { label, value } options.
+		 */
+		orgOptions() {
+			return this.organisations.map((org) => ({
+				label: org.label || org.id,
+				value: org.id,
+			}))
+		},
+
+		/**
+		 * Two-way bridge between the selected org id and the NcSelect option object.
+		 */
+		orgOption: {
+			get() {
+				return this.orgOptions.find((option) => option.value === this.selectedOrg) || this.orgOptions[0]
+			},
+			set(option) {
+				this.selectedOrg = option ? option.value : ''
+				this.loadBudgets()
+			},
+		},
 	},
 
 	created() {
@@ -123,6 +235,10 @@ export default {
 			this.load()
 		} else {
 			this.loading = false
+		}
+		if (this.canManage && this.organisations.length > 0) {
+			this.selectedOrg = this.organisations[0].id
+			this.loadBudgets()
 		}
 	},
 
@@ -180,6 +296,106 @@ export default {
 			a.click()
 			document.body.removeChild(a)
 			URL.revokeObjectURL(url)
+		},
+
+		/**
+		 * Load the selected organisation's budgets plus each one's current-period
+		 * status (cost-guardrails).
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadBudgets() {
+			if (!this.selectedOrg) {
+				this.budgets = []
+				return
+			}
+			this.budgetsLoading = true
+			this.budgetError = ''
+			try {
+				const list = await listBudgets(this.selectedOrg)
+				const withStatus = await Promise.all(
+					list.map(async (entry) => {
+						try {
+							const status = await getBudgetStatus(this.selectedOrg, entry.agentId || '')
+							return { ...entry, status }
+						} catch (e) {
+							return { ...entry, status: null }
+						}
+					}),
+				)
+				this.budgets = withStatus
+			} catch (e) {
+				this.budgetError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.budgetsLoading = false
+			}
+		},
+
+		/**
+		 * Human label for a budget card's usage line: tokens used/limit/percent, or a
+		 * plain "configured" note when the status could not be resolved.
+		 *
+		 * @param {object} entry The budget + its status.
+		 * @return {string} The usage label.
+		 */
+		budgetUsageLabel(entry) {
+			const tokens = entry.status && entry.status.tokens
+			if (tokens && tokens.limit) {
+				return `${tokens.used} / ${tokens.limit} ${this.t('hermiq', 'tokens')} (${tokens.percent}%)`
+			}
+			if (entry.tokenLimit) {
+				return `${this.t('hermiq', 'Limit')}: ${entry.tokenLimit} ${this.t('hermiq', 'tokens')}`
+			}
+			if (entry.eurLimit) {
+				return `${this.t('hermiq', 'Limit')}: €${entry.eurLimit}`
+			}
+			return this.t('hermiq', 'No limit configured')
+		},
+
+		/**
+		 * Open the create-budget modal for the selected organisation.
+		 *
+		 * @return {void}
+		 */
+		openCreateBudget() {
+			this.editingBudget = null
+			this.showBudgetForm = true
+		},
+
+		/**
+		 * Open the edit-budget modal for an existing budget.
+		 *
+		 * @param {object} entry The budget to edit.
+		 * @return {void}
+		 */
+		openEditBudget(entry) {
+			this.editingBudget = entry
+			this.showBudgetForm = true
+		},
+
+		/**
+		 * Reload after a budget is created/edited.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async onBudgetSaved() {
+			await this.loadBudgets()
+		},
+
+		/**
+		 * Delete a budget and refresh the list.
+		 *
+		 * @param {object} entry The budget to delete.
+		 * @return {Promise<void>}
+		 */
+		async removeBudget(entry) {
+			try {
+				await deleteBudget(entry.id)
+				showSuccess(this.t('hermiq', 'Budget deleted.'))
+				await this.loadBudgets()
+			} catch (e) {
+				showError(this.t('hermiq', 'Could not delete the budget.'))
+			}
 		},
 	},
 }
@@ -259,5 +475,33 @@ export default {
 .tenant-ops__export-result {
 	margin-top: 8px;
 	color: var(--color-success);
+}
+
+.tenant-ops__section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 8px;
+}
+
+.tenant-ops__org-picker {
+	max-width: 320px;
+	margin-bottom: 12px;
+}
+
+.tenant-ops__card--budget {
+	flex: 1 1 240px;
+}
+
+.tenant-ops__card-sub {
+	font-weight: 400;
+	font-size: 12px;
+}
+
+.tenant-ops__card-actions {
+	display: flex;
+	gap: 8px;
+	margin-top: 4px;
 }
 </style>

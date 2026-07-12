@@ -274,6 +274,27 @@
           "engagedBy": { "type": "string", "title": "Engaged by", "description": "The user id who engaged/disengaged the kill-switch." }
         }
       },
+      "Budget": {
+        "slug": "budget",
+        "icon": "CashMultiple",
+        "version": "0.1.0",
+        "title": "Budget",
+        "description": "Per-organisation or per-agent spend guardrail (tokens and/or EUR per period): a soft threshold that warns without blocking, and a hard cap that blocks NEW runs for the budgeted scope at the same dispatch gate the kill-switch and human-approval gate use (never aborts a run already in progress). Current-period usage is computed on read from the existing run AuditTrail — never a stored counter.",
+        "type": "object",
+        "required": ["scope", "period"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "scope": { "type": "string", "enum": ["organisation", "agent"], "title": "Scope", "description": "Whether this budget applies to the whole organisation or to one agent." },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the budgeted agent. Required when scope=agent; empty for scope=organisation.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
+          "period": { "type": "string", "enum": ["daily", "weekly", "monthly"], "title": "Period", "description": "The recurring window current-period usage is windowed to." },
+          "tokenLimit": { "type": "integer", "minimum": 1, "title": "Token limit", "description": "Hard token cap per period. At least one of tokenLimit/eurLimit is required (service-level validation)." },
+          "eurLimit": { "type": "number", "minimum": 0, "title": "EUR limit", "description": "Hard EUR cap per period. Only usable when the instance-wide EUR-per-1k-tokens rate is configured." },
+          "softThresholdPercent": { "type": "integer", "default": 80, "minimum": 1, "maximum": 100, "title": "Soft threshold (%)", "description": "When current-period usage crosses this fraction of the limit, one warning notification fires per period." },
+          "enabled": { "type": "boolean", "default": true, "title": "Enabled", "description": "A disabled budget is not read by the dispatch gate (kept, not deleted, for audit continuity)." },
+          "warnedPeriodKey": { "type": "string", "title": "Warned period key", "description": "Derived: the period key the soft-threshold warning was last sent for; empty until the first warning in a period." },
+          "lastHardBlockAt": { "type": "string", "format": "date-time", "title": "Last hard block at", "description": "Derived: when a run was last blocked by this budget's hard cap, for admin visibility." }
+        }
+      },
       "Memory": {
         "slug": "memory",
         "icon": "BrainOutline",

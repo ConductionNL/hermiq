@@ -327,6 +327,75 @@ class DeliveryService
     }//end deliverApprovalRequestForFlowRun()
 
     /**
+     * Notify a budget's resolved recipient(s) that its soft threshold was crossed
+     * (cost-guardrails). Fires at most once per period — `BudgetService` gates the
+     * call so this method is only ever invoked when a warning is actually due. NEVER
+     * throws for a delivery problem: any failure is caught and reported through a
+     * DeliveryResult so the dispatch tick/run is never failed by a notification.
+     *
+     * @param ObjectEntity      $budget        The budget whose soft threshold was crossed.
+     * @param array<int,string> $recipientUids The resolved recipient user ids (the
+     *                                         organisation owner).
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    public function deliverBudgetWarning(ObjectEntity $budget, array $recipientUids): DeliveryResult
+    {
+        $budgetUuid = (string) $budget->getUuid();
+        $data       = $budget->getObject();
+        $scope      = (string) ($data['scope'] ?? 'organisation');
+        $label      = (string) ($budget->getOrganisation() ?? '');
+        if ($scope === 'agent') {
+            $label = (string) ($data['agentId'] ?? '');
+        }
+
+        $talkOk    = $this->isTalkAvailable();
+        $warnings  = [];
+        $delivered = false;
+
+        foreach ($recipientUids as $uid) {
+            $uid = (string) $uid;
+            if ($uid === '') {
+                continue;
+            }
+
+            try {
+                $notification = $this->notificationManager->createNotification();
+                $notification->setApp('hermiq')
+                    ->setUser($uid)
+                    ->setDateTime(new DateTime())
+                    ->setObject('budget', $budgetUuid)
+                    ->setSubject('budget_soft_threshold', ['scope' => $scope, 'label' => $label])
+                    ->setMessage('budget_soft_threshold_summary', ['budgetId' => $budgetUuid])
+                    ->setLink($this->buildBudgetLink(uuid: $budgetUuid));
+                $this->notificationManager->notify($notification);
+                $delivered = true;
+            } catch (Throwable $e) {
+                $warnings[] = sprintf("notify %s failed: %s", $uid, $e->getMessage());
+            }
+
+            // Best-effort Talk Note-to-self — a bonus channel, never required.
+            if ($talkOk === true) {
+                $this->tryPostToNoteToSelf(
+                    owner: $uid,
+                    output: sprintf('Budget "%s" crossed its soft threshold. Review it in Hermiq.', $label)
+                );
+            }
+        }//end foreach
+
+        $warning = null;
+        if ($warnings !== []) {
+            $warning = implode('; ', $warnings);
+        }
+
+        $this->logWarning(warning: $warning, uuid: $budgetUuid, channel: 'budget');
+        return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
+
+    }//end deliverBudgetWarning()
+
+    /**
      * Deliver via the Talk fallback chain: target room → Note-to-self → notification.
      *
      * Each fall-through accumulates a warning; the returned DeliveryResult carries the
@@ -680,6 +749,21 @@ class DeliveryService
         return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/approvals/'.$uuid);
 
     }//end buildApprovalLink()
+
+    /**
+     * Build an absolute deep link to the tenant-ops budgets surface for a notification.
+     *
+     * @param string $uuid The budget UUID.
+     *
+     * @return string The absolute URL.
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    private function buildBudgetLink(string $uuid): string
+    {
+        return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/tenant-ops?budget='.$uuid);
+
+    }//end buildBudgetLink()
 
     /**
      * Emit a PSR-3 warning for a degraded/failed delivery (no-op when clean).

@@ -30,6 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\FlowAgentRunService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
@@ -82,6 +83,13 @@ class FlowAgentRunServiceTest extends TestCase
     private ApprovalService $approvalService;
 
     /**
+     * Mock BudgetService (reused budget hard-cap gate + soft-threshold warning).
+     *
+     * @var BudgetService&MockObject
+     */
+    private BudgetService $budgetService;
+
+    /**
      * Mock AuditTrailMapper (captures explicit per-run entries).
      *
      * @var AuditTrailMapper&MockObject
@@ -115,6 +123,10 @@ class FlowAgentRunServiceTest extends TestCase
         $this->scheduleService = $this->createMock(ScheduleService::class);
         $this->approvalService = $this->createMock(ApprovalService::class);
 
+        // Budget gate is not exercised by the base dispatch tests: never blocked.
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->method('isBlocked')->willReturn(false);
+
         $this->auditCalls       = [];
         $this->auditTrailMapper = $this->createMock(AuditTrailMapper::class);
         $this->auditTrailMapper->method('createAuditTrailEntry')->willReturnCallback(
@@ -135,6 +147,7 @@ class FlowAgentRunServiceTest extends TestCase
             redactionService: new RedactionService($this->createMock(IConfig::class)),
             scheduleService: $this->scheduleService,
             approvalService: $this->approvalService,
+            budgetService: $this->budgetService,
         );
 
     }//end setUp()
@@ -353,6 +366,115 @@ class FlowAgentRunServiceTest extends TestCase
         $this->assertFalse($ran);
 
     }//end testKillSwitchOverridesApprovalBypass()
+
+    /**
+     * GATE 2 (cost-guardrails) — a budget-exhausted organisation/agent halts a
+     * flow-triggered run before the agent is ever invoked, and audits a
+     * skipped_budget entry — the identical hard-cap block a scheduled tick applies.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    public function testBudgetHardCapHaltsRunBeforeAgent(): void
+    {
+        $this->objectService->method('find')->willReturn($this->object([], 'org-x'));
+        $this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->method('isBlocked')->with('org-x', 'agent-uuid-1')->willReturn(true);
+        $this->scheduleService->expects($this->never())->method('runAgentAsOwner');
+        $this->service = new FlowAgentRunService(
+            objectService: $this->objectService,
+            agentMapper: $this->agentMapper,
+            logger: $this->createMock(LoggerInterface::class),
+            auditTrailMapper: $this->auditTrailMapper,
+            redactionService: new RedactionService($this->createMock(IConfig::class)),
+            scheduleService: $this->scheduleService,
+            approvalService: $this->approvalService,
+            budgetService: $this->budgetService,
+        );
+
+        $ran = $this->service->run($this->payload());
+
+        $this->assertFalse($ran);
+        $this->assertCount(1, $this->auditCalls);
+        $this->assertSame('skipped_budget', $this->auditCalls[0]['context']['status']);
+
+    }//end testBudgetHardCapHaltsRunBeforeAgent()
+
+    /**
+     * The budget gate halts a run even for an authorised approval-bypass — mirrors
+     * ScheduleService::dispatch()'s gate ordering (budget is unconditional, like the
+     * kill-switch).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    public function testBudgetHardCapOverridesApprovalBypass(): void
+    {
+        $this->objectService->method('find')->willReturn($this->object([], 'org-x'));
+        $this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->method('isBlocked')->willReturn(true);
+        $this->scheduleService->expects($this->never())->method('runAgentAsOwner');
+        $this->approvalService->expects($this->never())->method('ensurePendingApprovalForFlowRun');
+        $this->service = new FlowAgentRunService(
+            objectService: $this->objectService,
+            agentMapper: $this->agentMapper,
+            logger: $this->createMock(LoggerInterface::class),
+            auditTrailMapper: $this->auditTrailMapper,
+            redactionService: new RedactionService($this->createMock(IConfig::class)),
+            scheduleService: $this->scheduleService,
+            approvalService: $this->approvalService,
+            budgetService: $this->budgetService,
+        );
+
+        $ran = $this->service->run($this->payload(['requiresApproval' => true]), true);
+
+        $this->assertFalse($ran);
+        $this->assertSame('skipped_budget', $this->auditCalls[0]['context']['status']);
+
+    }//end testBudgetHardCapOverridesApprovalBypass()
+
+    /**
+     * The soft-threshold check runs unconditionally (never fatal) on every flow-run
+     * dispatch, with the resolved organisation/agent — a check failure must not block
+     * the run (fail-open, mirrors the kill-switch read contract).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    public function testBudgetSoftThresholdCheckFailureNeverBlocksRun(): void
+    {
+        $this->objectService->method('find')->willReturn($this->object([], 'org-x'));
+        $this->agentMapper->method('findByUuid')->willReturn($this->agent('dave'));
+        $this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+        $this->scheduleService->method('runAgentAsOwner')->willReturn('output');
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->expects($this->once())
+            ->method('checkAndDeliverWarnings')
+            ->with('org-x', 'agent-uuid-1')
+            ->willThrowException(new RuntimeException('delivery backend down'));
+        $this->budgetService->method('isBlocked')->willReturn(false);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+        $this->service = new FlowAgentRunService(
+            objectService: $this->objectService,
+            agentMapper: $this->agentMapper,
+            logger: $this->createMock(LoggerInterface::class),
+            auditTrailMapper: $this->auditTrailMapper,
+            redactionService: new RedactionService($this->createMock(IConfig::class)),
+            scheduleService: $this->scheduleService,
+            approvalService: $this->approvalService,
+            budgetService: $this->budgetService,
+        );
+
+        $ran = $this->service->run($this->payload());
+
+        $this->assertTrue($ran, 'A soft-threshold check failure must not block the run.');
+
+    }//end testBudgetSoftThresholdCheckFailureNeverBlocksRun()
 
     /**
      * A run failure (the agent turn throws) is recorded as an 'error' audit entry

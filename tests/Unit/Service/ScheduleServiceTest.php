@@ -30,6 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\Engine\Engine;
@@ -160,6 +161,13 @@ class ScheduleServiceTest extends TestCase
     private Engine $engine;
 
     /**
+     * Mock BudgetService (cost-guardrails hard-cap gate + soft-threshold warning).
+     *
+     * @var BudgetService&MockObject
+     */
+    private BudgetService $budgetService;
+
+    /**
      * Service under test.
      *
      * @var ScheduleService
@@ -246,6 +254,11 @@ class ScheduleServiceTest extends TestCase
         $this->appConfig->method('getValueString')->willReturn('false');
         $this->engine = $this->createMock(Engine::class);
 
+        // Budget gate is not exercised by the base dispatcher tests: never blocked,
+        // and the soft-threshold check is a no-op unless a test overrides it.
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->method('isBlocked')->willReturn(false);
+
         $this->service = $this->makeService();
 
     }//end setUp()
@@ -272,6 +285,7 @@ class ScheduleServiceTest extends TestCase
             approvalService: $this->approvalService,
             appConfig: $this->appConfig,
             engine: $this->engine,
+            budgetService: $this->budgetService,
         );
 
     }//end makeService()
@@ -1386,6 +1400,152 @@ class ScheduleServiceTest extends TestCase
         $this->assertSame('skipped_killswitch', $this->auditCalls[0]['context']['status']);
 
     }//end testKillSwitchOverridesApprovalBypass()
+
+    /**
+     * GATE 2 (cost-guardrails): a budget at its hard cap blocks a due schedule — the
+     * agent is NEVER invoked, the schedule records lastStatus='skipped_budget', and one
+     * audit entry captures the skip (mirrors testKillSwitchSkipsRun()).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    public function testBudgetHardCapSkipsRun(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->method('isBlocked')->willReturn(true);
+        $this->service = $this->makeService();
+
+        $budgeted = $this->schedule(
+            [
+                'kind'            => 'interval',
+                'intervalMinutes' => 60,
+                'agentId'         => 'agent-uuid',
+                'prompt'          => 'go',
+                'deliver'         => 'none',
+                'enabled'         => true,
+                'nextRun'         => '2000-01-01T00:00:00+00:00',
+                'repeat'          => ['times' => 0, 'completed' => 0],
+            ],
+            'budgeted-sched'
+        );
+        $budgeted->setOrganisation('org-x');
+
+        // call 1 = due schedules; call 2 = engaged kill-switches (none).
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$budgeted], []);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $this->assertNotEmpty($saved, 'A budget-exhausted schedule must still persist its skip state.');
+        $final = end($saved);
+        $this->assertSame('skipped_budget', $final['lastStatus'], 'A budget-exhausted run must record skipped_budget.');
+        $this->assertCount(1, $this->auditCalls, 'A budget-exhausted run must still be audited.');
+        $this->assertSame('skipped_budget', $this->auditCalls[0]['context']['status']);
+
+    }//end testBudgetHardCapSkipsRun()
+
+    /**
+     * The budget gate blocks even an authorised approval-run bypass — mirrors the
+     * kill-switch's absolute priority (see testKillSwitchOverridesApprovalBypass()):
+     * a budget-exhausted schedule never runs, no matter the approval state.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    public function testBudgetHardCapOverridesApprovalBypass(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->method('isBlocked')->willReturn(true);
+
+        // The budget gate must take priority: no pending Approval is ever created for
+        // a budget-exhausted occurrence, even though this schedule requiresApproval
+        // and the caller passed bypassApprovalGate=true.
+        $this->approvalService = $this->createMock(ApprovalService::class);
+        $this->approvalService->expects($this->never())->method('ensurePendingApproval');
+        $this->service = $this->makeService();
+
+        $gated = $this->schedule(
+            [
+                'kind'             => 'interval',
+                'intervalMinutes'  => 60,
+                'agentId'          => 'agent-uuid',
+                'prompt'           => 'authorised but budget-exhausted',
+                'deliver'          => 'none',
+                'enabled'          => true,
+                'requiresApproval' => true,
+                'nextRun'          => '2030-01-01T00:00:00+00:00',
+                'repeat'           => ['times' => 0, 'completed' => 0],
+            ],
+            'gated-sched'
+        );
+
+        // runNow loads engaged kill-switches (none) via findAll.
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow($gated, true);
+
+        $this->assertSame('skipped_budget', $this->auditCalls[0]['context']['status']);
+
+    }//end testBudgetHardCapOverridesApprovalBypass()
+
+    /**
+     * The soft-threshold check runs on every dispatch tick the schedule is due,
+     * independent of whether the hard cap is reached — DeliveryService's warning is a
+     * side effect of BudgetService::checkAndDeliverWarnings(), invoked with the
+     * schedule's own organisation/agentId.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    public function testBudgetSoftThresholdCheckRunsEveryDispatch(): void
+    {
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->method('isBlocked')->willReturn(false);
+        $this->budgetService->expects($this->once())
+            ->method('checkAndDeliverWarnings')
+            ->with('org-y', 'agent-uuid');
+        $this->service = $this->makeService();
+
+        $schedule = $this->schedule(
+            [
+                'kind'            => 'interval',
+                'intervalMinutes' => 60,
+                'agentId'         => 'agent-uuid',
+                'prompt'          => 'go',
+                'deliver'         => 'none',
+                'enabled'         => true,
+                'nextRun'         => '2000-01-01T00:00:00+00:00',
+                'repeat'          => ['times' => 0, 'completed' => 0],
+            ],
+            'sched-warn'
+        );
+        $schedule->setOrganisation('org-y');
+
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$schedule], []);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->run();
+
+        $this->assertSame('ok', $this->auditCalls[0]['context']['status'], 'Below the hard cap, the run must proceed normally.');
+
+    }//end testBudgetSoftThresholdCheckRunsEveryDispatch()
 
     /**
      * Flag OFF (default): the run goes through OpenRegister's ChatService exactly

@@ -9,7 +9,10 @@
  *
  *   - GATE 1 (kill-switch): the SAME TenantControl data source a scheduled tick
  *     reads, via `ScheduleService::isOrganisationEngaged()`.
- *   - GATE 2 (human approval, Art. 14): the SAME `ApprovalService`, generalised
+ *   - GATE 2 (budget hard cap, cost-guardrails): the SAME `BudgetService` gate a
+ *     scheduled tick applies — blocks a budget-exhausted organisation/agent
+ *     unconditionally; a soft-threshold crossing warns without blocking.
+ *   - GATE 3 (human approval, Art. 14): the SAME `ApprovalService`, generalised
  *     to a `sourceType: "flow"` Approval carrying this run's resume context.
  *   - The agent turn itself: `ScheduleService::runAgentAsOwner()` — the SAME
  *     method a scheduled run calls, including its feature-flagged dual path
@@ -80,6 +83,8 @@ class FlowAgentRunService
      *                                           the reused agent-turn dispatch (runAgentAsOwner) — the
      *                                           SAME ScheduleService/Engine path a scheduled run uses.
      * @param ApprovalService  $approvalService  Reused human-approval gate.
+     * @param BudgetService    $budgetService    Reused budget hard-cap gate + soft-threshold warning
+     *                                           (cost-guardrails) — the SAME gate a scheduled run applies.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -92,6 +97,7 @@ class FlowAgentRunService
         private readonly RedactionService $redactionService,
         private readonly ScheduleService $scheduleService,
         private readonly ApprovalService $approvalService,
+        private readonly BudgetService $budgetService,
     ) {
     }//end __construct()
 
@@ -129,8 +135,8 @@ class FlowAgentRunService
     }//end run()
 
     /**
-     * Resolve the triggering object and apply GATE 1 (kill-switch) and GATE 2
-     * (human approval) before ever invoking the agent.
+     * Resolve the triggering object and apply GATE 1 (kill-switch), GATE 2 (budget
+     * hard cap) and GATE 3 (human approval) before ever invoking the agent.
      *
      * @param array<string,mixed> $payload            The event payload.
      * @param bool                $bypassApprovalGate Skip the requiresApproval gate (approval-run).
@@ -166,6 +172,7 @@ class FlowAgentRunService
         }
 
         $organisation = (string) ($object->getOrganisation() ?? '');
+        $agentId      = (string) ($payload['agent'] ?? '');
 
         // GATE 1 — KILL-SWITCH (same TenantControl data source ScheduleService reads).
         if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
@@ -173,7 +180,24 @@ class FlowAgentRunService
             return false;
         }
 
-        // GATE 2 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not
+        // GATE 2 — BUDGET HARD CAP (cost-guardrails). Mirrors ScheduleService::dispatch()'s
+        // identical gate: the soft-threshold check is unconditional (never fatal), and the
+        // hard-cap block applies even to an authorised approval-bypass occurrence.
+        try {
+            $this->budgetService->checkAndDeliverWarnings(organisation: $organisation, agentId: $agentId);
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Hermiq flow-agent budget soft-threshold check failed: '.$e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+        if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
+            $this->writeRunAudit(object: $object, status: 'skipped_budget', summary: '', payload: $payload);
+            return false;
+        }
+
+        // GATE 3 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not
         // run: ensure a single pending Approval (idempotent) and mark awaiting_approval.
         $requiresApproval = (bool) ($payload['requiresApproval'] ?? false);
         if ($bypassApprovalGate === false && $requiresApproval === true) {
@@ -368,7 +392,7 @@ class FlowAgentRunService
      * redaction-before-persist contract. Non-fatal by design.
      *
      * @param ObjectEntity           $object    The triggering object.
-     * @param string                 $status    The run outcome (ok|error|skipped_killswitch|awaiting_approval).
+     * @param string                 $status    The run outcome (ok|error|skipped_killswitch|skipped_budget|awaiting_approval).
      * @param string                 $summary   The raw run output/error (redacted here).
      * @param array<string,mixed>    $payload   The event payload (for agentId/flowName diagnostics).
      * @param DateTimeImmutable|null $startedAt When the agent turn began, if it ran (UTC).
