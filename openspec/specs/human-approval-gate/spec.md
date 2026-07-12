@@ -8,6 +8,7 @@
 - `openspec/changes/human-approval-gate-schema/` — Approval + TenantControl schemas + Schedule.requiresApproval/reviewer/reviewerType (kind: config) — **done**
 - `openspec/changes/human-approval-gate-enforcement/` — dispatcher gate + kill-switch + approve/deny/kill-switch endpoints (kind: code) — **done, live-verified**
 - `openspec/changes/human-approval-gate-ui/` — approval inbox + kill-switch toggle + reviewer picker (kind: code) — **done, Playwright-verified** (kill-switch keys on the OpenRegister organisation UUID, not an NC group)
+- `openspec/changes/agent-tool-governance-and-disclosure/` — routes an un-granted destructive-hinted tool invocation through the approval gate (ADR-063 consumer side; kind: code) — **proposed**
 
 ## Purpose
 
