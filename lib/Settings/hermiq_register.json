@@ -253,18 +253,19 @@
       "Approval": {
         "slug": "approval",
         "icon": "CheckDecagramOutline",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "title": "Approval",
-        "description": "A human-oversight approval request for a gated agent run (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates either a scheduled run (sourceType=schedule, the original shape) or a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent).",
+        "description": "A human-oversight approval request for a gated agent run (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), or a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook).",
         "type": "object",
         "required": ["status", "agentId", "requestedAt"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
           "status": { "type": "string", "enum": ["pending", "approved", "denied"], "title": "Status", "description": "The approval state machine." },
-          "sourceType": { "type": "string", "enum": ["schedule", "flow"], "default": "schedule", "title": "Source type", "description": "What the gated run resumes into on approval: a Hermiq Schedule (default, back-compatible) or a flow-triggered agent run." },
+          "sourceType": { "type": "string", "enum": ["schedule", "flow", "webhook"], "default": "schedule", "title": "Source type", "description": "What the gated run resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, or a webhook-triggered agent run." },
           "scheduleId": { "type": "string", "format": "uuid", "title": "Schedule", "description": "UUID of the Schedule whose run is gated. Present only when sourceType=schedule.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Schedule", "x-relation-filter": { "agentId": "@object.agentId" } },
-          "correlationId": { "type": "string", "title": "Correlation ID", "description": "Idempotency key for a flow-triggered approval — the dispatch's correlationId (OpenRegister AgentRunRequestedEvent). Present only when sourceType=flow; scheduleId serves this role for sourceType=schedule." },
+          "correlationId": { "type": "string", "title": "Correlation ID", "description": "Idempotency key for a flow-triggered or webhook-triggered approval — the dispatch's correlationId. Present only when sourceType=flow or sourceType=webhook; scheduleId serves this role for sourceType=schedule." },
           "flowContext": { "type": "object", "title": "Flow context", "description": "The flow-triggered run's resume context (subjectUuid/subjectRegister/subjectSchema/resultField/skill/mode/flowName/correlationId). Present only when sourceType=flow." },
+          "webhookContext": { "type": "object", "title": "Webhook context", "description": "The webhook-triggered run's resume context (agentId/payload/correlationId/requiresApproval/reviewer/reviewerType). The payload is redacted before it is stored here (redaction-before-persist). Present only when sourceType=webhook." },
           "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent the gated run would invoke.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "prompt": { "type": "string", "title": "Prompt", "description": "The prompt the gated run would send to the agent." },
           "requestedAt": { "type": "string", "format": "date-time", "title": "Requested at", "description": "When the approval was requested (the dispatcher gated the run)." },
@@ -273,6 +274,28 @@
           "decidedAt": { "type": "string", "format": "date-time", "title": "Decided at", "description": "Derived: when the decision was made — written by the decision endpoint." },
           "decidedBy": { "type": "string", "title": "Decided by", "description": "Derived: the user id who approved or denied — written by the decision endpoint." },
           "reason": { "type": "string", "title": "Reason", "description": "Optional decision reason (typically supplied on denial)." }
+        }
+      },
+      "AgentWebhook": {
+        "slug": "agentwebhook",
+        "icon": "Webhook",
+        "version": "1.0.0",
+        "title": "Agent webhook",
+        "description": "A per-agent, secret-authenticated inbound webhook (agent-webhook-trigger) that lets an external system (n8n, a CI pipeline, a third-party SaaS event) trigger a governed agent run without a Nextcloud session. Stores only a SHA-256 hash of the shared secret — never the plaintext at rest — plus the optional human-approval gate fields (mirroring Schedule's requiresApproval/reviewer/reviewerType). One AgentWebhook per agent.",
+        "type": "object",
+        "required": ["agentId", "secretHash", "secretPrefix", "enabled", "createdAt"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent this webhook triggers. One AgentWebhook per agent.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
+          "secretHash": { "type": "string", "title": "Secret hash", "description": "Derived: hash('sha256', secret) — the plaintext secret is never persisted. Verified via hash_equals() at trigger time." },
+          "secretPrefix": { "type": "string", "title": "Secret prefix", "description": "Derived: the first 8 characters of the plaintext secret (e.g. \"hwh_ab12\"), for admin identification only — not sensitive on its own." },
+          "enabled": { "type": "boolean", "default": true, "title": "Enabled", "description": "false after revoke; the trigger endpoint rejects every request for a disabled webhook." },
+          "requiresApproval": { "type": "boolean", "default": false, "title": "Requires approval", "description": "When true, a valid trigger does not run the agent automatically — a pending Approval (sourceType=webhook) is created and the reviewer notified; the run proceeds only after approval (EU AI Act Art. 14 human oversight)." },
+          "reviewer": { "type": "string", "title": "Reviewer", "description": "Who must approve a gated run — a Nextcloud user id or group id (see reviewerType). If empty, the agent owner is the reviewer." },
+          "reviewerType": { "type": "string", "enum": ["user", "group"], "default": "user", "title": "Reviewer type", "description": "Whether reviewer is a Nextcloud user id or a group id." },
+          "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the webhook secret was first created." },
+          "rotatedAt": { "type": "string", "format": "date-time", "title": "Rotated at", "description": "Derived: when the secret was last rotated — null until the first rotation." },
+          "lastUsedAt": { "type": "string", "format": "date-time", "title": "Last used at", "description": "Derived: when the trigger endpoint last accepted a valid, enabled request for this webhook — best-effort, non-fatal." }
         }
       },
       "AiFeature": {

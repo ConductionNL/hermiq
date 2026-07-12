@@ -55,6 +55,47 @@ return [
         // Run now — owner-scoped immediate run of a schedule's agent (agent-management-ui).
         ['name' => 'runNow#run', 'url' => '/api/schedules/{scheduleId}/run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
+        // Agent webhook trigger (agent-webhook-trigger): owner-guarded secret lifecycle
+        // CRUD, plus the public, secret-authenticated trigger endpoint. 'webhook-secret'
+        // routes are registered before the bare '/webhook' trigger route so they never
+        // collide (distinct literal path segments, no ambiguity either way).
+        [
+            'name'         => 'agentWebhook#create',
+            'url'          => '/api/agents/{id}/webhook-secret',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentWebhook#rotate',
+            'url'          => '/api/agents/{id}/webhook-secret/rotate',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentWebhook#revoke',
+            'url'          => '/api/agents/{id}/webhook-secret/revoke',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentWebhook#patch',
+            'url'          => '/api/agents/{id}/webhook-secret',
+            'verb'         => 'PATCH',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentWebhook#show',
+            'url'          => '/api/agents/{id}/webhook-secret',
+            'verb'         => 'GET',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'webhookTrigger#trigger',
+            'url'          => '/api/agents/{id}/webhook',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
         ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
