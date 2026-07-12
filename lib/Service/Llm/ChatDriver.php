@@ -43,18 +43,24 @@ final class ChatDriver
     /**
      * Constructor.
      *
-     * @param string                     $provider One of LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS.
-     * @param OpenAIChat|OllamaChat|null $chat     Ready-to-use LLPhant chat instance for
-     *                                             openai/ollama; null for fireworks/nextcloud.
-     * @param string                     $model    The resolved model identifier.
-     * @param string|null                $apiKey   Fireworks API key (fireworks only).
-     * @param string|null                $baseUrl  Fireworks base URL (fireworks only).
+     * @param string                     $provider     One of LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS.
+     * @param OpenAIChat|OllamaChat|null $chat         Ready-to-use LLPhant chat instance for
+     *                                                 openai/ollama; null for fireworks/nextcloud.
+     * @param string                     $model        The resolved model identifier.
+     * @param string|null                $credentialId Broker credential UUID (fireworks only).
+     *                                                 NOT a key: this used to carry the raw
+     *                                                 Fireworks API key, which meant every
+     *                                                 handler that touched a ChatDriver was
+     *                                                 holding a live secret. The secret now
+     *                                                 lives in the vault and the broker
+     *                                                 injects it; this is only a reference.
+     * @param string|null                $baseUrl      Fireworks base URL (fireworks only).
      */
     public function __construct(
         public readonly string $provider,
         public readonly OpenAIChat|OllamaChat|null $chat,
         public readonly string $model,
-        public readonly ?string $apiKey=null,
+        public readonly ?string $credentialId=null,
         public readonly ?string $baseUrl=null,
     ) {
     }//end __construct()

@@ -141,8 +141,15 @@ class LlmSettingsHandler
                 'enabled'           => $llmData['enabled'] ?? $existingConfig['enabled'] ?? false,
                 'embeddingProvider' => $llmData['embeddingProvider'] ?? $existingConfig['embeddingProvider'] ?? null,
                 'chatProvider'      => $llmData['chatProvider'] ?? $existingConfig['chatProvider'] ?? null,
+                // `apiKey` is GONE. It used to sit in CLEARTEXT inside this JSON blob in
+                // oc_appconfig — readable by anything that could read the database, and
+                // printed verbatim by `occ config:app:get hermiq llm`. What lives here now
+                // is `credentialId`: a broker credential UUID whose secret is in the vault
+                // and is injected server-side. It is a reference, not a secret, so it is
+                // stored and returned in the clear. `RemoveLegacyLlmKeys` deletes the keys
+                // stored before this release.
                 'openaiConfig'      => [
-                    'apiKey'         => $newOai['apiKey'] ?? $exOai['apiKey'] ?? '',
+                    'credentialId'   => $newOai['credentialId'] ?? $exOai['credentialId'] ?? '',
                     'model'          => $newOai['model'] ?? $exOai['model'] ?? null,
                     'chatModel'      => $newOai['chatModel'] ?? $exOai['chatModel'] ?? null,
                     'organizationId' => $newOai['organizationId'] ?? $exOai['organizationId'] ?? '',
@@ -153,7 +160,7 @@ class LlmSettingsHandler
                     'chatModel' => $newOll['chatModel'] ?? $exOll['chatModel'] ?? null,
                 ],
                 'fireworksConfig'   => [
-                    'apiKey'         => $newFw['apiKey'] ?? $exFw['apiKey'] ?? '',
+                    'credentialId'   => $newFw['credentialId'] ?? $exFw['credentialId'] ?? '',
                     'embeddingModel' => $newFw['embeddingModel'] ?? $exFw['embeddingModel'] ?? null,
                     'chatModel'      => $newFw['chatModel'] ?? $exFw['chatModel'] ?? null,
                     'baseUrl'        => $newFw['baseUrl'] ?? $exFw['baseUrl'] ?? 'https://api.fireworks.ai/inference/v1',
@@ -183,7 +190,7 @@ class LlmSettingsHandler
             'embeddingProvider' => null,
             'chatProvider'      => null,
             'openaiConfig'      => [
-                'apiKey'         => '',
+                'credentialId'   => '',
                 'model'          => null,
                 'chatModel'      => null,
                 'organizationId' => '',
@@ -194,7 +201,7 @@ class LlmSettingsHandler
                 'chatModel' => null,
             ],
             'fireworksConfig'   => [
-                'apiKey'         => '',
+                'credentialId'   => '',
                 'embeddingModel' => null,
                 'chatModel'      => null,
                 'baseUrl'        => 'https://api.fireworks.ai/inference/v1',

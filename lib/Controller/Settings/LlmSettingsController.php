@@ -152,46 +152,60 @@ class LlmSettingsController extends Controller
     }//end update()
 
     /**
-     * Replace stored secrets with boolean `*Set` flags so the raw values never
-     * reach the browser.
+     * Strip any secret from the config before it reaches the browser.
+     *
+     * There is no longer a stored key to mask: `credentialId` is a broker credential UUID,
+     * and the secret behind it lives in the vault. It is therefore returned in the clear —
+     * the settings UI needs it back to show which credential is selected.
+     *
+     * The `*Set` booleans are kept (now derived from the credential) so an older frontend
+     * that still reads them keeps working, and a stray `apiKey` from a legacy config blob
+     * is stripped defensively so it can never be echoed back.
      *
      * @param array $config The full `hermiq.llm` config.
      *
-     * @return array The same config with `openaiConfig.apiKey` / `fireworksConfig.apiKey`
-     *               removed and `openaiApiKeySet` / `fireworksApiKeySet` booleans added.
+     * @return array The config with any legacy `apiKey` removed.
      */
     private function maskCredentials(array $config): array
     {
-        $oaiKey = $config['openaiConfig']['apiKey'] ?? '';
-        $fwKey  = $config['fireworksConfig']['apiKey'] ?? '';
+        $oaiCredential = $config['openaiConfig']['credentialId'] ?? '';
+        $fwCredential  = $config['fireworksConfig']['credentialId'] ?? '';
 
-        $config['openaiApiKeySet']    = ($oaiKey !== '');
-        $config['fireworksApiKeySet'] = ($fwKey !== '');
+        $config['openaiApiKeySet']    = ($oaiCredential !== '');
+        $config['fireworksApiKeySet'] = ($fwCredential !== '');
 
-        if (isset($config['openaiConfig']['apiKey']) === true) {
-            unset($config['openaiConfig']['apiKey']);
-        }
-
-        if (isset($config['fireworksConfig']['apiKey']) === true) {
-            unset($config['fireworksConfig']['apiKey']);
-        }
+        // Defensive: a config blob written before this release still carries a cleartext
+        // apiKey until the repair step runs. It must never be echoed to the browser.
+        unset($config['openaiConfig']['apiKey'], $config['fireworksConfig']['apiKey']);
 
         return $config;
 
     }//end maskCredentials()
 
     /**
-     * Remove empty-string credential fields from the patch so submitting an
-     * unedited masked field never clears a previously-stored key.
+     * Drop fields from the patch that must not be written.
+     *
+     * A blank `credentialId` is dropped so submitting an unedited form never clears the
+     * selected credential. A submitted `apiKey` is dropped outright — Hermiq does not hold
+     * LLM keys any more, and a client that still sends one must not have it persisted.
      *
      * @param array $data The incoming patch.
      *
-     * @return array The patch with blank credential fields removed.
+     * @return array The sanitised patch.
      */
     private function dropBlankCredentials(array $data): array
     {
         foreach (['openaiConfig', 'fireworksConfig'] as $block) {
-            if (isset($data[$block]['apiKey']) === true && $data[$block]['apiKey'] === '') {
+            if (isset($data[$block]['credentialId']) === true && $data[$block]['credentialId'] === '') {
+                unset($data[$block]['credentialId']);
+            }
+
+            if (isset($data[$block]['apiKey']) === true) {
+                $this->logger->warning(
+                    '[Hermiq] A retired LLM apiKey was submitted and ignored. '
+                    .'LLM keys live in the credential broker now; set `credentialId` instead.',
+                    ['block' => $block]
+                );
                 unset($data[$block]['apiKey']);
             }
         }

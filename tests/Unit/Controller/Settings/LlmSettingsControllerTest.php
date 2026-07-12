@@ -49,9 +49,11 @@ class LlmSettingsControllerTest extends TestCase
         return [
             'enabled'         => true,
             'chatProvider'    => 'openai',
-            'openaiConfig'    => ['apiKey' => 'sk-secret', 'chatModel' => 'gpt-4o-mini'],
+            // `credentialId` is a broker credential UUID — a reference, not a secret. It
+            // replaces the `apiKey` that used to sit here in CLEARTEXT.
+            'openaiConfig'    => ['credentialId' => 'cred-uuid-openai', 'chatModel' => 'gpt-4o-mini'],
             'ollamaConfig'    => ['url' => 'http://localhost:11434', 'chatModel' => null],
-            'fireworksConfig' => ['apiKey' => '', 'chatModel' => null, 'baseUrl' => 'https://api.fireworks.ai/inference/v1'],
+            'fireworksConfig' => ['credentialId' => '', 'chatModel' => null, 'baseUrl' => 'https://api.fireworks.ai/inference/v1'],
         ];
     }//end storedConfig()
 
@@ -69,7 +71,8 @@ class LlmSettingsControllerTest extends TestCase
     }//end controller()
 
     /**
-     * get() masks the stored OpenAI key to a boolean flag and never echoes it.
+     * get() returns the credential REFERENCE (which is not a secret) and derives the
+     * `*Set` flags from it.
      *
      * @return void
      *
@@ -88,9 +91,45 @@ class LlmSettingsControllerTest extends TestCase
         $this->assertFalse($data['fireworksApiKeySet']);
         $this->assertArrayNotHasKey('apiKey', $data['openaiConfig']);
         $this->assertSame('openai', $data['chatProvider']);
-        // The raw secret must not appear anywhere in the serialised response.
-        $this->assertStringNotContainsString('sk-secret', json_encode($data));
+
+        // The UUID IS returned — the settings UI needs it to show which credential is
+        // selected, and it is safe to return because the secret behind it never leaves
+        // the vault.
+        $this->assertSame('cred-uuid-openai', $data['openaiConfig']['credentialId']);
     }//end testGetMasksCredentials()
+
+    /**
+     * A config blob written BEFORE this release still carries a cleartext `apiKey` until
+     * the repair step runs. It must never be echoed to the browser.
+     *
+     * This is the defensive half of the migration: the keys used to sit unencrypted in the
+     * `hermiq.llm` JSON blob, so on any instance that upgrades before repairing, `get()`
+     * is the one place that could hand them straight back out.
+     *
+     * @return void
+     */
+    public function testGetStripsALegacyCleartextApiKey(): void
+    {
+        $legacy = [
+            'enabled'         => true,
+            'chatProvider'    => 'openai',
+            'openaiConfig'    => ['apiKey' => 'sk-LEGACY-CLEARTEXT', 'chatModel' => 'gpt-4o-mini'],
+            'fireworksConfig' => ['apiKey' => 'fw-LEGACY-CLEARTEXT'],
+        ];
+
+        $handler = $this->createMock(LlmSettingsHandler::class);
+        $handler->method('getLLMSettingsOnly')->willReturn($legacy);
+
+        $response = $this->controller($this->createMock(IRequest::class), $handler)->get();
+        $data     = $response->getData();
+
+        $this->assertArrayNotHasKey('apiKey', $data['openaiConfig']);
+        $this->assertArrayNotHasKey('apiKey', $data['fireworksConfig']);
+
+        $serialised = json_encode($data);
+        $this->assertStringNotContainsString('sk-LEGACY-CLEARTEXT', (string) $serialised);
+        $this->assertStringNotContainsString('fw-LEGACY-CLEARTEXT', (string) $serialised);
+    }//end testGetStripsALegacyCleartextApiKey()
 
     /**
      * update() rejects a provider outside the allowed set with 422.

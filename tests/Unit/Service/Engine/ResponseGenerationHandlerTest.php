@@ -100,12 +100,12 @@ class ResponseGenerationHandlerTest extends TestCase
                     provider: 'fireworks',
                     chat: null,
                     model: 'llama-custom',
-                    apiKey: 'fw-key',
+                    credentialId: 'cred-uuid-fireworks',
                     baseUrl: 'https://api.fireworks.ai/inference/v1'
                 )
             );
         $factory->method('callFireworksChat')->willReturnCallback(
-            function (string $apiKey, string $model, string $baseUrl, array $messageHistory) use (&$capturedHistory): string {
+            function (string $credentialId, string $model, string $baseUrl, array $messageHistory) use (&$capturedHistory): string {
                 $capturedHistory = $messageHistory;
                 return 'The answer.';
             }
@@ -225,7 +225,7 @@ class ResponseGenerationHandlerTest extends TestCase
                 provider: 'fireworks',
                 chat: null,
                 model: 'm',
-                apiKey: 'k',
+                credentialId: 'cred-uuid-fireworks',
                 baseUrl: 'https://api.fireworks.ai/inference/v1'
             )
         );

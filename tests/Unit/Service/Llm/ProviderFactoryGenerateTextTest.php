@@ -26,6 +26,8 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCP\IUser;
+use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use PHPUnit\Framework\TestCase;
@@ -54,7 +56,13 @@ class ProviderFactoryGenerateTextTest extends TestCase
         $manager = $this->createMock(IManager::class);
         $manager->method('hasProviders')->willReturn($hasProviders);
 
-        return [new ProviderFactory($settings, $manager, new NullLogger()), $manager];
+        // The broker's ownership guard needs an identity to check the credential against.
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn('alice');
+        $userSession = $this->createMock(IUserSession::class);
+        $userSession->method('getUser')->willReturn($user);
+
+        return [new ProviderFactory($settings, $manager, $userSession, new NullLogger()), $manager];
     }//end factory()
 
     /**
