@@ -59,7 +59,7 @@ class ConversationManagementHandlerTest extends TestCase
                 provider: 'fireworks',
                 chat: null,
                 model: 'test-model',
-                apiKey: 'fw-key',
+                credentialId: 'cred-uuid-fireworks',
                 baseUrl: 'https://api.fireworks.ai/inference/v1'
             )
         );

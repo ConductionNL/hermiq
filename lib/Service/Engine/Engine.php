@@ -415,8 +415,12 @@ class Engine
             return;
         }
 
-        $title   = $this->conversationHandler->generateConversationTitle(firstMessage: $userMessage);
-        $agentId = $conversationData['agentId'] ?? null;
+        // tenant-model-policy: the conversation already carries its organisation
+        // (ObjectEntity metadata) — no new lookup needed to enforce the effective
+        // policy on this background title-generation call too.
+        $organisation = (string) ($conversation->getOrganisation() ?? '');
+        $title        = $this->conversationHandler->generateConversationTitle(firstMessage: $userMessage, organisation: $organisation);
+        $agentId      = $conversationData['agentId'] ?? null;
         if (is_string($agentId) === true && $agentId !== '') {
             $title = $this->conversationHandler->ensureUniqueTitle(
                 baseTitle: $title,

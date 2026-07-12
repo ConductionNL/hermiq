@@ -56,15 +56,20 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Llm;
 
 use Exception;
+use GuzzleHttp\Psr7\Request;
 use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
+use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
+use OpenAI;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * Resolves the configured chat provider into a ready-to-use driver.
@@ -84,19 +89,37 @@ class ProviderFactory
      * @param IManager           $taskManager     Nextcloud Assistant task manager
      *                                            (the `nextcloud` driver's
      *                                            backend).
+     * @param IUserSession       $userSession     Current session — the broker's
+     *                                            ownership guard needs an identity
+     *                                            to check the credential against.
      * @param LoggerInterface    $logger          Logger.
      * @param string             $appName         App id used when scheduling
      *                                            TaskProcessing tasks.
+     * @param TenantModelPolicyService|null $modelPolicyService Resolves the calling
+     *                                            organisation's effective ModelPolicy
+     *                                            (tenant-model-policy). Nullable —
+     *                                            defaulted so every existing call site
+     *                                            (all constructed before this change)
+     *                                            keeps working unchanged; NC's DI
+     *                                            container autowires a real instance in
+     *                                            production regardless of the default.
+     *                                            When `$organisation` is not passed to
+     *                                            `createChatDriver()`, no enforcement
+     *                                            call is made at all (opt-in threading,
+     *                                            see design.md).
      *
      * @return void
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
      */
     public function __construct(
         private readonly LlmSettingsHandler $settingsHandler,
         private readonly IManager $taskManager,
+        private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
-        private readonly string $appName='hermiq'
+        private readonly string $appName='hermiq',
+        private readonly ?TenantModelPolicyService $modelPolicyService=null
     ) {
     }//end __construct()
 
@@ -120,20 +143,36 @@ class ProviderFactory
      *                                      (LlmSettingsHandler::getLLMSettingsOnly()).
      * @param string|null $agentModel       Agent-level model override, when set and non-empty.
      * @param float|null  $agentTemperature Agent-level temperature override.
+     * @param string|null $organisation     The calling agent's organisation
+     *                                      (tenant-model-policy). When non-null (including
+     *                                      `''` for an organisation-less agent/instance
+     *                                      scope), the resolved (provider, model) pair is
+     *                                      checked against the effective ModelPolicy for
+     *                                      that organisation BEFORE the driver is returned
+     *                                      — this is the single enforcement chokepoint every
+     *                                      trigger path (schedule, Run now, conversation,
+     *                                      flow listener) shares. When null, no check is made
+     *                                      (opt-in; existing callers that do not pass an
+     *                                      organisation see zero behavior change).
      *
      * @return ChatDriver The resolved driver.
      *
      * @throws ProviderUnavailableException When no provider is configured, the selected
      *                                      provider is missing required credentials, or
      *                                      the provider identifier is not recognised.
+     * @throws ModelPolicyViolationException When `$organisation` is given and the resolved
+     *                                      (provider, model) pair falls outside its
+     *                                      effective ModelPolicy.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
      */
     public function createChatDriver(
         array $llmConfig,
         ?string $agentModel=null,
-        ?float $agentTemperature=null
+        ?float $agentTemperature=null,
+        ?string $organisation=null
     ): ChatDriver {
         $chatProvider = $llmConfig['chatProvider'] ?? null;
 
@@ -145,35 +184,84 @@ class ProviderFactory
         }
 
         if ($chatProvider === 'ollama') {
-            return $this->createOllamaDriver(
+            $driver = $this->createOllamaDriver(
                 ollamaConfig: $llmConfig['ollamaConfig'] ?? [],
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature
             );
-        }
-
-        if ($chatProvider === 'openai') {
-            return $this->createOpenAiDriver(
+        } elseif ($chatProvider === 'openai') {
+            $driver = $this->createOpenAiDriver(
                 openaiConfig: $llmConfig['openaiConfig'] ?? [],
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature
             );
-        }
-
-        if ($chatProvider === 'fireworks') {
-            return $this->createFireworksDriver(
+        } elseif ($chatProvider === 'fireworks') {
+            $driver = $this->createFireworksDriver(
                 fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
                 agentModel: $agentModel
             );
+        } elseif ($chatProvider === 'nextcloud') {
+            $driver = $this->createNextcloudDriver();
+        } else {
+            throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}");
         }
 
-        if ($chatProvider === 'nextcloud') {
-            return $this->createNextcloudDriver();
-        }
+        // tenant-model-policy: the single enforcement chokepoint. Runs AFTER the
+        // agent override is applied (createOllamaDriver()/createOpenAiDriver()/
+        // createFireworksDriver() already resolved agentModel ?? providerConfig
+        // into $driver->model) so a policy cannot be bypassed by leaving the
+        // per-agent model field blank — see design.md "Decisions". Runs BEFORE
+        // any network call: driver construction above only builds client value
+        // objects, it never sends a request.
+        $this->enforceModelPolicy(organisation: $organisation, provider: $driver->provider, model: $driver->model);
 
-        throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}");
+        return $driver;
 
     }//end createChatDriver()
+
+    /**
+     * Check a resolved (provider, model) pair against the calling organisation's
+     * effective ModelPolicy; throw when out of policy. A no-op when either
+     * `$organisation` is null (caller opted out of enforcement, e.g. a purely
+     * instance-wide background call) or no policy service was injected
+     * (backward-compatible default for pre-existing call sites/tests).
+     *
+     * @param string|null $organisation The calling organisation, or null to skip the check.
+     * @param string      $provider     The resolved provider.
+     * @param string      $model        The resolved model id.
+     *
+     * @return void
+     *
+     * @throws ModelPolicyViolationException When the pair is outside the effective policy.
+     *
+     * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+     */
+    private function enforceModelPolicy(?string $organisation, string $provider, string $model): void
+    {
+        if ($organisation === null || $this->modelPolicyService === null) {
+            return;
+        }
+
+        if ($this->modelPolicyService->isAllowed(organisation: $organisation, provider: $provider, model: $model) === true) {
+            return;
+        }
+
+        $orgLabel = $organisation;
+        if ($orgLabel === '') {
+            $orgLabel = '(instance-wide)';
+        }
+
+        throw new ModelPolicyViolationException(
+            sprintf(
+                "Model policy violation: organisation '%s' does not permit provider '%s' model '%s'.",
+                $orgLabel,
+                $provider,
+                $model
+            ),
+            422
+        );
+
+    }//end enforceModelPolicy()
 
     /**
      * Call Fireworks AI's chat completions endpoint directly with full message history.
@@ -184,7 +272,8 @@ class ProviderFactory
      * supported for Fireworks; `$functions` is accepted only so the Engine's call site
      * does not need a provider-specific branch, and is logged + ignored when non-empty.
      *
-     * @param string $apiKey         Fireworks API key.
+     * @param string $credentialId   Broker credential UUID — NOT a key. Hermiq has no
+     *                               Fireworks key; the broker holds it and injects it.
      * @param string $model          Model identifier.
      * @param string $baseUrl        Base API URL.
      * @param array  $messageHistory Array of LLPhant Message objects.
@@ -202,7 +291,7 @@ class ProviderFactory
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      */
     public function callFireworksChat(
-        string $apiKey,
+        string $credentialId,
         string $model,
         string $baseUrl,
         array $messageHistory,
@@ -234,28 +323,30 @@ class ProviderFactory
             'messages' => $messages,
         ];
 
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt(
-            $ch,
-            CURLOPT_HTTPHEADER,
-            [
-                'Authorization: Bearer '.$apiKey,
-                'Content-Type: application/json',
-            ]
+        // Through the broker, not straight out. Hermiq has no Fireworks key to send: the
+        // broker holds it, checks the allow-rules, and injects the Authorization header
+        // server-side.
+        $client = new BrokerHttpClient(
+            credentialId: $credentialId,
+            logger: $this->logger,
+            actingUserId: $this->currentUid()
         );
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
 
-        $response  = curl_exec($ch);
-        $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        curl_close($ch);
-
-        if ($curlError !== '') {
-            throw new Exception("Fireworks API request failed: {$curlError}");
+        try {
+            $psrResponse = $client->sendRequest(
+                new Request(
+                    'POST',
+                    $url,
+                    ['Content-Type' => 'application/json'],
+                    (string) json_encode($payload)
+                )
+            );
+        } catch (Throwable $e) {
+            throw new Exception('Fireworks API request failed: '.$e->getMessage());
         }
+
+        $httpCode = $psrResponse->getStatusCode();
+        $response = (string) $psrResponse->getBody();
 
         if ($httpCode !== 200) {
             $errorData = [];
@@ -394,7 +485,7 @@ class ProviderFactory
 
         if ($driver->provider === 'fireworks') {
             return $this->callFireworksChat(
-                apiKey: (string) $driver->apiKey,
+                credentialId: (string) $driver->credentialId,
                 model: $driver->model,
                 baseUrl: (string) $driver->baseUrl,
                 messageHistory: [LLPhantMessage::user($prompt)]
@@ -464,12 +555,41 @@ class ProviderFactory
      */
     private function createOpenAiDriver(array $openaiConfig, ?string $agentModel, ?float $agentTemperature): ChatDriver
     {
-        if (empty($openaiConfig['apiKey']) === true) {
-            throw new ProviderUnavailableException('OpenAI API key is not configured', 503);
+        $credentialId = (string) ($openaiConfig['credentialId'] ?? '');
+        if ($credentialId === '') {
+            throw new ProviderUnavailableException(
+                'OpenAI has no credential. Select one from the credential broker in the Hermiq LLM settings.',
+                503
+            );
         }
 
-        $config         = new OpenAIConfig();
-        $config->apiKey = $openaiConfig['apiKey'];
+        if (BrokerHttpClient::isAvailable() === false) {
+            throw new ProviderUnavailableException(
+                'OpenAI cannot be used: the OpenRegister credential broker is not available.',
+                503
+            );
+        }
+
+        $config = new OpenAIConfig();
+
+        // The openai-php client REQUIRES an api key and sets it as a Bearer header before
+        // our client ever sees the request. BrokerHttpClient strips that header and the
+        // broker injects the real secret, so what we hand it here is a placeholder, not a
+        // key — Hermiq has none to give.
+        $config->apiKey = BrokerHttpClient::BROKER_MANAGED_KEY;
+
+        // The seam that makes this possible without rewriting LLPhant: OpenAIChat uses
+        // `$config->client` when set, and OpenAI::factory() accepts any PSR-18 client.
+        $config->client = OpenAI::factory()
+            ->withApiKey(BrokerHttpClient::BROKER_MANAGED_KEY)
+            ->withHttpClient(
+                new BrokerHttpClient(
+                    credentialId: $credentialId,
+                    logger: $this->logger,
+                    actingUserId: $this->currentUid()
+                )
+            )
+            ->make();
 
         $config->model = ($openaiConfig['chatModel'] ?? 'gpt-4o-mini');
         if (empty($agentModel) === false) {
@@ -500,8 +620,19 @@ class ProviderFactory
      */
     private function createFireworksDriver(array $fireworksConfig, ?string $agentModel): ChatDriver
     {
-        if (empty($fireworksConfig['apiKey']) === true) {
-            throw new ProviderUnavailableException('Fireworks AI API key is not configured', 503);
+        $credentialId = (string) ($fireworksConfig['credentialId'] ?? '');
+        if ($credentialId === '') {
+            throw new ProviderUnavailableException(
+                'Fireworks AI has no credential. Select one from the credential broker in the Hermiq LLM settings.',
+                503
+            );
+        }
+
+        if (BrokerHttpClient::isAvailable() === false) {
+            throw new ProviderUnavailableException(
+                'Fireworks AI cannot be used: the OpenRegister credential broker is not available.',
+                503
+            );
         }
 
         $model = ($fireworksConfig['chatModel'] ?? 'accounts/fireworks/models/llama-v3p1-8b-instruct');
@@ -514,15 +645,38 @@ class ProviderFactory
             $baseUrl .= '/v1';
         }
 
+        // `apiKey` carries the CREDENTIAL UUID now, not a key. Only the broker can turn it
+        // into a secret, and only server-side. The property keeps its name so the ChatDriver
+        // value object and its call sites stay unchanged; callFireworksChat() treats it as
+        // what it is.
         return new ChatDriver(
             provider: 'fireworks',
             chat: null,
             model: $model,
-            apiKey: $fireworksConfig['apiKey'],
+            credentialId: $credentialId,
             baseUrl: $baseUrl
         );
 
     }//end createFireworksDriver()
+
+    /**
+     * The calling user's UID, when there is a session.
+     *
+     * The broker's ownership guard needs an identity to check the credential against. On
+     * the scheduled-agent path there is no session; the credential owner has to be carried
+     * on the run instead.
+     *
+     * @return string|null The UID, or null when there is no session.
+     */
+    private function currentUid(): ?string
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return null;
+        }
+
+        return $user->getUID();
+    }//end currentUid()
 
     /**
      * Build the `nextcloud` driver descriptor. No LLPhant chat instance — the

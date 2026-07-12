@@ -192,10 +192,20 @@ class ResponseGenerationHandler
                 $agentTemperature = (float) $agentData['temperature'];
             }
 
+            // tenant-model-policy: the agent's organisation (already in hand — no new
+            // lookup) is threaded to ProviderFactory so the resolved (provider, model)
+            // pair is checked against its effective ModelPolicy before any provider
+            // client is used. null (no agent bound to this turn) skips the check.
+            $organisation = null;
+            if ($agent !== null) {
+                $organisation = (string) ($agent->getOrganisation() ?? '');
+            }
+
             $driver = $this->providerFactory->createChatDriver(
                 llmConfig: $llmConfig,
                 agentModel: $agentModel,
-                agentTemperature: $agentTemperature
+                agentTemperature: $agentTemperature,
+                organisation: $organisation
             );
 
             if ($driver->provider === 'nextcloud') {
@@ -265,7 +275,7 @@ class ResponseGenerationHandler
                 // now ProviderFactory::callFireworksChat). Function calling is not
                 // supported there; functions are logged + ignored inside the call.
                 $response = $this->providerFactory->callFireworksChat(
-                    apiKey: (string) $driver->apiKey,
+                    credentialId: (string) $driver->credentialId,
                     model: $driver->model,
                     baseUrl: (string) $driver->baseUrl,
                     messageHistory: $messageHistory,
