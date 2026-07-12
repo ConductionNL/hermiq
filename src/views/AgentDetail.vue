@@ -161,6 +161,15 @@
 					</div>
 				</div>
 
+				<!-- Pre-run cost estimate (cost-guardrails): trailing average, clearly
+				     labelled an estimate — never a fabricated figure without history. -->
+				<p v-if="estimate && estimate.available" class="agent-detail__estimate">
+					{{ t('hermiq', 'Estimate: ~{tokens} tokens per run (average of the last {count} runs)', { tokens: estimate.avgTotalTokens, count: estimate.sampleSize }) }}
+				</p>
+				<p v-else-if="estimate" class="agent-detail__estimate agent-detail__estimate--empty">
+					{{ t('hermiq', 'Not enough run history yet for a cost estimate.') }}
+				</p>
+
 				<NcNoteCard
 					v-if="runError"
 					type="error"
@@ -192,6 +201,27 @@
 					<div>
 						<dt>{{ t('hermiq', 'Next run') }}</dt>
 						<dd>{{ formatDate(schedule.nextRun) }}</dd>
+					</div>
+				</dl>
+			</section>
+
+			<!-- Budget section (cost-guardrails): agent-scoped status when configured -->
+			<section v-if="budgetStatus && budgetStatus.configured" class="agent-detail__section">
+				<h3>{{ t('hermiq', 'Budget') }}</h3>
+				<NcNoteCard v-if="budgetStatus.hardCapReached" type="error">
+					{{ t('hermiq', 'Hard cap reached — new runs are blocked until the next period.') }}
+				</NcNoteCard>
+				<NcNoteCard v-else-if="budgetStatus.softThresholdReached" type="warning">
+					{{ t('hermiq', 'Soft threshold crossed for the current period.') }}
+				</NcNoteCard>
+				<dl class="agent-detail__meta">
+					<div v-if="budgetStatus.tokens && budgetStatus.tokens.limit">
+						<dt>{{ t('hermiq', 'Tokens this period') }}</dt>
+						<dd>{{ budgetStatus.tokens.used }} / {{ budgetStatus.tokens.limit }} ({{ budgetStatus.tokens.percent }}%)</dd>
+					</div>
+					<div v-if="budgetStatus.eur && budgetStatus.eur.limit">
+						<dt>{{ t('hermiq', 'Spend this period') }}</dt>
+						<dd>€{{ budgetStatus.eur.used }} / €{{ budgetStatus.eur.limit }}</dd>
 					</div>
 				</dl>
 			</section>
@@ -264,6 +294,7 @@ import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
 import { listRuns, listTools, runScheduleNow } from '../api/agents.js'
+import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { installSkill, listSkills, uninstallSkill } from '../api/skills.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
 import AgentFormModal from '../modals/AgentFormModal.vue'
@@ -310,6 +341,10 @@ export default {
 			skillsLoading: false,
 			skillBusy: false,
 			skillToAttach: null,
+			// Cost guardrails (cost-guardrails): pre-run estimate + agent-scoped budget
+			// status. Both non-fatal — null keeps their UI hidden on error.
+			estimate: null,
+			budgetStatus: null,
 			// Fields the config widget hides (tenancy, quotas, and capabilities managed by
 			// their own sections — skills here, memory below).
 			hiddenFields: [
@@ -411,12 +446,27 @@ export default {
 				this.schema = schema || null
 				this.schedule = (Array.isArray(schedules) ? schedules : [])
 					.find((candidate) => candidate.agentId === this.agentUuid) || null
-				await Promise.all([this.loadRuns(), this.loadTools(), this.loadSkills()])
+				await Promise.all([this.loadRuns(), this.loadTools(), this.loadSkills(), this.loadBudgetInfo()])
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not load the agent.'))
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * Load the pre-run cost estimate + agent-scoped budget status (cost-guardrails).
+		 * Non-fatal: both surfaces simply stay hidden when the requests fail.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadBudgetInfo() {
+			const [estimate, budgetStatus] = await Promise.all([
+				getBudgetEstimate(this.agentUuid).catch(() => null),
+				getBudgetStatus('', this.agentUuid).catch(() => null),
+			])
+			this.estimate = estimate
+			this.budgetStatus = budgetStatus
 		},
 
 		/**
@@ -669,6 +719,16 @@ export default {
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 12px 24px;
 	margin: 0 0 8px;
+}
+
+.agent-detail__estimate {
+	margin: 0 0 8px;
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+}
+
+.agent-detail__estimate--empty {
+	font-style: italic;
 }
 
 .agent-detail__meta-wide {

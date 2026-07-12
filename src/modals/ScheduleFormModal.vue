@@ -28,6 +28,15 @@
 				{{ error }}
 			</NcNoteCard>
 
+			<!-- Pre-run cost estimate (cost-guardrails): trailing average, clearly
+			     labelled an estimate — never a fabricated figure without history. -->
+			<p v-if="estimate && estimate.available" class="schedule-form__estimate">
+				{{ t('hermiq', 'Estimate: ~{tokens} tokens per run (average of the last {count} runs)', { tokens: estimate.avgTotalTokens, count: estimate.sampleSize }) }}
+			</p>
+			<p v-else-if="estimate" class="schedule-form__estimate schedule-form__estimate--empty">
+				{{ t('hermiq', 'Not enough run history yet for a cost estimate.') }}
+			</p>
+
 			<NcTextField
 				:value.sync="form.name"
 				:label="t('hermiq', 'Name')"
@@ -137,6 +146,7 @@
 <script>
 import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
 import { useScheduleStore } from '../store/store.js'
+import { getBudgetEstimate } from '../api/budgets.js'
 
 export default {
 	name: 'ScheduleFormModal',
@@ -177,6 +187,8 @@ export default {
 			form: this.blankForm(),
 			saving: false,
 			error: '',
+			// Pre-run cost estimate (cost-guardrails); null keeps the line hidden.
+			estimate: null,
 			kindOptions: [
 				{ label: this.t('hermiq', 'Once'), value: 'once' },
 				{ label: this.t('hermiq', 'Interval'), value: 'interval' },
@@ -245,6 +257,7 @@ export default {
 		show(open) {
 			if (open) {
 				this.resetForm()
+				this.loadEstimate()
 			}
 		},
 	},
@@ -258,6 +271,16 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Load the agent's pre-run cost estimate (cost-guardrails). Non-fatal:
+		 * the estimate line simply stays hidden when the request fails.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadEstimate() {
+			this.estimate = await getBudgetEstimate(this.agentId).catch(() => null)
+		},
+
 		/**
 		 * An empty schedule form.
 		 *
@@ -403,5 +426,15 @@ export default {
 	justify-content: flex-end;
 	gap: 8px;
 	margin-top: 8px;
+}
+
+.schedule-form__estimate {
+	margin: 0 0 8px;
+	color: var(--color-text-maxcontrast);
+	font-size: 13px;
+}
+
+.schedule-form__estimate--empty {
+	font-style: italic;
 }
 </style>

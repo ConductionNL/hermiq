@@ -56,6 +56,16 @@ return [
         ['name' => 'tenantOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
         ['name' => 'tenantOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
 
+        // Budget guardrails (cost-guardrails): per-org/per-agent spend caps, status, pre-run
+        // estimate. 'status' is registered before the GET list route needs no {budgetId} at
+        // all (only PUT/DELETE use it), so there is no path-matching ambiguity.
+        ['name' => 'budget#status', 'url' => '/api/budgets/status', 'verb' => 'GET'],
+        ['name' => 'budget#index',  'url' => '/api/budgets', 'verb' => 'GET'],
+        ['name' => 'budget#create', 'url' => '/api/budgets', 'verb' => 'POST'],
+        ['name' => 'budget#update',  'url' => '/api/budgets/{budgetId}', 'verb' => 'PUT', 'requirements' => ['budgetId' => '[^/]+']],
+        ['name' => 'budget#destroy', 'url' => '/api/budgets/{budgetId}', 'verb' => 'DELETE', 'requirements' => ['budgetId' => '[^/]+']],
+        ['name' => 'budget#estimate', 'url' => '/api/agents/{agentId}/budget-estimate', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+
         // Skills catalog (skills-catalog): browse, import/export agentskills.io packages, install onto an agent.
         ['name' => 'skill#index',   'url' => '/api/skills', 'verb' => 'GET'],
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],

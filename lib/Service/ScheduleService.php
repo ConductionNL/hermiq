@@ -166,6 +166,7 @@ class ScheduleService
      * @param ApprovalService    $approvalService    Human-approval gate: ensures a pending Approval for gated runs (human-approval-gate-enforcement).
      * @param IAppConfig         $appConfig          Reads the `hermiq`.`engine.enabled` feature flag (agent-engine-port).
      * @param Engine             $engine             In-app agent engine facade, used only when the flag is on (agent-engine-port).
+     * @param BudgetService      $budgetService      Budget hard-cap gate + soft-threshold warning (cost-guardrails).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -185,6 +186,7 @@ class ScheduleService
         private readonly ApprovalService $approvalService,
         private readonly IAppConfig $appConfig,
         private readonly Engine $engine,
+        private readonly BudgetService $budgetService,
     ) {
     }//end __construct()
 
@@ -414,13 +416,19 @@ class ScheduleService
     /**
      * Process one due schedule, applying the synchronous oversight gates first.
      *
-     * Two hard blocks run BEFORE the agent is ever invoked (EU AI Act Art. 14):
+     * Three hard blocks run BEFORE the agent is ever invoked (EU AI Act Art. 14):
      *   1. KILL-SWITCH — if the schedule's organisation has an engaged TenantControl,
      *      the run is skipped (never runs, even for an authorised approval-run).
-     *   2. APPROVAL GATE — if the schedule requires approval and this occurrence is not
+     *   2. BUDGET HARD CAP (cost-guardrails) — if the schedule's organisation/agent
+     *      budget has reached its cap for the current period, the run is skipped
+     *      (never runs, even for an authorised approval-run — a budget-exhausted
+     *      occurrence must not even accumulate a fresh pending Approval). A
+     *      soft-threshold crossing, independent of the block, may fire a one-time
+     *      warning notification — runs continue in that case.
+     *   3. APPROVAL GATE — if the schedule requires approval and this occurrence is not
      *      authorised (bypass), a single pending Approval is ensured (idempotent) and
      *      the reviewer notified; the agent does NOT run.
-     * Only when neither gate applies does the normal commit-before-run dispatch fire.
+     * Only when none of the gates apply does the normal commit-before-run dispatch fire.
      *
      * @param ObjectEntity      $schedule             The schedule object to fire.
      * @param DateTimeImmutable $now                  The current UTC moment.
@@ -436,6 +444,7 @@ class ScheduleService
      *
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-2
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-1
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
      */
     private function dispatch(
         ObjectEntity $schedule,
@@ -446,6 +455,7 @@ class ScheduleService
         $data         = $schedule->getObject();
         $owner        = (string) ($schedule->getOwner() ?? '');
         $organisation = (string) ($schedule->getOrganisation() ?? '');
+        $agentId      = (string) ($data['agentId'] ?? '');
 
         // Reset per-schedule run-identity/usage BEFORE either gate can short-circuit to
         // writeRunAudit(): without this, a gate-skipped schedule's audit entry could leak
@@ -460,7 +470,26 @@ class ScheduleService
             return;
         }
 
-        // GATE 2 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not
+        // GATE 2 — BUDGET HARD CAP (cost-guardrails). A soft-threshold warning is
+        // independent of the block (runs continue when only the soft threshold is
+        // crossed), so it is checked unconditionally here, every tick the schedule is
+        // due — never fatal to the dispatch. The hard-cap block itself halts even an
+        // authorised approval-run bypass, exactly like the kill-switch.
+        try {
+            $this->budgetService->checkAndDeliverWarnings(organisation: $organisation, agentId: $agentId);
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf('Hermiq budget soft-threshold check failed for %s: %s', (string) $schedule->getUuid(), $e->getMessage()),
+                ['exception' => $e]
+            );
+        }
+
+        if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
+            $this->recordGateSkip(schedule: $schedule, data: $data, owner: $owner, now: $now, status: 'skipped_budget');
+            return;
+        }
+
+        // GATE 3 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not
         // run: ensure a single pending Approval (idempotent) and mark awaiting_approval.
         if ($bypassApprovalGate === false && ($data['requiresApproval'] ?? false) === true) {
             try {
@@ -494,12 +523,13 @@ class ScheduleService
      * @param array<string,mixed> $data     The schedule payload (advanced + finalised here).
      * @param string              $owner    The owner UID (for timezone-anchored next-run).
      * @param DateTimeImmutable   $now      The current UTC moment.
-     * @param string              $status   The gate status (skipped_killswitch|awaiting_approval).
+     * @param string              $status   The gate status (skipped_killswitch|skipped_budget|awaiting_approval).
      *
      * @return void
      *
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-1
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-2
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
      */
     private function recordGateSkip(ObjectEntity $schedule, array $data, string $owner, DateTimeImmutable $now, string $status): void
     {

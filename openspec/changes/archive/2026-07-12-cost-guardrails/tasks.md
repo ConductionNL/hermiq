@@ -8,8 +8,8 @@
 - **acceptance_criteria**:
   - GIVEN the app is installed/upgraded WHEN `InitializeSettings` runs THEN OpenRegister has a `budget` schema (slug `budget`) with `scope`, `agentId`, `period`, `tokenLimit`, `eurLimit`, `softThresholdPercent`, `enabled`, `warnedPeriodKey`, `lastHardBlockAt` per design.md
   - GIVEN `scope=agent` WHEN a `Budget` is created without `agentId` THEN OpenRegister's schema validation rejects it (required-when semantics enforced service-side, per design.md's cross-field note)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: `BudgetService` — status, hard-cap check, soft-threshold warn, estimate
 - **spec_ref**: `openspec/changes/cost-guardrails/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap`
@@ -19,8 +19,8 @@
   - GIVEN a `Budget` whose usage crosses `softThresholdPercent` for the first time in a period WHEN `recordWarningIfDue()` runs THEN it returns the recipient (the organisation owner) exactly once per period (`warnedPeriodKey` persisted) and not again until the next period
   - GIVEN an agent with N prior runs WHEN `estimateNextRun(agentId)` is called THEN it returns the trailing-average prompt/completion/total tokens from `AnalyticsService::computeAnalytics(agentId)`, with `available:false` (no fabricated zero) when N=0
   - GIVEN the OR read for engaged budgets fails WHEN `isBlocked()` is evaluated THEN it fails open (logs, returns `false`) exactly as `ScheduleService::loadEngagedOrganisations()` does
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Wire the budget gate into the dispatch path + soft-threshold delivery
 - **spec_ref**: `openspec/changes/cost-guardrails/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap`
@@ -30,8 +30,8 @@
   - GIVEN the SAME budget-exhausted agent WHEN a webhook/event fires a run via `FlowAgentRunService` THEN the identical hard-cap block applies before the kill-switch's sibling GATE 1 approval check would even run
   - GIVEN a run already executing when the hard cap is reached WHEN the run completes THEN it is NOT aborted — the cap only ever prevents a NEW dispatch
   - GIVEN a budget crosses its soft threshold WHEN the gate check runs THEN `DeliveryService::deliverBudgetWarning()` sends one Talk/Notification message to the organisation owner (same dialect as `deliverApprovalRequestForFlowRun()`)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: `BudgetController` + routes — CRUD, status, estimate
 - **spec_ref**: `openspec/changes/cost-guardrails/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history`
@@ -40,8 +40,8 @@
   - GIVEN a caller who is neither the instance admin nor the organisation owner WHEN they call `POST`/`PUT`/`DELETE /api/budgets*` THEN the request is refused (403), mirroring `TenantControlController::mayAdminister()`
   - GIVEN any authenticated user in organisation A WHEN they call `GET /api/budgets/status` THEN only organisation A's budget status is returned (tenant-scoped via `ObjectService`, same convention as `AnalyticsController`)
   - GIVEN an agent with prior runs WHEN `GET /api/agents/{agentId}/budget-estimate` is called THEN the response matches design.md's estimate payload shape
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: Seed realistic `Budget` objects (idempotent repair step)
 - **spec_ref**: `openspec/changes/cost-guardrails/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap`
@@ -49,8 +49,8 @@
 - **acceptance_criteria**:
   - GIVEN a fresh install WHEN repair steps run THEN the 3 seed `Budget` objects from design.md's Seed Data table are created via `ObjectService` (single write-path)
   - GIVEN a re-run (upgrade) WHEN the repair step runs again THEN existing seeded budgets (matched by slug) are NOT duplicated
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: Frontend — `budgets` API module + `BudgetFormModal` (CRUD UI)
 - **spec_ref**: `openspec/changes/cost-guardrails/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap`
@@ -58,8 +58,8 @@
 - **acceptance_criteria**:
   - GIVEN an org admin opens the budget form WHEN they submit scope/period/limits THEN `budgets.js` posts to `/api/budgets` and the modal closes on success, using `NcDialog` + `NcSelect` with `inputLabel` (ADR-004)
   - GIVEN a non-admin org member WHEN the TenantOps/AgentDetail budget card renders THEN no create/edit/delete control is shown (read-only view)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: Frontend — budget status cards on TenantOps + AgentDetail
 - **spec_ref**: `openspec/changes/cost-guardrails/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap`
@@ -67,8 +67,8 @@
 - **acceptance_criteria**:
   - GIVEN an organisation with a configured budget WHEN `TenantOps.vue` loads THEN a budget card renders using the existing `tenant-ops__card`/`--warn` pattern, warn-styled once the soft threshold is crossed
   - GIVEN an agent with its own agent-scoped budget WHEN `AgentDetail.vue` loads THEN the agent's budget status (used/limit/percent) renders
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 8: Frontend — pre-run cost estimate on Run now + schedule creation
 - **spec_ref**: `openspec/changes/cost-guardrails/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history`
@@ -76,8 +76,8 @@
 - **acceptance_criteria**:
   - GIVEN an agent with prior runs WHEN a user opens Run now or the schedule-creation form THEN the trailing-average estimate renders, clearly labelled "estimate"
   - GIVEN an agent with no prior runs WHEN the same forms open THEN "not enough run history yet" (or equivalent) renders instead of a zero/fabricated figure
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 
