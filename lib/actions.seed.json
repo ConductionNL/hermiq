@@ -5,6 +5,9 @@
     "aifeature.enable": ["admin"],
     "aifeature.disable": ["admin"],
     "aifeature.publish-to-algoritmeregister": ["admin"],
-    "aifeature.withdraw-from-algoritmeregister": ["admin"]
+    "aifeature.withdraw-from-algoritmeregister": ["admin"],
+    "skill.approve-quarantined": ["admin"],
+    "skill.override-scan-verdict": ["admin"],
+    "skill.publish-hub": ["admin"]
   }
 }
