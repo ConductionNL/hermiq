@@ -6,6 +6,7 @@
 
 **OpenSpec changes:**
 - `openspec/changes/run-audit-log/` — explicit `action='run'` audit write + full redact.py port + owner-scoped run-history read (kind: code)
+- `openspec/changes/agent-tool-governance-and-disclosure/` — reads these audit entries (degraded fallback) and OR's richer MCP invocation audit log to render a per-agent art.12/14 oversight surface (kind: code) — **proposed**
 
 ## Purpose
 
