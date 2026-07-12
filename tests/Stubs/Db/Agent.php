@@ -6,8 +6,11 @@
  * Stands in for OCA\OpenRegister\Db\Agent when OpenRegister is not installed
  * (standalone CI). Exposes getId (used by ScheduleService to bind a conversation
  * to the resolved agent) plus getUuid/getOwner (used by FlowAgentRunService to
- * resolve the agent reference and its acting-user impersonation target). The
- * real entity ships with OpenRegister.
+ * resolve the agent reference and its acting-user impersonation target) and
+ * getOrganisation (used by WebhookAgentRunService for GATE 1 kill-switch
+ * scoping — a webhook trigger has no "triggering object" to read an
+ * organisation from, unlike a flow-triggered run, so it reads the Agent's own
+ * organisation instead). The real entity ships with OpenRegister.
  *
  * @category Test
  * @package  OCA\OpenRegister\Db
@@ -49,6 +52,13 @@ class Agent
      * @var string|null
      */
     private ?string $owner = null;
+
+    /**
+     * Organisation identifier (kill-switch scoping for a webhook-triggered run).
+     *
+     * @var string|null
+     */
+    private ?string $organisation = null;
 
     /**
      * Get the agent id.
@@ -115,4 +125,26 @@ class Agent
     {
         $this->owner = $owner;
     }//end setOwner()
+
+    /**
+     * Get the organisation identifier.
+     *
+     * @return string|null
+     */
+    public function getOrganisation(): ?string
+    {
+        return $this->organisation;
+    }//end getOrganisation()
+
+    /**
+     * Set the organisation identifier.
+     *
+     * @param string|null $organisation The organisation identifier.
+     *
+     * @return void
+     */
+    public function setOrganisation(?string $organisation): void
+    {
+        $this->organisation = $organisation;
+    }//end setOrganisation()
 }//end class

@@ -134,6 +134,41 @@ memory can be reviewed and updated without leaving the detail page.
 - AND the fact MUST appear in the entry list without a full page navigation
 @e2e exclude the Memory section reuses the unchanged MemoryController write path via the shared AgentMemoryPanel; the section was live-verified rendering (budget bar + add-fact input + entry list) on the detail page. Playwright write coverage deferred (live write was blocked by an unrelated needsDbUpgrade state on the shared instance).
 
+### Requirement: Agent detail manages the webhook trigger in place [MVP]
+
+The agent detail view MUST show whether a webhook trigger is configured for
+the agent, its enabled state, masked secret prefix, and last-used time, and
+MUST let the owner create, rotate, and revoke the webhook secret without
+navigating away from the detail page (see `agent-webhook-trigger` for the
+backend secret-lifecycle contract this panel drives). A newly created or
+rotated secret MUST be shown in a copy-once reveal dialog that cannot be
+reopened after dismissal — the panel never displays the full secret again
+afterward, only its prefix.
+
+#### Scenario: Creating a webhook from the agent detail page
+
+- **GIVEN** an agent detail view for an agent with no webhook configured
+- **WHEN** the owner clicks "Create webhook"
+- **THEN** the system MUST create the secret and show it once in a
+  copy-to-clipboard dialog
+- **AND** the panel MUST subsequently show the webhook as enabled with a
+  masked secret prefix, never the full secret
+
+#### Scenario: Rotating a webhook secret from the agent detail page
+
+- **GIVEN** an agent detail view showing an enabled webhook
+- **WHEN** the owner rotates its secret
+- **THEN** the system MUST show the new secret once in the same copy-once
+  dialog
+- **AND** the panel MUST reflect the updated `rotatedAt` timestamp afterward
+
+#### Scenario: Revoking a webhook from the agent detail page
+
+- **GIVEN** an agent detail view showing an enabled webhook
+- **WHEN** the owner revokes it
+- **THEN** the panel MUST show the webhook as disabled
+- **AND** the trigger endpoint MUST reject subsequent requests for that agent
+
 ## User Stories
 
 - As an agent builder, I want a form to create and configure an agent so that I do not edit JSON by hand.
