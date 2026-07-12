@@ -66,11 +66,15 @@ class SeedBudgets implements IRepairStep
     private const REGISTER_SLUG = 'hermiq';
 
     /**
-     * OpenRegister schema slug for Budget objects.
+     * OpenRegister schema slug for Budget objects. Namespaced (`agentbudget`, not
+     * `budget`) because OpenRegister resolves schema slugs GLOBALLY across all
+     * registers — the generic `budget` slug collided with another app's Budget
+     * schema, making every seed fail validation against foreign required
+     * properties (same fix as `agentsession`/`agentskill`).
      *
      * @var string
      */
-    private const BUDGET_SCHEMA = 'budget';
+    private const BUDGET_SCHEMA = 'agentbudget';
 
     /**
      * OpenRegister schema slug for agent objects.
