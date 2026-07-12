@@ -26,10 +26,18 @@
   dead_letter row that reuses the SAME runNow()/runScheduleNow() path as the
   page-level "Run now" button (no new endpoint).
 
+  Each run row also has a "Details" toggle (run-trace-observability) that expands
+  an ordered step timeline fetched from the per-run trace endpoint, honestly
+  labels a run whose execution path recorded no tool-call detail (never implying
+  zero tool activity), and offers a "Download trace (JSON)" action that saves the
+  already-redacted, already-fetched trace verbatim.
+
   @spec openspec/changes/agent-management-ui/tasks.md#task-5-1
   @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
   @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md
   @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+  @spec openspec/changes/run-trace-observability/tasks.md#task-6-frontend-run-trace-api-step-timeline-expand-view
+  @spec openspec/changes/run-trace-observability/tasks.md#task-7-frontend-download-trace-json-action
 -->
 <template>
 	<div class="agent-detail">
@@ -268,26 +276,63 @@
 						</tr>
 					</thead>
 					<tbody>
-						<tr v-for="run in runs" :key="run.id">
-							<td>
-								<span :class="['agent-detail__badge', statusBadgeClass(run.status)]">
-									{{ statusLabel(run.status) }}
-								</span>
-							</td>
-							<td>{{ formatDate(run.startedAt || run.created) }}</td>
-							<td>{{ durationLabel(run.durationMs) }}</td>
-							<td>{{ run.attempt || '—' }}</td>
-							<td>
-								<NcButton
-									v-if="run.status === 'dead_letter'"
-									type="tertiary"
-									:disabled="running"
-									:aria-label="t('hermiq', 'Re-run this dead-lettered schedule')"
-									@click="runNow">
-									{{ t('hermiq', 'Re-run') }}
-								</NcButton>
-							</td>
-						</tr>
+						<template v-for="run in runs">
+							<tr :key="run.id">
+								<td>
+									<span :class="['agent-detail__badge', statusBadgeClass(run.status)]">
+										{{ statusLabel(run.status) }}
+									</span>
+								</td>
+								<td>{{ formatDate(run.startedAt || run.created) }}</td>
+								<td>{{ durationLabel(run.durationMs) }}</td>
+								<td>{{ run.attempt || '—' }}</td>
+								<td class="agent-detail__row-actions">
+									<NcButton
+										type="tertiary"
+										:aria-label="t('hermiq', 'View this run\'s step timeline')"
+										@click="toggleRunTrace(run)">
+										{{ expandedRunId === run.id ? t('hermiq', 'Hide details') : t('hermiq', 'Details') }}
+									</NcButton>
+									<NcButton
+										v-if="run.status === 'dead_letter'"
+										type="tertiary"
+										:disabled="running"
+										:aria-label="t('hermiq', 'Re-run this dead-lettered schedule')"
+										@click="runNow">
+										{{ t('hermiq', 'Re-run') }}
+									</NcButton>
+								</td>
+							</tr>
+							<tr v-if="expandedRunId === run.id" :key="`${run.id}-trace`">
+								<td colspan="5" class="agent-detail__trace-cell">
+									<NcLoadingIcon v-if="traceLoading" :size="24" />
+									<NcNoteCard v-else-if="traceError" type="warning">
+										{{ t('hermiq', "Could not load this run's trace.") }}
+									</NcNoteCard>
+									<div v-else-if="runTraces[run.id]" class="agent-detail__trace">
+										<p v-if="runTraces[run.id].toolStepsAvailable === false" class="agent-detail__trace-hint">
+											{{ t('hermiq', "Tool-level detail is unavailable for this run's execution path.") }}
+										</p>
+										<p v-if="!runTraces[run.id].steps || runTraces[run.id].steps.length === 0" class="agent-detail__empty-hint">
+											{{ t('hermiq', 'No step detail recorded for this run.') }}
+										</p>
+										<ol v-else class="agent-detail__trace-steps">
+											<li v-for="step in runTraces[run.id].steps" :key="step.seq" class="agent-detail__trace-step">
+												<span class="agent-detail__trace-step-type">{{ stepTypeLabel(step.type) }}</span>
+												<span class="agent-detail__trace-step-name">{{ step.name }}</span>
+												<span class="agent-detail__trace-step-duration">{{ stepDurationLabel(step.durationMs) }}</span>
+												<span :class="['agent-detail__badge', step.outcome === 'error' ? 'agent-detail__badge--error' : 'agent-detail__badge--ok']">
+													{{ step.outcome }}
+												</span>
+											</li>
+										</ol>
+										<NcButton type="tertiary" @click="downloadTrace(run)">
+											{{ t('hermiq', 'Download trace (JSON)') }}
+										</NcButton>
+									</div>
+								</td>
+							</tr>
+						</template>
 					</tbody>
 				</table>
 			</section>
@@ -317,7 +362,7 @@ import Close from 'vue-material-design-icons/Close.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
-import { listRuns, listTools, runScheduleNow } from '../api/agents.js'
+import { getRunTrace, listRuns, listTools, runScheduleNow } from '../api/agents.js'
 import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { installSkill, listSkills, uninstallSkill } from '../api/skills.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
@@ -355,6 +400,12 @@ export default {
 			running: false,
 			runError: '',
 			runsError: false,
+			// Run trace (run-trace-observability): which run row is expanded, its
+			// fetched trace(s) cached by run id, and the expanded row's load state.
+			expandedRunId: null,
+			runTraces: {},
+			traceLoading: false,
+			traceError: false,
 			showEditAgent: false,
 			showScheduleForm: false,
 			// Config data widget: the dynamic tool catalogue for the #field-tools slot.
@@ -604,6 +655,10 @@ export default {
 		 */
 		async loadRuns() {
 			this.runsError = false
+			// A fresh load invalidates any expanded row / cached trace from a
+			// previous schedule or a previous run list.
+			this.expandedRunId = null
+			this.runTraces = {}
 			if (!this.schedule || !this.schedule.id) {
 				this.runs = []
 				return
@@ -614,6 +669,99 @@ export default {
 				this.runsError = true
 				this.runs = []
 			}
+		},
+
+		/**
+		 * Expand/collapse a run's step-timeline row, fetching its trace on first
+		 * expand (run-trace-observability) and caching it by run id thereafter.
+		 *
+		 * @param {object} run The run record (from the Run history list).
+		 * @return {Promise<void>}
+		 */
+		async toggleRunTrace(run) {
+			if (this.expandedRunId === run.id) {
+				this.expandedRunId = null
+				return
+			}
+
+			this.expandedRunId = run.id
+			if (this.runTraces[run.id] || !this.schedule || !this.schedule.id) {
+				return
+			}
+
+			this.traceLoading = true
+			this.traceError = false
+			try {
+				const trace = await getRunTrace(this.schedule.id, run.id)
+				this.runTraces = { ...this.runTraces, [run.id]: trace }
+			} catch (e) {
+				this.traceError = true
+			} finally {
+				this.traceLoading = false
+			}
+		},
+
+		/**
+		 * Save the already-fetched, already-redacted trace for one run as a local
+		 * JSON file — no client-side re-redaction or transformation beyond
+		 * formatting (run-trace-observability).
+		 *
+		 * @param {object} run The run record whose trace is currently expanded.
+		 * @return {void}
+		 */
+		downloadTrace(run) {
+			const trace = this.runTraces[run.id]
+			if (!trace) {
+				return
+			}
+
+			const blob = new Blob([JSON.stringify(trace, null, 2)], { type: 'application/json' })
+			const url = URL.createObjectURL(blob)
+			const link = document.createElement('a')
+			link.href = url
+			link.download = `run-trace-${run.id}.json`
+			document.body.appendChild(link)
+			link.click()
+			document.body.removeChild(link)
+			URL.revokeObjectURL(url)
+		},
+
+		/**
+		 * Human label for a trace step's type.
+		 *
+		 * @param {string} type The step type (gate_wait|context|history|llm|tool|delivery).
+		 * @return {string} The localised label.
+		 */
+		stepTypeLabel(type) {
+			const labels = {
+				gate_wait: this.t('hermiq', 'Awaiting approval'),
+				context: this.t('hermiq', 'Context'),
+				history: this.t('hermiq', 'History'),
+				llm: this.t('hermiq', 'LLM'),
+				tool: this.t('hermiq', 'Tool'),
+				delivery: this.t('hermiq', 'Delivery'),
+			}
+			return labels[type] || type || '—'
+		},
+
+		/**
+		 * Human label for a trace step's duration in milliseconds.
+		 *
+		 * @param {number} ms The duration in milliseconds.
+		 * @return {string} The duration label (ms below one second, otherwise seconds).
+		 */
+		stepDurationLabel(ms) {
+			if (ms === null || ms === undefined) {
+				return '—'
+			}
+			const value = Number(ms)
+			if (Number.isNaN(value)) {
+				return '—'
+			}
+			if (value < 1000) {
+				return `${Math.round(value)}ms`
+			}
+			return `${(value / 1000).toFixed(1)}s`
 		},
 
 		/**
@@ -858,6 +1006,61 @@ export default {
 	text-align: left;
 	padding: 8px 12px;
 	border-bottom: 1px solid var(--color-border);
+}
+
+.agent-detail__row-actions {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.agent-detail__trace-cell {
+	background-color: var(--color-background-hover);
+}
+
+.agent-detail__trace {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 8px 0;
+}
+
+.agent-detail__trace-hint {
+	margin: 0;
+	color: var(--color-text-maxcontrast);
+	font-style: italic;
+}
+
+.agent-detail__trace-steps {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.agent-detail__trace-step {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 4px 0;
+	border-bottom: 1px solid var(--color-border);
+}
+
+.agent-detail__trace-step-type {
+	min-width: 90px;
+	font-weight: 600;
+	color: var(--color-text-maxcontrast);
+}
+
+.agent-detail__trace-step-name {
+	flex: 1 1 auto;
+}
+
+.agent-detail__trace-step-duration {
+	color: var(--color-text-maxcontrast);
+	font-variant-numeric: tabular-nums;
 }
 
 .agent-detail__badge {

@@ -13,8 +13,8 @@
     returned in the exact order they were started, with `seq` 0..2
   - GIVEN `endStep()` is called with an unknown token WHEN this happens THEN it MUST NOT throw and
     MUST NOT corrupt already-recorded steps (defensive — a caller bug must never break a run)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Thread the collector through `Engine`/`ToolLoop`/`FacadeToolInvoker`
 - **spec_ref**: `openspec/changes/run-trace-observability/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp`
@@ -28,8 +28,8 @@
   - GIVEN `Engine::processMessage()` is called with no collector (existing callers unaffected) WHEN
     the turn completes THEN behavior is unchanged and the returned `steps` key is an empty array,
     never a fatal error
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: `ScheduleService` captures steps and includes them in the run audit write
 - **spec_ref**: `openspec/changes/run-trace-observability/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp`
@@ -46,8 +46,8 @@
     abort the audit write (mirrors the existing non-fatal delivery contract)
   - GIVEN `$result['timings']` is absent or malformed on either path WHEN steps are assembled THEN
     the coarse steps for that run are simply omitted — never a fabricated duration
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: `RunHistoryService::getRunTrace()` — trace read + gate-wait reconstruction
 - **spec_ref**: `openspec/changes/run-trace-observability/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp`
@@ -63,8 +63,8 @@
     no `gate_wait` step is added — never guessed across a gap or a different schedule's entries
   - GIVEN a `runId` that does not belong to the given `scheduleUuid` WHEN `getRunTrace()` is called
     THEN it returns null/not-found rather than another schedule's run
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: `RunHistoryController::trace()` + route
 - **spec_ref**: `openspec/changes/run-trace-observability/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp`
@@ -76,8 +76,8 @@
     schedule THEN they receive 404 (not 403), identical to `index()`'s existing anti-probing
     convention, with zero step data in the response
   - GIVEN an unauthenticated caller WHEN they call the endpoint THEN they receive 401
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: Frontend — run-trace API + step-timeline expand view
 - **spec_ref**: `openspec/changes/run-trace-observability/specs/agent-management-ui/spec.md#requirement-run-history-view-mvp`
@@ -90,8 +90,9 @@
     tool-level detail is unavailable for that run, rather than implying no tools ran
   - GIVEN an agent with no runs (existing empty-state scenario) WHEN the section renders THEN
     behavior is unchanged (no regression to the existing empty-state hint)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test — compile-level verified (eslint 0 errors on the touched files); live browser coverage
+  deferred to the playwright-regression-coverage change.
 
 ### Task 7: Frontend — "Download trace (JSON)" action
 - **spec_ref**: `openspec/changes/run-trace-observability/specs/agent-management-ui/spec.md#requirement-run-history-view-mvp`
@@ -100,8 +101,9 @@
   - GIVEN an expanded run's timeline WHEN the user clicks "Download trace (JSON)" THEN the browser
     saves a `.json` file whose content matches the rendered timeline data exactly (no client-side
     re-redaction or transformation beyond formatting)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test — compile-level verified (eslint 0 errors); live browser coverage deferred to the
+  playwright-regression-coverage change.
 
 ## Quality checklist
 

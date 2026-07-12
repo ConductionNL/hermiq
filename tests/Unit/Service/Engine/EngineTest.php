@@ -33,6 +33,7 @@ use OCA\Hermiq\Service\Engine\ConversationManagementHandler;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -416,4 +417,143 @@ class EngineTest extends TestCase
         $this->assertSame('A title (3)', $engine->ensureUniqueTitle(baseTitle: 'A title', userId: 'alice', agentId: 'agent-1'));
 
     }//end testTitleHelpersDelegate()
+
+    /**
+     * run-trace-observability: with a RunTraceCollector supplied, the envelope's
+     * `steps` key contains context/history/tool/llm entries. The tool step —
+     * simulated here as happening DURING the mocked generateResponse() call,
+     * exactly as a real nested ToolLoop/FacadeToolInvoker call would — completes
+     * BEFORE the enclosing `llm` step, per the collector's completion-order
+     * contract (design.md's documented step ordering).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     */
+    public function testProcessMessageThreadsCollectorAndOrdersStepsByCompletion(): void
+    {
+        $conversation = $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
+        $agent        = $this->entity('agent-1', ['name' => 'Helper']);
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('setRegister')->willReturnSelf();
+        $objectService->method('setSchema')->willReturnSelf();
+        $objectService->method('find')->willReturnCallback(
+            static function (int|string $id) use ($conversation, $agent): ?ObjectEntity {
+                if ($id === 'conv-1') {
+                    return $conversation;
+                }
+
+                if ($id === 'agent-1') {
+                    return $agent;
+                }
+
+                return null;
+            }
+        );
+        // 3+ messages → no title generation, so it never disturbs the trace.
+        $objectService->method('findAll')->willReturn([1, 2, 3]);
+
+        $contextHandler = $this->createMock(ContextRetrievalHandler::class);
+        $contextHandler->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
+
+        $responseHandler = $this->createMock(ResponseGenerationHandler::class);
+        $responseHandler->method('generateResponse')->willReturnCallback(
+            static function (
+                string $userMessage,
+                array $context,
+                array $messageHistory,
+                ?ObjectEntity $agentArg,
+                array $selectedTools,
+                $channel,
+                array $cnAiContext,
+                string $contextPreamble,
+                ?RunTraceCollector $trace
+            ): string {
+                // Simulate a tool call happening mid-generation, on the SAME collector
+                // Engine passed through — exactly what ToolLoop/FacadeToolInvoker do.
+                $token = $trace?->startStep(type: 'tool', name: 'openregister.searchObjects');
+                if ($token !== null) {
+                    $trace?->endStep(token: $token, outcome: 'ok');
+                }
+
+                return 'Hi there!';
+            }
+        );
+        $responseHandler->lastUsage = [];
+
+        $conversationHandler = $this->createMock(ConversationManagementHandler::class);
+        $historyHandler      = $this->createMock(MessageHistoryHandler::class);
+        $historyHandler->method('storeMessage')->willReturn($this->entity('msg-1', []));
+        $historyHandler->method('buildMessageHistory')->willReturn([]);
+
+        $engine = $this->engine(
+            $objectService,
+            $contextHandler,
+            $responseHandler,
+            $conversationHandler,
+            $historyHandler
+        );
+
+        $trace  = new RunTraceCollector();
+        $result = $engine->processMessage(
+            conversationId: 'conv-1',
+            userId: 'alice',
+            userMessage: 'Hi',
+            trace: $trace
+        );
+
+        $this->assertSame(
+            ['context', 'history', 'tool', 'llm'],
+            array_column($result['steps'], 'type'),
+            'The tool step (nested inside the llm call) must complete before the llm step itself.'
+        );
+        $this->assertSame([0, 1, 2, 3], array_column($result['steps'], 'seq'));
+
+    }//end testProcessMessageThreadsCollectorAndOrdersStepsByCompletion()
+
+    /**
+     * With no collector supplied (every pre-existing caller), the envelope's
+     * `steps` key is an empty array — never a fatal error, never a behavior
+     * change to the rest of the return shape.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     */
+    public function testProcessMessageWithoutCollectorReturnsEmptySteps(): void
+    {
+        $conversation = $this->entity('conv-1', ['userId' => 'alice']);
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('setRegister')->willReturnSelf();
+        $objectService->method('setSchema')->willReturnSelf();
+        $objectService->method('find')->willReturn($conversation);
+        $objectService->method('findAll')->willReturn([1, 2, 3]);
+
+        $contextHandler = $this->createMock(ContextRetrievalHandler::class);
+        $contextHandler->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
+
+        $responseHandler = $this->createMock(ResponseGenerationHandler::class);
+        $responseHandler->method('generateResponse')->willReturn('Hi there!');
+        $responseHandler->lastUsage = [];
+
+        $conversationHandler = $this->createMock(ConversationManagementHandler::class);
+        $historyHandler      = $this->createMock(MessageHistoryHandler::class);
+        $historyHandler->method('storeMessage')->willReturn($this->entity('msg-1', []));
+        $historyHandler->method('buildMessageHistory')->willReturn([]);
+
+        $engine = $this->engine(
+            $objectService,
+            $contextHandler,
+            $responseHandler,
+            $conversationHandler,
+            $historyHandler
+        );
+
+        $result = $engine->processMessage(conversationId: 'conv-1', userId: 'alice', userMessage: 'Hi');
+
+        $this->assertSame([], $result['steps']);
+
+    }//end testProcessMessageWithoutCollectorReturnsEmptySteps()
 }//end class

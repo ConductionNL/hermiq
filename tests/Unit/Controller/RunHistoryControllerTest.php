@@ -199,4 +199,97 @@ class RunHistoryControllerTest extends TestCase
         $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
     }//end testUnauthenticatedIsRejected()
+
+    /**
+     * The owner receives the run's full trace (run-trace-observability).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-1
+     */
+    public function testOwnerGetsRunTrace(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $trace      = ['id' => 'run-1', 'scheduleId' => 'sched-1', 'steps' => [['type' => 'context']]];
+        $runHistory = $this->createMock(RunHistoryService::class);
+        $runHistory->expects($this->once())
+            ->method('getRunTrace')
+            ->with('sched-1', 'run-1')
+            ->willReturn($trace);
+
+        $controller = $this->controller($objectService, $this->session('alice'), $runHistory);
+        $response   = $controller->trace('sched-1', 'run-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame($trace, $response->getData());
+
+    }//end testOwnerGetsRunTrace()
+
+    /**
+     * A non-owner is refused with 404 (anti-probing) and never reads the trace —
+     * identical to `index()`'s existing convention.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-1
+     */
+    public function testNonOwnerIsRefusedForTrace(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $runHistory = $this->createMock(RunHistoryService::class);
+        $runHistory->expects($this->never())->method('getRunTrace');
+
+        $controller = $this->controller($objectService, $this->session('mallory'), $runHistory);
+        $response   = $controller->trace('sched-1', 'run-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+        $this->assertArrayNotHasKey('steps', $response->getData());
+
+    }//end testNonOwnerIsRefusedForTrace()
+
+    /**
+     * An unknown run id (or one belonging to another schedule) surfaces as 404,
+     * not an empty/erroring trace.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-1
+     */
+    public function testUnknownRunIsNotFound(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $runHistory = $this->createMock(RunHistoryService::class);
+        $runHistory->method('getRunTrace')->willReturn(null);
+
+        $controller = $this->controller($objectService, $this->session('alice'), $runHistory);
+        $response   = $controller->trace('sched-1', 'nope');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testUnknownRunIsNotFound()
+
+    /**
+     * An unauthenticated caller gets 401 on the trace endpoint too.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-1
+     */
+    public function testUnauthenticatedIsRejectedForTrace(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $runHistory    = $this->createMock(RunHistoryService::class);
+
+        $controller = $this->controller($objectService, $this->session(null), $runHistory);
+        $response   = $controller->trace('sched-1', 'run-1');
+
+        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+
+    }//end testUnauthenticatedIsRejectedForTrace()
 }//end class

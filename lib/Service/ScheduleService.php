@@ -36,6 +36,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\OpenRegister\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\Conversation;
@@ -156,6 +157,19 @@ class ScheduleService
      * @var string
      */
     private string $lastRunAsUser = '';
+
+    /**
+     * The last run's ordered step timeline (run-trace-observability), captured
+     * from either the in-app Engine's `RunTraceCollector` (context/history/tool/
+     * llm — fine-grained tool steps included) or, on the default OpenRegister
+     * `ChatService` path, coarse context/history/llm steps derived from its
+     * `timings` return value (no tool-type step is ever fabricated for that
+     * path). `runDue()` appends a final `delivery` step once `deliver()`
+     * resolves. Reset per run, read by `writeRunAudit`.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    private array $lastRunSteps = [];
 
     /**
      * Constructor.
@@ -479,12 +493,14 @@ class ScheduleService
         $organisation = (string) ($schedule->getOrganisation() ?? '');
         $agentId      = (string) ($data['agentId'] ?? '');
 
-        // Reset per-schedule run-identity/usage BEFORE either gate can short-circuit to
-        // writeRunAudit(): without this, a gate-skipped schedule's audit entry could leak
-        // a PREVIOUS schedule's lastRunAsUser/lastRunUsage from earlier in the same tick.
-        // A skip never runs an agent, so both reflect "nothing ran" (owner, empty usage).
+        // Reset per-schedule run-identity/usage/steps BEFORE either gate can short-circuit
+        // to writeRunAudit(): without this, a gate-skipped schedule's audit entry could leak
+        // a PREVIOUS schedule's lastRunAsUser/lastRunUsage/lastRunSteps from earlier in the
+        // same tick. A skip never runs an agent, so all three reflect "nothing ran" (owner,
+        // empty usage, empty step timeline).
         $this->lastRunAsUser = $owner;
         $this->lastRunUsage  = [];
+        $this->lastRunSteps  = [];
 
         // GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
         if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
@@ -655,11 +671,18 @@ class ScheduleService
                 prompt: (string) ($data['prompt'] ?? '')
             );
 
-            $delivery = $this->deliver(
+            // Run-trace-observability: a `delivery` step timed around the existing
+            // DeliveryService call — appended AFTER any context/history/tool/llm
+            // steps runAgentAsOwner() already captured, never fatal to the run
+            // (DeliveryService already promises never to throw; a failed delivery
+            // is recorded as outcome=error, not an aborted run).
+            $deliveryStartedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+            $delivery          = $this->deliver(
                 channel: (string) ($data['deliver'] ?? 'none'),
                 output: $output,
                 schedule: $schedule
             );
+            $this->appendDeliveryStep(startedAt: $deliveryStartedAt, delivery: $delivery);
 
             $data    = $this->applySuccessOutcome(data: $data, delivery: $delivery, deferDisable: $deferDisable);
             $summary = $output;
@@ -992,21 +1015,26 @@ class ScheduleService
             $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
             $context = [
-                'status'     => (string) ($data['lastStatus'] ?? 'unknown'),
-                'agentId'    => (string) ($data['agentId'] ?? ''),
-                'startedAt'  => $startedAt->format('c'),
-                'endedAt'    => $endedAt->format('c'),
-                'durationMs' => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
+                'status'             => (string) ($data['lastStatus'] ?? 'unknown'),
+                'agentId'            => (string) ($data['agentId'] ?? ''),
+                'startedAt'          => $startedAt->format('c'),
+                'endedAt'            => $endedAt->format('c'),
+                'durationMs'         => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
                 // Per-run LLM token/latency usage from OpenRegister's ChatService (run-analytics).
-                'usage'      => $this->lastRunUsage,
+                'usage'              => $this->lastRunUsage,
                 // The identity that actually ran the turn — the schedule owner, unless
                 // Agent.actingUser overrode it (agent-capability-profile).
-                'runAsUser'  => $this->lastRunAsUser,
+                'runAsUser'          => $this->lastRunAsUser,
                 // REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write.
-                'summary'    => $this->redactionService->redact($summary),
+                'summary'            => $this->redactionService->redact($summary),
                 // Run-reliability: the attempt number within this occurrence's retry
                 // sequence (1 = first attempt), so run history can show each retry.
-                'attempt'    => $attempt,
+                'attempt'            => $attempt,
+                // Run-trace-observability: the run's ordered step timeline (empty for a
+                // gate-skip — no agent turn ran) and whether it includes any tool-type
+                // step (only ever true on the in-app Engine path; never fabricated).
+                'steps'              => $this->lastRunSteps,
+                'toolStepsAvailable' => $this->stepsIncludeToolCall(steps: $this->lastRunSteps),
             ];
 
             $this->auditTrailMapper->createAuditTrailEntry(
@@ -1026,6 +1054,121 @@ class ScheduleService
         }//end try
 
     }//end writeRunAudit()
+
+    /**
+     * Whether a step timeline includes any `tool`-type step.
+     *
+     * Run-trace-observability: `toolStepsAvailable` lets a reader distinguish "no
+     * tools were called this run" (in-app Engine path, empty steps of type tool)
+     * from "tool-level detail unavailable on this run's execution path" (default
+     * OpenRegister `ChatService` path, which never produces a tool-type step at
+     * all) — see proposal.md Risk 2.
+     *
+     * @param array<int, array<string, mixed>> $steps The step timeline.
+     *
+     * @return bool True when at least one step has `type === 'tool'`.
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     */
+    private function stepsIncludeToolCall(array $steps): bool
+    {
+        foreach ($steps as $step) {
+            if (($step['type'] ?? null) === 'tool') {
+                return true;
+            }
+        }
+
+        return false;
+
+    }//end stepsIncludeToolCall()
+
+    /**
+     * Build coarse context/history/llm steps from the agent-turn call's already-
+     * returned `timings` bucket (a formatted-seconds string per leg, e.g. `"0.18s"`)
+     * — the ONLY step source available on the default OpenRegister `ChatService`
+     * path (Hermiq does not instrument OR's internal tool loop, so no `tool` step
+     * is ever produced here).
+     *
+     * Each leg's real DURATION is known but not its absolute wall-clock start/end,
+     * so the three legs are chained backward from `$anchorEnd` (the moment the
+     * agent-turn call returned) in call order (context, history, llm) — a
+     * contiguous, honest synthetic timeline. A leg that is absent or does not
+     * parse as `<number>s` is skipped entirely rather than fabricated (proposal
+     * Risk 1 / tasks.md task 3 acceptance).
+     *
+     * @param array<string, mixed> $timings   The `timings` bucket (`context`/`history`/`llm`/`total`
+     *                                        formatted-seconds strings), or malformed/absent.
+     * @param DateTimeImmutable    $anchorEnd The moment the agent-turn call returned.
+     *
+     * @return array<int, array<string, mixed>> The coarse steps, oldest leg first, `seq` 0..n-1.
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     */
+    private function buildCoarseStepsFromTimings(array $timings, DateTimeImmutable $anchorEnd): array
+    {
+        // Chained backward from $anchorEnd; legs are appended in call order below
+        // (context, history, llm) so the final array is already in call order.
+        $legs = [
+            ['type' => 'llm', 'name' => 'LLM generation', 'key' => 'llm'],
+            ['type' => 'history', 'name' => 'History build', 'key' => 'history'],
+            ['type' => 'context', 'name' => 'Context retrieval', 'key' => 'context'],
+        ];
+
+        $cursor        = $anchorEnd;
+        $backwardSteps = [];
+        foreach ($legs as $leg) {
+            $durationMs = $this->parseTimingSeconds(value: ($timings[$leg['key']] ?? null));
+            if ($durationMs === null) {
+                continue;
+            }
+
+            $endedAt   = $cursor;
+            $startedAt = $endedAt->modify('-'.$durationMs.' milliseconds');
+
+            $backwardSteps[] = [
+                'type'       => $leg['type'],
+                'name'       => $leg['name'],
+                'startedAt'  => $startedAt->format('c'),
+                'endedAt'    => $endedAt->format('c'),
+                'durationMs' => $durationMs,
+                'outcome'    => 'ok',
+            ];
+
+            $cursor = $startedAt;
+        }//end foreach
+
+        $steps = array_reverse($backwardSteps);
+
+        $seq = 0;
+        return array_map(
+            static function (array $step) use (&$seq): array {
+                $step['seq'] = $seq++;
+                return $step;
+            },
+            $steps
+        );
+
+    }//end buildCoarseStepsFromTimings()
+
+    /**
+     * Parse a `timings` leg value (`"0.18s"`) into a millisecond duration.
+     *
+     * @param mixed $value The raw timing value.
+     *
+     * @return int|null The duration in milliseconds, or null when absent/malformed
+     *                  (never fabricated — proposal Risk 1).
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     */
+    private function parseTimingSeconds(mixed $value): ?int
+    {
+        if (is_string($value) === false || preg_match('~^(\d+(?:\.\d+)?)s$~', $value, $matches) !== 1) {
+            return null;
+        }
+
+        return (int) round(((float) $matches[1]) * 1000);
+
+    }//end parseTimingSeconds()
 
     /**
      * Compute the next run time for a schedule, anchored to the owner's timezone.
@@ -1110,8 +1253,10 @@ class ScheduleService
      */
     public function runAgentAsOwner(string $owner, string $agentId, string $prompt): string
     {
-        // Reset per-run usage so a failed run never records the previous run's tokens.
+        // Reset per-run usage/steps so a failed run never records the previous run's
+        // tokens or step timeline.
         $this->lastRunUsage  = [];
+        $this->lastRunSteps  = [];
         $this->lastRunAsUser = $owner;
 
         // Agent-capability-profile: on the engine-enabled path only, an Agent may name
@@ -1163,6 +1308,18 @@ class ScheduleService
             $usage = ($result['usage'] ?? []);
             if (is_array($usage) === true) {
                 $this->lastRunUsage = $usage;
+            }
+
+            // Run-trace-observability: Hermiq does not instrument OR's internal tool
+            // loop on this path, so only coarse context/history/llm steps are ever
+            // captured here — derived from the `timings` bucket the call already
+            // returns (never a fabricated duration when a leg is absent/malformed).
+            $timings = ($result['timings'] ?? []);
+            if (is_array($timings) === true) {
+                $this->lastRunSteps = $this->buildCoarseStepsFromTimings(
+                    timings: $timings,
+                    anchorEnd: new DateTimeImmutable('now', new DateTimeZone('UTC'))
+                );
             }
 
             return (string) ($result['message'] ?? '');
@@ -1294,10 +1451,16 @@ class ScheduleService
             schema: self::CONVERSATION_SCHEMA
         );
 
+        // Run-trace-observability: the in-app Engine path is the ONLY path Hermiq
+        // instruments fine-grained tool-call steps on (agent-engine-port ownership
+        // boundary) — thread a fresh collector through the SAME call chain
+        // StreamYieldChannel already uses.
+        $trace  = new RunTraceCollector();
         $result = $this->engine->processMessage(
             conversationId: (string) $conversation->getUuid(),
             userId: $owner,
-            userMessage: $prompt
+            userMessage: $prompt,
+            trace: $trace
         );
 
         // Capture the LLM token/latency usage identically to the flag-off path, so
@@ -1309,6 +1472,18 @@ class ScheduleService
         $usage = ($result['usage'] ?? []);
         if (is_array($usage) === true) {
             $this->lastRunUsage = $usage;
+        }
+
+        // Prefer the collector's own record (this call owns it end-to-end); fall
+        // back to the envelope's `steps` key (identical content, per Engine's
+        // contract) only if a future engine swap ever stops accepting `$trace`.
+        $this->lastRunSteps = $trace->toArray();
+        if ($this->lastRunSteps === []) {
+            // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+            $envelopeSteps = ($result['steps'] ?? []);
+            if (is_array($envelopeSteps) === true) {
+                $this->lastRunSteps = $envelopeSteps;
+            }
         }
 
         // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
@@ -1341,6 +1516,44 @@ class ScheduleService
         );
 
     }//end deliver()
+
+    /**
+     * Append a `delivery` step onto `$this->lastRunSteps` (run-trace-observability),
+     * timed around the `deliver()` call that just resolved.
+     *
+     * Outcome is `error` exactly when `DeliveryResult::getWarning()` is non-null —
+     * a deliberate no-op delivery (channel `none`/empty output) carries no warning
+     * and is recorded as `ok`, matching `applySuccessOutcome()`'s existing
+     * "no warning ⇒ no `lastDeliveryError`" contract.
+     *
+     * @param DateTimeImmutable $startedAt The moment the `deliver()` call began.
+     * @param DeliveryResult    $delivery  The delivery outcome.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     */
+    private function appendDeliveryStep(DateTimeImmutable $startedAt, DeliveryResult $delivery): void
+    {
+        $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        $outcome = 'ok';
+        if ($delivery->getWarning() !== null) {
+            $outcome = 'error';
+        }
+
+        $this->lastRunSteps[] = [
+            'seq'        => count($this->lastRunSteps),
+            'type'       => 'delivery',
+            'name'       => 'Talk delivery',
+            'startedAt'  => $startedAt->format('c'),
+            'endedAt'    => $endedAt->format('c'),
+            // Whole-second precision, mirroring writeRunAudit()'s own durationMs.
+            'durationMs' => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
+            'outcome'    => $outcome,
+        ];
+
+    }//end appendDeliveryStep()
 
     /**
      * Owner failure-alert seam (run-reliability) — delegates to DeliveryService,

@@ -160,6 +160,10 @@ class ToolLoop
      * @param array                   $functions Flattened LLPhant function descriptors
      *                                           (from `listAgentFunctions()`).
      * @param StreamYieldChannel|null $channel   Optional streaming channel.
+     * @param RunTraceCollector|null  $trace     Optional run-trace collector; threaded
+     *                                           onto the shared `FacadeToolInvoker` so
+     *                                           each tool call the LLM makes is timed
+     *                                           as a `tool` step (run-trace-observability).
      *
      * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
      *
@@ -167,10 +171,11 @@ class ToolLoop
      * conversion kept structurally intact from the OR original for parity reviewability.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      */
-    public function buildFunctionInfos(array $functions, ?StreamYieldChannel $channel=null): array
+    public function buildFunctionInfos(array $functions, ?StreamYieldChannel $channel=null, ?RunTraceCollector $trace=null): array
     {
-        $invoker = new FacadeToolInvoker(facade: $this->toolRegistryFacade, channel: $channel);
+        $invoker = new FacadeToolInvoker(facade: $this->toolRegistryFacade, channel: $channel, trace: $trace);
         $functionInfoObjects = [];
 
         foreach ($functions as $func) {
