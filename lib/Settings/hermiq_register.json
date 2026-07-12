@@ -366,9 +366,9 @@
         }
       },
       "Budget": {
-        "slug": "budget",
+        "slug": "agentbudget",
         "icon": "CashMultiple",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "title": "Budget",
         "description": "Per-organisation or per-agent spend guardrail (tokens and/or EUR per period): a soft threshold that warns without blocking, and a hard cap that blocks NEW runs for the budgeted scope at the same dispatch gate the kill-switch and human-approval gate use (never aborts a run already in progress). Current-period usage is computed on read from the existing run AuditTrail — never a stored counter.",
         "type": "object",

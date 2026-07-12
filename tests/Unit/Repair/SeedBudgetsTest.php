@@ -153,7 +153,7 @@ class SeedBudgetsTest extends TestCase
     {
         $objectService = $this->objectService(
             [
-                'budget' => [],
+                'agentbudget' => [],
                 'agent'  => [
                     $this->agent('agent-briefing', 'Daily Briefing', 'org-a'),
                     $this->agent('agent-heavy', 'Heavy Tool Runner', 'org-a'),
@@ -193,7 +193,7 @@ class SeedBudgetsTest extends TestCase
      */
     public function testDefersOrgBudgetWhenNoOrganisationExists(): void
     {
-        $objectService = $this->objectService(['budget' => [], 'agent' => []]);
+        $objectService = $this->objectService(['agentbudget' => [], 'agent' => []]);
         $budgetService = $this->createMock(BudgetService::class);
         $budgetService->expects($this->never())->method('create');
 
@@ -216,7 +216,7 @@ class SeedBudgetsTest extends TestCase
      */
     public function testDefersAgentBudgetWhenAgentMissing(): void
     {
-        $objectService = $this->objectService(['budget' => [], 'agent' => []]);
+        $objectService = $this->objectService(['agentbudget' => [], 'agent' => []]);
 
         $budgetService = $this->createMock(BudgetService::class);
         $created       = [];
@@ -255,7 +255,7 @@ class SeedBudgetsTest extends TestCase
         $existingOrgBudget->setOrganisation('org-a');
         $existingOrgBudget->setObject(['scope' => 'organisation', 'agentId' => '', 'period' => 'monthly']);
 
-        $objectService = $this->objectService(['budget' => [$existingOrgBudget], 'agent' => []]);
+        $objectService = $this->objectService(['agentbudget' => [$existingOrgBudget], 'agent' => []]);
 
         $budgetService = $this->createMock(BudgetService::class);
         $budgetService->expects($this->never())->method('create');

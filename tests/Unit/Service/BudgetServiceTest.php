@@ -268,7 +268,7 @@ class BudgetServiceTest extends TestCase
         $budget    = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 100000]);
         $schedule  = $this->schedule('s1', 'org-a', 'agent-1');
         $bySchema  = [
-            'budget'    => [$budget],
+            'agentbudget'    => [$budget],
             'schedule'  => [$schedule],
             '__runs__'  => [$this->runEntry('s1', 60000, 40000)],
         ];
@@ -291,7 +291,7 @@ class BudgetServiceTest extends TestCase
         $budget   = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 100000]);
         $schedule = $this->schedule('s1', 'org-a', 'agent-1');
         $bySchema = [
-            'budget'   => [$budget],
+            'agentbudget'   => [$budget],
             'schedule' => [$schedule],
             '__runs__' => [$this->runEntry('s1', 1000, 500)],
         ];
@@ -315,7 +315,7 @@ class BudgetServiceTest extends TestCase
     {
         $budget = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 1000]);
         $bySchema = [
-            'budget'   => [$budget],
+            'agentbudget'   => [$budget],
             'schedule' => [
                 $this->schedule('s1', 'org-a', 'agent-1'),
                 $this->schedule('s2', 'org-b', 'agent-2'),
@@ -346,7 +346,7 @@ class BudgetServiceTest extends TestCase
     {
         $budget = $this->budget('b1', 'org-a', ['scope' => 'agent', 'agentId' => 'agent-1', 'tokenLimit' => 1000]);
         $bySchema = [
-            'budget'   => [$budget],
+            'agentbudget'   => [$budget],
             'schedule' => [
                 $this->schedule('s1', 'org-a', 'agent-1'),
                 $this->schedule('s2', 'org-a', 'agent-2'),
@@ -410,7 +410,7 @@ class BudgetServiceTest extends TestCase
         $budget   = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 1000]);
         $schedule = $this->schedule('s1', 'org-a', 'agent-1');
         $bySchema = [
-            'budget'   => [$budget],
+            'agentbudget'   => [$budget],
             'schedule' => [$schedule],
             '__runs__' => [$this->runEntry('s1', 100, 100)],
         ];
@@ -437,7 +437,7 @@ class BudgetServiceTest extends TestCase
         $budget   = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 100000, 'softThresholdPercent' => 80]);
         $schedule = $this->schedule('s1', 'org-a', 'agent-1');
         $bySchema = [
-            'budget'   => [$budget],
+            'agentbudget'   => [$budget],
             'schedule' => [$schedule],
             // 85% of 100000 — crosses the 80% soft threshold, below the hard cap.
             '__runs__' => [$this->runEntry('s1', 50000, 35000)],
@@ -480,7 +480,7 @@ class BudgetServiceTest extends TestCase
         $budget   = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 100000, 'softThresholdPercent' => 80]);
         $schedule = $this->schedule('s1', 'org-a', 'agent-1');
         $bySchema = [
-            'budget'   => [$budget],
+            'agentbudget'   => [$budget],
             'schedule' => [$schedule],
             '__runs__' => [$this->runEntry('s1', 1000, 500)],
         ];
@@ -504,7 +504,7 @@ class BudgetServiceTest extends TestCase
         $budget   = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 100000, 'softThresholdPercent' => 80]);
         $schedule = $this->schedule('s1', 'org-a', 'agent-1');
         $bySchema = [
-            'budget'   => [$budget],
+            'agentbudget'   => [$budget],
             'schedule' => [$schedule],
             '__runs__' => [$this->runEntry('s1', 50000, 35000)],
         ];
@@ -534,7 +534,7 @@ class BudgetServiceTest extends TestCase
         $budget   = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 100000, 'softThresholdPercent' => 80]);
         $schedule = $this->schedule('s1', 'org-a', 'agent-1');
         $bySchema = [
-            'budget'   => [$budget],
+            'agentbudget'   => [$budget],
             'schedule' => [$schedule],
             '__runs__' => [$this->runEntry('s1', 50000, 35000)],
         ];
@@ -695,7 +695,7 @@ class BudgetServiceTest extends TestCase
      */
     public function testStatusForScopeReportsNotConfiguredWhenNoBudget(): void
     {
-        $service = $this->service(bySchema: ['budget' => []]);
+        $service = $this->service(bySchema: ['agentbudget' => []]);
 
         $status = $service->statusForScope(organisation: 'org-a', agentId: null);
 
@@ -715,7 +715,7 @@ class BudgetServiceTest extends TestCase
     public function testListForCallerFiltersByOrganisation(): void
     {
         $bySchema = [
-            'budget' => [
+            'agentbudget' => [
                 $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 1000]),
                 $this->budget('b2', 'org-b', ['scope' => 'organisation', 'tokenLimit' => 2000]),
             ],
@@ -743,7 +743,7 @@ class BudgetServiceTest extends TestCase
     {
         $existing = $this->budget('b1', 'org-a', ['scope' => 'organisation', 'tokenLimit' => 1000]);
         $saved    = [];
-        $service  = $this->service(bySchema: ['budget' => [$existing]], saved: $saved);
+        $service  = $this->service(bySchema: ['agentbudget' => [$existing]], saved: $saved);
 
         $updated = $service->update(budgetId: 'b1', payload: ['tokenLimit' => 5000, 'softThresholdPercent' => 90]);
 
@@ -762,7 +762,7 @@ class BudgetServiceTest extends TestCase
      */
     public function testUpdateThrowsWhenBudgetMissing(): void
     {
-        $service = $this->service(bySchema: ['budget' => []]);
+        $service = $this->service(bySchema: ['agentbudget' => []]);
 
         $this->expectException(RuntimeException::class);
         $service->update(budgetId: 'missing', payload: ['tokenLimit' => 5000]);
@@ -781,7 +781,7 @@ class BudgetServiceTest extends TestCase
         $objectService = $this->createMock(ObjectService::class);
         $objectService->expects($this->once())
             ->method('deleteObject')
-            ->with('b1', 'hermiq', 'budget', false, false)
+            ->with('b1', 'hermiq', 'agentbudget', false, false)
             ->willReturn(true);
 
         $service = new BudgetService(
