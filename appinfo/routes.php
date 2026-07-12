@@ -1,5 +1,20 @@
 <?php
-// SPDX-License-Identifier: EUPL-1.2
+
+/**
+ * Hermiq route registration.
+ *
+ * @category AppInfo
+ * @package  OCA\Hermiq\AppInfo
+ *
+ * @author    Conduction Development Team <info@conduction.nl>
+ * @copyright 2026 Conduction B.V.
+ * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
+ *
+ * @link https://conduction.nl
+ */
 
 declare(strict_types=1);
 
@@ -29,6 +44,14 @@ return [
         // Run history — owner-scoped audit read for a schedule (run-audit-log).
         ['name' => 'runHistory#index', 'url' => '/api/schedules/{scheduleId}/runs', 'verb' => 'GET', 'requirements' => ['scheduleId' => '[^/]+']],
 
+        // Run trace — owner-scoped, redacted per-run step timeline (run-trace-observability).
+        [
+            'name'         => 'runHistory#trace',
+            'url'          => '/api/schedules/{scheduleId}/runs/{runId}/trace',
+            'verb'         => 'GET',
+            'requirements' => ['scheduleId' => '[^/]+', 'runId' => '[^/]+'],
+        ],
+
         // Run now — owner-scoped immediate run of a schedule's agent (agent-management-ui).
         ['name' => 'runNow#run', 'url' => '/api/schedules/{scheduleId}/run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
@@ -38,15 +61,30 @@ return [
         ['name' => 'approval#deny',    'url' => '/api/approvals/{approvalId}/deny', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
 
         // Per-organisation kill-switch (human-approval-gate-enforcement): read + toggle.
-        ['name' => 'tenantControl#show',   'url' => '/api/tenant-control/{organisation}', 'verb' => 'GET', 'requirements' => ['organisation' => '[^/]+']],
-        ['name' => 'tenantControl#toggle', 'url' => '/api/tenant-control/{organisation}/toggle', 'verb' => 'POST', 'requirements' => ['organisation' => '[^/]+']],
+        [
+            'name'         => 'tenantControl#show',
+            'url'          => '/api/tenant-control/{organisation}',
+            'verb'         => 'GET',
+            'requirements' => ['organisation' => '[^/]+'],
+        ],
+        [
+            'name'         => 'tenantControl#toggle',
+            'url'          => '/api/tenant-control/{organisation}/toggle',
+            'verb'         => 'POST',
+            'requirements' => ['organisation' => '[^/]+'],
+        ],
 
         // Agent memory (agent-memory): tenant-scoped memory, profiles, sessions, consolidate, recall.
         ['name' => 'memory#memory',        'url' => '/api/agents/{agentId}/memory', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
         ['name' => 'memory#addMemory',     'url' => '/api/agents/{agentId}/memory', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+']],
         ['name' => 'memory#userProfiles',  'url' => '/api/agents/{agentId}/user-profiles', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
         ['name' => 'memory#sessions',      'url' => '/api/agents/{agentId}/sessions', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
-        ['name' => 'memory#consolidate',   'url' => '/api/agents/{agentId}/memory/consolidate', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+']],
+        [
+            'name'         => 'memory#consolidate',
+            'url'          => '/api/agents/{agentId}/memory/consolidate',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+'],
+        ],
         ['name' => 'memory#recall',        'url' => '/api/agents/{agentId}/recall', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
 
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
@@ -71,7 +109,12 @@ return [
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],
         ['name' => 'skill#export',  'url' => '/api/skills/{id}/export', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skill#install', 'url' => '/api/skills/{id}/install', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
-        ['name' => 'skill#uninstall', 'url' => '/api/skills/{id}/install/{agentId}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+', 'agentId' => '[^/]+']],
+        [
+            'name'         => 'skill#uninstall',
+            'url'          => '/api/skills/{id}/install/{agentId}',
+            'verb'         => 'DELETE',
+            'requirements' => ['id' => '[^/]+', 'agentId' => '[^/]+'],
+        ],
 
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
@@ -87,8 +130,18 @@ return [
         // Algoritmeregister publication (algoritmeregister-publication): publish/withdraw a
         // high-risk feature to the national register, delegated to OpenCatalogi's publication
         // path via the runtime seam (action-auth-gated; NO direct national-portal call).
-        ['name' => 'aiFeature#publishToAlgoritmeregister',    'url' => '/api/ai-features/{id}/publish',  'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
-        ['name' => 'aiFeature#withdrawFromAlgoritmeregister', 'url' => '/api/ai-features/{id}/withdraw', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        [
+            'name'         => 'aiFeature#publishToAlgoritmeregister',
+            'url'          => '/api/ai-features/{id}/publish',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'aiFeature#withdrawFromAlgoritmeregister',
+            'url'          => '/api/ai-features/{id}/withdraw',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
 
         // First-time setup wizard (ADR-042) — the standard CnSetupWizard contract.
         ['name' => 'setup#status',     'url' => '/api/setup/status',            'verb' => 'GET'],
@@ -102,7 +155,6 @@ return [
         // (agents#page GET /agents, ui#chat) are deliberately NOT mirrored: hermiq's SPA
         // catch-all (dashboard#catchAll, last entry below) already serves every page URL.
         // ---------------------------------------------------------------------------
-
         // Agents: stats + tools MUST be registered before the /api/agents/{id} routes,
         // or 'stats'/'tools' would be captured as an {id}. The existing
         // /api/agents/{agentId}/memory block above matches longer paths — no conflict.
@@ -121,7 +173,12 @@ return [
         ['name' => 'chat#getHistory',   'url' => '/api/chat/history', 'verb' => 'GET'],
         ['name' => 'chat#clearHistory', 'url' => '/api/chat/history', 'verb' => 'DELETE'],
         ['name' => 'chat#getChatStats', 'url' => '/api/chat/stats', 'verb' => 'GET'],
-        ['name' => 'chat#sendFeedback', 'url' => '/api/conversations/{conversationUuid}/messages/{messageId}/feedback', 'verb' => 'POST', 'requirements' => ['conversationUuid' => '[^/]+', 'messageId' => '[^/]+']],
+        [
+            'name'         => 'chat#sendFeedback',
+            'url'          => '/api/conversations/{conversationUuid}/messages/{messageId}/feedback',
+            'verb'         => 'POST',
+            'requirements' => ['conversationUuid' => '[^/]+', 'messageId' => '[^/]+'],
+        ],
 
         // Chat health probe (PublicPage — widget probes before authenticating).
         ['name' => 'chatHealth#health', 'url' => '/api/chat/health', 'verb' => 'GET'],
@@ -130,14 +187,29 @@ return [
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
 
         // Conversations: CRUD + messages + archive lifecycle (restore/permanent).
-        ['name' => 'conversation#index',            'url' => '/api/conversations', 'verb' => 'GET'],
-        ['name' => 'conversation#create',           'url' => '/api/conversations', 'verb' => 'POST'],
-        ['name' => 'conversation#show',             'url' => '/api/conversations/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'conversation#messages',         'url' => '/api/conversations/{uuid}/messages', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'conversation#update',           'url' => '/api/conversations/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'conversation#destroy',          'url' => '/api/conversations/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'conversation#restore',          'url' => '/api/conversations/{uuid}/restore', 'verb' => 'POST', 'requirements' => ['uuid' => '[^/]+']],
-        ['name' => 'conversation#destroyPermanent', 'url' => '/api/conversations/{uuid}/permanent', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'conversation#index', 'url' => '/api/conversations', 'verb' => 'GET'],
+        ['name' => 'conversation#create', 'url' => '/api/conversations', 'verb' => 'POST'],
+        ['name' => 'conversation#show', 'url' => '/api/conversations/{uuid}', 'verb' => 'GET', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'conversation#messages',
+            'url'          => '/api/conversations/{uuid}/messages',
+            'verb'         => 'GET',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        ['name' => 'conversation#update', 'url' => '/api/conversations/{uuid}', 'verb' => 'PATCH', 'requirements' => ['uuid' => '[^/]+']],
+        ['name' => 'conversation#destroy', 'url' => '/api/conversations/{uuid}', 'verb' => 'DELETE', 'requirements' => ['uuid' => '[^/]+']],
+        [
+            'name'         => 'conversation#restore',
+            'url'          => '/api/conversations/{uuid}/restore',
+            'verb'         => 'POST',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'conversation#destroyPermanent',
+            'url'          => '/api/conversations/{uuid}/permanent',
+            'verb'         => 'DELETE',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
 
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).

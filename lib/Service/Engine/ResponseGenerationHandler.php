@@ -112,6 +112,10 @@ class ResponseGenerationHandler
      *                                                 `ContextAssembler::assembleForAgent()`);
      *                                                 prepended to the system prompt right after
      *                                                 `Agent.prompt`, ahead of CnAiContext/RAG.
+     * @param RunTraceCollector|null  $trace           Optional run-trace collector; threaded
+     *                                                 onto `ToolLoop::buildFunctionInfos()` so
+     *                                                 each tool call is timed as a `tool` step
+     *                                                 (run-trace-observability).
      *
      * @return string Generated response text.
      *
@@ -133,6 +137,7 @@ class ResponseGenerationHandler
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      * @spec openspec/changes/agent-context-system/tasks.md#task-3-2
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      */
     public function generateResponse(
         string $userMessage,
@@ -142,7 +147,8 @@ class ResponseGenerationHandler
         array $selectedTools=[],
         ?StreamYieldChannel $channel=null,
         array $cnAiContext=[],
-        string $contextPreamble=''
+        string $contextPreamble='',
+        ?RunTraceCollector $trace=null
     ): string {
         $startTime = microtime(true);
         $agentData = [];
@@ -285,7 +291,8 @@ class ResponseGenerationHandler
                 if (empty($functions) === false) {
                     $functionInfoObjects = $this->toolLoop->buildFunctionInfos(
                         functions: $functions,
-                        channel: $channel
+                        channel: $channel,
+                        trace: $trace
                     );
                     $chat->setTools($functionInfoObjects);
                 }

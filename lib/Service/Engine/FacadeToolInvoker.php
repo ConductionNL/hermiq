@@ -15,6 +15,12 @@
  * progress exactly as they did on the OR path. With no channel the invocation
  * is a plain blocking call (load-bearing for `POST /api/chat/send`).
  *
+ * run-trace-observability: when a `RunTraceCollector` is attached, each
+ * invocation is additionally timed as one `tool` step (name = the registry id
+ * the LLM called; outcome `ok`/`error` from the facade's `isError` flag) —
+ * never the raw arguments or result, only name/timing/outcome (no secret-leak
+ * surface reintroduced into the audit trail).
+ *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
  *
@@ -28,6 +34,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/run-trace-observability/tasks.md#task-2-thread-the-collector-through-enginetoolloopfacadetoolinvoker
  */
 
 declare(strict_types=1);
@@ -49,14 +56,19 @@ class FacadeToolInvoker
      * @param ToolRegistryFacade      $facade  The OR public tool read/invoke surface.
      * @param StreamYieldChannel|null $channel Optional streaming channel for
      *                                         tool_call/tool_result frames.
+     * @param RunTraceCollector|null  $trace   Optional run-trace collector; when
+     *                                         supplied, each invocation is timed as
+     *                                         a `tool` step (run-trace-observability).
      *
      * @return void
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      */
     public function __construct(
         private readonly ToolRegistryFacade $facade,
-        private readonly ?StreamYieldChannel $channel=null
+        private readonly ?StreamYieldChannel $channel=null,
+        private readonly ?RunTraceCollector $trace=null
     ) {
     }//end __construct()
 
@@ -75,6 +87,7 @@ class FacadeToolInvoker
      * @return string JSON-encoded tool result for the follow-up LLM turn.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      */
     public function __call(string $name, array $arguments): string
     {
@@ -85,9 +98,23 @@ class FacadeToolInvoker
             ]
         );
 
+        $traceToken = null;
+        if ($this->trace !== null) {
+            $traceToken = $this->trace->startStep(type: 'tool', name: $name);
+        }
+
         // The facade's return shape is a documented contract:
         // {result: array, isError: bool} (ai-mcp REQ-006).
         $envelope = $this->facade->invokeTool(toolId: $name, arguments: $arguments);
+
+        if ($this->trace !== null && $traceToken !== null) {
+            $outcome = 'ok';
+            if ($envelope['isError'] === true) {
+                $outcome = 'error';
+            }
+
+            $this->trace->endStep(token: $traceToken, outcome: $outcome);
+        }
 
         $this->channel?->emitToolResult(
             payload: [

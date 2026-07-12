@@ -44,7 +44,19 @@
         "Retry backoff base (seconds)": "Basis wachttijd tussen pogingen (seconden)",
         "Retry max attempts": "Maximum aantal pogingen",
         "Retry on failure": "Opnieuw proberen bij mislukking",
-        "Retrying…": "Opnieuw proberen…"
+        "Retrying…": "Opnieuw proberen…",
+        "View this run's step timeline": "Bekijk de stappen van deze uitvoering",
+        "Details": "Details",
+        "Hide details": "Details verbergen",
+        "Could not load this run's trace.": "Kon de stappen van deze uitvoering niet laden.",
+        "Tool-level detail is unavailable for this run's execution path.": "Detail per tool-aanroep is niet beschikbaar voor de uitvoeringswijze van deze run.",
+        "No step detail recorded for this run.": "Geen stapdetails vastgelegd voor deze uitvoering.",
+        "Download trace (JSON)": "Download stappenlog (JSON)",
+        "Context": "Context",
+        "History": "Geschiedenis",
+        "LLM": "LLM",
+        "Tool": "Tool",
+        "Delivery": "Aflevering"
     },
     "plurals": ""
 }
