@@ -31,7 +31,20 @@
         "User settings will appear here in a future update.": "Gebruikersinstellingen verschijnen hier in een toekomstige update.",
         "app-availability.title": "Vereiste applicatie niet beschikbaar",
         "app-availability.description": "Deze applicatie vereist dat OpenRegister is geïnstalleerd en ingeschakeld.",
-        "app-availability.action": "OpenRegister installeren"
+        "app-availability.action": "OpenRegister installeren",
+        "Attempt": "Poging",
+        "Awaiting approval": "Wacht op goedkeuring",
+        "Circuit breaker threshold": "Drempelwaarde stroomonderbreker",
+        "Dead-letter": "Definitief mislukt",
+        "Halted (budget)": "Gestopt (budget)",
+        "Halted (kill-switch)": "Gestopt (noodstop)",
+        "Paused (circuit breaker)": "Gepauzeerd (stroomonderbreker)",
+        "Re-run": "Opnieuw uitvoeren",
+        "Re-run this dead-lettered schedule": "Voer dit definitief mislukte schema opnieuw uit",
+        "Retry backoff base (seconds)": "Basis wachttijd tussen pogingen (seconden)",
+        "Retry max attempts": "Maximum aantal pogingen",
+        "Retry on failure": "Opnieuw proberen bij mislukking",
+        "Retrying…": "Opnieuw proberen…"
     },
     "plurals": ""
 }

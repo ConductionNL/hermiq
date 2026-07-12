@@ -53,7 +53,14 @@ use Throwable;
 /**
  * Delivers agent run output to Talk / Notifications per the schedule's deliver setting.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates several Nextcloud subsystems.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several Nextcloud subsystems.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The class is a coordinator of many
+ *   small, single-shaped alert/delivery methods (run-output delivery, approval-request,
+ *   flow-approval-request, budget-warning, dead-letter alert, circuit-breaker alert) —
+ *   each individually simple; the aggregate crosses the class-wide threshold because the
+ *   class owns every Talk/Notification alert Hermiq raises rather than splitting by
+ *   alert type, which would duplicate the shared Talk-fallback-chain/notify plumbing
+ *   across multiple classes for no behavioural benefit.
  *
  * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
  */
@@ -394,6 +401,120 @@ class DeliveryService
         return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
 
     }//end deliverBudgetWarning()
+
+    /**
+     * Notify a schedule's owner that a run has been marked dead-letter after
+     * exhausting its retry budget (run-reliability). Fires REGARDLESS of the
+     * schedule's own `deliver` output-channel setting (including `deliver=none`) —
+     * this is a proactive reliability alert, not a run-output delivery. Raises a
+     * Nextcloud notification (rendered by the Hermiq INotifier, deep-linked to the
+     * schedule) and, when Talk is available, a best-effort Note-to-self message.
+     * NEVER throws for a delivery problem: any failure is caught and reported
+     * through a DeliveryResult so the dispatch tick/run is never failed by a
+     * notification (mirrors deliverApprovalRequest()/deliverBudgetWarning()).
+     *
+     * @param ObjectEntity $schedule The dead-lettered schedule.
+     * @param string       $reason   The failure reason (the last agent-turn error).
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    public function deliverFailureAlert(ObjectEntity $schedule, string $reason): DeliveryResult
+    {
+        $owner = (string) ($schedule->getOwner() ?? '');
+        if ($owner === '') {
+            return new DeliveryResult(delivered: false, channel: 'notification', fellBack: false, warning: 'Schedule has no owner to notify');
+        }
+
+        $scheduleUuid = (string) $schedule->getUuid();
+        $scheduleName = (string) ($schedule->getObject()['name'] ?? '');
+        $talkOk       = $this->isTalkAvailable();
+        $delivered    = false;
+        $warning      = null;
+
+        try {
+            $notification = $this->notificationManager->createNotification();
+            $notification->setApp('hermiq')
+                ->setUser($owner)
+                ->setDateTime(new DateTime())
+                ->setObject('schedule', $scheduleUuid)
+                ->setSubject('run_dead_letter', ['name' => $scheduleName])
+                ->setMessage('run_dead_letter_summary', ['reason' => $reason])
+                ->setLink($this->buildScheduleLink(uuid: $scheduleUuid));
+            $this->notificationManager->notify($notification);
+            $delivered = true;
+        } catch (Throwable $e) {
+            $warning = sprintf('notify %s failed: %s', $owner, $e->getMessage());
+        }
+
+        // Best-effort Talk Note-to-self — a bonus channel, never required.
+        if ($talkOk === true) {
+            $this->tryPostToNoteToSelf(
+                owner: $owner,
+                output: sprintf('Schedule “%s” failed permanently after exhausting its retries: %s', $scheduleName, $reason)
+            );
+        }
+
+        $this->logWarning(warning: $warning, uuid: $scheduleUuid, channel: 'dead_letter');
+        return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
+
+    }//end deliverFailureAlert()
+
+    /**
+     * Notify a schedule's owner that it has been auto-paused by the consecutive-
+     * dead-letter circuit breaker (run-reliability). Distinct from
+     * deliverFailureAlert(): the owner receives a SEPARATE notification stating the
+     * schedule was disabled, not merely that one occurrence failed. Fires
+     * REGARDLESS of the schedule's own `deliver` setting. NEVER throws for a
+     * delivery problem — same non-fatal contract as every other delivery method.
+     *
+     * @param ObjectEntity $schedule The auto-paused schedule.
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    public function deliverCircuitBreakerAlert(ObjectEntity $schedule): DeliveryResult
+    {
+        $owner = (string) ($schedule->getOwner() ?? '');
+        if ($owner === '') {
+            return new DeliveryResult(delivered: false, channel: 'notification', fellBack: false, warning: 'Schedule has no owner to notify');
+        }
+
+        $scheduleUuid = (string) $schedule->getUuid();
+        $scheduleName = (string) ($schedule->getObject()['name'] ?? '');
+        $talkOk       = $this->isTalkAvailable();
+        $delivered    = false;
+        $warning      = null;
+
+        try {
+            $notification = $this->notificationManager->createNotification();
+            $notification->setApp('hermiq')
+                ->setUser($owner)
+                ->setDateTime(new DateTime())
+                ->setObject('schedule', $scheduleUuid)
+                ->setSubject('schedule_paused_circuit_breaker', ['name' => $scheduleName])
+                ->setMessage('schedule_paused_circuit_breaker_summary', ['scheduleId' => $scheduleUuid])
+                ->setLink($this->buildScheduleLink(uuid: $scheduleUuid));
+            $this->notificationManager->notify($notification);
+            $delivered = true;
+        } catch (Throwable $e) {
+            $warning = sprintf('notify %s failed: %s', $owner, $e->getMessage());
+        }
+
+        // Best-effort Talk Note-to-self — a bonus channel, never required.
+        if ($talkOk === true) {
+            $this->tryPostToNoteToSelf(
+                owner: $owner,
+                output: sprintf('Schedule “%s” was automatically paused after repeated failures. Review it in Hermiq.', $scheduleName)
+            );
+        }
+
+        $this->logWarning(warning: $warning, uuid: $scheduleUuid, channel: 'circuit_breaker');
+        return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
+
+    }//end deliverCircuitBreakerAlert()
 
     /**
      * Deliver via the Talk fallback chain: target room → Note-to-self → notification.

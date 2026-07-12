@@ -10,8 +10,13 @@
   accessibility gate; WCAG 2.1 AA). Fields mirror the Schedule schema: kind,
   cronExpr, intervalMinutes, runAt, prompt, deliver, deliverTarget, enabled, repeat.
 
+  Retry policy (run-reliability): an opt-in "Retry enabled" switch reveals three
+  bounded number inputs (max attempts, backoff base, circuit-breaker threshold).
+  Off by default so the save payload is unchanged from before this change.
+
   @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
   @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
+  @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 -->
 <template>
 	<NcModal
@@ -123,6 +128,33 @@
 					:value.sync="form.reviewer"
 					:label="form.reviewerType === 'group' ? t('hermiq', 'Reviewer group id') : t('hermiq', 'Reviewer user id')"
 					:placeholder="t('hermiq', 'Leave empty to use the schedule owner')" />
+			</template>
+
+			<!-- Retry policy (run-reliability): opt-in bounded retry with exponential
+			     backoff + a circuit breaker. Off by default (backward compatible). -->
+			<NcCheckboxRadioSwitch :checked.sync="form.retryEnabled" type="switch">
+				{{ t('hermiq', 'Retry on failure') }}
+			</NcCheckboxRadioSwitch>
+
+			<template v-if="form.retryEnabled">
+				<NcTextField
+					type="number"
+					:value.sync="form.retryMaxAttempts"
+					:label="t('hermiq', 'Retry max attempts')"
+					min="1"
+					max="10" />
+
+				<NcTextField
+					type="number"
+					:value.sync="form.retryBackoffBaseSeconds"
+					:label="t('hermiq', 'Retry backoff base (seconds)')"
+					min="1" />
+
+				<NcTextField
+					type="number"
+					:value.sync="form.circuitBreakerThreshold"
+					:label="t('hermiq', 'Circuit breaker threshold')"
+					min="1" />
 			</template>
 
 			<div class="schedule-form__actions">
@@ -301,6 +333,10 @@ export default {
 				requiresApproval: false,
 				reviewer: '',
 				reviewerType: 'user',
+				retryEnabled: false,
+				retryMaxAttempts: 3,
+				retryBackoffBaseSeconds: 60,
+				circuitBreakerThreshold: 3,
 			}
 		},
 
@@ -330,6 +366,10 @@ export default {
 				requiresApproval: source.requiresApproval === true,
 				reviewer: source.reviewer || '',
 				reviewerType: source.reviewerType || 'user',
+				retryEnabled: source.retryEnabled === true,
+				retryMaxAttempts: source.retryMaxAttempts || 3,
+				retryBackoffBaseSeconds: source.retryBackoffBaseSeconds || 60,
+				circuitBreakerThreshold: source.circuitBreakerThreshold || 3,
 			}
 		},
 
@@ -367,6 +407,15 @@ export default {
 			if (this.form.requiresApproval) {
 				payload.reviewer = this.form.reviewer || ''
 				payload.reviewerType = this.form.reviewerType || 'user'
+			}
+			// Retry policy (run-reliability). Off by default: when retryEnabled is
+			// false the payload carries none of these keys, so it stays byte-for-byte
+			// identical to the pre-run-reliability payload (backward compatible).
+			if (this.form.retryEnabled) {
+				payload.retryEnabled = true
+				payload.retryMaxAttempts = Number(this.form.retryMaxAttempts) || 3
+				payload.retryBackoffBaseSeconds = Number(this.form.retryBackoffBaseSeconds) || 60
+				payload.circuitBreakerThreshold = Number(this.form.circuitBreakerThreshold) || 3
 			}
 			// Preserve the object id on edit so saveObject issues a PUT.
 			if (this.schedule && this.schedule.id) {

@@ -193,6 +193,60 @@
             "default": "user",
             "title": "Reviewer type",
             "description": "Whether reviewer is a Nextcloud user id or a group id."
+          },
+          "retryEnabled": {
+            "type": "boolean",
+            "default": false,
+            "title": "Retry enabled",
+            "description": "When true, a failed run is retried with exponential backoff (up to retryMaxAttempts) before being marked dead-letter (run-reliability)."
+          },
+          "retryMaxAttempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10,
+            "default": 3,
+            "title": "Retry max attempts",
+            "description": "Total attempts (including the first) for one occurrence before it is marked dead-letter."
+          },
+          "retryBackoffBaseSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 60,
+            "title": "Retry backoff base (seconds)",
+            "description": "Base delay for exponential backoff between retry attempts: backoffBase * 2^(attempt-1)."
+          },
+          "circuitBreakerThreshold": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 3,
+            "title": "Circuit breaker threshold",
+            "description": "Consecutive dead-lettered occurrences before the schedule is auto-paused."
+          },
+          "retryState": {
+            "type": "object",
+            "title": "Retry state",
+            "description": "Derived: in-progress retry-sequence bookkeeping — written by the dispatcher, not the user; null when no retry is pending.",
+            "properties": {
+              "attempt": {
+                "type": "integer",
+                "minimum": 0,
+                "title": "Attempt",
+                "description": "The last attempt number that failed."
+              },
+              "nextAttemptAt": {
+                "type": "string",
+                "format": "date-time",
+                "title": "Next attempt at",
+                "description": "When the next retry attempt is due to fire."
+              }
+            }
+          },
+          "consecutiveDeadLetters": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0,
+            "title": "Consecutive dead-letters",
+            "description": "Derived: consecutive dead-lettered occurrences — written by the dispatcher; resets to 0 on any successful run."
           }
         }
       },

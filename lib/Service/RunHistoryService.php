@@ -147,6 +147,7 @@ class RunHistoryService
      * @return array<string, mixed> The run record.
      *
      * @spec openspec/changes/run-audit-log/tasks.md#task-3-1
+     * @spec openspec/changes/run-reliability/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-lettercircuit-breaker-outcomes-mvp
      */
     private function toRunRecord(string $scheduleUuid, AuditTrail $log): array
     {
@@ -169,6 +170,9 @@ class RunHistoryService
             'endedAt'     => ($context['endedAt'] ?? null),
             'durationMs'  => ($context['durationMs'] ?? null),
             'summary'     => ($context['summary'] ?? null),
+            // Run-reliability: the attempt number within this occurrence's retry
+            // sequence (1 = first attempt; absent on a pre-run-reliability entry).
+            'attempt'     => ($context['attempt'] ?? null),
             'user'        => $log->getUser(),
             'created'     => $createdIso,
             'link'        => $this->buildScheduleLink(uuid: $scheduleUuid),
