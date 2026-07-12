@@ -15,9 +15,7 @@ entry, and show the user a run history. Hermiq gets this almost for free by reus
 OpenRegister's `AuditTrail` (a hash/`previousHash` tamper-evident chain with `organisation`
 scoping, GDPR Art. 30 register and DSAR endpoints) — turning EU AI Act record-keeping into
 an inherited platform capability rather than net-new code.
-
 ## Requirements
-
 ### Requirement: Every run and tool call is audited [MVP]
 The system MUST write an `AuditTrail` entry for each agent run (start, completion, error) and each tool invocation, scoped to the run owner's `organisation`.
 
@@ -41,6 +39,33 @@ A user MUST be able to see the run history for an agent/schedule they own, with 
 - GIVEN an agent with several past runs
 - WHEN the owner opens its run history
 - THEN the system MUST list recent runs (newest first) with status and duration, scoped to what the owner may see
+
+### Requirement: Run history surfaces retry attempts and dead-letter/circuit-breaker outcomes [MVP]
+
+The run-history read surface MUST expose, per run record, the retry attempt
+number when the run is part of a retry sequence, and MUST support `status`
+values `retry_pending`, `dead_letter`, and `paused_circuit_breaker` (in
+addition to the existing `ok` / `error` / `running` / `skipped_killswitch` /
+`awaiting_approval` vocabulary), sourced from the audit entry's redacted
+context exactly like the existing `status`/`durationMs`/`summary` fields.
+
+#### Scenario: A dead-lettered occurrence's full retry sequence is visible
+
+- GIVEN an occurrence that failed once, retried twice, and was ultimately
+  marked `dead_letter`
+- WHEN the owner opens run history for that schedule
+- THEN the system MUST list each attempt (including both retries) newest-first
+  with its own status, timing, and attempt number
+- AND the final (most recent) entry MUST show `status='dead_letter'`
+
+#### Scenario: A circuit-breaker auto-pause is visible in run history
+
+- GIVEN a schedule whose third consecutive dead-letter trips the circuit
+  breaker
+- WHEN the owner opens run history for that schedule
+- THEN the entry for that occurrence MUST show `status='paused_circuit_breaker'`
+  alongside the prior `dead_letter` entries, so the owner can see why the
+  schedule stopped running
 
 ## User Stories
 

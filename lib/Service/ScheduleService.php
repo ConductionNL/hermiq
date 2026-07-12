@@ -66,8 +66,16 @@ use Throwable;
  *   pivot (runAgentAsOwner dual path) pushed the dispatcher just over the 1000-line
  *   threshold; the flag-off branch is removed wholesale by or-chat-proxy-deprecation,
  *   which brings the class back under it — splitting now would be churn.
+ * @SuppressWarnings(PHPMD.TooManyMethods)           run-reliability's retry/dead-letter/
+ *   circuit-breaker logic is a set of small, single-purpose private helpers
+ *   (beginOccurrence/beginRetryAttempt/beginFreshOccurrence/applySuccessOutcome/
+ *   applyFailureOutcome/scheduleRetry/markDeadLetter/…) kept deliberately tiny to stay
+ *   under the per-method complexity threshold; design.md's Trade-offs rejected a
+ *   separate RetryPolicyService because it would duplicate the kill-switch/approval
+ *   gate call site instead of inheriting it for free from dispatch().
  *
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+ * @spec openspec/changes/run-reliability/design.md
  */
 class ScheduleService
 {
@@ -372,14 +380,19 @@ class ScheduleService
      * Find enabled schedules that are due at or before the given moment.
      *
      * Enabled schedules are fetched register/schema-wide (RBAC/multi-tenancy off —
-     * the tick runs system-wide, then impersonates each owner before firing) and the
-     * `nextRun <= now` cut is applied in PHP for operator-independent correctness.
+     * the tick runs system-wide, then impersonates each owner before firing) and a
+     * schedule is due when EITHER its own `nextRun <= now` OR (run-reliability) it
+     * carries an open retry sequence whose `retryState.nextAttemptAt <= now` — the
+     * latter fires a schedule whose regular `nextRun` has not arrived yet, so a
+     * pending retry is never silently skipped. Both cuts are applied in PHP for
+     * operator-independent correctness.
      *
      * @param DateTimeImmutable $now The current UTC moment.
      *
      * @return array<int, ObjectEntity> The due, enabled schedule objects.
      *
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-1
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
      */
     private function findDueSchedules(DateTimeImmutable $now): array
     {
@@ -403,11 +416,20 @@ class ScheduleService
                 continue;
             }
 
-            $nextRun = $this->parseDate(value: (string) ($data['nextRun'] ?? ''));
-            if ($nextRun === null || $nextRun <= $now) {
+            $nextRun      = $this->parseDate(value: (string) ($data['nextRun'] ?? ''));
+            $dueByNextRun = ($nextRun === null || $nextRun <= $now);
+
+            $dueByRetry = false;
+            $retryState = $this->normaliseRetryState(raw: ($data['retryState'] ?? null));
+            if ($retryState !== null) {
+                $nextAttemptAt = $this->parseDate(value: $retryState['nextAttemptAt']);
+                $dueByRetry    = ($nextAttemptAt === null || $nextAttemptAt <= $now);
+            }
+
+            if ($dueByNextRun === true || $dueByRetry === true) {
                 $due[] = $object;
             }
-        }
+        }//end foreach
 
         return $due;
 
@@ -535,15 +557,42 @@ class ScheduleService
     {
         $startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
 
+        // Run-reliability: a pending retry attempt's own number is preserved — a
+        // kill-switch/budget/approval skip does NOT touch retryState, so the retry
+        // stays due and fires with the SAME attempt number once the gate clears.
+        $attempt = $this->currentAttemptNumber(data: $data);
+
         $nextRun            = $this->computeNextRun(kind: (string) ($data['kind'] ?? ''), data: $data, owner: $owner, now: $now);
         $data['nextRun']    = $nextRun?->format('c');
         $data['lastStatus'] = $status;
         $data['lastError']  = null;
 
         $this->persist(schedule: $schedule, data: $data);
-        $this->writeRunAudit(schedule: $schedule, data: $data, summary: '', startedAt: $startedAt);
+        $this->writeRunAudit(schedule: $schedule, data: $data, summary: '', startedAt: $startedAt, attempt: $attempt);
 
     }//end recordGateSkip()
+
+    /**
+     * The attempt number about to run (or being gate-skipped) for a schedule's
+     * current occurrence — 1 for a fresh occurrence, or `retryState.attempt + 1`
+     * when an open retry sequence is pending (run-reliability).
+     *
+     * @param array<string,mixed> $data The schedule payload.
+     *
+     * @return int The 1-based attempt number.
+     *
+     * @spec openspec/changes/run-reliability/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-lettercircuit-breaker-outcomes-mvp
+     */
+    private function currentAttemptNumber(array $data): int
+    {
+        $retryState = $this->normaliseRetryState(raw: ($data['retryState'] ?? null));
+        if ($retryState === null) {
+            return 1;
+        }
+
+        return ($retryState['attempt'] + 1);
+
+    }//end currentAttemptNumber()
 
     /**
      * Run one due schedule end-to-end (the normal, ungated path).
@@ -551,6 +600,16 @@ class ScheduleService
      * Order matters for at-most-once safety: run-state (`nextRun`, `lastStatus`,
      * `repeat.completed`) is committed BEFORE the agent turn, so a crash during the
      * (long) agent run cannot re-fire the same occurrence.
+     *
+     * run-reliability: this same method also drives a RETRY attempt of an already
+     * committed occurrence (findDueSchedules() selects a schedule whose
+     * `retryState.nextAttemptAt` is due). A retry attempt is distinguished from a
+     * fresh occurrence by the presence of `retryState` on a `retryEnabled` schedule
+     * — see isRetryAttempt() — and does NOT repeat the nextRun/repeat commit-before-run
+     * advance (that already happened on the occurrence's first attempt); it only
+     * re-invokes the agent and finalises the retry/dead-letter/circuit-breaker state.
+     * The once/finite-repeat auto-disable is deferred on a retry-enabled schedule
+     * until the retry sequence resolves (success or dead-letter) — see $deferDisable.
      *
      * @param ObjectEntity      $schedule The schedule object to fire.
      * @param DateTimeImmutable $now      The current UTC moment.
@@ -560,29 +619,20 @@ class ScheduleService
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-3
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-4
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-6
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
      */
     private function runDue(ObjectEntity $schedule, DateTimeImmutable $now): void
     {
-        $data  = $schedule->getObject();
-        $owner = (string) ($schedule->getOwner() ?? '');
-        $kind  = (string) ($data['kind'] ?? '');
+        $data = $schedule->getObject();
 
-        $repeat = $this->normaliseRepeat(repeat: ($data['repeat'] ?? []));
-        $repeat['completed'] += 1;
-        $limitReached         = ($repeat['times'] > 0 && $repeat['completed'] >= $repeat['times']);
-        $isOnce = ($kind === 'once');
-
-        // COMMIT-BEFORE-RUN (at-most-once). Advance nextRun and mark running before
-        // the agent is ever invoked. One-shots and finished finite repeats disable
-        // themselves so they are not re-selected next tick.
-        $nextRun            = $this->computeNextRun(kind: $kind, data: $data, owner: $owner, now: $now);
-        $data['nextRun']    = $nextRun?->format('c');
-        $data['lastStatus'] = 'running';
-        $data['lastError']  = null;
-        $data['repeat']     = $repeat;
-        if ($isOnce === true || $limitReached === true) {
-            $data['enabled'] = false;
-        }
+        $occurrence    = $this->beginOccurrence(schedule: $schedule, data: $data, now: $now);
+        $data          = $occurrence['data'];
+        $attemptNumber = $occurrence['attemptNumber'];
+        $deferDisable  = $occurrence['deferDisable'];
+        $limitReached  = $occurrence['limitReached'];
+        $retryEnabled  = $occurrence['retryEnabled'];
 
         $this->persist(schedule: $schedule, data: $data);
 
@@ -597,10 +647,10 @@ class ScheduleService
         // pre-commit entity nor recompute nextRun — reverting the advance would make
         // a failing schedule stay perpetually due and re-fire every tick, defeating
         // commit-before-run. On failure the advance stays; only lastStatus/lastError
-        // change.
+        // (and the run-reliability retry/dead-letter/circuit-breaker fields) change.
         try {
             $output = $this->runAgentAsOwner(
-                owner: $owner,
+                owner: (string) ($schedule->getOwner() ?? ''),
                 agentId: (string) ($data['agentId'] ?? ''),
                 prompt: (string) ($data['prompt'] ?? '')
             );
@@ -611,31 +661,37 @@ class ScheduleService
                 schedule: $schedule
             );
 
-            // Finalise success state on the advanced $data. A delivery problem is
-            // NEVER fatal: the run stays 'ok' and any delivery warning is persisted
-            // to lastDeliveryError (cleared to null on a clean delivery).
-            $data['lastStatus']        = 'ok';
-            $data['lastError']         = null;
-            $data['lastDeliveryError'] = $delivery->getWarning();
+            $data    = $this->applySuccessOutcome(data: $data, delivery: $delivery, deferDisable: $deferDisable);
             $summary = $output;
         } catch (Throwable $e) {
-            // Record the failure on the advanced $data — the advance is preserved.
             $this->logger->warning(
                 sprintf('Hermiq schedule %s failed: %s', (string) $schedule->getUuid(), $e->getMessage()),
                 ['exception' => $e]
             );
-            $data['lastStatus'] = 'error';
-            $data['lastError']  = $e->getMessage();
-            $summary            = 'error: '.$e->getMessage();
+
+            $data    = $this->applyFailureOutcome(
+                schedule: $schedule,
+                data: $data,
+                retryEnabled: $retryEnabled,
+                attemptNumber: $attemptNumber,
+                deferDisable: $deferDisable,
+                now: $now,
+                error: $e
+            );
+            $summary = 'error: '.$e->getMessage();
         }//end try
 
         // Write the explicit, redacted per-run AuditTrail entry (run-audit-log). Done
         // for BOTH success and error, and BEFORE any delete, so no run — including the
         // final occurrence of a finite repeat — escapes the immutable trail. Never
         // fatal to the tick (ADR-004): a redaction/audit failure is logged, not raised.
-        $this->writeRunAudit(schedule: $schedule, data: $data, summary: $summary, startedAt: $startedAt);
+        $this->writeRunAudit(schedule: $schedule, data: $data, summary: $summary, startedAt: $startedAt, attempt: $attemptNumber);
 
-        if ($limitReached === true) {
+        // Run-reliability: the deferred finite-repeat delete only fires once the
+        // occurrence has actually RESOLVED (ok / error / dead_letter /
+        // paused_circuit_breaker) — never while a retry is still pending, or the
+        // schedule would be destroyed mid-sequence and the pending retry lost.
+        if ($limitReached === true && $data['lastStatus'] !== 'retry_pending') {
             $this->deleteSchedule(schedule: $schedule);
             return;
         }
@@ -643,6 +699,266 @@ class ScheduleService
         $this->persist(schedule: $schedule, data: $data);
 
     }//end runDue()
+
+    /**
+     * Compute the commit-before-run advance for one occurrence — either a FRESH
+     * occurrence (the unchanged nextRun/repeat advance) or a RETRY ATTEMPT of an
+     * already-committed occurrence (run-reliability; no re-advance, only marks
+     * running and preserves the deferred-disable decision).
+     *
+     * A retry attempt is distinguished from a fresh occurrence by the presence of
+     * `retryState` on a `retryEnabled` schedule. The once/finite-repeat
+     * auto-disable is DEFERRED on a retry-enabled schedule until the retry
+     * sequence resolves (success or dead-letter) — see `deferDisable` — so a due
+     * retry is never dropped by findDueSchedules()'s `enabled=true` filter.
+     *
+     * @param ObjectEntity        $schedule The schedule object to fire.
+     * @param array<string,mixed> $data     The schedule payload (getObject() snapshot).
+     * @param DateTimeImmutable   $now      The current UTC moment.
+     *
+     * @return array{data:array<string,mixed>, attemptNumber:int, deferDisable:bool, limitReached:bool, retryEnabled:bool}
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     */
+    private function beginOccurrence(ObjectEntity $schedule, array $data, DateTimeImmutable $now): array
+    {
+        $retryEnabled       = (($data['retryEnabled'] ?? false) === true);
+        $existingRetryState = $this->normaliseRetryState(raw: ($data['retryState'] ?? null));
+
+        if ($retryEnabled === true && $existingRetryState !== null) {
+            return $this->beginRetryAttempt(data: $data, retryEnabled: $retryEnabled, retryState: $existingRetryState);
+        }
+
+        return $this->beginFreshOccurrence(schedule: $schedule, data: $data, now: $now, retryEnabled: $retryEnabled);
+
+    }//end beginOccurrence()
+
+    /**
+     * The RETRY ATTEMPT branch of beginOccurrence(): do not re-advance nextRun/
+     * repeat — only mark running and remember whether the once/finite-repeat
+     * disable that was deferred on the occurrence's first attempt still applies
+     * once this attempt resolves.
+     *
+     * @param array<string,mixed>                     $data         The schedule payload.
+     * @param bool                                    $retryEnabled Always true (caller-checked).
+     * @param array{attempt:int,nextAttemptAt:string} $retryState   The open retry state.
+     *
+     * @return array{data:array<string,mixed>, attemptNumber:int, deferDisable:bool, limitReached:bool, retryEnabled:bool}
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    private function beginRetryAttempt(array $data, bool $retryEnabled, array $retryState): array
+    {
+        $isOnce       = ((string) ($data['kind'] ?? '') === 'once');
+        $repeat       = $this->normaliseRepeat(repeat: ($data['repeat'] ?? []));
+        $limitReached = ($repeat['times'] > 0 && $repeat['completed'] >= $repeat['times']);
+
+        $data['lastStatus'] = 'running';
+        $data['lastError']  = null;
+
+        return [
+            'data'          => $data,
+            'attemptNumber' => ($retryState['attempt'] + 1),
+            'deferDisable'  => ($isOnce === true || $limitReached === true),
+            'limitReached'  => $limitReached,
+            'retryEnabled'  => $retryEnabled,
+        ];
+
+    }//end beginRetryAttempt()
+
+    /**
+     * The FRESH OCCURRENCE branch of beginOccurrence() — the unchanged commit-
+     * before-run advance (nextRun/repeat), deferring the once/finite-repeat
+     * auto-disable when this schedule opted into retry (agent-schedule "Pause a
+     * schedule" invariant is unaffected — only THIS occurrence's disable waits; a
+     * user-disabled schedule never re-enters findDueSchedules()).
+     *
+     * @param ObjectEntity        $schedule     The schedule object to fire.
+     * @param array<string,mixed> $data         The schedule payload.
+     * @param DateTimeImmutable   $now          The current UTC moment.
+     * @param bool                $retryEnabled Whether this schedule opted into retry.
+     *
+     * @return array{data:array<string,mixed>, attemptNumber:int, deferDisable:bool, limitReached:bool, retryEnabled:bool}
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     */
+    private function beginFreshOccurrence(ObjectEntity $schedule, array $data, DateTimeImmutable $now, bool $retryEnabled): array
+    {
+        $kind   = (string) ($data['kind'] ?? '');
+        $isOnce = ($kind === 'once');
+        $owner  = (string) ($schedule->getOwner() ?? '');
+
+        $repeat = $this->normaliseRepeat(repeat: ($data['repeat'] ?? []));
+        $repeat['completed'] += 1;
+        $limitReached         = ($repeat['times'] > 0 && $repeat['completed'] >= $repeat['times']);
+        $deferDisable         = ($retryEnabled === true && ($isOnce === true || $limitReached === true));
+
+        $nextRun            = $this->computeNextRun(kind: $kind, data: $data, owner: $owner, now: $now);
+        $data['nextRun']    = $nextRun?->format('c');
+        $data['lastStatus'] = 'running';
+        $data['lastError']  = null;
+        $data['repeat']     = $repeat;
+        if (($isOnce === true || $limitReached === true) && $deferDisable === false) {
+            $data['enabled'] = false;
+        }
+
+        return [
+            'data'          => $data,
+            'attemptNumber' => 1,
+            'deferDisable'  => $deferDisable,
+            'limitReached'  => $limitReached,
+            'retryEnabled'  => $retryEnabled,
+        ];
+
+    }//end beginFreshOccurrence()
+
+    /**
+     * Finalise a successful agent turn onto the advanced $data.
+     *
+     * A delivery problem is NEVER fatal: the run stays 'ok' and any delivery
+     * warning is persisted to lastDeliveryError (cleared to null on a clean
+     * delivery). Run-reliability: a success — whether the first attempt or a
+     * later retry — clears any open retry sequence, resets the consecutive-
+     * dead-letter streak, and applies the once/finite-repeat disable if it was
+     * deferred while the retry sequence was open.
+     *
+     * @param array<string,mixed> $data         The advanced schedule payload.
+     * @param DeliveryResult      $delivery     The delivery outcome.
+     * @param bool                $deferDisable Whether the once/finite-repeat disable is pending.
+     *
+     * @return array<string,mixed> The finalised schedule payload.
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     */
+    private function applySuccessOutcome(array $data, DeliveryResult $delivery, bool $deferDisable): array
+    {
+        $data['lastStatus']        = 'ok';
+        $data['lastError']         = null;
+        $data['lastDeliveryError'] = $delivery->getWarning();
+        $data['retryState']        = null;
+        $data['consecutiveDeadLetters'] = 0;
+        if ($deferDisable === true) {
+            $data['enabled'] = false;
+        }
+
+        return $data;
+
+    }//end applySuccessOutcome()
+
+    /**
+     * Finalise a failed agent turn onto the advanced $data: unchanged `error` when
+     * retry is disabled, or the run-reliability retry/dead-letter/circuit-breaker
+     * branches when it is enabled.
+     *
+     * @param ObjectEntity        $schedule      The schedule that failed.
+     * @param array<string,mixed> $data          The advanced schedule payload.
+     * @param bool                $retryEnabled  Whether this schedule opted into retry.
+     * @param int                 $attemptNumber The attempt number that just failed.
+     * @param bool                $deferDisable  Whether the once/finite-repeat disable is pending.
+     * @param DateTimeImmutable   $now           The current UTC moment.
+     * @param Throwable           $error         The captured agent-turn failure.
+     *
+     * @return array<string,mixed> The finalised schedule payload.
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     */
+    private function applyFailureOutcome(
+        ObjectEntity $schedule,
+        array $data,
+        bool $retryEnabled,
+        int $attemptNumber,
+        bool $deferDisable,
+        DateTimeImmutable $now,
+        Throwable $error
+    ): array {
+        if ($retryEnabled === false) {
+            // Unchanged pre-run-reliability behavior.
+            $data['lastStatus'] = 'error';
+            $data['lastError']  = $error->getMessage();
+            return $data;
+        }
+
+        $maxAttempts = $this->clampInt(value: ($data['retryMaxAttempts'] ?? 3), min: 1, max: 10);
+        if ($attemptNumber < $maxAttempts) {
+            return $this->scheduleRetry(data: $data, attemptNumber: $attemptNumber, now: $now, error: $error);
+        }
+
+        return $this->markDeadLetter(schedule: $schedule, data: $data, deferDisable: $deferDisable, error: $error);
+
+    }//end applyFailureOutcome()
+
+    /**
+     * Schedule the next retry attempt with exponential backoff
+     * (`backoffBase * 2^(attempt-1)`), keeping the occurrence `retry_pending`.
+     *
+     * @param array<string,mixed> $data          The advanced schedule payload.
+     * @param int                 $attemptNumber The attempt number that just failed.
+     * @param DateTimeImmutable   $now           The current UTC moment.
+     * @param Throwable           $error         The captured agent-turn failure.
+     *
+     * @return array<string,mixed> The schedule payload with a pending retryState.
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    private function scheduleRetry(array $data, int $attemptNumber, DateTimeImmutable $now, Throwable $error): array
+    {
+        $backoffBase  = max(1, (int) ($data['retryBackoffBaseSeconds'] ?? 60));
+        $delaySeconds = $backoffBase * (2 ** ($attemptNumber - 1));
+
+        $data['lastStatus'] = 'retry_pending';
+        $data['lastError']  = $error->getMessage();
+        $data['retryState'] = [
+            'attempt'       => $attemptNumber,
+            'nextAttemptAt' => $now->add(new DateInterval('PT'.$delaySeconds.'S'))->format('c'),
+        ];
+
+        return $data;
+
+    }//end scheduleRetry()
+
+    /**
+     * Mark the occurrence dead-letter once its retry budget is exhausted: clears
+     * retryState, applies the deferred once/finite-repeat disable, increments
+     * consecutiveDeadLetters, alerts the owner, and — once the circuit-breaker
+     * threshold is reached — auto-pauses the schedule with a distinct alert.
+     *
+     * @param ObjectEntity        $schedule     The schedule being dead-lettered.
+     * @param array<string,mixed> $data         The advanced schedule payload.
+     * @param bool                $deferDisable Whether the once/finite-repeat disable is pending.
+     * @param Throwable           $error        The captured agent-turn failure.
+     *
+     * @return array<string,mixed> The schedule payload marked dead_letter (or paused_circuit_breaker).
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     */
+    private function markDeadLetter(ObjectEntity $schedule, array $data, bool $deferDisable, Throwable $error): array
+    {
+        $data['lastStatus'] = 'dead_letter';
+        $data['lastError']  = $error->getMessage();
+        $data['retryState'] = null;
+        if ($deferDisable === true) {
+            $data['enabled'] = false;
+        }
+
+        $deadLetterStreak = ((int) ($data['consecutiveDeadLetters'] ?? 0)) + 1;
+        $data['consecutiveDeadLetters'] = $deadLetterStreak;
+
+        $this->safeDeliverFailureAlert(schedule: $schedule, reason: $error->getMessage());
+
+        $threshold = $this->clampInt(value: ($data['circuitBreakerThreshold'] ?? 3), min: 1, max: PHP_INT_MAX);
+        if ($deadLetterStreak >= $threshold) {
+            $data['enabled']    = false;
+            $data['lastStatus'] = 'paused_circuit_breaker';
+            $this->safeDeliverCircuitBreakerAlert(schedule: $schedule);
+        }
+
+        return $data;
+
+    }//end markDeadLetter()
 
     /**
      * Write the explicit per-run AuditTrail entry via OpenRegister (run-audit-log).
@@ -661,13 +977,16 @@ class ScheduleService
      * @param array<string,mixed> $data      The finalised schedule payload (status/agentId).
      * @param string              $summary   The raw run output / error (redacted here).
      * @param DateTimeImmutable   $startedAt When the agent turn began (UTC).
+     * @param int                 $attempt   The attempt number for this occurrence (1 for a
+     *                                       fresh/non-retry run; 2+ for a retry — run-reliability).
      *
      * @return void
      *
      * @spec openspec/changes/run-audit-log/tasks.md#task-2-2
      * @spec openspec/changes/run-audit-log/tasks.md#task-2-3
+     * @spec openspec/changes/run-reliability/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-lettercircuit-breaker-outcomes-mvp
      */
-    private function writeRunAudit(ObjectEntity $schedule, array $data, string $summary, DateTimeImmutable $startedAt): void
+    private function writeRunAudit(ObjectEntity $schedule, array $data, string $summary, DateTimeImmutable $startedAt, int $attempt=1): void
     {
         try {
             $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
@@ -685,6 +1004,9 @@ class ScheduleService
                 'runAsUser'  => $this->lastRunAsUser,
                 // REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write.
                 'summary'    => $this->redactionService->redact($summary),
+                // Run-reliability: the attempt number within this occurrence's retry
+                // sequence (1 = first attempt), so run history can show each retry.
+                'attempt'    => $attempt,
             ];
 
             $this->auditTrailMapper->createAuditTrailEntry(
@@ -1021,6 +1343,56 @@ class ScheduleService
     }//end deliver()
 
     /**
+     * Owner failure-alert seam (run-reliability) — delegates to DeliveryService,
+     * defensively wrapped so a delivery-layer surprise can NEVER escape into the
+     * dispatch tick (DeliveryService already promises never to throw; this is
+     * defense-in-depth, mirroring the try/catch already around the budget
+     * soft-threshold check in dispatch()).
+     *
+     * @param ObjectEntity $schedule The dead-lettered schedule.
+     * @param string       $reason   The failure reason (the last agent-turn error).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    private function safeDeliverFailureAlert(ObjectEntity $schedule, string $reason): void
+    {
+        try {
+            $this->deliveryService->deliverFailureAlert(schedule: $schedule, reason: $reason);
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf('Hermiq dead-letter alert failed for %s: %s', (string) $schedule->getUuid(), $e->getMessage()),
+                ['exception' => $e]
+            );
+        }
+
+    }//end safeDeliverFailureAlert()
+
+    /**
+     * Circuit-breaker auto-pause alert seam (run-reliability) — see
+     * safeDeliverFailureAlert() for the defensive-wrapping rationale.
+     *
+     * @param ObjectEntity $schedule The auto-paused schedule.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    private function safeDeliverCircuitBreakerAlert(ObjectEntity $schedule): void
+    {
+        try {
+            $this->deliveryService->deliverCircuitBreakerAlert(schedule: $schedule);
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf('Hermiq circuit-breaker alert failed for %s: %s', (string) $schedule->getUuid(), $e->getMessage()),
+                ['exception' => $e]
+            );
+        }
+
+    }//end safeDeliverCircuitBreakerAlert()
+
+    /**
      * Last-resort failure recorder for exceptions that escape dispatch()'s own
      * try/catch (e.g. a failure during the commit-before-run write itself).
      *
@@ -1128,6 +1500,7 @@ class ScheduleService
     {
         $data = $this->normaliseDates(data: $data);
         $data = $this->sanitizeRepeat(data: $data);
+        $data = $this->sanitizeRetryState(data: $data);
         return $data;
 
     }//end sanitizeForSave()
@@ -1218,6 +1591,104 @@ class ScheduleService
         return $data;
 
     }//end sanitizeRepeat()
+
+    /**
+     * Sanitise the nullable `retryState` object against its schema constraints
+     * (run-reliability) — mirrors sanitizeRepeat()'s OR round-trip repair.
+     *
+     * `retryState` is optional: no open retry sequence serialises as `null`. OR's
+     * getObject() may materialise the nullable object as `{}` (or an incomplete
+     * shape) on read, which this collapses back to `null`, and re-normalises a
+     * genuine retry state's `nextAttemptAt` to ISO-8601 (the same round-trip
+     * artifact `nextRun`/`runAt` have — see normaliseDates()).
+     *
+     * @param array<string,mixed> $data The payload about to be saved.
+     *
+     * @return array<string,mixed> The payload with a schema-valid `retryState`.
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    private function sanitizeRetryState(array $data): array
+    {
+        if (array_key_exists('retryState', $data) === false) {
+            return $data;
+        }
+
+        $state = $this->normaliseRetryState(raw: $data['retryState']);
+        if ($state === null) {
+            $data['retryState'] = null;
+            return $data;
+        }
+
+        $parsed        = $this->parseDate(value: $state['nextAttemptAt']);
+        $nextAttemptAt = $state['nextAttemptAt'];
+        if ($parsed !== null) {
+            $nextAttemptAt = $parsed->format('c');
+        }
+
+        $data['retryState'] = [
+            'attempt'       => $state['attempt'],
+            'nextAttemptAt' => $nextAttemptAt,
+        ];
+
+        return $data;
+
+    }//end sanitizeRetryState()
+
+    /**
+     * Normalise a raw `retryState` value into a `{attempt:int, nextAttemptAt:string}`
+     * shape, or `null` when it is absent/invalid (run-reliability).
+     *
+     * @param mixed $raw The raw retryState value from the schedule payload.
+     *
+     * @return array{attempt:int, nextAttemptAt:string}|null The normalised state, or null.
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    private function normaliseRetryState(mixed $raw): ?array
+    {
+        if (is_array($raw) === false) {
+            return null;
+        }
+
+        $attempt       = ($raw['attempt'] ?? null);
+        $nextAttemptAt = ($raw['nextAttemptAt'] ?? null);
+        if (is_numeric($attempt) === false || empty($nextAttemptAt) === true) {
+            return null;
+        }
+
+        return [
+            'attempt'       => (int) $attempt,
+            'nextAttemptAt' => (string) $nextAttemptAt,
+        ];
+
+    }//end normaliseRetryState()
+
+    /**
+     * Clamp an integer-ish value into an inclusive [min, max] range (run-reliability).
+     *
+     * @param mixed $value The raw value (schema already bounds it; this is defense-in-depth).
+     * @param int   $min   The inclusive lower bound.
+     * @param int   $max   The inclusive upper bound.
+     *
+     * @return int The clamped integer.
+     *
+     * @spec exclude Pure arithmetic helper; no independent behavioural spec.
+     */
+    private function clampInt(mixed $value, int $min, int $max): int
+    {
+        $int = (int) $value;
+        if ($int < $min) {
+            return $min;
+        }
+
+        if ($int > $max) {
+            return $max;
+        }
+
+        return $int;
+
+    }//end clampInt()
 
     /**
      * Delete a schedule that has reached its repeat limit.

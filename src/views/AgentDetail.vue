@@ -20,9 +20,16 @@
   can return an error, Run now renders a graceful, dismissible error state (kept in run
   history) rather than breaking the view. All modals are isolated files (ADR-004).
 
+  Run history (run-reliability) also surfaces the retry_pending/dead_letter/
+  paused_circuit_breaker vocabulary as distinct badges (statusBadgeClass/statusLabel —
+  never color-only) plus the attempt number, and a per-row "Re-run" action on a
+  dead_letter row that reuses the SAME runNow()/runScheduleNow() path as the
+  page-level "Run now" button (no new endpoint).
+
   @spec openspec/changes/agent-management-ui/tasks.md#task-5-1
   @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
   @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md
+  @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
 -->
 <template>
 	<div class="agent-detail">
@@ -252,17 +259,34 @@
 							<th scope="col">
 								{{ t('hermiq', 'Duration') }}
 							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Attempt') }}
+							</th>
+							<th scope="col">
+								<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
+							</th>
 						</tr>
 					</thead>
 					<tbody>
 						<tr v-for="run in runs" :key="run.id">
 							<td>
-								<span :class="run.status === 'error' ? 'agent-detail__badge--error' : 'agent-detail__badge--ok'">
-									{{ run.status || '—' }}
+								<span :class="['agent-detail__badge', statusBadgeClass(run.status)]">
+									{{ statusLabel(run.status) }}
 								</span>
 							</td>
 							<td>{{ formatDate(run.startedAt || run.created) }}</td>
 							<td>{{ durationLabel(run.durationMs) }}</td>
+							<td>{{ run.attempt || '—' }}</td>
+							<td>
+								<NcButton
+									v-if="run.status === 'dead_letter'"
+									type="tertiary"
+									:disabled="running"
+									:aria-label="t('hermiq', 'Re-run this dead-lettered schedule')"
+									@click="runNow">
+									{{ t('hermiq', 'Re-run') }}
+								</NcButton>
+							</td>
 						</tr>
 					</tbody>
 				</table>
@@ -595,6 +619,10 @@ export default {
 		/**
 		 * Trigger an immediate run and surface the result or a graceful error state.
 		 *
+		 * Also used (run-reliability) as the dead-letter row's "Re-run" action: a
+		 * dead-lettered occurrence's manual re-run is a fresh, fully governed
+		 * dispatch, so it reuses this SAME runScheduleNow() call — no new endpoint.
+		 *
 		 * @return {Promise<void>}
 		 */
 		async runNow() {
@@ -669,6 +697,49 @@ export default {
 			}
 			const seconds = Math.round(Number(ms) / 1000)
 			return `${seconds}s`
+		},
+
+		/**
+		 * Badge CSS modifier class for a run-history status (run-reliability extends
+		 * the original error/ok binary with the retry/dead-letter/circuit-breaker
+		 * vocabulary). Falls back to the neutral "ok" styling for any other status
+		 * (running, skipped_killswitch, awaiting_approval, …) so nothing renders
+		 * unstyled.
+		 *
+		 * @param {string} status The run's status.
+		 * @return {string} The `agent-detail__badge--*` modifier class.
+		 */
+		statusBadgeClass(status) {
+			if (status === 'error' || status === 'dead_letter' || status === 'paused_circuit_breaker') {
+				return 'agent-detail__badge--error'
+			}
+			if (status === 'retry_pending' || status === 'awaiting_approval' || status === 'skipped_killswitch' || status === 'skipped_budget') {
+				return 'agent-detail__badge--warning'
+			}
+			return 'agent-detail__badge--ok'
+		},
+
+		/**
+		 * Human-readable label for a run-history status. Distinguishes each new
+		 * run-reliability status by TEXT (not color alone), so the difference is
+		 * available to screen readers and keyboard-only users too.
+		 *
+		 * @param {string} status The run's status.
+		 * @return {string} The localised status label.
+		 */
+		statusLabel(status) {
+			const labels = {
+				ok: this.t('hermiq', 'OK'),
+				error: this.t('hermiq', 'Error'),
+				running: this.t('hermiq', 'Running'),
+				skipped_killswitch: this.t('hermiq', 'Halted (kill-switch)'),
+				skipped_budget: this.t('hermiq', 'Halted (budget)'),
+				awaiting_approval: this.t('hermiq', 'Awaiting approval'),
+				retry_pending: this.t('hermiq', 'Retrying…'),
+				dead_letter: this.t('hermiq', 'Dead-letter'),
+				paused_circuit_breaker: this.t('hermiq', 'Paused (circuit breaker)'),
+			}
+			return labels[status] || status || '—'
 		},
 
 		/**
@@ -789,6 +860,13 @@ export default {
 	border-bottom: 1px solid var(--color-border);
 }
 
+.agent-detail__badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border-radius: var(--border-radius-pill, 12px);
+	font-size: 13px;
+}
+
 .agent-detail__badge--ok {
 	color: var(--color-success-text, var(--color-success));
 	font-weight: 600;
@@ -797,6 +875,21 @@ export default {
 .agent-detail__badge--error {
 	color: var(--color-error-text, var(--color-error));
 	font-weight: 600;
+}
+
+/* run-reliability: retry_pending / awaiting_approval / skipped_* — visually AND
+   textually distinct from both ok (green) and error (red). */
+.agent-detail__badge--warning {
+	color: var(--color-warning-text, var(--color-warning));
+	font-weight: 600;
+}
+
+.hidden-visually {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
 }
 
 .agent-detail__skill-attach {

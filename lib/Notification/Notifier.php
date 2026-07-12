@@ -27,6 +27,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Notification;
 
+use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\L10N\IFactory;
 use OCP\Notification\INotification;
@@ -47,6 +48,23 @@ class Notifier implements INotifier
      * @var string
      */
     private const APP_ID = 'hermiq';
+
+    /**
+     * Every subject key this notifier can render — one per DeliveryService alert
+     * shape. Extending this list (run-reliability added the last two) also fixes a
+     * pre-existing gap: `budget_soft_threshold` (cost-guardrails) was raised by
+     * DeliveryService but never recognised here, so the bell menu threw
+     * UnknownNotificationException whenever it tried to render one.
+     *
+     * @var array<int, string>
+     */
+    private const KNOWN_SUBJECTS = [
+        'run_complete',
+        'approval_requested',
+        'budget_soft_threshold',
+        'run_dead_letter',
+        'schedule_paused_circuit_breaker',
+    ];
 
     /**
      * Constructor.
@@ -97,6 +115,7 @@ class Notifier implements INotifier
      * @throws UnknownNotificationException When the notification is not a Hermiq one.
      *
      * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     public function prepare(INotification $notification, string $languageCode): INotification
     {
@@ -105,32 +124,14 @@ class Notifier implements INotifier
         }
 
         $subjectKey = $notification->getSubject();
-        if (in_array($subjectKey, ['run_complete', 'approval_requested'], true) === false) {
+        if (in_array($subjectKey, self::KNOWN_SUBJECTS, true) === false) {
             throw new UnknownNotificationException('Unknown Hermiq notification subject');
         }
 
         $l          = $this->l10nFactory->get(self::APP_ID, $languageCode);
         $subjectRaw = $notification->getSubjectParameters();
-        $name       = (string) ($subjectRaw['name'] ?? '');
 
-        // Default to the run-complete wording; the approval-request branch overrides it.
-        $subject = $l->t('Scheduled agent run complete');
-        $message = $l->t('Your scheduled agent run has produced output.');
-        if ($name !== '') {
-            $subject = $l->t('“%s” finished', [$name]);
-        }
-
-        if ($subjectKey === 'approval_requested') {
-            $subject = $l->t('Approval needed for an agent run');
-            if ($name !== '') {
-                $subject = $l->t('Approval needed: “%s”', [$name]);
-            }
-
-            // Source-agnostic wording — the gated run may be a Schedule or a
-            // flow-triggered run (OpenRegister AgentRunRequestedEvent, ADR-041);
-            // both share this notification path.
-            $message = $l->t('An agent run is waiting for your approval before it can execute.');
-        }
+        [$subject, $message] = $this->resolveSubjectAndMessage(subjectKey: $subjectKey, subjectRaw: $subjectRaw, l: $l);
 
         $notification->setParsedSubject($subject);
         $notification->setParsedMessage($message);
@@ -141,4 +142,155 @@ class Notifier implements INotifier
         return $notification;
 
     }//end prepare()
+
+    /**
+     * Resolve the localised [subject, message] pair for one known subject key.
+     *
+     * Dispatches to a small per-subject helper so each stays simple (one
+     * name-substitution branch) rather than a single long if/elseif chain.
+     *
+     * @param string              $subjectKey The notification's stored subject key.
+     * @param array<string,mixed> $subjectRaw The stored subject parameters.
+     * @param IL10N               $l          The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec exclude Pure dispatch extracted from prepare(); each branch's own spec
+     *   tag lives on the per-subject helper it delegates to.
+     */
+    private function resolveSubjectAndMessage(string $subjectKey, array $subjectRaw, IL10N $l): array
+    {
+        $name = (string) ($subjectRaw['name'] ?? '');
+
+        if ($subjectKey === 'approval_requested') {
+            return $this->approvalRequestedText(name: $name, l: $l);
+        }
+
+        if ($subjectKey === 'budget_soft_threshold') {
+            return $this->budgetSoftThresholdText(subjectRaw: $subjectRaw, l: $l);
+        }
+
+        if ($subjectKey === 'run_dead_letter') {
+            return $this->runDeadLetterText(name: $name, l: $l);
+        }
+
+        if ($subjectKey === 'schedule_paused_circuit_breaker') {
+            return $this->circuitBreakerPausedText(name: $name, l: $l);
+        }
+
+        return $this->runCompleteText(name: $name, l: $l);
+
+    }//end resolveSubjectAndMessage()
+
+    /**
+     * The default `run_complete` wording (also the fallback for any subject key
+     * whose own branch does not override it).
+     *
+     * @param string $name The schedule's display name, when known.
+     * @param IL10N  $l    The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+     */
+    private function runCompleteText(string $name, IL10N $l): array
+    {
+        $subject = $l->t('Scheduled agent run complete');
+        if ($name !== '') {
+            $subject = $l->t('“%s” finished', [$name]);
+        }
+
+        return [$subject, $l->t('Your scheduled agent run has produced output.')];
+
+    }//end runCompleteText()
+
+    /**
+     * The `approval_requested` wording (human-approval-gate-enforcement).
+     *
+     * @param string $name The gated schedule/flow's display name, when known.
+     * @param IL10N  $l    The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+     */
+    private function approvalRequestedText(string $name, IL10N $l): array
+    {
+        $subject = $l->t('Approval needed for an agent run');
+        if ($name !== '') {
+            $subject = $l->t('Approval needed: “%s”', [$name]);
+        }
+
+        // Source-agnostic wording — the gated run may be a Schedule or a
+        // flow-triggered run (OpenRegister AgentRunRequestedEvent, ADR-041); both
+        // share this notification path.
+        return [$subject, $l->t('An agent run is waiting for your approval before it can execute.')];
+
+    }//end approvalRequestedText()
+
+    /**
+     * The `budget_soft_threshold` wording (cost-guardrails).
+     *
+     * @param array<string,mixed> $subjectRaw The stored subject parameters (`label`).
+     * @param IL10N               $l          The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     */
+    private function budgetSoftThresholdText(array $subjectRaw, IL10N $l): array
+    {
+        $label   = (string) ($subjectRaw['label'] ?? '');
+        $subject = $l->t('Budget threshold reached');
+        if ($label !== '') {
+            $subject = $l->t('Budget threshold reached: “%s”', [$label]);
+        }
+
+        return [$subject, $l->t('A budget has crossed its soft threshold for the current period.')];
+
+    }//end budgetSoftThresholdText()
+
+    /**
+     * The `run_dead_letter` wording (run-reliability): a retry-enabled occurrence
+     * exhausted its retry budget.
+     *
+     * @param string $name The schedule's display name, when known.
+     * @param IL10N  $l    The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    private function runDeadLetterText(string $name, IL10N $l): array
+    {
+        $subject = $l->t('A scheduled run failed permanently');
+        if ($name !== '') {
+            $subject = $l->t('“%s” failed permanently', [$name]);
+        }
+
+        return [$subject, $l->t('All retries have been exhausted. Review the run history and re-run manually if needed.')];
+
+    }//end runDeadLetterText()
+
+    /**
+     * The `schedule_paused_circuit_breaker` wording (run-reliability): the
+     * consecutive-dead-letter circuit breaker auto-paused the schedule.
+     *
+     * @param string $name The schedule's display name, when known.
+     * @param IL10N  $l    The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    private function circuitBreakerPausedText(string $name, IL10N $l): array
+    {
+        $subject = $l->t('A schedule was paused automatically');
+        if ($name !== '') {
+            $subject = $l->t('“%s” was paused automatically', [$name]);
+        }
+
+        return [$subject, $l->t('It was disabled after repeated failures. Review it and re-enable when ready.')];
+
+    }//end circuitBreakerPausedText()
 }//end class

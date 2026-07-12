@@ -1880,4 +1880,600 @@ class ScheduleServiceTest extends TestCase
         $this->assertSame('alice', $this->auditCalls[0]['context']['runAsUser']);
 
     }//end testActingUserIgnoredOnFlagOffPath()
+
+    /**
+     * run-reliability: findDueSchedules() selects a schedule via its pending retry
+     * even though its own nextRun has not arrived yet.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    public function testFindDueSchedulesSelectsRetryDueEvenWithFutureNextRun(): void
+    {
+        $retryDue = $this->schedule(
+            [
+                'kind'                    => 'interval',
+                'intervalMinutes'         => 60,
+                'agentId'                 => 'agent-uuid',
+                'prompt'                  => 'go',
+                'deliver'                 => 'none',
+                'enabled'                 => true,
+                'nextRun'                 => '2030-01-01T00:00:00+00:00',
+                'repeat'                  => ['times' => 0, 'completed' => 0],
+                'retryEnabled'            => true,
+                'retryMaxAttempts'        => 3,
+                'retryBackoffBaseSeconds' => 60,
+                'retryState'              => ['attempt' => 1, 'nextAttemptAt' => '2000-01-01T00:00:00+00:00'],
+            ],
+            'retry-due-sched'
+        );
+
+        // call 1 = due schedules; call 2 = engaged kill-switches (none).
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$retryDue], []);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->run();
+
+        // The agent must have been invoked — proof the schedule was selected as due.
+        $this->assertNotEmpty($this->auditCalls, 'A retry-due schedule with a future nextRun must still be dispatched.');
+
+    }//end testFindDueSchedulesSelectsRetryDueEvenWithFutureNextRun()
+
+    /**
+     * run-reliability: unchanged behavior — a schedule with no retryState and a
+     * future nextRun is NOT selected.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    public function testFindDueSchedulesSkipsFutureNextRunWithoutRetryState(): void
+    {
+        $notDue = $this->schedule(
+            [
+                'kind'            => 'interval',
+                'intervalMinutes' => 60,
+                'agentId'         => 'agent-uuid',
+                'prompt'          => 'go',
+                'deliver'         => 'none',
+                'enabled'         => true,
+                'nextRun'         => '2030-01-01T00:00:00+00:00',
+                'repeat'          => ['times' => 0, 'completed' => 0],
+            ],
+            'future-sched'
+        );
+
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn([$notDue]);
+
+        $this->service->run();
+
+        $this->assertEmpty($this->auditCalls, 'A schedule with a future nextRun and no retryState must not be dispatched.');
+
+    }//end testFindDueSchedulesSkipsFutureNextRunWithoutRetryState()
+
+    /**
+     * run-reliability: retryEnabled=false behaves exactly as before this change —
+     * no retryState is ever set on a failure.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    public function testRetryDisabledLeavesNoRetryState(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willThrowException(new \RuntimeException('boom'));
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'            => 'interval',
+                        'intervalMinutes' => 60,
+                        'agentId'         => 'agent-uuid',
+                        'prompt'          => 'go',
+                        'deliver'         => 'none',
+                        'enabled'         => true,
+                        'retryEnabled'    => false,
+                        'nextRun'         => '2000-01-01T00:00:00+00:00',
+                        'repeat'          => ['times' => 0, 'completed' => 0],
+                    ],
+                    'no-retry-sched'
+                ),
+            ]
+        );
+        $this->objectService->method('find')->willReturn(null);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('error', $final['lastStatus'], 'retryEnabled=false must behave exactly as before.');
+        $this->assertArrayNotHasKey('retryState', $final);
+
+    }//end testRetryDisabledLeavesNoRetryState()
+
+    /**
+     * run-reliability: a retry-enabled schedule's first failure schedules a retry
+     * with the base backoff delay and records lastStatus=retry_pending.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    public function testFirstFailureSchedulesRetryWithBaseBackoff(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willThrowException(new \RuntimeException('transient'));
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'                    => 'interval',
+                        'intervalMinutes'         => 60,
+                        'agentId'                 => 'agent-uuid',
+                        'prompt'                  => 'go',
+                        'deliver'                 => 'none',
+                        'enabled'                 => true,
+                        'retryEnabled'            => true,
+                        'retryMaxAttempts'        => 3,
+                        'retryBackoffBaseSeconds' => 60,
+                        'nextRun'                 => '2000-01-01T00:00:00+00:00',
+                        'repeat'                  => ['times' => 0, 'completed' => 0],
+                    ],
+                    'first-fail-sched'
+                ),
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $before = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('retry_pending', $final['lastStatus']);
+        $this->assertSame(1, $final['retryState']['attempt']);
+        $nextAttemptAt = new \DateTimeImmutable($final['retryState']['nextAttemptAt']);
+        $this->assertGreaterThanOrEqual($before->getTimestamp() + 55, $nextAttemptAt->getTimestamp());
+        $this->assertLessThanOrEqual($before->getTimestamp() + 65, $nextAttemptAt->getTimestamp());
+        $this->assertSame('retry_pending', $this->auditCalls[0]['context']['status']);
+        $this->assertSame(1, $this->auditCalls[0]['context']['attempt']);
+
+    }//end testFirstFailureSchedulesRetryWithBaseBackoff()
+
+    /**
+     * run-reliability: a second consecutive failure (the schedule already carries
+     * an open retryState) doubles the backoff delay per the exponential formula.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     */
+    public function testSecondFailureDoublesBackoff(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willThrowException(new \RuntimeException('still failing'));
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls(
+            [
+                $this->schedule(
+                    [
+                        'kind'                    => 'interval',
+                        'intervalMinutes'         => 60,
+                        'agentId'                 => 'agent-uuid',
+                        'prompt'                  => 'go',
+                        'deliver'                 => 'none',
+                        'enabled'                 => true,
+                        'retryEnabled'            => true,
+                        'retryMaxAttempts'        => 3,
+                        'retryBackoffBaseSeconds' => 60,
+                        'nextRun'                 => '2030-01-01T00:00:00+00:00',
+                        'repeat'                  => ['times' => 0, 'completed' => 0],
+                        'retryState'              => ['attempt' => 1, 'nextAttemptAt' => '2000-01-01T00:00:00+00:00'],
+                    ],
+                    'second-fail-sched'
+                ),
+            ],
+            []
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $before = new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('retry_pending', $final['lastStatus']);
+        $this->assertSame(2, $final['retryState']['attempt'], 'The second failure must record attempt=2.');
+        $nextAttemptAt = new \DateTimeImmutable($final['retryState']['nextAttemptAt']);
+        // 60 * 2^(2-1) = 120 seconds.
+        $this->assertGreaterThanOrEqual($before->getTimestamp() + 115, $nextAttemptAt->getTimestamp());
+        $this->assertLessThanOrEqual($before->getTimestamp() + 125, $nextAttemptAt->getTimestamp());
+        $this->assertSame(2, $this->auditCalls[0]['context']['attempt']);
+
+    }//end testSecondFailureDoublesBackoff()
+
+    /**
+     * run-reliability: once the retryMaxAttempts-th attempt fails, the occurrence is
+     * marked dead_letter, retryState is cleared, consecutiveDeadLetters increments,
+     * and the owner receives a dead-letter alert via DeliveryService.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     */
+    public function testRetryBudgetExhaustedMarksDeadLetterAndAlertsOwner(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willThrowException(new \RuntimeException('final failure'));
+
+        $this->deliveryService = $this->createMock(DeliveryService::class);
+        $this->deliveryService->method('deliver')->willReturn(
+            new DeliveryResult(delivered: true, channel: 'none', fellBack: false, warning: null)
+        );
+        $this->deliveryService->expects($this->once())
+            ->method('deliverFailureAlert')
+            ->with($this->anything(), 'final failure')
+            ->willReturn(new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null));
+        $this->deliveryService->expects($this->never())->method('deliverCircuitBreakerAlert');
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls(
+            [
+                $this->schedule(
+                    [
+                        'kind'                    => 'interval',
+                        'intervalMinutes'         => 60,
+                        'agentId'                 => 'agent-uuid',
+                        'prompt'                  => 'go',
+                        'deliver'                 => 'none',
+                        'enabled'                 => true,
+                        'retryEnabled'            => true,
+                        'retryMaxAttempts'        => 2,
+                        'retryBackoffBaseSeconds' => 60,
+                        'circuitBreakerThreshold' => 3,
+                        'consecutiveDeadLetters'  => 0,
+                        'nextRun'                 => '2030-01-01T00:00:00+00:00',
+                        'repeat'                  => ['times' => 0, 'completed' => 0],
+                        'retryState'              => ['attempt' => 1, 'nextAttemptAt' => '2000-01-01T00:00:00+00:00'],
+                    ],
+                    'exhausted-sched'
+                ),
+            ],
+            []
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('dead_letter', $final['lastStatus']);
+        $this->assertNull($final['retryState']);
+        $this->assertSame(1, $final['consecutiveDeadLetters']);
+        $this->assertSame('dead_letter', $this->auditCalls[0]['context']['status']);
+        $this->assertSame(2, $this->auditCalls[0]['context']['attempt']);
+
+    }//end testRetryBudgetExhaustedMarksDeadLetterAndAlertsOwner()
+
+    /**
+     * run-reliability: a kind='once' schedule stays enabled=true while its retry
+     * sequence is still open — the finite-repeat/one-shot auto-disable is deferred.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     */
+    public function testOnceScheduleStaysEnabledWhileRetryPending(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willThrowException(new \RuntimeException('once failed'));
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'                    => 'once',
+                        'runAt'                   => '2000-01-01T00:00:00+00:00',
+                        'agentId'                 => 'agent-uuid',
+                        'prompt'                  => 'once with retry',
+                        'deliver'                 => 'none',
+                        'enabled'                 => true,
+                        'retryEnabled'            => true,
+                        'retryMaxAttempts'        => 3,
+                        'retryBackoffBaseSeconds' => 60,
+                        'nextRun'                 => '2000-01-01T00:00:00+00:00',
+                        'repeat'                  => ['times' => 0, 'completed' => 0],
+                    ],
+                    'once-retry-sched'
+                ),
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('retry_pending', $final['lastStatus']);
+        $this->assertTrue($final['enabled'], 'A once schedule with a pending retry must stay enabled.');
+
+    }//end testOnceScheduleStaysEnabledWhileRetryPending()
+
+    /**
+     * run-reliability: a success — whether the first attempt or a later retry —
+     * clears retryState and resets consecutiveDeadLetters to 0.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     */
+    public function testSuccessResetsRetryStateAndDeadLetterStreak(): void
+    {
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls(
+            [
+                $this->schedule(
+                    [
+                        'kind'                    => 'interval',
+                        'intervalMinutes'         => 60,
+                        'agentId'                 => 'agent-uuid',
+                        'prompt'                  => 'go',
+                        'deliver'                 => 'none',
+                        'enabled'                 => true,
+                        'retryEnabled'            => true,
+                        'retryMaxAttempts'        => 3,
+                        'retryBackoffBaseSeconds' => 60,
+                        'consecutiveDeadLetters'  => 2,
+                        'nextRun'                 => '2030-01-01T00:00:00+00:00',
+                        'repeat'                  => ['times' => 0, 'completed' => 0],
+                        'retryState'              => ['attempt' => 1, 'nextAttemptAt' => '2000-01-01T00:00:00+00:00'],
+                    ],
+                    'recovering-sched'
+                ),
+            ],
+            []
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('ok', $final['lastStatus']);
+        $this->assertNull($final['retryState']);
+        $this->assertSame(0, $final['consecutiveDeadLetters']);
+
+    }//end testSuccessResetsRetryStateAndDeadLetterStreak()
+
+    /**
+     * run-reliability: once consecutiveDeadLetters reaches circuitBreakerThreshold,
+     * the schedule is auto-paused (enabled=false, lastStatus=paused_circuit_breaker)
+     * and the owner receives a DISTINCT circuit-breaker alert in addition to the
+     * dead-letter alert.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     */
+    public function testCircuitBreakerTripsAndAlertsOwnerDistinctly(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willThrowException(new \RuntimeException('chronic failure'));
+
+        $this->deliveryService = $this->createMock(DeliveryService::class);
+        $this->deliveryService->method('deliver')->willReturn(
+            new DeliveryResult(delivered: true, channel: 'none', fellBack: false, warning: null)
+        );
+        $this->deliveryService->expects($this->once())->method('deliverFailureAlert')
+            ->willReturn(new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null));
+        $this->deliveryService->expects($this->once())->method('deliverCircuitBreakerAlert')
+            ->willReturn(new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null));
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'                    => 'interval',
+                        'intervalMinutes'         => 60,
+                        'agentId'                 => 'agent-uuid',
+                        'prompt'                  => 'go',
+                        'deliver'                 => 'none',
+                        'enabled'                 => true,
+                        'retryEnabled'            => true,
+                        'retryMaxAttempts'        => 1,
+                        'retryBackoffBaseSeconds' => 60,
+                        'circuitBreakerThreshold' => 3,
+                        'consecutiveDeadLetters'  => 2,
+                        'nextRun'                 => '2000-01-01T00:00:00+00:00',
+                        'repeat'                  => ['times' => 0, 'completed' => 0],
+                    ],
+                    'breaker-sched'
+                ),
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('paused_circuit_breaker', $final['lastStatus']);
+        $this->assertFalse($final['enabled'], 'The circuit breaker must auto-pause the schedule.');
+        $this->assertSame(3, $final['consecutiveDeadLetters']);
+
+    }//end testCircuitBreakerTripsAndAlertsOwnerDistinctly()
+
+    /**
+     * run-reliability (governance): a kill-switch-halted retry is skipped exactly
+     * like any other gated occurrence — the agent never runs and the skip does NOT
+     * count toward consecutiveDeadLetters.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-a-retried-run-is-a-new-governed-dispatch-mvp
+     */
+    public function testKillSwitchHaltsPendingRetryWithoutCountingAsDeadLetter(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+        $this->deliveryService = $this->createMock(DeliveryService::class);
+        $this->deliveryService->expects($this->never())->method('deliverFailureAlert');
+        $this->deliveryService->expects($this->never())->method('deliverCircuitBreakerAlert');
+        $this->service = $this->makeService();
+
+        $gatedRetry = $this->schedule(
+            [
+                'kind'                    => 'interval',
+                'intervalMinutes'         => 60,
+                'agentId'                 => 'agent-uuid',
+                'prompt'                  => 'go',
+                'deliver'                 => 'none',
+                'enabled'                 => true,
+                'retryEnabled'            => true,
+                'retryMaxAttempts'        => 2,
+                'retryBackoffBaseSeconds' => 60,
+                'consecutiveDeadLetters'  => 1,
+                'nextRun'                 => '2030-01-01T00:00:00+00:00',
+                'repeat'                  => ['times' => 0, 'completed' => 0],
+                'retryState'              => ['attempt' => 1, 'nextAttemptAt' => '2000-01-01T00:00:00+00:00'],
+            ],
+            'gated-retry-sched'
+        );
+        $gatedRetry->setOrganisation('org-x');
+
+        $control = new ObjectEntity();
+        $control->setUuid('ctrl-1');
+        $control->setOrganisation('org-x');
+        $control->setObject(['engaged' => true]);
+
+        // call 1 = due schedules (selected via the pending retry); call 2 = engaged
+        // kill-switches.
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$gatedRetry], [$control]);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('skipped_killswitch', $final['lastStatus']);
+        $this->assertSame(1, $final['consecutiveDeadLetters'], 'A gated retry must not increment consecutiveDeadLetters.');
+
+    }//end testKillSwitchHaltsPendingRetryWithoutCountingAsDeadLetter()
+
+    /**
+     * run-reliability (governance): an approval-gated schedule's pending retry
+     * still requires approval — the agent is not invoked directly, a pending
+     * Approval is ensured, exactly like any other gated occurrence.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-a-retried-run-is-a-new-governed-dispatch-mvp
+     */
+    public function testApprovalGateStillAppliesToPendingRetry(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->expects($this->never())->method('processMessage');
+
+        $this->approvalService = $this->createMock(ApprovalService::class);
+        $this->approvalService->expects($this->once())->method('ensurePendingApproval');
+        $this->service = $this->makeService();
+
+        $gatedRetry = $this->schedule(
+            [
+                'kind'                    => 'interval',
+                'intervalMinutes'         => 60,
+                'agentId'                 => 'agent-uuid',
+                'prompt'                  => 'go',
+                'deliver'                 => 'none',
+                'enabled'                 => true,
+                'requiresApproval'        => true,
+                'retryEnabled'            => true,
+                'retryMaxAttempts'        => 3,
+                'retryBackoffBaseSeconds' => 60,
+                'nextRun'                 => '2030-01-01T00:00:00+00:00',
+                'repeat'                  => ['times' => 0, 'completed' => 0],
+                'retryState'              => ['attempt' => 1, 'nextAttemptAt' => '2000-01-01T00:00:00+00:00'],
+            ],
+            'approval-retry-sched'
+        );
+
+        // call 1 = due (selected via the pending retry); call 2 = engaged kill-switches (none).
+        $this->objectService->method('findAll')->willReturnOnConsecutiveCalls([$gatedRetry], []);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service->run();
+
+        $final = end($saved);
+        $this->assertSame('awaiting_approval', $final['lastStatus']);
+        $this->assertSame('awaiting_approval', $this->auditCalls[0]['context']['status']);
+
+    }//end testApprovalGateStillAppliesToPendingRetry()
 }//end class

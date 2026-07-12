@@ -114,7 +114,20 @@
         "Why is this run being denied?": "Why is this run being denied?",
         "minutes": "minutes",
         "ollama": "ollama",
-        "qwen2.5": "qwen2.5"
+        "qwen2.5": "qwen2.5",
+        "Attempt": "Attempt",
+        "Awaiting approval": "Awaiting approval",
+        "Circuit breaker threshold": "Circuit breaker threshold",
+        "Dead-letter": "Dead-letter",
+        "Halted (budget)": "Halted (budget)",
+        "Halted (kill-switch)": "Halted (kill-switch)",
+        "Paused (circuit breaker)": "Paused (circuit breaker)",
+        "Re-run": "Re-run",
+        "Re-run this dead-lettered schedule": "Re-run this dead-lettered schedule",
+        "Retry backoff base (seconds)": "Retry backoff base (seconds)",
+        "Retry max attempts": "Retry max attempts",
+        "Retry on failure": "Retry on failure",
+        "Retrying…": "Retrying…"
     },
     "plurals": ""
 }

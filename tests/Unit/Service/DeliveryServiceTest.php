@@ -675,4 +675,122 @@ class DeliveryServiceTest extends TestCase
         $this->assertNull($result->getWarning(), 'A clean notification run carries no warning.');
 
     }//end testFlowRunApprovalRequestNotifiesEachReviewer()
+
+    /**
+     * run-reliability: deliverFailureAlert notifies the schedule owner even when
+     * Talk is unavailable, and never throws.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    public function testDeliverFailureAlertNotifiesOwner(): void
+    {
+        $this->talkBroker->method('hasBackend')->willReturn(false);
+        $this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+        $this->notificationManager->expects($this->once())->method('notify');
+
+        $result = $this->service->deliverFailureAlert(
+            schedule: $this->schedule(['name' => 'Flaky monitor']),
+            reason: 'agent exploded'
+        );
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertSame('notification', $result->getChannel());
+        $this->assertNull($result->getWarning());
+
+    }//end testDeliverFailureAlertNotifiesOwner()
+
+    /**
+     * run-reliability: deliverFailureAlert fires regardless of the schedule's own
+     * `deliver` setting — even `deliver=none` still gets the alert (it is not a
+     * run-output delivery).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    public function testDeliverFailureAlertFiresEvenWhenDeliverIsNone(): void
+    {
+        $this->talkBroker->method('hasBackend')->willReturn(false);
+        $this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+        $this->notificationManager->expects($this->once())->method('notify');
+
+        $result = $this->service->deliverFailureAlert(
+            schedule: $this->schedule(['name' => 'Silent schedule', 'deliver' => 'none']),
+            reason: 'exhausted retries'
+        );
+
+        $this->assertTrue($result->isDelivered(), 'A dead-letter alert must fire even when deliver=none.');
+
+    }//end testDeliverFailureAlertFiresEvenWhenDeliverIsNone()
+
+    /**
+     * run-reliability: a failed notification is reported as a warning, never thrown.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    public function testDeliverFailureAlertNeverThrowsOnNotificationFailure(): void
+    {
+        $this->talkBroker->method('hasBackend')->willReturn(false);
+        $this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+        $this->notificationManager->method('notify')->willThrowException(new \RuntimeException('bus down'));
+
+        $result = $this->service->deliverFailureAlert(
+            schedule: $this->schedule(['name' => 'Flaky monitor']),
+            reason: 'agent exploded'
+        );
+
+        $this->assertFalse($result->isDelivered());
+        $this->assertNotNull($result->getWarning());
+
+    }//end testDeliverFailureAlertNeverThrowsOnNotificationFailure()
+
+    /**
+     * run-reliability: deliverCircuitBreakerAlert notifies the owner, distinct from
+     * the dead-letter alert.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    public function testDeliverCircuitBreakerAlertNotifiesOwner(): void
+    {
+        $this->talkBroker->method('hasBackend')->willReturn(false);
+        $this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+        $this->notificationManager->expects($this->once())->method('notify');
+
+        $result = $this->service->deliverCircuitBreakerAlert(
+            schedule: $this->schedule(['name' => 'Chronically failing'])
+        );
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertSame('notification', $result->getChannel());
+
+    }//end testDeliverCircuitBreakerAlertNotifiesOwner()
+
+    /**
+     * run-reliability: a failed circuit-breaker alert is reported as a warning,
+     * never thrown — the already-recorded state is unaffected by this method.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     */
+    public function testDeliverCircuitBreakerAlertNeverThrowsOnNotificationFailure(): void
+    {
+        $this->talkBroker->method('hasBackend')->willReturn(false);
+        $this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+        $this->notificationManager->method('notify')->willThrowException(new \RuntimeException('bus down'));
+
+        $result = $this->service->deliverCircuitBreakerAlert(
+            schedule: $this->schedule(['name' => 'Chronically failing'])
+        );
+
+        $this->assertFalse($result->isDelivered());
+        $this->assertNotNull($result->getWarning());
+
+    }//end testDeliverCircuitBreakerAlertNeverThrowsOnNotificationFailure()
 }//end class
