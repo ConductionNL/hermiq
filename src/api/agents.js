@@ -25,7 +25,8 @@
 //   - listTools() — the agent-configuration tool catalogue, served by
 //     Hermiq's facade-backed endpoint /apps/hermiq/api/agents/tools
 //     (agent-engine-port; backed by OR's public ToolRegistryFacade, gate-27).
-//   - Run now + run history — thin Hermiq schedule endpoints.
+//   - Run now + run history + run trace (run-trace-observability) — thin Hermiq
+//     schedule endpoints.
 //
 // This is deliberately a set of stateless functions (no defineStore) — the
 // hard rule is "no custom Pinia stores". axios from @nextcloud/axios adds the
@@ -104,4 +105,19 @@ export async function runScheduleNow(scheduleId) {
 export async function listRuns(scheduleId) {
 	const response = await axios.get(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs`))
 	return toList(response.data)
+}
+
+/**
+ * Read one run's full, ordered step timeline (run-trace-observability).
+ *
+ * Owner-scoped, identical guard to listRuns() — a non-owner gets a 404 the
+ * axios call surfaces as a rejected promise.
+ *
+ * @param {string} scheduleId The Schedule object UUID.
+ * @param {string} runId The run's AuditTrail entry UUID.
+ * @return {Promise<object>} The run's trace (id, status, steps, toolStepsAvailable, ...).
+ */
+export async function getRunTrace(scheduleId, runId) {
+	const response = await axios.get(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/trace`))
+	return response.data
 }

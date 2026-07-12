@@ -1714,6 +1714,236 @@ class ScheduleServiceTest extends TestCase
     }//end testEngineFlagOnUsesInAppEngine()
 
     /**
+     * run-trace-observability (TC-1): on the in-app Engine path, the persisted
+     * run audit entry's `changed.steps` includes the tool step the Engine's
+     * RunTraceCollector recorded (threaded in via the `trace` argument
+     * ScheduleService now passes), plus the `delivery` step ScheduleService
+     * itself appends, and `toolStepsAvailable=true`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-1
+     */
+    public function testEngineFlagOnCapturesToolStepsFromCollector(): void
+    {
+        $this->appConfig = $this->createMock(IAppConfig::class);
+        $this->appConfig->method('getValueString')->willReturn('true');
+
+        $this->engine = $this->createMock(Engine::class);
+        $this->engine->method('processMessage')->willReturnCallback(
+            static function (
+                string $conversationId,
+                string $userId,
+                string $userMessage,
+                array $selectedViews=[],
+                array $selectedTools=[],
+                array $ragSettings=[],
+                array $context=[],
+                $channel=null,
+                $trace=null
+            ): array {
+                // Simulate a tool call happening during the turn, on the SAME
+                // collector ScheduleService threaded through processMessage().
+                $token = $trace?->startStep(type: 'tool', name: 'openregister.searchObjects');
+                if ($token !== null) {
+                    $trace?->endStep(token: $token, outcome: 'ok');
+                }
+
+                return ['message' => 'engine output', 'usage' => []];
+            }
+        );
+        $this->service = $this->makeService();
+
+        $agentObject = new ObjectEntity();
+        $agentObject->setUuid('agent-uuid');
+        $agentObject->setObject(['name' => 'Scheduled agent']);
+        $this->objectService->method('find')->willReturn($agentObject);
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturnCallback(
+            static function (mixed $object, ?array $extend=null, mixed $register=null, mixed $schema=null): ObjectEntity {
+                $entity = new ObjectEntity();
+                $entity->setUuid('conv-uuid-1');
+                return $entity;
+            }
+        );
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'none',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'flag-on-steps-sched'
+            )
+        );
+
+        $this->assertCount(1, $this->auditCalls);
+        $context = $this->auditCalls[0]['context'];
+        $this->assertTrue($context['toolStepsAvailable']);
+        $this->assertSame(
+            ['tool', 'delivery'],
+            array_column($context['steps'], 'type'),
+            'The collector-recorded tool step and the appended delivery step must both be present.'
+        );
+        $this->assertSame('openregister.searchObjects', $context['steps'][0]['name']);
+        $this->assertSame('ok', $context['steps'][0]['outcome']);
+
+    }//end testEngineFlagOnCapturesToolStepsFromCollector()
+
+    /**
+     * run-trace-observability (TC-2): on the default OpenRegister `ChatService`
+     * path, coarse context/history/llm steps are derived from the `timings`
+     * bucket the call already returns, a `delivery` step is appended, no
+     * `tool`-type step is ever fabricated, and `toolStepsAvailable=false`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-1
+     */
+    public function testOrChatServicePathCapturesCoarseStepsOnly(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willReturn(
+            [
+                'message' => 'or output',
+                'usage'   => [],
+                'timings' => [
+                    'context' => '0.18s',
+                    'history' => '0.01s',
+                    'llm'     => '2.94s',
+                    'total'   => '3.13s',
+                ],
+            ]
+        );
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'none',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'flag-off-steps-sched'
+            )
+        );
+
+        $this->assertCount(1, $this->auditCalls);
+        $context = $this->auditCalls[0]['context'];
+        $this->assertFalse($context['toolStepsAvailable']);
+        $this->assertSame(
+            ['context', 'history', 'llm', 'delivery'],
+            array_column($context['steps'], 'type'),
+            'Coarse steps only — never a fabricated tool step on the OR ChatService path.'
+        );
+        $this->assertSame([0, 1, 2, 3], array_column($context['steps'], 'seq'));
+
+    }//end testOrChatServicePathCapturesCoarseStepsOnly()
+
+    /**
+     * run-trace-observability: when `$result['timings']` is absent, the coarse
+     * steps are simply omitted — never a fabricated duration. Only the
+     * ScheduleService-appended `delivery` step survives.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-1
+     */
+    public function testMissingTimingsOmitsCoarseStepsWithoutFabrication(): void
+    {
+        $this->chatService = $this->createMock(ChatService::class);
+        $this->chatService->method('processMessage')->willReturn(['message' => 'or output', 'usage' => []]);
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'none',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'no-timings-sched'
+            )
+        );
+
+        $this->assertCount(1, $this->auditCalls);
+        $context = $this->auditCalls[0]['context'];
+        $this->assertFalse($context['toolStepsAvailable']);
+        $this->assertSame(['delivery'], array_column($context['steps'], 'type'));
+
+    }//end testMissingTimingsOmitsCoarseStepsWithoutFabrication()
+
+    /**
+     * run-trace-observability (TC-8-adjacent): a delivery failure is recorded
+     * as a `delivery` step with `outcome=error`, and the run still finalises
+     * `ok` — the pre-existing non-fatal delivery contract is unchanged.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-1
+     */
+    public function testDeliveryFailureRecordsErrorStepButRunStaysOk(): void
+    {
+        $this->deliveryService = $this->createMock(DeliveryService::class);
+        $this->deliveryService->method('deliver')->willReturn(
+            new DeliveryResult(delivered: false, channel: 'talk', fellBack: false, warning: 'Talk room misconfigured')
+        );
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => 'talk',
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'delivery-fail-sched'
+            )
+        );
+
+        $this->assertCount(1, $this->auditCalls);
+        $context = $this->auditCalls[0]['context'];
+        $this->assertSame('ok', $context['status'], 'A delivery failure must never fail the run itself.');
+
+        $deliverySteps = array_values(
+            array_filter($context['steps'], static fn (array $step): bool => $step['type'] === 'delivery')
+        );
+        $this->assertCount(1, $deliverySteps);
+        $this->assertSame('error', $deliverySteps[0]['outcome']);
+
+    }//end testDeliveryFailureRecordsErrorStepButRunStaysOk()
+
+    /**
      * agent-capability-profile: when the bound Agent declares a valid, active
      * `actingUser`, the engine-enabled run impersonates THAT identity instead of the
      * schedule owner — the conversation's userId, the Engine's userId argument, and

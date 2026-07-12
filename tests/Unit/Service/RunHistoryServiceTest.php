@@ -204,4 +204,214 @@ class RunHistoryServiceTest extends TestCase
         return $entry;
 
     }//end withAttempt()
+
+    /**
+     * getRunTrace() returns the target run's persisted step timeline verbatim
+     * (run-trace-observability), including the persisted `toolStepsAvailable` flag.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    public function testGetRunTraceReturnsPersistedSteps(): void
+    {
+        $steps = [
+            ['seq' => 0, 'type' => 'context', 'name' => 'Context retrieval', 'startedAt' => '2026-01-01T10:00:00+00:00', 'endedAt' => '2026-01-01T10:00:00+00:00', 'durationMs' => 100, 'outcome' => 'ok'],
+            ['seq' => 1, 'type' => 'tool', 'name' => 'openregister.searchObjects', 'startedAt' => '2026-01-01T10:00:00+00:00', 'endedAt' => '2026-01-01T10:00:01+00:00', 'durationMs' => 900, 'outcome' => 'ok'],
+        ];
+
+        $logs = [
+            $this->entry(
+                'run',
+                [
+                    'status'             => 'ok',
+                    'agentId'            => 'a1',
+                    'startedAt'          => '2026-01-01T10:00:00+00:00',
+                    'steps'              => $steps,
+                    'toolStepsAvailable' => true,
+                ],
+                '2026-01-01T10:00:02+00:00',
+                'run-1'
+            ),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+        $trace   = $service->getRunTrace('sched-1', 'run-1');
+
+        $this->assertNotNull($trace);
+        $this->assertSame('run-1', $trace['id']);
+        $this->assertSame('sched-1', $trace['scheduleId']);
+        $this->assertTrue($trace['toolStepsAvailable']);
+        $this->assertSame(['context', 'tool'], array_column($trace['steps'], 'type'));
+        $this->assertSame([0, 1], array_column($trace['steps'], 'seq'));
+
+    }//end testGetRunTraceReturnsPersistedSteps()
+
+    /**
+     * A run id that does not belong to the given schedule returns null — never
+     * another schedule's run.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    public function testGetRunTraceReturnsNullForUnknownRunId(): void
+    {
+        $logs = [
+            $this->entry('run', ['status' => 'ok', 'startedAt' => '2026-01-01T10:00:00+00:00'], '2026-01-01T10:00:02+00:00', 'run-1'),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+
+        $this->assertNull($service->getRunTrace('sched-1', 'does-not-exist'));
+
+    }//end testGetRunTraceReturnsNullForUnknownRunId()
+
+    /**
+     * A run immediately preceded by an unbroken run of `awaiting_approval`
+     * entries gets a reconstructed leading `gate_wait` step spanning from the
+     * first such entry's timestamp to the run's actual `startedAt`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    public function testGetRunTraceReconstructsGateWaitFromAdjacentSkips(): void
+    {
+        $logs = [
+            $this->entry('run', ['status' => 'awaiting_approval'], '2026-01-01T09:00:00+00:00', 'skip-1'),
+            $this->entry('run', ['status' => 'awaiting_approval'], '2026-01-01T09:30:00+00:00', 'skip-2'),
+            $this->entry(
+                'run',
+                [
+                    'status'    => 'ok',
+                    'startedAt' => '2026-01-01T10:00:00+00:00',
+                    'steps'     => [['seq' => 0, 'type' => 'llm', 'name' => 'LLM generation', 'startedAt' => '2026-01-01T10:00:00+00:00', 'endedAt' => '2026-01-01T10:00:01+00:00', 'durationMs' => 1000, 'outcome' => 'ok']],
+                ],
+                '2026-01-01T10:00:01+00:00',
+                'run-1'
+            ),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+        $trace   = $service->getRunTrace('sched-1', 'run-1');
+
+        $this->assertNotNull($trace);
+        $this->assertSame(['gate_wait', 'llm'], array_column($trace['steps'], 'type'));
+        $this->assertSame([0, 1], array_column($trace['steps'], 'seq'), 'The full list must be renumbered once gate_wait is prepended.');
+
+        $gateWait = $trace['steps'][0];
+        $this->assertSame('2026-01-01T09:00:00+00:00', $gateWait['startedAt'], 'Must span from the FIRST (earliest) gate-skip entry.');
+        $this->assertSame('2026-01-01T10:00:00+00:00', $gateWait['endedAt'], "Must end at the run's actual startedAt, not the audit write time.");
+        $this->assertSame('approved', $gateWait['outcome']);
+
+    }//end testGetRunTraceReconstructsGateWaitFromAdjacentSkips()
+
+    /**
+     * A run with NO adjacent gate-skip entry immediately before it gets no
+     * `gate_wait` step — never guessed across a gap or a different status.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    public function testGetRunTraceOmitsGateWaitWithoutAdjacentSkip(): void
+    {
+        $logs = [
+            $this->entry('run', ['status' => 'ok'], '2026-01-01T08:00:00+00:00', 'earlier-ok-run'),
+            $this->entry(
+                'run',
+                [
+                    'status'    => 'ok',
+                    'startedAt' => '2026-01-01T10:00:00+00:00',
+                    'steps'     => [['seq' => 0, 'type' => 'llm', 'name' => 'LLM generation', 'startedAt' => '2026-01-01T10:00:00+00:00', 'endedAt' => '2026-01-01T10:00:01+00:00', 'durationMs' => 1000, 'outcome' => 'ok']],
+                ],
+                '2026-01-01T10:00:01+00:00',
+                'run-1'
+            ),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+        $trace   = $service->getRunTrace('sched-1', 'run-1');
+
+        $this->assertNotNull($trace);
+        $this->assertSame(['llm'], array_column($trace['steps'], 'type'));
+
+    }//end testGetRunTraceOmitsGateWaitWithoutAdjacentSkip()
+
+    /**
+     * A run with no persisted `toolStepsAvailable` (pre-run-trace-observability
+     * entry) falls back to deriving it from the steps actually present.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    public function testGetRunTraceDerivesToolStepsAvailableWhenNotPersisted(): void
+    {
+        $logs = [
+            $this->entry(
+                'run',
+                [
+                    'status'    => 'ok',
+                    'startedAt' => '2026-01-01T10:00:00+00:00',
+                    'steps'     => [['seq' => 0, 'type' => 'tool', 'name' => 'a.tool', 'startedAt' => '2026-01-01T10:00:00+00:00', 'endedAt' => '2026-01-01T10:00:01+00:00', 'durationMs' => 1000, 'outcome' => 'ok']],
+                ],
+                '2026-01-01T10:00:01+00:00',
+                'run-1'
+            ),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+        $trace   = $service->getRunTrace('sched-1', 'run-1');
+
+        $this->assertTrue($trace['toolStepsAvailable']);
+
+    }//end testGetRunTraceDerivesToolStepsAvailableWhenNotPersisted()
+
+    /**
+     * A run with no `steps` key at all (pre-run-trace-observability entry)
+     * returns an empty step list, never a fatal error.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    public function testGetRunTraceHandlesMissingStepsGracefully(): void
+    {
+        $logs = [
+            $this->entry('run', ['status' => 'ok', 'startedAt' => '2026-01-01T10:00:00+00:00'], '2026-01-01T10:00:01+00:00', 'run-1'),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+        $trace   = $service->getRunTrace('sched-1', 'run-1');
+
+        $this->assertSame([], $trace['steps']);
+        $this->assertFalse($trace['toolStepsAvailable']);
+
+    }//end testGetRunTraceHandlesMissingStepsGracefully()
 }//end class

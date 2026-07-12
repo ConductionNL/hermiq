@@ -127,7 +127,19 @@
         "Retry backoff base (seconds)": "Retry backoff base (seconds)",
         "Retry max attempts": "Retry max attempts",
         "Retry on failure": "Retry on failure",
-        "Retrying…": "Retrying…"
+        "Retrying…": "Retrying…",
+        "View this run's step timeline": "View this run's step timeline",
+        "Details": "Details",
+        "Hide details": "Hide details",
+        "Could not load this run's trace.": "Could not load this run's trace.",
+        "Tool-level detail is unavailable for this run's execution path.": "Tool-level detail is unavailable for this run's execution path.",
+        "No step detail recorded for this run.": "No step detail recorded for this run.",
+        "Download trace (JSON)": "Download trace (JSON)",
+        "Context": "Context",
+        "History": "History",
+        "LLM": "LLM",
+        "Tool": "Tool",
+        "Delivery": "Delivery"
     },
     "plurals": ""
 }

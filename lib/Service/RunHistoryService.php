@@ -34,6 +34,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use DateTimeImmutable;
+use Exception;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCP\IURLGenerator;
@@ -134,6 +136,221 @@ class RunHistoryService
         );
 
     }//end getRunHistory()
+
+    /**
+     * Return one run's full, ordered step timeline (run-trace-observability).
+     *
+     * Reads the SAME `action='run'` entries `getRunHistory()` reads (by
+     * `object_uuid`, never tenant-filtered here — the caller's owner check is the
+     * security boundary, same as `getRunHistory()`), locates the entry whose UUID
+     * matches `$runId`, and — when it is immediately preceded (no gap, no other
+     * status in between) by one or more `awaiting_approval`/`skipped_killswitch`
+     * entries for the SAME schedule — reconstructs a leading `gate_wait` step
+     * spanning from the first such entry's `created` timestamp to this run's
+     * actual `startedAt`. Never guesses a gate-wait across a gap or a different
+     * schedule's entries.
+     *
+     * A `$runId` that does not belong to `$scheduleUuid` simply never appears in
+     * the `object_uuid`-filtered result set, so it naturally returns null rather
+     * than another schedule's run — no separate ownership check is needed here
+     * (`RunHistoryController` still owns the caller-facing IDOR guard).
+     *
+     * @param string $scheduleUuid The Schedule object UUID.
+     * @param string $runId        The run's AuditTrail entry UUID.
+     *
+     * @return array<string, mixed>|null The run's trace record, or null when not found.
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-runhistoryservicegetruntrace-trace-read-gate-wait-reconstruction
+     */
+    public function getRunTrace(string $scheduleUuid, string $runId): ?array
+    {
+        $logs = $this->auditTrailMapper->findAll(
+            filters: [
+                'object_uuid' => $scheduleUuid,
+                'action'      => self::RUN_ACTION,
+            ]
+        );
+
+        // Oldest-first, so a target's IMMEDIATELY PRECEDING entries are simply the
+        // ones at index-1, index-2, ... in this same list.
+        usort(
+            $logs,
+            static function (AuditTrail $a, AuditTrail $b): int {
+                $aTime = ($a->getCreated()?->getTimestamp() ?? 0);
+                $bTime = ($b->getCreated()?->getTimestamp() ?? 0);
+                return ($aTime <=> $bTime);
+            }
+        );
+
+        $targetIndex = null;
+        foreach ($logs as $index => $log) {
+            if ($log->getUuid() === $runId) {
+                $targetIndex = $index;
+                break;
+            }
+        }
+
+        if ($targetIndex === null) {
+            return null;
+        }
+
+        $target  = $logs[$targetIndex];
+        $context = ($target->getChanged() ?? []);
+
+        $steps = [];
+        if (is_array($context['steps'] ?? null) === true) {
+            $steps = array_values($context['steps']);
+        }
+
+        $gateWait = $this->reconstructGateWait(logs: $logs, targetIndex: $targetIndex, targetContext: $context);
+        if ($gateWait !== null) {
+            array_unshift($steps, $gateWait);
+        }
+
+        $steps = $this->renumberSteps(steps: $steps);
+
+        $created    = $target->getCreated();
+        $createdIso = null;
+        if ($created !== null) {
+            $createdIso = $created->format('c');
+        }
+
+        return [
+            'id'                 => $target->getUuid(),
+            'scheduleId'         => $scheduleUuid,
+            'status'             => ($context['status'] ?? null),
+            'agentId'            => ($context['agentId'] ?? null),
+            'startedAt'          => ($context['startedAt'] ?? null),
+            'endedAt'            => ($context['endedAt'] ?? null),
+            'durationMs'         => ($context['durationMs'] ?? null),
+            'toolStepsAvailable' => ($context['toolStepsAvailable'] ?? $this->hasToolStep(steps: $steps)),
+            'steps'              => $steps,
+            'summary'            => ($context['summary'] ?? null),
+            'user'               => $target->getUser(),
+            'created'            => $createdIso,
+        ];
+
+    }//end getRunTrace()
+
+    /**
+     * Reconstruct a leading `gate_wait` step from the run's immediately preceding,
+     * unbroken run of `awaiting_approval`/`skipped_killswitch` entries.
+     *
+     * Walks backward from `$targetIndex` while each preceding entry's status is a
+     * gate-skip status; stops (and keeps the earliest gate-skip index found so
+     * far) at the first entry that is not one, or at the start of the list. No
+     * step is synthesised when there is no such entry immediately before the run.
+     *
+     * @param array<int, AuditTrail> $logs          All of the schedule's run entries, oldest-first.
+     * @param int                    $targetIndex   The target run's index in `$logs`.
+     * @param array<string, mixed>   $targetContext The target run's `changed` context.
+     *
+     * @return array<string, mixed>|null The synthesised step, or null when none applies.
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    private function reconstructGateWait(array $logs, int $targetIndex, array $targetContext): ?array
+    {
+        $gateStatuses   = ['awaiting_approval', 'skipped_killswitch'];
+        $firstGateIndex = null;
+
+        for ($i = ($targetIndex - 1); $i >= 0; $i--) {
+            $candidateContext = ($logs[$i]->getChanged() ?? []);
+            $status           = ($candidateContext['status'] ?? null);
+            if (in_array($status, $gateStatuses, true) === false) {
+                break;
+            }
+
+            $firstGateIndex = $i;
+        }
+
+        if ($firstGateIndex === null) {
+            return null;
+        }
+
+        $startedAt = $logs[$firstGateIndex]->getCreated();
+        if ($startedAt === null) {
+            return null;
+        }
+
+        $runStartedAtRaw = ($targetContext['startedAt'] ?? null);
+        if (is_string($runStartedAtRaw) === false || $runStartedAtRaw === '') {
+            return null;
+        }
+
+        try {
+            $runStartedAt = new DateTimeImmutable($runStartedAtRaw);
+        } catch (Exception $e) {
+            return null;
+        }
+
+        // $startedAt is OpenRegister's \DateTime (never \DateTimeImmutable) — both
+        // implement DateTimeInterface's format()/getTimestamp(), so no conversion
+        // is needed here.
+        $durationMs = (($runStartedAt->getTimestamp() - $startedAt->getTimestamp()) * 1000);
+        if ($durationMs < 0) {
+            $durationMs = 0;
+        }
+
+        return [
+            'type'       => 'gate_wait',
+            'name'       => 'Awaiting approval',
+            'startedAt'  => $startedAt->format('c'),
+            'endedAt'    => $runStartedAt->format('c'),
+            'durationMs' => $durationMs,
+            'outcome'    => 'approved',
+        ];
+
+    }//end reconstructGateWait()
+
+    /**
+     * Renumber a step list's `seq` fields 0..n-1, in array order.
+     *
+     * The write-time `seq` values (from `RunTraceCollector`/the coarse-step
+     * builder) are only valid within that run's OWN written array; once a
+     * reconstructed `gate_wait` step is unshifted onto the front, every step
+     * must be renumbered to stay a contiguous 0..n-1 sequence.
+     *
+     * @param array<int, array<string, mixed>> $steps The steps to renumber.
+     *
+     * @return array<int, array<string, mixed>> The renumbered steps.
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    private function renumberSteps(array $steps): array
+    {
+        $seq = 0;
+        return array_map(
+            static function (array $step) use (&$seq): array {
+                $step['seq'] = $seq++;
+                return $step;
+            },
+            $steps
+        );
+
+    }//end renumberSteps()
+
+    /**
+     * Whether a step timeline includes any `tool`-type step (fallback for a
+     * run written before `toolStepsAvailable` was persisted directly).
+     *
+     * @param array<int, array<string, mixed>> $steps The step timeline.
+     *
+     * @return bool True when at least one step has `type === 'tool'`.
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     */
+    private function hasToolStep(array $steps): bool
+    {
+        foreach ($steps as $step) {
+            if (($step['type'] ?? null) === 'tool') {
+                return true;
+            }
+        }
+
+        return false;
+
+    }//end hasToolStep()
 
     /**
      * Map one AuditTrail run entry into a compact run record.

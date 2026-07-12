@@ -48,6 +48,7 @@ use Throwable;
  * Owner-scoped run-history read endpoint over OpenRegister's AuditTrail.
  *
  * @spec openspec/changes/run-audit-log/tasks.md#3-run-history-read-surface
+ * @spec openspec/changes/run-trace-observability/tasks.md#task-5-runhistorycontrollertrace-route
  */
 class RunHistoryController extends Controller
 {
@@ -132,6 +133,54 @@ class RunHistoryController extends Controller
         }//end try
 
     }//end index()
+
+    /**
+     * Return one run's full, redacted step timeline for a schedule the caller owns
+     * (run-trace-observability).
+     *
+     * Reuses the IDENTICAL owner guard `index()` already uses: 404 (not 403) for
+     * both a non-existent schedule and a schedule the caller does not own, so a
+     * non-owner cannot even confirm the schedule — let alone the run — exists.
+     *
+     * @param string $scheduleId The Schedule object UUID.
+     * @param string $runId      The run's AuditTrail entry UUID.
+     *
+     * @return JSONResponse The run's trace, or an error status.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-runhistorycontrollertrace-route
+     */
+    public function trace(string $scheduleId, string $runId): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $schedule = $this->loadOwnedSchedule(scheduleId: $scheduleId, uid: $user->getUID());
+            if ($schedule === null) {
+                // 404 (not 403) so a non-owner cannot even confirm the schedule exists.
+                return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            $trace = $this->runHistoryService->getRunTrace(scheduleUuid: $scheduleId, runId: $runId);
+            if ($trace === null) {
+                return new JSONResponse(['error' => 'Run not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            return new JSONResponse($trace);
+        } catch (Throwable $e) {
+            $this->logger->error(
+                'Hermiq run-trace read failed: '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return new JSONResponse(['error' => 'Could not load run trace'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }//end try
+
+    }//end trace()
 
     /**
      * Load the schedule only if the given user owns it (IDOR guard).

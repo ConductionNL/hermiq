@@ -17,14 +17,21 @@
  *       array  $selectedTools = [],
  *       array  $ragSettings   = [],
  *       array  $context       = [],
- *       ?StreamYieldChannel $channel = null
+ *       ?StreamYieldChannel $channel = null,
+ *       ?RunTraceCollector $trace = null
  *   ): array{message: string, messageId: string, sources: list<array>,
  *            timings: array{context: string, history: string, llm: string, total: string},
- *            usage: array<string, int|float>}
+ *            usage: array<string, int|float>,
+ *            steps: array<int, array<string, mixed>>}
  *
  * The `usage` key (from `ResponseGenerationHandler::$lastUsage`) is load-bearing:
  * ScheduleService's `lastRunUsage` / run-analytics reads it (design.md risk) —
  * it MUST survive any future refactor of this return shape.
+ *
+ * The `steps` key (run-trace-observability) is the optional `$trace` collector's
+ * ordered step timeline (`context`/`history`/`llm`/`tool`), empty when no
+ * collector is supplied — existing callers that omit `$trace` see zero behavior
+ * change beyond the new, always-empty-or-populated `steps` key.
  *
  * Ported from `OCA\OpenRegister\Service\ChatService`: thin facade that
  * orchestrates specialized handlers, re-pointed at `Agent`/`Conversation`/
@@ -158,6 +165,12 @@ class Engine
      *                                                handler so SSE consumers can interleave
      *                                                `token`/`tool_call`/`tool_result` frames as
      *                                                the LLM yields. Null for blocking callers.
+     * @param RunTraceCollector|null  $trace          Optional run-trace collector
+     *                                                (run-trace-observability); when supplied,
+     *                                                context/history/llm/tool steps are timed
+     *                                                into it and returned as the envelope's
+     *                                                `steps` key. Null for callers that do not
+     *                                                need a step timeline (zero behavior change).
      *
      * @return array The result envelope.
      *
@@ -166,14 +179,18 @@ class Engine
      *
      * @psalm-return array{message: string, messageId: string, sources: list<array>,
      *     timings: array{context: string, history: string, llm: string, total: string},
-     *     usage: array<string, int|float>}
+     *     usage: array<string, int|float>, steps: array<int, array<string, mixed>>}
      *
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)  Chat processing involves multiple handler coordination steps
-     * @SuppressWarnings(PHPMD.NPathComplexity)       Many optional paths for agent, title generation, and timing
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Full chat orchestration requires comprehensive step handling
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)   Chat processing involves multiple handler coordination steps
+     * @SuppressWarnings(PHPMD.NPathComplexity)        Many optional paths for agent, title generation, and timing
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)  Full chat orchestration requires comprehensive step handling
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Each parameter is a distinct, independently
+     *   optional input (run-trace-observability adds one more to an already-wide, long-established
+     *   list) — grouping them would obscure, not simplify, the call site.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      */
     public function processMessage(
         string $conversationId,
@@ -183,7 +200,8 @@ class Engine
         array $selectedTools=[],
         array $ragSettings=[],
         array $context=[],
-        ?StreamYieldChannel $channel=null
+        ?StreamYieldChannel $channel=null,
+        ?RunTraceCollector $trace=null
     ): array {
         $this->logger->info(
             message: '[Engine] Processing message',
@@ -249,6 +267,9 @@ class Engine
 
             // Retrieve RAG context. Note: `$context` is now the RAG
             // context shape `{text, sources}`, distinct from `$cnAiContext`.
+            // run-trace-observability: timed as a `context` step when a collector
+            // is attached (never fatal — a null $trace is a no-op via `?->`).
+            $contextToken     = $trace?->startStep(type: 'context', name: 'Context retrieval');
             $contextStartTime = microtime(true);
             $context          = $this->contextHandler->retrieveContext(
                 query: $userMessage,
@@ -257,16 +278,30 @@ class Engine
                 ragSettings: $ragSettings
             );
             $contextTime      = microtime(true) - $contextStartTime;
+            if ($contextToken !== null) {
+                $trace?->endStep(token: $contextToken, outcome: 'ok');
+            }
 
-            // Build message history.
+            // Build message history (timed as a `history` step — see above).
+            $historyToken     = $trace?->startStep(type: 'history', name: 'History build');
             $historyStartTime = microtime(true);
             $messageHistory   = $this->historyHandler->buildMessageHistory(conversationId: $conversationId);
             $historyTime      = microtime(true) - $historyStartTime;
+            if ($historyToken !== null) {
+                $trace?->endStep(token: $historyToken, outcome: 'ok');
+            }
 
             // Generate LLM response. Forward the CnAiContext snapshot so
             // the system prompt can include "the user is currently in
             // {app}" — without it the model would default to generic
             // platform-wide phrasing and pick the wrong tool family.
+            //
+            // run-trace-observability: the `llm` step wraps the WHOLE call,
+            // including any nested tool-calling round trips the response handler
+            // makes via ToolLoop/FacadeToolInvoker against the SAME $trace — those
+            // `tool` steps complete (and are sequenced) BEFORE this `llm` step
+            // completes, matching design.md's documented step ordering.
+            $llmToken     = $trace?->startStep(type: 'llm', name: 'LLM generation');
             $llmStartTime = microtime(true);
             $aiResponse   = $this->responseHandler->generateResponse(
                 userMessage: $userMessage,
@@ -276,9 +311,13 @@ class Engine
                 selectedTools: $selectedTools,
                 channel: $channel,
                 cnAiContext: $cnAiContext,
-                contextPreamble: $contextPreamble
+                contextPreamble: $contextPreamble,
+                trace: $trace
             );
             $llmTime      = microtime(true) - $llmStartTime;
+            if ($llmToken !== null) {
+                $trace?->endStep(token: $llmToken, outcome: 'ok');
+            }
 
             // Store AI response with sources. Capture the return so we can surface
             // the persisted assistant message's id to the caller (the SSE stream
@@ -315,6 +354,9 @@ class Engine
                 // (run-analytics / ScheduleService::lastRunUsage) — load-bearing,
                 // see class docblock.
                 'usage'     => $this->responseHandler->lastUsage,
+                // Run-trace-observability: the collector's full ordered step
+                // timeline, empty when no collector was supplied.
+                'steps'     => $trace?->toArray() ?? [],
             ];
         } catch (Exception $e) {
             $this->logger->error(
