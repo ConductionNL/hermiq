@@ -101,8 +101,8 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import ChatIcon from 'vue-material-design-icons/ChatOutline.vue'
-import { listAgents } from '../api/agents.js'
 import { listSessions, recall } from '../api/memory.js'
+import { useAgentStore } from '../store/store.js'
 
 export default {
 	name: 'AgentSessions',
@@ -159,7 +159,13 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				this.agents = await listAgents()
+				const agentStore = useAgentStore()
+				agentStore.registerObjectType('agent', 'agent', 'hermiq')
+				const agents = await agentStore.fetchCollection('agent')
+				this.agents = Array.isArray(agents) ? agents : []
+				if (agentStore.errors?.agent) {
+					this.error = agentStore.errors.agent.message || this.t('hermiq', 'Unknown error')
+				}
 				if (this.agentOptions.length > 0) {
 					this.selectedAgent = this.agentOptions[0]
 					await this.loadSessions()
