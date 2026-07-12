@@ -81,3 +81,27 @@ export async function disableAiFeature(id) {
 	const response = await axios.post(generateUrl(`${AI_FEATURES_BASE}/${id}/disable`))
 	return response.data
 }
+
+/**
+ * Publish a high-risk feature to the national Algoritmeregister (delegated to OpenCatalogi;
+ * action-auth-gated). Refused (422) with a `missing` list when the readiness gate fails,
+ * or 503 when the publication path is unavailable.
+ *
+ * @param {string} id The AiFeature UUID.
+ * @return {Promise<object>} The stamped feature ({ uuid, algoritmeregisterStatus, algoritmeregisterRef, … }).
+ */
+export async function publishAiFeature(id) {
+	const response = await axios.post(generateUrl(`${AI_FEATURES_BASE}/${id}/publish`))
+	return response.data
+}
+
+/**
+ * Withdraw a feature from the national Algoritmeregister (intrekken; action-auth-gated).
+ *
+ * @param {string} id The AiFeature UUID.
+ * @return {Promise<object>} The stamped feature ({ uuid, algoritmeregisterStatus, … }).
+ */
+export async function withdrawAiFeature(id) {
+	const response = await axios.post(generateUrl(`${AI_FEATURES_BASE}/${id}/withdraw`))
+	return response.data
+}

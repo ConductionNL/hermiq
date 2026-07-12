@@ -74,6 +74,12 @@ return [
         ['name' => 'aiFeature#enable',      'url' => '/api/ai-features/{id}/enable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'aiFeature#disable',     'url' => '/api/ai-features/{id}/disable', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // Algoritmeregister publication (algoritmeregister-publication): publish/withdraw a
+        // high-risk feature to the national register, delegated to OpenCatalogi's publication
+        // path via the runtime seam (action-auth-gated; NO direct national-portal call).
+        ['name' => 'aiFeature#publishToAlgoritmeregister',    'url' => '/api/ai-features/{id}/publish',  'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'aiFeature#withdrawFromAlgoritmeregister', 'url' => '/api/ai-features/{id}/withdraw', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
         // First-time setup wizard (ADR-042) — the standard CnSetupWizard contract.
         ['name' => 'setup#status',     'url' => '/api/setup/status',            'verb' => 'GET'],
         ['name' => 'setup#saveConfig', 'url' => '/api/setup/config',            'verb' => 'POST'],

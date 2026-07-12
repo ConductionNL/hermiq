@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.9.0"
+    "version": "0.9.1"
   },
   "x-openregister": {
     "type": "application",
@@ -224,7 +224,7 @@
       "AiFeature": {
         "slug": "agentaifeature",
         "icon": "RobotOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "AI feature",
         "description": "A design-time inventory entry for a high-risk AI feature this platform provides (EU AI Act registration/oversight). Risk-classified and gated by a declarative lifecycle whose enable transition requires a DPO acknowledgement.",
         "type": "object",
@@ -246,7 +246,16 @@
           "lifecycle": { "type": "string", "enum": ["disabled", "enabled"], "default": "disabled", "title": "Lifecycle", "description": "Activation state, managed by the OpenRegister lifecycle engine (never set directly)." },
           "tenantId": { "type": "string", "title": "Tenant ID", "description": "The hermiq multi-tenancy scope used to key the DPO acknowledgement." },
           "dpoAckBy": { "type": "string", "title": "DPO acknowledged by", "description": "Derived: the user id of the DPO who acknowledged the feature — written by the acknowledge endpoint." },
-          "dpoAckAt": { "type": "string", "format": "date-time", "title": "DPO acknowledged at", "description": "Derived: when the DPO acknowledgement was recorded — written by the acknowledge endpoint." }
+          "dpoAckAt": { "type": "string", "format": "date-time", "title": "DPO acknowledged at", "description": "Derived: when the DPO acknowledgement was recorded — written by the acknowledge endpoint." },
+          "doel": { "type": "string", "title": "Doel", "description": "Algoritmekader: the purpose of the algorithm — why the public body deploys it. Mandatory only to publish to the Algoritmeregister." },
+          "wettelijkeGrondslag": { "type": "string", "title": "Wettelijke grondslag", "description": "Algoritmekader: the legal basis for using the algorithm. Mandatory only to publish." },
+          "impacttoetsen": { "type": "array", "title": "Impacttoetsen", "description": "Algoritmekader: the impact assessments performed (IAMA / DPIA / FRAIA) with a reference to each. Mandatory only to publish.", "items": { "type": "object", "properties": { "soort": { "type": "string", "enum": ["IAMA", "DPIA", "FRAIA"], "title": "Soort", "description": "Which impact assessment was performed." }, "referentie": { "type": "string", "title": "Referentie", "description": "A reference (document id / URL) to the completed assessment." } } } },
+          "dataBronnen": { "type": "string", "title": "Databronnen", "description": "Algoritmekader: the data sources and data categories the algorithm uses. Mandatory only to publish." },
+          "menselijkeTussenkomst": { "type": "string", "title": "Menselijke tussenkomst", "description": "Algoritmekader: the human-oversight arrangement (links to the human-approval gate). Mandatory only to publish." },
+          "verantwoordelijke": { "type": "object", "title": "Verantwoordelijke", "description": "Algoritmekader: the responsible organisation and its contact. Mandatory only to publish.", "properties": { "organisatie": { "type": "string", "title": "Organisatie", "description": "The owning public organisation." }, "contact": { "type": "string", "title": "Contact", "description": "A contact point (email / department) for the algorithm." } } },
+          "publicatiecategorie": { "type": "string", "title": "Publicatiecategorie", "description": "Algoritmekader: the publication category of the algorithm in the national register. Mandatory only to publish." },
+          "algoritmeregisterStatus": { "type": "string", "enum": ["niet-gepubliceerd", "gepubliceerd", "ingetrokken"], "default": "niet-gepubliceerd", "title": "Algoritmeregister status", "description": "Publication state in the national Algoritmeregister. Managed by the publish / withdraw actions (never set directly)." },
+          "algoritmeregisterRef": { "type": "string", "title": "Algoritmeregister reference", "description": "Derived: the external register id / URL of the published entry, empty until published." }
         }
       },
       "TenantControl": {
@@ -479,6 +488,94 @@
           "viewRefs": { "type": "array", "default": [], "title": "View refs", "description": "UUIDs of views that would further filter which data is included (resolution deferred — mirrors the same unresolved gap on Agent.views).", "items": { "type": "string", "format": "uuid" } },
           "charBudget": { "type": "integer", "default": 8000, "title": "Character budget", "description": "Character budget for the assembled preamble; exceeding it flags needsConsolidation (approximate, not a hard cap)." },
           "needsConsolidation": { "type": "boolean", "default": false, "title": "Needs consolidation", "description": "Derived: true when the last assembly exceeded charBudget — a nudge to narrow the bundle; content is never silently truncated." }
+        }
+      },
+      "Agent": {
+        "slug": "agent",
+        "icon": "RobotOutline",
+        "version": "0.1.0",
+        "title": "Agent",
+        "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here.",
+        "type": "object",
+        "required": ["name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "name": { "type": "string", "title": "Name", "description": "Human-readable name of the agent.", "example": "Permit drafting assistant" },
+          "description": { "type": "string", "title": "Description", "description": "A short description of what the agent does." },
+          "type": { "type": "string", "title": "Type", "description": "Free-form agent type label (e.g. chat, automation, analysis, assistant); no fixed enum observed at HEAD." },
+          "provider": { "type": "string", "title": "Provider", "description": "LLM provider the agent runs on (e.g. openai, ollama, fireworks, azure)." },
+          "model": { "type": "string", "title": "Model", "description": "Model identifier used by the provider (e.g. gpt-4o-mini, llama3)." },
+          "prompt": { "type": "string", "title": "Prompt", "description": "System prompt: instructions and context given to the LLM." },
+          "temperature": { "type": "number", "title": "Temperature", "description": "Controls randomness in generated responses (0.0-2.0)." },
+          "maxTokens": { "type": "integer", "title": "Max tokens", "description": "Maximum number of tokens the agent may generate per response." },
+          "configuration": { "type": "object", "title": "Configuration", "description": "Additional JSON configuration for advanced provider/model settings." },
+          "active": { "type": "boolean", "default": true, "title": "Active", "description": "Whether the agent is active and available to run." },
+          "enableRag": { "type": "boolean", "default": false, "title": "Enable RAG", "description": "Whether Retrieval-Augmented Generation is used to ground responses in context." },
+          "ragSearchMode": { "type": "string", "title": "RAG search mode", "description": "Search mode used for RAG context retrieval (e.g. hybrid, semantic, keyword)." },
+          "ragNumSources": { "type": "integer", "title": "RAG number of sources", "description": "Number of context sources retrieved for RAG." },
+          "ragIncludeFiles": { "type": "boolean", "title": "RAG include files", "description": "Whether Nextcloud files are included as RAG context sources." },
+          "ragIncludeObjects": { "type": "boolean", "title": "RAG include objects", "description": "Whether OpenRegister objects are included as RAG context sources." },
+          "requestQuota": { "type": "integer", "title": "Request quota", "description": "Maximum number of requests the agent may serve per day (0 = unlimited)." },
+          "tokenQuota": { "type": "integer", "title": "Token quota", "description": "Maximum number of tokens the agent may consume per day (0 = unlimited)." },
+          "views": { "type": "array", "default": [], "title": "Views", "description": "UUIDs of views that filter which data the agent can access.", "items": { "type": "string", "format": "uuid" } },
+          "searchFiles": { "type": "boolean", "title": "Search files", "description": "Whether the agent searches Nextcloud files." },
+          "searchObjects": { "type": "boolean", "title": "Search objects", "description": "Whether the agent searches OpenRegister objects." },
+          "isPrivate": { "type": "boolean", "default": true, "title": "Private", "description": "Whether the agent is private (not shared with the whole organisation)." },
+          "invitedUsers": { "type": "array", "default": [], "title": "Invited users", "description": "User ids invited to access a private agent.", "items": { "type": "string" } },
+          "groups": { "type": "array", "default": [], "title": "Groups", "description": "Nextcloud group ids with access to this agent.", "items": { "type": "string" } },
+          "tools": { "type": "array", "default": [], "title": "Tools", "description": "Tool whitelist as {appId}.{toolName} strings; an empty array means every discovered tool is allowed.", "items": { "type": "string" } },
+          "user": { "type": "string", "title": "Run-as user", "description": "User id whose permissions and organisation context the agent runs under when there is no active session (e.g. cron/background runs)." }
+        }
+      },
+      "Conversation": {
+        "slug": "conversation",
+        "icon": "ForumOutline",
+        "version": "0.1.0",
+        "title": "Conversation",
+        "description": "A chat thread bound to one Agent. Tenant scope and soft-delete/timestamps are inherited from ObjectEntity and not declared here.",
+        "type": "object",
+        "required": ["agentId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "title": { "type": "string", "title": "Title", "description": "Human-readable conversation title (typically auto-generated by the LLM)." },
+          "userId": { "type": "string", "title": "User ID", "description": "The user id who owns this conversation." },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the Agent object this conversation runs against.", "example": "00000000-0000-0000-0000-000000000000" },
+          "metadata": { "type": "object", "title": "Metadata", "description": "Additional JSON metadata such as a summary, token count, or message count." }
+        }
+      },
+      "Message": {
+        "slug": "message",
+        "icon": "MessageTextOutline",
+        "version": "0.1.0",
+        "title": "Message",
+        "description": "One turn within a Conversation, optionally carrying RAG sources and an AI Chat Companion context snapshot.",
+        "type": "object",
+        "required": ["conversationId", "role"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "conversationId": { "type": "string", "format": "uuid", "title": "Conversation", "description": "UUID of the Conversation object this message belongs to.", "example": "00000000-0000-0000-0000-000000000000" },
+          "role": { "type": "string", "enum": ["system", "user", "assistant", "tool"], "title": "Role", "description": "Who produced this message: system, user, assistant, or tool." },
+          "content": { "type": "string", "title": "Content", "description": "The message text." },
+          "sources": { "type": "array", "default": [], "title": "Sources", "description": "RAG sources used to generate the response (assistant messages only).", "items": { "type": "object", "properties": { "id": { "type": "string", "title": "Source ID", "description": "UUID of the source file or object." }, "type": { "type": "string", "title": "Source type", "description": "Whether the source is a file or an object." }, "name": { "type": "string", "title": "Source name", "description": "Human-readable name of the source." }, "similarity": { "type": "number", "title": "Similarity", "description": "Similarity score of the source to the query." }, "text": { "type": "string", "title": "Excerpt", "description": "Relevant excerpt from the source." } } } },
+          "context": { "type": "object", "title": "Context", "description": "AI Chat Companion context snapshot captured when the message was sent (appId, pageKind, objectUuid, registerSlug, schemaSlug, route, capturedAt), preserved verbatim as free-form JSON." }
+        }
+      },
+      "Feedback": {
+        "slug": "feedback",
+        "icon": "ThumbUpOutline",
+        "version": "0.1.0",
+        "title": "Feedback",
+        "description": "A rating on one Message, referencing its Conversation and Agent by uuid. Tenant scope (organisation) is inherited from ObjectEntity and not declared here.",
+        "type": "object",
+        "required": ["messageId", "conversationId", "agentId", "userId", "type"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "messageId": { "type": "string", "format": "uuid", "title": "Message", "description": "UUID of the Message this feedback rates.", "example": "00000000-0000-0000-0000-000000000000" },
+          "conversationId": { "type": "string", "format": "uuid", "title": "Conversation", "description": "UUID of the Conversation the rated message belongs to.", "example": "00000000-0000-0000-0000-000000000000" },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the Agent that produced the rated message.", "example": "00000000-0000-0000-0000-000000000000" },
+          "userId": { "type": "string", "title": "User ID", "description": "The user id who submitted this feedback." },
+          "type": { "type": "string", "enum": ["positive", "negative"], "title": "Type", "description": "Whether the feedback is positive or negative." },
+          "comment": { "type": "string", "title": "Comment", "description": "Optional free-text comment explaining the feedback." }
         }
       }
     }
