@@ -12,9 +12,7 @@ Extends the skills catalog (V1) to let organisations share skills across their o
 publish to/consume from external hubs (ClawHub, skills.sh) in the agentskills.io format. Every
 inbound skill passes through quarantine and a security scan before activation, and a background
 Curator job manages the skill lifecycle without ever hard-deleting a skill.
-
 ## Requirements
-
 ### Requirement: Quarantine + security scan on install
 The system MUST place any skill installed from another organisation or an external hub into a
 quarantine state and MUST run OR's `SecurityService` scan on it before the skill can transition to
@@ -46,6 +44,48 @@ from the skills-catalog spec.
 - WHEN the user chooses to publish it to an external hub
 - THEN the system MUST serialize it to agentskills.io format via `SkillSerializer`
 - AND the system MUST submit it to the selected hub's publish endpoint
+
+### Requirement: Approving a quarantined skill requires action authorization
+The system MUST require the caller to hold the `skill.approve-quarantined` action (via
+`ActionAuthService::requireAction()`) before transitioning a `quarantined` skill towards
+`active`. A caller without the action MUST receive `403 Forbidden` and the skill MUST
+remain unchanged.
+
+#### Scenario: A non-admin tenant member attempts to approve a quarantined skill
+- **GIVEN** a `quarantined` `Skill` and a caller whose groups are not mapped to
+  `skill.approve-quarantined` in the action matrix
+- **WHEN** the caller calls `POST /api/skills/{id}/approve`
+- **THEN** the system MUST respond `403 Forbidden`
+- **AND** the skill's `state` MUST remain `quarantined`
+
+### Requirement: Overriding a dangerous scan verdict requires a stricter action
+The system MUST require the caller to additionally hold the `skill.override-scan-verdict`
+action before applying `force=true` to a skill whose content-scan verdict is `dangerous`.
+Holding `skill.approve-quarantined` alone MUST NOT be sufficient to override a dangerous
+verdict.
+
+#### Scenario: A caller with approve rights but not override rights forces a dangerous skill
+- **GIVEN** a `quarantined` `Skill` with a `dangerous` scan verdict
+- **AND** a caller granted `skill.approve-quarantined` but not `skill.override-scan-verdict`
+- **WHEN** the caller calls `POST /api/skills/{id}/approve` with `force=true`
+- **THEN** the system MUST respond `403 Forbidden`
+- **AND** the skill's `state` MUST remain `quarantined`
+
+#### Scenario: An admin overrides a dangerous scan verdict
+- **GIVEN** a `quarantined` `Skill` with a `dangerous` scan verdict
+- **AND** an instance admin caller
+- **WHEN** the admin calls `POST /api/skills/{id}/approve` with `force=true`
+- **THEN** the system MUST transition the skill's `state` to `active`
+
+### Requirement: Publishing a skill to a hub requires action authorization
+The system MUST require the caller to hold the `skill.publish-hub` action before submitting
+a skill to an external hub via OpenConnector.
+
+#### Scenario: A non-admin tenant member attempts to publish a skill
+- **GIVEN** a caller whose groups are not mapped to `skill.publish-hub`
+- **WHEN** the caller calls `POST /api/skills/{id}/publish`
+- **THEN** the system MUST respond `403 Forbidden`
+- **AND** no outbound OpenConnector call MUST be made
 
 ## User Stories
 
