@@ -4,9 +4,12 @@
  * Test stub for OpenRegister AuditTrail.
  *
  * Stands in for OCA\OpenRegister\Db\AuditTrail when OpenRegister is not installed
- * (standalone CI: php:8.3-cli + OCP stubs). Exposes only the accessors Hermiq's
- * RunHistoryService reads: uuid, action, user, changed (context), created. The
- * real entity ships with OpenRegister at runtime.
+ * (standalone CI: php:8.3-cli + OCP stubs). Exposes the accessors Hermiq's
+ * RunHistoryService reads (uuid, action, user, changed/context, created) PLUS the
+ * ADR-063 chain 2/3 MCP invocation fields (toolId/paramsDigest/resultSummary —
+ * `AuditTrailMapper::createToolInvocationEntry()`) `ToolOversightController`
+ * reads (agent-tool-governance-and-disclosure). The real entity ships with
+ * OpenRegister at runtime.
  *
  * @category Test
  * @package  OCA\OpenRegister\Db
@@ -71,6 +74,28 @@ class AuditTrail
      * @var string|null
      */
     private ?string $objectUuid = null;
+
+    /**
+     * Full namespaced MCP tool id (`{app}.{schema}.{verb}` or `{app}.{toolName}`),
+     * set only on `mcp.{verb}`-action entries (ADR-063 chain 2/3).
+     *
+     * @var string|null
+     */
+    private ?string $toolId = null;
+
+    /**
+     * SHA-256 hex digest of the invocation's canonical arguments.
+     *
+     * @var string|null
+     */
+    private ?string $paramsDigest = null;
+
+    /**
+     * Structured outcome summary (count/id/isError/errorClass — never raw payloads).
+     *
+     * @var array<string,mixed>|null
+     */
+    private ?array $resultSummary = null;
 
     /**
      * Get the UUID.
@@ -203,4 +228,70 @@ class AuditTrail
     {
         $this->created = $created;
     }//end setCreated()
+
+    /**
+     * Get the full namespaced MCP tool id.
+     *
+     * @return string|null
+     */
+    public function getToolId(): ?string
+    {
+        return $this->toolId;
+    }//end getToolId()
+
+    /**
+     * Set the full namespaced MCP tool id.
+     *
+     * @param string|null $toolId The tool id.
+     *
+     * @return void
+     */
+    public function setToolId(?string $toolId): void
+    {
+        $this->toolId = $toolId;
+    }//end setToolId()
+
+    /**
+     * Get the SHA-256 params digest.
+     *
+     * @return string|null
+     */
+    public function getParamsDigest(): ?string
+    {
+        return $this->paramsDigest;
+    }//end getParamsDigest()
+
+    /**
+     * Set the SHA-256 params digest.
+     *
+     * @param string|null $paramsDigest The digest.
+     *
+     * @return void
+     */
+    public function setParamsDigest(?string $paramsDigest): void
+    {
+        $this->paramsDigest = $paramsDigest;
+    }//end setParamsDigest()
+
+    /**
+     * Get the structured result summary.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function getResultSummary(): ?array
+    {
+        return $this->resultSummary;
+    }//end getResultSummary()
+
+    /**
+     * Set the structured result summary.
+     *
+     * @param array<string,mixed>|null $resultSummary The summary.
+     *
+     * @return void
+     */
+    public function setResultSummary(?array $resultSummary): void
+    {
+        $this->resultSummary = $resultSummary;
+    }//end setResultSummary()
 }//end class

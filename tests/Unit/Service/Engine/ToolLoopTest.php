@@ -26,11 +26,15 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
+use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
+use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -38,9 +42,37 @@ use Psr\Log\NullLogger;
  * Tests for the facade-backed tool loop.
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+ * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
+ * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
  */
 class ToolLoopTest extends TestCase
 {
+    /**
+     * Build a ToolLoop with real (stateless) governance collaborators — a real
+     * `ToolGrantResolver`/`ToolSearchService`, and a mock `ApprovalService`/
+     * `IAppConfig` defaulting the disclosure threshold to 30 (agent-tool-governance-and-disclosure)
+     * so pre-existing small-function-count tests never trip progressive disclosure.
+     *
+     * @param ToolRegistryFacade $facade    The (mocked) facade.
+     * @param int                $threshold Disclosure threshold override.
+     *
+     * @return ToolLoop
+     */
+    private function loop(ToolRegistryFacade $facade, int $threshold=30): ToolLoop
+    {
+        $appConfig = $this->createMock(IAppConfig::class);
+        $appConfig->method('getValueInt')->willReturn($threshold);
+
+        return new ToolLoop(
+            $facade,
+            new NullLogger(),
+            new ToolGrantResolver(),
+            new ToolSearchService(),
+            $this->createMock(ApprovalService::class),
+            $appConfig
+        );
+
+    }//end loop()
 
     /**
      * An Agent ObjectEntity with the given tools whitelist.
@@ -75,7 +107,7 @@ class ToolLoopTest extends TestCase
         $facade = $this->createMock(ToolRegistryFacade::class);
         $facade->expects($this->never())->method('listTools');
 
-        $loop = new ToolLoop($facade, new NullLogger());
+        $loop = $this->loop(facade: $facade);
         $this->assertSame([], $loop->listAgentFunctions(agent: null));
 
     }//end testNullAgentYieldsNoToolsWithoutFacadeCall()
@@ -101,7 +133,7 @@ class ToolLoopTest extends TestCase
             ->with([])
             ->willReturn($all);
 
-        $loop = new ToolLoop($facade, new NullLogger());
+        $loop = $this->loop(facade: $facade);
         $this->assertSame($all, $loop->listAgentFunctions(agent: $this->agent(tools: [])));
 
     }//end testEmptyWhitelistAllowsAllTools()
@@ -122,7 +154,7 @@ class ToolLoopTest extends TestCase
             ->with(['decidesk.listMeetings', 'objects', 'openregister.objects'])
             ->willReturn([]);
 
-        $loop = new ToolLoop($facade, new NullLogger());
+        $loop = $this->loop(facade: $facade);
         $loop->listAgentFunctions(agent: $this->agent(tools: ['decidesk.listMeetings', 'objects']));
 
     }//end testWhitelistPassedThroughWithLegacyExpansion()
@@ -142,7 +174,7 @@ class ToolLoopTest extends TestCase
             ->with(['a.one'])
             ->willReturn([]);
 
-        $loop = new ToolLoop($facade, new NullLogger());
+        $loop = $this->loop(facade: $facade);
         $loop->listAgentFunctions(
             agent: $this->agent(tools: ['a.one', 'b.two']),
             selectedTools: ['a.one', 'c.three']
@@ -164,7 +196,7 @@ class ToolLoopTest extends TestCase
         $facade = $this->createMock(ToolRegistryFacade::class);
         $facade->expects($this->never())->method('listTools');
 
-        $loop   = new ToolLoop($facade, new NullLogger());
+        $loop   = $this->loop(facade: $facade);
         $result = $loop->listAgentFunctions(
             agent: $this->agent(tools: ['a.one']),
             selectedTools: ['c.three']
@@ -190,10 +222,142 @@ class ToolLoopTest extends TestCase
             ->with(['a.one'])
             ->willReturn([]);
 
-        $loop = new ToolLoop($facade, new NullLogger());
+        $loop = $this->loop(facade: $facade);
         $loop->listAgentFunctions(agent: $this->agent(tools: []), selectedTools: ['a.one']);
 
     }//end testSelectionBecomesWhitelistWhenAgentAllowsAll()
+
+    /**
+     * A wildcard grant fetches the full catalog to expand it, then queries the
+     * facade AGAIN with the resolved (default-denied) id set — two facade calls,
+     * never a raw wildcard string reaching listTools().
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
+     */
+    public function testWildcardGrantIsExpandedAgainstCatalogBeforeFacadeQuery(): void
+    {
+        $catalog  = [
+            ['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search'],
+            ['name' => 'pipelinq_lead_get', 'mcpId' => 'pipelinq.lead.get'],
+            ['name' => 'pipelinq_lead_delete', 'mcpId' => 'pipelinq.lead.delete'],
+        ];
+        $resolved = [
+            ['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search'],
+            ['name' => 'pipelinq_lead_get', 'mcpId' => 'pipelinq.lead.get'],
+        ];
+
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->exactly(2))
+            ->method('listTools')
+            ->willReturnCallback(
+                function (array $whitelist) use ($catalog, $resolved): array {
+                    if ($whitelist === []) {
+                        return $catalog;
+                    }
+
+                    sort($whitelist);
+                    $this->assertSame(['pipelinq.lead.get', 'pipelinq.lead.search'], $whitelist);
+                    return $resolved;
+                }
+            );
+
+        $loop   = $this->loop(facade: $facade);
+        $result = $loop->listAgentFunctions(agent: $this->agent(tools: ['pipelinq.lead.*']));
+
+        $this->assertSame($resolved, $result);
+
+    }//end testWildcardGrantIsExpandedAgainstCatalogBeforeFacadeQuery()
+
+    /**
+     * An empty whitelist calls listTools([]) exactly ONCE (preserving the
+     * legacy call contract) and post-filters the returned catalog to strip
+     * classifiable derived write ids (default-deny).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-1
+     */
+    public function testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall(): void
+    {
+        $catalog = [
+            ['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search'],
+            ['name' => 'pipelinq_lead_delete', 'mcpId' => 'pipelinq.lead.delete'],
+            ['name' => 'hermiq_sendMail', 'mcpId' => 'hermiq.sendMail'],
+        ];
+
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())->method('listTools')->with([])->willReturn($catalog);
+
+        $loop   = $this->loop(facade: $facade);
+        $result = $loop->listAgentFunctions(agent: $this->agent(tools: []));
+
+        $ids = array_column($result, 'mcpId');
+        sort($ids);
+        $this->assertSame(['hermiq.sendMail', 'pipelinq.lead.search'], $ids);
+
+    }//end testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall()
+
+    /**
+     * Above the disclosure threshold, only the `hermiq.searchTools` descriptor
+     * is returned — never the full resolved set.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
+     */
+    public function testDisclosureActivatesAboveThreshold(): void
+    {
+        $many = [];
+        for ($i = 0; $i < 5; $i++) {
+            $many[] = ['name' => 'tool_'.$i, 'mcpId' => 'app.tool'.$i];
+        }
+
+        $searchTools = [['name' => 'hermiq_searchTools', 'mcpId' => 'hermiq.searchTools']];
+
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->method('listTools')->willReturnCallback(
+            function (array $whitelist) use ($many, $searchTools): array {
+                if ($whitelist === ['hermiq.searchTools']) {
+                    return $searchTools;
+                }
+
+                return $many;
+            }
+        );
+
+        $loop   = $this->loop(facade: $facade, threshold: 3);
+        $result = $loop->listAgentFunctions(agent: $this->agent(tools: ['app.tool0', 'app.tool1', 'app.tool2', 'app.tool3', 'app.tool4']));
+
+        $this->assertSame($searchTools, $result);
+
+    }//end testDisclosureActivatesAboveThreshold()
+
+    /**
+     * Below the disclosure threshold, all resolved descriptors are returned —
+     * the meta-tool is never substituted.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-small-catalog-does-not-trigger-disclosure
+     */
+    public function testDisclosureDoesNotActivateBelowThreshold(): void
+    {
+        $few = [
+            ['name' => 'a_tool', 'mcpId' => 'app.a'],
+            ['name' => 'b_tool', 'mcpId' => 'app.b'],
+        ];
+
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())->method('listTools')->with(['app.a', 'app.b'])->willReturn($few);
+
+        $loop   = $this->loop(facade: $facade, threshold: 3);
+        $result = $loop->listAgentFunctions(agent: $this->agent(tools: ['app.a', 'app.b']));
+
+        $this->assertSame($few, $result);
+
+    }//end testDisclosureDoesNotActivateBelowThreshold()
 
     /**
      * Descriptors convert to FunctionInfo objects: parameters/required mapped to
@@ -220,7 +384,7 @@ class ToolLoopTest extends TestCase
         ];
 
         $facade = $this->createMock(ToolRegistryFacade::class);
-        $loop   = new ToolLoop($facade, new NullLogger());
+        $loop   = $this->loop(facade: $facade);
 
         $infos = $loop->buildFunctionInfos(functions: [$descriptor]);
 
@@ -266,12 +430,16 @@ class ToolLoopTest extends TestCase
         $channel   = new StreamYieldChannel();
         $toolCalls = [];
         $results   = [];
-        $channel->onToolCall(function (array $payload) use (&$toolCalls): void {
-            $toolCalls[] = $payload;
-        });
-        $channel->onToolResult(function (array $payload) use (&$results): void {
-            $results[] = $payload;
-        });
+        $channel->onToolCall(
+                function (array $payload) use (&$toolCalls): void {
+                    $toolCalls[] = $payload;
+                }
+                );
+        $channel->onToolResult(
+                function (array $payload) use (&$results): void {
+                    $results[] = $payload;
+                }
+                );
 
         $invoker = new FacadeToolInvoker(facade: $facade, channel: $channel);
 

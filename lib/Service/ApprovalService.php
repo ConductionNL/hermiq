@@ -16,6 +16,14 @@
  *   to ensure a pending Approval carrying the run's resume context
  *   (`flowContext`), keyed by the event's `correlationId` for idempotency.
  *   Approval re-runs via `FlowAgentRunService::run()` with the gate bypassed.
+ * - An **un-granted destructive tool invocation** (`sourceType: "tool"`,
+ *   agent-tool-governance-and-disclosure): `FacadeToolInvoker` asks this service
+ *   to ensure a pending Approval for a specific (agentId, toolId) pair mid-run,
+ *   keyed by that pair for idempotency. There is no run to auto-resume on
+ *   approval (the chat turn that attempted the call has already returned) — the
+ *   decision simply flips to `approved`/`denied` so the NEXT invocation attempt
+ *   of that (agentId, toolId) pair — `FacadeToolInvoker::handleGatedInvocation()`
+ *   — proceeds or is blocked permanently.
  *
  * Either way, a reviewer (or an instance admin) later approves or denies:
  * approve transitions the object to `approved`, audits the decision, and
@@ -89,6 +97,14 @@ class ApprovalService
      * @var string
      */
     private const SCHEDULE_SCHEMA = 'schedule';
+
+    /**
+     * OpenRegister schema slug for agent objects (tool-invocation approvals'
+     * owner-impersonation lookup — agent-tool-governance-and-disclosure).
+     *
+     * @var string
+     */
+    private const AGENT_SCHEMA = 'agent';
 
     /**
      * Constructor.
@@ -258,6 +274,229 @@ class ApprovalService
     }//end ensurePendingApprovalForFlowRun()
 
     /**
+     * Idempotently ensure a single pending Approval exists for an un-granted
+     * destructive tool invocation attempted mid-run (agent-tool-governance-and-disclosure,
+     * EU AI Act Art. 14). Mirrors `ensurePendingApprovalForFlowRun()`'s idempotent-ensure
+     * shape, keyed by the (agentId, toolId) pair instead of a correlation id — a
+     * repeated attempt of the SAME tool by the SAME agent while a decision is
+     * still pending returns the SAME Approval, never a duplicate.
+     *
+     * The reviewer defaults to the agent's own owner (mirrors the flow-run
+     * default), falling back to the `admin` group when the agent has no owner
+     * or cannot be resolved.
+     *
+     * @param string               $agentId   The agent UUID attempting the invocation.
+     * @param string               $toolId    The full namespaced tool id (dotted `mcpId` form).
+     * @param array<string, mixed> $arguments The invocation's arguments (never persisted
+     *                                        verbatim — only a short summary is stored,
+     *                                        matching the ADR-063 audit's "never raw
+     *                                        payloads" posture).
+     *
+     * @return ObjectEntity The pending (or already-pending) Approval.
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+     */
+    public function ensurePendingApprovalForToolInvocation(string $agentId, string $toolId, array $arguments): ObjectEntity
+    {
+        $existing = $this->findPendingApprovalForToolInvocation(agentId: $agentId, toolId: $toolId);
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $owner        = $this->resolveAgentOwner(agentId: $agentId);
+        $reviewer     = $owner;
+        $reviewerType = 'user';
+        if ($reviewer === '') {
+            $reviewer     = 'admin';
+            $reviewerType = 'group';
+        }
+
+        $payload = [
+            'status'       => 'pending',
+            'sourceType'   => 'tool',
+            'agentId'      => $agentId,
+            'toolId'       => $toolId,
+            'prompt'       => $this->summarizeArguments(arguments: $arguments),
+            'requestedAt'  => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+            'reviewer'     => $reviewer,
+            'reviewerType' => $reviewerType,
+            'decidedAt'    => null,
+            'decidedBy'    => null,
+            'reason'       => null,
+        ];
+
+        $approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+
+        try {
+            $this->deliveryService->deliverApprovalRequestForToolInvocation(
+                approval: $approval,
+                reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Hermiq could not notify reviewer for tool-invocation approval '
+                .((string) $approval->getUuid()).': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+        return $approval;
+
+    }//end ensurePendingApprovalForToolInvocation()
+
+    /**
+     * Find the most recently DECIDED (`approved` or `denied`) Approval for a
+     * (agentId, toolId) tool-invocation pair, if one exists — consulted by
+     * `FacadeToolInvoker` before creating a new pending Approval, so an already
+     * `approved` pair proceeds and an already `denied` pair blocks permanently
+     * without re-prompting a reviewer.
+     *
+     * @param string $agentId The agent UUID.
+     * @param string $toolId  The full namespaced tool id.
+     *
+     * @return ObjectEntity|null The most recent decided approval, or null when none exists.
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-explicitly-granted-destructive-tool-call-is-not-re-gated
+     */
+    public function findDecidedApprovalForToolInvocation(string $agentId, string $toolId): ?ObjectEntity
+    {
+        $candidates = $this->toolInvocationApprovals(agentId: $agentId, toolId: $toolId);
+
+        $latest     = null;
+        $latestTime = '';
+        foreach ($candidates as $object) {
+            $data   = $object->getObject();
+            $status = (string) ($data['status'] ?? '');
+            if ($status !== 'approved' && $status !== 'denied') {
+                continue;
+            }
+
+            $decidedAt = (string) ($data['decidedAt'] ?? '');
+            if ($latest === null || $decidedAt > $latestTime) {
+                $latest     = $object;
+                $latestTime = $decidedAt;
+            }
+        }
+
+        return $latest;
+
+    }//end findDecidedApprovalForToolInvocation()
+
+    /**
+     * Find the open pending Approval for a (agentId, toolId) tool-invocation
+     * pair, if one exists — the tool-invocation counterpart to
+     * `findPendingApprovalForSchedule()`/`findPendingApprovalForCorrelation()`.
+     *
+     * @param string $agentId The agent UUID.
+     * @param string $toolId  The full namespaced tool id.
+     *
+     * @return ObjectEntity|null The pending approval, or null.
+     */
+    private function findPendingApprovalForToolInvocation(string $agentId, string $toolId): ?ObjectEntity
+    {
+        foreach ($this->toolInvocationApprovals(agentId: $agentId, toolId: $toolId) as $object) {
+            if ((string) ($object->getObject()['status'] ?? '') === 'pending') {
+                return $object;
+            }
+        }
+
+        return null;
+
+    }//end findPendingApprovalForToolInvocation()
+
+    /**
+     * Load every Approval recorded for a (agentId, toolId) tool-invocation pair
+     * (any status), RBAC-off (the caller applies whatever guard it needs).
+     *
+     * @param string $agentId The agent UUID.
+     * @param string $toolId  The full namespaced tool id.
+     *
+     * @return array<int, ObjectEntity>
+     */
+    private function toolInvocationApprovals(string $agentId, string $toolId): array
+    {
+        if ($agentId === '' || $toolId === '') {
+            return [];
+        }
+
+        $objects = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::APPROVAL_SCHEMA)
+            ->findAll(
+                config: ['filters' => ['agentId' => $agentId, 'toolId' => $toolId, 'sourceType' => 'tool']],
+                _rbac: false,
+                _multitenancy: false
+            );
+
+        $matches = [];
+        foreach ($objects as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $data = $object->getObject();
+            if ((string) ($data['agentId'] ?? '') === $agentId
+                && (string) ($data['toolId'] ?? '') === $toolId
+                && (string) ($data['sourceType'] ?? '') === 'tool'
+            ) {
+                $matches[] = $object;
+            }
+        }
+
+        return $matches;
+
+    }//end toolInvocationApprovals()
+
+    /**
+     * Resolve an agent's owner UID (RBAC-off — this is the reviewer-default
+     * lookup, not a data-access check), or `''` when the agent cannot be found.
+     *
+     * @param string $agentId The agent UUID.
+     *
+     * @return string
+     */
+    private function resolveAgentOwner(string $agentId): string
+    {
+        if ($agentId === '') {
+            return '';
+        }
+
+        $agent = $this->objectService->find(
+            id: $agentId,
+            register: self::REGISTER_SLUG,
+            schema: self::AGENT_SCHEMA,
+            _rbac: false,
+            _multitenancy: false
+        );
+
+        if (($agent instanceof ObjectEntity) === false) {
+            return '';
+        }
+
+        return (string) ($agent->getOwner() ?? '');
+
+    }//end resolveAgentOwner()
+
+    /**
+     * A short, non-fabricated summary of tool-invocation arguments for the
+     * Approval's `prompt` field — argument NAMES only (never values, which may
+     * carry PII/secrets), truncated.
+     *
+     * @param array<string, mixed> $arguments The invocation's arguments.
+     *
+     * @return string
+     */
+    private function summarizeArguments(array $arguments): string
+    {
+        if ($arguments === []) {
+            return '(no arguments)';
+        }
+
+        return 'arguments: '.implode(', ', array_keys($arguments));
+
+    }//end summarizeArguments()
+
+    /**
      * List the pending Approvals routed to the given user as reviewer.
      *
      * Returns approvals where the user is the reviewer user, or a member of the
@@ -424,6 +663,12 @@ class ApprovalService
             }
 
             $ran = $this->runApprovedFlowRun(flowContext: $flowContext);
+        } else if ($sourceType === 'tool') {
+            // No run to resume: the chat turn that attempted the call has
+            // already returned. Flipping status to `approved` is the whole
+            // effect — the NEXT invocation attempt of this (agentId, toolId)
+            // pair finds the decided Approval and proceeds.
+            $ran = false;
         } else {
             $ran = $this->runApprovedSchedule(scheduleId: (string) ($data['scheduleId'] ?? ''));
         }

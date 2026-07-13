@@ -1,0 +1,446 @@
+<?php
+
+/**
+ * Unit tests for ToolOversightController (agent-tool-governance-and-disclosure).
+ *
+ * Covers: the grant-annotated tool-catalog read (scope/destructiveHint/granted/
+ * requiresExplicitGrant, disclosureActive), the owner-only tool-grants write
+ * (single write-path via ObjectService::saveObject, refused for a non-owner),
+ * and the tool-invocations oversight read (rich vs degraded source, tenant-
+ * scoped correlation, empty state, CSV export) — including the access-denied/
+ * not-found guards shared by all three endpoints.
+ *
+ * @category Test
+ * @package  OCA\Hermiq\Tests\Unit\Controller
+ *
+ * @author    Conduction Development Team <info@conduction.nl>
+ * @copyright 2026 Conduction B.V.
+ * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * @link https://conduction.nl
+ *
+ * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-5
+ */
+
+declare(strict_types=1);
+
+namespace OCA\Hermiq\Tests\Unit\Controller;
+
+use DateTime;
+use OCA\Hermiq\Controller\ToolOversightController;
+use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\OpenRegister\Db\AuditTrail;
+use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\DataDownloadResponse;
+use OCP\AppFramework\Http\JSONResponse;
+use OCP\IAppConfig;
+use OCP\IRequest;
+use OCP\IUser;
+use OCP\IUserSession;
+use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
+
+/**
+ * Tests for the tool-catalog / tool-grants / tool-invocations endpoints.
+ *
+ * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-5
+ */
+class ToolOversightControllerTest extends TestCase
+{
+
+    /**
+     * Mock request.
+     *
+     * @var IRequest&MockObject
+     */
+    private IRequest $request;
+
+    /**
+     * Mock ObjectService.
+     *
+     * @var ObjectService&MockObject
+     */
+    private ObjectService $objectService;
+
+    /**
+     * Mock ToolRegistryFacade.
+     *
+     * @var ToolRegistryFacade&MockObject
+     */
+    private ToolRegistryFacade $toolRegistry;
+
+    /**
+     * Mock AuditTrailMapper.
+     *
+     * @var AuditTrailMapper&MockObject
+     */
+    private AuditTrailMapper $auditTrailMapper;
+
+    /**
+     * Mock IAppConfig.
+     *
+     * @var IAppConfig&MockObject
+     */
+    private IAppConfig $appConfig;
+
+    /**
+     * Mock user session (alice by default).
+     *
+     * @var IUserSession&MockObject
+     */
+    private IUserSession $userSession;
+
+    /**
+     * Wire fresh mocks before each test.
+     *
+     * @return void
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->request       = $this->createMock(IRequest::class);
+        $this->objectService = $this->createMock(ObjectService::class);
+        $this->objectService->method('setRegister')->willReturnSelf();
+        $this->objectService->method('setSchema')->willReturnSelf();
+        $this->toolRegistry     = $this->createMock(ToolRegistryFacade::class);
+        $this->auditTrailMapper = $this->createMock(AuditTrailMapper::class);
+        $this->appConfig        = $this->createMock(IAppConfig::class);
+        $this->appConfig->method('getValueInt')->willReturn(30);
+
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn('alice');
+        $this->userSession = $this->createMock(IUserSession::class);
+        $this->userSession->method('getUser')->willReturn($user);
+
+    }//end setUp()
+
+    /**
+     * Build the controller, forcing `richAuditAvailable()` to a fixed value via
+     * an anonymous subclass — the only seam for a class-shape check that is not
+     * behind an injected collaborator (see the controller's docblock).
+     *
+     * @param bool $richAvailable The forced `richAuditAvailable()` return value.
+     *
+     * @return ToolOversightController
+     */
+    private function controller(bool $richAvailable=false): ToolOversightController
+    {
+        return new class(
+            $this->request,
+            $this->objectService,
+            $this->toolRegistry,
+            new ToolGrantResolver(),
+            $this->auditTrailMapper,
+            $this->appConfig,
+            $this->userSession,
+            $this->createMock(LoggerInterface::class),
+            $richAvailable
+        ) extends ToolOversightController {
+            /**
+             * @param bool $richAvailable Forced return value.
+             */
+            public function __construct(
+                IRequest $request,
+                ObjectService $objectService,
+                ToolRegistryFacade $toolRegistry,
+                ToolGrantResolver $grantResolver,
+                AuditTrailMapper $auditTrailMapper,
+                IAppConfig $appConfig,
+                IUserSession $userSession,
+                LoggerInterface $logger,
+                private readonly bool $richAvailable
+            ) {
+                parent::__construct(
+                    $request,
+                    $objectService,
+                    $toolRegistry,
+                    $grantResolver,
+                    $auditTrailMapper,
+                    $appConfig,
+                    $userSession,
+                    $logger
+                );
+            }//end __construct()
+
+            protected function richAuditAvailable(): bool
+            {
+                return $this->richAvailable;
+            }//end richAuditAvailable()
+        };
+
+    }//end controller()
+
+    /**
+     * Build an agent ObjectEntity.
+     *
+     * @param array<string,mixed> $payload The agent payload.
+     * @param string              $owner   The owner UID.
+     *
+     * @return ObjectEntity
+     */
+    private function agent(array $payload, string $owner='alice'): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid('agent-1');
+        $entity->setOwner($owner);
+        $entity->setObject($payload);
+        return $entity;
+
+    }//end agent()
+
+    /**
+     * Build an AuditTrail MCP-invocation stub row.
+     *
+     * @param string $user   Acting user.
+     * @param string $toolId Full tool id.
+     * @param string $at     ISO-ish created timestamp.
+     *
+     * @return AuditTrail
+     */
+    private function mcpEntry(string $user, string $toolId, string $at): AuditTrail
+    {
+        $entry = new AuditTrail();
+        $entry->setUser($user);
+        $entry->setToolId($toolId);
+        $entry->setAction('mcp.'.substr($toolId, (strrpos($toolId, '.') + 1)));
+        $entry->setParamsDigest('deadbeef');
+        $entry->setResultSummary(['isError' => false, 'id' => 'obj-1']);
+        $entry->setObjectUuid('obj-1');
+        $entry->setCreated(new DateTime($at));
+        return $entry;
+
+    }//end mcpEntry()
+
+    /**
+     * toolCatalog returns the derived catalog annotated with granted/
+     * requiresExplicitGrant per the resolved (grant-filtered, default-denied) set.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/design.md#api-design
+     */
+    public function testToolCatalogAnnotatesGrantedAndRequiresExplicitGrant(): void
+    {
+        $catalog = [
+            ['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search'],
+            ['name' => 'pipelinq_lead_delete', 'mcpId' => 'pipelinq.lead.delete'],
+        ];
+        $this->toolRegistry->method('listTools')->willReturn($catalog);
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => ['pipelinq.lead.*']]));
+
+        $response = $this->controller()->toolCatalog('agent-1');
+        $data     = $response->getData();
+
+        $this->assertCount(2, $data['tools'], 'Both catalog tools must be listed, granted or not.');
+        $this->assertSame(1, $data['resolvedCount'], 'Only the read verb is resolved (default-deny on delete).');
+        $tools = [];
+        foreach ($data['tools'] as $tool) {
+            $tools[$tool['id']] = $tool;
+        }
+
+        $this->assertTrue($tools['pipelinq.lead.search']['granted']);
+        $this->assertFalse($tools['pipelinq.lead.search']['destructiveHint']);
+        $this->assertFalse($tools['pipelinq.lead.delete']['granted']);
+        $this->assertTrue($tools['pipelinq.lead.delete']['destructiveHint']);
+        $this->assertTrue($tools['pipelinq.lead.delete']['requiresExplicitGrant']);
+        $this->assertFalse($data['disclosureActive']);
+
+    }//end testToolCatalogAnnotatesGrantedAndRequiresExplicitGrant()
+
+    /**
+     * toolCatalog refuses an agent the caller cannot view (private, non-owner,
+     * not invited) with 403 — never leaking the catalog.
+     *
+     * @return void
+     */
+    public function testToolCatalogRefusesNonAccessibleAgent(): void
+    {
+        $this->objectService->method('find')->willReturn(
+            $this->agent(['tools' => [], 'isPrivate' => true], 'carol')
+        );
+
+        $response = $this->controller()->toolCatalog('agent-1');
+
+        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+
+    }//end testToolCatalogRefusesNonAccessibleAgent()
+
+    /**
+     * toolCatalog 404s when the agent cannot be found.
+     *
+     * @return void
+     */
+    public function testToolCatalogNotFound(): void
+    {
+        $this->objectService->method('find')->willReturn(null);
+
+        $response = $this->controller()->toolCatalog('missing');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testToolCatalogNotFound()
+
+    /**
+     * updateToolGrants persists the new grant array via ObjectService::saveObject
+     * (single write-path) for the owner.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/design.md#put-apiagentsagentidtool-grants
+     */
+    public function testUpdateToolGrantsPersistsForOwner(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+        $this->request->method('getParam')->with('grants')->willReturn(['pipelinq.lead.*', 'pipelinq.lead.delete']);
+
+        $saved = [];
+        $this->objectService->expects($this->once())
+            ->method('saveObject')
+            ->willReturnCallback(
+                function (array $object) use (&$saved): ObjectEntity {
+                    $saved[] = $object;
+                    $entity  = new ObjectEntity();
+                    $entity->setObject($object);
+                    return $entity;
+                }
+            );
+
+        $response = $this->controller()->updateToolGrants('agent-1');
+
+        $this->assertSame(['pipelinq.lead.*', 'pipelinq.lead.delete'], $saved[0]['tools']);
+        $this->assertSame(['pipelinq.lead.*', 'pipelinq.lead.delete'], $response->getData()['tools']);
+
+    }//end testUpdateToolGrantsPersistsForOwner()
+
+    /**
+     * updateToolGrants refuses a non-owner: 403, and Agent.tools is never
+     * touched (gate-7 no-admin-idor).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md
+     */
+    public function testUpdateToolGrantsRefusesNonOwner(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => ['a.b.search']], 'carol'));
+        $this->objectService->expects($this->never())->method('saveObject');
+
+        $response = $this->controller()->updateToolGrants('agent-1');
+
+        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+
+    }//end testUpdateToolGrantsRefusesNonOwner()
+
+    /**
+     * toolInvocations (rich source) lists this agent's correlated-owner MCP
+     * invocation rows, newest first, and NEVER a row belonging to a different
+     * agent/tenant's owner.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-an-operator-reviews-an-agents-tool-activity
+     */
+    public function testToolInvocationsRichSourceTenantScopedNewestFirst(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+        $this->objectService->method('findAll')->willReturn([]);
+
+        $older = $this->mcpEntry('alice', 'pipelinq.lead.search', '2026-01-01T00:00:00+00:00');
+        $newer = $this->mcpEntry('alice', 'pipelinq.lead.create', '2026-06-01T00:00:00+00:00');
+        $other = $this->mcpEntry('mallory', 'pipelinq.lead.delete', '2026-06-02T00:00:00+00:00');
+        $this->auditTrailMapper->method('findAll')->willReturn([$older, $newer, $other]);
+
+        $response = $this->controller(richAvailable: true)->toolInvocations('agent-1');
+        $data     = $response->getData();
+
+        $this->assertTrue($data['available']);
+        $this->assertSame('or-mcp-invocation-audit', $data['source']);
+        $this->assertCount(2, $data['rows'], 'Only the tenant-scoped (alice-owned) rows must appear.');
+        $this->assertSame('pipelinq.lead.create', $data['rows'][0]['toolId'], 'Newest first.');
+        $this->assertSame('pipelinq.lead.search', $data['rows'][1]['toolId']);
+
+    }//end testToolInvocationsRichSourceTenantScopedNewestFirst()
+
+    /**
+     * toolInvocations degrades gracefully when the richer shape is absent —
+     * never errors, never fabricates, and indicates the reduced detail.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
+     */
+    public function testToolInvocationsDegradesGracefullyWhenRichShapeAbsent(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->auditTrailMapper->method('findAll')->willReturn([]);
+
+        $response = $this->controller(richAvailable: false)->toolInvocations('agent-1');
+        $data     = $response->getData();
+
+        $this->assertFalse($data['available']);
+        $this->assertSame('run-audit-log', $data['source']);
+        $this->assertSame([], $data['rows']);
+
+    }//end testToolInvocationsDegradesGracefullyWhenRichShapeAbsent()
+
+    /**
+     * An agent with no recorded invocations renders an empty row list — never a
+     * fabricated row.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-an-agent-has-no-recorded-invocations
+     */
+    public function testToolInvocationsEmptyState(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->auditTrailMapper->method('findAll')->willReturn([]);
+
+        $response = $this->controller(richAvailable: true)->toolInvocations('agent-1');
+
+        $this->assertSame([], $response->getData()['rows']);
+
+    }//end testToolInvocationsEmptyState()
+
+    /**
+     * `format=csv` returns a downloadable CSV response instead of JSON.
+     *
+     * @return void
+     */
+    public function testToolInvocationsCsvExport(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => []], 'alice'));
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->auditTrailMapper->method('findAll')->willReturn(
+            [$this->mcpEntry('alice', 'pipelinq.lead.search', '2026-06-01T00:00:00+00:00')]
+        );
+
+        $response = $this->controller(richAvailable: true)->toolInvocations('agent-1', format: 'csv');
+
+        $this->assertInstanceOf(DataDownloadResponse::class, $response);
+
+    }//end testToolInvocationsCsvExport()
+
+    /**
+     * toolInvocations 404s when the agent cannot be found.
+     *
+     * @return void
+     */
+    public function testToolInvocationsNotFound(): void
+    {
+        $this->objectService->method('find')->willReturn(null);
+
+        $response = $this->controller()->toolInvocations('missing');
+
+        $this->assertInstanceOf(JSONResponse::class, $response);
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testToolInvocationsNotFound()
+}//end class

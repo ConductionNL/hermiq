@@ -19,6 +19,15 @@
  * and the facade's `listTools([])` implements it. An agent-less chat still gets
  * no tools (null agent → empty list), unchanged.
  *
+ * agent-tool-governance-and-disclosure adds two steps to `listAgentFunctions()`:
+ * a grant-RESOLUTION step (`ToolGrantResolver` expands `{app}.{schema}.*`
+ * wildcards and applies default-deny to write/destructive derived ids — see that
+ * class) that runs BEFORE the facade is asked for descriptors, and a disclosure-
+ * DECISION step that runs AFTER: when the resolved descriptor count exceeds
+ * `IAppConfig('hermiq','tools.disclosureThreshold')`, only the `hermiq.searchTools`
+ * meta-tool is returned and the full resolved set is registered on
+ * `ToolSearchService` for deferred loading (design.md §"Progressive disclosure").
+ *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
  *
@@ -33,14 +42,19 @@
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
  * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
+ * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
+ * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Engine;
 
+use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
 use LLPhant\Chat\FunctionInfo\FunctionInfo;
 use LLPhant\Chat\FunctionInfo\Parameter;
@@ -53,6 +67,22 @@ use LLPhant\Chat\FunctionInfo\Parameter;
  */
 class ToolLoop
 {
+
+    /**
+     * The `hermiq.searchTools` meta-tool's registry id (nc-native-tools provider).
+     *
+     * @var string
+     */
+    private const SEARCH_TOOLS_ID = 'hermiq.searchTools';
+
+    /**
+     * Default progressive-disclosure threshold (descriptor count) — see
+     * proposal.md Open Questions.
+     *
+     * @var int
+     */
+    private const DEFAULT_DISCLOSURE_THRESHOLD = 30;
+
     /**
      * Constructor.
      *
@@ -60,14 +90,29 @@ class ToolLoop
      *                                               (the ONLY tool dependency — never
      *                                               ToolRegistry/McpProviderBridge directly).
      * @param LoggerInterface    $logger             Logger.
+     * @param ToolGrantResolver  $grantResolver      Schema-scoped grant expansion + default-deny.
+     * @param ToolSearchService  $toolSearchService  Per-run resolved-set registry + `searchTools` ranking.
+     * @param ApprovalService    $approvalService    Human-approval gate (threaded onto
+     *                                               `FacadeToolInvoker` for un-granted
+     *                                               destructive invocations).
+     * @param IAppConfig         $appConfig          Reads `hermiq.tools.disclosureThreshold`.
      *
      * @return void
      *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct injected collaborator, not a logic-bearing argument list (mirrors
+     *   ApprovalService's precedent in this codebase).
+     *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
      */
     public function __construct(
         private readonly ToolRegistryFacade $toolRegistryFacade,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly ToolGrantResolver $grantResolver,
+        private readonly ToolSearchService $toolSearchService,
+        private readonly ApprovalService $approvalService,
+        private readonly IAppConfig $appConfig
     ) {
     }//end __construct()
 
@@ -132,7 +177,7 @@ class ToolLoop
             }
         }//end if
 
-        $functions = $this->toolRegistryFacade->listTools(toolWhitelist: $whitelist);
+        $functions = $this->resolveFunctions(whitelist: $whitelist);
 
         $this->logger->debug(
             message: '[ToolLoop] Resolved agent tool functions',
@@ -144,9 +189,120 @@ class ToolLoop
             ]
         );
 
-        return $functions;
+        // Register the FULL resolved set for this run (searchTools ranking +
+        // the approval gate's grant-membership check) BEFORE any disclosure
+        // narrowing — see ToolSearchService's docblock.
+        $this->toolSearchService->registerResolved(descriptors: $functions);
+
+        return $this->applyDisclosure(functions: $functions);
 
     }//end listAgentFunctions()
+
+    /**
+     * Resolve the whitelist into concrete descriptors: a plain (non-wildcard,
+     * non-empty) whitelist is passed straight through to the facade exactly as
+     * before; an empty whitelist or one containing a `{app}.{schema}.*` grant
+     * needs the full catalog first so `ToolGrantResolver` can expand it
+     * (agent-tool-governance-and-disclosure task 1/2).
+     *
+     * @param array<int, string> $whitelist The legacy-expanded, selection-narrowed whitelist.
+     *
+     * @return array<int, array<string, mixed>> Flattened LLPhant function descriptors.
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
+     */
+    private function resolveFunctions(array $whitelist): array
+    {
+        $needsCatalog = ($whitelist === [] || $this->grantResolver->hasWildcardGrant(grants: $whitelist) === true);
+
+        if ($needsCatalog === false) {
+            return $this->toolRegistryFacade->listTools(toolWhitelist: $whitelist);
+        }
+
+        $catalog     = $this->toolRegistryFacade->listTools(toolWhitelist: []);
+        $resolvedIds = $this->grantResolver->resolve(grants: $whitelist, catalog: $catalog);
+
+        if ($whitelist === []) {
+            // Preserve the single listTools([]) call contract for the legacy
+            // "empty whitelist" path — post-filter the already-fetched catalog
+            // rather than re-querying the facade with a concrete id list.
+            return $this->filterDescriptorsByIds(descriptors: $catalog, allowedIds: $resolvedIds);
+        }
+
+        return $this->toolRegistryFacade->listTools(toolWhitelist: $resolvedIds);
+
+    }//end resolveFunctions()
+
+    /**
+     * Keep only the descriptors whose id (`mcpId` or `name`) is in `$allowedIds`,
+     * preserving original order.
+     *
+     * @param array<int, array<string, mixed>> $descriptors Full descriptor list.
+     * @param array<int, string>               $allowedIds  Ids to keep.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function filterDescriptorsByIds(array $descriptors, array $allowedIds): array
+    {
+        $allowed = array_flip($allowedIds);
+
+        $out = [];
+        foreach ($descriptors as $descriptor) {
+            if (is_array($descriptor) === false) {
+                continue;
+            }
+
+            $id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
+            if (is_string($id) === true && isset($allowed[$id]) === true) {
+                $out[] = $descriptor;
+            }
+        }
+
+        return $out;
+
+    }//end filterDescriptorsByIds()
+
+    /**
+     * Progressive tool disclosure: above the configured threshold, return only
+     * the `hermiq.searchTools` meta-tool descriptor instead of the full set (the
+     * full set stays registered on `ToolSearchService` from `listAgentFunctions()`).
+     *
+     * @param array<int, array<string, mixed>> $functions The resolved descriptor list.
+     *
+     * @return array<int, array<string, mixed>>
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-resolved-catalog-exceeds-the-disclosure-threshold
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-a-small-catalog-does-not-trigger-disclosure
+     */
+    private function applyDisclosure(array $functions): array
+    {
+        $threshold = $this->appConfig->getValueInt('hermiq', 'tools.disclosureThreshold', self::DEFAULT_DISCLOSURE_THRESHOLD);
+
+        if (count($functions) <= $threshold) {
+            return $functions;
+        }
+
+        $searchToolsDescriptors = $this->toolRegistryFacade->listTools(toolWhitelist: [self::SEARCH_TOOLS_ID]);
+        if ($searchToolsDescriptors === []) {
+            // The meta-tool itself is not registered/reachable (e.g. not
+            // granted) — fail open to the full set rather than leaving the
+            // agent with zero callable tools.
+            return $functions;
+        }
+
+        $this->logger->info(
+            message: '[ToolLoop] Progressive tool disclosure active',
+            context: [
+                'file'          => __FILE__,
+                'line'          => __LINE__,
+                'resolvedCount' => count($functions),
+                'threshold'     => $threshold,
+            ]
+        );
+
+        return [$searchToolsDescriptors[0]];
+
+    }//end applyDisclosure()
 
     /**
      * Convert facade function descriptors into LLPhant FunctionInfo objects.
@@ -164,6 +320,13 @@ class ToolLoop
      *                                           onto the shared `FacadeToolInvoker` so
      *                                           each tool call the LLM makes is timed
      *                                           as a `tool` step (run-trace-observability).
+     * @param ObjectEntity|null       $agent     Agent object (agent-tool-governance-and-disclosure);
+     *                                           threaded onto `FacadeToolInvoker` so the
+     *                                           un-granted-destructive → approval-gate check
+     *                                           and the `hermiq.searchTools` short-circuit know
+     *                                           which agent/run they act for. Null (agent-less
+     *                                           chat) simply disables both — a plain facade
+     *                                           dispatch, unchanged.
      *
      * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
      *
@@ -172,10 +335,36 @@ class ToolLoop
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
      */
-    public function buildFunctionInfos(array $functions, ?StreamYieldChannel $channel=null, ?RunTraceCollector $trace=null): array
-    {
-        $invoker = new FacadeToolInvoker(facade: $this->toolRegistryFacade, channel: $channel, trace: $trace);
+    public function buildFunctionInfos(
+        array $functions,
+        ?StreamYieldChannel $channel=null,
+        ?RunTraceCollector $trace=null,
+        ?ObjectEntity $agent=null
+    ): array {
+        $agentId = null;
+        if ($agent !== null) {
+            $agentId = (string) $agent->getUuid();
+        }
+
+        $mcpIdByName = [];
+        foreach ($functions as $func) {
+            if (is_array($func) === true && isset($func['name']) === true) {
+                $mcpIdByName[(string) $func['name']] = (string) ($func['mcpId'] ?? $func['name']);
+            }
+        }
+
+        $invoker = new FacadeToolInvoker(
+            facade: $this->toolRegistryFacade,
+            channel: $channel,
+            trace: $trace,
+            toolSearchService: $this->toolSearchService,
+            approvalService: $this->approvalService,
+            agentId: $agentId,
+            mcpIdByName: $mcpIdByName
+        );
         $functionInfoObjects = [];
 
         foreach ($functions as $func) {

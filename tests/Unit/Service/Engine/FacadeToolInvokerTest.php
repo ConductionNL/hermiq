@@ -26,9 +26,12 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
+use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Service\ToolSearchService;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use PHPUnit\Framework\TestCase;
 
@@ -39,7 +42,6 @@ use PHPUnit\Framework\TestCase;
  */
 class FacadeToolInvokerTest extends TestCase
 {
-
     /**
      * A successful tool call records exactly one `tool` step with the tool
      * name and outcome `ok`.
@@ -119,9 +121,11 @@ class FacadeToolInvokerTest extends TestCase
 
         $channel   = new StreamYieldChannel();
         $toolCalls = [];
-        $channel->onToolCall(function (array $payload) use (&$toolCalls): void {
-            $toolCalls[] = $payload;
-        });
+        $channel->onToolCall(
+                function (array $payload) use (&$toolCalls): void {
+                    $toolCalls[] = $payload;
+                }
+                );
 
         $trace   = new RunTraceCollector();
         $invoker = new FacadeToolInvoker(facade: $facade, channel: $channel, trace: $trace);
@@ -157,4 +161,212 @@ class FacadeToolInvokerTest extends TestCase
         $this->assertSame(['ok' => true], json_decode($encoded, true));
 
     }//end testNoCollectorIsANoOp()
+
+    /**
+     * `hermiq.searchTools` is handled Hermiq-internally against `ToolSearchService`
+     * — never a facade round-trip (agent-tool-governance-and-disclosure).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-the-model-searches-for-and-then-invokes-a-deferred-tool
+     */
+    public function testSearchToolsIsHandledInternallyWithoutFacadeCall(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->never())->method('invokeTool');
+
+        $searchService = new ToolSearchService();
+        $searchService->registerResolved(
+            descriptors: [['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search', 'description' => 'Search leads']]
+        );
+
+        $invoker = new FacadeToolInvoker(facade: $facade, toolSearchService: $searchService);
+        $encoded = $invoker->hermiq_searchTools(query: 'lead');
+
+        $decoded = json_decode($encoded, true);
+        $this->assertSame(1, $decoded['count']);
+        $this->assertSame('pipelinq.lead.search', $decoded['matches'][0]['mcpId']);
+
+    }//end testSearchToolsIsHandledInternallyWithoutFacadeCall()
+
+    /**
+     * A write/destructive tool NOT in the run's resolved (grant-filtered) set
+     * routes through the approval gate: a pending Approval is created and the
+     * facade is NEVER invoked.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+     */
+    public function testUngrantedDestructiveToolRoutesThroughApprovalGate(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->never())->method('invokeTool');
+
+        $approvalService = $this->createMock(ApprovalService::class);
+        $approvalService->method('findDecidedApprovalForToolInvocation')->willReturn(null);
+
+        $pending = new ObjectEntity();
+        $pending->setUuid('appr-pending');
+        $approvalService->expects($this->once())
+            ->method('ensurePendingApprovalForToolInvocation')
+            ->with('agent-1', 'pipelinq.lead.delete', ['id' => '7'])
+            ->willReturn($pending);
+
+        $searchService = new ToolSearchService();
+        $searchService->registerResolved(descriptors: [['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search']]);
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            toolSearchService: $searchService,
+            approvalService: $approvalService,
+            agentId: 'agent-1',
+            mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+        );
+
+        $encoded = $invoker->pipelinq_lead_delete(id: '7');
+        $decoded = json_decode($encoded, true);
+
+        $this->assertTrue($decoded['isError']);
+        $this->assertSame('pending', $decoded['status']);
+        $this->assertSame('appr-pending', $decoded['approvalId']);
+
+    }//end testUngrantedDestructiveToolRoutesThroughApprovalGate()
+
+    /**
+     * A denied Approval blocks the invocation permanently — the facade is
+     * never invoked, and no new Approval is created.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+     */
+    public function testDeniedApprovalBlocksInvocationPermanently(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->never())->method('invokeTool');
+
+        $denied = new ObjectEntity();
+        $denied->setUuid('appr-denied');
+        $denied->setObject(['status' => 'denied']);
+
+        $approvalService = $this->createMock(ApprovalService::class);
+        $approvalService->method('findDecidedApprovalForToolInvocation')->willReturn($denied);
+        $approvalService->expects($this->never())->method('ensurePendingApprovalForToolInvocation');
+
+        $searchService = new ToolSearchService();
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            toolSearchService: $searchService,
+            approvalService: $approvalService,
+            agentId: 'agent-1',
+            mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+        );
+
+        $decoded = json_decode($invoker->pipelinq_lead_delete(id: '7'), true);
+
+        $this->assertTrue($decoded['isError']);
+        $this->assertSame('denied', $decoded['status']);
+
+    }//end testDeniedApprovalBlocksInvocationPermanently()
+
+    /**
+     * An already-approved decision proceeds to the facade — no new Approval,
+     * and RBAC still authorises at invoke time (the facade call is unchanged).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-explicitly-granted-destructive-tool-call-is-not-re-gated
+     */
+    public function testApprovedDecisionProceedsToFacade(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())
+            ->method('invokeTool')
+            ->with('pipelinq_lead_delete', ['id' => '7'])
+            ->willReturn(['result' => ['deleted' => true], 'isError' => false]);
+
+        $approved = new ObjectEntity();
+        $approved->setUuid('appr-approved');
+        $approved->setObject(['status' => 'approved']);
+
+        $approvalService = $this->createMock(ApprovalService::class);
+        $approvalService->method('findDecidedApprovalForToolInvocation')->willReturn($approved);
+        $approvalService->expects($this->never())->method('ensurePendingApprovalForToolInvocation');
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            toolSearchService: new ToolSearchService(),
+            approvalService: $approvalService,
+            agentId: 'agent-1',
+            mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+        );
+
+        $decoded = json_decode($invoker->pipelinq_lead_delete(id: '7'), true);
+        $this->assertSame(['deleted' => true], $decoded);
+
+    }//end testApprovedDecisionProceedsToFacade()
+
+    /**
+     * A destructive tool that IS in the run's resolved (grant-filtered) set is
+     * never gated — it dispatches straight to the facade.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-explicitly-granted-destructive-tool-call-is-not-re-gated
+     */
+    public function testGrantedDestructiveToolIsNotGated(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())
+            ->method('invokeTool')
+            ->with('pipelinq_lead_delete', ['id' => '7'])
+            ->willReturn(['result' => ['deleted' => true], 'isError' => false]);
+
+        $approvalService = $this->createMock(ApprovalService::class);
+        $approvalService->expects($this->never())->method('findDecidedApprovalForToolInvocation');
+        $approvalService->expects($this->never())->method('ensurePendingApprovalForToolInvocation');
+
+        $searchService = new ToolSearchService();
+        $searchService->registerResolved(descriptors: [['name' => 'pipelinq_lead_delete', 'mcpId' => 'pipelinq.lead.delete']]);
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            toolSearchService: $searchService,
+            approvalService: $approvalService,
+            agentId: 'agent-1',
+            mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+        );
+
+        $decoded = json_decode($invoker->pipelinq_lead_delete(id: '7'), true);
+        $this->assertSame(['deleted' => true], $decoded);
+
+    }//end testGrantedDestructiveToolIsNotGated()
+
+    /**
+     * With no agentId (agent-less chat), the approval gate is disabled entirely
+     * — a destructive tool dispatches straight to the facade, unchanged.
+     *
+     * @return void
+     */
+    public function testNoAgentIdDisablesApprovalGate(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())->method('invokeTool')->willReturn(['result' => [], 'isError' => false]);
+
+        $approvalService = $this->createMock(ApprovalService::class);
+        $approvalService->expects($this->never())->method('findDecidedApprovalForToolInvocation');
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            toolSearchService: new ToolSearchService(),
+            approvalService: $approvalService,
+            agentId: null,
+            mcpIdByName: ['pipelinq_lead_delete' => 'pipelinq.lead.delete']
+        );
+
+        $invoker->pipelinq_lead_delete(id: '7');
+
+    }//end testNoAgentIdDisablesApprovalGate()
 }//end class
