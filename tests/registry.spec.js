@@ -20,6 +20,18 @@
 // why no built-in widget fits (mirrors hydra gate 29,
 // hydra-gate-custom-widget-ratchet).
 //
+// kind: "modal" and kind: "cell-renderer" are likewise NOT required as of
+// remove-scaffold-leftovers: the scaffold's demo `example-modal` /
+// `status-badge` entries were removed as dead code tied to the deleted
+// `example` schema. Hermiq's real modals (AgentFormModal, ScheduleFormModal,
+// LlmProviderModal, WebhookSecretDialog, …) are directly embedded in their
+// owning `type: "custom"` page components (ADR-004 modal-isolation only
+// requires a modal live in its own src/modals/ file, imported by its parent —
+// it does NOT require registry-mediated `open-modal` action wiring), and no
+// schema currently needs a custom cell-renderer over the built-in object
+// table. A future manifest action of type "open-modal", or a schema needing
+// bespoke cell rendering, would re-populate these kinds.
+//
 // This is a Node CJS script (no transpilation), consistent with the existing
 // validate-manifest.js / validate-register.js pattern. It uses the
 // module-shimming technique from validate-manifest.js: Vue SFCs cannot be
@@ -35,10 +47,10 @@ const vm = require('vm')
 const REPO_ROOT = path.resolve(__dirname, '..')
 const REGISTRY_PATH = path.join(REPO_ROOT, 'src', 'registry.js')
 
-// All kinds the registry may carry. kind: "widget" is valid but NOT required
-// (ADR-049 Decision 5 — the scaffold ships zero custom widgets).
+// All kinds the registry may carry. kind: "widget", "modal" and
+// "cell-renderer" are valid but NOT required — see the header comment above.
 const VALID_KINDS = ['widget', 'modal', 'page', 'form-field', 'cell-renderer']
-const REQUIRED_KINDS = ['modal', 'page', 'form-field', 'cell-renderer']
+const REQUIRED_KINDS = ['page', 'form-field']
 
 // Required metadata fields per kind (mirrors CnAppRoot registry validation).
 const KIND_REQUIRED_META = {

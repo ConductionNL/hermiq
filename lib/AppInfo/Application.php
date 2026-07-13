@@ -27,7 +27,6 @@ declare(strict_types=1);
 namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
-use OCA\Hermiq\Listener\DeepLinkRegistrationListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
@@ -36,7 +35,6 @@ use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
-use OCA\OpenRegister\Event\DeepLinkRegistrationEvent;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -81,13 +79,6 @@ class Application extends App implements IBootstrap
         // runtime — Nextcloud does not auto-load an app's vendor/autoload.php.
         // Mirrors openregister/openconnector (ADR-002 dispatcher chain).
         include_once __DIR__.'/../../vendor/autoload.php';
-
-        // Register deep link patterns with OpenRegister's unified search provider.
-        // Only fires when OpenRegister is installed and dispatches the event.
-        $context->registerEventListener(
-            event: DeepLinkRegistrationEvent::class,
-            listener: DeepLinkRegistrationListener::class
-        );
 
         // Flow-triggered agent runs (SPECTR-NEXTCLOUD-PLAN.md §5.2, ADR-041): a
         // declarative `x-openregister-flows` action of `type: "agent"` dispatches

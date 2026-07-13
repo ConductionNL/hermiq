@@ -33,9 +33,9 @@ if (is_dir($serverTestsLib)) {
 
 // Load test stubs for cross-app classes that are only present when the other app
 // is installed. The IMcpToolProvider stub stands in for openregister PR #1466
-// (ai-chat-companion-orchestrator) so the example MCP tool provider can be
+// (ai-chat-companion-orchestrator) so Hermiq's MCP tool provider can be
 // unit-tested in standalone CI. AbstractToolHandler provides standardised auth
-// helpers used by ExampleToolProvider. Both are also registered via autoload-dev
+// helpers used by HermiqToolProvider. Both are also registered via autoload-dev
 // PSR-4 in composer.json (OCA\OpenRegister\ -> tests/Stubs/) for non-bootstrapped runs.
 if (class_exists(\OCA\OpenRegister\Mcp\AbstractToolHandler::class) === false) {
     require_once __DIR__ . '/Stubs/Mcp/AbstractToolHandler.php';

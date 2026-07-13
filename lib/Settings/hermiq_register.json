@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.1"
+    "version": "0.10.2"
   },
   "x-openregister": {
     "type": "application",
@@ -16,35 +16,6 @@
   "paths": {},
   "components": {
     "schemas": {
-      "example": {
-        "slug": "example",
-        "icon": "FileDocumentOutline",
-        "version": "0.1.0",
-        "title": "Example",
-        "description": "Example schema — replace with your app's actual schemas.",
-        "type": "object",
-        "required": [
-          "title"
-        ],
-        "x-openregister": {
-          "publicRead": false,
-          "publicWrite": false
-        },
-        "properties": {
-          "title": {
-            "type": "string",
-            "title": "Title",
-            "description": "The title of the example object",
-            "example": "My example"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description",
-            "description": "An optional description",
-            "example": "This is an example"
-          }
-        }
-      },
       "Schedule": {
         "slug": "schedule",
         "icon": "ClockOutline",

@@ -39,10 +39,7 @@
 
 import AnalyticsKpiWidget from './widgets/AnalyticsKpiWidget.vue'
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
-import ExampleModal from './modals/ExampleModal.vue'
 import EmailField from './formFields/EmailField.vue'
-import StatusBadge from './cellRenderers/StatusBadge.vue'
-import CustomExample from './views/CustomExample.vue'
 import Chat from './views/Chat.vue'
 import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
@@ -59,39 +56,12 @@ export default {
 	// kind: "modal" — opened via actions[].type: "open-modal"
 	// -------------------------------------------------------------------------
 
-	/**
-	 * Example confirm-action modal. Keep or delete when scaffolding.
-	 * Trigger via manifest action: { type: "open-modal", target: "example-modal" }.
-	 */
-	'example-modal': {
-		kind: 'modal',
-		component: ExampleModal,
-		propsSchema: {
-			type: 'object',
-			properties: {
-				title: { type: 'string' },
-				message: { type: 'string' },
-			},
-		},
-	},
-
 	// -------------------------------------------------------------------------
 	// kind: "page" — full-page custom components (escape hatch; keep near-zero)
 	//
 	// PascalCase keys match the manifest's `component` field so the v1
 	// customComponents.js entries work unchanged during the v1 → v2 transition.
 	// -------------------------------------------------------------------------
-
-	/**
-	 * Example custom page. The manifest does NOT reference this by default;
-	 * it is included so the registry's role is visible to first-time cloners.
-	 * Wire it up by adding a type: "custom" page entry to src/manifest.json
-	 * with component: "CustomExample" and a _note field.
-	 */
-	CustomExample: {
-		kind: 'page',
-		component: CustomExample,
-	},
 
 	/**
 	 * Chat — the AI chat page merged from OpenRegister's chat surface
@@ -234,17 +204,4 @@ export default {
 	// -------------------------------------------------------------------------
 	// kind: "cell-renderer" — custom table-cell rendering
 	// -------------------------------------------------------------------------
-
-	/**
-	 * Status badge renderer. Auto-bound by the object table to the "status"
-	 * property column on "example" schema rows. Adjust appliesTo for your schema.
-	 */
-	'status-badge': {
-		kind: 'cell-renderer',
-		component: StatusBadge,
-		appliesTo: {
-			schema: 'example',
-			property: 'status',
-		},
-	},
 }
