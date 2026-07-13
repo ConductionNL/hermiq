@@ -34,6 +34,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\RedactionService;
@@ -102,6 +103,14 @@ class WebhookAgentRunServiceTest extends TestCase
     private AuditTrailMapper $auditTrailMapper;
 
     /**
+     * Mock AgentVersionService (agent-versioning) — a stable, non-null pin by
+     * default.
+     *
+     * @var AgentVersionService&MockObject
+     */
+    private AgentVersionService $agentVersionService;
+
+    /**
      * Recorded createAuditTrailEntry() calls: each ['action' => ..., 'context' => ...].
      *
      * @var array<int, array<string, mixed>>
@@ -143,6 +152,9 @@ class WebhookAgentRunServiceTest extends TestCase
             }
         );
 
+        $this->agentVersionService = $this->createMock(AgentVersionService::class);
+        $this->agentVersionService->method('currentVersionId')->willReturn('version-1');
+
         $this->service = new WebhookAgentRunService(
             objectService: $this->objectService,
             agentMapper: $this->agentMapper,
@@ -152,6 +164,7 @@ class WebhookAgentRunServiceTest extends TestCase
             scheduleService: $this->scheduleService,
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
+            agentVersionService: $this->agentVersionService,
         );
 
     }//end setUp()
@@ -236,6 +249,7 @@ class WebhookAgentRunServiceTest extends TestCase
         $this->assertSame('agent-run', $this->auditCalls[0]['action']);
         $this->assertSame('ok', $this->auditCalls[0]['context']['status']);
         $this->assertSame('corr-1', $this->auditCalls[0]['context']['correlationId']);
+        $this->assertSame('version-1', $this->auditCalls[0]['context']['agentVersion'], 'agent-versioning: the executing agent version must be pinned.');
 
     }//end testHappyPathRunsAgentAndAudits()
 
@@ -289,6 +303,7 @@ class WebhookAgentRunServiceTest extends TestCase
             scheduleService: $this->scheduleService,
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
+            agentVersionService: $this->agentVersionService,
         );
 
         $ran = $this->service->run($this->context(['requiresApproval' => true]), true);

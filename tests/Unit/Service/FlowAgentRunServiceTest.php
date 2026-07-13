@@ -29,6 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\FlowAgentRunService;
@@ -97,6 +98,14 @@ class FlowAgentRunServiceTest extends TestCase
     private AuditTrailMapper $auditTrailMapper;
 
     /**
+     * Mock AgentVersionService (agent-versioning) — a stable, non-null pin by
+     * default.
+     *
+     * @var AgentVersionService&MockObject
+     */
+    private AgentVersionService $agentVersionService;
+
+    /**
      * Recorded createAuditTrailEntry() calls: each ['action' => ..., 'context' => ...].
      *
      * @var array<int, array<string, mixed>>
@@ -139,6 +148,9 @@ class FlowAgentRunServiceTest extends TestCase
             }
         );
 
+        $this->agentVersionService = $this->createMock(AgentVersionService::class);
+        $this->agentVersionService->method('currentVersionId')->willReturn('version-1');
+
         $this->service = new FlowAgentRunService(
             objectService: $this->objectService,
             agentMapper: $this->agentMapper,
@@ -148,6 +160,7 @@ class FlowAgentRunServiceTest extends TestCase
             scheduleService: $this->scheduleService,
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
+            agentVersionService: $this->agentVersionService,
         );
 
     }//end setUp()
@@ -248,6 +261,7 @@ class FlowAgentRunServiceTest extends TestCase
         $this->assertCount(1, $this->auditCalls);
         $this->assertSame('ok', $this->auditCalls[0]['context']['status']);
         $this->assertSame('agent-run', $this->auditCalls[0]['action']);
+        $this->assertSame('version-1', $this->auditCalls[0]['context']['agentVersion'], 'agent-versioning: the executing agent version must be pinned.');
 
     }//end testHappyPathWritesResultAndAudits()
 
@@ -392,6 +406,7 @@ class FlowAgentRunServiceTest extends TestCase
             scheduleService: $this->scheduleService,
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
+            agentVersionService: $this->agentVersionService,
         );
 
         $ran = $this->service->run($this->payload());
@@ -428,6 +443,7 @@ class FlowAgentRunServiceTest extends TestCase
             scheduleService: $this->scheduleService,
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
+            agentVersionService: $this->agentVersionService,
         );
 
         $ran = $this->service->run($this->payload(['requiresApproval' => true]), true);
@@ -468,6 +484,7 @@ class FlowAgentRunServiceTest extends TestCase
             scheduleService: $this->scheduleService,
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
+            agentVersionService: $this->agentVersionService,
         );
 
         $ran = $this->service->run($this->payload());

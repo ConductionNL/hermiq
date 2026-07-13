@@ -29,6 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\DeliveryResult;
@@ -178,6 +179,15 @@ class ScheduleServiceTest extends TestCase
     private GuardrailPolicyService $guardrailPolicyService;
 
     /**
+     * Mock AgentVersionService (agent-versioning) — defaults to a fixed version
+     * id so the base dispatcher tests see a stable, non-null pin unless a test
+     * overrides it.
+     *
+     * @var AgentVersionService&MockObject
+     */
+    private AgentVersionService $agentVersionService;
+
+    /**
      * Service under test.
      *
      * @var ScheduleService
@@ -286,6 +296,10 @@ class ScheduleServiceTest extends TestCase
             static fn (array $policy, string $text): array => ['text' => $text, 'blocked' => false, 'reason' => null]
         );
 
+        // agent-versioning: a stable, non-null pin by default (never fatal to a run).
+        $this->agentVersionService = $this->createMock(AgentVersionService::class);
+        $this->agentVersionService->method('currentVersionId')->willReturn('version-1');
+
         $this->service = $this->makeService();
 
     }//end setUp()
@@ -314,6 +328,7 @@ class ScheduleServiceTest extends TestCase
             engine: $this->engine,
             budgetService: $this->budgetService,
             guardrailPolicyService: $this->guardrailPolicyService,
+            agentVersionService: $this->agentVersionService,
         );
 
     }//end makeService()
@@ -991,8 +1006,50 @@ class ScheduleServiceTest extends TestCase
         $this->assertArrayHasKey('startedAt', $context);
         $this->assertArrayHasKey('endedAt', $context);
         $this->assertArrayHasKey('summary', $context);
+        $this->assertSame('version-1', $context['agentVersion'], 'agent-versioning: the executing agent version must be pinned.');
 
     }//end testSuccessfulRunWritesRunAuditEntry()
+
+    /**
+     * agent-versioning: the pinned agentVersion is looked up for the SCHEDULE's
+     * bound agentId, and a version-lookup failure never breaks the run itself
+     * (the entry is still written, without the pin).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-a-runs-audit-entry-pins-the-exact-agent-version-that-executed-it
+     */
+    public function testVersionPinFailureNeverBreaksTheRun(): void
+    {
+        $this->objectService->method('findAll')->willReturn(
+            [
+                $this->schedule(
+                    [
+                        'kind'            => 'interval',
+                        'intervalMinutes' => 60,
+                        'agentId'         => 'agent-uuid',
+                        'prompt'          => 'go',
+                        'deliver'         => 'none',
+                        'enabled'         => true,
+                        'nextRun'         => '2020-01-01T00:00:00+00:00',
+                        'repeat'          => ['times' => 0, 'completed' => 0],
+                    ]
+                ),
+            ]
+        );
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->agentVersionService = $this->createMock(AgentVersionService::class);
+        $this->agentVersionService->method('currentVersionId')->with('agent-uuid')->willReturn(null);
+        $this->service = $this->makeService();
+
+        $this->service->run();
+
+        $this->assertCount(1, $this->auditCalls);
+        $this->assertSame('ok', $this->auditCalls[0]['context']['status'], 'A version-pin miss must not affect the run outcome.');
+        $this->assertNull($this->auditCalls[0]['context']['agentVersion']);
+
+    }//end testVersionPinFailureNeverBreaksTheRun()
 
     /**
      * A failed run still writes an audit entry with status=error.
