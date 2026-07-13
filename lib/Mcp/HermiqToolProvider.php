@@ -53,6 +53,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Mcp;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\OpenRegister\Mcp\AbstractToolHandler;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
 use OCP\App\IAppManager;
@@ -167,22 +168,37 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
                 'required'   => ['query'],
             ],
         ],
+        [
+            'id'          => Application::APP_ID.'.recommendCourses',
+            'name'        => 'Recommend courses',
+            'description' => 'Get the acting learner\'s current ranked, explained next-best-course recommendations '
+                .'(ai-course-recommendations). Advisory only, self-scoped to the caller; ranking is a deterministic '
+                .'weighted-signal score, not an LLM judgement — the explanation text may be LLM-phrased.',
+            'inputSchema' => [
+                'type'       => 'object',
+                'properties' => [],
+                'required'   => [],
+            ],
+        ],
     ];
 
     /**
      * Constructor.
      *
-     * @param IUserSession       $userSession     The current user session (auth + scoping).
-     * @param IGroupManager      $groupManager    Group manager (AbstractToolHandler helpers).
-     * @param IRootFolder        $rootFolder      Files root (scoped per user).
-     * @param IContactsManager   $contactsManager Contacts search (acting user's books).
-     * @param ICalendarManager   $calendarManager Calendar query (acting user's calendars).
-     * @param IMailer            $mailer          Outbound email.
-     * @param IAppManager        $appManager      App availability (Deck) + describe.
-     * @param ContainerInterface $container       Lazy Deck BoardService resolution.
-     * @param LoggerInterface    $logger          PSR-3 logger.
+     * @param IUserSession               $userSession     The current user session (auth + scoping).
+     * @param IGroupManager              $groupManager    Group manager (AbstractToolHandler helpers).
+     * @param IRootFolder                $rootFolder      Files root (scoped per user).
+     * @param IContactsManager           $contactsManager Contacts search (acting user's books).
+     * @param ICalendarManager           $calendarManager Calendar query (acting user's calendars).
+     * @param IMailer                    $mailer          Outbound email.
+     * @param IAppManager                $appManager      App availability (Deck) + describe.
+     * @param ContainerInterface         $container       Lazy Deck BoardService resolution.
+     * @param CourseRecommendationEngine $courseEngine    Shared engine backing `recommendCourses`
+     *                                                    (ai-course-recommendations) — no duplicated
+     *                                                    gating/scoring/signal-read logic.
+     * @param LoggerInterface            $logger          PSR-3 logger.
      *
-     * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of five distinct capabilities.
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of six distinct capabilities.
      */
     public function __construct(
         IUserSession $userSession,
@@ -193,6 +209,7 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
         private readonly IMailer $mailer,
         private readonly IAppManager $appManager,
         private readonly ContainerInterface $container,
+        private readonly CourseRecommendationEngine $courseEngine,
         private readonly LoggerInterface $logger,
     ) {
         $this->userSession  = $userSession;
@@ -235,6 +252,10 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
      *
      * @return array<string, mixed> The JSON-encodable result.
      *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) A single dispatch switch over the tool
+     *   catalogue — the branch count tracks the number of registered tools, not incidental
+     *   complexity; each case delegates to its own single-responsibility handler.
+     *
      * @spec openspec/changes/nc-native-tools/tasks.md#task-1-7
      */
     public function invokeTool(string $toolId, array $arguments): array
@@ -260,6 +281,8 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
                     return $this->sendMail(user: $user, arguments: $arguments);
                 case Application::APP_ID.'.listDeckBoards':
                     return $this->listDeckBoards();
+                case Application::APP_ID.'.recommendCourses':
+                    return $this->courseEngine->getOrRegenerate(learnerUid: $uid);
                 case Application::APP_ID.'.searchTools':
                     // Defensive fallback only — the Hermiq engine short-circuits this
                     // call directly to ToolSearchService before it ever reaches the

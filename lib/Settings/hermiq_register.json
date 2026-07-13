@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.2"
+    "version": "0.10.3"
   },
   "x-openregister": {
     "type": "application",
@@ -596,6 +596,30 @@
           "linkedRunIds": { "type": "array", "default": [], "title": "Linked runs", "description": "AuditTrail entry uuids of the run(s) this incident concerns, if any (a \"run\" has no own OpenRegister object — it is identified by its AuditTrail entry uuid, exactly as RunHistoryService already surfaces run ids).", "items": { "type": "string" } },
           "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "Derived: when the incident record was opened — written by the create endpoint." },
           "createdBy": { "type": "string", "title": "Created by", "description": "Derived: the user id of the org admin who opened the incident — written by the create endpoint." }
+        }
+      },
+      "CourseRecommendation": {
+        "slug": "courserecommendation",
+        "icon": "CompassOutline",
+        "version": "0.1.0",
+        "title": "Course recommendation",
+        "description": "A per-learner, per-source-app snapshot of a ranked next-best-course recommendation list (course-recommendations), the deterministic signals consulted to produce it, and how its explanation text was produced. Advisory only — no field represents acceptance, enrolment, or any automated action (EU AI Act Annex III §3).",
+        "type": "object",
+        "required": ["learnerId", "sourceApp", "status"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "learnerId": { "type": "string", "title": "Learner ID", "description": "The Nextcloud user id of the learner this recommendation set was generated for (self-scoped identity key)." },
+          "sourceApp": { "type": "string", "default": "scholiq", "title": "Source app", "description": "The leaf app the signals were read from; hard-coded to scholiq at this revision, kept generic for a future second adapter." },
+          "tenantId": { "type": "string", "title": "Tenant ID", "description": "Mirrors the source app's tenant_id — multi-tenant isolation, not translated." },
+          "status": { "type": "string", "enum": ["fresh", "stale", "unavailable"], "default": "unavailable", "title": "Status", "description": "Freshness/availability of this recommendation set. A plain field managed by the service, not a governed lifecycle transition." },
+          "generatedAt": { "type": "string", "format": "date-time", "nullable": true, "title": "Generated at", "description": "When this recommendation set was last computed." },
+          "staleAt": { "type": "string", "format": "date-time", "nullable": true, "title": "Stale at", "description": "When this recommendation set becomes stale and due for lazy regeneration on next read (generatedAt + a fixed TTL)." },
+          "signalsUsed": { "type": "object", "title": "Signals used", "description": "Snapshot of signal availability/counts consulted to produce this recommendation set — audit/debug substrate, not shown to the learner.", "properties": { "enrolmentCount": { "type": "integer", "title": "Enrolment count", "description": "Number of the learner's Enrolment records read." }, "completedCourseCount": { "type": "integer", "title": "Completed course count", "description": "Number of the learner's completed Enrolment records." }, "xapiStatementCount": { "type": "integer", "title": "xAPI statement count", "description": "Number of the learner's XapiStatement records read." }, "goalCount": { "type": "integer", "title": "Goal count", "description": "Number of LearningPlan goals read across the learner's plans." }, "competencyDataAvailable": { "type": "boolean", "default": false, "title": "Competency data available", "description": "Whether the optional wave-2 competency-attainment read succeeded and returned data." } } },
+          "candidateCount": { "type": "integer", "default": 0, "title": "Candidate count", "description": "How many eligible (published, not-yet-enrolled) courses were scored." },
+          "recommendations": { "type": "array", "default": [], "title": "Recommendations", "description": "The ranked recommendation list — deterministic rank/score/matchedSignals, optionally LLM-phrased explanation.", "items": { "type": "object", "properties": { "courseId": { "type": "string", "format": "uuid", "title": "Course ID", "description": "UUID of the recommended Course in the source app's own register (foreign key into Scholiq's Course register — no cross-register $ref)." }, "courseCode": { "type": "string", "title": "Course code", "description": "The recommended course's code, snapshotted at generation time." }, "courseName": { "type": "string", "title": "Course name", "description": "The recommended course's name, snapshotted at generation time." }, "rank": { "type": "integer", "title": "Rank", "description": "1-based rank of this course within the recommendation list." }, "score": { "type": "number", "title": "Score", "description": "The deterministic weighted-signal score that produced this rank." }, "matchedSignals": { "type": "array", "title": "Matched signals", "description": "Which named signals contributed to this course's score — the explainability substrate.", "items": { "type": "string", "enum": ["goal-alignment", "curriculum-path", "mandatory-renewal", "engagement-recency", "competency-gap"] } }, "explanation": { "type": "string", "title": "Explanation", "description": "A plain-language explanation grounded strictly in this course's own matchedSignals — template-built or LLM-phrased, never absent." } } } },
+          "explanationMode": { "type": "string", "enum": ["template", "llm-assisted"], "default": "template", "title": "Explanation mode", "description": "Which path produced the explanation text for this recommendation set." },
+          "modelUsed": { "type": "string", "nullable": true, "title": "Model used", "description": "Provider/model identifier when explanationMode is llm-assisted; null otherwise." },
+          "viewedAt": { "type": "string", "format": "date-time", "nullable": true, "title": "Viewed at", "description": "When the learner last opened this recommendation list (reserved for a future scholiq-side surface; not written by this change)." }
         }
       }
     }

@@ -302,6 +302,10 @@ return [
             'requirements' => ['uuid' => '[^/]+'],
         ],
 
+        // Course recommendations (ai-course-recommendations): self-scoped, ranked,
+        // deterministic next-best-course list (EU AI Act Annex III §3, advisory only).
+        ['name' => 'courseRecommendation#index', 'url' => '/api/recommendations', 'verb' => 'GET'],
+
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],
