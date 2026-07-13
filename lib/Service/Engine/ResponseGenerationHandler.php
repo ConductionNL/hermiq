@@ -299,10 +299,17 @@ class ResponseGenerationHandler
                 }
 
                 if (empty($functions) === false) {
+                    // Agent-guardrails: thread $agent (agent-tool-governance-and-disclosure's
+                    // approval-gate check needs it and, until now, never received it — see
+                    // the class docblock's note below) and $organisation (already resolved
+                    // above for tenant-model-policy) so ToolLoop can resolve the effective
+                    // GuardrailPolicy's tool classification exactly once for this turn.
                     $functionInfoObjects = $this->toolLoop->buildFunctionInfos(
                         functions: $functions,
                         channel: $channel,
-                        trace: $trace
+                        trace: $trace,
+                        agent: $agent,
+                        organisation: $organisation
                     );
                     $chat->setTools($functionInfoObjects);
                 }

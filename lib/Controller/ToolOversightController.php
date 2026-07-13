@@ -571,10 +571,6 @@ class ToolOversightController extends Controller
 
         $rows = [];
         foreach ($logs as $log) {
-            if (($log instanceof AuditTrail) === false) {
-                continue;
-            }
-
             $user = (string) ($log->getUser() ?? '');
             if (isset($ownerSet[$user]) === false) {
                 continue;
@@ -650,10 +646,6 @@ class ToolOversightController extends Controller
 
         $rows = [];
         foreach ($logs as $log) {
-            if (($log instanceof AuditTrail) === false) {
-                continue;
-            }
-
             if (isset($scheduleUuids[(string) $log->getObjectUuid()]) === false) {
                 continue;
             }

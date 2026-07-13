@@ -34,6 +34,7 @@ use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\Agent;
@@ -168,6 +169,15 @@ class ScheduleServiceTest extends TestCase
     private BudgetService $budgetService;
 
     /**
+     * Mock GuardrailPolicyService (agent-guardrails) — defaults to the fully-open
+     * policy so the base dispatcher tests see zero behavior change unless a test
+     * overrides it.
+     *
+     * @var GuardrailPolicyService&MockObject
+     */
+    private GuardrailPolicyService $guardrailPolicyService;
+
+    /**
      * Service under test.
      *
      * @var ScheduleService
@@ -259,6 +269,23 @@ class ScheduleServiceTest extends TestCase
         $this->budgetService = $this->createMock(BudgetService::class);
         $this->budgetService->method('isBlocked')->willReturn(false);
 
+        // Fully-open policy by default (no organisation opted in) — zero behavior
+        // change for the base dispatcher tests unless a test overrides it.
+        $this->guardrailPolicyService = $this->createMock(GuardrailPolicyService::class);
+        $this->guardrailPolicyService->method('effectivePolicyFor')->willReturn(
+            [
+                'inputFilters'  => ['piiAction' => 'off', 'promptInjectionAction' => 'off'],
+                'outputFilters' => ['piiAction' => 'off'],
+                'toolPolicy'    => [],
+            ]
+        );
+        $this->guardrailPolicyService->method('filterInput')->willReturnCallback(
+            static fn (array $policy, string $text): array => ['text' => $text, 'blocked' => false, 'reason' => null]
+        );
+        $this->guardrailPolicyService->method('filterOutput')->willReturnCallback(
+            static fn (array $policy, string $text): array => ['text' => $text, 'blocked' => false, 'reason' => null]
+        );
+
         $this->service = $this->makeService();
 
     }//end setUp()
@@ -286,6 +313,7 @@ class ScheduleServiceTest extends TestCase
             appConfig: $this->appConfig,
             engine: $this->engine,
             budgetService: $this->budgetService,
+            guardrailPolicyService: $this->guardrailPolicyService,
         );
 
     }//end makeService()

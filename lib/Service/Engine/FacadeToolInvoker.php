@@ -37,6 +37,19 @@
  *   defense-in-depth check at the point of actual invocation — independent of
  *   whether `ToolLoop` already excluded the tool from the model's context.
  *
+ * agent-guardrails adds a THIRD, higher-priority short-circuit, checked before
+ * the grant/approval-gate one above: the effective `GuardrailPolicy`'s
+ * per-tool `toolPolicy` classification (`auto`|`confirm`|`deny`, resolved ONCE
+ * per turn by `ToolLoop` into the `$toolPolicy` map this class receives).
+ * `deny` refuses the call outright (a `tool` trace step, outcome `denied`) and
+ * never reaches the grant/approval-gate check or the facade. `confirm` refuses
+ * the FIRST attempt and creates a pending `Approval` (`sourceType: "toolcall"`,
+ * design.md Decision 4) — a subsequent, argument-IDENTICAL retry within the
+ * approval's validity window is the one and only invocation that proceeds
+ * (`consumedAt` then blocks any further replay). A tool absent from the
+ * `toolPolicy` map is `auto` — falls through unchanged to the pre-existing
+ * grant/approval-gate check, zero behavior change.
+ *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
  *
@@ -53,6 +66,8 @@
  * @spec openspec/changes/run-trace-observability/tasks.md#task-2-thread-the-collector-through-enginetoolloopfacadetoolinvoker
  * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
  * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
+ * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+ * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
  */
 
 declare(strict_types=1);
@@ -106,6 +121,15 @@ class FacadeToolInvoker
      *                                                   approval gate classifies/checks (LLPhant
      *                                                   calls back with the safe name, which may
      *                                                   have dots replaced by underscores).
+     * @param array<string,string>    $toolPolicy        The effective GuardrailPolicy's
+     *                                                   `toolId => classification` map
+     *                                                   (agent-guardrails), resolved ONCE per
+     *                                                   turn by `ToolLoop::resolveToolPolicy()`.
+     *                                                   A tool absent from this map is `auto`
+     *                                                   (zero behavior change); an empty map
+     *                                                   (no `GuardrailPolicyService`, or no
+     *                                                   policy configured) disables this
+     *                                                   short-circuit entirely.
      *
      * @return void
      *
@@ -117,6 +141,7 @@ class FacadeToolInvoker
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
      */
     public function __construct(
         private readonly ToolRegistryFacade $facade,
@@ -125,7 +150,8 @@ class FacadeToolInvoker
         private readonly ?ToolSearchService $toolSearchService=null,
         private readonly ?ApprovalService $approvalService=null,
         private readonly ?string $agentId=null,
-        private readonly array $mcpIdByName=[]
+        private readonly array $mcpIdByName=[],
+        private readonly array $toolPolicy=[]
     ) {
     }//end __construct()
 
@@ -149,11 +175,26 @@ class FacadeToolInvoker
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
      */
     public function __call(string $name, array $arguments): string
     {
         if ($this->toolSearchService !== null && in_array($name, self::SEARCH_TOOLS_NAMES, true) === true) {
             return $this->handleSearchTools(arguments: $arguments);
+        }
+
+        // Agent-guardrails: the GuardrailPolicy's per-tool classification is
+        // checked BEFORE the pre-existing grant/approval-gate check below — a
+        // `deny`/`confirm` classification takes precedence over whatever the
+        // tool's write/destructive grant status would otherwise allow.
+        $classification = $this->classifyTool(name: $name);
+        if ($classification === 'deny') {
+            return $this->handleDeniedByPolicy(name: $name, arguments: $arguments);
+        }
+
+        if ($classification === 'confirm') {
+            return $this->handleConfirmClassifiedInvocation(name: $name, arguments: $arguments);
         }
 
         if ($this->requiresApprovalGate(name: $name) === true) {
@@ -163,6 +204,234 @@ class FacadeToolInvoker
         return $this->dispatchToFacade(name: $name, arguments: $arguments);
 
     }//end __call()
+
+    /**
+     * Classify `$name` per the effective GuardrailPolicy's resolved
+     * `toolId => classification` map — `auto` when absent (agent-guardrails).
+     *
+     * @param string $name The LLPhant-side function name.
+     *
+     * @return string One of `auto`, `confirm`, `deny`.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+     */
+    private function classifyTool(string $name): string
+    {
+        if ($this->toolPolicy === []) {
+            return 'auto';
+        }
+
+        $toolId = $this->resolveToolId(name: $name);
+
+        return ($this->toolPolicy[$toolId] ?? 'auto');
+
+    }//end classifyTool()
+
+    /**
+     * A `deny`-classified tool: never invoked, a refusal tool-result is
+     * returned to the LLM, and a `tool` trace step with outcome `denied` is
+     * recorded (spec: "record every ... tool denial ... as a trace step").
+     *
+     * @param string               $name      The LLPhant-side function name.
+     * @param array<string, mixed> $arguments Decoded arguments object.
+     *
+     * @return string JSON-encoded refusal for the follow-up LLM turn.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-deny-classified-tool-is-never-invoked
+     */
+    private function handleDeniedByPolicy(string $name, array $arguments): string
+    {
+        $toolId = $this->resolveToolId(name: $name);
+
+        $traceToken = null;
+        if ($this->trace !== null) {
+            $traceToken = $this->trace->startStep(type: 'tool', name: $name);
+        }
+
+        $envelope = [
+            'isError' => true,
+            'error'   => 'tool_denied_by_policy',
+            'toolId'  => $toolId,
+            'message' => 'This action is denied by the organisation\'s guardrail policy and cannot be run.',
+        ];
+
+        if ($this->trace !== null && $traceToken !== null) {
+            $this->trace->endStep(token: $traceToken, outcome: 'denied');
+        }
+
+        $this->channel?->emitToolCall(payload: ['toolId' => $toolId, 'arguments' => $arguments]);
+        $this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
+
+        $encoded = json_encode($envelope);
+        if (is_string($encoded) === false) {
+            return '{"isError":true,"error":"tool_denied_by_policy"}';
+        }
+
+        return $encoded;
+
+    }//end handleDeniedByPolicy()
+
+    /**
+     * A `confirm`-classified tool call: refused-then-retried, never
+     * paused-and-resumed (design.md Decision 4).
+     *
+     * 1. An APPROVED, UNCONSUMED `toolcall` Approval matching this exact
+     *    agent/tool/arguments combination, within the validity window, is
+     *    consumed (single-use) and the underlying tool IS invoked — this one
+     *    time.
+     * 2. A PENDING `toolcall` Approval for the same combination already
+     *    exists: no duplicate is created; the call is refused again
+     *    ("still awaiting approval").
+     * 3. Otherwise (first attempt, or a prior approval already consumed/
+     *    expired/denied): a new pending `toolcall` Approval is created and
+     *    the reviewer notified; the call is refused ("awaiting approval").
+     *
+     * No agent context (`agentId`/`approvalService` unavailable — agent-less
+     * chat, or a caller that omitted them) fails SAFE: the call is refused
+     * exactly like a `deny` classification, never silently allowed through,
+     * since there is no owner/reviewer to route an approval to.
+     *
+     * @param string               $name      The LLPhant-side function name.
+     * @param array<string, mixed> $arguments Decoded arguments object.
+     *
+     * @return string JSON-encoded outcome for the follow-up LLM turn.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
+     */
+    private function handleConfirmClassifiedInvocation(string $name, array $arguments): string
+    {
+        $toolId = $this->resolveToolId(name: $name);
+
+        if ($this->approvalService === null || $this->agentId === null) {
+            return $this->refuseConfirmTool(
+                toolId: $toolId,
+                arguments: $arguments,
+                status: 'unavailable',
+                outcome: 'denied',
+                message: 'This action requires human approval, but no agent context is available to route it — refused.'
+            );
+        }
+
+        $correlationId = $this->toolCallCorrelationId(agentId: $this->agentId, toolId: $toolId, arguments: $arguments);
+
+        $approvedUnconsumed = $this->approvalService->findApprovedUnconsumedToolCallApproval(correlationId: $correlationId);
+        if ($approvedUnconsumed !== null) {
+            $this->approvalService->markToolCallApprovalConsumed(approval: $approvedUnconsumed);
+            return $this->dispatchToFacade(name: $name, arguments: $arguments, outcomeOverride: 'invoked_after_approval');
+        }
+
+        $pending = $this->approvalService->findPendingApprovalForToolCall(correlationId: $correlationId);
+        if ($pending !== null) {
+            return $this->refuseConfirmTool(
+                toolId: $toolId,
+                arguments: $arguments,
+                status: 'pending',
+                outcome: 'awaiting_approval',
+                message: 'This action is still awaiting human approval.',
+                approvalId: (string) $pending->getUuid()
+            );
+        }
+
+        $approval = $this->approvalService->ensurePendingApprovalForToolCall(
+            agentId: $this->agentId,
+            toolId: $toolId,
+            arguments: $arguments,
+            correlationId: $correlationId
+        );
+
+        return $this->refuseConfirmTool(
+            toolId: $toolId,
+            arguments: $arguments,
+            status: 'pending',
+            outcome: 'awaiting_approval',
+            message: 'This action requires human approval before it can run.',
+            approvalId: (string) $approval->getUuid()
+        );
+
+    }//end handleConfirmClassifiedInvocation()
+
+    /**
+     * Refuse a `confirm`-classified tool call, recording a `tool` trace step
+     * with the given outcome (spec: "record every ... tool confirm-request ...
+     * as a trace step") and emitting the streaming channel's frames.
+     *
+     * @param string               $toolId     The dotted tool id.
+     * @param array<string, mixed> $arguments  Decoded arguments object.
+     * @param string               $status     The envelope's `status` field.
+     * @param string               $outcome    The trace step outcome.
+     * @param string               $message    A human-readable refusal message for the LLM.
+     * @param string|null          $approvalId The pending Approval's UUID, when one exists.
+     *
+     * @return string JSON-encoded refusal for the follow-up LLM turn.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+     */
+    private function refuseConfirmTool(
+        string $toolId,
+        array $arguments,
+        string $status,
+        string $outcome,
+        string $message,
+        ?string $approvalId=null
+    ): string {
+        $traceToken = null;
+        if ($this->trace !== null) {
+            $traceToken = $this->trace->startStep(type: 'tool', name: $toolId);
+        }
+
+        $envelope = [
+            'isError' => true,
+            'error'   => 'approval_required',
+            'toolId'  => $toolId,
+            'status'  => $status,
+            'message' => $message,
+        ];
+
+        if ($approvalId !== null) {
+            $envelope['approvalId'] = $approvalId;
+        }
+
+        if ($this->trace !== null && $traceToken !== null) {
+            $this->trace->endStep(token: $traceToken, outcome: $outcome);
+        }
+
+        $this->channel?->emitToolCall(payload: ['toolId' => $toolId, 'arguments' => $arguments]);
+        $this->channel?->emitToolResult(payload: ['toolId' => $toolId, 'result' => $envelope, 'isError' => true]);
+
+        $encoded = json_encode($envelope);
+        if (is_string($encoded) === false) {
+            return '{"isError":true,"error":"approval_required"}';
+        }
+
+        return $encoded;
+
+    }//end refuseConfirmTool()
+
+    /**
+     * Compute the `confirm`-classified tool call's idempotency/authorization
+     * key (design.md Decision 4): a stable hash of the agent, tool, and
+     * (key-sorted) arguments, so an argument-IDENTICAL retry resolves to the
+     * SAME correlationId regardless of PHP's array key order.
+     *
+     * @param string               $agentId   The acting agent's UUID.
+     * @param string               $toolId    The dotted tool id.
+     * @param array<string, mixed> $arguments Decoded arguments object.
+     *
+     * @return string A sha256 hex digest.
+     */
+    private function toolCallCorrelationId(string $agentId, string $toolId, array $arguments): string
+    {
+        $sorted = $arguments;
+        ksort($sorted);
+
+        $encoded = json_encode([$agentId, $toolId, $sorted], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (is_string($encoded) === false) {
+            $encoded = $agentId.'|'.$toolId;
+        }
+
+        return hash('sha256', $encoded);
+
+    }//end toolCallCorrelationId()
 
     /**
      * The `hermiq.searchTools` meta-tool: ranks this run's resolved (already
@@ -290,12 +559,22 @@ class FacadeToolInvoker
      * The pre-existing plain dispatch: forward the call to
      * `ToolRegistryFacade::invokeTool()`, emitting channel frames / trace step.
      *
-     * @param string               $name      The tool function name the LLM called.
-     * @param array<string, mixed> $arguments Decoded arguments object.
+     * @param string               $name            The tool function name the LLM called.
+     * @param array<string, mixed> $arguments       Decoded arguments object.
+     * @param string|null          $outcomeOverride A fixed trace-step outcome to record
+     *                                              instead of the facade's own ok/error
+     *                                              (agent-guardrails): `invoked_after_approval`
+     *                                              for a `confirm`-classified tool's authorised
+     *                                              retry, so the run history distinguishes it
+     *                                              from an ordinary `auto` invocation. Null
+     *                                              (every pre-existing caller) keeps the
+     *                                              original ok/error derivation unchanged.
      *
      * @return string JSON-encoded tool result for the follow-up LLM turn.
+     *
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
      */
-    private function dispatchToFacade(string $name, array $arguments): string
+    private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride=null): string
     {
         $this->channel?->emitToolCall(
             payload: [
@@ -317,6 +596,10 @@ class FacadeToolInvoker
             $outcome = 'ok';
             if ($envelope['isError'] === true) {
                 $outcome = 'error';
+            }
+
+            if ($outcomeOverride !== null && $envelope['isError'] !== true) {
+                $outcome = $outcomeOverride;
             }
 
             $this->trace->endStep(token: $traceToken, outcome: $outcome);

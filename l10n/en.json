@@ -199,7 +199,26 @@
         "What remedial action was taken?": "What remedial action was taken?",
         "Linked agent UUID (optional)": "Linked agent UUID (optional)",
         "Linked run IDs (optional, comma-separated)": "Linked run IDs (optional, comma-separated)",
-        "Could not create incident": "Could not create incident"
+        "Could not create incident": "Could not create incident",
+        "Guardrail policy": "Guardrail policy",
+        "Guardrail policy error": "Guardrail policy error",
+        "No guardrail policies configured — agents run with every filter off and every tool auto-approved.": "No guardrail policies configured — agents run with every filter off and every tool auto-approved.",
+        "Input: PII/secret action": "Input: PII/secret action",
+        "Input: prompt-injection action": "Input: prompt-injection action",
+        "Output: PII/secret action": "Output: PII/secret action",
+        "Per-tool classification": "Per-tool classification",
+        "One per line: toolId: auto|confirm|deny": "One per line: toolId: auto|confirm|deny",
+        "Off": "Off",
+        "Redact": "Redact",
+        "Block": "Block",
+        "Input": "Input",
+        "Output": "Output",
+        "PII": "PII",
+        "prompt injection": "prompt injection",
+        "tool rules": "tool rules",
+        "Guardrail policy saved.": "Guardrail policy saved.",
+        "Could not save the guardrail policy.": "Could not save the guardrail policy.",
+        "Message blocked by the organisation's guardrail policy": "Message blocked by the organisation's guardrail policy"
     },
     "plurals": ""
 }

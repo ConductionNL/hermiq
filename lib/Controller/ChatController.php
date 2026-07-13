@@ -42,6 +42,7 @@ use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -212,17 +213,24 @@ class ChatController extends Controller
                 401     => $this->l10n->t('Authentication required'),
                 403     => $this->l10n->t('Access denied'),
                 404     => $this->l10n->t('Conversation not found'),
+                422     => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
                 503     => $this->l10n->t('AI service not configured'),
                 default => $this->l10n->t('Failed to process message'),
             };
 
-            return new JSONResponse(
-                data: [
-                    'error'   => $errorType,
-                    'message' => $e->getMessage(),
-                ],
-                statusCode: $statusCode
-            );
+            $data = [
+                'error'   => $errorType,
+                'message' => $e->getMessage(),
+            ];
+
+            // A stable errorCode lets the frontend key a translated message off
+            // the case rather than matching on exception message text
+            // (agent-guardrails, GuardrailBlockedException docblock).
+            if ($e instanceof GuardrailBlockedException) {
+                $data['errorCode'] = 'guardrail_blocked';
+            }
+
+            return new JSONResponse(data: $data, statusCode: $statusCode);
         }//end try
     }//end sendMessage()
 

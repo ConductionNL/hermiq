@@ -174,21 +174,28 @@ class ScheduleService
     /**
      * Constructor.
      *
-     * @param ObjectService      $objectService      OpenRegister object read/write (single write-path).
-     * @param AgentMapper        $agentMapper        Resolves an agent UUID to an Agent entity.
-     * @param ConversationMapper $conversationMapper Creates the conversation row the agent runs against.
-     * @param ChatService        $chatService        OpenRegister agent runtime (processMessage).
-     * @param IUserSession       $userSession        Session used to impersonate the schedule owner.
-     * @param IUserManager       $userManager        Resolves the owner UID to an IUser.
-     * @param IConfig            $config             Reads owner/instance timezone.
-     * @param LoggerInterface    $logger             PSR-3 logger (delivery seam + diagnostics).
-     * @param DeliveryService    $deliveryService    Real Talk/notification delivery (talk-delivery).
-     * @param AuditTrailMapper   $auditTrailMapper   OR audit write-path for the explicit per-run entry (run-audit-log).
-     * @param RedactionService   $redactionService   Masks secrets/PII BEFORE the audit write (run-audit-log).
-     * @param ApprovalService    $approvalService    Human-approval gate: ensures a pending Approval for gated runs (human-approval-gate-enforcement).
-     * @param IAppConfig         $appConfig          Reads the `hermiq`.`engine.enabled` feature flag (agent-engine-port).
-     * @param Engine             $engine             In-app agent engine facade, used only when the flag is on (agent-engine-port).
-     * @param BudgetService      $budgetService      Budget hard-cap gate + soft-threshold warning (cost-guardrails).
+     * @param ObjectService          $objectService          OpenRegister object read/write (single write-path).
+     * @param AgentMapper            $agentMapper            Resolves an agent UUID to an Agent entity.
+     * @param ConversationMapper     $conversationMapper     Creates the conversation row the agent runs against.
+     * @param ChatService            $chatService            OpenRegister agent runtime (processMessage).
+     * @param IUserSession           $userSession            Session used to impersonate the schedule owner.
+     * @param IUserManager           $userManager            Resolves the owner UID to an IUser.
+     * @param IConfig                $config                 Reads owner/instance timezone.
+     * @param LoggerInterface        $logger                 PSR-3 logger (delivery seam + diagnostics).
+     * @param DeliveryService        $deliveryService        Real Talk/notification delivery (talk-delivery).
+     * @param AuditTrailMapper       $auditTrailMapper       OR audit write-path for the explicit per-run entry (run-audit-log).
+     * @param RedactionService       $redactionService       Masks secrets/PII BEFORE the audit write (run-audit-log).
+     * @param ApprovalService        $approvalService        Human-approval gate: ensures a pending Approval
+     *                                                       for gated runs (human-approval-gate-enforcement).
+     * @param IAppConfig             $appConfig              Reads the `hermiq`.`engine.enabled` feature flag (agent-engine-port).
+     * @param Engine                 $engine                 In-app agent engine facade, used only when the flag is on (agent-engine-port).
+     * @param BudgetService          $budgetService          Budget hard-cap gate + soft-threshold warning (cost-guardrails).
+     * @param GuardrailPolicyService $guardrailPolicyService Resolves + applies the effective GuardrailPolicy's
+     *                                                       input filter (legacy ChatService branch only —
+     *                                                       the Engine branch already applies it internally)
+     *                                                       and the defense-in-depth output filter at
+     *                                                       runAgentAsOwner()'s single return point
+     *                                                       (agent-guardrails).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -209,6 +216,7 @@ class ScheduleService
         private readonly IAppConfig $appConfig,
         private readonly Engine $engine,
         private readonly BudgetService $budgetService,
+        private readonly GuardrailPolicyService $guardrailPolicyService,
     ) {
     }//end __construct()
 
@@ -904,7 +912,8 @@ class ScheduleService
             $output = $this->runAgentAsOwner(
                 owner: (string) ($schedule->getOwner() ?? ''),
                 agentId: (string) ($data['agentId'] ?? ''),
-                prompt: (string) ($data['prompt'] ?? '')
+                prompt: (string) ($data['prompt'] ?? ''),
+                organisation: (string) ($schedule->getOrganisation() ?? '')
             );
 
             // Run-trace-observability: a `delivery` step timed around the existing
@@ -1474,26 +1483,43 @@ class ScheduleService
      * scheduled runs use"). `$owner` is the schedule owner for a scheduled run, or
      * the agent's own `owner` (acting user) for a flow-triggered run.
      *
-     * @param string $owner   The uid to impersonate for this run.
-     * @param string $agentId The bound agent UUID.
-     * @param string $prompt  The prompt to run.
+     * @param string $owner        The uid to impersonate for this run.
+     * @param string $agentId      The bound agent UUID.
+     * @param string $prompt       The prompt to run.
+     * @param string $organisation The run's organisation (schedule/agent/flow-subject
+     *                             organisation — '' resolves the org-less instance
+     *                             default), used ONLY to resolve the effective
+     *                             GuardrailPolicy (agent-guardrails): the input filter
+     *                             on the legacy ChatService branch (the one path
+     *                             Engine::processMessage() never sees), and the
+     *                             defense-in-depth output filter applied to BOTH
+     *                             branches' result before it reaches this method's
+     *                             single return point.
      *
-     * @return string The agent's response text.
+     * @return string The agent's response text (already output-filtered).
      *
-     * @throws RuntimeException When the owner or agent cannot be resolved.
+     * @throws RuntimeException           When the owner or agent cannot be resolved.
+     * @throws GuardrailBlockedException  When the effective GuardrailPolicy's input
+     *                                    filter refuses the prompt (legacy branch only —
+     *                                    the Engine branch throws this internally,
+     *                                    inside `runAgentViaEngine()`/`Engine::processMessage()`).
      *
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-4
      * @spec openspec/changes/agent-engine-port/tasks.md#task-6-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
      * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-2
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
      */
-    public function runAgentAsOwner(string $owner, string $agentId, string $prompt): string
+    public function runAgentAsOwner(string $owner, string $agentId, string $prompt, string $organisation=''): string
     {
         // Reset per-run usage/steps so a failed run never records the previous run's
         // tokens or step timeline.
         $this->lastRunUsage  = [];
         $this->lastRunSteps  = [];
         $this->lastRunAsUser = $owner;
+
+        // Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this run.
+        $guardrailPolicy = $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
 
         // Agent-capability-profile: on the engine-enabled path only, an Agent may name
         // an actingUser to impersonate instead of the schedule owner. Resolved BEFORE
@@ -1520,10 +1546,31 @@ class ScheduleService
             // inside the same impersonation try/finally, and only reached AFTER the
             // kill-switch/approval gating upstream of this method. With the flag OFF
             // (default) the OpenRegister ChatService path below is byte-for-byte the
-            // pre-flag behavior.
+            // pre-flag behavior. Engine::processMessage() already applies its OWN
+            // input/output filter internally; the output filter is re-applied here
+            // too (defense-in-depth at the delivery/persistence trust boundary,
+            // design.md Decision 7) — idempotent on already-filtered text.
             if ($this->isEngineEnabled() === true) {
-                return $this->runAgentViaEngine(owner: $impersonateAs, agentId: $agentId, prompt: $prompt);
+                $output = $this->runAgentViaEngine(owner: $impersonateAs, agentId: $agentId, prompt: $prompt);
+                return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
             }
+
+            // Agent-guardrails: the input filter's ONLY seam on this legacy
+            // ChatService branch — Engine::processMessage() is never invoked here,
+            // so nothing else would ever filter this prompt. A `block` match throws
+            // BEFORE the legacy ChatService call, so no conversation/message is ever
+            // created for this attempt; a `redact` match replaces $prompt so the
+            // masked text is what the agent actually receives.
+            $inputFilter = $this->guardrailPolicyService->filterInput(policy: $guardrailPolicy, text: $prompt);
+            if ($this->guardrailActed(filter: $inputFilter, originalText: $prompt) === true) {
+                $this->appendGuardrailStep(name: 'Input filter', filter: $inputFilter);
+            }
+
+            if ($inputFilter['blocked'] === true) {
+                throw new GuardrailBlockedException(reason: (string) $inputFilter['reason']);
+            }
+
+            $prompt = (string) $inputFilter['text'];
 
             $agent        = $this->agentMapper->findByUuid($agentId);
             $conversation = new Conversation();
@@ -1558,13 +1605,103 @@ class ScheduleService
                 );
             }
 
-            return (string) ($result['message'] ?? '');
+            $output = (string) ($result['message'] ?? '');
+            return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
         } finally {
             // Restore the pre-impersonation identity (OpenConnector #1006 pattern).
             $this->userSession->setUser($priorUser);
         }//end try
 
     }//end runAgentAsOwner()
+
+    /**
+     * Apply the effective GuardrailPolicy's output filter at this method's
+     * single return point — the ONE seam every caller (`runDue()` before
+     * `DeliveryService::deliver()`; `FlowAgentRunService`/`WebhookAgentRunService`
+     * before their own persistence writes) reads before delivery/persistence
+     * (design.md Decision 7). Never throws: a `block` match replaces `$output`
+     * with the withheld-response placeholder so the turn always completes.
+     *
+     * @param array<string,mixed> $policy The effective GuardrailPolicy.
+     * @param string              $output The raw agent output.
+     *
+     * @return string The filtered (possibly placeholder) output.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+     */
+    private function applyOutputGuardrail(array $policy, string $output): string
+    {
+        $filtered = $this->guardrailPolicyService->filterOutput(policy: $policy, text: $output);
+        if ($this->guardrailActed(filter: $filtered, originalText: $output) === true) {
+            $this->appendGuardrailStep(name: 'Output filter', filter: $filtered);
+        }
+
+        return (string) $filtered['text'];
+
+    }//end applyOutputGuardrail()
+
+    /**
+     * Whether a `filterInput()`/`filterOutput()` result represents an actual
+     * guardrail ACTION (a block, or a redaction that changed the text) versus a
+     * no-op pass-through — mirrors `Engine::guardrailActed()`. Only an action is
+     * worth a `run-history`-visible trace step (spec: "record every input
+     * block, output block/redaction... as a trace step"); a fully-open policy
+     * (the default, no `GuardrailPolicy` configured) must leave the step
+     * timeline byte-for-byte identical to before this change.
+     *
+     * @param array{text:string,blocked:bool,reason:?string} $filter       The filter result.
+     * @param string                                         $originalText The pre-filter text.
+     *
+     * @return bool
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+     */
+    private function guardrailActed(array $filter, string $originalText): bool
+    {
+        if ($filter['blocked'] === true) {
+            return true;
+        }
+
+        return ((string) $filter['text']) !== $originalText;
+
+    }//end guardrailActed()
+
+    /**
+     * Append a `guardrail` step onto `$this->lastRunSteps` (run-trace-observability),
+     * so a filter block/redaction on the ScheduleService-owned legacy/defense-in-depth
+     * seams is visible in run history exactly like the in-app Engine's own
+     * RunTraceCollector steps — no new logging or audit mechanism. Only called
+     * when `guardrailActed()` is true — see that method's docblock.
+     *
+     * @param string                                         $name   A human-readable step name
+     *                                                               ("Input filter"|"Output
+     *                                                               filter").
+     * @param array{text:string,blocked:bool,reason:?string} $filter The filter result.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+     */
+    private function appendGuardrailStep(string $name, array $filter): void
+    {
+        $now = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        $outcome = 'redacted';
+        if ($filter['blocked'] === true) {
+            $outcome = 'blocked';
+        }
+
+        $this->lastRunSteps[] = [
+            'seq'        => count($this->lastRunSteps),
+            'type'       => 'guardrail',
+            'name'       => $name,
+            'startedAt'  => $now->format('c'),
+            'endedAt'    => $now->format('c'),
+            'durationMs' => 0,
+            'outcome'    => $outcome,
+        ];
+
+    }//end appendGuardrailStep()
 
     /**
      * Whether the in-app agent engine feature flag (`hermiq`.`engine.enabled`)

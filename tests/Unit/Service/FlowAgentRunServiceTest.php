@@ -230,7 +230,7 @@ class FlowAgentRunServiceTest extends TestCase
         $this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
         $this->scheduleService->expects($this->once())
             ->method('runAgentAsOwner')
-            ->with('dave', 'agent-uuid-1', 'Classify this')
+            ->with('dave', 'agent-uuid-1', 'Classify this', '')
             ->willReturn('Kennel');
 
         $saved = [];
@@ -266,7 +266,7 @@ class FlowAgentRunServiceTest extends TestCase
         $this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
         $this->scheduleService->expects($this->once())
             ->method('runAgentAsOwner')
-            ->with('dave', 'agent-uuid-1', '[skill: classify-tender] Classify this')
+            ->with('dave', 'agent-uuid-1', '[skill: classify-tender] Classify this', '')
             ->willReturn('output');
 
         $this->objectService->method('saveObject')->willReturn(new ObjectEntity());

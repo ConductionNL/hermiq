@@ -51,6 +51,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
@@ -86,16 +87,25 @@ class ToolLoop
     /**
      * Constructor.
      *
-     * @param ToolRegistryFacade $toolRegistryFacade OR's public tool read/invoke surface
-     *                                               (the ONLY tool dependency — never
-     *                                               ToolRegistry/McpProviderBridge directly).
-     * @param LoggerInterface    $logger             Logger.
-     * @param ToolGrantResolver  $grantResolver      Schema-scoped grant expansion + default-deny.
-     * @param ToolSearchService  $toolSearchService  Per-run resolved-set registry + `searchTools` ranking.
-     * @param ApprovalService    $approvalService    Human-approval gate (threaded onto
-     *                                               `FacadeToolInvoker` for un-granted
-     *                                               destructive invocations).
-     * @param IAppConfig         $appConfig          Reads `hermiq.tools.disclosureThreshold`.
+     * @param ToolRegistryFacade          $toolRegistryFacade     OR's public tool read/invoke surface
+     *                                                            (the ONLY tool dependency — never
+     *                                                            ToolRegistry/McpProviderBridge
+     *                                                            directly).
+     * @param LoggerInterface             $logger                 Logger.
+     * @param ToolGrantResolver           $grantResolver          Schema-scoped grant expansion + default-deny.
+     * @param ToolSearchService           $toolSearchService      Per-run resolved-set registry + `searchTools` ranking.
+     * @param ApprovalService             $approvalService        Human-approval gate (threaded onto
+     *                                                            `FacadeToolInvoker` for un-granted
+     *                                                            destructive invocations).
+     * @param IAppConfig                  $appConfig              Reads `hermiq.tools.disclosureThreshold`.
+     * @param GuardrailPolicyService|null $guardrailPolicyService Resolves the effective
+     *                                                            GuardrailPolicy's per-tool auto/confirm/deny
+     *                                                            classification (agent-guardrails), threaded
+     *                                                            onto `FacadeToolInvoker` as a resolved
+     *                                                            toolId→classification map. Nullable/optional
+     *                                                            purely so existing test callers that omit it
+     *                                                            see zero behavior change (every tool `auto`);
+     *                                                            real DI always provides it.
      *
      * @return void
      *
@@ -105,6 +115,7 @@ class ToolLoop
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
      */
     public function __construct(
         private readonly ToolRegistryFacade $toolRegistryFacade,
@@ -112,7 +123,8 @@ class ToolLoop
         private readonly ToolGrantResolver $grantResolver,
         private readonly ToolSearchService $toolSearchService,
         private readonly ApprovalService $approvalService,
-        private readonly IAppConfig $appConfig
+        private readonly IAppConfig $appConfig,
+        private readonly ?GuardrailPolicyService $guardrailPolicyService=null
     ) {
     }//end __construct()
 
@@ -237,8 +249,10 @@ class ToolLoop
      * Keep only the descriptors whose id (`mcpId` or `name`) is in `$allowedIds`,
      * preserving original order.
      *
-     * @param array<int, array<string, mixed>> $descriptors Full descriptor list.
-     * @param array<int, string>               $allowedIds  Ids to keep.
+     * @param array<int, mixed>  $descriptors Full descriptor list. Typed loosely on purpose:
+     *                                        these cross the OpenRegister tool-facade boundary,
+     *                                        so each entry is re-checked below.
+     * @param array<int, string> $allowedIds  Ids to keep.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -313,20 +327,26 @@ class ToolLoop
      * additionally fans `tool_call`/`tool_result` frames out to it (absorbing
      * OR's `StreamingToolInstanceWrapper` — see FacadeToolInvoker).
      *
-     * @param array                   $functions Flattened LLPhant function descriptors
-     *                                           (from `listAgentFunctions()`).
-     * @param StreamYieldChannel|null $channel   Optional streaming channel.
-     * @param RunTraceCollector|null  $trace     Optional run-trace collector; threaded
-     *                                           onto the shared `FacadeToolInvoker` so
-     *                                           each tool call the LLM makes is timed
-     *                                           as a `tool` step (run-trace-observability).
-     * @param ObjectEntity|null       $agent     Agent object (agent-tool-governance-and-disclosure);
-     *                                           threaded onto `FacadeToolInvoker` so the
-     *                                           un-granted-destructive → approval-gate check
-     *                                           and the `hermiq.searchTools` short-circuit know
-     *                                           which agent/run they act for. Null (agent-less
-     *                                           chat) simply disables both — a plain facade
-     *                                           dispatch, unchanged.
+     * @param array                   $functions    Flattened LLPhant function descriptors
+     *                                              (from `listAgentFunctions()`).
+     * @param StreamYieldChannel|null $channel      Optional streaming channel.
+     * @param RunTraceCollector|null  $trace        Optional run-trace collector; threaded
+     *                                              onto the shared `FacadeToolInvoker` so
+     *                                              each tool call the LLM makes is timed
+     *                                              as a `tool` step
+     *                                              (run-trace-observability).
+     * @param ObjectEntity|null       $agent        Agent object (agent-tool-governance-and-disclosure);
+     *                                              threaded onto `FacadeToolInvoker` so the
+     *                                              un-granted-destructive → approval-gate check and
+     *                                              the `hermiq.searchTools` short-circuit know which
+     *                                              agent/run they act for. Null (agent-less chat)
+     *                                              simply disables both — a plain facade dispatch,
+     *                                              unchanged.
+     * @param string|null             $organisation The turn's organisation (agent-guardrails);
+     *                                              resolved ONCE into the effective GuardrailPolicy's
+     *                                              `toolPolicy` map and threaded onto the shared
+     *                                              `FacadeToolInvoker`. Null/absent GuardrailPolicyService
+     *                                              resolves to every tool `auto` (zero behavior change).
      *
      * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
      *
@@ -337,12 +357,14 @@ class ToolLoop
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
      */
     public function buildFunctionInfos(
         array $functions,
         ?StreamYieldChannel $channel=null,
         ?RunTraceCollector $trace=null,
-        ?ObjectEntity $agent=null
+        ?ObjectEntity $agent=null,
+        ?string $organisation=null
     ): array {
         $agentId = null;
         if ($agent !== null) {
@@ -363,7 +385,8 @@ class ToolLoop
             toolSearchService: $this->toolSearchService,
             approvalService: $this->approvalService,
             agentId: $agentId,
-            mcpIdByName: $mcpIdByName
+            mcpIdByName: $mcpIdByName,
+            toolPolicy: $this->resolveToolPolicy(organisation: $organisation)
         );
         $functionInfoObjects = [];
 
@@ -526,6 +549,38 @@ class ToolLoop
         return ($description.' (pass as a JSON object).');
 
     }//end freeFormObjectDescription()
+
+    /**
+     * Resolve the effective GuardrailPolicy's `toolPolicy` list into a
+     * `toolId => classification` map for O(1) lookups inside `FacadeToolInvoker`
+     * (design.md Decision 6 — resolved ONCE per turn, not once per tool call).
+     * `null`/absent GuardrailPolicyService or organisation resolves to an empty
+     * map (every tool `auto` — zero behavior change).
+     *
+     * @param string|null $organisation The turn's organisation.
+     *
+     * @return array<string,string> toolId => classification.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-tool-risk-classification-enforced-before-invocation
+     */
+    private function resolveToolPolicy(?string $organisation): array
+    {
+        if ($this->guardrailPolicyService === null) {
+            return [];
+        }
+
+        $policy = $this->guardrailPolicyService->effectivePolicyFor(organisation: ($organisation ?? ''));
+
+        // `effectivePolicyFor()`'s return shape guarantees `toolPolicy` and each entry's
+        // `toolId`/`classification`, so no defensive re-checking is needed here.
+        $map = [];
+        foreach ($policy['toolPolicy'] as $entry) {
+            $map[(string) $entry['toolId']] = (string) $entry['classification'];
+        }
+
+        return $map;
+
+    }//end resolveToolPolicy()
 
     /**
      * Convert a JSON-schema `properties` map into an array of Parameter objects.

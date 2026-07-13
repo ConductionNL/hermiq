@@ -220,7 +220,7 @@ class FlowAgentRunService
             return false;
         }
 
-        return $this->runAgentAndWriteBack(object: $object, payload: $payload);
+        return $this->runAgentAndWriteBack(object: $object, payload: $payload, organisation: $organisation);
 
     }//end dispatch()
 
@@ -229,15 +229,21 @@ class FlowAgentRunService
      * ScheduleService/Engine path a scheduled run uses) and write the output back
      * to the triggering object's configured `resultField`.
      *
-     * @param ObjectEntity        $object  The triggering object.
-     * @param array<string,mixed> $payload The event payload.
+     * @param ObjectEntity        $object       The triggering object.
+     * @param array<string,mixed> $payload      The event payload.
+     * @param string              $organisation The triggering object's organisation —
+     *                                          threaded to `runAgentAsOwner()` so its
+     *                                          defense-in-depth output-filter re-check
+     *                                          resolves the correct GuardrailPolicy
+     *                                          (agent-guardrails).
      *
      * @return bool Whether the run completed successfully (result written).
      *
      * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-2
      * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-3
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
      */
-    private function runAgentAndWriteBack(ObjectEntity $object, array $payload): bool
+    private function runAgentAndWriteBack(ObjectEntity $object, array $payload, string $organisation=''): bool
     {
         $agentRef    = (string) ($payload['agent'] ?? '');
         $resultField = (string) ($payload['resultField'] ?? '');
@@ -285,7 +291,8 @@ class FlowAgentRunService
             $output = $this->scheduleService->runAgentAsOwner(
                 owner: $actingUser,
                 agentId: $agentRef,
-                prompt: $effectivePrompt
+                prompt: $effectivePrompt,
+                organisation: $organisation
             );
             $this->writeResultField(
                 resultField: $resultField,

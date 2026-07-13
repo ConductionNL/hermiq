@@ -226,7 +226,7 @@ class WebhookAgentRunServiceTest extends TestCase
         $this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
         $this->scheduleService->expects($this->once())
             ->method('runAgentAsOwner')
-            ->with('dave', 'agent-uuid-1', $this->stringContains('"event":"ping"'))
+            ->with('dave', 'agent-uuid-1', $this->stringContains('"event":"ping"'), '')
             ->willReturn('Acknowledged');
 
         $ran = $this->service->run($this->context());
