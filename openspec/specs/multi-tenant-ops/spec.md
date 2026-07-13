@@ -99,6 +99,29 @@ source `run-analytics` aggregates — never from a separately maintained counter
 - **THEN** the system MUST apply the same hard-cap block as a scheduled tick would
 - **AND** the block MUST be recorded via the same gate-skip audit convention
 
+### Requirement: Per-organisation retention period configuration
+The system MUST let an org admin configure a retention period (in months) for the organisation's
+governance records, MUST default new organisations to a value that meets EU AI Act Art. 12's
+minimum (6 months), MUST reject any configured value below 6, and MUST surface the current value
+in `TenantOps.vue` alongside the existing quota and audit-export sections.
+
+#### Scenario: A new organisation has an Art. 12-compliant default retention period
+- GIVEN an organisation with no retention period explicitly configured
+- WHEN an org admin views the retention setting in Tenant ops
+- THEN the system MUST show a default retention period of at least 6 months
+
+#### Scenario: An org admin configures a longer retention period
+- GIVEN an organisation's current retention period is the 6-month default
+- WHEN an org admin sets the retention period to 12 months
+- THEN the system MUST persist 12 months as that organisation's retention period
+- AND subsequent views of Tenant ops for that organisation MUST show 12 months
+
+#### Scenario: An org admin attempts to configure a non-compliant retention period
+- GIVEN an organisation's current retention period is 6 months
+- WHEN an org admin attempts to set the retention period to 3 months
+- THEN the system MUST reject the change
+- AND the organisation's retention period MUST remain unchanged at 6 months
+
 ## User Stories
 
 - As an MSP operator, I want to set per-org agent and schedule quotas so that one tenant cannot exhaust shared infrastructure.

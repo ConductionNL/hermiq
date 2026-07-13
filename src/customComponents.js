@@ -24,7 +24,6 @@
 //
 // See hydra ADR-036 for the v2 registry design.
 
-import CustomExample from './views/CustomExample.vue'
 import AgentCatalog from './views/AgentCatalog.vue'
 import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
@@ -39,12 +38,6 @@ import TenantOps from './views/TenantOps.vue'
 // ConductionNL/hydra#251.
 
 export default {
-	// Example custom component. Keep or delete when scaffolding a new
-	// app. The manifest does NOT reference this by default; it is
-	// included so the registry's role is visible to first-time
-	// cloners. Wire it up by adding a `type: "custom"` page entry to
-	// `src/manifest.json` with `"component": "CustomExample"`.
-	CustomExample,
 	// Agent-management-ui pages (agent-management-ui change). Custom pages because
 	// they need bespoke behaviour (agents resource + Run now + run history) that the
 	// built-in index/detail page types cannot express.

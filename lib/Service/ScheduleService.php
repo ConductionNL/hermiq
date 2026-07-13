@@ -331,6 +331,242 @@ class ScheduleService
     }//end isOrganisationEngaged()
 
     /**
+     * Offboarding: pause every Schedule owned by, or whose Agent's `actingUser`
+     * resolves to, the given (deleted/disabled) Nextcloud user, and flag each
+     * affected Agent for reassignment (agent-lifecycle-governance).
+     *
+     * Runs system-wide (`_rbac:false`, `_multitenancy:false`) — mirrors
+     * findDueSchedules()/loadEngagedOrganisations() — because the caller
+     * (UserLifecycleListener) fires outside any user session and must see every
+     * tenant's schedules to find the ones owned by the affected user. Reuses the
+     * SAME `enabled=false` + persist() mechanic recordGateSkip() already uses, but
+     * writes its own minimal audit entry rather than calling the private
+     * writeRunAudit() helper: that helper reads $this->lastRunUsage/lastRunSteps/
+     * lastRunAsUser, which are per-dispatch instance state that would otherwise
+     * leak a stale, unrelated schedule's last-run data into this pause's audit
+     * entry (this method never goes through dispatch(), so those fields are not
+     * reset here).
+     *
+     * A schedule already disabled is left untouched (no redundant persist/audit)
+     * but its Agent is still flagged when it matches — an already-paused schedule
+     * still means its owning human is gone. A currently in-progress run is
+     * unaffected: only `enabled`/`lastStatus` change here, exactly like every
+     * other gate skip — the running turn already in flight completes normally.
+     *
+     * @param string $uid The Nextcloud user id that was deleted or disabled.
+     *
+     * @return int The number of schedules actually paused (flipped from enabled to disabled).
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    public function pauseForUser(string $uid): int
+    {
+        $uid = trim($uid);
+        if ($uid === '') {
+            return 0;
+        }
+
+        try {
+            $schedules = $this->objectService
+                ->setRegister(self::REGISTER_SLUG)
+                ->setSchema(self::SCHEMA_SLUG)
+                ->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+        } catch (Throwable $e) {
+            $this->logger->error(
+                sprintf('Hermiq offboarding pause could not load schedules for user %s: %s', $uid, $e->getMessage()),
+                ['exception' => $e]
+            );
+            return 0;
+        }
+
+        $actingUserCache = [];
+        $flaggedAgentIds = [];
+        $pausedCount     = 0;
+
+        foreach ($schedules as $schedule) {
+            if (($schedule instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $data    = $schedule->getObject();
+            $owner   = (string) ($schedule->getOwner() ?? '');
+            $agentId = (string) ($data['agentId'] ?? '');
+
+            $matches = ($owner === $uid);
+            if ($matches === false && $agentId !== '') {
+                $matches = ($this->rawAgentActingUser(agentId: $agentId, cache: $actingUserCache) === $uid);
+            }
+
+            if ($matches === false) {
+                continue;
+            }
+
+            if ($agentId !== '') {
+                $flaggedAgentIds[$agentId] = true;
+            }
+
+            if (($data['enabled'] ?? false) !== true) {
+                // Already disabled — the Agent above is still flagged, but there is
+                // nothing further to pause/persist/audit for this schedule.
+                continue;
+            }
+
+            $data['enabled']    = false;
+            $data['lastStatus'] = 'paused_offboarding';
+
+            $this->persist(schedule: $schedule, data: $data);
+            $this->writeOffboardingAudit(schedule: $schedule, uid: $uid);
+            $pausedCount++;
+        }//end foreach
+
+        foreach (array_keys($flaggedAgentIds) as $agentId) {
+            $this->flagAgentForReassignment(agentId: $agentId);
+        }
+
+        return $pausedCount;
+
+    }//end pauseForUser()
+
+    /**
+     * Read an Agent's raw, unresolved `actingUser` field (no fallback, no
+     * live-user validity check) — deliberately distinct from resolveActingUser(),
+     * which falls back to the schedule owner for an invalid/disabled actingUser
+     * and would therefore never match a JUST-disabled/deleted user (the exact
+     * case pauseForUser() needs to detect). Cached per agentId within one
+     * pauseForUser() call so a fleet of schedules sharing one agent reads it once.
+     *
+     * @param string                    $agentId The bound agent UUID.
+     * @param array<string,string|null> $cache   Per-call cache (by reference), keyed by agentId.
+     *
+     * @return string|null The raw actingUser value, or null when unset/unresolvable.
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    private function rawAgentActingUser(string $agentId, array &$cache): ?string
+    {
+        if ($agentId === '') {
+            return null;
+        }
+
+        if (array_key_exists($agentId, $cache) === true) {
+            return $cache[$agentId];
+        }
+
+        try {
+            $agent = $this->objectService->find(
+                id: $agentId,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA,
+                _rbac: false,
+                _multitenancy: false
+            );
+        } catch (Throwable $e) {
+            $cache[$agentId] = null;
+            return null;
+        }
+
+        if ($agent === null) {
+            $cache[$agentId] = null;
+            return null;
+        }
+
+        $actingUser = trim((string) ($agent->getObject()['actingUser'] ?? ''));
+
+        $resolved = $actingUser;
+        if ($actingUser === '') {
+            $resolved = null;
+        }
+
+        $cache[$agentId] = $resolved;
+        return $resolved;
+
+    }//end rawAgentActingUser()
+
+    /**
+     * Flag an Agent for reassignment (agent-lifecycle-governance offboarding).
+     *
+     * Non-fatal by contract: a flag-write failure is logged, never thrown — the
+     * schedules for this user are still paused even if the Agent flag write fails.
+     *
+     * @param string $agentId The Agent UUID to flag.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    private function flagAgentForReassignment(string $agentId): void
+    {
+        try {
+            $agent = $this->objectService->find(
+                id: $agentId,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA,
+                _rbac: false,
+                _multitenancy: false
+            );
+            if ($agent === null) {
+                return;
+            }
+
+            $data = $agent->getObject();
+            $data['reassignmentFlag'] = true;
+
+            $this->objectService->saveObject(
+                object: $data,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA,
+                uuid: (string) $agent->getUuid(),
+                _rbac: false,
+                _multitenancy: false
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf('Hermiq could not flag agent %s for reassignment: %s', $agentId, $e->getMessage()),
+                ['exception' => $e]
+            );
+        }//end try
+
+    }//end flagAgentForReassignment()
+
+    /**
+     * Write a minimal, explicit AuditTrail entry for an offboarding pause.
+     *
+     * Deliberately does NOT call the private writeRunAudit() helper — see
+     * pauseForUser()'s docblock for why reusing it here would risk leaking stale
+     * per-dispatch instance state into this entry. Non-fatal by contract.
+     *
+     * @param ObjectEntity $schedule The schedule that was paused.
+     * @param string       $uid      The offboarded user id.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    private function writeOffboardingAudit(ObjectEntity $schedule, string $uid): void
+    {
+        try {
+            $this->auditTrailMapper->createAuditTrailEntry(
+                object: $schedule,
+                action: 'run',
+                context: [
+                    'status'         => 'paused_offboarding',
+                    'offboardedUser' => $uid,
+                ]
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf(
+                    'Hermiq could not write offboarding-pause audit for schedule %s: %s',
+                    (string) $schedule->getUuid(),
+                    $e->getMessage()
+                ),
+                ['exception' => $e]
+            );
+        }
+
+    }//end writeOffboardingAudit()
+
+    /**
      * Run one schedule immediately, on demand (the "Run now" action).
      *
      * Reuses the SAME run-one path as a scheduler tick: it delegates to the private

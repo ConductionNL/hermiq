@@ -677,6 +677,45 @@ class DeliveryServiceTest extends TestCase
     }//end testFlowRunApprovalRequestNotifiesEachReviewer()
 
     /**
+     * deliverApprovalRequestForWebhookRun — the webhook-triggered counterpart to
+     * deliverApprovalRequest/deliverApprovalRequestForFlowRun — raises one
+     * notification per resolved reviewer using the approval's own
+     * webhookContext (no Schedule ObjectEntity involved), and never throws for
+     * a delivery problem (agent-webhook-trigger).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-6-deliveryservice-webhook-approval-notification-shared-reviewer-notify-helper
+     */
+    public function testWebhookRunApprovalRequestNotifiesEachReviewer(): void
+    {
+        // Talk unavailable → notification-only path.
+        $this->talkBroker->method('hasBackend')->willReturn(false);
+        $this->notificationManager->method('createNotification')->willReturn($this->notificationMock());
+        $this->notificationManager->expects($this->exactly(2))->method('notify');
+
+        $approval = new ObjectEntity();
+        $approval->setUuid('appr-webhook-1');
+        $approval->setObject(
+            [
+                'status'         => 'pending',
+                'sourceType'     => 'webhook',
+                'agentId'        => 'agent-uuid-1',
+                'webhookContext' => ['agentId' => 'agent-uuid-1', 'correlationId' => 'corr-1'],
+            ]
+        );
+
+        $result = $this->service->deliverApprovalRequestForWebhookRun(
+            approval: $approval,
+            reviewerUids: ['bob', 'carol']
+        );
+
+        $this->assertTrue($result->isDelivered(), 'At least one reviewer must be notified.');
+        $this->assertNull($result->getWarning(), 'A clean notification run carries no warning.');
+
+    }//end testWebhookRunApprovalRequestNotifiesEachReviewer()
+
+    /**
      * run-reliability: deliverFailureAlert notifies the schedule owner even when
      * Talk is unavailable, and never throws.
      *

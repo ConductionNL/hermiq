@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.0"
+    "version": "0.10.2"
   },
   "x-openregister": {
     "type": "application",
@@ -16,35 +16,6 @@
   "paths": {},
   "components": {
     "schemas": {
-      "example": {
-        "slug": "example",
-        "icon": "FileDocumentOutline",
-        "version": "0.1.0",
-        "title": "Example",
-        "description": "Example schema — replace with your app's actual schemas.",
-        "type": "object",
-        "required": [
-          "title"
-        ],
-        "x-openregister": {
-          "publicRead": false,
-          "publicWrite": false
-        },
-        "properties": {
-          "title": {
-            "type": "string",
-            "title": "Title",
-            "description": "The title of the example object",
-            "example": "My example"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description",
-            "description": "An optional description",
-            "example": "This is an example"
-          }
-        }
-      },
       "Schedule": {
         "slug": "schedule",
         "icon": "ClockOutline",
@@ -255,16 +226,17 @@
         "icon": "CheckDecagramOutline",
         "version": "0.3.0",
         "title": "Approval",
-        "description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), or an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure).",
+        "description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook), or an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure).",
         "type": "object",
         "required": ["status", "agentId", "requestedAt"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
           "status": { "type": "string", "enum": ["pending", "approved", "denied"], "title": "Status", "description": "The approval state machine." },
-          "sourceType": { "type": "string", "enum": ["schedule", "flow", "tool"], "default": "schedule", "title": "Source type", "description": "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, or an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds)." },
+          "sourceType": { "type": "string", "enum": ["schedule", "flow", "webhook", "tool"], "default": "schedule", "title": "Source type", "description": "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, a webhook-triggered agent run, or an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds)." },
           "scheduleId": { "type": "string", "format": "uuid", "title": "Schedule", "description": "UUID of the Schedule whose run is gated. Present only when sourceType=schedule.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Schedule", "x-relation-filter": { "agentId": "@object.agentId" } },
-          "correlationId": { "type": "string", "title": "Correlation ID", "description": "Idempotency key for a flow-triggered approval — the dispatch's correlationId (OpenRegister AgentRunRequestedEvent). Present only when sourceType=flow; scheduleId serves this role for sourceType=schedule." },
+          "correlationId": { "type": "string", "title": "Correlation ID", "description": "Idempotency key for a flow-triggered or webhook-triggered approval — the dispatch's correlationId. Present only when sourceType=flow or sourceType=webhook; scheduleId serves this role for sourceType=schedule." },
           "flowContext": { "type": "object", "title": "Flow context", "description": "The flow-triggered run's resume context (subjectUuid/subjectRegister/subjectSchema/resultField/skill/mode/flowName/correlationId). Present only when sourceType=flow." },
+          "webhookContext": { "type": "object", "title": "Webhook context", "description": "The webhook-triggered run's resume context (agentId/payload/correlationId/requiresApproval/reviewer/reviewerType). The payload is redacted before it is stored here (redaction-before-persist). Present only when sourceType=webhook." },
           "toolId": { "type": "string", "title": "Tool ID", "description": "Full namespaced MCP tool id ({app}.{schema}.{verb} or {app}.{toolName}) whose invocation is gated. Present only when sourceType=tool; the idempotency key together with agentId." },
           "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent the gated run/invocation would act as.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "prompt": { "type": "string", "title": "Prompt", "description": "The prompt the gated run would send to the agent." },
@@ -274,6 +246,28 @@
           "decidedAt": { "type": "string", "format": "date-time", "title": "Decided at", "description": "Derived: when the decision was made — written by the decision endpoint." },
           "decidedBy": { "type": "string", "title": "Decided by", "description": "Derived: the user id who approved or denied — written by the decision endpoint." },
           "reason": { "type": "string", "title": "Reason", "description": "Optional decision reason (typically supplied on denial)." }
+        }
+      },
+      "AgentWebhook": {
+        "slug": "agentwebhook",
+        "icon": "Webhook",
+        "version": "1.0.0",
+        "title": "Agent webhook",
+        "description": "A per-agent, secret-authenticated inbound webhook (agent-webhook-trigger) that lets an external system (n8n, a CI pipeline, a third-party SaaS event) trigger a governed agent run without a Nextcloud session. Stores only a SHA-256 hash of the shared secret — never the plaintext at rest — plus the optional human-approval gate fields (mirroring Schedule's requiresApproval/reviewer/reviewerType). One AgentWebhook per agent.",
+        "type": "object",
+        "required": ["agentId", "secretHash", "secretPrefix", "enabled", "createdAt"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent this webhook triggers. One AgentWebhook per agent.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
+          "secretHash": { "type": "string", "title": "Secret hash", "description": "Derived: hash('sha256', secret) — the plaintext secret is never persisted. Verified via hash_equals() at trigger time." },
+          "secretPrefix": { "type": "string", "title": "Secret prefix", "description": "Derived: the first 8 characters of the plaintext secret (e.g. \"hwh_ab12\"), for admin identification only — not sensitive on its own." },
+          "enabled": { "type": "boolean", "default": true, "title": "Enabled", "description": "false after revoke; the trigger endpoint rejects every request for a disabled webhook." },
+          "requiresApproval": { "type": "boolean", "default": false, "title": "Requires approval", "description": "When true, a valid trigger does not run the agent automatically — a pending Approval (sourceType=webhook) is created and the reviewer notified; the run proceeds only after approval (EU AI Act Art. 14 human oversight)." },
+          "reviewer": { "type": "string", "title": "Reviewer", "description": "Who must approve a gated run — a Nextcloud user id or group id (see reviewerType). If empty, the agent owner is the reviewer." },
+          "reviewerType": { "type": "string", "enum": ["user", "group"], "default": "user", "title": "Reviewer type", "description": "Whether reviewer is a Nextcloud user id or a group id." },
+          "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the webhook secret was first created." },
+          "rotatedAt": { "type": "string", "format": "date-time", "title": "Rotated at", "description": "Derived: when the secret was last rotated — null until the first rotation." },
+          "lastUsedAt": { "type": "string", "format": "date-time", "title": "Last used at", "description": "Derived: when the trigger endpoint last accepted a valid, enabled request for this webhook — best-effort, non-fatal." }
         }
       },
       "AiFeature": {
@@ -316,9 +310,9 @@
       "TenantControl": {
         "slug": "tenantcontrol",
         "icon": "StopCircleOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "Tenant control",
-        "description": "Per-organisation kill-switch. When engaged, the dispatcher halts all agent runs for the organisation (tenant scope comes from ObjectEntity.organisation).",
+        "description": "Per-organisation kill-switch plus the stated EU AI Act Art. 12 retention-period policy (agent-lifecycle-governance). When engaged, the dispatcher halts all agent runs for the organisation (tenant scope comes from ObjectEntity.organisation).",
         "type": "object",
         "required": ["engaged"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
@@ -326,7 +320,8 @@
           "engaged": { "type": "boolean", "default": false, "title": "Engaged", "description": "When true, all agent runs for this organisation are halted." },
           "reason": { "type": "string", "title": "Reason", "description": "Optional reason for engaging the kill-switch." },
           "engagedAt": { "type": "string", "format": "date-time", "title": "Engaged at", "description": "When the kill-switch was engaged." },
-          "engagedBy": { "type": "string", "title": "Engaged by", "description": "The user id who engaged/disengaged the kill-switch." }
+          "engagedBy": { "type": "string", "title": "Engaged by", "description": "The user id who engaged/disengaged the kill-switch." },
+          "retentionMonths": { "type": "integer", "minimum": 6, "default": 6, "title": "Retention period (months)", "description": "Stated EU AI Act Art. 12 record-keeping retention period for this organisation's governance records; a value below 6 is rejected at the service layer. This is a stated policy only — it does not trigger automated purge/archive (agent-lifecycle-governance)." }
         }
       },
       "ModelPolicy": {
@@ -344,9 +339,9 @@
         }
       },
       "Budget": {
-        "slug": "budget",
+        "slug": "agentbudget",
         "icon": "CashMultiple",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "title": "Budget",
         "description": "Per-organisation or per-agent spend guardrail (tokens and/or EUR per period): a soft threshold that warns without blocking, and a hard cap that blocks NEW runs for the budgeted scope at the same dispatch gate the kill-switch and human-approval gate use (never aborts a run already in progress). Current-period usage is computed on read from the existing run AuditTrail — never a stored counter.",
         "type": "object",
@@ -476,7 +471,7 @@
         "icon": "RobotOutline",
         "version": "0.2.0",
         "title": "Agent",
-        "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here.",
+        "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag and periodic review attestation.",
         "type": "object",
         "required": ["name"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
@@ -508,7 +503,10 @@
           "actingUser": { "type": "string", "title": "Acting user", "description": "NC user id the agent impersonates for this run's ObjectService writes/Files/deliveries. Must be an existing, active user; when unset, runs impersonate the schedule owner (default, unchanged behavior)." },
           "user": { "type": "string", "title": "Run-as user", "description": "User id whose permissions and organisation context the agent runs under when there is no active session (e.g. cron/background runs). Legacy: superseded by actingUser." },
           "skillInstalls": { "type": "array", "default": [], "title": "Skill installs", "description": "Skill uuids explicitly installed on this agent; the allowlist a future run loop uses to decide which skills are exposed to it. Kept in sync by SkillService::installOnAgent().", "items": { "type": "string", "format": "uuid", "$ref": "Skill" } },
-          "contextRefs": { "type": "array", "default": [], "title": "Context refs", "description": "Context object uuids attached to this agent; each is assembled into a budgeted text preamble prepended to the system prompt at run start.", "items": { "type": "string", "format": "uuid", "$ref": "Context" } }
+          "contextRefs": { "type": "array", "default": [], "title": "Context refs", "description": "Context object uuids attached to this agent; each is assembled into a budgeted text preamble prepended to the system prompt at run start.", "items": { "type": "string", "format": "uuid", "$ref": "Context" } },
+          "reassignmentFlag": { "type": "boolean", "default": false, "title": "Flagged for reassignment", "description": "Derived: true when this agent's owning Nextcloud user was deleted or disabled and its schedules were auto-paused (agent-lifecycle-governance offboarding); cleared once an org admin reassigns actingUser to a new active user." },
+          "reviewedAt": { "type": "string", "format": "date-time", "title": "Reviewed at", "description": "Derived: when an org admin last attested this agent as reviewed in the periodic access review (agent-lifecycle-governance); re-attesting updates this timestamp rather than duplicating a record." },
+          "reviewedBy": { "type": "string", "title": "Reviewed by", "description": "Derived: the user id of the org admin who last recorded the reviewed attestation (agent-lifecycle-governance)." }
         }
       },
       "Conversation": {
@@ -579,6 +577,25 @@
           "viewRefs": { "type": "array", "default": [], "title": "View refs", "description": "UUIDs of views that would further filter which data is included (resolution deferred — mirrors the same unresolved gap on Agent.views).", "items": { "type": "string", "format": "uuid" } },
           "charBudget": { "type": "integer", "default": 8000, "title": "Character budget", "description": "Character budget for the assembled preamble; exceeding it flags needsConsolidation (approximate, not a hard cap)." },
           "needsConsolidation": { "type": "boolean", "default": false, "title": "Needs consolidation", "description": "Derived: true when the last assembly exceeded charBudget — a nudge to narrow the bundle; content is never silently truncated." }
+        }
+      },
+      "Incident": {
+        "slug": "incident",
+        "icon": "AlertOctagonOutline",
+        "version": "0.1.0",
+        "title": "Incident",
+        "description": "A human-authored incident record (agent-lifecycle-governance): what happened, its impact, and the actions taken, optionally linked to an Agent and/or one or more runs (AuditTrail entry uuids). Persisted as a durable, tenant-scoped OpenRegister object so it inherits owner/organisation scoping and an AuditTrail entry automatically (ADR-004), and is included in the EU AI Act Art. 12 audit export alongside run/approval entries.",
+        "type": "object",
+        "required": ["description", "impact", "actionsTaken"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "description": { "type": "string", "title": "Description", "description": "What happened." },
+          "impact": { "type": "string", "title": "Impact", "description": "The impact of the incident (e.g. severity, who/what was affected)." },
+          "actionsTaken": { "type": "string", "title": "Actions taken", "description": "The remedial actions taken in response to the incident." },
+          "linkedAgentId": { "type": "string", "format": "uuid", "title": "Linked agent", "description": "UUID of the Agent this incident concerns, if any.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
+          "linkedRunIds": { "type": "array", "default": [], "title": "Linked runs", "description": "AuditTrail entry uuids of the run(s) this incident concerns, if any (a \"run\" has no own OpenRegister object — it is identified by its AuditTrail entry uuid, exactly as RunHistoryService already surfaces run ids).", "items": { "type": "string" } },
+          "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "Derived: when the incident record was opened — written by the create endpoint." },
+          "createdBy": { "type": "string", "title": "Created by", "description": "Derived: the user id of the org admin who opened the incident — written by the create endpoint." }
         }
       }
     }

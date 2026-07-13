@@ -327,7 +327,7 @@ class ConversationManagementHandler
                 return;
             }
 
-            // tenant-model-policy: the Conversation object already carries its
+            // Tenant-model-policy: the Conversation object already carries its
             // organisation (ObjectEntity metadata) — no new lookup needed.
             $organisation = (string) ($conversation->getOrganisation() ?? '');
             $summary      = $this->generateSummary(messages: $messagesToSummarize, organisation: $organisation);

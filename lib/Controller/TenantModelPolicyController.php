@@ -64,18 +64,17 @@ use Throwable;
  */
 class TenantModelPolicyController extends Controller
 {
-
     /**
      * Constructor.
      *
      * @param IRequest                 $request            The request object.
-     * @param TenantModelPolicyService $modelPolicyService  The model-policy read/write path.
-     * @param IUserSession             $userSession         Resolves the requesting user.
-     * @param IGroupManager            $groupManager        Instance-admin check.
-     * @param OrganisationMapper       $organisationMapper  OpenRegister organisation lookup
-     *                                                       (owner check + effective-read org
-     *                                                       resolution).
-     * @param LoggerInterface          $logger              PSR-3 logger.
+     * @param TenantModelPolicyService $modelPolicyService The model-policy read/write path.
+     * @param IUserSession             $userSession        Resolves the requesting user.
+     * @param IGroupManager            $groupManager       Instance-admin check.
+     * @param OrganisationMapper       $organisationMapper OpenRegister organisation lookup
+     *                                                     (owner check + effective-read
+     *                                                     org resolution).
+     * @param LoggerInterface          $logger             PSR-3 logger.
      */
     public function __construct(
         IRequest $request,
@@ -169,7 +168,7 @@ class TenantModelPolicyController extends Controller
         } catch (Throwable $e) {
             $this->logger->error('Hermiq model-policy list failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Could not load model policies'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+        }//end try
 
     }//end index()
 

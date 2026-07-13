@@ -55,6 +55,47 @@ return [
         // Run now — owner-scoped immediate run of a schedule's agent (agent-management-ui).
         ['name' => 'runNow#run', 'url' => '/api/schedules/{scheduleId}/run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
+        // Agent webhook trigger (agent-webhook-trigger): owner-guarded secret lifecycle
+        // CRUD, plus the public, secret-authenticated trigger endpoint. 'webhook-secret'
+        // routes are registered before the bare '/webhook' trigger route so they never
+        // collide (distinct literal path segments, no ambiguity either way).
+        [
+            'name'         => 'agentWebhook#create',
+            'url'          => '/api/agents/{id}/webhook-secret',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentWebhook#rotate',
+            'url'          => '/api/agents/{id}/webhook-secret/rotate',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentWebhook#revoke',
+            'url'          => '/api/agents/{id}/webhook-secret/revoke',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentWebhook#patch',
+            'url'          => '/api/agents/{id}/webhook-secret',
+            'verb'         => 'PATCH',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentWebhook#show',
+            'url'          => '/api/agents/{id}/webhook-secret',
+            'verb'         => 'GET',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'webhookTrigger#trigger',
+            'url'          => '/api/agents/{id}/webhook',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
         ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],
@@ -114,6 +155,27 @@ return [
         // Tenant ops (multi-tenant-ops): per-org quota status + EU AI Act audit export (tenant-scoped).
         ['name' => 'tenantOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
         ['name' => 'tenantOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
+
+        // Agent-lifecycle-governance: periodic access review + attestation + reassignment,
+        // incident records, and the retention-period setting (tenant-scoped; the four
+        // mutating endpoints additionally gate through ActionAuthService).
+        ['name' => 'tenantOps#reviewList', 'url' => '/api/tenant-ops/access-review', 'verb' => 'GET'],
+        [
+            'name'         => 'tenantOps#attestReview',
+            'url'          => '/api/tenant-ops/access-review/{uuid}/attest',
+            'verb'         => 'POST',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'tenantOps#reassignAgent',
+            'url'          => '/api/tenant-ops/access-review/{uuid}/reassign',
+            'verb'         => 'POST',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        ['name' => 'tenantOps#incidents',       'url' => '/api/tenant-ops/incidents', 'verb' => 'GET'],
+        ['name' => 'tenantOps#createIncident',  'url' => '/api/tenant-ops/incidents', 'verb' => 'POST'],
+        ['name' => 'tenantOps#retention',       'url' => '/api/tenant-ops/retention', 'verb' => 'GET'],
+        ['name' => 'tenantOps#updateRetention', 'url' => '/api/tenant-ops/retention', 'verb' => 'PUT'],
 
         // Budget guardrails (cost-guardrails): per-org/per-agent spend caps, status, pre-run
         // estimate. 'status' is registered before the GET list route needs no {budgetId} at

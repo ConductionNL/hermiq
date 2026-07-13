@@ -56,7 +56,8 @@ use Throwable;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several Nextcloud subsystems.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The class is a coordinator of many
  *   small, single-shaped alert/delivery methods (run-output delivery, approval-request,
- *   flow-approval-request, budget-warning, dead-letter alert, circuit-breaker alert) —
+ *   flow-approval-request, webhook-approval-request, budget-warning, dead-letter alert,
+ *   circuit-breaker alert) —
  *   each individually simple; the aggregate crosses the class-wide threshold because the
  *   class owns every Talk/Notification alert Hermiq raises rather than splitting by
  *   alert type, which would duplicate the shared Talk-fallback-chain/notify plumbing
@@ -219,49 +220,14 @@ class DeliveryService
      */
     public function deliverApprovalRequest(ObjectEntity $schedule, ObjectEntity $approval, array $reviewerUids): DeliveryResult
     {
-        $approvalUuid = (string) $approval->getUuid();
         $scheduleName = (string) ($schedule->getObject()['name'] ?? '');
-        $talkOk       = $this->isTalkAvailable();
-        $warnings     = [];
-        $delivered    = false;
 
-        foreach ($reviewerUids as $uid) {
-            $uid = (string) $uid;
-            if ($uid === '') {
-                continue;
-            }
-
-            try {
-                $notification = $this->notificationManager->createNotification();
-                $notification->setApp('hermiq')
-                    ->setUser($uid)
-                    ->setDateTime(new DateTime())
-                    ->setObject('approval', $approvalUuid)
-                    ->setSubject('approval_requested', ['name' => $scheduleName])
-                    ->setMessage('approval_summary', ['scheduleId' => (string) $schedule->getUuid()])
-                    ->setLink($this->buildApprovalLink(uuid: $approvalUuid));
-                $this->notificationManager->notify($notification);
-                $delivered = true;
-            } catch (Throwable $e) {
-                $warnings[] = sprintf("notify %s failed: %s", $uid, $e->getMessage());
-            }
-
-            // Best-effort Talk Note-to-self — a bonus channel, never required.
-            if ($talkOk === true) {
-                $this->tryPostToNoteToSelf(
-                    owner: $uid,
-                    output: sprintf('Approval needed for “%s”. Review it in Hermiq.', $scheduleName)
-                );
-            }
-        }//end foreach
-
-        $warning = null;
-        if ($warnings !== []) {
-            $warning = implode('; ', $warnings);
-        }
-
-        $this->logWarning(warning: $warning, uuid: $approvalUuid, channel: 'approval');
-        return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
+        return $this->notifyApprovalReviewers(
+            approvalUuid: (string) $approval->getUuid(),
+            displayName: $scheduleName,
+            reviewerUids: $reviewerUids,
+            messageParams: ['scheduleId' => (string) $schedule->getUuid()]
+        );
 
     }//end deliverApprovalRequest()
 
@@ -281,17 +247,89 @@ class DeliveryService
      */
     public function deliverApprovalRequestForFlowRun(ObjectEntity $approval, array $reviewerUids): DeliveryResult
     {
-        $approvalUuid = (string) $approval->getUuid();
-        $data         = $approval->getObject();
-        $flowContext  = $data['flowContext'] ?? [];
+        $data        = $approval->getObject();
+        $flowContext = $data['flowContext'] ?? [];
         if (is_array($flowContext) === false) {
             $flowContext = [];
         }
 
         $displayName = (string) ($flowContext['flowName'] ?? ($data['agentId'] ?? ''));
-        $talkOk      = $this->isTalkAvailable();
-        $warnings    = [];
-        $delivered   = false;
+
+        return $this->notifyApprovalReviewers(
+            approvalUuid: (string) $approval->getUuid(),
+            displayName: $displayName,
+            reviewerUids: $reviewerUids,
+            messageParams: ['correlationId' => (string) ($flowContext['correlationId'] ?? '')]
+        );
+
+    }//end deliverApprovalRequestForFlowRun()
+
+    /**
+     * Notify a webhook-triggered agent run's resolved reviewer(s) that an
+     * approval is pending (Art. 14) — the `sourceType: "webhook"` counterpart to
+     * `deliverApprovalRequest()`/`deliverApprovalRequestForFlowRun()`. There is
+     * no Schedule ObjectEntity to read a display name from; the approval's own
+     * `agentId` is used as the display name (a webhook trigger has no comparable
+     * "flowName"). NEVER throws for a delivery problem.
+     *
+     * @param ObjectEntity      $approval     The pending approval to link to.
+     * @param array<int,string> $reviewerUids The resolved reviewer user ids.
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-6-deliveryservice-webhook-approval-notification-shared-reviewer-notify-helper
+     */
+    public function deliverApprovalRequestForWebhookRun(ObjectEntity $approval, array $reviewerUids): DeliveryResult
+    {
+        $data           = $approval->getObject();
+        $webhookContext = $data['webhookContext'] ?? [];
+        if (is_array($webhookContext) === false) {
+            $webhookContext = [];
+        }
+
+        $displayName = (string) ($data['agentId'] ?? '');
+
+        return $this->notifyApprovalReviewers(
+            approvalUuid: (string) $approval->getUuid(),
+            displayName: $displayName,
+            reviewerUids: $reviewerUids,
+            messageParams: ['correlationId' => (string) ($webhookContext['correlationId'] ?? '')]
+        );
+
+    }//end deliverApprovalRequestForWebhookRun()
+
+    /**
+     * Shared reviewer-notification loop behind `deliverApprovalRequest()`,
+     * `deliverApprovalRequestForFlowRun()`, and `deliverApprovalRequestForWebhookRun()`
+     * (design.md Decision 3) — extracted so a THIRD near-identical copy (after the
+     * original, then the flow-run counterpart) is not typed out again, which would
+     * otherwise let a future fourth source (or a fix) drift across three copies.
+     * Raises one Nextcloud notification per resolved reviewer (deep-linked to the
+     * approvals inbox) and, when Talk is available, a best-effort Note-to-self
+     * message. NEVER throws for a delivery problem.
+     *
+     * @param string              $approvalUuid  The pending approval's UUID.
+     * @param string              $displayName   The human label for the gated run
+     *                                           (schedule name / flow name /
+     *                                           agent id).
+     * @param array<int,string>   $reviewerUids  The resolved reviewer user ids.
+     * @param array<string,mixed> $messageParams The `approval_summary` notification's
+     *                                           message parameters (scheduleId /
+     *                                           correlationId).
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-6-deliveryservice-webhook-approval-notification-shared-reviewer-notify-helper
+     */
+    private function notifyApprovalReviewers(
+        string $approvalUuid,
+        string $displayName,
+        array $reviewerUids,
+        array $messageParams
+    ): DeliveryResult {
+        $talkOk    = $this->isTalkAvailable();
+        $warnings  = [];
+        $delivered = false;
 
         foreach ($reviewerUids as $uid) {
             $uid = (string) $uid;
@@ -306,7 +344,7 @@ class DeliveryService
                     ->setDateTime(new DateTime())
                     ->setObject('approval', $approvalUuid)
                     ->setSubject('approval_requested', ['name' => $displayName])
-                    ->setMessage('approval_summary', ['correlationId' => (string) ($flowContext['correlationId'] ?? '')])
+                    ->setMessage('approval_summary', $messageParams)
                     ->setLink($this->buildApprovalLink(uuid: $approvalUuid));
                 $this->notificationManager->notify($notification);
                 $delivered = true;
@@ -331,7 +369,7 @@ class DeliveryService
         $this->logWarning(warning: $warning, uuid: $approvalUuid, channel: 'approval');
         return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
 
-    }//end deliverApprovalRequestForFlowRun()
+    }//end notifyApprovalReviewers()
 
     /**
      * Notify a tool-invocation approval's resolved reviewer(s) that an

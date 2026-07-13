@@ -69,13 +69,6 @@
 			"order": 5
 		},
 		{
-			"id": "Examples",
-			"label": "Examples",
-			"icon": "icon-files",
-			"route": "Examples",
-			"order": 30
-		},
-		{
 			"id": "Documentation",
 			"label": "Documentation",
 			"icon": "icon-info",
@@ -277,79 +270,6 @@
 				]
 			},
 			"widgets": []
-		},
-		{
-			"id": "Examples",
-			"route": "/examples",
-			"type": "index",
-			"title": "Examples",
-			"config": {
-				"register": "hermiq",
-				"schema": "example",
-				"columns": [
-					"title",
-					"status",
-					"updatedAt"
-				],
-				"sidebar": {
-					"enabled": true,
-					"showMetadata": true
-				}
-			},
-			"widgets": [
-				{
-					"widgetKey": "object-table",
-					"slot": "body",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 12,
-					"gridHeight": 6
-				}
-			]
-		},
-		{
-			"id": "ExampleDetail",
-			"route": "/examples/:id",
-			"type": "detail",
-			"title": "Example",
-			"config": {
-				"register": "hermiq",
-				"schema": "example",
-				"_note": "Document archetype for the app's scaffold 'example' schema, which the register itself documents as 'replace with your app's actual schemas' (lib/Settings/hermiq_register.json). Hermiq's real domain objects (Agent, Conversation, Message, Session, SessionTurn, Skill, SkillSource, Approval, AiFeature, TenantControl, Memory) already have purpose-built custom Vue pages (AgentCatalog/AgentDetail, Chat, ApprovalInbox, AgentMemory, AgentSessions, SkillsCatalog, AiFeatureRegister, TenantOps) whose own _notes explain why the generic detail-page config cannot express their run-now/approve-deny/consolidate/import-export behaviour, so ExampleDetail is the app's only manifest-declarative detail page. The example schema carries just two fields (title, description), no other hermiq schema declares a FK pointing at it, and it has no linkedTypes or lifecycle — so the body is a single 2-column Data widget and nothing else: no object-list (nothing references example), no Related panel (example has no outbound refs), no content leaves (no files/calendar/contacts/notes linkedType on the schema). Audit history moves to the sidebar per the standard pattern. ADR-062 rev3 pass: added widget icon (FileDocument, matches the register's FileDocumentOutline as closely as the shared registry allows) and tightened gridHeight 4→2 per the rule-1 budget heuristic (2 visible fields, ceil(2/2)×0.9+1 ≈ h2) — the 4-row cell was ~50% empty. No object-lists on this page, so the rule-9 create-affordance / allowCreate policy does not apply.",
-				"widgets": [
-					{
-						"id": "example-data",
-						"type": "data",
-						"title": "Example details",
-						"icon": "FileDocument",
-						"content": {
-							"columns": 2
-						}
-					}
-				],
-				"layout": [
-					{
-						"id": "1",
-						"widgetId": "example-data",
-						"gridX": 0,
-						"gridY": 0,
-						"gridWidth": 12,
-						"gridHeight": 2
-					}
-				],
-				"sidebar": {
-					"enabled": true,
-					"showMetadata": true,
-					"tabs": [
-						{
-							"id": "audit",
-							"label": "History",
-							"icon": "History",
-							"widgets": [ { "type": "audit" } ]
-						}
-					]
-				}
-			}
 		},
 		{
 			"id": "Settings",

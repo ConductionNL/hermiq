@@ -85,28 +85,31 @@ class ProviderFactory
     /**
      * Constructor.
      *
-     * @param LlmSettingsHandler $settingsHandler Reads/writes `hermiq.llm`.
-     * @param IManager           $taskManager     Nextcloud Assistant task manager
-     *                                            (the `nextcloud` driver's
-     *                                            backend).
-     * @param IUserSession       $userSession     Current session — the broker's
-     *                                            ownership guard needs an identity
-     *                                            to check the credential against.
-     * @param LoggerInterface    $logger          Logger.
-     * @param string             $appName         App id used when scheduling
-     *                                            TaskProcessing tasks.
+     * @param LlmSettingsHandler            $settingsHandler    Reads/writes `hermiq.llm`.
+     * @param IManager                      $taskManager        Nextcloud Assistant task manager
+     *                                                          (the `nextcloud` driver's
+     *                                                          backend).
+     * @param IUserSession                  $userSession        Current session —
+     *                                                          the broker's
+     *                                                          ownership guard needs
+     *                                                          an identity to check
+     *                                                          the credential
+     *                                                          against.
+     * @param LoggerInterface               $logger             Logger.
+     * @param string                        $appName            App id used when scheduling
+     *                                                          TaskProcessing tasks.
      * @param TenantModelPolicyService|null $modelPolicyService Resolves the calling
-     *                                            organisation's effective ModelPolicy
-     *                                            (tenant-model-policy). Nullable —
-     *                                            defaulted so every existing call site
-     *                                            (all constructed before this change)
-     *                                            keeps working unchanged; NC's DI
-     *                                            container autowires a real instance in
-     *                                            production regardless of the default.
-     *                                            When `$organisation` is not passed to
-     *                                            `createChatDriver()`, no enforcement
-     *                                            call is made at all (opt-in threading,
-     *                                            see design.md).
+     *                                                          organisation's effective ModelPolicy
+     *                                                          (tenant-model-policy). Nullable —
+     *                                                          defaulted so every existing call site
+     *                                                          (all constructed before this change)
+     *                                                          keeps working unchanged; NC's DI
+     *                                                          container autowires a real instance in
+     *                                                          production regardless of the default.
+     *                                                          When `$organisation` is not passed to
+     *                                                          `createChatDriver()`, no enforcement
+     *                                                          call is made at all (opt-in threading,
+     *                                                          see design.md).
      *
      * @return void
      *
@@ -189,24 +192,24 @@ class ProviderFactory
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature
             );
-        } elseif ($chatProvider === 'openai') {
+        } else if ($chatProvider === 'openai') {
             $driver = $this->createOpenAiDriver(
                 openaiConfig: $llmConfig['openaiConfig'] ?? [],
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature
             );
-        } elseif ($chatProvider === 'fireworks') {
+        } else if ($chatProvider === 'fireworks') {
             $driver = $this->createFireworksDriver(
                 fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
                 agentModel: $agentModel
             );
-        } elseif ($chatProvider === 'nextcloud') {
+        } else if ($chatProvider === 'nextcloud') {
             $driver = $this->createNextcloudDriver();
         } else {
             throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}");
-        }
+        }//end if
 
-        // tenant-model-policy: the single enforcement chokepoint. Runs AFTER the
+        // Tenant-model-policy: the single enforcement chokepoint. Runs AFTER the
         // agent override is applied (createOllamaDriver()/createOpenAiDriver()/
         // createFireworksDriver() already resolved agentModel ?? providerConfig
         // into $driver->model) so a policy cannot be bypassed by leaving the

@@ -3,7 +3,8 @@
 /**
  * Hermiq ApprovalService.
  *
- * The human-approval gate write-path (EU AI Act Art. 14). Gates two kinds of run:
+ * The human-approval gate write-path (EU AI Act Art. 14). Gates four kinds of
+ * gated action:
  *
  * - A **scheduled** run (`sourceType: "schedule"`, the original shape): when the
  *   dispatcher meets a schedule that requires approval it asks this service to
@@ -16,6 +17,12 @@
  *   to ensure a pending Approval carrying the run's resume context
  *   (`flowContext`), keyed by the event's `correlationId` for idempotency.
  *   Approval re-runs via `FlowAgentRunService::run()` with the gate bypassed.
+ * - A **webhook-triggered** run (`sourceType: "webhook"`, from a verified
+ *   inbound webhook trigger — agent-webhook-trigger): `WebhookAgentRunService`
+ *   asks this service to ensure a pending Approval carrying the run's resume
+ *   context (`webhookContext`, its payload already redacted before it reaches
+ *   this service), keyed by the trigger's own generated `correlationId`.
+ *   Approval re-runs via `WebhookAgentRunService::run()` with the gate bypassed.
  * - An **un-granted destructive tool invocation** (`sourceType: "tool"`,
  *   agent-tool-governance-and-disclosure): `FacadeToolInvoker` asks this service
  *   to ensure a pending Approval for a specific (agentId, toolId) pair mid-run,
@@ -70,7 +77,14 @@ use Throwable;
 /**
  * Creates, routes, and decides Hermiq approval-gate objects via OpenRegister.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates several OR/NC services.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several OR/NC services.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The class owns FOUR parallel
+ *   sourceType shapes (schedule/flow/webhook/tool) — each ensurePendingApprovalFor*()/
+ *   runApproved*() pair is individually simple; the sum crosses the class-wide
+ *   threshold because each generalisation (webhook, tool) added its own pair
+ *   rather than duplicating an unrelated class, per the established
+ *   "generalise ApprovalService" pattern (flow-agent-listener, agent-webhook-trigger,
+ *   agent-tool-governance-and-disclosure).
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
  */
@@ -97,14 +111,6 @@ class ApprovalService
      * @var string
      */
     private const SCHEDULE_SCHEMA = 'schedule';
-
-    /**
-     * OpenRegister schema slug for agent objects (tool-invocation approvals'
-     * owner-impersonation lookup — agent-tool-governance-and-disclosure).
-     *
-     * @var string
-     */
-    private const AGENT_SCHEMA = 'agent';
 
     /**
      * Constructor.
@@ -274,6 +280,89 @@ class ApprovalService
     }//end ensurePendingApprovalForFlowRun()
 
     /**
+     * Idempotently ensure a single pending Approval exists for a gated
+     * webhook-triggered agent run (agent-webhook-trigger).
+     *
+     * Mirrors `ensurePendingApprovalForFlowRun()` for the flow-run case, but the
+     * reviewer is resolved from the webhook's OWN configured `reviewer`/
+     * `reviewerType` (the `AgentWebhook` schema mirrors `Schedule`'s identical
+     * fields, unlike a flow trigger which has no comparable object) — an empty
+     * configured reviewer falls back to the agent owner as a `user` reviewer,
+     * exactly like `resolveReviewer()` does for a Schedule. Idempotency is keyed
+     * by the trigger's own generated `correlationId`, exactly like the flow-run
+     * case (there is no Schedule object here either).
+     *
+     * The caller (`WebhookAgentRunService`) is responsible for passing a
+     * `$context` whose `payload` is ALREADY redacted (redaction-before-persist);
+     * this method persists `$context` verbatim as `webhookContext`.
+     *
+     * @param array<string,mixed> $context    The webhook-run resume context
+     *                                        (agentId/payload(redacted)/correlationId/
+     *                                        requiresApproval/reviewer/reviewerType).
+     * @param string              $agentOwner The agent's owner (reviewer fallback + impersonation).
+     *
+     * @return ObjectEntity The pending (or already-pending) Approval.
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+     */
+    public function ensurePendingApprovalForWebhookRun(array $context, string $agentOwner): ObjectEntity
+    {
+        $correlationId = (string) ($context['correlationId'] ?? '');
+
+        if ($correlationId !== '') {
+            $existing = $this->findPendingApprovalForCorrelation(correlationId: $correlationId);
+            if ($existing !== null) {
+                return $existing;
+            }
+        }
+
+        $reviewer     = trim((string) ($context['reviewer'] ?? ''));
+        $reviewerType = (string) ($context['reviewerType'] ?? 'user');
+        if ($reviewer === '') {
+            $reviewer     = $agentOwner;
+            $reviewerType = 'user';
+        }
+
+        if ($reviewerType !== 'group') {
+            $reviewerType = 'user';
+        }
+
+        $payload = [
+            'status'         => 'pending',
+            'sourceType'     => 'webhook',
+            'correlationId'  => $correlationId,
+            'webhookContext' => $context,
+            'agentId'        => (string) ($context['agentId'] ?? ''),
+            'prompt'         => '',
+            'requestedAt'    => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+            'reviewer'       => $reviewer,
+            'reviewerType'   => $reviewerType,
+            'decidedAt'      => null,
+            'decidedBy'      => null,
+            'reason'         => null,
+        ];
+
+        $approval = $this->persistApproval(data: $payload, uuid: null, owner: $agentOwner);
+
+        // Notify the resolved reviewer(s). Never fatal to the run.
+        try {
+            $this->deliveryService->deliverApprovalRequestForWebhookRun(
+                approval: $approval,
+                reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Hermiq could not notify reviewer for webhook-run approval '
+                .((string) $approval->getUuid()).': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+        return $approval;
+
+    }//end ensurePendingApprovalForWebhookRun()
+
+    /**
      * Idempotently ensure a single pending Approval exists for an un-granted
      * destructive tool invocation attempted mid-run (agent-tool-governance-and-disclosure,
      * EU AI Act Art. 14). Mirrors `ensurePendingApprovalForFlowRun()`'s idempotent-ensure
@@ -343,158 +432,6 @@ class ApprovalService
         return $approval;
 
     }//end ensurePendingApprovalForToolInvocation()
-
-    /**
-     * Find the most recently DECIDED (`approved` or `denied`) Approval for a
-     * (agentId, toolId) tool-invocation pair, if one exists — consulted by
-     * `FacadeToolInvoker` before creating a new pending Approval, so an already
-     * `approved` pair proceeds and an already `denied` pair blocks permanently
-     * without re-prompting a reviewer.
-     *
-     * @param string $agentId The agent UUID.
-     * @param string $toolId  The full namespaced tool id.
-     *
-     * @return ObjectEntity|null The most recent decided approval, or null when none exists.
-     *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-explicitly-granted-destructive-tool-call-is-not-re-gated
-     */
-    public function findDecidedApprovalForToolInvocation(string $agentId, string $toolId): ?ObjectEntity
-    {
-        $candidates = $this->toolInvocationApprovals(agentId: $agentId, toolId: $toolId);
-
-        $latest     = null;
-        $latestTime = '';
-        foreach ($candidates as $object) {
-            $data   = $object->getObject();
-            $status = (string) ($data['status'] ?? '');
-            if ($status !== 'approved' && $status !== 'denied') {
-                continue;
-            }
-
-            $decidedAt = (string) ($data['decidedAt'] ?? '');
-            if ($latest === null || $decidedAt > $latestTime) {
-                $latest     = $object;
-                $latestTime = $decidedAt;
-            }
-        }
-
-        return $latest;
-
-    }//end findDecidedApprovalForToolInvocation()
-
-    /**
-     * Find the open pending Approval for a (agentId, toolId) tool-invocation
-     * pair, if one exists — the tool-invocation counterpart to
-     * `findPendingApprovalForSchedule()`/`findPendingApprovalForCorrelation()`.
-     *
-     * @param string $agentId The agent UUID.
-     * @param string $toolId  The full namespaced tool id.
-     *
-     * @return ObjectEntity|null The pending approval, or null.
-     */
-    private function findPendingApprovalForToolInvocation(string $agentId, string $toolId): ?ObjectEntity
-    {
-        foreach ($this->toolInvocationApprovals(agentId: $agentId, toolId: $toolId) as $object) {
-            if ((string) ($object->getObject()['status'] ?? '') === 'pending') {
-                return $object;
-            }
-        }
-
-        return null;
-
-    }//end findPendingApprovalForToolInvocation()
-
-    /**
-     * Load every Approval recorded for a (agentId, toolId) tool-invocation pair
-     * (any status), RBAC-off (the caller applies whatever guard it needs).
-     *
-     * @param string $agentId The agent UUID.
-     * @param string $toolId  The full namespaced tool id.
-     *
-     * @return array<int, ObjectEntity>
-     */
-    private function toolInvocationApprovals(string $agentId, string $toolId): array
-    {
-        if ($agentId === '' || $toolId === '') {
-            return [];
-        }
-
-        $objects = $this->objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::APPROVAL_SCHEMA)
-            ->findAll(
-                config: ['filters' => ['agentId' => $agentId, 'toolId' => $toolId, 'sourceType' => 'tool']],
-                _rbac: false,
-                _multitenancy: false
-            );
-
-        $matches = [];
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
-            }
-
-            $data = $object->getObject();
-            if ((string) ($data['agentId'] ?? '') === $agentId
-                && (string) ($data['toolId'] ?? '') === $toolId
-                && (string) ($data['sourceType'] ?? '') === 'tool'
-            ) {
-                $matches[] = $object;
-            }
-        }
-
-        return $matches;
-
-    }//end toolInvocationApprovals()
-
-    /**
-     * Resolve an agent's owner UID (RBAC-off — this is the reviewer-default
-     * lookup, not a data-access check), or `''` when the agent cannot be found.
-     *
-     * @param string $agentId The agent UUID.
-     *
-     * @return string
-     */
-    private function resolveAgentOwner(string $agentId): string
-    {
-        if ($agentId === '') {
-            return '';
-        }
-
-        $agent = $this->objectService->find(
-            id: $agentId,
-            register: self::REGISTER_SLUG,
-            schema: self::AGENT_SCHEMA,
-            _rbac: false,
-            _multitenancy: false
-        );
-
-        if (($agent instanceof ObjectEntity) === false) {
-            return '';
-        }
-
-        return (string) ($agent->getOwner() ?? '');
-
-    }//end resolveAgentOwner()
-
-    /**
-     * A short, non-fabricated summary of tool-invocation arguments for the
-     * Approval's `prompt` field — argument NAMES only (never values, which may
-     * carry PII/secrets), truncated.
-     *
-     * @param array<string, mixed> $arguments The invocation's arguments.
-     *
-     * @return string
-     */
-    private function summarizeArguments(array $arguments): string
-    {
-        if ($arguments === []) {
-            return '(no arguments)';
-        }
-
-        return 'arguments: '.implode(', ', array_keys($arguments));
-
-    }//end summarizeArguments()
 
     /**
      * List the pending Approvals routed to the given user as reviewer.
@@ -624,10 +561,11 @@ class ApprovalService
      *
      * Transitions the Approval to `approved` (decidedBy/decidedAt), audits the
      * decision, then resumes the gated run matching `sourceType`: a Schedule via
-     * `ScheduleService::runNow()` (the original path), or a flow-triggered agent run
-     * via `FlowAgentRunService::run()` — both with the approval gate bypassed for this
-     * authorised occurrence, and neither loops back into another pending Approval. A
-     * non-pending Approval is a no-op (no run).
+     * `ScheduleService::runNow()` (the original path), a flow-triggered agent run
+     * via `FlowAgentRunService::run()`, or a webhook-triggered agent run via
+     * `WebhookAgentRunService::run()` — all three with the approval gate bypassed
+     * for this authorised occurrence, and none loops back into another pending
+     * Approval. A non-pending Approval is a no-op (no run).
      *
      * @param ObjectEntity $approval   The pending approval to authorise.
      * @param string       $deciderUid The reviewer/admin making the decision.
@@ -636,6 +574,7 @@ class ApprovalService
      *
      * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
      * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-3
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
      */
     public function approve(ObjectEntity $approval, string $deciderUid): array
     {
@@ -656,26 +595,47 @@ class ApprovalService
         $this->writeDecisionAudit(approval: $approval, action: 'approve', reason: '');
 
         $sourceType = (string) ($data['sourceType'] ?? 'schedule');
+        $ran        = $this->resumeGatedRun(sourceType: $sourceType, data: $data);
+
+        return ['status' => 'approved', 'ran' => $ran];
+
+    }//end approve()
+
+    /**
+     * Resume the gated run matching the Approval's `sourceType` — the dispatch
+     * table behind `approve()`, kept as its own small helper (early returns,
+     * never an `else`) so each branch stays simple and independently readable.
+     *
+     * @param string              $sourceType The Approval's sourceType (schedule|flow|webhook).
+     * @param array<string,mixed> $data       The Approval's payload (scheduleId/flowContext/webhookContext).
+     *
+     * @return bool Whether the gated run actually executed.
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+     */
+    private function resumeGatedRun(string $sourceType, array $data): bool
+    {
+        if ($sourceType === 'webhook') {
+            $webhookContext = $data['webhookContext'] ?? [];
+            if (is_array($webhookContext) === false) {
+                $webhookContext = [];
+            }
+
+            return $this->runApprovedWebhookRun(webhookContext: $webhookContext);
+        }
+
         if ($sourceType === 'flow') {
             $flowContext = $data['flowContext'] ?? [];
             if (is_array($flowContext) === false) {
                 $flowContext = [];
             }
 
-            $ran = $this->runApprovedFlowRun(flowContext: $flowContext);
-        } else if ($sourceType === 'tool') {
-            // No run to resume: the chat turn that attempted the call has
-            // already returned. Flipping status to `approved` is the whole
-            // effect — the NEXT invocation attempt of this (agentId, toolId)
-            // pair finds the decided Approval and proceeds.
-            $ran = false;
-        } else {
-            $ran = $this->runApprovedSchedule(scheduleId: (string) ($data['scheduleId'] ?? ''));
+            return $this->runApprovedFlowRun(flowContext: $flowContext);
         }
 
-        return ['status' => 'approved', 'ran' => $ran];
+        return $this->runApprovedSchedule(scheduleId: (string) ($data['scheduleId'] ?? ''));
 
-    }//end approve()
+    }//end resumeGatedRun()
 
     /**
      * Deny a pending Approval — the gated run never executes.
@@ -958,6 +918,43 @@ class ApprovalService
         return $flowAgentRunService->run(payload: $flowContext, bypassApprovalGate: true);
 
     }//end runApprovedFlowRun()
+
+    /**
+     * Run an approved webhook-triggered agent run via `WebhookAgentRunService`,
+     * bypassing the gate — the webhook-run counterpart to `runApprovedFlowRun()`.
+     *
+     * `WebhookAgentRunService` is resolved lazily from the server container,
+     * mirroring `ScheduleService`/`FlowAgentRunService`'s lazy resolution above, so
+     * the two services need no circular constructor dependency. The bypass runs
+     * THIS authorised occurrence without re-creating a pending Approval; the
+     * kill-switch and budget gates still apply inside
+     * `WebhookAgentRunService::run()`. The stored `webhookContext.payload` is
+     * ALREADY redacted (it was redacted before this Approval was ever persisted —
+     * see `ensurePendingApprovalForWebhookRun()`), so this resumed run's agent
+     * input is the redacted payload, not the original raw one — a deliberate
+     * security-first trade-off: a pending Approval may sit unresolved for a long
+     * time, and its stored context must never hold an unredacted secret at rest.
+     *
+     * @param array<string,mixed> $webhookContext The approval's stored resume context
+     *                                            (agentId/payload(redacted)/correlationId/
+     *                                            requiresApproval/reviewer/reviewerType).
+     *
+     * @return bool Whether the agent run actually executed.
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+     */
+    private function runApprovedWebhookRun(array $webhookContext): bool
+    {
+        if ($webhookContext === []) {
+            $this->logger->warning('Hermiq approved webhook-run has no stored webhookContext to resume.');
+            return false;
+        }
+
+        $webhookAgentRun = $this->container->get(WebhookAgentRunService::class);
+
+        return $webhookAgentRun->run(context: $webhookContext, bypassApprovalGate: true);
+
+    }//end runApprovedWebhookRun()
 
     /**
      * Persist an Approval payload through OpenRegister, impersonating the owner.

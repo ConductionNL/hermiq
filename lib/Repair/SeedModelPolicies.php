@@ -8,7 +8,8 @@
  * single write-path (OR `ObjectService`, ADR-001/ADR-004) the controller uses:
  *   - the organisation-less INSTANCE DEFAULT policy (all four drivers, unrestricted
  *     models), so a fresh install is permissive-but-explicit instead of fail-closed;
- *   - one sample organisation-scoped policy (ollama-only, defaultModel qwen2.5) that
+ *   - one sample organisation-scoped policy (ollama-only, defaultModel
+ *     {provider: ollama, model: qwen2.5}) that
  *     demonstrates the sovereignty use case without manual setup.
  * The sample org policy needs an OpenRegister organisation to pin itself to; on a
  * genuinely fresh install (no organisation yet) it is deferred, never fabricated —
@@ -48,7 +49,6 @@ use Throwable;
  */
 class SeedModelPolicies implements IRepairStep
 {
-
     /**
      * Constructor.
      *
@@ -126,7 +126,10 @@ class SeedModelPolicies implements IRepairStep
                     'allowed'      => [
                         ['provider' => 'ollama', 'models' => []],
                     ],
-                    'defaultModel' => 'qwen2.5',
+                    'defaultModel' => [
+                        'provider' => 'ollama',
+                        'model'    => 'qwen2.5',
+                    ],
                 ]
             );
         }

@@ -172,6 +172,101 @@
 					</div>
 				</section>
 
+				<!-- Periodic access review (agent-lifecycle-governance): every agent in the
+				     org with owner/actingUser/last-run/capability summary, a "Mark reviewed"
+				     attestation, and a "Reassign" action for agents flagged after offboarding. -->
+				<section class="tenant-ops__section">
+					<h3 class="tenant-ops__subhead">
+						{{ t('hermiq', 'Access review') }}
+					</h3>
+					<p class="tenant-ops__note">
+						{{ t('hermiq', 'Review who owns each agent and what it can do. Marking an agent reviewed records your user id and the current time, auditably.') }}
+					</p>
+
+					<NcNoteCard v-if="reviewError" type="error" :heading="t('hermiq', 'Access review error')">
+						{{ reviewError }}
+					</NcNoteCard>
+
+					<CnDataTable
+						:columns="reviewColumns"
+						:rows="reviewRows"
+						:loading="reviewLoading"
+						row-key="uuid"
+						:empty-text="t('hermiq', 'No agents yet.')">
+						<template #column-reassignmentFlag="{ row }">
+							<span v-if="row.reassignmentFlag" class="tenant-ops__card-warn">
+								{{ t('hermiq', 'Flagged for reassignment') }}
+							</span>
+							<span v-else>—</span>
+						</template>
+						<template #row-actions="{ row }">
+							<div class="tenant-ops__review-actions">
+								<NcButton
+									type="tertiary"
+									:disabled="reviewBusyUuid === row.uuid"
+									@click="markReviewed(row)">
+									{{ t('hermiq', 'Mark reviewed') }}
+								</NcButton>
+								<template v-if="row.reassignmentFlag">
+									<NcTextField
+										:value.sync="reassignDrafts[row.uuid]"
+										class="tenant-ops__reassign-input"
+										:input-label="t('hermiq', 'New acting user id')"
+										:placeholder="t('hermiq', 'New acting user id')" />
+									<NcButton
+										type="secondary"
+										:disabled="!reassignDrafts[row.uuid] || reviewBusyUuid === row.uuid"
+										@click="reassign(row)">
+										{{ t('hermiq', 'Reassign') }}
+									</NcButton>
+								</template>
+							</div>
+						</template>
+					</CnDataTable>
+				</section>
+
+				<!-- Incident records (agent-lifecycle-governance): human-authored incident
+				     response, linked to an agent/run, included in the AI Act audit export. -->
+				<section class="tenant-ops__section">
+					<div class="tenant-ops__section-head">
+						<h3 class="tenant-ops__subhead">
+							{{ t('hermiq', 'Incidents') }}
+						</h3>
+						<NcButton type="secondary" @click="showIncidentDialog = true">
+							{{ t('hermiq', 'Open incident') }}
+						</NcButton>
+					</div>
+
+					<NcNoteCard v-if="incidentError" type="error" :heading="t('hermiq', 'Incident error')">
+						{{ incidentError }}
+					</NcNoteCard>
+
+					<p v-if="!incidentsLoading && incidents.length === 0 && !incidentError" class="tenant-ops__note">
+						{{ t('hermiq', 'No incidents recorded yet.') }}
+					</p>
+
+					<div v-if="incidentsLoading" class="tenant-ops__loading">
+						<NcLoadingIcon :size="24" />
+					</div>
+
+					<ul v-else class="tenant-ops__incident-list">
+						<li v-for="incident in incidents" :key="incident.uuid" class="tenant-ops__incident">
+							<p class="tenant-ops__incident-description">
+								{{ incident.description }}
+							</p>
+							<p class="tenant-ops__note">
+								<strong>{{ t('hermiq', 'Impact') }}:</strong> {{ incident.impact }}
+							</p>
+							<p class="tenant-ops__note">
+								<strong>{{ t('hermiq', 'Actions taken') }}:</strong> {{ incident.actionsTaken }}
+							</p>
+							<p class="tenant-ops__note">
+								{{ formatDate(incident.createdAt) }} — {{ incident.createdBy }}
+							</p>
+						</li>
+					</ul>
+				</section>
+
 				<section class="tenant-ops__section">
 					<h3 class="tenant-ops__subhead">
 						{{ t('hermiq', 'EU AI Act audit export') }}
@@ -193,6 +288,32 @@
 						{{ n('hermiq', 'Exported %n record.', 'Exported %n records.', lastExportCount) }}
 					</p>
 				</section>
+
+				<!-- Retention statement (agent-lifecycle-governance / multi-tenant-ops):
+				     a STATED policy value (EU AI Act Art. 12 minimum 6 months) — this does
+				     NOT trigger automated purge/archive of audit records. -->
+				<section class="tenant-ops__section">
+					<h3 class="tenant-ops__subhead">
+						{{ t('hermiq', 'Retention') }}
+					</h3>
+					<p class="tenant-ops__note">
+						{{ t('hermiq', 'How long your organisation states it keeps governance records for (EU AI Act Art. 12), at least 6 months. This is a stated policy, not automated deletion.') }}
+					</p>
+
+					<NcNoteCard v-if="retentionError" type="error" :heading="t('hermiq', 'Retention error')">
+						{{ retentionError }}
+					</NcNoteCard>
+
+					<div class="tenant-ops__retention-row">
+						<NcTextField
+							:value.sync="retentionDraft"
+							type="number"
+							:label="t('hermiq', 'Retention period (months)')" />
+						<NcButton type="primary" :disabled="retentionSaving" @click="saveRetention">
+							{{ t('hermiq', 'Save') }}
+						</NcButton>
+					</div>
+				</section>
 			</template>
 		</template>
 
@@ -202,24 +323,42 @@
 			:budget="editingBudget"
 			@close="showBudgetForm = false"
 			@saved="onBudgetSaved" />
+
+		<CreateIncidentDialog
+			:show="showIncidentDialog"
+			@close="showIncidentDialog = false"
+			@created="onIncidentCreated" />
 	</div>
 </template>
 
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import { CnDataTable } from '@conduction/nextcloud-vue'
 import { loadState } from '@nextcloud/initial-state'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
-import { getAuditExport, getQuota } from '../api/tenantOps.js'
+import {
+	attestReviewed,
+	getAccessReview,
+	getAuditExport,
+	getIncidents,
+	getQuota,
+	getRetention,
+	reassignAgent,
+	setRetention,
+} from '../api/tenantOps.js'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
 import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
+import CreateIncidentDialog from '../dialogs/CreateIncidentDialog.vue'
 
 export default {
 	name: 'TenantOps',
 
 	components: {
 		BudgetFormModal,
+		CnDataTable,
+		CreateIncidentDialog,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
@@ -256,6 +395,21 @@ export default {
 			editingPolicyId: null,
 			policyDraft: { allowedText: '', defaultModel: '' },
 			policySaving: false,
+			// Access review (agent-lifecycle-governance): agent inventory + attestation + reassignment.
+			reviewAgents: [],
+			reviewLoading: false,
+			reviewError: '',
+			reviewBusyUuid: '',
+			reassignDrafts: {},
+			// Incidents (agent-lifecycle-governance).
+			incidents: [],
+			incidentsLoading: false,
+			incidentError: '',
+			showIncidentDialog: false,
+			// Retention (agent-lifecycle-governance / multi-tenant-ops).
+			retentionDraft: 6,
+			retentionSaving: false,
+			retentionError: '',
 		}
 	},
 
@@ -284,11 +438,51 @@ export default {
 				this.loadBudgets()
 			},
 		},
+
+		/**
+		 * Column definitions for the access-review CnDataTable.
+		 *
+		 * @return {Array<object>} CnDataTable column descriptors.
+		 */
+		reviewColumns() {
+			return [
+				{ key: 'name', label: this.t('hermiq', 'Agent') },
+				{ key: 'owner', label: this.t('hermiq', 'Owner') },
+				{ key: 'actingUser', label: this.t('hermiq', 'Acting user') },
+				{ key: 'lastRunAt', label: this.t('hermiq', 'Last run') },
+				{ key: 'capabilities', label: this.t('hermiq', 'Capabilities') },
+				{ key: 'reviewState', label: this.t('hermiq', 'Reviewed') },
+				{ key: 'reassignmentFlag', label: this.t('hermiq', 'Status') },
+			]
+		},
+
+		/**
+		 * Agents projected onto flat rows for the access-review table.
+		 *
+		 * @return {Array<object>} The table rows.
+		 */
+		reviewRows() {
+			return this.reviewAgents.map((agent) => ({
+				uuid: agent.uuid,
+				name: agent.name || agent.uuid,
+				owner: agent.owner || '—',
+				actingUser: agent.actingUser || '—',
+				lastRunAt: agent.lastRunAt ? this.formatDate(agent.lastRunAt) : this.t('hermiq', 'Never'),
+				capabilities: this.capabilitySummary(agent),
+				reviewState: agent.reviewedAt
+					? `${this.formatDate(agent.reviewedAt)} (${agent.reviewedBy})`
+					: this.t('hermiq', 'Not yet reviewed'),
+				reassignmentFlag: agent.reassignmentFlag === true,
+			}))
+		},
 	},
 
 	created() {
 		if (this.canManage) {
 			this.load()
+			this.loadAccessReview()
+			this.loadIncidents()
+			this.loadRetention()
 		} else {
 			this.loading = false
 		}
@@ -560,6 +754,167 @@ export default {
 				showError(this.t('hermiq', 'Could not delete the budget.'))
 			}
 		},
+
+		/**
+		 * Human-readable date, or an em-dash when absent/unparseable.
+		 *
+		 * @param {string} value An ISO-8601 timestamp.
+		 * @return {string} The formatted date.
+		 */
+		formatDate(value) {
+			if (!value) {
+				return '—'
+			}
+			const date = new Date(value)
+			return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
+		},
+
+		/**
+		 * One-line capability summary for an access-review row: the tool
+		 * allowlist plus whether RAG is enabled (agent-lifecycle-governance).
+		 *
+		 * @param {object} agent The access-review agent entry.
+		 * @return {string} The summary line.
+		 */
+		capabilitySummary(agent) {
+			const tools = Array.isArray(agent.tools) ? agent.tools : []
+			const toolsLabel = tools.length > 0 ? tools.join(', ') : this.t('hermiq', 'No tools')
+			if (!agent.enableRag) {
+				return toolsLabel
+			}
+			const mode = agent.ragSearchMode || this.t('hermiq', 'default')
+			return `${toolsLabel} — ${this.t('hermiq', 'RAG')} (${mode})`
+		},
+
+		/**
+		 * Load the organisation's periodic access-review list (agent-lifecycle-governance).
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadAccessReview() {
+			this.reviewLoading = true
+			this.reviewError = ''
+			try {
+				const data = await getAccessReview()
+				this.reviewAgents = Array.isArray(data.agents) ? data.agents : []
+				this.reviewAgents.forEach((agent) => {
+					if (!(agent.uuid in this.reassignDrafts)) {
+						this.$set(this.reassignDrafts, agent.uuid, '')
+					}
+				})
+			} catch (e) {
+				this.reviewError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.reviewLoading = false
+			}
+		},
+
+		/**
+		 * Attest that an agent has been reviewed.
+		 *
+		 * @param {object} row The access-review row.
+		 * @return {Promise<void>}
+		 */
+		async markReviewed(row) {
+			this.reviewBusyUuid = row.uuid
+			try {
+				await attestReviewed(row.uuid)
+				showSuccess(this.t('hermiq', 'Agent marked as reviewed.'))
+				await this.loadAccessReview()
+			} catch (e) {
+				showError(e?.response?.data?.error || this.t('hermiq', 'Could not record the review.'))
+			} finally {
+				this.reviewBusyUuid = ''
+			}
+		},
+
+		/**
+		 * Reassign a flagged agent's acting user to the drafted target user id.
+		 *
+		 * @param {object} row The access-review row.
+		 * @return {Promise<void>}
+		 */
+		async reassign(row) {
+			const target = (this.reassignDrafts[row.uuid] || '').trim()
+			if (!target) {
+				return
+			}
+			this.reviewBusyUuid = row.uuid
+			try {
+				await reassignAgent(row.uuid, target)
+				showSuccess(this.t('hermiq', 'Agent reassigned.'))
+				this.$set(this.reassignDrafts, row.uuid, '')
+				await this.loadAccessReview()
+			} catch (e) {
+				showError(e?.response?.data?.error || this.t('hermiq', 'Could not reassign the agent.'))
+			} finally {
+				this.reviewBusyUuid = ''
+			}
+		},
+
+		/**
+		 * Load the organisation's incident records (agent-lifecycle-governance).
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadIncidents() {
+			this.incidentsLoading = true
+			this.incidentError = ''
+			try {
+				const data = await getIncidents()
+				this.incidents = Array.isArray(data.incidents) ? data.incidents : []
+			} catch (e) {
+				this.incidentError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.incidentsLoading = false
+			}
+		},
+
+		/**
+		 * Refresh the incident list after CreateIncidentDialog creates one.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async onIncidentCreated() {
+			showSuccess(this.t('hermiq', 'Incident recorded.'))
+			await this.loadIncidents()
+		},
+
+		/**
+		 * Load the organisation's currently configured retention period.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadRetention() {
+			this.retentionError = ''
+			try {
+				const data = await getRetention()
+				this.retentionDraft = data.retentionMonths || 6
+			} catch (e) {
+				this.retentionError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			}
+		},
+
+		/**
+		 * Persist the drafted retention period; a rejected (<6) value shows an
+		 * inline error and leaves the displayed value unchanged.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async saveRetention() {
+			this.retentionSaving = true
+			this.retentionError = ''
+			try {
+				const data = await setRetention(Number(this.retentionDraft))
+				this.retentionDraft = data.retentionMonths
+				showSuccess(this.t('hermiq', 'Retention period saved.'))
+			} catch (e) {
+				this.retentionError = e?.response?.data?.error || this.t('hermiq', 'Retention period must be at least 6 months.')
+				await this.loadRetention()
+			} finally {
+				this.retentionSaving = false
+			}
+		},
 	},
 }
 </script>
@@ -687,5 +1042,43 @@ export default {
 	flex-direction: column;
 	gap: 8px;
 	margin-top: 8px;
+}
+
+.tenant-ops__review-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.tenant-ops__reassign-input {
+	max-width: 180px;
+}
+
+.tenant-ops__incident-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.tenant-ops__incident {
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	padding: 12px;
+}
+
+.tenant-ops__incident-description {
+	margin: 0 0 4px;
+	font-weight: 600;
+}
+
+.tenant-ops__retention-row {
+	display: flex;
+	align-items: flex-end;
+	gap: 12px;
+	max-width: 320px;
 }
 </style>

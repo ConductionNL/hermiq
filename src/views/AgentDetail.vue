@@ -235,6 +235,62 @@
 				</dl>
 			</section>
 
+			<!-- Webhook section (agent-webhook-trigger): per-agent inbound trigger. -->
+			<section class="agent-detail__section">
+				<div class="agent-detail__section-head">
+					<h3>{{ t('hermiq', 'Webhook trigger') }}</h3>
+					<div class="agent-detail__section-actions">
+						<NcButton
+							v-if="!webhookStatus || !webhookStatus.configured"
+							:disabled="webhookBusy"
+							@click="createWebhook">
+							<template v-if="webhookBusy" #icon>
+								<NcLoadingIcon :size="20" />
+							</template>
+							{{ t('hermiq', 'Create webhook') }}
+						</NcButton>
+						<template v-else>
+							<NcButton :disabled="webhookBusy" @click="rotateWebhook">
+								{{ t('hermiq', 'Rotate secret') }}
+							</NcButton>
+							<NcButton
+								v-if="webhookStatus.enabled"
+								type="error"
+								:disabled="webhookBusy"
+								@click="revokeWebhook">
+								{{ t('hermiq', 'Revoke') }}
+							</NcButton>
+						</template>
+					</div>
+				</div>
+
+				<p v-if="!webhookStatus || !webhookStatus.configured" class="agent-detail__empty-hint">
+					{{ t('hermiq', 'No webhook configured yet. Create one to let an external system (n8n, a CI pipeline, a third-party event) trigger this agent.') }}
+				</p>
+				<dl v-else class="agent-detail__meta">
+					<div>
+						<dt>{{ t('hermiq', 'Status') }}</dt>
+						<dd>
+							<span :class="['agent-detail__badge', webhookStatus.enabled ? 'agent-detail__badge--ok' : 'agent-detail__badge--error']">
+								{{ webhookStatus.enabled ? t('hermiq', 'Enabled') : t('hermiq', 'Disabled') }}
+							</span>
+						</dd>
+					</div>
+					<div>
+						<dt>{{ t('hermiq', 'Secret') }}</dt>
+						<dd>{{ webhookStatus.secretPrefix }}…</dd>
+					</div>
+					<div>
+						<dt>{{ t('hermiq', 'Last used') }}</dt>
+						<dd>{{ formatDate(webhookStatus.lastUsedAt) }}</dd>
+					</div>
+					<div>
+						<dt>{{ t('hermiq', 'Rotated') }}</dt>
+						<dd>{{ formatDate(webhookStatus.rotatedAt) }}</dd>
+					</div>
+				</dl>
+			</section>
+
 			<!-- Budget section (cost-guardrails): agent-scoped status when configured -->
 			<section v-if="budgetStatus && budgetStatus.configured" class="agent-detail__section">
 				<h3>{{ t('hermiq', 'Budget') }}</h3>
@@ -364,6 +420,11 @@
 				:schedule="schedule"
 				@close="showScheduleForm = false"
 				@saved="onScheduleSaved" />
+
+			<WebhookSecretDialog
+				:show="showWebhookSecretDialog"
+				:secret="revealedSecret"
+				@close="closeWebhookSecretDialog" />
 		</template>
 	</div>
 </template>
@@ -380,6 +441,7 @@ import Robot from 'vue-material-design-icons/Robot.vue'
 import { getRunTrace, listRuns, listTools, runScheduleNow } from '../api/agents.js'
 import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { installSkill, listSkills, uninstallSkill } from '../api/skills.js'
+import { createWebhookSecret, getWebhookStatus, revokeWebhookSecret, rotateWebhookSecret } from '../api/webhooks.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
 import { getCurrentUser } from '@nextcloud/auth'
 import AgentFormModal from '../modals/AgentFormModal.vue'
@@ -387,6 +449,7 @@ import AgentMemoryPanel from '../components/AgentMemoryPanel.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import ToolGrantEditor from '../components/ToolGrantEditor.vue'
 import ToolInvocationTable from '../components/ToolInvocationTable.vue'
+import WebhookSecretDialog from '../modals/WebhookSecretDialog.vue'
 
 export default {
 	name: 'AgentDetail',
@@ -408,6 +471,7 @@ export default {
 		ScheduleFormModal,
 		ToolGrantEditor,
 		ToolInvocationTable,
+		WebhookSecretDialog,
 	},
 
 	data() {
@@ -440,6 +504,13 @@ export default {
 			// status. Both non-fatal — null keeps their UI hidden on error.
 			estimate: null,
 			budgetStatus: null,
+			// Webhook trigger (agent-webhook-trigger): status + copy-once secret reveal.
+			// revealedSecret is transient (never persisted, cleared on dialog close) —
+			// the panel itself only ever shows the masked secretPrefix afterward.
+			webhookStatus: null,
+			webhookBusy: false,
+			showWebhookSecretDialog: false,
+			revealedSecret: '',
 			// Fields the config widget hides (tenancy, quotas, and capabilities managed by
 			// their own sections — skills here, memory below).
 			hiddenFields: [
@@ -540,6 +611,8 @@ export default {
 		 * schedule, and its run history.
 		 *
 		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-7-agentdetail-webhook-panel-copy-once-secret-dialog
 		 */
 		async load() {
 			this.loading = true
@@ -553,7 +626,7 @@ export default {
 				this.schema = schema || null
 				this.schedule = (Array.isArray(schedules) ? schedules : [])
 					.find((candidate) => candidate.agentId === this.agentUuid) || null
-				await Promise.all([this.loadRuns(), this.loadTools(), this.loadSkills(), this.loadBudgetInfo()])
+				await Promise.all([this.loadRuns(), this.loadTools(), this.loadSkills(), this.loadBudgetInfo(), this.loadWebhookStatus()])
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not load the agent.'))
 			} finally {
@@ -574,6 +647,101 @@ export default {
 			])
 			this.estimate = estimate
 			this.budgetStatus = budgetStatus
+		},
+
+		/**
+		 * Load the webhook trigger status (agent-webhook-trigger). Non-fatal:
+		 * the panel just shows the "no webhook configured" empty state on error.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+		 */
+		async loadWebhookStatus() {
+			try {
+				this.webhookStatus = await getWebhookStatus(this.agentUuid)
+			} catch (e) {
+				this.webhookStatus = null
+			}
+		},
+
+		/**
+		 * Create a webhook secret for this agent and reveal it once.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+		 */
+		async createWebhook() {
+			this.webhookBusy = true
+			try {
+				const result = await createWebhookSecret(this.agentUuid)
+				this.revealedSecret = result.secret || ''
+				this.showWebhookSecretDialog = true
+				await this.loadWebhookStatus()
+				showSuccess(this.t('hermiq', 'Webhook created.'))
+			} catch (e) {
+				showError(this.t('hermiq', 'Could not create the webhook.'))
+			} finally {
+				this.webhookBusy = false
+			}
+		},
+
+		/**
+		 * Rotate this agent's webhook secret and reveal the new one once.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+		 */
+		async rotateWebhook() {
+			this.webhookBusy = true
+			try {
+				const result = await rotateWebhookSecret(this.agentUuid)
+				this.revealedSecret = result.secret || ''
+				this.showWebhookSecretDialog = true
+				await this.loadWebhookStatus()
+				showSuccess(this.t('hermiq', 'Webhook secret rotated.'))
+			} catch (e) {
+				showError(this.t('hermiq', 'Could not rotate the webhook secret.'))
+			} finally {
+				this.webhookBusy = false
+			}
+		},
+
+		/**
+		 * Revoke this agent's webhook — disables it without deleting its configuration.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+		 */
+		async revokeWebhook() {
+			this.webhookBusy = true
+			try {
+				await revokeWebhookSecret(this.agentUuid)
+				await this.loadWebhookStatus()
+				showSuccess(this.t('hermiq', 'Webhook revoked.'))
+			} catch (e) {
+				showError(this.t('hermiq', 'Could not revoke the webhook.'))
+			} finally {
+				this.webhookBusy = false
+			}
+		},
+
+		/**
+		 * Clear the transiently-held plaintext secret once the copy-once dialog is
+		 * dismissed — it is never held in memory longer than needed, and the dialog
+		 * cannot be reopened to re-reveal it (only a fresh create/rotate yields a
+		 * new one).
+		 *
+		 * @return {void}
+		 *
+		 * @spec openspec/changes/agent-webhook-trigger/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-webhook-trigger-in-place-mvp
+		 */
+		closeWebhookSecretDialog() {
+			this.showWebhookSecretDialog = false
+			this.revealedSecret = ''
 		},
 
 		/**

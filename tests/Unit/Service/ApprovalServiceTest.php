@@ -34,6 +34,7 @@ use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\FlowAgentRunService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Service\WebhookAgentRunService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -379,6 +380,106 @@ class ApprovalServiceTest extends TestCase
     }//end testEnsurePendingApprovalForFlowRunDefaultsToAdminGroupWithNoAgentOwner()
 
     /**
+     * ensurePendingApprovalForWebhookRun creates exactly one pending Approval
+     * (idempotent by correlationId) with sourceType=webhook and the stored
+     * webhookContext, routed to the webhook's OWN configured reviewer (not just
+     * the agent owner — the AgentWebhook schema carries its own reviewer/
+     * reviewerType, unlike a flow trigger), and notifies via the webhook-run
+     * delivery path.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+     */
+    public function testEnsurePendingApprovalForWebhookRunCreatesAndNotifies(): void
+    {
+        $this->objectService->method('findAll')->willReturn([]);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                $entity  = new ObjectEntity();
+                $entity->setUuid('appr-webhook-new');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+        $this->deliveryService->expects($this->once())->method('deliverApprovalRequestForWebhookRun');
+
+        $context = [
+            'agentId'          => 'agent-uuid-1',
+            'payload'          => ['event' => 'ping'],
+            'correlationId'    => 'corr-webhook-1',
+            'requiresApproval' => true,
+            'reviewer'         => 'carol',
+            'reviewerType'     => 'user',
+        ];
+
+        $approval = $this->service()->ensurePendingApprovalForWebhookRun($context, 'dave');
+
+        $this->assertCount(1, $saved, 'Exactly one pending Approval must be created.');
+        $this->assertSame('pending', $saved[0]['status']);
+        $this->assertSame('webhook', $saved[0]['sourceType']);
+        $this->assertSame('corr-webhook-1', $saved[0]['correlationId']);
+        $this->assertSame($context, $saved[0]['webhookContext']);
+        $this->assertSame('agent-uuid-1', $saved[0]['agentId']);
+        $this->assertSame('carol', $saved[0]['reviewer'], 'The webhook\'s OWN configured reviewer is used, not the agent owner.');
+        $this->assertSame('user', $saved[0]['reviewerType']);
+        $this->assertSame('appr-webhook-new', $approval->getUuid());
+
+    }//end testEnsurePendingApprovalForWebhookRunCreatesAndNotifies()
+
+    /**
+     * An existing pending Approval for the same correlationId makes
+     * ensurePendingApprovalForWebhookRun a no-op.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+     */
+    public function testEnsurePendingApprovalForWebhookRunIsIdempotent(): void
+    {
+        $existing = $this->approval(['status' => 'pending', 'sourceType' => 'webhook', 'correlationId' => 'corr-webhook-1']);
+        $this->objectService->method('findAll')->willReturn([$existing]);
+
+        $this->objectService->expects($this->never())->method('saveObject');
+        $this->deliveryService->expects($this->never())->method('deliverApprovalRequestForWebhookRun');
+
+        $result = $this->service()->ensurePendingApprovalForWebhookRun(['correlationId' => 'corr-webhook-1'], 'dave');
+
+        $this->assertSame($existing, $result);
+
+    }//end testEnsurePendingApprovalForWebhookRunIsIdempotent()
+
+    /**
+     * With no configured reviewer, the reviewer defaults to the agent owner as
+     * a `user` reviewer — mirrors resolveReviewer()'s identical Schedule fallback.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+     */
+    public function testEnsurePendingApprovalForWebhookRunDefaultsToAgentOwnerWithNoConfiguredReviewer(): void
+    {
+        $this->objectService->method('findAll')->willReturn([]);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service()->ensurePendingApprovalForWebhookRun(['correlationId' => 'corr-webhook-2', 'reviewer' => ''], 'dave');
+
+        $this->assertSame('dave', $saved[0]['reviewer']);
+        $this->assertSame('user', $saved[0]['reviewerType']);
+
+    }//end testEnsurePendingApprovalForWebhookRunDefaultsToAgentOwnerWithNoConfiguredReviewer()
+
+    /**
      * isReviewer: the reviewer user is admitted; a different non-admin user (incl. the
      * owner when owner != reviewer) is refused; an instance admin is always admitted.
      *
@@ -524,6 +625,53 @@ class ApprovalServiceTest extends TestCase
         $this->assertSame('approved', $saved[0]['status']);
 
     }//end testApproveFlowSourceTypeRunsFlowAgentRunServiceBypassed()
+
+    /**
+     * approve on a sourceType=webhook Approval resumes via
+     * WebhookAgentRunService::run() with the approval gate bypassed — the
+     * webhook-run counterpart to testApproveFlowSourceTypeRunsFlowAgentRunServiceBypassed.
+     * It does NOT touch ScheduleService::runNow() or FlowAgentRunService::run().
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+     */
+    public function testApproveWebhookSourceTypeRunsWebhookAgentRunServiceBypassed(): void
+    {
+        $webhookContext = ['agentId' => 'agent-uuid-1', 'payload' => ['event' => 'ping'], 'correlationId' => 'corr-webhook-1'];
+        $approval       = $this->approval(
+            [
+                'status'         => 'pending',
+                'sourceType'     => 'webhook',
+                'correlationId'  => 'corr-webhook-1',
+                'webhookContext' => $webhookContext,
+                'reviewer'       => 'carol',
+                'reviewerType'   => 'user',
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $webhookAgentRunService = $this->createMock(WebhookAgentRunService::class);
+        $webhookAgentRunService->expects($this->once())
+            ->method('run')
+            ->with($webhookContext, true)
+            ->willReturn(true);
+        $this->container->method('get')->willReturn($webhookAgentRunService);
+
+        $result = $this->service()->approve($approval, 'carol');
+
+        $this->assertSame('approved', $result['status']);
+        $this->assertTrue($result['ran'], 'Approving a webhook-run must run the gated agent turn.');
+        $this->assertSame('approved', $saved[0]['status']);
+
+    }//end testApproveWebhookSourceTypeRunsWebhookAgentRunServiceBypassed()
 
     /**
      * deny transitions the Approval to denied with a reason and never runs.
