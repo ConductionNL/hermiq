@@ -42,10 +42,13 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * CRUD + export/import/quarantine/approve + instantiate for AgentTemplate objects.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) The gallery lifecycle spans template CRUD,
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   The gallery lifecycle spans template CRUD,
  * package (de)serialisation, content scanning (OR ContentScanService), model-policy coercion
  * (TenantModelPolicyService), and best-effort skill-ref resolution (SkillService); each
  * dependency is one lifecycle stage, exactly as SkillMarketplaceService's coupling mirrors.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small, single-purpose CRUD/
+ * export/import/quarantine/instantiate methods (mirrors ScheduleService/TenantOpsService's
+ * documented coordinator-service pattern) — no individual method is itself complex.
  *
  * @spec openspec/changes/agent-template-gallery/tasks.md#task-3-agenttemplateservice-export-import-quarantine-approve
  */
@@ -346,12 +349,18 @@ class AgentTemplateService
             $data['state']            = 'active';
             $data['quarantineReason'] = null;
             $data['scanReport']       = null;
-        } else {
-            $scan          = $this->scanSystemPrompt(systemPrompt: $parsed['systemPrompt']);
-            $data['state'] = 'quarantined';
-            $data['quarantineReason'] = $this->quarantineReasonFor(source: $source, scan: $scan);
-            $data['scanReport']       = $scan;
+
+            return $this->objectService->saveObject(
+                object: $this->sanitizeForSave(data: $data),
+                register: self::REGISTER_SLUG,
+                schema: self::TEMPLATE_SCHEMA
+            );
         }
+
+        $scan          = $this->scanSystemPrompt(systemPrompt: $parsed['systemPrompt']);
+        $data['state'] = 'quarantined';
+        $data['quarantineReason'] = $this->quarantineReasonFor(source: $source, scan: $scan);
+        $data['scanReport']       = $scan;
 
         return $this->objectService->saveObject(
             object: $this->sanitizeForSave(data: $data),
@@ -580,9 +589,10 @@ class AgentTemplateService
 
             if ($skill !== null && $state === 'active') {
                 $install[] = $skillId;
-            } else {
-                $unresolved[] = ['skillId' => $skillId, 'name' => $name];
+                continue;
             }
+
+            $unresolved[] = ['skillId' => $skillId, 'name' => $name];
         }//end foreach
 
         return [$install, $unresolved];
