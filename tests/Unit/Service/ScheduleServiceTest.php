@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
@@ -3099,4 +3100,378 @@ class ScheduleServiceTest extends TestCase
         $this->assertSame('do the thing', $scheduleSave['prompt']);
 
     }//end testPauseForUserDoesNotAlterInProgressRunFields()
+
+    /**
+     * A basic engine-enabled schedule fixture for the run-replay-and-dry-run
+     * tests below (dryRunNow()/replayRun() both require the engine flag on).
+     *
+     * @param array<string,mixed> $overrides Payload fields to override/add.
+     *
+     * @return ObjectEntity
+     */
+    private function engineEnabledSchedule(array $overrides=[]): ObjectEntity
+    {
+        return $this->schedule(
+            array_merge(
+                [
+                    'kind'     => 'once',
+                    'agentId'  => 'agent-uuid',
+                    'prompt'   => 'current schedule prompt',
+                    'deliver'  => 'none',
+                    'enabled'  => true,
+                    'nextRun'  => '2020-01-01T00:00:00+00:00',
+                    'repeat'   => ['times' => 1, 'completed' => 0],
+                ],
+                $overrides
+            ),
+            'dryrun-sched'
+        );
+
+    }//end engineEnabledSchedule()
+
+    /**
+     * Wire the engine-flag-ON collaborators (agent resolves as an ObjectEntity,
+     * the in-app Engine mock returns a canned envelope, saveObject captures
+     * every write by schema) shared by the run-replay-and-dry-run tests below.
+     *
+     * @param array<string,mixed>            $engineResult  The Engine::processMessage() return envelope.
+     * @param array<int, ObjectEntity>       $findAllReturn What `ObjectService::findAll()` returns
+     *                                                      (kill-switch load + dry-run message
+     *                                                      cleanup lookup) — defaults to none engaged,
+     *                                                      no messages.
+     *
+     * @return array<int, array<string,mixed>> A reference array `$saved` populated by every
+     *                                          `saveObject()` call (`['object' => ..., 'schema' => ...]`).
+     */
+    private function wireEngineEnabled(array $engineResult, array $findAllReturn=[]): array
+    {
+        $this->appConfig = $this->createMock(IAppConfig::class);
+        $this->appConfig->method('getValueString')->willReturn('true');
+
+        $this->engine = $this->createMock(Engine::class);
+        $this->engine->method('processMessage')->willReturn($engineResult);
+
+        $agentObject = new ObjectEntity();
+        $agentObject->setUuid('agent-uuid');
+        $agentObject->setObject(['name' => 'Scheduled agent']);
+        $this->objectService->method('find')->willReturn($agentObject);
+        $this->objectService->method('findAll')->willReturn($findAllReturn);
+        $this->objectService->method('deleteObject')->willReturn(true);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (mixed $object, ?array $extend=null, mixed $register=null, mixed $schema=null) use (&$saved): ObjectEntity {
+                $saved[] = ['object' => $object, 'schema' => (string) $schema];
+                $entity  = new ObjectEntity();
+                $entity->setUuid('conv-uuid-1');
+                return $entity;
+            }
+        );
+
+        $this->service = $this->makeService();
+
+        return $saved;
+
+    }//end wireEngineEnabled()
+
+    /**
+     * Dry-run refuses with `EngineRequiredException` when `hermiq.engine.enabled`
+     * is off (the default) — the agent is never run.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
+     */
+    public function testDryRunNowThrowsWhenEngineDisabled(): void
+    {
+        $this->chatService->expects($this->never())->method('processMessage');
+
+        $this->expectException(EngineRequiredException::class);
+        $this->service->dryRunNow(schedule: $this->engineEnabledSchedule());
+
+    }//end testDryRunNowThrowsWhenEngineDisabled()
+
+    /**
+     * A kill-switch-engaged organisation blocks dryRunNow() with `skipped_killswitch`
+     * — identical to a real run's gate — and the agent never runs.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
+     */
+    public function testDryRunNowBlockedByKillSwitch(): void
+    {
+        $control = new ObjectEntity();
+        $control->setObject(['engaged' => true]);
+        $control->setOrganisation('org-halted');
+
+        $this->wireEngineEnabled(['message' => 'unused'], [$control]);
+        $this->engine->expects($this->never())->method('processMessage');
+
+        $schedule = $this->engineEnabledSchedule();
+        $schedule->setOrganisation('org-halted');
+
+        $result = $this->service->dryRunNow(schedule: $schedule);
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('skipped_killswitch', $result['gate']);
+
+    }//end testDryRunNowBlockedByKillSwitch()
+
+    /**
+     * A budget-exhausted organisation blocks dryRunNow() with `skipped_budget`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
+     */
+    public function testDryRunNowBlockedByBudget(): void
+    {
+        $this->wireEngineEnabled(['message' => 'unused']);
+        $this->engine->expects($this->never())->method('processMessage');
+
+        $this->budgetService = $this->createMock(BudgetService::class);
+        $this->budgetService->method('isBlocked')->willReturn(true);
+        $this->service = $this->makeService();
+
+        $result = $this->service->dryRunNow(schedule: $this->engineEnabledSchedule());
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('skipped_budget', $result['gate']);
+
+    }//end testDryRunNowBlockedByBudget()
+
+    /**
+     * A schedule with `requiresApproval=true` blocks dryRunNow() with
+     * `awaiting_approval` and, critically, never creates a new pending
+     * `Approval` object as a side effect of the preview attempt.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
+     */
+    public function testDryRunNowBlockedByApprovalRequiredWithoutCreatingApproval(): void
+    {
+        $this->wireEngineEnabled(['message' => 'unused']);
+        $this->engine->expects($this->never())->method('processMessage');
+        $this->approvalService->expects($this->never())->method('ensurePendingApproval');
+
+        $result = $this->service->dryRunNow(schedule: $this->engineEnabledSchedule(['requiresApproval' => true]));
+
+        $this->assertSame('blocked', $result['status']);
+        $this->assertSame('awaiting_approval', $result['gate']);
+
+    }//end testDryRunNowBlockedByApprovalRequiredWithoutCreatingApproval()
+
+    /**
+     * A passing dry-run writes an `action='run'` audit entry marked
+     * `dryRun: true` with the exact prompt used, and NEVER writes the
+     * schedule object itself — `nextRun`/`repeat`/`enabled` are untouched.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
+     */
+    public function testDryRunNowWritesMarkedAuditEntryAndDoesNotMutateSchedule(): void
+    {
+        $saved = $this->wireEngineEnabled(['message' => 'preview output']);
+
+        $result = $this->service->dryRunNow(schedule: $this->engineEnabledSchedule());
+
+        $this->assertSame('ok', $result['status']);
+        $this->assertCount(1, $this->auditCalls);
+        $this->assertTrue($this->auditCalls[0]['context']['dryRun']);
+        $this->assertNull($this->auditCalls[0]['context']['replayOf']);
+        $this->assertSame('current schedule prompt', $this->auditCalls[0]['context']['prompt']);
+
+        foreach ($saved as $call) {
+            $this->assertNotSame('schedule', $call['schema'], 'dryRunNow() must never write the schedule object itself.');
+        }
+
+    }//end testDryRunNowWritesMarkedAuditEntryAndDoesNotMutateSchedule()
+
+    /**
+     * A dry-run's scratch Conversation is deleted once the turn completes
+     * (run-replay-and-dry-run) — the ONE durable artifact of a dry-run is its
+     * audit entry.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testDryRunNowDeletesScratchConversation(): void
+    {
+        $this->wireEngineEnabled(['message' => 'preview output']);
+
+        $deleted = [];
+        $this->objectService->method('deleteObject')->willReturnCallback(
+            function (string $uuid, mixed $register=null, mixed $schema=null) use (&$deleted): bool {
+                $deleted[] = ['uuid' => $uuid, 'schema' => (string) $schema];
+                return true;
+            }
+        );
+        $this->service = $this->makeService();
+
+        $this->service->dryRunNow(schedule: $this->engineEnabledSchedule());
+
+        $conversationDeletes = array_filter($deleted, static fn (array $d): bool => $d['schema'] === 'conversation');
+        $this->assertCount(1, $conversationDeletes);
+
+    }//end testDryRunNowDeletesScratchConversation()
+
+    /**
+     * Replaying a run whose audit entry carries no persisted `prompt` (a run
+     * recorded before this change shipped) is refused cleanly, never a crash.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    public function testReplayRunRefusesWhenOriginalPromptMissing(): void
+    {
+        $this->wireEngineEnabled(['message' => 'unused']);
+        $this->engine->expects($this->never())->method('processMessage');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('not available for replay');
+        $this->service->replayRun(
+            schedule: $this->engineEnabledSchedule(),
+            runId: 'run-1',
+            originalTrace: ['status' => 'ok', 'steps' => [], 'summary' => 'x']
+        );
+
+    }//end testReplayRunRefusesWhenOriginalPromptMissing()
+
+    /**
+     * Replay uses the ORIGINAL run's recorded prompt, not the schedule's
+     * current (possibly since-edited) `prompt` field, and marks the audit
+     * entry with `replayOf`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    public function testReplayRunUsesOriginalPromptNotCurrentScheduleField(): void
+    {
+        $this->wireEngineEnabled(['message' => 'replay output']);
+
+        $capturedPrompt = null;
+        $this->engine   = $this->createMock(Engine::class);
+        $this->engine->method('processMessage')->willReturnCallback(
+            function (string $conversationId, string $userId, string $userMessage) use (&$capturedPrompt): array {
+                $capturedPrompt = $userMessage;
+                return ['message' => 'replay output'];
+            }
+        );
+        $this->service = $this->makeService();
+
+        $result = $this->service->replayRun(
+            schedule: $this->engineEnabledSchedule(['prompt' => 'EDITED schedule prompt']),
+            runId: 'run-1',
+            originalTrace: ['status' => 'ok', 'steps' => [], 'summary' => 'original output', 'prompt' => 'ORIGINAL prompt text']
+        );
+
+        $this->assertSame('ORIGINAL prompt text', $capturedPrompt);
+        $this->assertSame('run-1', $result['replayOf']);
+        $this->assertCount(1, $this->auditCalls);
+        $this->assertSame('run-1', $this->auditCalls[0]['context']['replayOf']);
+        $this->assertSame('ORIGINAL prompt text', $this->auditCalls[0]['context']['prompt']);
+
+    }//end testReplayRunUsesOriginalPromptNotCurrentScheduleField()
+
+    /**
+     * The replay diff reports a changed tool sequence position-by-position
+     * when the replay's tool calls differ from the original's.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    public function testReplayRunDiffDetectsChangedToolSequence(): void
+    {
+        $this->wireEngineEnabled(
+            [
+                'message' => 'replay output',
+            ]
+        );
+        $this->engine = $this->createMock(Engine::class);
+        $this->engine->method('processMessage')->willReturnCallback(
+            function (string $conversationId, string $userId, string $userMessage, array $selectedViews=[], array $selectedTools=[], array $ragSettings=[], array $context=[], $channel=null, $trace=null): array {
+                $trace?->startStep(type: 'context', name: 'Context retrieval');
+                $token = $trace?->startStep(type: 'tool', name: 'app.a');
+                $trace?->endStep(token: $token, outcome: 'ok');
+                $token = $trace?->startStep(type: 'tool', name: 'app.c');
+                $trace?->endStep(token: $token, outcome: 'would-have-called');
+                return ['message' => 'replay output'];
+            }
+        );
+        $this->service = $this->makeService();
+
+        $result = $this->service->replayRun(
+            schedule: $this->engineEnabledSchedule(),
+            runId: 'run-1',
+            originalTrace: [
+                'status'  => 'ok',
+                'steps'   => [
+                    ['seq' => 0, 'type' => 'tool', 'name' => 'app.a', 'outcome' => 'ok'],
+                    ['seq' => 1, 'type' => 'tool', 'name' => 'app.b', 'outcome' => 'ok'],
+                ],
+                'summary' => 'original output',
+                'prompt'  => 'ORIGINAL prompt text',
+            ]
+        );
+
+        $this->assertFalse($result['diff']['toolSequenceMatches']);
+        $this->assertTrue($result['diff']['toolCalls'][0]['match']);
+        $this->assertSame('app.a', $result['diff']['toolCalls'][0]['original']);
+        $this->assertFalse($result['diff']['toolCalls'][1]['match']);
+        $this->assertSame('app.b', $result['diff']['toolCalls'][1]['original']);
+        $this->assertSame('app.c', $result['diff']['toolCalls'][1]['replay']);
+        $this->assertTrue($result['diff']['outputChanged']);
+
+    }//end testReplayRunDiffDetectsChangedToolSequence()
+
+    /**
+     * A normal (real, non-dry-run) run's audit entry now also persists the
+     * exact prompt used — additive, so replay of a real run is possible.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     */
+    public function testRealRunAuditEntryPersistsPromptAndDryRunFalse(): void
+    {
+        $due = [
+            $this->schedule(
+                [
+                    'kind'    => 'once',
+                    'agentId' => 'agent-1',
+                    'prompt'  => 'go do the thing',
+                    'deliver' => 'none',
+                    'enabled' => true,
+                    'nextRun' => '2020-01-01T00:00:00+00:00',
+                    'repeat'  => ['times' => 0, 'completed' => 0],
+                ],
+                'real-run-sched'
+            ),
+        ];
+        $this->objectService->method('findAll')->willReturn($due);
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null): ObjectEntity {
+                $entity = new ObjectEntity();
+                $entity->setUuid($uuid ?? 'x');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $this->service->run();
+
+        $this->assertCount(1, $this->auditCalls);
+        $this->assertFalse($this->auditCalls[0]['context']['dryRun']);
+        $this->assertNull($this->auditCalls[0]['context']['replayOf']);
+        $this->assertSame('go do the thing', $this->auditCalls[0]['context']['prompt']);
+
+    }//end testRealRunAuditEntryPersistsPromptAndDryRunFalse()
 }//end class

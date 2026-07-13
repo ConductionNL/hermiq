@@ -693,4 +693,66 @@ class EngineTest extends TestCase
         $this->assertSame([], $result['steps']);
 
     }//end testProcessMessageWithoutCollectorReturnsEmptySteps()
+
+    /**
+     * `processMessage(..., dryRun: true)` threads the flag onto
+     * `ResponseGenerationHandler::generateResponse()` (run-replay-and-dry-run);
+     * omitting it (every pre-existing caller) defaults to false.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testProcessMessageThreadsDryRunToResponseHandler(): void
+    {
+        $conversation = $this->entity('conv-1', ['userId' => 'alice']);
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('setRegister')->willReturnSelf();
+        $objectService->method('setSchema')->willReturnSelf();
+        $objectService->method('find')->willReturn($conversation);
+        $objectService->method('findAll')->willReturn([1, 2, 3]);
+
+        $contextHandler = $this->createMock(ContextRetrievalHandler::class);
+        $contextHandler->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
+
+        $receivedDryRun  = null;
+        $responseHandler = $this->createMock(ResponseGenerationHandler::class);
+        $responseHandler->method('generateResponse')->willReturnCallback(
+            function (
+                string $userMessage,
+                array $context,
+                array $messageHistory,
+                ?ObjectEntity $agent,
+                array $selectedTools,
+                $channel,
+                array $cnAiContext,
+                string $contextPreamble,
+                $trace,
+                bool $dryRun
+            ) use (&$receivedDryRun): string {
+                $receivedDryRun = $dryRun;
+                return 'Hi there!';
+            }
+        );
+        $responseHandler->lastUsage = [];
+
+        $conversationHandler = $this->createMock(ConversationManagementHandler::class);
+        $historyHandler      = $this->createMock(MessageHistoryHandler::class);
+        $historyHandler->method('storeMessage')->willReturn($this->entity('msg-1', []));
+        $historyHandler->method('buildMessageHistory')->willReturn([]);
+
+        $engine = $this->engine(
+            $objectService,
+            $contextHandler,
+            $responseHandler,
+            $conversationHandler,
+            $historyHandler
+        );
+
+        $engine->processMessage(conversationId: 'conv-1', userId: 'alice', userMessage: 'Hi', dryRun: true);
+
+        $this->assertTrue($receivedDryRun);
+
+    }//end testProcessMessageThreadsDryRunToResponseHandler()
 }//end class

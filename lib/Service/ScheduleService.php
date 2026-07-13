@@ -120,6 +120,15 @@ class ScheduleService
     private const CONVERSATION_SCHEMA = 'conversation';
 
     /**
+     * OpenRegister schema slug for message objects (run-replay-and-dry-run:
+     * deleted, along with their scratch conversation, once a dry-run turn
+     * completes).
+     *
+     * @var string
+     */
+    private const MESSAGE_SCHEMA = 'message';
+
+    /**
      * IAppConfig key (app `hermiq`) gating which engine runAgentAsOwner()
      * calls: 'true' routes through the in-app Engine facade against
      * hermiq-register objects; anything else (default 'false') keeps the
@@ -798,6 +807,299 @@ class ScheduleService
     }//end dispatch()
 
     /**
+     * Evaluate the kill-switch/budget-hard-cap/approval-required gates for a
+     * schedule WITHOUT mutating any schedule state or creating a pending
+     * `Approval` — the read-only counterpart of `dispatch()`'s three gates
+     * (run-replay-and-dry-run), reused by `dryRunNow()`/`replayRun()` so a
+     * preview is blocked identically to a real run without side-effecting the
+     * schedule's own cadence or approval queue. The SAME order, the SAME
+     * underlying checks (`isOrganisationEngaged()`, `BudgetService::isBlocked()`,
+     * `requiresApproval`) `dispatch()` uses — extracted, not duplicated.
+     *
+     * Deliberately omits `dispatch()`'s `BudgetService::checkAndDeliverWarnings()`
+     * soft-threshold notification call: that delivers an organisation-level
+     * notification independent of the schedule itself, and firing it on every
+     * dry-run click would be notification spam rather than a governance gate —
+     * the hard-cap block below is unaffected either way.
+     *
+     * @param ObjectEntity $schedule The schedule to evaluate.
+     *
+     * @return string|null One of `skipped_killswitch`|`skipped_budget`|`awaiting_approval`
+     *                      when a gate blocks the run, or null when every gate passes.
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
+     */
+    private function evaluateGates(ObjectEntity $schedule): ?string
+    {
+        $data         = $schedule->getObject();
+        $organisation = (string) ($schedule->getOrganisation() ?? '');
+        $agentId      = (string) ($data['agentId'] ?? '');
+
+        if ($this->isOrganisationEngaged(organisation: $organisation) === true) {
+            return 'skipped_killswitch';
+        }
+
+        if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
+            return 'skipped_budget';
+        }
+
+        if (($data['requiresApproval'] ?? false) === true) {
+            return 'awaiting_approval';
+        }
+
+        return null;
+
+    }//end evaluateGates()
+
+    /**
+     * Preview a schedule's agent run as a dry-run (run-replay-and-dry-run):
+     * the SAME governance gates as a real run apply (`evaluateGates()`), but on
+     * pass the schedule's `nextRun`/`repeat`/`enabled` state is NEVER mutated
+     * and no `Approval` is created — a preview must be repeatable without
+     * affecting the schedule's real cadence.
+     *
+     * @param ObjectEntity $schedule The schedule to preview.
+     *
+     * @return array{status:string,gate?:string,error?:?string,steps?:array<int,array<string,mixed>>,summary?:string}
+     *         `{status: 'blocked', gate: ...}` when a governance gate refused the
+     *         preview, otherwise `{status: 'ok'|'error', error, steps, summary}`.
+     *
+     * @throws EngineRequiredException When `hermiq.engine.enabled` is off.
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
+     */
+    public function dryRunNow(ObjectEntity $schedule): array
+    {
+        if ($this->isEngineEnabled() === false) {
+            throw new EngineRequiredException();
+        }
+
+        $gate = $this->evaluateGates(schedule: $schedule);
+        if ($gate !== null) {
+            return ['status' => 'blocked', 'gate' => $gate];
+        }
+
+        $data      = $schedule->getObject();
+        $prompt    = (string) ($data['prompt'] ?? '');
+        $startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        $this->lastRunUsage  = [];
+        $this->lastRunSteps  = [];
+        $this->lastRunAsUser = (string) ($schedule->getOwner() ?? '');
+
+        $status  = 'ok';
+        $summary = '';
+        try {
+            $summary = $this->runAgentAsOwner(
+                owner: (string) ($schedule->getOwner() ?? ''),
+                agentId: (string) ($data['agentId'] ?? ''),
+                prompt: $prompt,
+                organisation: (string) ($schedule->getOrganisation() ?? ''),
+                dryRun: true
+            );
+        } catch (Throwable $e) {
+            $status  = 'error';
+            $summary = 'error: '.$e->getMessage();
+        }
+
+        // Snapshot for the audit entry's own `status` field WITHOUT persisting
+        // it — dryRunNow() must never mutate the schedule itself (spec).
+        $auditData = $data;
+        $auditData['lastStatus'] = $status;
+
+        $this->writeRunAudit(schedule: $schedule, data: $auditData, summary: $summary, startedAt: $startedAt, attempt: 1, dryRun: true);
+
+        $error = null;
+        if ($status === 'error') {
+            $error = $summary;
+        }
+
+        return [
+            'status'  => $status,
+            'error'   => $error,
+            'steps'   => $this->lastRunSteps,
+            'summary' => $this->redactionService->redact($summary),
+        ];
+
+    }//end dryRunNow()
+
+    /**
+     * Replay a past run's exact recorded prompt as a fresh dry-run and diff
+     * the outcome against the original run's recorded trace
+     * (run-replay-and-dry-run). Always executes as a dry-run — a replay never
+     * actually invokes a side-effecting tool, identical to `dryRunNow()`.
+     *
+     * @param ObjectEntity        $schedule      The schedule owning the run to replay.
+     * @param string              $runId         The original run's AuditTrail UUID.
+     * @param array<string,mixed> $originalTrace The original run's already-fetched trace
+     *                                           (`RunHistoryService::getRunTrace()`'s
+     *                                           return shape) — the caller (the
+     *                                           controller) already reads this to apply
+     *                                           its own 404/anti-probing checks, so it is
+     *                                           passed in rather than re-read here.
+     *
+     * @return array{status:string,gate?:string,scheduleId?:string,replayOf?:string,original?:array<string,mixed>,replay?:array<string,mixed>,diff?:array<string,mixed>}
+     *         `{status: 'blocked', gate: ...}` when a governance gate refused the
+     *         replay, otherwise the full original/replay/diff payload.
+     *
+     * @throws EngineRequiredException When `hermiq.engine.enabled` is off.
+     * @throws RuntimeException        When the original run's prompt was never persisted
+     *                                 (a run recorded before this change shipped).
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    public function replayRun(ObjectEntity $schedule, string $runId, array $originalTrace): array
+    {
+        if ($this->isEngineEnabled() === false) {
+            throw new EngineRequiredException('Replay requires the in-app agent engine. Enable the engine.enabled feature flag first.');
+        }
+
+        $originalPrompt = ($originalTrace['prompt'] ?? null);
+        if (is_string($originalPrompt) === false || $originalPrompt === '') {
+            throw new RuntimeException('This run is not available for replay — it was recorded before replay support shipped.');
+        }
+
+        $gate = $this->evaluateGates(schedule: $schedule);
+        if ($gate !== null) {
+            return ['status' => 'blocked', 'gate' => $gate];
+        }
+
+        $data      = $schedule->getObject();
+        $startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        $this->lastRunUsage  = [];
+        $this->lastRunSteps  = [];
+        $this->lastRunAsUser = (string) ($schedule->getOwner() ?? '');
+
+        $status  = 'ok';
+        $summary = '';
+        try {
+            $summary = $this->runAgentAsOwner(
+                owner: (string) ($schedule->getOwner() ?? ''),
+                agentId: (string) ($data['agentId'] ?? ''),
+                prompt: $originalPrompt,
+                organisation: (string) ($schedule->getOrganisation() ?? ''),
+                dryRun: true
+            );
+        } catch (Throwable $e) {
+            $status  = 'error';
+            $summary = 'error: '.$e->getMessage();
+        }
+
+        $auditData = $data;
+        $auditData['lastStatus'] = $status;
+
+        $this->writeRunAudit(
+            schedule: $schedule,
+            data: $auditData,
+            summary: $summary,
+            startedAt: $startedAt,
+            attempt: 1,
+            dryRun: true,
+            replayOf: $runId,
+            promptOverride: $originalPrompt
+        );
+
+        $redactedReplaySummary   = $this->redactionService->redact($summary);
+        $redactedOriginalSummary = (string) ($originalTrace['summary'] ?? '');
+
+        return [
+            'status'     => $status,
+            'scheduleId' => (string) $schedule->getUuid(),
+            'replayOf'   => $runId,
+            'original'   => [
+                'status'  => ($originalTrace['status'] ?? null),
+                'steps'   => ($originalTrace['steps'] ?? []),
+                'summary' => ($originalTrace['summary'] ?? null),
+            ],
+            'replay'     => [
+                'status'  => $status,
+                'steps'   => $this->lastRunSteps,
+                'summary' => $redactedReplaySummary,
+            ],
+            'diff'       => $this->diffTrace(
+                originalSteps: ($originalTrace['steps'] ?? []),
+                replaySteps: $this->lastRunSteps,
+                originalSummary: $redactedOriginalSummary,
+                replaySummary: $redactedReplaySummary
+            ),
+        ];
+
+    }//end replayRun()
+
+    /**
+     * Diff a replay's step timeline against the original run's, by tool-call
+     * POSITION (run-replay-and-dry-run) — the ORIGINAL run's real tool
+     * arguments/results were never persisted (`run-trace-observability` Risk
+     * 4), so only the tool-NAME sequence and the final output text can be
+     * compared, never a byte-for-byte replay of the original invocations.
+     *
+     * @param array<int,array<string,mixed>> $originalSteps   The original run's step timeline.
+     * @param array<int,array<string,mixed>> $replaySteps     The replay's step timeline.
+     * @param string                         $originalSummary The original run's redacted summary.
+     * @param string                         $replaySummary   The replay's redacted summary.
+     *
+     * @return array{toolSequenceMatches:bool,toolCalls:array<int,array{seq:int,original:?string,replay:?string,match:bool}>,outputChanged:bool}
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    private function diffTrace(array $originalSteps, array $replaySteps, string $originalSummary, string $replaySummary): array
+    {
+        $originalToolNames = $this->toolStepNames(steps: $originalSteps);
+        $replayToolNames   = $this->toolStepNames(steps: $replaySteps);
+
+        $count     = max(count($originalToolNames), count($replayToolNames));
+        $toolCalls = [];
+        $allMatch  = true;
+        for ($i = 0; $i < $count; $i++) {
+            $originalName = ($originalToolNames[$i] ?? null);
+            $replayName   = ($replayToolNames[$i] ?? null);
+            $match        = ($originalName !== null && $originalName === $replayName);
+            if ($match === false) {
+                $allMatch = false;
+            }
+
+            $toolCalls[] = [
+                'seq'      => $i,
+                'original' => $originalName,
+                'replay'   => $replayName,
+                'match'    => $match,
+            ];
+        }
+
+        return [
+            'toolSequenceMatches' => $allMatch,
+            'toolCalls'           => $toolCalls,
+            'outputChanged'       => ($originalSummary !== $replaySummary),
+        ];
+
+    }//end diffTrace()
+
+    /**
+     * Extract the ordered `tool`-type step names from a step timeline
+     * (run-replay-and-dry-run), for the position-by-position replay diff.
+     *
+     * @param array<int,array<string,mixed>> $steps The step timeline.
+     *
+     * @return array<int,string> The tool names, in timeline order.
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    private function toolStepNames(array $steps): array
+    {
+        $names = [];
+        foreach ($steps as $step) {
+            if (is_array($step) === true && ($step['type'] ?? null) === 'tool') {
+                $names[] = (string) ($step['name'] ?? '');
+            }
+        }
+
+        return $names;
+
+    }//end toolStepNames()
+
+    /**
      * Record a gate skip: advance nextRun, set the gate status, persist, and audit.
      *
      * A gated/halted occurrence does NOT consume the repeat counter and does NOT
@@ -1246,21 +1548,43 @@ class ScheduleService
      * never fails the run (the dispatcher's own ObjectService saves already leave
      * auto-audit traces regardless).
      *
-     * @param ObjectEntity        $schedule  The schedule that ran.
-     * @param array<string,mixed> $data      The finalised schedule payload (status/agentId).
-     * @param string              $summary   The raw run output / error (redacted here).
-     * @param DateTimeImmutable   $startedAt When the agent turn began (UTC).
-     * @param int                 $attempt   The attempt number for this occurrence (1 for a
-     *                                       fresh/non-retry run; 2+ for a retry — run-reliability).
+     * @param ObjectEntity        $schedule       The schedule that ran.
+     * @param array<string,mixed> $data           The finalised schedule payload (status/agentId).
+     * @param string              $summary        The raw run output / error (redacted here).
+     * @param DateTimeImmutable   $startedAt      When the agent turn began (UTC).
+     * @param int                 $attempt        The attempt number for this occurrence (1 for a
+     *                                            fresh/non-retry run; 2+ for a retry — run-reliability).
+     * @param bool                $dryRun         Whether this entry records a dry-run/replay preview
+     *                                            (run-replay-and-dry-run) rather than a real run. False
+     *                                            (every pre-existing caller) is byte-for-byte unchanged.
+     * @param string|null         $replayOf       The original run's AuditTrail UUID, when this entry
+     *                                            records a replay (run-replay-and-dry-run). Null for a
+     *                                            real run or a direct (non-replay) dry-run.
+     * @param string|null         $promptOverride The EXACT prompt text actually used for this run, when
+     *                                            it differs from `$data['prompt']` (run-replay-and-dry-run
+     *                                            replay: the original run's recorded prompt, not the
+     *                                            schedule's current, possibly-since-edited one). Null (every
+     *                                            pre-existing caller) reads `$data['prompt']` instead — the
+     *                                            prompt that WAS actually used for a real run/direct dry-run.
      *
-     * @return void
+     * @return string|null The newly-written entry's UUID, or null when the write failed
+     *                      (never fatal — see below).
      *
      * @spec openspec/changes/run-audit-log/tasks.md#task-2-2
      * @spec openspec/changes/run-audit-log/tasks.md#task-2-3
      * @spec openspec/changes/run-reliability/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-lettercircuit-breaker-outcomes-mvp
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
-    private function writeRunAudit(ObjectEntity $schedule, array $data, string $summary, DateTimeImmutable $startedAt, int $attempt=1): void
-    {
+    private function writeRunAudit(
+        ObjectEntity $schedule,
+        array $data,
+        string $summary,
+        DateTimeImmutable $startedAt,
+        int $attempt=1,
+        bool $dryRun=false,
+        ?string $replayOf=null,
+        ?string $promptOverride=null
+    ): ?string {
         try {
             $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
             $agentId = (string) ($data['agentId'] ?? '');
@@ -1290,13 +1614,25 @@ class ScheduleService
                 // this occurrence, captured at write time (null when unresolvable —
                 // never fatal to the run).
                 'agentVersion'       => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+                // Run-replay-and-dry-run: the exact prompt text used for THIS run,
+                // persisted so a later replay is unaffected by any subsequent edit to
+                // the schedule's own `prompt` field — recorded for every run (real,
+                // dry-run, or replay), not only previews.
+                'prompt'             => ($promptOverride ?? (string) ($data['prompt'] ?? '')),
+                // Run-replay-and-dry-run: a dry-run/replay preview is ALWAYS clearly
+                // marked so it can never be mistaken for a real run in run history or
+                // counted in AnalyticsService's status/success-rate breakdown.
+                'dryRun'             => $dryRun,
+                'replayOf'           => $replayOf,
             ];
 
-            $this->auditTrailMapper->createAuditTrailEntry(
+            $entry = $this->auditTrailMapper->createAuditTrailEntry(
                 object: $schedule,
                 action: 'run',
                 context: $context
             );
+
+            return (string) ($entry->getUuid() ?? '');
         } catch (Throwable $e) {
             $this->logger->warning(
                 sprintf(
@@ -1306,6 +1642,8 @@ class ScheduleService
                 ),
                 ['exception' => $e]
             );
+
+            return null;
         }//end try
 
     }//end writeRunAudit()
@@ -1505,10 +1843,21 @@ class ScheduleService
      *                             defense-in-depth output filter applied to BOTH
      *                             branches' result before it reaches this method's
      *                             single return point.
+     * @param bool   $dryRun       Whether this run is a dry-run preview
+     *                             (run-replay-and-dry-run): side-effecting tool calls are
+     *                             neutralised instead of actually invoked. Requires the
+     *                             in-app Engine path (`hermiq.engine.enabled=true`) —
+     *                             throws `EngineRequiredException` otherwise, since
+     *                             dry-run's entire mechanism depends on
+     *                             `FacadeToolInvoker`, which only exists on that path.
+     *                             False (every pre-existing caller) is byte-for-byte
+     *                             unchanged behavior.
      *
      * @return string The agent's response text (already output-filtered).
      *
      * @throws RuntimeException           When the owner or agent cannot be resolved.
+     * @throws EngineRequiredException    When `$dryRun` is true and the in-app engine
+     *                                    feature flag is off (run-replay-and-dry-run).
      * @throws GuardrailBlockedException  When the effective GuardrailPolicy's input
      *                                    filter refuses the prompt (legacy branch only —
      *                                    the Engine branch throws this internally,
@@ -1519,9 +1868,17 @@ class ScheduleService
      * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
      * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-2
      * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
      */
-    public function runAgentAsOwner(string $owner, string $agentId, string $prompt, string $organisation=''): string
+    public function runAgentAsOwner(string $owner, string $agentId, string $prompt, string $organisation='', bool $dryRun=false): string
     {
+        // Run-replay-and-dry-run: dry-run's tool-call interception depends entirely
+        // on the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and
+        // BEFORE any impersonation/LLM call, rather than silently running for real.
+        if ($dryRun === true && $this->isEngineEnabled() === false) {
+            throw new EngineRequiredException();
+        }
+
         // Reset per-run usage/steps so a failed run never records the previous run's
         // tokens or step timeline.
         $this->lastRunUsage  = [];
@@ -1561,7 +1918,7 @@ class ScheduleService
             // too (defense-in-depth at the delivery/persistence trust boundary,
             // design.md Decision 7) — idempotent on already-filtered text.
             if ($this->isEngineEnabled() === true) {
-                $output = $this->runAgentViaEngine(owner: $impersonateAs, agentId: $agentId, prompt: $prompt);
+                $output = $this->runAgentViaEngine(owner: $impersonateAs, agentId: $agentId, prompt: $prompt, dryRun: $dryRun);
                 return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
             }
 
@@ -1805,6 +2162,14 @@ class ScheduleService
      *                        resolved `actingUser` — see resolveActingUser()).
      * @param string $agentId The bound agent UUID (hermiq register `agent` object).
      * @param string $prompt  The prompt to run.
+     * @param bool   $dryRun  Whether this turn is a dry-run preview
+     *                        (run-replay-and-dry-run): threaded onto
+     *                        `Engine::processMessage()` so a side-effecting tool call
+     *                        is neutralised, and the scratch `Conversation`/`Message`
+     *                        objects created below are deleted once the turn
+     *                        completes (success or failure) — a preview leaves no
+     *                        persisted transcript behind. False (every pre-existing
+     *                        caller) is byte-for-byte unchanged behavior.
      *
      * @return string The agent's response text.
      *
@@ -1812,8 +2177,9 @@ class ScheduleService
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
      * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-3
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
      */
-    private function runAgentViaEngine(string $owner, string $agentId, string $prompt): string
+    private function runAgentViaEngine(string $owner, string $agentId, string $prompt, bool $dryRun=false): string
     {
         $agent = $this->objectService->find(
             id: $agentId,
@@ -1824,9 +2190,14 @@ class ScheduleService
             throw new RuntimeException("Agent '{$agentId}' does not exist in the hermiq register");
         }
 
+        $title = 'Hermiq scheduled run';
+        if ($dryRun === true) {
+            $title = 'Hermiq dry-run preview';
+        }
+
         $conversation = $this->objectService->saveObject(
             object: [
-                'title'   => 'Hermiq scheduled run',
+                'title'   => $title,
                 'userId'  => $owner,
                 'agentId' => (string) $agent->getUuid(),
             ],
@@ -1838,41 +2209,111 @@ class ScheduleService
         // instruments fine-grained tool-call steps on (agent-engine-port ownership
         // boundary) — thread a fresh collector through the SAME call chain
         // StreamYieldChannel already uses.
-        $trace  = new RunTraceCollector();
-        $result = $this->engine->processMessage(
-            conversationId: (string) $conversation->getUuid(),
-            userId: $owner,
-            userMessage: $prompt,
-            trace: $trace
-        );
+        $trace = new RunTraceCollector();
 
-        // Capture the LLM token/latency usage identically to the flag-off path, so
-        // writeRunAudit records it for run-analytics (run-cost recording). The
-        // defensive shape checks mirror the flag-off path so a future engine
-        // return-shape change can never silently break run-cost recording (hence
-        // the phpstan ignores on the shape-narrowed reads).
-        // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
-        $usage = ($result['usage'] ?? []);
-        if (is_array($usage) === true) {
-            $this->lastRunUsage = $usage;
-        }
+        try {
+            $result = $this->engine->processMessage(
+                conversationId: (string) $conversation->getUuid(),
+                userId: $owner,
+                userMessage: $prompt,
+                trace: $trace,
+                dryRun: $dryRun
+            );
 
-        // Prefer the collector's own record (this call owns it end-to-end); fall
-        // back to the envelope's `steps` key (identical content, per Engine's
-        // contract) only if a future engine swap ever stops accepting `$trace`.
-        $this->lastRunSteps = $trace->toArray();
-        if ($this->lastRunSteps === []) {
+            // Capture the LLM token/latency usage identically to the flag-off path, so
+            // writeRunAudit records it for run-analytics (run-cost recording). The
+            // defensive shape checks mirror the flag-off path so a future engine
+            // return-shape change can never silently break run-cost recording (hence
+            // the phpstan ignores on the shape-narrowed reads).
             // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
-            $envelopeSteps = ($result['steps'] ?? []);
-            if (is_array($envelopeSteps) === true) {
-                $this->lastRunSteps = $envelopeSteps;
+            $usage = ($result['usage'] ?? []);
+            if (is_array($usage) === true) {
+                $this->lastRunUsage = $usage;
             }
-        }
 
-        // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
-        return (string) ($result['message'] ?? '');
+            // Prefer the collector's own record (this call owns it end-to-end); fall
+            // back to the envelope's `steps` key (identical content, per Engine's
+            // contract) only if a future engine swap ever stops accepting `$trace`.
+            $this->lastRunSteps = $trace->toArray();
+            if ($this->lastRunSteps === []) {
+                // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+                $envelopeSteps = ($result['steps'] ?? []);
+                if (is_array($envelopeSteps) === true) {
+                    $this->lastRunSteps = $envelopeSteps;
+                }
+            }
+
+            // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+            return (string) ($result['message'] ?? '');
+        } finally {
+            // Run-replay-and-dry-run: a preview leaves no persisted transcript/memory
+            // behind, whether the turn succeeded or failed — only the `dryRun: true`
+            // run-history entry itself survives.
+            if ($dryRun === true) {
+                $this->deleteScratchConversation(conversationUuid: (string) $conversation->getUuid());
+            }
+        }//end try
 
     }//end runAgentViaEngine()
+
+    /**
+     * Delete a dry-run's scratch `Conversation` and every `Message` bound to it
+     * (run-replay-and-dry-run). Non-fatal by contract — a cleanup failure is
+     * logged, never allowed to break the run's own return value; the ONLY
+     * durable artifact of a dry-run is meant to be its `dryRun: true`
+     * run-history entry, but a cleanup failure must not turn into a run failure.
+     *
+     * @param string $conversationUuid The scratch Conversation object's UUID.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    private function deleteScratchConversation(string $conversationUuid): void
+    {
+        try {
+            $messages = $this->objectService
+                ->setRegister(self::REGISTER_SLUG)
+                ->setSchema(self::MESSAGE_SCHEMA)
+                ->findAll(
+                    config: ['filters' => ['conversationId' => $conversationUuid]],
+                    _rbac: false,
+                    _multitenancy: false
+                );
+
+            foreach ($messages as $message) {
+                if (($message instanceof ObjectEntity) === false) {
+                    continue;
+                }
+
+                $this->objectService->deleteObject(
+                    uuid: (string) $message->getUuid(),
+                    register: self::REGISTER_SLUG,
+                    schema: self::MESSAGE_SCHEMA,
+                    _rbac: false,
+                    _multitenancy: false
+                );
+            }
+
+            $this->objectService->deleteObject(
+                uuid: $conversationUuid,
+                register: self::REGISTER_SLUG,
+                schema: self::CONVERSATION_SCHEMA,
+                _rbac: false,
+                _multitenancy: false
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf(
+                    'Hermiq could not clean up dry-run scratch conversation %s: %s',
+                    $conversationUuid,
+                    $e->getMessage()
+                ),
+                ['exception' => $e]
+            );
+        }//end try
+
+    }//end deleteScratchConversation()
 
     /**
      * Delivery seam — delegates to the real DeliveryService (talk-delivery).

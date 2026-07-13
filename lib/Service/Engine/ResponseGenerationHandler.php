@@ -116,6 +116,13 @@ class ResponseGenerationHandler
      *                                                 onto `ToolLoop::buildFunctionInfos()` so
      *                                                 each tool call is timed as a `tool` step
      *                                                 (run-trace-observability).
+     * @param bool                    $dryRun          Whether this turn is a dry-run preview
+     *                                                 (run-replay-and-dry-run); threaded onto
+     *                                                 `ToolLoop::buildFunctionInfos()` so a
+     *                                                 side-effecting tool call is neutralised
+     *                                                 instead of actually invoked. False (every
+     *                                                 pre-existing caller) is byte-for-byte
+     *                                                 unchanged behavior.
      *
      * @return string Generated response text.
      *
@@ -138,6 +145,7 @@ class ResponseGenerationHandler
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      * @spec openspec/changes/agent-context-system/tasks.md#task-3-2
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
      */
     public function generateResponse(
         string $userMessage,
@@ -148,7 +156,8 @@ class ResponseGenerationHandler
         ?StreamYieldChannel $channel=null,
         array $cnAiContext=[],
         string $contextPreamble='',
-        ?RunTraceCollector $trace=null
+        ?RunTraceCollector $trace=null,
+        bool $dryRun=false
     ): string {
         $startTime = microtime(true);
         $agentData = [];
@@ -309,7 +318,8 @@ class ResponseGenerationHandler
                         channel: $channel,
                         trace: $trace,
                         agent: $agent,
-                        organisation: $organisation
+                        organisation: $organisation,
+                        dryRun: $dryRun
                     );
                     $chat->setTools($functionInfoObjects);
                 }

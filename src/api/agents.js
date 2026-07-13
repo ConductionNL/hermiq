@@ -25,8 +25,9 @@
 //   - listTools() — the agent-configuration tool catalogue, served by
 //     Hermiq's facade-backed endpoint /apps/hermiq/api/agents/tools
 //     (agent-engine-port; backed by OR's public ToolRegistryFacade, gate-27).
-//   - Run now + run history + run trace (run-trace-observability) — thin Hermiq
-//     schedule endpoints.
+//   - Run now + run history + run trace (run-trace-observability), plus
+//     dry-run + replay (run-replay-and-dry-run) — thin Hermiq schedule
+//     endpoints.
 //
 // This is deliberately a set of stateless functions (no defineStore) — the
 // hard rule is "no custom Pinia stores". axios from @nextcloud/axios adds the
@@ -119,6 +120,40 @@ export async function listRuns(scheduleId) {
  */
 export async function getRunTrace(scheduleId, runId) {
 	const response = await axios.get(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/trace`))
+	return response.data
+}
+
+/**
+ * Preview a schedule's agent run as a dry-run: the SAME prompt/model/tools a
+ * real run would use, but with every side-effecting tool call neutralised
+ * into a recorded `would-have-called` step instead of actually invoked
+ * (run-replay-and-dry-run). Owner-scoped, identical guard to runScheduleNow().
+ *
+ * A blocked governance gate (kill-switch/budget/approval) surfaces as a 409;
+ * the in-app agent engine being off (`hermiq.engine.enabled=false`, the
+ * default) surfaces as a 422 with an actionable message — both reach the
+ * caller as a rejected axios promise carrying `error.response.data.error`.
+ *
+ * @param {string} scheduleId The Schedule object UUID.
+ * @return {Promise<object>} The dry-run outcome ({ scheduleId, dryRun, status, error, steps, summary }).
+ */
+export async function dryRunSchedule(scheduleId) {
+	const response = await axios.post(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/dry-run`))
+	return response.data
+}
+
+/**
+ * Replay a past run's exact recorded prompt as a fresh dry-run and diff the
+ * outcome against what actually happened (run-replay-and-dry-run). Always
+ * executes as a dry-run — no side-effecting tool from the replay is ever
+ * actually invoked. Same gate/engine-flag error shapes as dryRunSchedule().
+ *
+ * @param {string} scheduleId The Schedule object UUID.
+ * @param {string} runId The run's AuditTrail entry UUID to replay.
+ * @return {Promise<object>} { scheduleId, replayOf, original, replay, diff }.
+ */
+export async function replayRun(scheduleId, runId) {
+	const response = await axios.post(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/replay`))
 	return response.data
 }
 

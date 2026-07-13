@@ -226,6 +226,13 @@ class RunHistoryService
             'toolStepsAvailable' => ($context['toolStepsAvailable'] ?? $this->hasToolStep(steps: $steps)),
             'steps'              => $steps,
             'summary'            => ($context['summary'] ?? null),
+            // Run-replay-and-dry-run: the exact prompt text used for this run (null on
+            // a pre-run-replay-and-dry-run entry — replay refuses cleanly in that
+            // case), and the dryRun/replayOf markers so a preview/replay entry is
+            // never mistaken for a real run.
+            'prompt'             => ($context['prompt'] ?? null),
+            'dryRun'             => (($context['dryRun'] ?? false) === true),
+            'replayOf'           => ($context['replayOf'] ?? null),
             'user'               => $target->getUser(),
             'created'            => $createdIso,
         ];
@@ -393,6 +400,10 @@ class RunHistoryService
             // Agent-versioning: the agent version pinned at run start (null on a
             // pre-agent-versioning entry — never an error).
             'agentVersion' => ($context['agentVersion'] ?? null),
+            // Run-replay-and-dry-run: lets the Run history list visually distinguish a
+            // preview/replay entry from a real run (false/null on a pre-existing entry).
+            'dryRun'       => (($context['dryRun'] ?? false) === true),
+            'replayOf'     => ($context['replayOf'] ?? null),
             'user'         => $log->getUser(),
             'created'      => $createdIso,
             'link'         => $this->buildScheduleLink(uuid: $scheduleUuid),

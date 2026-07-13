@@ -33,7 +33,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\RunHistoryService;
+use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -74,6 +76,8 @@ class RunHistoryController extends Controller
      * @param ObjectService     $objectService     OpenRegister object read (ownership check).
      * @param IUserSession      $userSession       Resolves the requesting user for the owner guard.
      * @param RunHistoryService $runHistoryService Reads and shapes the schedule's run records.
+     * @param ScheduleService   $scheduleService   Executes the replay run + gate checks
+     *                                             (run-replay-and-dry-run).
      * @param LoggerInterface   $logger            PSR-3 logger.
      *
      * @spec openspec/changes/run-audit-log/tasks.md#task-3-2
@@ -83,6 +87,7 @@ class RunHistoryController extends Controller
         private readonly ObjectService $objectService,
         private readonly IUserSession $userSession,
         private readonly RunHistoryService $runHistoryService,
+        private readonly ScheduleService $scheduleService,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
@@ -181,6 +186,71 @@ class RunHistoryController extends Controller
         }//end try
 
     }//end trace()
+
+    /**
+     * Replay a past run's exact recorded prompt as a fresh dry-run and return a
+     * step-by-step diff against what actually happened (run-replay-and-dry-run).
+     * Reuses the IDENTICAL owner guard `trace()` already uses: 404 (not 403)
+     * for both a non-existent schedule and a schedule the caller does not own,
+     * AND for a run that predates prompt persistence (never available for
+     * replay) — a non-owner cannot even confirm the schedule/run exists.
+     *
+     * @param string $scheduleId The Schedule object UUID.
+     * @param string $runId      The run's AuditTrail entry UUID to replay.
+     *
+     * @return JSONResponse The replay outcome, a governance-gate refusal (409), or
+     *                      a feature-flag-required error (422).
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    public function replay(string $scheduleId, string $runId): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $schedule = $this->loadOwnedSchedule(scheduleId: $scheduleId, uid: $user->getUID());
+        if ($schedule === null) {
+            // 404 (not 403) so a non-owner cannot even confirm the schedule exists.
+            return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        $originalTrace = $this->runHistoryService->getRunTrace(scheduleUuid: $scheduleId, runId: $runId);
+        if ($originalTrace === null) {
+            return new JSONResponse(['error' => 'Run not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        $originalPrompt = ($originalTrace['prompt'] ?? null);
+        if (is_string($originalPrompt) === false || $originalPrompt === '') {
+            return new JSONResponse(
+                ['error' => 'This run is not available for replay — it was recorded before replay support shipped.'],
+                Http::STATUS_NOT_FOUND
+            );
+        }
+
+        try {
+            $result = $this->scheduleService->replayRun(schedule: $schedule, runId: $runId, originalTrace: $originalTrace);
+        } catch (EngineRequiredException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], 422);
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq replay failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Could not replay this run'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+        if ($result['status'] === 'blocked') {
+            return new JSONResponse(
+                ['error' => 'Blocked by governance', 'gate' => ($result['gate'] ?? null)],
+                Http::STATUS_CONFLICT
+            );
+        }
+
+        return new JSONResponse($result);
+
+    }//end replay()
 
     /**
      * Load the schedule only if the given user owns it (IDOR guard).

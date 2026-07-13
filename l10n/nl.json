@@ -162,7 +162,6 @@
         "After": "Na",
         "Temperature": "Temperatuur",
         "Max tokens": "Max. tokens",
-        "Configuration": "Configuratie",
         "Tools": "Tools",
         "Skills": "Skills",
         "Enable RAG": "RAG inschakelen",
@@ -231,7 +230,22 @@
         "Templates imported from another organisation start quarantined and must be approved before they can be used.": "Templates die zijn geïmporteerd vanuit een andere organisatie starten in quarantaine en moeten worden goedgekeurd voordat ze gebruikt kunnen worden.",
         "Import from another organisation (quarantine)": "Importeren vanuit een andere organisatie (quarantaine)",
         "Could not import the template": "Kon de template niet importeren",
-        "Browse templates": "Templates bekijken"
+        "Browse templates": "Templates bekijken",
+        "Dry run": "Proefrun",
+        "Preview this run without letting it change anything": "Bekijk deze run zonder dat er iets wordt gewijzigd",
+        "Replay": "Opnieuw afspelen",
+        "Replay this run as a dry run and compare": "Speel deze run af als proefrun en vergelijk",
+        "Replay preview": "Voorbeeld van opnieuw afspelen",
+        "Dry-run preview": "Voorbeeld van proefrun",
+        "Nothing was changed — side-effecting tools were reported, not executed.": "Er is niets gewijzigd — tools met neveneffecten zijn gerapporteerd, niet uitgevoerd.",
+        "The replay produced a DIFFERENT outcome than the original run.": "Het opnieuw afspelen gaf een ANDERE uitkomst dan de oorspronkelijke run.",
+        "The replay produced the same outcome as the original run.": "Het opnieuw afspelen gaf dezelfde uitkomst als de oorspronkelijke run.",
+        "No step detail recorded for this preview.": "Geen stapdetails vastgelegd voor dit voorbeeld.",
+        "would have called": "zou hebben aangeroepen",
+        "Dry run complete — nothing was changed.": "Proefrun voltooid — er is niets gewijzigd.",
+        "The dry run failed.": "De proefrun is mislukt.",
+        "Replay complete — nothing was changed.": "Opnieuw afspelen voltooid — er is niets gewijzigd.",
+        "The replay failed.": "Opnieuw afspelen is mislukt."
     },
     "plurals": ""
 }

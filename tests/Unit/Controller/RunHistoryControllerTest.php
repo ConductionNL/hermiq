@@ -24,7 +24,9 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\RunHistoryController;
+use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\RunHistoryService;
+use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
@@ -62,16 +64,20 @@ class RunHistoryControllerTest extends TestCase
     /**
      * Build the controller with the given collaborators.
      *
-     * @param ObjectService     $objectService The object service.
-     * @param IUserSession      $userSession   The user session.
-     * @param RunHistoryService $runHistory    The run-history service.
+     * @param ObjectService       $objectService   The object service.
+     * @param IUserSession        $userSession     The user session.
+     * @param RunHistoryService   $runHistory      The run-history service.
+     * @param ScheduleService|null $scheduleService The schedule service (run-replay-and-dry-run's
+     *                                              replay() action); defaults to an unconfigured
+     *                                              mock — only exercised by replay()-specific tests.
      *
      * @return RunHistoryController
      */
     private function controller(
         ObjectService $objectService,
         IUserSession $userSession,
-        RunHistoryService $runHistory
+        RunHistoryService $runHistory,
+        ?ScheduleService $scheduleService=null
     ): RunHistoryController {
         $request = $this->createMock(IRequest::class);
         $request->method('getParam')->willReturnCallback(
@@ -85,6 +91,7 @@ class RunHistoryControllerTest extends TestCase
             $objectService,
             $userSession,
             $runHistory,
+            $scheduleService ?? $this->createMock(ScheduleService::class),
             $this->createMock(LoggerInterface::class)
         );
 
@@ -292,4 +299,138 @@ class RunHistoryControllerTest extends TestCase
         $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
     }//end testUnauthenticatedIsRejectedForTrace()
+
+    /**
+     * The owner replays a run: the pre-fetched original trace's `prompt` is
+     * validated, `ScheduleService::replayRun()` is invoked, and its outcome
+     * returned (run-replay-and-dry-run).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    public function testOwnerReplaysRun(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $originalTrace = ['id' => 'run-1', 'prompt' => 'the recorded prompt', 'steps' => [], 'status' => 'ok', 'summary' => 'orig'];
+        $runHistory    = $this->createMock(RunHistoryService::class);
+        $runHistory->method('getRunTrace')->willReturn($originalTrace);
+
+        $replayResult    = ['status' => 'ok', 'scheduleId' => 'sched-1', 'replayOf' => 'run-1', 'original' => [], 'replay' => [], 'diff' => []];
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->expects($this->once())
+            ->method('replayRun')
+            ->with($this->schedule('alice'), 'run-1', $originalTrace)
+            ->willReturn($replayResult);
+
+        $controller = $this->controller($objectService, $this->session('alice'), $runHistory, $scheduleService);
+        $response   = $controller->replay('sched-1', 'run-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame($replayResult, $response->getData());
+
+    }//end testOwnerReplaysRun()
+
+    /**
+     * A non-owner is refused replay with 404 and never replays.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    public function testNonOwnerIsRefusedForReplay(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $runHistory      = $this->createMock(RunHistoryService::class);
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->expects($this->never())->method('replayRun');
+
+        $controller = $this->controller($objectService, $this->session('mallory'), $runHistory, $scheduleService);
+        $response   = $controller->replay('sched-1', 'run-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testNonOwnerIsRefusedForReplay()
+
+    /**
+     * A run with no persisted prompt (recorded before this change shipped) is
+     * refused cleanly with 404, never a crash, and never reaches
+     * `ScheduleService::replayRun()`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     */
+    public function testReplayRefusesCleanlyWhenPromptMissing(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $runHistory = $this->createMock(RunHistoryService::class);
+        $runHistory->method('getRunTrace')->willReturn(['id' => 'run-1', 'steps' => [], 'status' => 'ok']);
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->expects($this->never())->method('replayRun');
+
+        $controller = $this->controller($objectService, $this->session('alice'), $runHistory, $scheduleService);
+        $response   = $controller->replay('sched-1', 'run-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testReplayRefusesCleanlyWhenPromptMissing()
+
+    /**
+     * A governance gate blocking the replay surfaces as 409 with the gate reason.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
+     */
+    public function testReplayBlockedByGovernanceGateReturnsConflict(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $runHistory = $this->createMock(RunHistoryService::class);
+        $runHistory->method('getRunTrace')->willReturn(['id' => 'run-1', 'prompt' => 'x', 'steps' => [], 'status' => 'ok']);
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->method('replayRun')->willReturn(['status' => 'blocked', 'gate' => 'awaiting_approval']);
+
+        $controller = $this->controller($objectService, $this->session('alice'), $runHistory, $scheduleService);
+        $response   = $controller->replay('sched-1', 'run-1');
+
+        $this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
+        $this->assertSame('awaiting_approval', $response->getData()['gate']);
+
+    }//end testReplayBlockedByGovernanceGateReturnsConflict()
+
+    /**
+     * The in-app engine being off surfaces as a clear, actionable 422.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
+     */
+    public function testReplayRefusedWithoutEngineReturns422(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $runHistory = $this->createMock(RunHistoryService::class);
+        $runHistory->method('getRunTrace')->willReturn(['id' => 'run-1', 'prompt' => 'x', 'steps' => [], 'status' => 'ok']);
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->method('replayRun')->willThrowException(new EngineRequiredException());
+
+        $controller = $this->controller($objectService, $this->session('alice'), $runHistory, $scheduleService);
+        $response   = $controller->replay('sched-1', 'run-1');
+
+        $this->assertSame(422, $response->getStatus());
+
+    }//end testReplayRefusedWithoutEngineReturns422()
 }//end class

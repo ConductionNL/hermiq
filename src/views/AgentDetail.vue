@@ -192,9 +192,21 @@
 						<NcButton @click="showScheduleForm = true">
 							{{ schedule ? t('hermiq', 'Edit schedule') : t('hermiq', 'Attach schedule') }}
 						</NcButton>
+						<!-- Dry run (run-replay-and-dry-run): side-effecting tools are
+						     neutralised and reported as would-have-called, never invoked. -->
+						<NcButton
+							:disabled="!schedule || running || dryRunning"
+							:aria-label="t('hermiq', 'Preview this run without letting it change anything')"
+							@click="dryRun">
+							<template #icon>
+								<NcLoadingIcon v-if="dryRunning" :size="20" />
+								<BeakerOutline v-else :size="20" />
+							</template>
+							{{ t('hermiq', 'Dry run') }}
+						</NcButton>
 						<NcButton
 							type="primary"
-							:disabled="!schedule || running"
+							:disabled="!schedule || running || dryRunning"
 							@click="runNow">
 							<template #icon>
 								<NcLoadingIcon v-if="running" :size="20" />
@@ -390,6 +402,20 @@
 										@click="runNow">
 										{{ t('hermiq', 'Re-run') }}
 									</NcButton>
+									<!-- Replay (run-replay-and-dry-run): re-executes this run's
+									     exact recorded prompt as a DRY run and diffs the outcome —
+									     no side-effecting tool is ever actually invoked. -->
+									<NcButton
+										type="tertiary"
+										:disabled="replayingRunId === run.id"
+										:aria-label="t('hermiq', 'Replay this run as a dry run and compare')"
+										@click="replay(run)">
+										<template #icon>
+											<NcLoadingIcon v-if="replayingRunId === run.id" :size="20" />
+											<Replay v-else :size="20" />
+										</template>
+										{{ t('hermiq', 'Replay') }}
+									</NcButton>
 								</td>
 							</tr>
 							<tr v-if="expandedRunId === run.id" :key="`${run.id}-trace`">
@@ -424,6 +450,45 @@
 						</template>
 					</tbody>
 				</table>
+			</section>
+
+			<!-- Dry-run / replay outcome (run-replay-and-dry-run). A dry run never
+			     changes anything: side-effecting tools are reported as would-have-called,
+			     not executed. A replay re-executes a past run's recorded prompt AS a dry
+			     run and diffs the outcome against what actually happened. -->
+			<section v-if="previewResult" class="agent-detail__section">
+				<div class="agent-detail__section-head">
+					<h3>{{ previewResult.replayOf ? t('hermiq', 'Replay preview') : t('hermiq', 'Dry-run preview') }}</h3>
+					<NcButton type="tertiary" @click="previewResult = null">
+						{{ t('hermiq', 'Dismiss') }}
+					</NcButton>
+				</div>
+
+				<NcNoteCard type="info">
+					{{ t('hermiq', 'Nothing was changed — side-effecting tools were reported, not executed.') }}
+				</NcNoteCard>
+
+				<p v-if="previewResult.diff" class="agent-detail__empty-hint">
+					{{ previewResult.diff.changed
+						? t('hermiq', 'The replay produced a DIFFERENT outcome than the original run.')
+						: t('hermiq', 'The replay produced the same outcome as the original run.') }}
+				</p>
+
+				<ol v-if="previewSteps.length > 0" class="agent-detail__trace-steps">
+					<li v-for="step in previewSteps" :key="step.seq" class="agent-detail__trace-step">
+						<span class="agent-detail__trace-step-type">{{ stepTypeLabel(step.type) }}</span>
+						<span class="agent-detail__trace-step-name">{{ step.name }}</span>
+						<span
+							:class="['agent-detail__badge', step.outcome === 'would-have-called'
+								? 'agent-detail__badge--warn'
+								: (step.outcome === 'error' ? 'agent-detail__badge--error' : 'agent-detail__badge--ok')]">
+							{{ step.outcome === 'would-have-called' ? t('hermiq', 'would have called') : step.outcome }}
+						</span>
+					</li>
+				</ol>
+				<p v-else class="agent-detail__empty-hint">
+					{{ t('hermiq', 'No step detail recorded for this preview.') }}
+				</p>
 			</section>
 
 			<AgentFormModal
@@ -472,13 +537,15 @@ import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { CnObjectDataWidget } from '@conduction/nextcloud-vue'
 import ArrowLeft from 'vue-material-design-icons/ArrowLeft.vue'
+import BeakerOutline from 'vue-material-design-icons/BeakerOutline.vue'
 import Close from 'vue-material-design-icons/Close.vue'
 import History from 'vue-material-design-icons/History.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
+import Replay from 'vue-material-design-icons/Replay.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
 import ShieldCheckOutline from 'vue-material-design-icons/ShieldCheckOutline.vue'
-import { getRunTrace, listRuns, listTools, runScheduleNow } from '../api/agents.js'
+import { dryRunSchedule, getRunTrace, listRuns, listTools, replayRun, runScheduleNow } from '../api/agents.js'
 import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { installSkill, listSkills, uninstallSkill } from '../api/skills.js'
 import { createWebhookSecret, getWebhookStatus, revokeWebhookSecret, rotateWebhookSecret } from '../api/webhooks.js'
@@ -504,6 +571,7 @@ export default {
 		AgentVersionDiffDialog,
 		AgentVersionHistoryDialog,
 		ArrowLeft,
+		BeakerOutline,
 		Close,
 		CnObjectDataWidget,
 		History,
@@ -514,6 +582,7 @@ export default {
 		NcSelect,
 		Pencil,
 		Play,
+		Replay,
 		Robot,
 		ScheduleFormModal,
 		ShieldCheckOutline,
@@ -538,6 +607,11 @@ export default {
 			runTraces: {},
 			traceLoading: false,
 			traceError: false,
+			// Dry run / replay (run-replay-and-dry-run). previewResult holds the last
+			// dry-run or replay outcome; neither ever executes a side-effecting tool.
+			dryRunning: false,
+			replayingRunId: null,
+			previewResult: null,
 			showEditAgent: false,
 			showScheduleForm: false,
 			// Version history (agent-versioning): timeline/rollback dialog + the
@@ -585,6 +659,20 @@ export default {
 		 */
 		agentUuid() {
 			return this.$route.params.id
+		},
+
+		/**
+		 * The steps of the last dry-run/replay preview (run-replay-and-dry-run).
+		 * A replay's payload nests its own run under `replay`.
+		 *
+		 * @return {Array<object>} The preview's ordered steps.
+		 */
+		previewSteps() {
+			if (!this.previewResult) {
+				return []
+			}
+			const source = this.previewResult.replay || this.previewResult
+			return Array.isArray(source.steps) ? source.steps : []
 		},
 
 		/**
@@ -1019,6 +1107,61 @@ export default {
 				return `${Math.round(value)}ms`
 			}
 			return `${(value / 1000).toFixed(1)}s`
+		},
+
+		/**
+		 * Preview this schedule's run WITHOUT letting it change anything
+		 * (run-replay-and-dry-run): side-effecting tools are neutralised and reported
+		 * as `would-have-called` rather than invoked. Requires the in-app engine path.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async dryRun() {
+			if (!this.schedule || !this.schedule.id) {
+				return
+			}
+			this.dryRunning = true
+			this.runError = ''
+			this.previewResult = null
+			try {
+				this.previewResult = await dryRunSchedule(this.schedule.id)
+				showSuccess(this.t('hermiq', 'Dry run complete — nothing was changed.'))
+			} catch (e) {
+				this.runError = e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'The dry run failed.')
+				showError(this.t('hermiq', 'The dry run failed.'))
+			} finally {
+				this.dryRunning = false
+			}
+		},
+
+		/**
+		 * Replay a past run's exact recorded prompt AS a dry run and diff the outcome
+		 * against what actually happened (run-replay-and-dry-run). Never re-executes a
+		 * side-effecting tool.
+		 *
+		 * @param {object} run The run row to replay.
+		 * @return {Promise<void>}
+		 */
+		async replay(run) {
+			if (!this.schedule || !this.schedule.id || !run || !run.id) {
+				return
+			}
+			this.replayingRunId = run.id
+			this.runError = ''
+			this.previewResult = null
+			try {
+				this.previewResult = await replayRun(this.schedule.id, run.id)
+				showSuccess(this.t('hermiq', 'Replay complete — nothing was changed.'))
+			} catch (e) {
+				this.runError = e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'The replay failed.')
+				showError(this.t('hermiq', 'The replay failed.'))
+			} finally {
+				this.replayingRunId = null
+			}
 		},
 
 		/**

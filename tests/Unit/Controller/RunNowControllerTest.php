@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\RunNowController;
+use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -225,4 +226,102 @@ class RunNowControllerTest extends TestCase
         $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
     }//end testUnauthenticatedIsRejected()
+
+    /**
+     * The owner triggers a dry-run: `dryRunNow()` is invoked and its outcome
+     * returned marked `dryRun: true` (run-replay-and-dry-run).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testOwnerDryRunsSchedule(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->expects($this->once())->method('dryRunNow')->willReturn(
+            ['status' => 'ok', 'error' => null, 'steps' => [], 'summary' => 'preview output']
+        );
+
+        $controller = $this->controller($objectService, $this->session('alice'), $scheduleService);
+        $response   = $controller->dryRun('sched-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $data = $response->getData();
+        $this->assertTrue($data['dryRun']);
+        $this->assertSame('ok', $data['status']);
+        $this->assertSame('preview output', $data['summary']);
+
+    }//end testOwnerDryRunsSchedule()
+
+    /**
+     * A non-owner is refused dry-run with 404, and never previews.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testNonOwnerIsRefusedDryRun(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->expects($this->never())->method('dryRunNow');
+
+        $controller = $this->controller($objectService, $this->session('mallory'), $scheduleService);
+        $response   = $controller->dryRun('sched-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testNonOwnerIsRefusedDryRun()
+
+    /**
+     * A governance gate blocking the preview surfaces as 409 with the gate reason.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
+     */
+    public function testDryRunBlockedByGovernanceGateReturnsConflict(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->method('dryRunNow')->willReturn(['status' => 'blocked', 'gate' => 'skipped_killswitch']);
+
+        $controller = $this->controller($objectService, $this->session('alice'), $scheduleService);
+        $response   = $controller->dryRun('sched-1');
+
+        $this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
+        $this->assertSame('skipped_killswitch', $response->getData()['gate']);
+
+    }//end testDryRunBlockedByGovernanceGateReturnsConflict()
+
+    /**
+     * The in-app engine being off surfaces as a clear, actionable 422 rather
+     * than silently running the agent for real.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
+     */
+    public function testDryRunRefusedWithoutEngineReturns422(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->schedule('alice'));
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->method('dryRunNow')->willThrowException(new EngineRequiredException());
+
+        $controller = $this->controller($objectService, $this->session('alice'), $scheduleService);
+        $response   = $controller->dryRun('sched-1');
+
+        $this->assertSame(422, $response->getStatus());
+        $this->assertStringContainsString('in-app agent engine', (string) $response->getData()['error']);
+
+    }//end testDryRunRefusedWithoutEngineReturns422()
 }//end class

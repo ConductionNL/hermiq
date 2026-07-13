@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
@@ -498,4 +499,60 @@ class ToolLoopTest extends TestCase
         $this->assertSame(['error' => 'Unknown tool: nope'], json_decode($encoded, true));
 
     }//end testInvokerWorksWithoutChannel()
+
+    /**
+     * `buildFunctionInfos(..., dryRun: true)` produces an invoker that
+     * neutralises a write-classified descriptor's call (run-replay-and-dry-run)
+     * — the facade is never invoked, and the descriptor's own `mcpId` is used
+     * for classification.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testBuildFunctionInfosDryRunNeutralisesWriteTool(): void
+    {
+        $descriptor = ['name' => 'demo_create', 'description' => 'Create a thing', 'mcpId' => 'demo.schema.create'];
+
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->never())->method('invokeTool');
+
+        $loop  = $this->loop(facade: $facade);
+        $infos = $loop->buildFunctionInfos(functions: [$descriptor], trace: new RunTraceCollector(), dryRun: true);
+
+        $invoker = $infos[0]->instance;
+        $encoded = $invoker->demo_create(name: 'x');
+        $decoded = json_decode($encoded, true);
+
+        $this->assertTrue($decoded['preview']);
+
+    }//end testBuildFunctionInfosDryRunNeutralisesWriteTool()
+
+    /**
+     * `buildFunctionInfos(..., dryRun: true)` forwards each descriptor's
+     * declared hints to the classifier — a hint-less/2-segment id with
+     * `readOnlyHint: true` in its own descriptor is NOT neutralised.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testBuildFunctionInfosDryRunForwardsDescriptorHints(): void
+    {
+        $descriptor = [
+            'name'         => 'pipelinq_searchLeads',
+            'description'  => 'Search leads',
+            'mcpId'        => 'pipelinq.searchLeads',
+            'readOnlyHint' => true,
+        ];
+
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())->method('invokeTool')->willReturn(['result' => [], 'isError' => false]);
+
+        $loop  = $this->loop(facade: $facade);
+        $infos = $loop->buildFunctionInfos(functions: [$descriptor], dryRun: true);
+
+        $infos[0]->instance->pipelinq_searchLeads(query: 'x');
+
+    }//end testBuildFunctionInfosDryRunForwardsDescriptorHints()
 }//end class

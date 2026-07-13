@@ -309,6 +309,101 @@ class RunHistoryServiceTest extends TestCase
     }//end testGetRunTraceReturnsPersistedSteps()
 
     /**
+     * A dry-run/replay entry's `prompt`/`dryRun`/`replayOf` markers are
+     * surfaced on `getRunTrace()` (run-replay-and-dry-run); a plain real-run
+     * entry surfaces `dryRun: false` and `replayOf: null`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     */
+    public function testGetRunTraceSurfacesPromptDryRunAndReplayOf(): void
+    {
+        $logs = [
+            $this->entry(
+                'run',
+                [
+                    'status'    => 'ok',
+                    'startedAt' => '2026-01-01T10:00:00+00:00',
+                    'prompt'    => 'the exact prompt used',
+                    'dryRun'    => true,
+                    'replayOf'  => 'run-original',
+                ],
+                '2026-01-01T10:00:02+00:00',
+                'run-replay-1'
+            ),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+        $trace   = $service->getRunTrace('sched-1', 'run-replay-1');
+
+        $this->assertSame('the exact prompt used', $trace['prompt']);
+        $this->assertTrue($trace['dryRun']);
+        $this->assertSame('run-original', $trace['replayOf']);
+
+    }//end testGetRunTraceSurfacesPromptDryRunAndReplayOf()
+
+    /**
+     * A pre-run-replay-and-dry-run entry (no `prompt`/`dryRun`/`replayOf` in
+     * its context) surfaces safe defaults rather than a missing-key error.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     */
+    public function testGetRunTraceDefaultsPromptAndDryRunForLegacyEntry(): void
+    {
+        $logs = [
+            $this->entry('run', ['status' => 'ok', 'startedAt' => '2026-01-01T10:00:00+00:00'], '2026-01-01T10:00:02+00:00', 'run-legacy'),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+        $trace   = $service->getRunTrace('sched-1', 'run-legacy');
+
+        $this->assertNull($trace['prompt']);
+        $this->assertFalse($trace['dryRun']);
+        $this->assertNull($trace['replayOf']);
+
+    }//end testGetRunTraceDefaultsPromptAndDryRunForLegacyEntry()
+
+    /**
+     * `getRunHistory()`'s list also surfaces `dryRun`/`replayOf`, so the Run
+     * history UI can visually distinguish a preview/replay row from a real run.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/agent-management-ui/spec.md#requirement-run-history-view-mvp
+     */
+    public function testGetRunHistorySurfacesDryRunAndReplayOf(): void
+    {
+        $logs = [
+            $this->entry('run', ['status' => 'ok', 'dryRun' => true, 'replayOf' => 'run-orig'], '2026-01-01T10:00:00+00:00', 'run-preview'),
+            $this->entry('run', ['status' => 'ok'], '2026-01-01T09:00:00+00:00', 'run-real'),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+
+        $service = new RunHistoryService($mapper, $url);
+        $runs    = $service->getRunHistory('sched-1');
+
+        $this->assertTrue($runs[0]['dryRun']);
+        $this->assertSame('run-orig', $runs[0]['replayOf']);
+        $this->assertFalse($runs[1]['dryRun']);
+        $this->assertNull($runs[1]['replayOf']);
+
+    }//end testGetRunHistorySurfacesDryRunAndReplayOf()
+
+    /**
      * A run id that does not belong to the given schedule returns null — never
      * another schedule's run.
      *

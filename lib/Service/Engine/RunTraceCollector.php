@@ -120,15 +120,25 @@ class RunTraceCollector
      * a caller bug (double-end, stale token) must never throw and must never
      * corrupt already-recorded steps.
      *
-     * @param int    $token   The token returned by the matching `startStep()`.
-     * @param string $outcome The step outcome (`ok`|`error`, or a fixed label
-     *                        like `approved` for a reconstructed gate-wait step).
+     * @param int                  $token   The token returned by the matching `startStep()`.
+     * @param string               $outcome The step outcome (`ok`|`error`, or a fixed label
+     *                                      like `approved` for a reconstructed gate-wait step,
+     *                                      or `would-have-called` for a dry-run-neutralised
+     *                                      tool call — run-replay-and-dry-run).
+     * @param array<string, mixed> $extra   Additional fields to merge onto the recorded step
+     *                                      (run-replay-and-dry-run: `['arguments' => ...]` on a
+     *                                      `would-have-called` step, empty for every other
+     *                                      caller — zero behavior change). Applied BEFORE the
+     *                                      fixed fields below, so `$extra` can never clobber
+     *                                      `seq`/`type`/`name`/`startedAt`/`endedAt`/`durationMs`/
+     *                                      `outcome` even if it tried to.
      *
      * @return void
      *
      * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
-    public function endStep(int $token, string $outcome): void
+    public function endStep(int $token, string $outcome, array $extra=[]): void
     {
         if (isset($this->pending[$token]) === false) {
             return;
@@ -140,15 +150,18 @@ class RunTraceCollector
         $endedAt    = new DateTimeImmutable('now', new DateTimeZone('UTC'));
         $durationMs = (int) round((microtime(true) - $entry['startedAtMicro']) * 1000);
 
-        $this->steps[] = [
-            'seq'        => $this->nextSeq++,
-            'type'       => $entry['type'],
-            'name'       => $entry['name'],
-            'startedAt'  => $entry['startedAt']->format('c'),
-            'endedAt'    => $endedAt->format('c'),
-            'durationMs' => $durationMs,
-            'outcome'    => $outcome,
-        ];
+        $this->steps[] = array_merge(
+            $extra,
+            [
+                'seq'        => $this->nextSeq++,
+                'type'       => $entry['type'],
+                'name'       => $entry['name'],
+                'startedAt'  => $entry['startedAt']->format('c'),
+                'endedAt'    => $endedAt->format('c'),
+                'durationMs' => $durationMs,
+                'outcome'    => $outcome,
+            ]
+        );
 
     }//end endStep()
 

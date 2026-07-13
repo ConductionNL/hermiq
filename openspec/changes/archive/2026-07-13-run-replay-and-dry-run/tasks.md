@@ -12,8 +12,8 @@
     THEN it returns `true` (fail-safe closed — the default MUST be side-effecting)
   - GIVEN an empty or malformed registry id WHEN `isSideEffecting($id)` is called THEN it returns
     `true` rather than throwing
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: `FacadeToolInvoker` dry-run neutralisation with redacted `would-have-called` steps
 - **spec_ref**: `openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls`
@@ -29,8 +29,8 @@
     behavior is byte-for-byte unchanged from before this change
   - GIVEN a `would-have-called` step's arguments contain a secret-shaped value WHEN it is recorded
     THEN `RedactionService::redact()` has masked it before it reaches the trace
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Thread `dryRun` through `ToolLoop`, `Engine`, and `ResponseGenerationHandler`
 - **spec_ref**: `openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls`
@@ -40,8 +40,8 @@
     reaches `FacadeToolInvoker` via `ResponseGenerationHandler`/`ToolLoop::buildFunctionInfos()`
   - GIVEN `Engine::processMessage()` is called with no `dryRun` argument (existing callers) WHEN the
     turn completes THEN behavior is unchanged (defaults to `false`)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: `ScheduleService::evaluateGates()` — extracted, non-mutating gate check
 - **spec_ref**: `openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state`
@@ -54,8 +54,8 @@
   - GIVEN a schedule with `requiresApproval=true` and no bypass WHEN `evaluateGates()` is called
     THEN it returns `awaiting_approval` WITHOUT creating a new pending `Approval` object
   - GIVEN none of the above WHEN `evaluateGates()` is called THEN it returns `null` (pass)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: `ScheduleService::dryRunNow()` — preview entry point + scratch-conversation cleanup
 - **spec_ref**: `openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine`
@@ -68,8 +68,8 @@
     prompt used, and the schedule's `nextRun`/`repeat`/`enabled` are unchanged afterward
   - GIVEN the dry-run turn completes (success or failure) WHEN cleanup runs THEN the scratch
     `Conversation` and its `Message` objects are deleted
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: `ScheduleService::replayRun()` — replay from recorded prompt + step diff
 - **spec_ref**: `openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome`
@@ -83,8 +83,8 @@
     computed THEN it reports `toolSequenceMatches: false` with position 0 matching and position 1 not
   - GIVEN the replay's final output text differs from the original's WHEN the diff is computed THEN
     `outputChanged: true` is reported
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: `RunHistoryService` — surface `prompt`/`dryRun`/`replayOf`; `AnalyticsService` excludes dry-runs
 - **spec_ref**: `openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp`
@@ -97,8 +97,8 @@
     status/success-rate breakdown
   - GIVEN a dry-run entry recorded LLM token usage WHEN `BudgetService`'s spend total is computed
     THEN that usage IS still counted (unchanged — no filter added there)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 8: `RunNowController::dryRun()` + `RunHistoryController::replay()` + routes
 - **spec_ref**: `openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine`
@@ -113,8 +113,8 @@
   - GIVEN a gated/blocked schedule or the engine flag off WHEN either endpoint is called THEN the
     response carries the specific error (409 gate status or 422 feature-flag-required) from
     design.md's API section
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 9: Frontend — "Dry-run" button, "Replay" row action, diff render
 - **spec_ref**: `openspec/changes/run-replay-and-dry-run/specs/agent-management-ui/spec.md#requirement-attach-a-schedule-and-run-now-mvp`
@@ -127,8 +127,8 @@
   - GIVEN a completed run in the Run history table WHEN the user clicks "Replay" for it THEN
     `replayRun(scheduleId, runId)` is called and the original/replay/diff renders per-position
     tool-name comparisons
-- [ ] Implement
-- [ ] Test — compile-level verified (eslint 0 errors on the touched files); live browser coverage
+- [x] Implement
+- [x] Test — compile-level verified (eslint 0 errors on the touched files); live browser coverage
   deferred to the playwright-regression-coverage change.
 
 ### Task 10: i18n strings
@@ -138,8 +138,8 @@
   - GIVEN every new user-facing string introduced in Tasks 8-9 (button labels, gate-refusal
     messages, `would-have-called` badge text, diff labels) WHEN the l10n files are checked THEN each
     has an English key and a Dutch translation, keys in English per project convention
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 
