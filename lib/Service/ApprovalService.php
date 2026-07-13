@@ -954,6 +954,78 @@ class ApprovalService
     }//end listPendingForReviewer()
 
     /**
+     * List every Approval visible in the caller's own tenant (RBAC + tenancy
+     * scoped, mirrors `TenantOpsService::loadObjects()`'s tenant-scoped read) —
+     * the org-scoped decision-history seam `ComplianceService` reads for the
+     * `approval-gate-oversight` control (compliance-control-packs). Purely
+     * additive: does not change any existing call site's behaviour.
+     *
+     * @return array<int, ObjectEntity> The caller's own Approval objects.
+     *
+     * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
+     */
+    public function listForOrganisation(): array
+    {
+        $objects = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::APPROVAL_SCHEMA)
+            ->findAll(config: ['limit' => 1000]);
+
+        $out = [];
+        foreach ($objects as $object) {
+            if ($object instanceof ObjectEntity) {
+                $out[] = $object;
+            }
+        }
+
+        return $out;
+
+    }//end listForOrganisation()
+
+    /**
+     * List every Approval concerning a specific agent (any sourceType/status),
+     * system-wide (RBAC-off — the caller applies its own authorization guard,
+     * mirrors `toolInvocationApprovals()`/`loadApproval()`) — the per-agent
+     * decision history `ComplianceService` assembles into the AI factsheet
+     * (compliance-control-packs).
+     *
+     * @param string $agentId The agent UUID.
+     *
+     * @return array<int, ObjectEntity> The matching Approval objects.
+     *
+     * @spec openspec/changes/compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
+     */
+    public function listForAgent(string $agentId): array
+    {
+        if ($agentId === '') {
+            return [];
+        }
+
+        $objects = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::APPROVAL_SCHEMA)
+            ->findAll(
+                config: ['filters' => ['agentId' => $agentId], 'limit' => 1000],
+                _rbac: false,
+                _multitenancy: false
+            );
+
+        $matches = [];
+        foreach ($objects as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            if ((string) ($object->getObject()['agentId'] ?? '') === $agentId) {
+                $matches[] = $object;
+            }
+        }
+
+        return $matches;
+
+    }//end listForAgent()
+
+    /**
      * Load an Approval object by UUID without RBAC (the caller applies the guard).
      *
      * The Approval is owned by the schedule owner, but the decider is the reviewer —

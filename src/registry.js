@@ -50,6 +50,7 @@ import SkillsCatalog from './views/SkillsCatalog.vue'
 import AiFeatureRegister from './views/AiFeatureRegister.vue'
 import TenantOps from './views/TenantOps.vue'
 import McpTools from './views/McpTools.vue'
+import ComplianceDashboard from './views/ComplianceDashboard.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -183,6 +184,17 @@ export default {
 	McpTools: {
 		kind: 'page',
 		component: McpTools,
+	},
+
+	/**
+	 * Compliance dashboard — per-framework (EU AI Act, ISO/IEC 42001, NIST AI RMF)
+	 * coverage + gap list, computed live from existing governance data, plus an
+	 * auditor's-pack export (compliance-control-packs). Standard nav page, not a
+	 * dashboard-kind page (per-framework tables, not gridded widgets).
+	 */
+	ComplianceDashboard: {
+		kind: 'page',
+		component: ComplianceDashboard,
 	},
 
 	// -------------------------------------------------------------------------

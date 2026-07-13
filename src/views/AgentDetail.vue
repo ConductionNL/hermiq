@@ -79,6 +79,12 @@
 						</template>
 						{{ t('hermiq', 'Edit agent') }}
 					</NcButton>
+					<NcButton @click="showFactsheet = true">
+						<template #icon>
+							<ShieldCheckOutline :size="20" />
+						</template>
+						{{ t('hermiq', 'View compliance factsheet') }}
+					</NcButton>
 				</div>
 			</div>
 
@@ -452,6 +458,11 @@
 				:from-id="diffFromId"
 				:to-id="diffToId"
 				@close="showVersionDiff = false" />
+
+			<AgentFactsheetDialog
+				:show="showFactsheet"
+				:agent-id="agentUuid"
+				@close="showFactsheet = false" />
 		</template>
 	</div>
 </template>
@@ -466,6 +477,7 @@ import History from 'vue-material-design-icons/History.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
+import ShieldCheckOutline from 'vue-material-design-icons/ShieldCheckOutline.vue'
 import { getRunTrace, listRuns, listTools, runScheduleNow } from '../api/agents.js'
 import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { installSkill, listSkills, uninstallSkill } from '../api/skills.js'
@@ -476,6 +488,7 @@ import AgentFormModal from '../modals/AgentFormModal.vue'
 import AgentMemoryPanel from '../components/AgentMemoryPanel.vue'
 import AgentVersionDiffDialog from '../dialogs/agents/AgentVersionDiffDialog.vue'
 import AgentVersionHistoryDialog from '../dialogs/agents/AgentVersionHistoryDialog.vue'
+import AgentFactsheetDialog from '../dialogs/AgentFactsheetDialog.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import ToolGrantEditor from '../components/ToolGrantEditor.vue'
 import ToolInvocationTable from '../components/ToolInvocationTable.vue'
@@ -485,6 +498,7 @@ export default {
 	name: 'AgentDetail',
 
 	components: {
+		AgentFactsheetDialog,
 		AgentFormModal,
 		AgentMemoryPanel,
 		AgentVersionDiffDialog,
@@ -502,6 +516,7 @@ export default {
 		Play,
 		Robot,
 		ScheduleFormModal,
+		ShieldCheckOutline,
 		ToolGrantEditor,
 		ToolInvocationTable,
 		WebhookSecretDialog,
@@ -531,6 +546,9 @@ export default {
 			showVersionDiff: false,
 			diffFromId: '',
 			diffToId: '',
+			// Compliance factsheet (compliance-control-packs): read-only AI
+			// factsheet dialog, opened on demand — no state to preload.
+			showFactsheet: false,
 			// Config data widget: the dynamic tool catalogue for the #field-tools slot.
 			toolOptions: [],
 			toolsLoading: false,

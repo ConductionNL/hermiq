@@ -97,6 +97,13 @@
 			"icon": "icon-category-integration",
 			"route": "McpTools",
 			"order": 22
+		},
+		{
+			"id": "ComplianceDashboard",
+			"label": "Compliance",
+			"icon": "icon-category-security",
+			"route": "ComplianceDashboard",
+			"order": 23
 		}
 	],
 	"pages": [
@@ -338,6 +345,14 @@
 			"component": "McpTools",
 			"title": "MCP tools",
 			"_note": "Custom page: catalogue of MCP tools available to agents, read from Hermiq's facade-backed /api/agents/tools endpoint (not register/schema objects), so the built-in index page type cannot express it. Read-only nav page."
+		},
+		{
+			"id": "ComplianceDashboard",
+			"route": "/compliance",
+			"type": "custom",
+			"component": "ComplianceDashboard",
+			"title": "Compliance",
+			"_note": "Custom page: per-framework compliance-control coverage + gap list computed live from existing governance data (never a hand-ticked field), plus an auditor's-pack export — not expressible via the built-in index/dashboard page types. Standard nav page, action-auth-gated."
 		}
 	],
 	"setup": {

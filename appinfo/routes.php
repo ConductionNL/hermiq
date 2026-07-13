@@ -216,6 +216,18 @@ return [
         ['name' => 'guardrailPolicy#create', 'url' => '/api/guardrail-policies', 'verb' => 'POST'],
         ['name' => 'guardrailPolicy#update', 'url' => '/api/guardrail-policies/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
 
+        // Compliance control packs (compliance-control-packs): org-scoped dashboard,
+        // auditor's-pack export (both action-auth-gated), and per-agent AI factsheet
+        // (owner/actingUser or compliance.view-factsheet, 404-not-403 IDOR guard).
+        ['name' => 'compliance#dashboard', 'url' => '/api/compliance/dashboard', 'verb' => 'GET'],
+        ['name' => 'compliance#export',    'url' => '/api/compliance/export', 'verb' => 'GET'],
+        [
+            'name'         => 'compliance#factsheet',
+            'url'          => '/api/compliance/factsheet/{agentId}',
+            'verb'         => 'GET',
+            'requirements' => ['agentId' => '[^/]+'],
+        ],
+
         // Skills catalog (skills-catalog): browse, import/export agentskills.io packages, install onto an agent.
         ['name' => 'skill#index',   'url' => '/api/skills', 'verb' => 'GET'],
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],
