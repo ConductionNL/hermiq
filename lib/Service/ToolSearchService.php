@@ -79,7 +79,9 @@ class ToolSearchService
      * set. Safe to call once per turn; a later call replaces the set (a fresh
      * `listAgentFunctions()` resolution supersedes the previous one).
      *
-     * @param array<int, array<string,mixed>> $descriptors The resolved descriptor list.
+     * @param array<int, mixed> $descriptors The resolved descriptor list. Typed loosely on
+     *                                       purpose: these cross the OpenRegister tool-facade
+     *                                       boundary, so each entry is re-checked below.
      *
      * @return void
      *

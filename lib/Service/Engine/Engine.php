@@ -59,6 +59,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
+use OCA\Hermiq\Service\GuardrailBlockedException;
+use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -120,20 +122,32 @@ class Engine
     /**
      * Constructor.
      *
-     * @param ObjectService                 $objectService       OpenRegister object read/write.
-     * @param ContextRetrievalHandler       $contextHandler      RAG context handler.
-     * @param ResponseGenerationHandler     $responseHandler     LLM response handler.
-     * @param ConversationManagementHandler $conversationHandler Title/summary handler.
-     * @param MessageHistoryHandler         $historyHandler      Message storage/history handler.
-     * @param ContextAssembler              $contextAssembler    Resolves an agent's attached
-     *                                                           Context objects into a system-prompt
-     *                                                           preamble (agent-context-system).
-     * @param LoggerInterface               $logger              Logger.
+     * @param ObjectService                 $objectService          OpenRegister object read/write.
+     * @param ContextRetrievalHandler       $contextHandler         RAG context handler.
+     * @param ResponseGenerationHandler     $responseHandler        LLM response handler.
+     * @param ConversationManagementHandler $conversationHandler    Title/summary handler.
+     * @param MessageHistoryHandler         $historyHandler         Message storage/history handler.
+     * @param ContextAssembler              $contextAssembler       Resolves an agent's attached
+     *                                                              Context objects into a
+     *                                                              system-prompt preamble
+     *                                                              (agent-context-system).
+     * @param LoggerInterface               $logger                 Logger.
+     * @param GuardrailPolicyService|null   $guardrailPolicyService Resolves + applies the effective
+     *                                                              GuardrailPolicy's input/output
+     *                                                              filters (agent-guardrails).
+     *                                                              Nullable/optional purely so
+     *                                                              existing test callers that omit
+     *                                                              it see zero behavior change
+     *                                                              (equivalent to "no policy
+     *                                                              configured" — fail-open,
+     *                                                              design.md Decision 1); real DI
+     *                                                              always provides it.
      *
      * @return void
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-context-system/tasks.md#task-3-1
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-3-wire-inputoutput-filters-into-engineprocessmessage
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -142,7 +156,8 @@ class Engine
         private readonly ConversationManagementHandler $conversationHandler,
         private readonly MessageHistoryHandler $historyHandler,
         private readonly ContextAssembler $contextAssembler,
-        private readonly LoggerInterface $logger
+        private readonly LoggerInterface $logger,
+        private readonly ?GuardrailPolicyService $guardrailPolicyService=null
     ) {
     }//end __construct()
 
@@ -253,6 +268,47 @@ class Engine
             // after Agent.prompt). '' when the agent has none — no-op for most agents.
             $contextPreamble = $this->contextAssembler->assembleForAgent(agent: $agent, actingUserId: $userId);
 
+            // Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this
+            // turn (organisation comes from the conversation, exactly like
+            // maybeGenerateTitle()'s tenant-model-policy read) and apply the input
+            // filter BEFORE the user Message is persisted and BEFORE the LLM is ever
+            // called. A `block` match (PII/secret or prompt-injection) throws here —
+            // no user/assistant Message is stored for this attempt (spec: "no LLM
+            // call is made... no assistant Message is created"). A `redact` match
+            // replaces $userMessage so both the persisted copy and the text sent to
+            // the LLM are the masked text, never the original.
+            $organisation    = (string) ($conversation->getOrganisation() ?? '');
+            $guardrailPolicy = $this->resolveGuardrailPolicy(organisation: $organisation);
+
+            $inputFilter = $this->guardrailPolicyService?->filterInput(
+                policy: $guardrailPolicy,
+                text: $userMessage
+            ) ?? ['text' => $userMessage, 'blocked' => false, 'reason' => null];
+
+            // Run-trace-observability + agent-guardrails: only a guardrail ACTION
+            // (a block, or a redaction that actually changed the text) is recorded
+            // as a step — a fully-open policy's no-op pass-through never inserts a
+            // step, so an organisation with no GuardrailPolicy sees an IDENTICAL
+            // step timeline to before this change (spec: "record every input
+            // block, output block/redaction... as a trace step" — not every turn).
+            if ($this->guardrailActed(filter: $inputFilter, originalText: $userMessage) === true) {
+                $inputOutcome = 'redacted';
+                if ($inputFilter['blocked'] === true) {
+                    $inputOutcome = 'blocked';
+                }
+
+                $inputToken = $trace?->startStep(type: 'guardrail', name: 'Input filter');
+                if ($inputToken !== null) {
+                    $trace?->endStep(token: $inputToken, outcome: $inputOutcome);
+                }
+            }
+
+            if ($inputFilter['blocked'] === true) {
+                throw new GuardrailBlockedException(reason: (string) $inputFilter['reason']);
+            }
+
+            $userMessage = (string) $inputFilter['text'];
+
             // Store user message with the CnAiContext snapshot.
             $this->historyHandler->storeMessage(
                 conversationId: $conversationId,
@@ -318,6 +374,30 @@ class Engine
             if ($llmToken !== null) {
                 $trace?->endStep(token: $llmToken, outcome: 'ok');
             }
+
+            // Agent-guardrails: apply the output filter BEFORE the assistant Message
+            // is persisted (and before it is handed back to the caller). A `block`
+            // match never aborts the turn — $aiResponse is replaced with a withheld-
+            // response placeholder so both the persisted copy and the returned
+            // envelope's `message` field carry the placeholder, never the raw output.
+            $outputFilter = $this->guardrailPolicyService?->filterOutput(
+                policy: $guardrailPolicy,
+                text: $aiResponse
+            ) ?? ['text' => $aiResponse, 'blocked' => false, 'reason' => null];
+
+            if ($this->guardrailActed(filter: $outputFilter, originalText: $aiResponse) === true) {
+                $outputOutcome = 'redacted';
+                if ($outputFilter['blocked'] === true) {
+                    $outputOutcome = 'blocked';
+                }
+
+                $outputToken = $trace?->startStep(type: 'guardrail', name: 'Output filter');
+                if ($outputToken !== null) {
+                    $trace?->endStep(token: $outputToken, outcome: $outputOutcome);
+                }
+            }
+
+            $aiResponse = (string) $outputFilter['text'];
 
             // Store AI response with sources. Capture the return so we can surface
             // the persisted assistant message's id to the caller (the SSE stream
@@ -481,4 +561,56 @@ class Engine
         );
 
     }//end maybeGenerateTitle()
+
+    /**
+     * Resolve the effective GuardrailPolicy for an organisation, or the
+     * fully-open shape when no `GuardrailPolicyService` was injected (existing
+     * test callers / a hypothetical install predating agent-guardrails) — zero
+     * behavior change either way (design.md Decision 1, fail-open).
+     *
+     * @param string $organisation The conversation's organisation (may be '').
+     *
+     * @return array<string,mixed> The effective policy.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+     */
+    private function resolveGuardrailPolicy(string $organisation): array
+    {
+        if ($this->guardrailPolicyService === null) {
+            return [
+                'inputFilters'  => ['piiAction' => 'off', 'promptInjectionAction' => 'off'],
+                'outputFilters' => ['piiAction' => 'off'],
+                'toolPolicy'    => [],
+            ];
+        }
+
+        return $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
+
+    }//end resolveGuardrailPolicy()
+
+    /**
+     * Whether a `filterInput()`/`filterOutput()` result represents an actual
+     * guardrail ACTION (a block, or a redaction that changed the text) versus a
+     * no-op pass-through. Only an action is worth a `run-history`-visible trace
+     * step (spec: "record every input block, output block/redaction... as a
+     * trace step") — a fully-open policy (the default, no `GuardrailPolicy`
+     * configured) must leave the step timeline byte-for-byte identical to
+     * before this change.
+     *
+     * @param array{text:string,blocked:bool,reason:?string} $filter       The filter result.
+     * @param string                                         $originalText The pre-filter text.
+     *
+     * @return bool
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+     */
+    private function guardrailActed(array $filter, string $originalText): bool
+    {
+        if ($filter['blocked'] === true) {
+            return true;
+        }
+
+        return ((string) $filter['text']) !== $originalText;
+
+    }//end guardrailActed()
 }//end class

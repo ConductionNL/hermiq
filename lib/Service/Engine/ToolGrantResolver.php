@@ -258,7 +258,9 @@ class ToolGrantResolver
      * Extract every descriptor's whitelist-matchable id: the dotted `mcpId` when
      * present (MCP-bridged/derived tools), else the bare `name`.
      *
-     * @param array<int, array<string,mixed>> $catalog Descriptor list.
+     * @param array<int, mixed> $catalog Descriptor list. Typed loosely on purpose: these cross
+     *                                   the OpenRegister tool-facade boundary, so each entry is
+     *                                   re-checked below.
      *
      * @return array<int, string>
      */

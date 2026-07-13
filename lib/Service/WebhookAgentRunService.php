@@ -210,7 +210,7 @@ class WebhookAgentRunService
             return false;
         }
 
-        return $this->runAgentAndAudit(agentObject: $agentObject, context: $context, owner: $owner);
+        return $this->runAgentAndAudit(agentObject: $agentObject, context: $context, owner: $owner, organisation: $organisation);
 
     }//end dispatch()
 
@@ -219,15 +219,20 @@ class WebhookAgentRunService
      * ScheduleService/Engine path a scheduled or flow-triggered run uses) and
      * write the redacted per-run audit entry against the Agent's ObjectEntity.
      *
-     * @param ObjectEntity        $agentObject The Agent's ObjectEntity (audit target).
-     * @param array<string,mixed> $context     The webhook trigger context.
-     * @param string              $owner       The agent's owner (acting-user impersonation target).
+     * @param ObjectEntity        $agentObject  The Agent's ObjectEntity (audit target).
+     * @param array<string,mixed> $context      The webhook trigger context.
+     * @param string              $owner        The agent's owner (acting-user impersonation target).
+     * @param string              $organisation The agent's organisation — threaded to
+     *                                          `runAgentAsOwner()` so its defense-in-depth
+     *                                          output-filter re-check resolves the correct
+     *                                          GuardrailPolicy (agent-guardrails).
      *
      * @return bool Whether the run completed successfully.
      *
      * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+     * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
      */
-    private function runAgentAndAudit(ObjectEntity $agentObject, array $context, string $owner): bool
+    private function runAgentAndAudit(ObjectEntity $agentObject, array $context, string $owner, string $organisation=''): bool
     {
         $agentId = (string) ($context['agentId'] ?? '');
         $prompt  = $this->buildPrompt(context: $context);
@@ -245,7 +250,8 @@ class WebhookAgentRunService
             $summary = $this->scheduleService->runAgentAsOwner(
                 owner: $owner,
                 agentId: $agentId,
-                prompt: $prompt
+                prompt: $prompt,
+                organisation: $organisation
             );
         } catch (Throwable $e) {
             $status  = 'error';

@@ -195,6 +195,14 @@ return [
         ['name' => 'tenantModelPolicy#create', 'url' => '/api/model-policy', 'verb' => 'POST'],
         ['name' => 'tenantModelPolicy#update', 'url' => '/api/model-policy/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
 
+        // Guardrail policy (agent-guardrails): per-organisation input/output content
+        // filters + per-tool risk classification. 'effective' is registered before
+        // the {policyId} routes so the literal path never falls into the id matcher.
+        ['name' => 'guardrailPolicy#effective', 'url' => '/api/guardrail-policies/effective', 'verb' => 'GET'],
+        ['name' => 'guardrailPolicy#index',  'url' => '/api/guardrail-policies', 'verb' => 'GET'],
+        ['name' => 'guardrailPolicy#create', 'url' => '/api/guardrail-policies', 'verb' => 'POST'],
+        ['name' => 'guardrailPolicy#update', 'url' => '/api/guardrail-policies/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
+
         // Skills catalog (skills-catalog): browse, import/export agentskills.io packages, install onto an agent.
         ['name' => 'skill#index',   'url' => '/api/skills', 'verb' => 'GET'],
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],

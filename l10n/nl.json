@@ -119,7 +119,26 @@
         "What remedial action was taken?": "Welke herstelactie is ondernomen?",
         "Linked agent UUID (optional)": "Gekoppelde agent-UUID (optioneel)",
         "Linked run IDs (optional, comma-separated)": "Gekoppelde run-ID's (optioneel, komma-gescheiden)",
-        "Could not create incident": "Kon het incident niet aanmaken"
+        "Could not create incident": "Kon het incident niet aanmaken",
+        "Guardrail policy": "Guardrail-beleid",
+        "Guardrail policy error": "Fout in guardrail-beleid",
+        "No guardrail policies configured — agents run with every filter off and every tool auto-approved.": "Geen guardrail-beleid geconfigureerd — agents draaien met alle filters uit en elke tool automatisch goedgekeurd.",
+        "Input: PII/secret action": "Invoer: PII/geheimen-actie",
+        "Input: prompt-injection action": "Invoer: prompt-injectie-actie",
+        "Output: PII/secret action": "Uitvoer: PII/geheimen-actie",
+        "Per-tool classification": "Classificatie per tool",
+        "One per line: toolId: auto|confirm|deny": "Eén per regel: toolId: auto|confirm|deny",
+        "Off": "Uit",
+        "Redact": "Redigeren",
+        "Block": "Blokkeren",
+        "Input": "Invoer",
+        "Output": "Uitvoer",
+        "PII": "PII",
+        "prompt injection": "prompt-injectie",
+        "tool rules": "toolregels",
+        "Guardrail policy saved.": "Guardrail-beleid opgeslagen.",
+        "Could not save the guardrail policy.": "Kon het guardrail-beleid niet opslaan.",
+        "Message blocked by the organisation's guardrail policy": "Bericht geblokkeerd door het guardrail-beleid van de organisatie"
     },
     "plurals": ""
 }

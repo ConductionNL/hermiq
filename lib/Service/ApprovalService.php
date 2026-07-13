@@ -31,6 +31,16 @@
  *   decision simply flips to `approved`/`denied` so the NEXT invocation attempt
  *   of that (agentId, toolId) pair — `FacadeToolInvoker::handleGatedInvocation()`
  *   — proceeds or is blocked permanently.
+ * - A **guardrail-policy `confirm`-classified tool call** (`sourceType:
+ *   "toolcall"`, agent-guardrails): `FacadeToolInvoker` asks this service to
+ *   ensure a pending Approval for a specific agentId+toolId+arguments
+ *   combination, keyed by a `correlationId` hash of that combination for
+ *   idempotency — distinct from `sourceType: "tool"`: an approval here is
+ *   single-use and TTL-bounded (design.md Decision 4), never a permanent
+ *   per-(agentId,toolId) decision. Approving it does NOT re-execute anything
+ *   (Decision 5, `resumeGatedRun()`'s `toolcall` branch is a deliberate no-op)
+ *   — it authorises exactly one subsequent, argument-matching retry, which
+ *   `FacadeToolInvoker::handleConfirmClassifiedInvocation()` consumes.
  *
  * Either way, a reviewer (or an instance admin) later approves or denies:
  * approve transitions the object to `approved`, audits the decision, and
@@ -78,13 +88,13 @@ use Throwable;
  * Creates, routes, and decides Hermiq approval-gate objects via OpenRegister.
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several OR/NC services.
- * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The class owns FOUR parallel
- *   sourceType shapes (schedule/flow/webhook/tool) — each ensurePendingApprovalFor*()/
- *   runApproved*() pair is individually simple; the sum crosses the class-wide
- *   threshold because each generalisation (webhook, tool) added its own pair
- *   rather than duplicating an unrelated class, per the established
- *   "generalise ApprovalService" pattern (flow-agent-listener, agent-webhook-trigger,
- *   agent-tool-governance-and-disclosure).
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The class owns FIVE parallel
+ *   sourceType shapes (schedule/flow/webhook/tool/toolcall) — each
+ *   ensurePendingApprovalFor*()/runApproved*() pair is individually simple; the sum
+ *   crosses the class-wide threshold because each generalisation (webhook, tool,
+ *   toolcall) added its own pair rather than duplicating an unrelated class, per the
+ *   established "generalise ApprovalService" pattern (flow-agent-listener,
+ *   agent-webhook-trigger, agent-tool-governance-and-disclosure, agent-guardrails).
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
  */
@@ -119,6 +129,16 @@ class ApprovalService
      * @var string
      */
     private const AGENT_SCHEMA = 'agent';
+
+    /**
+     * The validity window (seconds) an APPROVED `toolcall` Approval authorises
+     * exactly one matching retry within, before the authorization expires and a
+     * further identical attempt is treated as brand new (design.md Decision 4).
+     * A fixed class constant — no new schema field.
+     *
+     * @var int
+     */
+    private const TOOLCALL_APPROVAL_TTL_SECONDS = 3600;
 
     /**
      * Constructor.
@@ -440,6 +460,287 @@ class ApprovalService
         return $approval;
 
     }//end ensurePendingApprovalForToolInvocation()
+
+    /**
+     * Idempotently ensure a single pending `toolcall` Approval exists for a
+     * `confirm`-classified tool call attempted mid-run (agent-guardrails, EU AI
+     * Act Art. 14). Mirrors `ensurePendingApprovalForToolInvocation()`'s
+     * idempotent-ensure shape, but keyed by `correlationId` (a hash of
+     * agentId+toolId+arguments — see `FacadeToolInvoker::toolCallCorrelationId()`)
+     * rather than the bare (agentId, toolId) pair, since a `confirm` Approval is
+     * scoped to one specific set of arguments, not the tool as a whole (design.md
+     * Decision 4) — distinct from `ensurePendingApprovalForToolInvocation()`'s
+     * `sourceType: "tool"`.
+     *
+     * The reviewer defaults to the agent's own owner (mirrors the tool-invocation
+     * default), falling back to the `admin` group when the agent has no owner
+     * or cannot be resolved. The arguments are redacted before persistence
+     * (redaction-before-persist) — never stored raw.
+     *
+     * @param string               $agentId       The agent UUID attempting the invocation.
+     * @param string               $toolId        The full namespaced tool id (dotted `mcpId` form).
+     * @param array<string, mixed> $arguments     The invocation's arguments (redacted before
+     *                                            persistence).
+     * @param string               $correlationId The hash of agentId+toolId+arguments
+     *                                            (idempotency key).
+     *
+     * @return ObjectEntity The pending (or already-pending) Approval.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
+     */
+    public function ensurePendingApprovalForToolCall(
+        string $agentId,
+        string $toolId,
+        array $arguments,
+        string $correlationId
+    ): ObjectEntity {
+        $existing = $this->findPendingApprovalForToolCall(correlationId: $correlationId);
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $owner        = $this->resolveAgentOwner(agentId: $agentId);
+        $reviewer     = $owner;
+        $reviewerType = 'user';
+        if ($reviewer === '') {
+            $reviewer     = 'admin';
+            $reviewerType = 'group';
+        }
+
+        $payload = [
+            'status'        => 'pending',
+            'sourceType'    => 'toolcall',
+            'correlationId' => $correlationId,
+            'agentId'       => $agentId,
+            'toolId'        => $toolId,
+            'toolArguments' => $this->redactedArguments(arguments: $arguments),
+            'prompt'        => $this->summarizeArguments(arguments: $arguments),
+            'requestedAt'   => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+            'reviewer'      => $reviewer,
+            'reviewerType'  => $reviewerType,
+            'decidedAt'     => null,
+            'decidedBy'     => null,
+            'reason'        => null,
+            'consumedAt'    => null,
+        ];
+
+        $approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+
+        try {
+            $this->deliveryService->deliverApprovalRequestForToolInvocation(
+                approval: $approval,
+                reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType)
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Hermiq could not notify reviewer for toolcall approval '
+                .((string) $approval->getUuid()).': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+        return $approval;
+
+    }//end ensurePendingApprovalForToolCall()
+
+    /**
+     * Find the open pending `toolcall` Approval for a correlationId, if one
+     * exists — consulted by `FacadeToolInvoker` so a repeated attempt while a
+     * decision is still pending never creates a duplicate (idempotent).
+     *
+     * @param string $correlationId The agentId+toolId+arguments hash.
+     *
+     * @return ObjectEntity|null The pending approval, or null.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
+     */
+    public function findPendingApprovalForToolCall(string $correlationId): ?ObjectEntity
+    {
+        foreach ($this->toolCallApprovals(correlationId: $correlationId) as $object) {
+            if ((string) ($object->getObject()['status'] ?? '') === 'pending') {
+                return $object;
+            }
+        }
+
+        return null;
+
+    }//end findPendingApprovalForToolCall()
+
+    /**
+     * Find an APPROVED, UNCONSUMED `toolcall` Approval for a correlationId
+     * whose decision is still within the validity window, if one exists —
+     * consulted by `FacadeToolInvoker` before invoking a `confirm`-classified
+     * tool: only this Approval authorises the retry to actually proceed
+     * (design.md Decision 4).
+     *
+     * @param string $correlationId The agentId+toolId+arguments hash.
+     *
+     * @return ObjectEntity|null The approved, unconsumed, unexpired approval, or null.
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
+     */
+    public function findApprovedUnconsumedToolCallApproval(string $correlationId): ?ObjectEntity
+    {
+        foreach ($this->toolCallApprovals(correlationId: $correlationId) as $object) {
+            $data = $object->getObject();
+            if ((string) ($data['status'] ?? '') !== 'approved') {
+                continue;
+            }
+
+            if ($this->isConsumed(data: $data) === true) {
+                continue;
+            }
+
+            if ($this->isWithinToolCallTtl(data: $data) === false) {
+                continue;
+            }
+
+            return $object;
+        }
+
+        return null;
+
+    }//end findApprovedUnconsumedToolCallApproval()
+
+    /**
+     * Mark an approved `toolcall` Approval as consumed (`consumedAt` set) so it
+     * can never authorise a second invocation (design.md Decision 4 —
+     * single-use). Idempotent: consuming an already-consumed Approval simply
+     * re-writes the same timestamp-bearing record.
+     *
+     * @param ObjectEntity $approval The approved `toolcall` Approval to consume.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
+     */
+    public function markToolCallApprovalConsumed(ObjectEntity $approval): void
+    {
+        $data = $approval->getObject();
+        $data['consumedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+
+        $this->persistApproval(
+            data: $data,
+            uuid: (string) $approval->getUuid(),
+            owner: (string) ($approval->getOwner() ?? '')
+        );
+
+    }//end markToolCallApprovalConsumed()
+
+    /**
+     * Whether a `toolcall` Approval payload has already been consumed.
+     *
+     * @param array<string,mixed> $data The approval payload.
+     *
+     * @return bool
+     */
+    private function isConsumed(array $data): bool
+    {
+        $consumedAt = (string) ($data['consumedAt'] ?? '');
+
+        return $consumedAt !== '';
+
+    }//end isConsumed()
+
+    /**
+     * Whether a `toolcall` Approval's `decidedAt` is still within the fixed
+     * validity window (`TOOLCALL_APPROVAL_TTL_SECONDS`).
+     *
+     * @param array<string,mixed> $data The approval payload.
+     *
+     * @return bool
+     */
+    private function isWithinToolCallTtl(array $data): bool
+    {
+        $decidedAt = (string) ($data['decidedAt'] ?? '');
+        if ($decidedAt === '') {
+            return false;
+        }
+
+        try {
+            $decidedAtDate = new DateTimeImmutable($decidedAt);
+        } catch (Throwable $e) {
+            return false;
+        }
+
+        $now     = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $elapsed = ($now->getTimestamp() - $decidedAtDate->getTimestamp());
+
+        return $elapsed >= 0 && $elapsed <= self::TOOLCALL_APPROVAL_TTL_SECONDS;
+
+    }//end isWithinToolCallTtl()
+
+    /**
+     * Redact a tool call's arguments before persistence (redaction-before-
+     * persist), mirroring `WebhookAgentRunService::redactedPayload()`'s
+     * JSON-encode → redact → decode shape: masks secrets/PII in place; falls
+     * back to a `_redacted` wrapper string when the redacted text is no
+     * longer valid JSON (should not normally happen — redaction masks values
+     * in place — but a persisted record must never be an unparsed,
+     * partially-redacted blob passed off as structured data).
+     *
+     * @param array<string, mixed> $arguments The raw invocation arguments.
+     *
+     * @return array<string, mixed> The redacted arguments.
+     */
+    private function redactedArguments(array $arguments): array
+    {
+        $json = json_encode($arguments, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($json === false) {
+            $json = '{}';
+        }
+
+        $redactedJson = $this->redactionService->redact($json);
+        $decoded      = json_decode($redactedJson, true);
+        if (is_array($decoded) === true) {
+            return $decoded;
+        }
+
+        return ['_redacted' => $redactedJson];
+
+    }//end redactedArguments()
+
+    /**
+     * Load every Approval recorded for a `toolcall` correlationId (any
+     * status), RBAC-off (the caller applies whatever guard it needs) — the
+     * `toolcall` counterpart to `toolInvocationApprovals()`.
+     *
+     * @param string $correlationId The agentId+toolId+arguments hash.
+     *
+     * @return array<int, ObjectEntity>
+     */
+    private function toolCallApprovals(string $correlationId): array
+    {
+        if ($correlationId === '') {
+            return [];
+        }
+
+        $objects = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::APPROVAL_SCHEMA)
+            ->findAll(
+                config: ['filters' => ['correlationId' => $correlationId, 'sourceType' => 'toolcall']],
+                _rbac: false,
+                _multitenancy: false
+            );
+
+        $matches = [];
+        foreach ($objects as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $data = $object->getObject();
+            if ((string) ($data['correlationId'] ?? '') === $correlationId
+                && (string) ($data['sourceType'] ?? '') === 'toolcall'
+            ) {
+                $matches[] = $object;
+            }
+        }
+
+        return $matches;
+
+    }//end toolCallApprovals()
 
     /**
      * Find the open pending Approval for a (agentId, toolId) tool-invocation
@@ -766,15 +1067,25 @@ class ApprovalService
      * table behind `approve()`, kept as its own small helper (early returns,
      * never an `else`) so each branch stays simple and independently readable.
      *
-     * @param string              $sourceType The Approval's sourceType (schedule|flow|webhook).
+     * @param string              $sourceType The Approval's sourceType (schedule|flow|webhook|tool|toolcall).
      * @param array<string,mixed> $data       The Approval's payload (scheduleId/flowContext/webhookContext).
      *
      * @return bool Whether the gated run actually executed.
      *
      * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-5-approvalservice-sourcetype-webhook-generalisation
+     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-a-confirm-classified-tool-call-reuses-the-existing-human-approval-gate
      */
     private function resumeGatedRun(string $sourceType, array $data): bool
     {
+        if ($sourceType === 'toolcall' || $sourceType === 'tool') {
+            // Design.md Decision 5: approving authorises exactly one future
+            // matching retry (toolcall) or flips a permanent per-(agentId,toolId)
+            // decision (tool) — neither has a paused run to resume here. There
+            // is deliberately no re-execution: `FacadeToolInvoker` is the ONLY
+            // place either decision is ever acted on.
+            return false;
+        }
+
         if ($sourceType === 'webhook') {
             $webhookContext = $data['webhookContext'] ?? [];
             if (is_array($webhookContext) === false) {
