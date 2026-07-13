@@ -135,6 +135,27 @@ return [
         ['name' => 'tenantOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
         ['name' => 'tenantOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],
 
+        // Agent-lifecycle-governance: periodic access review + attestation + reassignment,
+        // incident records, and the retention-period setting (tenant-scoped; the four
+        // mutating endpoints additionally gate through ActionAuthService).
+        ['name' => 'tenantOps#reviewList', 'url' => '/api/tenant-ops/access-review', 'verb' => 'GET'],
+        [
+            'name'         => 'tenantOps#attestReview',
+            'url'          => '/api/tenant-ops/access-review/{uuid}/attest',
+            'verb'         => 'POST',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        [
+            'name'         => 'tenantOps#reassignAgent',
+            'url'          => '/api/tenant-ops/access-review/{uuid}/reassign',
+            'verb'         => 'POST',
+            'requirements' => ['uuid' => '[^/]+'],
+        ],
+        ['name' => 'tenantOps#incidents',       'url' => '/api/tenant-ops/incidents', 'verb' => 'GET'],
+        ['name' => 'tenantOps#createIncident',  'url' => '/api/tenant-ops/incidents', 'verb' => 'POST'],
+        ['name' => 'tenantOps#retention',       'url' => '/api/tenant-ops/retention', 'verb' => 'GET'],
+        ['name' => 'tenantOps#updateRetention', 'url' => '/api/tenant-ops/retention', 'verb' => 'PUT'],
+
         // Budget guardrails (cost-guardrails): per-org/per-agent spend caps, status, pre-run
         // estimate. 'status' is registered before the GET list route needs no {budgetId} at
         // all (only PUT/DELETE use it), so there is no path-matching ambiguity.

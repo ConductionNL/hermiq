@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.0"
+    "version": "0.10.1"
   },
   "x-openregister": {
     "type": "application",
@@ -338,9 +338,9 @@
       "TenantControl": {
         "slug": "tenantcontrol",
         "icon": "StopCircleOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "Tenant control",
-        "description": "Per-organisation kill-switch. When engaged, the dispatcher halts all agent runs for the organisation (tenant scope comes from ObjectEntity.organisation).",
+        "description": "Per-organisation kill-switch plus the stated EU AI Act Art. 12 retention-period policy (agent-lifecycle-governance). When engaged, the dispatcher halts all agent runs for the organisation (tenant scope comes from ObjectEntity.organisation).",
         "type": "object",
         "required": ["engaged"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
@@ -348,7 +348,8 @@
           "engaged": { "type": "boolean", "default": false, "title": "Engaged", "description": "When true, all agent runs for this organisation are halted." },
           "reason": { "type": "string", "title": "Reason", "description": "Optional reason for engaging the kill-switch." },
           "engagedAt": { "type": "string", "format": "date-time", "title": "Engaged at", "description": "When the kill-switch was engaged." },
-          "engagedBy": { "type": "string", "title": "Engaged by", "description": "The user id who engaged/disengaged the kill-switch." }
+          "engagedBy": { "type": "string", "title": "Engaged by", "description": "The user id who engaged/disengaged the kill-switch." },
+          "retentionMonths": { "type": "integer", "minimum": 6, "default": 6, "title": "Retention period (months)", "description": "Stated EU AI Act Art. 12 record-keeping retention period for this organisation's governance records; a value below 6 is rejected at the service layer. This is a stated policy only — it does not trigger automated purge/archive (agent-lifecycle-governance)." }
         }
       },
       "ModelPolicy": {
@@ -496,9 +497,9 @@
       "Agent": {
         "slug": "agent",
         "icon": "RobotOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "Agent",
-        "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here.",
+        "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag and periodic review attestation.",
         "type": "object",
         "required": ["name"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
@@ -530,7 +531,10 @@
           "actingUser": { "type": "string", "title": "Acting user", "description": "NC user id the agent impersonates for this run's ObjectService writes/Files/deliveries. Must be an existing, active user; when unset, runs impersonate the schedule owner (default, unchanged behavior)." },
           "user": { "type": "string", "title": "Run-as user", "description": "User id whose permissions and organisation context the agent runs under when there is no active session (e.g. cron/background runs). Legacy: superseded by actingUser." },
           "skillInstalls": { "type": "array", "default": [], "title": "Skill installs", "description": "Skill uuids explicitly installed on this agent; the allowlist a future run loop uses to decide which skills are exposed to it. Kept in sync by SkillService::installOnAgent().", "items": { "type": "string", "format": "uuid", "$ref": "Skill" } },
-          "contextRefs": { "type": "array", "default": [], "title": "Context refs", "description": "Context object uuids attached to this agent; each is assembled into a budgeted text preamble prepended to the system prompt at run start.", "items": { "type": "string", "format": "uuid", "$ref": "Context" } }
+          "contextRefs": { "type": "array", "default": [], "title": "Context refs", "description": "Context object uuids attached to this agent; each is assembled into a budgeted text preamble prepended to the system prompt at run start.", "items": { "type": "string", "format": "uuid", "$ref": "Context" } },
+          "reassignmentFlag": { "type": "boolean", "default": false, "title": "Flagged for reassignment", "description": "Derived: true when this agent's owning Nextcloud user was deleted or disabled and its schedules were auto-paused (agent-lifecycle-governance offboarding); cleared once an org admin reassigns actingUser to a new active user." },
+          "reviewedAt": { "type": "string", "format": "date-time", "title": "Reviewed at", "description": "Derived: when an org admin last attested this agent as reviewed in the periodic access review (agent-lifecycle-governance); re-attesting updates this timestamp rather than duplicating a record." },
+          "reviewedBy": { "type": "string", "title": "Reviewed by", "description": "Derived: the user id of the org admin who last recorded the reviewed attestation (agent-lifecycle-governance)." }
         }
       },
       "Conversation": {
@@ -601,6 +605,25 @@
           "viewRefs": { "type": "array", "default": [], "title": "View refs", "description": "UUIDs of views that would further filter which data is included (resolution deferred — mirrors the same unresolved gap on Agent.views).", "items": { "type": "string", "format": "uuid" } },
           "charBudget": { "type": "integer", "default": 8000, "title": "Character budget", "description": "Character budget for the assembled preamble; exceeding it flags needsConsolidation (approximate, not a hard cap)." },
           "needsConsolidation": { "type": "boolean", "default": false, "title": "Needs consolidation", "description": "Derived: true when the last assembly exceeded charBudget — a nudge to narrow the bundle; content is never silently truncated." }
+        }
+      },
+      "Incident": {
+        "slug": "incident",
+        "icon": "AlertOctagonOutline",
+        "version": "0.1.0",
+        "title": "Incident",
+        "description": "A human-authored incident record (agent-lifecycle-governance): what happened, its impact, and the actions taken, optionally linked to an Agent and/or one or more runs (AuditTrail entry uuids). Persisted as a durable, tenant-scoped OpenRegister object so it inherits owner/organisation scoping and an AuditTrail entry automatically (ADR-004), and is included in the EU AI Act Art. 12 audit export alongside run/approval entries.",
+        "type": "object",
+        "required": ["description", "impact", "actionsTaken"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "description": { "type": "string", "title": "Description", "description": "What happened." },
+          "impact": { "type": "string", "title": "Impact", "description": "The impact of the incident (e.g. severity, who/what was affected)." },
+          "actionsTaken": { "type": "string", "title": "Actions taken", "description": "The remedial actions taken in response to the incident." },
+          "linkedAgentId": { "type": "string", "format": "uuid", "title": "Linked agent", "description": "UUID of the Agent this incident concerns, if any.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
+          "linkedRunIds": { "type": "array", "default": [], "title": "Linked runs", "description": "AuditTrail entry uuids of the run(s) this incident concerns, if any (a \"run\" has no own OpenRegister object — it is identified by its AuditTrail entry uuid, exactly as RunHistoryService already surfaces run ids).", "items": { "type": "string" } },
+          "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "Derived: when the incident record was opened — written by the create endpoint." },
+          "createdBy": { "type": "string", "title": "Created by", "description": "Derived: the user id of the org admin who opened the incident — written by the create endpoint." }
         }
       }
     }
