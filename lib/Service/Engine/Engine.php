@@ -457,7 +457,7 @@ class Engine
             return;
         }
 
-        // tenant-model-policy: the conversation already carries its organisation
+        // Tenant-model-policy: the conversation already carries its organisation
         // (ObjectEntity metadata) — no new lookup needed to enforce the effective
         // policy on this background title-generation call too.
         $organisation = (string) ($conversation->getOrganisation() ?? '');

@@ -198,7 +198,7 @@ class ResponseGenerationHandler
                 $agentTemperature = (float) $agentData['temperature'];
             }
 
-            // tenant-model-policy: the agent's organisation (already in hand — no new
+            // Tenant-model-policy: the agent's organisation (already in hand — no new
             // lookup) is threaded to ProviderFactory so the resolved (provider, model)
             // pair is checked against its effective ModelPolicy before any provider
             // client is used. null (no agent bound to this turn) skips the check.
