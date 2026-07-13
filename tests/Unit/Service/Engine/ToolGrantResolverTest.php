@@ -35,6 +35,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\Hermiq\Service\MemoryService;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
@@ -343,6 +344,7 @@ class ToolGrantResolverTest extends TestCase
             $this->createMock(IAppManager::class),
             $this->createMock(ContainerInterface::class),
             $this->createMock(CourseRecommendationEngine::class),
+            $this->createMock(MemoryService::class),
             $this->createMock(LoggerInterface::class)
         );
 
@@ -372,7 +374,10 @@ class ToolGrantResolverTest extends TestCase
      * default-deny still applies) now GRANTS every read-annotated NC-native tool
      * — before the fix, ALL of these were fail-closed stripped because they are
      * hint-less 2-segment ids. `sendMail` and `recommendCourses` remain stripped
-     * because they are honestly annotated as write/destructive.
+     * because they are honestly annotated as write/destructive. `hermiq.recallMemory`
+     * (agent-memory-tools, scope:read) is granted alongside them; `rememberMemory`
+     * (scope:create) and `forgetMemory` (scope:delete) stay stripped like every
+     * other write/destructive-annotated tool.
      *
      * @return void
      *
@@ -390,6 +395,7 @@ class ToolGrantResolverTest extends TestCase
                 'hermiq.listDeckBoards',
                 'hermiq.listFiles',
                 'hermiq.readFile',
+                'hermiq.recallMemory',
                 'hermiq.searchContacts',
                 'hermiq.searchTools',
             ],
@@ -401,6 +407,8 @@ class ToolGrantResolverTest extends TestCase
 
         $this->assertNotContains('hermiq.sendMail', $resolved, 'sendMail is honestly destructive and must stay default-denied.');
         $this->assertNotContains('hermiq.recommendCourses', $resolved, 'recommendCourses persists on staleness and must stay default-denied.');
+        $this->assertNotContains('hermiq.rememberMemory', $resolved, 'rememberMemory (scope:create) must stay default-denied.');
+        $this->assertNotContains('hermiq.forgetMemory', $resolved, 'forgetMemory (scope:delete) must stay default-denied.');
 
     }//end testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed()
 

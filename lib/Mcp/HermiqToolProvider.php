@@ -33,6 +33,14 @@
  * The `unknown_tool` branch here is a defensive fallback only, for the
  * (non-Hermiq-engine) case where something else calls the facade directly.
  *
+ * agent-memory-tools additionally registers `hermiq.rememberMemory`/
+ * `hermiq.recallMemory`/`hermiq.forgetMemory` here — the MemGPT/Letta
+ * "self-editing memory" tools that let an agent decide, mid-run, to write/search/
+ * retract its own durable memory (`MemoryService`'s `Memory`/`UserProfile` objects),
+ * instead of memory only ever being written by operator/app-driven code. These three
+ * flow through the exact same `invokeTool()`/governance path as every other tool
+ * here (tracing, tenant scoping, `Agent.tools` allowlist) — no new mechanism.
+ *
  * @category Mcp
  * @package  OCA\Hermiq\Mcp
  *
@@ -54,6 +62,8 @@ namespace OCA\Hermiq\Mcp;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Service\MemoryService;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\AbstractToolHandler;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
 use OCP\App\IAppManager;
@@ -72,8 +82,12 @@ use Throwable;
 /**
  * MCP tool provider exposing Files/Contacts/Calendar/Deck/email as agent tools.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One provider aggregates five distinct
- *   Nextcloud capabilities; each needs its own collaborator.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   One provider aggregates six distinct
+ *   Nextcloud/Hermiq capabilities; each needs its own collaborator.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Complexity is the sum of one
+ *   dispatch branch + one small, single-responsibility handler per registered tool
+ *   (agent-memory-tools added three) — each handler stays independently simple and
+ *   testable; the total tracks the catalogue size, not incidental complexity.
  *
  * @spec openspec/changes/nc-native-tools/tasks.md#1-ncnativetoolprovider
  */
@@ -223,6 +237,73 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
             'idempotentHint'  => false,
             'scope'           => 'update',
         ],
+        [
+            'id'              => Application::APP_ID.'.rememberMemory',
+            'name'            => 'Remember a fact',
+            'description'     => 'Append a durable fact to your own memory (scope: agent) or to what you know about the '
+                .'person you are talking with (scope: user), so you can recall it in a future turn or session.',
+            'inputSchema'     => [
+                'type'       => 'object',
+                'properties' => [
+                    'content' => ['type' => 'string', 'description' => 'The fact to remember.'],
+                    'scope'   => [
+                        'type'        => 'string',
+                        'enum'        => ['agent', 'user'],
+                        'description' => 'Whose memory to append to: your own (agent) or the acting user\'s profile (user).',
+                    ],
+                ],
+                'required'   => ['content', 'scope'],
+            ],
+            // Appends a new entry every call — never idempotent, never destructive
+            // (soft-delete-only forgetting lives in forgetMemory, not here); content
+            // is redacted before persist (MemoryService::appendEntry()).
+            'readOnlyHint'    => false,
+            'destructiveHint' => false,
+            'idempotentHint'  => false,
+            'scope'           => 'create',
+        ],
+        [
+            'id'              => Application::APP_ID.'.recallMemory',
+            'name'            => 'Recall memory',
+            'description'     => 'Search your own remembered facts, what you know about the acting user, and past '
+                .'conversation turns for a query — so you can decide what is relevant to this turn instead of '
+                .'everything being silently injected.',
+            'inputSchema'     => [
+                'type'       => 'object',
+                'properties' => [
+                    'query' => [
+                        'type'        => 'string',
+                        'description' => 'Keyword(s) or a natural-language query to search memory and history for.',
+                    ],
+                ],
+                'required'   => ['query'],
+            ],
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
+        ],
+        [
+            'id'              => Application::APP_ID.'.forgetMemory',
+            'name'            => 'Forget a fact',
+            'description'     => 'Retract one previously-remembered fact you no longer believe, by its entry id (from a '
+                .'prior rememberMemory or recallMemory result). This is a soft delete — the fact stops being recalled '
+                .'but is never erased from the audit history.',
+            'inputSchema'     => [
+                'type'       => 'object',
+                'properties' => ['id' => ['type' => 'string', 'description' => 'The entry id to forget (from rememberMemory or recallMemory).']],
+                'required'   => ['id'],
+            ],
+            // A soft delete: excludes the entry from future recall/budget counting.
+            // Never a hard delete (the entry stays in the stored array and AuditTrail),
+            // but the effect is real and irreversible via this tool — destructiveHint
+            // true, mirroring sendMail's "irreversible effect, nothing physically
+            // erased" reasoning. Repeating the same id is a no-op (idempotent).
+            'readOnlyHint'    => false,
+            'destructiveHint' => true,
+            'idempotentHint'  => true,
+            'scope'           => 'delete',
+        ],
     ];
 
     /**
@@ -239,9 +320,12 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
      * @param CourseRecommendationEngine $courseEngine    Shared engine backing `recommendCourses`
      *                                                    (ai-course-recommendations) — no duplicated
      *                                                    gating/scoring/signal-read logic.
+     * @param MemoryService              $memoryService   Shared service backing `rememberMemory`/
+     *                                                    `recallMemory`/`forgetMemory` (agent-memory-tools) —
+     *                                                    no duplicated append/redact/recall/soft-delete logic.
      * @param LoggerInterface            $logger          PSR-3 logger.
      *
-     * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of six distinct capabilities.
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of seven distinct capabilities.
      */
     public function __construct(
         IUserSession $userSession,
@@ -253,6 +337,7 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
         private readonly IAppManager $appManager,
         private readonly ContainerInterface $container,
         private readonly CourseRecommendationEngine $courseEngine,
+        private readonly MemoryService $memoryService,
         private readonly LoggerInterface $logger,
     ) {
         $this->userSession  = $userSession;
@@ -326,6 +411,12 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
                     return $this->listDeckBoards();
                 case Application::APP_ID.'.recommendCourses':
                     return $this->courseEngine->getOrRegenerate(learnerUid: $uid);
+                case Application::APP_ID.'.rememberMemory':
+                    return $this->rememberMemory(uid: $uid, arguments: $arguments);
+                case Application::APP_ID.'.recallMemory':
+                    return $this->recallMemory(uid: $uid, arguments: $arguments);
+                case Application::APP_ID.'.forgetMemory':
+                    return $this->forgetMemory(uid: $uid, arguments: $arguments);
                 case Application::APP_ID.'.searchTools':
                     // Defensive fallback only — the Hermiq engine short-circuits this
                     // call directly to ToolSearchService before it ever reaches the
@@ -534,6 +625,197 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
         return ['sent' => ($failed === []), 'failedRecipients' => $failed];
 
     }//end sendMail()
+
+    /**
+     * Append a durable fact to the agent's own Memory (`scope: agent`) or to the
+     * acting user's UserProfile for this agent (`scope: user`) — agent-memory-tools'
+     * self-service write. Delegates verbatim to `MemoryService::appendMemoryEntry()`/
+     * `appendUserProfileEntry()`, which redacts `content` before persist
+     * (`MemoryService::appendEntry()`).
+     *
+     * @param string               $uid       The acting user id (IDOR: `scope: user`
+     *                                        only ever writes to THIS user's own
+     *                                        UserProfile, never a caller-supplied
+     *                                        `subjectUid`).
+     * @param array<string, mixed> $arguments The tool arguments (`content`, `scope`,
+     *                                        plus the run-injected `agentId` — see
+     *                                        `FacadeToolInvoker::withAgentId()`).
+     *
+     * @return array<string, mixed> The result, or an error envelope.
+     *
+     * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+     */
+    private function rememberMemory(string $uid, array $arguments): array
+    {
+        $agentId = trim((string) ($arguments['agentId'] ?? ''));
+        if ($agentId === '') {
+            return $this->noAgentContextError();
+        }
+
+        $content = trim((string) ($arguments['content'] ?? ''));
+        if ($content === '') {
+            return $this->error(code: 'invalid_argument', message: 'A non-empty content is required.');
+        }
+
+        $scope = (string) ($arguments['scope'] ?? '');
+        if (in_array($scope, ['agent', 'user'], true) === false) {
+            return $this->error(code: 'invalid_argument', message: 'scope must be "agent" or "user".');
+        }
+
+        if ($scope === 'user') {
+            $memory = $this->memoryService->appendUserProfileEntry(agentId: $agentId, subjectUid: $uid, text: $content);
+            return $this->rememberedResult(scope: $scope, memory: $memory);
+        }
+
+        $memory = $this->memoryService->appendMemoryEntry(agentId: $agentId, text: $content);
+        return $this->rememberedResult(scope: $scope, memory: $memory);
+
+    }//end rememberMemory()
+
+    /**
+     * Shape a persisted Memory/UserProfile object into `rememberMemory`'s result
+     * payload, surfacing the newly-appended entry's id.
+     *
+     * @param string       $scope  The scope the entry was appended to (`agent`|`user`).
+     * @param ObjectEntity $memory The persisted Memory/UserProfile object.
+     *
+     * @return array<string, mixed> The result payload.
+     */
+    private function rememberedResult(string $scope, ObjectEntity $memory): array
+    {
+        $data    = $memory->getObject();
+        $entries = (array) ($data['entries'] ?? []);
+        $newest  = end($entries);
+
+        $entryId = null;
+        if (is_array($newest) === true) {
+            $entryId = ($newest['id'] ?? null);
+        }
+
+        return [
+            'remembered'         => true,
+            'scope'              => $scope,
+            'entryId'            => $entryId,
+            'needsConsolidation' => (bool) ($data['needsConsolidation'] ?? false),
+        ];
+
+    }//end rememberedResult()
+
+    /**
+     * Search the agent's own Memory/UserProfile entries and past SessionTurns for a
+     * query — agent-memory-tools' self-service recall. Reuses the SAME OpenRegister
+     * search substrate `recallSessions()` already uses (`MemoryService::recallEntries()`
+     * + `recallSessions()`, merged into one result) — no second search index.
+     *
+     * @param string               $uid       The acting user id (whose own UserProfile
+     *                                        is also searched).
+     * @param array<string, mixed> $arguments The tool arguments (`query`, plus the
+     *                                        run-injected `agentId`).
+     *
+     * @return array<string, mixed> The combined result, or an error envelope.
+     *
+     * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
+     */
+    private function recallMemory(string $uid, array $arguments): array
+    {
+        $agentId = trim((string) ($arguments['agentId'] ?? ''));
+        if ($agentId === '') {
+            return $this->noAgentContextError();
+        }
+
+        $query = trim((string) ($arguments['query'] ?? ''));
+        if ($query === '') {
+            return $this->error(code: 'invalid_argument', message: 'A non-empty query is required.');
+        }
+
+        $entries = $this->memoryService->recallEntries(agentId: $agentId, subjectUid: $uid, query: $query);
+        $turns   = $this->memoryService->recallSessions(agentId: $agentId, query: $query);
+
+        $sessionTurns = [];
+        foreach ($turns as $turn) {
+            $sessionTurns[] = $this->shapeSessionTurn(turn: $turn);
+        }
+
+        return [
+            'query'              => $query,
+            'memoryEntries'      => $entries['memoryEntries'],
+            'userProfileEntries' => $entries['userProfileEntries'],
+            'sessionTurns'       => $sessionTurns,
+        ];
+
+    }//end recallMemory()
+
+    /**
+     * Soft-delete one memory entry by id — agent-memory-tools' self-service forget.
+     * Scoped to the agent's own Memory and the ACTING user's own UserProfile only
+     * (IDOR: never a caller-supplied `subjectUid`). Never a hard delete
+     * (`MemoryService::forgetEntry()`); an unknown id is a structured not-found
+     * result, never a thrown error.
+     *
+     * @param string               $uid       The acting user id.
+     * @param array<string, mixed> $arguments The tool arguments (`id`, plus the
+     *                                        run-injected `agentId`).
+     *
+     * @return array<string, mixed> The result, or an error envelope.
+     *
+     * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
+     */
+    private function forgetMemory(string $uid, array $arguments): array
+    {
+        $agentId = trim((string) ($arguments['agentId'] ?? ''));
+        if ($agentId === '') {
+            return $this->noAgentContextError();
+        }
+
+        $entryId = trim((string) ($arguments['id'] ?? ''));
+        if ($entryId === '') {
+            return $this->error(code: 'invalid_argument', message: 'A non-empty id is required.');
+        }
+
+        $result = $this->memoryService->forgetEntry(agentId: $agentId, subjectUid: $uid, entryId: $entryId);
+
+        if ($result['found'] === false) {
+            return ['found' => false, 'message' => 'No memory entry with that id was found.'];
+        }
+
+        return ['found' => true, 'scope' => $result['scope']];
+
+    }//end forgetMemory()
+
+    /**
+     * Shape a SessionTurn ObjectEntity into the recall result's turn payload.
+     *
+     * @param ObjectEntity $turn The SessionTurn object.
+     *
+     * @return array<string, string> The shaped turn.
+     */
+    private function shapeSessionTurn(ObjectEntity $turn): array
+    {
+        $data = $turn->getObject();
+
+        return [
+            'role'      => (string) ($data['role'] ?? ''),
+            'content'   => (string) ($data['content'] ?? ''),
+            'createdAt' => (string) ($data['createdAt'] ?? ''),
+        ];
+
+    }//end shapeSessionTurn()
+
+    /**
+     * The error envelope for a memory tool called with no agent context
+     * (agent-less chat — `FacadeToolInvoker::withAgentId()` never injects an
+     * `agentId` when the run has none).
+     *
+     * @return array<string, mixed> The error envelope.
+     */
+    private function noAgentContextError(): array
+    {
+        return $this->error(
+            code: 'no_agent_context',
+            message: 'This tool requires an agent context and cannot be called outside an agent run.'
+        );
+
+    }//end noAgentContextError()
 
     /**
      * List the acting user's Deck boards (lazy dependency; error when Deck is absent).

@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.6"
+    "version": "0.10.7"
   },
   "x-openregister": {
     "type": "application",
@@ -410,7 +410,7 @@
       "Memory": {
         "slug": "memory",
         "icon": "BrainOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "Agent memory",
         "description": "An agent's long-term memory (the MEMORY.md port): durable facts stored as JSON entries with a character budget. Exceeding the budget flags needsConsolidation — a nudge to summarise, never a silent truncation.",
         "type": "object",
@@ -418,7 +418,7 @@
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
           "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent this memory belongs to.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
-          "entries": { "type": "array", "default": [], "title": "Entries", "description": "Memory entries as a JSON array.", "items": { "type": "object", "properties": { "text": { "type": "string", "title": "Text", "description": "The remembered fact." }, "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the entry was recorded." } } } },
+          "entries": { "type": "array", "default": [], "title": "Entries", "description": "Memory entries as a JSON array.", "items": { "type": "object", "properties": { "id": { "type": "string", "format": "uuid", "title": "Id", "description": "Stable per-entry id (agent-memory-tools), generated at append time so hermiq.forgetMemory can address one entry. Absent on entries appended before agent-memory-tools shipped." }, "text": { "type": "string", "title": "Text", "description": "The remembered fact." }, "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the entry was recorded." }, "deletedAt": { "type": "string", "format": "date-time", "title": "Deleted at", "description": "Set by hermiq.forgetMemory (agent-memory-tools) when the agent retracts this entry — a soft delete only. The entry is never removed from this array; it is excluded from recallMemory results and from charBudget/needsConsolidation counting once set." } } } },
           "charBudget": { "type": "integer", "default": 8000, "title": "Character budget", "description": "Character budget for entries; exceeding it flags needsConsolidation (approximate, not a hard cap)." },
           "needsConsolidation": { "type": "boolean", "default": false, "title": "Needs consolidation", "description": "True when the entries exceed charBudget — a nudge to consolidate; older entries are never dropped silently." }
         }
@@ -426,7 +426,7 @@
       "UserProfile": {
         "slug": "userprofile",
         "icon": "AccountDetailsOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "User profile",
         "description": "Facts an agent keeps about a subject user (the USER.md port): durable entries with a character budget and consolidation nudge, scoped to the owning organisation.",
         "type": "object",
@@ -435,7 +435,7 @@
         "properties": {
           "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the agent maintaining this profile.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
           "subjectUid": { "type": "string", "title": "Subject user", "description": "The user id the profile describes." },
-          "entries": { "type": "array", "default": [], "title": "Entries", "description": "Profile entries as a JSON array.", "items": { "type": "object", "properties": { "text": { "type": "string", "title": "Text", "description": "The remembered fact about the subject user." }, "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the entry was recorded." } } } },
+          "entries": { "type": "array", "default": [], "title": "Entries", "description": "Profile entries as a JSON array.", "items": { "type": "object", "properties": { "id": { "type": "string", "format": "uuid", "title": "Id", "description": "Stable per-entry id (agent-memory-tools), generated at append time so hermiq.forgetMemory can address one entry. Absent on entries appended before agent-memory-tools shipped." }, "text": { "type": "string", "title": "Text", "description": "The remembered fact about the subject user." }, "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "When the entry was recorded." }, "deletedAt": { "type": "string", "format": "date-time", "title": "Deleted at", "description": "Set by hermiq.forgetMemory (agent-memory-tools) when the agent retracts this entry — a soft delete only. The entry is never removed from this array; it is excluded from recallMemory results and from charBudget/needsConsolidation counting once set." } } } },
           "charBudget": { "type": "integer", "default": 4000, "title": "Character budget", "description": "Character budget for entries; exceeding it flags needsConsolidation." },
           "needsConsolidation": { "type": "boolean", "default": false, "title": "Needs consolidation", "description": "True when the entries exceed charBudget." }
         }
