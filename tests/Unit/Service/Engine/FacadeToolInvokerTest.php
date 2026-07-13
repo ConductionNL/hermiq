@@ -560,4 +560,85 @@ class FacadeToolInvokerTest extends TestCase
         $invoker->demo_create(name: 'x');
 
     }//end testDryRunFalseDispatchesWriteToolForRealUnchanged()
+
+    /**
+     * agent-memory-tools: the run's own agentId is injected into the arguments of
+     * exactly the three memory tool ids before the facade call — HermiqToolProvider
+     * has no other way to learn which agent is running (the IMcpToolProvider ABI
+     * threads no acting-agent identity into invokeTool() itself).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testAgentIdIsInjectedForMemoryToolsOnly(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())
+            ->method('invokeTool')
+            ->with('hermiq_rememberMemory', ['content' => 'x', 'scope' => 'agent', 'agentId' => 'agent-1'])
+            ->willReturn(['result' => ['remembered' => true], 'isError' => false]);
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            agentId: 'agent-1',
+            mcpIdByName: ['hermiq_rememberMemory' => 'hermiq.rememberMemory']
+        );
+
+        $invoker->hermiq_rememberMemory(content: 'x', scope: 'agent');
+
+    }//end testAgentIdIsInjectedForMemoryToolsOnly()
+
+    /**
+     * A NON-memory tool's arguments are never touched by the agentId injection —
+     * every other tool's behaviour is byte-for-byte unchanged.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testAgentIdIsNotInjectedForNonMemoryTools(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())
+            ->method('invokeTool')
+            ->with('hermiq_listFiles', ['path' => '/'])
+            ->willReturn(['result' => ['entries' => []], 'isError' => false]);
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            agentId: 'agent-1',
+            mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+        );
+
+        $invoker->hermiq_listFiles(path: '/');
+
+    }//end testAgentIdIsNotInjectedForNonMemoryTools()
+
+    /**
+     * With no agent context (agent-less chat, `agentId: null`), a memory tool's
+     * arguments are left unchanged — `HermiqToolProvider` then returns its own
+     * `no_agent_context` error rather than the invoker guessing an agentId.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testNoAgentIdLeavesMemoryToolArgumentsUnchanged(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())
+            ->method('invokeTool')
+            ->with('hermiq_recallMemory', ['query' => 'x'])
+            ->willReturn(['result' => ['error' => ['code' => 'no_agent_context']], 'isError' => true]);
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            agentId: null,
+            mcpIdByName: ['hermiq_recallMemory' => 'hermiq.recallMemory']
+        );
+
+        $invoker->hermiq_recallMemory(query: 'x');
+
+    }//end testNoAgentIdLeavesMemoryToolArgumentsUnchanged()
 }//end class

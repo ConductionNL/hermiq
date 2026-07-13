@@ -97,6 +97,13 @@ use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 /**
  * Dispatches LLPhant tool calls onto the OR tool-registry facade.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Complexity is the sum of several
+ *   independent governance short-circuits (searchTools, guardrail deny/confirm,
+ *   approval-gate, dry-run neutralisation, agent-memory-tools' agentId injection),
+ *   each a small, single-purpose, independently-tested method; the total tracks the
+ *   number of governance concerns this one dispatch chokepoint threads through, not
+ *   incidental complexity.
+ *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
  */
 class FacadeToolInvoker
@@ -109,6 +116,23 @@ class FacadeToolInvoker
      * @var array<int, string>
      */
     private const SEARCH_TOOLS_NAMES = ['hermiq.searchTools', 'hermiq_searchTools'];
+
+    /**
+     * The three agent-memory-tools registry ids that need to know which agent is
+     * running. `HermiqToolProvider::invokeTool(toolId, arguments)` has no other way
+     * to learn this: the `IMcpToolProvider` ABI threads no acting-agent identity
+     * into `invokeTool()` itself (documented on that class — the same limitation
+     * `agent-tool-governance-and-disclosure`'s oversight surface already works
+     * around by correlating via ownership instead), yet `Memory`/`UserProfile`
+     * objects are keyed by `agentId`. This class already holds `$agentId` for the
+     * approval gate, so injecting it into `$arguments` here — for exactly these
+     * three ids, mirroring this class's existing `SEARCH_TOOLS_NAMES` special-case
+     * — is the minimal, non-ABI-breaking fix; every other tool's arguments are
+     * untouched.
+     *
+     * @var array<int, string>
+     */
+    private const MEMORY_TOOL_IDS = ['hermiq.rememberMemory', 'hermiq.recallMemory', 'hermiq.forgetMemory'];
 
     /**
      * Constructor.
@@ -645,6 +669,41 @@ class FacadeToolInvoker
     }//end resolveToolId()
 
     /**
+     * Inject this run's own `agentId` into `$arguments` for the three
+     * agent-memory-tools ids ONLY (see `MEMORY_TOOL_IDS` docblock) — every other
+     * tool's arguments pass through byte-for-byte unchanged. Always overwrites any
+     * caller-supplied `agentId` key (the LLM's declared input schema for these
+     * tools never includes one, but defense-in-depth never trusts a caller-supplied
+     * identity field, matching this app's IDOR posture elsewhere): the run's own
+     * agentId is the only authoritative source. With no agent context
+     * (`$this->agentId === null`, agent-less chat), arguments are left unchanged —
+     * `HermiqToolProvider` then returns a structured "no agent context" error
+     * rather than guessing.
+     *
+     * @param string               $name      The LLPhant-side function name.
+     * @param array<string, mixed> $arguments Decoded arguments object.
+     *
+     * @return array<string, mixed> Arguments, with `agentId` set when applicable.
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    private function withAgentId(string $name, array $arguments): array
+    {
+        if ($this->agentId === null) {
+            return $arguments;
+        }
+
+        if (in_array($this->resolveToolId(name: $name), self::MEMORY_TOOL_IDS, true) === false) {
+            return $arguments;
+        }
+
+        $arguments['agentId'] = $this->agentId;
+
+        return $arguments;
+
+    }//end withAgentId()
+
+    /**
      * The pre-existing plain dispatch: forward the call to
      * `ToolRegistryFacade::invokeTool()`, emitting channel frames / trace step.
      *
@@ -690,7 +749,7 @@ class FacadeToolInvoker
 
         // The facade's return shape is a documented contract:
         // {result: array, isError: bool} (ai-mcp REQ-006).
-        $envelope = $this->facade->invokeTool(toolId: $name, arguments: $arguments);
+        $envelope = $this->facade->invokeTool(toolId: $name, arguments: $this->withAgentId(name: $name, arguments: $arguments));
 
         if ($this->trace !== null && $traceToken !== null) {
             $outcome = 'ok';

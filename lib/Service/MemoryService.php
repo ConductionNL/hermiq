@@ -42,7 +42,19 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Reads and writes agent memory (Memory/UserProfile/Session/SessionTurn) via OpenRegister.
  *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     One class owns the full read/write/
+ *   recall/forget surface for four related OpenRegister schemas (Memory, UserProfile,
+ *   Session, SessionTurn) so callers (HermiqToolProvider, MemoryController) have a
+ *   single collaborator rather than four near-identical services.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Complexity is the sum of many
+ *   small, single-purpose read/write/recall methods over those four schemas, each
+ *   independently simple and unit-tested; agent-memory-tools' additions
+ *   (forgetEntry/recallEntries/soft-delete helpers) follow the same shape.
+ *
  * @spec openspec/changes/agent-memory/tasks.md#2-memoryservice
+ * @spec openspec/changes/agent-memory-tools/tasks.md#task-2
+ * @spec openspec/changes/agent-memory-tools/tasks.md#task-3
+ * @spec openspec/changes/agent-memory-tools/tasks.md#task-4
  */
 class MemoryService
 {
@@ -100,10 +112,17 @@ class MemoryService
     /**
      * Constructor.
      *
-     * @param ObjectService $objectService OpenRegister object read/write (single write-path).
+     * @param ObjectService    $objectService    OpenRegister object read/write (single write-path).
+     * @param RedactionService $redactionService Applied to every entry BEFORE persist inside
+     *                                           `appendEntry()` (agent-memory-tools) — closes the
+     *                                           gap where operator-seeded memory previously bypassed
+     *                                           redaction entirely.
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-2
      */
     public function __construct(
         private readonly ObjectService $objectService,
+        private readonly RedactionService $redactionService,
     ) {
     }//end __construct()
 
@@ -378,7 +397,116 @@ class MemoryService
     }//end recallSessions()
 
     /**
+     * Recall matching, non-soft-deleted Memory/UserProfile entries for an agent via the
+     * SAME OpenRegister search substrate `recallSessions()` already uses — no second
+     * search index, no vector store. Object-level `ObjectService` search resolves
+     * candidate Memory/UserProfile objects; entry-level filtering (query substring,
+     * excluding soft-deleted entries) narrows the result to the matching entries within
+     * them. `hermiq.recallMemory` merges this with `recallSessions()`'s turn matches into
+     * one combined tool result (design.md Decision 5).
+     *
+     * @param string      $agentId    The agent UUID.
+     * @param string|null $subjectUid The acting user id whose own UserProfile is also
+     *                                searched, or null to search only the agent's Memory.
+     * @param string      $query      The recall query.
+     * @param int         $limit      Maximum objects to search per schema.
+     *
+     * @return array{memoryEntries: array<int, array<string, string>>, userProfileEntries: array<int, array<string, string>>}
+     *         Matching entries, tenant-scoped for free (unchanged ObjectService caller-context RBAC).
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-4
+     */
+    public function recallEntries(string $agentId, ?string $subjectUid, string $query, int $limit=20): array
+    {
+        $memoryEntries = [];
+        foreach ($this->findMany(schema: self::MEMORY_SCHEMA, filters: ['agentId' => $agentId], search: $query, limit: $limit) as $object) {
+            $memoryEntries = array_merge($memoryEntries, $this->matchingEntries(object: $object, query: $query));
+        }
+
+        $userProfileEntries = [];
+        if ($subjectUid !== null && $subjectUid !== '') {
+            $profileFilters = [
+                'agentId'    => $agentId,
+                'subjectUid' => $subjectUid,
+            ];
+            foreach ($this->findMany(schema: self::USER_PROFILE_SCHEMA, filters: $profileFilters, search: $query, limit: $limit) as $object) {
+                $userProfileEntries = array_merge($userProfileEntries, $this->matchingEntries(object: $object, query: $query));
+            }
+        }
+
+        return [
+            'memoryEntries'      => $memoryEntries,
+            'userProfileEntries' => $userProfileEntries,
+        ];
+
+    }//end recallEntries()
+
+    /**
+     * Soft-delete one memory entry by id (never a hard delete): sets `deletedAt`,
+     * leaving the entry present in the stored `entries` array (and therefore in
+     * OpenRegister's AuditTrail history) for audit purposes.
+     *
+     * Scoped to the agent's own Memory object and, when `$subjectUid` is supplied,
+     * the ACTING user's own UserProfile object for that agent — never any other
+     * subject user's UserProfile (design.md Decision 3, matching every other
+     * `HermiqToolProvider` tool's IDOR posture). An id matching nothing in either
+     * object is a soft failure (not-found), never an exception — mirrors
+     * `ContextAssembler`'s "one bad reference is skipped, not fatal" posture.
+     *
+     * @param string      $agentId    The agent UUID.
+     * @param string|null $subjectUid The acting user id whose own UserProfile may also
+     *                                be searched, or null to search only the agent's Memory.
+     * @param string      $entryId    The entry id to soft-delete.
+     *
+     * @return array{found: bool, scope: (string|null)} Whether a match was found, and
+     *         in which object ('memory'|'userProfile') when it was.
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-3
+     */
+    public function forgetEntry(string $agentId, ?string $subjectUid, string $entryId): array
+    {
+        if (trim($entryId) === '') {
+            return ['found' => false, 'scope' => null];
+        }
+
+        $memory      = $this->getMemory(agentId: $agentId);
+        $memoryFound = $this->softDeleteEntry(
+            object: $memory,
+            schema: self::MEMORY_SCHEMA,
+            entryId: $entryId,
+            defaultBudget: self::DEFAULT_MEMORY_BUDGET
+        );
+        if ($memoryFound === true) {
+            return ['found' => true, 'scope' => 'memory'];
+        }
+
+        if ($subjectUid !== null && $subjectUid !== '') {
+            $profile      = $this->getUserProfile(agentId: $agentId, subjectUid: $subjectUid);
+            $profileFound = $this->softDeleteEntry(
+                object: $profile,
+                schema: self::USER_PROFILE_SCHEMA,
+                entryId: $entryId,
+                defaultBudget: self::DEFAULT_PROFILE_BUDGET
+            );
+            if ($profileFound === true) {
+                return ['found' => true, 'scope' => 'userProfile'];
+            }
+        }
+
+        return ['found' => false, 'scope' => null];
+
+    }//end forgetEntry()
+
+    /**
      * Append an entry to a Memory/UserProfile object and recompute the consolidation flag.
+     *
+     * Redacts the entry text BEFORE persist (`RedactionService::redact()`, ADR-004's
+     * redaction-before-persist invariant) so EVERY caller of this single funnel method —
+     * the `hermiq.rememberMemory` tool and the existing operator-facing
+     * `MemoryController::addMemory()` endpoint alike — gets the same guarantee, closing a
+     * gap that existed before agent-memory-tools (operator-seeded memory was not
+     * redacted). Each new entry also gets a freshly-generated, stable `id` so it can
+     * later be addressed by `hermiq.forgetMemory`.
      *
      * @param ObjectEntity $object        The Memory/UserProfile object.
      * @param string       $schema        The schema slug to save under.
@@ -386,6 +514,8 @@ class MemoryService
      * @param int          $defaultBudget The budget to assume when the object stores none.
      *
      * @return ObjectEntity The persisted object.
+     *
+     * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-memory-writes-are-redacted-before-persist
      */
     private function appendEntry(ObjectEntity $object, string $schema, string $text, int $defaultBudget): ObjectEntity
     {
@@ -393,7 +523,8 @@ class MemoryService
         $entries = $this->normaliseEntries(entries: ($data['entries'] ?? []));
 
         $entries[] = [
-            'text'      => $text,
+            'id'        => $this->generateEntryId(),
+            'text'      => $this->redactionService->redact(text: $text),
             'createdAt' => $this->now(),
         ];
 
@@ -411,17 +542,103 @@ class MemoryService
     }//end appendEntry()
 
     /**
-     * Total character count across all entry texts.
+     * Soft-delete the entry matching `$entryId` inside one Memory/UserProfile object.
+     *
+     * @param ObjectEntity $object        The Memory/UserProfile object to search.
+     * @param string       $schema        The schema slug to save under.
+     * @param string       $entryId       The entry id to soft-delete.
+     * @param int          $defaultBudget The budget to assume when the object stores none.
+     *
+     * @return bool True when a matching entry was found (and soft-deleted, or was
+     *              already soft-deleted — idempotent); false when no entry in this
+     *              object carries `$entryId`.
+     */
+    private function softDeleteEntry(ObjectEntity $object, string $schema, string $entryId, int $defaultBudget): bool
+    {
+        $data    = $object->getObject();
+        $entries = $this->normaliseEntries(entries: ($data['entries'] ?? []));
+
+        $matchIndex = null;
+        foreach ($entries as $index => $entry) {
+            if (($entry['id'] ?? '') === $entryId) {
+                $matchIndex = $index;
+                break;
+            }
+        }
+
+        if ($matchIndex === null) {
+            return false;
+        }
+
+        if ($this->isDeleted(entry: $entries[$matchIndex]) === true) {
+            // Already forgotten — idempotent no-op, still a "found" result.
+            return true;
+        }
+
+        $entries[$matchIndex]['deletedAt'] = $this->now();
+
+        $budget          = (int) ($data['charBudget'] ?? $defaultBudget);
+        $data['entries'] = $entries;
+        $data['needsConsolidation'] = ($this->countCharacters(entries: $entries) > $budget);
+
+        $this->objectService->saveObject(
+            object: $data,
+            register: self::REGISTER_SLUG,
+            schema: $schema,
+            uuid: (string) $object->getUuid()
+        );
+
+        return true;
+
+    }//end softDeleteEntry()
+
+    /**
+     * Non-soft-deleted entries within one Memory/UserProfile object whose text
+     * contains `$query` (case-insensitive substring match) — the object-level
+     * `ObjectService` search already narrowed the candidate objects; this narrows to
+     * the matching entries inside them.
+     *
+     * @param ObjectEntity $object The Memory/UserProfile object.
+     * @param string       $query  The recall query.
+     *
+     * @return array<int, array<string, string>> The matching, non-soft-deleted entries.
+     */
+    private function matchingEntries(ObjectEntity $object, string $query): array
+    {
+        $entries = $this->normaliseEntries(entries: ($object->getObject()['entries'] ?? []));
+
+        $out = [];
+        foreach ($entries as $entry) {
+            if ($this->isDeleted(entry: $entry) === true) {
+                continue;
+            }
+
+            if ($query !== '' && stripos($entry['text'], $query) === false) {
+                continue;
+            }
+
+            $out[] = $entry;
+        }
+
+        return $out;
+
+    }//end matchingEntries()
+
+    /**
+     * Total character count across all NON-SOFT-DELETED entry texts.
+     *
+     * Soft-deleted entries (`deletedAt` set) are excluded so a forgotten fact never
+     * keeps counting toward `needsConsolidation` (agent-memory-tools).
      *
      * @param array<int, mixed> $entries The entries.
      *
-     * @return int The summed character length of the entry texts.
+     * @return int The summed character length of the non-soft-deleted entry texts.
      */
     private function countCharacters(array $entries): int
     {
         $total = 0;
         foreach ($entries as $entry) {
-            if (is_array($entry) === true && isset($entry['text']) === true) {
+            if (is_array($entry) === true && isset($entry['text']) === true && $this->isDeleted(entry: $entry) === false) {
                 $total += mb_strlen((string) $entry['text']);
             }
         }
@@ -431,7 +648,12 @@ class MemoryService
     }//end countCharacters()
 
     /**
-     * Coerce a raw entries value into a list of {text, createdAt} maps.
+     * Coerce a raw entries value into a list of {id?, text, createdAt, deletedAt?} maps.
+     *
+     * `id`/`deletedAt` are preserved when present (agent-memory-tools) but stay
+     * optional so entries appended before this change — which carry neither — remain
+     * valid and simply unforgettable-by-id until they are naturally re-appended
+     * (proposal.md Risk 2).
      *
      * @param mixed $entries The stored/supplied entries value.
      *
@@ -449,15 +671,57 @@ class MemoryService
                 continue;
             }
 
-            $out[] = [
+            $normalised = [
                 'text'      => (string) $entry['text'],
                 'createdAt' => (string) ($entry['createdAt'] ?? $this->now()),
             ];
+
+            if (isset($entry['id']) === true && $entry['id'] !== '') {
+                $normalised['id'] = (string) $entry['id'];
+            }
+
+            if (isset($entry['deletedAt']) === true && $entry['deletedAt'] !== '') {
+                $normalised['deletedAt'] = (string) $entry['deletedAt'];
+            }
+
+            $out[] = $normalised;
         }
 
         return $out;
 
     }//end normaliseEntries()
+
+    /**
+     * Whether a normalised entry has been soft-deleted (`deletedAt` set and non-empty).
+     *
+     * @param array<string, mixed> $entry A normalised entry (see `normaliseEntries()`).
+     *
+     * @return bool True when the entry is soft-deleted.
+     */
+    private function isDeleted(array $entry): bool
+    {
+        return isset($entry['deletedAt']) === true && $entry['deletedAt'] !== '';
+
+    }//end isDeleted()
+
+    /**
+     * Generate a random UUID v4 (pure PHP — no Symfony/Ramsey uuid dependency exists in
+     * Hermiq's own composer.json, matching `WebhookTriggerController::generateCorrelationId()`)
+     * for a freshly-appended memory entry's stable `id`.
+     *
+     * @return string The generated UUID v4.
+     *
+     * @spec openspec/changes/agent-memory-tools/design.md#decision-2-entry-level-id--deletedat-not-a-separate-or-object-per-entry
+     */
+    private function generateEntryId(): string
+    {
+        $data    = random_bytes(16);
+        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+
+    }//end generateEntryId()
 
     /**
      * Find the first matching object, or null.

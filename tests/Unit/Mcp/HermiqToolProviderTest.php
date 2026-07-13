@@ -17,6 +17,12 @@
  * (unclassifiable-by-shape) id text — see ToolGrantResolverTest for the
  * end-to-end grant-resolution proof.
  *
+ * Also covers the three agent-memory-tools (`rememberMemory`/`recallMemory`/
+ * `forgetMemory`): IDOR scoping to the acting user (never a caller-supplied
+ * `subjectUid`), the `no_agent_context` error when `FacadeToolInvoker` has not
+ * injected an `agentId` (agent-less chat), the not-found path, and the
+ * never-throws contract.
+ *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Mcp
  *
@@ -37,6 +43,8 @@ namespace OCA\Hermiq\Tests\Unit\Mcp;
 
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Service\MemoryService;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
@@ -61,12 +69,13 @@ class HermiqToolProviderTest extends TestCase
     /**
      * Build the provider with a session that resolves to $uid (or null for anonymous).
      *
-     * @param string|null                      $uid    The acting user id, or null for unauthenticated.
-     * @param CourseRecommendationEngine|null $engine A specific engine double, or a plain mock.
+     * @param string|null                      $uid           The acting user id, or null for unauthenticated.
+     * @param CourseRecommendationEngine|null $engine        A specific engine double, or a plain mock.
+     * @param MemoryService|null              $memoryService A specific MemoryService double, or a plain mock.
      *
      * @return HermiqToolProvider
      */
-    private function provider(?string $uid, ?CourseRecommendationEngine $engine=null): HermiqToolProvider
+    private function provider(?string $uid, ?CourseRecommendationEngine $engine=null, ?MemoryService $memoryService=null): HermiqToolProvider
     {
         $session = $this->createMock(IUserSession::class);
         if ($uid === null) {
@@ -87,6 +96,7 @@ class HermiqToolProviderTest extends TestCase
             $this->createMock(IAppManager::class),
             $this->createMock(ContainerInterface::class),
             $engine ?? $this->createMock(CourseRecommendationEngine::class),
+            $memoryService ?? $this->createMock(MemoryService::class),
             $this->createMock(LoggerInterface::class)
         );
 
@@ -107,9 +117,10 @@ class HermiqToolProviderTest extends TestCase
 
         $tools = $provider->getTools();
         // 6 nc-native-tools + hermiq.searchTools (agent-tool-governance-and-disclosure's
-        // progressive-disclosure meta-tool) + hermiq.recommendCourses (ai-course-recommendations),
+        // progressive-disclosure meta-tool) + hermiq.recommendCourses (ai-course-recommendations)
+        // + hermiq.rememberMemory/recallMemory/forgetMemory (agent-memory-tools),
         // all registered through this same provider.
-        $this->assertCount(8, $tools);
+        $this->assertCount(11, $tools);
 
         $ids = array_column($tools, 'id');
         $this->assertContains('hermiq.listFiles', $ids);
@@ -120,6 +131,9 @@ class HermiqToolProviderTest extends TestCase
         $this->assertContains('hermiq.listDeckBoards', $ids);
         $this->assertContains('hermiq.searchTools', $ids);
         $this->assertContains('hermiq.recommendCourses', $ids);
+        $this->assertContains('hermiq.rememberMemory', $ids);
+        $this->assertContains('hermiq.recallMemory', $ids);
+        $this->assertContains('hermiq.forgetMemory', $ids);
 
         foreach ($ids as $id) {
             $this->assertStringStartsWith('hermiq.', $id);
@@ -155,10 +169,13 @@ class HermiqToolProviderTest extends TestCase
             'hermiq.listDeckBoards'     => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
             'hermiq.searchTools'        => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
             'hermiq.recommendCourses'   => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
+            'hermiq.rememberMemory'     => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+            'hermiq.recallMemory'       => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.forgetMemory'       => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true, 'scope' => 'delete'],
         ];
 
         $tools = $this->provider('alice')->getTools();
-        $this->assertCount(8, $tools, 'This test must be updated if a tool is added or removed.');
+        $this->assertCount(11, $tools, 'This test must be updated if a tool is added or removed.');
 
         $seen = [];
         foreach ($tools as $tool) {
@@ -271,4 +288,283 @@ class HermiqToolProviderTest extends TestCase
         $this->assertSame('tool_failed', $result['error']['code']);
 
     }//end testRecommendCoursesNeverThrowsAcrossTheMcpBoundary()
+
+    /**
+     * A Memory/UserProfile ObjectEntity with the given payload (mirrors
+     * MemoryServiceTest's helper).
+     *
+     * @param array<string, mixed> $payload The object data.
+     *
+     * @return ObjectEntity
+     */
+    private function memoryObject(array $payload): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid('mem-uuid');
+        $entity->setObject($payload);
+        return $entity;
+
+    }//end memoryObject()
+
+    /**
+     * Without an `agentId` in arguments (agent-less chat — `FacadeToolInvoker`
+     * never injects one when the run has none), every memory tool returns the
+     * structured `no_agent_context` error rather than guessing which agent's
+     * Memory to touch.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testMemoryToolsWithoutAgentContextReturnError(): void
+    {
+        $provider = $this->provider('alice');
+
+        foreach (['hermiq.rememberMemory', 'hermiq.recallMemory', 'hermiq.forgetMemory'] as $toolId) {
+            $result = $provider->invokeTool($toolId, []);
+            $this->assertArrayHasKey('error', $result, "{$toolId} must error without an agentId.");
+            $this->assertSame('no_agent_context', $result['error']['code'], "{$toolId} must report no_agent_context.");
+        }
+
+    }//end testMemoryToolsWithoutAgentContextReturnError()
+
+    /**
+     * rememberMemory(scope: agent) delegates to appendMemoryEntry() with the
+     * run-injected agentId, and surfaces the newly-appended entry's id.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-write-tool
+     */
+    public function testRememberMemoryAgentScopeDelegatesToAppendMemoryEntry(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->expects($this->once())
+            ->method('appendMemoryEntry')
+            ->with($this->equalTo('agent-1'), $this->equalTo('the sky is blue'))
+            ->willReturn(
+                $this->memoryObject(
+                    [
+                        'entries'            => [['id' => 'entry-1', 'text' => 'the sky is blue', 'createdAt' => '2026-01-01T00:00:00+00:00']],
+                        'needsConsolidation' => false,
+                    ]
+                )
+            );
+
+        $result = $this->provider('alice', null, $memoryService)->invokeTool(
+            'hermiq.rememberMemory',
+            ['agentId' => 'agent-1', 'content' => 'the sky is blue', 'scope' => 'agent']
+        );
+
+        $this->assertTrue($result['remembered']);
+        $this->assertSame('agent', $result['scope']);
+        $this->assertSame('entry-1', $result['entryId']);
+        $this->assertFalse($result['needsConsolidation']);
+
+    }//end testRememberMemoryAgentScopeDelegatesToAppendMemoryEntry()
+
+    /**
+     * rememberMemory(scope: user) delegates to appendUserProfileEntry() with the
+     * ACTING user's own uid — a caller-supplied `subjectUid` argument (should the
+     * LLM ever pass one, though the declared inputSchema has no such property) is
+     * never consulted, matching every other `HermiqToolProvider` tool's IDOR
+     * posture.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testRememberMemoryUserScopeUsesActingUidNeverCallerSupplied(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->expects($this->once())
+            ->method('appendUserProfileEntry')
+            ->with($this->equalTo('agent-1'), $this->equalTo('alice'), $this->equalTo('likes tea'))
+            ->willReturn($this->memoryObject(['entries' => [['id' => 'entry-2', 'text' => 'likes tea', 'createdAt' => '2026-01-01T00:00:00+00:00']]]));
+
+        $result = $this->provider('alice', null, $memoryService)->invokeTool(
+            'hermiq.rememberMemory',
+            ['agentId' => 'agent-1', 'content' => 'likes tea', 'scope' => 'user', 'subjectUid' => 'mallory']
+        );
+
+        $this->assertTrue($result['remembered']);
+        $this->assertSame('user', $result['scope']);
+
+    }//end testRememberMemoryUserScopeUsesActingUidNeverCallerSupplied()
+
+    /**
+     * rememberMemory rejects an empty content or an invalid scope value without
+     * calling MemoryService at all.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testRememberMemoryInvalidArgumentsReturnError(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->expects($this->never())->method('appendMemoryEntry');
+        $memoryService->expects($this->never())->method('appendUserProfileEntry');
+
+        $provider = $this->provider('alice', null, $memoryService);
+
+        $missingContent = $provider->invokeTool('hermiq.rememberMemory', ['agentId' => 'agent-1', 'content' => '  ', 'scope' => 'agent']);
+        $this->assertSame('invalid_argument', $missingContent['error']['code']);
+
+        $badScope = $provider->invokeTool('hermiq.rememberMemory', ['agentId' => 'agent-1', 'content' => 'x', 'scope' => 'nope']);
+        $this->assertSame('invalid_argument', $badScope['error']['code']);
+
+    }//end testRememberMemoryInvalidArgumentsReturnError()
+
+    /**
+     * recallMemory merges MemoryService::recallEntries() (Memory/UserProfile
+     * matches) with the existing recallSessions() (SessionTurn matches) into one
+     * combined result — no second search index.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-recall-tool
+     */
+    public function testRecallMemoryMergesEntriesAndSessionTurns(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->expects($this->once())
+            ->method('recallEntries')
+            ->with($this->equalTo('agent-1'), $this->equalTo('alice'), $this->equalTo('budget'))
+            ->willReturn(
+                [
+                    'memoryEntries'      => [['id' => 'e1', 'text' => 'budget is 8000 chars', 'createdAt' => '2026-01-01T00:00:00+00:00']],
+                    'userProfileEntries' => [],
+                ]
+            );
+
+        $turn = $this->memoryObject(['role' => 'user', 'content' => 'what is the budget?', 'createdAt' => '2026-01-02T00:00:00+00:00']);
+        $memoryService->expects($this->once())
+            ->method('recallSessions')
+            ->with($this->equalTo('agent-1'), $this->equalTo('budget'))
+            ->willReturn([$turn]);
+
+        $result = $this->provider('alice', null, $memoryService)->invokeTool(
+            'hermiq.recallMemory',
+            ['agentId' => 'agent-1', 'query' => 'budget']
+        );
+
+        $this->assertSame('budget', $result['query']);
+        $this->assertCount(1, $result['memoryEntries']);
+        $this->assertSame('e1', $result['memoryEntries'][0]['id']);
+        $this->assertCount(0, $result['userProfileEntries']);
+        $this->assertCount(1, $result['sessionTurns']);
+        $this->assertSame('user', $result['sessionTurns'][0]['role']);
+
+    }//end testRecallMemoryMergesEntriesAndSessionTurns()
+
+    /**
+     * recallMemory rejects an empty query without calling MemoryService at all.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testRecallMemoryMissingQueryReturnsError(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->expects($this->never())->method('recallEntries');
+
+        $result = $this->provider('alice', null, $memoryService)->invokeTool('hermiq.recallMemory', ['agentId' => 'agent-1', 'query' => ' ']);
+
+        $this->assertSame('invalid_argument', $result['error']['code']);
+
+    }//end testRecallMemoryMissingQueryReturnsError()
+
+    /**
+     * forgetMemory delegates to MemoryService::forgetEntry() with the ACTING
+     * user's own uid (never a caller-supplied `subjectUid`) and surfaces a found
+     * result.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
+     */
+    public function testForgetMemoryDelegatesWithActingUidAndReturnsFound(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->expects($this->once())
+            ->method('forgetEntry')
+            ->with($this->equalTo('agent-1'), $this->equalTo('alice'), $this->equalTo('entry-1'))
+            ->willReturn(['found' => true, 'scope' => 'memory']);
+
+        $result = $this->provider('alice', null, $memoryService)->invokeTool(
+            'hermiq.forgetMemory',
+            ['agentId' => 'agent-1', 'id' => 'entry-1', 'subjectUid' => 'mallory']
+        );
+
+        $this->assertTrue($result['found']);
+        $this->assertSame('memory', $result['scope']);
+
+    }//end testForgetMemoryDelegatesWithActingUidAndReturnsFound()
+
+    /**
+     * forgetMemory returns a structured not-found result — never an exception —
+     * when MemoryService reports no match in either object.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
+     */
+    public function testForgetMemoryNotFoundReturnsStructuredResult(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->method('forgetEntry')->willReturn(['found' => false, 'scope' => null]);
+
+        $result = $this->provider('alice', null, $memoryService)->invokeTool(
+            'hermiq.forgetMemory',
+            ['agentId' => 'agent-1', 'id' => 'no-such-entry']
+        );
+
+        $this->assertFalse($result['found']);
+        $this->assertArrayNotHasKey('error', $result);
+
+    }//end testForgetMemoryNotFoundReturnsStructuredResult()
+
+    /**
+     * forgetMemory rejects an empty id without calling MemoryService at all.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testForgetMemoryMissingIdReturnsError(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->expects($this->never())->method('forgetEntry');
+
+        $result = $this->provider('alice', null, $memoryService)->invokeTool('hermiq.forgetMemory', ['agentId' => 'agent-1', 'id' => '']);
+
+        $this->assertSame('invalid_argument', $result['error']['code']);
+
+    }//end testForgetMemoryMissingIdReturnsError()
+
+    /**
+     * A failure inside MemoryService never crosses the MCP boundary as an
+     * exception for any of the three memory tools — invokeTool()'s outer catch
+     * turns it into the same structured error envelope every other tool uses.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     */
+    public function testMemoryToolFailureNeverThrowsAcrossTheMcpBoundary(): void
+    {
+        $memoryService = $this->createMock(MemoryService::class);
+        $memoryService->method('appendMemoryEntry')->willThrowException(new RuntimeException('object store unreachable'));
+
+        $result = $this->provider('alice', null, $memoryService)->invokeTool(
+            'hermiq.rememberMemory',
+            ['agentId' => 'agent-1', 'content' => 'x', 'scope' => 'agent']
+        );
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertSame('tool_failed', $result['error']['code']);
+
+    }//end testMemoryToolFailureNeverThrowsAcrossTheMcpBoundary()
 }//end class

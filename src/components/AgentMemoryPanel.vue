@@ -80,8 +80,19 @@
 					</template>
 				</NcEmptyContent>
 				<ul v-else class="agent-memory-panel__entries">
-					<li v-for="(entry, i) in entries" :key="i" class="agent-memory-panel__entry">
+					<li
+						v-for="(entry, i) in entries"
+						:key="i"
+						class="agent-memory-panel__entry"
+						:class="{ 'agent-memory-panel__entry--forgotten': isForgotten(entry) }">
 						<span class="agent-memory-panel__entry-text">{{ entry.text }}</span>
+						<span
+							v-if="isForgotten(entry)"
+							class="agent-memory-panel__entry-forgotten"
+							:title="t('hermiq', 'The agent retracted this fact — it is excluded from recall but kept for audit history.')">
+							<EyeOffIcon :size="14" />
+							{{ t('hermiq', 'Forgotten') }}
+						</span>
 						<span class="agent-memory-panel__entry-date">{{ formatDate(entry.createdAt) }}</span>
 					</li>
 				</ul>
@@ -94,6 +105,7 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
+import EyeOffIcon from 'vue-material-design-icons/EyeOffOutline.vue'
 import { addMemory, consolidateMemory, getMemory } from '../api/memory.js'
 
 export default {
@@ -102,6 +114,7 @@ export default {
 	components: {
 		AlertIcon,
 		BrainIcon,
+		EyeOffIcon,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
@@ -138,12 +151,16 @@ export default {
 		},
 
 		/**
-		 * The total character count across entry texts.
+		 * The total character count across NON-FORGOTTEN entry texts — mirrors the
+		 * backend's needsConsolidation calculation (agent-memory-tools), which
+		 * excludes soft-deleted entries from the budget.
 		 *
 		 * @return {number} The summed length.
 		 */
 		charCount() {
-			return this.entries.reduce((sum, e) => sum + String(e.text || '').length, 0)
+			return this.entries
+				.filter(e => !this.isForgotten(e))
+				.reduce((sum, e) => sum + String(e.text || '').length, 0)
 		},
 
 		/**
@@ -258,6 +275,17 @@ export default {
 			}
 			return date.toLocaleString()
 		},
+
+		/**
+		 * Whether an entry was soft-deleted by hermiq.forgetMemory (agent-memory-tools)
+		 * — entries appended before that change carry no `deletedAt` at all.
+		 *
+		 * @param {object} entry The memory/profile entry.
+		 * @return {boolean} True when the entry has been forgotten.
+		 */
+		isForgotten(entry) {
+			return Boolean(entry && entry.deletedAt)
+		},
 	},
 }
 </script>
@@ -358,6 +386,21 @@ export default {
 
 .agent-memory-panel__entry-text {
 	flex: 1 1 auto;
+}
+
+.agent-memory-panel__entry--forgotten .agent-memory-panel__entry-text {
+	text-decoration: line-through;
+	color: var(--color-text-maxcontrast);
+}
+
+.agent-memory-panel__entry-forgotten {
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
 }
 
 .agent-memory-panel__entry-date {

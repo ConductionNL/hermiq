@@ -245,7 +245,9 @@
         "Dry run complete — nothing was changed.": "Proefrun voltooid — er is niets gewijzigd.",
         "The dry run failed.": "De proefrun is mislukt.",
         "Replay complete — nothing was changed.": "Opnieuw afspelen voltooid — er is niets gewijzigd.",
-        "The replay failed.": "Opnieuw afspelen is mislukt."
+        "The replay failed.": "Opnieuw afspelen is mislukt.",
+        "Forgotten": "Vergeten",
+        "The agent retracted this fact — it is excluded from recall but kept for audit history.": "De agent heeft dit feit ingetrokken — het wordt uitgesloten van herinnering, maar bewaard voor de auditgeschiedenis."
     },
     "plurals": ""
 }

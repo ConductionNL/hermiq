@@ -323,7 +323,9 @@
         "Dry run complete — nothing was changed.": "Dry run complete — nothing was changed.",
         "The dry run failed.": "The dry run failed.",
         "Replay complete — nothing was changed.": "Replay complete — nothing was changed.",
-        "The replay failed.": "The replay failed."
+        "The replay failed.": "The replay failed.",
+        "Forgotten": "Forgotten",
+        "The agent retracted this fact — it is excluded from recall but kept for audit history.": "The agent retracted this fact — it is excluded from recall but kept for audit history."
     },
     "plurals": ""
 }
