@@ -9,8 +9,8 @@
   - GIVEN `Agent.tools` contains `{app}.{schema}.*` WHEN the resolver expands it against the derived catalog THEN the resolved set includes that schema's `search`/`get` tools and EXCLUDES its `create`/`update`/`delete` or `destructiveHint:true` tools
   - GIVEN `Agent.tools` also contains `{app}.{schema}.delete` (or a `*:write` modifier) WHEN resolved THEN the named/write tools ARE included
   - GIVEN an exact-id grant or an empty `Agent.tools` WHEN resolved THEN existing behaviour (incl. legacy-id expansion) is preserved, with default-deny still applied to wildcard-derived write tools
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Wire grant resolution into `ToolLoop::listAgentFunctions()`
 - **spec_ref**: `openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools`
@@ -18,8 +18,8 @@
 - **acceptance_criteria**:
   - GIVEN an agent with wildcard grants WHEN `listAgentFunctions()` runs THEN it resolves grants via `ToolGrantResolver` BEFORE calling `ToolRegistryFacade::listTools()`, and the facade is queried with the concrete resolved id set
   - GIVEN the per-request `$selectedTools` narrowing WHEN both are present THEN intersection semantics (empty intersection = no tools) are preserved unchanged
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: `ToolSearchService` + `hermiq.searchTools` meta-tool + disclosure decision
 - **spec_ref**: `openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-progressive-tool-disclosure-for-large-catalogs`
@@ -28,8 +28,8 @@
   - GIVEN a resolved catalog whose size exceeds `IAppConfig('hermiq','tools.disclosureThreshold', <THRESHOLD_DEFAULT>)` WHEN the turn is assembled THEN only `hermiq.searchTools` (plus always-on tools) is placed in context and the full resolved set is handed to `ToolSearchService::registerDeferred()`
   - GIVEN progressive disclosure is active WHEN `hermiq.searchTools(query)` is called THEN it returns only matching descriptors from the agent's resolved set and NEVER a tool outside it
   - GIVEN a resolved catalog under the threshold WHEN the turn is assembled THEN all descriptors are placed in context (today's path) and the meta-tool need not be present
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: Approval-gate hook for un-granted destructive invocations
 - **spec_ref**: `openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate`
@@ -37,8 +37,8 @@
 - **acceptance_criteria**:
   - GIVEN a destructive-hinted tool NOT covered by an explicit grant WHEN the run attempts to invoke it THEN a pending `Approval` is created and `ToolRegistryFacade::invokeTool()` is NOT called until it reaches `approved`; a denied `Approval` blocks it permanently
   - GIVEN an explicitly-granted destructive tool WHEN invoked THEN no new `Approval` is required and OR RBAC still authorizes at invoke time
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: `ToolOversightController` + routes — catalog, grants, invocations
 - **spec_ref**: `openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214`
@@ -48,8 +48,8 @@
   - GIVEN OR's richer invocation-audit shape is absent WHEN the endpoint runs THEN it degrades to coarse `action='run'`/tool-call entries and sets `available`/`source` accordingly (never fabricates)
   - GIVEN `GET /api/agents/{agentId}/tool-catalog` WHEN called THEN it returns the grant-annotated derived catalog (granted/grantedBy/requiresExplicitGrant, scope/destructiveHint); `PUT .../tool-grants` persists the `Agent.tools` array via `ObjectService` (single write-path), owner/admin-gated
   - GIVEN `hermiq_register.json` WHEN the `Agent.tools` description is read THEN it documents the grant grammar (exact id / `{app}.{schema}.*` / verb subset / `:write` modifier) — description-only change, JSON Schema shape unchanged
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: Frontend — per-agent tool grant editor
 - **spec_ref**: `openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools`
@@ -58,8 +58,8 @@
   - GIVEN an operator opens an agent's grant editor WHEN the derived catalog loads THEN read tools show as grantable via schema wildcard and write/destructive tools render with a distinct "requires explicit grant" affordance (warn styling, ADR-004 `NcSelect` `inputLabel`, no hardcoded colors)
   - GIVEN the operator saves grants WHEN submitted THEN `toolOversight.js` PUTs to `/api/agents/{agentId}/tool-grants` and the agent's `Agent.tools` updates
   - GIVEN a non-owner WHEN the editor renders THEN it is read-only
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: Frontend — per-agent oversight view (activity table + export)
 - **spec_ref**: `openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214`
@@ -68,8 +68,8 @@
   - GIVEN an agent with invocations WHEN the oversight view loads THEN a tenant-scoped table renders (newest first) with a retention note and a CSV/JSON export button (`NcButton`)
   - GIVEN an agent with no invocations WHEN the view loads THEN an empty state renders — never a fabricated row
   - GIVEN degraded (coarse) audit data WHEN the view loads THEN the reduced-detail indicator is shown
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 

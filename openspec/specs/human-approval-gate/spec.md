@@ -8,7 +8,7 @@
 - `openspec/changes/human-approval-gate-schema/` — Approval + TenantControl schemas + Schedule.requiresApproval/reviewer/reviewerType (kind: config) — **done**
 - `openspec/changes/human-approval-gate-enforcement/` — dispatcher gate + kill-switch + approve/deny/kill-switch endpoints (kind: code) — **done, live-verified**
 - `openspec/changes/human-approval-gate-ui/` — approval inbox + kill-switch toggle + reviewer picker (kind: code) — **done, Playwright-verified** (kill-switch keys on the OpenRegister organisation UUID, not an NC group)
-- `openspec/changes/agent-tool-governance-and-disclosure/` — routes an un-granted destructive-hinted tool invocation through the approval gate (ADR-063 consumer side; kind: code) — **proposed**
+- `openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/` — routes an un-granted destructive tool invocation through the approval gate (ADR-063 consumer side; kind: code) — **DONE** (adds `sourceType: "tool"` to the Approval state machine)
 
 ## Purpose
 
@@ -51,12 +51,40 @@ dispatch of all pending and new agent runs for that organisation until deactivat
 - THEN the system MUST halt dispatch of all in-progress and newly scheduled runs for organisation A
 - AND runs for other organisations MUST continue unaffected
 
+### Requirement: Un-granted destructive tool invocation routes through the approval gate
+
+The system MUST route an agent's attempted invocation of a write/destructive tool that is NOT
+covered by an explicit per-agent grant (see `agent-tool-governance`) through this same human-approval
+gate: it MUST create a pending `Approval` object (`sourceType: "tool"`, idempotent on the
+`agentId` + `toolId` pair) and MUST NOT execute the invocation until that `Approval` reaches
+`approved`. A destructive invocation the agent HAS been explicitly granted proceeds without a new
+approval (subject to OpenRegister RBAC at invoke time).
+
+Unlike the `schedule` and `flow` source types, a `tool` approval resumes NOTHING on decision — the
+chat turn that attempted the call has already returned. Flipping the status IS the effect: the next
+invocation attempt of that `(agentId, toolId)` pair finds the decided `Approval` and proceeds, or is
+blocked permanently by a `denied` one.
+
+#### Scenario: An agent attempts an un-granted destructive tool call
+- GIVEN an agent whose grants do not explicitly include a destructive tool
+- WHEN the agent's run attempts to invoke that tool
+- THEN the system MUST create an `Approval` object in `pending` state for the responsible reviewer
+- AND the system MUST NOT invoke the tool until the `Approval` reaches `approved`
+- AND a denied `Approval` MUST prevent the invocation from ever executing
+
+#### Scenario: An explicitly-granted destructive tool call is not re-gated
+- GIVEN an agent whose grants explicitly include a destructive tool (by exact id or write modifier)
+- WHEN the agent's run invokes that tool
+- THEN the system MUST NOT require a new `Approval` solely because the tool is destructive
+- AND OpenRegister RBAC MUST still authorize the invocation at invoke time
+
 ## User Stories
 
 - As a compliance officer, I want gated agent actions to require explicit human approval so that we meet EU AI Act Article 14 obligations.
 - As a reviewer, I want to be notified in Talk or Notifications when my approval is needed so that I don't have to poll a dashboard.
 - As an org admin, I want a single kill-switch to halt all autonomous runs for my organisation so that I can respond quickly to an incident.
 - As an auditor, I want every approval decision recorded durably so that I can reconstruct who approved what and when.
+- As a compliance officer, I want an agent that reaches for a destructive tool it was never granted to be STOPPED and escalated to a human, so that default-deny has teeth at invoke time and not just in the UI.
 
 ## Acceptance Criteria
 
@@ -66,6 +94,7 @@ dispatch of all pending and new agent runs for that organisation until deactivat
 - [ ] Pending approvals trigger a Talk or Notifications message to the reviewer
 - [ ] Org-level kill-switch halts all runs for that tenant only, without affecting other tenants
 - [ ] Approval decisions are recorded in OR AuditTrail
+- [x] An un-granted write/destructive tool invocation creates a pending `Approval` (`sourceType: "tool"`, idempotent on agentId+toolId) and is NOT executed; a denied one blocks it permanently; an explicitly-granted one is never re-gated
 
 ## Notes
 
