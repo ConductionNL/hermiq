@@ -24,11 +24,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\ContextAgent;
 
+use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\ContextAgentInteractionService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -100,6 +102,9 @@ class ContextAgentInteractionServiceTest extends TestCase
         $redaction = $this->createMock(RedactionService::class);
         $redaction->method('redact')->willReturnArgument(0);
 
+        $agentVersionService = $this->createMock(AgentVersionService::class);
+        $agentVersionService->method('currentVersionId')->willReturn('version-1');
+
         return new ContextAgentInteractionService(
             $this->objectService,
             $this->engine,
@@ -108,7 +113,8 @@ class ContextAgentInteractionServiceTest extends TestCase
             $audit,
             $redaction,
             $this->appConfig,
-            new NullLogger()
+            new NullLogger(),
+            $agentVersionService
         );
     }//end service()
 
@@ -221,6 +227,59 @@ class ContextAgentInteractionServiceTest extends TestCase
         $actions = json_decode($result['actions'], true);
         $this->assertContains('openregister.searchObjects', $actions['toolAllowlist']);
     }//end testFirstTurnCreatesConversationAndReturnsShape()
+
+    /**
+     * agent-versioning: the interaction's audit entry pins the serving agent's
+     * current version, resolved for the SAME agent id resolveAgent() picked.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-a-runs-audit-entry-pins-the-exact-agent-version-that-executed-it
+     */
+    public function testAgentVersionIsPinnedOnInteractionAudit(): void
+    {
+        $this->withConfiguredAgent($this->agent('agent-1', 'org-1'));
+        $this->scheduleService->method('isOrganisationEngaged')->willReturn(false);
+
+        $created = $this->conversation('conv-new', 'alice');
+        $this->objectService->method('saveObject')->willReturn($created);
+        $this->engine->method('processMessage')->willReturn(['message' => 'hello back', 'usage' => []]);
+
+        $auditCalls = [];
+        $audit      = $this->createMock(AuditTrailMapper::class);
+        $audit->method('createAuditTrailEntry')->willReturnCallback(
+            function (ObjectEntity $object, string $action, array $context=[]) use (&$auditCalls): AuditTrail {
+                $auditCalls[] = $context;
+                $entry = new AuditTrail();
+                $entry->setAction($action);
+                $entry->setChanged($context);
+                return $entry;
+            }
+        );
+
+        $redaction = $this->createMock(RedactionService::class);
+        $redaction->method('redact')->willReturnArgument(0);
+
+        $agentVersionService = $this->createMock(AgentVersionService::class);
+        $agentVersionService->method('currentVersionId')->with('agent-1')->willReturn('version-uuid-1');
+
+        $service = new ContextAgentInteractionService(
+            $this->objectService,
+            $this->engine,
+            $this->approvalService,
+            $this->scheduleService,
+            $audit,
+            $redaction,
+            $this->appConfig,
+            new NullLogger(),
+            $agentVersionService
+        );
+
+        $service->interact('alice', 'hi', null, '');
+
+        $this->assertNotEmpty($auditCalls);
+        $this->assertSame('version-uuid-1', $auditCalls[0]['agentVersion']);
+    }//end testAgentVersionIsPinnedOnInteractionAudit()
 
     /**
      * A resolvable, user-owned conversation_token is reused (no new conversation).

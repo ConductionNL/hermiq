@@ -35,6 +35,7 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\OpenRegister\Db\AgentMapper;
@@ -196,6 +197,9 @@ class ScheduleService
      *                                                       and the defense-in-depth output filter at
      *                                                       runAgentAsOwner()'s single return point
      *                                                       (agent-guardrails).
+     * @param AgentVersionService    $agentVersionService    Resolves the executing agent's current version
+     *                                                       identifier, pinned onto the run-audit context
+     *                                                       (agent-versioning).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -217,6 +221,7 @@ class ScheduleService
         private readonly Engine $engine,
         private readonly BudgetService $budgetService,
         private readonly GuardrailPolicyService $guardrailPolicyService,
+        private readonly AgentVersionService $agentVersionService,
     ) {
     }//end __construct()
 
@@ -1258,10 +1263,11 @@ class ScheduleService
     {
         try {
             $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+            $agentId = (string) ($data['agentId'] ?? '');
 
             $context = [
                 'status'             => (string) ($data['lastStatus'] ?? 'unknown'),
-                'agentId'            => (string) ($data['agentId'] ?? ''),
+                'agentId'            => $agentId,
                 'startedAt'          => $startedAt->format('c'),
                 'endedAt'            => $endedAt->format('c'),
                 'durationMs'         => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
@@ -1280,6 +1286,10 @@ class ScheduleService
                 // step (only ever true on the in-app Engine path; never fabricated).
                 'steps'              => $this->lastRunSteps,
                 'toolStepsAvailable' => $this->stepsIncludeToolCall(steps: $this->lastRunSteps),
+                // Agent-versioning: the version of the agent config that actually ran
+                // this occurrence, captured at write time (null when unresolvable —
+                // never fatal to the run).
+                'agentVersion'       => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
             ];
 
             $this->auditTrailMapper->createAuditTrailEntry(

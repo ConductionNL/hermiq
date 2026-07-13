@@ -96,6 +96,19 @@ return [
             'requirements' => ['id' => '[^/]+'],
         ],
 
+        // Agent version history (agent-versioning): owner/invited-scoped read of the
+        // Agent's OpenRegister AuditTrail as a version timeline + diff, and owner-only
+        // rollback. No new storage — reads/replays the SAME AuditTrail SaveObject
+        // already writes on every Agent save.
+        ['name' => 'agentVersion#index', 'url' => '/api/agents/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentVersion#diff',  'url' => '/api/agents/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        [
+            'name'         => 'agentVersion#rollback',
+            'url'          => '/api/agents/{id}/versions/{versionId}/rollback',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+', 'versionId' => '[^/]+'],
+        ],
+
         // Human-approval gate (human-approval-gate-enforcement): reviewer inbox + decisions.
         ['name' => 'approval#index',   'url' => '/api/approvals', 'verb' => 'GET'],
         ['name' => 'approval#approve', 'url' => '/api/approvals/{approvalId}/approve', 'verb' => 'POST', 'requirements' => ['approvalId' => '[^/]+']],

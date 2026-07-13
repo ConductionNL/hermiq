@@ -49,6 +49,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentVersionService;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -100,14 +101,17 @@ class ContextAgentInteractionService
     /**
      * Constructor.
      *
-     * @param ObjectService    $objectService    OR object read/write.
-     * @param Engine           $engine           Hermiq agent engine (runs the turn).
-     * @param ApprovalService  $approvalService  Approval-gate decisions (confirmation mapping).
-     * @param ScheduleService  $scheduleService  Kill-switch source (isOrganisationEngaged).
-     * @param AuditTrailMapper $auditTrailMapper Redacted per-interaction audit write-path.
-     * @param RedactionService $redactionService Masks secrets/PII before the audit write.
-     * @param IAppConfig       $appConfig        Reads the configured ContextAgent agent id.
-     * @param LoggerInterface  $logger           Logger.
+     * @param ObjectService       $objectService       OR object read/write.
+     * @param Engine              $engine              Hermiq agent engine (runs the turn).
+     * @param ApprovalService     $approvalService     Approval-gate decisions (confirmation mapping).
+     * @param ScheduleService     $scheduleService     Kill-switch source (isOrganisationEngaged).
+     * @param AuditTrailMapper    $auditTrailMapper    Redacted per-interaction audit write-path.
+     * @param RedactionService    $redactionService    Masks secrets/PII before the audit write.
+     * @param IAppConfig          $appConfig           Reads the configured ContextAgent agent id.
+     * @param LoggerInterface     $logger              Logger.
+     * @param AgentVersionService $agentVersionService Resolves the serving agent's current version
+     *                                                 identifier, pinned onto the interaction audit
+     *                                                 context (agent-versioning).
      *
      * @return void
      */
@@ -120,6 +124,7 @@ class ContextAgentInteractionService
         private readonly RedactionService $redactionService,
         private readonly IAppConfig $appConfig,
         private readonly LoggerInterface $logger,
+        private readonly AgentVersionService $agentVersionService,
     ) {
     }//end __construct()
 
@@ -393,9 +398,13 @@ class ContextAgentInteractionService
                 object: $object,
                 action: 'contextagent-interaction',
                 context: [
-                    'status'  => $status,
-                    'agentId' => $agentId,
-                    'summary' => $this->redactionService->redact($summary),
+                    'status'       => $status,
+                    'agentId'      => $agentId,
+                    'summary'      => $this->redactionService->redact($summary),
+                    // Agent-versioning: the version of the serving agent's config at
+                    // the time of this interaction (null when unresolvable — never
+                    // fatal to the interaction).
+                    'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
                 ]
             );
         } catch (Throwable $e) {
