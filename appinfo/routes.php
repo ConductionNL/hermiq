@@ -131,6 +131,27 @@ return [
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
 
+        // Tool governance + disclosure (agent-tool-governance-and-disclosure): grant editor
+        // catalog/write + per-agent art.12/14 oversight read.
+        [
+            'name'         => 'toolOversight#toolCatalog',
+            'url'          => '/api/agents/{agentId}/tool-catalog',
+            'verb'         => 'GET',
+            'requirements' => ['agentId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'toolOversight#updateToolGrants',
+            'url'          => '/api/agents/{agentId}/tool-grants',
+            'verb'         => 'PUT',
+            'requirements' => ['agentId' => '[^/]+'],
+        ],
+        [
+            'name'         => 'toolOversight#toolInvocations',
+            'url'          => '/api/agents/{agentId}/tool-invocations',
+            'verb'         => 'GET',
+            'requirements' => ['agentId' => '[^/]+'],
+        ],
+
         // Tenant ops (multi-tenant-ops): per-org quota status + EU AI Act audit export (tenant-scoped).
         ['name' => 'tenantOps#quota',       'url' => '/api/tenant-ops/quota', 'verb' => 'GET'],
         ['name' => 'tenantOps#auditExport', 'url' => '/api/tenant-ops/audit-export', 'verb' => 'GET'],

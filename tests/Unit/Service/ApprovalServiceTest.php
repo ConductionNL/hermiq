@@ -102,6 +102,9 @@ class ApprovalServiceTest extends TestCase
         $this->deliveryService->method('deliverApprovalRequest')->willReturn(
             new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null)
         );
+        $this->deliveryService->method('deliverApprovalRequestForToolInvocation')->willReturn(
+            new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null)
+        );
         $this->container = $this->createMock(ContainerInterface::class);
 
     }//end setUp()
@@ -166,6 +169,24 @@ class ApprovalServiceTest extends TestCase
         return $entity;
 
     }//end approval()
+
+    /**
+     * Build an agent ObjectEntity (owner-resolution lookup for tool-invocation
+     * approvals — agent-tool-governance-and-disclosure).
+     *
+     * @param string $owner The owner UID.
+     *
+     * @return ObjectEntity
+     */
+    private function agentEntity(string $owner=''): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid('agent-1');
+        $entity->setOwner($owner);
+        $entity->setObject(['name' => 'Test agent']);
+        return $entity;
+
+    }//end agentEntity()
 
     /**
      * An existing pending Approval for the schedule makes ensurePendingApproval a
@@ -571,14 +592,16 @@ class ApprovalServiceTest extends TestCase
     public function testApproveFlowSourceTypeRunsFlowAgentRunServiceBypassed(): void
     {
         $flowContext = ['subjectUuid' => 'obj-1', 'subjectRegister' => '1', 'subjectSchema' => '10', 'agent' => 'agent-uuid-1'];
-        $approval    = $this->approval([
-            'status'      => 'pending',
-            'sourceType'  => 'flow',
-            'correlationId' => 'corr-1',
-            'flowContext' => $flowContext,
-            'reviewer'    => 'bob',
-            'reviewerType' => 'user',
-        ]);
+        $approval    = $this->approval(
+                [
+                    'status'        => 'pending',
+                    'sourceType'    => 'flow',
+                    'correlationId' => 'corr-1',
+                    'flowContext'   => $flowContext,
+                    'reviewer'      => 'bob',
+                    'reviewerType'  => 'user',
+                ]
+                );
 
         $saved = [];
         $this->objectService->method('saveObject')->willReturnCallback(
@@ -689,7 +712,7 @@ class ApprovalServiceTest extends TestCase
      */
     public function testListPendingForReviewer(): void
     {
-        $mine  = $this->approval(['status' => 'pending', 'scheduleId' => 's1', 'reviewer' => 'bob', 'reviewerType' => 'user']);
+        $mine = $this->approval(['status' => 'pending', 'scheduleId' => 's1', 'reviewer' => 'bob', 'reviewerType' => 'user']);
         $mine->setUuid('mine');
         $other = $this->approval(['status' => 'pending', 'scheduleId' => 's2', 'reviewer' => 'carol', 'reviewerType' => 'user']);
         $other->setUuid('other');
@@ -703,4 +726,192 @@ class ApprovalServiceTest extends TestCase
         $this->assertSame('mine', $records[0]['id']);
 
     }//end testListPendingForReviewer()
+
+    /**
+     * ensurePendingApprovalForToolInvocation creates exactly one pending
+     * Approval tagged sourceType=tool, carrying the toolId and the agent's
+     * owner as reviewer, and notifies via the tool-invocation delivery path
+     * (agent-tool-governance-and-disclosure).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+     */
+    public function testEnsurePendingApprovalForToolInvocationCreatesAndNotifies(): void
+    {
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('find')->willReturn($this->agentEntity(owner: 'dave'));
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                $entity  = new ObjectEntity();
+                $entity->setUuid('appr-tool-new');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+        $this->deliveryService->expects($this->once())->method('deliverApprovalRequestForToolInvocation');
+
+        $approval = $this->service()->ensurePendingApprovalForToolInvocation('agent-1', 'pipelinq.lead.delete', ['id' => '7']);
+
+        $this->assertCount(1, $saved, 'Exactly one pending Approval must be created.');
+        $this->assertSame('pending', $saved[0]['status']);
+        $this->assertSame('tool', $saved[0]['sourceType']);
+        $this->assertSame('agent-1', $saved[0]['agentId']);
+        $this->assertSame('pipelinq.lead.delete', $saved[0]['toolId']);
+        $this->assertSame('dave', $saved[0]['reviewer'], 'The agent owner defaults as reviewer.');
+        $this->assertSame('user', $saved[0]['reviewerType']);
+        $this->assertSame('appr-tool-new', $approval->getUuid());
+
+    }//end testEnsurePendingApprovalForToolInvocationCreatesAndNotifies()
+
+    /**
+     * An existing pending Approval for the same (agentId, toolId) pair makes
+     * ensurePendingApprovalForToolInvocation a no-op: it returns the existing
+     * approval without creating a second one or re-notifying.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+     */
+    public function testEnsurePendingApprovalForToolInvocationIsIdempotent(): void
+    {
+        $existing = $this->approval(
+            ['status' => 'pending', 'sourceType' => 'tool', 'agentId' => 'agent-1', 'toolId' => 'pipelinq.lead.delete']
+        );
+        $this->objectService->method('findAll')->willReturn([$existing]);
+
+        $this->objectService->expects($this->never())->method('saveObject');
+        $this->deliveryService->expects($this->never())->method('deliverApprovalRequestForToolInvocation');
+
+        $result = $this->service()->ensurePendingApprovalForToolInvocation('agent-1', 'pipelinq.lead.delete', []);
+
+        $this->assertSame($existing, $result);
+
+    }//end testEnsurePendingApprovalForToolInvocationIsIdempotent()
+
+    /**
+     * With no resolvable agent owner, the reviewer defaults to the `admin`
+     * group rather than an empty/unroutable reviewer.
+     *
+     * @return void
+     */
+    public function testEnsurePendingApprovalForToolInvocationDefaultsToAdminGroupWithNoAgentOwner(): void
+    {
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('find')->willReturn(null);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->service()->ensurePendingApprovalForToolInvocation('agent-1', 'pipelinq.lead.delete', []);
+
+        $this->assertSame('admin', $saved[0]['reviewer']);
+        $this->assertSame('group', $saved[0]['reviewerType']);
+
+    }//end testEnsurePendingApprovalForToolInvocationDefaultsToAdminGroupWithNoAgentOwner()
+
+    /**
+     * findDecidedApprovalForToolInvocation returns the most recently decided
+     * (approved/denied) Approval for the pair, ignoring pending ones.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-explicitly-granted-destructive-tool-call-is-not-re-gated
+     */
+    public function testFindDecidedApprovalForToolInvocationReturnsMostRecent(): void
+    {
+        $pending = $this->approval(
+            ['status' => 'pending', 'sourceType' => 'tool', 'agentId' => 'agent-1', 'toolId' => 'pipelinq.lead.delete']
+        );
+        $older   = $this->approval(
+            [
+                'status'     => 'denied',
+                'sourceType' => 'tool',
+                'agentId'    => 'agent-1',
+                'toolId'     => 'pipelinq.lead.delete',
+                'decidedAt'  => '2026-01-01T00:00:00+00:00',
+            ]
+        );
+        $older->setUuid('older');
+        $newer = $this->approval(
+            [
+                'status'     => 'approved',
+                'sourceType' => 'tool',
+                'agentId'    => 'agent-1',
+                'toolId'     => 'pipelinq.lead.delete',
+                'decidedAt'  => '2026-06-01T00:00:00+00:00',
+            ]
+        );
+        $newer->setUuid('newer');
+
+        $this->objectService->method('findAll')->willReturn([$pending, $older, $newer]);
+
+        $result = $this->service()->findDecidedApprovalForToolInvocation('agent-1', 'pipelinq.lead.delete');
+
+        $this->assertNotNull($result);
+        $this->assertSame('newer', $result->getUuid());
+
+    }//end testFindDecidedApprovalForToolInvocationReturnsMostRecent()
+
+    /**
+     * With no decided approval on record, findDecidedApprovalForToolInvocation
+     * returns null (never fabricates a decision).
+     *
+     * @return void
+     */
+    public function testFindDecidedApprovalForToolInvocationReturnsNullWhenNoneDecided(): void
+    {
+        $this->objectService->method('findAll')->willReturn([]);
+
+        $this->assertNull($this->service()->findDecidedApprovalForToolInvocation('agent-1', 'pipelinq.lead.delete'));
+
+    }//end testFindDecidedApprovalForToolInvocationReturnsNullWhenNoneDecided()
+
+    /**
+     * approve() on a sourceType=tool Approval flips status to approved but
+     * resumes NOTHING (no run to resume mid-conversation) — never touches
+     * ScheduleService/FlowAgentRunService via the container.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-explicitly-granted-destructive-tool-call-is-not-re-gated
+     */
+    public function testApproveToolSourceTypeResumesNothing(): void
+    {
+        $approval = $this->approval(
+            [
+                'status'       => 'pending',
+                'sourceType'   => 'tool',
+                'agentId'      => 'agent-1',
+                'toolId'       => 'pipelinq.lead.delete',
+                'reviewer'     => 'bob',
+                'reviewerType' => 'user',
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $this->container->expects($this->never())->method('get');
+
+        $result = $this->service()->approve($approval, 'bob');
+
+        $this->assertSame('approved', $result['status']);
+        $this->assertFalse($result['ran'], 'A tool-invocation approval has nothing to resume mid-conversation.');
+        $this->assertSame('approved', $saved[0]['status']);
+
+    }//end testApproveToolSourceTypeResumesNothing()
 }//end class

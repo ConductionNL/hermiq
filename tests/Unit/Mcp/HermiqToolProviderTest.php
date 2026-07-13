@@ -90,7 +90,9 @@ class HermiqToolProviderTest extends TestCase
         $this->assertSame('hermiq', $provider->getAppId());
 
         $tools = $provider->getTools();
-        $this->assertCount(6, $tools);
+        // 6 nc-native-tools + hermiq.searchTools (agent-tool-governance-and-disclosure's
+        // progressive-disclosure meta-tool, registered through this same provider).
+        $this->assertCount(7, $tools);
 
         $ids = array_column($tools, 'id');
         $this->assertContains('hermiq.listFiles', $ids);
@@ -99,6 +101,7 @@ class HermiqToolProviderTest extends TestCase
         $this->assertContains('hermiq.listCalendarEvents', $ids);
         $this->assertContains('hermiq.sendMail', $ids);
         $this->assertContains('hermiq.listDeckBoards', $ids);
+        $this->assertContains('hermiq.searchTools', $ids);
 
         foreach ($ids as $id) {
             $this->assertStringStartsWith('hermiq.', $id);

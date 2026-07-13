@@ -23,6 +23,16 @@
  * returns HTTP 400). This provider registers + enumerates in OR's tool registry and each
  * tool is directly invocable; the LLM-selects-and-calls path is blocked on OR#269.
  *
+ * agent-tool-governance-and-disclosure additionally registers `hermiq.searchTools`
+ * here (design.md §2) — Hermiq's progressive-disclosure meta-tool. It flows through
+ * the SAME registration mechanism as the six tools above (so it enumerates in
+ * `ToolRegistryFacade::listTools()` and is subject to the SAME grant/whitelist
+ * rules as any other tool), but its INVOCATION never reaches `invokeTool()` below:
+ * `Engine\FacadeToolInvoker::__call()` short-circuits it directly against
+ * `ToolSearchService` (Hermiq-internal, no facade round-trip — see that class).
+ * The `unknown_tool` branch here is a defensive fallback only, for the
+ * (non-Hermiq-engine) case where something else calls the facade directly.
+ *
  * @category Mcp
  * @package  OCA\Hermiq\Mcp
  *
@@ -146,6 +156,17 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
                 'required'   => [],
             ],
         ],
+        [
+            'id'          => Application::APP_ID.'.searchTools',
+            'name'        => 'Search tools',
+            'description' => 'Search this agent\'s available tool catalogue by keyword when the full list was not '
+                .'shown (progressive disclosure); returns matching tool descriptors you can then call directly.',
+            'inputSchema' => [
+                'type'       => 'object',
+                'properties' => ['query' => ['type' => 'string', 'description' => 'Keyword(s) describing the capability you need.']],
+                'required'   => ['query'],
+            ],
+        ],
     ];
 
     /**
@@ -239,6 +260,15 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
                     return $this->sendMail(user: $user, arguments: $arguments);
                 case Application::APP_ID.'.listDeckBoards':
                     return $this->listDeckBoards();
+                case Application::APP_ID.'.searchTools':
+                    // Defensive fallback only — the Hermiq engine short-circuits this
+                    // call directly to ToolSearchService before it ever reaches the
+                    // facade (see class docblock). A caller that bypasses the engine
+                    // gets a clear error instead of a silent no-op.
+                    return $this->error(
+                        code: 'internal_only',
+                        message: 'hermiq.searchTools is handled internally by the Hermiq engine and is not invocable via the facade.'
+                    );
                 default:
                     return $this->error(
                         code: 'unknown_tool',

@@ -5,7 +5,7 @@
 **Feature tier**: V1
 
 **OpenSpec changes:**
-- `openspec/changes/agent-tool-governance-and-disclosure/` — adds a `hermiq.searchTools` meta-tool through this same `IMcpToolProvider` mechanism for progressive disclosure over the ADR-063 derived catalog (kind: code) — **proposed**
+- `openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/` — adds a `hermiq.searchTools` meta-tool through this same `IMcpToolProvider` mechanism for progressive disclosure over the ADR-063 derived catalog (kind: code) — **DONE** (the provider now exposes seven `hermiq.*` tools; `searchTools` enumerates through the normal registration path but is short-circuited Hermiq-internally at invoke time, never reaching this provider's `invokeTool()`)
 - `nc-native-tools` — DONE (Hermiq surface): `NcNativeToolProvider` implementing `IMcpToolProvider` with six `hermiq.*` tools (listFiles, readFile, searchContacts, listCalendarEvents, sendMail, listDeckBoards), each IDOR-guarded (scoped to the acting user), registered under the `hermiq` MCP alias; `invokeTool` never throws. **BLOCKED (OR#269):** an OpenRegister agent turn cannot yet invoke a tool (Ollama tool-calling 400) — the LLM-selects-and-calls path is documented as blocked, not verified end-to-end. Verified: registration + enumeration in OR's tool registry + direct invocation (unit).
 
 ## Purpose

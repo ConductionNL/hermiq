@@ -155,6 +155,21 @@
 				<AgentMemoryPanel :agent-id="agentUuid" />
 			</section>
 
+			<!-- Tool grants (agent-tool-governance-and-disclosure): schema-scoped grants over
+			     the ADR-063 derived catalogue, with default-deny made visible on writes. -->
+			<section class="agent-detail__section">
+				<ToolGrantEditor
+					:agent-id="agentUuid"
+					:can-edit="isOwner"
+					@saved="onGrantsSaved" />
+			</section>
+
+			<!-- Tool activity (agent-tool-governance-and-disclosure): the EU AI Act art.12/14
+			     per-agent oversight surface read from OpenRegister's AuditTrail. -->
+			<section class="agent-detail__section">
+				<ToolInvocationTable :agent-id="agentUuid" />
+			</section>
+
 			<!-- Schedule section -->
 			<section class="agent-detail__section">
 				<div class="agent-detail__section-head">
@@ -428,9 +443,12 @@ import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { installSkill, listSkills, uninstallSkill } from '../api/skills.js'
 import { createWebhookSecret, getWebhookStatus, revokeWebhookSecret, rotateWebhookSecret } from '../api/webhooks.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
+import { getCurrentUser } from '@nextcloud/auth'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import AgentMemoryPanel from '../components/AgentMemoryPanel.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
+import ToolGrantEditor from '../components/ToolGrantEditor.vue'
+import ToolInvocationTable from '../components/ToolInvocationTable.vue'
 import WebhookSecretDialog from '../modals/WebhookSecretDialog.vue'
 
 export default {
@@ -451,6 +469,8 @@ export default {
 		Play,
 		Robot,
 		ScheduleFormModal,
+		ToolGrantEditor,
+		ToolInvocationTable,
 		WebhookSecretDialog,
 	},
 
@@ -508,6 +528,18 @@ export default {
 		 */
 		agentUuid() {
 			return this.$route.params.id
+		},
+
+		/**
+		 * Whether the current user owns this agent — the grant editor is read-only for
+		 * everyone else (the server enforces owner-only on PUT .../tool-grants regardless;
+		 * this only avoids offering an action that would be refused).
+		 *
+		 * @return {boolean} True when the current user is the agent's owner.
+		 */
+		isOwner() {
+			const user = getCurrentUser()
+			return !!(user && this.agent && this.agent.owner === user.uid)
 		},
 
 		/**
@@ -984,6 +1016,16 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async onScheduleSaved() {
+			await this.load()
+		},
+
+		/**
+		 * Reload after the tool grants are saved (agent-tool-governance-and-disclosure) —
+		 * Agent.tools drives the config widget's tools display, so the page must refetch.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async onGrantsSaved() {
 			await this.load()
 		},
 

@@ -372,6 +372,71 @@ class DeliveryService
     }//end notifyApprovalReviewers()
 
     /**
+     * Notify a tool-invocation approval's resolved reviewer(s) that an
+     * un-granted destructive tool call is pending (Art. 14) — the
+     * `sourceType: "tool"` counterpart to `deliverApprovalRequestForFlowRun()`
+     * (agent-tool-governance-and-disclosure). The approval's own `toolId` (or
+     * `agentId` as a fallback) is used as the display name. NEVER throws for a
+     * delivery problem.
+     *
+     * @param ObjectEntity      $approval     The pending approval to link to.
+     * @param array<int,string> $reviewerUids The resolved reviewer user ids.
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+     */
+    public function deliverApprovalRequestForToolInvocation(ObjectEntity $approval, array $reviewerUids): DeliveryResult
+    {
+        $approvalUuid = (string) $approval->getUuid();
+        $data         = $approval->getObject();
+        $toolId       = (string) ($data['toolId'] ?? ($data['agentId'] ?? ''));
+
+        $talkOk    = $this->isTalkAvailable();
+        $warnings  = [];
+        $delivered = false;
+
+        foreach ($reviewerUids as $uid) {
+            $uid = (string) $uid;
+            if ($uid === '') {
+                continue;
+            }
+
+            try {
+                $notification = $this->notificationManager->createNotification();
+                $notification->setApp('hermiq')
+                    ->setUser($uid)
+                    ->setDateTime(new DateTime())
+                    ->setObject('approval', $approvalUuid)
+                    ->setSubject('approval_requested', ['name' => $toolId])
+                    ->setMessage('approval_summary', ['toolId' => $toolId])
+                    ->setLink($this->buildApprovalLink(uuid: $approvalUuid));
+                $this->notificationManager->notify($notification);
+                $delivered = true;
+            } catch (Throwable $e) {
+                $warnings[] = sprintf("notify %s failed: %s", $uid, $e->getMessage());
+            }
+
+            // Best-effort Talk Note-to-self — a bonus channel, never required.
+            if ($talkOk === true) {
+                $this->tryPostToNoteToSelf(
+                    owner: $uid,
+                    output: sprintf('Approval needed to run “%s”. Review it in Hermiq.', $toolId)
+                );
+            }
+        }//end foreach
+
+        $warning = null;
+        if ($warnings !== []) {
+            $warning = implode('; ', $warnings);
+        }
+
+        $this->logWarning(warning: $warning, uuid: $approvalUuid, channel: 'approval');
+        return new DeliveryResult(delivered: $delivered, channel: 'notification', fellBack: false, warning: $warning);
+
+    }//end deliverApprovalRequestForToolInvocation()
+
+    /**
      * Notify a budget's resolved recipient(s) that its soft threshold was crossed
      * (cost-guardrails). Fires at most once per period — `BudgetService` gates the
      * call so this method is only ever invoked when a warning is actually due. NEVER
