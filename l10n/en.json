@@ -1,14 +1,11 @@
 {
     "translations": {
-        "Custom example component": "Custom example component",
         "Dashboard": "Dashboard",
         "Documentation": "Documentation",
         "Items": "Items",
         "Item": "Item",
         "Open items": "Open items",
-        "Replace the body of this component with whatever bespoke behaviour your page needs — realtime UI, vendor integrations, anything that does not fit the built-in page types.": "Replace the body of this component with whatever bespoke behaviour your page needs — realtime UI, vendor integrations, anything that does not fit the built-in page types.",
         "Settings": "Settings",
-        "This is the canonical example of a custom-type page in the manifest renderer pattern. It is rendered when a manifest page declares `type: \"custom\"` and `component: \"CustomExample\"`.": "This is the canonical example of a custom-type page in the manifest renderer pattern. It is rendered when a manifest page declares `type: \"custom\"` and `component: \"CustomExample\"`.",
         "Version Information": "Version Information",
         "Information about the current installation.": "Information about the current installation.",
         "items": "items",

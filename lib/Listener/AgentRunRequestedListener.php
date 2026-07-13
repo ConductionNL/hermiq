@@ -16,9 +16,8 @@
  * another app's version, so this is documented in <description> and checked at
  * install/upgrade by Repair\CheckOpenRegisterCompatibility. This listener still
  * references OR's real event class directly with no class_exists() guard on the
- * registration side (mirroring the existing DeepLinkRegistrationListener precedent),
- * because `::class` is a compile-time string constant and does not require the
- * class to actually be loaded.
+ * registration side, because `::class` is a compile-time string constant and does
+ * not require the class to actually be loaded.
  *
  * @category Listener
  * @package  OCA\Hermiq\Listener
