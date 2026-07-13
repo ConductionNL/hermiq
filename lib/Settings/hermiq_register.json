@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.3"
+    "version": "0.10.4"
   },
   "x-openregister": {
     "type": "application",
@@ -614,6 +614,42 @@
           "linkedRunIds": { "type": "array", "default": [], "title": "Linked runs", "description": "AuditTrail entry uuids of the run(s) this incident concerns, if any (a \"run\" has no own OpenRegister object — it is identified by its AuditTrail entry uuid, exactly as RunHistoryService already surfaces run ids).", "items": { "type": "string" } },
           "createdAt": { "type": "string", "format": "date-time", "title": "Created at", "description": "Derived: when the incident record was opened — written by the create endpoint." },
           "createdBy": { "type": "string", "title": "Created by", "description": "Derived: the user id of the org admin who opened the incident — written by the create endpoint." }
+        }
+      },
+      "ControlFramework": {
+        "slug": "agentcontrolframework",
+        "icon": "ScaleBalance",
+        "version": "0.1.0",
+        "title": "Compliance control framework",
+        "description": "A regulation or standard a Control belongs to (compliance-control-packs), e.g. the EU AI Act, ISO/IEC 42001, or the NIST AI RMF. Instance-wide reference/catalogue data, seeded on install — never tenant-scoped, never user-editable in this change.",
+        "type": "object",
+        "required": ["slug", "name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "slug": { "type": "string", "title": "Slug", "description": "The machine identifier of the framework (e.g. eu-ai-act, iso-42001, nist-ai-rmf)." },
+          "name": { "type": "string", "title": "Name", "description": "Human-readable name of the framework (e.g. \"EU AI Act\")." },
+          "edition": { "type": "string", "title": "Edition", "description": "The specific regulation/standard edition (e.g. \"Regulation (EU) 2024/1689\", \"ISO/IEC 42001:2023\")." },
+          "sourceUrl": { "type": "string", "format": "uri", "title": "Source URL", "description": "A link to the framework's own authoritative text." },
+          "description": { "type": "string", "title": "Description", "description": "A short, one-sentence description of what the framework covers." }
+        }
+      },
+      "Control": {
+        "slug": "agentcompliancecontrol",
+        "icon": "ClipboardCheckOutline",
+        "version": "0.1.0",
+        "title": "Compliance control",
+        "description": "One control from a ControlFramework (compliance-control-packs), e.g. EU AI Act Art. 12 record-keeping. Carries a short, source-cited description and an `evidenceSource` tag that ComplianceService dispatches on to compute the control's satisfied/partial/unevidenced status LIVE from Hermiq's own existing governance data — this schema deliberately carries NO status field; status is never persisted or hand-set. Instance-wide reference/catalogue data, seeded on install.",
+        "type": "object",
+        "required": ["frameworkSlug", "controlId", "title", "evidenceSource"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "frameworkSlug": { "type": "string", "title": "Framework", "description": "Slug of the ControlFramework this control belongs to.", "$ref": "ControlFramework" },
+          "controlId": { "type": "string", "title": "Control ID", "description": "The framework's own identifier for this control (e.g. \"art.12\", \"9.1\", \"GOVERN-1.1\")." },
+          "title": { "type": "string", "title": "Title", "description": "Short human-readable title of the control (e.g. \"Record-keeping\")." },
+          "description": { "type": "string", "title": "Description", "description": "A short, cited paraphrase of the control (one or two sentences) — never a full legal reproduction." },
+          "sourceUrl": { "type": "string", "format": "uri", "title": "Source URL", "description": "A link to the control's own authoritative text (article/clause/function)." },
+          "evidenceSource": { "type": "string", "enum": ["audit-trail-recordkeeping", "approval-gate-oversight", "kill-switch-stop-mechanism", "model-policy-risk-control", "capability-review-least-privilege", "dpo-ack-design-time-gate"], "title": "Evidence source", "description": "Which existing Hermiq seam ComplianceService reads to compute this control's live status: the Art. 12 audit export, human-approval-gate decisions, the per-org kill-switch, the org's model policy, the periodic access review, or the AI-feature DPO-ack gate." },
+          "evidenceDescription": { "type": "string", "title": "Evidence description", "description": "A human sentence explaining what \"satisfied\" means for this specific control, shown in the dashboard and export." }
         }
       },
       "CourseRecommendation": {

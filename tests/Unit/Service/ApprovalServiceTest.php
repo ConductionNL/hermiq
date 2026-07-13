@@ -728,6 +728,57 @@ class ApprovalServiceTest extends TestCase
     }//end testListPendingForReviewer()
 
     /**
+     * listForOrganisation() returns every Approval the tenant-scoped read yields
+     * (compliance-control-packs) — a thin, purely-additive pass-through over
+     * ObjectService's own RBAC/tenancy scoping.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
+     */
+    public function testListForOrganisationReturnsTenantScopedApprovals(): void
+    {
+        $a = $this->approval(['status' => 'approved']);
+        $a->setUuid('a1');
+        $b = $this->approval(['status' => 'pending']);
+        $b->setUuid('a2');
+
+        $this->objectService->method('findAll')->willReturn([$a, $b]);
+
+        $records = $this->service()->listForOrganisation();
+
+        $this->assertCount(2, $records);
+
+    }//end testListForOrganisationReturnsTenantScopedApprovals()
+
+    /**
+     * listForAgent() returns only Approval objects matching the given agentId,
+     * system-wide (RBAC-off) — the per-agent factsheet decision history
+     * (compliance-control-packs).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/compliance-control-packs/tasks.md#task-4-complianceservice-dashboard-export-and-factsheet-aggregation
+     */
+    public function testListForAgentFiltersByAgentId(): void
+    {
+        $mine  = $this->approval(['status' => 'approved', 'agentId' => 'agent-1']);
+        $mine->setUuid('a1');
+        $other = $this->approval(['status' => 'approved', 'agentId' => 'agent-2']);
+        $other->setUuid('a2');
+
+        $this->objectService->method('findAll')->willReturn([$mine, $other]);
+
+        $records = $this->service()->listForAgent('agent-1');
+
+        $this->assertCount(1, $records);
+        $this->assertSame('a1', $records[0]->getUuid());
+
+        $this->assertSame([], $this->service()->listForAgent(''), 'An empty agentId short-circuits to no results.');
+
+    }//end testListForAgentFiltersByAgentId()
+
+    /**
      * ensurePendingApprovalForToolInvocation creates exactly one pending
      * Approval tagged sourceType=tool, carrying the toolId and the agent's
      * owner as reviewer, and notifies via the tool-invocation delivery path

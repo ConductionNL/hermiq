@@ -12,6 +12,9 @@
     "tenantops.attest-review": ["admin"],
     "tenantops.reassign-agent": ["admin"],
     "tenantops.create-incident": ["admin"],
-    "tenantops.update-retention": ["admin"]
+    "tenantops.update-retention": ["admin"],
+    "compliance.view-dashboard": ["admin"],
+    "compliance.export-pack": ["admin"],
+    "compliance.view-factsheet": ["admin"]
   }
 }

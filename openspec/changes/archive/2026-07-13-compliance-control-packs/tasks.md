@@ -14,8 +14,9 @@
     of the six mapped seams), `evidenceDescription`, and NO status field
   - GIVEN `appinfo/info.xml` WHEN this change lands THEN `<version>` is bumped by one patch so the
     register re-import is triggered
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test — `npm run check:json-strict`/`check:register` pass (union import, no
+  regression); `Control` schema carries no status field (verified directly in the JSON).
 
 ### Task 2: Seed the catalogue idempotently
 - **spec_ref**: `openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-a-seeded-source-cited-control-catalogue-spans-three-frameworks`
@@ -26,8 +27,9 @@
     `ObjectService` (single write-path, ADR-004)
   - GIVEN the repair step already ran WHEN it runs again THEN no `Control`/`ControlFramework` is
     duplicated (skip on existing `slug`)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test — `tests/Unit/Repair/SeedComplianceControlsTest.php` (fresh-install seeds
+  3 frameworks + 10 controls; re-run is idempotent, matched by slug/frameworkSlug+controlId)
 
 ### Task 3: ComplianceService — computed evidence mapping
 - **spec_ref**: `openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-control-status-is-computed-from-live-governance-data-never-hand-set`
@@ -41,8 +43,10 @@
     `satisfied`/`partial`/`unevidenced` plus a human `detail` string — never a stored value
   - GIVEN an organisation whose evidence changes (e.g. a run completes) WHEN status is recomputed
     THEN the returned status reflects the new data with no manual update
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test — `tests/Unit/Service/ComplianceServiceTest.php` covers all six evidenceSource
+  branches (each state transition: satisfied/partial/unevidenced) via fixture ObjectServices
+  and mocked seam services
 
 ### Task 4: ComplianceService — dashboard, export, and factsheet aggregation
 - **spec_ref**: `openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list`
@@ -56,8 +60,10 @@
   - GIVEN an agent with a linked `AiFeature`, approval history, and incidents WHEN
     `factsheet($agentId)` runs THEN it assembles a single read-only envelope from `Agent`,
     `AiFeature`, `Approval`, and `Incident` data with no new persisted object
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test — `tests/Unit/Service/ComplianceServiceTest.php` covers dashboard aggregation
+  (coverage % + gap list), auditorPack() passing exportAuditTrail() through unmodified, and
+  factsheet() assembling all four sources (+ null for a missing agent)
 
 ### Task 5: ComplianceController — routes + action-auth gating
 - **spec_ref**: `openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership`
@@ -70,8 +76,10 @@
     `compliance.view-factsheet` THEN the system refuses with HTTP 404 (not 403)
   - GIVEN `appinfo/routes.php` WHEN the three routes are registered THEN each resolves to an
     existing `ComplianceController` method (route-auth + route-reachability gates pass)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test — `tests/Unit/Controller/ComplianceControllerTest.php` covers the 401/403 gates
+  on dashboard/export and the factsheet's 404-not-403 ownership-or-action-auth IDOR guard
+  (owner, non-owner-non-authorized, and authorized-non-owner cases)
 
 ### Task 6: Frontend — compliance dashboard page
 - **spec_ref**: `openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list`
@@ -84,8 +92,10 @@
     `type:"custom"` page with a menu entry, `kind:'page'` in the registry
   - GIVEN every new user-facing string WHEN added THEN both `l10n/en.json` and `l10n/nl.json` carry
     English-keyed entries
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (compile-verified; live coverage deferred to the playwright-regression-coverage
+  change) — `npm run lint` (0 errors) and `npm run check:specs` (manifest-v2/registry pass)
+  verify the page/menu/registry wiring compiles and validates; no live browser render performed
 
 ### Task 7: Frontend — agent factsheet dialog
 - **spec_ref**: `openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle`
@@ -96,8 +106,10 @@
     isolation) showing the assembled factsheet
   - GIVEN a user without access WHEN the dialog's underlying request is refused (404) THEN the
     dialog shows a clear "not available" state, not a raw error
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (compile-verified; live coverage deferred to the playwright-regression-coverage
+  change) — `npm run lint` (0 errors) verifies the dialog/button wiring compiles; no live
+  browser render performed
 
 ## Quality checklist
 
