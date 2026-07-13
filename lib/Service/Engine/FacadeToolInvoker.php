@@ -50,6 +50,19 @@
  * `toolPolicy` map is `auto` — falls through unchanged to the pre-existing
  * grant/approval-gate check, zero behavior change.
  *
+ * run-replay-and-dry-run adds a FOURTH check, at the single point every
+ * governance path above eventually funnels into when it does NOT refuse —
+ * `dispatchToFacade()`, the only place `ToolRegistryFacade::invokeTool()` is
+ * ever actually called. When `$dryRun` is true and `ToolClassificationService`
+ * classifies the tool as side-effecting (fail-safe closed default — see that
+ * class), the facade is NEVER invoked: a `tool` trace step with
+ * `outcome='would-have-called'` and REDACTED arguments is recorded instead,
+ * and a synthetic, clearly-labelled result is returned to the LLM so a
+ * multi-step plan can keep reasoning. A read-only-classified tool is still
+ * invoked for real (accurate preview data). This is deliberately the ONE
+ * narrow exception to this class's "never the raw arguments" trace rule
+ * (`run-trace-observability` Risk 4) — see `RedactionService`.
+ *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
  *
@@ -68,6 +81,7 @@
  * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
  * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
  * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+ * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
  */
 
 declare(strict_types=1);
@@ -75,6 +89,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 
@@ -97,39 +113,92 @@ class FacadeToolInvoker
     /**
      * Constructor.
      *
-     * @param ToolRegistryFacade      $facade            The OR public tool read/invoke surface.
-     * @param StreamYieldChannel|null $channel           Optional streaming channel for
-     *                                                   tool_call/tool_result frames.
-     * @param RunTraceCollector|null  $trace             Optional run-trace collector; when
-     *                                                   supplied, each invocation is timed
-     *                                                   as a `tool` step
-     *                                                   (run-trace-observability).
-     * @param ToolSearchService|null  $toolSearchService Per-run resolved-set + `searchTools`
-     *                                                   ranking (agent-tool-governance-and-disclosure);
-     *                                                   null disables both the meta-tool
-     *                                                   short-circuit and the approval-gate's
-     *                                                   grant-membership check (agent-less chat).
-     * @param ApprovalService|null    $approvalService   Human-approval gate; null disables the
-     *                                                   destructive-invocation short-circuit
-     *                                                   (existing callers, unchanged
-     *                                                   behaviour).
-     * @param string|null             $agentId           The acting agent's UUID; null disables
-     *                                                   the approval gate (no reviewer/owner
-     *                                                   to route to).
-     * @param array<string,string>    $mcpIdByName       Map of LLPhant-safe function name to the
-     *                                                   dotted `mcpId` — resolves the id the
-     *                                                   approval gate classifies/checks (LLPhant
-     *                                                   calls back with the safe name, which may
-     *                                                   have dots replaced by underscores).
-     * @param array<string,string>    $toolPolicy        The effective GuardrailPolicy's
-     *                                                   `toolId => classification` map
-     *                                                   (agent-guardrails), resolved ONCE per
-     *                                                   turn by `ToolLoop::resolveToolPolicy()`.
-     *                                                   A tool absent from this map is `auto`
-     *                                                   (zero behavior change); an empty map
-     *                                                   (no `GuardrailPolicyService`, or no
-     *                                                   policy configured) disables this
-     *                                                   short-circuit entirely.
+     * @param ToolRegistryFacade                $facade            The OR public tool read/invoke surface.
+     * @param StreamYieldChannel|null           $channel           Optional streaming channel for
+     *                                                             tool_call/tool_result frames.
+     * @param RunTraceCollector|null            $trace             Optional run-trace collector; when
+     *                                                             supplied, each invocation is timed
+     *                                                             as a `tool` step
+     *                                                             (run-trace-observability).
+     * @param ToolSearchService|null            $toolSearchService Per-run resolved-set + `searchTools`
+     *                                                             ranking
+     *                                                             (agent-tool-governance-and-disclosure);
+     *                                                             null disables both the meta-tool
+     *                                                             short-circuit and the
+     *                                                             approval-gate's grant-membership
+     *                                                             check (agent-less chat).
+     * @param ApprovalService|null              $approvalService   Human-approval gate; null disables the
+     *                                                             destructive-invocation short-circuit
+     *                                                             (existing callers, unchanged
+     *                                                             behaviour).
+     * @param string|null                       $agentId           The acting agent's UUID; null disables
+     *                                                             the approval gate (no reviewer/owner
+     *                                                             to route to).
+     * @param array<string,string>              $mcpIdByName       Map of LLPhant-safe function name to the
+     *                                                             dotted `mcpId` — resolves the id the
+     *                                                             approval gate classifies/checks (LLPhant
+     *                                                             calls back with the safe name, which may
+     *                                                             have dots replaced by underscores).
+     * @param array<string,string>              $toolPolicy        The effective GuardrailPolicy's
+     *                                                             `toolId => classification` map
+     *                                                             (agent-guardrails), resolved
+     *                                                             ONCE per turn by
+     *                                                             `ToolLoop::resolveToolPolicy()`.
+     *                                                             A tool absent from this map is
+     *                                                             `auto` (zero behavior change);
+     *                                                             an empty map (no
+     *                                                             `GuardrailPolicyService`, or no
+     *                                                             policy configured) disables
+     *                                                             this short-circuit entirely.
+     * @param bool                              $dryRun            Whether this turn is a
+     *                                                             dry-run preview
+     *                                                             (run-replay-and-dry-run):
+     *                                                             when true, a
+     *                                                             side-effecting tool is
+     *                                                             neutralised at
+     *                                                             `dispatchToFacade()`
+     *                                                             instead of actually
+     *                                                             invoked. False (every
+     *                                                             pre-existing caller)
+     *                                                             is byte-for-byte
+     *                                                             unchanged behavior.
+     * @param ToolClassificationService|null    $classifier        Resolves whether a tool is
+     *                                                             side-effecting or
+     *                                                             read-only
+     *                                                             (run-replay-and-dry-run);
+     *                                                             only consulted when
+     *                                                             `$dryRun` is true.
+     *                                                             Defaults to a fresh
+     *                                                             instance (stateless, no
+     *                                                             dependencies) so callers
+     *                                                             never need to construct
+     *                                                             one just to leave dry-run
+     *                                                             off.
+     * @param array<string,array<string,mixed>> $descriptorsByName Map of LLPhant-safe function
+     *                                                             name to its full catalog
+     *                                                             descriptor (run-replay-and-dry-run),
+     *                                                             so the classifier can consult a
+     *                                                             tool's declared `scope`/
+     *                                                             `destructiveHint`/`readOnlyHint`
+     *                                                             when available. Empty for
+     *                                                             existing callers — the
+     *                                                             classifier then falls back to
+     *                                                             id-only classification.
+     * @param RedactionService|null             $redactionService  Masks secrets/PII in a
+     *                                                             `would-have-called`
+     *                                                             step's arguments
+     *                                                             before they reach the
+     *                                                             trace
+     *                                                             (run-replay-and-dry-run,
+     *                                                             the ONE exception to
+     *                                                             this class's "never
+     *                                                             raw arguments" rule).
+     *                                                             Null falls back to a
+     *                                                             fully-opaque
+     *                                                             placeholder rather
+     *                                                             than ever risking an
+     *                                                             unredacted value
+     *                                                             (fail-safe).
      *
      * @return void
      *
@@ -142,6 +211,7 @@ class FacadeToolInvoker
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
      * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+     * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
      */
     public function __construct(
         private readonly ToolRegistryFacade $facade,
@@ -151,7 +221,11 @@ class FacadeToolInvoker
         private readonly ?ApprovalService $approvalService=null,
         private readonly ?string $agentId=null,
         private readonly array $mcpIdByName=[],
-        private readonly array $toolPolicy=[]
+        private readonly array $toolPolicy=[],
+        private readonly bool $dryRun=false,
+        private readonly ?ToolClassificationService $classifier=new ToolClassificationService(),
+        private readonly array $descriptorsByName=[],
+        private readonly ?RedactionService $redactionService=null
     ) {
     }//end __construct()
 
@@ -588,6 +662,7 @@ class FacadeToolInvoker
      * @return string JSON-encoded tool result for the follow-up LLM turn.
      *
      * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
+     * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
      */
     private function dispatchToFacade(string $name, array $arguments, ?string $outcomeOverride=null): string
     {
@@ -601,6 +676,16 @@ class FacadeToolInvoker
         $traceToken = null;
         if ($this->trace !== null) {
             $traceToken = $this->trace->startStep(type: 'tool', name: $name);
+        }
+
+        // Run-replay-and-dry-run: this is the ONLY place `invokeTool()` is ever
+        // actually called, so intercepting here (rather than earlier in __call())
+        // neutralises a side-effecting tool regardless of WHICH governance branch
+        // reached it (plain auto dispatch, a confirm-classified tool's authorised
+        // retry, or an already-approved gated invocation) — a single chokepoint,
+        // never duplicated per branch.
+        if ($this->dryRun === true && $this->isSideEffecting(name: $name) === true) {
+            return $this->recordWouldHaveCalled(name: $name, arguments: $arguments, traceToken: $traceToken);
         }
 
         // The facade's return shape is a documented contract:
@@ -636,4 +721,125 @@ class FacadeToolInvoker
         return $encoded;
 
     }//end dispatchToFacade()
+
+    /**
+     * Whether `$name` is side-effecting per the resolved `ToolClassificationService`
+     * (run-replay-and-dry-run) — fail-safe closed when no classifier is wired
+     * (should not happen given the constructor default, but never trust that
+     * blindly at the point a real invocation would otherwise fire).
+     *
+     * @param string $name The LLPhant-side function name.
+     *
+     * @return bool
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    private function isSideEffecting(string $name): bool
+    {
+        if ($this->classifier === null) {
+            return true;
+        }
+
+        $toolId     = $this->resolveToolId(name: $name);
+        $descriptor = ($this->descriptorsByName[$name] ?? null);
+
+        return $this->classifier->isSideEffecting(id: $toolId, descriptor: $descriptor);
+
+    }//end isSideEffecting()
+
+    /**
+     * Neutralise a side-effecting tool call during a dry-run: never invoke the
+     * facade, record a `tool` trace step with `outcome='would-have-called'`
+     * carrying REDACTED arguments (the one narrow exception to this class's
+     * "never raw arguments" rule), and return a synthetic, clearly-labelled
+     * result so the LLM's multi-step plan can keep reasoning realistically.
+     *
+     * @param string               $name       The LLPhant-side function name.
+     * @param array<string, mixed> $arguments  Decoded arguments object.
+     * @param int|null             $traceToken The trace step token already started
+     *                                         by `dispatchToFacade()`, or null when
+     *                                         no collector is attached.
+     *
+     * @return string JSON-encoded preview envelope for the follow-up LLM turn.
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
+     */
+    private function recordWouldHaveCalled(string $name, array $arguments, ?int $traceToken): string
+    {
+        $toolId            = $this->resolveToolId(name: $name);
+        $redactedArguments = $this->redactArguments(arguments: $arguments);
+
+        if ($this->trace !== null && $traceToken !== null) {
+            $this->trace->endStep(
+                token: $traceToken,
+                outcome: 'would-have-called',
+                extra: ['arguments' => $redactedArguments]
+            );
+        }
+
+        $envelope = [
+            'preview' => true,
+            'toolId'  => $toolId,
+            'message' => "Dry-run preview: '{$toolId}' was NOT actually invoked — this is a simulated result.",
+        ];
+
+        $this->channel?->emitToolResult(
+            payload: [
+                'toolId'  => $toolId,
+                'result'  => $envelope,
+                'isError' => false,
+                'preview' => true,
+            ]
+        );
+
+        $encoded = json_encode($envelope);
+        if (is_string($encoded) === false) {
+            return '{"preview":true}';
+        }
+
+        return $encoded;
+
+    }//end recordWouldHaveCalled()
+
+    /**
+     * Redact a tool call's arguments before they reach the trace/audit record
+     * (ADR-004 redaction-before-persist, extended to the ONE step outcome that
+     * carries arguments at all — see class docblock). JSON-encodes the
+     * argument object, redacts the encoded blob with the same
+     * `RedactionService::redact()` every other free-text audit field already
+     * passes through, then decodes it back so the trace keeps a structured
+     * `arguments` object rather than an opaque string wherever possible.
+     *
+     * @param array<string, mixed> $arguments Decoded arguments object.
+     *
+     * @return array<string, mixed> The redacted arguments (or a single opaque
+     *                              placeholder key when redaction could not be
+     *                              round-tripped as JSON — never the raw values).
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
+     */
+    private function redactArguments(array $arguments): array
+    {
+        if ($this->redactionService === null) {
+            // Fail-safe: no redactor wired — never expose raw values.
+            return array_fill_keys(array_keys($arguments), '«redacted»');
+        }
+
+        $encoded = json_encode($arguments, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (is_string($encoded) === false) {
+            return array_fill_keys(array_keys($arguments), '«redacted»');
+        }
+
+        $redactedEncoded = $this->redactionService->redact($encoded);
+        $decoded         = json_decode($redactedEncoded, true);
+        if (is_array($decoded) === true) {
+            return $decoded;
+        }
+
+        // The redaction pass altered the JSON shape (rare) — fall back to a
+        // single opaque string rather than losing the redaction outcome.
+        return ['_redacted' => $redactedEncoded];
+
+    }//end redactArguments()
 }//end class

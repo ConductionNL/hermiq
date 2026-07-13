@@ -186,6 +186,13 @@ class Engine
      *                                                into it and returned as the envelope's
      *                                                `steps` key. Null for callers that do not
      *                                                need a step timeline (zero behavior change).
+     * @param bool                    $dryRun         Whether this turn is a dry-run preview
+     *                                                (run-replay-and-dry-run); threaded onto
+     *                                                `ResponseGenerationHandler::generateResponse()`
+     *                                                so a side-effecting tool call is
+     *                                                neutralised instead of actually invoked.
+     *                                                False (every pre-existing caller) is
+     *                                                byte-for-byte unchanged behavior.
      *
      * @return array The result envelope.
      *
@@ -206,6 +213,7 @@ class Engine
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
      */
     public function processMessage(
         string $conversationId,
@@ -216,7 +224,8 @@ class Engine
         array $ragSettings=[],
         array $context=[],
         ?StreamYieldChannel $channel=null,
-        ?RunTraceCollector $trace=null
+        ?RunTraceCollector $trace=null,
+        bool $dryRun=false
     ): array {
         $this->logger->info(
             message: '[Engine] Processing message',
@@ -368,7 +377,8 @@ class Engine
                 channel: $channel,
                 cnAiContext: $cnAiContext,
                 contextPreamble: $contextPreamble,
-                trace: $trace
+                trace: $trace,
+                dryRun: $dryRun
             );
             $llmTime      = microtime(true) - $llmStartTime;
             if ($llmToken !== null) {

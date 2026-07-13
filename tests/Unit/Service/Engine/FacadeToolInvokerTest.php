@@ -30,9 +30,12 @@ use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
+use OCP\IConfig;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -415,4 +418,146 @@ class FacadeToolInvokerTest extends TestCase
         $invoker->pipelinq_lead_delete(id: '7');
 
     }//end testNoAgentIdDisablesApprovalGate()
+
+    /**
+     * A force-redacting RedactionService instance for dry-run argument tests.
+     *
+     * @return RedactionService
+     */
+    private function redactionService(): RedactionService
+    {
+        $config = $this->createMock(IConfig::class);
+        $config->method('getAppValue')->willReturn('yes');
+        return new RedactionService($config);
+
+    }//end redactionService()
+
+    /**
+     * A side-effecting tool is neutralised in a dry-run: the facade is NEVER
+     * invoked, the trace step outcome is `would-have-called` and carries the
+     * tool's (redacted) arguments, and the synthetic result is marked
+     * `preview: true` (run-replay-and-dry-run).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testDryRunNeutralisesSideEffectingToolWithRedactedArguments(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->never())->method('invokeTool');
+
+        $trace   = new RunTraceCollector();
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            trace: $trace,
+            mcpIdByName: ['talk_sendMessage' => 'talk.schema.create'],
+            dryRun: true,
+            classifier: new ToolClassificationService(),
+            redactionService: $this->redactionService()
+        );
+
+        $encoded = $invoker->talk_sendMessage(text: 'weekly summary', apiKey: 'sk-abcdefghijklmnop');
+        $decoded = json_decode($encoded, true);
+
+        $this->assertTrue($decoded['preview']);
+
+        $steps = $trace->toArray();
+        $this->assertCount(1, $steps);
+        $this->assertSame('would-have-called', $steps[0]['outcome']);
+        $this->assertSame('weekly summary', $steps[0]['arguments']['text'], 'A non-secret argument passes through unmasked.');
+        $this->assertStringNotContainsString(
+            'sk-abcdefghijklmnop',
+            json_encode($steps[0]['arguments']),
+            'A secret-shaped argument value must be masked before it reaches the trace.'
+        );
+
+    }//end testDryRunNeutralisesSideEffectingToolWithRedactedArguments()
+
+    /**
+     * A read-only-classified tool still executes for real in a dry-run — the
+     * step outcome is `ok`, never `would-have-called`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testDryRunStillInvokesReadOnlyToolForReal(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())->method('invokeTool')->willReturn(
+            ['result' => ['matches' => []], 'isError' => false]
+        );
+
+        $trace   = new RunTraceCollector();
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            trace: $trace,
+            mcpIdByName: ['demo_search' => 'demo.schema.search'],
+            dryRun: true,
+            classifier: new ToolClassificationService()
+        );
+
+        $invoker->demo_search(query: 'x');
+
+        $steps = $trace->toArray();
+        $this->assertCount(1, $steps);
+        $this->assertSame('ok', $steps[0]['outcome']);
+
+    }//end testDryRunStillInvokesReadOnlyToolForReal()
+
+    /**
+     * An unclassified tool (no descriptor, no verb suffix) defaults to
+     * neutralised in a dry-run — fail-safe closed.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testDryRunNeutralisesUnclassifiedToolByDefault(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->never())->method('invokeTool');
+
+        $trace   = new RunTraceCollector();
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            trace: $trace,
+            dryRun: true,
+            classifier: new ToolClassificationService()
+        );
+
+        $invoker->some_unclassified_tool(x: 1);
+
+        $steps = $trace->toArray();
+        $this->assertSame('would-have-called', $steps[0]['outcome']);
+
+    }//end testDryRunNeutralisesUnclassifiedToolByDefault()
+
+    /**
+     * With `dryRun=false` (every pre-existing caller), a write-classified tool
+     * is still dispatched to the facade for real — the flag, not merely its
+     * absence, is what gates neutralisation.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testDryRunFalseDispatchesWriteToolForRealUnchanged(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->once())->method('invokeTool')->willReturn(
+            ['result' => ['ok' => true], 'isError' => false]
+        );
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            mcpIdByName: ['demo_create' => 'demo.schema.create'],
+            dryRun: false,
+            classifier: new ToolClassificationService()
+        );
+
+        $invoker->demo_create(name: 'x');
+
+    }//end testDryRunFalseDispatchesWriteToolForRealUnchanged()
 }//end class

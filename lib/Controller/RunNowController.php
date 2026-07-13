@@ -36,6 +36,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -147,6 +148,66 @@ class RunNowController extends Controller
         );
 
     }//end run()
+
+    /**
+     * Preview the given schedule's agent run as a dry-run: side-effecting tool
+     * calls are neutralised instead of actually invoked (run-replay-and-dry-run).
+     * Same owner guard as `run()` — a non-owner gets a 404, never a 403.
+     *
+     * @param string $scheduleId The Schedule object UUID.
+     *
+     * @return JSONResponse The dry-run outcome, a governance-gate refusal (409), or
+     *                      a feature-flag-required error (422).
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function dryRun(string $scheduleId): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $schedule = $this->loadOwnedSchedule(scheduleId: $scheduleId, uid: $user->getUID());
+        if ($schedule === null) {
+            // 404 (not 403) so a non-owner cannot even confirm the schedule exists.
+            return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        try {
+            $result = $this->scheduleService->dryRunNow(schedule: $schedule);
+        } catch (EngineRequiredException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], 422);
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq dry-run failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(
+                ['error' => 'Dry-run failed', 'message' => $e->getMessage()],
+                Http::STATUS_INTERNAL_SERVER_ERROR
+            );
+        }
+
+        if ($result['status'] === 'blocked') {
+            return new JSONResponse(
+                ['error' => 'Blocked by governance', 'gate' => ($result['gate'] ?? null)],
+                Http::STATUS_CONFLICT
+            );
+        }
+
+        return new JSONResponse(
+            [
+                'scheduleId' => $scheduleId,
+                'dryRun'     => true,
+                'status'     => $result['status'],
+                'error'      => ($result['error'] ?? null),
+                'steps'      => ($result['steps'] ?? []),
+                'summary'    => ($result['summary'] ?? null),
+            ]
+        );
+
+    }//end dryRun()
 
     /**
      * Load the schedule only if the given user owns it (IDOR guard).

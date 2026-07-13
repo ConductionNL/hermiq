@@ -52,6 +52,7 @@ namespace OCA\Hermiq\Service\Engine;
 
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
@@ -106,6 +107,15 @@ class ToolLoop
      *                                                            purely so existing test callers that omit it
      *                                                            see zero behavior change (every tool `auto`);
      *                                                            real DI always provides it.
+     * @param RedactionService|null       $redactionService       Masks secrets/PII in a dry-run's
+     *                                                            `would-have-called` tool-call arguments
+     *                                                            before they reach the trace
+     *                                                            (run-replay-and-dry-run), threaded onto
+     *                                                            `FacadeToolInvoker`. Nullable/optional so
+     *                                                            existing test callers that omit it see zero
+     *                                                            behavior change (only consulted when a
+     *                                                            caller actually passes `dryRun: true`); real
+     *                                                            DI always provides it.
      *
      * @return void
      *
@@ -116,6 +126,7 @@ class ToolLoop
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-2
      * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+     * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
      */
     public function __construct(
         private readonly ToolRegistryFacade $toolRegistryFacade,
@@ -124,7 +135,8 @@ class ToolLoop
         private readonly ToolSearchService $toolSearchService,
         private readonly ApprovalService $approvalService,
         private readonly IAppConfig $appConfig,
-        private readonly ?GuardrailPolicyService $guardrailPolicyService=null
+        private readonly ?GuardrailPolicyService $guardrailPolicyService=null,
+        private readonly ?RedactionService $redactionService=null
     ) {
     }//end __construct()
 
@@ -347,6 +359,14 @@ class ToolLoop
      *                                              `toolPolicy` map and threaded onto the shared
      *                                              `FacadeToolInvoker`. Null/absent GuardrailPolicyService
      *                                              resolves to every tool `auto` (zero behavior change).
+     * @param bool                    $dryRun       Whether this turn is a dry-run preview
+     *                                              (run-replay-and-dry-run); threaded onto the
+     *                                              shared `FacadeToolInvoker` along with each
+     *                                              function's full descriptor (so its
+     *                                              `scope`/`destructiveHint`/`readOnlyHint`, when
+     *                                              set, informs the side-effect classification).
+     *                                              False (every pre-existing caller) is
+     *                                              byte-for-byte unchanged behavior.
      *
      * @return array<int, FunctionInfo> FunctionInfo objects ready for `setTools()`.
      *
@@ -358,23 +378,30 @@ class ToolLoop
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
      * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
+     * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
      */
     public function buildFunctionInfos(
         array $functions,
         ?StreamYieldChannel $channel=null,
         ?RunTraceCollector $trace=null,
         ?ObjectEntity $agent=null,
-        ?string $organisation=null
+        ?string $organisation=null,
+        bool $dryRun=false
     ): array {
         $agentId = null;
         if ($agent !== null) {
             $agentId = (string) $agent->getUuid();
         }
 
-        $mcpIdByName = [];
+        $mcpIdByName       = [];
+        $descriptorsByName = [];
         foreach ($functions as $func) {
             if (is_array($func) === true && isset($func['name']) === true) {
-                $mcpIdByName[(string) $func['name']] = (string) ($func['mcpId'] ?? $func['name']);
+                $name = (string) $func['name'];
+                $mcpIdByName[$name] = (string) ($func['mcpId'] ?? $func['name']);
+                // Run-replay-and-dry-run: the full descriptor, keyed the same way, so the
+                // dry-run classifier can consult a tool's declared hints when present.
+                $descriptorsByName[$name] = $func;
             }
         }
 
@@ -386,7 +413,10 @@ class ToolLoop
             approvalService: $this->approvalService,
             agentId: $agentId,
             mcpIdByName: $mcpIdByName,
-            toolPolicy: $this->resolveToolPolicy(organisation: $organisation)
+            toolPolicy: $this->resolveToolPolicy(organisation: $organisation),
+            dryRun: $dryRun,
+            descriptorsByName: $descriptorsByName,
+            redactionService: $this->redactionService
         );
         $functionInfoObjects = [];
 

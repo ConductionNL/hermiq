@@ -189,4 +189,51 @@ class AnalyticsServiceTest extends TestCase
         $this->assertNull($m['latency']['avgMs']);
 
     }//end testNoSchedulesYieldsZeroMetrics()
+
+    /**
+     * A dry-run/replay preview entry (`dryRun: true`) is excluded entirely from
+     * the status/success-rate breakdown, latency, per-agent counts, and this
+     * aggregate's own token total — a preview must never inflate an agent's
+     * real metrics (run-replay-and-dry-run). BudgetService's spend total is a
+     * separate service/read path, unaffected by this exclusion.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     */
+    public function testDryRunEntriesAreExcludedFromTheBreakdown(): void
+    {
+        $schedules = [$this->schedule('s1', 'agentA')];
+
+        $realRun = $this->runEntry('s1', 'ok', 100, 'agentA');
+
+        $dryRun = new AuditTrail();
+        $dryRun->setAction('run');
+        $dryRun->setObjectUuid('s1');
+        $dryRun->setChanged(
+            [
+                'status'      => 'ok',
+                'durationMs'  => 999999,
+                'agentId'     => 'agentA',
+                'dryRun'      => true,
+                'usage'       => ['promptTokens' => 500, 'completionTokens' => 500],
+            ]
+        );
+
+        $m = $this->service($schedules, [$realRun, $dryRun])->computeAnalytics();
+
+        $this->assertSame(1, $m['totalRuns'], 'The dry-run entry must not be counted.');
+        $this->assertSame(1, $m['successRuns']);
+        $this->assertSame(['ok' => 1], $m['statusBreakdown']);
+        $this->assertSame(100, $m['latency']['maxMs'], "The dry-run's 999999ms duration must not skew latency.");
+        $this->assertFalse($m['tokens']['available'], "The dry-run's token usage must not appear in this aggregate's own total.");
+
+        $perAgent = [];
+        foreach ($m['perAgent'] as $row) {
+            $perAgent[$row['agentId']] = $row;
+        }
+
+        $this->assertSame(1, $perAgent['agentA']['runs']);
+
+    }//end testDryRunEntriesAreExcludedFromTheBreakdown()
 }//end class

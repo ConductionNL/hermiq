@@ -55,6 +55,19 @@ return [
         // Run now — owner-scoped immediate run of a schedule's agent (agent-management-ui).
         ['name' => 'runNow#run', 'url' => '/api/schedules/{scheduleId}/run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
+        // Dry-run — owner-scoped preview run with side-effecting tools neutralised
+        // (run-replay-and-dry-run).
+        ['name' => 'runNow#dryRun', 'url' => '/api/schedules/{scheduleId}/dry-run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
+
+        // Replay — owner-scoped re-run of a past run's recorded prompt as a dry-run,
+        // with a step-by-step diff against the original (run-replay-and-dry-run).
+        [
+            'name'         => 'runHistory#replay',
+            'url'          => '/api/schedules/{scheduleId}/runs/{runId}/replay',
+            'verb'         => 'POST',
+            'requirements' => ['scheduleId' => '[^/]+', 'runId' => '[^/]+'],
+        ],
+
         // Schedule webhook-secret lifecycle (delivery-channels): owner-guarded mint/
         // rotate/revoke/status for the OUTBOUND deliver=webhook signing secret —
         // distinct from the agent-webhook-trigger routes below, which manage the

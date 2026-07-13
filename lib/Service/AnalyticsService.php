@@ -127,7 +127,18 @@ class AnalyticsService
                     continue;
                 }
 
-                $context  = ($log->getChanged() ?? []);
+                $context = ($log->getChanged() ?? []);
+
+                // Run-replay-and-dry-run: a dry-run/replay preview must never inflate the
+                // agent's real status/success-rate breakdown (or this aggregate's own
+                // token/latency figures, computed on the same pass) — it is excluded here
+                // entirely. Its token usage still counts toward BudgetService's spend total
+                // (a wholly separate service/read path, unaffected by this skip) because a
+                // real LLM call was made; only THIS analytics surface excludes it.
+                if (($context['dryRun'] ?? false) === true) {
+                    continue;
+                }
+
                 $status   = (string) ($context['status'] ?? 'unknown');
                 $runAgent = (string) ($context['agentId'] ?? $scheduleUuidToAgent[$objectUuid]);
 
