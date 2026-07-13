@@ -48,6 +48,8 @@ use Throwable;
 
 /**
  * Strips the retired, cleartext LLM API keys out of the `hermiq.llm` config blob.
+ *
+ * @spec openspec/changes/llm-keys-via-broker/tasks.md
  */
 class RemoveLegacyLlmKeys implements IRepairStep
 {
@@ -81,6 +83,8 @@ class RemoveLegacyLlmKeys implements IRepairStep
      * Get the name of this repair step.
      *
      * @return string
+     *
+     * @spec openspec/changes/llm-keys-via-broker/tasks.md
      */
     public function getName(): string
     {

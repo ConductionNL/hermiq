@@ -170,7 +170,7 @@ class TenantModelPolicyService
      *
      * @param string $organisation The organisation identifier (may be '').
      *
-     * @return array{source: string, allowed: array<int, array{provider: string, models: array<int, string>}>, defaultModel: array{provider: string, model: string}|null}
+     * @return array{source:string,allowed:list<array{provider:string,models:list<string>}>,defaultModel:array{provider:string,model:string}|null}
      *         The effective, shaped policy.
      *
      * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-instance-admin-fallback-policy
@@ -278,7 +278,7 @@ class TenantModelPolicyService
         // trick) — without this an instance admin upserting a different tenant's
         // policy, or the org-less instance default, would be stamped into their
         // own active org instead.
-        $self                 = (array) ($data['@self'] ?? []);
+        $self = (array) ($data['@self'] ?? []);
         $self['organisation'] = $organisation;
         $data['@self']        = $self;
 
@@ -332,8 +332,8 @@ class TenantModelPolicyService
             $defaultModelRaw = $payload['defaultModel'];
         }
 
-        $allowed              = $this->normaliseAllowed(raw: $allowedRaw);
-        $data['allowed']      = $allowed;
+        $allowed         = $this->normaliseAllowed(raw: $allowedRaw);
+        $data['allowed'] = $allowed;
         $data['defaultModel'] = $this->normaliseDefaultModel(raw: $defaultModelRaw, allowed: $allowed);
 
         $organisation = (string) ($existing->getOrganisation() ?? '');
@@ -405,7 +405,7 @@ class TenantModelPolicyService
      * Validate + normalise the `defaultModel` payload. Must itself be one of the
      * already-normalised `allowed` combinations, or empty/null.
      *
-     * @param mixed                                                  $raw     The raw `defaultModel` payload value.
+     * @param mixed                                                           $raw     The raw `defaultModel` payload value.
      * @param array<int, array{provider: string, models: array<int, string>}> $allowed The normalised allowlist to validate against.
      *
      * @return array{provider: string, model: string}|null The normalised default, or null when unset.
