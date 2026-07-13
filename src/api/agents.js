@@ -121,3 +121,50 @@ export async function getRunTrace(scheduleId, runId) {
 	const response = await axios.get(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/trace`))
 	return response.data
 }
+
+/**
+ * List an agent's version history, newest-first (agent-versioning).
+ *
+ * Read-only over OpenRegister's AuditTrail — no new storage. Owner/invited-scoped,
+ * mirroring listRuns()'s owner guard (a non-owner without access gets a rejected
+ * promise from the 404 the server returns).
+ *
+ * @param {string} agentId The Agent UUID.
+ * @return {Promise<Array<object>>} The versions (id, timestamp, user, action,
+ * changedFields), newest-first.
+ */
+export async function listAgentVersions(agentId) {
+	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/versions`))
+	return toList(response.data)
+}
+
+/**
+ * Diff two of an agent's versions across the fixed versioned-config field set
+ * (agent-versioning).
+ *
+ * @param {string} agentId The Agent UUID.
+ * @param {string} fromId The "old" version's id.
+ * @param {string} toId The "new" version's id.
+ * @return {Promise<object>} A map of changed field -> { old, new }.
+ */
+export async function diffAgentVersions(agentId, fromId, toId) {
+	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/versions/diff`), {
+		params: { from: fromId, to: toId },
+	})
+	return response.data?.results ?? {}
+}
+
+/**
+ * Roll an agent back to a previous version's config values (agent-versioning).
+ *
+ * Owner-only server-side; creates a brand-new version equal in content to the
+ * target — history is never mutated.
+ *
+ * @param {string} agentId The Agent UUID.
+ * @param {string} versionId The target version's id.
+ * @return {Promise<object>} The updated agent.
+ */
+export async function rollbackAgentVersion(agentId, versionId) {
+	const response = await axios.post(generateUrl(`${AGENTS_BASE}/${agentId}/versions/${versionId}/rollback`))
+	return response.data
+}

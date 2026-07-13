@@ -53,6 +53,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\AgentVersionService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -73,18 +74,24 @@ class FlowAgentRunService
     /**
      * Constructor.
      *
-     * @param ObjectService    $objectService    Resolves the triggering object + writes the result field.
-     * @param AgentMapper      $agentMapper      Resolves the configured agent reference (UUID in v1) to
-     *                                           read its `owner` (the acting-user impersonation target).
-     * @param LoggerInterface  $logger           Logs gate skips + run failures (never fatal).
-     * @param AuditTrailMapper $auditTrailMapper OR audit write-path for the redacted per-run entry.
-     * @param RedactionService $redactionService Masks secrets/PII before the audit write.
-     * @param ScheduleService  $scheduleService  Reused kill-switch check (isOrganisationEngaged) AND
-     *                                           the reused agent-turn dispatch (runAgentAsOwner) — the
-     *                                           SAME ScheduleService/Engine path a scheduled run uses.
-     * @param ApprovalService  $approvalService  Reused human-approval gate.
-     * @param BudgetService    $budgetService    Reused budget hard-cap gate + soft-threshold warning
-     *                                           (cost-guardrails) — the SAME gate a scheduled run applies.
+     * @param ObjectService       $objectService       Resolves the triggering object + writes the result field.
+     * @param AgentMapper         $agentMapper         Resolves the configured agent reference (UUID in v1) to
+     *                                                 read its `owner` (the acting-user impersonation
+     *                                                 target).
+     * @param LoggerInterface     $logger              Logs gate skips + run failures (never fatal).
+     * @param AuditTrailMapper    $auditTrailMapper    OR audit write-path for the redacted per-run entry.
+     * @param RedactionService    $redactionService    Masks secrets/PII before the audit write.
+     * @param ScheduleService     $scheduleService     Reused kill-switch check (isOrganisationEngaged) AND
+     *                                                 the reused agent-turn dispatch (runAgentAsOwner) —
+     *                                                 the SAME ScheduleService/Engine path a scheduled run
+     *                                                 uses.
+     * @param ApprovalService     $approvalService     Reused human-approval gate.
+     * @param BudgetService       $budgetService       Reused budget hard-cap gate + soft-threshold warning
+     *                                                 (cost-guardrails) — the SAME gate a scheduled run
+     *                                                 applies.
+     * @param AgentVersionService $agentVersionService Resolves the executing agent's current version
+     *                                                 identifier, pinned onto the run-audit context
+     *                                                 (agent-versioning).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -98,6 +105,7 @@ class FlowAgentRunService
         private readonly ScheduleService $scheduleService,
         private readonly ApprovalService $approvalService,
         private readonly BudgetService $budgetService,
+        private readonly AgentVersionService $agentVersionService,
     ) {
     }//end __construct()
 
@@ -418,16 +426,20 @@ class FlowAgentRunService
         try {
             $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
             $started = ($startedAt ?? $endedAt);
+            $agentId = (string) ($payload['agent'] ?? '');
 
             $context = [
                 'status'        => $status,
-                'agentId'       => (string) ($payload['agent'] ?? ''),
+                'agentId'       => $agentId,
                 'flowName'      => (string) ($payload['flowName'] ?? ''),
                 'correlationId' => (string) ($payload['correlationId'] ?? ''),
                 'startedAt'     => $started->format('c'),
                 'endedAt'       => $endedAt->format('c'),
                 // REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write.
                 'summary'       => $this->redactionService->redact($summary),
+                // Agent-versioning: the version of the agent config that actually ran
+                // this occurrence (null when unresolvable — never fatal to the run).
+                'agentVersion'  => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
             ];
 
             $this->auditTrailMapper->createAuditTrailEntry(

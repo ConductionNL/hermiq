@@ -66,12 +66,20 @@
 				<h2 class="agent-detail__title">
 					{{ agent.name || t('hermiq', 'Untitled agent') }}
 				</h2>
-				<NcButton @click="showEditAgent = true">
-					<template #icon>
-						<Pencil :size="20" />
-					</template>
-					{{ t('hermiq', 'Edit agent') }}
-				</NcButton>
+				<div class="agent-detail__header-actions">
+					<NcButton @click="showVersionHistory = true">
+						<template #icon>
+							<History :size="20" />
+						</template>
+						{{ t('hermiq', 'Version history') }}
+					</NcButton>
+					<NcButton @click="showEditAgent = true">
+						<template #icon>
+							<Pencil :size="20" />
+						</template>
+						{{ t('hermiq', 'Edit agent') }}
+					</NcButton>
+				</div>
 			</div>
 
 			<!-- Config: schema-driven click-to-edit grid. The dynamic tool allowlist is
@@ -342,6 +350,9 @@
 								{{ t('hermiq', 'Attempt') }}
 							</th>
 							<th scope="col">
+								{{ t('hermiq', 'Agent version') }}
+							</th>
+							<th scope="col">
 								<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
 							</th>
 						</tr>
@@ -357,6 +368,7 @@
 								<td>{{ formatDate(run.startedAt || run.created) }}</td>
 								<td>{{ durationLabel(run.durationMs) }}</td>
 								<td>{{ run.attempt || '—' }}</td>
+								<td>{{ shortVersionLabel(run.agentVersion) }}</td>
 								<td class="agent-detail__row-actions">
 									<NcButton
 										type="tertiary"
@@ -375,7 +387,7 @@
 								</td>
 							</tr>
 							<tr v-if="expandedRunId === run.id" :key="`${run.id}-trace`">
-								<td colspan="5" class="agent-detail__trace-cell">
+								<td colspan="6" class="agent-detail__trace-cell">
 									<NcLoadingIcon v-if="traceLoading" :size="24" />
 									<NcNoteCard v-else-if="traceError" type="warning">
 										{{ t('hermiq', "Could not load this run's trace.") }}
@@ -425,6 +437,21 @@
 				:show="showWebhookSecretDialog"
 				:secret="revealedSecret"
 				@close="closeWebhookSecretDialog" />
+
+			<AgentVersionHistoryDialog
+				:show="showVersionHistory"
+				:agent-id="agentUuid"
+				:can-rollback="isOwner"
+				@close="showVersionHistory = false"
+				@compare="onCompareVersions"
+				@rolled-back="onAgentSaved" />
+
+			<AgentVersionDiffDialog
+				:show="showVersionDiff"
+				:agent-id="agentUuid"
+				:from-id="diffFromId"
+				:to-id="diffToId"
+				@close="showVersionDiff = false" />
 		</template>
 	</div>
 </template>
@@ -435,6 +462,7 @@ import { showError, showSuccess } from '@nextcloud/dialogs'
 import { CnObjectDataWidget } from '@conduction/nextcloud-vue'
 import ArrowLeft from 'vue-material-design-icons/ArrowLeft.vue'
 import Close from 'vue-material-design-icons/Close.vue'
+import History from 'vue-material-design-icons/History.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
@@ -446,6 +474,8 @@ import { useAgentStore, useScheduleStore } from '../store/store.js'
 import { getCurrentUser } from '@nextcloud/auth'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 import AgentMemoryPanel from '../components/AgentMemoryPanel.vue'
+import AgentVersionDiffDialog from '../dialogs/agents/AgentVersionDiffDialog.vue'
+import AgentVersionHistoryDialog from '../dialogs/agents/AgentVersionHistoryDialog.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import ToolGrantEditor from '../components/ToolGrantEditor.vue'
 import ToolInvocationTable from '../components/ToolInvocationTable.vue'
@@ -457,9 +487,12 @@ export default {
 	components: {
 		AgentFormModal,
 		AgentMemoryPanel,
+		AgentVersionDiffDialog,
+		AgentVersionHistoryDialog,
 		ArrowLeft,
 		Close,
 		CnObjectDataWidget,
+		History,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
@@ -492,6 +525,12 @@ export default {
 			traceError: false,
 			showEditAgent: false,
 			showScheduleForm: false,
+			// Version history (agent-versioning): timeline/rollback dialog + the
+			// diff dialog it triggers via @compare, keeping the two selected ids.
+			showVersionHistory: false,
+			showVersionDiff: false,
+			diffFromId: '',
+			diffToId: '',
 			// Config data widget: the dynamic tool catalogue for the #field-tools slot.
 			toolOptions: [],
 			toolsLoading: false,
@@ -1030,6 +1069,36 @@ export default {
 		},
 
 		/**
+		 * Open the diff dialog for the two versions selected in the version
+		 * history dialog (agent-versioning).
+		 *
+		 * @param {object} selection The selected version ids ({ from, to }).
+		 * @return {void}
+		 */
+		onCompareVersions(selection) {
+			this.diffFromId = selection.from
+			this.diffToId = selection.to
+			this.showVersionDiff = true
+		},
+
+		/**
+		 * A short, stable display form of a pinned agent-version id
+		 * (agent-versioning) — the version id is an opaque AuditTrail entry
+		 * UUID, so only its first segment is shown, matching how other short
+		 * ids already render on this page (e.g. webhook secret prefixes).
+		 *
+		 * @param {string} versionId The pinned agent version id (may be absent
+		 * on a pre-agent-versioning run).
+		 * @return {string} The short label, or a dash when absent.
+		 */
+		shortVersionLabel(versionId) {
+			if (!versionId) {
+				return '—'
+			}
+			return String(versionId).split('-')[0]
+		},
+
+		/**
 		 * Format an ISO date for display, or a dash when absent/invalid.
 		 *
 		 * @param {string} value The ISO timestamp.
@@ -1135,6 +1204,11 @@ export default {
 	justify-content: space-between;
 	gap: 12px;
 	margin-bottom: 12px;
+}
+
+.agent-detail__header-actions {
+	display: flex;
+	gap: 8px;
 }
 
 .agent-detail__title {

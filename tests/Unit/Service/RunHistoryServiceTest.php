@@ -189,6 +189,63 @@ class RunHistoryServiceTest extends TestCase
     }//end testMissingAttemptSurfacesAsNull()
 
     /**
+     * agent-versioning: a run record surfaces its pinned agent version when
+     * the audit entry carries one.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-run-history-surfaces-the-pinned-agent-version
+     */
+    public function testRunRecordSurfacesPinnedAgentVersion(): void
+    {
+        $logs = [
+            $this->entry(
+                'run',
+                ['status' => 'ok', 'agentId' => 'a1', 'agentVersion' => 'version-uuid-1'],
+                '2026-01-01T10:00:00+00:00',
+                'run-1'
+            ),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+        $url->method('getAbsoluteURL')->willReturn('https://nc/x');
+
+        $service = new RunHistoryService($mapper, $url);
+        $runs    = $service->getRunHistory('sched-1');
+
+        $this->assertSame('version-uuid-1', $runs[0]['agentVersion']);
+
+    }//end testRunRecordSurfacesPinnedAgentVersion()
+
+    /**
+     * agent-versioning: a pre-existing run with no pinned agentVersion
+     * degrades gracefully to null rather than causing an error.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-run-history-surfaces-the-pinned-agent-version
+     */
+    public function testRunRecordWithoutPinnedAgentVersionIsNull(): void
+    {
+        $logs = [
+            $this->entry('run', ['status' => 'ok', 'agentId' => 'a1'], '2026-01-01T10:00:00+00:00', 'legacy-run'),
+        ];
+
+        $mapper = $this->createMock(AuditTrailMapper::class);
+        $mapper->method('findAll')->willReturn($logs);
+        $url = $this->createMock(IURLGenerator::class);
+        $url->method('getAbsoluteURL')->willReturn('https://nc/x');
+
+        $service = new RunHistoryService($mapper, $url);
+        $runs    = $service->getRunHistory('sched-1');
+
+        $this->assertNull($runs[0]['agentVersion']);
+
+    }//end testRunRecordWithoutPinnedAgentVersionIsNull()
+
+    /**
      * Merge an `attempt` number into an existing entry's context (test helper).
      *
      * @param AuditTrail $entry   The base entry.

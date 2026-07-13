@@ -379,21 +379,24 @@ class RunHistoryService
         }
 
         return [
-            'id'          => $log->getUuid(),
-            'scheduleId'  => $scheduleUuid,
-            'status'      => ($context['status'] ?? null),
-            'agentId'     => ($context['agentId'] ?? null),
-            'startedAt'   => ($context['startedAt'] ?? null),
-            'endedAt'     => ($context['endedAt'] ?? null),
-            'durationMs'  => ($context['durationMs'] ?? null),
-            'summary'     => ($context['summary'] ?? null),
+            'id'           => $log->getUuid(),
+            'scheduleId'   => $scheduleUuid,
+            'status'       => ($context['status'] ?? null),
+            'agentId'      => ($context['agentId'] ?? null),
+            'startedAt'    => ($context['startedAt'] ?? null),
+            'endedAt'      => ($context['endedAt'] ?? null),
+            'durationMs'   => ($context['durationMs'] ?? null),
+            'summary'      => ($context['summary'] ?? null),
             // Run-reliability: the attempt number within this occurrence's retry
             // sequence (1 = first attempt; absent on a pre-run-reliability entry).
-            'attempt'     => ($context['attempt'] ?? null),
-            'user'        => $log->getUser(),
-            'created'     => $createdIso,
-            'link'        => $this->buildScheduleLink(uuid: $scheduleUuid),
-            'createdSort' => $createdSort,
+            'attempt'      => ($context['attempt'] ?? null),
+            // Agent-versioning: the agent version pinned at run start (null on a
+            // pre-agent-versioning entry — never an error).
+            'agentVersion' => ($context['agentVersion'] ?? null),
+            'user'         => $log->getUser(),
+            'created'      => $createdIso,
+            'link'         => $this->buildScheduleLink(uuid: $scheduleUuid),
+            'createdSort'  => $createdSort,
         ];
 
     }//end toRunRecord()
