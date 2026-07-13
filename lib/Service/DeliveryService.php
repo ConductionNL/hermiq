@@ -6,11 +6,18 @@
  * The real delivery layer behind ScheduleService's dispatch loop. It replaces the
  * former logging-only deliver() seam: after an agent run it posts the output to the
  * owner where they work — a specific Nextcloud Talk room, the owner's Note-to-self
- * conversation, or a Nextcloud notification — following the ADR-005 fallback chain.
+ * conversation, a Nextcloud notification, an email, or a signed outbound webhook —
+ * following the ADR-005 fallback chain (Talk/notification) or the delivery-channels
+ * channel's own contract (email/webhook).
+ *
+ * Architecture law (delivery-channels): Slack/Matrix/Telegram/WhatsApp/Teams are
+ * OpenConnector's job, reached THROUGH the outbound webhook this class posts to —
+ * Hermiq does not, and will not, grow a per-vendor chat adapter here.
  *
  * This is a legitimate ADR-031 imperative external-integration service: it makes
- * side-effecting calls into Nextcloud subsystems (Talk / Notifications). It owns no
- * schema, no derived value, no lifecycle — those stay declarative in OpenRegister.
+ * side-effecting calls into Nextcloud subsystems (Talk / Notifications / Mail /
+ * HTTP). It owns no schema, no derived value, no lifecycle — those stay declarative
+ * in OpenRegister.
  *
  * Design invariants:
  *   - Delivery NEVER throws for a delivery problem; every failure is caught and
@@ -19,6 +26,9 @@
  *     resolved LAZILY through the injected server container, only after the core
  *     OCP\Talk\IBroker::hasBackend() probe and a class_exists() guard pass, so
  *     Hermiq boots and still delivers (via notification) when Talk is absent.
+ *   - Email and webhook cross the instance boundary, so both redact the output via
+ *     RedactionService BEFORE it leaves the process (Talk/notification stay
+ *     unredacted — they never leave the instance).
  *
  * @category Service
  * @package  OCA\Hermiq\Service
@@ -33,6 +43,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/delivery-channels/design.md
  */
 
 declare(strict_types=1);
@@ -41,9 +52,11 @@ namespace OCA\Hermiq\Service;
 
 use DateTime;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCP\Http\Client\IClientService;
 use OCP\IConfig;
 use OCP\IURLGenerator;
 use OCP\IUserManager;
+use OCP\Mail\IMailer;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Talk\IBroker;
 use Psr\Container\ContainerInterface;
@@ -51,19 +64,23 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Delivers agent run output to Talk / Notifications per the schedule's deliver setting.
+ * Delivers agent run output to Talk / Notifications / Email / Webhook per the
+ * schedule's deliver setting.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several Nextcloud subsystems.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several Nextcloud subsystems
+ *   (Talk, Notifications, Mail, HTTP client) plus the webhook secret lookup.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The class is a coordinator of many
- *   small, single-shaped alert/delivery methods (run-output delivery, approval-request,
- *   flow-approval-request, webhook-approval-request, budget-warning, dead-letter alert,
- *   circuit-breaker alert) —
- *   each individually simple; the aggregate crosses the class-wide threshold because the
- *   class owns every Talk/Notification alert Hermiq raises rather than splitting by
- *   alert type, which would duplicate the shared Talk-fallback-chain/notify plumbing
- *   across multiple classes for no behavioural benefit.
+ *   small, single-shaped alert/delivery methods (run-output delivery via talk/
+ *   notification/email/webhook, approval-request, flow-approval-request,
+ *   webhook-approval-request, budget-warning, dead-letter alert, circuit-breaker
+ *   alert) — each individually simple; the aggregate crosses the class-wide
+ *   threshold because the class owns every delivery/alert Hermiq raises rather
+ *   than splitting by channel, which would duplicate the shared fallback-chain/
+ *   redaction/never-throws plumbing across multiple classes for no behavioural
+ *   benefit.
  *
  * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+ * @spec openspec/changes/delivery-channels/design.md
  */
 class DeliveryService
 {
@@ -135,19 +152,58 @@ class DeliveryService
     private const DELIVER_TARGET_PREF = 'pref_delivertarget';
 
     /**
+     * Outbound webhook JSON envelope size cap in bytes (delivery-channels
+     * design.md Decision 4) — matches agent-webhook-trigger's INBOUND
+     * `WebhookTriggerController::MAX_PAYLOAD_BYTES` for a single precedented
+     * number rather than inventing a new one for the outbound direction.
+     *
+     * @var int
+     */
+    private const WEBHOOK_MAX_PAYLOAD_BYTES = 65536;
+
+    /**
+     * Trailing marker appended to a truncated webhook `output` field.
+     *
+     * @var string
+     */
+    private const WEBHOOK_TRUNCATION_MARKER = '… [truncated]';
+
+    /**
+     * The outbound webhook signature header name (delivery-channels).
+     *
+     * @var string
+     */
+    private const WEBHOOK_SIGNATURE_HEADER = 'X-Hermiq-Signature';
+
+    /**
+     * Hard, non-user-configurable per-attempt HTTP timeout in seconds
+     * (delivery-channels design.md Decision 2) — a hung endpoint cannot itself
+     * defeat the attempt budget.
+     *
+     * @var int
+     */
+    private const WEBHOOK_HTTP_TIMEOUT_SECONDS = 10;
+
+    /**
      * Constructor.
      *
      * All constructor dependencies are ALWAYS-present Nextcloud services. The optional
      * spreed classes are resolved lazily through $container inside the Talk guard, so
      * this service (and Hermiq) construct cleanly on an instance without Talk.
      *
-     * @param INotificationManager $notificationManager Raises Nextcloud notifications (baseline + fallback).
-     * @param IBroker              $talkBroker          Core Talk availability probe (hasBackend()).
-     * @param IURLGenerator        $urlGenerator        Builds the schedule/run deep link for notifications.
-     * @param ContainerInterface   $container           Server container for lazy spreed resolution.
-     * @param IConfig              $config              Reads/writes the owner's default-room preference.
-     * @param IUserManager         $userManager         Resolves the owner IUser for room creation.
-     * @param LoggerInterface      $logger              PSR-3 logger for delivery warnings.
+     * @param INotificationManager         $notificationManager          Raises Nextcloud notifications (baseline + fallback).
+     * @param IBroker                      $talkBroker                   Core Talk availability probe (hasBackend()).
+     * @param IURLGenerator                $urlGenerator                 Builds the schedule/run deep link for notifications.
+     * @param ContainerInterface           $container                    Server container for lazy spreed resolution.
+     * @param IConfig                      $config                       Reads/writes the owner's default-room preference.
+     * @param IUserManager                 $userManager                  Resolves the owner IUser for room creation / email fallback.
+     * @param IMailer                      $mailer                       Sends `deliver=email` output (delivery-channels) — never a bespoke SMTP
+     *                                                                   client.
+     * @param IClientService               $clientService                Sends `deliver=webhook` POSTs (delivery-channels) — never a bespoke HTTP
+     *                                                                   client.
+     * @param RedactionService             $redactionService             Redacts output before it crosses the instance boundary (email/webhook only).
+     * @param ScheduleWebhookSecretService $scheduleWebhookSecretService Retrieves a schedule's outbound webhook signing secret (delivery-channels).
+     * @param LoggerInterface              $logger                       PSR-3 logger for delivery warnings.
      */
     public function __construct(
         private readonly INotificationManager $notificationManager,
@@ -156,6 +212,10 @@ class DeliveryService
         private readonly ContainerInterface $container,
         private readonly IConfig $config,
         private readonly IUserManager $userManager,
+        private readonly IMailer $mailer,
+        private readonly IClientService $clientService,
+        private readonly RedactionService $redactionService,
+        private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService,
         private readonly LoggerInterface $logger,
     ) {
     }//end __construct()
@@ -166,13 +226,15 @@ class DeliveryService
      * Never throws for a delivery problem: the outcome (including any warning to
      * persist as lastDeliveryError) is returned as a DeliveryResult.
      *
-     * @param string       $channel  Delivery channel: talk|notification|none.
+     * @param string       $channel  Delivery channel: talk|notification|email|webhook|none.
      * @param string       $output   The agent output to deliver.
      * @param ObjectEntity $schedule The schedule the output belongs to.
      *
      * @return DeliveryResult The delivery outcome.
      *
      * @spec openspec/changes/talk-delivery/tasks.md#task-1-1
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
      */
     public function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult
     {
@@ -187,6 +249,14 @@ class DeliveryService
 
         if ($channel === 'talk') {
             return $this->deliverTalk(schedule: $schedule, output: $output);
+        }
+
+        if ($channel === 'email') {
+            return $this->deliverEmail(schedule: $schedule, output: $output);
+        }
+
+        if ($channel === 'webhook') {
+            return $this->deliverWebhook(schedule: $schedule, output: $output);
         }
 
         // Unknown channel: record a warning but never fail the run.
@@ -813,6 +883,291 @@ class DeliveryService
         }//end try
 
     }//end deliverNotification()
+
+    /**
+     * Deliver via email (delivery-channels): the redacted output is sent to the
+     * schedule owner's own Nextcloud account email, or an explicit `deliverTarget`
+     * recipient, via Nextcloud's own `OCP\Mail\IMailer` — never a bespoke SMTP
+     * client. NEVER throws: a missing recipient or a mailer failure is reported as
+     * a warning, never fails the run.
+     *
+     * @param ObjectEntity $schedule The schedule being delivered.
+     * @param string       $output   The agent output to email (redacted before send).
+     *
+     * @return DeliveryResult The email delivery outcome.
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     */
+    private function deliverEmail(ObjectEntity $schedule, string $output): DeliveryResult
+    {
+        $uuid      = (string) $schedule->getUuid();
+        $data      = $schedule->getObject();
+        $recipient = trim((string) ($data['deliverTarget'] ?? ''));
+
+        if ($recipient === '') {
+            $recipient = $this->resolveOwnerEmail(owner: (string) ($schedule->getOwner() ?? ''));
+        }
+
+        if ($recipient === '' || $this->mailer->validateMailAddress($recipient) === false) {
+            $warning = 'No email recipient could be resolved';
+            $this->logWarning(warning: $warning, uuid: $uuid, channel: 'email');
+            return new DeliveryResult(delivered: false, channel: 'email', fellBack: false, warning: $warning);
+        }
+
+        $scheduleName = (string) ($data['name'] ?? 'Hermiq schedule');
+        $redacted     = $this->redactionService->redact(text: $output);
+
+        try {
+            $message = $this->mailer->createMessage();
+            $message->setTo([$recipient]);
+            $message->setSubject(sprintf('[Hermiq] %s', $scheduleName));
+            $message->setPlainBody($redacted);
+
+            $failed = $this->mailer->send($message);
+            if ($failed !== []) {
+                $warning = 'Email send reported failed recipients: '.implode(', ', $failed);
+                $this->logWarning(warning: $warning, uuid: $uuid, channel: 'email');
+                return new DeliveryResult(delivered: false, channel: 'email', fellBack: false, warning: $warning);
+            }
+
+            $this->logWarning(warning: null, uuid: $uuid, channel: 'email');
+            return new DeliveryResult(delivered: true, channel: 'email', fellBack: false, warning: null);
+        } catch (Throwable $e) {
+            $warning = 'Email send failed: '.$e->getMessage();
+            $this->logWarning(warning: $warning, uuid: $uuid, channel: 'email');
+            return new DeliveryResult(delivered: false, channel: 'email', fellBack: false, warning: $warning);
+        }//end try
+
+    }//end deliverEmail()
+
+    /**
+     * Resolve the schedule owner's own Nextcloud account email address.
+     *
+     * @param string $owner The schedule owner UID.
+     *
+     * @return string The owner's email address, or '' when unresolvable.
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     */
+    private function resolveOwnerEmail(string $owner): string
+    {
+        if ($owner === '') {
+            return '';
+        }
+
+        $user = $this->userManager->get($owner);
+        if ($user === null) {
+            return '';
+        }
+
+        return (string) ($user->getEMailAddress() ?? '');
+
+    }//end resolveOwnerEmail()
+
+    /**
+     * Deliver via a signed outbound webhook (delivery-channels): POST a redacted,
+     * size-capped JSON envelope to `deliverTarget`, signed with
+     * `X-Hermiq-Signature: sha256=<hex>` over the exact bytes sent, with a bounded
+     * exponential-backoff retry. NEVER throws: a missing URL/secret or an
+     * exhausted retry budget is reported as a warning, never fails the run.
+     *
+     * @param ObjectEntity $schedule The schedule being delivered.
+     * @param string       $output   The agent output to POST (redacted before send).
+     *
+     * @return DeliveryResult The webhook delivery outcome.
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+     */
+    private function deliverWebhook(ObjectEntity $schedule, string $output): DeliveryResult
+    {
+        $uuid = (string) $schedule->getUuid();
+        $data = $schedule->getObject();
+        $url  = trim((string) ($data['deliverTarget'] ?? ''));
+
+        if ($url === '') {
+            $warning = 'No destination URL is configured';
+            $this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
+            return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+        }
+
+        $secret = $this->scheduleWebhookSecretService->retrieveSecret(schedule: $schedule);
+        if ($secret === null) {
+            $warning = 'No signing secret is configured';
+            $this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
+            return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+        }
+
+        $redacted = $this->redactionService->redact(text: $output);
+        $body     = $this->capWebhookPayload(
+            envelope: $this->buildWebhookEnvelope(schedule: $schedule, agentId: (string) ($data['agentId'] ?? ''), output: $redacted)
+        );
+
+        $maxAttempts = $this->clampInt(value: ($data['deliverWebhookMaxAttempts'] ?? 3), min: 1, max: 5);
+        $backoffBase = $this->clampInt(value: ($data['deliverWebhookBackoffBaseSeconds'] ?? 2), min: 1, max: 30);
+
+        $lastError = '';
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            if ($attempt > 1) {
+                $this->sleep(seconds: $backoffBase * (2 ** ($attempt - 2)));
+            }
+
+            $lastError = $this->tryPostWebhook(url: $url, body: $body, secret: $secret);
+            if ($lastError === '') {
+                $this->logWarning(warning: null, uuid: $uuid, channel: 'webhook');
+                return new DeliveryResult(delivered: true, channel: 'webhook', fellBack: false, warning: null);
+            }
+        }
+
+        $warning = sprintf('Webhook delivery failed after %d attempt(s): %s', $maxAttempts, $lastError);
+        $this->logWarning(warning: $warning, uuid: $uuid, channel: 'webhook');
+        return new DeliveryResult(delivered: false, channel: 'webhook', fellBack: false, warning: $warning);
+
+    }//end deliverWebhook()
+
+    /**
+     * Attempt a single signed webhook POST.
+     *
+     * @param string $url    The destination URL.
+     * @param string $body   The exact, final (redacted, capped) JSON body to sign and send.
+     * @param string $secret The schedule's webhook signing secret.
+     *
+     * @return string '' on a successful (2xx) response, or a reason string on failure.
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+     */
+    private function tryPostWebhook(string $url, string $body, string $secret): string
+    {
+        $signature = 'sha256='.hash_hmac('sha256', $body, $secret);
+
+        try {
+            $response = $this->clientService->newClient()->post(
+                $url,
+                [
+                    'body'    => $body,
+                    'headers' => [
+                        'Content-Type'                 => 'application/json',
+                        self::WEBHOOK_SIGNATURE_HEADER => $signature,
+                    ],
+                    'timeout' => self::WEBHOOK_HTTP_TIMEOUT_SECONDS,
+                ]
+            );
+
+            $status = $response->getStatusCode();
+            if ($status >= 200 && $status < 300) {
+                return '';
+            }
+
+            return sprintf('webhook responded with status %d', $status);
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }//end try
+
+    }//end tryPostWebhook()
+
+    /**
+     * Build the outbound webhook JSON envelope (delivery-channels design.md
+     * Decision 4). `deliver()` only invokes webhook delivery from the SUCCESS
+     * path of a run (`ScheduleService::runDue()` calls it after
+     * `runAgentAsOwner()` returns without throwing), so `status` is always `ok`
+     * here — a failed run never reaches this method.
+     *
+     * @param ObjectEntity $schedule The schedule being delivered.
+     * @param string       $agentId  The bound agent's UUID.
+     * @param string       $output   The already-redacted output.
+     *
+     * @return array<string, mixed> The envelope (pre-size-cap).
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+     */
+    private function buildWebhookEnvelope(ObjectEntity $schedule, string $agentId, string $output): array
+    {
+        return [
+            'scheduleId'  => (string) $schedule->getUuid(),
+            'agentId'     => $agentId,
+            'status'      => 'ok',
+            'deliveredAt' => (new DateTime())->format('c'),
+            'output'      => $output,
+        ];
+
+    }//end buildWebhookEnvelope()
+
+    /**
+     * Encode the envelope, truncating ONLY the `output` field (never the
+     * identifying metadata) so the final JSON never exceeds
+     * `WEBHOOK_MAX_PAYLOAD_BYTES` (delivery-channels design.md Decision 4).
+     * Iterative, not a single-shot estimate: JSON-escaping can expand a
+     * substring's encoded length (quotes/backslashes), so each pass re-measures
+     * the ACTUAL encoded size until it fits — bounded so it can never loop
+     * unboundedly.
+     *
+     * @param array<string, mixed> $envelope The pre-cap envelope.
+     *
+     * @return string The final, size-capped JSON body — the exact bytes to sign and send.
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+     */
+    private function capWebhookPayload(array $envelope): string
+    {
+        $encoded = (string) json_encode($envelope);
+
+        for ($i = 0; $i < 20; $i++) {
+            $excess = strlen($encoded) - self::WEBHOOK_MAX_PAYLOAD_BYTES;
+            if ($excess <= 0) {
+                break;
+            }
+
+            $output = (string) $envelope['output'];
+            $cut    = max($excess + strlen(self::WEBHOOK_TRUNCATION_MARKER), 1);
+            $newLen = max(strlen($output) - $cut, 0);
+
+            $envelope['output'] = substr($output, 0, $newLen).self::WEBHOOK_TRUNCATION_MARKER;
+            $encoded            = (string) json_encode($envelope);
+        }//end for
+
+        return $encoded;
+
+    }//end capWebhookPayload()
+
+    /**
+     * Clamp an integer schedule field to its documented schema bounds,
+     * tolerating a missing/non-numeric stored value by falling back within range.
+     *
+     * @param mixed $value The raw stored value.
+     * @param int   $min   The minimum allowed value.
+     * @param int   $max   The maximum allowed value.
+     *
+     * @return int The clamped value.
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+     */
+    private function clampInt(mixed $value, int $min, int $max): int
+    {
+        $int = (int) $value;
+        return max($min, min($max, $int));
+
+    }//end clampInt()
+
+    /**
+     * Pause the current tick for the given number of seconds before the next
+     * webhook retry attempt. A dedicated, overridable seam (rather than a bare
+     * `sleep()` call inline) so tests can stub it out instead of a unit run
+     * actually blocking for real backoff delays.
+     *
+     * @param int $seconds Seconds to sleep (a clamped backoff delay; never negative).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+     */
+    protected function sleep(int $seconds): void
+    {
+        if ($seconds > 0) {
+            sleep($seconds);
+        }
+
+    }//end sleep()
 
     /**
      * Lazily resolve the spreed room manager from the server container.
