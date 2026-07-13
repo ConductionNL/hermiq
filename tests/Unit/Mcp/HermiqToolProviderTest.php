@@ -1,13 +1,21 @@
 <?php
 
 /**
- * Unit tests for HermiqToolProvider (nc-native-tools, ai-course-recommendations).
+ * Unit tests for HermiqToolProvider (nc-native-tools, ai-course-recommendations,
+ * hermiq-prefer-tool-hints).
  *
  * Covers the tool catalogue (six pre-existing + `recommendCourses`, namespaced
  * hermiq.* descriptors) and the never-throws contract: invokeTool returns a
  * structured error for an unauthenticated caller and for an unknown tool id, and
  * `recommendCourses` delegates to the shared `CourseRecommendationEngine` with the
  * acting user's own uid (no separate authorization path).
+ *
+ * Also covers the hermiq-prefer-tool-hints regression fix: every descriptor now
+ * carries honest `readOnlyHint`/`destructiveHint`/`idempotentHint`/`scope` keys
+ * so `ToolGrantResolver::isWriteOrDestructive()` classifies these hand-written,
+ * 2-segment ids from their OWN declared hints instead of failing closed on their
+ * (unclassifiable-by-shape) id text — see ToolGrantResolverTest for the
+ * end-to-end grant-resolution proof.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Mcp
@@ -20,6 +28,7 @@
  *
  * @spec openspec/changes/nc-native-tools/tasks.md#task-4-1
  * @spec openspec/changes/ai-course-recommendations/tasks.md#task-4-1
+ * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
  */
 
 declare(strict_types=1);
@@ -117,6 +126,55 @@ class HermiqToolProviderTest extends TestCase
         }
 
     }//end testToolCatalogueIsNamespaced()
+
+    /**
+     * Every descriptor carries the honest `readOnlyHint`/`destructiveHint`/
+     * `idempotentHint`/`scope` hint keys (hermiq-prefer-tool-hints) — before this
+     * fix these 2-segment ids carried NO hints at all and were fail-closed
+     * classified write/destructive by `ToolGrantResolver::isWriteOrDestructive()`,
+     * stripping all seven read-shaped tools from any default/wildcard grant.
+     *
+     * `recommendCourses` really persists a cached recommendation on staleness
+     * (`CourseRecommendationEngine::getOrRegenerate()` → `saveObject()`), so it is
+     * annotated as a genuine, non-idempotent `update`, not read-only. `sendMail`
+     * sends externally-visible, irreversible email, so it is annotated
+     * destructive + `create`, not read-only.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
+     */
+    public function testDescriptorsCarryHonestHintsAndScope(): void
+    {
+        $expected = [
+            'hermiq.listFiles'          => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.readFile'           => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.searchContacts'     => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.listCalendarEvents' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.sendMail'           => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+            'hermiq.listDeckBoards'     => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.searchTools'        => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.recommendCourses'   => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
+        ];
+
+        $tools = $this->provider('alice')->getTools();
+        $this->assertCount(8, $tools, 'This test must be updated if a tool is added or removed.');
+
+        $seen = [];
+        foreach ($tools as $tool) {
+            $id        = $tool['id'];
+            $seen[$id] = true;
+
+            $this->assertArrayHasKey($id, $expected, "Unexpected tool id '{$id}' has no hint expectation.");
+            $this->assertSame($expected[$id]['readOnlyHint'], $tool['readOnlyHint'] ?? null, "{$id}: readOnlyHint mismatch.");
+            $this->assertSame($expected[$id]['destructiveHint'], $tool['destructiveHint'] ?? null, "{$id}: destructiveHint mismatch.");
+            $this->assertSame($expected[$id]['idempotentHint'], $tool['idempotentHint'] ?? null, "{$id}: idempotentHint mismatch.");
+            $this->assertSame($expected[$id]['scope'], $tool['scope'] ?? null, "{$id}: scope mismatch.");
+        }
+
+        $this->assertSame(array_keys($expected), array_keys($seen), 'Every expected tool id must be present exactly once.');
+
+    }//end testDescriptorsCarryHonestHintsAndScope()
 
     /**
      * An unauthenticated caller gets a structured error, never an exception.

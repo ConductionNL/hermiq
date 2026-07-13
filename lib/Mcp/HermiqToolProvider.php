@@ -94,50 +94,66 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
      */
     private const TOOL_DESCRIPTORS = [
         [
-            'id'          => Application::APP_ID.'.listFiles',
-            'name'        => 'List files',
-            'description' => 'List the files and folders in the acting user\'s Nextcloud folder at an optional path.',
-            'inputSchema' => [
+            'id'              => Application::APP_ID.'.listFiles',
+            'name'            => 'List files',
+            'description'     => 'List the files and folders in the acting user\'s Nextcloud folder at an optional path.',
+            'inputSchema'     => [
                 'type'       => 'object',
                 'properties' => ['path' => ['type' => 'string', 'description' => 'Folder path relative to the user root (default: root).']],
                 'required'   => [],
             ],
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
         ],
         [
-            'id'          => Application::APP_ID.'.readFile',
-            'name'        => 'Read file',
-            'description' => 'Read the text content of a file in the acting user\'s Nextcloud folder (size-capped).',
-            'inputSchema' => [
+            'id'              => Application::APP_ID.'.readFile',
+            'name'            => 'Read file',
+            'description'     => 'Read the text content of a file in the acting user\'s Nextcloud folder (size-capped).',
+            'inputSchema'     => [
                 'type'       => 'object',
                 'properties' => ['path' => ['type' => 'string', 'description' => 'File path relative to the user root.']],
                 'required'   => ['path'],
             ],
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
         ],
         [
-            'id'          => Application::APP_ID.'.searchContacts',
-            'name'        => 'Search contacts',
-            'description' => 'Search the acting user\'s address books by name or email.',
-            'inputSchema' => [
+            'id'              => Application::APP_ID.'.searchContacts',
+            'name'            => 'Search contacts',
+            'description'     => 'Search the acting user\'s address books by name or email.',
+            'inputSchema'     => [
                 'type'       => 'object',
                 'properties' => ['query' => ['type' => 'string', 'description' => 'The search term.']],
                 'required'   => ['query'],
             ],
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
         ],
         [
-            'id'          => Application::APP_ID.'.listCalendarEvents',
-            'name'        => 'List calendar events',
-            'description' => 'List upcoming events from the acting user\'s calendars within the next N days.',
-            'inputSchema' => [
+            'id'              => Application::APP_ID.'.listCalendarEvents',
+            'name'            => 'List calendar events',
+            'description'     => 'List upcoming events from the acting user\'s calendars within the next N days.',
+            'inputSchema'     => [
                 'type'       => 'object',
                 'properties' => ['days' => ['type' => 'integer', 'description' => 'Look-ahead window in days (default 7).']],
                 'required'   => [],
             ],
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
         ],
         [
-            'id'          => Application::APP_ID.'.sendMail',
-            'name'        => 'Send email',
-            'description' => 'Send an email from the acting user to a recipient.',
-            'inputSchema' => [
+            'id'              => Application::APP_ID.'.sendMail',
+            'name'            => 'Send email',
+            'description'     => 'Send an email from the acting user to a recipient.',
+            'inputSchema'     => [
                 'type'       => 'object',
                 'properties' => [
                     'to'      => ['type' => 'string', 'description' => 'Recipient email address.'],
@@ -146,39 +162,66 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
                 ],
                 'required'   => ['to', 'subject', 'body'],
             ],
+            // Sends externally-visible email as the acting user; the send cannot be
+            // recalled once accepted by the mail transport — irreversible + externally
+            // visible, so destructiveHint is true even though nothing is deleted.
+            'readOnlyHint'    => false,
+            'destructiveHint' => true,
+            'idempotentHint'  => false,
+            'scope'           => 'create',
         ],
         [
-            'id'          => Application::APP_ID.'.listDeckBoards',
-            'name'        => 'List Deck boards',
-            'description' => 'List the acting user\'s Deck boards (requires the Deck app).',
-            'inputSchema' => [
+            'id'              => Application::APP_ID.'.listDeckBoards',
+            'name'            => 'List Deck boards',
+            'description'     => 'List the acting user\'s Deck boards (requires the Deck app).',
+            'inputSchema'     => [
                 'type'       => 'object',
                 'properties' => [],
                 'required'   => [],
             ],
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
         ],
         [
-            'id'          => Application::APP_ID.'.searchTools',
-            'name'        => 'Search tools',
-            'description' => 'Search this agent\'s available tool catalogue by keyword when the full list was not '
+            'id'              => Application::APP_ID.'.searchTools',
+            'name'            => 'Search tools',
+            'description'     => 'Search this agent\'s available tool catalogue by keyword when the full list was not '
                 .'shown (progressive disclosure); returns matching tool descriptors you can then call directly.',
-            'inputSchema' => [
+            'inputSchema'     => [
                 'type'       => 'object',
                 'properties' => ['query' => ['type' => 'string', 'description' => 'Keyword(s) describing the capability you need.']],
                 'required'   => ['query'],
             ],
+            // In-memory substring match over this run's already-resolved descriptor
+            // set (ToolSearchService) — no I/O, no writes.
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
         ],
         [
-            'id'          => Application::APP_ID.'.recommendCourses',
-            'name'        => 'Recommend courses',
-            'description' => 'Get the acting learner\'s current ranked, explained next-best-course recommendations '
+            'id'              => Application::APP_ID.'.recommendCourses',
+            'name'            => 'Recommend courses',
+            'description'     => 'Get the acting learner\'s current ranked, explained next-best-course recommendations '
                 .'(ai-course-recommendations). Advisory only, self-scoped to the caller; ranking is a deterministic '
                 .'weighted-signal score, not an LLM judgement — the explanation text may be LLM-phrased.',
-            'inputSchema' => [
+            'inputSchema'     => [
                 'type'       => 'object',
                 'properties' => [],
                 'required'   => [],
             ],
+            // NOT read-only: CourseRecommendationEngine::getOrRegenerate() persists a
+            // fresh CourseRecommendation object via ObjectService::saveObject() (create
+            // or update) whenever the cached set is absent or past its 24h staleAt TTL
+            // — only an unexpired cache hit avoids the write. Re-running after
+            // staleness can also change output (LLM-phrased explanation text, a new
+            // staleAt timestamp), so it is not idempotent either.
+            'readOnlyHint'    => false,
+            'destructiveHint' => false,
+            'idempotentHint'  => false,
+            'scope'           => 'update',
         ],
     ];
 

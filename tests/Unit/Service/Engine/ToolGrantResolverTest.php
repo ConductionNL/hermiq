@@ -32,8 +32,19 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
+use OCA\Hermiq\Mcp\HermiqToolProvider;
+use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCP\App\IAppManager;
+use OCP\Calendar\IManager as ICalendarManager;
+use OCP\Contacts\IManager as IContactsManager;
+use OCP\Files\IRootFolder;
+use OCP\IGroupManager;
+use OCP\IUserSession;
+use OCP\Mail\IMailer;
 use PHPUnit\Framework\TestCase;
+use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Tests for the schema-scoped grant expansion + default-deny resolver.
@@ -308,6 +319,111 @@ class ToolGrantResolverTest extends TestCase
         $this->assertFalse($resolver->hasWildcardGrant(grants: []));
 
     }//end testHasWildcardGrant()
+
+    /**
+     * Convert `HermiqToolProvider::getTools()` descriptors into the catalog shape
+     * `ToolRegistryFacade::listTools()` hands the resolver, mirroring exactly what
+     * `OCA\OpenRegister\Tool\McpProviderBridge::getFunctions()` does at runtime
+     * (or #373: dotted `id` becomes `mcpId`; `readOnlyHint`/`destructiveHint`/
+     * `idempotentHint`/`scope` are forwarded additively when the provider set
+     * them). This is the end-to-end proof that the hermiq-prefer-tool-hints
+     * regression (all 8 NC-native tools fail-closed stripped) is closed.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function hermiqCatalog(): array
+    {
+        $provider = new HermiqToolProvider(
+            $this->createMock(IUserSession::class),
+            $this->createMock(IGroupManager::class),
+            $this->createMock(IRootFolder::class),
+            $this->createMock(IContactsManager::class),
+            $this->createMock(ICalendarManager::class),
+            $this->createMock(IMailer::class),
+            $this->createMock(IAppManager::class),
+            $this->createMock(ContainerInterface::class),
+            $this->createMock(CourseRecommendationEngine::class),
+            $this->createMock(LoggerInterface::class)
+        );
+
+        $catalog = [];
+        foreach ($provider->getTools() as $descriptor) {
+            $entry = [
+                'name'  => str_replace('.', '_', $descriptor['id']),
+                'mcpId' => $descriptor['id'],
+            ];
+
+            foreach (['readOnlyHint', 'destructiveHint', 'idempotentHint', 'scope'] as $hintKey) {
+                if (array_key_exists($hintKey, $descriptor) === true) {
+                    $entry[$hintKey] = $descriptor[$hintKey];
+                }
+            }
+
+            $catalog[] = $entry;
+        }
+
+        return $catalog;
+
+    }//end hermiqCatalog()
+
+    /**
+     * Regression proof (hermiq-prefer-tool-hints): with the hints this change
+     * added, an empty `Agent.tools` grant ("all discovered tools allowed",
+     * default-deny still applies) now GRANTS every read-annotated NC-native tool
+     * — before the fix, ALL of these were fail-closed stripped because they are
+     * hint-less 2-segment ids. `sendMail` and `recommendCourses` remain stripped
+     * because they are honestly annotated as write/destructive.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
+     */
+    public function testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed(): void
+    {
+        $resolver = new ToolGrantResolver();
+        $resolved = $resolver->resolve(grants: [], catalog: $this->hermiqCatalog());
+
+        sort($resolved);
+        $this->assertSame(
+            [
+                'hermiq.listCalendarEvents',
+                'hermiq.listDeckBoards',
+                'hermiq.listFiles',
+                'hermiq.readFile',
+                'hermiq.searchContacts',
+                'hermiq.searchTools',
+            ],
+            $resolved,
+            'Every readOnlyHint:true/scope:read NC-native tool must be granted by the default-allow'
+            .' resolution now that they declare hints; sendMail (destructive) and recommendCourses'
+            .' (scope:update, writes on staleness) must stay stripped.'
+        );
+
+        $this->assertNotContains('hermiq.sendMail', $resolved, 'sendMail is honestly destructive and must stay default-denied.');
+        $this->assertNotContains('hermiq.recommendCourses', $resolved, 'recommendCourses persists on staleness and must stay default-denied.');
+
+    }//end testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed()
+
+    /**
+     * A read-wildcard grant for the hermiq "schema" (`hermiq.*`) expands to the
+     * READ_VERBS (`search`/`get`) suffix form only — NOT applicable to hermiq's
+     * hand-written 2-segment ids (`hermiq.listFiles` is not `hermiq.search` /
+     * `hermiq.get`). Exercising it here documents that the wildcard grammar is
+     * verb-suffix-shaped and hand-written tools must instead be reached via an
+     * exact grant or the legacy "all tools" empty-grant default-deny path
+     * (see testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed above) —
+     * i.e. this is NOT the mechanism the fix relies on.
+     *
+     * @return void
+     */
+    public function testHermiqWildcardGrantDoesNotMatchHandWrittenIds(): void
+    {
+        $resolver = new ToolGrantResolver();
+        $resolved = $resolver->resolve(grants: ['hermiq.*'], catalog: $this->hermiqCatalog());
+
+        $this->assertSame([], $resolved, 'The .* wildcard only expands {prefix}.search/{prefix}.get, which do not exist for hand-written ids.');
+
+    }//end testHermiqWildcardGrantDoesNotMatchHandWrittenIds()
 
     /**
      * Non-string / empty grant entries are dropped rather than fatal.
