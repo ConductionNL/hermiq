@@ -105,3 +105,4 @@ openspec/test-site-results/**/*.webp
 sbom.cdx.json
 bom-php.cdx.json
 bom-npm.cdx.json
+composer.phar
