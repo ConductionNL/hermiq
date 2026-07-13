@@ -1915,6 +1915,7 @@ class ScheduleService
      * @return void
      *
      * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     * @spec openspec/changes/delivery-channels/specs/run-audit-log/spec.md#requirement-the-delivery-trace-step-reflects-the-channel-actually-used-mvp
      */
     private function appendDeliveryStep(DateTimeImmutable $startedAt, DeliveryResult $delivery): void
     {
@@ -1928,7 +1929,7 @@ class ScheduleService
         $this->lastRunSteps[] = [
             'seq'        => count($this->lastRunSteps),
             'type'       => 'delivery',
-            'name'       => 'Talk delivery',
+            'name'       => $this->deliveryStepName(channel: $delivery->getChannel()),
             'startedAt'  => $startedAt->format('c'),
             'endedAt'    => $endedAt->format('c'),
             // Whole-second precision, mirroring writeRunAudit()'s own durationMs.
@@ -1937,6 +1938,31 @@ class ScheduleService
         ];
 
     }//end appendDeliveryStep()
+
+    /**
+     * Map a `DeliveryResult::getChannel()` value to the `delivery` trace step's
+     * human-readable `name` (delivery-channels: generalises the former
+     * hard-coded `'Talk delivery'` literal — the step's `type` stays `delivery`
+     * in every case, unaffected by this change).
+     *
+     * @param string $channel The channel actually used (talk|notification|email|webhook|none|unknown).
+     *
+     * @return string The trace step's display name.
+     *
+     * @spec openspec/changes/delivery-channels/specs/run-audit-log/spec.md#requirement-the-delivery-trace-step-reflects-the-channel-actually-used-mvp
+     */
+    private function deliveryStepName(string $channel): string
+    {
+        return match ($channel) {
+            'talk' => 'Talk delivery',
+            'notification' => 'Notification delivery',
+            'email' => 'Email delivery',
+            'webhook' => 'Webhook delivery',
+            'none' => 'No delivery',
+            default => 'No delivery',
+        };
+
+    }//end deliveryStepName()
 
     /**
      * Owner failure-alert seam (run-reliability) — delegates to DeliveryService,

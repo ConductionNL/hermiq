@@ -55,6 +55,35 @@ return [
         // Run now — owner-scoped immediate run of a schedule's agent (agent-management-ui).
         ['name' => 'runNow#run', 'url' => '/api/schedules/{scheduleId}/run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
+        // Schedule webhook-secret lifecycle (delivery-channels): owner-guarded mint/
+        // rotate/revoke/status for the OUTBOUND deliver=webhook signing secret —
+        // distinct from the agent-webhook-trigger routes below, which manage the
+        // per-agent INBOUND trigger secret.
+        [
+            'name'         => 'scheduleWebhookSecret#create',
+            'url'          => '/api/schedules/{id}/webhook-secret',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'scheduleWebhookSecret#rotate',
+            'url'          => '/api/schedules/{id}/webhook-secret/rotate',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'scheduleWebhookSecret#revoke',
+            'url'          => '/api/schedules/{id}/webhook-secret/revoke',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'scheduleWebhookSecret#show',
+            'url'          => '/api/schedules/{id}/webhook-secret',
+            'verb'         => 'GET',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+
         // Agent webhook trigger (agent-webhook-trigger): owner-guarded secret lifecycle
         // CRUD, plus the public, secret-authenticated trigger endpoint. 'webhook-secret'
         // routes are registered before the bare '/webhook' trigger route so they never

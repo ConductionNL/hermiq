@@ -14,9 +14,19 @@
   bounded number inputs (max attempts, backoff base, circuit-breaker threshold).
   Off by default so the save payload is unchanged from before this change.
 
+  Delivery channels (delivery-channels): `deliver` gains `email` and `webhook`
+  alongside talk/notification/none. `deliverTarget` keeps its single field but
+  its meaning follows the selected channel (Talk room token / email recipient /
+  webhook URL) — Slack/Matrix/Telegram/WhatsApp/Teams are OpenConnector's job,
+  reached THROUGH the webhook channel, never grown here. The webhook signing
+  secret is managed in the separate ScheduleWebhookSecretDialog (own file per
+  ADR-004 modal-isolation) — only reachable once the schedule has been saved
+  (it needs a persisted schedule id).
+
   @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
   @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
   @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+  @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 -->
 <template>
 	<NcModal
@@ -100,6 +110,27 @@
 				:placeholder="t('hermiq', 'Leave empty for Note-to-self')" />
 
 			<NcTextField
+				v-if="form.deliver === 'email'"
+				:value.sync="form.deliverTarget"
+				type="email"
+				:label="t('hermiq', 'Email recipient')"
+				:placeholder="t('hermiq', 'Leave empty to use your own account email')" />
+
+			<template v-if="form.deliver === 'webhook'">
+				<NcTextField
+					:value.sync="form.deliverTarget"
+					:label="t('hermiq', 'Webhook URL')"
+					placeholder="https://example.com/hook" />
+
+				<NcButton v-if="schedule && schedule.id" @click="showWebhookSecretDialog = true">
+					{{ t('hermiq', 'Manage webhook signing secret') }}
+				</NcButton>
+				<NcNoteCard v-else type="info">
+					{{ t('hermiq', 'Save this schedule first, then reopen it to mint a webhook signing secret.') }}
+				</NcNoteCard>
+			</template>
+
+			<NcTextField
 				type="number"
 				:value.sync="form.repeatTimes"
 				:label="t('hermiq', 'Repeat times (empty = forever)')"
@@ -172,6 +203,12 @@
 				</NcButton>
 			</div>
 		</div>
+
+		<ScheduleWebhookSecretDialog
+			v-if="schedule && schedule.id"
+			:show="showWebhookSecretDialog"
+			:schedule-id="schedule.id"
+			@close="showWebhookSecretDialog = false" />
 	</NcModal>
 </template>
 
@@ -179,6 +216,7 @@
 import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
 import { useScheduleStore } from '../store/store.js'
 import { getBudgetEstimate } from '../api/budgets.js'
+import ScheduleWebhookSecretDialog from './ScheduleWebhookSecretDialog.vue'
 
 export default {
 	name: 'ScheduleFormModal',
@@ -191,6 +229,7 @@ export default {
 		NcNoteCard,
 		NcSelect,
 		NcTextArea,
+		ScheduleWebhookSecretDialog,
 		NcTextField,
 	},
 
@@ -221,6 +260,8 @@ export default {
 			error: '',
 			// Pre-run cost estimate (cost-guardrails); null keeps the line hidden.
 			estimate: null,
+			// delivery-channels: webhook signing-secret dialog visibility.
+			showWebhookSecretDialog: false,
 			kindOptions: [
 				{ label: this.t('hermiq', 'Once'), value: 'once' },
 				{ label: this.t('hermiq', 'Interval'), value: 'interval' },
@@ -230,6 +271,10 @@ export default {
 				{ label: this.t('hermiq', 'Nextcloud Talk'), value: 'talk' },
 				{ label: this.t('hermiq', 'Notification'), value: 'notification' },
 				{ label: this.t('hermiq', 'None'), value: 'none' },
+				// delivery-channels: reached THROUGH the outbound webhook, Hermiq
+				// itself never grows a Slack/Matrix/Telegram/WhatsApp/Teams option.
+				{ label: this.t('hermiq', 'Email'), value: 'email' },
+				{ label: this.t('hermiq', 'Webhook'), value: 'webhook' },
 			],
 			reviewerTypeOptions: [
 				{ label: this.t('hermiq', 'User'), value: 'user' },
@@ -394,7 +439,11 @@ export default {
 			} else if (this.form.kind === 'once' && this.form.runAt) {
 				payload.runAt = new Date(this.form.runAt).toISOString()
 			}
-			if (this.form.deliver === 'talk' && this.form.deliverTarget) {
+			// delivery-channels: deliverTarget's meaning follows the selected
+			// channel (Talk room token / email recipient / webhook URL) — an
+			// empty value is meaningful for talk/email (owner-scoped fallback)
+			// but omitted rather than sent as ''.
+			if (['talk', 'email', 'webhook'].includes(this.form.deliver) && this.form.deliverTarget) {
 				payload.deliverTarget = this.form.deliverTarget
 			}
 			const times = Number(this.form.repeatTimes)

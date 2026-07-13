@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Unit tests for DeliveryService (talk-delivery).
+ * Unit tests for DeliveryService (talk-delivery, delivery-channels).
  *
  * Exercises the delivery contract without a live Nextcloud/Talk:
  *   - talk with deliverTarget → posts to that room (membership-checked)
@@ -10,10 +10,15 @@
  *   - Talk unavailable → notification
  *   - notification channel; none / empty output no-op
  *   - a delivery failure is reported as a warning, never thrown
+ *   - email: owner-default recipient, explicit recipient, no-recipient degrades
+ *   - webhook: signed POST, missing secret/URL fail closed, retry with backoff,
+ *     oversized output truncated before signing, redaction applied
  *
  * The notification manager, Talk broker, URL generator and the lazily-resolved spreed
  * classes (Manager, ParticipantService, NoteToSelfService, ChatManager) are all mocked
  * via the injected server container; spreed OCA\Talk stubs live under tests/Stubs/Talk.
+ * `DeliveryServiceTestable` overrides the real (webhook-retry) sleep with a no-op so
+ * the suite never actually blocks for a backoff delay.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Service
@@ -25,6 +30,8 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/talk-delivery/tasks.md#4-tests
+ * @spec openspec/changes/delivery-channels/tasks.md#task-4-deliveryservicedeliveremail-redact-resolve-recipient-send-via-imailer
+ * @spec openspec/changes/delivery-channels/tasks.md#task-5-deliveryservicedeliverwebhook-hmac-sign-bounded-retry-size-cap
  */
 
 declare(strict_types=1);
@@ -32,6 +39,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\DeliveryService;
+use OCA\Hermiq\Service\RedactionService;
+use OCA\Hermiq\Service\ScheduleWebhookSecretService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\Talk\Chat\ChatManager;
 use OCA\Talk\Exceptions\RoomNotFoundException;
@@ -41,10 +50,15 @@ use OCA\Talk\Room;
 use OCA\Talk\Service\NoteToSelfService;
 use OCA\Talk\Service\ParticipantService;
 use OCA\Talk\Service\RoomService;
+use OCP\Http\Client\IClient;
+use OCP\Http\Client\IClientService;
+use OCP\Http\Client\IResponse;
 use OCP\IConfig;
 use OCP\IURLGenerator;
 use OCP\IUser;
 use OCP\IUserManager;
+use OCP\Mail\IMailer;
+use OCP\Mail\IMessage;
 use OCP\Notification\IManager as INotificationManager;
 use OCP\Notification\INotification;
 use OCP\Talk\IBroker;
@@ -54,9 +68,43 @@ use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Tests for the talk-delivery DeliveryService.
+ * Test-only subclass overriding the webhook-retry backoff sleep with a no-op,
+ * so a unit run exercising `deliverWebhook()`'s retry loop never actually
+ * blocks for a real backoff delay (worst case, several seconds per test).
+ *
+ * @spec openspec/changes/delivery-channels/tasks.md#task-5-deliveryservicedeliverwebhook-hmac-sign-bounded-retry-size-cap
+ */
+class DeliveryServiceTestable extends DeliveryService
+{
+
+    /**
+     * Recorded sleep durations (seconds), in call order — asserted against the
+     * exponential-backoff formula instead of actually waiting.
+     *
+     * @var array<int, int>
+     */
+    public array $sleeps = [];
+
+    /**
+     * No-op override: records the requested delay instead of sleeping.
+     *
+     * @param int $seconds Seconds the real implementation would sleep.
+     *
+     * @return void
+     */
+    protected function sleep(int $seconds): void
+    {
+        $this->sleeps[] = $seconds;
+
+    }//end sleep()
+}//end class
+
+/**
+ * Tests for the talk-delivery / delivery-channels DeliveryService.
  *
  * @spec openspec/changes/talk-delivery/tasks.md#4-tests
+ * @spec openspec/changes/delivery-channels/tasks.md#task-4-deliveryservicedeliveremail-redact-resolve-recipient-send-via-imailer
+ * @spec openspec/changes/delivery-channels/tasks.md#task-5-deliveryservicedeliverwebhook-hmac-sign-bounded-retry-size-cap
  */
 class DeliveryServiceTest extends TestCase
 {
@@ -104,18 +152,46 @@ class DeliveryServiceTest extends TestCase
     private IConfig $config;
 
     /**
-     * Mock user manager (owner IUser resolution for room creation).
+     * Mock user manager (owner IUser resolution for room creation / email fallback).
      *
      * @var IUserManager&MockObject
      */
     private IUserManager $userManager;
 
     /**
-     * Service under test.
+     * Mock mailer (delivery-channels: deliver=email).
      *
-     * @var DeliveryService
+     * @var IMailer&MockObject
      */
-    private DeliveryService $service;
+    private IMailer $mailer;
+
+    /**
+     * Mock HTTP client service (delivery-channels: deliver=webhook).
+     *
+     * @var IClientService&MockObject
+     */
+    private IClientService $clientService;
+
+    /**
+     * Mock schedule webhook-secret service (delivery-channels).
+     *
+     * @var ScheduleWebhookSecretService&MockObject
+     */
+    private ScheduleWebhookSecretService $scheduleWebhookSecretService;
+
+    /**
+     * Real RedactionService (cheap, pure — no need to mock it).
+     *
+     * @var RedactionService
+     */
+    private RedactionService $redactionService;
+
+    /**
+     * Service under test (testable subclass — see `DeliveryServiceTestable` above).
+     *
+     * @var DeliveryServiceTestable
+     */
+    private DeliveryServiceTestable $service;
 
     /**
      * Wire fresh mocks before each test.
@@ -131,6 +207,10 @@ class DeliveryServiceTest extends TestCase
         $this->container           = $this->createMock(ContainerInterface::class);
         $this->config              = $this->createMock(IConfig::class);
         $this->userManager         = $this->createMock(IUserManager::class);
+        $this->mailer                       = $this->createMock(IMailer::class);
+        $this->clientService                = $this->createMock(IClientService::class);
+        $this->scheduleWebhookSecretService = $this->createMock(ScheduleWebhookSecretService::class);
+        $this->redactionService              = new RedactionService(config: $this->stubbedRedactionConfig());
         $this->services            = [];
 
         // getUserValue is left unstubbed → returns '' (no default-room pref) by
@@ -149,13 +229,17 @@ class DeliveryServiceTest extends TestCase
             }
         );
 
-        $this->service = new DeliveryService(
+        $this->service = new DeliveryServiceTestable(
             notificationManager: $this->notificationManager,
             talkBroker: $this->talkBroker,
             urlGenerator: $this->urlGenerator,
             container: $this->container,
             config: $this->config,
             userManager: $this->userManager,
+            mailer: $this->mailer,
+            clientService: $this->clientService,
+            redactionService: $this->redactionService,
+            scheduleWebhookSecretService: $this->scheduleWebhookSecretService,
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -194,6 +278,53 @@ class DeliveryServiceTest extends TestCase
         return $notification;
 
     }//end notificationMock()
+
+    /**
+     * A minimal IConfig mock satisfying RedactionService's constructor
+     * (reads the frozen `redact_secrets` app setting; defaults it "on").
+     *
+     * @return IConfig&MockObject
+     */
+    private function stubbedRedactionConfig(): IConfig
+    {
+        $config = $this->createMock(IConfig::class);
+        $config->method('getAppValue')->willReturn('yes');
+
+        return $config;
+
+    }//end stubbedRedactionConfig()
+
+    /**
+     * Build an IMessage mock whose fluent setters return itself (delivery-channels).
+     *
+     * @return IMessage&MockObject
+     */
+    private function messageMock(): IMessage
+    {
+        $message = $this->createMock(IMessage::class);
+        foreach (['setTo', 'setSubject', 'setPlainBody', 'setFrom'] as $setter) {
+            $message->method($setter)->willReturnSelf();
+        }
+
+        return $message;
+
+    }//end messageMock()
+
+    /**
+     * Build an IResponse mock reporting the given HTTP status code.
+     *
+     * @param int $status The HTTP status code.
+     *
+     * @return IResponse&MockObject
+     */
+    private function responseMock(int $status): IResponse
+    {
+        $response = $this->createMock(IResponse::class);
+        $response->method('getStatusCode')->willReturn($status);
+
+        return $response;
+
+    }//end responseMock()
 
     /**
      * deliver=talk with a deliverTarget posts to that room after a membership-checked resolve.
@@ -832,4 +963,370 @@ class DeliveryServiceTest extends TestCase
         $this->assertNotNull($result->getWarning());
 
     }//end testDeliverCircuitBreakerAlertNeverThrowsOnNotificationFailure()
+
+    /**
+     * deliver=email with an empty deliverTarget emails the owner's own account address.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     */
+    public function testEmailDeliversToOwnerWhenTargetEmpty(): void
+    {
+        $owner = $this->createMock(IUser::class);
+        $owner->method('getEMailAddress')->willReturn('alice@example.org');
+        $this->userManager->method('get')->with('alice')->willReturn($owner);
+
+        $this->mailer->method('validateMailAddress')->willReturn(true);
+        $message = $this->messageMock();
+        $this->mailer->method('createMessage')->willReturn($message);
+        $message->expects($this->once())->method('setTo')->with(['alice@example.org'])->willReturnSelf();
+        $this->mailer->expects($this->once())->method('send')->willReturn([]);
+
+        $result = $this->service->deliver(
+            channel: 'email',
+            output: 'Daily briefing text',
+            schedule: $this->schedule(['deliver' => 'email', 'deliverTarget' => ''])
+        );
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertSame('email', $result->getChannel());
+        $this->assertNull($result->getWarning());
+
+    }//end testEmailDeliversToOwnerWhenTargetEmpty()
+
+    /**
+     * deliver=email with an explicit deliverTarget emails that address instead of the owner's.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     */
+    public function testEmailDeliversToExplicitTarget(): void
+    {
+        $this->userManager->expects($this->never())->method('get');
+
+        $this->mailer->method('validateMailAddress')->willReturn(true);
+        $message = $this->messageMock();
+        $this->mailer->method('createMessage')->willReturn($message);
+        $message->expects($this->once())->method('setTo')->with(['ops@example.org'])->willReturnSelf();
+        $this->mailer->expects($this->once())->method('send')->willReturn([]);
+
+        $result = $this->service->deliver(
+            channel: 'email',
+            output: 'Weekly digest text',
+            schedule: $this->schedule(['deliver' => 'email', 'deliverTarget' => 'ops@example.org'])
+        );
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertSame('email', $result->getChannel());
+
+    }//end testEmailDeliversToExplicitTarget()
+
+    /**
+     * No resolvable email recipient (empty target, owner has no email) degrades
+     * gracefully: no send is attempted, a warning is recorded, never thrown.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     */
+    public function testEmailNoRecipientResolvedDegradesGracefully(): void
+    {
+        $owner = $this->createMock(IUser::class);
+        $owner->method('getEMailAddress')->willReturn(null);
+        $this->userManager->method('get')->with('alice')->willReturn($owner);
+
+        $this->mailer->expects($this->never())->method('createMessage');
+
+        $result = $this->service->deliver(
+            channel: 'email',
+            output: 'Daily briefing text',
+            schedule: $this->schedule(['deliver' => 'email', 'deliverTarget' => ''])
+        );
+
+        $this->assertFalse($result->isDelivered());
+        $this->assertSame('email', $result->getChannel());
+        $this->assertNotNull($result->getWarning());
+
+    }//end testEmailNoRecipientResolvedDegradesGracefully()
+
+    /**
+     * A mailer send() failure is reported as a warning, never thrown (regression:
+     * delivery failures are recorded, not fatal).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-delivery-failures-are-recorded-not-fatal-mvp
+     */
+    public function testEmailSendFailureIsReportedNotThrown(): void
+    {
+        $this->mailer->method('validateMailAddress')->willReturn(true);
+        $this->mailer->method('createMessage')->willReturn($this->messageMock());
+        $this->mailer->method('send')->willThrowException(new \RuntimeException('SMTP down'));
+
+        $result = $this->service->deliver(
+            channel: 'email',
+            output: 'Daily briefing text',
+            schedule: $this->schedule(['deliver' => 'email', 'deliverTarget' => 'ops@example.org'])
+        );
+
+        $this->assertFalse($result->isDelivered());
+        $this->assertNotNull($result->getWarning());
+        $this->assertStringContainsString('SMTP down', (string) $result->getWarning());
+
+    }//end testEmailSendFailureIsReportedNotThrown()
+
+    /**
+     * The email body is redacted before it is handed to IMailer.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-output-crossing-the-instance-boundary-is-redacted-before-delivery-mvp
+     */
+    public function testEmailBodyIsRedactedBeforeSend(): void
+    {
+        $this->mailer->method('validateMailAddress')->willReturn(true);
+        $message = $this->messageMock();
+        $this->mailer->method('createMessage')->willReturn($message);
+        $message->expects($this->once())
+            ->method('setPlainBody')
+            ->with($this->callback(static fn (string $body): bool => str_contains($body, 'sk-secret1234567890') === false))
+            ->willReturnSelf();
+        $this->mailer->method('send')->willReturn([]);
+
+        $result = $this->service->deliver(
+            channel: 'email',
+            output: 'Here is your key: sk-secret1234567890',
+            schedule: $this->schedule(['deliver' => 'email', 'deliverTarget' => 'ops@example.org'])
+        );
+
+        $this->assertTrue($result->isDelivered());
+
+    }//end testEmailBodyIsRedactedBeforeSend()
+
+    /**
+     * A configured URL and secret result in a signed POST to the webhook target.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+     */
+    public function testWebhookPostsSignedPayload(): void
+    {
+        $schedule = $this->schedule(
+            ['deliver' => 'webhook', 'deliverTarget' => 'https://sink.example.org/hook', 'agentId' => 'agent-1']
+        );
+        $this->scheduleWebhookSecretService->method('retrieveSecret')->willReturn('shh-secret');
+
+        $client = $this->createMock(IClient::class);
+        $this->clientService->method('newClient')->willReturn($client);
+
+        $client->expects($this->once())
+            ->method('post')
+            ->with(
+                'https://sink.example.org/hook',
+                $this->callback(function (array $options): bool {
+                    $signature = $options['headers']['X-Hermiq-Signature'] ?? '';
+                    $expected  = 'sha256='.hash_hmac('sha256', (string) $options['body'], 'shh-secret');
+                    return $signature === $expected && str_contains((string) $options['body'], 'agent-1');
+                })
+            )
+            ->willReturn($this->responseMock(200));
+
+        $result = $this->service->deliver(channel: 'webhook', output: 'Run finished ok', schedule: $schedule);
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertSame('webhook', $result->getChannel());
+        $this->assertNull($result->getWarning());
+
+    }//end testWebhookPostsSignedPayload()
+
+    /**
+     * An empty deliverTarget URL fails closed without attempting any POST.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+     */
+    public function testWebhookNoUrlFailsClosed(): void
+    {
+        $this->clientService->expects($this->never())->method('newClient');
+
+        $result = $this->service->deliver(
+            channel: 'webhook',
+            output: 'Run finished ok',
+            schedule: $this->schedule(['deliver' => 'webhook', 'deliverTarget' => ''])
+        );
+
+        $this->assertFalse($result->isDelivered());
+        $this->assertSame('webhook', $result->getChannel());
+        $this->assertNotNull($result->getWarning());
+
+    }//end testWebhookNoUrlFailsClosed()
+
+    /**
+     * No signing secret ever minted fails closed without attempting any POST.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+     */
+    public function testWebhookNoSecretFailsClosed(): void
+    {
+        $this->scheduleWebhookSecretService->method('retrieveSecret')->willReturn(null);
+        $this->clientService->expects($this->never())->method('newClient');
+
+        $result = $this->service->deliver(
+            channel: 'webhook',
+            output: 'Run finished ok',
+            schedule: $this->schedule(['deliver' => 'webhook', 'deliverTarget' => 'https://sink.example.org/hook'])
+        );
+
+        $this->assertFalse($result->isDelivered());
+        $this->assertSame('webhook', $result->getChannel());
+        $this->assertNotNull($result->getWarning());
+        $this->assertStringContainsString('signing secret', (string) $result->getWarning());
+
+    }//end testWebhookNoSecretFailsClosed()
+
+    /**
+     * A transient failure retries with growing backoff and eventually succeeds.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+     */
+    public function testWebhookRetriesWithBackoffThenSucceeds(): void
+    {
+        $schedule = $this->schedule(
+            [
+                'deliver'                          => 'webhook',
+                'deliverTarget'                     => 'https://sink.example.org/hook',
+                'deliverWebhookMaxAttempts'         => 3,
+                'deliverWebhookBackoffBaseSeconds'  => 2,
+            ]
+        );
+        $this->scheduleWebhookSecretService->method('retrieveSecret')->willReturn('shh-secret');
+
+        $client = $this->createMock(IClient::class);
+        $this->clientService->method('newClient')->willReturn($client);
+        $client->expects($this->exactly(3))
+            ->method('post')
+            ->willReturnOnConsecutiveCalls(
+                $this->responseMock(500),
+                $this->responseMock(500),
+                $this->responseMock(200)
+            );
+
+        $result = $this->service->deliver(channel: 'webhook', output: 'Run finished ok', schedule: $schedule);
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertNull($result->getWarning());
+        $this->assertSame([2, 4], $this->service->sleeps);
+
+    }//end testWebhookRetriesWithBackoffThenSucceeds()
+
+    /**
+     * A webhook retry budget exhaustion makes exactly maxAttempts attempts and
+     * records a warning, never fails the run.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+     */
+    public function testWebhookRetryBudgetExhaustedRecordsWarning(): void
+    {
+        $schedule = $this->schedule(
+            ['deliver' => 'webhook', 'deliverTarget' => 'https://sink.example.org/hook', 'deliverWebhookMaxAttempts' => 3]
+        );
+        $this->scheduleWebhookSecretService->method('retrieveSecret')->willReturn('shh-secret');
+
+        $client = $this->createMock(IClient::class);
+        $this->clientService->method('newClient')->willReturn($client);
+        $client->expects($this->exactly(3))->method('post')->willReturn($this->responseMock(500));
+
+        $result = $this->service->deliver(channel: 'webhook', output: 'Run finished ok', schedule: $schedule);
+
+        $this->assertFalse($result->isDelivered());
+        $this->assertSame('webhook', $result->getChannel());
+        $this->assertNotNull($result->getWarning());
+
+    }//end testWebhookRetryBudgetExhaustedRecordsWarning()
+
+    /**
+     * An oversized output is truncated before signing; the received body stays
+     * within the size cap and the signature verifies over the exact truncated bytes.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+     */
+    public function testWebhookTruncatesOversizedOutputBeforeSigning(): void
+    {
+        $schedule = $this->schedule(
+            ['deliver' => 'webhook', 'deliverTarget' => 'https://sink.example.org/hook']
+        );
+        $this->scheduleWebhookSecretService->method('retrieveSecret')->willReturn('shh-secret');
+
+        $client = $this->createMock(IClient::class);
+        $this->clientService->method('newClient')->willReturn($client);
+
+        $capturedBody      = '';
+        $capturedSignature = '';
+        $client->expects($this->once())
+            ->method('post')
+            ->with(
+                $this->anything(),
+                $this->callback(function (array $options) use (&$capturedBody, &$capturedSignature): bool {
+                    $capturedBody      = (string) $options['body'];
+                    $capturedSignature = (string) ($options['headers']['X-Hermiq-Signature'] ?? '');
+                    return true;
+                })
+            )
+            ->willReturn($this->responseMock(200));
+
+        $hugeOutput = str_repeat('a', 100000);
+        $result     = $this->service->deliver(channel: 'webhook', output: $hugeOutput, schedule: $schedule);
+
+        $this->assertTrue($result->isDelivered());
+        $this->assertLessThanOrEqual(65536, strlen($capturedBody));
+        $this->assertStringContainsString('[truncated]', $capturedBody);
+        $this->assertSame('sha256='.hash_hmac('sha256', $capturedBody, 'shh-secret'), $capturedSignature);
+
+    }//end testWebhookTruncatesOversizedOutputBeforeSigning()
+
+    /**
+     * The webhook payload's output field is redacted before it is signed/sent.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-output-crossing-the-instance-boundary-is-redacted-before-delivery-mvp
+     */
+    public function testWebhookPayloadIsRedactedBeforeSend(): void
+    {
+        $schedule = $this->schedule(
+            ['deliver' => 'webhook', 'deliverTarget' => 'https://sink.example.org/hook']
+        );
+        $this->scheduleWebhookSecretService->method('retrieveSecret')->willReturn('shh-secret');
+
+        $client = $this->createMock(IClient::class);
+        $this->clientService->method('newClient')->willReturn($client);
+        $client->expects($this->once())
+            ->method('post')
+            ->with(
+                $this->anything(),
+                $this->callback(static fn (array $options): bool => str_contains((string) $options['body'], 'sk-secret1234567890') === false)
+            )
+            ->willReturn($this->responseMock(200));
+
+        $result = $this->service->deliver(
+            channel: 'webhook',
+            output: 'Here is your key: sk-secret1234567890',
+            schedule: $schedule
+        );
+
+        $this->assertTrue($result->isDelivered());
+
+    }//end testWebhookPayloadIsRedactedBeforeSend()
 }//end class

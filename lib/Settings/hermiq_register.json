@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.5"
+    "version": "0.10.6"
   },
   "x-openregister": {
     "type": "application",
@@ -19,7 +19,7 @@
       "Schedule": {
         "slug": "schedule",
         "icon": "ClockOutline",
-        "version": "0.1.0",
+        "version": "0.1.1",
         "title": "Schedule",
         "description": "A schedule that fires an OpenRegister agent on a cron expression, a fixed interval, or once at a future time.",
         "type": "object",
@@ -89,10 +89,12 @@
             "enum": [
               "talk",
               "notification",
-              "none"
+              "none",
+              "email",
+              "webhook"
             ],
             "title": "Deliver to",
-            "description": "Where the run output is delivered"
+            "description": "Where the run output is delivered. talk/notification/none stay inside this Nextcloud instance. email (delivery-channels) sends the redacted output via OCP\\Mail\\IMailer. webhook (delivery-channels) POSTs the redacted, size-capped output to deliverTarget, HMAC-signed. Reaching a named chat platform (Slack/Matrix/Telegram/WhatsApp/Teams) is OpenConnector's job, not a Hermiq delivery channel — point webhook at an OpenConnector Source or an n8n webhook trigger."
           },
           "enabled": {
             "type": "boolean",
@@ -139,7 +141,7 @@
           "deliverTarget": {
             "type": "string",
             "title": "Deliver target",
-            "description": "When deliver=talk, the Nextcloud Talk room token to post to (the owner must be a member). If empty, delivery falls back to the owner's Note-to-self conversation.",
+            "description": "Per-channel meaning (delivery-channels): deliver=talk — the Nextcloud Talk room token to post to (the owner must be a member); empty falls back to the owner's Note-to-self conversation. deliver=email — the recipient email address; empty falls back to the owner's own Nextcloud account email. deliver=webhook — the destination URL to POST to (required; empty is a hard misconfiguration recorded as lastDeliveryError, never attempted).",
             "example": "abcd1234"
           },
           "lastDeliveryError": {
@@ -218,6 +220,34 @@
             "default": 0,
             "title": "Consecutive dead-letters",
             "description": "Derived: consecutive dead-lettered occurrences — written by the dispatcher; resets to 0 on any successful run."
+          },
+          "deliverWebhookMaxAttempts": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "default": 3,
+            "title": "Webhook delivery max attempts",
+            "description": "delivery-channels: total attempts (including the first) for one webhook delivery before it is recorded as failed. Mirrors retryMaxAttempts' shape at a different, seconds-scale timescale — see retryBackoffBaseSeconds' description for why it is not the same field."
+          },
+          "deliverWebhookBackoffBaseSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 2,
+            "title": "Webhook delivery backoff base (seconds)",
+            "description": "delivery-channels: base delay for exponential backoff between webhook delivery attempts (backoffBase * 2^(attempt-1)), retried synchronously within the same dispatch tick — a deliberately smaller-scale sibling of retryBackoffBaseSeconds (which retries the whole agent turn, in minutes, on a later tick), not a reuse of it."
+          },
+          "deliverWebhookSecretConfigured": {
+            "type": "boolean",
+            "default": false,
+            "title": "Webhook secret configured",
+            "description": "Derived: whether a webhook signing secret has been minted for this schedule — a UI hint only, never the secret itself. The plaintext secret lives in OCP\\Security\\ICredentialsManager, never in this OpenRegister object."
+          },
+          "deliverWebhookSecretRotatedAt": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "title": "Webhook secret rotated at",
+            "description": "Derived: when the webhook signing secret was last minted or rotated; null when no secret has ever been minted."
           }
         }
       },

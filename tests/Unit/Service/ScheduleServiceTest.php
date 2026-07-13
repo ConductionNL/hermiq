@@ -2029,6 +2029,74 @@ class ScheduleServiceTest extends TestCase
     }//end testDeliveryFailureRecordsErrorStepButRunStaysOk()
 
     /**
+     * delivery-channels: the `delivery` trace step's `name` reflects the channel
+     * `DeliveryResult` reports as actually used, not a single hard-coded
+     * "Talk delivery" literal — `type` stays `delivery` in every case.
+     *
+     * @param string $channel       The channel DeliveryResult reports as used.
+     * @param string $expectedName  The expected trace step `name`.
+     *
+     * @return void
+     *
+     * @dataProvider deliveryChannelNameProvider
+     *
+     * @spec openspec/changes/delivery-channels/specs/run-audit-log/spec.md#requirement-the-delivery-trace-step-reflects-the-channel-actually-used-mvp
+     */
+    public function testDeliveryStepNameReflectsChannelUsed(string $channel, string $expectedName): void
+    {
+        $this->deliveryService = $this->createMock(DeliveryService::class);
+        $this->deliveryService->method('deliver')->willReturn(
+            new DeliveryResult(delivered: true, channel: $channel, fellBack: false, warning: null)
+        );
+        $this->service = $this->makeService();
+
+        $this->objectService->method('findAll')->willReturn([]);
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $this->service->runNow(
+            $this->schedule(
+                [
+                    'kind'            => 'interval',
+                    'intervalMinutes' => 60,
+                    'agentId'         => 'agent-uuid',
+                    'prompt'          => 'go',
+                    'deliver'         => $channel,
+                    'enabled'         => true,
+                    'nextRun'         => '2020-01-01T00:00:00+00:00',
+                    'repeat'          => ['times' => 0, 'completed' => 0],
+                ],
+                'delivery-name-sched-'.$channel
+            )
+        );
+
+        $context       = $this->auditCalls[0]['context'];
+        $deliverySteps = array_values(
+            array_filter($context['steps'], static fn (array $step): bool => $step['type'] === 'delivery')
+        );
+        $this->assertCount(1, $deliverySteps);
+        $this->assertSame($expectedName, $deliverySteps[0]['name']);
+        $this->assertSame('delivery', $deliverySteps[0]['type']);
+
+    }//end testDeliveryStepNameReflectsChannelUsed()
+
+    /**
+     * Channel ⇒ expected trace-step name pairs for testDeliveryStepNameReflectsChannelUsed().
+     *
+     * @return array<string, array{0:string, 1:string}>
+     */
+    public static function deliveryChannelNameProvider(): array
+    {
+        return [
+            'talk'         => ['talk', 'Talk delivery'],
+            'notification' => ['notification', 'Notification delivery'],
+            'email'        => ['email', 'Email delivery'],
+            'webhook'      => ['webhook', 'Webhook delivery'],
+            'none'         => ['none', 'No delivery'],
+        ];
+
+    }//end deliveryChannelNameProvider()
+
+    /**
      * agent-capability-profile: when the bound Agent declares a valid, active
      * `actingUser`, the engine-enabled run impersonates THAT identity instead of the
      * schedule owner — the conversation's userId, the Engine's userId argument, and
