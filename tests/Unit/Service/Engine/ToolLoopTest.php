@@ -113,8 +113,14 @@ class ToolLoopTest extends TestCase
     }//end testNullAgentYieldsNoToolsWithoutFacadeCall()
 
     /**
-     * An EMPTY whitelist means "all discovered tools allowed": listTools([]) is
-     * called and its full result returned (ADR-035 Decision 4 default).
+     * An EMPTY whitelist means "all discovered [non-write] tools allowed":
+     * listTools([]) is called and its full result returned (ADR-035 Decision 4
+     * default) for every descriptor default-deny does not strip. Both fixture
+     * ids here are read-classified (a `.search` derived id each), so neither is
+     * stripped — see `testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall`
+     * for the stripping behaviour itself, and
+     * `ToolGrantResolverTest::testEmptyGrantsAllowsAllExceptDerivedWritesAndFailsClosedOnHintlessNonDerivedIds()`
+     * for the hermiq-prefer-tool-hints fail-closed case this fixture deliberately avoids.
      *
      * @return void
      *
@@ -123,8 +129,8 @@ class ToolLoopTest extends TestCase
     public function testEmptyWhitelistAllowsAllTools(): void
     {
         $all = [
-            ['name' => 'decidesk_listMeetings', 'description' => 'List', 'parameters' => []],
-            ['name' => 'openregister_search', 'description' => 'Search', 'parameters' => []],
+            ['name' => 'decidesk_listMeetings', 'mcpId' => 'decidesk.meeting.search', 'description' => 'List', 'parameters' => []],
+            ['name' => 'openregister_search', 'mcpId' => 'openregister.schemas.search', 'description' => 'Search', 'parameters' => []],
         ];
 
         $facade = $this->createMock(ToolRegistryFacade::class);
@@ -273,11 +279,15 @@ class ToolLoopTest extends TestCase
     /**
      * An empty whitelist calls listTools([]) exactly ONCE (preserving the
      * legacy call contract) and post-filters the returned catalog to strip
-     * classifiable derived write ids (default-deny).
+     * classifiable derived write ids (default-deny) — AND (hermiq-prefer-tool-hints)
+     * a hint-less, non-derived id (`hermiq.sendMail`) is now ALSO stripped
+     * (fails closed), while a hint-carrying non-derived id (`hermiq.getStatus`,
+     * `readOnlyHint:true`) survives because the hint classifies it as read.
      *
      * @return void
      *
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-1
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
      */
     public function testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall(): void
     {
@@ -285,6 +295,7 @@ class ToolLoopTest extends TestCase
             ['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search'],
             ['name' => 'pipelinq_lead_delete', 'mcpId' => 'pipelinq.lead.delete'],
             ['name' => 'hermiq_sendMail', 'mcpId' => 'hermiq.sendMail'],
+            ['name' => 'hermiq_getStatus', 'mcpId' => 'hermiq.getStatus', 'readOnlyHint' => true],
         ];
 
         $facade = $this->createMock(ToolRegistryFacade::class);
@@ -295,7 +306,12 @@ class ToolLoopTest extends TestCase
 
         $ids = array_column($result, 'mcpId');
         sort($ids);
-        $this->assertSame(['hermiq.sendMail', 'pipelinq.lead.search'], $ids);
+        $this->assertSame(
+            ['hermiq.getStatus', 'pipelinq.lead.search'],
+            $ids,
+            'hermiq.sendMail (hint-less, non-derived) must fail closed; hermiq.getStatus'
+            .' (readOnlyHint:true) must survive on its declared hint.'
+        );
 
     }//end testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall()
 

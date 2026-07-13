@@ -6,6 +6,7 @@
 
 **OpenSpec changes:**
 - `openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/` — the Hermiq consumer side of ADR-063: schema-scoped grants with default-deny, progressive tool disclosure via `hermiq.searchTools`, and the per-agent art.12/14 oversight surface (kind: code) — **DONE**
+- `openspec/changes/archive/2026-07-13-hermiq-prefer-tool-hints/` — prefers OpenRegister's now-forwarded `scope`/`destructiveHint`/`readOnlyHint` descriptor hints over the verb-suffix classification heuristic, and fails CLOSED (was fail-open) on a hint-less, non-3-segment id (kind: code) — **DONE**
 
 ## Purpose
 
@@ -67,9 +68,16 @@ over the derived catalog — an exact tool id, a schema wildcard (`{app}.{schema
 verb subset (`{app}.{schema}.{verb}`), or a write modifier (`{app}.{schema}.*:write`) — and MUST
 resolve those grants against the catalog the facade returns. A schema wildcard MUST grant read verbs
 only; a write or destructive tool MUST be included only when named explicitly or via the write
-modifier (default-deny). Per-tool annotations (`readOnlyHint`/`destructiveHint`/`scope`) MUST be
-treated as untrusted UX signals used only to RESTRICT — never as the authoritative authorization,
-which remains OpenRegister RBAC.
+modifier (default-deny).
+
+Classification of a tool id as write/destructive MUST follow this precedence: (1) the catalog
+descriptor's declared `scope`/`destructiveHint`/`readOnlyHint` hint, when the descriptor sets one,
+wins — even over a conflicting verb suffix; (2) otherwise, a 3-segment `{app}.{schema}.{verb}` id
+classifies from its verb suffix (`create`/`update`/`delete`); (3) otherwise (a hint-less id that is
+not a 3-segment derived id — a curated or hand-written id) the system MUST classify it
+write/destructive (fail CLOSED) rather than treat it as read. Per-tool annotations
+(`readOnlyHint`/`destructiveHint`/`scope`) MUST be treated as untrusted UX signals used only to
+RESTRICT — never as the authoritative authorization, which remains OpenRegister RBAC.
 
 `Agent.tools` remains a `string[]` (ADR-035 Decision 4 froze the shape); only the MEANING of each
 string is extended, so no OpenRegister schema migration is required.
@@ -96,6 +104,22 @@ string is extended, so no OpenRegister schema migration is required.
 - **WHEN** the agent invokes that tool
 - **THEN** the system MUST let OpenRegister RBAC deny the invocation at invoke time
 - **AND** the annotation MUST NOT be used to grant access the RBAC layer would refuse
+
+#### Scenario: A declared hint overrides a conflicting verb suffix
+
+- **GIVEN** a 3-segment derived id whose verb suffix would classify it read (e.g. `.get`) but whose
+  catalog descriptor declares `destructiveHint: true`
+- **WHEN** the resolver classifies the id
+- **THEN** the descriptor's `destructiveHint` MUST win — the id is classified write/destructive
+
+#### Scenario: A hint-less curated tool fails closed
+
+- **GIVEN** a 2-segment curated/hand-written tool id whose catalog descriptor sets none of
+  `scope`/`destructiveHint`/`readOnlyHint`
+- **WHEN** the resolver classifies the id for an empty-`Agent.tools` ("all tools") default-deny
+  resolution, or the id is invoked without being part of an agent's resolved set
+- **THEN** the system MUST classify it write/destructive: excluded from the default-deny resolution,
+  and routed through the `human-approval-gate` approval gate rather than dispatched directly
 
 ### Requirement: Per-agent tool-invocation oversight surface (AI Act art.12/14)
 The system MUST provide, per agent and tenant-scoped, an oversight view of that agent's tool
@@ -145,8 +169,12 @@ export (CSV + JSON). The system MUST NOT fabricate rows when no invocations have
       `{app}.{schema}.*:write`, resolved against the facade's catalog (`ToolGrantResolver`)
 - [x] A schema wildcard resolves to read verbs only; write/destructive derived tools require an
       explicit grant (default-deny)
-- [x] An empty `Agent.tools` preserves "all discovered tools allowed" for non-derived ids while
-      still stripping classifiable derived write ids
+- [x] Classification prefers a catalog descriptor's declared `scope`/`destructiveHint`/`readOnlyHint`
+      hint over the id's own verb suffix, even when they conflict (`hermiq-prefer-tool-hints`)
+- [x] An empty `Agent.tools` preserves "all discovered tools allowed" for READ-classified ids
+      (derived reads, or a hand-written/curated id carrying a read-classifying hint), stripping every
+      id classified write/destructive — including a hint-less, non-3-segment id, which now FAILS
+      CLOSED instead of silently passing (`hermiq-prefer-tool-hints`)
 - [x] Above `tools.disclosureThreshold` (default 30) only `hermiq.searchTools` enters the context;
       the full resolved set is held off-context for deferred loading (`ToolSearchService`)
 - [x] `hermiq.searchTools` never returns a tool outside the agent's resolved set, and is handled
@@ -168,15 +196,16 @@ export (CSV + JSON). The system MUST NOT fabricate rows when no invocations have
   `ToolRegistryFacade` ABI and OR's `AuditTrailMapper`. Adding a new app/schema to the fleet must
   expose new tools to a Hermiq agent with **zero Hermiq code change** — only a schema opt-in
   upstream plus a grant edit on the agent.
-- **Known upstream gap (write/destructive classification).** OpenRegister's
-  `McpProviderBridge::getFunctions()` — the adapter every provider's tools flow through before
-  `ToolRegistryFacade::listTools()` returns them — does **not** forward the
-  `destructiveHint`/`scope`/`readOnlyHint` annotation keys into the descriptor (verified against
-  HEAD 2026-07-13); only `name`/`mcpId`/`description`/`parameters` survive. Until that is closed
-  upstream, `ToolGrantResolver` classifies write/destructive from the VERB SUFFIX of a 3-segment
-  derived id (`{app}.{schema}.{create|update|delete}`) — the only signal available. A 2-segment or
-  bare (hand-written / legacy) id is never classified this way, so pre-existing whitelist behaviour
-  is preserved exactly. **File as an OpenRegister issue; never hand-patch cross-app (gate-27).**
+- **Upstream gap CLOSED (write/destructive classification).** OpenRegister's
+  `McpProviderBridge::getFunctions()` now forwards the `destructiveHint`/`scope`/`readOnlyHint`
+  annotation keys onto the descriptor additively, whenever a provider (a schema's
+  `x-openregister-mcp` dialect, or a `#[McpTool(...)]`-annotated service tool) sets them
+  (verified against HEAD 2026-07-13 — `openregister` `10e605cea`). `ToolGrantResolver` now prefers
+  those hints; the verb-suffix heuristic on a 3-segment derived id is the fallback for un-annotated
+  tools, unchanged. A hint-less id that is ALSO not a 3-segment derived id (a 2-segment
+  hand-written/curated/legacy id) now FAILS CLOSED — classified write/destructive — a deliberate
+  reversal of the prior "never classified this way" behaviour, which left curated write tools
+  unable to ever trip default-deny or the approval gate (`hermiq-prefer-tool-hints`).
 - **Known upstream limitation (agent principal).** OR's `createToolInvocationEntry()` records the
   ambient Nextcloud **session user**, not an agent principal — the `IMcpToolProvider` ABI does not
   thread an acting-agent identity into `invokeTool()`. The oversight surface therefore CORRELATES
