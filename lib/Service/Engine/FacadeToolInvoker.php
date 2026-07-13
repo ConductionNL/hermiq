@@ -468,11 +468,26 @@ class FacadeToolInvoker
      * write/destructive-classified AND not part of this run's resolved
      * (grant-filtered, default-denied) set.
      *
+     * This check ONLY ever matters for a toolId NOT in `$toolSearchService`'s
+     * resolved set — a hallucinated / never-offered call, since a resolved
+     * (granted) toolId short-circuits `isGranted()` to `false`-gate regardless
+     * of classification. `ToolSearchService` therefore never has a descriptor to
+     * offer for the ids this check actually classifies, so
+     * `ToolGrantResolver::isWriteOrDestructive()` is called id-only here — it
+     * falls straight to its verb-suffix/fail-closed rules (hermiq-prefer-tool-hints:
+     * a 2-segment id with no descriptor now classifies write/destructive instead
+     * of silently passing, closing the hole where a curated write tool could
+     * never trip this gate). Hint-based classification is applied where it CAN
+     * matter — over the full descriptor-carrying catalog in
+     * `ToolGrantResolver::resolve()`/`applyDefaultDeny()` — before a tool ever
+     * becomes part of an agent's resolved set.
+     *
      * @param string $name The LLPhant-side function name.
      *
      * @return bool
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
+     * @spec openspec/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
      */
     private function requiresApprovalGate(string $name): bool
     {

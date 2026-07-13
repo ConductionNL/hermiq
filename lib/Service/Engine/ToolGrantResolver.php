@@ -1,7 +1,8 @@
 <?php
 
 /**
- * Hermiq Tool Grant Resolver (agent-tool-governance-and-disclosure).
+ * Hermiq Tool Grant Resolver (agent-tool-governance-and-disclosure,
+ * hermiq-prefer-tool-hints).
  *
  * Pure resolution of `Agent.tools` grant entries against the ADR-063 derived MCP
  * catalog `ToolRegistryFacade::listTools([])` returns. `Agent.tools` stays a plain
@@ -16,27 +17,42 @@
  * - `{app}.{schema}.*:write` — the same wildcard, but also expands the schema's
  *   write verbs (`create`, `update`, `delete`) found in the catalog.
  * - `[]` (empty `Agent.tools`) — unchanged "all discovered tools allowed", EXCEPT
- *   default-deny still strips any ADR-063 DERIVED write/destructive id (a
- *   3-segment `{app}.{schema}.{verb}` id whose verb is `create`/`update`/`delete`)
- *   from the result; every other (non-derived / hand-written / legacy) id is
- *   unaffected, preserving pre-existing whitelist behaviour exactly.
+ *   default-deny still strips every id `isWriteOrDestructive()` resolves to
+ *   write/destructive (see below) from the result.
  *
- * The write/destructive classification reads the CLOSED, fixed ADR-063 verb
- * vocabulary (`search`/`get`/`create`/`update`/`delete` —
- * `OCA\OpenRegister\Service\Mcp\McpAnnotationValidator::VERBS`) off the id's own
- * text, NOT a Hermiq-side lookup table of specific tool ids (design.md
- * "Declarative vs Imperative": the *rule* is code, the *inputs* — grants and the
- * catalog — are declarative). This is a documented, deliberate fallback: OpenRegister's
- * `McpProviderBridge::getFunctions()` (the IMcpToolProvider → LLPhant-descriptor
- * adapter every provider's tools — including the ADR-063 derived catalog — flow
- * through before `ToolRegistryFacade::listTools()` returns them) does not forward
- * the `destructiveHint`/`scope`/`readOnlyHint` MCP annotation keys into the
- * descriptor at all (verified against HEAD 2026-07-13); only `name`/`mcpId`/
- * `description`/`parameters` survive. Until that gap is closed upstream (filed as
- * an OpenRegister follow-up, not hand-fixed here — cross-repo, gate-27), the verb
- * suffix of a 3-segment derived id is the only classification signal available to
- * Hermiq. Should a future descriptor carry `destructiveHint`/`scope`, prefer it —
- * see `classify()`.
+ * **Classification precedence** (`isWriteOrDestructive()`), most-authoritative first:
+ *
+ * 1. **Declared descriptor hints** — `scope` (closed vocabulary, no boolean
+ *    ambiguity), then `destructiveHint`, then `readOnlyHint` — the first one the
+ *    descriptor actually sets wins; the others are not consulted. OpenRegister's
+ *    `McpProviderBridge::getFunctions()` forwards these ADR-063 MCP annotation
+ *    keys onto the LLPhant descriptor additively when the provider (a schema's
+ *    `x-openregister-mcp` dialect, or a `#[McpTool(readOnlyHint:, ...)]`-annotated
+ *    service tool) set them (OpenRegister PR #369 closed the forwarding gap this
+ *    class used to document as open; verified forwarding present against HEAD
+ *    2026-07-13 — `openregister` `10e605cea`). A key is omitted entirely, never
+ *    defaulted, when the provider didn't set it.
+ * 2. **Verb-suffix fallback** — only when the descriptor is absent or sets none
+ *    of the three hint keys: the CLOSED, fixed ADR-063 verb vocabulary
+ *    (`search`/`get`/`create`/`update`/`delete` —
+ *    `OCA\OpenRegister\Service\Mcp\McpAnnotationValidator::VERBS`) read off a
+ *    3-segment `{app}.{schema}.{verb}` id's own text — unchanged from this
+ *    class's original (pre-hints) behaviour, preserved exactly for un-annotated
+ *    derived tools (design.md "Declarative vs Imperative": the *rule* is code,
+ *    the *inputs* — grants and the catalog — are declarative).
+ * 3. **Fail closed on anything else** — a hint-less id that isn't a 3-segment
+ *    derived id (a bare/2-segment hand-written, curated, or legacy id) is
+ *    classified write/destructive. This is a DELIBERATE reversal of this class's
+ *    pre-hints behaviour, where such an id was NEVER classified this way (see
+ *    `hermiq-prefer-tool-hints` design.md "Why fail closed, and why now" — a
+ *    curated 2-segment tool like `pipelinq.createLead` is exactly where the
+ *    dangerous operations live, and was previously unclassifiable, so it could
+ *    never trip default-deny or the approval gate).
+ *
+ * Hints are ADVISORY UX/classification metadata only — OpenRegister RBAC and the
+ * `human-approval-gate` approval gate stay the sole authoritative invoke-time
+ * boundary; a `readOnlyHint:true` (or a `scope:read`) descriptor can never bypass
+ * either.
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
@@ -51,7 +67,9 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-1
- * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools
+ * @spec openspec/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools
+ * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
+ * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
  */
 
 declare(strict_types=1);
@@ -97,13 +115,15 @@ class ToolGrantResolver
      */
     public function resolve(array $grants, array $catalog): array
     {
-        $catalogIds  = $this->catalogIds(catalog: $catalog);
-        $cleanGrants = $this->sanitizeGrants(grants: $grants);
+        $descriptorsById = $this->descriptorsById(catalog: $catalog);
+        $catalogIds      = array_keys($descriptorsById);
+        $cleanGrants     = $this->sanitizeGrants(grants: $grants);
 
         if ($cleanGrants === []) {
             // "All discovered tools allowed" (legacy default) — default-deny still
-            // strips classifiable ADR-063 derived write/destructive ids.
-            return $this->applyDefaultDeny(ids: $catalogIds);
+            // strips every id `isWriteOrDestructive()` resolves to write/destructive
+            // (hints first, verb-suffix fallback, fail-closed on anything else).
+            return $this->applyDefaultDeny(ids: $catalogIds, descriptorsById: $descriptorsById);
         }
 
         $resolved = [];
@@ -141,29 +161,83 @@ class ToolGrantResolver
     }//end hasWildcardGrant()
 
     /**
-     * Whether a fully-namespaced tool id is classified write/destructive under
-     * the ADR-063 derived-catalog convention: a 3-segment `{app}.{schema}.{verb}`
-     * id whose trailing verb is `create`/`update`/`delete`. Any other shape (a
-     * bare/2-segment hand-written or legacy id) is NEVER classified this way —
-     * default-deny only ever narrows the NEW derived catalog, never pre-existing
-     * whitelist behaviour.
+     * Whether a fully-namespaced tool id is classified write/destructive.
      *
-     * @param string $id A tool id (the `mcpId`/dotted form).
+     * Precedence (see class docblock "Classification precedence"): a supplied
+     * descriptor's `scope`/`destructiveHint`/`readOnlyHint` hint wins when
+     * present; otherwise a 3-segment `{app}.{schema}.{verb}` id falls back to the
+     * ADR-063 verb-suffix heuristic (verb `create`/`update`/`delete`); any other
+     * hint-less shape (bare/2-segment hand-written, curated, or legacy id) FAILS
+     * CLOSED — classified write/destructive, requiring an explicit grant and
+     * tripping the approval gate, rather than silently passing as read (the
+     * pre-`hermiq-prefer-tool-hints` behaviour left these unclassifiable, which
+     * meant a curated write tool like `pipelinq.createLead` could never be
+     * default-denied or gated — see `hermiq-prefer-tool-hints` design.md).
+     *
+     * @param string                   $id         A tool id (the `mcpId`/dotted form).
+     * @param array<string,mixed>|null $descriptor The catalog descriptor for `$id`, when
+     *                                             available (carries the optional
+     *                                             `scope`/`destructiveHint`/`readOnlyHint`
+     *                                             keys). Null when no descriptor is
+     *                                             available for this id (e.g. a call the
+     *                                             LLM attempted outside its resolved
+     *                                             catalog) — falls straight to the
+     *                                             verb-suffix/fail-closed rules.
      *
      * @return bool
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools
+     * @spec openspec/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
      */
-    public static function isWriteOrDestructive(string $id): bool
+    public static function isWriteOrDestructive(string $id, ?array $descriptor=null): bool
     {
-        $parts = explode('.', $id);
-        if (count($parts) !== 3) {
-            return false;
+        if ($descriptor !== null) {
+            $fromHints = self::classifyFromHints(descriptor: $descriptor);
+            if ($fromHints !== null) {
+                return $fromHints;
+            }
         }
 
-        return in_array(end($parts), self::WRITE_VERBS, true);
+        $parts = explode('.', $id);
+        if (count($parts) === 3) {
+            return in_array(end($parts), self::WRITE_VERBS, true);
+        }
+
+        // Hint-less, non-3-segment id: unclassifiable by any positive signal —
+        // fail CLOSED rather than silently pass as read (hermiq-prefer-tool-hints).
+        return true;
 
     }//end isWriteOrDestructive()
+
+    /**
+     * Classify a descriptor from its declared hint keys only — `scope` first
+     * (closed vocabulary), then `destructiveHint`, then `readOnlyHint`; the
+     * first key the descriptor actually sets wins.
+     *
+     * @param array<string,mixed> $descriptor The catalog descriptor.
+     *
+     * @return bool|null `true`/`false` when a hint key is present and usable,
+     *                    `null` when the descriptor sets none of them (caller
+     *                    falls back to the verb-suffix/fail-closed rules).
+     */
+    private static function classifyFromHints(array $descriptor): ?bool
+    {
+        if (isset($descriptor['scope']) === true && is_string($descriptor['scope']) === true) {
+            return in_array($descriptor['scope'], self::WRITE_VERBS, true);
+        }
+
+        if (array_key_exists('destructiveHint', $descriptor) === true && is_bool($descriptor['destructiveHint']) === true) {
+            return ($descriptor['destructiveHint'] === true);
+        }
+
+        if (array_key_exists('readOnlyHint', $descriptor) === true && is_bool($descriptor['readOnlyHint']) === true) {
+            return ($descriptor['readOnlyHint'] === false);
+        }
+
+        return null;
+
+    }//end classifyFromHints()
 
     /**
      * Expand one grant entry into zero or more concrete catalog ids.
@@ -220,17 +294,20 @@ class ToolGrantResolver
     }//end schemaVerbIds()
 
     /**
-     * Strip an id list down to those NOT classified write/destructive.
+     * Strip an id list down to those NOT classified write/destructive, using each
+     * id's own descriptor (hints, when set) — see `isWriteOrDestructive()`.
      *
-     * @param array<int, string> $ids Candidate ids.
+     * @param array<int, string>                  $ids             Candidate ids.
+     * @param array<string, array<string, mixed>> $descriptorsById Every candidate's descriptor, keyed by id.
      *
      * @return array<int, string>
      */
-    private function applyDefaultDeny(array $ids): array
+    private function applyDefaultDeny(array $ids, array $descriptorsById): array
     {
         $out = [];
         foreach ($ids as $id) {
-            if (self::isWriteOrDestructive(id: $id) === true) {
+            $descriptor = ($descriptorsById[$id] ?? null);
+            if (self::isWriteOrDestructive(id: $id, descriptor: $descriptor) === true) {
                 continue;
             }
 
@@ -255,32 +332,34 @@ class ToolGrantResolver
     }//end isWildcardGrant()
 
     /**
-     * Extract every descriptor's whitelist-matchable id: the dotted `mcpId` when
-     * present (MCP-bridged/derived tools), else the bare `name`.
+     * Index every descriptor by its whitelist-matchable id: the dotted `mcpId`
+     * when present (MCP-bridged/derived tools), else the bare `name` — so
+     * `applyDefaultDeny()` can classify each id from its OWN descriptor's hints
+     * (hermiq-prefer-tool-hints), not the id text alone.
      *
      * @param array<int, mixed> $catalog Descriptor list. Typed loosely on purpose: these cross
      *                                   the OpenRegister tool-facade boundary, so each entry is
      *                                   re-checked below.
      *
-     * @return array<int, string>
+     * @return array<string, array<string, mixed>> id => descriptor, first occurrence wins.
      */
-    private function catalogIds(array $catalog): array
+    private function descriptorsById(array $catalog): array
     {
-        $ids = [];
+        $byId = [];
         foreach ($catalog as $descriptor) {
             if (is_array($descriptor) === false) {
                 continue;
             }
 
             $id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
-            if (is_string($id) === true && $id !== '') {
-                $ids[] = $id;
+            if (is_string($id) === true && $id !== '' && isset($byId[$id]) === false) {
+                $byId[$id] = $descriptor;
             }
         }
 
-        return array_values(array_unique($ids));
+        return $byId;
 
-    }//end catalogIds()
+    }//end descriptorsById()
 
     /**
      * Drop non-string / empty grant entries.

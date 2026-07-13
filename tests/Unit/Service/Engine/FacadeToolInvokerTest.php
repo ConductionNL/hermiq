@@ -345,6 +345,52 @@ class FacadeToolInvokerTest extends TestCase
     }//end testGrantedDestructiveToolIsNotGated()
 
     /**
+     * A curated, un-granted 2-segment tool (no verb suffix to classify from, and
+     * no descriptor available since it was never part of the resolved set) now
+     * routes through the approval gate — hermiq-prefer-tool-hints closes the
+     * hole where such a tool was UNCLASSIFIABLE and therefore never gated at all
+     * (it silently dispatched straight to the facade before this change).
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
+     */
+    public function testUngrantedCuratedTwoSegmentToolNowRoutesThroughApprovalGate(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->never())->method('invokeTool');
+
+        $approvalService = $this->createMock(ApprovalService::class);
+        $approvalService->method('findDecidedApprovalForToolInvocation')->willReturn(null);
+
+        $pending = new ObjectEntity();
+        $pending->setUuid('appr-pending-curated');
+        $approvalService->expects($this->once())
+            ->method('ensurePendingApprovalForToolInvocation')
+            ->with('agent-1', 'pipelinq.createLead', ['name' => 'Acme'])
+            ->willReturn($pending);
+
+        // A tool the LLM attempted OUTSIDE its resolved catalog — nothing was
+        // ever registered for it, so ToolSearchService has no descriptor.
+        $searchService = new ToolSearchService();
+
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            toolSearchService: $searchService,
+            approvalService: $approvalService,
+            agentId: 'agent-1',
+            mcpIdByName: ['pipelinq_createLead' => 'pipelinq.createLead']
+        );
+
+        $decoded = json_decode($invoker->pipelinq_createLead(name: 'Acme'), true);
+
+        $this->assertTrue($decoded['isError']);
+        $this->assertSame('pending', $decoded['status']);
+        $this->assertSame('appr-pending-curated', $decoded['approvalId']);
+
+    }//end testUngrantedCuratedTwoSegmentToolNowRoutesThroughApprovalGate()
+
+    /**
      * With no agentId (agent-less chat), the approval gate is disabled entirely
      * — a destructive tool dispatches straight to the facade, unchanged.
      *
