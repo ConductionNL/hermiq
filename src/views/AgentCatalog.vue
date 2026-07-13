@@ -26,12 +26,20 @@
 			<h2 class="agent-catalog__heading">
 				{{ t('hermiq', 'Agents') }}
 			</h2>
-			<NcButton type="primary" @click="openCreate">
-				<template #icon>
-					<Plus :size="20" />
-				</template>
-				{{ t('hermiq', 'Create agent') }}
-			</NcButton>
+			<div class="agent-catalog__header-actions">
+				<NcButton type="secondary" @click="openTemplates">
+					<template #icon>
+						<PackageVariantIcon :size="20" />
+					</template>
+					{{ t('hermiq', 'Browse templates') }}
+				</NcButton>
+				<NcButton type="primary" @click="openCreate">
+					<template #icon>
+						<Plus :size="20" />
+					</template>
+					{{ t('hermiq', 'Create agent') }}
+				</NcButton>
+			</div>
 		</div>
 
 		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not load agents')">
@@ -87,6 +95,7 @@ import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
+import PackageVariantIcon from 'vue-material-design-icons/PackageVariantClosed.vue'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
 import AgentFormModal from '../modals/AgentFormModal.vue'
 
@@ -99,6 +108,7 @@ export default {
 		NcButton,
 		NcEmptyContent,
 		NcNoteCard,
+		PackageVariantIcon,
 		Plus,
 		Robot,
 	},
@@ -230,6 +240,17 @@ export default {
 		},
 
 		/**
+		 * Navigate to the Agent templates gallery (agent-template-gallery) — the
+		 * "something better to click than a blank form" entry point, kept alongside
+		 * the existing blank-form Create-agent path.
+		 *
+		 * @return {void}
+		 */
+		openTemplates() {
+			this.$router.push('/agent-templates')
+		},
+
+		/**
 		 * Reload after an agent is created/edited.
 		 *
 		 * @return {Promise<void>}
@@ -270,6 +291,12 @@ export default {
 	margin: 0;
 	font-size: 22px;
 	font-weight: 600;
+}
+
+.agent-catalog__header-actions {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
 }
 
 .agent-catalog__badge--on {
