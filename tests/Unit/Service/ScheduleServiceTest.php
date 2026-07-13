@@ -2706,4 +2706,244 @@ class ScheduleServiceTest extends TestCase
         $this->assertSame('awaiting_approval', $this->auditCalls[0]['context']['status']);
 
     }//end testApprovalGateStillAppliesToPendingRetry()
+
+    /**
+     * An agent object with the given actingUser (agent-lifecycle-governance offboarding).
+     *
+     * @param string      $uuid       The agent uuid.
+     * @param string|null $actingUser The agent's actingUser field, or null when unset.
+     *
+     * @return ObjectEntity
+     */
+    private function agentWithActingUser(string $uuid, ?string $actingUser): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid($uuid);
+        $entity->setObject(['name' => 'Agent', 'actingUser' => $actingUser]);
+        return $entity;
+
+    }//end agentWithActingUser()
+
+    /**
+     * pauseForUser() disables an enabled schedule owned by the offboarded user,
+     * persists it, writes an audit entry, and flags its agent for reassignment.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    public function testPauseForUserPausesScheduleOwnedByUser(): void
+    {
+        $schedule = $this->schedule(
+            ['agentId' => 'agent-1', 'enabled' => true, 'kind' => 'once'],
+            'sched-1',
+            'alice'
+        );
+
+        $this->objectService->method('findAll')->willReturn([$schedule]);
+        $this->objectService->method('find')->willReturn($this->agentWithActingUser('agent-1', null));
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$saved): ObjectEntity {
+                $saved[] = ['object' => $object, 'schema' => (string) $schema];
+                $entity = new ObjectEntity();
+                $entity->setUuid($uuid ?? 'x');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $paused = $this->service->pauseForUser('alice');
+
+        $this->assertSame(1, $paused);
+
+        $scheduleSave = null;
+        $agentSave    = null;
+        foreach ($saved as $call) {
+            if ($call['schema'] === 'schedule') {
+                $scheduleSave = $call['object'];
+            }
+            if ($call['schema'] === 'agent') {
+                $agentSave = $call['object'];
+            }
+        }
+
+        $this->assertNotNull($scheduleSave, 'The schedule must be persisted.');
+        $this->assertFalse($scheduleSave['enabled']);
+        $this->assertSame('paused_offboarding', $scheduleSave['lastStatus']);
+        $this->assertSame('agent-1', $scheduleSave['agentId'], 'Unrelated fields must be preserved.');
+
+        $this->assertNotNull($agentSave, 'The owning agent must be flagged for reassignment.');
+        $this->assertTrue($agentSave['reassignmentFlag']);
+
+        $this->assertCount(1, $this->auditCalls);
+        $this->assertSame('paused_offboarding', $this->auditCalls[0]['context']['status']);
+        $this->assertSame('alice', $this->auditCalls[0]['context']['offboardedUser']);
+
+    }//end testPauseForUserPausesScheduleOwnedByUser()
+
+    /**
+     * pauseForUser() also pauses a schedule whose Agent's actingUser resolves to
+     * the offboarded user, even when the schedule's own owner differs.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    public function testPauseForUserMatchesViaActingUser(): void
+    {
+        $schedule = $this->schedule(
+            ['agentId' => 'agent-2', 'enabled' => true, 'kind' => 'once'],
+            'sched-2',
+            'bob'
+        );
+
+        $this->objectService->method('findAll')->willReturn([$schedule]);
+        $this->objectService->method('find')->willReturn($this->agentWithActingUser('agent-2', 'alice'));
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$saved): ObjectEntity {
+                $saved[] = ['object' => $object, 'schema' => (string) $schema];
+                $entity = new ObjectEntity();
+                $entity->setUuid($uuid ?? 'x');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $paused = $this->service->pauseForUser('alice');
+
+        $this->assertSame(1, $paused);
+        $scheduleSaves = array_filter($saved, static fn (array $c) => $c['schema'] === 'schedule');
+        $this->assertNotEmpty($scheduleSaves);
+        $this->assertFalse(reset($scheduleSaves)['object']['enabled']);
+
+    }//end testPauseForUserMatchesViaActingUser()
+
+    /**
+     * pauseForUser() leaves a schedule belonging to a different, unrelated user
+     * untouched — no persist, no audit entry, no agent flag.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    public function testPauseForUserLeavesUnrelatedScheduleUntouched(): void
+    {
+        $schedule = $this->schedule(
+            ['agentId' => 'agent-3', 'enabled' => true, 'kind' => 'once'],
+            'sched-3',
+            'carol'
+        );
+
+        $this->objectService->method('findAll')->willReturn([$schedule]);
+        $this->objectService->method('find')->willReturn($this->agentWithActingUser('agent-3', 'dave'));
+        $this->objectService->expects($this->never())->method('saveObject');
+
+        $paused = $this->service->pauseForUser('alice');
+
+        $this->assertSame(0, $paused);
+        $this->assertCount(0, $this->auditCalls);
+
+    }//end testPauseForUserLeavesUnrelatedScheduleUntouched()
+
+    /**
+     * pauseForUser() does not persist/audit an already-disabled schedule again,
+     * but its agent is still flagged — an already-paused schedule's owning human
+     * is still gone.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    public function testPauseForUserSkipsAlreadyDisabledScheduleButStillFlagsAgent(): void
+    {
+        $schedule = $this->schedule(
+            ['agentId' => 'agent-4', 'enabled' => false, 'kind' => 'once'],
+            'sched-4',
+            'alice'
+        );
+
+        $this->objectService->method('findAll')->willReturn([$schedule]);
+        $this->objectService->method('find')->willReturn($this->agentWithActingUser('agent-4', null));
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$saved): ObjectEntity {
+                $saved[] = ['object' => $object, 'schema' => (string) $schema];
+                $entity = new ObjectEntity();
+                $entity->setUuid($uuid ?? 'x');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $paused = $this->service->pauseForUser('alice');
+
+        $this->assertSame(0, $paused, 'An already-disabled schedule is not counted as newly paused.');
+        $this->assertCount(0, $this->auditCalls, 'No redundant audit entry for an already-disabled schedule.');
+
+        $schemas = array_column($saved, 'schema');
+        $this->assertNotContains('schedule', $schemas, 'The already-disabled schedule must not be re-persisted.');
+        $this->assertContains('agent', $schemas, 'The owning agent must still be flagged.');
+
+    }//end testPauseForUserSkipsAlreadyDisabledScheduleButStillFlagsAgent()
+
+    /**
+     * pauseForUser() only changes enabled/lastStatus — it never touches a
+     * currently in-progress run's own state (there is no "abort" primitive here;
+     * only future occurrences are prevented from firing, matching the gate-skip
+     * semantics already documented on recordGateSkip()).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     */
+    public function testPauseForUserDoesNotAlterInProgressRunFields(): void
+    {
+        $schedule = $this->schedule(
+            [
+                'agentId'    => 'agent-5',
+                'enabled'    => true,
+                'kind'       => 'once',
+                'lastStatus' => 'running',
+                'prompt'     => 'do the thing',
+            ],
+            'sched-5',
+            'alice'
+        );
+
+        $this->objectService->method('findAll')->willReturn([$schedule]);
+        $this->objectService->method('find')->willReturn($this->agentWithActingUser('agent-5', null));
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$saved): ObjectEntity {
+                $saved[] = ['object' => $object, 'schema' => (string) $schema];
+                $entity = new ObjectEntity();
+                $entity->setUuid($uuid ?? 'x');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $this->service->pauseForUser('alice');
+
+        $scheduleSave = null;
+        foreach ($saved as $call) {
+            if ($call['schema'] === 'schedule') {
+                $scheduleSave = $call['object'];
+            }
+        }
+
+        $this->assertNotNull($scheduleSave);
+        $this->assertFalse($scheduleSave['enabled']);
+        $this->assertSame('paused_offboarding', $scheduleSave['lastStatus']);
+        // The in-flight run's own prompt/other fields are preserved verbatim —
+        // pauseForUser() never rewrites them.
+        $this->assertSame('do the thing', $scheduleSave['prompt']);
+
+    }//end testPauseForUserDoesNotAlterInProgressRunFields()
 }//end class

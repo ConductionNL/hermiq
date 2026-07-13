@@ -28,6 +28,7 @@ namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\DeepLinkRegistrationListener;
+use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
 use OCA\Hermiq\TaskProcessing\ContextAgentProvider;
@@ -40,6 +41,8 @@ use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
 use OCP\AppFramework\Bootstrap\IRegistrationContext;
+use OCP\User\Events\UserChangedEvent;
+use OCP\User\Events\UserDeletedEvent;
 
 /**
  * Main application class for the Hermiq Nextcloud app.
@@ -99,6 +102,21 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(
             event: AgentRunRequestedEvent::class,
             listener: AgentRunRequestedListener::class
+        );
+
+        // Offboarding (agent-lifecycle-governance): a Nextcloud user being deleted
+        // or disabled auto-pauses their schedules (ScheduleService::pauseForUser())
+        // and flags the owning Agent(s) for reassignment. This NC version has no
+        // dedicated `DisableUserEvent` — disabling a user fires `UserChangedEvent`
+        // with feature='enabled'/value=false (see UserLifecycleListener docblock),
+        // so both events are registered against the SAME listener.
+        $context->registerEventListener(
+            event: UserDeletedEvent::class,
+            listener: UserLifecycleListener::class
+        );
+        $context->registerEventListener(
+            event: UserChangedEvent::class,
+            listener: UserLifecycleListener::class
         );
 
         // Renders Hermiq's Nextcloud notifications (talk-delivery): the notification

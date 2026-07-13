@@ -8,6 +8,10 @@
     "aifeature.withdraw-from-algoritmeregister": ["admin"],
     "skill.approve-quarantined": ["admin"],
     "skill.override-scan-verdict": ["admin"],
-    "skill.publish-hub": ["admin"]
+    "skill.publish-hub": ["admin"],
+    "tenantops.attest-review": ["admin"],
+    "tenantops.reassign-agent": ["admin"],
+    "tenantops.create-incident": ["admin"],
+    "tenantops.update-retention": ["admin"]
   }
 }

@@ -10,8 +10,8 @@
   - GIVEN the `Agent` schema WHEN it is loaded THEN it carries `reassignmentFlag` (boolean, default false), `reviewedAt` (date-time), `reviewedBy` (string)
   - GIVEN the `TenantControl` schema WHEN it is loaded THEN it carries `retentionMonths` (integer, default 6)
   - GIVEN 3 seeded `Incident` objects WHEN the repair step runs THEN each links to an existing seeded Agent
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ### Task 2: ScheduleService — pauseForUser()
 - **spec_ref**: `openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable`
@@ -21,8 +21,8 @@
   - GIVEN an Agent's `actingUser` resolves to `$uid` (owner differs) WHEN `pauseForUser($uid)` runs THEN Schedules firing that Agent are also paused
   - GIVEN a Schedule belonging to a different user WHEN `pauseForUser($uid)` runs THEN it is left untouched
   - GIVEN a run is already in progress WHEN `pauseForUser($uid)` runs concurrently THEN the in-progress run is not interrupted (only `nextRun`/`enabled` state is affected)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ### Task 3: UserLifecycleListener — offboarding on NC user delete/disable
 - **spec_ref**: `openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable`
@@ -31,8 +31,8 @@
   - GIVEN `OCP\User\Events\UserDeletedEvent` fires for uid U WHEN the listener handles it THEN `ScheduleService::pauseForUser(U)` is called and every Agent it paused a schedule for is flagged `reassignmentFlag=true`
   - GIVEN `OCP\User\Events\DisableUserEvent` fires for uid U WHEN the listener handles it THEN the same pause + flag behaviour applies
   - GIVEN the listener throws WHEN NC dispatches the event THEN the error is logged and does not abort the underlying user deletion/disable
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ### Task 4: TenantOpsService — access review + reassignment
 - **spec_ref**: `openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-periodic-access-review-with-capability-summary`
@@ -42,8 +42,8 @@
   - GIVEN an org admin attests an Agent WHEN `attestAgentReviewed($uuid, $uid)` runs THEN `reviewedAt`/`reviewedBy` are updated (idempotent — re-attesting updates, does not duplicate)
   - GIVEN a flagged Agent and an existing, active target user WHEN `reassignAgent($uuid, $newActingUser)` runs THEN `Agent.actingUser` is updated and `reassignmentFlag` cleared, without re-enabling any paused Schedule
   - GIVEN a non-existent or disabled target user WHEN `reassignAgent()` runs THEN it is rejected and the Agent remains flagged
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ### Task 5: TenantOpsController — access-review + reassign endpoints
 - **spec_ref**: `openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-org-admin-reassignment-flow-for-flagged-agents`
@@ -52,8 +52,8 @@
   - GIVEN an authenticated org member WHEN `GET /api/tenant-ops/access-review` is called THEN it returns that org's `accessReviewList()` payload
   - GIVEN an org admin WHEN `POST /api/tenant-ops/access-review/{uuid}/attest` is called THEN `attestAgentReviewed()` runs; a non-admin caller is rejected via `ActionAuthService`
   - GIVEN an org admin WHEN `POST /api/tenant-ops/access-review/{uuid}/reassign` is called with a target user THEN `reassignAgent()` runs; a non-admin caller is rejected
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ### Task 6: TenantOpsService — incidents + audit export extension
 - **spec_ref**: `openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-incident-records-are-included-in-the-art-12-audit-export`
@@ -62,8 +62,8 @@
   - GIVEN an org admin opens an incident WHEN `createIncident()` runs with description/impact/actionsTaken and optional linked agent/runs THEN an `Incident` object is persisted scoped to the caller's organisation
   - GIVEN the caller's organisation has incidents WHEN `listIncidents()` runs THEN they are returned newest-first, scoped to that organisation only
   - GIVEN incidents exist WHEN `exportAuditTrail()` runs THEN the export includes each incident's description/impact/actionsTaken and linked run/agent references alongside existing run/approval entries
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ### Task 7: TenantOpsController — incidents + retention endpoints
 - **spec_ref**: `openspec/changes/agent-lifecycle-governance/specs/multi-tenant-ops/spec.md#requirement-per-organisation-retention-period-configuration`
@@ -73,16 +73,16 @@
   - GIVEN an org admin WHEN `POST /api/tenant-ops/incidents` is called with valid fields THEN `createIncident()` runs; a non-admin caller is rejected via `ActionAuthService`
   - GIVEN an authenticated org member WHEN `GET /api/tenant-ops/retention` is called THEN the org's `retentionMonths` is returned (default 6)
   - GIVEN an org admin WHEN `PUT /api/tenant-ops/retention` is called with `retentionMonths < 6` THEN the request is rejected and the stored value is unchanged; `>= 6` is accepted
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ### Task 8: Frontend API module
 - **spec_ref**: `openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-reviewed-attestation-is-recorded-and-auditable`
 - **files**: `src/api/tenantOps.js`
 - **acceptance_criteria**:
   - GIVEN the module WHEN `getAccessReview()`, `attestReviewed(uuid)`, `reassignAgent(uuid, uid)`, `getIncidents()`, `createIncident(payload)`, `getRetention()`, `setRetention(months)` are called THEN each hits its corresponding `/api/tenant-ops/*` endpoint and returns `response.data`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ### Task 9: TenantOps.vue — access review, incidents, retention UI
 - **spec_ref**: `openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-periodic-access-review-with-capability-summary`
@@ -92,8 +92,8 @@
   - GIVEN an org admin clicks "Open incident" WHEN `CreateIncidentDialog.vue` (NcDialog, own file per ADR-004 modal isolation) is submitted THEN the incident is created and appears in an incident list section
   - GIVEN an org admin views the retention section WHEN they raise the value THEN it saves via `setRetention()`; a rejected (`< 6`) value shows an inline error and does not update the displayed value
   - GIVEN a non-admin user WHEN they open Tenant ops THEN none of the new sections are shown (existing `canManage` gate covers them)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (573-test suite green; UI surfaces compile/eslint-verified — live browser coverage deferred to the playwright-regression-coverage change)
 
 ## Quality checklist
 

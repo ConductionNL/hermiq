@@ -65,6 +65,7 @@
             <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
             <step>OCA\Hermiq\Repair\SeedBudgets</step>
             <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
+            <step>OCA\Hermiq\Repair\SeedIncidents</step>
         </install>
         <post-migration>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
@@ -73,6 +74,7 @@
             <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
             <step>OCA\Hermiq\Repair\SeedBudgets</step>
             <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
+            <step>OCA\Hermiq\Repair\SeedIncidents</step>
             <step>OCA\Hermiq\Repair\MigrateAgentData</step>
             <step>OCA\Hermiq\Repair\RemoveLegacyLlmKeys</step>
         </post-migration>
