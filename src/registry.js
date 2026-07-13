@@ -47,6 +47,7 @@ import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import AgentSessions from './views/AgentSessions.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
+import AgentTemplateGallery from './views/AgentTemplateGallery.vue'
 import AiFeatureRegister from './views/AiFeatureRegister.vue'
 import TenantOps from './views/TenantOps.vue'
 import McpTools from './views/McpTools.vue'
@@ -126,6 +127,16 @@ export default {
 	SkillsCatalog: {
 		kind: 'page',
 		component: SkillsCatalog,
+	},
+
+	/**
+	 * Agent template gallery — browse/import/export portable agent definitions and
+	 * "Use this template" to instantiate a real Agent (agent-template-gallery). Standard
+	 * nav page, not a dashboard.
+	 */
+	AgentTemplateGallery: {
+		kind: 'page',
+		component: AgentTemplateGallery,
 	},
 
 	/**

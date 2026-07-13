@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.4"
+    "version": "0.10.5"
   },
   "x-openregister": {
     "type": "application",
@@ -674,6 +674,33 @@
           "explanationMode": { "type": "string", "enum": ["template", "llm-assisted"], "default": "template", "title": "Explanation mode", "description": "Which path produced the explanation text for this recommendation set." },
           "modelUsed": { "type": "string", "nullable": true, "title": "Model used", "description": "Provider/model identifier when explanationMode is llm-assisted; null otherwise." },
           "viewedAt": { "type": "string", "format": "date-time", "nullable": true, "title": "Viewed at", "description": "When the learner last opened this recommendation list (reserved for a future scholiq-side surface; not written by this change)." }
+        }
+      },
+      "AgentTemplate": {
+        "slug": "agenttemplate",
+        "icon": "PackageVariantOutline",
+        "version": "0.1.0",
+        "title": "Agent template",
+        "description": "A portable, versionable agent definition (agent-template-gallery) — the agent-level analogue of Skill. Carries NO secrets and NO tenant data by construction: no field for an API key, credential, RAG source id, invited-user id, group id, or quota exists on this schema. \"Use this template\" instantiates a real Agent; the suggested provider/model is coerced through the caller's effective TenantModelPolicy at that point and is never persisted back onto the template.",
+        "type": "object",
+        "required": ["name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "name": { "type": "string", "title": "Name", "description": "Human-readable template name.", "example": "Morning briefing" },
+          "description": { "type": "string", "title": "Description", "description": "What the resulting agent does." },
+          "category": { "type": "string", "title": "Category", "description": "Free-form grouping label shown in the gallery (e.g. productivity, monitoring, reporting)." },
+          "systemPrompt": { "type": "string", "title": "System prompt", "description": "The suggested agent system prompt/instructions — content-scanned by OpenRegister's ContentScanService on external import (mirrors skills-marketplace's exact discipline; a prompt is as much a prompt-injection vector as a skill body)." },
+          "suggestedProvider": { "type": "string", "title": "Suggested provider", "description": "The suggested LLM provider (e.g. openai, ollama, fireworks, nextcloud). Coerced into the caller's effective ModelPolicy at instantiate — never applied verbatim when out of policy." },
+          "suggestedModel": { "type": "string", "title": "Suggested model", "description": "The suggested model id for suggestedProvider; coerced alongside suggestedProvider at instantiate." },
+          "tools": { "type": "array", "default": [], "title": "Tools", "description": "Suggested tool allowlist, same {appId}.{toolName} shape as Agent.tools, applied verbatim to the created Agent.", "items": { "type": "string" } },
+          "skillRefs": { "type": "array", "default": [], "title": "Skill references", "description": "Name-hints of skills this template suggests — NOT live installs. Each ref is resolved best-effort at instantiate: a hit that is active and visible in the caller's organisation is installed via SkillService::installOnAgent(); a miss is reported in the instantiate response's unresolvedSkillRefs and never fails the call.", "items": { "type": "object", "properties": { "skillId": { "type": "string", "format": "uuid", "title": "Skill", "description": "UUID of the suggested Skill, if known.", "$ref": "Skill" }, "name": { "type": "string", "title": "Name", "description": "Human-readable skill name (shown when the uuid does not resolve locally)." } } } },
+          "suggestedSchedule": { "type": "object", "title": "Suggested schedule", "description": "A schedule HINT only — kind/cronExpr/intervalMinutes/deliver — structurally incapable of being a live Schedule reference (no agentId field, which the Schedule schema requires). Returned verbatim in the instantiate response to prefill ScheduleFormModal; instantiate NEVER creates a Schedule object itself.", "properties": { "kind": { "type": "string", "enum": ["once", "interval", "cron"], "title": "Kind", "description": "Suggested trigger type." }, "cronExpr": { "type": "string", "title": "Cron expression", "description": "Suggested cron expression (when kind=cron)." }, "intervalMinutes": { "type": "integer", "minimum": 1, "title": "Interval (minutes)", "description": "Suggested interval in minutes (when kind=interval)." }, "deliver": { "type": "string", "enum": ["talk", "notification", "none"], "title": "Deliver to", "description": "Suggested delivery target." } } },
+          "state": { "type": "string", "enum": ["active", "quarantined", "archived"], "default": "active", "title": "State", "description": "Template lifecycle state, mirroring Skill.state. A template imported from another organisation or an external hub starts quarantined and must pass review before active (agent-template-gallery, mirroring skills-marketplace)." },
+          "source": { "type": "string", "enum": ["local", "org", "hub"], "default": "local", "title": "Source", "description": "Where the template came from: locally authored, another organisation, or an external hub. Mirrors Skill.source." },
+          "quarantineReason": { "type": "string", "title": "Quarantine reason", "description": "Why the template is quarantined (set when imported from an external source)." },
+          "scanReport": { "type": "object", "title": "Scan report", "description": "Heuristic content-scan verdict from OpenRegister ContentScanService over the systemPrompt, recorded at import and re-checked at approval. A 'dangerous' verdict blocks one-click approval.", "properties": { "severity": { "type": "string", "enum": ["clean", "suspicious", "dangerous"], "title": "Severity", "description": "Worst verdict across findings." }, "safe": { "type": "boolean", "title": "Safe", "description": "True only when severity is 'clean'." }, "scannedAt": { "type": "string", "format": "date-time", "title": "Scanned at", "description": "When the scan ran." }, "findings": { "type": "array", "title": "Findings", "description": "Matched dangerous patterns.", "items": { "type": "object", "properties": { "category": { "type": "string", "title": "Category", "description": "The kind of dangerous pattern matched (e.g. remote-code, exfiltration)." }, "severity": { "type": "string", "title": "Severity", "description": "The severity of this individual finding." }, "reason": { "type": "string", "title": "Reason", "description": "Why this content was flagged." }, "excerpt": { "type": "string", "title": "Excerpt", "description": "The matched excerpt from the scanned content." } } } } } },
+          "version": { "type": "string", "default": "0.1.0", "title": "Version", "description": "Free-text template version (e.g. semver), travels inside the exported package; not rendered as a diff in this change." },
+          "createdBy": { "type": "string", "title": "Created by", "description": "The user id who authored/imported the template." }
         }
       }
     }

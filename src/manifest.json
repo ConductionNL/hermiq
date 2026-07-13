@@ -27,6 +27,13 @@
 			"order": 15
 		},
 		{
+			"id": "AgentTemplateGallery",
+			"label": "Agent templates",
+			"icon": "icon-category-integration",
+			"route": "AgentTemplateGallery",
+			"order": 11
+		},
+		{
 			"id": "AgentMemory",
 			"label": "Memory",
 			"icon": "icon-category-monitoring",
@@ -162,6 +169,14 @@
 			"component": "SkillsCatalog",
 			"title": "Skills",
 			"_note": "Custom page: the skills catalog imports/exports agentskills.io packages (lossless SkillSerializer round-trip) and installs a skill onto an agent (installedOn association) — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+		},
+		{
+			"id": "AgentTemplateGallery",
+			"route": "/agent-templates",
+			"type": "custom",
+			"component": "AgentTemplateGallery",
+			"title": "Agent templates",
+			"_note": "Custom page: the agent-template gallery imports/exports portable JSON template packages, action-auth-gates quarantine approval, and instantiates a template into a real Agent with model-policy coercion — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "AiFeatureRegister",

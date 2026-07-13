@@ -245,6 +245,43 @@ return [
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillMarketplace#publish',           'url' => '/api/skills/{id}/publish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
+        // Agent template gallery (agent-template-gallery): browse/CRUD the tenant's
+        // AgentTemplate catalog, export an Agent to a package, import a package
+        // (quarantined + content-scanned when externally-sourced), approve the
+        // review gate (action-auth-gated), and "Use this template" instantiate.
+        // 'from-agent/{agentId}/export' is registered before the {id} routes so the
+        // literal path segment never falls into the id matcher.
+        ['name' => 'agentTemplate#index',   'url' => '/api/agent-templates', 'verb' => 'GET'],
+        ['name' => 'agentTemplate#create',  'url' => '/api/agent-templates', 'verb' => 'POST'],
+        ['name' => 'agentTemplate#import',  'url' => '/api/agent-templates/import', 'verb' => 'POST'],
+        [
+            'name'         => 'agentTemplate#export',
+            'url'          => '/api/agent-templates/from-agent/{agentId}/export',
+            'verb'         => 'GET',
+            'requirements' => ['agentId' => '[^/]+'],
+        ],
+        ['name' => 'agentTemplate#show',    'url' => '/api/agent-templates/{id}', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentTemplate#update',  'url' => '/api/agent-templates/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'agentTemplate#destroy', 'url' => '/api/agent-templates/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
+        [
+            'name'         => 'agentTemplate#exportPackage',
+            'url'          => '/api/agent-templates/{id}/export',
+            'verb'         => 'GET',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentTemplate#approve',
+            'url'          => '/api/agent-templates/{id}/approve',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentTemplate#instantiate',
+            'url'          => '/api/agent-templates/{id}/instantiate',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+
         // AI-feature governance register (ai-feature-governance-register): list + DPO-ack + enable/disable.
         ['name' => 'aiFeature#index',       'url' => '/api/ai-features', 'verb' => 'GET'],
         ['name' => 'aiFeature#acknowledge', 'url' => '/api/ai-features/{slug}/acknowledge', 'verb' => 'POST', 'requirements' => ['slug' => '[^/]+']],
