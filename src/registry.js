@@ -52,6 +52,7 @@ import AiFeatureRegister from './views/AiFeatureRegister.vue'
 import TenantOps from './views/TenantOps.vue'
 import McpTools from './views/McpTools.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
+import EvalDatasets from './views/EvalDatasets.vue'
 
 export default {
 	// -------------------------------------------------------------------------
@@ -206,6 +207,16 @@ export default {
 	ComplianceDashboard: {
 		kind: 'page',
 		component: ComplianceDashboard,
+	},
+
+	/**
+	 * Evaluations — eval datasets and their governed, non-delivering agent runs with
+	 * deterministic + LLM-as-judge scoring and a pass-rate/regression history
+	 * (agent-evals). Standard nav page; the run action has no OR object equivalent.
+	 */
+	EvalDatasets: {
+		kind: 'page',
+		component: EvalDatasets,
 	},
 
 	// -------------------------------------------------------------------------

@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.8"
+    "version": "0.10.9"
   },
   "x-openregister": {
     "type": "application",
@@ -733,6 +733,80 @@
           "scanReport": { "type": "object", "title": "Scan report", "description": "Heuristic content-scan verdict from OpenRegister ContentScanService over the systemPrompt, recorded at import and re-checked at approval. A 'dangerous' verdict blocks one-click approval.", "properties": { "severity": { "type": "string", "enum": ["clean", "suspicious", "dangerous"], "title": "Severity", "description": "Worst verdict across findings." }, "safe": { "type": "boolean", "title": "Safe", "description": "True only when severity is 'clean'." }, "scannedAt": { "type": "string", "format": "date-time", "title": "Scanned at", "description": "When the scan ran." }, "findings": { "type": "array", "title": "Findings", "description": "Matched dangerous patterns.", "items": { "type": "object", "properties": { "category": { "type": "string", "title": "Category", "description": "The kind of dangerous pattern matched (e.g. remote-code, exfiltration)." }, "severity": { "type": "string", "title": "Severity", "description": "The severity of this individual finding." }, "reason": { "type": "string", "title": "Reason", "description": "Why this content was flagged." }, "excerpt": { "type": "string", "title": "Excerpt", "description": "The matched excerpt from the scanned content." } } } } } },
           "version": { "type": "string", "default": "0.1.0", "title": "Version", "description": "Free-text template version (e.g. semver), travels inside the exported package; not rendered as a diff in this change." },
           "createdBy": { "type": "string", "title": "Created by", "description": "The user id who authored/imported the template." }
+        }
+      },
+      "EvalDataset": {
+        "slug": "evaldataset",
+        "icon": "FlaskOutline",
+        "version": "0.1.0",
+        "title": "Eval dataset",
+        "description": "A named set of EvalCases (agent-evals) — an input prompt plus a deterministic assertion or an LLM-judge rubric — run on demand against an Agent as an EvalRun, so an operator can verify an agent's behaviour before trusting it with real, delivered runs. A case has no independent lifecycle, ownership, or cross-dataset reuse need, so it is stored as an embedded array property, not a standalone schema/register relation (mirrors Schedule.repeat).",
+        "type": "object",
+        "required": ["name"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "name": { "type": "string", "title": "Name", "description": "Human-readable dataset label.", "example": "Daily briefing smoke test" },
+          "description": { "type": "string", "title": "Description", "description": "What this dataset guards against." },
+          "cases": {
+            "type": "array",
+            "default": [],
+            "title": "Cases",
+            "description": "The dataset's EvalCase entries, executed in order (sequentially, never in parallel — IUserSession::setUser() impersonation is not concurrency-safe).",
+            "items": {
+              "type": "object",
+              "required": ["prompt", "expectationType"],
+              "properties": {
+                "prompt": { "type": "string", "title": "Prompt", "description": "The input text executed through the agent's real engine path for this case." },
+                "expectationType": { "type": "string", "enum": ["contains", "notContains", "jsonPathEquals", "rubric"], "title": "Expectation type", "description": "How this case is scored: a plain substring check (contains/notContains), a JSONPath-equals assertion against the parsed output, or an LLM-as-judge rubric." },
+                "expectedSubstring": { "type": "string", "title": "Expected substring", "description": "Required when expectationType is contains/notContains — the literal substring checked for (case-sensitive) in the actual output." },
+                "jsonPath": { "type": "string", "title": "JSON path", "description": "Required when expectationType is jsonPathEquals — a simple dot/bracket path (e.g. result.status or items[0].name) resolved against the actual output parsed as JSON." },
+                "expectedValue": { "type": "string", "title": "Expected value", "description": "Required when expectationType is jsonPathEquals — the value (compared as a string) expected at jsonPath." },
+                "rubric": { "type": "string", "title": "Rubric", "description": "Required when expectationType is rubric — the grading instructions given to the LLM judge, evaluated against this case's input and actual output via ProviderFactory::generateText() (the same governed chokepoint every other Hermiq LLM call uses)." },
+                "rubricPassThreshold": { "type": "number", "default": 0.7, "minimum": 0, "maximum": 1, "title": "Rubric pass threshold", "description": "The minimum judge score (0–1) for a rubric case to be recorded passed=true. Only meaningful when expectationType=rubric." }
+              }
+            }
+          }
+        }
+      },
+      "EvalRun": {
+        "slug": "evalrun",
+        "icon": "ChartLine",
+        "version": "0.1.0",
+        "title": "Eval run",
+        "description": "One execution of an EvalDataset against an Agent (agent-evals): each case runs through ScheduleService::runAgentAsOwner() — the same impersonation and Engine/ChatService path a schedule tick or Run now uses — but non-delivering (DeliveryService is never called). Scored deterministically or via LLM-as-judge, aggregated into a passRate, and compared against the immediately preceding completed EvalRun for the same datasetId+agentId as a regression gate.",
+        "type": "object",
+        "required": ["datasetId", "agentId"],
+        "x-openregister": { "publicRead": false, "publicWrite": false },
+        "properties": {
+          "datasetId": { "type": "string", "format": "uuid", "title": "Dataset", "description": "UUID of the EvalDataset this run executed.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "EvalDataset" },
+          "agentId": { "type": "string", "format": "uuid", "title": "Agent", "description": "UUID of the Agent this run executed the dataset's cases against.", "example": "00000000-0000-0000-0000-000000000000", "$ref": "Agent" },
+          "agentVersionId": { "type": "string", "nullable": true, "title": "Agent version", "description": "Reserved for agent-versioning (not yet built): accepted and stored verbatim on trigger, but never resolved, validated, or branched on — an inert, forward-compatible field until agent-versioning lands its own registry." },
+          "status": { "type": "string", "enum": ["completed", "failed", "blocked_killswitch", "blocked_budget"], "title": "Status", "description": "completed = every case executed (individual cases may still fail their own assertion); failed = an infrastructure-level error (e.g. no LLM provider configured) hit at least one case; blocked_killswitch/blocked_budget = the run never executed any case because the target organisation's kill-switch was engaged or its budget hard cap was reached." },
+          "startedAt": { "type": "string", "format": "date-time", "title": "Started at", "description": "When this run began." },
+          "endedAt": { "type": "string", "format": "date-time", "title": "Ended at", "description": "When this run finished (or was gate-skipped)." },
+          "results": {
+            "type": "array",
+            "default": [],
+            "title": "Results",
+            "description": "Per-case outcomes, in dataset case order.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "caseIndex": { "type": "integer", "title": "Case index", "description": "0-based index of this case within the dataset's cases array at run time." },
+                "prompt": { "type": "string", "title": "Prompt", "description": "The case's input prompt, snapshotted at run time." },
+                "expectationType": { "type": "string", "title": "Expectation type", "description": "The case's expectationType, snapshotted at run time." },
+                "actualOutput": { "type": "string", "title": "Actual output", "description": "The agent's real output for this case (redacted before the AuditTrail write, but recorded verbatim here — tenant/RBAC-scoped like any other Hermiq object)." },
+                "passed": { "type": "boolean", "title": "Passed", "description": "Whether this case's scoring judged the actual output to meet its expectation." },
+                "errorMessage": { "type": "string", "nullable": true, "title": "Error message", "description": "Why scoring could not complete or why an infrastructure-level error occurred (e.g. malformed JSON for jsonPathEquals, a ModelPolicyViolationException for a rubric judge call). Never fatal to the run as a whole." },
+                "score": { "type": "number", "nullable": true, "title": "Score", "description": "The LLM judge's numeric score (0–1) for a rubric case; absent for deterministic cases." },
+                "judgeRationale": { "type": "string", "nullable": true, "title": "Judge rationale", "description": "The LLM judge's rationale for its score, for a rubric case." }
+              }
+            }
+          },
+          "passRate": { "type": "number", "minimum": 0, "maximum": 1, "title": "Pass rate", "description": "Fraction of cases that passed (0 when no case executed)." },
+          "regressionGateResult": { "type": "string", "enum": ["passed", "failed", "not_applicable"], "title": "Regression gate result", "description": "Compares this run's passRate against the immediately preceding completed EvalRun for the same datasetId+agentId. not_applicable when no prior run exists." },
+          "previousPassRate": { "type": "number", "nullable": true, "title": "Previous pass rate", "description": "The compared-against prior run's passRate, when regressionGateResult is not not_applicable." },
+          "regressionThresholdPercent": { "type": "integer", "nullable": true, "title": "Regression threshold (pp)", "description": "The effective regression-gate threshold (percentage points of passRate drop) applied to this run — the instance-wide IAppConfig default unless a per-trigger override was supplied." }
         }
       }
     }

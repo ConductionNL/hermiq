@@ -464,12 +464,25 @@ class ProviderFactory
      *                                    Hermiq TaskProcessing provider backed by the
      *                                    `nextcloud` (TaskProcessing) driver would recurse
      *                                    into TaskProcessing endlessly.
+     * @param string|null $organisation   Agent-evals: when non-null (including `''` for an
+     *                                    organisation-less scope), the resolved (provider,
+     *                                    model) pair is checked against that organisation's
+     *                                    effective ModelPolicy before generating — the SAME
+     *                                    `createChatDriver()` enforcement chokepoint an
+     *                                    agent-under-test call goes through, so an
+     *                                    LLM-as-judge call is model-policy-governed exactly
+     *                                    like any other Hermiq LLM call. Default `null`
+     *                                    preserves every pre-existing caller's behaviour
+     *                                    unchanged (opt-in, no enforcement).
      *
      * @return string The generated text.
      *
      * @throws ProviderUnavailableException When no provider is configured/reachable, or
      *                                      `nextcloud` is selected while `$allowNextcloud`
      *                                      is false.
+     * @throws ModelPolicyViolationException When `$organisation` is given and the resolved
+     *                                      (provider, model) pair falls outside its
+     *                                      effective ModelPolicy.
      *
      * @SuppressWarnings(PHPMD.StaticAccess)        LLPhant's Message::user() factory is the
      * library's public API — there is no injectable seam.
@@ -480,11 +493,12 @@ class ProviderFactory
      * Mirrors the accepted `ScheduleService::runNow($bypassApprovalGate)` precedent.
      *
      * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
+     * @spec openspec/changes/agent-evals/tasks.md#task-4-providerfactorygeneratetext-optional-organisation-param
      */
-    public function generateText(string $prompt, ?string $userId=null, bool $allowNextcloud=true): string
+    public function generateText(string $prompt, ?string $userId=null, bool $allowNextcloud=true, ?string $organisation=null): string
     {
         $llmConfig = $this->getLlmConfig();
-        $driver    = $this->createChatDriver(llmConfig: $llmConfig);
+        $driver    = $this->createChatDriver(llmConfig: $llmConfig, organisation: $organisation);
 
         if ($driver->provider === 'fireworks') {
             return $this->callFireworksChat(

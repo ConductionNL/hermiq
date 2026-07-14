@@ -111,6 +111,13 @@
 			"icon": "icon-category-security",
 			"route": "ComplianceDashboard",
 			"order": 23
+		},
+		{
+			"id": "EvalDatasets",
+			"label": "Evaluations",
+			"icon": "icon-category-monitoring",
+			"route": "EvalDatasets",
+			"order": 101
 		}
 	],
 	"pages": [
@@ -368,6 +375,14 @@
 			"component": "ComplianceDashboard",
 			"title": "Compliance",
 			"_note": "Custom page: per-framework compliance-control coverage + gap list computed live from existing governance data (never a hand-ticked field), plus an auditor's-pack export — not expressible via the built-in index/dashboard page types. Standard nav page, action-auth-gated."
+		},
+		{
+			"id": "EvalDatasets",
+			"route": "/evals",
+			"type": "custom",
+			"component": "EvalDatasets",
+			"title": "Evaluations",
+			"_note": "Custom page: eval datasets (prompt+expectation cases) and their governed, non-delivering agent runs with deterministic + LLM-as-judge scoring and a pass-rate/regression history — not expressible via the built-in index/dashboard page types (the run action has no OR object equivalent). Standard nav page."
 		}
 	],
 	"setup": {
@@ -428,8 +443,13 @@
 						"placement": "center",
 						"title": "Welcome to Hermiq",
 						"body": "Let's take a quick tour. Hermiq lets you build autonomous AI agents, give them skills and tools, and run them on a schedule.",
-						"target": { "kind": "page", "ref": "Dashboard" },
-						"advanceOn": { "type": "manual" }
+						"target": {
+							"kind": "page",
+							"ref": "Dashboard"
+						},
+						"advanceOn": {
+							"type": "manual"
+						}
 					},
 					{
 						"id": "go-agents",
@@ -437,8 +457,14 @@
 						"placement": "right",
 						"body": "Agents are the heart of Hermiq. Open Agents to see them and define your own.",
 						"task": "Click Agents in the menu",
-						"target": { "kind": "nav-item", "ref": "AgentCatalog" },
-						"advanceOn": { "type": "route-match", "route": "AgentCatalog" }
+						"target": {
+							"kind": "nav-item",
+							"ref": "AgentCatalog"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "AgentCatalog"
+						}
 					},
 					{
 						"id": "agents-intro",
@@ -447,8 +473,13 @@
 						"allowManualNext": true,
 						"title": "Your agent catalog",
 						"body": "This is where your agents live. Use New to create one — give it a prompt, pick a model, and add optional tools and skills.",
-						"target": { "kind": "page", "ref": "AgentCatalog" },
-						"advanceOn": { "type": "manual" }
+						"target": {
+							"kind": "page",
+							"ref": "AgentCatalog"
+						},
+						"advanceOn": {
+							"type": "manual"
+						}
 					},
 					{
 						"id": "go-skills",
@@ -456,8 +487,14 @@
 						"placement": "right",
 						"body": "Skills give agents new abilities. Browse the Skills catalog to see what you can add.",
 						"task": "Click Skills in the menu",
-						"target": { "kind": "nav-item", "ref": "SkillsCatalog" },
-						"advanceOn": { "type": "route-match", "route": "SkillsCatalog" }
+						"target": {
+							"kind": "nav-item",
+							"ref": "SkillsCatalog"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "SkillsCatalog"
+						}
 					},
 					{
 						"id": "go-mcp",
@@ -465,8 +502,14 @@
 						"placement": "right",
 						"body": "MCP tools connect your agents to external systems over the Model Context Protocol.",
 						"task": "Click MCP tools in the menu",
-						"target": { "kind": "nav-item", "ref": "McpTools" },
-						"advanceOn": { "type": "route-match", "route": "McpTools" }
+						"target": {
+							"kind": "nav-item",
+							"ref": "McpTools"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "McpTools"
+						}
 					},
 					{
 						"id": "done",
@@ -474,8 +517,13 @@
 						"placement": "center",
 						"title": "You're all set",
 						"body": "That's the tour. Open Settings any time to re-run this walkthrough or the setup wizard.",
-						"target": { "kind": "page", "ref": "Dashboard" },
-						"advanceOn": { "type": "manual" }
+						"target": {
+							"kind": "page",
+							"ref": "Dashboard"
+						},
+						"advanceOn": {
+							"type": "manual"
+						}
 					}
 				]
 			}

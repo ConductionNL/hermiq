@@ -2086,6 +2086,43 @@ class ScheduleService
     }//end getLastRunId()
 
     /**
+     * The just-completed `runAgentAsOwner()` call's own captured token/latency
+     * usage (agent-evals) — the SAME data `writeRunAudit()` already records
+     * internally as `context['usage']`, exposed so a caller outside
+     * ScheduleService (`EvalRunService`) can read what a case's turn actually
+     * cost without duplicating capture logic. Empty when usage was unavailable
+     * (e.g. the legacy ChatService path returned no `usage` bucket) or when no
+     * run has completed yet on this instance.
+     *
+     * @return array<string,mixed>
+     *
+     * @spec openspec/changes/agent-evals/tasks.md#task-2-scheduleservice-run-usagerun-steps-getters
+     */
+    public function getLastRunUsage(): array
+    {
+        return $this->lastRunUsage;
+
+    }//end getLastRunUsage()
+
+    /**
+     * The just-completed `runAgentAsOwner()` call's own captured step timeline
+     * (agent-evals) — the SAME data `writeRunAudit()` already records internally
+     * as `context['steps']`, exposed so a caller outside ScheduleService
+     * (`EvalRunService`) can read a case's step-by-step trace without
+     * duplicating capture logic. Empty when no run has completed yet on this
+     * instance, or the completed run produced no steps (a gate-skip).
+     *
+     * @return array<int,array<string,mixed>>
+     *
+     * @spec openspec/changes/agent-evals/tasks.md#task-2-scheduleservice-run-usagerun-steps-getters
+     */
+    public function getLastRunSteps(): array
+    {
+        return $this->lastRunSteps;
+
+    }//end getLastRunSteps()
+
+    /**
      * Apply the effective GuardrailPolicy's output filter at this method's
      * single return point — the ONE seam every caller (`runDue()` before
      * `DeliveryService::deliver()`; `FlowAgentRunService`/`WebhookAgentRunService`

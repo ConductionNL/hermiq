@@ -8,8 +8,8 @@
 - **acceptance_criteria**:
   - GIVEN the register re-import runs WHEN the app version is bumped THEN `evaldataset` and `evalrun` schemas exist with `publicRead:false, publicWrite:false`
   - GIVEN the `EvalDataset` schema WHEN a case's `expectationType` is `contains`/`notContains`/`jsonPathEquals`/`rubric` THEN the matching deterministic/rubric fields are present on the embedded `cases` array item schema
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: ScheduleService run-usage/run-steps getters
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-an-evalrun-executes-each-case-through-the-agents-real-engine-path`
@@ -17,8 +17,8 @@
 - **acceptance_criteria**:
   - GIVEN `runAgentAsOwner()` just completed WHEN a caller reads `getLastRunUsage()`/`getLastRunSteps()` THEN it sees the SAME data `writeRunAudit()` already records internally
   - GIVEN no existing caller of `ScheduleService` reads these getters WHEN this task ships THEN every existing test/behaviour is unchanged (additive only)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: BudgetService scope-union widening for EvalRun
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-eval-run-token-usage-counts-toward-the-same-per-orgper-agent-budget-a-scheduled-run-does`
@@ -26,8 +26,8 @@
 - **acceptance_criteria**:
   - GIVEN a completed EvalRun with a recorded `action='run'` AuditTrail entry WHEN `BudgetService::isBlocked()`/`statusForScope()` is next evaluated for the same organisation/agent THEN the EvalRun's usage is included in `currentUsageTokens()`
   - GIVEN only Schedule-driven usage existed before this task WHEN this task ships THEN Schedule-only budget behaviour is unchanged (union is additive)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: ProviderFactory::generateText() optional organisation param
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-llm-as-judge-scoring-goes-through-the-existing-providerfactory-chokepoint`
@@ -35,8 +35,8 @@
 - **acceptance_criteria**:
   - GIVEN an organisation whose ModelPolicy excludes the configured provider/model WHEN `generateText(prompt, userId, allowNextcloud, organisation: $org)` is called THEN it throws `ModelPolicyViolationException`
   - GIVEN an existing caller (`AbstractTextProvider`) that never passes `$organisation` WHEN this task ships THEN its behaviour is unchanged (default `null`, no enforcement)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: EvalScoringService (deterministic + LLM-judge)
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-deterministic-scoring`
@@ -45,8 +45,8 @@
   - GIVEN a `contains`/`notContains` case WHEN scored against an actual output THEN `passed` reflects the substring check
   - GIVEN a `jsonPathEquals` case with malformed actual-output JSON WHEN scored THEN `passed=false` with a non-fatal `errorMessage` (never throws)
   - GIVEN a `rubric` case WHEN scored via `ProviderFactory::generateText()` THEN the returned score is compared against `rubricPassThreshold` to set `passed`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: EvalRunService orchestration
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-kill-switch-and-budget-hard-cap-gate-an-eval-run-exactly-as-they-gate-a-schedule-tick`
@@ -56,8 +56,8 @@
   - GIVEN all gates pass WHEN each case executes THEN it goes through `ScheduleService::runAgentAsOwner()` and `DeliveryService` is never called
   - GIVEN the run completes WHEN its `passRate` is compared against the previous completed EvalRun for the same dataset+agent THEN `regressionGateResult` (`passed`/`failed`/`not_applicable`) is recorded per the configured threshold
   - GIVEN the run completes (success or failure) WHEN persistence finishes THEN one redacted `action='run'` AuditTrail entry is written via `AuditTrailMapper`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: EvalRunController + route
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-run-trigger-endpoint-is-owner-guarded-idor`
@@ -65,8 +65,8 @@
 - **acceptance_criteria**:
   - GIVEN a dataset/agent owned by another user WHEN a non-owner calls `POST /api/evals/{datasetId}/run` THEN the response is `404`
   - GIVEN a valid owned dataset+agent WHEN the endpoint is called THEN it returns `evalRunId`, `status`, `passRate`, `regressionGateResult`, `previousPassRate`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 8: Frontend data layer (store + api + manifest)
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-evaldataset-crud-as-a-plain-openregister-object`
@@ -74,8 +74,8 @@
 - **acceptance_criteria**:
   - GIVEN `useEvalDatasetStore`/`useEvalRunStore` WHEN a component calls their CRUD methods THEN they hit `/apps/openregister/api/objects/hermiq/{evaldataset|evalrun}` like `useScheduleStore`
   - GIVEN the manifest WHEN the app loads THEN "Eval datasets" and "Eval runs" pages/menu entries are registered
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 9: EvalDatasetFormModal + EvalDatasets.vue
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-evaldataset-crud-as-a-plain-openregister-object`
@@ -83,8 +83,8 @@
 - **acceptance_criteria**:
   - GIVEN the dataset list page WHEN rendered THEN it uses `CnDataTable` and an "Add case" control that appends a row to the embedded `cases` array
   - GIVEN a case row WHEN `expectationType` changes THEN only the matching fields for that type are shown/required
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 10: EvalRuns.vue + l10n strings
 - **spec_ref**: `openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-ui-surfaces-per-case-results-and-pass-rate-trend`
@@ -92,8 +92,8 @@
 - **acceptance_criteria**:
   - GIVEN a dataset+agent selection WHEN "Run eval" is clicked THEN the run's per-case results render with failing cases visually distinguished
   - GIVEN a dataset+agent's run history WHEN the page loads THEN a pass-rate trend across past runs is shown
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 

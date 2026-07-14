@@ -97,6 +97,16 @@ class BudgetService
     private const SCHEDULE_SCHEMA = 'schedule';
 
     /**
+     * OpenRegister schema slug for EvalRun objects (agent-evals). An eval run's
+     * token usage counts toward the SAME per-org/per-agent budget a scheduled
+     * run does — no separate spend meter — so its UUIDs are unioned into scope
+     * resolution alongside Schedule's, exactly like Schedule's are.
+     *
+     * @var string
+     */
+    private const EVALRUN_SCHEMA = 'evalrun';
+
+    /**
      * The audit action written per run by ScheduleService/FlowAgentRunService.
      *
      * @var string
@@ -854,18 +864,72 @@ class BudgetService
      * (scope=agent) — system-wide, mirroring `AnalyticsService::loadScheduleUuidToAgent()`
      * but keyed for the dispatch-gate's unauthenticated read posture.
      *
+     * Agent-evals: ALSO unions in `EvalRun` UUIDs matching the same scope, so an eval
+     * run's `action='run'` AuditTrail usage rolls into the SAME budget total a
+     * scheduled run's does — one usage-aggregation code path, no separate spend
+     * meter (proposal.md Risk 1). Additive: when no EvalRun exists yet (or the
+     * schema is absent) this returns exactly the Schedule-only UUID set as before.
+     *
      * @param string $scope        `organisation`|`agent`.
      * @param string $organisation The organisation identifier.
      * @param string $agentId      The agent UUID (scope=agent only).
      *
-     * @return array<int, string> The matching schedule UUIDs.
+     * @return array<int, string> The matching schedule + eval-run UUIDs.
      */
     private function loadScheduleUuidsForScope(string $scope, string $organisation, string $agentId): array
     {
-        $objects = $this->objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::SCHEDULE_SCHEMA)
-            ->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+        $uuids = $this->loadInScopeUuidsForSchema(
+            schema: self::SCHEDULE_SCHEMA,
+            scope: $scope,
+            organisation: $organisation,
+            agentId: $agentId
+        );
+
+        $evalRunUuids = $this->loadInScopeUuidsForSchema(
+            schema: self::EVALRUN_SCHEMA,
+            scope: $scope,
+            organisation: $organisation,
+            agentId: $agentId
+        );
+
+        return array_merge($uuids, $evalRunUuids);
+
+    }//end loadScheduleUuidsForScope()
+
+    /**
+     * Load the in-scope UUIDs for one OpenRegister schema in the `hermiq` register —
+     * every object in the organisation (scope=organisation) or bound to the agent via
+     * its `agentId` field (scope=agent) — system-wide (fails open to an empty result
+     * on a read error, never fatal to the budget gate).
+     *
+     * Extracted from `loadScheduleUuidsForScope()` (agent-evals) so Schedule and
+     * EvalRun share the identical matching logic instead of two near-duplicate loops.
+     *
+     * @param string $schema       The OpenRegister schema slug to scan.
+     * @param string $scope        `organisation`|`agent`.
+     * @param string $organisation The organisation identifier.
+     * @param string $agentId      The agent UUID (scope=agent only).
+     *
+     * @return array<int, string> The matching object UUIDs.
+     */
+    private function loadInScopeUuidsForSchema(string $schema, string $scope, string $organisation, string $agentId): array
+    {
+        try {
+            $objects = $this->objectService
+                ->setRegister(self::REGISTER_SLUG)
+                ->setSchema($schema)
+                ->findAll(config: ['limit' => 1000], _rbac: false, _multitenancy: false);
+        } catch (Throwable $e) {
+            // Fails open (empty scope) rather than breaking budget resolution for every
+            // OTHER schema — e.g. an 'evalrun' scan on an instance whose register
+            // re-import has not yet landed the agent-evals schema must never take down
+            // the pre-existing Schedule-only budget gate.
+            $this->logger->warning(
+                sprintf("Hermiq could not load '%s' objects for the budget scope scan: %s", $schema, $e->getMessage()),
+                ['exception' => $e]
+            );
+            return [];
+        }
 
         $uuids = [];
         foreach ($objects as $object) {
@@ -889,7 +953,7 @@ class BudgetService
 
         return $uuids;
 
-    }//end loadScheduleUuidsForScope()
+    }//end loadInScopeUuidsForSchema()
 
     /**
      * Sum recorded token usage (`action='run'` AuditTrail entries) for a set of

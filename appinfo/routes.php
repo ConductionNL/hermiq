@@ -74,6 +74,12 @@ return [
             'requirements' => ['scheduleId' => '[^/]+', 'runId' => '[^/]+'],
         ],
 
+        // Eval run — owner-scoped "run this EvalDataset against this Agent now"
+        // action (agent-evals). EvalDataset/EvalRun CRUD themselves go through the
+        // generic OpenRegister objects path (createObjectStore) — this is the one
+        // net-new backend endpoint the UI needs, mirroring runNow#run.
+        ['name' => 'evalRun#run', 'url' => '/api/evals/{datasetId}/run', 'verb' => 'POST', 'requirements' => ['datasetId' => '[^/]+']],
+
         // Schedule webhook-secret lifecycle (delivery-channels): owner-guarded mint/
         // rotate/revoke/status for the OUTBOUND deliver=webhook signing secret —
         // distinct from the agent-webhook-trigger routes below, which manage the
