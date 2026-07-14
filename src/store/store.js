@@ -39,4 +39,25 @@ export const useAgentStore = createObjectStore('agent', {
 	schema: 'agent',
 })
 
+/**
+ * Canonical OpenRegister object store for the 'evaldataset' schema (agent-evals).
+ * Dataset CRUD goes through the generic object path exactly like schedule/agent;
+ * only the "run this dataset against an agent" ACTION is a bespoke Hermiq endpoint
+ * (src/api/evals.js), because OpenRegister exposes no agent-trigger.
+ */
+export const useEvalDatasetStore = createObjectStore('evaldataset', {
+	register: 'hermiq',
+	schema: 'evaldataset',
+})
+
+/**
+ * Canonical OpenRegister object store for the 'evalrun' schema (agent-evals):
+ * read-only in the UI (runs are written server-side by EvalRunService), listed to
+ * show per-dataset pass-rate history.
+ */
+export const useEvalRunStore = createObjectStore('evalrun', {
+	register: 'hermiq',
+	schema: 'evalrun',
+})
+
 export { useSettingsStore }
