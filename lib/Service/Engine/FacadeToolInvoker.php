@@ -151,6 +151,17 @@ class FacadeToolInvoker
     private const MEMORY_TOOL_IDS = ['hermiq.rememberMemory', 'hermiq.recallMemory', 'hermiq.forgetMemory'];
 
     /**
+     * The `hermiq.delegateAgent` registry id (sub-agent-delegation), which needs the
+     * SAME "which agent is running" identity `MEMORY_TOOL_IDS` already gets injected
+     * for — `DelegationService::delegate()` treats this run-injected `agentId` as the
+     * ONLY trusted "calling agent" identity (never a value the LLM could supply
+     * itself), exactly mirroring `MEMORY_TOOL_IDS`' rationale above.
+     *
+     * @var string
+     */
+    private const DELEGATE_AGENT_TOOL_ID = 'hermiq.delegateAgent';
+
+    /**
      * The two web-research-tool ids whose trace step carries an additional redacted
      * `target` (see class docblock and `resolveWebResearchTarget()`).
      *
@@ -703,15 +714,19 @@ class FacadeToolInvoker
 
     /**
      * Inject this run's own `agentId` into `$arguments` for the three
-     * agent-memory-tools ids ONLY (see `MEMORY_TOOL_IDS` docblock) — every other
-     * tool's arguments pass through byte-for-byte unchanged. Always overwrites any
-     * caller-supplied `agentId` key (the LLM's declared input schema for these
-     * tools never includes one, but defense-in-depth never trusts a caller-supplied
-     * identity field, matching this app's IDOR posture elsewhere): the run's own
-     * agentId is the only authoritative source. With no agent context
-     * (`$this->agentId === null`, agent-less chat), arguments are left unchanged —
-     * `HermiqToolProvider` then returns a structured "no agent context" error
-     * rather than guessing.
+     * agent-memory-tools ids (see `MEMORY_TOOL_IDS` docblock) and
+     * `hermiq.delegateAgent` (see `DELEGATE_AGENT_TOOL_ID` docblock) ONLY —
+     * every other tool's arguments pass through byte-for-byte unchanged.
+     * Always overwrites any caller-supplied `agentId` key (the LLM's declared
+     * input schema for these tools never includes one, but defense-in-depth
+     * never trusts a caller-supplied identity field, matching this app's IDOR
+     * posture elsewhere): the run's own agentId is the only authoritative
+     * source — for `delegateAgent`, this is precisely what makes the
+     * "calling agent" identity `DelegationService` gates on trusted server-side
+     * state, never a tool-call argument the LLM could set. With no agent
+     * context (`$this->agentId === null`, agent-less chat), arguments are left
+     * unchanged — `HermiqToolProvider` then returns a structured "no agent
+     * context" error rather than guessing.
      *
      * @param string               $name      The LLPhant-side function name.
      * @param array<string, mixed> $arguments Decoded arguments object.
@@ -719,6 +734,7 @@ class FacadeToolInvoker
      * @return array<string, mixed> Arguments, with `agentId` set when applicable.
      *
      * @spec openspec/changes/agent-memory-tools/tasks.md#task-5
+     * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
      */
     private function withAgentId(string $name, array $arguments): array
     {
@@ -726,7 +742,8 @@ class FacadeToolInvoker
             return $arguments;
         }
 
-        if (in_array($this->resolveToolId(name: $name), self::MEMORY_TOOL_IDS, true) === false) {
+        $toolId = $this->resolveToolId(name: $name);
+        if (in_array($toolId, self::MEMORY_TOOL_IDS, true) === false && $toolId !== self::DELEGATE_AGENT_TOOL_ID) {
             return $arguments;
         }
 

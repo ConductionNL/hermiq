@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.7"
+    "version": "0.10.8"
   },
   "x-openregister": {
     "type": "application",
@@ -517,9 +517,9 @@
       "Agent": {
         "slug": "agent",
         "icon": "RobotOutline",
-        "version": "0.2.0",
+        "version": "0.3.0",
         "title": "Agent",
-        "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag and periodic review attestation.",
+        "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target).",
         "type": "object",
         "required": ["name"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
@@ -554,7 +554,9 @@
           "contextRefs": { "type": "array", "default": [], "title": "Context refs", "description": "Context object uuids attached to this agent; each is assembled into a budgeted text preamble prepended to the system prompt at run start.", "items": { "type": "string", "format": "uuid", "$ref": "Context" } },
           "reassignmentFlag": { "type": "boolean", "default": false, "title": "Flagged for reassignment", "description": "Derived: true when this agent's owning Nextcloud user was deleted or disabled and its schedules were auto-paused (agent-lifecycle-governance offboarding); cleared once an org admin reassigns actingUser to a new active user." },
           "reviewedAt": { "type": "string", "format": "date-time", "title": "Reviewed at", "description": "Derived: when an org admin last attested this agent as reviewed in the periodic access review (agent-lifecycle-governance); re-attesting updates this timestamp rather than duplicating a record." },
-          "reviewedBy": { "type": "string", "title": "Reviewed by", "description": "Derived: the user id of the org admin who last recorded the reviewed attestation (agent-lifecycle-governance)." }
+          "reviewedBy": { "type": "string", "title": "Reviewed by", "description": "Derived: the user id of the org admin who last recorded the reviewed attestation (agent-lifecycle-governance)." },
+          "delegationAllowlist": { "type": "array", "default": [], "title": "Delegation allowlist", "description": "Agent UUIDs this agent may delegate a bounded sub-task to via the hermiq.delegateAgent tool (sub-agent-delegation). Empty (the default) means this agent may delegate to no one — delegation is refused by default until explicitly allowlisted here.", "items": { "type": "string", "format": "uuid", "$ref": "Agent" } },
+          "requiresApproval": { "type": "boolean", "default": false, "title": "Requires approval", "description": "When true, this agent cannot be reached as a sub-agent-delegation target — a delegation attempt is refused outright (delegation_requires_approval) rather than creating a pending Approval, since a delegate call has no synchronous pause/resume mechanism. The agent remains runnable via its own schedule or flow trigger, which enforce the full pending/approved/denied gate (mirrors Schedule.requiresApproval's EU AI Act Art. 14 semantics, applied here at the agent level for delegation targets)." }
         }
       },
       "Conversation": {

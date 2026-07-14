@@ -34,6 +34,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
@@ -349,6 +350,7 @@ class ToolGrantResolverTest extends TestCase
             $this->createMock(MemoryService::class),
             $this->createMock(WebSearchClient::class),
             $this->createMock(WebFetchService::class),
+            $this->createMock(DelegationService::class),
             $this->createMock(LoggerInterface::class)
         );
 

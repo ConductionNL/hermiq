@@ -236,6 +236,7 @@ class WebhookAgentRunService
      *
      * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
      * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
+     * @spec openspec/changes/sub-agent-delegation/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap
      */
     private function runAgentAndAudit(ObjectEntity $agentObject, array $context, string $owner, string $organisation=''): bool
     {
@@ -256,7 +257,8 @@ class WebhookAgentRunService
                 owner: $owner,
                 agentId: $agentId,
                 prompt: $prompt,
-                organisation: $organisation
+                organisation: $organisation,
+                anchor: $agentObject
             );
         } catch (Throwable $e) {
             $status  = 'error';

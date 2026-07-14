@@ -26,7 +26,9 @@ organisation, rejecting creation attempts that would exceed the quota.
 ### Requirement: Strict per-tenant isolation across all object types
 The system MUST ensure every object type Hermiq introduces (agents, schedules, memory, skills,
 approvals, runs, budgets) carries `organisation`/`owner`/`groups` fields, and MUST NOT include
-another tenant's objects in any API response.
+another tenant's objects in any API response. Delegation MUST NOT be usable to reach across a
+tenant boundary: an agent MUST NOT be able to delegate to a target agent belonging to a different
+organisation, regardless of any configured `delegationAllowlist` entry.
 
 #### Scenario: A cross-tenant list request is made
 - **GIVEN** organisations A and B each have their own agents, schedules, memory, and budget
@@ -34,6 +36,13 @@ another tenant's objects in any API response.
 - **WHEN** a user in organisation A requests a list of any Hermiq object type, including budgets
 - **THEN** the system MUST return only objects belonging to organisation A
 - **AND** objects belonging to organisation B MUST NOT appear in the response
+
+#### Scenario: An agent's allowlist names a target in a different organisation
+- **GIVEN** agent A belongs to organisation A and its `delegationAllowlist` names agent B, which
+  belongs to organisation B
+- **WHEN** agent A attempts to delegate to agent B via `hermiq.delegateAgent`
+- **THEN** the system MUST refuse the delegation
+- **AND** agent B MUST NOT be invoked, regardless of the allowlist entry
 
 ### Requirement: Per-tenant sovereignty — local inference + AI-Act export
 The system MUST allow each organisation to configure local-only inference (Ollama/Qwen) and
@@ -68,7 +77,12 @@ two thresholds against that budget's current-period actual usage: a soft thresho
 the organisation owner without blocking runs, and a hard cap that blocks NEW runs for that
 budget's scope. The hard cap MUST NOT abort a run already in progress. Current-period usage MUST
 be computed from the organisation's/agent's own `action='run'` AuditTrail entries — the same
-source `run-analytics` aggregates — never from a separately maintained counter.
+source `run-analytics` aggregates — never from a separately maintained counter. A delegated
+sub-agent run (`sub-agent-delegation`) MUST be gated by, and its usage MUST count toward, the SAME
+budget the top-level run that ultimately triggered the delegation counts against — never a separate,
+unaccounted budget scope.
+<!-- Previous behavior: the hard cap/soft threshold applied to scheduled and flow/webhook-triggered
+     runs only; delegated sub-agent runs did not exist. -->
 
 #### Scenario: A soft threshold is crossed
 - **GIVEN** a `Budget` for agent X with a token limit of 100,000 and an 80% soft threshold
@@ -98,6 +112,21 @@ source `run-analytics` aggregates — never from a separately maintained counter
   path)
 - **THEN** the system MUST apply the same hard-cap block as a scheduled tick would
 - **AND** the block MUST be recorded via the same gate-skip audit convention
+
+#### Scenario: A delegated sub-agent run counts against the parent's triggering budget
+- **GIVEN** a scheduled run for agent A (organisation X) is in progress and organisation X has an
+  organisation-scoped `Budget` with 90,000 of a 100,000 token limit already used this period
+- **WHEN** agent A delegates a task to an allowed agent B, whose own sub-run consumes 15,000 tokens
+- **THEN** the system MUST record agent B's sub-run usage so that organisation X's budget status
+  reflects at least 105,000 used tokens for the period (over the hard cap)
+- **AND** a subsequent NEW top-level run for organisation X MUST be blocked by that same hard cap
+
+#### Scenario: A delegation is refused when the triggering budget is already exhausted
+- **GIVEN** organisation X's budget is already at its hard cap
+- **WHEN** an already-running agent in organisation X (started before the cap was reached) attempts
+  to delegate a task via `hermiq.delegateAgent`
+- **THEN** the system MUST refuse the delegation before invoking the target agent
+- **AND** the already-running parent turn MUST be allowed to finish uninterrupted
 
 ### Requirement: Per-organisation retention period configuration
 The system MUST let an org admin configure a retention period (in months) for the organisation's

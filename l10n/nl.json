@@ -114,6 +114,9 @@
         "Reviewed": "Gecontroleerd",
         "Status": "Status",
         "Description": "Beschrijving",
+        "Delegation allowlist": "Delegatie-toegestane lijst",
+        "Select agents this agent may delegate to": "Selecteer agents waaraan deze agent taken mag delegeren",
+        "Leave empty to disallow delegation entirely (default).": "Laat leeg om delegeren volledig uit te sluiten (standaard).",
         "What happened?": "Wat is er gebeurd?",
         "Who or what was affected, and how severely?": "Wie of wat was er getroffen, en hoe ernstig?",
         "What remedial action was taken?": "Welke herstelactie is ondernomen?",
@@ -277,7 +280,15 @@
         "Title field": "Titelveld",
         "URL field": "URL-veld",
         "Web research": "Webonderzoek",
-        "web.fetch egress governance": "web.fetch uitgaand-verkeersbeheer"
+        "web.fetch egress governance": "web.fetch uitgaand-verkeersbeheer",
+        "Ground responses in your data (RAG)": "Onderbouw antwoorden met je eigen data (RAG)",
+        "Leave empty to allow every available tool.": "Laat leeg om elke beschikbare tool toe te staan.",
+        "Max tokens per response": "Max. tokens per antwoord",
+        "Number of RAG sources": "Aantal RAG-bronnen",
+        "Search in files": "Zoek in bestanden",
+        "Search in objects": "Zoek in objecten",
+        "Temperature (0–2)": "Temperatuur (0–2)",
+        "What does this agent do?": "Wat doet deze agent?"
     },
     "plurals": ""
 }

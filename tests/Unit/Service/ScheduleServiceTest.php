@@ -34,6 +34,7 @@ use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\DeliveryResult;
 use OCA\Hermiq\Service\DeliveryService;
+use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
@@ -189,6 +190,15 @@ class ScheduleServiceTest extends TestCase
     private AgentVersionService $agentVersionService;
 
     /**
+     * Real DelegationContext (sub-agent-delegation) — a plain, stateful value
+     * object, not a mock, so tests can inspect the pushed/popped frame after a
+     * run (depth/anchor/ancestry/fan-out).
+     *
+     * @var DelegationContext
+     */
+    private DelegationContext $delegationContext;
+
+    /**
      * Service under test.
      *
      * @var ScheduleService
@@ -301,6 +311,10 @@ class ScheduleServiceTest extends TestCase
         $this->agentVersionService = $this->createMock(AgentVersionService::class);
         $this->agentVersionService->method('currentVersionId')->willReturn('version-1');
 
+        // Sub-agent-delegation: a real, fresh call-stack per test (no frame pushed
+        // until an Engine-path run actually starts).
+        $this->delegationContext = new DelegationContext();
+
         $this->service = $this->makeService();
 
     }//end setUp()
@@ -330,6 +344,7 @@ class ScheduleServiceTest extends TestCase
             budgetService: $this->budgetService,
             guardrailPolicyService: $this->guardrailPolicyService,
             agentVersionService: $this->agentVersionService,
+            delegationContext: $this->delegationContext,
         );
 
     }//end makeService()
