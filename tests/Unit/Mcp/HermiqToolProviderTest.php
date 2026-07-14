@@ -44,6 +44,8 @@ namespace OCA\Hermiq\Tests\Unit\Mcp;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\WebResearch\WebFetchService;
+use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
@@ -72,11 +74,18 @@ class HermiqToolProviderTest extends TestCase
      * @param string|null                      $uid           The acting user id, or null for unauthenticated.
      * @param CourseRecommendationEngine|null $engine        A specific engine double, or a plain mock.
      * @param MemoryService|null              $memoryService A specific MemoryService double, or a plain mock.
+     * @param WebSearchClient|null            $webSearchClient A specific WebSearchClient double, or a plain mock.
+     * @param WebFetchService|null            $webFetchService A specific WebFetchService double, or a plain mock.
      *
      * @return HermiqToolProvider
      */
-    private function provider(?string $uid, ?CourseRecommendationEngine $engine=null, ?MemoryService $memoryService=null): HermiqToolProvider
-    {
+    private function provider(
+        ?string $uid,
+        ?CourseRecommendationEngine $engine=null,
+        ?MemoryService $memoryService=null,
+        ?WebSearchClient $webSearchClient=null,
+        ?WebFetchService $webFetchService=null
+    ): HermiqToolProvider {
         $session = $this->createMock(IUserSession::class);
         if ($uid === null) {
             $session->method('getUser')->willReturn(null);
@@ -97,6 +106,8 @@ class HermiqToolProviderTest extends TestCase
             $this->createMock(ContainerInterface::class),
             $engine ?? $this->createMock(CourseRecommendationEngine::class),
             $memoryService ?? $this->createMock(MemoryService::class),
+            $webSearchClient ?? $this->createMock(WebSearchClient::class),
+            $webFetchService ?? $this->createMock(WebFetchService::class),
             $this->createMock(LoggerInterface::class)
         );
 
@@ -118,9 +129,10 @@ class HermiqToolProviderTest extends TestCase
         $tools = $provider->getTools();
         // 6 nc-native-tools + hermiq.searchTools (agent-tool-governance-and-disclosure's
         // progressive-disclosure meta-tool) + hermiq.recommendCourses (ai-course-recommendations)
-        // + hermiq.rememberMemory/recallMemory/forgetMemory (agent-memory-tools),
+        // + hermiq.rememberMemory/recallMemory/forgetMemory (agent-memory-tools)
+        // + hermiq.webSearch/webFetch (web-research-tool),
         // all registered through this same provider.
-        $this->assertCount(11, $tools);
+        $this->assertCount(13, $tools);
 
         $ids = array_column($tools, 'id');
         $this->assertContains('hermiq.listFiles', $ids);
@@ -134,6 +146,8 @@ class HermiqToolProviderTest extends TestCase
         $this->assertContains('hermiq.rememberMemory', $ids);
         $this->assertContains('hermiq.recallMemory', $ids);
         $this->assertContains('hermiq.forgetMemory', $ids);
+        $this->assertContains('hermiq.webSearch', $ids);
+        $this->assertContains('hermiq.webFetch', $ids);
 
         foreach ($ids as $id) {
             $this->assertStringStartsWith('hermiq.', $id);
@@ -172,10 +186,12 @@ class HermiqToolProviderTest extends TestCase
             'hermiq.rememberMemory'     => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
             'hermiq.recallMemory'       => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
             'hermiq.forgetMemory'       => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true, 'scope' => 'delete'],
+            'hermiq.webSearch'          => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.webFetch'           => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
         ];
 
         $tools = $this->provider('alice')->getTools();
-        $this->assertCount(11, $tools, 'This test must be updated if a tool is added or removed.');
+        $this->assertCount(13, $tools, 'This test must be updated if a tool is added or removed.');
 
         $seen = [];
         foreach ($tools as $tool) {
@@ -567,4 +583,104 @@ class HermiqToolProviderTest extends TestCase
         $this->assertSame('tool_failed', $result['error']['code']);
 
     }//end testMemoryToolFailureNeverThrowsAcrossTheMcpBoundary()
+
+    /**
+     * webSearch delegates to WebSearchClient with the acting uid (for the broker's
+     * sessionless-caller path) and the query argument.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+     */
+    public function testWebSearchDelegatesToClientWithActingUid(): void
+    {
+        $client = $this->createMock(WebSearchClient::class);
+        $client->expects($this->once())
+            ->method('search')
+            ->with(query: 'nextcloud news', actingUserId: 'alice')
+            ->willReturn(['query' => 'nextcloud news', 'results' => []]);
+
+        $result = $this->provider('alice', null, null, $client)->invokeTool(
+            'hermiq.webSearch',
+            ['query' => 'nextcloud news']
+        );
+
+        $this->assertSame(['query' => 'nextcloud news', 'results' => []], $result);
+
+    }//end testWebSearchDelegatesToClientWithActingUid()
+
+    /**
+     * webSearch rejects an empty/missing query before ever reaching the client.
+     *
+     * @return void
+     */
+    public function testWebSearchMissingQueryReturnsError(): void
+    {
+        $client = $this->createMock(WebSearchClient::class);
+        $client->expects($this->never())->method('search');
+
+        $result = $this->provider('alice', null, null, $client)->invokeTool('hermiq.webSearch', []);
+
+        $this->assertSame('invalid_argument', $result['error']['code']);
+
+    }//end testWebSearchMissingQueryReturnsError()
+
+    /**
+     * webFetch delegates to WebFetchService with the url argument.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
+     */
+    public function testWebFetchDelegatesToService(): void
+    {
+        $service = $this->createMock(WebFetchService::class);
+        $service->expects($this->once())
+            ->method('fetch')
+            ->with(url: 'https://example.org/page')
+            ->willReturn(['url' => 'https://example.org/page', 'truncated' => false, 'content' => 'hello']);
+
+        $result = $this->provider('alice', null, null, null, $service)->invokeTool(
+            'hermiq.webFetch',
+            ['url' => 'https://example.org/page']
+        );
+
+        $this->assertSame('https://example.org/page', $result['url']);
+
+    }//end testWebFetchDelegatesToService()
+
+    /**
+     * webFetch rejects an empty/missing url before ever reaching the service.
+     *
+     * @return void
+     */
+    public function testWebFetchMissingUrlReturnsError(): void
+    {
+        $service = $this->createMock(WebFetchService::class);
+        $service->expects($this->never())->method('fetch');
+
+        $result = $this->provider('alice', null, null, null, $service)->invokeTool('hermiq.webFetch', []);
+
+        $this->assertSame('invalid_argument', $result['error']['code']);
+
+    }//end testWebFetchMissingUrlReturnsError()
+
+    /**
+     * A WebSearchClient/WebFetchService exception never crosses the MCP boundary —
+     * invokeTool()'s outer catch turns it into the same structured error envelope
+     * every other tool uses (mirrors testMemoryToolFailureNeverThrowsAcrossTheMcpBoundary()).
+     *
+     * @return void
+     */
+    public function testWebResearchToolFailureNeverThrowsAcrossTheMcpBoundary(): void
+    {
+        $client = $this->createMock(WebSearchClient::class);
+        $client->method('search')->willThrowException(new RuntimeException('unexpected'));
+
+        $result = $this->provider('alice', null, null, $client)->invokeTool('hermiq.webSearch', ['query' => 'x']);
+
+        $this->assertArrayHasKey('error', $result);
+        $this->assertSame('tool_failed', $result['error']['code']);
+
+    }//end testWebResearchToolFailureNeverThrowsAcrossTheMcpBoundary()
 }//end class

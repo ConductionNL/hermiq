@@ -41,6 +41,23 @@
  * flow through the exact same `invokeTool()`/governance path as every other tool
  * here (tracing, tenant scoping, `Agent.tools` allowlist) — no new mechanism.
  *
+ * web-research-tool additionally registers `hermiq.webSearch`/`hermiq.webFetch` here
+ * — the ONE explicit, narrowly-scoped exception to this class's own "remote systems
+ * route through OpenConnector's CallService" rule stated above (see the
+ * `nc-native-tools` MODIFIED requirement and `discovery.md`): `CallService` is built
+ * around an admin-pre-registered `Source.location`, structurally incapable of
+ * fetching a URL an LLM only learns of at call time (typically from a `web.search`
+ * result). Both tools instead call out directly via `OCP\Http\Client\IClientService`,
+ * behind their own dedicated SSRF/allowlist/denylist egress guard
+ * (`Service\WebResearch\WebResearchEgressGuard`) that runs before every request —
+ * see that class's docblock for the full security rationale. Both are `scope: 'read'`
+ * / `readOnlyHint: true`, so they classify as read-only under
+ * `ToolGrantResolver::isWriteOrDestructive()` (auto-allowed under default-deny,
+ * invoked for real — not neutralised — under `run-replay-and-dry-run`'s dry-run
+ * preview) exactly like every other read tool here; an org's `agent-guardrails`
+ * policy MAY still classify either tool id `confirm`/`deny` explicitly, which
+ * `FacadeToolInvoker` enforces before either ever dispatches.
+ *
  * @category Mcp
  * @package  OCA\Hermiq\Mcp
  *
@@ -63,6 +80,8 @@ namespace OCA\Hermiq\Mcp;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\WebResearch\WebFetchService;
+use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Mcp\AbstractToolHandler;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
@@ -304,6 +323,42 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
             'idempotentHint'  => true,
             'scope'           => 'delete',
         ],
+        [
+            'id'              => Application::APP_ID.'.webSearch',
+            'name'            => 'Web search',
+            'description'     => 'Search the open web via the admin-configured search backend and return ranked '
+                .'title/url/snippet results. Reports itself unavailable (never a fabricated result) if no backend '
+                .'is configured.',
+            'inputSchema'     => [
+                'type'       => 'object',
+                'properties' => ['query' => ['type' => 'string', 'description' => 'The search query.']],
+                'required'   => ['query'],
+            ],
+            // GET-only against an admin-configured backend; no write, no side effect.
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
+        ],
+        [
+            'id'              => Application::APP_ID.'.webFetch',
+            'name'            => 'Web fetch',
+            'description'     => 'Fetch a URL via HTTP GET and return extracted readable text (text/html, '
+                .'text/plain, or text/markdown only; size-capped; delimited as untrusted external content). '
+                .'Blocks private/loopback/link-local/cloud-metadata addresses (checked against the resolved IP) '
+                .'and never follows redirects automatically.',
+            'inputSchema'     => [
+                'type'       => 'object',
+                'properties' => ['url' => ['type' => 'string', 'description' => 'The URL to fetch (https:// by default).']],
+                'required'   => ['url'],
+            ],
+            // GET-only, read-only by construction — see WebResearchEgressGuard for the
+            // egress governance that makes an agent-chosen target safe to invoke.
+            'readOnlyHint'    => true,
+            'destructiveHint' => false,
+            'idempotentHint'  => true,
+            'scope'           => 'read',
+        ],
     ];
 
     /**
@@ -323,9 +378,17 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
      * @param MemoryService              $memoryService   Shared service backing `rememberMemory`/
      *                                                    `recallMemory`/`forgetMemory` (agent-memory-tools) —
      *                                                    no duplicated append/redact/recall/soft-delete logic.
+     * @param WebSearchClient            $webSearchClient Shared client backing `webSearch`
+     *                                                    (web-research-tool) —
+     *                                                    SSRF-guarded call to the
+     *                                                    admin-configured search backend.
+     * @param WebFetchService            $webFetchService Shared service backing `webFetch`
+     *                                                    (web-research-tool) —
+     *                                                    SSRF-guarded GET + readable-text
+     *                                                    extraction.
      * @param LoggerInterface            $logger          PSR-3 logger.
      *
-     * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of seven distinct capabilities.
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of nine distinct capabilities.
      */
     public function __construct(
         IUserSession $userSession,
@@ -338,6 +401,8 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
         private readonly ContainerInterface $container,
         private readonly CourseRecommendationEngine $courseEngine,
         private readonly MemoryService $memoryService,
+        private readonly WebSearchClient $webSearchClient,
+        private readonly WebFetchService $webFetchService,
         private readonly LoggerInterface $logger,
     ) {
         $this->userSession  = $userSession;
@@ -417,6 +482,10 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
                     return $this->recallMemory(uid: $uid, arguments: $arguments);
                 case Application::APP_ID.'.forgetMemory':
                     return $this->forgetMemory(uid: $uid, arguments: $arguments);
+                case Application::APP_ID.'.webSearch':
+                    return $this->webSearch(uid: $uid, query: (string) ($arguments['query'] ?? ''));
+                case Application::APP_ID.'.webFetch':
+                    return $this->webFetch(url: (string) ($arguments['url'] ?? ''));
                 case Application::APP_ID.'.searchTools':
                     // Defensive fallback only — the Hermiq engine short-circuits this
                     // call directly to ToolSearchService before it ever reaches the
@@ -847,6 +916,49 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
         return ['boards' => $results];
 
     }//end listDeckBoards()
+
+    /**
+     * Search the configured web-research backend (web-research-tool). The acting
+     * user id is forwarded to `WebSearchClient` for the credential broker's
+     * sessionless-caller path (scheduled/background runs have no session).
+     *
+     * @param string $uid   The acting user id.
+     * @param string $query The search query.
+     *
+     * @return array<string, mixed> The result, or an error envelope.
+     *
+     * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+     */
+    private function webSearch(string $uid, string $query): array
+    {
+        if (trim($query) === '') {
+            return $this->error(code: 'invalid_argument', message: 'A search query is required.');
+        }
+
+        return $this->webSearchClient->search(query: $query, actingUserId: $uid);
+
+    }//end webSearch()
+
+    /**
+     * Fetch a URL via `WebFetchService` (web-research-tool). The URL is untrusted by
+     * construction — the SSRF/allowlist/denylist guard runs inside the service before
+     * any request is issued.
+     *
+     * @param string $url The URL to fetch.
+     *
+     * @return array<string, mixed> The result, or an error envelope.
+     *
+     * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-webfetch-extracts-readable-text-with-a-content-type-gate
+     */
+    private function webFetch(string $url): array
+    {
+        if (trim($url) === '') {
+            return $this->error(code: 'invalid_argument', message: 'A URL is required.');
+        }
+
+        return $this->webFetchService->fetch(url: $url);
+
+    }//end webFetch()
 
     /**
      * Build a structured error envelope (invokeTool never throws).

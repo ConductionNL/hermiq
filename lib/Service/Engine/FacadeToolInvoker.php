@@ -50,6 +50,21 @@
  * `toolPolicy` map is `auto` — falls through unchanged to the pre-existing
  * grant/approval-gate check, zero behavior change.
  *
+ * web-research-tool extends `dispatchToFacade()`'s trace step with an OPTIONAL
+ * redacted `target` for exactly `hermiq.webSearch`/`hermiq.webFetch` — "which
+ * external host did this agent reach" is itself the compliance-relevant fact for an
+ * outbound web call (`run-audit-log` MODIFIED requirement). This reuses the
+ * `$extra` parameter `RunTraceCollector::endStep()` already gained for
+ * run-replay-and-dry-run's redacted `would-have-called` arguments (design.md's
+ * original plan — a dedicated fourth `?string $target` parameter — is superseded by
+ * that already-shipped, more general mechanism; no `RunTraceCollector` change is
+ * needed). `resolveWebResearchTarget()` reduces a `webFetch` URL to host+path with
+ * the query string dropped ENTIRELY (never selectively masked — simpler and safer
+ * than `RedactionService::redactQueryString()`'s per-field masking, since a fetch
+ * URL's query string is exactly where a secret-shaped value could accidentally end
+ * up) and passes a `webSearch` query through as-is (not a URL, so there is no
+ * host/path to reduce), capped defensively. Every other tool's step is unaffected.
+ *
  * run-replay-and-dry-run adds a FOURTH check, at the single point every
  * governance path above eventually funnels into when it does NOT refuse —
  * `dispatchToFacade()`, the only place `ToolRegistryFacade::invokeTool()` is
@@ -82,6 +97,7 @@
  * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker
  * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
  * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps
+ * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
  */
 
 declare(strict_types=1);
@@ -133,6 +149,23 @@ class FacadeToolInvoker
      * @var array<int, string>
      */
     private const MEMORY_TOOL_IDS = ['hermiq.rememberMemory', 'hermiq.recallMemory', 'hermiq.forgetMemory'];
+
+    /**
+     * The two web-research-tool ids whose trace step carries an additional redacted
+     * `target` (see class docblock and `resolveWebResearchTarget()`).
+     *
+     * @var array<int, string>
+     */
+    private const WEB_RESEARCH_TOOL_IDS = ['hermiq.webSearch', 'hermiq.webFetch'];
+
+    /**
+     * The maximum characters of a `webSearch` query recorded as its trace target —
+     * a defensive bound against trace bloat, not a spec requirement (a search query
+     * is not itself a URL, so there is no host+path to reduce it to).
+     *
+     * @var int
+     */
+    private const MAX_SEARCH_QUERY_TARGET_LENGTH = 200;
 
     /**
      * Constructor.
@@ -761,7 +794,7 @@ class FacadeToolInvoker
                 $outcome = $outcomeOverride;
             }
 
-            $this->trace->endStep(token: $traceToken, outcome: $outcome);
+            $this->trace->endStep(token: $traceToken, outcome: $outcome, extra: $this->traceExtraFor(name: $name, arguments: $arguments));
         }
 
         $this->channel?->emitToolResult(
@@ -780,6 +813,88 @@ class FacadeToolInvoker
         return $encoded;
 
     }//end dispatchToFacade()
+
+    /**
+     * The `endStep()` `$extra` payload for `$name`'s trace step — `['target' =>
+     * ...]` for exactly `hermiq.webSearch`/`hermiq.webFetch` (web-research-tool),
+     * empty for every other tool (zero behavior change).
+     *
+     * @param string               $name      The LLPhant-side function name.
+     * @param array<string, mixed> $arguments Decoded arguments object.
+     *
+     * @return array<string, mixed> `['target' => string]`, or `[]`.
+     *
+     * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     */
+    private function traceExtraFor(string $name, array $arguments): array
+    {
+        $toolId = $this->resolveToolId(name: $name);
+        if (in_array($toolId, self::WEB_RESEARCH_TOOL_IDS, true) === false) {
+            return [];
+        }
+
+        $target = $this->resolveWebResearchTarget(toolId: $toolId, arguments: $arguments);
+        if ($target === null) {
+            return [];
+        }
+
+        return ['target' => $target];
+
+    }//end traceExtraFor()
+
+    /**
+     * Reduce a web-research tool call's arguments to its auditable target:
+     * `webFetch`'s URL reduced to host+path (query string dropped ENTIRELY, never
+     * selectively masked — a search/fetch query string is exactly where a
+     * secret-shaped value could accidentally end up); `webSearch`'s raw query text
+     * (not a URL, so there is no host+path to reduce it to), length-capped.
+     *
+     * @param string               $toolId    The dotted tool id (`hermiq.webSearch` or
+     *                                        `hermiq.webFetch`).
+     * @param array<string, mixed> $arguments Decoded arguments object.
+     *
+     * @return string|null The target, or null when the relevant argument is absent/empty.
+     *
+     * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     */
+    private function resolveWebResearchTarget(string $toolId, array $arguments): ?string
+    {
+        if ($toolId === 'hermiq.webFetch') {
+            return $this->reduceUrlToHostAndPath(url: (string) ($arguments['url'] ?? ''));
+        }
+
+        $query = trim((string) ($arguments['query'] ?? ''));
+        if ($query === '') {
+            return null;
+        }
+
+        if (strlen($query) > self::MAX_SEARCH_QUERY_TARGET_LENGTH) {
+            return substr($query, 0, self::MAX_SEARCH_QUERY_TARGET_LENGTH).'…';
+        }
+
+        return $query;
+
+    }//end resolveWebResearchTarget()
+
+    /**
+     * Reduce a URL to `host` + `path` only — the query string is dropped entirely,
+     * never selectively masked (design.md: simpler and safer than
+     * `RedactionService::redactQueryString()`'s per-field masking).
+     *
+     * @param string $url The URL to reduce.
+     *
+     * @return string|null The `host+path`, or null when `$url` has no parseable host.
+     */
+    private function reduceUrlToHostAndPath(string $url): ?string
+    {
+        $parts = parse_url($url);
+        if (is_array($parts) === false || empty($parts['host']) === true) {
+            return null;
+        }
+
+        return $parts['host'].(string) ($parts['path'] ?? '');
+
+    }//end reduceUrlToHostAndPath()
 
     /**
      * Whether `$name` is side-effecting per the resolved `ToolClassificationService`
