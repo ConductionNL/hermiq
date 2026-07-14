@@ -36,6 +36,8 @@ use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\WebResearch\WebFetchService;
+use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
@@ -345,6 +347,8 @@ class ToolGrantResolverTest extends TestCase
             $this->createMock(ContainerInterface::class),
             $this->createMock(CourseRecommendationEngine::class),
             $this->createMock(MemoryService::class),
+            $this->createMock(WebSearchClient::class),
+            $this->createMock(WebFetchService::class),
             $this->createMock(LoggerInterface::class)
         );
 
@@ -398,6 +402,8 @@ class ToolGrantResolverTest extends TestCase
                 'hermiq.recallMemory',
                 'hermiq.searchContacts',
                 'hermiq.searchTools',
+                'hermiq.webFetch',
+                'hermiq.webSearch',
             ],
             $resolved,
             'Every readOnlyHint:true/scope:read NC-native tool must be granted by the default-allow'

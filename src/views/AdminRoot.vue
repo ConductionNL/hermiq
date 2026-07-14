@@ -13,6 +13,11 @@
  SPA cannot: choosing which LLM provider Hermiq's background work runs
  on (SPECTR-NEXTCLOUD-PLAN.md §8 move 1). The provider picker itself
  lives in src/modals/LlmProviderModal.vue (modal-isolation gate).
+
+ Also hosts the web-research backend configuration (web-research-tool):
+ the pluggable search endpoint/provider shape and the web.fetch
+ egress-governance knobs. That picker lives in
+ src/modals/WebResearchSettingsModal.vue (modal-isolation gate).
 -->
 <template>
 	<div class="hermiq-admin-settings">
@@ -35,6 +40,26 @@
 				@close="showModal = false"
 				@saved="onSaved" />
 		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'Web research')"
+			:description="t('hermiq', 'Configure the web-search backend and the web.fetch allowlist/denylist that hermiq.webSearch/hermiq.webFetch run behind.')">
+			<div class="hermiq-admin-settings__provider">
+				<span class="hermiq-admin-settings__provider-label">{{ t('hermiq', 'Search backend') }}:</span>
+				<strong>{{ currentSearchProviderLabel }}</strong>
+			</div>
+			<NcButton type="primary" @click="showWebResearchModal = true">
+				<template #icon>
+					<Cog :size="20" />
+				</template>
+				{{ t('hermiq', 'Configure web research') }}
+			</NcButton>
+
+			<WebResearchSettingsModal
+				:show="showWebResearchModal"
+				@close="showWebResearchModal = false"
+				@saved="onWebResearchSaved" />
+		</NcSettingsSection>
 	</div>
 </template>
 
@@ -42,13 +67,20 @@
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
+import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import { getLlmSettings } from '../api/llm.js'
+import { getWebResearchSettings } from '../api/webResearch.js'
 
 const PROVIDER_LABELS = {
 	openai: 'OpenAI',
 	ollama: 'Ollama (local)',
 	fireworks: 'Fireworks AI',
 	nextcloud: 'Nextcloud Assistant (TaskProcessing)',
+}
+
+const SEARCH_PROVIDER_LABELS = {
+	searxng: 'SearXNG (self-hosted)',
+	'generic-json': 'Generic JSON search API',
 }
 
 export default {
@@ -58,12 +90,15 @@ export default {
 		LlmProviderModal,
 		NcButton,
 		NcSettingsSection,
+		WebResearchSettingsModal,
 	},
 
 	data() {
 		return {
 			showModal: false,
 			chatProvider: null,
+			showWebResearchModal: false,
+			searchProvider: null,
 		}
 	},
 
@@ -81,10 +116,24 @@ export default {
 			}
 			return PROVIDER_LABELS[this.chatProvider] || this.chatProvider
 		},
+		/**
+		 * Human-readable name of the current search backend, or a "not configured" hint.
+		 *
+		 * @return {string} The label.
+		 *
+		 * @spec exclude Trivial computed display helper; no behavioural spec.
+		 */
+		currentSearchProviderLabel() {
+			if (!this.searchProvider) {
+				return this.t('hermiq', 'Not configured')
+			}
+			return SEARCH_PROVIDER_LABELS[this.searchProvider] || this.searchProvider
+		},
 	},
 
 	mounted() {
 		this.refresh()
+		this.refreshWebResearch()
 	},
 
 	methods: {
@@ -114,6 +163,34 @@ export default {
 		 */
 		onSaved(provider) {
 			this.chatProvider = provider
+		},
+
+		/**
+		 * Fetch the current search-backend selection for display.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
+		 */
+		async refreshWebResearch() {
+			try {
+				const config = await getWebResearchSettings()
+				this.searchProvider = config.searchProvider || null
+			} catch (e) {
+				this.searchProvider = null
+			}
+		},
+
+		/**
+		 * Handle a save from the web-research modal: reflect the new provider immediately.
+		 *
+		 * @param {string} provider The newly-selected search provider.
+		 * @return {void}
+		 *
+		 * @spec openspec/changes/web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
+		 */
+		onWebResearchSaved(provider) {
+			this.searchProvider = provider || null
 		},
 	},
 }

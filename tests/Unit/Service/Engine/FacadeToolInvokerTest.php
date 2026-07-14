@@ -641,4 +641,90 @@ class FacadeToolInvokerTest extends TestCase
         $invoker->hermiq_recallMemory(query: 'x');
 
     }//end testNoAgentIdLeavesMemoryToolArgumentsUnchanged()
+
+    /**
+     * A `hermiq.webFetch` call's trace step carries `target` reduced to host+path,
+     * with the query string dropped ENTIRELY (web-research-tool).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     */
+    public function testWebFetchTraceStepCarriesHostAndPathTargetWithoutQueryString(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->method('invokeTool')->willReturn(
+            ['result' => ['url' => 'https://example.test/a/b?token=SECRET&q=1', 'truncated' => false], 'isError' => false]
+        );
+
+        $trace   = new RunTraceCollector();
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            trace: $trace,
+            mcpIdByName: ['hermiq_webFetch' => 'hermiq.webFetch']
+        );
+
+        $invoker->hermiq_webFetch(url: 'https://example.test/a/b?token=SECRET&q=1');
+
+        $steps = $trace->toArray();
+        $this->assertCount(1, $steps);
+        $this->assertSame('example.test/a/b', $steps[0]['target']);
+        $this->assertStringNotContainsString('SECRET', $steps[0]['target']);
+        $this->assertStringNotContainsString('?', $steps[0]['target']);
+
+    }//end testWebFetchTraceStepCarriesHostAndPathTargetWithoutQueryString()
+
+    /**
+     * A `hermiq.webSearch` call's trace step carries the raw query text as its
+     * target (not a URL, so there is no host+path to reduce it to).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     */
+    public function testWebSearchTraceStepCarriesTheQueryAsTarget(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->method('invokeTool')->willReturn(['result' => ['query' => 'nextcloud news', 'results' => []], 'isError' => false]);
+
+        $trace   = new RunTraceCollector();
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            trace: $trace,
+            mcpIdByName: ['hermiq_webSearch' => 'hermiq.webSearch']
+        );
+
+        $invoker->hermiq_webSearch(query: 'nextcloud news');
+
+        $steps = $trace->toArray();
+        $this->assertSame('nextcloud news', $steps[0]['target']);
+
+    }//end testWebSearchTraceStepCarriesTheQueryAsTarget()
+
+    /**
+     * Every OTHER tool's trace step is unaffected — no `target` key at all (zero
+     * behavior change outside the two web-research tool ids).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     */
+    public function testNonWebResearchToolStepCarriesNoTargetKey(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->method('invokeTool')->willReturn(['result' => ['entries' => []], 'isError' => false]);
+
+        $trace   = new RunTraceCollector();
+        $invoker = new FacadeToolInvoker(
+            facade: $facade,
+            trace: $trace,
+            mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+        );
+
+        $invoker->hermiq_listFiles(path: '/');
+
+        $steps = $trace->toArray();
+        $this->assertArrayNotHasKey('target', $steps[0]);
+
+    }//end testNonWebResearchToolStepCarriesNoTargetKey()
 }//end class

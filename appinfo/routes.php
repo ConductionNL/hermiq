@@ -32,6 +32,12 @@ return [
         ['name' => 'Settings\LlmSettings#get',    'url' => '/api/settings/llm', 'verb' => 'GET'],
         ['name' => 'Settings\LlmSettings#update', 'url' => '/api/settings/llm', 'verb' => 'PATCH'],
 
+        // Admin web-research backend configuration (web-research-tool): the pluggable
+        // search endpoint/provider shape, the web.fetch allowlist/denylist, and the
+        // egress-governance caps (insecure-HTTP opt-in, size cap, timeout).
+        ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
+        ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
+
         // Generic per-user preferences (used by shared nextcloud-vue widgets, e.g. CnSupportDialog).
         ['name' => 'preferences#getPreference', 'url' => '/api/preferences/{key}', 'verb' => 'GET'],
         ['name' => 'preferences#setPreference', 'url' => '/api/preferences/{key}', 'verb' => 'PUT'],
