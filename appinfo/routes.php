@@ -395,6 +395,11 @@ return [
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
 
+        // Case-assistant surface (case-assistant-surface): minimal, tool-free
+        // synchronous conversational endpoint for leaf apps — deliberately
+        // separate from chat#sendMessage, see design.md.
+        ['name' => 'assistant#converse', 'url' => '/api/assistant/converse', 'verb' => 'POST'],
+
         // Conversations: CRUD + messages + archive lifecycle (restore/permanent).
         ['name' => 'conversation#index', 'url' => '/api/conversations', 'verb' => 'GET'],
         ['name' => 'conversation#create', 'url' => '/api/conversations', 'verb' => 'POST'],
