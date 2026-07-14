@@ -3,7 +3,7 @@
 
 <!--
   AgentFormModal — create or edit an agent (agent-management-ui, extended by
-  agent-engine-port).
+  agent-engine-port, sub-agent-delegation).
 
   Own file per ADR-004 modal-isolation. Since agent-engine-schemas an Agent is
   a plain OR object in the hermiq register, so the modal persists via the
@@ -15,13 +15,15 @@
   Fields cover what the ported engine actually reads (OR EditAgent parity where
   it matters): identity (name, description), LLM config (provider, model,
   prompt, temperature, maxTokens), the tool whitelist (empty = every tool
-  allowed, ADR-035), and RAG settings (enableRag, ragNumSources, searchFiles,
-  searchObjects). Every NcSelect carries an `inputLabel` for the
-  nc-input-labels accessibility gate (WCAG 2.1 AA).
+  allowed, ADR-035), the delegation allowlist (empty = may delegate to no one,
+  sub-agent-delegation default-deny), and RAG settings (enableRag,
+  ragNumSources, searchFiles, searchObjects). Every NcSelect carries an
+  `inputLabel` for the nc-input-labels accessibility gate (WCAG 2.1 AA).
 
   @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
   @spec openspec/changes/agent-engine-port/tasks.md#task-5-2
   @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
+  @spec openspec/changes/sub-agent-delegation/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp
 -->
 <template>
 	<NcModal
@@ -110,6 +112,26 @@
 					:placeholder="t('hermiq', 'Select tools the agent may use')" />
 				<p class="agent-form__hint">
 					{{ t('hermiq', 'Leave empty to allow every available tool.') }}
+				</p>
+			</div>
+
+			<!-- sub-agent-delegation: which OTHER agents (same organisation) this
+			     agent's own turns may hand a bounded sub-task to via
+			     hermiq.delegateAgent. Defaults to none (default-deny); the agent
+			     being edited is never offered as its own delegation target. -->
+			<div class="agent-form__field">
+				<NcSelect
+					v-model="form.delegationAllowlist"
+					:input-label="t('hermiq', 'Delegation allowlist')"
+					:options="delegationAllowlistOptions"
+					:loading="agentCatalogLoading"
+					:multiple="true"
+					:close-on-select="false"
+					label="label"
+					track-by="value"
+					:placeholder="t('hermiq', 'Select agents this agent may delegate to')" />
+				<p class="agent-form__hint">
+					{{ t('hermiq', 'Leave empty to disallow delegation entirely (default).') }}
 				</p>
 			</div>
 
@@ -203,17 +225,12 @@ export default {
 			error: '',
 			// Effective model policy (tenant-model-policy); null until loaded.
 			policy: null,
+			// sub-agent-delegation: the caller's visible agent catalog, used to
+			// populate the delegation-allowlist picker and resolve its selected
+			// ids to human-readable names.
+			agentCatalog: [],
+			agentCatalogLoading: false,
 		}
-	},
-
-	watch: {
-		show(open) {
-			if (open) {
-				this.resetForm()
-				this.loadTools()
-				this.loadPolicy()
-			}
-		},
 	},
 
 	computed: {
@@ -287,6 +304,34 @@ export default {
 				this.form.model = option ? option.value : ''
 			},
 		},
+
+		/**
+		 * The caller's visible agent catalog as delegation-allowlist NcSelect
+		 * options, EXCLUDING the agent currently being edited (sub-agent-delegation:
+		 * an agent may never delegate to itself).
+		 *
+		 * @return {Array<object>} The { label, value } options.
+		 */
+		delegationAllowlistOptions() {
+			const editingId = this.agent?.uuid || this.agent?.id || null
+			return this.agentCatalog
+				.filter((candidate) => (candidate.uuid || candidate.id) !== editingId)
+				.map((candidate) => ({
+					label: candidate.name || candidate.uuid || candidate.id,
+					value: candidate.uuid || candidate.id,
+				}))
+		},
+	},
+
+	watch: {
+		show(open) {
+			if (open) {
+				this.resetForm()
+				this.loadTools()
+				this.loadPolicy()
+				this.loadAgentCatalog()
+			}
+		},
 	},
 
 	created() {
@@ -310,6 +355,7 @@ export default {
 				temperature: '',
 				maxTokens: '',
 				tools: [],
+				delegationAllowlist: [],
 				enableRag: false,
 				searchObjects: true,
 				searchFiles: true,
@@ -329,6 +375,7 @@ export default {
 				return
 			}
 			const tools = Array.isArray(this.agent.tools) ? this.agent.tools : []
+			const delegationAllowlist = Array.isArray(this.agent.delegationAllowlist) ? this.agent.delegationAllowlist : []
 			this.form = {
 				name: this.agent.name || '',
 				description: this.agent.description || '',
@@ -338,6 +385,7 @@ export default {
 				temperature: this.agent.temperature ?? '',
 				maxTokens: this.agent.maxTokens ?? '',
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
+				delegationAllowlist: this.mapDelegationAllowlistToOptions(delegationAllowlist),
 				enableRag: this.agent.enableRag === true,
 				searchObjects: this.agent.searchObjects !== false,
 				searchFiles: this.agent.searchFiles !== false,
@@ -383,6 +431,48 @@ export default {
 		},
 
 		/**
+		 * Load the caller's visible agent catalog for the delegation-allowlist
+		 * picker (sub-agent-delegation). Non-fatal: with no catalog loaded the
+		 * picker just stays empty; the agent can still be saved with whatever
+		 * was already selected. Once loaded, re-derives the already-selected
+		 * options' labels so an edit form opened before the catalog arrived
+		 * still shows human names, not bare ids.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadAgentCatalog() {
+			this.agentCatalogLoading = true
+			try {
+				const agents = await this.store.fetchCollection('agent')
+				this.agentCatalog = Array.isArray(agents) ? agents : []
+			} catch (e) {
+				this.agentCatalog = []
+			} finally {
+				this.agentCatalogLoading = false
+			}
+			if (this.show) {
+				this.form.delegationAllowlist = this.mapDelegationAllowlistToOptions(
+					(this.form.delegationAllowlist || []).map((option) => option.value),
+				)
+			}
+		},
+
+		/**
+		 * Map delegation-allowlist agent ids to NcSelect options, resolving each
+		 * id's human name from the loaded agent catalog when available (falls
+		 * back to the bare id before the catalog has loaded).
+		 *
+		 * @param {Array<string>} ids The selected agent ids.
+		 * @return {Array<object>} The { label, value } options.
+		 */
+		mapDelegationAllowlistToOptions(ids) {
+			return (ids || []).map((id) => {
+				const match = this.agentCatalog.find((candidate) => (candidate.uuid || candidate.id) === id)
+				return { label: match?.name || id, value: id }
+			})
+		},
+
+		/**
 		 * Whether the current provider/model pair violates the loaded policy
 		 * (client-side mirror of the ProviderFactory enforcement).
 		 *
@@ -420,6 +510,7 @@ export default {
 				model: this.form.model,
 				prompt: this.form.prompt,
 				tools: (this.form.tools || []).map((tool) => tool.value),
+				delegationAllowlist: (this.form.delegationAllowlist || []).map((option) => option.value),
 				enableRag: this.form.enableRag,
 				searchObjects: this.form.searchObjects,
 				searchFiles: this.form.searchFiles,

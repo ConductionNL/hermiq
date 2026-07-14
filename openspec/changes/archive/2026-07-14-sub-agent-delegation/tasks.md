@@ -11,8 +11,8 @@
     default `[]`)
   - GIVEN a newly created agent with no `delegationAllowlist` supplied WHEN it is saved THEN
     `delegationAllowlist` defaults to `[]`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: `DelegationContext` — request-scoped delegation call-stack
 - **spec_ref**: `openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded`
@@ -26,8 +26,8 @@
     (or null if none), never the popped one
   - GIVEN `incrementFanOut()` is called 3 times on the current frame WHEN `fanOutCount()` is read
     THEN it returns 3
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: `ScheduleService` — `forceOwner`/`anchor` params, call-stack push/pop, `runId` in audit
 - **spec_ref**: `openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parents-acting-user-attribution`
@@ -46,8 +46,8 @@
     writes the `AuditTrail` entry THEN the context includes the run's own `runId`, and a delegated
     run's context additionally includes `parentRunId` referencing the calling run's `runId`
   - GIVEN `runDue()` fires a schedule WHEN it calls `runAgentAsOwner()` THEN it passes `anchor: $schedule`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: `FlowAgentRunService` — pass the triggering object as the delegation anchor
 - **spec_ref**: `openspec/changes/sub-agent-delegation/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap`
@@ -56,8 +56,8 @@
   - GIVEN `runAgentAndWriteBack()` calls `runAgentAsOwner()` WHEN it fires THEN it passes
     `anchor: $object` (the triggering object) so a delegation nested inside a flow-triggered run
     rolls up to the same anchor a scheduled run's `$schedule` would
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: `DelegationService` — the governed delegation dispatcher
 - **spec_ref**: `openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused`
@@ -85,8 +85,8 @@
     `{targetAgentId, result}`
   - GIVEN any gate refuses WHEN `delegate()` returns THEN no exception is thrown (mirrors
     `HermiqToolProvider`'s never-throws contract)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: `HermiqToolProvider` — register the `hermiq.delegateAgent` tool
 - **spec_ref**: `openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-a-delegated-sub-agent-runs-in-an-isolated-conversation`
@@ -97,8 +97,8 @@
   - GIVEN `invokeTool('hermiq.delegateAgent', {targetAgentId, task})` is called WHEN it runs THEN
     it delegates to `DelegationService::delegate()` and returns that result verbatim
     (success or structured error), never throwing
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: Frontend — delegation allowlist editor + translations
 - **spec_ref**: `openspec/changes/sub-agent-delegation/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp`
@@ -111,8 +111,8 @@
     persisted as the selected agent UUIDs via the existing OpenRegister save path
   - GIVEN a brand-new agent WHEN the create form is submitted with the field left empty THEN
     `delegationAllowlist` saves as `[]`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 

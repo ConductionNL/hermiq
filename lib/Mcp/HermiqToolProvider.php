@@ -58,6 +58,20 @@
  * policy MAY still classify either tool id `confirm`/`deny` explicitly, which
  * `FacadeToolInvoker` enforces before either ever dispatches.
  *
+ * sub-agent-delegation additionally registers `hermiq.delegateAgent` here — lets one
+ * Hermiq agent invoke another, in the same organisation and on its own explicit
+ * `Agent.delegationAllowlist`, as a bounded sequential sub-task in an isolated
+ * conversation. `scope: 'create'` / `destructiveHint: true` classifies it as
+ * write/destructive under `ToolGrantResolver::isWriteOrDestructive()` (so it is
+ * default-denied like any other write tool — an agent needs it BOTH in its `tools`
+ * grant AND its `delegationAllowlist`) and as side-effecting under
+ * `ToolClassificationService::isSideEffecting()` (so a dry-run neutralises it like
+ * any other side-effecting tool, never actually delegating). All governance —
+ * self/cycle refusal, the allowlist, depth/fan-out bounds, cross-organisation
+ * refusal, tenant-model-policy, the kill-switch, the budget hard cap, and the
+ * target-requires-approval refusal — lives in `DelegationService::delegate()`; this
+ * method only validates the tool's own input shape and forwards to it.
+ *
  * @category Mcp
  * @package  OCA\Hermiq\Mcp
  *
@@ -79,6 +93,7 @@ namespace OCA\Hermiq\Mcp;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
@@ -359,36 +374,74 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
             'idempotentHint'  => true,
             'scope'           => 'read',
         ],
+        [
+            'id'              => Application::APP_ID.'.delegateAgent',
+            'name'            => 'Delegate to another agent',
+            'description'     => 'Delegate a bounded sub-task to another agent explicitly named on your delegation '
+                .'allowlist, in the same organisation. Runs the target agent in a fresh, isolated conversation and '
+                .'returns its final text result. Sequential only — this call blocks until the sub-agent finishes.',
+            'inputSchema'     => [
+                'type'       => 'object',
+                'properties' => [
+                    'targetAgentId' => [
+                        'type'        => 'string',
+                        'format'      => 'uuid',
+                        'description' => 'UUID of the agent to delegate to (must be on your delegation allowlist).',
+                    ],
+                    'task'          => [
+                        'type'        => 'string',
+                        'description' => 'The bounded task/prompt to hand to the target agent.',
+                    ],
+                ],
+                'required'   => ['targetAgentId', 'task'],
+            ],
+            // A real, irreversible sub-agent run (its own budget/audit entry,
+            // possibly its own side effects) — never read-only, never idempotent
+            // (each call is a fresh sub-run), destructiveHint true so it is
+            // default-denied like any other write tool and neutralised under a
+            // dry-run preview (see class docblock).
+            'readOnlyHint'    => false,
+            'destructiveHint' => true,
+            'idempotentHint'  => false,
+            'scope'           => 'create',
+        ],
     ];
 
     /**
      * Constructor.
      *
-     * @param IUserSession               $userSession     The current user session (auth + scoping).
-     * @param IGroupManager              $groupManager    Group manager (AbstractToolHandler helpers).
-     * @param IRootFolder                $rootFolder      Files root (scoped per user).
-     * @param IContactsManager           $contactsManager Contacts search (acting user's books).
-     * @param ICalendarManager           $calendarManager Calendar query (acting user's calendars).
-     * @param IMailer                    $mailer          Outbound email.
-     * @param IAppManager                $appManager      App availability (Deck) + describe.
-     * @param ContainerInterface         $container       Lazy Deck BoardService resolution.
-     * @param CourseRecommendationEngine $courseEngine    Shared engine backing `recommendCourses`
-     *                                                    (ai-course-recommendations) — no duplicated
-     *                                                    gating/scoring/signal-read logic.
-     * @param MemoryService              $memoryService   Shared service backing `rememberMemory`/
-     *                                                    `recallMemory`/`forgetMemory` (agent-memory-tools) —
-     *                                                    no duplicated append/redact/recall/soft-delete logic.
-     * @param WebSearchClient            $webSearchClient Shared client backing `webSearch`
-     *                                                    (web-research-tool) —
-     *                                                    SSRF-guarded call to the
-     *                                                    admin-configured search backend.
-     * @param WebFetchService            $webFetchService Shared service backing `webFetch`
-     *                                                    (web-research-tool) —
-     *                                                    SSRF-guarded GET + readable-text
-     *                                                    extraction.
-     * @param LoggerInterface            $logger          PSR-3 logger.
+     * @param IUserSession               $userSession       The current user session (auth + scoping).
+     * @param IGroupManager              $groupManager      Group manager (AbstractToolHandler helpers).
+     * @param IRootFolder                $rootFolder        Files root (scoped per user).
+     * @param IContactsManager           $contactsManager   Contacts search (acting user's books).
+     * @param ICalendarManager           $calendarManager   Calendar query (acting user's calendars).
+     * @param IMailer                    $mailer            Outbound email.
+     * @param IAppManager                $appManager        App availability (Deck) + describe.
+     * @param ContainerInterface         $container         Lazy Deck BoardService resolution.
+     * @param CourseRecommendationEngine $courseEngine      Shared engine backing `recommendCourses`
+     *                                                      (ai-course-recommendations) — no
+     *                                                      duplicated gating/scoring/signal-read
+     *                                                      logic.
+     * @param MemoryService              $memoryService     Shared service backing `rememberMemory`/
+     *                                                      `recallMemory`/`forgetMemory`
+     *                                                      (agent-memory-tools) — no duplicated
+     *                                                      append/redact/recall/soft-delete logic.
+     * @param WebSearchClient            $webSearchClient   Shared client backing `webSearch`
+     *                                                      (web-research-tool) —
+     *                                                      SSRF-guarded call to the
+     *                                                      admin-configured search backend.
+     * @param WebFetchService            $webFetchService   Shared service backing `webFetch`
+     *                                                      (web-research-tool) —
+     *                                                      SSRF-guarded GET + readable-text
+     *                                                      extraction.
+     * @param DelegationService          $delegationService Shared governed dispatcher backing
+     *                                                      `delegateAgent` (sub-agent-delegation) —
+     *                                                      all self/cycle/allowlist/depth/fan-out/
+     *                                                      organisation/model-policy/kill-switch/
+     *                                                      budget/approval gating lives there.
+     * @param LoggerInterface            $logger            PSR-3 logger.
      *
-     * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of nine distinct capabilities.
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of ten distinct capabilities.
      */
     public function __construct(
         IUserSession $userSession,
@@ -403,6 +456,7 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
         private readonly MemoryService $memoryService,
         private readonly WebSearchClient $webSearchClient,
         private readonly WebFetchService $webFetchService,
+        private readonly DelegationService $delegationService,
         private readonly LoggerInterface $logger,
     ) {
         $this->userSession  = $userSession;
@@ -486,6 +540,8 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
                     return $this->webSearch(uid: $uid, query: (string) ($arguments['query'] ?? ''));
                 case Application::APP_ID.'.webFetch':
                     return $this->webFetch(url: (string) ($arguments['url'] ?? ''));
+                case Application::APP_ID.'.delegateAgent':
+                    return $this->delegateAgent(arguments: $arguments);
                 case Application::APP_ID.'.searchTools':
                     // Defensive fallback only — the Hermiq engine short-circuits this
                     // call directly to ToolSearchService before it ever reaches the
@@ -959,6 +1015,42 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
         return $this->webFetchService->fetch(url: $url);
 
     }//end webFetch()
+
+    /**
+     * Delegate a bounded sub-task to another agent (sub-agent-delegation).
+     * Validates the tool's own input shape, then forwards to
+     * `DelegationService::delegate()` — every governance gate (self/cycle,
+     * allowlist, depth/fan-out, organisation, model-policy, kill-switch,
+     * budget, approval) lives there, never here.
+     *
+     * @param array<string, mixed> $arguments The tool arguments (`targetAgentId`, `task`,
+     *                                        plus the run-injected `agentId` — see
+     *                                        `Engine\FacadeToolInvoker::withAgentId()`).
+     *
+     * @return array<string, mixed> The result, or an error envelope.
+     *
+     * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-a-delegated-sub-agent-runs-in-an-isolated-conversation
+     */
+    private function delegateAgent(array $arguments): array
+    {
+        $callerAgentId = trim((string) ($arguments['agentId'] ?? ''));
+        if ($callerAgentId === '') {
+            return $this->noAgentContextError();
+        }
+
+        $targetAgentId = trim((string) ($arguments['targetAgentId'] ?? ''));
+        if ($targetAgentId === '') {
+            return $this->error(code: 'invalid_argument', message: 'targetAgentId is required.');
+        }
+
+        $task = trim((string) ($arguments['task'] ?? ''));
+        if ($task === '') {
+            return $this->error(code: 'invalid_argument', message: 'A non-empty task is required.');
+        }
+
+        return $this->delegationService->delegate(callerAgentId: $callerAgentId, targetAgentId: $targetAgentId, task: $task);
+
+    }//end delegateAgent()
 
     /**
      * Build a structured error envelope (invokeTool never throws).

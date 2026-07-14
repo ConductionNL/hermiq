@@ -43,6 +43,7 @@ namespace OCA\Hermiq\Tests\Unit\Mcp;
 
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
+use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
@@ -76,6 +77,7 @@ class HermiqToolProviderTest extends TestCase
      * @param MemoryService|null              $memoryService A specific MemoryService double, or a plain mock.
      * @param WebSearchClient|null            $webSearchClient A specific WebSearchClient double, or a plain mock.
      * @param WebFetchService|null            $webFetchService A specific WebFetchService double, or a plain mock.
+     * @param DelegationService|null          $delegationService A specific DelegationService double, or a plain mock.
      *
      * @return HermiqToolProvider
      */
@@ -84,7 +86,8 @@ class HermiqToolProviderTest extends TestCase
         ?CourseRecommendationEngine $engine=null,
         ?MemoryService $memoryService=null,
         ?WebSearchClient $webSearchClient=null,
-        ?WebFetchService $webFetchService=null
+        ?WebFetchService $webFetchService=null,
+        ?DelegationService $delegationService=null
     ): HermiqToolProvider {
         $session = $this->createMock(IUserSession::class);
         if ($uid === null) {
@@ -108,6 +111,7 @@ class HermiqToolProviderTest extends TestCase
             $memoryService ?? $this->createMock(MemoryService::class),
             $webSearchClient ?? $this->createMock(WebSearchClient::class),
             $webFetchService ?? $this->createMock(WebFetchService::class),
+            $delegationService ?? $this->createMock(DelegationService::class),
             $this->createMock(LoggerInterface::class)
         );
 
@@ -130,9 +134,10 @@ class HermiqToolProviderTest extends TestCase
         // 6 nc-native-tools + hermiq.searchTools (agent-tool-governance-and-disclosure's
         // progressive-disclosure meta-tool) + hermiq.recommendCourses (ai-course-recommendations)
         // + hermiq.rememberMemory/recallMemory/forgetMemory (agent-memory-tools)
-        // + hermiq.webSearch/webFetch (web-research-tool),
+        // + hermiq.webSearch/webFetch (web-research-tool)
+        // + hermiq.delegateAgent (sub-agent-delegation),
         // all registered through this same provider.
-        $this->assertCount(13, $tools);
+        $this->assertCount(14, $tools);
 
         $ids = array_column($tools, 'id');
         $this->assertContains('hermiq.listFiles', $ids);
@@ -148,6 +153,7 @@ class HermiqToolProviderTest extends TestCase
         $this->assertContains('hermiq.forgetMemory', $ids);
         $this->assertContains('hermiq.webSearch', $ids);
         $this->assertContains('hermiq.webFetch', $ids);
+        $this->assertContains('hermiq.delegateAgent', $ids);
 
         foreach ($ids as $id) {
             $this->assertStringStartsWith('hermiq.', $id);
@@ -188,10 +194,11 @@ class HermiqToolProviderTest extends TestCase
             'hermiq.forgetMemory'       => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => true, 'scope' => 'delete'],
             'hermiq.webSearch'          => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
             'hermiq.webFetch'           => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+            'hermiq.delegateAgent'      => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
         ];
 
         $tools = $this->provider('alice')->getTools();
-        $this->assertCount(13, $tools, 'This test must be updated if a tool is added or removed.');
+        $this->assertCount(14, $tools, 'This test must be updated if a tool is added or removed.');
 
         $seen = [];
         foreach ($tools as $tool) {

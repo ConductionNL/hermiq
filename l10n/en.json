@@ -38,6 +38,9 @@
         "Edit schedule": "Edit schedule",
         "Enabled": "Enabled",
         "Enabled tools": "Enabled tools",
+        "Delegation allowlist": "Delegation allowlist",
+        "Select agents this agent may delegate to": "Select agents this agent may delegate to",
+        "Leave empty to disallow delegation entirely (default).": "Leave empty to disallow delegation entirely (default).",
         "Error": "Error",
         "Every": "Every",
         "Interval": "Interval",
@@ -355,7 +358,15 @@
         "Title field": "Title field",
         "URL field": "URL field",
         "Web research": "Web research",
-        "web.fetch egress governance": "web.fetch egress governance"
+        "web.fetch egress governance": "web.fetch egress governance",
+        "Ground responses in your data (RAG)": "Ground responses in your data (RAG)",
+        "Leave empty to allow every available tool.": "Leave empty to allow every available tool.",
+        "Max tokens per response": "Max tokens per response",
+        "Number of RAG sources": "Number of RAG sources",
+        "Search in files": "Search in files",
+        "Search in objects": "Search in objects",
+        "Temperature (0–2)": "Temperature (0–2)",
+        "What does this agent do?": "What does this agent do?"
     },
     "plurals": ""
 }

@@ -250,6 +250,7 @@ class FlowAgentRunService
      * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-2
      * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-3
      * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
+     * @spec openspec/changes/sub-agent-delegation/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap
      */
     private function runAgentAndWriteBack(ObjectEntity $object, array $payload, string $organisation=''): bool
     {
@@ -300,7 +301,8 @@ class FlowAgentRunService
                 owner: $actingUser,
                 agentId: $agentRef,
                 prompt: $effectivePrompt,
-                organisation: $organisation
+                organisation: $organisation,
+                anchor: $object
             );
             $this->writeResultField(
                 resultField: $resultField,
