@@ -52,7 +52,13 @@ Considered and rejected: installing the Claude Code CLI / Agent SDK "in the herm
 
 Hydra's CLI-in-container model works because each run is an ephemeral, single-identity CI job with 3-account Max-token rotation for weekly limits — the opposite of Hermiq's multi-tenant, per-org, metered design. So `anthropic` enters as a broker-injected chat provider behind the existing `createChatDriver()` chokepoint, inheriting all governance for free.
 
-**Auth guidance (shipped default = API key):**
+**Auth guidance — two credential SCOPES, and Claude Max is personal-only:**
 
-- **Default `authMode: api_key`** — metered, per-tenant attributable, fits `BudgetService`, ToS-clean for an App-Store-distributed multi-tenant product.
-- **`authMode: oauth` (Claude Max) is a gated internal/dev option**, not the shipped default: (a) a Max/Pro subscription is a personal, interactive plan — using its token to serve other tenants is subscription sharing; (b) one token = one identity, so per-tenant attribution/billing/rate-isolation breaks; (c) **OAuth tokens expire and refresh is interactive** (`claude setup-token` / a browser) — a headless background provider has no way to refresh, so a Max token will go stale. Keep it behind an explicit admin opt-in + ToS warning, and file a follow-up for the refresh story if enabled.
+The credential the driver uses has a **scope** as well as an `authMode`:
+
+- **Organisation scope** — an admin-configured, org-shared credential (e.g. an Anthropic **API key** the org pays for), set in the app's **admin settings**. Metered, per-tenant attributable, fits `BudgetService`. This is the shipped default (`authMode: api_key`, organisation scope).
+- **Personal scope** — a credential the individual user configures in their **personal settings**, used only for their own agent runs.
+
+**Claude Max (`authMode: oauth`) MUST be personal-scope only.** Anthropic's terms permit a Claude Max/Pro subscription only for that individual's own use, so the Max OAuth token may be set **only as a personal token in personal settings** — never as an organisation-wide credential, and never used to serve other users. This keeps it ToS-compliant: the person's own subscription powers only that person's agents. The system MUST refuse an `oauth` credential configured at organisation scope. (Independently, OAuth tokens still can't refresh headlessly — `claude setup-token` is interactive — so a personal Max token may go stale; note this in the help text.)
+
+Both scopes must be settable — API keys typically at organisation scope, personal tokens (incl. Claude Max) at personal scope. Document this in the Hermiq docs and **link the Anthropic Terms of Service** at both the personal-settings help text and the docs page.

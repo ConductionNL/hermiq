@@ -60,3 +60,25 @@ An `anthropic` (provider, model) pair MUST be checked against the calling organi
 - **GIVEN** an org whose `ModelPolicy` does not permit `claude-opus-4-8`
 - **WHEN** an agent configured for `anthropic` + `claude-opus-4-8` resolves its driver
 - **THEN** a `ModelPolicyViolationException` is raised before any network call
+
+### Requirement: Credential scope — organisation vs personal, Claude Max personal-only
+
+An Anthropic credential MUST carry a **scope**: `organisation` (admin-configured, org-shared, set in admin settings) or `personal` (user-configured, set in personal settings, used only for that user's runs). Both scopes MUST be settable. Per Anthropic's Terms of Service, a **Claude Max/Pro subscription (`authMode: oauth`) MUST be personal-scope only** — the OAuth token may be set only as a personal token in personal settings, MUST NOT be configurable as an organisation credential, and MUST NOT be used to serve any user other than its owner. API-key credentials (`authMode: api_key`) MAY be either scope (typically organisation). The personal-settings UI and the docs MUST link the Anthropic Terms of Service.
+
+#### Scenario: Claude Max OAuth rejected at organisation scope
+
+- **GIVEN** an attempt to save an `anthropic` credential with `authMode: oauth` at `organisation` scope
+- **WHEN** the config is validated
+- **THEN** it is rejected with a message stating Claude Max may only be a personal token in personal settings (per the Anthropic ToS)
+
+#### Scenario: Claude Max OAuth accepted at personal scope
+
+- **GIVEN** a user sets their own Claude Max OAuth token as an `anthropic` credential with `authMode: oauth` at `personal` scope in personal settings
+- **WHEN** that user runs an agent on a Claude model
+- **THEN** the driver uses their personal token, and no other user can be served by it
+
+#### Scenario: API key at organisation scope
+
+- **GIVEN** an admin sets an Anthropic API key as an `anthropic` credential with `authMode: api_key` at `organisation` scope
+- **WHEN** any permitted user in the org runs an agent on a Claude model
+- **THEN** the driver uses the org key (subject to model policy)

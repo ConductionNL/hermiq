@@ -13,9 +13,10 @@
 
 - [ ] 3.1 Ensure a `generic-*` **inject-only** Anthropic credential provider exists in OR (api-key variant injecting `x-api-key`; oauth variant injecting `Authorization: Bearer` + the `anthropic-beta: oauth-2025-04-20` header) so Hermiq stores only a `credentialRef`. If absent, add it (paired OR change) and reference its provider id here.
 
-## 4. Settings UI (frontend)
+## 4. Settings UI (frontend) + credential scope
 
-- [ ] 4.1 Hermiq LLM settings component: add the `anthropic` provider option, a credential selector, a `chatModel` field seeded with `claude-opus-4-8` / `claude-sonnet-5` / `claude-haiku-4-5` / `claude-fable-5` suggestions, and an `authMode` toggle with help text noting Claude Max subscription use is the operator's ToS responsibility.
+- [ ] 4.1 Hermiq LLM settings: add the `anthropic` provider option, a credential selector, a `chatModel` field seeded with `claude-opus-4-8` / `claude-sonnet-5` / `claude-haiku-4-5` / `claude-fable-5` suggestions, and an `authMode` toggle. **Admin settings** expose `organisation`-scope credentials (API keys). **Personal settings** expose `personal`-scope credentials (incl. Claude Max OAuth). The save path MUST reject `authMode: oauth` at `organisation` scope (Claude Max is personal-only per Anthropic ToS).
+- [ ] 4.2 Docs + ToS: add a Hermiq docs page (docs/) describing the two scopes and the Claude-Max-personal-only rule, and **link the Anthropic Terms of Service** from both the personal-settings help text and the docs page. Deploy via the `documentation` branch.
 
 ## 5. Tests + validate
 
