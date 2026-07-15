@@ -74,9 +74,13 @@ use Throwable;
 /**
  * Resolves the configured chat provider into a ready-to-use driver.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) A provider factory is, by role,
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   A provider factory is, by role,
  * the one seam that touches every LLPhant config/chat class plus the TaskProcessing
  * surface; splitting it would smear provider selection across the Engine.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Each provider adds a
+ * driver-build + direct-HTTP branch of its own (openai/ollama/fireworks/anthropic/
+ * nextcloud); the aggregate complexity is inherent to being the single provider seam,
+ * and each branch stays individually simple.
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
  */
@@ -181,7 +185,7 @@ class ProviderFactory
 
         if (empty($chatProvider) === true) {
             throw new ProviderUnavailableException(
-                'Chat provider is not configured. Please configure OpenAI, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
+                'Chat provider is not configured. Please configure OpenAI, Anthropic, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
                 503
             );
         }
@@ -201,6 +205,11 @@ class ProviderFactory
         } else if ($chatProvider === 'fireworks') {
             $driver = $this->createFireworksDriver(
                 fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
+                agentModel: $agentModel
+            );
+        } else if ($chatProvider === 'anthropic') {
+            $driver = $this->createAnthropicDriver(
+                anthropicConfig: $llmConfig['anthropicConfig'] ?? [],
                 agentModel: $agentModel
             );
         } else if ($chatProvider === 'nextcloud') {
@@ -398,6 +407,213 @@ class ProviderFactory
     }//end callFireworksChat()
 
     /**
+     * Build the Anthropic auth + version headers for the given `authMode`.
+     *
+     * Pure header selection, split out so it is unit-testable without a live broker:
+     *
+     *   - `api_key` → `x-api-key: <broker placeholder>` + `anthropic-version`.
+     *   - `oauth`   → `Authorization: Bearer <broker placeholder>` + `anthropic-version`
+     *                 + `anthropic-beta: oauth-2025-04-20` (the Claude Max / subscription
+     *                 flow the Claude CLI uses).
+     *
+     * The auth-carrying header value is ALWAYS `BrokerHttpClient::BROKER_MANAGED_KEY`, a
+     * recognisable placeholder — never a real secret. `BrokerHttpClient` strips the
+     * broker-owned auth header (`authorization` / `x-api-key`) before egress and the broker
+     * injects the vault-held secret server-side; the non-auth headers (`anthropic-version`,
+     * `anthropic-beta`, `Content-Type`) pass through untouched, which is why they must be
+     * set here rather than left to the broker.
+     *
+     * @param string $authMode The Anthropic auth mode: `api_key` (default) or `oauth`.
+     *
+     * @return array<string, string> The request headers.
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     */
+    public function buildAnthropicHeaders(string $authMode): array
+    {
+        $headers = [
+            'Content-Type'      => 'application/json',
+            'anthropic-version' => '2023-06-01',
+        ];
+
+        if ($authMode === 'oauth') {
+            // Claude Max / subscription token — the Bearer + beta-flag flow.
+            $headers['Authorization']  = 'Bearer '.BrokerHttpClient::BROKER_MANAGED_KEY;
+            $headers['anthropic-beta'] = 'oauth-2025-04-20';
+
+            return $headers;
+        }
+
+        // Standard Console / API key.
+        $headers['x-api-key'] = BrokerHttpClient::BROKER_MANAGED_KEY;
+
+        return $headers;
+
+    }//end buildAnthropicHeaders()
+
+    /**
+     * Call Anthropic's Messages endpoint (`POST /v1/messages`) directly with the full
+     * message history, through the credential broker.
+     *
+     * Sibling of `callFireworksChat()`: no LLPhant `AnthropicChat` instance is used
+     * (LLPhant requires a concrete Guzzle client and exposes no seam for the OAuth
+     * header set). Hermiq's LLPhant message history is mapped to the Messages API shape:
+     * `system` messages are hoisted into the top-level `system` field (Anthropic keeps
+     * the system prompt out of `messages`), and `user`/`assistant` turns become
+     * `messages[{role, content}]`. Text chat is the priority path; tool-use mapping
+     * (Anthropic's `tools` / `tool_use` / `tool_result` content blocks differ from
+     * OpenAI's function-calling shape) is a documented follow-up — `$functions` is
+     * accepted for call-site symmetry and logged + ignored when present, exactly as the
+     * Fireworks driver does.
+     *
+     * @param string $credentialId   Broker credential UUID — NOT a key. Hermiq has
+     *                               no Anthropic secret; the broker holds it and
+     *                               injects it.
+     * @param string $model          Model identifier (e.g. `claude-opus-4-8`).
+     * @param string $baseUrl        Base API URL (e.g. `https://api.anthropic.com/v1`).
+     * @param array  $messageHistory Array of LLPhant Message objects.
+     * @param string $authMode       Auth mode: `api_key` (default) or `oauth`.
+     * @param int    $maxTokens      Max output tokens (Messages API requires it).
+     * @param array  $functions      Tool definitions (ignored; logged when present
+     *                               — tool mapping is a follow-up, see the method
+     *                               doc).
+     *
+     * @return string Generated response text.
+     *
+     * @throws \Exception If the HTTP call fails or the response is malformed.
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)   API call requires handling many response scenarios
+     * @SuppressWarnings(PHPMD.NPathComplexity)        API call requires handling many response scenarios
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)  API error handling requires verbose code
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors callFireworksChat's direct-HTTP signature
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     */
+    public function callAnthropicChat(
+        string $credentialId,
+        string $model,
+        string $baseUrl,
+        array $messageHistory,
+        string $authMode='api_key',
+        int $maxTokens=4096,
+        array $functions=[]
+    ): string {
+        $url = rtrim($baseUrl, '/').'/messages';
+
+        if (empty($functions) === false) {
+            // @todo anthropic-agent-provider tool-use mapping — Anthropic's tools /
+            // tool_use / tool_result content blocks differ from OpenAI's function-calling
+            // shape; ship text+streaming first, map tools in a follow-up so a half-mapping
+            // can't corrupt a tool turn. Tracked in the PR follow-up notes.
+            $this->logger->warning(
+                message: '[ProviderFactory] Tool-use is not yet mapped for the Anthropic provider. Tools will be ignored this turn.',
+                context: [
+                    'file'          => __FILE__,
+                    'line'          => __LINE__,
+                    'functionCount' => count($functions),
+                ]
+            );
+        }
+
+        // Anthropic keeps the system prompt OUT of `messages`; hoist every system turn
+        // into the top-level `system` field, and pass user/assistant turns through.
+        $systemParts = [];
+        $messages    = [];
+        foreach ($messageHistory as $msg) {
+            $role = $msg->role->value;
+            if ($role === 'system') {
+                $systemParts[] = (string) $msg->content;
+                continue;
+            }
+
+            $messages[] = [
+                'role'    => $role,
+                'content' => (string) $msg->content,
+            ];
+        }
+
+        $payload = [
+            'model'      => $model,
+            'max_tokens' => $maxTokens,
+            'messages'   => $messages,
+        ];
+
+        if (empty($systemParts) === false) {
+            $payload['system'] = implode("\n\n", $systemParts);
+        }
+
+        // Through the broker, not straight out. Hermiq has no Anthropic secret to send: the
+        // broker holds it, checks the allow-rules, and injects the auth header server-side.
+        $client = new BrokerHttpClient(
+            credentialId: $credentialId,
+            logger: $this->logger,
+            actingUserId: $this->currentUid()
+        );
+
+        try {
+            $psrResponse = $client->sendRequest(
+                new Request(
+                    'POST',
+                    $url,
+                    $this->buildAnthropicHeaders(authMode: $authMode),
+                    (string) json_encode($payload)
+                )
+            );
+        } catch (Throwable $e) {
+            throw new Exception('Anthropic API request failed: '.$e->getMessage());
+        }
+
+        $httpCode = $psrResponse->getStatusCode();
+        $response = (string) $psrResponse->getBody();
+
+        if ($httpCode !== 200) {
+            $errorData = json_decode($response, true);
+            if (is_array($errorData) === false) {
+                $errorData = [];
+            }
+
+            $errorMessage = $errorData['error']['message'] ?? $errorData['error'] ?? $response;
+            if (is_string($errorMessage) === false) {
+                $errorMessage = 'Unknown error';
+            }
+
+            if ($httpCode === 401 || $httpCode === 403) {
+                throw new Exception('Authentication failed. Please check your Anthropic credential.');
+            }
+
+            if ($httpCode === 404) {
+                throw new Exception("Model not found: {$model}. Please check the model name.");
+            }
+
+            if ($httpCode === 429) {
+                throw new Exception('Rate limit exceeded. Please try again later.');
+            }
+
+            throw new Exception("Anthropic API error (HTTP {$httpCode}): {$errorMessage}");
+        }//end if
+
+        $data = json_decode($response, true);
+        if (is_array($data) === false) {
+            throw new Exception('Unexpected Anthropic API response format: '.$response);
+        }
+
+        // Messages API returns an array of content blocks; concatenate the text blocks.
+        $text = '';
+        foreach (($data['content'] ?? []) as $block) {
+            if (is_array($block) === true && ($block['type'] ?? '') === 'text') {
+                $text .= (string) ($block['text'] ?? '');
+            }
+        }
+
+        if ($text === '') {
+            throw new Exception('Unexpected Anthropic API response format: '.$response);
+        }
+
+        return $text;
+
+    }//end callAnthropicChat()
+
+    /**
      * Generate text via the `nextcloud` TaskProcessing driver.
      *
      * Non-streaming, background/non-interactive only (conversation titles,
@@ -506,6 +722,16 @@ class ProviderFactory
                 model: $driver->model,
                 baseUrl: (string) $driver->baseUrl,
                 messageHistory: [LLPhantMessage::user($prompt)]
+            );
+        }
+
+        if ($driver->provider === 'anthropic') {
+            return $this->callAnthropicChat(
+                credentialId: (string) $driver->credentialId,
+                model: $driver->model,
+                baseUrl: (string) $driver->baseUrl,
+                messageHistory: [LLPhantMessage::user($prompt)],
+                authMode: (string) $driver->authMode
             );
         }
 
@@ -675,6 +901,66 @@ class ProviderFactory
         );
 
     }//end createFireworksDriver()
+
+    /**
+     * Build the `anthropic` driver descriptor. No LLPhant chat instance is created —
+     * generation goes through `callAnthropicChat()` (direct HTTP), the same shape as
+     * the Fireworks driver, because LLPhant's `AnthropicChat` requires a concrete Guzzle
+     * client and exposes no seam for the OAuth header set. The resolved model still flows
+     * through `enforceModelPolicy()` at the `createChatDriver()` chokepoint (unchanged).
+     *
+     * @param array       $anthropicConfig The `anthropicConfig` sub-block.
+     * @param string|null $agentModel      Agent model override.
+     *
+     * @return ChatDriver
+     *
+     * @throws ProviderUnavailableException When the credential is missing (503) or the
+     *                                      OpenRegister credential broker is unavailable (503),
+     *                                      mirroring createOpenAiDriver().
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    private function createAnthropicDriver(array $anthropicConfig, ?string $agentModel): ChatDriver
+    {
+        $credentialId = (string) ($anthropicConfig['credentialId'] ?? '');
+        if ($credentialId === '') {
+            throw new ProviderUnavailableException(
+                'Anthropic has no credential. Select one from the credential broker in the Hermiq LLM settings.',
+                503
+            );
+        }
+
+        if (BrokerHttpClient::isAvailable() === false) {
+            throw new ProviderUnavailableException(
+                'Anthropic cannot be used: the OpenRegister credential broker is not available.',
+                503
+            );
+        }
+
+        $model = ($anthropicConfig['chatModel'] ?? 'claude-opus-4-8');
+        if (empty($agentModel) === false) {
+            $model = $agentModel;
+        }
+
+        $authMode = ($anthropicConfig['authMode'] ?? 'api_key');
+        if ($authMode !== 'oauth') {
+            $authMode = 'api_key';
+        }
+
+        $baseUrl = rtrim($anthropicConfig['baseUrl'] ?? 'https://api.anthropic.com/v1', '/');
+
+        // `credentialId` is a broker reference, not a secret — the key or OAuth token lives
+        // in the vault and is injected server-side by BrokerHttpClient at egress.
+        return new ChatDriver(
+            provider: 'anthropic',
+            chat: null,
+            model: $model,
+            credentialId: $credentialId,
+            baseUrl: $baseUrl,
+            authMode: $authMode
+        );
+
+    }//end createAnthropicDriver()
 
     /**
      * The calling user's UID, when there is a session.

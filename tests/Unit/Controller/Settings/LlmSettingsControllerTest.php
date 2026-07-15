@@ -213,6 +213,71 @@ class LlmSettingsControllerTest extends TestCase
     }//end testUpdateDropsBlankCredential()
 
     /**
+     * update() rejects a Claude Max (OAuth) credential at organisation scope with 422 —
+     * a Max subscription is personal-only per the Anthropic ToS and must never be
+     * persisted as an org credential.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-credential-scope-organisation-vs-personal-claude-max-personal-only
+     */
+    public function testUpdateRejectsOauthAtOrganisationScope(): void
+    {
+        $request = $this->createMock(IRequest::class);
+        $request->method('getParam')->with('llm')->willReturn(
+            [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId' => 'cred-uuid-anthropic',
+                    'authMode'     => 'oauth',
+                    'scope'        => 'organisation',
+                ],
+            ]
+        );
+
+        $handler = $this->createMock(LlmSettingsHandler::class);
+        $handler->expects($this->never())->method('updateLLMSettingsOnly');
+
+        $response = $this->controller($request, $handler)->update();
+
+        $this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
+        $this->assertStringContainsString('personal', strtolower((string) $response->getData()['error']));
+    }//end testUpdateRejectsOauthAtOrganisationScope()
+
+    /**
+     * update() accepts a Claude Max (OAuth) credential at personal scope (the only
+     * ToS-compliant placement for a Max token).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-credential-scope-organisation-vs-personal-claude-max-personal-only
+     */
+    public function testUpdateAcceptsOauthAtPersonalScope(): void
+    {
+        $request = $this->createMock(IRequest::class);
+        $request->method('getParam')->with('llm')->willReturn(
+            [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId' => 'cred-uuid-anthropic',
+                    'authMode'     => 'oauth',
+                    'scope'        => 'personal',
+                ],
+            ]
+        );
+
+        $merged                 = $this->storedConfig();
+        $merged['chatProvider'] = 'anthropic';
+
+        $handler = $this->createMock(LlmSettingsHandler::class);
+        $handler->expects($this->once())->method('updateLLMSettingsOnly')->willReturn($merged);
+
+        $response = $this->controller($request, $handler)->update();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+    }//end testUpdateAcceptsOauthAtPersonalScope()
+
+    /**
      * Every allowed provider passes validation (guards the allow-list wiring).
      *
      * @return void

@@ -42,12 +42,14 @@ class LlmSettingsHandler
 {
 
     /**
-     * The four allowed `chatProvider` values. `nextcloud` is additive to OR's original
-     * three (openai, ollama, fireworks) — plan §8 move 1, background/non-interactive only.
+     * The allowed `chatProvider` values. `nextcloud` is additive to OR's original three
+     * (openai, ollama, fireworks) — plan §8 move 1, background/non-interactive only.
+     * `anthropic` is additive too (anthropic-agent-provider) — Claude via API key or a
+     * Claude Max OAuth subscription, broker-injected like openai/fireworks.
      *
      * @var string[]
      */
-    public const ALLOWED_CHAT_PROVIDERS = ['openai', 'ollama', 'fireworks', 'nextcloud'];
+    public const ALLOWED_CHAT_PROVIDERS = ['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'];
 
     /**
      * Constructor.
@@ -134,6 +136,8 @@ class LlmSettingsHandler
             $exOll  = $existingConfig['ollamaConfig'] ?? [];
             $newFw  = $llmData['fireworksConfig'] ?? [];
             $exFw   = $existingConfig['fireworksConfig'] ?? [];
+            $newAnt = $llmData['anthropicConfig'] ?? [];
+            $exAnt  = $existingConfig['anthropicConfig'] ?? [];
             $newVec = $llmData['vectorConfig'] ?? [];
             $exVec  = $existingConfig['vectorConfig'] ?? [];
 
@@ -164,6 +168,19 @@ class LlmSettingsHandler
                     'embeddingModel' => $newFw['embeddingModel'] ?? $exFw['embeddingModel'] ?? null,
                     'chatModel'      => $newFw['chatModel'] ?? $exFw['chatModel'] ?? null,
                     'baseUrl'        => $newFw['baseUrl'] ?? $exFw['baseUrl'] ?? 'https://api.fireworks.ai/inference/v1',
+                ],
+                // Anthropic (anthropic-agent-provider). Like openai/fireworks the secret is
+                // NOT here — `credentialId` is a broker reference; the key or OAuth token
+                // lives in the vault and is injected server-side. `authMode` selects the
+                // header set (api_key → x-api-key; oauth → Authorization: Bearer + the
+                // anthropic-beta oauth flag). `scope` is organisation | personal; a
+                // Claude Max OAuth token MUST be personal-only (validated on save).
+                'anthropicConfig'   => [
+                    'credentialId' => $newAnt['credentialId'] ?? $exAnt['credentialId'] ?? '',
+                    'chatModel'    => $newAnt['chatModel'] ?? $exAnt['chatModel'] ?? null,
+                    'authMode'     => $newAnt['authMode'] ?? $exAnt['authMode'] ?? 'api_key',
+                    'scope'        => $newAnt['scope'] ?? $exAnt['scope'] ?? 'organisation',
+                    'baseUrl'      => $newAnt['baseUrl'] ?? $exAnt['baseUrl'] ?? 'https://api.anthropic.com/v1',
                 ],
                 'vectorConfig'      => [
                     'backend'   => $newVec['backend'] ?? $exVec['backend'] ?? 'php',
@@ -205,6 +222,13 @@ class LlmSettingsHandler
                 'embeddingModel' => null,
                 'chatModel'      => null,
                 'baseUrl'        => 'https://api.fireworks.ai/inference/v1',
+            ],
+            'anthropicConfig'   => [
+                'credentialId' => '',
+                'chatModel'    => null,
+                'authMode'     => 'api_key',
+                'scope'        => 'organisation',
+                'baseUrl'      => 'https://api.anthropic.com/v1',
             ],
             'vectorConfig'      => [
                 'backend'   => 'php',
