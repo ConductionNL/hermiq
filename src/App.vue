@@ -81,6 +81,15 @@
 						{{ t('hermiq', 'Run setup wizard') }}
 					</NcButton>
 				</NcAppSettingsSection>
+				<NcAppSettingsSection
+					id="credentials"
+					:name="t('hermiq', 'Credentials')">
+					<CnCredentials
+						scope="personal"
+						app-id="hermiq"
+						:app-name="t('hermiq', 'Hermiq')"
+						:app-credentials="(manifest && manifest.credentials) || []" />
+				</NcAppSettingsSection>
 			</template>
 		</CnAppRoot>
 
@@ -98,7 +107,7 @@
 import Vue from 'vue'
 import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
-import { CnAppRoot, CnObjectSidebar, CnSetupWizard } from '@conduction/nextcloud-vue'
+import { CnAppRoot, CnObjectSidebar, CnSetupWizard, CnCredentials } from '@conduction/nextcloud-vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
 
 export default {
@@ -108,6 +117,7 @@ export default {
 		CnAppRoot,
 		CnObjectSidebar,
 		CnSetupWizard,
+		CnCredentials,
 		NcAppSettingsSection,
 		NcButton,
 		TalkDeliverySettings,
