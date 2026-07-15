@@ -122,16 +122,16 @@ change). Flagged in DEFERRED_DECISIONS.md as a candidate for future Playwright c
 
 ## Acceptance Criteria
 
-- [ ] `src/widgets/QuotaUsageWidget.vue` exists and renders Schedules + Agents-in-use cards
+- [x] `src/widgets/QuotaUsageWidget.vue` exists and renders Schedules + Agents-in-use cards
       from `GET /api/tenant-ops/quota`, with an at-limit warning per card
-- [ ] `src/registry.js` has a `kind:"widget"` entry for the quota widget with
+- [x] `src/registry.js` has a `kind:"widget"` entry for the quota widget with
       `defaultSize`/`minSize`/`maxSize`/`allowedSlots`/`propsSchema` and an ADR-049 `_note`
-- [ ] `src/manifest.json`'s Dashboard page `widgets[]` array references the widget by
+- [x] `src/manifest.json`'s Dashboard page `widgets[]` array references the widget by
       `widgetKey` with a valid grid position
-- [ ] The widget renders nothing for a user with `can_manage_killswitch: false`
-- [ ] `TenantOps.vue` no longer has a "Quota usage" section, `quota` data, `load()` method,
+- [x] The widget renders nothing for a user with `can_manage_killswitch: false`
+- [x] `TenantOps.vue` no longer has a "Quota usage" section, `quota` data, `load()` method,
       or `getQuota` import; its other sections are unaffected
-- [ ] `npm run check:specs` and `npm run lint` pass
+- [x] `npm run check:specs` and `npm run lint` pass
 
 ## Notes
 

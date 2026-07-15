@@ -16,8 +16,8 @@
     nothing (no cards, no error, no empty-state card)
   - GIVEN the fetch fails WHEN `getQuota()` rejects THEN the widget shows an `NcNoteCard`
     error, matching `AnalyticsKpiWidget.vue`'s error pattern
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Register the widget and place it on the Dashboard grid
 - **spec_ref**: `openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#requirement-the-dashboard-quota-widget-must-be-registered-as-a-manifest-driven-custom-widget-not-bespoke-page-markup`
@@ -31,8 +31,8 @@
     `{ widgetKey: "quota-usage", slot: "body", gridX, gridY, gridWidth, gridHeight }`
     entry positioned below the three existing `stats-block` cards
   - GIVEN both structural tests THEN `npm run check:specs` exits `0`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Remove the Quota usage section from TenantOps
 - **spec_ref**: `openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#requirement-tenant-ops-must-no-longer-display-organisation-quota-usage`
@@ -47,8 +47,8 @@
     policy, access review, incidents, retention, audit export) render directly under the
     existing `canManage` gate, unchanged in behaviour
   - GIVEN `npm run lint` THEN it passes with no unused-import/unused-data warnings
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: Add l10n entries for the widget's label strings
 - **spec_ref**: `openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#non-functional-requirements`
@@ -57,8 +57,8 @@
   - GIVEN every `t('hermiq', '...')` string introduced in `QuotaUsageWidget.vue` THEN a
     matching English key exists in `l10n/en.json` and a Dutch translation exists in
     `l10n/nl.json`
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: Extend Playwright coverage for the Dashboard quota widget
 - **spec_ref**: `openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#requirement-the-dashboard-must-show-organisation-quota-usage-to-org-owners-and-instance-admins`
@@ -68,8 +68,8 @@
     WHEN it navigates to `/` THEN it additionally asserts the quota-usage widget renders
     with Schedules/Agents-in-use cards whose values match a direct
     `GET /api/tenant-ops/quota` call in the same test
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 
