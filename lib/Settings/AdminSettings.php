@@ -27,6 +27,9 @@ namespace OCA\Hermiq\Settings;
 use OCA\Hermiq\AppInfo\Application;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Http\TemplateResponse;
+use OCP\AppFramework\Services\IInitialState;
+use OCP\IGroupManager;
+use OCP\IUserSession;
 use OCP\Settings\IDelegatedSettings;
 
 /**
@@ -45,23 +48,46 @@ class AdminSettings implements IDelegatedSettings
     /**
      * Constructor.
      *
-     * @param IAppManager $appManager The app manager.
+     * @param IAppManager   $appManager   The app manager.
+     * @param IInitialState $initialState Provides is_admin/opencatalogi_available to the
+     *                                    relocated AiFeatureRegister section
+     *                                    (ai-features-to-admin).
+     * @param IGroupManager $groupManager Instance-admin check for is_admin.
+     * @param IUserSession  $userSession  Resolves the current user for is_admin.
      */
     public function __construct(
         private readonly IAppManager $appManager,
+        private readonly IInitialState $initialState,
+        private readonly IGroupManager $groupManager,
+        private readonly IUserSession $userSession,
     ) {
     }//end __construct()
 
     /**
      * Get the settings form template.
      *
+     * Provides the `is_admin` / `opencatalogi_available` IInitialState keys the
+     * relocated AiFeatureRegister section reads (ai-features-to-admin) — this page is
+     * only reachable by a full instance admin already (getAuthorizedAppConfig() returns
+     * `[]`), so is_admin is always true here; resolved via IGroupManager for parity with
+     * DashboardController::provideKillSwitchCapability() rather than hardcoded, so it
+     * would not silently go stale if this class ever gains real delegation.
+     *
      * @return TemplateResponse
      *
-     * @spec exclude Trivial ISettings template accessor; no behavioural spec.
+     * @spec openspec/changes/ai-features-to-admin/tasks.md#task-3-provide-is_admin--opencatalogi_available-from-the-admin-settings-bootstrap
      */
     public function getForm(): TemplateResponse
     {
         $version = $this->appManager->getAppVersion(appId: Application::APP_ID);
+
+        $user       = $this->userSession->getUser();
+        $isAdminNow = ($user !== null && $this->groupManager->isAdmin($user->getUID()) === true);
+        $this->initialState->provideInitialState('is_admin', $isAdminNow);
+        $this->initialState->provideInitialState(
+            'opencatalogi_available',
+            $this->appManager->isInstalled('opencatalogi')
+        );
 
         return new TemplateResponse(
             Application::APP_ID,

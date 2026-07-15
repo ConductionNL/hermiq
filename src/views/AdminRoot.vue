@@ -18,6 +18,16 @@
  the pluggable search endpoint/provider shape and the web.fetch
  egress-governance knobs. That picker lives in
  src/modals/WebResearchSettingsModal.vue (modal-isolation gate).
+
+ Also hosts the AI-feature governance register (ai-features-to-admin): the
+ EU AI Act risk-classification + DPO-acknowledgement gate that must be
+ satisfied before a feature may be enabled instance-wide. Relocated here
+ from the in-app nav (`/ai-features`) because it is design-time,
+ instance-level governance, not a day-to-day operator page.
+ AiFeatureRegister.vue itself is unmodified — only its mount point moves;
+ it still reads `is_admin` / `opencatalogi_available` via
+ `loadState('hermiq', …)`, now provided by this class's `getForm()`
+ instead of DashboardController.
 -->
 <template>
 	<div class="hermiq-admin-settings">
@@ -60,6 +70,12 @@
 				@close="showWebResearchModal = false"
 				@saved="onWebResearchSaved" />
 		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'AI features')"
+			:description="t('hermiq', 'Review the EU AI Act risk classification of each AI feature and acknowledge it as DPO before it may be enabled instance-wide.')">
+			<AiFeatureRegister />
+		</NcSettingsSection>
 	</div>
 </template>
 
@@ -68,6 +84,7 @@ import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
+import AiFeatureRegister from './AiFeatureRegister.vue'
 import { getLlmSettings } from '../api/llm.js'
 import { getWebResearchSettings } from '../api/webResearch.js'
 
@@ -86,6 +103,7 @@ const SEARCH_PROVIDER_LABELS = {
 export default {
 	name: 'AdminRoot',
 	components: {
+		AiFeatureRegister,
 		Cog,
 		LlmProviderModal,
 		NcButton,
