@@ -27,6 +27,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
+use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
@@ -603,4 +604,176 @@ class ProviderFactoryTest extends TestCase
         $factory->generateViaNextcloud(prompt: 'Summarise this.');
 
     }//end testGenerateViaNextcloudEmptyOutputThrowsUnavailable()
+
+    /**
+     * A factory wired with a `CredentialScopeResolver`, for the agent-credentials cases.
+     *
+     * @param CredentialScopeResolver|null $resolver The resolver stub (or null — not injected).
+     *
+     * @return ProviderFactory
+     */
+    private function factoryWithCredentialResolver(?CredentialScopeResolver $resolver): ProviderFactory
+    {
+        $manager     = $this->createMock(IManager::class);
+        $settings    = $this->createMock(LlmSettingsHandler::class);
+        $userSession = $this->createMock(IUserSession::class);
+
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn('alice');
+        $userSession->method('getUser')->willReturn($user);
+
+        return new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', null, null, $resolver);
+
+    }//end factoryWithCredentialResolver()
+
+    /**
+     * The resolver's non-null result overrides `openaiConfig.credentialId` when an
+     * organisation is passed (agent-credentials).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+     */
+    public function testOpenAiCredentialOverrideAppliesWhenOrganisationGiven(): void
+    {
+        $resolver = $this->createMock(CredentialScopeResolver::class);
+        $resolver->expects($this->once())
+            ->method('resolve')
+            ->with('openai', 'alice', 'org-a')
+            ->willReturn('cred-personal-openai');
+
+        $factory = $this->factoryWithCredentialResolver($resolver);
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider' => 'openai',
+                'openaiConfig' => [
+                    'credentialId' => 'cred-instance-openai',
+                    'chatModel'    => 'gpt-4o-mini',
+                ],
+            ],
+            organisation: 'org-a'
+        );
+
+        $this->assertSame('cred-personal-openai', $driver->credentialId);
+
+    }//end testOpenAiCredentialOverrideAppliesWhenOrganisationGiven()
+
+    /**
+     * The resolver's non-null result overrides `fireworksConfig.credentialId` when an
+     * organisation is passed (agent-credentials).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+     */
+    public function testFireworksCredentialOverrideAppliesWhenOrganisationGiven(): void
+    {
+        $resolver = $this->createMock(CredentialScopeResolver::class);
+        $resolver->expects($this->once())
+            ->method('resolve')
+            ->with('fireworks', 'alice', 'org-a')
+            ->willReturn('cred-org-fireworks');
+
+        $factory = $this->factoryWithCredentialResolver($resolver);
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'fireworks',
+                'fireworksConfig' => [
+                    'credentialId' => 'cred-instance-fireworks',
+                ],
+            ],
+            organisation: 'org-a'
+        );
+
+        $this->assertSame('cred-org-fireworks', $driver->credentialId);
+
+    }//end testFireworksCredentialOverrideAppliesWhenOrganisationGiven()
+
+    /**
+     * With `$organisation === null`, the resolver is never even consulted — behaviour is
+     * byte-for-byte identical to before this change (agent-credentials).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+     */
+    public function testCredentialResolverNotConsultedWithoutAnOrganisation(): void
+    {
+        $resolver = $this->createMock(CredentialScopeResolver::class);
+        $resolver->expects($this->never())->method('resolve');
+
+        $factory = $this->factoryWithCredentialResolver($resolver);
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider' => 'openai',
+                'openaiConfig' => [
+                    'credentialId' => 'cred-instance-openai',
+                    'chatModel'    => 'gpt-4o-mini',
+                ],
+            ]
+        );
+
+        $this->assertSame('cred-instance-openai', $driver->credentialId);
+
+    }//end testCredentialResolverNotConsultedWithoutAnOrganisation()
+
+    /**
+     * When no resolver is injected at all, the configured instance credential is used
+     * unchanged — the nullable-defaulted constructor param never breaks a caller that
+     * doesn't provide one (agent-credentials).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+     */
+    public function testNoResolverInjectedKeepsTheConfiguredCredential(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider' => 'openai',
+                'openaiConfig' => [
+                    'credentialId' => 'cred-instance-openai',
+                    'chatModel'    => 'gpt-4o-mini',
+                ],
+            ],
+            organisation: 'org-a'
+        );
+
+        $this->assertSame('cred-instance-openai', $driver->credentialId);
+
+    }//end testNoResolverInjectedKeepsTheConfiguredCredential()
+
+    /**
+     * When the resolver returns null (no personal/organisation match), the configured
+     * instance credential is used unchanged (agent-credentials, regression case).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+     */
+    public function testResolverReturningNullKeepsTheConfiguredCredential(): void
+    {
+        $resolver = $this->createMock(CredentialScopeResolver::class);
+        $resolver->method('resolve')->willReturn(null);
+
+        $factory = $this->factoryWithCredentialResolver($resolver);
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider' => 'fireworks',
+                'fireworksConfig' => [
+                    'credentialId' => 'cred-instance-fireworks',
+                ],
+            ],
+            organisation: 'org-a'
+        );
+
+        $this->assertSame('cred-instance-fireworks', $driver->credentialId);
+
+    }//end testResolverReturningNullKeepsTheConfiguredCredential()
 }//end class

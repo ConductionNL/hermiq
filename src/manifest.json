@@ -4,6 +4,23 @@
 	"dependencies": [
 		"openregister"
 	],
+	"credentials": [
+		{
+			"provider": "openai",
+			"reason": "Chat/embedding generation for agents using the OpenAI driver.",
+			"scopes": []
+		},
+		{
+			"provider": "fireworks",
+			"reason": "Chat generation for agents using the Fireworks AI driver.",
+			"scopes": []
+		},
+		{
+			"provider": "github",
+			"reason": "Publishing to and discovering agent templates in a GitHub-backed template store.",
+			"scopes": ["repo"]
+		}
+	],
 	"menu": [
 		{
 			"id": "Chat",
@@ -518,6 +535,21 @@
 									{
 										"type": "component",
 										"componentName": "ComplianceDashboard",
+										"props": {}
+									}
+								]
+							}
+						]
+					},
+					{
+						"id": "agent-credentials",
+						"label": "Agent credentials",
+						"sections": [
+							{
+								"widgets": [
+									{
+										"type": "component",
+										"componentName": "AgentCredentialsSettings",
 										"props": {}
 									}
 								]

@@ -60,11 +60,16 @@ class CheckOpenRegisterCompatibility implements IRepairStep
     /**
      * The OpenRegister `appinfo/info.xml` `<version>` at the commit that first
      * contains BOTH required classes (OpenRegister #297 + #306). Documented here
-     * only — NC has no mechanism to enforce it (see file docblock).
+     * only — NC has no mechanism to enforce it (see file docblock). Bumped for
+     * agent-credentials: 0.2.17-unstable.14 is also the version that ships
+     * OpenRegister's organisation-scope credential broker
+     * (`credential-broker-organisation-scope`), which the "Agent credentials"
+     * Settings section and `CredentialScopeResolver`'s organisation branch
+     * depend on.
      *
      * @var string
      */
-    public const MIN_OPENREGISTER_VERSION = '0.2.17-unstable.13';
+    public const MIN_OPENREGISTER_VERSION = '0.2.17-unstable.14';
 
     /**
      * FQCN => human-readable label (with the OpenRegister PR that introduced it),

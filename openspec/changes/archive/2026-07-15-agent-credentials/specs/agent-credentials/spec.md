@@ -121,11 +121,11 @@ selected credential is used for.
 
 ## Acceptance Criteria
 
-- [ ] hermiq's manifest declares `credentials[]` for `openai`, `fireworks`, `github`
-- [ ] hermiq's Settings page has a working "Agent credentials" section with personal + organisation `CnCredentials` mounts
-- [ ] `ProviderFactory::createChatDriver()` resolves personal → organisation → instance for `openai`/`fireworks` when an organisation is passed
-- [ ] Existing callers/tests that pass no organisation see no behaviour change
-- [ ] `openspec validate --strict` passes
+- [x] hermiq's manifest declares `credentials[]` for `openai`, `fireworks`, `github`
+- [x] hermiq's Settings page has a working "Agent credentials" section with personal + organisation `CnCredentials` mounts
+- [x] `ProviderFactory::createChatDriver()` resolves personal → organisation → instance for `openai`/`fireworks` when an organisation is passed
+- [x] Existing callers/tests that pass no organisation see no behaviour change
+- [x] `openspec validate --strict` passes
 
 ## Notes
 - Depends on OpenRegister's `credential-broker-organisation-scope` capability

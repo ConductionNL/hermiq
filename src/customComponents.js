@@ -32,6 +32,7 @@ import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
 import AlgorithmRegister from './views/AlgorithmRegister.vue'
 import McpTools from './views/McpTools.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
+import AgentCredentialsSettings from './components/settings/AgentCredentialsSettings.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -79,4 +80,10 @@ export default {
 	// Compliance tab — re-homed from the removed top-level `/compliance` nav
 	// page. Unchanged component.
 	ComplianceDashboard,
+	// Agent credentials tab (agent-credentials): mounts the shared
+	// CnCredentials component twice (personal, then organisation) so a user
+	// can bring their own provider key or an org admin can provision a
+	// shared one — every call still goes through OpenRegister's credential
+	// broker; Hermiq never sees the secret.
+	AgentCredentialsSettings,
 }
