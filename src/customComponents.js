@@ -30,6 +30,10 @@ import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
 import TenantOps from './views/TenantOps.vue'
+import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
+import AlgorithmRegister from './views/AlgorithmRegister.vue'
+import McpTools from './views/McpTools.vue'
+import ComplianceDashboard from './views/ComplianceDashboard.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -59,4 +63,27 @@ export default {
 	// Features & Roadmap page (lib's CnFeaturesAndRoadmapView) — wired up
 	// in src/manifest.json (the `FeaturesRoadmap` custom page + the
 	// `FeaturesRoadmapMenu` settings entry).
+	//
+	// inapp-settings-section: the Settings page's `type: "settings"` tabs
+	// are rendered by CnSettingsPage, which resolves {type:"component"}
+	// widgets against THIS map (`cnCustomComponents`), never the v2
+	// `registry` (verified in CnSettingsPage.vue — it only ever injects
+	// `cnCustomComponents`). So every Settings-tab component — new or
+	// moved off a former top-level nav page — is registered here instead
+	// of registry.js, even though registry.js is otherwise the v2 home for
+	// everything else. See design.md Decision 4.
+	//
+	// Guardrail policy tab (agent-guardrails): extracted from
+	// TenantOps.vue — governance policy administration, not a
+	// per-organisation operational control.
+	GuardrailPolicySettings,
+	// Algorithm register tab (algoritmeregister-publication): the first
+	// dedicated UI for the Algoritmeregister publication capability.
+	AlgorithmRegister,
+	// MCP tools tab — re-homed from the removed top-level `/mcp-tools` nav
+	// page. Unchanged component.
+	McpTools,
+	// Compliance tab — re-homed from the removed top-level `/compliance` nav
+	// page. Unchanged component.
+	ComplianceDashboard,
 }

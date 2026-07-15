@@ -15,8 +15,8 @@
     removed and a new `Settings` entry exists (main section, reachable nav item)
   - GIVEN the `getting-started` walkthrough WHEN the "go-mcp" step is read THEN its target/
     advanceOn point at the `Settings` nav item, not the removed `McpTools` one
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Extract Guardrail policy administration out of Tenant ops
 - **spec_ref**: `openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place`
@@ -30,8 +30,8 @@
   - GIVEN both `GuardrailPolicySettings.vue` and `TenantOps.vue`'s Model policy section WHEN
     they resolve an organisation id to a label THEN both import `src/utils/organisationLabel.js`
     (no duplicated inline `policyOrgLabel`-style helper remains in either file)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Build the Algorithm register page
 - **spec_ref**: `openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-a-dedicated-algorithm-register-page-must-list-publish-eligible-ai-features`
@@ -44,8 +44,8 @@
     is disabled with the missing conditions named (via `algoritmeregisterReadiness.js`)
   - GIVEN a caller without admin rights or without OpenCatalogi installed WHEN they view the
     page THEN no Publish/Withdraw action renders, but the read-only list still does
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: Re-home McpTools and ComplianceDashboard registrations
 - **spec_ref**: `openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-the-settings-page-must-be-a-tabbed-hub-covering-guardrail-policy-algorithm-register-mcp-tools-and-compliance`
@@ -59,8 +59,8 @@
   - GIVEN the Settings page's `{type:"component", componentName:"McpTools"}` widget WHEN
     rendered THEN it resolves to the unchanged `McpTools.vue` (verified via `npm run
     check:registry` + a manual settings-page smoke check)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: Add new/moved-string translations
 - **spec_ref**: `openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#non-functional-requirements`
@@ -69,8 +69,8 @@
   - GIVEN every new user-facing string introduced by `GuardrailPolicySettings.vue` and
     `AlgorithmRegister.vue` WHEN `l10n/en.json`/`l10n/nl.json` are checked THEN each has an
     English-keyed entry in both files
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: Bump the served-asset version
 - **spec_ref**: `openspec/changes/inapp-settings-section/proposal.md#impact`
@@ -78,8 +78,8 @@
 - **acceptance_criteria**:
   - GIVEN `appinfo/info.xml` WHEN read THEN `<version>` is bumped one patch level (served-
     asset hygiene per the shared realignment brief's rule 6 — no schema change accompanies it)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 

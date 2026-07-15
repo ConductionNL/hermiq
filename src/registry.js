@@ -50,8 +50,6 @@ import AgentSessions from './views/AgentSessions.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
 import AgentTemplateGallery from './views/AgentTemplateGallery.vue'
 import TenantOps from './views/TenantOps.vue'
-import McpTools from './views/McpTools.vue'
-import ComplianceDashboard from './views/ComplianceDashboard.vue'
 import EvalDatasets from './views/EvalDatasets.vue'
 
 export default {
@@ -195,26 +193,6 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'The quota\'s atLimit is derived by TenantOpsService::quotaStatus() from a configured limit compared against a derived (distinct-agentId) count, not a plain OR object-count aggregate — stats-block can only bind a dataSource to an object-count query, so a custom fetch widget is required (ADR-049), mirroring analytics-kpis/analytics-breakdown.',
-	},
-
-	/**
-	 * MCP tools — the catalogue of Model Context Protocol tools available to
-	 * agents across the instance (read-only). Standard nav page.
-	 */
-	McpTools: {
-		kind: 'page',
-		component: McpTools,
-	},
-
-	/**
-	 * Compliance dashboard — per-framework (EU AI Act, ISO/IEC 42001, NIST AI RMF)
-	 * coverage + gap list, computed live from existing governance data, plus an
-	 * auditor's-pack export (compliance-control-packs). Standard nav page, not a
-	 * dashboard-kind page (per-framework tables, not gridded widgets).
-	 */
-	ComplianceDashboard: {
-		kind: 'page',
-		component: ComplianceDashboard,
 	},
 
 	/**
