@@ -731,7 +731,7 @@ class ProviderFactory
      */
     public function parseAnthropicResponse(array $data): array
     {
-        $content   = [];
+        $content = [];
         if (is_array($data['content'] ?? null) === true) {
             $content = $data['content'];
         }
@@ -837,8 +837,8 @@ class ProviderFactory
      *
      * @throws \Exception If the HTTP call fails or the response is malformed.
      *
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)  API error handling requires many branches
-     * @SuppressWarnings(PHPMD.NPathComplexity)       API error handling requires many branches
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)   API error handling requires many branches
+     * @SuppressWarnings(PHPMD.NPathComplexity)        API error handling requires many branches
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Direct-HTTP request needs each of these
      *
      * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
