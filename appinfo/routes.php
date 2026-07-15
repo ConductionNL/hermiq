@@ -314,6 +314,11 @@ return [
             'verb'         => 'GET',
             'requirements' => ['agentId' => '[^/]+'],
         ],
+        // GitHub-backed template store (agent-template-github-store): search/install are
+        // registered before the {id} routes, same reasoning as 'import'/'from-agent' above —
+        // the literal 'github' path segment must never fall into the {id} matcher.
+        ['name' => 'agentTemplate#githubSearch',  'url' => '/api/agent-templates/github/search', 'verb' => 'GET'],
+        ['name' => 'agentTemplate#githubInstall', 'url' => '/api/agent-templates/github/install', 'verb' => 'POST'],
         ['name' => 'agentTemplate#show',    'url' => '/api/agent-templates/{id}', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentTemplate#update',  'url' => '/api/agent-templates/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentTemplate#destroy', 'url' => '/api/agent-templates/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
@@ -332,6 +337,12 @@ return [
         [
             'name'         => 'agentTemplate#instantiate',
             'url'          => '/api/agent-templates/{id}/instantiate',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentTemplate#publishGithub',
+            'url'          => '/api/agent-templates/{id}/publish-github',
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],

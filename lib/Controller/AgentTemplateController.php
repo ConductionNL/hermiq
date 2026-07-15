@@ -19,6 +19,16 @@
  * `agenttemplate.override-scan-verdict` (a caller trusted to wave through a clean scan is not
  * automatically trusted to override a dangerous one). Both actions seed to admin-only.
  *
+ * agent-template-github-store adds three GitHub-store endpoints on this SAME controller
+ * (install/publish both operate on the same AgentTemplate resource): `githubSearch()` +
+ * `githubInstall()` (browse/install from GitHub, `#[NoAdminRequired]` + in-body 401 guard,
+ * mirrors OpenBuild's `ShopController`) and `publishGithub()` (publish an existing template
+ * to a new tagged repo, tenant-scoped via the same `AgentTemplateService::get()`/
+ * `exportTemplate()` path `show()`/`export()` already use). `githubInstall()` is a thin
+ * adapter in front of the UNCHANGED `importPackage(source: 'hub')` — no new quarantine/scan
+ * logic. The GitHub token never enters Hermiq: both new endpoints only ever pass a broker
+ * `credentialId` to `GitHubTemplateCatalogService`/`GitHubTemplatePushService`.
+ *
  * @category Controller
  * @package  OCA\Hermiq\Controller
  *
@@ -32,15 +42,20 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
+ * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\AgentTemplateService;
+use OCA\Hermiq\Service\GitHubTemplateCatalogService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -50,6 +65,7 @@ use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -66,14 +82,35 @@ use Throwable;
 class AgentTemplateController extends Controller
 {
     /**
+     * Safe GitHub owner/repo pattern (agent-template-github-store), validated before
+     * any path interpolation on the search/install/publish endpoints — mirrors
+     * OpenBuild's `ShopController::OWNER_REPO_PATTERN` exactly.
+     *
+     * @var string
+     */
+    private const OWNER_REPO_PATTERN = '/^[A-Za-z0-9._-]{1,100}$/';
+
+    /**
+     * Safe git-ref pattern (agent-template-github-store).
+     *
+     * @var string
+     */
+    private const REF_PATTERN = '/^[A-Za-z0-9._\/-]{1,255}$/';
+
+    /**
      * Constructor.
      *
-     * @param IRequest             $request            The request object.
-     * @param AgentTemplateService $templateService    The template read/write/gallery path.
-     * @param ActionAuthService    $actionAuth         The ADR-023 action-authorization service.
-     * @param IUserSession         $userSession        Resolves the requesting user.
-     * @param OrganisationMapper   $organisationMapper OpenRegister organisation lookup (instantiate's org resolution).
-     * @param LoggerInterface      $logger             PSR-3 logger.
+     * @param IRequest                     $request            The request object.
+     * @param AgentTemplateService         $templateService    The template read/write/gallery path.
+     * @param ActionAuthService            $actionAuth         The ADR-023 action-authorization service.
+     * @param IUserSession                 $userSession        Resolves the requesting user.
+     * @param OrganisationMapper           $organisationMapper OpenRegister organisation lookup (instantiate's org resolution).
+     * @param LoggerInterface              $logger             PSR-3 logger.
+     * @param GitHubTemplateCatalogService $catalogService     GitHub search/fetch (agent-template-github-store).
+     * @param GitHubTemplatePushService    $pushService        GitHub publish (agent-template-github-store).
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct injected collaborator, not a logic-bearing argument list.
      */
     public function __construct(
         IRequest $request,
@@ -82,6 +119,8 @@ class AgentTemplateController extends Controller
         private readonly IUserSession $userSession,
         private readonly OrganisationMapper $organisationMapper,
         private readonly LoggerInterface $logger,
+        private readonly GitHubTemplateCatalogService $catalogService,
+        private readonly GitHubTemplatePushService $pushService,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -434,6 +473,232 @@ class AgentTemplateController extends Controller
         }
 
     }//end instantiate()
+
+    /**
+     * Search GitHub for `topic:hermiq-agent-template` repos (agent-template-github-store).
+     *
+     * Login-required (in-body 401 guard). Returns the normalised cards plus a
+     * `brokerCredentialAvailable`/`brokerUsed`/`rateLimited` hint; never exposes the raw
+     * GitHub body or any token. Degrades to HTTP 200 with an empty card list on a
+     * rate-limited/unreachable GitHub call — never a 5xx for a third-party outage.
+     *
+     * @return JSONResponse 200 with `{outcome, cards, brokerCredentialAvailable, brokerUsed, rateLimited}`; 401 anonymous.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
+     */
+    public function githubSearch(): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $query = $this->request->getParam('q');
+        if (is_string($query) === false) {
+            $query = null;
+        }
+
+        try {
+            $result = $this->catalogService->search(
+                query: $query,
+                actingUserId: $user->getUID(),
+                credentialId: $this->credentialParam()
+            );
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq agent-template github search failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(
+                [
+                    'outcome'                   => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE,
+                    'cards'                     => [],
+                    'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
+                    'brokerUsed'                => false,
+                    'rateLimited'               => false,
+                ],
+                Http::STATUS_OK
+            );
+        }
+
+        return new JSONResponse(
+            [
+                'outcome'                   => $result['outcome'],
+                'cards'                     => $result['cards'],
+                'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
+                'brokerUsed'                => $result['brokerUsed'],
+                'rateLimited'               => $result['rateLimited'],
+            ],
+            Http::STATUS_OK
+        );
+
+    }//end githubSearch()
+
+    /**
+     * Install a discovered GitHub template: fetch its package file → pass it through
+     * the UNCHANGED `AgentTemplateService::importPackage(source: 'hub')` path — the
+     * resulting template lands `quarantined` + content-scanned exactly like a
+     * pasted-package hub import (agent-template-github-store's one non-negotiable
+     * property: no new quarantine/scan logic is introduced here).
+     *
+     * @return JSONResponse 201 with the created (quarantined) template; 400/401/404 on failure.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+     */
+    public function githubInstall(): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $owner  = (string) ($this->request->getParam('owner') ?? '');
+        $repo   = (string) ($this->request->getParam('repo') ?? '');
+        $refRaw = $this->request->getParam('ref');
+        $ref    = null;
+        if (is_string($refRaw) === true && $refRaw !== '') {
+            $ref = $refRaw;
+        }
+
+        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+            return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+        }
+
+        if ($ref !== null && preg_match(self::REF_PATTERN, $ref) !== 1) {
+            return new JSONResponse(['error' => 'invalid_ref'], Http::STATUS_BAD_REQUEST);
+        }
+
+        try {
+            $package = $this->catalogService->fetchTemplateFile(
+                owner: $owner,
+                repo: $repo,
+                ref: $ref,
+                actingUserId: $user->getUID(),
+                credentialId: $this->credentialParam()
+            );
+            if ($package === null) {
+                return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
+            }
+
+            $template = $this->templateService->importPackage(package: $package, source: 'hub', createdBy: $user->getUID());
+            return new JSONResponse($this->shape(object: $template), Http::STATUS_CREATED);
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq agent-template github install failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Install failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }//end try
+
+    }//end githubInstall()
+
+    /**
+     * Publish an existing template to a NEW GitHub repository tagged
+     * `topic:hermiq-agent-template`, built from `AgentTemplateSerializer::toPackage()`
+     * output (via `AgentTemplateService::exportTemplate()` — the same package shape the
+     * paste-a-package export already produces). Tenant-scoped: resolves the template
+     * through the same `AgentTemplateService::get()` path every other template action
+     * uses, so a caller cannot publish a template outside their organisation's
+     * visibility. On success, records `githubOwner`/`githubRepo`/`publishedAt` on the
+     * template — provenance only, never round-tripped through the exported package.
+     *
+     * @param string $id The AgentTemplate UUID.
+     *
+     * @return JSONResponse 201 with `{repoUrl, commitSha}`; 400/401/404/422/503 on failure.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-record-github-publish-provenance-without-leaking-it-into-packages
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-scope-publish-to-templates-the-caller-can-already-see
+     */
+    public function publishGithub(string $id): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $owner        = (string) ($this->request->getParam('owner') ?? '');
+        $repo         = (string) ($this->request->getParam('repo') ?? '');
+        $visibility   = (string) ($this->request->getParam('visibility') ?? 'private');
+        $credentialId = (string) ($this->request->getParam('credentialId') ?? '');
+
+        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+            return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+        }
+
+        if (in_array($visibility, ['public', 'private'], true) === false) {
+            $visibility = 'private';
+        }
+
+        if ($credentialId === '') {
+            return new JSONResponse(['error' => 'A broker credentialId is required to publish'], Http::STATUS_UNPROCESSABLE_ENTITY);
+        }
+
+        // Tenant-scoped read: a template outside the caller's organisation's visibility
+        // is 404, identical to show()/update()'s existing behaviour (never a 403 that
+        // would confirm existence).
+        $package = $this->templateService->exportTemplate(templateId: $id);
+        if ($package === null) {
+            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        if ($this->pushService->isBrokerAvailable() === false) {
+            return new JSONResponse(['error' => 'The GitHub credential broker is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
+        }
+
+        try {
+            $result = $this->pushService->push(
+                package: $package,
+                owner: $owner,
+                repo: $repo,
+                visibility: $visibility,
+                credentialId: $credentialId,
+                actingUserId: $user->getUID()
+            );
+        } catch (RuntimeException $e) {
+            $this->logger->warning('Hermiq agent-template github publish refused: '.$e->getMessage());
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq agent-template github publish failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }//end try
+
+        $this->templateService->update(
+            templateId: $id,
+            payload: [
+                'githubOwner' => $owner,
+                'githubRepo'  => $repo,
+                'publishedAt' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+            ]
+        );
+
+        return new JSONResponse($result, Http::STATUS_CREATED);
+
+    }//end publishGithub()
+
+    /**
+     * Read the optional `credentialId` request param (broker upgrade) for the GitHub
+     * search/install endpoints — mirrors OpenBuild's `ShopController::credentialParam()`.
+     *
+     * @return string|null The credential UUID, or null when absent.
+     */
+    private function credentialParam(): ?string
+    {
+        $credentialId = $this->request->getParam('credentialId');
+        if (is_string($credentialId) === true && $credentialId !== '') {
+            return $credentialId;
+        }
+
+        return null;
+
+    }//end credentialParam()
 
     /**
      * Shape an AgentTemplate ObjectEntity into a UUID + payload response map.

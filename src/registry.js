@@ -59,6 +59,9 @@ import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
 // EvalDatasetDetail page's sole content widget.
 import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
+// agent-template-github-store: the GitHub-backed store section on
+// AgentTemplateGallery, resolved via page.slots.below-header.
+import AgentTemplateGithubStore from './widgets/AgentTemplateGithubStore.vue'
 // manifest-driven-pages: header-action modals, now resolved via the
 // registry's open-modal path instead of being embedded page components.
 import AgentFormModal from './modals/AgentFormModal.vue'
@@ -401,6 +404,25 @@ export default {
 			},
 		},
 		_note: 'Approve/Use-this-template/Export call guarded, action-authorized Hermiq endpoints (agenttemplate.approve-quarantined, model-policy coercion on instantiate) that a declarative object-op patch would bypass entirely (ADR-049, design.md Decision 6).',
+	},
+
+	/**
+	 * Agent-template GitHub store (agent-template-github-store) — the "GitHub
+	 * store" section of AgentTemplateGallery, resolved via
+	 * `page.slots.below-header`. Searches/installs against
+	 * AgentTemplateController's new githubSearch/githubInstall endpoints (a
+	 * GitHub REST search + broker-mediated install, not an OpenRegister object
+	 * collection).
+	 */
+	'agent-template-github-store': {
+		kind: 'widget',
+		component: AgentTemplateGithubStore,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'GitHub topic-search + broker-mediated install/publish flow (GitHubTemplateCatalogService/GitHubTemplatePushService) has no OpenRegister object-collection equivalent — object-table/object-list cannot express a third-party REST search or a credential-broker push (ADR-049).',
 	},
 
 	/**

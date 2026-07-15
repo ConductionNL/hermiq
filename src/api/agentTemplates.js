@@ -147,3 +147,63 @@ export async function instantiateAgentTemplate(id, overrides = {}) {
 	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/${id}/instantiate`), { overrides })
 	return response.data
 }
+
+/**
+ * Search GitHub for `topic:hermiq-agent-template` repos (agent-template-github-store).
+ * Anonymous by default; upgraded through the OpenRegister credential broker when a
+ * `github`-provider `credentialId` is supplied (raises the anonymous rate limit,
+ * reaches private repos). Degrades to `{ outcome: 'github_rate_limited'|'github_unreachable',
+ * cards: [] }` rather than throwing — the caller never sees a 5xx for a third-party outage.
+ *
+ * @param {string} query Optional free-text term narrowing the search.
+ * @param {string|null} credentialId Optional broker `github` credential UUID.
+ * @return {Promise<object>} `{ outcome, cards, brokerCredentialAvailable, brokerUsed, rateLimited }`.
+ */
+export async function searchGithubTemplates(query = '', credentialId = null) {
+	const params = {}
+	if (query) {
+		params.q = query
+	}
+	if (credentialId) {
+		params.credentialId = credentialId
+	}
+	const response = await axios.get(generateUrl(`${TEMPLATES_BASE}/github/search`), { params })
+	return response.data
+}
+
+/**
+ * Install a discovered GitHub template. Fetches the repo's portable package file and
+ * imports it through the SAME quarantine + content-scan path a pasted hub package
+ * already goes through (`source: 'hub'`) — the created template always lands
+ * `state: "quarantined"`.
+ *
+ * @param {object} target The install target.
+ * @param {string} target.owner The repo owner.
+ * @param {string} target.repo The repo name.
+ * @param {string|null} [target.ref] Optional git ref (branch/tag/sha).
+ * @param {string|null} [target.credentialId] Optional broker `github` credential UUID.
+ * @return {Promise<object>} The created (quarantined) template.
+ */
+export async function installGithubTemplate({ owner, repo, ref = null, credentialId = null }) {
+	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/github/install`), { owner, repo, ref, credentialId })
+	return response.data
+}
+
+/**
+ * Publish an existing template to a new GitHub repository tagged
+ * `topic:hermiq-agent-template`. Requires a broker `github` credential — the GitHub
+ * token never reaches Hermiq. On success the template's `githubOwner`/`githubRepo`/
+ * `publishedAt` provenance fields are updated.
+ *
+ * @param {string} id The AgentTemplate UUID.
+ * @param {object} target The publish target.
+ * @param {string} target.owner The target GitHub owner (user or organisation).
+ * @param {string} target.repo The target repository name.
+ * @param {string} [target.visibility] Repository visibility (`public`|`private`, defaults `private`).
+ * @param {string} target.credentialId The broker `github` credential UUID (required).
+ * @return {Promise<object>} `{ repoUrl, commitSha }`.
+ */
+export async function publishAgentTemplateToGithub(id, { owner, repo, visibility = 'private', credentialId }) {
+	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/${id}/publish-github`), { owner, repo, visibility, credentialId })
+	return response.data
+}

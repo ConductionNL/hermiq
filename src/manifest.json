@@ -333,6 +333,7 @@
 				]
 			},
 			"slots": {
+				"below-header": "agent-template-github-store",
 				"row-actions": "agent-template-row-actions"
 			}
 		},
