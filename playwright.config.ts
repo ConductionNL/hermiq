@@ -24,8 +24,10 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
 	testDir: './tests/e2e',
-	timeout: 30_000,
-	expect: { timeout: 10_000 },
+	// Nextcloud login + first SPA bundle load on a dev instance comfortably exceeds the
+	// 30s default; 90s gives the login → navigate → assert flow real headroom.
+	timeout: 120_000,
+	expect: { timeout: 20_000 },
 	fullyParallel: false,
 	retries: process.env.CI ? 1 : 0,
 	workers: 1,
@@ -39,6 +41,8 @@ export default defineConfig({
 		baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080',
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
+		navigationTimeout: 90_000,
+		actionTimeout: 30_000,
 	},
 
 	projects: [

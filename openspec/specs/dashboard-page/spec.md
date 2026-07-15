@@ -29,6 +29,8 @@ The system MUST expose a public (no-admin-required, no-CSRF-token-required) HTTP
 
 #### Scenario: Authenticated user opens the dashboard
 
+@e2e tests/e2e/dashboard-and-agents.spec.ts
+
 - GIVEN a signed-in Nextcloud user navigates to `/apps/app-template/`
 - WHEN the request reaches `DashboardController::page()`
 - THEN the system MUST return a `TemplateResponse` for template `index` under app id `app-template`

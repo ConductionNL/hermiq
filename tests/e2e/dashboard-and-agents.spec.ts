@@ -35,7 +35,7 @@ const NC_PASS = process.env.NC_PASS || 'admin'
  * @param page The Playwright page.
  */
 async function login(page: Page): Promise<void> {
-	await page.goto('/login')
+	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
 	const userField = page.locator('#user')
 	if (await userField.count() === 0) {
@@ -46,7 +46,9 @@ async function login(page: Page): Promise<void> {
 	await userField.fill(NC_USER)
 	await page.locator('#password').fill(NC_PASS)
 	await page.locator('button[type="submit"], input[type="submit"]').first().click()
-	await page.waitForLoadState('networkidle')
+	// Nextcloud holds persistent long-poll connections, so 'networkidle' never fires; the
+	// login field detaching once we land past the form is the unambiguous "logged in" signal.
+	await page.locator('#user').waitFor({ state: 'hidden', timeout: 30_000 })
 }
 
 /**
@@ -80,11 +82,12 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		await login(page)
 
 		// The Hermiq app shell renders (its nav lists the Agents entry).
-		await page.goto('/apps/hermiq/')
+		await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 		await expect(page.locator('#app-content, .app-hermiq, [data-testid="agent-catalog"]').first()).toBeVisible()
 
-		// Navigate to the Agents view and assert its heading renders.
-		await page.goto('/apps/hermiq/#/agents')
+		// Navigate to the Agents view and assert its heading renders. The app uses Vue
+		// history mode (ADR-004), so the route is a real path, not a `#/` hash fragment.
+		await page.goto('/apps/hermiq/agents', { waitUntil: 'domcontentloaded' })
 		const heading = page.locator('[data-testid="agent-catalog-heading"]')
 		await expect(heading).toBeVisible({ timeout: 10_000 })
 		await expect(heading).toContainText('Agent')

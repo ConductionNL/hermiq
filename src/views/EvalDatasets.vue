@@ -14,9 +14,9 @@
   @spec openspec/changes/agent-evals/tasks.md#task-10-evalrunsvue--l10n-strings
 -->
 <template>
-	<div class="evals">
+	<div class="evals" data-testid="evals">
 		<div class="evals__header">
-			<h2 class="evals__heading">
+			<h2 class="evals__heading" data-testid="evals-heading">
 				{{ t('hermiq', 'Evaluations') }}
 			</h2>
 			<NcButton type="primary" @click="openCreate">
