@@ -42,3 +42,17 @@ Both secrets are held by the OpenRegister credential broker (never in Hermiq), c
 - **Cross-repo (OpenRegister)**: one `generic-*` inject-only credential-provider descriptor for Anthropic (api-key and oauth variants). Tracked as a paired change if it doesn't already exist.
 - **Runtime**: operator configures the credential in the broker, selects `anthropic` + authMode in Hermiq LLM settings, sets an agent's model to a Claude model. No migration.
 - **ToS note**: using a Claude Max subscription token programmatically is the operator's responsibility; Hermiq only provides the transport. Documented in the settings help text.
+
+## Why this, not the Claude CLI in a container
+
+Considered and rejected: installing the Claude Code CLI / Agent SDK "in the hermiq container" so agents run off Claude Max (the way Hydra's builder containers do). Two decisive reasons:
+
+1. **Hermiq has no container of its own.** It is a standard in-process PHP Nextcloud app (vanilla `appinfo/info.xml`, namespace `Hermiq`, LLPhant), **not** an ExApp/sidecar — so "the hermiq container" is the shared fleet PHP container. Installing a Node agentic CLI there would push it onto the whole fleet.
+2. **It would ship a second, ungoverned agent loop.** Claude Code's own tool loop / MCP / permissions would bypass Hermiq's existing engine governance (guardrails, per-tool approval, redaction, evals, per-tenant model policy, budgets). Hermiq already *has* the agent loop; it needs only a chat backend.
+
+Hydra's CLI-in-container model works because each run is an ephemeral, single-identity CI job with 3-account Max-token rotation for weekly limits — the opposite of Hermiq's multi-tenant, per-org, metered design. So `anthropic` enters as a broker-injected chat provider behind the existing `createChatDriver()` chokepoint, inheriting all governance for free.
+
+**Auth guidance (shipped default = API key):**
+
+- **Default `authMode: api_key`** — metered, per-tenant attributable, fits `BudgetService`, ToS-clean for an App-Store-distributed multi-tenant product.
+- **`authMode: oauth` (Claude Max) is a gated internal/dev option**, not the shipped default: (a) a Max/Pro subscription is a personal, interactive plan — using its token to serve other tenants is subscription sharing; (b) one token = one identity, so per-tenant attribution/billing/rate-isolation breaks; (c) **OAuth tokens expire and refresh is interactive** (`claude setup-token` / a browser) — a headless background provider has no way to refresh, so a Max token will go stale. Keep it behind an explicit admin opt-in + ToS warning, and file a follow-up for the refresh story if enabled.
