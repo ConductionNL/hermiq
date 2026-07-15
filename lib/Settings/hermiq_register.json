@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.11.0"
+    "version": "0.12.0"
   },
   "x-openregister": {
     "type": "application",
@@ -359,15 +359,15 @@
       "ModelPolicy": {
         "slug": "modelpolicy",
         "icon": "ShieldCheckOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "Model policy",
         "description": "Per-organisation allowlist of chat provider/model pairs an organisation's agents may use, plus an optional default model. A policy with no organisation (tenant scope empty) is the instance-wide default applied when an organisation has none of its own (tenant-model-policy). Enforced at ProviderFactory::createChatDriver() — every agent-turn trigger path (schedule, Run now, conversation, flow listener) is checked against the caller's effective policy.",
         "type": "object",
         "required": ["allowed"],
         "x-openregister": { "publicRead": false, "publicWrite": false },
         "properties": {
-          "allowed": { "type": "array", "default": [], "title": "Allowed providers", "description": "Allowlisted {provider, models[]} pairs drawn from the four supported chat drivers. An empty models[] for an allowed provider means any model id for that provider is permitted.", "items": { "type": "object", "properties": { "provider": { "type": "string", "enum": ["openai", "ollama", "fireworks", "nextcloud"], "title": "Provider", "description": "One of the four supported chat drivers." }, "models": { "type": "array", "default": [], "title": "Models", "description": "Allowed model ids for this provider; empty means any model id is permitted.", "items": { "type": "string" } } } } },
-          "defaultModel": { "type": "object", "title": "Default model", "description": "Optional suggested default {provider, model} surfaced to the agent create/edit form; MUST itself be one of the allowed provider/model combinations (service-level validation).", "properties": { "provider": { "type": "string", "enum": ["openai", "ollama", "fireworks", "nextcloud"], "title": "Provider" }, "model": { "type": "string", "title": "Model" } } }
+          "allowed": { "type": "array", "default": [], "title": "Allowed providers", "description": "Allowlisted {provider, models[]} pairs drawn from the four supported chat drivers. An empty models[] for an allowed provider means any model id for that provider is permitted.", "items": { "type": "object", "properties": { "provider": { "type": "string", "enum": ["openai", "ollama", "fireworks", "nextcloud", "anthropic"], "title": "Provider", "description": "One of the four supported chat drivers." }, "models": { "type": "array", "default": [], "title": "Models", "description": "Allowed model ids for this provider; empty means any model id is permitted.", "items": { "type": "string" } } } } },
+          "defaultModel": { "type": "object", "title": "Default model", "description": "Optional suggested default {provider, model} surfaced to the agent create/edit form; MUST itself be one of the allowed provider/model combinations (service-level validation).", "properties": { "provider": { "type": "string", "enum": ["openai", "ollama", "fireworks", "nextcloud", "anthropic"], "title": "Provider" }, "model": { "type": "string", "title": "Model" } } }
         }
       },
       "GuardrailPolicy": {
