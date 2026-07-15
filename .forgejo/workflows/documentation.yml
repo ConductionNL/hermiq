@@ -2,12 +2,10 @@ name: Publish docs
 
 on:
   push:
-    branches: [documentation, main, development]
+    branches: [documentation]
   pull_request:
-    branches: [documentation, main]
+    branches: [documentation]
   workflow_dispatch:
-  schedule:
-    - cron: "0 4 * * *"
 
 jobs:
   build:
