@@ -193,18 +193,78 @@ class LlmSettingsHandlerTest extends TestCase
     }//end testASubmittedApiKeyIsNeverPersisted()
 
     /**
-     * The allowed chatProvider list carries the additive 4th `nextcloud` value.
+     * The allowed chatProvider list carries the additive `nextcloud` and `anthropic`
+     * values alongside OR's original three.
      *
      * @return void
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
      */
     public function testNextcloudIsAnAllowedChatProvider(): void
     {
         $this->assertSame(
-            ['openai', 'ollama', 'fireworks', 'nextcloud'],
+            ['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'],
             LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS
         );
 
     }//end testNextcloudIsAnAllowedChatProvider()
+
+    /**
+     * An unset key returns a full anthropicConfig sub-block with api_key/organisation
+     * defaults (anthropic-agent-provider).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function testAnthropicConfigDefaults(): void
+    {
+        $handler  = new LlmSettingsHandler($this->appConfig(''));
+        $settings = $handler->getLLMSettingsOnly();
+
+        $this->assertSame('', $settings['anthropicConfig']['credentialId']);
+        $this->assertSame('api_key', $settings['anthropicConfig']['authMode']);
+        $this->assertSame('organisation', $settings['anthropicConfig']['scope']);
+        $this->assertSame('https://api.anthropic.com/v1', $settings['anthropicConfig']['baseUrl']);
+
+    }//end testAnthropicConfigDefaults()
+
+    /**
+     * Saving an anthropicConfig merges credentialId/chatModel/authMode/scope like the
+     * other provider blocks, and never persists a submitted secret.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function testUpdateMergesAnthropicConfig(): void
+    {
+        $stored = json_encode(['enabled' => true, 'chatProvider' => 'openai']);
+
+        $written = null;
+        $handler = new LlmSettingsHandler($this->appConfig($stored, $written));
+        $result  = $handler->updateLLMSettingsOnly(
+            [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId' => 'cred-uuid-anthropic',
+                    'chatModel'    => 'claude-opus-4-8',
+                    'authMode'     => 'oauth',
+                    'scope'        => 'personal',
+                ],
+            ]
+        );
+
+        $this->assertSame('anthropic', $result['chatProvider']);
+        $this->assertSame('cred-uuid-anthropic', $result['anthropicConfig']['credentialId']);
+        $this->assertSame('claude-opus-4-8', $result['anthropicConfig']['chatModel']);
+        $this->assertSame('oauth', $result['anthropicConfig']['authMode']);
+        $this->assertSame('personal', $result['anthropicConfig']['scope']);
+
+        $this->assertNotNull($written);
+        $persisted = json_decode((string) $written, true);
+        $this->assertSame('cred-uuid-anthropic', $persisted['anthropicConfig']['credentialId']);
+
+    }//end testUpdateMergesAnthropicConfig()
 }//end class

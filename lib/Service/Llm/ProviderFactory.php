@@ -63,7 +63,10 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
 use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCP\App\IAppManager;
+use OCP\Http\Client\IResponse;
 use OCP\IUserSession;
+use OCP\Server;
 use OCP\TaskProcessing\IManager;
 use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
@@ -74,14 +77,49 @@ use Throwable;
 /**
  * Resolves the configured chat provider into a ready-to-use driver.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) A provider factory is, by role,
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   A provider factory is, by role,
  * the one seam that touches every LLPhant config/chat class plus the TaskProcessing
  * surface; splitting it would smear provider selection across the Engine.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Each provider adds a
+ * driver-build + direct-HTTP branch of its own (openai/ollama/fireworks/anthropic/
+ * nextcloud); the aggregate complexity is inherent to being the single provider seam,
+ * and each branch stays individually simple.
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
  */
 class ProviderFactory
 {
+
+    /**
+     * App id of the AppAPI app — required for any ExApp (`cli` execution mode) detection.
+     *
+     * @var string
+     */
+    private const APP_API_ID = 'app_api';
+
+    /**
+     * App id of the `hermiq-llm-runner` ExApp (the `cli` execution-mode backend).
+     *
+     * @var string
+     */
+    private const RUNNER_EXAPP_ID = 'hermiq-llm-runner';
+
+    /**
+     * The runner ExApp's single work route (`POST /run`).
+     *
+     * @var string
+     */
+    private const RUNNER_ROUTE = '/run';
+
+    /**
+     * Hard cap on Anthropic/runner tool-call round-trips per turn — a safety bound so a
+     * model that keeps requesting tools cannot loop forever. LLPhant enforces the same
+     * kind of ceiling internally for the OpenAI/Ollama path.
+     *
+     * @var int
+     */
+    private const MAX_TOOL_ITERATIONS = 10;
+
     /**
      * Constructor.
      *
@@ -110,11 +148,23 @@ class ProviderFactory
      *                                                          `createChatDriver()`, no enforcement
      *                                                          call is made at all (opt-in threading,
      *                                                          see design.md).
+     * @param IAppManager|null              $appManager         Nextcloud app manager — used ONLY by the
+     *                                                          `cli` execution-mode path
+     *                                                          (llm-cli-runner-exapp) to detect whether
+     *                                                          AppAPI and the `hermiq-llm-runner` ExApp
+     *                                                          are installed/enabled before a turn is
+     *                                                          dispatched. Nullable/defaulted so every
+     *                                                          existing call site (all constructed before
+     *                                                          this change) keeps working unchanged; NC's
+     *                                                          DI container autowires a real instance in
+     *                                                          production. A null manager makes the runner
+     *                                                          report unavailable (503), never crash.
      *
      * @return void
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
+     * @spec openspec/changes/llm-cli-runner-exapp/specs/llm-cli-runner-exapp/spec.md#requirement-optional-cli-execution-mode-routes-turns-through-the-runner-exapp
      */
     public function __construct(
         private readonly LlmSettingsHandler $settingsHandler,
@@ -122,7 +172,8 @@ class ProviderFactory
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
         private readonly string $appName='hermiq',
-        private readonly ?TenantModelPolicyService $modelPolicyService=null
+        private readonly ?TenantModelPolicyService $modelPolicyService=null,
+        private readonly ?IAppManager $appManager=null
     ) {
     }//end __construct()
 
@@ -181,7 +232,7 @@ class ProviderFactory
 
         if (empty($chatProvider) === true) {
             throw new ProviderUnavailableException(
-                'Chat provider is not configured. Please configure OpenAI, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
+                'Chat provider is not configured. Please configure OpenAI, Anthropic, Fireworks AI, Ollama, or Nextcloud Assistant in settings.',
                 503
             );
         }
@@ -201,6 +252,11 @@ class ProviderFactory
         } else if ($chatProvider === 'fireworks') {
             $driver = $this->createFireworksDriver(
                 fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
+                agentModel: $agentModel
+            );
+        } else if ($chatProvider === 'anthropic') {
+            $driver = $this->createAnthropicDriver(
+                anthropicConfig: $llmConfig['anthropicConfig'] ?? [],
                 agentModel: $agentModel
             );
         } else if ($chatProvider === 'nextcloud') {
@@ -398,6 +454,457 @@ class ProviderFactory
     }//end callFireworksChat()
 
     /**
+     * Build the Anthropic auth + version headers for the given `authMode`.
+     *
+     * Pure header selection, split out so it is unit-testable without a live broker:
+     *
+     *   - `api_key` → `x-api-key: <broker placeholder>` + `anthropic-version`.
+     *   - `oauth`   → `Authorization: Bearer <broker placeholder>` + `anthropic-version`
+     *                 + `anthropic-beta: oauth-2025-04-20` (the Claude Max / subscription
+     *                 flow the Claude CLI uses).
+     *
+     * The auth-carrying header value is ALWAYS `BrokerHttpClient::BROKER_MANAGED_KEY`, a
+     * recognisable placeholder — never a real secret. `BrokerHttpClient` strips the
+     * broker-owned auth header (`authorization` / `x-api-key`) before egress and the broker
+     * injects the vault-held secret server-side; the non-auth headers (`anthropic-version`,
+     * `anthropic-beta`, `Content-Type`) pass through untouched, which is why they must be
+     * set here rather than left to the broker.
+     *
+     * @param string $authMode The Anthropic auth mode: `api_key` (default) or `oauth`.
+     *
+     * @return array<string, string> The request headers.
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     */
+    public function buildAnthropicHeaders(string $authMode): array
+    {
+        $headers = [
+            'Content-Type'      => 'application/json',
+            'anthropic-version' => '2023-06-01',
+        ];
+
+        if ($authMode === 'oauth') {
+            // Claude Max / subscription token — the Bearer + beta-flag flow.
+            $headers['Authorization']  = 'Bearer '.BrokerHttpClient::BROKER_MANAGED_KEY;
+            $headers['anthropic-beta'] = 'oauth-2025-04-20';
+
+            return $headers;
+        }
+
+        // Standard Console / API key.
+        $headers['x-api-key'] = BrokerHttpClient::BROKER_MANAGED_KEY;
+
+        return $headers;
+
+    }//end buildAnthropicHeaders()
+
+    /**
+     * Call Anthropic's Messages endpoint (`POST /v1/messages`) directly with the full
+     * message history, through the credential broker — with full tool-use support.
+     *
+     * Sibling of `callFireworksChat()`: no LLPhant `AnthropicChat` instance is used
+     * (LLPhant requires a concrete Guzzle client and exposes no seam for the OAuth
+     * header set). Hermiq's LLPhant message history is mapped to the Messages API shape:
+     * `system` messages are hoisted into the top-level `system` field (Anthropic keeps
+     * the system prompt out of `messages`), and `user`/`assistant` turns become
+     * `messages[{role, content}]`.
+     *
+     * Tool use (anthropic-agent-provider follow-up): when `$functions` (OpenAI-style
+     * `{name, description, parameters}`) AND a `$toolExecutor` are both supplied, the
+     * OpenAI-style schema is mapped to Anthropic `tools: [{name, description,
+     * input_schema}]`. When the model stops with `stop_reason: "tool_use"`, each
+     * `content[]` block of `type: "tool_use"` is executed through `$toolExecutor` — which
+     * is Hermiq's governed engine (guardrails, approval gate, redaction, tracing all
+     * stay there) — and the result is fed back as an Anthropic `tool_result` content
+     * block, looping until the model ends its turn. The driver only translates the wire
+     * format both ways; it NEVER executes a tool itself. The return contract mirrors the
+     * OpenAI/Fireworks path exactly: the final assistant text as a plain string.
+     *
+     * @param string        $credentialId   Broker credential UUID — NOT a key. Hermiq has
+     *                                      no Anthropic secret; the broker holds it and
+     *                                      injects it.
+     * @param string        $model          Model identifier (e.g. `claude-opus-4-8`).
+     * @param string        $baseUrl        Base API URL (e.g. `https://api.anthropic.com/v1`).
+     * @param array         $messageHistory Array of LLPhant Message objects.
+     * @param string        $authMode       Auth mode: `api_key` (default) or `oauth`.
+     * @param int           $maxTokens      Max output tokens (Messages API requires it).
+     * @param array         $functions      OpenAI-style function/tool definitions.
+     * @param callable|null $toolExecutor   `fn(string $name, array $input): string` — Hermiq's
+     *                                      governed tool executor. When null, tools are NOT
+     *                                      offered to the model (a pure text turn), so the
+     *                                      model can never request a tool Hermiq cannot run.
+     *
+     * @return string Generated response text (the final assistant turn).
+     *
+     * @throws \Exception If the HTTP call fails or the response is malformed.
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)   API call requires handling many response scenarios
+     * @SuppressWarnings(PHPMD.NPathComplexity)        API call requires handling many response scenarios
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)  Tool-loop orchestration plus API error handling
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors callFireworksChat's direct-HTTP signature
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     */
+    public function callAnthropicChat(
+        string $credentialId,
+        string $model,
+        string $baseUrl,
+        array $messageHistory,
+        string $authMode='api_key',
+        int $maxTokens=4096,
+        array $functions=[],
+        ?callable $toolExecutor=null
+    ): string {
+        $url = rtrim($baseUrl, '/').'/messages';
+
+        // Anthropic keeps the system prompt OUT of `messages`; hoist system turns into
+        // the top-level `system` field and map user/assistant turns through.
+        $mapped   = $this->mapHistoryToAnthropicMessages(messageHistory: $messageHistory);
+        $system   = $mapped['system'];
+        $messages = $mapped['messages'];
+
+        // Tools are offered ONLY when both a schema AND an executor are present — the
+        // model must never be told about a tool Hermiq cannot then run for it.
+        $tools = [];
+        if (empty($functions) === false && $toolExecutor !== null) {
+            $tools = $this->buildAnthropicTools(functions: $functions);
+        } else if (empty($functions) === false) {
+            $this->logger->warning(
+                message: '[ProviderFactory] Anthropic turn has tools but no executor; running text-only.',
+                context: [
+                    'file'          => __FILE__,
+                    'line'          => __LINE__,
+                    'functionCount' => count($functions),
+                ]
+            );
+        }
+
+        $headers = $this->buildAnthropicHeaders(authMode: $authMode);
+        $text    = '';
+
+        for ($iteration = 0; $iteration < self::MAX_TOOL_ITERATIONS; $iteration++) {
+            $payload = [
+                'model'      => $model,
+                'max_tokens' => $maxTokens,
+                'messages'   => $messages,
+            ];
+
+            if ($system !== '') {
+                $payload['system'] = $system;
+            }
+
+            if (empty($tools) === false) {
+                $payload['tools'] = $tools;
+            }
+
+            $data   = $this->postToAnthropic(credentialId: $credentialId, url: $url, headers: $headers, payload: $payload, model: $model);
+            $parsed = $this->parseAnthropicResponse(data: $data);
+            $text   = $parsed['text'];
+
+            // No tool call requested (or no executor to run one) — the turn is complete.
+            if ($tools === [] || $toolExecutor === null || $parsed['stopReason'] !== 'tool_use' || $parsed['toolCalls'] === []) {
+                break;
+            }
+
+            // Echo the assistant's tool_use turn back verbatim, run each requested tool
+            // through Hermiq's governed engine (the executor), and feed the results back.
+            $messages[]  = [
+                'role'    => 'assistant',
+                'content' => $parsed['content'],
+            ];
+            $toolResults = [];
+            foreach ($parsed['toolCalls'] as $toolCall) {
+                $result        = (string) $toolExecutor($toolCall['name'], $toolCall['input']);
+                $toolResults[] = [
+                    'tool_use_id' => $toolCall['id'],
+                    'content'     => $result,
+                ];
+            }
+
+            $messages[] = [
+                'role'    => 'user',
+                'content' => $this->buildAnthropicToolResultBlocks(toolResults: $toolResults),
+            ];
+        }//end for
+
+        return $text;
+
+    }//end callAnthropicChat()
+
+    /**
+     * Split an LLPhant message history into Anthropic's `{system, messages}` shape.
+     *
+     * System turns are concatenated into the top-level `system` string (Anthropic keeps
+     * the system prompt out of `messages`); user/assistant turns become
+     * `{role, content}` entries.
+     *
+     * @param array $messageHistory Array of LLPhant Message objects.
+     *
+     * @return array{system: string, messages: array<int, array<string, mixed>>}
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function mapHistoryToAnthropicMessages(array $messageHistory): array
+    {
+        $systemParts = [];
+        $messages    = [];
+        foreach ($messageHistory as $msg) {
+            $role = $msg->role->value;
+            if ($role === 'system') {
+                $systemParts[] = (string) $msg->content;
+                continue;
+            }
+
+            // @todo llm-cli-runner-exapp / anthropic-agent-provider — Hermiq's engine never
+            // stores prior tool_use/tool_result turns as LLPhant messages today (tool turns
+            // live only inside this call's Anthropic loop). If a future history carries them
+            // (e.g. LLPhant Message::toolCalls), map them to tool_use/tool_result content
+            // blocks here. Until then, pass text turns through — the common path.
+            $messages[] = [
+                'role'    => $role,
+                'content' => (string) $msg->content,
+            ];
+        }
+
+        return [
+            'system'   => implode("\n\n", $systemParts),
+            'messages' => $messages,
+        ];
+
+    }//end mapHistoryToAnthropicMessages()
+
+    /**
+     * Map OpenAI-style function definitions to Anthropic `tools`.
+     *
+     * OpenAI's `{name, description, parameters}` becomes Anthropic's `{name, description,
+     * input_schema}` (the ONLY structural difference is `parameters` → `input_schema`).
+     * Entries without a name are skipped; a missing schema defaults to an empty object
+     * schema so the model still sees a valid, argument-less tool.
+     *
+     * @param array $functions OpenAI-style function definitions.
+     *
+     * @return array<int, array<string, mixed>> Anthropic tool definitions.
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function buildAnthropicTools(array $functions): array
+    {
+        $tools = [];
+        foreach ($functions as $function) {
+            if (is_array($function) === false || isset($function['name']) === false) {
+                continue;
+            }
+
+            $schema = $function['parameters'] ?? null;
+            if (is_array($schema) === false) {
+                $schema = [
+                    'type'       => 'object',
+                    'properties' => [],
+                ];
+            }
+
+            $tools[] = [
+                'name'         => (string) $function['name'],
+                'description'  => (string) ($function['description'] ?? ''),
+                'input_schema' => $schema,
+            ];
+        }
+
+        return $tools;
+
+    }//end buildAnthropicTools()
+
+    /**
+     * Parse an Anthropic Messages API response into the engine-facing shape.
+     *
+     * Concatenates every `type: "text"` content block into `text`, extracts every
+     * `type: "tool_use"` block into `toolCalls` (`{id, name, input}` — the same
+     * descriptor shape the runner path normalises into), and carries the `stop_reason`,
+     * the raw `content` array (echoed back verbatim as the assistant tool_use turn on the
+     * next loop pass), and token `usage`.
+     *
+     * @param array $data Decoded Anthropic Messages API response.
+     *
+     * @return array{text: string, toolCalls: array<int, array<string, mixed>>, stopReason: string, content: array<int, mixed>, usage: array<string, int>}
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function parseAnthropicResponse(array $data): array
+    {
+        $content = [];
+        if (is_array($data['content'] ?? null) === true) {
+            $content = $data['content'];
+        }
+
+        $text      = '';
+        $toolCalls = [];
+        foreach ($content as $block) {
+            if (is_array($block) === false) {
+                continue;
+            }
+
+            $type = ($block['type'] ?? '');
+            if ($type === 'text') {
+                $text .= (string) ($block['text'] ?? '');
+                continue;
+            }
+
+            if ($type === 'tool_use') {
+                $input = ($block['input'] ?? []);
+                if (is_array($input) === false) {
+                    $input = [];
+                }
+
+                $toolCalls[] = [
+                    'id'    => (string) ($block['id'] ?? ''),
+                    'name'  => (string) ($block['name'] ?? ''),
+                    'input' => $input,
+                ];
+            }
+        }//end foreach
+
+        $usage    = [];
+        $rawUsage = ($data['usage'] ?? []);
+        if (is_array($rawUsage) === true) {
+            $usage = [
+                'promptTokens'     => (int) ($rawUsage['input_tokens'] ?? 0),
+                'completionTokens' => (int) ($rawUsage['output_tokens'] ?? 0),
+            ];
+        }
+
+        return [
+            'text'       => $text,
+            'toolCalls'  => $toolCalls,
+            'stopReason' => (string) ($data['stop_reason'] ?? ''),
+            'content'    => $content,
+            'usage'      => $usage,
+        ];
+
+    }//end parseAnthropicResponse()
+
+    /**
+     * Build the Anthropic `tool_result` content blocks for one user turn.
+     *
+     * Each `{tool_use_id, content, is_error?}` becomes a `{type: "tool_result",
+     * tool_use_id, content}` block (with `is_error` passed through when set). This is the
+     * inverse of `parseAnthropicResponse()`'s tool_use extraction — a governed tool
+     * result round-trips back into an Anthropic content block.
+     *
+     * @param array $toolResults `[{tool_use_id: string, content: string, is_error?: bool}, ...]`.
+     *
+     * @return array<int, array<string, mixed>> Anthropic tool_result content blocks.
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function buildAnthropicToolResultBlocks(array $toolResults): array
+    {
+        $blocks = [];
+        foreach ($toolResults as $toolResult) {
+            if (is_array($toolResult) === false) {
+                continue;
+            }
+
+            $block = [
+                'type'        => 'tool_result',
+                'tool_use_id' => (string) ($toolResult['tool_use_id'] ?? ''),
+                'content'     => (string) ($toolResult['content'] ?? ''),
+            ];
+
+            if (($toolResult['is_error'] ?? false) === true) {
+                $block['is_error'] = true;
+            }
+
+            $blocks[] = $block;
+        }
+
+        return $blocks;
+
+    }//end buildAnthropicToolResultBlocks()
+
+    /**
+     * POST one Anthropic Messages request through the broker and return the decoded body.
+     *
+     * Extracted so the tool loop can issue multiple round-trips without duplicating the
+     * broker wiring or the HTTP error mapping.
+     *
+     * @param string               $credentialId Broker credential UUID.
+     * @param string               $url          The `/messages` endpoint URL.
+     * @param array<string,string> $headers      Auth/version headers from `buildAnthropicHeaders()`.
+     * @param array<string,mixed>  $payload      The request payload.
+     * @param string               $model        Model id (for error messages only).
+     *
+     * @return array<string, mixed> The decoded response body.
+     *
+     * @throws \Exception If the HTTP call fails or the response is malformed.
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)   API error handling requires many branches
+     * @SuppressWarnings(PHPMD.NPathComplexity)        API error handling requires many branches
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Direct-HTTP request needs each of these
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     */
+    private function postToAnthropic(string $credentialId, string $url, array $headers, array $payload, string $model): array
+    {
+        // Through the broker, not straight out. Hermiq has no Anthropic secret to send: the
+        // broker holds it, checks the allow-rules, and injects the auth header server-side.
+        $client = new BrokerHttpClient(
+            credentialId: $credentialId,
+            logger: $this->logger,
+            actingUserId: $this->currentUid()
+        );
+
+        try {
+            $psrResponse = $client->sendRequest(
+                new Request(
+                    'POST',
+                    $url,
+                    $headers,
+                    (string) json_encode($payload)
+                )
+            );
+        } catch (Throwable $e) {
+            throw new Exception('Anthropic API request failed: '.$e->getMessage());
+        }
+
+        $httpCode = $psrResponse->getStatusCode();
+        $response = (string) $psrResponse->getBody();
+
+        if ($httpCode !== 200) {
+            $errorData = json_decode($response, true);
+            if (is_array($errorData) === false) {
+                $errorData = [];
+            }
+
+            $errorMessage = $errorData['error']['message'] ?? $errorData['error'] ?? $response;
+            if (is_string($errorMessage) === false) {
+                $errorMessage = 'Unknown error';
+            }
+
+            if ($httpCode === 401 || $httpCode === 403) {
+                throw new Exception('Authentication failed. Please check your Anthropic credential.');
+            }
+
+            if ($httpCode === 404) {
+                throw new Exception("Model not found: {$model}. Please check the model name.");
+            }
+
+            if ($httpCode === 429) {
+                throw new Exception('Rate limit exceeded. Please try again later.');
+            }
+
+            throw new Exception("Anthropic API error (HTTP {$httpCode}): {$errorMessage}");
+        }//end if
+
+        $data = json_decode($response, true);
+        if (is_array($data) === false) {
+            throw new Exception('Unexpected Anthropic API response format: '.$response);
+        }
+
+        return $data;
+
+    }//end postToAnthropic()
+
+    /**
      * Generate text via the `nextcloud` TaskProcessing driver.
      *
      * Non-streaming, background/non-interactive only (conversation titles,
@@ -506,6 +1013,16 @@ class ProviderFactory
                 model: $driver->model,
                 baseUrl: (string) $driver->baseUrl,
                 messageHistory: [LLPhantMessage::user($prompt)]
+            );
+        }
+
+        if ($driver->provider === 'anthropic') {
+            return $this->callAnthropicChat(
+                credentialId: (string) $driver->credentialId,
+                model: $driver->model,
+                baseUrl: (string) $driver->baseUrl,
+                messageHistory: [LLPhantMessage::user($prompt)],
+                authMode: (string) $driver->authMode
             );
         }
 
@@ -675,6 +1192,79 @@ class ProviderFactory
         );
 
     }//end createFireworksDriver()
+
+    /**
+     * Build the `anthropic` driver descriptor. No LLPhant chat instance is created —
+     * generation goes through `callAnthropicChat()` (direct HTTP), the same shape as
+     * the Fireworks driver, because LLPhant's `AnthropicChat` requires a concrete Guzzle
+     * client and exposes no seam for the OAuth header set. The resolved model still flows
+     * through `enforceModelPolicy()` at the `createChatDriver()` chokepoint (unchanged).
+     *
+     * @param array       $anthropicConfig The `anthropicConfig` sub-block.
+     * @param string|null $agentModel      Agent model override.
+     *
+     * @return ChatDriver
+     *
+     * @throws ProviderUnavailableException When the credential is missing (503) or the
+     *                                      OpenRegister credential broker is unavailable (503),
+     *                                      mirroring createOpenAiDriver().
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    private function createAnthropicDriver(array $anthropicConfig, ?string $agentModel): ChatDriver
+    {
+        $credentialId = (string) ($anthropicConfig['credentialId'] ?? '');
+        if ($credentialId === '') {
+            throw new ProviderUnavailableException(
+                'Anthropic has no credential. Select one from the credential broker in the Hermiq LLM settings.',
+                503
+            );
+        }
+
+        if (BrokerHttpClient::isAvailable() === false) {
+            throw new ProviderUnavailableException(
+                'Anthropic cannot be used: the OpenRegister credential broker is not available.',
+                503
+            );
+        }
+
+        $model = ($anthropicConfig['chatModel'] ?? 'claude-opus-4-8');
+        if (empty($agentModel) === false) {
+            $model = $agentModel;
+        }
+
+        $authMode = ($anthropicConfig['authMode'] ?? 'api_key');
+        if ($authMode !== 'oauth') {
+            $authMode = 'api_key';
+        }
+
+        // `executionMode: cli` (llm-cli-runner-exapp) routes the turn through the
+        // hermiq-llm-runner ExApp instead of direct HTTP. The AppAPI dispatch to the
+        // ExApp `/run` route is not yet wired (tracked follow-up), so fail LOUDLY here
+        // rather than silently serving the `http` path — an operator who selected `cli`
+        // must get a clear signal, not a different transport.
+        $executionMode = ($anthropicConfig['executionMode'] ?? 'http');
+        if ($executionMode === 'cli') {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" (hermiq-llm-runner ExApp) is not yet available: the AppAPI dispatch to the runner is a tracked follow-up. Use executionMode "http" for now.',
+                503
+            );
+        }
+
+        $baseUrl = rtrim($anthropicConfig['baseUrl'] ?? 'https://api.anthropic.com/v1', '/');
+
+        // `credentialId` is a broker reference, not a secret — the key or OAuth token lives
+        // in the vault and is injected server-side by BrokerHttpClient at egress.
+        return new ChatDriver(
+            provider: 'anthropic',
+            chat: null,
+            model: $model,
+            credentialId: $credentialId,
+            baseUrl: $baseUrl,
+            authMode: $authMode
+        );
+
+    }//end createAnthropicDriver()
 
     /**
      * The calling user's UID, when there is a session.

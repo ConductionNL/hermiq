@@ -4,17 +4,26 @@
 <!--
   TenantOps — the Hermiq "Tenant ops" nav page (multi-tenant-ops).
 
-  Org-level operational controls: per-organisation quota usage (schedules + agents-in-use
-  vs. configured limits, with an at-limit warning) and a per-tenant EU AI Act audit export
+  Org-level operational controls: cost guardrails, model policy, access
+  review, incidents, retention, and a per-tenant EU AI Act audit export
   (downloads the caller's own governance records from OpenRegister's hash-chained
   AuditTrail). Shown only to org owners / instance admins via the backend
   `can_manage_killswitch` capability (loadState — never a DOM read, ADR-004).
 
-  The hard create-time quota reject + the authoritative agent inventory live in
-  OpenRegister (object creation flows through OR's object API) — this page surfaces + advises.
+  Per-organisation quota usage (schedules + agents-in-use vs. configured limits)
+  moved to the main Dashboard as QuotaUsageWidget (dashboard-org-widgets); the
+  authoritative agent inventory and create-time quota reject still live in
+  OpenRegister (object creation flows through OR's object API).
+
+  Guardrail policy administration moved to the Settings page's "Guardrail
+  policy" tab (src/views/GuardrailPolicySettings.vue, inapp-settings-section)
+  — it is governance policy, not a per-organisation operational control, and
+  now exists in exactly that one place.
 
   @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
   @spec openspec/changes/multi-tenant-ops/specs/multi-tenant-ops/spec.md
+  @spec openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#requirement-tenant-ops-must-no-longer-display-organisation-quota-usage
+  @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 -->
 <template>
 	<div class="tenant-ops">
@@ -25,359 +34,268 @@
 		<NcEmptyContent
 			v-if="!canManage"
 			:name="t('hermiq', 'Organisation admins only')"
-			:description="t('hermiq', 'Quota and audit export are available to organisation owners and instance admins.')">
+			:description="t('hermiq', 'Tenant ops is available to organisation owners and instance admins.')">
 			<template #icon>
 				<ShieldIcon :size="20" />
 			</template>
 		</NcEmptyContent>
 
 		<template v-else>
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Tenant ops error')">
-				{{ error }}
-			</NcNoteCard>
-
-			<div v-if="loading" class="tenant-ops__loading">
-				<NcLoadingIcon :size="32" />
-			</div>
-
-			<template v-else>
-				<section class="tenant-ops__section">
+			<section v-if="organisations.length > 0" class="tenant-ops__section">
+				<div class="tenant-ops__section-head">
 					<h3 class="tenant-ops__subhead">
-						{{ t('hermiq', 'Quota usage') }}
+						{{ t('hermiq', 'Cost guardrails') }}
 					</h3>
-					<div class="tenant-ops__cards">
-						<div class="tenant-ops__card" :class="{ 'tenant-ops__card--warn': quota.schedules && quota.schedules.atLimit }">
-							<span class="tenant-ops__card-value">{{ quota.schedules ? quota.schedules.count : 0 }} / {{ quota.schedules ? quota.schedules.limit : 0 }}</span>
-							<span class="tenant-ops__card-label">{{ t('hermiq', 'Schedules') }}</span>
-							<span v-if="quota.schedules && quota.schedules.atLimit" class="tenant-ops__card-warn">{{ t('hermiq', 'Quota reached') }}</span>
-						</div>
-						<div class="tenant-ops__card" :class="{ 'tenant-ops__card--warn': quota.agents && quota.agents.atLimit }">
-							<span class="tenant-ops__card-value">{{ quota.agents ? quota.agents.count : 0 }} / {{ quota.agents ? quota.agents.limit : 0 }}</span>
-							<span class="tenant-ops__card-label">{{ t('hermiq', 'Agents in use') }}</span>
-							<span v-if="quota.agents && quota.agents.atLimit" class="tenant-ops__card-warn">{{ t('hermiq', 'Quota reached') }}</span>
-						</div>
-					</div>
-					<p class="tenant-ops__note">
-						{{ t('hermiq', 'The authoritative agent inventory and create-time quota reject live in OpenRegister.') }}
-					</p>
-				</section>
+					<NcButton type="secondary" @click="openCreateBudget">
+						{{ t('hermiq', 'Add budget') }}
+					</NcButton>
+				</div>
 
-				<section v-if="organisations.length > 0" class="tenant-ops__section">
-					<div class="tenant-ops__section-head">
-						<h3 class="tenant-ops__subhead">
-							{{ t('hermiq', 'Cost guardrails') }}
-						</h3>
-						<NcButton type="secondary" @click="openCreateBudget">
-							{{ t('hermiq', 'Add budget') }}
-						</NcButton>
-					</div>
+				<div v-if="organisations.length > 1" class="tenant-ops__org-picker">
+					<NcSelect
+						v-model="orgOption"
+						:input-label="t('hermiq', 'Organisation')"
+						:options="orgOptions"
+						:clearable="false"
+						label="label"
+						track-by="value" />
+				</div>
 
-					<div v-if="organisations.length > 1" class="tenant-ops__org-picker">
-						<NcSelect
-							v-model="orgOption"
-							:input-label="t('hermiq', 'Organisation')"
-							:options="orgOptions"
-							:clearable="false"
-							label="label"
-							track-by="value" />
-					</div>
+				<NcNoteCard v-if="budgetError" type="error" :heading="t('hermiq', 'Budget error')">
+					{{ budgetError }}
+				</NcNoteCard>
 
-					<NcNoteCard v-if="budgetError" type="error" :heading="t('hermiq', 'Budget error')">
-						{{ budgetError }}
-					</NcNoteCard>
+				<div v-if="budgetsLoading" class="tenant-ops__loading">
+					<NcLoadingIcon :size="24" />
+				</div>
 
-					<div v-if="budgetsLoading" class="tenant-ops__loading">
-						<NcLoadingIcon :size="24" />
-					</div>
+				<p v-else-if="budgets.length === 0" class="tenant-ops__note">
+					{{ t('hermiq', 'No budgets configured yet for this organisation.') }}
+				</p>
 
-					<p v-else-if="budgets.length === 0" class="tenant-ops__note">
-						{{ t('hermiq', 'No budgets configured yet for this organisation.') }}
-					</p>
-
-					<div v-else class="tenant-ops__cards">
-						<div
-							v-for="entry in budgets"
-							:key="entry.id"
-							class="tenant-ops__card tenant-ops__card--budget"
-							:class="{ 'tenant-ops__card--warn': entry.status && (entry.status.hardCapReached || entry.status.softThresholdReached) }">
-							<span class="tenant-ops__card-label">
-								{{ entry.scope === 'agent' ? t('hermiq', 'Agent budget') : t('hermiq', 'Organisation budget') }}
-								<span v-if="entry.scope === 'agent'" class="tenant-ops__card-sub">({{ entry.agentId }})</span>
-							</span>
-							<span class="tenant-ops__card-value">
-								{{ budgetUsageLabel(entry) }}
-							</span>
-							<span v-if="entry.status && entry.status.hardCapReached" class="tenant-ops__card-warn">
-								{{ t('hermiq', 'Hard cap reached — new runs are blocked') }}
-							</span>
-							<span v-else-if="entry.status && entry.status.softThresholdReached" class="tenant-ops__card-warn">
-								{{ t('hermiq', 'Soft threshold crossed') }}
-							</span>
-							<div class="tenant-ops__card-actions">
-								<NcButton type="tertiary" @click="openEditBudget(entry)">
-									{{ t('hermiq', 'Edit') }}
-								</NcButton>
-								<NcButton type="tertiary" @click="removeBudget(entry)">
-									{{ t('hermiq', 'Delete') }}
-								</NcButton>
-							</div>
+				<div v-else class="tenant-ops__cards">
+					<div
+						v-for="entry in budgets"
+						:key="entry.id"
+						class="tenant-ops__card tenant-ops__card--budget"
+						:class="{ 'tenant-ops__card--warn': entry.status && (entry.status.hardCapReached || entry.status.softThresholdReached) }">
+						<span class="tenant-ops__card-label">
+							{{ entry.scope === 'agent' ? t('hermiq', 'Agent budget') : t('hermiq', 'Organisation budget') }}
+							<span v-if="entry.scope === 'agent'" class="tenant-ops__card-sub">({{ entry.agentId }})</span>
+						</span>
+						<span class="tenant-ops__card-value">
+							{{ budgetUsageLabel(entry) }}
+						</span>
+						<span v-if="entry.status && entry.status.hardCapReached" class="tenant-ops__card-warn">
+							{{ t('hermiq', 'Hard cap reached — new runs are blocked') }}
+						</span>
+						<span v-else-if="entry.status && entry.status.softThresholdReached" class="tenant-ops__card-warn">
+							{{ t('hermiq', 'Soft threshold crossed') }}
+						</span>
+						<div class="tenant-ops__card-actions">
+							<NcButton type="tertiary" @click="openEditBudget(entry)">
+								{{ t('hermiq', 'Edit') }}
+							</NcButton>
+							<NcButton type="tertiary" @click="removeBudget(entry)">
+								{{ t('hermiq', 'Delete') }}
+							</NcButton>
 						</div>
 					</div>
-				</section>
+				</div>
+			</section>
 
-				<!-- Model policy (tenant-model-policy): which providers/models each
+			<!-- Model policy (tenant-model-policy): which providers/models each
 				     organisation's agents may use; the instance default applies when an
 				     organisation has no policy of its own. -->
-				<section class="tenant-ops__section">
-					<div class="tenant-ops__section-head">
-						<h3 class="tenant-ops__subhead">
-							{{ t('hermiq', 'Model policy') }}
-						</h3>
+			<section class="tenant-ops__section">
+				<div class="tenant-ops__section-head">
+					<h3 class="tenant-ops__subhead">
+						{{ t('hermiq', 'Model policy') }}
+					</h3>
+				</div>
+
+				<NcNoteCard v-if="policyError" type="error" :heading="t('hermiq', 'Model policy error')">
+					{{ policyError }}
+				</NcNoteCard>
+
+				<p v-if="modelPolicies.length === 0 && !policyError" class="tenant-ops__note">
+					{{ t('hermiq', 'No model policies configured — agents fall back to the instance-wide LLM configuration.') }}
+				</p>
+
+				<div v-for="policy in modelPolicies" :key="policy.id" class="tenant-ops__policy">
+					<div class="tenant-ops__policy-head">
+						<strong>{{ policy.organisation ? organisationLabel(policy.organisation, organisations) : t('hermiq', 'Instance default') }}</strong>
+						<NcButton type="tertiary" @click="togglePolicyEdit(policy)">
+							{{ editingPolicyId === policy.id ? t('hermiq', 'Cancel') : t('hermiq', 'Edit') }}
+						</NcButton>
 					</div>
-
-					<NcNoteCard v-if="policyError" type="error" :heading="t('hermiq', 'Model policy error')">
-						{{ policyError }}
-					</NcNoteCard>
-
-					<p v-if="modelPolicies.length === 0 && !policyError" class="tenant-ops__note">
-						{{ t('hermiq', 'No model policies configured — agents fall back to the instance-wide LLM configuration.') }}
+					<p v-if="editingPolicyId !== policy.id" class="tenant-ops__note">
+						{{ policySummary(policy) }}
 					</p>
-
-					<div v-for="policy in modelPolicies" :key="policy.id" class="tenant-ops__policy">
-						<div class="tenant-ops__policy-head">
-							<strong>{{ policy.organisation ? policyOrgLabel(policy.organisation) : t('hermiq', 'Instance default') }}</strong>
-							<NcButton type="tertiary" @click="togglePolicyEdit(policy)">
-								{{ editingPolicyId === policy.id ? t('hermiq', 'Cancel') : t('hermiq', 'Edit') }}
+					<div v-else class="tenant-ops__policy-edit">
+						<NcTextArea
+							:value.sync="policyDraft.allowedText"
+							:label="t('hermiq', 'Allowed providers and models')"
+							:placeholder="t('hermiq', 'One per line: provider or provider: model1, model2')"
+							resize="vertical" />
+						<NcTextField
+							:value.sync="policyDraft.defaultModel"
+							:label="t('hermiq', 'Default model (optional)')"
+							placeholder="qwen2.5" />
+						<div class="tenant-ops__card-actions">
+							<NcButton type="primary" :disabled="policySaving" @click="savePolicy(policy)">
+								{{ t('hermiq', 'Save policy') }}
 							</NcButton>
 						</div>
-						<p v-if="editingPolicyId !== policy.id" class="tenant-ops__note">
-							{{ policySummary(policy) }}
-						</p>
-						<div v-else class="tenant-ops__policy-edit">
-							<NcTextArea
-								:value.sync="policyDraft.allowedText"
-								:label="t('hermiq', 'Allowed providers and models')"
-								:placeholder="t('hermiq', 'One per line: provider or provider: model1, model2')"
-								resize="vertical" />
-							<NcTextField
-								:value.sync="policyDraft.defaultModel"
-								:label="t('hermiq', 'Default model (optional)')"
-								placeholder="qwen2.5" />
-							<div class="tenant-ops__card-actions">
-								<NcButton type="primary" :disabled="policySaving" @click="savePolicy(policy)">
-									{{ t('hermiq', 'Save policy') }}
-								</NcButton>
-							</div>
-						</div>
 					</div>
-				</section>
+				</div>
+			</section>
 
-				<!-- Guardrail policy (agent-guardrails): per-organisation input/output
-				     content filters (PII/secret redaction or block, prompt-injection
-				     block) and per-tool risk classification (auto/confirm/deny); the
-				     instance default applies when an organisation has no policy of its
-				     own, and a fully-open fallback applies when neither exists. -->
-				<section class="tenant-ops__section">
-					<div class="tenant-ops__section-head">
-						<h3 class="tenant-ops__subhead">
-							{{ t('hermiq', 'Guardrail policy') }}
-						</h3>
-					</div>
-
-					<NcNoteCard v-if="guardrailPolicyError" type="error" :heading="t('hermiq', 'Guardrail policy error')">
-						{{ guardrailPolicyError }}
-					</NcNoteCard>
-
-					<p v-if="guardrailPolicies.length === 0 && !guardrailPolicyError" class="tenant-ops__note">
-						{{ t('hermiq', 'No guardrail policies configured — agents run with every filter off and every tool auto-approved.') }}
-					</p>
-
-					<div v-for="policy in guardrailPolicies" :key="policy.id" class="tenant-ops__policy">
-						<div class="tenant-ops__policy-head">
-							<strong>{{ policy.organisation ? policyOrgLabel(policy.organisation) : t('hermiq', 'Instance default') }}</strong>
-							<NcButton type="tertiary" @click="toggleGuardrailPolicyEdit(policy)">
-								{{ editingGuardrailPolicyId === policy.id ? t('hermiq', 'Cancel') : t('hermiq', 'Edit') }}
-							</NcButton>
-						</div>
-						<p v-if="editingGuardrailPolicyId !== policy.id" class="tenant-ops__note">
-							{{ guardrailPolicySummary(policy) }}
-						</p>
-						<div v-else class="tenant-ops__policy-edit">
-							<NcSelect
-								:value="guardrailActionOption(guardrailPolicyDraft.inputPiiAction, piiActionOptions)"
-								:options="piiActionOptions"
-								:input-label="t('hermiq', 'Input: PII/secret action')"
-								:clearable="false"
-								@input="(option) => { guardrailPolicyDraft.inputPiiAction = option ? option.value : 'off' }" />
-							<NcSelect
-								:value="guardrailActionOption(guardrailPolicyDraft.inputPromptInjectionAction, injectionActionOptions)"
-								:options="injectionActionOptions"
-								:input-label="t('hermiq', 'Input: prompt-injection action')"
-								:clearable="false"
-								@input="(option) => { guardrailPolicyDraft.inputPromptInjectionAction = option ? option.value : 'off' }" />
-							<NcSelect
-								:value="guardrailActionOption(guardrailPolicyDraft.outputPiiAction, piiActionOptions)"
-								:options="piiActionOptions"
-								:input-label="t('hermiq', 'Output: PII/secret action')"
-								:clearable="false"
-								@input="(option) => { guardrailPolicyDraft.outputPiiAction = option ? option.value : 'off' }" />
-							<NcTextArea
-								:value.sync="guardrailPolicyDraft.toolPolicyText"
-								:label="t('hermiq', 'Per-tool classification')"
-								:placeholder="t('hermiq', 'One per line: toolId: auto|confirm|deny')"
-								resize="vertical" />
-							<div class="tenant-ops__card-actions">
-								<NcButton type="primary" :disabled="guardrailPolicySaving" @click="saveGuardrailPolicy(policy)">
-									{{ t('hermiq', 'Save policy') }}
-								</NcButton>
-							</div>
-						</div>
-					</div>
-				</section>
-
-				<!-- Periodic access review (agent-lifecycle-governance): every agent in the
+			<!-- Periodic access review (agent-lifecycle-governance): every agent in the
 				     org with owner/actingUser/last-run/capability summary, a "Mark reviewed"
 				     attestation, and a "Reassign" action for agents flagged after offboarding. -->
-				<section class="tenant-ops__section">
-					<h3 class="tenant-ops__subhead">
-						{{ t('hermiq', 'Access review') }}
-					</h3>
-					<p class="tenant-ops__note">
-						{{ t('hermiq', 'Review who owns each agent and what it can do. Marking an agent reviewed records your user id and the current time, auditably.') }}
-					</p>
+			<section class="tenant-ops__section">
+				<h3 class="tenant-ops__subhead">
+					{{ t('hermiq', 'Access review') }}
+				</h3>
+				<p class="tenant-ops__note">
+					{{ t('hermiq', 'Review who owns each agent and what it can do. Marking an agent reviewed records your user id and the current time, auditably.') }}
+				</p>
 
-					<NcNoteCard v-if="reviewError" type="error" :heading="t('hermiq', 'Access review error')">
-						{{ reviewError }}
-					</NcNoteCard>
+				<NcNoteCard v-if="reviewError" type="error" :heading="t('hermiq', 'Access review error')">
+					{{ reviewError }}
+				</NcNoteCard>
 
-					<CnDataTable
-						:columns="reviewColumns"
-						:rows="reviewRows"
-						:loading="reviewLoading"
-						row-key="uuid"
-						:empty-text="t('hermiq', 'No agents yet.')">
-						<template #column-reassignmentFlag="{ row }">
-							<span v-if="row.reassignmentFlag" class="tenant-ops__card-warn">
-								{{ t('hermiq', 'Flagged for reassignment') }}
-							</span>
-							<span v-else>—</span>
-						</template>
-						<template #row-actions="{ row }">
-							<div class="tenant-ops__review-actions">
+				<CnDataTable
+					:columns="reviewColumns"
+					:rows="reviewRows"
+					:loading="reviewLoading"
+					row-key="uuid"
+					:empty-text="t('hermiq', 'No agents yet.')">
+					<template #column-reassignmentFlag="{ row }">
+						<span v-if="row.reassignmentFlag" class="tenant-ops__card-warn">
+							{{ t('hermiq', 'Flagged for reassignment') }}
+						</span>
+						<span v-else>—</span>
+					</template>
+					<template #row-actions="{ row }">
+						<div class="tenant-ops__review-actions">
+							<NcButton
+								type="tertiary"
+								:disabled="reviewBusyUuid === row.uuid"
+								@click="markReviewed(row)">
+								{{ t('hermiq', 'Mark reviewed') }}
+							</NcButton>
+							<template v-if="row.reassignmentFlag">
+								<NcTextField
+									:value.sync="reassignDrafts[row.uuid]"
+									class="tenant-ops__reassign-input"
+									:input-label="t('hermiq', 'New acting user id')"
+									:placeholder="t('hermiq', 'New acting user id')" />
 								<NcButton
-									type="tertiary"
-									:disabled="reviewBusyUuid === row.uuid"
-									@click="markReviewed(row)">
-									{{ t('hermiq', 'Mark reviewed') }}
+									type="secondary"
+									:disabled="!reassignDrafts[row.uuid] || reviewBusyUuid === row.uuid"
+									@click="reassign(row)">
+									{{ t('hermiq', 'Reassign') }}
 								</NcButton>
-								<template v-if="row.reassignmentFlag">
-									<NcTextField
-										:value.sync="reassignDrafts[row.uuid]"
-										class="tenant-ops__reassign-input"
-										:input-label="t('hermiq', 'New acting user id')"
-										:placeholder="t('hermiq', 'New acting user id')" />
-									<NcButton
-										type="secondary"
-										:disabled="!reassignDrafts[row.uuid] || reviewBusyUuid === row.uuid"
-										@click="reassign(row)">
-										{{ t('hermiq', 'Reassign') }}
-									</NcButton>
-								</template>
-							</div>
-						</template>
-					</CnDataTable>
-				</section>
+							</template>
+						</div>
+					</template>
+				</CnDataTable>
+			</section>
 
-				<!-- Incident records (agent-lifecycle-governance): human-authored incident
+			<!-- Incident records (agent-lifecycle-governance): human-authored incident
 				     response, linked to an agent/run, included in the AI Act audit export. -->
-				<section class="tenant-ops__section">
-					<div class="tenant-ops__section-head">
-						<h3 class="tenant-ops__subhead">
-							{{ t('hermiq', 'Incidents') }}
-						</h3>
-						<NcButton type="secondary" @click="showIncidentDialog = true">
-							{{ t('hermiq', 'Open incident') }}
-						</NcButton>
-					</div>
-
-					<NcNoteCard v-if="incidentError" type="error" :heading="t('hermiq', 'Incident error')">
-						{{ incidentError }}
-					</NcNoteCard>
-
-					<p v-if="!incidentsLoading && incidents.length === 0 && !incidentError" class="tenant-ops__note">
-						{{ t('hermiq', 'No incidents recorded yet.') }}
-					</p>
-
-					<div v-if="incidentsLoading" class="tenant-ops__loading">
-						<NcLoadingIcon :size="24" />
-					</div>
-
-					<ul v-else class="tenant-ops__incident-list">
-						<li v-for="incident in incidents" :key="incident.uuid" class="tenant-ops__incident">
-							<p class="tenant-ops__incident-description">
-								{{ incident.description }}
-							</p>
-							<p class="tenant-ops__note">
-								<strong>{{ t('hermiq', 'Impact') }}:</strong> {{ incident.impact }}
-							</p>
-							<p class="tenant-ops__note">
-								<strong>{{ t('hermiq', 'Actions taken') }}:</strong> {{ incident.actionsTaken }}
-							</p>
-							<p class="tenant-ops__note">
-								{{ formatDate(incident.createdAt) }} — {{ incident.createdBy }}
-							</p>
-						</li>
-					</ul>
-				</section>
-
-				<section class="tenant-ops__section">
+			<section class="tenant-ops__section">
+				<div class="tenant-ops__section-head">
 					<h3 class="tenant-ops__subhead">
-						{{ t('hermiq', 'EU AI Act audit export') }}
+						{{ t('hermiq', 'Incidents') }}
 					</h3>
-					<p class="tenant-ops__note">
-						{{ t('hermiq', 'Download your organisation\'s governance records (runs, decisions) from the hash-chained audit trail — scoped to your tenant, produced entirely on this instance.') }}
-					</p>
-					<NcButton
-						type="primary"
-						:disabled="exporting"
-						:aria-label="t('hermiq', 'Export AI Act audit trail')"
-						@click="exportAudit">
-						<template v-if="exporting" #icon>
-							<NcLoadingIcon :size="18" />
-						</template>
-						{{ t('hermiq', 'Export AI Act audit trail') }}
+					<NcButton type="secondary" @click="showIncidentDialog = true">
+						{{ t('hermiq', 'Open incident') }}
 					</NcButton>
-					<p v-if="lastExportCount !== null" class="tenant-ops__export-result">
-						{{ n('hermiq', 'Exported %n record.', 'Exported %n records.', lastExportCount) }}
-					</p>
-				</section>
+				</div>
 
-				<!-- Retention statement (agent-lifecycle-governance / multi-tenant-ops):
+				<NcNoteCard v-if="incidentError" type="error" :heading="t('hermiq', 'Incident error')">
+					{{ incidentError }}
+				</NcNoteCard>
+
+				<p v-if="!incidentsLoading && incidents.length === 0 && !incidentError" class="tenant-ops__note">
+					{{ t('hermiq', 'No incidents recorded yet.') }}
+				</p>
+
+				<div v-if="incidentsLoading" class="tenant-ops__loading">
+					<NcLoadingIcon :size="24" />
+				</div>
+
+				<ul v-else class="tenant-ops__incident-list">
+					<li v-for="incident in incidents" :key="incident.uuid" class="tenant-ops__incident">
+						<p class="tenant-ops__incident-description">
+							{{ incident.description }}
+						</p>
+						<p class="tenant-ops__note">
+							<strong>{{ t('hermiq', 'Impact') }}:</strong> {{ incident.impact }}
+						</p>
+						<p class="tenant-ops__note">
+							<strong>{{ t('hermiq', 'Actions taken') }}:</strong> {{ incident.actionsTaken }}
+						</p>
+						<p class="tenant-ops__note">
+							{{ formatDate(incident.createdAt) }} — {{ incident.createdBy }}
+						</p>
+					</li>
+				</ul>
+			</section>
+
+			<section class="tenant-ops__section">
+				<h3 class="tenant-ops__subhead">
+					{{ t('hermiq', 'EU AI Act audit export') }}
+				</h3>
+				<p class="tenant-ops__note">
+					{{ t('hermiq', 'Download your organisation\'s governance records (runs, decisions) from the hash-chained audit trail — scoped to your tenant, produced entirely on this instance.') }}
+				</p>
+				<NcNoteCard v-if="auditError" type="error" :heading="t('hermiq', 'Audit export error')">
+					{{ auditError }}
+				</NcNoteCard>
+				<NcButton
+					type="primary"
+					:disabled="exporting"
+					:aria-label="t('hermiq', 'Export AI Act audit trail')"
+					@click="exportAudit">
+					<template v-if="exporting" #icon>
+						<NcLoadingIcon :size="18" />
+					</template>
+					{{ t('hermiq', 'Export AI Act audit trail') }}
+				</NcButton>
+				<p v-if="lastExportCount !== null" class="tenant-ops__export-result">
+					{{ n('hermiq', 'Exported %n record.', 'Exported %n records.', lastExportCount) }}
+				</p>
+			</section>
+
+			<!-- Retention statement (agent-lifecycle-governance / multi-tenant-ops):
 				     a STATED policy value (EU AI Act Art. 12 minimum 6 months) — this does
 				     NOT trigger automated purge/archive of audit records. -->
-				<section class="tenant-ops__section">
-					<h3 class="tenant-ops__subhead">
-						{{ t('hermiq', 'Retention') }}
-					</h3>
-					<p class="tenant-ops__note">
-						{{ t('hermiq', 'How long your organisation states it keeps governance records for (EU AI Act Art. 12), at least 6 months. This is a stated policy, not automated deletion.') }}
-					</p>
+			<section class="tenant-ops__section">
+				<h3 class="tenant-ops__subhead">
+					{{ t('hermiq', 'Retention') }}
+				</h3>
+				<p class="tenant-ops__note">
+					{{ t('hermiq', 'How long your organisation states it keeps governance records for (EU AI Act Art. 12), at least 6 months. This is a stated policy, not automated deletion.') }}
+				</p>
 
-					<NcNoteCard v-if="retentionError" type="error" :heading="t('hermiq', 'Retention error')">
-						{{ retentionError }}
-					</NcNoteCard>
+				<NcNoteCard v-if="retentionError" type="error" :heading="t('hermiq', 'Retention error')">
+					{{ retentionError }}
+				</NcNoteCard>
 
-					<div class="tenant-ops__retention-row">
-						<NcTextField
-							:value.sync="retentionDraft"
-							type="number"
-							:label="t('hermiq', 'Retention period (months)')" />
-						<NcButton type="primary" :disabled="retentionSaving" @click="saveRetention">
-							{{ t('hermiq', 'Save') }}
-						</NcButton>
-					</div>
-				</section>
-			</template>
+				<div class="tenant-ops__retention-row">
+					<NcTextField
+						:value.sync="retentionDraft"
+						type="number"
+						:label="t('hermiq', 'Retention period (months)')" />
+					<NcButton type="primary" :disabled="retentionSaving" @click="saveRetention">
+						{{ t('hermiq', 'Save') }}
+					</NcButton>
+				</div>
+			</section>
 		</template>
 
 		<BudgetFormModal
@@ -405,14 +323,13 @@ import {
 	getAccessReview,
 	getAuditExport,
 	getIncidents,
-	getQuota,
 	getRetention,
 	reassignAgent,
 	setRetention,
 } from '../api/tenantOps.js'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
 import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
-import { listGuardrailPolicies, updateGuardrailPolicy } from '../api/guardrailPolicy.js'
+import { organisationLabel } from '../utils/organisationLabel.js'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
 import CreateIncidentDialog from '../dialogs/CreateIncidentDialog.vue'
 
@@ -439,11 +356,9 @@ export default {
 		const organisations = loadState('hermiq', 'managed_organisations', [])
 		return {
 			canManage: loadState('hermiq', 'can_manage_killswitch', false) === true,
-			quota: {},
-			loading: true,
 			exporting: false,
 			lastExportCount: null,
-			error: '',
+			auditError: '',
 			// Cost-guardrails (cost-guardrails): budgets are org-scoped, so admins who
 			// manage more than one organisation need an org picker (mirrors KillSwitchToggle).
 			organisations: Array.isArray(organisations) ? organisations : [],
@@ -459,17 +374,6 @@ export default {
 			editingPolicyId: null,
 			policyDraft: { allowedText: '', defaultModel: '' },
 			policySaving: false,
-			// Guardrail policy (agent-guardrails): caller-visible policies + inline editor.
-			guardrailPolicies: [],
-			guardrailPolicyError: '',
-			editingGuardrailPolicyId: null,
-			guardrailPolicyDraft: {
-				inputPiiAction: 'off',
-				inputPromptInjectionAction: 'off',
-				outputPiiAction: 'off',
-				toolPolicyText: '',
-			},
-			guardrailPolicySaving: false,
 			// Access review (agent-lifecycle-governance): agent inventory + attestation + reassignment.
 			reviewAgents: [],
 			reviewLoading: false,
@@ -489,33 +393,6 @@ export default {
 	},
 
 	computed: {
-		/**
-		 * The `piiAction` NcSelect options shared by the input and output
-		 * PII/secret action pickers (agent-guardrails).
-		 *
-		 * @return {Array<object>} The { label, value } options.
-		 */
-		piiActionOptions() {
-			return [
-				{ label: this.t('hermiq', 'Off'), value: 'off' },
-				{ label: this.t('hermiq', 'Redact'), value: 'redact' },
-				{ label: this.t('hermiq', 'Block'), value: 'block' },
-			]
-		},
-
-		/**
-		 * The `promptInjectionAction` NcSelect options (no `redact` — an
-		 * override attempt can only be refused, never partially masked).
-		 *
-		 * @return {Array<object>} The { label, value } options.
-		 */
-		injectionActionOptions() {
-			return [
-				{ label: this.t('hermiq', 'Off'), value: 'off' },
-				{ label: this.t('hermiq', 'Block'), value: 'block' },
-			]
-		},
-
 		/**
 		 * The manageable organisations as NcSelect options.
 		 *
@@ -581,12 +458,9 @@ export default {
 
 	created() {
 		if (this.canManage) {
-			this.load()
 			this.loadAccessReview()
 			this.loadIncidents()
 			this.loadRetention()
-		} else {
-			this.loading = false
 		}
 		if (this.canManage && this.organisations.length > 0) {
 			this.selectedOrg = this.organisations[0].id
@@ -594,27 +468,13 @@ export default {
 		}
 		if (this.canManage) {
 			this.loadModelPolicies()
-			this.loadGuardrailPolicies()
 		}
 	},
 
 	methods: {
-		/**
-		 * Load the quota status.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async load() {
-			this.loading = true
-			this.error = ''
-			try {
-				this.quota = await getQuota()
-			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.loading = false
-			}
-		},
+		// Shared org-id → label lookup (src/utils/organisationLabel.js) —
+		// registered as a plain method so the template can call it directly.
+		organisationLabel,
 
 		/**
 		 * Fetch the AI Act audit export and download it as a JSON file.
@@ -623,13 +483,13 @@ export default {
 		 */
 		async exportAudit() {
 			this.exporting = true
-			this.error = ''
+			this.auditError = ''
 			try {
 				const data = await getAuditExport()
 				this.lastExportCount = data.recordCount || 0
 				this.downloadJson(data, 'hermiq-ai-act-audit.json')
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.auditError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {
 				this.exporting = false
 			}
@@ -753,17 +613,6 @@ export default {
 		},
 
 		/**
-		 * Human label for a policy's organisation id.
-		 *
-		 * @param {string} orgId The organisation identifier.
-		 * @return {string} The organisation label, or the raw id.
-		 */
-		policyOrgLabel(orgId) {
-			const org = this.organisations.find((candidate) => candidate.id === orgId)
-			return org ? (org.label || org.id) : orgId
-		},
-
-		/**
 		 * One-line summary of a policy's allowed providers/models.
 		 *
 		 * @param {object} policy The ModelPolicy record.
@@ -839,120 +688,6 @@ export default {
 				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the model policy.'))
 			} finally {
 				this.policySaving = false
-			}
-		},
-
-		/**
-		 * Load the caller-visible guardrail policies (agent-guardrails).
-		 *
-		 * @return {Promise<void>}
-		 */
-		async loadGuardrailPolicies() {
-			this.guardrailPolicyError = ''
-			try {
-				this.guardrailPolicies = await listGuardrailPolicies()
-			} catch (e) {
-				this.guardrailPolicyError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			}
-		},
-
-		/**
-		 * Resolve the NcSelect option object matching a stored action value.
-		 *
-		 * @param {string} value The stored action value.
-		 * @param {Array<object>} options The option list to search.
-		 * @return {object} The matching option, or the first option as a fallback.
-		 */
-		guardrailActionOption(value, options) {
-			return options.find((option) => option.value === value) || options[0]
-		},
-
-		/**
-		 * One-line summary of a guardrail policy's active filters and tool rules.
-		 *
-		 * @param {object} policy The GuardrailPolicy record.
-		 * @return {string} The summary line.
-		 */
-		guardrailPolicySummary(policy) {
-			const input = policy.inputFilters || {}
-			const output = policy.outputFilters || {}
-			const toolPolicy = Array.isArray(policy.toolPolicy) ? policy.toolPolicy : []
-			const parts = [
-				`${this.t('hermiq', 'Input')}: ${this.t('hermiq', 'PII')} ${input.piiAction || 'off'}, ${this.t('hermiq', 'prompt injection')} ${input.promptInjectionAction || 'off'}`,
-				`${this.t('hermiq', 'Output')}: ${this.t('hermiq', 'PII')} ${output.piiAction || 'off'}`,
-			]
-			if (toolPolicy.length > 0) {
-				parts.push(`${toolPolicy.length} ${this.t('hermiq', 'tool rules')}`)
-			}
-			if (policy.enabled === false) {
-				return `${this.t('hermiq', 'Disabled')} — ${parts.join(' · ')}`
-			}
-			return parts.join(' · ')
-		},
-
-		/**
-		 * Open/close the inline editor for a guardrail policy, seeding the draft
-		 * from it. Tool-policy draft format: one line per rule —
-		 * `toolId: classification`.
-		 *
-		 * @param {object} policy The GuardrailPolicy record.
-		 * @return {void}
-		 */
-		toggleGuardrailPolicyEdit(policy) {
-			if (this.editingGuardrailPolicyId === policy.id) {
-				this.editingGuardrailPolicyId = null
-				return
-			}
-			const toolPolicy = Array.isArray(policy.toolPolicy) ? policy.toolPolicy : []
-			this.guardrailPolicyDraft = {
-				inputPiiAction: (policy.inputFilters && policy.inputFilters.piiAction) || 'off',
-				inputPromptInjectionAction: (policy.inputFilters && policy.inputFilters.promptInjectionAction) || 'off',
-				outputPiiAction: (policy.outputFilters && policy.outputFilters.piiAction) || 'off',
-				toolPolicyText: toolPolicy.map((entry) => `${entry.toolId}: ${entry.classification}`).join('\n'),
-			}
-			this.editingGuardrailPolicyId = policy.id
-		},
-
-		/**
-		 * Persist the inline guardrail-policy draft via
-		 * PUT /api/guardrail-policies/{uuid}.
-		 *
-		 * @param {object} policy The GuardrailPolicy record being edited.
-		 * @return {Promise<void>}
-		 */
-		async saveGuardrailPolicy(policy) {
-			const toolPolicy = this.guardrailPolicyDraft.toolPolicyText
-				.split('\n')
-				.map((line) => line.trim())
-				.filter((line) => line !== '')
-				.map((line) => {
-					const [toolId, classification] = line.split(':')
-					return {
-						toolId: (toolId || '').trim(),
-						classification: (classification || 'auto').trim(),
-					}
-				})
-				.filter((entry) => entry.toolId !== '')
-			this.guardrailPolicySaving = true
-			try {
-				await updateGuardrailPolicy(policy.id, {
-					inputFilters: {
-						piiAction: this.guardrailPolicyDraft.inputPiiAction,
-						promptInjectionAction: this.guardrailPolicyDraft.inputPromptInjectionAction,
-					},
-					outputFilters: {
-						piiAction: this.guardrailPolicyDraft.outputPiiAction,
-					},
-					toolPolicy,
-					enabled: policy.enabled !== false,
-				})
-				showSuccess(this.t('hermiq', 'Guardrail policy saved.'))
-				this.editingGuardrailPolicyId = null
-				await this.loadGuardrailPolicies()
-			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the guardrail policy.'))
-			} finally {
-				this.guardrailPolicySaving = false
 			}
 		},
 

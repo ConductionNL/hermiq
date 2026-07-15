@@ -39,6 +39,7 @@
 
 import AnalyticsKpiWidget from './widgets/AnalyticsKpiWidget.vue'
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
+import QuotaUsageWidget from './widgets/QuotaUsageWidget.vue'
 import EmailField from './formFields/EmailField.vue'
 import Chat from './views/Chat.vue'
 import AgentCatalog from './views/AgentCatalog.vue'
@@ -48,10 +49,7 @@ import AgentMemory from './views/AgentMemory.vue'
 import AgentSessions from './views/AgentSessions.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
 import AgentTemplateGallery from './views/AgentTemplateGallery.vue'
-import AiFeatureRegister from './views/AiFeatureRegister.vue'
 import TenantOps from './views/TenantOps.vue'
-import McpTools from './views/McpTools.vue'
-import ComplianceDashboard from './views/ComplianceDashboard.vue'
 import EvalDatasets from './views/EvalDatasets.vue'
 
 export default {
@@ -141,16 +139,6 @@ export default {
 	},
 
 	/**
-	 * AI-feature governance register — the design-time inventory of high-risk AI
-	 * features, risk-classified and gated by a DPO-acknowledgement lifecycle
-	 * (ai-feature-governance-register). Standard nav page, not a dashboard.
-	 */
-	AiFeatureRegister: {
-		kind: 'page',
-		component: AiFeatureRegister,
-	},
-
-	/**
 	 * Run-analytics KPIs (total runs, success rate, avg latency, tokens) — a
 	 * dashboard widget over the computed /api/analytics endpoint.
 	 */
@@ -181,8 +169,10 @@ export default {
 	},
 
 	/**
-	 * Tenant ops — per-org quota usage + EU AI Act audit export (multi-tenant-ops).
-	 * Standard nav page, capability-gated to org owners/admins.
+	 * Tenant ops — EU AI Act audit export + org-level operational sections
+	 * (multi-tenant-ops). Standard nav page, capability-gated to org owners/admins.
+	 * Per-org quota usage moved to the Dashboard (dashboard-org-widgets) — see
+	 * "quota-usage" below.
 	 */
 	TenantOps: {
 		kind: 'page',
@@ -190,23 +180,19 @@ export default {
 	},
 
 	/**
-	 * MCP tools — the catalogue of Model Context Protocol tools available to
-	 * agents across the instance (read-only). Standard nav page.
+	 * Quota usage — the caller's organisation Schedules and Agents-in-use quota
+	 * (count vs. configured limit, at-limit warning) as a Dashboard widget
+	 * (dashboard-org-widgets), relocated off TenantOps.vue.
 	 */
-	McpTools: {
-		kind: 'page',
-		component: McpTools,
-	},
-
-	/**
-	 * Compliance dashboard — per-framework (EU AI Act, ISO/IEC 42001, NIST AI RMF)
-	 * coverage + gap list, computed live from existing governance data, plus an
-	 * auditor's-pack export (compliance-control-packs). Standard nav page, not a
-	 * dashboard-kind page (per-framework tables, not gridded widgets).
-	 */
-	ComplianceDashboard: {
-		kind: 'page',
-		component: ComplianceDashboard,
+	'quota-usage': {
+		kind: 'widget',
+		component: QuotaUsageWidget,
+		defaultSize: { w: 12, h: 1 },
+		minSize: { w: 4, h: 1 },
+		maxSize: { w: 12, h: 2 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'The quota\'s atLimit is derived by TenantOpsService::quotaStatus() from a configured limit compared against a derived (distinct-agentId) count, not a plain OR object-count aggregate — stats-block can only bind a dataSource to an object-count query, so a custom fetch widget is required (ADR-049), mirroring analytics-kpis/analytics-breakdown.',
 	},
 
 	/**

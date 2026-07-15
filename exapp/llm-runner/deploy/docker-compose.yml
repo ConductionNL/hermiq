@@ -1,0 +1,59 @@
+# hermiq-llm-runner — hardened deployment
+#
+# Demonstrates the two enforceable egress-hardening options. Pick ONE.
+#
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Conduction B.V.
+
+services:
+  # -------------------------------------------------------------------------
+  # Option A (recommended): in-container iptables egress jail.
+  # Starts root via egress-entrypoint.sh, installs the provider allowlist, then
+  # drops to the non-root `node` user. Needs NET_ADMIN. No general internet.
+  # -------------------------------------------------------------------------
+  hermiq-llm-runner:
+    image: ghcr.io/conductionnl/hermiq-llm-runner:latest
+    entrypoint: ["/app/deploy/egress-entrypoint.sh"]
+    cap_add:
+      - NET_ADMIN
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /app/scratch
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      APP_ID: hermiq-llm-runner
+      APP_SECRET: ${APP_SECRET:?set APP_SECRET to the value Nextcloud minted at registration}
+      RUNNER_PORT: "9000"
+      RUNNER_ALLOWED_HOSTS: "api.anthropic.com api.openai.com api.x.ai"
+    # NO volumes: the runner mounts no Nextcloud user data and no host paths.
+    ports:
+      - "127.0.0.1:9000:9000"
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------------
+  # Option B: network-layer enforcement (no NET_ADMIN needed).
+  # Put the runner on an `internal: true` network so Docker installs no default
+  # route to the internet, and reach the providers only through an explicit
+  # egress proxy you allowlist (Squid, tinyproxy, or a cloud egress firewall).
+  # Uncomment and adapt; keep the default unprivileged CMD (drop the entrypoint
+  # + cap_add above).
+  # -------------------------------------------------------------------------
+  # hermiq-llm-runner-proxied:
+  #   image: ghcr.io/conductionnl/hermiq-llm-runner:latest
+  #   read_only: true
+  #   tmpfs: [/tmp, /app/scratch]
+  #   security_opt: [no-new-privileges:true]
+  #   cap_drop: [ALL]
+  #   environment:
+  #     APP_SECRET: ${APP_SECRET:?}
+  #     HTTPS_PROXY: http://egress-proxy:3128   # proxy allowlists provider hosts
+  #     NO_PROXY: 127.0.0.1,localhost
+  #   networks: [jailed]
+  #
+  # networks:
+  #   jailed:
+  #     internal: true   # no gateway → no general internet; only the proxy egresses

@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Conduction B.V.
+#
+# Stubbed OpenAI `codex` CLI for hermiq-llm-runner container tests. Emits a
+# generic {text,toolCalls,usage} envelope; records argv + credential presence
+# without logging the token value.
+
+set -euo pipefail
+
+LOG="${RUNNER_STUB_LOG:-/tmp/llm-runner-stub.log}"
+prompt="$(cat)"
+
+{
+    echo "INVOKED codex"
+    echo "ARGV: $*"
+    if [ -n "${OPENAI_API_KEY:-}" ]; then
+        echo "ENV_TOKEN_PRESENT: 1"
+    else
+        echo "ENV_TOKEN_PRESENT: 0"
+    fi
+    echo "PROMPT_LEN: ${#prompt}"
+} >> "${LOG}"
+
+printf '{"text":"stub openai completion","toolCalls":[],"usage":{"input_tokens":9,"output_tokens":4}}\n'

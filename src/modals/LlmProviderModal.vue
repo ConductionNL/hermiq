@@ -96,6 +96,38 @@
 					</p>
 				</template>
 
+				<!-- Anthropic (Claude / Claude Max) -->
+				<template v-else-if="providerValue === 'anthropic'">
+					<NcTextField
+						:value.sync="form.anthropicConfig.chatModel"
+						:label="t('hermiq', 'Model')"
+						:placeholder="'claude-opus-4-8'" />
+					<p class="llm-provider-modal__hint">
+						{{ t('hermiq', 'Suggested models: claude-opus-4-8, claude-sonnet-5, claude-haiku-4-5, claude-fable-5. Free text is allowed.') }}
+					</p>
+					<NcSelect v-model="anthropicAuthMode"
+						:options="authModeOptions"
+						:input-label="t('hermiq', 'Authentication')"
+						:clearable="false"
+						label="label"
+						track-by="value" />
+					<NcSelect v-model="anthropicCredential"
+						:options="credentialsFor(anthropicCredentialProviderId)"
+						:input-label="anthropicAuthModeValue === 'oauth' ? t('hermiq', 'Claude subscription (OAuth) credential') : t('hermiq', 'API credential')"
+						:loading="loadingCredentials"
+						:placeholder="t('hermiq', 'Select a credential')"
+						label="label" />
+					<p class="llm-provider-modal__hint">
+						{{ credentialHint(anthropicCredentialProviderId) }}
+					</p>
+					<NcNoteCard v-if="anthropicAuthModeValue === 'oauth'" type="warning">
+						{{ t('hermiq', 'A Claude Max/Pro subscription (OAuth) is personal-only per the Anthropic Terms of Service. It may be set only as a personal token in your own personal settings — never as an organisation-wide credential here. OAuth tokens also cannot refresh headlessly, so a Max token may go stale.') }}
+						<a href="https://www.anthropic.com/legal/consumer-terms" target="_blank" rel="noopener noreferrer">
+							{{ t('hermiq', 'Anthropic Terms of Service') }}
+						</a>
+					</NcNoteCard>
+				</template>
+
 				<!-- Nextcloud Assistant (TaskProcessing) -->
 				<template v-else-if="providerValue === 'nextcloud'">
 					<NcNoteCard type="info">
@@ -169,8 +201,15 @@ export default {
 			loadingCredentials: false,
 			openaiCredential: null,
 			fireworksCredential: null,
+			anthropicCredential: null,
+			anthropicAuthMode: { value: 'api_key', label: 'API key' },
+			authModeOptions: [
+				{ value: 'api_key', label: 'API key' },
+				{ value: 'oauth', label: 'Claude Max subscription (OAuth)' },
+			],
 			providerOptions: [
 				{ value: 'openai', label: 'OpenAI' },
+				{ value: 'anthropic', label: 'Anthropic (Claude)' },
 				{ value: 'ollama', label: 'Ollama (local)' },
 				{ value: 'fireworks', label: 'Fireworks AI' },
 				{ value: 'nextcloud', label: 'Nextcloud Assistant (TaskProcessing)' },
@@ -179,6 +218,7 @@ export default {
 				openaiConfig: { chatModel: '', credentialId: '' },
 				ollamaConfig: { url: '', chatModel: '' },
 				fireworksConfig: { baseUrl: '', chatModel: '', credentialId: '' },
+				anthropicConfig: { chatModel: '', credentialId: '', authMode: 'api_key' },
 			},
 		}
 	},
@@ -216,6 +256,33 @@ export default {
 		 */
 		fireworksHasCredential() {
 			return this.fireworksCredential !== null
+		},
+		/**
+		 * The bare authMode string of the currently-selected Anthropic auth option.
+		 *
+		 * @return {string} `api_key` or `oauth`.
+		 *
+		 * @spec exclude Trivial computed display helper; no behavioural spec.
+		 */
+		anthropicAuthModeValue() {
+			return this.anthropicAuthMode ? this.anthropicAuthMode.value : 'api_key'
+		},
+
+		/**
+		 * The credential-broker provider id whose credentials the Anthropic
+		 * credential picker should list, keyed off the selected auth mode.
+		 *
+		 * A Claude Max/Pro OAuth token is stored under the `anthropic-oauth`
+		 * broker provider (injected as `Authorization: Bearer`); an API key
+		 * under `anthropic` (injected as `x-api-key`). The picker must show the
+		 * matching set — otherwise an OAuth credential is invisible when the
+		 * user selects OAuth auth, and vice versa.
+		 *
+		 * @return {string} The broker provider id.
+		 * @spec exclude Trivial computed display helper; no behavioural spec.
+		 */
+		anthropicCredentialProviderId() {
+			return this.anthropicAuthModeValue === 'oauth' ? 'anthropic-oauth' : 'anthropic'
 		},
 	},
 
@@ -273,12 +340,19 @@ export default {
 				this.form.fireworksConfig.baseUrl = (config.fireworksConfig && config.fireworksConfig.baseUrl) || ''
 				this.form.fireworksConfig.chatModel = (config.fireworksConfig && config.fireworksConfig.chatModel) || ''
 				this.form.fireworksConfig.credentialId = (config.fireworksConfig && config.fireworksConfig.credentialId) || ''
+				this.form.anthropicConfig.chatModel = (config.anthropicConfig && config.anthropicConfig.chatModel) || ''
+				this.form.anthropicConfig.credentialId = (config.anthropicConfig && config.anthropicConfig.credentialId) || ''
+				this.form.anthropicConfig.authMode = (config.anthropicConfig && config.anthropicConfig.authMode) || 'api_key'
 
 				// Reflect the stored credential references back into the pickers.
 				this.openaiCredential = this.credentialsFor('openai')
 					.find((o) => o.value === this.form.openaiConfig.credentialId) || null
 				this.fireworksCredential = this.credentialsFor('fireworks')
 					.find((o) => o.value === this.form.fireworksConfig.credentialId) || null
+				this.anthropicCredential = this.credentialsFor('anthropic')
+					.find((o) => o.value === this.form.anthropicConfig.credentialId) || null
+				this.anthropicAuthMode = this.authModeOptions
+					.find((o) => o.value === this.form.anthropicConfig.authMode) || this.authModeOptions[0]
 
 				this.selectedProvider = this.providerOptions.find((option) => option.value === config.chatProvider) || null
 			} catch (e) {
@@ -313,7 +387,7 @@ export default {
 		/**
 		 * The broker credentials that can serve a given LLM provider.
 		 *
-		 * @param {string} provider `openai` or `fireworks`.
+		 * @param {string} provider `openai`, `anthropic`, or `fireworks`.
 		 * @return {Array} NcSelect options.
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
@@ -327,7 +401,7 @@ export default {
 		/**
 		 * Explain where the key lives — or how to add one when there is none.
 		 *
-		 * @param {string} provider `openai` or `fireworks`.
+		 * @param {string} provider `openai`, `anthropic`, or `fireworks`.
 		 * @return {string} The hint text.
 		 *
 		 * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-5-admin-ui
@@ -380,6 +454,27 @@ export default {
 					baseUrl: this.form.fireworksConfig.baseUrl,
 					chatModel: this.form.fireworksConfig.chatModel,
 					credentialId: this.fireworksCredential.value,
+				}
+			} else if (this.providerValue === 'anthropic') {
+				// Claude Max (OAuth) is personal-only per the Anthropic ToS — it may never be
+				// configured as an organisation credential here (admin settings). The server
+				// rejects it too; this guard gives an immediate, clear message.
+				if (this.anthropicAuthModeValue === 'oauth') {
+					this.error = this.t('hermiq', 'A Claude Max subscription (OAuth) may only be set as a personal token in your personal settings, per the Anthropic Terms of Service. Use an API key here.')
+					this.saving = false
+					return
+				}
+				if (!this.anthropicCredential) {
+					this.error = this.t('hermiq', 'Pick an Anthropic credential first.')
+					this.saving = false
+					return
+				}
+				payload.anthropicConfig = {
+					chatModel: this.form.anthropicConfig.chatModel,
+					credentialId: this.anthropicCredential.value,
+					authMode: this.anthropicAuthModeValue,
+					// Admin settings are always organisation scope.
+					scope: 'organisation',
 				}
 			}
 			try {

@@ -55,13 +55,6 @@
 			"order": 18
 		},
 		{
-			"id": "AiFeatureRegister",
-			"label": "AI features",
-			"icon": "icon-category-security",
-			"route": "AiFeatureRegister",
-			"order": 21
-		},
-		{
 			"id": "RunAnalytics",
 			"label": "Analytics",
 			"icon": "icon-category-monitoring",
@@ -99,18 +92,11 @@
 			"order": 20
 		},
 		{
-			"id": "McpTools",
-			"label": "MCP tools",
-			"icon": "icon-category-integration",
-			"route": "McpTools",
+			"id": "Settings",
+			"label": "Settings",
+			"icon": "icon-settings",
+			"route": "Settings",
 			"order": 22
-		},
-		{
-			"id": "ComplianceDashboard",
-			"label": "Compliance",
-			"icon": "icon-category-security",
-			"route": "ComplianceDashboard",
-			"order": 23
 		},
 		{
 			"id": "EvalDatasets",
@@ -184,14 +170,6 @@
 			"component": "AgentTemplateGallery",
 			"title": "Agent templates",
 			"_note": "Custom page: the agent-template gallery imports/exports portable JSON template packages, action-auth-gates quarantine approval, and instantiates a template into a real Agent with model-policy coercion — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
-		},
-		{
-			"id": "AiFeatureRegister",
-			"route": "/ai-features",
-			"type": "custom",
-			"component": "AiFeatureRegister",
-			"title": "AI features",
-			"_note": "Custom page: the AI-feature governance register drives action-auth-gated DPO-acknowledgement + a declarative OpenRegister enable/disable lifecycle (enable is blocked until the DPO acknowledges) — governance actions not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
 		},
 		{
 			"id": "RunAnalytics",
@@ -298,7 +276,16 @@
 					}
 				]
 			},
-			"widgets": []
+			"widgets": [
+				{
+					"widgetKey": "quota-usage",
+					"slot": "body",
+					"gridX": 0,
+					"gridY": 1,
+					"gridWidth": 12,
+					"gridHeight": 1
+				}
+			]
 		},
 		{
 			"id": "Settings",
@@ -307,19 +294,85 @@
 			"title": "Settings",
 			"config": {
 				"saveEndpoint": "/index.php/apps/hermiq/api/settings",
-				"sections": [
+				"tabs": [
 					{
-						"title": "Version",
-						"widgets": [
+						"id": "general",
+						"label": "General",
+						"sections": [
 							{
-								"type": "version-info",
-								"props": {
-									"appName": "Hermiq",
-									"showUpdateButton": false,
-									"isUpToDate": true,
-									"title": "Version Information",
-									"description": "Information about the current installation."
-								}
+								"title": "Version",
+								"widgets": [
+									{
+										"type": "version-info",
+										"props": {
+											"appName": "Hermiq",
+											"showUpdateButton": false,
+											"isUpToDate": true,
+											"title": "Version Information",
+											"description": "Information about the current installation."
+										}
+									}
+								]
+							}
+						]
+					},
+					{
+						"id": "guardrail-policy",
+						"label": "Guardrail policy",
+						"sections": [
+							{
+								"widgets": [
+									{
+										"type": "component",
+										"componentName": "GuardrailPolicySettings",
+										"props": {}
+									}
+								]
+							}
+						]
+					},
+					{
+						"id": "algorithm-register",
+						"label": "Algorithm register",
+						"sections": [
+							{
+								"widgets": [
+									{
+										"type": "component",
+										"componentName": "AlgorithmRegister",
+										"props": {}
+									}
+								]
+							}
+						]
+					},
+					{
+						"id": "mcp-tools",
+						"label": "MCP tools",
+						"sections": [
+							{
+								"widgets": [
+									{
+										"type": "component",
+										"componentName": "McpTools",
+										"props": {}
+									}
+								]
+							}
+						]
+					},
+					{
+						"id": "compliance",
+						"label": "Compliance",
+						"sections": [
+							{
+								"widgets": [
+									{
+										"type": "component",
+										"componentName": "ComplianceDashboard",
+										"props": {}
+									}
+								]
 							}
 						]
 					}
@@ -359,22 +412,6 @@
 			"component": "TenantOps",
 			"title": "Tenant ops",
 			"_note": "Custom page: per-org quota usage + EU AI Act audit export (download) over OpenRegister objects/AuditTrail, capability-gated to org owners/admins — not expressible via the built-in index/dashboard page types. Standard nav page."
-		},
-		{
-			"id": "McpTools",
-			"route": "/mcp-tools",
-			"type": "custom",
-			"component": "McpTools",
-			"title": "MCP tools",
-			"_note": "Custom page: catalogue of MCP tools available to agents, read from Hermiq's facade-backed /api/agents/tools endpoint (not register/schema objects), so the built-in index page type cannot express it. Read-only nav page."
-		},
-		{
-			"id": "ComplianceDashboard",
-			"route": "/compliance",
-			"type": "custom",
-			"component": "ComplianceDashboard",
-			"title": "Compliance",
-			"_note": "Custom page: per-framework compliance-control coverage + gap list computed live from existing governance data (never a hand-ticked field), plus an auditor's-pack export — not expressible via the built-in index/dashboard page types. Standard nav page, action-auth-gated."
 		},
 		{
 			"id": "EvalDatasets",
@@ -500,15 +537,15 @@
 						"id": "go-mcp",
 						"sinceVersion": "0.1.38",
 						"placement": "right",
-						"body": "MCP tools connect your agents to external systems over the Model Context Protocol.",
-						"task": "Click MCP tools in the menu",
+						"body": "MCP tools, Compliance, Guardrail policy, and the Algorithm register all live in Settings now. Open Settings to explore them.",
+						"task": "Click Settings in the menu",
 						"target": {
 							"kind": "nav-item",
-							"ref": "McpTools"
+							"ref": "Settings"
 						},
 						"advanceOn": {
 							"type": "route-match",
-							"route": "McpTools"
+							"route": "Settings"
 						}
 					},
 					{

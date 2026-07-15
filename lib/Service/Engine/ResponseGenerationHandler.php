@@ -300,6 +300,60 @@ class ResponseGenerationHandler
 
                 // Fireworks exposes no usage today (matches the ported original).
                 $this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
+            } else if ($driver->provider === 'anthropic') {
+                // Anthropic uses direct HTTP through the broker (ProviderFactory::
+                // callAnthropicChat) with the auth headers selected by authMode.
+                //
+                // Tool use: build the SAME governed FunctionInfo objects the LLPhant
+                // branch below uses (ToolLoop::buildFunctionInfos — one shared
+                // FacadeToolInvoker, agent/guardrails/approval/redaction/trace/dry-run
+                // all applied), then hand callAnthropicChat a `$toolExecutor` that runs a
+                // requested tool by (name, input) through that same governed path via
+                // FunctionInfo::callWithArguments(). The tool name Claude receives
+                // (ProviderFactory::buildAnthropicTools) and the FunctionInfo name both
+                // derive from `$functions['name']`, so they match. Executor is null when
+                // there are no tools → callAnthropicChat runs text-only (the fail-safe:
+                // never advertise a tool Hermiq cannot run).
+                $anthropicToolExecutor = null;
+                if (empty($functions) === false) {
+                    $anthropicFunctionInfos = $this->toolLoop->buildFunctionInfos(
+                        functions: $functions,
+                        channel: $channel,
+                        trace: $trace,
+                        agent: $agent,
+                        organisation: $organisation,
+                        dryRun: $dryRun
+                    );
+
+                    $anthropicFnByName = [];
+                    foreach ($anthropicFunctionInfos as $anthropicFunctionInfo) {
+                        $anthropicFnByName[$anthropicFunctionInfo->name] = $anthropicFunctionInfo;
+                    }
+
+                    $anthropicToolExecutor = static function (string $toolName, array $toolInput) use ($anthropicFnByName): string {
+                        $functionInfo = ($anthropicFnByName[$toolName] ?? null);
+                        if ($functionInfo === null) {
+                            return (string) json_encode(['error' => "Unknown tool: {$toolName}"]);
+                        }
+
+                        return (string) $functionInfo->callWithArguments($toolInput);
+                    };
+                }//end if
+
+                $response = $this->providerFactory->callAnthropicChat(
+                    credentialId: (string) $driver->credentialId,
+                    model: $driver->model,
+                    baseUrl: (string) $driver->baseUrl,
+                    messageHistory: $messageHistory,
+                    authMode: (string) $driver->authMode,
+                    functions: $functions,
+                    toolExecutor: $anthropicToolExecutor
+                );
+                $llmTime  = microtime(true) - $llmStartTime;
+
+                // Anthropic usage (input/output tokens) is available on the response but not
+                // yet threaded here; record latency only, matching the Fireworks path.
+                $this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
             } else {
                 // OpenAI / Ollama: LLPhant chat instance from the driver.
                 $chat = $driver->chat;

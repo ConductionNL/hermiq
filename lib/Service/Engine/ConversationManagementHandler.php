@@ -464,6 +464,16 @@ class ConversationManagementHandler
             );
         }
 
+        if ($driver->provider === 'anthropic') {
+            return $this->providerFactory->callAnthropicChat(
+                credentialId: (string) $driver->credentialId,
+                model: $driver->model,
+                baseUrl: (string) $driver->baseUrl,
+                messageHistory: [LLPhantMessage::user($prompt)],
+                authMode: (string) $driver->authMode
+            );
+        }
+
         if ($driver->provider === 'nextcloud') {
             return $this->providerFactory->generateViaNextcloud(prompt: $prompt);
         }
