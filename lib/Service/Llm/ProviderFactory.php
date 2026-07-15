@@ -748,10 +748,22 @@ class ProviderFactory
 
             $schema = $function['parameters'] ?? null;
             if (is_array($schema) === false) {
-                $schema = [
-                    'type'       => 'object',
-                    'properties' => [],
-                ];
+                $schema = ['type' => 'object'];
+            }
+
+            if (isset($schema['type']) === false) {
+                $schema['type'] = 'object';
+            }
+
+            // Anthropic requires `input_schema.properties` to be a JSON object.
+            // An argument-less tool has an empty properties map, and PHP's
+            // json_encode emits an empty PHP array as `[]` (a JSON array), which
+            // Anthropic rejects with "Input should be an object". Force an empty
+            // stdClass so it serialises as `{}`.
+            if (isset($schema['properties']) === false
+                || ($schema['properties'] === [] || $schema['properties'] === null)
+            ) {
+                $schema['properties'] = new \stdClass();
             }
 
             $tools[] = [
