@@ -300,6 +300,24 @@ class ResponseGenerationHandler
 
                 // Fireworks exposes no usage today (matches the ported original).
                 $this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
+            } else if ($driver->provider === 'anthropic') {
+                // Anthropic uses direct HTTP through the broker (ProviderFactory::
+                // callAnthropicChat) with the auth headers selected by authMode. Tool-use
+                // mapping is a documented follow-up; functions are logged + ignored inside
+                // the call for now.
+                $response = $this->providerFactory->callAnthropicChat(
+                    credentialId: (string) $driver->credentialId,
+                    model: $driver->model,
+                    baseUrl: (string) $driver->baseUrl,
+                    messageHistory: $messageHistory,
+                    authMode: (string) $driver->authMode,
+                    functions: $functions
+                );
+                $llmTime  = microtime(true) - $llmStartTime;
+
+                // Anthropic usage (input/output tokens) is available on the response but not
+                // yet threaded here; record latency only, matching the Fireworks path.
+                $this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
             } else {
                 // OpenAI / Ollama: LLPhant chat instance from the driver.
                 $chat = $driver->chat;

@@ -130,6 +130,25 @@ class LlmSettingsController extends Controller
             );
         }
 
+        // Anthropic credential scope: a Claude Max / Pro subscription (authMode: oauth) is
+        // personal-only per the Anthropic Terms of Service — it may only be a personal token
+        // in personal settings, never an organisation-wide credential serving other users.
+        // Refuse oauth at organisation scope. An API key (authMode: api_key) may be either
+        // scope. See anthropic-agent-provider spec.
+        $anthropic = $data['anthropicConfig'] ?? [];
+        if (is_array($anthropic) === true
+            && ($anthropic['authMode'] ?? '') === 'oauth'
+            && ($anthropic['scope'] ?? 'organisation') === 'organisation'
+        ) {
+            return new JSONResponse(
+                [
+                    'error' => 'A Claude Max/Pro subscription (OAuth) may only be set as a personal token in '
+                        .'personal settings, never as an organisation credential (per the Anthropic Terms of Service).',
+                ],
+                Http::STATUS_UNPROCESSABLE_ENTITY
+            );
+        }
+
         $data = $this->dropBlankCredentials(data: $data);
 
         try {
@@ -170,13 +189,15 @@ class LlmSettingsController extends Controller
     {
         $oaiCredential = $config['openaiConfig']['credentialId'] ?? '';
         $fwCredential  = $config['fireworksConfig']['credentialId'] ?? '';
+        $antCredential = $config['anthropicConfig']['credentialId'] ?? '';
 
         $config['openaiApiKeySet']    = ($oaiCredential !== '');
         $config['fireworksApiKeySet'] = ($fwCredential !== '');
+        $config['anthropicApiKeySet'] = ($antCredential !== '');
 
         // Defensive: a config blob written before this release still carries a cleartext
         // apiKey until the repair step runs. It must never be echoed to the browser.
-        unset($config['openaiConfig']['apiKey'], $config['fireworksConfig']['apiKey']);
+        unset($config['openaiConfig']['apiKey'], $config['fireworksConfig']['apiKey'], $config['anthropicConfig']['apiKey']);
 
         return $config;
 
@@ -195,7 +216,7 @@ class LlmSettingsController extends Controller
      */
     private function dropBlankCredentials(array $data): array
     {
-        foreach (['openaiConfig', 'fireworksConfig'] as $block) {
+        foreach (['openaiConfig', 'fireworksConfig', 'anthropicConfig'] as $block) {
             if (isset($data[$block]['credentialId']) === true && $data[$block]['credentialId'] === '') {
                 unset($data[$block]['credentialId']);
             }

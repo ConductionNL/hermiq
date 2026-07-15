@@ -54,7 +54,12 @@ final class ChatDriver
      *                                                 holding a live secret. The secret now
      *                                                 lives in the vault and the broker
      *                                                 injects it; this is only a reference.
-     * @param string|null                $baseUrl      Fireworks base URL (fireworks only).
+     * @param string|null                $baseUrl      Fireworks/Anthropic base URL
+     *                                                 (fireworks/anthropic only).
+     * @param string|null                $authMode     Anthropic auth mode (anthropic only):
+     *                                                 `api_key` or `oauth`. Selects the header
+     *                                                 set `callAnthropicChat()` builds. Null
+     *                                                 for every other provider.
      */
     public function __construct(
         public readonly string $provider,
@@ -62,6 +67,7 @@ final class ChatDriver
         public readonly string $model,
         public readonly ?string $credentialId=null,
         public readonly ?string $baseUrl=null,
+        public readonly ?string $authMode=null,
     ) {
     }//end __construct()
 }//end class

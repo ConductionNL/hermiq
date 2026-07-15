@@ -334,6 +334,175 @@ class ProviderFactoryTest extends TestCase
     }//end testFireworksDriverNormalisesBaseUrl()
 
     /**
+     * Anthropic without a credential is a 503-style misconfiguration error, naming the
+     * missing credential — no request is sent (anthropic-agent-provider).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function testAnthropicWithoutCredentialThrowsUnavailable(): void
+    {
+        [$factory] = $this->factory();
+
+        $this->expectException(ProviderUnavailableException::class);
+        $this->expectExceptionCode(503);
+        $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => ['credentialId' => ''],
+            ]
+        );
+
+    }//end testAnthropicWithoutCredentialThrowsUnavailable()
+
+    /**
+     * Anthropic resolves to a direct-HTTP descriptor (no LLPhant chat instance) carrying
+     * the credential reference, resolved model, base URL and authMode; the agent model
+     * override wins over the configured chatModel.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function testAnthropicDriverDescriptor(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId' => 'cred-uuid-anthropic',
+                    'chatModel'    => 'claude-sonnet-5',
+                    'authMode'     => 'oauth',
+                    'baseUrl'      => 'https://api.anthropic.com/v1/',
+                ],
+            ],
+            agentModel: 'claude-opus-4-8'
+        );
+
+        $this->assertSame('anthropic', $driver->provider);
+        $this->assertNull($driver->chat);
+        $this->assertSame('cred-uuid-anthropic', $driver->credentialId);
+        $this->assertSame('claude-opus-4-8', $driver->model);
+        $this->assertSame('https://api.anthropic.com/v1', $driver->baseUrl);
+        $this->assertSame('oauth', $driver->authMode);
+
+    }//end testAnthropicDriverDescriptor()
+
+    /**
+     * An unrecognised authMode falls back to the safe `api_key` default.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     */
+    public function testAnthropicDriverDefaultsAuthModeToApiKey(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId' => 'cred-uuid-anthropic',
+                    'authMode'     => 'nonsense',
+                ],
+            ]
+        );
+
+        $this->assertSame('api_key', $driver->authMode);
+        // The configured default model is used when no override is given.
+        $this->assertSame('claude-opus-4-8', $driver->model);
+
+    }//end testAnthropicDriverDefaultsAuthModeToApiKey()
+
+    /**
+     * API-key mode sends `x-api-key` set to the broker placeholder + the version header,
+     * and NO `Authorization: Bearer` / oauth-beta header. The value handed to transport is
+     * never a real secret.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     */
+    public function testAnthropicApiKeyHeaders(): void
+    {
+        [$factory] = $this->factory();
+
+        $headers = $factory->buildAnthropicHeaders('api_key');
+
+        $this->assertSame(\OCA\Hermiq\Service\Llm\BrokerHttpClient::BROKER_MANAGED_KEY, $headers['x-api-key']);
+        $this->assertSame('2023-06-01', $headers['anthropic-version']);
+        $this->assertArrayNotHasKey('Authorization', $headers);
+        $this->assertArrayNotHasKey('anthropic-beta', $headers);
+
+        // The transport never receives a real key — only the recognisable placeholder.
+        $this->assertStringStartsNotWith('sk-', $headers['x-api-key']);
+
+    }//end testAnthropicApiKeyHeaders()
+
+    /**
+     * OAuth (Claude Max) mode sends `Authorization: Bearer` set to the broker placeholder,
+     * the version header, and the `anthropic-beta: oauth-2025-04-20` flag — and NO
+     * `x-api-key`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     */
+    public function testAnthropicOauthHeaders(): void
+    {
+        [$factory] = $this->factory();
+
+        $headers = $factory->buildAnthropicHeaders('oauth');
+
+        $this->assertSame('Bearer '.\OCA\Hermiq\Service\Llm\BrokerHttpClient::BROKER_MANAGED_KEY, $headers['Authorization']);
+        $this->assertSame('2023-06-01', $headers['anthropic-version']);
+        $this->assertSame('oauth-2025-04-20', $headers['anthropic-beta']);
+        $this->assertArrayNotHasKey('x-api-key', $headers);
+
+        // The transport never receives a real token — only the recognisable placeholder.
+        $this->assertStringContainsString('__managed_by_credential_broker__', $headers['Authorization']);
+
+    }//end testAnthropicOauthHeaders()
+
+    /**
+     * An out-of-policy Claude model is refused at the createChatDriver() chokepoint with
+     * the 422 violation — before any network call — identically to the other providers.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-models-pass-through-model-policy-enforcement
+     */
+    public function testAnthropicOutOfPolicyModelIsBlocked(): void
+    {
+        $manager     = $this->createMock(IManager::class);
+        $settings    = $this->createMock(LlmSettingsHandler::class);
+        $userSession = $this->createMock(IUserSession::class);
+
+        $policy = $this->createMock(TenantModelPolicyService::class);
+        $policy->method('isAllowed')->willReturn(false);
+
+        $factory = new ProviderFactory($settings, $manager, $userSession, new NullLogger(), 'hermiq', $policy);
+
+        $this->expectException(ModelPolicyViolationException::class);
+        $this->expectExceptionCode(422);
+        $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId' => 'cred-uuid-anthropic',
+                    'chatModel'    => 'claude-opus-4-8',
+                ],
+            ],
+            organisation: 'org-a'
+        );
+
+    }//end testAnthropicOutOfPolicyModelIsBlocked()
+
+    /**
      * The nextcloud driver is refused when hasProviders() is false (guard).
      *
      * @return void
