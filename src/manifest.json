@@ -18,7 +18,9 @@
 		{
 			"provider": "github",
 			"reason": "Publishing to and discovering agent templates in a GitHub-backed template store.",
-			"scopes": ["repo"]
+			"scopes": [
+				"repo"
+			]
 		}
 	],
 	"menu": [
@@ -142,8 +144,14 @@
 				"schema": "agent",
 				"_note": "manifest-driven-pages: converted from type:custom — the read path was already createObjectStore agent/hermiq, read-equivalent to the generic objects endpoint (design.md Decision 5). The former Schedule/Last-run derived columns are dropped, not faked — they require a reverse-FK join (Schedule.agentId -> Agent) OpenRegister's calculation engine does not support (design.md Decision 9); the same status is one click away on AgentDetail's run-operations/run-history widgets.",
 				"columns": [
-					{ "key": "name", "label": "Name" },
-					{ "key": "model", "label": "Model" }
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "model",
+						"label": "Model"
+					}
 				],
 				"rowRoute": "AgentDetail",
 				"headerActions": [
@@ -153,7 +161,9 @@
 						"type": "open-modal",
 						"target": "agent-form",
 						"icon": "Plus",
-						"props": { "show": true }
+						"props": {
+							"show": true
+						}
 					},
 					{
 						"id": "browse-templates",
@@ -182,7 +192,17 @@
 						"icon": "Cog",
 						"content": {
 							"columns": 2,
-							"include": ["name", "description", "type", "provider", "model", "prompt", "temperature", "maxTokens", "active"]
+							"include": [
+								"name",
+								"description",
+								"type",
+								"provider",
+								"model",
+								"prompt",
+								"temperature",
+								"maxTokens",
+								"active"
+							]
 						}
 					},
 					{
@@ -229,13 +249,62 @@
 					}
 				],
 				"layout": [
-					{ "id": "1", "widgetId": "agent-core", "gridX": 0, "gridY": 0, "gridWidth": 8, "gridHeight": 5 },
-					{ "id": "2", "widgetId": "agent-kpis", "gridX": 8, "gridY": 0, "gridWidth": 4, "gridHeight": 2 },
-					{ "id": "3", "widgetId": "agent-skills", "gridX": 8, "gridY": 2, "gridWidth": 4, "gridHeight": 4 },
-					{ "id": "4", "widgetId": "agent-tool-governance", "gridX": 0, "gridY": 5, "gridWidth": 12, "gridHeight": 6 },
-					{ "id": "5", "widgetId": "agent-run-operations", "gridX": 0, "gridY": 11, "gridWidth": 6, "gridHeight": 7 },
-					{ "id": "6", "widgetId": "agent-memory", "gridX": 6, "gridY": 11, "gridWidth": 6, "gridHeight": 7 },
-					{ "id": "7", "widgetId": "agent-run-history", "gridX": 0, "gridY": 18, "gridWidth": 12, "gridHeight": 6 }
+					{
+						"id": "1",
+						"widgetId": "agent-core",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 8,
+						"gridHeight": 5
+					},
+					{
+						"id": "2",
+						"widgetId": "agent-kpis",
+						"gridX": 8,
+						"gridY": 0,
+						"gridWidth": 4,
+						"gridHeight": 2
+					},
+					{
+						"id": "3",
+						"widgetId": "agent-skills",
+						"gridX": 8,
+						"gridY": 2,
+						"gridWidth": 4,
+						"gridHeight": 4
+					},
+					{
+						"id": "4",
+						"widgetId": "agent-tool-governance",
+						"gridX": 0,
+						"gridY": 5,
+						"gridWidth": 12,
+						"gridHeight": 6
+					},
+					{
+						"id": "5",
+						"widgetId": "agent-run-operations",
+						"gridX": 0,
+						"gridY": 11,
+						"gridWidth": 6,
+						"gridHeight": 7
+					},
+					{
+						"id": "6",
+						"widgetId": "agent-memory",
+						"gridX": 6,
+						"gridY": 11,
+						"gridWidth": 6,
+						"gridHeight": 7
+					},
+					{
+						"id": "7",
+						"widgetId": "agent-run-history",
+						"gridX": 0,
+						"gridY": 18,
+						"gridWidth": 12,
+						"gridHeight": 6
+					}
 				],
 				"headerActions": [
 					{
@@ -244,7 +313,9 @@
 						"type": "open-modal",
 						"target": "agent-form",
 						"icon": "Pencil",
-						"props": { "show": true }
+						"props": {
+							"show": true
+						}
 					},
 					{
 						"id": "version-history",
@@ -252,7 +323,9 @@
 						"type": "open-modal",
 						"target": "agent-version-history",
 						"icon": "History",
-						"props": { "show": true }
+						"props": {
+							"show": true
+						}
 					},
 					{
 						"id": "view-factsheet",
@@ -260,10 +333,14 @@
 						"type": "open-modal",
 						"target": "agent-factsheet",
 						"icon": "ShieldCheckOutline",
-						"props": { "show": true }
+						"props": {
+							"show": true
+						}
 					}
 				],
-				"sidebar": { "enabled": false }
+				"sidebar": {
+					"enabled": false
+				}
 			},
 			"slots": {
 				"widget-agent-kpis": "agent-kpis",
@@ -316,10 +393,22 @@
 				"schema": "agenttemplate",
 				"_note": "manifest-driven-pages: converted from type:custom — AgentTemplateController::list() is a bare findAll(['limit'=>200]) with no extra scoping beyond OpenRegister's own RBAC, read-equivalent to the generic objects endpoint (design.md Decision 5). Write actions (Use this template / Approve / Export) stay behind their existing guarded endpoints via the agent-template-row-actions widget — Approve is NEVER a declarative object-op, since it gates through ActionAuthService::requireAction('agenttemplate.approve-quarantined') server-side, a check the generic OR object-patch path does not express (design.md Decision 6).",
 				"columns": [
-					{ "key": "name", "label": "Name" },
-					{ "key": "category", "label": "Category" },
-					{ "key": "description", "label": "Description" },
-					{ "key": "state", "label": "State" }
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "category",
+						"label": "Category"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "state",
+						"label": "State"
+					}
 				],
 				"headerActions": [
 					{
@@ -328,7 +417,9 @@
 						"type": "open-modal",
 						"target": "template-import",
 						"icon": "TrayArrowDown",
-						"props": { "show": true }
+						"props": {
+							"show": true
+						}
 					}
 				]
 			},
@@ -462,27 +553,6 @@
 				"saveEndpoint": "/index.php/apps/hermiq/api/settings",
 				"tabs": [
 					{
-						"id": "general",
-						"label": "General",
-						"sections": [
-							{
-								"title": "Version",
-								"widgets": [
-									{
-										"type": "version-info",
-										"props": {
-											"appName": "Hermiq",
-											"showUpdateButton": false,
-											"isUpToDate": true,
-											"title": "Version Information",
-											"description": "Information about the current installation."
-										}
-									}
-								]
-							}
-						]
-					},
-					{
 						"id": "guardrail-policy",
 						"label": "Guardrail policy",
 						"sections": [
@@ -558,24 +628,7 @@
 						]
 					}
 				]
-			},
-			"widgets": [
-				{
-					"widgetKey": "version-info",
-					"slot": "section:version",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 12,
-					"gridHeight": 1,
-					"props": {
-						"appName": "Hermiq",
-						"showUpdateButton": false,
-						"isUpToDate": true,
-						"title": "Version Information",
-						"description": "Information about the current installation."
-					}
-				}
-			]
+			}
 		},
 		{
 			"id": "FeaturesRoadmap",
@@ -604,8 +657,14 @@
 				"schema": "evaldataset",
 				"_note": "manifest-driven-pages: converted from type:custom (design.md Decision 8) — the outer list is a flat type:index (name/description only; no per-row run controls) since the old nested card-with-embedded-runs-and-picker shape does not fit a one-row-per-object index. Per-dataset run management moves to the new EvalDatasetDetail page's eval-run-panel widget.",
 				"columns": [
-					{ "key": "name", "label": "Name" },
-					{ "key": "description", "label": "Description" }
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					}
 				],
 				"rowRoute": "EvalDatasetDetail",
 				"headerActions": [
@@ -615,7 +674,9 @@
 						"type": "open-modal",
 						"target": "EvalDatasetFormModal",
 						"icon": "Plus",
-						"props": { "show": true }
+						"props": {
+							"show": true
+						}
 					}
 				]
 			}
@@ -639,9 +700,18 @@
 					}
 				],
 				"layout": [
-					{ "id": "1", "widgetId": "eval-run-panel", "gridX": 0, "gridY": 0, "gridWidth": 12, "gridHeight": 6 }
+					{
+						"id": "1",
+						"widgetId": "eval-run-panel",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 6
+					}
 				],
-				"sidebar": { "enabled": false }
+				"sidebar": {
+					"enabled": false
+				}
 			},
 			"slots": {
 				"widget-eval-run-panel": "eval-run-panel"
