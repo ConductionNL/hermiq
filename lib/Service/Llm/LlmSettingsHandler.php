@@ -157,6 +157,11 @@ class LlmSettingsHandler
                     'model'          => $newOai['model'] ?? $exOai['model'] ?? null,
                     'chatModel'      => $newOai['chatModel'] ?? $exOai['chatModel'] ?? null,
                     'organizationId' => $newOai['organizationId'] ?? $exOai['organizationId'] ?? '',
+                    // `executionMode` selects the transport: `http` (default — the direct
+                    // BrokerHttpClient path) or `cli` (dispatch the turn to the
+                    // hermiq-llm-runner ExApp, running the OpenAI Codex CLI). Defaulting to
+                    // `http` keeps every existing config unchanged (llm-cli-runner-exapp).
+                    'executionMode'  => $newOai['executionMode'] ?? $exOai['executionMode'] ?? 'http',
                 ],
                 'ollamaConfig'      => [
                     'url'       => $newOll['url'] ?? $exOll['url'] ?? 'http://localhost:11434',
@@ -176,11 +181,17 @@ class LlmSettingsHandler
                 // anthropic-beta oauth flag). `scope` is organisation | personal; a
                 // Claude Max OAuth token MUST be personal-only (validated on save).
                 'anthropicConfig'   => [
-                    'credentialId' => $newAnt['credentialId'] ?? $exAnt['credentialId'] ?? '',
-                    'chatModel'    => $newAnt['chatModel'] ?? $exAnt['chatModel'] ?? null,
-                    'authMode'     => $newAnt['authMode'] ?? $exAnt['authMode'] ?? 'api_key',
-                    'scope'        => $newAnt['scope'] ?? $exAnt['scope'] ?? 'organisation',
-                    'baseUrl'      => $newAnt['baseUrl'] ?? $exAnt['baseUrl'] ?? 'https://api.anthropic.com/v1',
+                    'credentialId'  => $newAnt['credentialId'] ?? $exAnt['credentialId'] ?? '',
+                    'chatModel'     => $newAnt['chatModel'] ?? $exAnt['chatModel'] ?? null,
+                    'authMode'      => $newAnt['authMode'] ?? $exAnt['authMode'] ?? 'api_key',
+                    'scope'         => $newAnt['scope'] ?? $exAnt['scope'] ?? 'organisation',
+                    'baseUrl'       => $newAnt['baseUrl'] ?? $exAnt['baseUrl'] ?? 'https://api.anthropic.com/v1',
+                    // `executionMode`: `http` (default — direct BrokerHttpClient Messages API)
+                    // or `cli` (dispatch the turn to the hermiq-llm-runner ExApp, running the
+                    // `claude` CLI). Default `http` keeps existing configs unchanged; the
+                    // credential scope rules (personal Claude Max OAuth vs org API key) carry
+                    // over unchanged (llm-cli-runner-exapp).
+                    'executionMode' => $newAnt['executionMode'] ?? $exAnt['executionMode'] ?? 'http',
                 ],
                 'vectorConfig'      => [
                     'backend'   => $newVec['backend'] ?? $exVec['backend'] ?? 'php',
@@ -211,6 +222,7 @@ class LlmSettingsHandler
                 'model'          => null,
                 'chatModel'      => null,
                 'organizationId' => '',
+                'executionMode'  => 'http',
             ],
             'ollamaConfig'      => [
                 'url'       => 'http://localhost:11434',
@@ -224,11 +236,12 @@ class LlmSettingsHandler
                 'baseUrl'        => 'https://api.fireworks.ai/inference/v1',
             ],
             'anthropicConfig'   => [
-                'credentialId' => '',
-                'chatModel'    => null,
-                'authMode'     => 'api_key',
-                'scope'        => 'organisation',
-                'baseUrl'      => 'https://api.anthropic.com/v1',
+                'credentialId'  => '',
+                'chatModel'     => null,
+                'authMode'      => 'api_key',
+                'scope'         => 'organisation',
+                'baseUrl'       => 'https://api.anthropic.com/v1',
+                'executionMode' => 'http',
             ],
             'vectorConfig'      => [
                 'backend'   => 'php',

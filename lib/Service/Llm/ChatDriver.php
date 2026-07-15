@@ -60,6 +60,13 @@ final class ChatDriver
      *                                                 `api_key` or `oauth`. Selects the header
      *                                                 set `callAnthropicChat()` builds. Null
      *                                                 for every other provider.
+     * @param string                     $executionMode Transport mode for a CLI-capable provider
+     *                                                 (`anthropic`/`openai`): `http` (default —
+     *                                                 the direct `BrokerHttpClient` path) or `cli`
+     *                                                 (dispatch the assembled turn to the
+     *                                                 `hermiq-llm-runner` ExApp). `http` for every
+     *                                                 provider that has no CLI backend, so nothing
+     *                                                 changes for existing configs.
      */
     public function __construct(
         public readonly string $provider,
@@ -68,6 +75,7 @@ final class ChatDriver
         public readonly ?string $credentialId=null,
         public readonly ?string $baseUrl=null,
         public readonly ?string $authMode=null,
+        public readonly string $executionMode='http',
     ) {
     }//end __construct()
 }//end class
