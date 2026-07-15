@@ -4,8 +4,8 @@
 <!--
   TenantOps — the Hermiq "Tenant ops" nav page (multi-tenant-ops).
 
-  Org-level operational controls: cost guardrails, model policy, guardrail policy,
-  access review, incidents, retention, and a per-tenant EU AI Act audit export
+  Org-level operational controls: cost guardrails, model policy, access
+  review, incidents, retention, and a per-tenant EU AI Act audit export
   (downloads the caller's own governance records from OpenRegister's hash-chained
   AuditTrail). Shown only to org owners / instance admins via the backend
   `can_manage_killswitch` capability (loadState — never a DOM read, ADR-004).
@@ -15,9 +15,15 @@
   authoritative agent inventory and create-time quota reject still live in
   OpenRegister (object creation flows through OR's object API).
 
+  Guardrail policy administration moved to the Settings page's "Guardrail
+  policy" tab (src/views/GuardrailPolicySettings.vue, inapp-settings-section)
+  — it is governance policy, not a per-organisation operational control, and
+  now exists in exactly that one place.
+
   @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
   @spec openspec/changes/multi-tenant-ops/specs/multi-tenant-ops/spec.md
   @spec openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#requirement-tenant-ops-must-no-longer-display-organisation-quota-usage
+  @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 -->
 <template>
 	<div class="tenant-ops">
@@ -118,7 +124,7 @@
 
 				<div v-for="policy in modelPolicies" :key="policy.id" class="tenant-ops__policy">
 					<div class="tenant-ops__policy-head">
-						<strong>{{ policy.organisation ? policyOrgLabel(policy.organisation) : t('hermiq', 'Instance default') }}</strong>
+						<strong>{{ policy.organisation ? organisationLabel(policy.organisation, organisations) : t('hermiq', 'Instance default') }}</strong>
 						<NcButton type="tertiary" @click="togglePolicyEdit(policy)">
 							{{ editingPolicyId === policy.id ? t('hermiq', 'Cancel') : t('hermiq', 'Edit') }}
 						</NcButton>
@@ -138,69 +144,6 @@
 							placeholder="qwen2.5" />
 						<div class="tenant-ops__card-actions">
 							<NcButton type="primary" :disabled="policySaving" @click="savePolicy(policy)">
-								{{ t('hermiq', 'Save policy') }}
-							</NcButton>
-						</div>
-					</div>
-				</div>
-			</section>
-
-			<!-- Guardrail policy (agent-guardrails): per-organisation input/output
-				     content filters (PII/secret redaction or block, prompt-injection
-				     block) and per-tool risk classification (auto/confirm/deny); the
-				     instance default applies when an organisation has no policy of its
-				     own, and a fully-open fallback applies when neither exists. -->
-			<section class="tenant-ops__section">
-				<div class="tenant-ops__section-head">
-					<h3 class="tenant-ops__subhead">
-						{{ t('hermiq', 'Guardrail policy') }}
-					</h3>
-				</div>
-
-				<NcNoteCard v-if="guardrailPolicyError" type="error" :heading="t('hermiq', 'Guardrail policy error')">
-					{{ guardrailPolicyError }}
-				</NcNoteCard>
-
-				<p v-if="guardrailPolicies.length === 0 && !guardrailPolicyError" class="tenant-ops__note">
-					{{ t('hermiq', 'No guardrail policies configured — agents run with every filter off and every tool auto-approved.') }}
-				</p>
-
-				<div v-for="policy in guardrailPolicies" :key="policy.id" class="tenant-ops__policy">
-					<div class="tenant-ops__policy-head">
-						<strong>{{ policy.organisation ? policyOrgLabel(policy.organisation) : t('hermiq', 'Instance default') }}</strong>
-						<NcButton type="tertiary" @click="toggleGuardrailPolicyEdit(policy)">
-							{{ editingGuardrailPolicyId === policy.id ? t('hermiq', 'Cancel') : t('hermiq', 'Edit') }}
-						</NcButton>
-					</div>
-					<p v-if="editingGuardrailPolicyId !== policy.id" class="tenant-ops__note">
-						{{ guardrailPolicySummary(policy) }}
-					</p>
-					<div v-else class="tenant-ops__policy-edit">
-						<NcSelect
-							:value="guardrailActionOption(guardrailPolicyDraft.inputPiiAction, piiActionOptions)"
-							:options="piiActionOptions"
-							:input-label="t('hermiq', 'Input: PII/secret action')"
-							:clearable="false"
-							@input="(option) => { guardrailPolicyDraft.inputPiiAction = option ? option.value : 'off' }" />
-						<NcSelect
-							:value="guardrailActionOption(guardrailPolicyDraft.inputPromptInjectionAction, injectionActionOptions)"
-							:options="injectionActionOptions"
-							:input-label="t('hermiq', 'Input: prompt-injection action')"
-							:clearable="false"
-							@input="(option) => { guardrailPolicyDraft.inputPromptInjectionAction = option ? option.value : 'off' }" />
-						<NcSelect
-							:value="guardrailActionOption(guardrailPolicyDraft.outputPiiAction, piiActionOptions)"
-							:options="piiActionOptions"
-							:input-label="t('hermiq', 'Output: PII/secret action')"
-							:clearable="false"
-							@input="(option) => { guardrailPolicyDraft.outputPiiAction = option ? option.value : 'off' }" />
-						<NcTextArea
-							:value.sync="guardrailPolicyDraft.toolPolicyText"
-							:label="t('hermiq', 'Per-tool classification')"
-							:placeholder="t('hermiq', 'One per line: toolId: auto|confirm|deny')"
-							resize="vertical" />
-						<div class="tenant-ops__card-actions">
-							<NcButton type="primary" :disabled="guardrailPolicySaving" @click="saveGuardrailPolicy(policy)">
 								{{ t('hermiq', 'Save policy') }}
 							</NcButton>
 						</div>
@@ -386,7 +329,7 @@ import {
 } from '../api/tenantOps.js'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
 import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
-import { listGuardrailPolicies, updateGuardrailPolicy } from '../api/guardrailPolicy.js'
+import { organisationLabel } from '../utils/organisationLabel.js'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
 import CreateIncidentDialog from '../dialogs/CreateIncidentDialog.vue'
 
@@ -431,17 +374,6 @@ export default {
 			editingPolicyId: null,
 			policyDraft: { allowedText: '', defaultModel: '' },
 			policySaving: false,
-			// Guardrail policy (agent-guardrails): caller-visible policies + inline editor.
-			guardrailPolicies: [],
-			guardrailPolicyError: '',
-			editingGuardrailPolicyId: null,
-			guardrailPolicyDraft: {
-				inputPiiAction: 'off',
-				inputPromptInjectionAction: 'off',
-				outputPiiAction: 'off',
-				toolPolicyText: '',
-			},
-			guardrailPolicySaving: false,
 			// Access review (agent-lifecycle-governance): agent inventory + attestation + reassignment.
 			reviewAgents: [],
 			reviewLoading: false,
@@ -461,33 +393,6 @@ export default {
 	},
 
 	computed: {
-		/**
-		 * The `piiAction` NcSelect options shared by the input and output
-		 * PII/secret action pickers (agent-guardrails).
-		 *
-		 * @return {Array<object>} The { label, value } options.
-		 */
-		piiActionOptions() {
-			return [
-				{ label: this.t('hermiq', 'Off'), value: 'off' },
-				{ label: this.t('hermiq', 'Redact'), value: 'redact' },
-				{ label: this.t('hermiq', 'Block'), value: 'block' },
-			]
-		},
-
-		/**
-		 * The `promptInjectionAction` NcSelect options (no `redact` — an
-		 * override attempt can only be refused, never partially masked).
-		 *
-		 * @return {Array<object>} The { label, value } options.
-		 */
-		injectionActionOptions() {
-			return [
-				{ label: this.t('hermiq', 'Off'), value: 'off' },
-				{ label: this.t('hermiq', 'Block'), value: 'block' },
-			]
-		},
-
 		/**
 		 * The manageable organisations as NcSelect options.
 		 *
@@ -563,11 +468,14 @@ export default {
 		}
 		if (this.canManage) {
 			this.loadModelPolicies()
-			this.loadGuardrailPolicies()
 		}
 	},
 
 	methods: {
+		// Shared org-id → label lookup (src/utils/organisationLabel.js) —
+		// registered as a plain method so the template can call it directly.
+		organisationLabel,
+
 		/**
 		 * Fetch the AI Act audit export and download it as a JSON file.
 		 *
@@ -705,17 +613,6 @@ export default {
 		},
 
 		/**
-		 * Human label for a policy's organisation id.
-		 *
-		 * @param {string} orgId The organisation identifier.
-		 * @return {string} The organisation label, or the raw id.
-		 */
-		policyOrgLabel(orgId) {
-			const org = this.organisations.find((candidate) => candidate.id === orgId)
-			return org ? (org.label || org.id) : orgId
-		},
-
-		/**
 		 * One-line summary of a policy's allowed providers/models.
 		 *
 		 * @param {object} policy The ModelPolicy record.
@@ -791,120 +688,6 @@ export default {
 				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the model policy.'))
 			} finally {
 				this.policySaving = false
-			}
-		},
-
-		/**
-		 * Load the caller-visible guardrail policies (agent-guardrails).
-		 *
-		 * @return {Promise<void>}
-		 */
-		async loadGuardrailPolicies() {
-			this.guardrailPolicyError = ''
-			try {
-				this.guardrailPolicies = await listGuardrailPolicies()
-			} catch (e) {
-				this.guardrailPolicyError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			}
-		},
-
-		/**
-		 * Resolve the NcSelect option object matching a stored action value.
-		 *
-		 * @param {string} value The stored action value.
-		 * @param {Array<object>} options The option list to search.
-		 * @return {object} The matching option, or the first option as a fallback.
-		 */
-		guardrailActionOption(value, options) {
-			return options.find((option) => option.value === value) || options[0]
-		},
-
-		/**
-		 * One-line summary of a guardrail policy's active filters and tool rules.
-		 *
-		 * @param {object} policy The GuardrailPolicy record.
-		 * @return {string} The summary line.
-		 */
-		guardrailPolicySummary(policy) {
-			const input = policy.inputFilters || {}
-			const output = policy.outputFilters || {}
-			const toolPolicy = Array.isArray(policy.toolPolicy) ? policy.toolPolicy : []
-			const parts = [
-				`${this.t('hermiq', 'Input')}: ${this.t('hermiq', 'PII')} ${input.piiAction || 'off'}, ${this.t('hermiq', 'prompt injection')} ${input.promptInjectionAction || 'off'}`,
-				`${this.t('hermiq', 'Output')}: ${this.t('hermiq', 'PII')} ${output.piiAction || 'off'}`,
-			]
-			if (toolPolicy.length > 0) {
-				parts.push(`${toolPolicy.length} ${this.t('hermiq', 'tool rules')}`)
-			}
-			if (policy.enabled === false) {
-				return `${this.t('hermiq', 'Disabled')} — ${parts.join(' · ')}`
-			}
-			return parts.join(' · ')
-		},
-
-		/**
-		 * Open/close the inline editor for a guardrail policy, seeding the draft
-		 * from it. Tool-policy draft format: one line per rule —
-		 * `toolId: classification`.
-		 *
-		 * @param {object} policy The GuardrailPolicy record.
-		 * @return {void}
-		 */
-		toggleGuardrailPolicyEdit(policy) {
-			if (this.editingGuardrailPolicyId === policy.id) {
-				this.editingGuardrailPolicyId = null
-				return
-			}
-			const toolPolicy = Array.isArray(policy.toolPolicy) ? policy.toolPolicy : []
-			this.guardrailPolicyDraft = {
-				inputPiiAction: (policy.inputFilters && policy.inputFilters.piiAction) || 'off',
-				inputPromptInjectionAction: (policy.inputFilters && policy.inputFilters.promptInjectionAction) || 'off',
-				outputPiiAction: (policy.outputFilters && policy.outputFilters.piiAction) || 'off',
-				toolPolicyText: toolPolicy.map((entry) => `${entry.toolId}: ${entry.classification}`).join('\n'),
-			}
-			this.editingGuardrailPolicyId = policy.id
-		},
-
-		/**
-		 * Persist the inline guardrail-policy draft via
-		 * PUT /api/guardrail-policies/{uuid}.
-		 *
-		 * @param {object} policy The GuardrailPolicy record being edited.
-		 * @return {Promise<void>}
-		 */
-		async saveGuardrailPolicy(policy) {
-			const toolPolicy = this.guardrailPolicyDraft.toolPolicyText
-				.split('\n')
-				.map((line) => line.trim())
-				.filter((line) => line !== '')
-				.map((line) => {
-					const [toolId, classification] = line.split(':')
-					return {
-						toolId: (toolId || '').trim(),
-						classification: (classification || 'auto').trim(),
-					}
-				})
-				.filter((entry) => entry.toolId !== '')
-			this.guardrailPolicySaving = true
-			try {
-				await updateGuardrailPolicy(policy.id, {
-					inputFilters: {
-						piiAction: this.guardrailPolicyDraft.inputPiiAction,
-						promptInjectionAction: this.guardrailPolicyDraft.inputPromptInjectionAction,
-					},
-					outputFilters: {
-						piiAction: this.guardrailPolicyDraft.outputPiiAction,
-					},
-					toolPolicy,
-					enabled: policy.enabled !== false,
-				})
-				showSuccess(this.t('hermiq', 'Guardrail policy saved.'))
-				this.editingGuardrailPolicyId = null
-				await this.loadGuardrailPolicies()
-			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the guardrail policy.'))
-			} finally {
-				this.guardrailPolicySaving = false
 			}
 		},
 
