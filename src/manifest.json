@@ -283,7 +283,16 @@
 					}
 				]
 			},
-			"widgets": []
+			"widgets": [
+				{
+					"widgetKey": "quota-usage",
+					"slot": "body",
+					"gridX": 0,
+					"gridY": 1,
+					"gridWidth": 12,
+					"gridHeight": 1
+				}
+			]
 		},
 		{
 			"id": "Settings",

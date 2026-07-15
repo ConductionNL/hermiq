@@ -95,4 +95,31 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		// No app-level console errors surfaced across the flow.
 		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
 	})
+
+	test('renders the Dashboard quota-usage widget matching a direct API call (dashboard-org-widgets)', async ({ page }) => {
+		await login(page)
+
+		// The admin login used across this spec is an instance admin, so
+		// `can_manage_killswitch` is true and QuotaUsageWidget renders
+		// (dashboard-org-widgets: relocated from TenantOps.vue onto the Dashboard).
+		await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
+
+		const widget = page.locator('[data-testid="quota-usage-widget"]')
+		await expect(widget).toBeVisible({ timeout: 10_000 })
+
+		const schedulesCard = widget.locator('[data-testid="quota-schedules-card"]')
+		const agentsCard = widget.locator('[data-testid="quota-agents-card"]')
+		await expect(schedulesCard).toBeVisible()
+		await expect(agentsCard).toBeVisible()
+
+		// Cross-check the rendered values against a direct call to the same
+		// endpoint the widget fetches (GET /api/tenant-ops/quota), sharing the
+		// browser context's authenticated session.
+		const response = await page.request.get('/apps/hermiq/api/tenant-ops/quota')
+		expect(response.ok()).toBeTruthy()
+		const quota = await response.json()
+
+		await expect(schedulesCard).toContainText(`${quota.schedules.count} / ${quota.schedules.limit}`)
+		await expect(agentsCard).toContainText(`${quota.agents.count} / ${quota.agents.limit}`)
+	})
 })
