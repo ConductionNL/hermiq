@@ -1,6 +1,6 @@
 {
 	"$schema": "https://codeberg.org/Conduction/nextcloud-vue/raw/branch/main/src/schemas/app-manifest-v2.schema.json",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"dependencies": [
 		"openregister"
 	],
@@ -118,18 +118,144 @@
 		{
 			"id": "AgentCatalog",
 			"route": "/agents",
-			"type": "custom",
-			"component": "AgentCatalog",
+			"type": "index",
 			"title": "Agents",
-			"_note": "Custom page: the agent catalog needs bespoke behaviour (createObjectStore agents in the hermiq register + schedule-attached/last-run derivation + create modal) that the built-in index page type cannot express. Standard nav page — not a dashboard."
+			"config": {
+				"register": "hermiq",
+				"schema": "agent",
+				"_note": "manifest-driven-pages: converted from type:custom — the read path was already createObjectStore agent/hermiq, read-equivalent to the generic objects endpoint (design.md Decision 5). The former Schedule/Last-run derived columns are dropped, not faked — they require a reverse-FK join (Schedule.agentId -> Agent) OpenRegister's calculation engine does not support (design.md Decision 9); the same status is one click away on AgentDetail's run-operations/run-history widgets.",
+				"columns": [
+					{ "key": "name", "label": "Name" },
+					{ "key": "model", "label": "Model" }
+				],
+				"rowRoute": "AgentDetail",
+				"headerActions": [
+					{
+						"id": "create-agent",
+						"label": "Create agent",
+						"type": "open-modal",
+						"target": "agent-form",
+						"icon": "Plus",
+						"props": { "show": true }
+					},
+					{
+						"id": "browse-templates",
+						"label": "Browse templates",
+						"type": "open-page",
+						"target": "AgentTemplateGallery",
+						"icon": "PackageVariantClosed"
+					}
+				]
+			}
 		},
 		{
 			"id": "AgentDetail",
 			"route": "/agents/:id",
-			"type": "custom",
-			"component": "AgentDetail",
+			"type": "detail",
 			"title": "Agent",
-			"_note": "Custom page: agent detail combines the createObjectStore agent object, schedule attach/edit (createObjectStore), the thin Run-now endpoint, and run history — not expressible via the built-in detail page type."
+			"config": {
+				"register": "hermiq",
+				"schema": "agent",
+				"_note": "manifest-driven-pages: converted from one opaque type:custom AgentDetail.vue (1570 lines) to a type:detail widget grid (ADR-062: every widget fills its gridHeight exactly, no inner scrollbars, no reserved voids). Six of seven content widgets stay type:custom — Hermiq's AI-governance interactions (dry-run/replay, run-trace observability, tool-catalogue editing, webhook lifecycle) are inherently bespoke, unlike procest/pipelinq's plain-data domain objects (design.md Decision 3). tools is excluded from the data widget and edited only via the Edit-agent header action's existing NcSelect-over-live-catalogue editor (design.md Decision 1). Header actions use config.headerActions: verified at HEAD that CnDetailPage renders config.headerActions via CnActionButtons, while the schema's top-level page.actions[] typed-action array is not yet wired into CnDetailPage's render path — this change follows HEAD over the original REQ-008 wording (flagged for the reviewer). AgentFormModal/AgentVersionHistoryDialog/AgentFactsheetDialog self-resolve the current agent id (and, for version history, the owner-only rollback gate) from the route when opened via open-modal, since open-modal action props are static JSON, not resolved against @objectId at HEAD.",
+				"widgets": [
+					{
+						"id": "agent-core",
+						"type": "data",
+						"title": "Configuration",
+						"icon": "Cog",
+						"content": {
+							"columns": 2,
+							"include": ["name", "description", "type", "provider", "model", "prompt", "temperature", "maxTokens", "active"]
+						}
+					},
+					{
+						"id": "agent-kpis",
+						"type": "custom",
+						"title": "Run KPIs",
+						"icon": "ChartLine",
+						"_note": "Agent-scoped run totals from the computed /api/analytics endpoint (success rate, latency, tokens) — not an OR object-count query, so stats-block cannot bind it (ADR-049). Resolved via page.slots.widget-agent-kpis -> agent-kpis."
+					},
+					{
+						"id": "agent-skills",
+						"type": "custom",
+						"title": "Skills",
+						"icon": "PuzzleOutline",
+						"_note": "skillInstalls attach/detach against the tenant Skill catalogue — the reverse of an object-list FK-child-collection shape (design.md Decision 3). Resolved via page.slots.widget-agent-skills -> agent-skills."
+					},
+					{
+						"id": "agent-tool-governance",
+						"type": "custom",
+						"title": "Tool governance",
+						"icon": "ToolboxOutline",
+						"_note": "Combines the schema-scoped tool-grant editor and the EU AI Act art.12/14 tool-invocation audit table — two read/write surfaces over the SAME ADR-063 derived catalogue capability (design.md Decision 3). Resolved via page.slots.widget-agent-tool-governance -> agent-tool-governance."
+					},
+					{
+						"id": "agent-run-operations",
+						"type": "custom",
+						"title": "Run operations",
+						"icon": "PlayCircleOutline",
+						"_note": "Schedule attach/edit, Dry run, Run now, cost estimate, budget status and the webhook trigger all read/write the SAME schedule object and share previewResult/runError state — the manifest grid has no cross-widget state channel, so they stay one widget (design.md Decision 3). Resolved via page.slots.widget-agent-run-operations -> agent-run-operations."
+					},
+					{
+						"id": "agent-memory",
+						"type": "custom",
+						"title": "Memory",
+						"icon": "Brain",
+						"_note": "Wraps the existing AgentMemoryPanel.vue unchanged (char-budget bar, consolidation nudge, entries) — a bespoke surface over a non-OR-collection endpoint (design.md Decision 3, task 2). Resolved via page.slots.widget-agent-memory -> agent-memory."
+					},
+					{
+						"id": "agent-run-history",
+						"type": "custom",
+						"title": "Run history",
+						"icon": "History",
+						"_note": "Per-row trace expand-and-cache, a dead_letter-only Re-run, and a Replay dry-run + diff preview — object-list's static columns/rowRoute shape has no per-row expand or conditional actions (design.md Decision 2/3). Resolved via page.slots.widget-agent-run-history -> agent-run-history."
+					}
+				],
+				"layout": [
+					{ "id": "1", "widgetId": "agent-core", "gridX": 0, "gridY": 0, "gridWidth": 8, "gridHeight": 5 },
+					{ "id": "2", "widgetId": "agent-kpis", "gridX": 8, "gridY": 0, "gridWidth": 4, "gridHeight": 2 },
+					{ "id": "3", "widgetId": "agent-skills", "gridX": 8, "gridY": 2, "gridWidth": 4, "gridHeight": 4 },
+					{ "id": "4", "widgetId": "agent-tool-governance", "gridX": 0, "gridY": 5, "gridWidth": 12, "gridHeight": 6 },
+					{ "id": "5", "widgetId": "agent-run-operations", "gridX": 0, "gridY": 11, "gridWidth": 6, "gridHeight": 7 },
+					{ "id": "6", "widgetId": "agent-memory", "gridX": 6, "gridY": 11, "gridWidth": 6, "gridHeight": 7 },
+					{ "id": "7", "widgetId": "agent-run-history", "gridX": 0, "gridY": 18, "gridWidth": 12, "gridHeight": 6 }
+				],
+				"headerActions": [
+					{
+						"id": "edit-agent",
+						"label": "Edit agent",
+						"type": "open-modal",
+						"target": "agent-form",
+						"icon": "Pencil",
+						"props": { "show": true }
+					},
+					{
+						"id": "version-history",
+						"label": "Version history",
+						"type": "open-modal",
+						"target": "agent-version-history",
+						"icon": "History",
+						"props": { "show": true }
+					},
+					{
+						"id": "view-factsheet",
+						"label": "View compliance factsheet",
+						"type": "open-modal",
+						"target": "agent-factsheet",
+						"icon": "ShieldCheckOutline",
+						"props": { "show": true }
+					}
+				],
+				"sidebar": { "enabled": false }
+			},
+			"slots": {
+				"widget-agent-kpis": "agent-kpis",
+				"widget-agent-skills": "agent-skills",
+				"widget-agent-tool-governance": "agent-tool-governance",
+				"widget-agent-run-operations": "agent-run-operations",
+				"widget-agent-memory": "agent-memory",
+				"widget-agent-run-history": "agent-run-history"
+			}
 		},
 		{
 			"id": "ApprovalInbox",
@@ -166,10 +292,32 @@
 		{
 			"id": "AgentTemplateGallery",
 			"route": "/agent-templates",
-			"type": "custom",
-			"component": "AgentTemplateGallery",
+			"type": "index",
 			"title": "Agent templates",
-			"_note": "Custom page: the agent-template gallery imports/exports portable JSON template packages, action-auth-gates quarantine approval, and instantiates a template into a real Agent with model-policy coercion — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+			"config": {
+				"register": "hermiq",
+				"schema": "agenttemplate",
+				"_note": "manifest-driven-pages: converted from type:custom — AgentTemplateController::list() is a bare findAll(['limit'=>200]) with no extra scoping beyond OpenRegister's own RBAC, read-equivalent to the generic objects endpoint (design.md Decision 5). Write actions (Use this template / Approve / Export) stay behind their existing guarded endpoints via the agent-template-row-actions widget — Approve is NEVER a declarative object-op, since it gates through ActionAuthService::requireAction('agenttemplate.approve-quarantined') server-side, a check the generic OR object-patch path does not express (design.md Decision 6).",
+				"columns": [
+					{ "key": "name", "label": "Name" },
+					{ "key": "category", "label": "Category" },
+					{ "key": "description", "label": "Description" },
+					{ "key": "state", "label": "State" }
+				],
+				"headerActions": [
+					{
+						"id": "import-template",
+						"label": "Import template",
+						"type": "open-modal",
+						"target": "template-import",
+						"icon": "TrayArrowDown",
+						"props": { "show": true }
+					}
+				]
+			},
+			"slots": {
+				"row-actions": "agent-template-row-actions"
+			}
 		},
 		{
 			"id": "RunAnalytics",
@@ -416,10 +564,55 @@
 		{
 			"id": "EvalDatasets",
 			"route": "/evals",
-			"type": "custom",
-			"component": "EvalDatasets",
+			"type": "index",
 			"title": "Evaluations",
-			"_note": "Custom page: eval datasets (prompt+expectation cases) and their governed, non-delivering agent runs with deterministic + LLM-as-judge scoring and a pass-rate/regression history — not expressible via the built-in index/dashboard page types (the run action has no OR object equivalent). Standard nav page."
+			"config": {
+				"register": "hermiq",
+				"schema": "evaldataset",
+				"_note": "manifest-driven-pages: converted from type:custom (design.md Decision 8) — the outer list is a flat type:index (name/description only; no per-row run controls) since the old nested card-with-embedded-runs-and-picker shape does not fit a one-row-per-object index. Per-dataset run management moves to the new EvalDatasetDetail page's eval-run-panel widget.",
+				"columns": [
+					{ "key": "name", "label": "Name" },
+					{ "key": "description", "label": "Description" }
+				],
+				"rowRoute": "EvalDatasetDetail",
+				"headerActions": [
+					{
+						"id": "new-dataset",
+						"label": "New dataset",
+						"type": "open-modal",
+						"target": "EvalDatasetFormModal",
+						"icon": "Plus",
+						"props": { "show": true }
+					}
+				]
+			}
+		},
+		{
+			"id": "EvalDatasetDetail",
+			"route": "/evals/:id",
+			"type": "detail",
+			"title": "Evaluation dataset",
+			"config": {
+				"register": "hermiq",
+				"schema": "evaldataset",
+				"_note": "manifest-driven-pages (design.md Decision 8): hosts the per-dataset agent-picker + Run + run history as one custom eval-run-panel widget — 'Run' has no OR-object equivalent (the one bespoke src/api/evals.js action; every other eval path is object CRUD).",
+				"widgets": [
+					{
+						"id": "eval-run-panel",
+						"type": "custom",
+						"title": "Run",
+						"icon": "PlayCircleOutline",
+						"_note": "Agent-picker + Run + this dataset's run history. Resolved via page.slots.widget-eval-run-panel -> eval-run-panel."
+					}
+				],
+				"layout": [
+					{ "id": "1", "widgetId": "eval-run-panel", "gridX": 0, "gridY": 0, "gridWidth": 12, "gridHeight": 6 }
+				],
+				"sidebar": { "enabled": false }
+			},
+			"slots": {
+				"widget-eval-run-panel": "eval-run-panel"
+			}
 		}
 	],
 	"setup": {

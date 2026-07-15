@@ -1,0 +1,222 @@
+<!-- SPDX-License-Identifier: EUPL-1.2 -->
+<!-- Copyright (C) 2026 Conduction B.V. -->
+
+<!--
+  AgentTemplateRowActions — AgentTemplateGallery's per-row write actions as a
+  `page.slots.row-actions` custom widget over the generic `type:"index"`
+  AgentTemplateGallery page (manifest-driven-pages).
+
+  "Use this template", "Approve" (quarantined only) and "Export" all call the
+  existing guarded AgentTemplateController endpoints unchanged
+  (src/api/agentTemplates.js) — NEVER a declarative `object-op` patch, since
+  e.g. approving a quarantined template gates through
+  `ActionAuthService::requireAction('agenttemplate.approve-quarantined')`
+  server-side, a check the generic OpenRegister object-patch path does not
+  express (design.md Decision 6).
+
+  Receives `{ row }` from CnIndexPage's `#row-actions` scoped slot — `row` is
+  the raw AgentTemplate OpenRegister object (this page's generic index read
+  path is register:"hermiq" schema:"agenttemplate", verified read-equivalent
+  to the removed bespoke AgentTemplateGallery.vue's own read in design.md
+  Decision 5).
+
+  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-010-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
+-->
+<template>
+	<div class="agent-template-row-actions">
+		<NcNoteCard v-if="error" type="error">
+			{{ error }}
+		</NcNoteCard>
+
+		<NcNoteCard v-if="instantiateNote" type="info" :heading="t('hermiq', 'Agent created')">
+			<p v-if="instantiateNote.modelCoerced">
+				{{ t('hermiq', 'The suggested model ({requested}) is outside your organisation\'s model policy. The agent was created with {resolved} instead.', { requested: instantiateNote.requestedProvider + '/' + instantiateNote.requestedModel, resolved: instantiateNote.resolvedProvider + '/' + instantiateNote.resolvedModel }) }}
+			</p>
+			<p v-if="instantiateNote.unresolvedSkillRefs && instantiateNote.unresolvedSkillRefs.length > 0">
+				{{ n('hermiq', '%n suggested skill could not be found in your organisation and was skipped.', '%n suggested skills could not be found in your organisation and were skipped.', instantiateNote.unresolvedSkillRefs.length) }}
+			</p>
+			<NcButton type="primary" @click="openInstantiatedAgent">
+				{{ t('hermiq', 'Open agent') }}
+			</NcButton>
+		</NcNoteCard>
+
+		<div class="agent-template-row-actions__buttons">
+			<NcButton
+				v-if="row.state === 'active'"
+				type="primary"
+				:disabled="busy"
+				:aria-label="t('hermiq', 'Use this template')"
+				@click="doInstantiate">
+				{{ t('hermiq', 'Use this template') }}
+			</NcButton>
+			<NcButton
+				v-if="row.state === 'quarantined'"
+				type="secondary"
+				:disabled="busy"
+				:aria-label="t('hermiq', 'Approve quarantined template')"
+				@click="doApprove">
+				{{ t('hermiq', 'Approve') }}
+			</NcButton>
+			<NcButton
+				type="tertiary"
+				:aria-label="t('hermiq', 'Export template')"
+				@click="doExport">
+				{{ t('hermiq', 'Export') }}
+			</NcButton>
+		</div>
+
+		<NcModal v-if="showExport" @close="showExport = false">
+			<div class="agent-template-row-actions__export-modal">
+				<h3>{{ t('hermiq', 'Exported package') }}</h3>
+				<textarea class="agent-template-row-actions__textarea" readonly :value="exportedPackage" />
+			</div>
+		</NcModal>
+	</div>
+</template>
+
+<script>
+import { NcButton, NcModal, NcNoteCard } from '@nextcloud/vue'
+import { emit } from '@nextcloud/event-bus'
+import {
+	approveAgentTemplate,
+	exportAgentTemplate,
+	instantiateAgentTemplate,
+} from '../api/agentTemplates.js'
+
+export default {
+	name: 'AgentTemplateRowActions',
+
+	components: {
+		NcButton,
+		NcModal,
+		NcNoteCard,
+	},
+
+	props: {
+		/** The AgentTemplate row object (raw OpenRegister object). */
+		row: {
+			type: Object,
+			required: true,
+		},
+	},
+
+	data() {
+		return {
+			busy: false,
+			error: '',
+			instantiateNote: null,
+			exportedPackage: '',
+			showExport: false,
+		}
+	},
+
+	methods: {
+		/**
+		 * The row's uuid (OpenRegister objects expose both `uuid` and `id`
+		 * depending on read path; prefer `uuid`).
+		 *
+		 * @return {string} The template uuid.
+		 */
+		templateId() {
+			return this.row.uuid || this.row.id
+		},
+
+		/**
+		 * "Use this template" — instantiate into a real Agent. Surfaces any
+		 * model coercion / unresolved skill refs in a note-card before the
+		 * user navigates on.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async doInstantiate() {
+			this.busy = true
+			this.error = ''
+			this.instantiateNote = null
+			try {
+				const result = await instantiateAgentTemplate(this.templateId())
+				const hasNote = result.modelCoerced || (result.unresolvedSkillRefs && result.unresolvedSkillRefs.length > 0)
+				if (hasNote) {
+					this.instantiateNote = result
+				} else {
+					this.$router.push(`/agents/${result.agent?.uuid}`)
+				}
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
+		 * Navigate to the agent created by the last instantiate call.
+		 *
+		 * @return {void}
+		 */
+		openInstantiatedAgent() {
+			const agentId = this.instantiateNote?.agent?.uuid
+			this.instantiateNote = null
+			if (agentId) {
+				this.$router.push(`/agents/${agentId}`)
+			}
+		},
+
+		/**
+		 * Approve a quarantined template (the review gate → active). Refreshes
+		 * the list via the shared `cn:page:refresh` signal so the row's state
+		 * column updates.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async doApprove() {
+			this.busy = true
+			this.error = ''
+			try {
+				await approveAgentTemplate(this.templateId())
+				emit('cn:page:refresh', {})
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
+		 * Export this template to a shareable JSON package and show it.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async doExport() {
+			this.error = ''
+			try {
+				this.exportedPackage = await exportAgentTemplate(this.templateId())
+				this.showExport = true
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			}
+		},
+	},
+}
+</script>
+
+<style scoped>
+.agent-template-row-actions__buttons {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+.agent-template-row-actions__export-modal {
+	padding: 20px;
+}
+
+.agent-template-row-actions__textarea {
+	width: 100%;
+	min-height: 120px;
+	font-family: monospace;
+	font-size: 13px;
+	margin-bottom: 8px;
+	resize: vertical;
+}
+</style>

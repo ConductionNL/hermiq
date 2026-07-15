@@ -24,8 +24,6 @@
 //
 // See hydra ADR-036 for the v2 registry design.
 
-import AgentCatalog from './views/AgentCatalog.vue'
-import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
@@ -42,11 +40,6 @@ import ComplianceDashboard from './views/ComplianceDashboard.vue'
 // ConductionNL/hydra#251.
 
 export default {
-	// Agent-management-ui pages (agent-management-ui change). Custom pages because
-	// they need bespoke behaviour (agents resource + Run now + run history) that the
-	// built-in index/detail page types cannot express.
-	AgentCatalog,
-	AgentDetail,
 	// Approval inbox (human-approval-gate-ui change). Custom page: reviewer-scoped
 	// pending Approvals + guarded approve/deny + org kill-switch — not expressible
 	// via the built-in index page type.
