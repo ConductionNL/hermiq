@@ -21,6 +21,16 @@
 			"scopes": [
 				"repo"
 			]
+		},
+		{
+			"provider": "anthropic",
+			"reason": "Chat generation for agents using Claude via an Anthropic API key.",
+			"scopes": []
+		},
+		{
+			"provider": "anthropic-oauth",
+			"reason": "Chat generation for agents using a personal Claude Max (OAuth) subscription.",
+			"scopes": []
 		}
 	],
 	"menu": [
