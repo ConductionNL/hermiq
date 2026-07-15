@@ -389,7 +389,9 @@
         "The chosen provider/model is not allowed by your organisation's model policy.": "Het gekozen provider/model is niet toegestaan volgens het modelbeleid van uw organisatie.",
         "Tokens": "Tokens",
         "Tokens this period": "Tokens deze periode",
-        "Total runs": "Totaal aantal runs"
+        "Total runs": "Totaal aantal runs",
+        "Agent credentials": "Agent-credentials",
+        "Bring your own provider key, or let your organisation share one. Every call still goes through the OpenRegister credential broker — Hermiq never sees or stores the secret itself.": "Gebruik uw eigen providersleutel, of laat uw organisatie er een delen. Elke aanroep verloopt nog altijd via de OpenRegister credential broker — Hermiq ziet of bewaart het geheim zelf nooit."
     },
     "plurals": ""
 }

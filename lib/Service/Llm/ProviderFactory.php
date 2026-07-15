@@ -62,6 +62,7 @@ use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
+use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
 use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
@@ -159,12 +160,28 @@ class ProviderFactory
      *                                                          DI container autowires a real instance in
      *                                                          production. A null manager makes the runner
      *                                                          report unavailable (503), never crash.
+     * @param CredentialScopeResolver|null  $credentialResolver Resolves a personal →
+     *                                                          organisation override for the
+     *                                                          broker credential id the
+     *                                                          `openai`/`fireworks` branches use
+     *                                                          (agent-credentials). Nullable —
+     *                                                          defaulted so every existing call
+     *                                                          site (all constructed before this
+     *                                                          change) keeps working unchanged;
+     *                                                          NC's DI container autowires a real
+     *                                                          instance in production regardless
+     *                                                          of the default. Consulted ONLY
+     *                                                          when `$organisation` is passed to
+     *                                                          `createChatDriver()` — the exact
+     *                                                          same opt-in guard
+     *                                                          `enforceModelPolicy()` uses.
      *
      * @return void
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
      * @spec openspec/changes/llm-cli-runner-exapp/specs/llm-cli-runner-exapp/spec.md#requirement-optional-cli-execution-mode-routes-turns-through-the-runner-exapp
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
      */
     public function __construct(
         private readonly LlmSettingsHandler $settingsHandler,
@@ -173,7 +190,8 @@ class ProviderFactory
         private readonly LoggerInterface $logger,
         private readonly string $appName='hermiq',
         private readonly ?TenantModelPolicyService $modelPolicyService=null,
-        private readonly ?IAppManager $appManager=null
+        private readonly ?IAppManager $appManager=null,
+        private readonly ?CredentialScopeResolver $credentialResolver=null
     ) {
     }//end __construct()
 
@@ -247,12 +265,14 @@ class ProviderFactory
             $driver = $this->createOpenAiDriver(
                 openaiConfig: $llmConfig['openaiConfig'] ?? [],
                 agentModel: $agentModel,
-                agentTemperature: $agentTemperature
+                agentTemperature: $agentTemperature,
+                credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation)
             );
         } else if ($chatProvider === 'fireworks') {
             $driver = $this->createFireworksDriver(
                 fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
-                agentModel: $agentModel
+                agentModel: $agentModel,
+                credentialOverride: $this->resolveCredentialOverride(provider: 'fireworks', organisation: $organisation)
             );
         } else if ($chatProvider === 'anthropic') {
             $driver = $this->createAnthropicDriver(
@@ -321,6 +341,37 @@ class ProviderFactory
         );
 
     }//end enforceModelPolicy()
+
+    /**
+     * Resolve a personal → organisation credential override for a provider,
+     * via `CredentialScopeResolver` (agent-credentials). A no-op (returns
+     * null, meaning "use the configured instance credential unchanged") when
+     * either `$organisation` is null (caller opted out, e.g. a purely
+     * instance-wide background call — the same opt-in guard
+     * `enforceModelPolicy()` uses) or no resolver was injected
+     * (backward-compatible default for pre-existing call sites/tests).
+     *
+     * @param string      $provider     The provider identifier (e.g. "openai", "fireworks").
+     * @param string|null $organisation The calling organisation, or null to skip resolution.
+     *
+     * @return string|null The overriding credential uuid, or null to keep the configured
+     *                     `hermiq.llm.<provider>Config.credentialId` unchanged.
+     *
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+     */
+    private function resolveCredentialOverride(string $provider, ?string $organisation): ?string
+    {
+        if ($organisation === null || $this->credentialResolver === null) {
+            return null;
+        }
+
+        return $this->credentialResolver->resolve(
+            provider: $provider,
+            actingUserId: $this->currentUid(),
+            organisation: $organisation
+        );
+
+    }//end resolveCredentialOverride()
 
     /**
      * Call Fireworks AI's chat completions endpoint directly with full message history.
@@ -725,7 +776,8 @@ class ProviderFactory
      *
      * @param array $data Decoded Anthropic Messages API response.
      *
-     * @return array{text: string, toolCalls: array<int, array<string, mixed>>, stopReason: string, content: array<int, mixed>, usage: array<string, int>}
+     * @return array{text: string, toolCalls: array<int, array<string, mixed>>,
+     *     stopReason: string, content: array<int, mixed>, usage: array<string, int>}
      *
      * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
      */
@@ -1079,17 +1131,30 @@ class ProviderFactory
     /**
      * Build the `openai` driver: OpenAIConfig + OpenAIChat.
      *
-     * @param array       $openaiConfig     The `openaiConfig` sub-block.
-     * @param string|null $agentModel       Agent model override.
-     * @param float|null  $agentTemperature Agent temperature override.
+     * @param array       $openaiConfig       The `openaiConfig` sub-block.
+     * @param string|null $agentModel         Agent model override.
+     * @param float|null  $agentTemperature   Agent temperature override.
+     * @param string|null $credentialOverride Personal/organisation broker credential id
+     *                                        (agent-credentials) that overrides
+     *                                        `$openaiConfig['credentialId']` when non-empty.
      *
      * @return ChatDriver
      *
      * @throws ProviderUnavailableException When the OpenAI API key is not configured.
+     *
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
      */
-    private function createOpenAiDriver(array $openaiConfig, ?string $agentModel, ?float $agentTemperature): ChatDriver
-    {
+    private function createOpenAiDriver(
+        array $openaiConfig,
+        ?string $agentModel,
+        ?float $agentTemperature,
+        ?string $credentialOverride=null
+    ): ChatDriver {
         $credentialId = (string) ($openaiConfig['credentialId'] ?? '');
+        if (empty($credentialOverride) === false) {
+            $credentialId = $credentialOverride;
+        }
+
         if ($credentialId === '') {
             throw new ProviderUnavailableException(
                 'OpenAI has no credential. Select one from the credential broker in the Hermiq LLM settings.',
@@ -1136,7 +1201,14 @@ class ProviderFactory
 
         $chat = new OpenAIChat($config);
 
-        return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model);
+        // `credentialId` is carried on the driver for OpenAI too (previously only
+        // fireworks/anthropic did, since they need it for their own direct-HTTP call) —
+        // it is otherwise baked opaquely into `$config->client`'s BrokerHttpClient with no
+        // public accessor, and this is the only externally-observable proof of WHICH
+        // credential a personal/organisation override actually resolved to
+        // (agent-credentials). Nothing reads `$driver->credentialId` on the openai path
+        // today; this is metadata only, not a behaviour change.
+        return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model, credentialId: $credentialId);
 
     }//end createOpenAiDriver()
 
@@ -1145,16 +1217,25 @@ class ProviderFactory
      * created — generation goes through `callFireworksChat()` (direct HTTP);
      * see the class docblock for why.
      *
-     * @param array       $fireworksConfig The `fireworksConfig` sub-block.
-     * @param string|null $agentModel      Agent model override.
+     * @param array       $fireworksConfig    The `fireworksConfig` sub-block.
+     * @param string|null $agentModel         Agent model override.
+     * @param string|null $credentialOverride Personal/organisation broker credential id
+     *                                        (agent-credentials) that overrides
+     *                                        `$fireworksConfig['credentialId']` when non-empty.
      *
      * @return ChatDriver
      *
      * @throws ProviderUnavailableException When the Fireworks API key is not configured.
+     *
+     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
      */
-    private function createFireworksDriver(array $fireworksConfig, ?string $agentModel): ChatDriver
+    private function createFireworksDriver(array $fireworksConfig, ?string $agentModel, ?string $credentialOverride=null): ChatDriver
     {
         $credentialId = (string) ($fireworksConfig['credentialId'] ?? '');
+        if (empty($credentialOverride) === false) {
+            $credentialId = $credentialOverride;
+        }
+
         if ($credentialId === '') {
             throw new ProviderUnavailableException(
                 'Fireworks AI has no credential. Select one from the credential broker in the Hermiq LLM settings.',
@@ -1245,10 +1326,9 @@ class ProviderFactory
         // must get a clear signal, not a different transport.
         $executionMode = ($anthropicConfig['executionMode'] ?? 'http');
         if ($executionMode === 'cli') {
-            throw new ProviderUnavailableException(
-                'Anthropic executionMode "cli" (hermiq-llm-runner ExApp) is not yet available: the AppAPI dispatch to the runner is a tracked follow-up. Use executionMode "http" for now.',
-                503
-            );
+            $message  = 'Anthropic executionMode "cli" (hermiq-llm-runner ExApp) is not yet available: ';
+            $message .= 'the AppAPI dispatch to the runner is a tracked follow-up. Use executionMode "http" for now.';
+            throw new ProviderUnavailableException($message, 503);
         }
 
         $baseUrl = rtrim($anthropicConfig['baseUrl'] ?? 'https://api.anthropic.com/v1', '/');

@@ -9,4 +9,19 @@
 # tracked-debt marker with a removal timeline.
 
 parameters:
-    ignoreErrors: []
+    ignoreErrors:
+        # Pre-existing scaffolding for the NOT-YET-IMPLEMENTED llm-cli-runner-exapp change
+        # (openspec/changes/llm-cli-runner-exapp/tasks.md — every task still unchecked: the
+        # `hermiq-llm-runner` ExApp itself, its AppAPI client, and the `cli`-mode dispatch
+        # branch in ProviderFactory do not exist yet). These four constants/the constructor
+        # param are the documented, tracked lead-in for that change (see ProviderFactory's
+        # constructor docblock) and are unrelated to agent-credentials — discovered
+        # pre-existing on `development` HEAD (confirmed via `git stash`), not introduced by
+        # this change. Removal timeline: when llm-cli-runner-exapp task 2.2 wires the `cli`
+        # branch that consumes them.
+        -
+            message: '#Constant OCA\\Hermiq\\Service\\Llm\\ProviderFactory::(APP_API_ID|RUNNER_EXAPP_ID|RUNNER_ROUTE) is unused#'
+            path: lib/Service/Llm/ProviderFactory.php
+        -
+            message: '#Property OCA\\Hermiq\\Service\\Llm\\ProviderFactory::\$appManager is never read, only written#'
+            path: lib/Service/Llm/ProviderFactory.php
