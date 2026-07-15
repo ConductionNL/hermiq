@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Conduction B.V.
+#
+# Stubbed `claude` CLI for hermiq-llm-runner container tests. Emits a
+# claude-style JSON result and records — WITHOUT ever logging the token value —
+# its argv and whether the credential arrived via the environment.
+
+set -euo pipefail
+
+LOG="${RUNNER_STUB_LOG:-/tmp/llm-runner-stub.log}"
+prompt="$(cat)"   # prompt is delivered on STDIN, never argv
+
+{
+    echo "INVOKED claude"
+    echo "ARGV: $*"
+    if [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}${ANTHROPIC_API_KEY:-}" ]; then
+        echo "ENV_TOKEN_PRESENT: 1"
+    else
+        echo "ENV_TOKEN_PRESENT: 0"
+    fi
+    echo "PROMPT_LEN: ${#prompt}"
+} >> "${LOG}"
+
+# claude -p --output-format json shape: a result object with text + usage.
+printf '{"type":"result","result":"stub anthropic completion","usage":{"input_tokens":11,"output_tokens":7},"toolCalls":[{"name":"lookup","input":{"q":"x"}}]}\n'
