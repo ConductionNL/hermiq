@@ -83,14 +83,18 @@ test.describe('hermiq regression: dashboard + agents', () => {
 
 		// The Hermiq app shell renders (its nav lists the Agents entry).
 		await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
-		await expect(page.locator('#app-content, .app-hermiq, [data-testid="agent-catalog"]').first()).toBeVisible()
+		await expect(page.locator('#app-content, .app-hermiq, [data-testid-page-id="Dashboard"]').first()).toBeVisible()
 
 		// Navigate to the Agents view and assert its heading renders. The app uses Vue
 		// history mode (ADR-004), so the route is a real path, not a `#/` hash fragment.
+		// manifest-driven-pages: AgentCatalog converted from a bespoke type:"custom" page
+		// (data-testid="agent-catalog-heading") to a generic type:"index" page rendered
+		// by CnPageRenderer/CnIndexPage — assert on CnPageRenderer's stable
+		// data-testid-page-id instead of the removed bespoke testid.
 		await page.goto('/apps/hermiq/agents', { waitUntil: 'domcontentloaded' })
-		const heading = page.locator('[data-testid="agent-catalog-heading"]')
-		await expect(heading).toBeVisible({ timeout: 10_000 })
-		await expect(heading).toContainText('Agent')
+		const agentsPage = page.locator('[data-testid-page-id="AgentCatalog"]')
+		await expect(agentsPage).toBeVisible({ timeout: 10_000 })
+		await expect(agentsPage).toContainText('Agent')
 
 		// No app-level console errors surfaced across the flow.
 		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)

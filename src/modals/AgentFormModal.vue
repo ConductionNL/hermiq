@@ -230,17 +230,37 @@ export default {
 			// ids to human-readable names.
 			agentCatalog: [],
 			agentCatalogLoading: false,
+			// manifest-driven-pages: when opened as the registry `agent-form`
+			// open-modal target from AgentDetail's "Edit agent" header action,
+			// no `agent` prop is available (open-modal action props are static
+			// JSON, not resolved against the current object) — self-fetched
+			// here from the route's `:id` param instead. Stays null on
+			// AgentCatalog's "Create agent" route (no `:id` param), so create
+			// mode is unaffected.
+			routeAgent: null,
 		}
 	},
 
 	computed: {
+		/**
+		 * The agent being edited — the `agent` prop when explicitly supplied
+		 * (AgentCatalog's inline usage, tests), else the route-fetched agent
+		 * (the registry `agent-form` open-modal path, both "Create agent" —
+		 * no `:id` param, stays null — and "Edit agent" on AgentDetail).
+		 *
+		 * @return {object|null} The effective agent, or null when creating.
+		 */
+		effectiveAgent() {
+			return this.agent || this.routeAgent
+		},
+
 		/**
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
 		 */
 		heading() {
-			return this.agent ? this.t('hermiq', 'Edit agent') : this.t('hermiq', 'Create agent')
+			return this.effectiveAgent ? this.t('hermiq', 'Edit agent') : this.t('hermiq', 'Create agent')
 		},
 
 		/**
@@ -313,7 +333,7 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		delegationAllowlistOptions() {
-			const editingId = this.agent?.uuid || this.agent?.id || null
+			const editingId = this.effectiveAgent?.uuid || this.effectiveAgent?.id || null
 			return this.agentCatalog
 				.filter((candidate) => (candidate.uuid || candidate.id) !== editingId)
 				.map((candidate) => ({
@@ -324,13 +344,23 @@ export default {
 	},
 
 	watch: {
-		show(open) {
-			if (open) {
+		// `immediate: true`: when opened via the registry `agent-form`
+		// open-modal action, CnAppRoot mounts this component FRESH with
+		// `show` already `true` (from the action's static `props: {show:
+		// true}`) — a plain watcher only fires on a CHANGE, so it would
+		// never run for that mount path without `immediate`.
+		show: {
+			immediate: true,
+			async handler(open) {
+				if (!open) {
+					return
+				}
+				await this.loadRouteAgent()
 				this.resetForm()
 				this.loadTools()
 				this.loadPolicy()
 				this.loadAgentCatalog()
-			}
+			},
 		},
 	},
 
@@ -340,6 +370,32 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * When no `agent` prop is supplied (the registry `agent-form`
+		 * open-modal path), self-fetch the agent from the route's `:id` param
+		 * — present on AgentDetail's "Edit agent" action, absent on
+		 * AgentCatalog's "Create agent" action (leaving `routeAgent` null, so
+		 * create mode proceeds unaffected). Uses a fresh `useAgentStore()`
+		 * call (idempotent — the same Pinia singleton `created()` also uses)
+		 * rather than `this.store`, since this can run before `created()` due
+		 * to the `show` watcher's `immediate: true`.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadRouteAgent() {
+			this.routeAgent = null
+			if (this.agent) {
+				return
+			}
+			const routeAgentId = this.$route?.params?.id
+			if (!routeAgentId) {
+				return
+			}
+			const store = useAgentStore()
+			store.registerObjectType('agent', 'agent', 'hermiq')
+			this.routeAgent = await store.fetchObject('agent', routeAgentId).catch(() => null)
+		},
+
 		/**
 		 * An empty agent form.
 		 *
@@ -364,32 +420,33 @@ export default {
 		},
 
 		/**
-		 * Seed the form from the `agent` prop (edit) or blank (create).
+		 * Seed the form from `effectiveAgent` (edit) or blank (create).
 		 *
 		 * @return {void}
 		 */
 		resetForm() {
 			this.error = ''
-			if (!this.agent) {
+			if (!this.effectiveAgent) {
 				this.form = this.blankForm()
 				return
 			}
-			const tools = Array.isArray(this.agent.tools) ? this.agent.tools : []
-			const delegationAllowlist = Array.isArray(this.agent.delegationAllowlist) ? this.agent.delegationAllowlist : []
+			const source = this.effectiveAgent
+			const tools = Array.isArray(source.tools) ? source.tools : []
+			const delegationAllowlist = Array.isArray(source.delegationAllowlist) ? source.delegationAllowlist : []
 			this.form = {
-				name: this.agent.name || '',
-				description: this.agent.description || '',
-				provider: this.agent.provider || '',
-				model: this.agent.model || '',
-				prompt: this.agent.prompt || '',
-				temperature: this.agent.temperature ?? '',
-				maxTokens: this.agent.maxTokens ?? '',
+				name: source.name || '',
+				description: source.description || '',
+				provider: source.provider || '',
+				model: source.model || '',
+				prompt: source.prompt || '',
+				temperature: source.temperature ?? '',
+				maxTokens: source.maxTokens ?? '',
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
 				delegationAllowlist: this.mapDelegationAllowlistToOptions(delegationAllowlist),
-				enableRag: this.agent.enableRag === true,
-				searchObjects: this.agent.searchObjects !== false,
-				searchFiles: this.agent.searchFiles !== false,
-				ragNumSources: this.agent.ragNumSources ?? '',
+				enableRag: source.enableRag === true,
+				searchObjects: source.searchObjects !== false,
+				searchFiles: source.searchFiles !== false,
+				ragNumSources: source.ragNumSources ?? '',
 			}
 		},
 
@@ -499,7 +556,7 @@ export default {
 		 * @return {object} The agent payload for saveObject().
 		 */
 		buildPayload() {
-			const base = this.agent ? { ...this.agent } : {}
+			const base = this.effectiveAgent ? { ...this.effectiveAgent } : {}
 			delete base['@self']
 
 			const payload = {
@@ -530,8 +587,8 @@ export default {
 			}
 
 			// Preserve the object id on edit so saveObject issues a PUT.
-			if (this.agent && this.agent.id) {
-				payload.id = this.agent.id
+			if (this.effectiveAgent && this.effectiveAgent.id) {
+				payload.id = this.effectiveAgent.id
 			}
 			return payload
 		},

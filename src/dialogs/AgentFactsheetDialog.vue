@@ -131,7 +131,14 @@ export default {
 			type: Boolean,
 			default: false,
 		},
-		/** The agent UUID to load a factsheet for. */
+		/**
+		 * The agent UUID to load a factsheet for. Optional — when opened as
+		 * the registry `agent-factsheet` open-modal target
+		 * (manifest-driven-pages), no prop is available (open-modal action
+		 * props are static JSON, not resolved against the current object),
+		 * so it self-resolves from the route's `:id` param instead (see
+		 * `resolvedAgentId`).
+		 */
 		agentId: {
 			type: String,
 			default: '',
@@ -149,11 +156,30 @@ export default {
 		}
 	},
 
+	computed: {
+		/**
+		 * The agent uuid — the `agentId` prop when explicitly supplied, else
+		 * the current route's `:id` param.
+		 *
+		 * @return {string} The resolved agent uuid.
+		 */
+		resolvedAgentId() {
+			return this.agentId || this.$route?.params?.id || ''
+		},
+	},
+
 	watch: {
-		show(open) {
-			if (open) {
-				this.load()
-			}
+		// `immediate: true`: when opened via the registry `agent-factsheet`
+		// open-modal action, CnAppRoot mounts this component FRESH with
+		// `show` already `true` — a plain watcher only fires on a CHANGE, so
+		// it would never run for that mount path without `immediate`.
+		show: {
+			immediate: true,
+			handler(open) {
+				if (open) {
+					this.load()
+				}
+			},
 		},
 	},
 
@@ -166,7 +192,7 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async load() {
-			if (!this.agentId) {
+			if (!this.resolvedAgentId) {
 				return
 			}
 			this.loading = true
@@ -174,7 +200,7 @@ export default {
 			this.notAvailable = false
 			this.factsheet = null
 			try {
-				this.factsheet = await getAgentFactsheet(this.agentId)
+				this.factsheet = await getAgentFactsheet(this.resolvedAgentId)
 			} catch (e) {
 				if (e?.response?.status === 404) {
 					this.notAvailable = true
