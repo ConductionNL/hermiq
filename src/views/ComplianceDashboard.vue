@@ -17,8 +17,8 @@
   @spec openspec/changes/compliance-control-packs/specs/compliance-control-packs/spec.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list
 -->
 <template>
-	<div class="compliance-dashboard">
-		<h2 class="compliance-dashboard__heading">
+	<div class="compliance-dashboard" data-testid="compliance-dashboard">
+		<h2 class="compliance-dashboard__heading" data-testid="compliance-heading">
 			{{ t('hermiq', 'Compliance') }}
 		</h2>
 

@@ -22,9 +22,9 @@
   @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md
 -->
 <template>
-	<div class="agent-template-gallery">
+	<div class="agent-template-gallery" data-testid="agent-template-gallery">
 		<div class="agent-template-gallery__header">
-			<h2 class="agent-template-gallery__heading">
+			<h2 class="agent-template-gallery__heading" data-testid="agent-template-gallery-heading">
 				{{ t('hermiq', 'Agent templates') }}
 			</h2>
 			<NcButton type="primary" @click="showImport = true">

@@ -21,9 +21,9 @@
   @spec openspec/changes/agent-management-ui/specs/agent-management-ui/spec.md
 -->
 <template>
-	<div class="agent-catalog">
+	<div class="agent-catalog" data-testid="agent-catalog">
 		<div class="agent-catalog__header">
-			<h2 class="agent-catalog__heading">
+			<h2 class="agent-catalog__heading" data-testid="agent-catalog-heading">
 				{{ t('hermiq', 'Agents') }}
 			</h2>
 			<div class="agent-catalog__header-actions">
