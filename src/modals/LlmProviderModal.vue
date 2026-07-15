@@ -112,13 +112,13 @@
 						label="label"
 						track-by="value" />
 					<NcSelect v-model="anthropicCredential"
-						:options="credentialsFor('anthropic')"
-						:input-label="t('hermiq', 'API credential')"
+						:options="credentialsFor(anthropicCredentialProviderId)"
+						:input-label="anthropicAuthModeValue === 'oauth' ? t('hermiq', 'Claude subscription (OAuth) credential') : t('hermiq', 'API credential')"
 						:loading="loadingCredentials"
 						:placeholder="t('hermiq', 'Select a credential')"
 						label="label" />
 					<p class="llm-provider-modal__hint">
-						{{ credentialHint('anthropic') }}
+						{{ credentialHint(anthropicCredentialProviderId) }}
 					</p>
 					<NcNoteCard v-if="anthropicAuthModeValue === 'oauth'" type="warning">
 						{{ t('hermiq', 'A Claude Max/Pro subscription (OAuth) is personal-only per the Anthropic Terms of Service. It may be set only as a personal token in your own personal settings — never as an organisation-wide credential here. OAuth tokens also cannot refresh headlessly, so a Max token may go stale.') }}
@@ -266,6 +266,23 @@ export default {
 		 */
 		anthropicAuthModeValue() {
 			return this.anthropicAuthMode ? this.anthropicAuthMode.value : 'api_key'
+		},
+
+		/**
+		 * The credential-broker provider id whose credentials the Anthropic
+		 * credential picker should list, keyed off the selected auth mode.
+		 *
+		 * A Claude Max/Pro OAuth token is stored under the `anthropic-oauth`
+		 * broker provider (injected as `Authorization: Bearer`); an API key
+		 * under `anthropic` (injected as `x-api-key`). The picker must show the
+		 * matching set — otherwise an OAuth credential is invisible when the
+		 * user selects OAuth auth, and vice versa.
+		 *
+		 * @return {string} The broker provider id.
+		 * @spec exclude Trivial computed display helper; no behavioural spec.
+		 */
+		anthropicCredentialProviderId() {
+			return this.anthropicAuthModeValue === 'oauth' ? 'anthropic-oauth' : 'anthropic'
 		},
 	},
 
