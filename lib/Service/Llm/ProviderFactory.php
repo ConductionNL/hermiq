@@ -1238,6 +1238,19 @@ class ProviderFactory
             $authMode = 'api_key';
         }
 
+        // `executionMode: cli` (llm-cli-runner-exapp) routes the turn through the
+        // hermiq-llm-runner ExApp instead of direct HTTP. The AppAPI dispatch to the
+        // ExApp `/run` route is not yet wired (tracked follow-up), so fail LOUDLY here
+        // rather than silently serving the `http` path — an operator who selected `cli`
+        // must get a clear signal, not a different transport.
+        $executionMode = ($anthropicConfig['executionMode'] ?? 'http');
+        if ($executionMode === 'cli') {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" (hermiq-llm-runner ExApp) is not yet available: the AppAPI dispatch to the runner is a tracked follow-up. Use executionMode "http" for now.',
+                503
+            );
+        }
+
         $baseUrl = rtrim($anthropicConfig['baseUrl'] ?? 'https://api.anthropic.com/v1', '/');
 
         // `credentialId` is a broker reference, not a secret — the key or OAuth token lives

@@ -302,9 +302,18 @@ class ResponseGenerationHandler
                 $this->lastUsage = ['llmSeconds' => round($llmTime, 2)];
             } else if ($driver->provider === 'anthropic') {
                 // Anthropic uses direct HTTP through the broker (ProviderFactory::
-                // callAnthropicChat) with the auth headers selected by authMode. Tool-use
-                // mapping is a documented follow-up; functions are logged + ignored inside
-                // the call for now.
+                // callAnthropicChat) with the auth headers selected by authMode.
+                //
+                // TEXT path works today. The Anthropic tool-use WIRE mapping is built
+                // (ProviderFactory::buildAnthropicTools / parseAnthropicResponse + the
+                // bounded tool loop), but it only activates when a `$toolExecutor`
+                // callable is passed — which is NOT wired here yet, so Claude is offered
+                // NO tools and runs text-only (the fail-safe: never advertise a tool
+                // Hermiq cannot run). @todo anthropic-agent-provider: pass a
+                // `toolExecutor` that runs a tool by (name, input) through Hermiq's
+                // governed executor — the same FacadeToolInvoker the LLPhant branch
+                // builds via ToolLoop::buildFunctionInfos() below — so Claude gets tool
+                // use. Tracked as a follow-up issue.
                 $response = $this->providerFactory->callAnthropicChat(
                     credentialId: (string) $driver->credentialId,
                     model: $driver->model,
