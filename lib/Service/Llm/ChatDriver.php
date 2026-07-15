@@ -43,23 +43,32 @@ final class ChatDriver
     /**
      * Constructor.
      *
-     * @param string                     $provider     One of LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS.
-     * @param OpenAIChat|OllamaChat|null $chat         Ready-to-use LLPhant chat instance for
-     *                                                 openai/ollama; null for fireworks/nextcloud.
-     * @param string                     $model        The resolved model identifier.
-     * @param string|null                $credentialId Broker credential UUID (fireworks only).
-     *                                                 NOT a key: this used to carry the raw
-     *                                                 Fireworks API key, which meant every
-     *                                                 handler that touched a ChatDriver was
-     *                                                 holding a live secret. The secret now
-     *                                                 lives in the vault and the broker
-     *                                                 injects it; this is only a reference.
-     * @param string|null                $baseUrl      Fireworks/Anthropic base URL
-     *                                                 (fireworks/anthropic only).
-     * @param string|null                $authMode     Anthropic auth mode (anthropic only):
-     *                                                 `api_key` or `oauth`. Selects the header
-     *                                                 set `callAnthropicChat()` builds. Null
-     *                                                 for every other provider.
+     * @param string                     $provider      One of LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS.
+     * @param OpenAIChat|OllamaChat|null $chat          Ready-to-use LLPhant chat instance for
+     *                                                  openai/ollama; null for
+     *                                                  fireworks/nextcloud.
+     * @param string                     $model         The resolved model identifier.
+     * @param string|null                $credentialId  Broker credential UUID (fireworks only).
+     *                                                  NOT a key: this used to carry the raw
+     *                                                  Fireworks API key, which meant every
+     *                                                  handler that touched a ChatDriver was
+     *                                                  holding a live secret. The secret now
+     *                                                  lives in the vault and the broker
+     *                                                  injects it; this is only a reference.
+     * @param string|null                $baseUrl       Fireworks/Anthropic base URL
+     *                                                  (fireworks/anthropic only).
+     * @param string|null                $authMode      Anthropic auth mode (anthropic only):
+     *                                                  `api_key` or `oauth`. Selects the
+     *                                                  header set `callAnthropicChat()`
+     *                                                  builds. Null for every other
+     *                                                  provider.
+     * @param string                     $executionMode Transport mode for a CLI-capable provider
+     *                                                  (`anthropic`/`openai`): `http` (default —
+     *                                                  the direct `BrokerHttpClient` path) or `cli`
+     *                                                  (dispatch the assembled turn to the
+     *                                                  `hermiq-llm-runner` ExApp). `http` for every
+     *                                                  provider that has no CLI backend, so nothing
+     *                                                  changes for existing configs.
      */
     public function __construct(
         public readonly string $provider,
@@ -68,6 +77,7 @@ final class ChatDriver
         public readonly ?string $credentialId=null,
         public readonly ?string $baseUrl=null,
         public readonly ?string $authMode=null,
+        public readonly string $executionMode='http',
     ) {
     }//end __construct()
 }//end class
