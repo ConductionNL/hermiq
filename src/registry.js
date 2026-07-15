@@ -48,7 +48,6 @@ import AgentMemory from './views/AgentMemory.vue'
 import AgentSessions from './views/AgentSessions.vue'
 import SkillsCatalog from './views/SkillsCatalog.vue'
 import AgentTemplateGallery from './views/AgentTemplateGallery.vue'
-import AiFeatureRegister from './views/AiFeatureRegister.vue'
 import TenantOps from './views/TenantOps.vue'
 import McpTools from './views/McpTools.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
@@ -138,16 +137,6 @@ export default {
 	AgentTemplateGallery: {
 		kind: 'page',
 		component: AgentTemplateGallery,
-	},
-
-	/**
-	 * AI-feature governance register — the design-time inventory of high-risk AI
-	 * features, risk-classified and gated by a DPO-acknowledgement lifecycle
-	 * (ai-feature-governance-register). Standard nav page, not a dashboard.
-	 */
-	AiFeatureRegister: {
-		kind: 'page',
-		component: AiFeatureRegister,
 	},
 
 	/**

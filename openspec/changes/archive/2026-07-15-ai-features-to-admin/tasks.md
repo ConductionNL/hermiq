@@ -12,8 +12,8 @@
     `./views/AiFeatureRegister.vue` or register an `AiFeatureRegister` entry
   - GIVEN `npm run check:specs` WHEN run THEN it MUST pass (no orphan-import, no
     manifest-v2 schema error)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Wire AiFeatureRegister into AdminRoot.vue as a new admin-settings section
 - **spec_ref**: `openspec/changes/ai-features-to-admin/specs/ai-feature-admin-surface/spec.md#requirement-the-ai-feature-register-renders-inside-nextcloud-admin-settings-not-the-in-app-nav`
@@ -28,8 +28,8 @@
     acknowledge/enable/disable buttons (verify live via browser, mirroring the
     existing "AI provider"/"Web research" live-verification pattern — no committed
     Playwright suite for this surface)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Provide is_admin / opencatalogi_available from the admin-settings bootstrap
 - **spec_ref**: `openspec/changes/ai-features-to-admin/specs/ai-feature-admin-surface/spec.md#requirement-the-admin-settings-bootstrap-supplies-the-same-capability-flags-the-component-already-reads`
@@ -46,8 +46,8 @@
   - GIVEN `AdminSettings::getSection()`, `getPriority()`, `getName()`,
     `getAuthorizedAppConfig()` WHEN inspected after this change THEN they MUST be
     unchanged (`'hermiq'`, `10`, `null`, `[]`)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: Version bump and end-to-end live verification
 - **spec_ref**: `openspec/changes/ai-features-to-admin/specs/ai-feature-admin-surface/spec.md#requirement-the-governance-api-and-its-authorization-are-unchanged-by-the-ui-relocation`
@@ -61,8 +61,8 @@
     the in-app nav no longer shows an "AI features" item, AND
     `AiFeatureController`'s routes/authorization are unchanged (no diff to that file
     or `appinfo/routes.php`)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 
