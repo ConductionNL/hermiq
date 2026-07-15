@@ -20,12 +20,22 @@
   to the removed bespoke AgentTemplateGallery.vue's own read in design.md
   Decision 5).
 
+  agent-template-github-store adds a fourth action here, "Publish to GitHub"
+  (active templates only) — a form (owner/repo/visibility/credential) that
+  calls the new guarded `publish-github` endpoint. A broker `credentialId` is
+  required; the GitHub token never reaches Hermiq.
+
   @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-010-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
+  @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
 -->
 <template>
 	<div class="agent-template-row-actions">
 		<NcNoteCard v-if="error" type="error">
 			{{ error }}
+		</NcNoteCard>
+
+		<NcNoteCard v-if="publishNotice" type="success">
+			{{ publishNotice }}
 		</NcNoteCard>
 
 		<NcNoteCard v-if="instantiateNote" type="info" :heading="t('hermiq', 'Agent created')">
@@ -63,6 +73,13 @@
 				@click="doExport">
 				{{ t('hermiq', 'Export') }}
 			</NcButton>
+			<NcButton
+				v-if="row.state === 'active'"
+				type="tertiary"
+				:aria-label="t('hermiq', 'Publish to GitHub')"
+				@click="openPublishModal">
+				{{ t('hermiq', 'Publish to GitHub') }}
+			</NcButton>
 		</div>
 
 		<NcModal v-if="showExport" @close="showExport = false">
@@ -71,16 +88,55 @@
 				<textarea class="agent-template-row-actions__textarea" readonly :value="exportedPackage" />
 			</div>
 		</NcModal>
+
+		<NcModal v-if="showPublish" @close="closePublishModal">
+			<div class="agent-template-row-actions__publish-modal">
+				<h3>{{ t('hermiq', 'Publish to GitHub') }}</h3>
+				<NcNoteCard v-if="publishError" type="error">
+					{{ publishError }}
+				</NcNoteCard>
+				<NcTextField :value.sync="publishForm.owner"
+					:label="t('hermiq', 'Owner')"
+					:placeholder="t('hermiq', 'e.g. acme-council')" />
+				<NcTextField :value.sync="publishForm.repo"
+					:label="t('hermiq', 'Repository name')"
+					:placeholder="t('hermiq', 'e.g. morning-briefing-template')" />
+				<NcSelect v-model="publishVisibility"
+					:options="visibilityOptions"
+					:input-label="t('hermiq', 'Visibility')"
+					:clearable="false"
+					label="label"
+					track-by="value" />
+				<NcSelect v-model="publishCredential"
+					:options="githubCredentials"
+					:input-label="t('hermiq', 'GitHub credential')"
+					:loading="loadingCredentials"
+					:placeholder="t('hermiq', 'Select a credential')"
+					label="label" />
+				<p v-if="!loadingCredentials && githubCredentials.length === 0" class="agent-template-row-actions__hint">
+					{{ t('hermiq', 'No GitHub credential yet. Add one under Settings → Agent credentials, then reopen this dialog.') }}
+				</p>
+				<NcButton
+					type="primary"
+					:disabled="publishing || !canPublish"
+					@click="doPublish">
+					{{ publishing ? t('hermiq', 'Publishing…') : t('hermiq', 'Publish') }}
+				</NcButton>
+			</div>
+		</NcModal>
 	</div>
 </template>
 
 <script>
-import { NcButton, NcModal, NcNoteCard } from '@nextcloud/vue'
+import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import { emit } from '@nextcloud/event-bus'
 import {
 	approveAgentTemplate,
 	exportAgentTemplate,
 	instantiateAgentTemplate,
+	publishAgentTemplateToGithub,
 } from '../api/agentTemplates.js'
 
 export default {
@@ -90,6 +146,8 @@ export default {
 		NcButton,
 		NcModal,
 		NcNoteCard,
+		NcSelect,
+		NcTextField,
 	},
 
 	props: {
@@ -107,7 +165,54 @@ export default {
 			instantiateNote: null,
 			exportedPackage: '',
 			showExport: false,
+			showPublish: false,
+			publishing: false,
+			publishError: '',
+			publishNotice: '',
+			publishForm: {
+				owner: '',
+				repo: '',
+			},
+			publishVisibility: { label: this.t('hermiq', 'Private'), value: 'private' },
+			publishCredential: null,
+			credentials: [],
+			loadingCredentials: false,
 		}
+	},
+
+	computed: {
+		/**
+		 * The publish visibility options (mirrors OpenBuild's `ExportsController`
+		 * default: new repos default to `private`).
+		 *
+		 * @return {Array<object>} NcSelect options.
+		 */
+		visibilityOptions() {
+			return [
+				{ label: this.t('hermiq', 'Private'), value: 'private' },
+				{ label: this.t('hermiq', 'Public'), value: 'public' },
+			]
+		},
+
+		/**
+		 * The caller's broker credentials scoped to the `github` provider.
+		 *
+		 * @return {Array<object>} NcSelect options.
+		 */
+		githubCredentials() {
+			return this.credentials
+				.filter((c) => c.provider === 'github')
+				.map((c) => ({ label: c.name || c.id, value: c.id }))
+		},
+
+		/**
+		 * Whether the publish form has everything it needs to submit.
+		 *
+		 * @return {boolean}
+		 */
+		canPublish() {
+			return this.publishForm.owner.trim() !== '' && this.publishForm.repo.trim() !== '' && !!this.publishCredential
+		},
 	},
 
 	methods: {
@@ -194,6 +299,73 @@ export default {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			}
 		},
+
+		/**
+		 * Open the "Publish to GitHub" form, loading the caller's broker
+		 * credentials (for the required GitHub credential picker) the first time.
+		 *
+		 * @return {void}
+		 */
+		openPublishModal() {
+			this.publishError = ''
+			this.publishNotice = ''
+			this.showPublish = true
+			this.fetchCredentials()
+		},
+
+		/**
+		 * Close the publish form, resetting its per-open state.
+		 *
+		 * @return {void}
+		 */
+		closePublishModal() {
+			this.showPublish = false
+			this.publishError = ''
+		},
+
+		/**
+		 * Load the caller's broker credentials (for the GitHub credential picker).
+		 *
+		 * @return {Promise<void>}
+		 */
+		async fetchCredentials() {
+			this.loadingCredentials = true
+			try {
+				const { data } = await axios.get(generateUrl('/apps/openregister/api/credentials'))
+				this.credentials = data.results || []
+			} catch (e) {
+				this.credentials = []
+			} finally {
+				this.loadingCredentials = false
+			}
+		},
+
+		/**
+		 * Publish this template to a new GitHub repository tagged
+		 * `topic:hermiq-agent-template`. A broker `github` credential is
+		 * required — the GitHub token never reaches Hermiq.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async doPublish() {
+			this.publishing = true
+			this.publishError = ''
+			try {
+				const result = await publishAgentTemplateToGithub(this.templateId(), {
+					owner: this.publishForm.owner.trim(),
+					repo: this.publishForm.repo.trim(),
+					visibility: this.publishVisibility?.value || 'private',
+					credentialId: this.publishCredential?.value,
+				})
+				this.publishNotice = this.t('hermiq', 'Published to {repoUrl}', { repoUrl: result.repoUrl })
+				this.showPublish = false
+				emit('cn:page:refresh', {})
+			} catch (e) {
+				this.publishError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.publishing = false
+			}
+		},
 	},
 }
 </script>
@@ -218,5 +390,18 @@ export default {
 	font-size: 13px;
 	margin-bottom: 8px;
 	resize: vertical;
+}
+
+.agent-template-row-actions__publish-modal {
+	padding: 20px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.agent-template-row-actions__hint {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+	margin: -4px 0 0;
 }
 </style>

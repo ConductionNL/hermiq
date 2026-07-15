@@ -3,7 +3,7 @@
   "info": {
     "title": "Hermiq Register",
     "description": "Schedule autonomous AI agents in Nextcloud",
-    "version": "0.10.9"
+    "version": "0.11.0"
   },
   "x-openregister": {
     "type": "application",
@@ -711,7 +711,7 @@
       "AgentTemplate": {
         "slug": "agenttemplate",
         "icon": "PackageVariantOutline",
-        "version": "0.1.0",
+        "version": "0.2.0",
         "title": "Agent template",
         "description": "A portable, versionable agent definition (agent-template-gallery) — the agent-level analogue of Skill. Carries NO secrets and NO tenant data by construction: no field for an API key, credential, RAG source id, invited-user id, group id, or quota exists on this schema. \"Use this template\" instantiates a real Agent; the suggested provider/model is coerced through the caller's effective TenantModelPolicy at that point and is never persisted back onto the template.",
         "type": "object",
@@ -732,7 +732,10 @@
           "quarantineReason": { "type": "string", "title": "Quarantine reason", "description": "Why the template is quarantined (set when imported from an external source)." },
           "scanReport": { "type": "object", "title": "Scan report", "description": "Heuristic content-scan verdict from OpenRegister ContentScanService over the systemPrompt, recorded at import and re-checked at approval. A 'dangerous' verdict blocks one-click approval.", "properties": { "severity": { "type": "string", "enum": ["clean", "suspicious", "dangerous"], "title": "Severity", "description": "Worst verdict across findings." }, "safe": { "type": "boolean", "title": "Safe", "description": "True only when severity is 'clean'." }, "scannedAt": { "type": "string", "format": "date-time", "title": "Scanned at", "description": "When the scan ran." }, "findings": { "type": "array", "title": "Findings", "description": "Matched dangerous patterns.", "items": { "type": "object", "properties": { "category": { "type": "string", "title": "Category", "description": "The kind of dangerous pattern matched (e.g. remote-code, exfiltration)." }, "severity": { "type": "string", "title": "Severity", "description": "The severity of this individual finding." }, "reason": { "type": "string", "title": "Reason", "description": "Why this content was flagged." }, "excerpt": { "type": "string", "title": "Excerpt", "description": "The matched excerpt from the scanned content." } } } } } },
           "version": { "type": "string", "default": "0.1.0", "title": "Version", "description": "Free-text template version (e.g. semver), travels inside the exported package; not rendered as a diff in this change." },
-          "createdBy": { "type": "string", "title": "Created by", "description": "The user id who authored/imported the template." }
+          "createdBy": { "type": "string", "title": "Created by", "description": "The user id who authored/imported the template." },
+          "githubOwner": { "type": "string", "title": "GitHub owner", "description": "Owner (user/org) of the GitHub repository this template was last published to (agent-template-github-store). Provenance only — read-only, never round-tripped through the exported package (AgentTemplateSerializer::toPackage() never emits it)." },
+          "githubRepo": { "type": "string", "title": "GitHub repository", "description": "Name of the GitHub repository this template was last published to. Provenance only — never round-tripped through the exported package." },
+          "publishedAt": { "type": "string", "format": "date-time", "title": "Published at", "description": "When this template was last published to GitHub. Provenance only — never round-tripped through the exported package." }
         }
       },
       "EvalDataset": {

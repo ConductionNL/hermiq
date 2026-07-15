@@ -162,15 +162,15 @@ organisation's visibility.
 
 ## Acceptance Criteria
 
-- [ ] `GET /api/agent-templates/github/search` returns normalised cards for `topic:hermiq-agent-template`
-- [ ] A rate-limited/unreachable search returns 200 with an explicit outcome, never a 5xx
-- [ ] `POST /api/agent-templates/github/install` creates a `quarantined` + scanned `AgentTemplate`
+- [x] `GET /api/agent-templates/github/search` returns normalised cards for `topic:hermiq-agent-template`
+- [x] A rate-limited/unreachable search returns 200 with an explicit outcome, never a 5xx
+- [x] `POST /api/agent-templates/github/install` creates a `quarantined` + scanned `AgentTemplate`
       via the unchanged `importPackage(source: 'hub')` path
-- [ ] `POST /api/agent-templates/{id}/publish-github` creates a new tagged repo and records
+- [x] `POST /api/agent-templates/{id}/publish-github` creates a new tagged repo and records
       `githubOwner`/`githubRepo`/`publishedAt` on success
-- [ ] Publish/install/search validate owner/repo/ref before any outbound call
-- [ ] No test or code path logs a raw GitHub token or request body on broker failure
-- [ ] `AgentTemplateSerializer::toPackage()` output never contains `githubOwner`/`githubRepo`/
+- [x] Publish/install/search validate owner/repo/ref before any outbound call
+- [x] No test or code path logs a raw GitHub token or request body on broker failure
+- [x] `AgentTemplateSerializer::toPackage()` output never contains `githubOwner`/`githubRepo`/
       `publishedAt`
 
 ## Notes
