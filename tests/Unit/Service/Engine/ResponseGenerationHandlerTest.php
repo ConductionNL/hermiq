@@ -44,7 +44,6 @@ use Psr\Log\NullLogger;
  */
 class ResponseGenerationHandlerTest extends TestCase
 {
-
     /**
      * An Agent ObjectEntity.
      *
@@ -148,6 +147,85 @@ class ResponseGenerationHandlerTest extends TestCase
         $this->assertArrayHasKey('llmSeconds', $handler->lastUsage);
 
     }//end testFireworksPathAssemblesPromptAndForwardsOverrides()
+
+    /**
+     * The Anthropic path wires a `toolExecutor` into callAnthropicChat when the
+     * agent has tools: the executor runs a requested tool by (name, input)
+     * through the SAME governed FunctionInfo the LLPhant path uses, and returns
+     * a clear error for an unknown tool name.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    public function testAnthropicPathWiresGovernedToolExecutor(): void
+    {
+        $capturedExecutor = null;
+        $factory          = $this->createMock(ProviderFactory::class);
+        $factory->method('getLlmConfig')->willReturn(['chatProvider' => 'anthropic']);
+        $factory->method('createChatDriver')->willReturn(
+            new ChatDriver(
+                provider: 'anthropic',
+                chat: null,
+                model: 'claude-opus-4-8',
+                credentialId: 'cred-anthropic',
+                baseUrl: 'https://api.anthropic.com/v1',
+                authMode: 'api_key'
+            )
+        );
+        $factory->method('callAnthropicChat')->willReturnCallback(
+            function (
+                string $credentialId,
+                string $model,
+                string $baseUrl,
+                array $messageHistory,
+                string $authMode,
+                int $maxTokens,
+                array $functions,
+                ?callable $toolExecutor
+            ) use (&$capturedExecutor): string {
+                $capturedExecutor = $toolExecutor;
+                return 'done.';
+            }
+        );
+
+        // A tool instance whose method-call (via __call, since the named tool
+        // method is not declared) echoes its input — mirroring how LLPhant's
+        // FunctionInfo::callWithArguments() dispatches into FacadeToolInvoker.
+        $toolInstance = new class {
+            /**
+             * @param string               $name Tool name.
+             * @param array<string, mixed> $args Named arguments.
+             *
+             * @return string
+             */
+            public function __call(string $name, array $args): string
+            {
+                return 'weather:'.((string) ($args['city'] ?? '?'));
+            }//end __call()
+        };
+        $functionInfo = new \LLPhant\Chat\FunctionInfo\FunctionInfo('get_weather', $toolInstance, 'Get weather', []);
+
+        $loop = $this->createMock(ToolLoop::class);
+        $loop->method('listAgentFunctions')->willReturn(
+            [['name' => 'get_weather', 'description' => 'Get weather', 'parameters' => ['type' => 'object', 'properties' => []]]]
+        );
+        $loop->method('buildFunctionInfos')->willReturn([$functionInfo]);
+
+        $handler = new ResponseGenerationHandler($factory, $loop, new NullLogger());
+        $handler->generateResponse(
+            userMessage: 'weather in Paris?',
+            context: ['text' => '', 'sources' => []],
+            messageHistory: [],
+            agent: $this->agent(['prompt' => 'You are helpful.']),
+            cnAiContext: []
+        );
+
+        $this->assertIsCallable($capturedExecutor, 'A toolExecutor must be passed when the agent has tools.');
+        $this->assertSame('weather:Paris', $capturedExecutor(toolName: 'get_weather', toolInput: ['city' => 'Paris']));
+        $this->assertSame('{"error":"Unknown tool: nope"}', $capturedExecutor(toolName: 'nope', toolInput: []));
+
+    }//end testAnthropicPathWiresGovernedToolExecutor()
 
     /**
      * Selecting the nextcloud TaskProcessing driver for CHAT is refused (its

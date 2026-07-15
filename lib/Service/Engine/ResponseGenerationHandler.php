@@ -304,23 +304,50 @@ class ResponseGenerationHandler
                 // Anthropic uses direct HTTP through the broker (ProviderFactory::
                 // callAnthropicChat) with the auth headers selected by authMode.
                 //
-                // TEXT path works today. The Anthropic tool-use WIRE mapping is built
-                // (ProviderFactory::buildAnthropicTools / parseAnthropicResponse + the
-                // bounded tool loop), but it only activates when a `$toolExecutor`
-                // callable is passed — which is NOT wired here yet, so Claude is offered
-                // NO tools and runs text-only (the fail-safe: never advertise a tool
-                // Hermiq cannot run). @todo anthropic-agent-provider: pass a
-                // `toolExecutor` that runs a tool by (name, input) through Hermiq's
-                // governed executor — the same FacadeToolInvoker the LLPhant branch
-                // builds via ToolLoop::buildFunctionInfos() below — so Claude gets tool
-                // use. Tracked as a follow-up issue.
+                // Tool use: build the SAME governed FunctionInfo objects the LLPhant
+                // branch below uses (ToolLoop::buildFunctionInfos — one shared
+                // FacadeToolInvoker, agent/guardrails/approval/redaction/trace/dry-run
+                // all applied), then hand callAnthropicChat a `$toolExecutor` that runs a
+                // requested tool by (name, input) through that same governed path via
+                // FunctionInfo::callWithArguments(). The tool name Claude receives
+                // (ProviderFactory::buildAnthropicTools) and the FunctionInfo name both
+                // derive from `$functions['name']`, so they match. Executor is null when
+                // there are no tools → callAnthropicChat runs text-only (the fail-safe:
+                // never advertise a tool Hermiq cannot run).
+                $anthropicToolExecutor = null;
+                if (empty($functions) === false) {
+                    $anthropicFunctionInfos = $this->toolLoop->buildFunctionInfos(
+                        functions: $functions,
+                        channel: $channel,
+                        trace: $trace,
+                        agent: $agent,
+                        organisation: $organisation,
+                        dryRun: $dryRun
+                    );
+
+                    $anthropicFnByName = [];
+                    foreach ($anthropicFunctionInfos as $anthropicFunctionInfo) {
+                        $anthropicFnByName[$anthropicFunctionInfo->name] = $anthropicFunctionInfo;
+                    }
+
+                    $anthropicToolExecutor = static function (string $toolName, array $toolInput) use ($anthropicFnByName): string {
+                        $functionInfo = ($anthropicFnByName[$toolName] ?? null);
+                        if ($functionInfo === null) {
+                            return (string) json_encode(['error' => "Unknown tool: {$toolName}"]);
+                        }
+
+                        return (string) $functionInfo->callWithArguments($toolInput);
+                    };
+                }//end if
+
                 $response = $this->providerFactory->callAnthropicChat(
                     credentialId: (string) $driver->credentialId,
                     model: $driver->model,
                     baseUrl: (string) $driver->baseUrl,
                     messageHistory: $messageHistory,
                     authMode: (string) $driver->authMode,
-                    functions: $functions
+                    functions: $functions,
+                    toolExecutor: $anthropicToolExecutor
                 );
                 $llmTime  = microtime(true) - $llmStartTime;
 
