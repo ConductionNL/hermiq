@@ -98,6 +98,22 @@ class BrokerHttpClient implements ClientInterface
     private const BROKER_OWNED_HEADERS = ['authorization', 'x-api-key', 'apikey'];
 
     /**
+     * Response headers that describe the upstream transfer rather than the payload.
+     * The broker already materialised and decoded the body, so forwarding these
+     * would describe a transfer that no longer applies (a stale `Content-Length`
+     * or a `Content-Encoding: gzip` on an already-decoded body).
+     *
+     * @var array<int, string>
+     */
+    private const HOP_BY_HOP_RESPONSE_HEADERS = [
+        'transfer-encoding',
+        'content-encoding',
+        'content-length',
+        'connection',
+        'keep-alive',
+    ];
+
+    /**
      * Constructor.
      *
      * @param string          $credentialId Broker credential UUID. A reference, not a
@@ -188,10 +204,47 @@ class BrokerHttpClient implements ClientInterface
 
         return new Response(
             (int) ($response['status'] ?? 502),
-            ['Content-Type' => 'application/json'],
+            $this->passthroughResponseHeaders(brokerHeaders: ($response['headers'] ?? [])),
             (string) ($response['body'] ?? '')
         );
     }//end sendRequest()
+
+
+    /**
+     * The upstream provider's response headers, minus the transfer-scoped ones.
+     *
+     * The broker returns the provider's real response headers; forwarding them lets
+     * callers read provider signals that only live in headers — `retry-after` and the
+     * `anthropic-ratelimit-*` / `x-ratelimit-*` counters most importantly, since
+     * without them a 429 is indistinguishable from a hard refusal.
+     *
+     * @param mixed $brokerHeaders The broker's `headers` entry (name => list<string>).
+     *
+     * @return array<string, array<int, string>|string> Headers for the PSR-7 response.
+     *
+     * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
+     */
+    private function passthroughResponseHeaders(mixed $brokerHeaders): array
+    {
+        if (is_array($brokerHeaders) === false || $brokerHeaders === []) {
+            return ['Content-Type' => 'application/json'];
+        }
+
+        $out = [];
+        foreach ($brokerHeaders as $name => $values) {
+            if (in_array(strtolower((string) $name), self::HOP_BY_HOP_RESPONSE_HEADERS, true) === true) {
+                continue;
+            }
+
+            $out[(string) $name] = $values;
+        }
+
+        if ($out === []) {
+            return ['Content-Type' => 'application/json'];
+        }
+
+        return $out;
+    }//end passthroughResponseHeaders()
 
     /**
      * The request's headers, minus the ones the broker owns.
