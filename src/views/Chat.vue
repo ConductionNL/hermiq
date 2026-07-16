@@ -1147,17 +1147,19 @@ export default {
 .chat-page__rows {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 2px;
 }
 
+/* Flush list rows matching nc-vue's index-sidebar / NC app-navigation
+   convention (cf. procest /cases): no per-item border, a subtle rounded
+   hover, and a filled active pill — rather than bordered cards. */
 .chat-page__row {
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	padding: 10px 12px;
-	border: 1px solid var(--color-border);
+	padding: 8px 12px;
 	border-radius: var(--border-radius-large, 8px);
-	transition: background-color 0.2s ease;
+	transition: background-color 0.1s ease-in-out;
 }
 
 .chat-page__row:hover {
@@ -1165,8 +1167,11 @@ export default {
 }
 
 .chat-page__row--active {
-	border-color: var(--color-primary-element);
 	background-color: var(--color-primary-element-light);
+}
+
+.chat-page__row--active:hover {
+	background-color: var(--color-primary-element-light-hover, var(--color-primary-element-light));
 }
 
 .chat-page__row-main {
