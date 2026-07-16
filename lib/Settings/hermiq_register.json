@@ -3,7 +3,7 @@
 	"info": {
 		"title": "Hermiq Register",
 		"description": "Schedule autonomous AI agents in Nextcloud",
-		"version": "0.13.0"
+		"version": "0.14.0"
 	},
 	"x-openregister": {
 		"type": "application",
@@ -1354,6 +1354,22 @@
 								}
 							}
 						}
+					},
+					"githubOwner": {
+						"type": "string",
+						"title": "GitHub owner",
+						"description": "Owner (user/org) of the GitHub repository this skill was last published to (hermiq-github-store). Provenance only — read-only, never round-tripped through the exported agentskills.io package (SkillSerializer::toPackage() never emits it)."
+					},
+					"githubRepo": {
+						"type": "string",
+						"title": "GitHub repository",
+						"description": "Name of the GitHub repository this skill was last published to. Provenance only — never round-tripped through the exported package."
+					},
+					"publishedAt": {
+						"type": "string",
+						"format": "date-time",
+						"title": "Published at",
+						"description": "When this skill was last published to GitHub. Provenance only — never round-tripped through the exported package."
 					}
 				}
 			},

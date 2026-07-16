@@ -1,7 +1,7 @@
 # Tasks: hermiq-github-store-skill-schema
 
 <!-- Config-only change: declarative JSON + two version bumps. No PHP, no Vue, no new endpoints.
-     Unindented `- [ ]` count: 4 (well under the Hydra cap of 20). -->
+     Unindented `- [x]` count: 4 (well under the Hydra cap of 20). -->
 
 ## Implementation Tasks
 
@@ -15,8 +15,8 @@
     `description` reworded for skills / `SkillSerializer`.
   - GIVEN the three new fields WHEN the schema is validated THEN none of them appear in the schema's
     `required` array, so pre-existing `Skill` objects stay valid.
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Bump register and app versions so the version-gated re-import applies the fields
 - **spec_ref**: `openspec/changes/hermiq-github-store-skill-schema/specs/skills-catalog/spec.md#requirement-the-skill-schema-records-github-publish-provenance`
@@ -28,8 +28,8 @@
     `agentskill` schema.
   - GIVEN an upgraded instance WHEN the `agentskill` schema is queried THEN the three optional
     provenance fields are present and existing `Skill` objects remain valid.
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 
