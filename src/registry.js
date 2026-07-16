@@ -45,7 +45,6 @@ import Chat from './views/Chat.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import AgentSessions from './views/AgentSessions.vue'
-import SkillsCatalog from './views/SkillsCatalog.vue'
 import TenantOps from './views/TenantOps.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
 // the agent-memory wrapper (AgentMemoryPanel.vue itself stays unchanged).
@@ -59,9 +58,15 @@ import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
 // EvalDatasetDetail page's sole content widget.
 import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
+// skills-catalog: SkillsCatalog's row-actions widget (Approve/Export/Publish/
+// Install), the same pattern as agent-template-row-actions above.
+import SkillRowActions from './widgets/SkillRowActions.vue'
 // agent-template-github-store: the GitHub-backed store section on
 // AgentTemplateGallery, resolved via page.slots.below-header.
 import AgentTemplateGithubStore from './widgets/AgentTemplateGithubStore.vue'
+// inapp-settings-section: Incidents / EU AI Act audit export / Retention,
+// moved off TenantOps.vue onto the Compliance index page's below-header slot.
+import ComplianceOperations from './widgets/ComplianceOperations.vue'
 // manifest-driven-pages: header-action modals, now resolved via the
 // registry's open-modal path instead of being embedded page components.
 import AgentFormModal from './modals/AgentFormModal.vue'
@@ -197,15 +202,6 @@ export default {
 	AgentSessions: {
 		kind: 'page',
 		component: AgentSessions,
-	},
-
-	/**
-	 * Skills catalog — browse tenant skills, import/export agentskills.io packages, and
-	 * install a skill onto an agent (skills-catalog). Standard nav page.
-	 */
-	SkillsCatalog: {
-		kind: 'page',
-		component: SkillsCatalog,
 	},
 
 	/**
@@ -407,6 +403,29 @@ export default {
 	},
 
 	/**
+	 * Skill row actions — "Approve" (quarantined only), "Export", "Publish"
+	 * and "Install on agent" (lazy agent picker), resolved via
+	 * SkillsCatalog's `page.slots.row-actions`. Calls the existing tenant-
+	 * scoped SkillController endpoints (src/api/skills.js) unchanged — never
+	 * a declarative object-op patch, mirroring agent-template-row-actions.
+	 */
+	'skill-row-actions': {
+		kind: 'widget',
+		component: SkillRowActions,
+		defaultSize: { w: 12, h: 1 },
+		minSize: { w: 6, h: 1 },
+		maxSize: { w: 12, h: 2 },
+		allowedSlots: ['body'],
+		propsSchema: {
+			type: 'object',
+			properties: {
+				row: { type: 'object' },
+			},
+		},
+		_note: 'Approve/Export/Publish/Install call tenant-scoped SkillController endpoints (skills-catalog, skills-marketplace) — installedOn association and the quarantine review-gate approval are not expressible via a declarative object-op patch (ADR-049).',
+	},
+
+	/**
 	 * Agent-template GitHub store (agent-template-github-store) — the "GitHub
 	 * store" section of AgentTemplateGallery, resolved via
 	 * `page.slots.below-header`. Searches/installs against
@@ -423,6 +442,24 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'GitHub topic-search + broker-mediated install/publish flow (GitHubTemplateCatalogService/GitHubTemplatePushService) has no OpenRegister object-collection equivalent — object-table/object-list cannot express a third-party REST search or a credential-broker push (ADR-049).',
+	},
+
+	/**
+	 * Compliance operations (inapp-settings-section) — Incidents, EU AI Act
+	 * audit export, and Retention, resolved via the Compliance index page's
+	 * `page.slots.below-header`. Ported unchanged from TenantOps.vue, which
+	 * now retains only true per-organisation operational controls (cost
+	 * guardrails, model policy, access review).
+	 */
+	'compliance-operations': {
+		kind: 'widget',
+		component: ComplianceOperations,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Incident records, the AI Act audit export, and the retention statement are governance actions (createIncident/audit-export/retention endpoints) with no OpenRegister object-collection equivalent — object-list/stats-block cannot express them (ADR-049), mirroring agent-template-github-store\'s below-header placement.',
 	},
 
 	/**

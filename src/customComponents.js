@@ -26,13 +26,11 @@
 
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
-import SkillsCatalog from './views/SkillsCatalog.vue'
 import TenantOps from './views/TenantOps.vue'
 import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
 import AlgorithmRegister from './views/AlgorithmRegister.vue'
 import McpTools from './views/McpTools.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
-import AgentCredentialsSettings from './components/settings/AgentCredentialsSettings.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -48,9 +46,6 @@ export default {
 	// Agent memory (agent-memory change). Custom page: agent picker + tenant-scoped
 	// Memory/Session objects + char-budget bar + consolidation nudge + OR-search recall.
 	AgentMemory,
-	// Skills catalog (skills-catalog change). Custom page: import/export agentskills.io
-	// packages + install a skill onto an agent.
-	SkillsCatalog,
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,
@@ -80,10 +75,4 @@ export default {
 	// Compliance tab — re-homed from the removed top-level `/compliance` nav
 	// page. Unchanged component.
 	ComplianceDashboard,
-	// Agent credentials tab (agent-credentials): mounts the shared
-	// CnCredentials component twice (personal, then organisation) so a user
-	// can bring their own provider key or an org admin can provision a
-	// shared one — every call still goes through OpenRegister's credential
-	// broker; Hermiq never sees the secret.
-	AgentCredentialsSettings,
 }

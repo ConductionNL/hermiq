@@ -114,7 +114,7 @@
 					:placeholder="t('hermiq', 'Select a credential')"
 					label="label" />
 				<p v-if="!loadingCredentials && githubCredentials.length === 0" class="agent-template-row-actions__hint">
-					{{ t('hermiq', 'No GitHub credential yet. Add one under Settings → Agent credentials, then reopen this dialog.') }}
+					{{ t('hermiq', 'No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.') }}
 				</p>
 				<NcButton
 					type="primary"
