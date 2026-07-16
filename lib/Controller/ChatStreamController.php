@@ -40,6 +40,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Service\Engine\ToolGrantResolutionException;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -323,6 +324,31 @@ class ChatStreamController extends Controller
                 'context'          => $context,
             ];
             $this->emitAndExit(eventType: 'final', payload: $finalPayload);
+        } catch (ToolGrantResolutionException $e) {
+            // Deliberately NOT masked, unlike every other failure below. This
+            // message is safe by construction: it carries the agent's own grant
+            // ids — configuration its owner already reads in the tool-grant
+            // editor — and never a secret, path or connection string. Masking it
+            // would leave the owner staring at "an internal error occurred" for a
+            // misconfiguration only they can fix, which is the same silent
+            // degradation this exception exists to end: loud in the log but mute
+            // to the one person who can act on it is not loud enough.
+            $this->logger->error(
+                message: '[ChatStreamController] Agent tool grants resolved to no tools',
+                context: [
+                    'file'      => __FILE__,
+                    'line'      => __LINE__,
+                    'exception' => $e,
+                    'grants'    => $e->getGrants(),
+                ]
+            );
+            $this->emitAndExit(
+                eventType: 'error',
+                payload: [
+                    'code'    => 'tool_grants_unresolved',
+                    'message' => $e->getMessage(),
+                ]
+            );
         } catch (Throwable $e) {
             $this->logger->error(
                 message: '[ChatStreamController] Stream failed',

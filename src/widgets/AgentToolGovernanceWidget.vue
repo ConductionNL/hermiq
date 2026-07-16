@@ -61,11 +61,23 @@ export default {
 		 * .../tool-grants regardless; this only avoids offering an action that
 		 * would be refused).
 		 *
+		 * `owner` is OBJECT METADATA, so it lives under `@self` — not on the
+		 * object body. This reads `agent.owner` as a fallback only: the store
+		 * returns an OpenRegister object, whose own properties are the agent's
+		 * schema fields (name, model, tools, ...) and never include the owner.
+		 * Reading the top level alone made this `undefined === uid` for
+		 * EVERY user, so the grant editor was permanently read-only — the owner
+		 * included, which is the only person it is meant to be writable for.
+		 *
 		 * @return {boolean} True when the current user is the agent's owner.
 		 */
 		isOwner() {
 			const user = getCurrentUser()
-			return !!(user && this.agent && this.agent.owner === user.uid)
+			if (!user || !this.agent) {
+				return false
+			}
+			const owner = this.agent['@self']?.owner ?? this.agent.owner
+			return !!owner && owner === user.uid
 		},
 	},
 
