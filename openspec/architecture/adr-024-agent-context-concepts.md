@@ -1,6 +1,6 @@
 # ADR-024: Agent context concepts — how design.md and document-shaped context reach an agent
 
-**Status:** proposed
+**Status:** accepted
 **Date:** 2026-07-16
 
 ## Context
