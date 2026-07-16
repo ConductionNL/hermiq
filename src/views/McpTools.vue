@@ -145,6 +145,9 @@ export default {
 	margin: 0 0 8px;
 	font-size: 22px;
 	font-weight: 600;
+	/* Settings-section custom page at the top of .app-content — clear the
+	   Nextcloud nav toggle (44px), mirroring nc-vue's dashboard-header rule. */
+	padding-inline-start: 56px;
 }
 
 .mcp-tools__intro {
