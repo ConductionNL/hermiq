@@ -3,11 +3,17 @@
 /**
  * Hermiq GitHubTemplateCatalogService.
  *
- * Server-side GitHub source for the agent-template gallery's "GitHub store"
- * (agent-template-github-store). Searches GitHub for repositories tagged
- * `topic:hermiq-agent-template`, and fetches a hit's portable template package
- * file for install — the SAME JSON shape `AgentTemplateSerializer::toPackage()`
- * produces and `AgentTemplateService::importPackage()` consumes.
+ * Server-side GitHub source for the unified "Store" page's discovery surface
+ * (agent-template-github-store, generalised by hermiq-github-store). Searches
+ * GitHub for repositories tagged either `topic:hermiq-agent-template` or
+ * `topic:hermiq-skill` (a `kind` seam — one call per kind, never both topics in
+ * one round trip), and fetches a hit's portable package file for install: the
+ * JSON shape `AgentTemplateSerializer::toPackage()`/`AgentTemplateService::
+ * importPackage()` produces/consumes for `KIND_AGENT_TEMPLATE`, the
+ * agentskills.io fenced shape `SkillSerializer::toPackage()`/`fromPackage()`
+ * produces/consumes for `KIND_SKILL`. Every returned card carries its `kind`.
+ * Every existing caller that omits the `$kind` parameter gets the exact
+ * agent-template-only behaviour this service had before hermiq-github-store.
  *
  * SSRF-safe by construction (mirrors OpenBuild's GitHubCatalogService, verified
  * at HEAD in `openbuild/lib/Service/GitHubCatalogService.php`): every outbound
@@ -35,6 +41,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+ * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
 
 declare(strict_types=1);
@@ -63,19 +70,44 @@ class GitHubTemplateCatalogService
     private const API_BASE = 'https://api.github.com';
 
     /**
-     * The discovery topic every conforming hermiq template repo carries.
+     * The `AgentTemplate` kind — the original (and default) discovery kind.
      *
      * @var string
      */
-    private const DISCOVERY_TOPIC = 'topic:hermiq-agent-template';
+    public const KIND_AGENT_TEMPLATE = 'agent-template';
 
     /**
-     * The repo-root file name a template repo carries its portable package under
-     * (the same JSON `AgentTemplateSerializer::toPackage()`/`::fromPackage()` shape).
+     * The `Skill` kind (hermiq-github-store) — agentskills.io packages.
      *
      * @var string
      */
-    public const PACKAGE_FILE = 'hermiq-agent-template.json';
+    public const KIND_SKILL = 'skill';
+
+    /**
+     * Per-kind discovery topic (hermiq-github-store: generalised from the single
+     * agent-template-only `DISCOVERY_TOPIC`). Every conforming repo of a kind
+     * carries the matching topic.
+     *
+     * @var array<string,string>
+     */
+    private const DISCOVERY_TOPICS = [
+        self::KIND_AGENT_TEMPLATE => 'topic:hermiq-agent-template',
+        self::KIND_SKILL          => 'topic:hermiq-skill',
+    ];
+
+    /**
+     * Per-kind repo-root package file name (hermiq-github-store: generalised from
+     * the single agent-template-only `PACKAGE_FILE`). The agent-template file is
+     * the JSON shape `AgentTemplateSerializer::toPackage()`/`::fromPackage()`
+     * produces/consumes; the skill file is the agentskills.io fenced-frontmatter
+     * shape `SkillSerializer::toPackage()`/`::fromPackage()` produces/consumes.
+     *
+     * @var array<string,string>
+     */
+    public const PACKAGE_FILES = [
+        self::KIND_AGENT_TEMPLATE => 'hermiq-agent-template.json',
+        self::KIND_SKILL          => 'hermiq-skill.md',
+    ];
 
     /**
      * The credential-broker service FQCN (resolved lazily; may be absent).
@@ -194,29 +226,39 @@ class GitHubTemplateCatalogService
     }//end isBrokerAvailable()
 
     /**
-     * Search GitHub for `topic:hermiq-agent-template` repos and build cards.
+     * Search GitHub for a kind's discovery-topic repos and build cards.
+     *
+     * Hermiq-github-store: generalised with a `$kind` seam (default
+     * `KIND_AGENT_TEMPLATE`, unchanged from the original agent-template-only
+     * behaviour — every existing caller that omits `$kind` gets EXACTLY the prior
+     * result). `SkillController::githubSearch()` calls this with `KIND_SKILL`. The
+     * unified "Store" page issues one call per active kind filter and merges the
+     * kind-tagged cards client-side rather than this method searching both topics
+     * in one round trip — keeping each kind's search independently regression-safe.
      *
      * @param string|null $query        Optional free-text term appended to the topic query.
      * @param string|null $actingUserId The session UID (broker owner-guard identity), or null.
      * @param string|null $credentialId Optional allowed `github` credential to upgrade the call.
+     * @param string      $kind         The discovery kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
      *
      * @return array{outcome:string,cards:array<int,array<string,mixed>>,brokerUsed:bool,rateLimited:bool}
      *
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
+     * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
      */
-    public function search(?string $query, ?string $actingUserId, ?string $credentialId=null): array
+    public function search(?string $query, ?string $actingUserId, ?string $credentialId=null, string $kind=self::KIND_AGENT_TEMPLATE): array
     {
         $term      = trim((string) $query);
         $normalise = strtolower($term);
-        $cacheKey  = 'search:'.md5($normalise.'|'.((string) $credentialId));
+        $cacheKey  = 'search:'.$kind.':'.md5($normalise.'|'.((string) $credentialId));
 
         $cached = $this->cacheGet(key: $cacheKey);
         if (is_array($cached) === true) {
             return $cached;
         }
 
-        $queryString = self::DISCOVERY_TOPIC;
+        $queryString = $this->topicFor(kind: $kind);
         if ($term !== '') {
             $queryString .= ' '.$term;
         }
@@ -252,7 +294,7 @@ class GitHubTemplateCatalogService
                 continue;
             }
 
-            $card = $this->buildCard(item: $item, actingUserId: $actingUserId, credentialId: $credentialId);
+            $card = $this->buildCard(item: $item, kind: $kind, actingUserId: $actingUserId, credentialId: $credentialId);
             if ($card !== null) {
                 $cards[] = $card;
             }
@@ -293,14 +335,10 @@ class GitHubTemplateCatalogService
         ?string $actingUserId,
         ?string $credentialId=null
     ): ?string {
-        if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
-            return null;
-        }
-
-        return $this->fetchFileContents(
+        return $this->fetchPackageFile(
+            kind: self::KIND_AGENT_TEMPLATE,
             owner: $owner,
             repo: $repo,
-            path: self::PACKAGE_FILE,
             ref: $ref,
             actingUserId: $actingUserId,
             credentialId: $credentialId
@@ -308,16 +346,62 @@ class GitHubTemplateCatalogService
     }//end fetchTemplateFile()
 
     /**
+     * Fetch a repo's portable package file for the given kind (raw string,
+     * unparsed) — the generalised form of `fetchTemplateFile()`
+     * (hermiq-github-store). The caller hands this verbatim to the matching
+     * quarantine/scan import path: `AgentTemplateService::importPackage(source:
+     * 'hub')` for `KIND_AGENT_TEMPLATE`, `SkillMarketplaceService::
+     * installFromSource(source: 'hub')` for `KIND_SKILL`. No parsing happens here
+     * beyond that existing serializer/quarantine/scan path.
+     *
+     * @param string      $kind         The discovery kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
+     * @param string      $owner        Repo owner (pattern-validated).
+     * @param string      $repo         Repo name (pattern-validated).
+     * @param string|null $ref          Optional git ref (pattern-validated).
+     * @param string|null $actingUserId The session UID (broker identity), or null.
+     * @param string|null $credentialId Optional allowed `github` credential.
+     *
+     * @return string|null The raw package string, or null when missing/unreadable/invalid.
+     *
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
+     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+     * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+     */
+    public function fetchPackageFile(
+        string $kind,
+        string $owner,
+        string $repo,
+        ?string $ref,
+        ?string $actingUserId,
+        ?string $credentialId=null
+    ): ?string {
+        if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
+            return null;
+        }
+
+        return $this->fetchFileContents(
+            owner: $owner,
+            repo: $repo,
+            path: $this->packageFileFor(kind: $kind),
+            ref: $ref,
+            actingUserId: $actingUserId,
+            credentialId: $credentialId
+        );
+    }//end fetchPackageFile()
+
+    /**
      * Build a card from a search hit's package file (non-installable when the
-     * file is missing/unparseable — the hit is surfaced, never dropped).
+     * file is missing/unparseable — the hit is surfaced, never dropped). Every
+     * card is tagged with its `kind` (hermiq-github-store).
      *
      * @param array<string,mixed> $item         A GitHub search-result item.
+     * @param string              $kind         The discovery kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
      * @param string|null         $actingUserId The session UID (broker identity), or null.
      * @param string|null         $credentialId Optional allowed `github` credential.
      *
      * @return array<string,mixed>|null The card, or null when the item lacks an owner/name.
      */
-    private function buildCard(array $item, ?string $actingUserId, ?string $credentialId): ?array
+    private function buildCard(array $item, string $kind, ?string $actingUserId, ?string $credentialId): ?array
     {
         $fullName  = (string) ($item['full_name'] ?? '');
         $nameParts = explode('/', $fullName);
@@ -336,7 +420,8 @@ class GitHubTemplateCatalogService
         }
 
         $stars    = (int) ($item['stargazers_count'] ?? 0);
-        $contents = $this->fetchTemplateFile(
+        $contents = $this->fetchPackageFile(
+            kind: $kind,
             owner: $owner,
             repo: $repo,
             ref: null,
@@ -349,10 +434,39 @@ class GitHubTemplateCatalogService
                 'owner'       => $owner,
                 'repo'        => $repo,
                 'stars'       => $stars,
+                'kind'        => $kind,
                 'installable' => false,
                 'unparseable' => true,
             ];
         }
+
+        if ($kind === self::KIND_SKILL) {
+            // Agentskills.io packages (SkillSerializer::fromPackage()) never fail to
+            // parse — a missing fence just yields an empty frontmatter/name, so the
+            // only "unparseable" case for a skill is the fetch failure handled above.
+            // SkillSerializer is stateless (no constructor deps) — instantiated
+            // locally rather than injected, so this service's constructor stays
+            // unchanged (regression-safe for every existing test that constructs it
+            // positionally).
+            $parsed = (new SkillSerializer())->fromPackage(package: $contents);
+            $name   = $parsed['name'];
+            if ($name === '') {
+                $name = $repo;
+            }
+
+            return [
+                'owner'       => $owner,
+                'repo'        => $repo,
+                'stars'       => $stars,
+                'kind'        => $kind,
+                'installable' => true,
+                'unparseable' => false,
+                'name'        => $name,
+                'description' => $parsed['description'],
+                'category'    => '',
+                'version'     => '',
+            ];
+        }//end if
 
         $decoded = json_decode($contents, true);
         if (is_array($decoded) === false) {
@@ -360,6 +474,7 @@ class GitHubTemplateCatalogService
                 'owner'       => $owner,
                 'repo'        => $repo,
                 'stars'       => $stars,
+                'kind'        => $kind,
                 'installable' => false,
                 'unparseable' => true,
             ];
@@ -369,6 +484,7 @@ class GitHubTemplateCatalogService
             'owner'       => $owner,
             'repo'        => $repo,
             'stars'       => $stars,
+            'kind'        => $kind,
             'installable' => true,
             'unparseable' => false,
             'name'        => (string) ($decoded['name'] ?? $repo),
@@ -556,6 +672,34 @@ class GitHubTemplateCatalogService
 
         return true;
     }//end validRepo()
+
+    /**
+     * Resolve a kind's discovery topic (hermiq-github-store), falling back to
+     * `KIND_AGENT_TEMPLATE`'s topic for an unrecognised kind.
+     *
+     * @param string $kind The discovery kind.
+     *
+     * @return string The `topic:…` search-qualifier string.
+     */
+    private function topicFor(string $kind): string
+    {
+        return self::DISCOVERY_TOPICS[$kind] ?? self::DISCOVERY_TOPICS[self::KIND_AGENT_TEMPLATE];
+
+    }//end topicFor()
+
+    /**
+     * Resolve a kind's repo-root package file name (hermiq-github-store),
+     * falling back to `KIND_AGENT_TEMPLATE`'s file name for an unrecognised kind.
+     *
+     * @param string $kind The discovery kind.
+     *
+     * @return string The repo-relative package file name.
+     */
+    private function packageFileFor(string $kind): string
+    {
+        return self::PACKAGE_FILES[$kind] ?? self::PACKAGE_FILES[self::KIND_AGENT_TEMPLATE];
+
+    }//end packageFileFor()
 
     /**
      * Read a value from the short-TTL cache (no-op when no cache backend).

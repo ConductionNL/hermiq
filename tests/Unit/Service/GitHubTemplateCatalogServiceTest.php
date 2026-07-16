@@ -293,4 +293,132 @@ class GitHubTemplateCatalogServiceTest extends TestCase
         $this->assertTrue($service->isBrokerAvailable());
 
     }//end testBrokerAvailabilityIsCheckedAgainstOpenRegister()
+
+    /**
+     * search() defaults to `KIND_AGENT_TEMPLATE` — every existing caller that omits
+     * `$kind` gets EXACTLY the prior agent-template-only behaviour and every returned
+     * card is now additionally tagged `kind: 'agent-template'` (hermiq-github-store,
+     * additive field — regression-safe for callers asserting individual keys).
+     *
+     * @return void
+     */
+    public function testSearchDefaultsToAgentTemplateKindAndTagsCards(): void
+    {
+        $searchBody = json_encode([
+            'items' => [
+                ['full_name' => 'acme/demo', 'name' => 'demo', 'owner' => ['login' => 'acme'], 'stargazers_count' => 5],
+            ],
+        ]);
+        $packageJson  = json_encode(['name' => 'Morning briefing', 'description' => 'Summarises overnight tickets.']);
+        $contentsBody = json_encode(['content' => base64_encode((string) $packageJson), 'encoding' => 'base64']);
+
+        $service = new GitHubTemplateCatalogService(
+            $this->clientService([$this->response(200, (string) $searchBody), $this->response(200, (string) $contentsBody)]),
+            $this->noCacheFactory(),
+            new NullLogger()
+        );
+
+        $result = $service->search(query: null, actingUserId: 'alice');
+
+        $this->assertSame(GitHubTemplateCatalogService::OUTCOME_OK, $result['outcome']);
+        $this->assertSame(GitHubTemplateCatalogService::KIND_AGENT_TEMPLATE, $result['cards'][0]['kind']);
+
+    }//end testSearchDefaultsToAgentTemplateKindAndTagsCards()
+
+    /**
+     * search() with `kind: KIND_SKILL` queries `topic:hermiq-skill`, fetches the
+     * `hermiq-skill.md` package file, and parses it via SkillSerializer (agentskills.io
+     * fenced frontmatter, not JSON) — hermiq-github-store's skill discovery path.
+     *
+     * @return void
+     */
+    public function testSearchSkillKindQueriesSkillTopicAndParsesAgentskillsIoPackage(): void
+    {
+        $searchBody = json_encode([
+            'items' => [
+                ['full_name' => 'acme/demo-skill', 'name' => 'demo-skill', 'owner' => ['login' => 'acme'], 'stargazers_count' => 2],
+            ],
+        ]);
+        $skillPackage = "---\nname: Demo skill\ndescription: A demo skill.\n---\nBody content.";
+        $contentsBody = json_encode(['content' => base64_encode($skillPackage), 'encoding' => 'base64']);
+
+        $client = $this->createMock(IClient::class);
+        $client->expects($this->exactly(2))
+            ->method('get')
+            ->willReturnCallback(function (string $url) use ($searchBody, $contentsBody) {
+                if (str_contains($url, '/search/repositories') === true) {
+                    $this->assertStringContainsString('topic%3Ahermiq-skill', $url);
+                    return $this->response(200, (string) $searchBody);
+                }
+
+                $this->assertStringContainsString('hermiq-skill.md', $url);
+                return $this->response(200, (string) $contentsBody);
+            });
+
+        $clientService = $this->createMock(IClientService::class);
+        $clientService->method('newClient')->willReturn($client);
+
+        $service = new GitHubTemplateCatalogService($clientService, $this->noCacheFactory(), new NullLogger());
+
+        $result = $service->search(query: null, actingUserId: 'alice', credentialId: null, kind: GitHubTemplateCatalogService::KIND_SKILL);
+
+        $this->assertSame(GitHubTemplateCatalogService::OUTCOME_OK, $result['outcome']);
+        $this->assertCount(1, $result['cards']);
+        $this->assertSame(GitHubTemplateCatalogService::KIND_SKILL, $result['cards'][0]['kind']);
+        $this->assertTrue($result['cards'][0]['installable']);
+        $this->assertSame('Demo skill', $result['cards'][0]['name']);
+        $this->assertSame('A demo skill.', $result['cards'][0]['description']);
+
+    }//end testSearchSkillKindQueriesSkillTopicAndParsesAgentskillsIoPackage()
+
+    /**
+     * fetchPackageFile() rejects an invalid owner/repo BEFORE any outbound call,
+     * for both kinds (hermiq-github-store — the generalised form of
+     * fetchTemplateFile()'s existing guard).
+     *
+     * @return void
+     */
+    public function testFetchPackageFileRejectsInvalidRepoBeforeAnyCall(): void
+    {
+        $client = $this->createMock(IClient::class);
+        $client->expects($this->never())->method('get');
+
+        $clientService = $this->createMock(IClientService::class);
+        $clientService->method('newClient')->willReturn($client);
+
+        $service = new GitHubTemplateCatalogService($clientService, $this->noCacheFactory(), new NullLogger());
+
+        $this->assertNull(
+            $service->fetchPackageFile(
+                kind: GitHubTemplateCatalogService::KIND_SKILL,
+                owner: '../evil',
+                repo: 'demo',
+                ref: null,
+                actingUserId: 'alice'
+            )
+        );
+
+    }//end testFetchPackageFileRejectsInvalidRepoBeforeAnyCall()
+
+    /**
+     * fetchTemplateFile() is an unchanged thin wrapper around
+     * fetchPackageFile(kind: KIND_AGENT_TEMPLATE) (hermiq-github-store).
+     *
+     * @return void
+     */
+    public function testFetchTemplateFileDelegatesToAgentTemplateKind(): void
+    {
+        $packageJson  = '{"name":"Demo"}';
+        $contentsBody = json_encode(['content' => base64_encode($packageJson), 'encoding' => 'base64']);
+
+        $service = new GitHubTemplateCatalogService(
+            $this->clientService([$this->response(200, (string) $contentsBody)]),
+            $this->noCacheFactory(),
+            new NullLogger()
+        );
+
+        $viaTemplate = $service->fetchTemplateFile(owner: 'acme', repo: 'demo', ref: null, actingUserId: 'alice');
+        $this->assertSame($packageJson, $viaTemplate);
+
+    }//end testFetchTemplateFileDelegatesToAgentTemplateKind()
 }//end class

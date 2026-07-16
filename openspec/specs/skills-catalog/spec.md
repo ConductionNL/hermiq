@@ -1,10 +1,11 @@
 # Skills Catalog Specification
 
-**Status**: active (management surface live-verified; run-loop consumption is an OR seam)
+**Status**: in-progress (management surface live-verified; run-loop consumption is an OR seam; GitHub provenance fields being added)
 
 **Feature tier**: V1
 
 **OpenSpec changes:** `skills-catalog` — DONE: `agentskill`/`agentskillsource` schemas; dependency-free `SkillSerializer` (byte-for-byte agentskills.io round-trip); `SkillService` (import/export/list/install-onto-agent); `SkillController` endpoints; `SkillsCatalog` UI (Playwright-verified: browse, import, install, export). Run-loop consumption of `installedOn` (skill available during a turn) is an OpenRegister seam.
+`hermiq-github-store-skill-schema` — IN PROGRESS: `Skill` schema gains `githubOwner`/`githubRepo`/`publishedAt` (mirroring `AgentTemplate`) so a skill published to GitHub carries its provenance; head of the `hermiq-github-store` config→code chain.
 
 ## Purpose
 

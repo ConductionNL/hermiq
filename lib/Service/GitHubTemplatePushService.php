@@ -35,6 +35,7 @@
  *
  * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
  * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+ * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
  */
 
 declare(strict_types=1);
@@ -67,20 +68,44 @@ class GitHubTemplatePushService
     private const APP_ID = 'hermiq';
 
     /**
-     * The discovery topic every published template repo carries.
+     * The `AgentTemplate` kind — the original (and default) publish kind.
      *
      * @var string
      */
-    private const DISCOVERY_TOPIC = 'hermiq-agent-template';
+    public const KIND_AGENT_TEMPLATE = 'agent-template';
 
     /**
-     * The repo-root file name the committed package is written to (mirrors
-     * GitHubTemplateCatalogService::PACKAGE_FILE — the same convention on both
-     * sides of the publish/install round-trip).
+     * The `Skill` kind (hermiq-github-store) — agentskills.io packages.
      *
      * @var string
      */
-    private const PACKAGE_FILE = 'hermiq-agent-template.json';
+    public const KIND_SKILL = 'skill';
+
+    /**
+     * Per-kind discovery topic (hermiq-github-store: generalised from the single
+     * agent-template-only `DISCOVERY_TOPIC`) every published repo of a kind
+     * carries. NOTE: unlike `GitHubTemplateCatalogService::DISCOVERY_TOPICS`,
+     * these are bare topic names (no `topic:` search-qualifier prefix) — this is
+     * the `repos/.../topics` write API, not the search API.
+     *
+     * @var array<string,string>
+     */
+    private const DISCOVERY_TOPICS = [
+        self::KIND_AGENT_TEMPLATE => 'hermiq-agent-template',
+        self::KIND_SKILL          => 'hermiq-skill',
+    ];
+
+    /**
+     * Per-kind repo-root file name the committed package is written to (mirrors
+     * `GitHubTemplateCatalogService::PACKAGE_FILES` — the same convention on both
+     * sides of the publish/install round-trip).
+     *
+     * @var array<string,string>
+     */
+    private const PACKAGE_FILES = [
+        self::KIND_AGENT_TEMPLATE => 'hermiq-agent-template.json',
+        self::KIND_SKILL          => 'hermiq-skill.md',
+    ];
 
     /**
      * Safe owner/repo pattern (GitHub allows alnum, `-`, `_`, `.`).
@@ -126,6 +151,10 @@ class GitHubTemplatePushService
      *                                  it.
      * @param string|null $actingUserId Credential owner. Required when there is no user
      *                                  session for the broker's ownership guard to read.
+     * @param string      $kind         The publish kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`,
+     *                                  hermiq-github-store). Defaults to `KIND_AGENT_TEMPLATE` —
+     *                                  every existing caller that omits `$kind` gets EXACTLY the
+     *                                  prior agent-template-only behaviour.
      *
      * @return array{repoUrl:string,commitSha:string} The repo URL and the commit SHA the package landed in.
      *
@@ -134,6 +163,7 @@ class GitHubTemplatePushService
      *
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
+     * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
      */
     public function push(
         string $package,
@@ -142,12 +172,13 @@ class GitHubTemplatePushService
         string $visibility,
         string $credentialId,
         ?string $actingUserId=null,
+        string $kind=self::KIND_AGENT_TEMPLATE,
     ): array {
         // Audit log names only owner/repo — never the credential, never the package contents
-        // (a template's systemPrompt may carry anything the author typed).
+        // (a template's systemPrompt/a skill's body may carry anything the author typed).
         $this->logger->info(
-            'Hermiq GitHub template publish: creating repository',
-            ['owner' => $owner, 'repo' => $repo]
+            'Hermiq GitHub publish: creating repository',
+            ['owner' => $owner, 'repo' => $repo, 'kind' => $kind]
         );
 
         if ($this->isBrokerAvailable() === false) {
@@ -171,11 +202,12 @@ class GitHubTemplatePushService
             repo: $repo,
             visibility: $visibility,
             credentialId: $credentialId,
-            actingUserId: $actingUserId
+            actingUserId: $actingUserId,
+            kind: $kind
         );
 
         $defaultBranch = (string) ($repoData['default_branch'] ?? 'main');
-        $this->setTopics(owner: $owner, repo: $repo, credentialId: $credentialId, actingUserId: $actingUserId);
+        $this->setTopics(owner: $owner, repo: $repo, credentialId: $credentialId, actingUserId: $actingUserId, kind: $kind);
 
         $commitSha = $this->commitPackage(
             owner: $owner,
@@ -183,7 +215,8 @@ class GitHubTemplatePushService
             branch: $defaultBranch,
             package: $package,
             credentialId: $credentialId,
-            actingUserId: $actingUserId
+            actingUserId: $actingUserId,
+            kind: $kind
         );
 
         return [
@@ -236,6 +269,7 @@ class GitHubTemplatePushService
      * @param string      $visibility   `public`|`private`.
      * @param string      $credentialId Broker credential UUID.
      * @param string|null $actingUserId Owner of the credential.
+     * @param string      $kind         The publish kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
      *
      * @return array<string,mixed> Decoded repo payload.
      *
@@ -246,7 +280,8 @@ class GitHubTemplatePushService
         string $repo,
         string $visibility,
         string $credentialId,
-        ?string $actingUserId
+        ?string $actingUserId,
+        string $kind
     ): array {
         $created = $this->brokerCall(
             method: 'POST',
@@ -255,7 +290,7 @@ class GitHubTemplatePushService
                 'name'        => $repo,
                 'private'     => ($visibility === 'private'),
                 'auto_init'   => true,
-                'description' => 'Published from Hermiq — a portable Hermiq agent template.',
+                'description' => $this->descriptionFor(kind: $kind),
             ],
             credentialId: $credentialId,
             actingUserId: $actingUserId
@@ -269,12 +304,14 @@ class GitHubTemplatePushService
     }//end createRepo()
 
     /**
-     * Tag the repository with the `hermiq-agent-template` discovery topic.
+     * Tag the repository with the kind's discovery topic
+     * (`hermiq-agent-template`|`hermiq-skill`).
      *
      * @param string      $owner        Owner/organisation.
      * @param string      $repo         Repository name.
      * @param string      $credentialId Broker credential UUID.
      * @param string|null $actingUserId Owner of the credential.
+     * @param string      $kind         The publish kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
      *
      * @return void
      *
@@ -283,12 +320,12 @@ class GitHubTemplatePushService
      * turn an otherwise-successful publish into an error the caller cannot
      * recover from without re-publishing under a new name.
      */
-    private function setTopics(string $owner, string $repo, string $credentialId, ?string $actingUserId): void
+    private function setTopics(string $owner, string $repo, string $credentialId, ?string $actingUserId, string $kind): void
     {
         $this->brokerCall(
             method: 'PUT',
             path: '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo).'/topics',
-            body: ['names' => [self::DISCOVERY_TOPIC]],
+            body: ['names' => [$this->topicFor(kind: $kind)]],
             credentialId: $credentialId,
             actingUserId: $actingUserId,
             failQuietly: true
@@ -305,6 +342,7 @@ class GitHubTemplatePushService
      * @param string      $package      The JSON package string.
      * @param string      $credentialId Broker credential UUID.
      * @param string|null $actingUserId Owner of the credential.
+     * @param string      $kind         The publish kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
      *
      * @return string Commit SHA.
      *
@@ -316,7 +354,8 @@ class GitHubTemplatePushService
         string $branch,
         string $package,
         string $credentialId,
-        ?string $actingUserId
+        ?string $actingUserId,
+        string $kind
     ): string {
         $base = '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo);
 
@@ -351,7 +390,7 @@ class GitHubTemplatePushService
                 'base_tree' => $baseTreeSha,
                 'tree'      => [
                     [
-                        'path' => self::PACKAGE_FILE,
+                        'path' => $this->packageFileFor(kind: $kind),
                         'mode' => '100644',
                         'type' => 'blob',
                         'sha'  => $blobSha,
@@ -366,7 +405,7 @@ class GitHubTemplatePushService
         $commit    = $this->postJson(
             path: $base.'/git/commits',
             body: [
-                'message' => 'chore: publish agent template from Hermiq',
+                'message' => $this->commitMessageFor(kind: $kind),
                 'tree'    => $treeSha,
                 'parents' => [$baseCommitSha],
             ],
@@ -518,6 +557,68 @@ class GitHubTemplatePushService
 
         return $this->decode(body: (string) ($response['body'] ?? ''));
     }//end brokerCall()
+
+    /**
+     * Resolve a kind's discovery topic (hermiq-github-store), falling back to
+     * `KIND_AGENT_TEMPLATE`'s topic for an unrecognised kind.
+     *
+     * @param string $kind The publish kind.
+     *
+     * @return string The bare topic name (no `topic:` search-qualifier prefix).
+     */
+    private function topicFor(string $kind): string
+    {
+        return self::DISCOVERY_TOPICS[$kind] ?? self::DISCOVERY_TOPICS[self::KIND_AGENT_TEMPLATE];
+
+    }//end topicFor()
+
+    /**
+     * Resolve a kind's repo-root package file name (hermiq-github-store),
+     * falling back to `KIND_AGENT_TEMPLATE`'s file name for an unrecognised kind.
+     *
+     * @param string $kind The publish kind.
+     *
+     * @return string The repo-relative package file name.
+     */
+    private function packageFileFor(string $kind): string
+    {
+        return self::PACKAGE_FILES[$kind] ?? self::PACKAGE_FILES[self::KIND_AGENT_TEMPLATE];
+
+    }//end packageFileFor()
+
+    /**
+     * Kind-appropriate new-repo description (hermiq-github-store).
+     *
+     * @param string $kind The publish kind.
+     *
+     * @return string The repo description.
+     */
+    private function descriptionFor(string $kind): string
+    {
+        if ($kind === self::KIND_SKILL) {
+            return 'Published from Hermiq — a portable Hermiq agent skill.';
+        }
+
+        return 'Published from Hermiq — a portable Hermiq agent template.';
+
+    }//end descriptionFor()
+
+    /**
+     * Kind-appropriate commit message (hermiq-github-store).
+     *
+     * @param string $kind The publish kind.
+     *
+     * @return string The commit message.
+     */
+    private function commitMessageFor(string $kind): string
+    {
+        if ($kind === self::KIND_SKILL) {
+            return 'chore: publish agent skill from Hermiq';
+        }
+
+        return 'chore: publish agent template from Hermiq';
+
+    }//end commitMessageFor()
 
     /**
      * Decode a JSON response body into an array.

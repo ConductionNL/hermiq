@@ -2,9 +2,10 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
-  AgentTemplateRowActions — AgentTemplateGallery's per-row write actions as a
+  AgentTemplateRowActions — the unified Store page's (formerly
+  AgentTemplateGallery, hermiq-github-store) per-row write actions as a
   `page.slots.row-actions` custom widget over the generic `type:"index"`
-  AgentTemplateGallery page (manifest-driven-pages).
+  Store page (manifest-driven-pages).
 
   "Use this template", "Approve" (quarantined only) and "Export" all call the
   existing guarded AgentTemplateController endpoints unchanged

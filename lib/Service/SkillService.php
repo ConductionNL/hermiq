@@ -135,6 +135,44 @@ class SkillService
     }//end exportSkill()
 
     /**
+     * Stamp GitHub publish provenance onto a Skill — `githubOwner`/`githubRepo`/
+     * `publishedAt` only (hermiq-github-store). Provenance-only: never
+     * round-tripped through the exported agentskills.io package
+     * (`SkillSerializer::toPackage()` never emits these fields), mirroring
+     * `AgentTemplateService::update()`'s stamp in `AgentTemplateController::
+     * publishGithub()`.
+     *
+     * @param string $skillId     The Skill UUID.
+     * @param string $owner       The GitHub owner the skill was published to.
+     * @param string $repo        The GitHub repository name.
+     * @param string $publishedAt ISO-8601 publish timestamp.
+     *
+     * @return ObjectEntity|null The updated Skill, or null when not found.
+     *
+     * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    public function stampGithubPublish(string $skillId, string $owner, string $repo, string $publishedAt): ?ObjectEntity
+    {
+        $skill = $this->getSkill(skillId: $skillId);
+        if ($skill === null) {
+            return null;
+        }
+
+        $data = $skill->getObject();
+        $data['githubOwner'] = $owner;
+        $data['githubRepo']  = $repo;
+        $data['publishedAt'] = $publishedAt;
+
+        return $this->objectService->saveObject(
+            object: $data,
+            register: self::REGISTER_SLUG,
+            schema: self::SKILL_SCHEMA,
+            uuid: (string) $skill->getUuid()
+        );
+
+    }//end stampGithubPublish()
+
+    /**
      * List the skills visible in the caller's tenant.
      *
      * @return array<int, ObjectEntity> The Skill objects.

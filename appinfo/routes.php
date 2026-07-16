@@ -291,6 +291,11 @@ return [
         ['name' => 'skill#index',   'url' => '/api/skills', 'verb' => 'GET'],
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],
         ['name' => 'skill#export',  'url' => '/api/skills/{id}/export', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        // GitHub-backed skill store (hermiq-github-store): registered before the
+        // {id} routes, same reasoning as agent-templates' 'github/search' below —
+        // the literal 'github' path segment must never fall into the {id} matcher.
+        ['name' => 'skill#githubSearch',  'url' => '/api/skills/github/search', 'verb' => 'GET'],
+        ['name' => 'skill#githubInstall', 'url' => '/api/skills/github/install', 'verb' => 'POST'],
         ['name' => 'skill#install', 'url' => '/api/skills/{id}/install', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         [
             'name'         => 'skill#uninstall',
@@ -303,6 +308,14 @@ return [
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillMarketplace#publish',           'url' => '/api/skills/{id}/publish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        // GitHub publish — the new PRIMARY skill-publish path (hermiq-github-store);
+        // the OpenConnector hub 'publish' route above remains secondary.
+        [
+            'name'         => 'skillMarketplace#githubPublish',
+            'url'          => '/api/skills/{id}/github/publish',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
 
         // Agent template gallery (agent-template-gallery): browse/CRUD the tenant's
         // AgentTemplate catalog, export an Agent to a package, import a package

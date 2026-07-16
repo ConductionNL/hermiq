@@ -1,5 +1,9 @@
 # agent-template-github-store Specification
 
+**Status**: in-progress (agent-template GitHub search + publish live; being generalised to also cover skills and unified into one Store page)
+
+**OpenSpec changes:** `agent-template-github-store` — DONE: server-backed GitHub search for `topic:hermiq-agent-template` repos (`GitHubTemplateCatalogService`) + broker-authed publish (`GitHubTemplatePushService`, the GitHub token never reaches Hermiq). `hermiq-github-store` — IN PROGRESS: generalises both services to also index/push skills, and replaces `AgentTemplateGallery` with one unified Store page (agent templates + skills, per-kind filter); the `/agent-templates` route + menu item are removed.
+
 ## Purpose
 TBD - created by archiving change agent-template-github-store. Update Purpose after archive.
 ## Requirements
