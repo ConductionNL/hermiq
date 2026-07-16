@@ -73,6 +73,7 @@ use OCP\TaskProcessing\Task;
 use OCP\TaskProcessing\TaskTypes\TextToText;
 use OpenAI;
 use Psr\Log\LoggerInterface;
+use stdClass;
 use Throwable;
 
 /**
@@ -85,6 +86,11 @@ use Throwable;
  * driver-build + direct-HTTP branch of its own (openai/ollama/fireworks/anthropic/
  * nextcloud); the aggregate complexity is inherent to being the single provider seam,
  * and each branch stays individually simple.
+ * @SuppressWarnings(PHPMD.TooManyMethods)           Anthropic's `cli` transport adds a
+ * small family of private, single-purpose helpers (availability, credential, dispatch,
+ * mapping). Keeping them here is deliberate: they belong to the provider branch this
+ * class already owns, and each stays individually trivial. See
+ * `openspec/changes/cli-runner-text-turn-dispatch/design.md` — "The dispatch seam".
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
  */
@@ -111,6 +117,46 @@ class ProviderFactory
      * @var string
      */
     private const RUNNER_ROUTE = '/run';
+
+    /**
+     * AppAPI's public interface — resolved LAZILY by class-name string so Hermiq still boots
+     * and still serves `executionMode: http` on an instance without AppAPI. Mirrors
+     * {@see BrokerHttpClient::BROKER_CLASS}.
+     *
+     * @var string
+     */
+    private const APP_API_PUBLIC_FUNCTIONS = 'OCA\\AppAPI\\PublicFunctions';
+
+    /**
+     * The runner's own CLI timeout (SECONDS), mirrored from `runner.js`'s `RUNNER_TIMEOUT_MS`
+     * default (120000ms), after which the runner SIGKILLs the CLI and reports why.
+     *
+     * Known limit, recorded not solved: `RUNNER_TIMEOUT_MS` is a container env var Hermiq
+     * cannot read, so this tracks the runner's DEFAULT rather than its live value.
+     *
+     * @var int
+     */
+    private const RUNNER_CLI_TIMEOUT_SECONDS = 120;
+
+    /**
+     * Slack (SECONDS) added to the runner's own timeout to form Hermiq's.
+     *
+     * Deliberately positive: Hermiq MUST outwait the runner so the runner's kill-and-report
+     * wins the race and the operator gets the real reason instead of a generic timeout.
+     * Expressing Hermiq's timeout as "the runner's + slack" makes that invariant structural —
+     * it cannot drift by editing one of two unrelated magic numbers.
+     *
+     * @var int
+     */
+    private const CLI_DISPATCH_TIMEOUT_SLACK_SECONDS = 30;
+
+    /**
+     * The personal credential scope — the ONLY scope an `anthropic-cli` (Claude Max/Pro
+     * subscription) credential may carry, per the Anthropic Terms of Service.
+     *
+     * @var string
+     */
+    private const CREDENTIAL_SCOPE_PERSONAL = 'personal';
 
     /**
      * Hard cap on Anthropic/runner tool-call round-trips per turn — a safety bound so a
@@ -584,6 +630,13 @@ class ProviderFactory
      *                                      governed tool executor. When null, tools are NOT
      *                                      offered to the model (a pure text turn), so the
      *                                      model can never request a tool Hermiq cannot run.
+     * @param string        $executionMode  Transport: `http` (default — the direct Messages
+     *                                      API, unchanged) or `cli` (the `hermiq-llm-runner`
+     *                                      ExApp running the official `claude` CLI). Defaulted
+     *                                      so the signature stays backward-compatible: a call
+     *                                      site that does not pass it keeps today's exact
+     *                                      behaviour. `cli` is TEXT-ONLY — see
+     *                                      {@see callAnthropicCli()}.
      *
      * @return string Generated response text (the final assistant turn).
      *
@@ -595,6 +648,7 @@ class ProviderFactory
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors callFireworksChat's direct-HTTP signature
      *
      * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-both-api-key-and-claude-max-oauth-auth-modes-are-supported
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-execution-mode-selects-the-anthropic-transport-and-defaults-to-http
      */
     public function callAnthropicChat(
         string $credentialId,
@@ -604,8 +658,21 @@ class ProviderFactory
         string $authMode='api_key',
         int $maxTokens=4096,
         array $functions=[],
-        ?callable $toolExecutor=null
+        ?callable $toolExecutor=null,
+        string $executionMode='http'
     ): string {
+        // `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
+        // Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
+        // below this point, and `http` must stay bit-for-bit unaffected.
+        if ($executionMode === 'cli') {
+            return $this->callAnthropicCli(
+                credentialId: $credentialId,
+                model: $model,
+                messageHistory: $messageHistory,
+                functions: $functions
+            );
+        }
+
         $url = rtrim($baseUrl, '/').'/messages';
 
         // Anthropic keeps the system prompt OUT of `messages`; hoist system turns into
@@ -681,6 +748,471 @@ class ProviderFactory
         return $text;
 
     }//end callAnthropicChat()
+
+    /**
+     * Run ONE Anthropic turn through the `hermiq-llm-runner` ExApp's `claude` CLI.
+     *
+     * The `cli` sibling of the `http` path above, under the same seam: the Engine, the
+     * handlers and the SSE controller never learn which transport ran — this returns the
+     * completion as a plain string exactly as `callAnthropicChat()` does.
+     *
+     * It exists because Anthropic categorically refuses a Claude Max/Pro subscription OAuth
+     * token on the raw Messages API (HTTP 429 `rate_limit_error` carrying no rate-limit
+     * counters — see the 429 handler below); the official CLI is the ToS-sanctioned path for
+     * a subscription.
+     *
+     * **TEXT-ONLY, by construction.** `claude -p` accepts no tool schema and the runner
+     * carries no `tools` field, so a tool-bearing turn is REFUSED here rather than quietly
+     * served tool-less. Governed MCP tool support is a separate change.
+     *
+     * Order is load-bearing — tools and availability are checked BEFORE the credential is
+     * resolved, so a doomed turn pulls no secret from the vault and spends no subscription
+     * quota.
+     *
+     * @param string $credentialId   Broker credential UUID — NOT a secret.
+     * @param string $model          Model identifier; empty ⇒ the CLI's own default.
+     * @param array  $messageHistory Array of LLPhant Message objects.
+     * @param array  $functions      OpenAI-style tool definitions. Non-empty ⇒ the turn is refused.
+     *
+     * @return string The completion text.
+     *
+     * @throws ProviderUnavailableException When tools are present (503), the runner or AppAPI
+     *                                      is unavailable (503), the credential cannot be
+     *                                      resolved or is organisation-scope (503), or the
+     *                                      dispatch fails (503).
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-a-cli-turn-that-carries-tools-is-refused-never-run-tool-less
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
+     */
+    private function callAnthropicCli(
+        string $credentialId,
+        string $model,
+        array $messageHistory,
+        array $functions=[]
+    ): string {
+        // 0. Tools are REFUSED, not served. Deliberately NOT the fail-open the `http` path
+        // above uses (tools + no executor → warn → run text-only): a tool-less agent looks
+        // completely healthy and simply never calls a tool, so nothing alarms on it. An
+        // operator who selected `cli` for a tool-using agent must get a clear signal, and
+        // must NOT be silently downgraded to `http` either — a different transport with a
+        // different credential is a confusing failure far from its cause.
+        if (empty($functions) === false) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot serve a turn that carries tools: the Claude CLI '
+                .'accepts no tool schema, so this turn was refused rather than answered without its '
+                .'tools. Switch this agent to executionMode "http" to use tools.',
+                503
+            );
+        }
+
+        // 1. Availability — each component named separately, before any secret is touched.
+        $this->assertCliRunnerAvailable();
+
+        // 2. Credential. Local variable only: never stored on the ChatDriver (handlers hold
+        // that object), never logged, never in an exception message, never in a trace.
+        $uid   = $this->currentUid();
+        $token = $this->resolveCliToken(credentialId: $credentialId, uid: $uid);
+
+        // 3+4. Dispatch and map.
+        return $this->dispatchCliTurn(
+            model: $model,
+            messageHistory: $messageHistory,
+            token: $token,
+            uid: $uid
+        );
+
+    }//end callAnthropicCli()
+
+    /**
+     * Assert that the `cli` transport's components are installed and enabled.
+     *
+     * Each failure names WHICH component is missing — an operator cannot act on a generic
+     * "cli unavailable". Runs before the credential is resolved.
+     *
+     * Note the asymmetry: `app_api` is a normal Nextcloud app and `IAppManager` can see it,
+     * but an ExApp is NOT — ExApps live in AppAPI's own `ex_apps` table and are invisible to
+     * `IAppManager` (`occ app:list` shows only `app_api`). The ExApp is therefore checked
+     * through AppAPI's own public seam, `PublicFunctions::getExApp()`, which reports
+     * `enabled`. Asking `IAppManager` about the runner would report it missing even when it
+     * is deployed and healthy.
+     *
+     * @return void
+     *
+     * @throws ProviderUnavailableException When any component is unavailable (503).
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     */
+    private function assertCliRunnerAvailable(): void
+    {
+        if ($this->appManager === null) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" is unavailable: the Nextcloud app manager could not be '
+                .'resolved, so the runner ExApp cannot be detected. Use executionMode "http".',
+                503
+            );
+        }
+
+        if ($this->appManager->isInstalled(self::APP_API_ID) === false) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" is unavailable: the AppAPI app ("'.self::APP_API_ID.'") is '
+                .'not enabled. Enable it, or use executionMode "http".',
+                503
+            );
+        }
+
+        // Resolved lazily by class-name string, never a hard `use` or constructor type:
+        // Hermiq MUST still boot and still serve `http` with AppAPI absent.
+        if (class_exists(self::APP_API_PUBLIC_FUNCTIONS) === false) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" is unavailable: the AppAPI public interface could not be '
+                .'loaded. Use executionMode "http".',
+                503
+            );
+        }
+
+        $exApp = $this->appApiPublicFunctions()->getExApp(self::RUNNER_EXAPP_ID);
+        if ($exApp === null) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" is unavailable: the "'.self::RUNNER_EXAPP_ID.'" ExApp is not '
+                .'installed. Install it, or use executionMode "http".',
+                503
+            );
+        }
+
+        if (($exApp['enabled'] ?? false) === false) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" is unavailable: the "'.self::RUNNER_EXAPP_ID.'" ExApp is '
+                .'installed but disabled. Enable it, or use executionMode "http".',
+                503
+            );
+        }
+
+    }//end assertCliRunnerAvailable()
+
+    /**
+     * Resolve the subscription token for the CLI, failing closed.
+     *
+     * Hermiq's first `resolveInjectable()` caller. The broker keeps custody of the secret and
+     * still runs its own guards (owner/IDOR and `allowedApps`) — neither is reimplemented
+     * here. The plaintext token crossing into Hermiq's process is a conscious, bounded
+     * weakening of the broker's "the app never sees the secret" posture: it is forced, because
+     * a CLI needs its token in the process environment, so there is no request to proxy and no
+     * header to substitute.
+     *
+     * The organisation-scope refusal is Hermiq's own: a Claude Max/Pro subscription is
+     * PERSONAL-SCOPE ONLY per the Anthropic Terms of Service. The broker does NOT enforce
+     * this — its Guard 1 deliberately admits any organisation MEMBER for an
+     * organisation-scope credential — so this is the only enforcement point.
+     *
+     * @param string      $credentialId The broker credential UUID.
+     * @param string|null $uid          The acting user's UID, or null when there is no session.
+     *
+     * @return string The resolved token. Never logged, never returned in an exception.
+     *
+     * @throws ProviderUnavailableException When the scope cannot be verified, the credential is
+     *                                      organisation-scope, or no token can be resolved (503).
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+     */
+    private function resolveCliToken(string $credentialId, ?string $uid): string
+    {
+        $this->assertPersonalScopeCredential(credentialId: $credentialId);
+
+        if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" is unavailable: the OpenRegister credential broker is not '
+                .'available, so the subscription token cannot be resolved.',
+                503
+            );
+        }
+
+        try {
+            $broker = Server::get(BrokerHttpClient::BROKER_CLASS);
+            $token  = $broker->resolveInjectable($credentialId, BrokerHttpClient::APP_ID, $uid);
+        } catch (Throwable $e) {
+            // The broker's own denial reasons (owner/allowedApps) are operator-relevant but
+            // may name internals; log server-side, surface a static message (ADR-005).
+            $this->logger->warning(
+                '[ProviderFactory] Anthropic cli credential could not be resolved through the broker',
+                [
+                    'credentialId' => $credentialId,
+                    'reason'       => $e->getMessage(),
+                ]
+            );
+
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot use this credential: the credential broker refused to '
+                .'resolve it. Check that the credential is owned by the acting user and allows the "hermiq" '
+                .'app.',
+                503
+            );
+        }//end try
+
+        // A null is a ROUTING signal from the broker ("not inject-only — use request()
+        // instead"), not a denial. But a CLI has no request() fallback, so here it is fatal.
+        // Do NOT fall back to `http` with a subscription token the Messages API refuses anyway.
+        if ($token === null || $token === '') {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot use this credential: it is not an inject-only '
+                .'credential, so its secret cannot be placed in the CLI\'s environment. Select an '
+                .'"anthropic-cli" (Claude Max subscription) credential, or use executionMode "http".',
+                503
+            );
+        }
+
+        return $token;
+
+    }//end resolveCliToken()
+
+    /**
+     * Assert the credential is personal-scope — an Anthropic Terms of Service constraint.
+     *
+     * A Claude Max/Pro subscription serves only its owner and MUST be refused at organisation
+     * scope. This cannot be delegated to the broker: `resolveInjectable()` returns a bare
+     * `string|null`, its `scopeOf()` is private, and its Guard 1 ADMITS any organisation
+     * member for an organisation-scope credential. Fails CLOSED when the scope cannot be
+     * established at all.
+     *
+     * @param string $credentialId The broker credential UUID.
+     *
+     * @return void
+     *
+     * @throws ProviderUnavailableException When the scope is organisation, unknown, or unverifiable (503).
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+     */
+    private function assertPersonalScopeCredential(string $credentialId): void
+    {
+        if ($this->credentialResolver === null) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" is unavailable: the credential scope could not be verified, '
+                .'and a Claude Max/Pro subscription may only be used at personal scope.',
+                503
+            );
+        }
+
+        $scope = $this->credentialResolver->scopeOfCredential($credentialId);
+        if ($scope === null) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot use this credential: it could not be found in the '
+                .'credential broker, so its scope cannot be verified.',
+                503
+            );
+        }
+
+        if ($scope !== self::CREDENTIAL_SCOPE_PERSONAL) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" refuses this credential: it is organisation-scope, and a '
+                .'Claude Max/Pro subscription is PERSONAL-SCOPE ONLY under the Anthropic Terms of Service — '
+                .'it may serve only its owner. Use a personal credential, or an Anthropic API key over '
+                .'executionMode "http".',
+                503
+            );
+        }
+
+    }//end assertPersonalScopeCredential()
+
+    /**
+     * Dispatch one assembled turn to the runner over AppAPI and map the result.
+     *
+     * Two AppAPI defaults are traps here and BOTH are overridden explicitly; neither is
+     * visible in `exAppRequest()`'s signature:
+     *
+     * 1. **`timeout` defaults to 3 SECONDS** (`AppAPIService::prepareRequestToExApp()`, guarded
+     *    by `if (!isset($options['timeout']))`) while the runner allows the CLI 120s. Omitting
+     *    it makes the feature 0% functional: every turn fails at 3s while the container runs to
+     *    completion and bills the user's real subscription. An explicit timeout is passed
+     *    instead ({@see cliDispatchOptions()}) — the runner's own 120s plus slack, so it is
+     *    GREATER than the runner's kill by construction and the runner's kill-and-report wins
+     *    the race, giving the operator the real reason instead of a generic timeout.
+     * 2. **AppAPI NEVER throws** — failure is the RETURN VALUE, in three shapes: a caught
+     *    `\Exception` returns `['error' => ...]` (timeouts included), a missing ExApp returns
+     *    `['error' => 'ExApp ... not found']`, and `http_errors => false` means a 502 arrives as
+     *    an ordinary IResponse. The checks below therefore run in a load-bearing order — array
+     *    error, then status, then a usable `text`. Any other order reads an error string as the
+     *    model's answer.
+     *
+     * @param string      $model          Model identifier; empty ⇒ the CLI's own default.
+     * @param array       $messageHistory Array of LLPhant Message objects.
+     * @param string      $token          The resolved subscription token (never logged).
+     * @param string|null $uid            The acting user's UID.
+     *
+     * @return string The completion text.
+     *
+     * @throws ProviderUnavailableException On any transport, status, or shape failure (503).
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     */
+    private function dispatchCliTurn(string $model, array $messageHistory, string $token, ?string $uid): string
+    {
+        // `credentialEnv`'s key is EXACTLY the one the runner's anthropic adapter allowlists.
+        // A key outside the allowlist is dropped WITHOUT an error, which would yield an
+        // unauthenticated CLI rather than a 400 — so this string has to be exactly right.
+        $params = [
+            'provider'      => 'anthropic',
+            'model'         => $model,
+            'messages'      => $this->mapHistoryToCliMessages(messageHistory: $messageHistory),
+            'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
+        ];
+
+        $result = $this->appApiPublicFunctions()->exAppRequest(
+            self::RUNNER_EXAPP_ID,
+            self::RUNNER_ROUTE,
+            $uid,
+            'POST',
+            $params,
+            $this->cliDispatchOptions()
+        );
+
+        // Check 1 — the never-throws failure channel. MUST precede any body read.
+        if (is_array($result) === true) {
+            $this->logger->warning(
+                '[ProviderFactory] Anthropic cli dispatch failed at the AppAPI transport',
+                ['reason' => (string) ($result['error'] ?? 'unknown')]
+            );
+
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" could not reach the "'.self::RUNNER_EXAPP_ID.'" ExApp. '
+                .'Check that the ExApp is running.',
+                503
+            );
+        }
+
+        // Check 2 — http_errors => false, so a 4xx/5xx is an ordinary response.
+        $status = $result->getStatusCode();
+        if ($status < 200 || $status > 299) {
+            $this->logger->warning(
+                '[ProviderFactory] Anthropic cli runner returned a non-success status',
+                ['status' => $status]
+            );
+
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" failed: the runner returned an error while executing the '
+                .'turn. Check the ExApp\'s logs.',
+                503
+            );
+        }
+
+        // Check 3 — only now is the body the model's answer.
+        return $this->mapCliCompletion(body: (string) $result->getBody());
+
+    }//end dispatchCliTurn()
+
+    /**
+     * Build the AppAPI request options for a `cli` dispatch.
+     *
+     * A named seam purely so the 3s-default trap is directly assertable: a test can pin that
+     * `timeout` is PRESENT and EXCEEDS the runner's own CLI timeout, so it cannot silently
+     * regress to AppAPI's default and take the feature to 0% functional.
+     *
+     * @return array{timeout: int} AppAPI request options.
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     */
+    private function cliDispatchOptions(): array
+    {
+        return ['timeout' => (self::RUNNER_CLI_TIMEOUT_SECONDS + self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS)];
+
+    }//end cliDispatchOptions()
+
+    /**
+     * Map the runner's 200 body into the turn's answer.
+     *
+     * The runner returns `{text, toolCalls, usage}`. Only `text` is read:
+     *
+     * - `toolCalls` is structurally ALWAYS `[]` — the runner's `pickToolCalls()` reads a key
+     *   nothing populates, because `run()` has no `tools` — so it is ignored rather than
+     *   treated as reachable behaviour.
+     * - `usage` is the CLI's own object. It is deliberately NOT threaded: the `http` Anthropic
+     *   branch records latency only (`ResponseGenerationHandler`'s `lastUsage`), and this path
+     *   mirrors that shape exactly. Threading richer usage would close a pre-existing gap that
+     *   is present on BOTH branches and is not this change's to close.
+     *
+     * @param string $body The runner's raw 200 response body.
+     *
+     * @return string The completion text.
+     *
+     * @throws ProviderUnavailableException When the body is not decodable or carries no usable text (503).
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
+     */
+    private function mapCliCompletion(string $body): string
+    {
+        $decoded = json_decode($body, true);
+        if (is_array($decoded) === false) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" failed: the runner returned a response Hermiq could not '
+                .'read.',
+                503
+            );
+        }
+
+        $text = ($decoded['text'] ?? null);
+        if (is_string($text) === false || $text === '') {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" failed: the runner returned no completion text.',
+                503
+            );
+        }
+
+        return $text;
+
+    }//end mapCliCompletion()
+
+    /**
+     * Flatten an LLPhant message history into the runner's `messages` shape.
+     *
+     * Deliberately NOT {@see mapHistoryToAnthropicMessages()}: that hoists system turns into a
+     * separate top-level `system` field, which the Messages API requires but the runner has NO
+     * field for. Reusing it here would SILENTLY DROP the system prompt — the agent's entire
+     * persona and instructions — on every `cli` turn. The runner's `buildPrompt()` renders each
+     * message as `ROLE: content`, so the system turn is carried in-band instead, exactly as the
+     * runner's contract specifies (`messages: [{role: "system|user|assistant", content}]`).
+     *
+     * @param array $messageHistory Array of LLPhant Message objects.
+     *
+     * @return array<int, array<string, string>> The runner's `messages` array.
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
+     */
+    private function mapHistoryToCliMessages(array $messageHistory): array
+    {
+        $messages = [];
+        foreach ($messageHistory as $msg) {
+            $content = (string) $msg->content;
+            if ($content === '') {
+                continue;
+            }
+
+            $messages[] = [
+                'role'    => $msg->role->value,
+                'content' => $content,
+            ];
+        }
+
+        return $messages;
+
+    }//end mapHistoryToCliMessages()
+
+    /**
+     * Resolve AppAPI's public interface lazily, by class-name string.
+     *
+     * Never a hard `use` or a constructor type — Hermiq MUST still boot and still serve `http`
+     * on an instance with no AppAPI installed. Mirrors `BrokerHttpClient`'s pattern for the
+     * credential broker. Callers assert {@see APP_API_PUBLIC_FUNCTIONS} exists first.
+     *
+     * `AppAPIService` internals were read as EVIDENCE for this dispatch's traps; they are not
+     * an API to call. `PublicFunctions` is the supported seam.
+     *
+     * @return object AppAPI's `PublicFunctions`.
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     */
+    private function appApiPublicFunctions(): object
+    {
+        return Server::get(self::APP_API_PUBLIC_FUNCTIONS);
+
+    }//end appApiPublicFunctions()
 
     /**
      * Split an LLPhant message history into Anthropic's `{system, messages}` shape.
@@ -760,10 +1292,10 @@ class ProviderFactory
             // json_encode emits an empty PHP array as `[]` (a JSON array), which
             // Anthropic rejects with "Input should be an object". Force an empty
             // stdClass so it serialises as `{}`.
-            if (isset($schema['properties']) === false
-                || ($schema['properties'] === [] || $schema['properties'] === null)
-            ) {
-                $schema['properties'] = new \stdClass();
+            // `isset()` is already false for a null properties, so an explicit
+            // `=== null` here would be unreachable.
+            if (isset($schema['properties']) === false || $schema['properties'] === []) {
+                $schema['properties'] = new stdClass();
             }
 
             $tools[] = [
@@ -977,7 +1509,7 @@ class ProviderFactory
                 }
 
                 throw new Exception('Rate limit exceeded. Please try again later.');
-            }
+            }//end if
 
             throw new Exception("Anthropic API error (HTTP {$httpCode}): {$errorMessage}");
         }//end if
@@ -1109,7 +1641,8 @@ class ProviderFactory
                 model: $driver->model,
                 baseUrl: (string) $driver->baseUrl,
                 messageHistory: [LLPhantMessage::user($prompt)],
-                authMode: (string) $driver->authMode
+                authMode: (string) $driver->authMode,
+                executionMode: $driver->executionMode
             );
         }
 
@@ -1355,28 +1888,28 @@ class ProviderFactory
         }
 
         // `executionMode: cli` (llm-cli-runner-exapp) routes the turn through the
-        // hermiq-llm-runner ExApp instead of direct HTTP. The AppAPI dispatch to the
-        // ExApp `/run` route is not yet wired (tracked follow-up), so fail LOUDLY here
-        // rather than silently serving the `http` path — an operator who selected `cli`
-        // must get a clear signal, not a different transport.
+        // hermiq-llm-runner ExApp's `claude` CLI instead of the direct Messages API; `http`
+        // (the default) is unchanged. Anything other than `cli` normalises to `http`, so an
+        // unrecognised value can never select a transport that does not exist.
         $executionMode = ($anthropicConfig['executionMode'] ?? 'http');
-        if ($executionMode === 'cli') {
-            $message  = 'Anthropic executionMode "cli" (hermiq-llm-runner ExApp) is not yet available: ';
-            $message .= 'the AppAPI dispatch to the runner is a tracked follow-up. Use executionMode "http" for now.';
-            throw new ProviderUnavailableException($message, 503);
+        if ($executionMode !== 'cli') {
+            $executionMode = 'http';
         }
 
         $baseUrl = rtrim($anthropicConfig['baseUrl'] ?? 'https://api.anthropic.com/v1', '/');
 
         // `credentialId` is a broker reference, not a secret — the key or OAuth token lives
-        // in the vault and is injected server-side by BrokerHttpClient at egress.
+        // in the vault, and is either injected server-side by BrokerHttpClient at egress
+        // (`http`) or resolved for the CLI's environment at dispatch (`cli`). The token is
+        // NEVER carried on this driver: handlers hold this object.
         return new ChatDriver(
             provider: 'anthropic',
             chat: null,
             model: $model,
             credentialId: $credentialId,
             baseUrl: $baseUrl,
-            authMode: $authMode
+            authMode: $authMode,
+            executionMode: $executionMode
         );
 
     }//end createAnthropicDriver()

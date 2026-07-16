@@ -470,7 +470,8 @@ class ConversationManagementHandler
                 model: $driver->model,
                 baseUrl: (string) $driver->baseUrl,
                 messageHistory: [LLPhantMessage::user($prompt)],
-                authMode: (string) $driver->authMode
+                authMode: (string) $driver->authMode,
+                executionMode: $driver->executionMode
             );
         }
 

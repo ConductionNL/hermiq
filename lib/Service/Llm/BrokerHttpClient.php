@@ -209,7 +209,6 @@ class BrokerHttpClient implements ClientInterface
         );
     }//end sendRequest()
 
-
     /**
      * The upstream provider's response headers, minus the transfer-scoped ones.
      *
