@@ -36,7 +36,7 @@
 		:show="show"
 		size="normal"
 		:name="heading"
-		@close="$emit('close')">
+		@close="handleClose">
 		<div class="agent-form">
 			<h2 class="agent-form__title">
 				{{ heading }}
@@ -183,7 +183,7 @@
 			</template>
 
 			<div class="agent-form__actions">
-				<NcButton :disabled="saving" @click="$emit('close')">
+				<NcButton :disabled="saving" @click="handleClose">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
@@ -233,6 +233,38 @@ export default {
 			type: Object,
 			default: null,
 		},
+		/**
+		 * The item being edited, or null in create mode (agent-form-slot):
+		 * supplied by CnIndexPage's `#form-dialog` scoped slot ({ show, item,
+		 * schema, close }) when this modal is wired via
+		 * AgentCatalog's `slots.form-dialog`. Folded into `effectiveAgent`
+		 * below `agent` but above `routeAgent`.
+		 */
+		item: {
+			type: Object,
+			default: null,
+		},
+		/**
+		 * Closes the host dialog (agent-form-slot): the `close` binding from
+		 * CnIndexPage's `#form-dialog` scoped slot. Called in ADDITION to
+		 * `$emit('close')` on cancel/save-success so both the slot path and
+		 * the existing registry `agent-form` open-modal path keep working.
+		 */
+		close: {
+			type: Function,
+			default: null,
+		},
+		/**
+		 * The effective JSON schema driving the form (agent-form-slot): the
+		 * `schema` binding from CnIndexPage's `#form-dialog` scoped slot.
+		 * Not currently consumed — this form's fields are hand-authored
+		 * rather than schema-driven — but accepted so the slot binding lands
+		 * without a Vue "extraneous non-prop attribute" warning.
+		 */
+		schema: {
+			type: Object,
+			default: null,
+		},
 	},
 
 	emits: ['close', 'saved'],
@@ -264,15 +296,17 @@ export default {
 
 	computed: {
 		/**
-		 * The agent being edited — the `agent` prop when explicitly supplied
-		 * (AgentCatalog's inline usage, tests), else the route-fetched agent
-		 * (the registry `agent-form` open-modal path, both "Create agent" —
-		 * no `:id` param, stays null — and "Edit agent" on AgentDetail).
+		 * The agent being edited — the explicit `agent` prop wins (tests /
+		 * direct usage), then the `item` prop (agent-form-slot: CnIndexPage's
+		 * `#form-dialog` scoped slot — the row being edited, or null in create
+		 * mode), then the route-fetched agent (the registry `agent-form`
+		 * open-modal path used by AgentDetail's "Edit agent" action, which
+		 * supplies no `agent`/`item` prop).
 		 *
 		 * @return {object|null} The effective agent, or null when creating.
 		 */
 		effectiveAgent() {
-			return this.agent || this.routeAgent
+			return this.agent || this.item || this.routeAgent
 		},
 
 		/**
@@ -391,6 +425,22 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Close the modal (agent-form-slot). Always emits `close` (the
+		 * existing registry `agent-form` open-modal path — AgentDetail's
+		 * "Edit agent" action — listens for this event), and ADDITIONALLY
+		 * invokes the `close` prop when supplied (CnIndexPage's
+		 * `#form-dialog` scoped slot passes its own `close` function to hide
+		 * the dialog). Called on Cancel, the modal's own close (X / overlay),
+		 * and after a successful save.
+		 *
+		 * @return {void}
+		 */
+		handleClose() {
+			this.$emit('close')
+			this.close?.()
+		},
+
 		/**
 		 * When no `agent` prop is supplied (the registry `agent-form`
 		 * open-modal path), self-fetch the agent from the route's `:id` param
@@ -637,7 +687,7 @@ export default {
 					return
 				}
 				this.$emit('saved', saved)
-				this.$emit('close')
+				this.handleClose()
 			} catch (e) {
 				this.error = e?.message || this.t('hermiq', 'Unknown error')
 			} finally {

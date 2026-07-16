@@ -81,11 +81,14 @@ export default {
 	// -------------------------------------------------------------------------
 
 	/**
-	 * Agent form — create/edit an Agent. Reused by BOTH AgentCatalog's
-	 * "Create agent" header action (no `:id` route param → create mode) and
-	 * AgentDetail's "Edit agent" header action (self-fetches the agent from
-	 * the route's `:id` when no `agent` prop is supplied — open-modal action
-	 * props are static JSON, not resolved against the current object).
+	 * Agent form — create/edit an Agent. Used by AgentDetail's "Edit agent"
+	 * header action (self-fetches the agent from the route's `:id` when no
+	 * `agent` prop is supplied — open-modal action props are static JSON,
+	 * not resolved against the current object). AgentCatalog's built-in Add
+	 * CTA instead mounts this same component via `customComponents.js` +
+	 * the page's top-level `slots.form-dialog` (agent-form-slot), so
+	 * CnIndexPage's own create/edit dialog dispatch is replaced entirely —
+	 * see AgentFormModal's `item`/`close` props.
 	 */
 	'agent-form': {
 		kind: 'modal',

@@ -31,6 +31,7 @@ import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
 import AlgorithmRegister from './views/AlgorithmRegister.vue'
 import McpTools from './views/McpTools.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
+import AgentFormModal from './modals/AgentFormModal.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -75,4 +76,11 @@ export default {
 	// Compliance tab — re-homed from the removed top-level `/compliance` nav
 	// page. Unchanged component.
 	ComplianceDashboard,
+	// Agent form (agent-form-slot): resolved by AgentCatalog's top-level
+	// `slots.form-dialog` -> "AgentFormModal", so CnIndexPage's built-in
+	// Add CTA mounts the rich agent form (with CnIconPicker) in place of
+	// the generic schema-driven create/edit dialog. Also still registered
+	// as the `agent-form` v2 modal in registry.js for AgentDetail's
+	// route-based "Edit agent" open-modal action.
+	AgentFormModal,
 }
