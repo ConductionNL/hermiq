@@ -242,6 +242,16 @@ class ProviderFactory
      *                                                          backward-compat reason; a null
      *                                                          generator makes a tool-requiring `cli`
      *                                                          turn fail loud (503).
+     * @param IAppConfig|null               $appConfig          Reads the `mcp_run_base_url` override —
+     *                                                          the CONTAINER-reachable origin of the
+     *                                                          governed MCP endpoint. Needed because
+     *                                                          `IURLGenerator` yields the URL published
+     *                                                          to browsers, which the runner container
+     *                                                          usually cannot resolve
+     *                                                          (cli-runner-governed-mcp-and-egress).
+     *                                                          Nullable/defaulted for the same
+     *                                                          backward-compat reason; a null config
+     *                                                          simply means no override is applied.
      *
      * @return void
      *
@@ -853,6 +863,12 @@ class ProviderFactory
             // subscription credential is resolved, so a turn that cannot be governed pulls
             // no secret from the vault. Fails LOUD when governance is impossible — never a
             // silent text-only downgrade.
+            //
+            // An EMPTY $functions here means the agent is legitimately tool-less: an agent
+            // whose grants were configured but matched nothing never reaches this point,
+            // because `ToolLoop::listAgentFunctions()` raises ToolGrantResolutionException
+            // at the resolution site. That distinction cannot be recovered here — both
+            // cases arrive as an empty array — which is exactly why it is enforced there.
             if (empty($functions) === false) {
                 $runToken          = $this->mintGovernedRunToken(agentId: $agentId, uid: $uid);
                 $governedMcpConfig = $this->buildGovernedMcpConfig(runToken: $runToken);
@@ -969,7 +985,7 @@ class ProviderFactory
 
         $mcpUrl = $this->urlGenerator->linkToRouteAbsolute('hermiq.mcpRun.handle');
 
-        // linkToRouteAbsolute() returns the URL Nextcloud publishes to BROWSERS
+        // The linkToRouteAbsolute() call returns the URL Nextcloud publishes to BROWSERS
         // (overwrite.cli.url / the trusted domain). The CLI dials this endpoint from
         // INSIDE the runner container, where that host frequently does not resolve to
         // Nextcloud — a stock dev instance publishes `http://localhost`, which inside
@@ -1219,15 +1235,16 @@ class ProviderFactory
      *    error, then status, then a usable `text`. Any other order reads an error string as the
      *    model's answer.
      *
-     * @param string             $model          Model identifier; empty ⇒ the CLI's own default.
-     * @param array              $messageHistory Array of LLPhant Message objects.
-     * @param string             $token          The resolved subscription token (never logged).
-     * @param string|null        $uid            The acting user's UID.
-     * @param array<string,mixed>|null $mcpConfig The governed MCP server config for a tool-requiring
-     *                                            turn (cli-runner-governed-mcp-and-egress), or null
-     *                                            for a text-only turn. Carries the per-run bearer
-     *                                            token in its `headers`; the runner writes it to a
-     *                                            0600 file, never inline argv.
+     * @param string                   $model          Model identifier; empty ⇒ the CLI's own
+     *                                                 default.
+     * @param array                    $messageHistory Array of LLPhant Message objects.
+     * @param string                   $token          The resolved subscription token (never logged).
+     * @param string|null              $uid            The acting user's UID.
+     * @param array<string,mixed>|null $mcpConfig      The governed MCP server config for a tool-requiring
+     *                                                 turn (cli-runner-governed-mcp-and-egress), or null
+     *                                                 for a text-only turn. Carries the per-run bearer
+     *                                                 token in its `headers`; the runner writes it to a
+     *                                                 0600 file, never inline argv.
      *
      * @return string The completion text.
      *

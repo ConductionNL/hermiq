@@ -86,6 +86,22 @@ class ToolGrantResolver
 {
 
     /**
+     * The grant entry meaning "this agent is INTENTIONALLY tool-less".
+     *
+     * An empty `Agent.tools` already means the opposite ("all discovered tools,
+     * default-denied"), so there is no way to spell "no tools" by omission — this
+     * sentinel is it. Recognising it explicitly is what lets a deliberate
+     * no-tools agent be told apart from an agent whose grants resolve to zero by
+     * ACCIDENT (a typo, or an id from a stale catalog). Both end up with an empty
+     * function list; only the second is a defect, and `resolvesToNothing()` is how
+     * callers tell them apart instead of silently treating a broken agent as a
+     * chat-only one.
+     *
+     * @var string
+     */
+    public const NO_TOOLS_SENTINEL = '__none__';
+
+    /**
      * The ADR-063 read-verb vocabulary (`McpAnnotationValidator::VERBS` subset).
      *
      * @var array<int, string>
@@ -136,6 +152,67 @@ class ToolGrantResolver
         return array_values(array_keys($resolved));
 
     }//end resolve()
+
+    /**
+     * Whether these grants say "no tools" ON PURPOSE — i.e. every entry is the
+     * `__none__` sentinel.
+     *
+     * @param array<int, string> $grants Raw `Agent.tools` entries.
+     *
+     * @return bool True when the agent is deliberately tool-less.
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     */
+    public function isExplicitNoTools(array $grants): bool
+    {
+        $clean = $this->sanitizeGrants(grants: $grants);
+        if ($clean === []) {
+            // An empty grant list means "all discovered tools" — the opposite.
+            return false;
+        }
+
+        foreach ($clean as $grant) {
+            if ($grant !== self::NO_TOOLS_SENTINEL) {
+                return false;
+            }
+        }
+
+        return true;
+
+    }//end isExplicitNoTools()
+
+    /**
+     * Whether a grant set asked for tools but produced NONE — the misconfiguration
+     * an agent cannot detect for itself.
+     *
+     * True only when the agent named at least one grant, did not use the
+     * `__none__` sentinel, and resolution still came back empty. That combination
+     * is never a legitimate state: every id was unknown to the catalog (a typo, a
+     * renamed tool, an id from a UI offering a different id space), so the agent
+     * silently loses every capability it was configured with. `[]` grants ("all,
+     * default-denied") and `['__none__']` ("none, deliberately") are both
+     * legitimate and return false.
+     *
+     * @param array<int, string> $grants        Raw `Agent.tools` entries.
+     * @param array<int, mixed>  $resolvedTools The functions resolution actually produced.
+     *
+     * @return bool True when the grants are broken and the caller must not degrade silently.
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     */
+    public function resolvesToNothing(array $grants, array $resolvedTools): bool
+    {
+        if ($resolvedTools !== []) {
+            return false;
+        }
+
+        if ($this->sanitizeGrants(grants: $grants) === []) {
+            return false;
+        }
+
+        return ($this->isExplicitNoTools(grants: $grants) === false);
+
+    }//end resolvesToNothing()
 
     /**
      * Whether any grant entry uses the `{app}.{schema}.*` (or `.*:write`) wildcard

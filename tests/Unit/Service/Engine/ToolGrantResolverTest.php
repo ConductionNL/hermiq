@@ -454,4 +454,92 @@ class ToolGrantResolverTest extends TestCase
         $this->assertSame(['hermiq.sendMail'], $resolved);
 
     }//end testNonStringGrantsAreIgnored()
+
+    /**
+     * The `__none__` sentinel reads as a deliberate no-tools agent.
+     *
+     * @return void
+     */
+    public function testExplicitNoToolsRecognisesTheSentinel(): void
+    {
+        $resolver = new ToolGrantResolver();
+
+        $this->assertTrue($resolver->isExplicitNoTools(grants: [ToolGrantResolver::NO_TOOLS_SENTINEL]));
+
+    }//end testExplicitNoToolsRecognisesTheSentinel()
+
+    /**
+     * An EMPTY grant list is "all tools, default-denied" — the opposite of the
+     * sentinel, and must never be mistaken for a deliberate no-tools agent.
+     *
+     * @return void
+     */
+    public function testEmptyGrantsAreNotExplicitNoTools(): void
+    {
+        $resolver = new ToolGrantResolver();
+
+        $this->assertFalse($resolver->isExplicitNoTools(grants: []));
+
+    }//end testEmptyGrantsAreNotExplicitNoTools()
+
+    /**
+     * A real grant alongside the sentinel is NOT a deliberate no-tools agent —
+     * the agent asked for something.
+     *
+     * @return void
+     */
+    public function testSentinelMixedWithARealGrantIsNotExplicitNoTools(): void
+    {
+        $resolver = new ToolGrantResolver();
+
+        $this->assertFalse(
+            $resolver->isExplicitNoTools(grants: [ToolGrantResolver::NO_TOOLS_SENTINEL, 'hermiq.sendMail'])
+        );
+
+    }//end testSentinelMixedWithARealGrantIsNotExplicitNoTools()
+
+    /**
+     * Grants that named tools but produced none are reported as broken.
+     *
+     * @return void
+     */
+    public function testResolvesToNothingFlagsConfiguredGrantsThatMatchedNothing(): void
+    {
+        $resolver = new ToolGrantResolver();
+
+        $this->assertTrue($resolver->resolvesToNothing(grants: ['openregister.schemas'], resolvedTools: []));
+
+    }//end testResolvesToNothingFlagsConfiguredGrantsThatMatchedNothing()
+
+    /**
+     * The two legitimate empties — "all, default-denied" and "none, on purpose"
+     * — are not reported as broken.
+     *
+     * @return void
+     */
+    public function testResolvesToNothingIgnoresTheLegitimateEmpties(): void
+    {
+        $resolver = new ToolGrantResolver();
+
+        $this->assertFalse($resolver->resolvesToNothing(grants: [], resolvedTools: []));
+        $this->assertFalse(
+            $resolver->resolvesToNothing(grants: [ToolGrantResolver::NO_TOOLS_SENTINEL], resolvedTools: [])
+        );
+
+    }//end testResolvesToNothingIgnoresTheLegitimateEmpties()
+
+    /**
+     * Grants that DID resolve are never reported as broken.
+     *
+     * @return void
+     */
+    public function testResolvesToNothingIsFalseWhenToolsResolved(): void
+    {
+        $resolver = new ToolGrantResolver();
+
+        $this->assertFalse(
+            $resolver->resolvesToNothing(grants: ['hermiq.sendMail'], resolvedTools: [['name' => 'hermiq_sendMail']])
+        );
+
+    }//end testResolvesToNothingIsFalseWhenToolsResolved()
 }//end class
