@@ -247,10 +247,7 @@
 						"description": "Derived: whether a webhook signing secret has been minted for this schedule — a UI hint only, never the secret itself. The plaintext secret lives in OCP\\Security\\ICredentialsManager, never in this OpenRegister object."
 					},
 					"deliverWebhookSecretRotatedAt": {
-						"type": [
-							"string",
-							"null"
-						],
+						"type": "string",
 						"format": "date-time",
 						"title": "Webhook secret rotated at",
 						"description": "Derived: when the webhook signing secret was last minted or rotated; null when no secret has ever been minted."
