@@ -1,28 +1,37 @@
 # agent-template-github-store Specification
 
-**Status**: in-progress (agent-template GitHub search + publish live; being generalised to also cover skills and unified into one Store page)
+**Status**: active (agent-template + skill GitHub search + publish live; unified into one Store page)
 
-**OpenSpec changes:** `agent-template-github-store` — DONE: server-backed GitHub search for `topic:hermiq-agent-template` repos (`GitHubTemplateCatalogService`) + broker-authed publish (`GitHubTemplatePushService`, the GitHub token never reaches Hermiq). `hermiq-github-store` — IN PROGRESS: generalises both services to also index/push skills, and replaces `AgentTemplateGallery` with one unified Store page (agent templates + skills, per-kind filter); the `/agent-templates` route + menu item are removed.
+**OpenSpec changes:** `agent-template-github-store` — DONE: server-backed GitHub search for `topic:hermiq-agent-template` repos (`GitHubTemplateCatalogService`) + broker-authed publish (`GitHubTemplatePushService`, the GitHub token never reaches Hermiq). `hermiq-github-store` — DONE: generalises both services to also index/push skills, and replaces `AgentTemplateGallery` with one unified Store page (agent templates + skills, per-kind filter); the `/agent-templates` route + menu item are removed.
 
 ## Purpose
 TBD - created by archiving change agent-template-github-store. Update Purpose after archive.
 ## Requirements
 ### Requirement: The system MUST provide a server-backed search for hermiq-agent-template repos
-The search MUST query GitHub for repositories tagged `topic:hermiq-agent-template`, optionally
-narrowed by a free-text term, and return normalised result cards without exposing the raw GitHub
-response body or any token.
+The search MUST query GitHub for repositories tagged `topic:hermiq-agent-template` **and**
+`topic:hermiq-skill`, optionally narrowed by a free-text term, and return normalised result cards each
+tagged with its `kind` (`agent-template` | `skill`), without exposing the raw GitHub response body or any
+token. A per-kind filter MUST let the caller restrict results to one kind. Fetching a card's package
+content MUST use the package filename for that card's kind (the agent-template package file for
+`agent-template`, the agentskills.io skill package file for `skill`).
 
-#### Scenario: Default search with no query returns tagged repos
-- GIVEN an authenticated Hermiq user opens the "GitHub store" tab of the Agent templates gallery
-- WHEN no search term has been entered
-- THEN the system queries GitHub for `topic:hermiq-agent-template` and renders one card per
-  result, each carrying owner, repo, name, description, category, version, and stars
+#### Scenario: Default search with no query returns tagged repos of both kinds
+- GIVEN an authenticated Hermiq user opens the unified "Store" page
+- WHEN no search term has been entered and no kind filter is applied
+- THEN the system queries GitHub for both `topic:hermiq-agent-template` and `topic:hermiq-skill` and
+  renders one card per result, each carrying its `kind`, owner, repo, name, description, version, and
+  stars
+
+#### Scenario: The kind filter restricts results to one kind
+- GIVEN the Store page is open with results of both kinds
+- WHEN the user selects the "Skills" kind filter
+- THEN only `kind: "skill"` cards are shown, and template cards are hidden
 
 #### Scenario: Free-text term narrows the search
-- GIVEN the GitHub store tab is open
+- GIVEN the Store page is open
 - WHEN the user types a search term into the search box
-- THEN the term is appended to the `topic:hermiq-agent-template` query and the result cards update
-  to the narrowed set
+- THEN the term is appended to the topic query and the result cards update to the narrowed set across
+  the active kind(s)
 
 ### Requirement: The system MUST degrade gracefully when GitHub is rate-limited or unreachable
 The search endpoint MUST return a 200 response with an empty card list and a clear outcome/
@@ -139,4 +148,43 @@ organisation's visibility.
 - WHEN the caller attempts to publish it by UUID
 - THEN the system responds as if the template does not exist (404), identical to `show()`/
   `update()`'s existing tenant-scoping behaviour
+
+### Requirement: A single unified Store page replaces the Agent templates gallery
+The system MUST present one "Store" manifest page that serves discovery and publish for both agent
+templates and skills, and MUST retire the standalone `AgentTemplateGallery` page: its `/agent-templates`
+route and its "Agent templates" menu item MUST be removed, with any in-app reference to the retired
+route repointed to the Store page. The Store page MUST reuse the existing `agent-template-github-store`
+store widget and the `agent-template-row-actions` / `skill-row-actions` widgets rather than introduce a
+new action surface.
+
+#### Scenario: The Agent templates menu item and route are gone
+- GIVEN the app is loaded after this change
+- WHEN the user inspects the navigation menu and the router
+- THEN there is no "Agent templates" menu item and no `/agent-templates` route
+- AND the unified "Store" page is reachable and shows both agent-template and skill discovery
+
+#### Scenario: An in-app link that used to open the gallery now opens the Store
+- GIVEN an in-app action previously navigated to the `AgentTemplateGallery` route
+- WHEN that action is triggered after this change
+- THEN it navigates to the Store page instead, with no dead route
+
+### Requirement: The system MUST install a discovered skill through the skill quarantine gate
+Installing a chosen GitHub result of kind `skill` MUST fetch its agentskills.io package file and pass it
+through the UNCHANGED `SkillMarketplaceService::installFromSource(source: 'hub')` path — the same
+quarantine + `ContentScanService` scan a pasted/OpenConnector-sourced skill package already undergoes.
+No new quarantine or scanning logic MUST be introduced; coordinate validation MUST run before any GitHub
+call exactly as for template installs.
+
+#### Scenario: Installing a GitHub skill lands it quarantined
+- GIVEN a search result card of kind `skill` is installable
+- WHEN the user clicks "Install" on that card
+- THEN the system fetches the repo's skill package file, calls
+  `installFromSource(source: 'hub')`, and the resulting `Skill` is created with `state: "quarantined"`
+  and a populated `scanReport`, identical in shape to an OpenConnector hub install
+
+#### Scenario: A dangerous scan verdict still blocks one-click approval for a GitHub skill
+- GIVEN a GitHub-installed skill's content triggers a `dangerous` content-scan verdict
+- WHEN a reviewer attempts to approve it without `force`
+- THEN the approval is refused exactly as `SkillMarketplaceController::approve()` already refuses a
+  dangerous-verdict skill, requiring the `skill.override-scan-verdict` action (ADR-023)
 

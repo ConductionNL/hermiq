@@ -1,11 +1,11 @@
 # Skills Marketplace Specification
 
-**Status**: in-progress (Hermiq surface live-verified; content-scan + a live hub are OpenRegister/OpenConnector seams; GitHub publish being added alongside hub publish)
+**Status**: active (Hermiq surface live-verified; content-scan + a live hub are OpenRegister/OpenConnector seams; GitHub publish live alongside hub publish)
 
 **Feature tier**: V2
 
 **OpenSpec changes:** `skills-marketplace` — DONE: `Skill` schema gains `quarantined` state + `source`/`quarantineReason`/`lastActivityAt`/`staleSince`/`archivedAt`; `SkillMarketplaceService` (installFromSource → quarantine; approveQuarantined review gate → active; age-based `curate()` active→stale→archived that NEVER hard-deletes; publishToHub via SkillSerializer + OpenConnector CallService, structured error when unavailable); `SkillCuratorTask` (daily TimedJob); `SkillMarketplaceController` + routes; Skills UI gains a quarantine badge + Approve + Publish + "Install from hub (quarantine)". The content **security scan** (OR has no scanner — SecurityService is auth rate-limiting) is a documented seam realised as the review gate; a live external **hub** needs an OpenConnector connector; usage-based staleness needs OR run-loop last-used stamping.
-`hermiq-github-store` — IN PROGRESS: adds GitHub publish for skills (generalise `GitHubTemplatePushService` to push a Skill's agentskills.io package to a `topic:hermiq-skill` repo, stamping `githubOwner`/`githubRepo`/`publishedAt`); the OpenConnector `publishToHub` path stays secondary.
+`hermiq-github-store` — DONE: adds GitHub publish for skills (generalise `GitHubTemplatePushService` to push a Skill's agentskills.io package to a `topic:hermiq-skill` repo, stamping `githubOwner`/`githubRepo`/`publishedAt`); the OpenConnector `publishToHub` path stays secondary.
 
 ## Purpose
 
@@ -87,6 +87,45 @@ a skill to an external hub via OpenConnector.
 - **WHEN** the caller calls `POST /api/skills/{id}/publish`
 - **THEN** the system MUST respond `403 Forbidden`
 - **AND** no outbound OpenConnector call MUST be made
+
+### Requirement: A skill can be published to a tagged GitHub repository as the primary path
+The system MUST let a skill owner publish an existing `Skill` to a NEW GitHub repository tagged
+`topic:hermiq-skill`, committing the skill in agentskills.io format produced by `SkillSerializer`
+(via `SkillService::exportSkill()`). Publish MUST reuse the broker-mediated, fail-closed
+`GitHubTemplatePushService.push()` path: it MUST validate owner/repo coordinates before any GitHub call,
+MUST refuse to overwrite an existing repository, and MUST never hold or log the GitHub token. Publish
+MUST be scoped to skills the caller can already see — a skill outside the caller's tenant visibility
+MUST yield a 404 (never a 403 that confirms existence), matching template publish. The OpenConnector
+`publishToHub` path MUST remain available as the secondary publish route.
+
+#### Scenario: Publishing a skill creates a tagged repo and stamps provenance
+- GIVEN an authenticated user who can see `Skill` X and has an allowed `github` broker credential
+- WHEN they publish `Skill` X to owner/repo `YOUR_OWNER_HERE/hermiq-skill-example` (visibility private)
+- THEN the system exports the skill via `SkillSerializer`, creates the repo, tags it
+  `topic:hermiq-skill`, and commits the agentskills.io package
+- AND `Skill` X is updated with `githubOwner`, `githubRepo`, and `publishedAt` set
+- AND the GitHub token is never held or logged by Hermiq
+
+#### Scenario: Publish fails closed when the broker is unavailable
+- GIVEN the OpenRegister credential broker is not available
+- WHEN a user attempts to publish a skill to GitHub
+- THEN the publish is refused (503) and no token-bearing fallback is attempted
+
+#### Scenario: Publish refuses to overwrite an existing repository
+- GIVEN the target owner/repo already exists on GitHub
+- WHEN a user attempts to publish a skill to it
+- THEN the publish is refused and no commit is made, exactly as template publish refuses
+
+#### Scenario: Publishing a skill outside the caller's visibility is a 404
+- GIVEN a `Skill` that is not visible to the caller's tenant
+- WHEN the caller attempts to publish it to GitHub
+- THEN the system returns 404 (never a 403), and makes no outbound GitHub call
+
+#### Scenario: The provenance fields are never emitted into the committed package
+- GIVEN a skill being published to GitHub
+- WHEN `SkillSerializer` produces the agentskills.io package that is committed
+- THEN the package MUST NOT contain `githubOwner`, `githubRepo`, or `publishedAt` — those are stamped on
+  the `Skill` object only, mirroring `AgentTemplateSerializer::toPackage()` never emitting provenance
 
 ## User Stories
 
