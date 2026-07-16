@@ -134,6 +134,67 @@ class AssistantController extends Controller
     }//end converse()
 
     /**
+     * Run one stateless, structured PII/redaction-span detection call
+     * (woo-llm-anonymisation).
+     *
+     * @return JSONResponse `{spans, usage}` on success, or a mapped error.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/woo-llm-anonymisation/tasks.md#task-2-1
+     */
+    public function detectPii(): JSONResponse
+    {
+        try {
+            $userId = $this->requireUserId();
+
+            $text = (string) $this->request->getParam('text', '');
+
+            $contextParam = $this->request->getParam('context');
+            $context      = [];
+            if (is_array($contextParam) === true) {
+                $context = $contextParam;
+            }
+
+            $result = $this->assistantService->detectPii(
+                userId: $userId,
+                text: $text,
+                context: $context
+            );
+
+            return new JSONResponse(data: $result, statusCode: 200);
+        } catch (Exception $e) {
+            $statusCode = (int) $e->getCode();
+            if ($statusCode < 400 || $statusCode >= 600) {
+                $statusCode = 500;
+            }
+
+            $this->logConverseFailure(exception: $e, statusCode: $statusCode);
+
+            $errorType = match ($statusCode) {
+                400     => $this->l10n->t('Invalid request'),
+                401     => $this->l10n->t('Authentication required'),
+                422     => $this->l10n->t('Text blocked by the organisation\'s guardrail policy'),
+                502     => $this->l10n->t('AI response could not be parsed'),
+                503     => $this->l10n->t('AI service not configured'),
+                default => $this->l10n->t('Failed to process text'),
+            };
+
+            $data = [
+                'error'   => $errorType,
+                'message' => $e->getMessage(),
+            ];
+
+            if ($e instanceof GuardrailBlockedException) {
+                $data['errorCode'] = 'guardrail_blocked';
+            }
+
+            return new JSONResponse(data: $data, statusCode: $statusCode);
+        }//end try
+    }//end detectPii()
+
+    /**
      * Log a converse() failure at the level matching its severity.
      *
      * @param Exception $exception  The caught exception.

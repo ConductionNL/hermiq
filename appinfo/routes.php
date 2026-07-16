@@ -268,7 +268,12 @@ return [
         ['name' => 'guardrailPolicy#effective', 'url' => '/api/guardrail-policies/effective', 'verb' => 'GET'],
         ['name' => 'guardrailPolicy#index',  'url' => '/api/guardrail-policies', 'verb' => 'GET'],
         ['name' => 'guardrailPolicy#create', 'url' => '/api/guardrail-policies', 'verb' => 'POST'],
-        ['name' => 'guardrailPolicy#update', 'url' => '/api/guardrail-policies/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
+        [
+            'name'         => 'guardrailPolicy#update',
+            'url'          => '/api/guardrail-policies/{policyId}',
+            'verb'         => 'PUT',
+            'requirements' => ['policyId' => '[^/]+'],
+        ],
 
         // Compliance control packs (compliance-control-packs): org-scoped dashboard,
         // auditor's-pack export (both action-auth-gated), and per-agent AI factsheet
@@ -416,6 +421,12 @@ return [
         // synchronous conversational endpoint for leaf apps — deliberately
         // separate from chat#sendMessage, see design.md.
         ['name' => 'assistant#converse', 'url' => '/api/assistant/converse', 'verb' => 'POST'],
+
+        // Structured PII/redaction-span detection surface (woo-llm-anonymisation):
+        // stateless, tool-free, reuses the case-assistant-surface plumbing —
+        // see design.md for why it is a sibling of assistant#converse, not a
+        // reuse of it as-is.
+        ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
 
         // Conversations: CRUD + messages + archive lifecycle (restore/permanent).
         ['name' => 'conversation#index', 'url' => '/api/conversations', 'verb' => 'GET'],
