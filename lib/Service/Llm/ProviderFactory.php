@@ -67,6 +67,7 @@ use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
+use OCP\IAppConfig;
 use OCP\IURLGenerator;
 use OCP\IUserSession;
 use OCP\Server;
@@ -259,7 +260,8 @@ class ProviderFactory
         private readonly ?IAppManager $appManager=null,
         private readonly ?CredentialScopeResolver $credentialResolver=null,
         private readonly ?RunTokenService $runTokenService=null,
-        private readonly ?IURLGenerator $urlGenerator=null
+        private readonly ?IURLGenerator $urlGenerator=null,
+        private readonly ?IAppConfig $appConfig=null
     ) {
     }//end __construct()
 
@@ -966,6 +968,25 @@ class ProviderFactory
         }
 
         $mcpUrl = $this->urlGenerator->linkToRouteAbsolute('hermiq.mcpRun.handle');
+
+        // linkToRouteAbsolute() returns the URL Nextcloud publishes to BROWSERS
+        // (overwrite.cli.url / the trusted domain). The CLI dials this endpoint from
+        // INSIDE the runner container, where that host frequently does not resolve to
+        // Nextcloud — a stock dev instance publishes `http://localhost`, which inside
+        // the container is the container itself, so every tool call would fail with a
+        // connection error that looks like a broken endpoint. AppAPI already records
+        // the container-facing origin (its daemon's `nextcloud_url`, e.g.
+        // `http://nextcloud`); `mcp_run_base_url` lets the operator pin the same value
+        // here. Unset → the published URL is used unchanged (correct whenever
+        // Nextcloud's public origin IS reachable from the container).
+        $baseOverride = trim($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '');
+        if ($baseOverride !== '' && $mcpUrl !== '') {
+            $path = (string) parse_url($mcpUrl, PHP_URL_PATH);
+            if ($path !== '') {
+                $mcpUrl = rtrim($baseOverride, '/').$path;
+            }
+        }
+
         if ($mcpUrl === '') {
             throw new ProviderUnavailableException(
                 'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
