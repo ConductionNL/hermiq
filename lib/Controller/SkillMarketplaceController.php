@@ -136,7 +136,11 @@ class SkillMarketplaceController extends Controller
             return new JSONResponse(['error' => 'A non-empty package is required'], Http::STATUS_BAD_REQUEST);
         }
 
-        if (in_array($source, ['org', 'hub'], true) === false) {
+        // Hermiq-skill-conversational-authoring: 'local' is the honest provenance for a
+        // skill authored inside this instance (the chat "Save as skill" seam) — an
+        // already-valid `source` enum value, no schema change. installFromSource() still
+        // ALWAYS lands the skill `quarantined` regardless of source.
+        if (in_array($source, ['local', 'org', 'hub'], true) === false) {
             $source = 'hub';
         }
 

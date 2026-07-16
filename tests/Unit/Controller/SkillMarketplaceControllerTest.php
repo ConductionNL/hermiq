@@ -178,6 +178,55 @@ class SkillMarketplaceControllerTest extends TestCase
     }//end testInstallFromSourceEmptyPackageIsBadRequest()
 
     /**
+     * installFromSource() passes `source: "local"` straight through to the service
+     * (hermiq-skill-conversational-authoring — the whitelist relaxation), landing the
+     * skill quarantined with honest local provenance.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-skill-conversational-authoring/specs/skills-marketplace/spec.md#requirement-a-locally-authored-skill-can-be-installed-through-the-quarantine-gate
+     */
+    public function testInstallFromSourceAcceptsLocalSource(): void
+    {
+        $service = $this->createMock(SkillMarketplaceService::class);
+        $service->expects($this->once())
+            ->method('installFromSource')
+            ->with('name: Demo skill', 'local', 'alice')
+            ->willReturn($this->skill('quarantined'));
+
+        $request  = $this->request(['package' => 'name: Demo skill', 'source' => 'local']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request)->installFromSource();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame('quarantined', $response->getData()['state']);
+
+    }//end testInstallFromSourceAcceptsLocalSource()
+
+    /**
+     * installFromSource() still defaults an unrecognised source to "hub" (the existing
+     * safe fallback) — the whitelist relaxation only ADDS "local", it does not loosen
+     * validation for anything else.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-skill-conversational-authoring/specs/skills-marketplace/spec.md#requirement-a-locally-authored-skill-can-be-installed-through-the-quarantine-gate
+     */
+    public function testInstallFromSourceUnknownSourceDefaultsToHub(): void
+    {
+        $service = $this->createMock(SkillMarketplaceService::class);
+        $service->expects($this->once())
+            ->method('installFromSource')
+            ->with('name: Demo skill', 'hub', 'alice')
+            ->willReturn($this->skill('quarantined'));
+
+        $request  = $this->request(['package' => 'name: Demo skill', 'source' => 'not-a-real-source']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request)->installFromSource();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+    }//end testInstallFromSourceUnknownSourceDefaultsToHub()
+
+    /**
      * installFromSource() returns 401 for an unauthenticated caller.
      *
      * @return void

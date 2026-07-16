@@ -236,6 +236,17 @@
 										<ThumbDown :size="16" />
 									</template>
 								</NcButton>
+								<!-- hermiq-skill-conversational-authoring: turn this assistant message
+								     (e.g. a SKILL.md drafted by the seeded skill-creator skill) into a
+								     reviewable Skill via the pre-filled authoring modal. -->
+								<NcButton
+									type="tertiary"
+									:aria-label="t('hermiq', 'Save as skill')"
+									@click="openSaveAsSkill(message)">
+									<template #icon>
+										<PuzzlePlusOutline :size="16" />
+									</template>
+								</NcButton>
 							</div>
 							<div v-if="message.showFeedbackInput" class="chat-page__feedback-comment">
 								<textarea
@@ -334,6 +345,16 @@
 			:value="settings"
 			@input="settings = $event"
 			@close="showSettings = false" />
+
+		<!-- hermiq-skill-conversational-authoring: "Save as skill" seam — opens the
+		     hermiq-skill-markdown-authoring SkillFormModal pre-filled from an assistant
+		     message, saving through the quarantine review path (source: local). -->
+		<SkillFormModal
+			:show="showSaveAsSkill"
+			:initial-body="saveAsSkillBody"
+			save-target="quarantine"
+			@close="showSaveAsSkill = false"
+			@saved="onSkillSaved" />
 	</div>
 </template>
 
@@ -353,6 +374,7 @@ import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.v
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
+import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
 import Send from 'vue-material-design-icons/Send.vue'
@@ -375,6 +397,7 @@ import AgentSelector from '../components/AgentSelector.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import ConversationDeleteModal from '../modals/ConversationDeleteModal.vue'
 import ConversationRenameModal from '../modals/ConversationRenameModal.vue'
+import SkillFormModal from '../modals/SkillFormModal.vue'
 
 export default {
 	name: 'Chat',
@@ -398,9 +421,11 @@ export default {
 		NcNoteCard,
 		Pencil,
 		Plus,
+		PuzzlePlusOutline,
 		Restore,
 		Robot,
 		Send,
+		SkillFormModal,
 		ThumbDown,
 		ThumbUp,
 	},
@@ -441,6 +466,10 @@ export default {
 			showSettings: false,
 			showDelete: false,
 			deleteTarget: null,
+
+			// hermiq-skill-conversational-authoring: "Save as skill" seam state.
+			showSaveAsSkill: false,
+			saveAsSkillBody: '',
 		}
 	},
 
@@ -900,6 +929,32 @@ export default {
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not save the feedback comment.'))
 			}
+		},
+
+		/**
+		 * "Save as skill" (hermiq-skill-conversational-authoring): open the
+		 * hermiq-skill-markdown-authoring SkillFormModal pre-filled with this
+		 * assistant message's content as the SKILL.md `body`, for review/edit
+		 * before saving. No new agent run — the SKILL.md is whatever the
+		 * existing chat/agent engine already produced in this message.
+		 *
+		 * @param {object} message The assistant message to turn into a skill.
+		 * @return {void}
+		 */
+		openSaveAsSkill(message) {
+			this.saveAsSkillBody = message.content || ''
+			this.showSaveAsSkill = true
+		},
+
+		/**
+		 * SkillFormModal's `saved` handler for the chat seam — the skill was
+		 * saved via `save-target="quarantine"`, so it lands `quarantined` and
+		 * is NOT immediately usable by an agent until Approved.
+		 *
+		 * @return {void}
+		 */
+		onSkillSaved() {
+			showSuccess(this.t('hermiq', 'Skill saved for review. Approve it in the Skills catalog before it can be used.'))
 		},
 
 		/**

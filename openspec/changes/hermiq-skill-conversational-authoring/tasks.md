@@ -9,8 +9,8 @@
   - GIVEN a fresh install WHEN repair steps run THEN one `agentskill` object named `skill-creator` is created with `state` `active`, `source` `local`, `createdBy` empty, and the design.md SKILL.md `frontmatter` + `body`
   - GIVEN the object already exists (or was admin-edited) WHEN the step re-runs THEN it is not duplicated or overwritten (idempotent by name, system context, mirrors SeedAgentTemplates)
   - GIVEN OpenRegister is not yet installed WHEN the step runs THEN it warns-and-returns (container-lazy ObjectService), and the step is registered under both `<pre-migration>` and `<post-migration>` in info.xml
-- [ ] Implement
-- [ ] Test
+- [x] Implement (registered under `<install>` + `<post-migration>` — this app's `info.xml` has no `<pre-migration>` block; matches every existing `Seed*` step)
+- [x] Test (`tests/Unit/Repair/SeedSkillCreatorTest.php` — mirrors `SeedAgentTemplatesTest`: fresh-install seed, idempotent re-run preserves an admin edit, no-ops when OpenRegister is unavailable; full suite verified via `docker run php:8.3-cli vendor/bin/phpunit -c phpunit-unit.xml`, 1059 tests green)
 
 ### Task 2: Accept source "local" on the quarantine install path
 - **spec_ref**: `openspec/changes/hermiq-skill-conversational-authoring/specs/skills-marketplace/spec.md#requirement-a-locally-authored-skill-can-be-installed-through-the-quarantine-gate`
@@ -19,8 +19,8 @@
   - GIVEN `installFromSource` is called with `source: "local"` THEN the skill lands `quarantined` with `source` `local` and a recorded `scanReport` (ContentScanService ran)
   - GIVEN an unknown source value THEN it still defaults to `hub` and the skill still lands `quarantined`
   - GIVEN this is a whitelist relaxation THEN no schema change is made (`local` is already in the `source` enum)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (`tests/Unit/Controller/SkillMarketplaceControllerTest.php` — 2 new cases: `local` passed through, unknown source still defaults to `hub`)
 
 ### Task 3: "Save as skill" chat seam opening SkillFormModal pre-filled
 - **spec_ref**: `openspec/changes/hermiq-skill-conversational-authoring/specs/skills-catalog/spec.md#requirement-a-chat-assistant-message-can-be-saved-as-a-reviewable-skill`
@@ -30,8 +30,8 @@
   - GIVEN the modal's save-target is the review path WHEN the user saves THEN the skill is installed via `installFromSource` (source `local`) and lands `quarantined`, not immediately active
   - GIVEN the catalog authoring entry point (prerequisite change) WHEN opened normally THEN it keeps its existing active-save default (no regression)
   - GIVEN accessibility THEN the action carries an `aria-label` + translated label matching the feedback controls
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (no frontend unit-test harness exists in this app — jest/vitest not configured; verified by build + lint + manual code trace instead)
 
 ## Quality checklist
 

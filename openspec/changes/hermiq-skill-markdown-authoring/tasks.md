@@ -11,8 +11,8 @@
   - GIVEN the auxiliary files editor WHEN the user adds/renames/edits/removes a file THEN the `files` array (each `{ name, content }`) round-trips through save with no schema/backend change
   - GIVEN the slot bindings `{ show, item, schema, close }` WHEN the modal closes/saves THEN it calls both `$emit('close')` and `this.close?.()` (AgentFormModal parity), accepting `schema` as an unused prop
   - GIVEN a valid form WHEN the user saves THEN it persists via the existing `src/api/skills.js` path with `state` `active` and `createdBy` set (create), no new endpoint
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (no frontend unit-test harness exists in this app — jest/vitest not configured, no `tests/*.test.js`; not fabricated)
 
 ### Task 2: Package-paste ingestion and edit payload-merge
 - **spec_ref**: `openspec/changes/hermiq-skill-markdown-authoring/specs/skills-catalog/spec.md#requirement-a-pasted-agentskillsio-package-is-split-into-frontmatter-and-body`
@@ -21,8 +21,8 @@
   - GIVEN a pasted string starting with a `---` fence WHEN ingested THEN it routes through the import path (`SkillSerializer::fromPackage`) so `frontmatter` + `body` populate separately, never double-fenced
   - GIVEN a subsequent export WHEN `SkillSerializer::toPackage` runs THEN the original package is reproduced byte-for-byte
   - GIVEN edit of a Skill with an `installedOn` association WHEN only `body` changes and is saved THEN `installedOn` and provenance fields survive (existing payload merged before write)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (no frontend unit-test harness exists in this app)
 
 ### Task 3: Wire SkillFormModal into the SkillsCatalog page
 - **spec_ref**: `openspec/changes/hermiq-skill-markdown-authoring/specs/skills-catalog/spec.md#requirement-a-dedicated-markdown-authoring-form-replaces-the-generic-skill-createedit-dialog`
@@ -30,8 +30,8 @@
 - **acceptance_criteria**:
   - GIVEN the SkillsCatalog page WHEN the manifest declares `slots.form-dialog: "SkillFormModal"` and `customComponents.js` registers it THEN the Add CTA and row-edit both mount `SkillFormModal`, not the generic dialog
   - GIVEN the existing `row-actions: "skill-row-actions"` slot WHEN the new `form-dialog` slot is added THEN the row-actions behaviour is unchanged
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test (no frontend unit-test harness exists in this app)
 
 ## Quality checklist
 

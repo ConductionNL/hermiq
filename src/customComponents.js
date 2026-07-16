@@ -32,6 +32,12 @@ import AlgorithmRegister from './views/AlgorithmRegister.vue'
 import McpTools from './views/McpTools.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
 import AgentFormModal from './modals/AgentFormModal.vue'
+// Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
+// SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
+// CnIndexPage's built-in Add CTA + row-edit mount the markdown-authoring form
+// (CnMarkdownEditor body, files editor) in place of the generic schema-driven
+// create/edit dialog — the skills analogue of AgentFormModal above.
+import SkillFormModal from './modals/SkillFormModal.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -83,4 +89,7 @@ export default {
 	// as the `agent-form` v2 modal in registry.js for AgentDetail's
 	// route-based "Edit agent" open-modal action.
 	AgentFormModal,
+	// Skill form (skill-form-slot): resolved by SkillsCatalog's top-level
+	// `slots.form-dialog` -> "SkillFormModal" (see the import above).
+	SkillFormModal,
 }
