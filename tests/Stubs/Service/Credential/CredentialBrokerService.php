@@ -50,7 +50,9 @@ class CredentialBrokerService
      * @param string|null           $body         The raw request body.
      * @param string|null           $actingUserId The credential owner.
      *
-     * @return array{status: int, body: string} The proxied response.
+     * @return array{status: int, headers: array<string, array<int, string>>, body: string} The
+     *         proxied response. Mirrors the real broker, which returns the provider's
+     *         response headers alongside the status and body.
      */
     public function request(
         string $credentialId,
@@ -62,8 +64,9 @@ class CredentialBrokerService
         ?string $actingUserId=null
     ): array {
         return [
-            'status' => 200,
-            'body'   => '{}',
+            'status'  => 200,
+            'headers' => ['content-type' => ['application/json']],
+            'body'    => '{}',
         ];
     }//end request()
 }//end class

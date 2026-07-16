@@ -122,4 +122,85 @@ class BrokerHttpClientTest extends TestCase
     {
         $this->assertSame('hermiq', BrokerHttpClient::APP_ID);
     }//end testItIdentifiesItselfAsHermiq()
+
+
+    /**
+     * The provider's response headers must survive the broker hop. They carry signals
+     * that exist nowhere else in the response — `retry-after` and the
+     * `anthropic-ratelimit-*` counters — and without them a 429 cannot be told apart
+     * from a hard refusal.
+     *
+     * @return void
+     */
+    public function testProviderResponseHeadersArePassedThrough(): void
+    {
+        $client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
+
+        $pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
+        $pass->setAccessible(true);
+
+        $out = $pass->invoke(
+            $client,
+            [
+                'content-type'                           => ['application/json'],
+                'retry-after'                            => ['30'],
+                'anthropic-ratelimit-requests-remaining' => ['0'],
+                'request-id'                             => ['req_abc'],
+            ]
+        );
+
+        $this->assertSame(['30'], $out['retry-after']);
+        $this->assertSame(['0'], $out['anthropic-ratelimit-requests-remaining']);
+        $this->assertSame(['req_abc'], $out['request-id']);
+    }//end testProviderResponseHeadersArePassedThrough()
+
+
+    /**
+     * Transfer-scoped headers must NOT be forwarded: the broker already materialised and
+     * decoded the body, so a forwarded `Content-Length` / `Content-Encoding` would
+     * describe a transfer that no longer applies.
+     *
+     * @return void
+     */
+    public function testTransferScopedResponseHeadersAreDropped(): void
+    {
+        $client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
+
+        $pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
+        $pass->setAccessible(true);
+
+        $out = $pass->invoke(
+            $client,
+            [
+                'content-type'      => ['application/json'],
+                'content-encoding'  => ['gzip'],
+                'content-length'    => ['12345'],
+                'transfer-encoding' => ['chunked'],
+                'connection'        => ['keep-alive'],
+            ]
+        );
+
+        $this->assertArrayNotHasKey('content-encoding', $out);
+        $this->assertArrayNotHasKey('content-length', $out);
+        $this->assertArrayNotHasKey('transfer-encoding', $out);
+        $this->assertArrayNotHasKey('connection', $out);
+        $this->assertSame(['application/json'], $out['content-type']);
+    }//end testTransferScopedResponseHeadersAreDropped()
+
+
+    /**
+     * A broker that reports no headers still yields a usable JSON response.
+     *
+     * @return void
+     */
+    public function testMissingBrokerHeadersFallBackToJson(): void
+    {
+        $client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
+
+        $pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
+        $pass->setAccessible(true);
+
+        $this->assertSame(['Content-Type' => 'application/json'], $pass->invoke($client, []));
+        $this->assertSame(['Content-Type' => 'application/json'], $pass->invoke($client, null));
+    }//end testMissingBrokerHeadersFallBackToJson()
 }//end class

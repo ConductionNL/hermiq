@@ -953,6 +953,29 @@ class ProviderFactory
             }
 
             if ($httpCode === 429) {
+                // `retry-after` only reaches us because BrokerHttpClient forwards the
+                // provider's response headers; without it a 429 is opaque.
+                $retryAfter = trim($psrResponse->getHeaderLine('retry-after'));
+                if ($retryAfter !== '') {
+                    throw new Exception('Rate limit exceeded. Please try again in '.$retryAfter.' seconds.');
+                }
+
+                // No retry-after and no `anthropic-ratelimit-*` counters means Anthropic is
+                // refusing this credential for this endpoint rather than reporting a usage
+                // window — the signature of a subscription (Claude Max) OAuth token, which
+                // is not entitled to the direct Messages API. Say so instead of implying
+                // that waiting will help.
+                if ($psrResponse->hasHeader('anthropic-ratelimit-requests-remaining') === false
+                    && $psrResponse->hasHeader('anthropic-ratelimit-tokens-remaining') === false
+                ) {
+                    throw new Exception(
+                        'Anthropic refused this credential for the Messages API (rate_limit_error with no '
+                        .'rate-limit counters). A Claude Max/Pro subscription OAuth token is not entitled to '
+                        .'the direct API — use an Anthropic API key, or run the subscription through the '
+                        .'hermiq-llm-runner ExApp (executionMode: cli), which uses the official Claude CLI.'
+                    );
+                }
+
                 throw new Exception('Rate limit exceeded. Please try again later.');
             }
 
