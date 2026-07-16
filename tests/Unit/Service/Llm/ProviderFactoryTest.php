@@ -34,6 +34,7 @@ use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderFactory;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\Hermiq\Service\TenantModelPolicyService;
+use OCP\App\IAppManager;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\TaskProcessing\IManager;
@@ -1468,4 +1469,71 @@ class ProviderFactoryTest extends TestCase
         $this->assertObjectNotHasProperty('credentialEnv', $driver);
 
     }//end testCliDriverNeverCarriesTheToken()
+
+    /**
+     * A TEXT-ONLY cli turn with NO agent is not refused for lacking one.
+     *
+     * Regression guard. Every cli turn now mints a run token, because the token is
+     * also the identity the egress proxy presents to the PDP and the runner
+     * container has no other way out. Minting it with the GOVERNED (strict) rules
+     * would demand an agent — and conversation-title generation legitimately calls
+     * this path with `agentId: null` (`ConversationManagementHandler`), so a
+     * strict mint here would 503 every title the moment `executionMode: cli` is
+     * switched on. The turn may still fail for other reasons in this unit context
+     * (no live runner); what it must NEVER say is that it has no agent.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+     */
+    public function testTextOnlyCliTurnWithoutAnAgentIsNotRefusedForLackingOne(): void
+    {
+        $manager = $this->createMock(IManager::class);
+        $settings = $this->createMock(LlmSettingsHandler::class);
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn('alice');
+        $userSession = $this->createMock(IUserSession::class);
+        $userSession->method('getUser')->willReturn($user);
+
+        // AppAPI + the runner ExApp both present, so the availability guard passes
+        // and execution reaches the mint — the code under test.
+        $appManager = $this->createMock(IAppManager::class);
+        $appManager->method('isEnabledForUser')->willReturn(true);
+
+        $factory = new ProviderFactory(
+            $settings,
+            $manager,
+            $userSession,
+            new NullLogger(),
+            'hermiq',
+            null,
+            $appManager
+        );
+
+        try {
+            $factory->callAnthropicChat(
+                credentialId: 'cred-uuid-anthropic',
+                model: 'claude-opus-4-8',
+                baseUrl: 'https://api.anthropic.com/v1',
+                messageHistory: [new LLPhantMessage()],
+                authMode: 'oauth',
+                maxTokens: 1024,
+                functions: [],
+                toolExecutor: null,
+                executionMode: 'cli',
+                agentId: null
+            );
+        } catch (\Throwable $e) {
+            $this->assertStringNotContainsString(
+                'without an agent',
+                $e->getMessage(),
+                'A text-only turn has no tools to resolve, so it must not be refused for having no agent.'
+            );
+            return;
+        }
+
+        // Reaching here is also fine: it certainly was not refused for lacking an agent.
+        $this->addToAssertionCount(1);
+
+    }//end testTextOnlyCliTurnWithoutAnAgentIsNotRefusedForLackingOne()
 }//end class

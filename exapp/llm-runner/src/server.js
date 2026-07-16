@@ -107,7 +107,7 @@ async function handleRun(req, res, rawBody) {
         return;
     }
 
-    const { provider: providerId, model, messages, credentialEnv, mcpConfig } = payload;
+    const { provider: providerId, model, messages, credentialEnv, mcpConfig, runToken } = payload;
     const provider = getProvider(providerId);
     if (!provider) {
         sendJson(res, 400, { error: `unknown provider '${providerId}'` });
@@ -126,7 +126,7 @@ async function handleRun(req, res, rawBody) {
     //    A text-only turn omits `mcpConfig` and is served exactly as link 2 built it.
     log('info', `/run provider=${providerId} model=${model || '(default)'} messages=${messages.length} governed=${mcpConfig ? 'yes' : 'no'}`);
     try {
-        const result = await run({ provider, model, messages, credentialEnv, mcpConfig });
+        const result = await run({ provider, model, messages, credentialEnv, mcpConfig, runToken });
         sendJson(res, 200, {
             text: result.text,
             toolCalls: result.toolCalls,

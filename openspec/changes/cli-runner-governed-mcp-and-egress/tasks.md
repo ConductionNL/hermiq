@@ -96,8 +96,8 @@ provider exists and a text-only `cli` turn already dispatches.
   - GIVEN a build with `--tools ""` absent WHEN the built-in WebFetch hits a non-allowlisted host THEN the proxy still denies it — proving the backstop does not depend on the CLI flags
   - GIVEN egress is configured WHEN the allowlist is read THEN it is exactly `api.anthropic.com` + the Hermiq tools origin + the Hermiq egress origin; every other host is blocked
   - GIVEN the docs WHEN read THEN they state the revised model: non-root, no host/user mounts, NO default route, per-call env-only credentials, two token-gated Hermiq origins, the two complementary layers (per-agent authorization vs network backstop), the CONNECT host-granularity limitation, and that Claude Max is PERSONAL-SCOPE ONLY per the Anthropic ToS
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 

@@ -869,9 +869,24 @@ class ProviderFactory
             // because `ToolLoop::listAgentFunctions()` raises ToolGrantResolutionException
             // at the resolution site. That distinction cannot be recovered here — both
             // cases arrive as an empty array — which is exactly why it is enforced there.
+            // EVERY cli turn needs a run token, not only a tool-requiring one: it is also
+            // the identity the egress proxy presents to the PDP, and the runner container
+            // has no default route — a turn without one cannot reach api.anthropic.com at
+            // all. The two mints differ in STRICTNESS, deliberately:
+            //
+            // - a GOVERNED turn must have an agent (its grants are what the token
+            // resolves) and fails LOUD without one;
+            // - a text-only turn may legitimately have NO agent — conversation-title
+            // generation calls this path with `agentId: null` — so it gets a tolerant
+            // egress-only identity instead. Minting strictly here would 503 every
+            // title generation the moment `executionMode: cli` is switched on.
             if (empty($functions) === false) {
                 $runToken          = $this->mintGovernedRunToken(agentId: $agentId, uid: $uid);
                 $governedMcpConfig = $this->buildGovernedMcpConfig(runToken: $runToken);
+            }
+
+            if (empty($functions) === true) {
+                $runToken = $this->mintEgressRunToken(agentId: $agentId, uid: $uid);
             }
 
             // 3. Credential (subscription token). Local variable only: never stored on the
@@ -885,7 +900,8 @@ class ProviderFactory
                 messageHistory: $messageHistory,
                 token: $token,
                 uid: $uid,
-                mcpConfig: $governedMcpConfig
+                mcpConfig: $governedMcpConfig,
+                runToken: $runToken
             );
         } finally {
             // The run token dies with the turn (success, error, or timeout), so a token
@@ -958,6 +974,62 @@ class ProviderFactory
         }//end try
 
     }//end mintGovernedRunToken()
+
+    /**
+     * Mint the egress-only run identity for a TEXT-ONLY cli turn.
+     *
+     * Deliberately tolerant where `mintGovernedRunToken()` is strict. A text-only
+     * turn may legitimately have no agent at all — conversation-title generation
+     * reaches this path with `agentId: null` — and it has no tools to lose, so
+     * there is nothing to fail loud about. It still needs an identity to get out
+     * of the container, because the proxy is the only route and it denies an
+     * identity-less connection.
+     *
+     * Returns '' (rather than throwing) whenever a token cannot be minted, so the
+     * turn is never blocked by the absence of a capability it does not need:
+     *   - no `RunTokenService` (an older DI wiring) — nothing to mint with;
+     *   - no acting user — nothing to bind to.
+     * With an empty token the runner injects no proxy env. Under the governed
+     * posture the CLI then has no way out and the turn fails as a provider error
+     * (correct: fail-closed); under the legacy jail posture it is a no-op.
+     *
+     * The token binds `agentId: ''` when there is no agent. That is safe: the MCP
+     * endpoint resolves the granted tool set FROM the bound agent, so a token with
+     * no agent resolves to no tools — it can open connections policy allows, and
+     * nothing else. A text-only turn is never handed the MCP endpoint's address
+     * anyway (it carries no `mcpConfig`).
+     *
+     * @param string|null $agentId The acting agent's UUID, when there is one.
+     * @param string|null $uid     The acting user's UID.
+     *
+     * @return string The token, or '' when one could not be minted.
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+     */
+    private function mintEgressRunToken(?string $agentId, ?string $uid): string
+    {
+        if ($this->runTokenService === null || $uid === null || $uid === '') {
+            return '';
+        }
+
+        try {
+            return $this->runTokenService->mint(
+                runId: bin2hex(random_bytes(16)),
+                agentId: ($agentId ?? ''),
+                userId: $uid
+            );
+        } catch (Throwable $e) {
+            // Never fatal: a text-only turn has no tools to protect, and the
+            // network layer already denies anything this token would have allowed.
+            $this->logger->warning(
+                '[ProviderFactory] Anthropic cli egress run token could not be minted',
+                ['reason' => $e->getMessage()]
+            );
+
+            return '';
+        }//end try
+
+    }//end mintEgressRunToken()
 
     /**
      * Assemble the governed MCP server config the runner writes to a 0600 file and hands to
@@ -1245,6 +1317,11 @@ class ProviderFactory
      *                                                 for a text-only turn. Carries the per-run bearer
      *                                                 token in its `headers`; the runner writes it to a
      *                                                 0600 file, never inline argv.
+     * @param string                   $runToken       The per-run token. Sent on EVERY cli turn (not just
+     *                                                 a governed one) because the runner also presents it
+     *                                                 to the egress proxy, which is the container's only
+     *                                                 route out — a text-only turn without it could not
+     *                                                 reach the provider at all.
      *
      * @return string The completion text.
      *
@@ -1252,9 +1329,16 @@ class ProviderFactory
      *
      * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
      * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
      */
-    private function dispatchCliTurn(string $model, array $messageHistory, string $token, ?string $uid, ?array $mcpConfig=null): string
-    {
+    private function dispatchCliTurn(
+        string $model,
+        array $messageHistory,
+        string $token,
+        ?string $uid,
+        ?array $mcpConfig=null,
+        string $runToken=''
+    ): string {
         // `credentialEnv`'s key is EXACTLY the one the runner's anthropic adapter allowlists.
         // A key outside the allowlist is dropped WITHOUT an error, which would yield an
         // unauthenticated CLI rather than a 400 — so this string has to be exactly right.
@@ -1270,6 +1354,14 @@ class ProviderFactory
         // --mcp-config <path>`. A text-only turn omits it entirely (unchanged link-2 path).
         if ($mcpConfig !== null) {
             $params['mcpConfig'] = $mcpConfig;
+        }
+
+        // The run identity for the egress PEP. The runner turns this into
+        // `HTTPS_PROXY=http://run:<token>@<proxy>` in the CLI's ENVIRONMENT — never on
+        // argv, where the process table would expose it. Sent on every turn: the proxy
+        // is the container's only route out.
+        if ($runToken !== '') {
+            $params['runToken'] = $runToken;
         }
 
         $result = $this->appApiPublicFunctions()->exAppRequest(

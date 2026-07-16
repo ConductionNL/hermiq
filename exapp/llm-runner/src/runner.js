@@ -29,15 +29,53 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.RUNNER_TIMEOUT_MS || '120000');
 const MAX_OUTPUT_BYTES = Number(process.env.RUNNER_MAX_OUTPUT_BYTES || String(8 * 1024 * 1024));
 
 // Non-credential env var NAMES the runner forwards from its own environment to
-// the CLI child. This is how the network-layer egress-proxy option (see
-// deploy/docker-compose.yml Option B) reaches the CLI — the proxy config lives
-// in the runner's env, not in the per-call credentialEnv. Values here carry NO
-// secrets. Defaults cover the standard proxy vars; extend via env.
+// the CLI child. Values here carry NO secrets. Defaults cover the standard proxy
+// vars; extend via env.
 const DEFAULT_PASSTHROUGH_ENV = 'HTTPS_PROXY,HTTP_PROXY,NO_PROXY,https_proxy,http_proxy,no_proxy';
 const PASSTHROUGH_ENV = (process.env.RUNNER_PASSTHROUGH_ENV || DEFAULT_PASSTHROUGH_ENV)
     .split(',')
     .map((s) => s.trim())
     .filter((s) => s !== '');
+
+// The governed egress proxy's base authority (`host:port`), e.g. `egress-proxy:3128`.
+// When set, the runner builds a PER-RUN proxy URL carrying the run token, so the
+// proxy can ask Hermiq's PDP "may THIS run reach that host?" rather than applying a
+// static allowlist of its own. Unset ⇒ no proxy URL is injected and the standard
+// passthrough vars (if any) apply unchanged — the Option A iptables jail.
+const EGRESS_PROXY_AUTHORITY = (process.env.EGRESS_PROXY_AUTHORITY || '').trim();
+
+/**
+ * Build the per-run proxy env for the CLI child.
+ *
+ * The run token goes in the URL's userinfo (`http://run:<token>@host:port`) because
+ * that is the one channel every HTTP client already forwards to a proxy as
+ * `Proxy-Authorization`, with no client-side support needed. It lives in the child's
+ * ENVIRONMENT only — never on argv (the process table is world-readable) and never
+ * in a log line.
+ *
+ * Returns an empty object when either half is missing: without a proxy authority
+ * there is nothing to point at, and without a token the proxy would deny anyway.
+ *
+ * @param {string} runToken The per-run token minted by Hermiq.
+ * @returns {object} Env map to merge into the child's environment.
+ */
+function buildEgressProxyEnv(runToken) {
+    if (EGRESS_PROXY_AUTHORITY === '' || typeof runToken !== 'string' || runToken === '') {
+        return {};
+    }
+
+    const url = `http://run:${encodeURIComponent(runToken)}@${EGRESS_PROXY_AUTHORITY}`;
+
+    // Both cases: some tools read the lowercase names, some the uppercase.
+    // NO_PROXY is deliberately NOT set — an exemption list here would be a second
+    // policy, and a hole in the only route out.
+    return {
+        HTTPS_PROXY: url,
+        https_proxy: url,
+        HTTP_PROXY: url,
+        http_proxy: url,
+    };
+}
 
 /**
  * Build the single prompt string handed to a print-mode CLI from the assembled
@@ -144,9 +182,12 @@ function assertGovernedArgs(args) {
  *        is written to a 0600 file in the scratch dir, its path is passed via
  *        `--mcp-config`, and the CLI is locked down with `--tools "" --strict-mcp-config`.
  *        Never placed inline on argv. Absent ⇒ the unchanged text-only turn.
+ * @param {string} [args.runToken] The per-run token. Used to build the CLI's proxy env
+ *        so the governed egress proxy can identify the run to Hermiq's PDP. Sent on
+ *        every turn, governed or not — the proxy is the container's only route out.
  * @returns {Promise<{text: string, toolCalls: Array, usage: object}>} Result.
  */
-function run({ provider, model, messages, credentialEnv, mcpConfig }) {
+function run({ provider, model, messages, credentialEnv, mcpConfig, runToken }) {
     return new Promise((resolve, reject) => {
         const prompt = buildPrompt(messages);
 
@@ -191,6 +232,11 @@ function run({ provider, model, messages, credentialEnv, mcpConfig }) {
                 childEnv[name] = process.env[name];
             }
         }
+        // The per-run proxy URL is assigned AFTER the passthrough, so a stray static
+        // HTTPS_PROXY in the container's own env can never shadow the run-scoped one —
+        // that would send the CLI out through a proxy with no run identity, which the
+        // PDP denies, and it would read as "the provider is down".
+        Object.assign(childEnv, buildEgressProxyEnv(runToken));
         Object.assign(childEnv, selectCredentialEnv(provider, credentialEnv));
 
         let child;
@@ -305,4 +351,4 @@ function cleanup(dir) {
     }
 }
 
-module.exports = { run, buildPrompt, selectCredentialEnv, redact, assertGovernedArgs };
+module.exports = { run, buildPrompt, selectCredentialEnv, redact, assertGovernedArgs, buildEgressProxyEnv };

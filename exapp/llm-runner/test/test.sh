@@ -248,6 +248,15 @@ else
 fi
 
 # =============================================================================
+# (g) Governed egress proxy: fail-closed on every PDP failure, per-run token
+# =============================================================================
+if node --test "${ROOT}/test/egress.proxy.test.js" > "${WORK}/egress.log" 2>&1; then
+    pass "(g) governed egress-proxy tests (default-deny, fail-closed, per-run token)"
+else
+    fail "(g) governed egress-proxy tests failed"; cat "${WORK}/egress.log" || true
+fi
+
+# =============================================================================
 
 # =============================================================================
 echo
