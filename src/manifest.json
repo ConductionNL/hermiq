@@ -89,6 +89,13 @@
 			"order": 18
 		},
 		{
+			"id": "ContextsCatalog",
+			"label": "Contexts",
+			"icon": "icon-category-office",
+			"route": "ContextsCatalog",
+			"order": 19
+		},
+		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
@@ -431,6 +438,30 @@
 			"slots": {
 				"row-actions": "skill-row-actions",
 				"form-dialog": "SkillFormModal"
+			}
+		},
+		{
+			"id": "ContextsCatalog",
+			"route": "/contexts",
+			"type": "index",
+			"config": {
+				"register": "hermiq",
+				"schema": "context",
+				"_note": "hermiq-context-documents: a Context bundles files/objectQueries/documents/viewRefs into a budgeted preamble attached to an agent via Agent.contextRefs (ADR-024). Mirrors the SkillsCatalog page shape — a plain index over the schema, with create/edit replaced by the dedicated ContextFormModal via slots.form-dialog (documents authored inline with CnMarkdownEditor, distinct from files/objectQueries pickers).",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					}
+				]
+			},
+			"title": "Contexts",
+			"slots": {
+				"form-dialog": "ContextFormModal"
 			}
 		},
 		{
