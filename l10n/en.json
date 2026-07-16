@@ -1,5 +1,6 @@
 {
     "translations": {
+        "This agent's tool grants resolve to no tools: %1$s. Check the ids against the tool catalog — an agent with no tools on purpose should be granted \"%2$s\" instead.": "This agent's tool grants resolve to no tools: %1$s. Check the ids against the tool catalog — an agent with no tools on purpose should be granted \"%2$s\" instead.",
         "Dashboard": "Dashboard",
         "Documentation": "Documentation",
         "Items": "Items",

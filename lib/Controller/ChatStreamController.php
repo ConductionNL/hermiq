@@ -41,11 +41,13 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Engine\ToolGrantResolutionException;
+use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Response;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -130,6 +132,11 @@ class ChatStreamController extends Controller
      *                                       transaction before the SSE handler bypasses the
      *                                       framework via exit; (connection-leak mitigation).
      * @param LoggerInterface $logger        PSR-3 logger.
+     * @param IL10N           $l10n          Renders the one error this controller shows the user
+     *                                       verbatim (an unresolved tool grant) in their language
+     *                                       — the message is built HERE, from the exception's
+     *                                       structured data, because a service throwing it has no
+     *                                       business knowing the reader's locale (ADR-007).
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
      */
@@ -140,6 +147,7 @@ class ChatStreamController extends Controller
         private readonly IUserSession $userSession,
         private readonly IDBConnection $db,
         private readonly LoggerInterface $logger,
+        private readonly IL10N $l10n,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -346,7 +354,22 @@ class ChatStreamController extends Controller
                 eventType: 'error',
                 payload: [
                     'code'    => 'tool_grants_unresolved',
-                    'message' => $e->getMessage(),
+                    // Rendered here rather than reusing $e->getMessage(): the
+                    // exception's own message is for the log (English, always), while
+                    // this one is read by a person. The grant ids are interpolated,
+                    // never translated — they are identifiers.
+                    // The concatenation is only to satisfy the line-length limit —
+                    // the assembled string MUST stay byte-identical to the key in
+                    // l10n/*.json, or the lookup misses and every locale silently
+                    // falls back to English.
+                    'message' => $this->l10n->t(
+                        'This agent\'s tool grants resolve to no tools: %1$s. Check the ids against the tool '
+                        .'catalog — an agent with no tools on purpose should be granted "%2$s" instead.',
+                        [
+                            implode(', ', $e->getGrants()),
+                            ToolGrantResolver::NO_TOOLS_SENTINEL,
+                        ]
+                    ),
                 ]
             );
         } catch (Throwable $e) {

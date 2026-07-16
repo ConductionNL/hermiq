@@ -36,6 +36,7 @@ use OCA\Hermiq\Controller\ChatStreamController;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
@@ -142,7 +143,8 @@ class ChatStreamControllerHeartbeatTest extends TestCase
             $this->createMock(ObjectService::class),
             $this->createMock(IUserSession::class),
             $this->createMock(IDBConnection::class),
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            $this->createMock(IL10N::class)
         );
 
     }//end makeController()
