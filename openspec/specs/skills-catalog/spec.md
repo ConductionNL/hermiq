@@ -1,11 +1,11 @@
 # Skills Catalog Specification
 
-**Status**: in-progress (management surface live-verified; run-loop consumption is an OR seam; GitHub provenance fields being added)
+**Status**: active (management surface live-verified; run-loop consumption is an OR seam)
 
 **Feature tier**: V1
 
 **OpenSpec changes:** `skills-catalog` — DONE: `agentskill`/`agentskillsource` schemas; dependency-free `SkillSerializer` (byte-for-byte agentskills.io round-trip); `SkillService` (import/export/list/install-onto-agent); `SkillController` endpoints; `SkillsCatalog` UI (Playwright-verified: browse, import, install, export). Run-loop consumption of `installedOn` (skill available during a turn) is an OpenRegister seam.
-`hermiq-github-store-skill-schema` — IN PROGRESS: `Skill` schema gains `githubOwner`/`githubRepo`/`publishedAt` (mirroring `AgentTemplate`) so a skill published to GitHub carries its provenance; head of the `hermiq-github-store` config→code chain.
+`hermiq-github-store-skill-schema` — DONE: `Skill` schema gains `githubOwner`/`githubRepo`/`publishedAt` (mirroring `AgentTemplate`) so a skill published to GitHub carries its provenance; head of the `hermiq-github-store` config→code chain.
 
 ## Purpose
 
@@ -66,6 +66,30 @@ not currently associated MUST succeed as a no-op rather than error.
 - THEN the system MUST return success
 - AND the skill's `installedOn` and agent Y's `skillInstalls` MUST remain unchanged
 @e2e exclude idempotency is covered by SkillServiceTest::testUninstallFromAgentIsIdempotent (agent-side write skipped when already absent). Newman/Playwright coverage deferred.
+
+### Requirement: The Skill schema records GitHub publish provenance
+The system MUST declare, on the `Skill` schema (slug `agentskill`) in
+`lib/Settings/hermiq_register.json`, three optional provenance properties mirroring `AgentTemplate`:
+`githubOwner` (string), `githubRepo` (string), and `publishedAt` (string, `format: date-time`). None of
+the three MUST be listed in the schema's `required` array, so every existing `Skill` object remains
+valid after the fields are added. The fields are provenance only: they record the GitHub owner,
+repository name, and timestamp of a skill's last publish, and MUST NOT be part of the agentskills.io
+package that `SkillSerializer` round-trips (mirroring how `AgentTemplateSerializer::toPackage()` never
+emits `githubOwner`) — the enforcement of that non-emission is owned by the `hermiq-github-store` code
+change, not this schema change.
+
+#### Scenario: The Skill schema exposes the three optional provenance fields after re-import
+- GIVEN the register `info.version` has been bumped to `0.14.0` and the app `<version>` bumped
+- WHEN the app is upgraded and the `InitializeSettings` repair step runs `loadConfiguration(force: false)`
+- THEN `ConfigurationService::importFromApp()` MUST re-import the `agentskill` schema
+- AND the imported `Skill` schema MUST expose `githubOwner`, `githubRepo`, and `publishedAt` as optional
+  string properties (with `publishedAt` typed `date-time`)
+
+#### Scenario: Existing skills stay valid and unchanged when the fields are added
+- GIVEN a `Skill` object created before this change, with no `githubOwner`/`githubRepo`/`publishedAt`
+- WHEN the schema is re-imported with the three new optional fields
+- THEN the existing `Skill` object MUST remain valid without modification
+- AND its three provenance fields MUST be absent/empty (no backfill, no data transformation)
 
 ## User Stories
 
