@@ -341,7 +341,12 @@ class MemoryServiceTest extends TestCase
     }//end testListSessionsFailsClosedWithNoAuthenticatedUser()
 
     /**
-     * Recall passes the agent filter + search term through to ObjectService search.
+     * Recall passes the agent filter + search term through to ObjectService search,
+     * AND — like `listSessions()` — scopes to the CALLER's own SessionTurns via the
+     * `@self.owner` object-owner meta-filter: `SessionTurn` has no owner/subject
+     * property, so without this a query would full-text-search every user's turns
+     * for the agent. Without the fix, `filters` carries only `agentId` and the
+     * `@self.owner` assertion fails.
      *
      * @return void
      *
@@ -366,8 +371,99 @@ class MemoryServiceTest extends TestCase
         $this->assertNotNull($capturedConfig);
         $this->assertSame('agent-9', $capturedConfig['filters']['agentId']);
         $this->assertSame('budget report', $capturedConfig['search']);
+        $this->assertArrayHasKey(
+            '@self.owner',
+            $capturedConfig['filters'],
+            'recallSessions() must scope by the OpenRegister object-owner meta-filter, never just agentId — '
+            .'otherwise any authenticated user can full-text search every other user\'s SessionTurns for this agent.'
+        );
+        $this->assertSame('admin', $capturedConfig['filters']['@self.owner']);
 
     }//end testRecallPassesAgentFilterAndSearch()
+
+    /**
+     * `recallSessions()` fails CLOSED when there is no authenticated user: it must
+     * return an empty array rather than falling back to an unfiltered (everyone's
+     * SessionTurns) search. `findAll()` must never even be called in this case.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-5
+     */
+    public function testRecallSessionsFailsClosedWithNoAuthenticatedUser(): void
+    {
+        $service = $this->createMock(ObjectService::class);
+        $service->method('setRegister')->willReturnSelf();
+        $service->method('setSchema')->willReturnSelf();
+        $service->expects($this->never())->method('findAll');
+
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession(null));
+        $result = $memory->recallSessions(agentId: 'agent-9', query: 'budget report');
+
+        $this->assertSame([], $result);
+
+    }//end testRecallSessionsFailsClosedWithNoAuthenticatedUser()
+
+    /**
+     * `listUserProfiles()` scopes to the CALLER's own UserProfile via `subjectUid` —
+     * matching the same idiom `getUserProfile()` already uses — so it never returns
+     * another user's UserProfile for the same agent. Without the fix, `filters`
+     * carries only `agentId` and the `subjectUid` assertion fails.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-1
+     */
+    public function testListUserProfilesScopesToCallerSubjectUidOnly(): void
+    {
+        $capturedConfig = null;
+        $service        = $this->createMock(ObjectService::class);
+        $service->method('setRegister')->willReturnSelf();
+        $service->method('setSchema')->willReturnSelf();
+        $service->method('findAll')->willReturnCallback(
+            function (array $config) use (&$capturedConfig): array {
+                $capturedConfig = $config;
+                return [];
+            }
+        );
+
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession('alice'));
+        $memory->listUserProfiles(agentId: 'agent-1');
+
+        $this->assertNotNull($capturedConfig);
+        $this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
+        $this->assertArrayHasKey(
+            'subjectUid',
+            $capturedConfig['filters'],
+            'listUserProfiles() must scope by subjectUid, never just agentId — '
+            .'otherwise every authenticated user sees every other user\'s UserProfile for this agent.'
+        );
+        $this->assertSame('alice', $capturedConfig['filters']['subjectUid']);
+
+    }//end testListUserProfilesScopesToCallerSubjectUidOnly()
+
+    /**
+     * `listUserProfiles()` fails CLOSED when there is no authenticated user: it must
+     * return an empty array rather than falling back to an unfiltered (everyone's
+     * UserProfile) query. `findAll()` must never even be called in this case.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-1
+     */
+    public function testListUserProfilesFailsClosedWithNoAuthenticatedUser(): void
+    {
+        $service = $this->createMock(ObjectService::class);
+        $service->method('setRegister')->willReturnSelf();
+        $service->method('setSchema')->willReturnSelf();
+        $service->expects($this->never())->method('findAll');
+
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession(null));
+        $result = $memory->listUserProfiles(agentId: 'agent-1');
+
+        $this->assertSame([], $result);
+
+    }//end testListUserProfilesFailsClosedWithNoAuthenticatedUser()
 
     /**
      * A memory entry containing a recognised credential pattern is redacted
