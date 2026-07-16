@@ -60,4 +60,19 @@ export const useEvalRunStore = createObjectStore('evalrun', {
 	schema: 'evalrun',
 })
 
+/**
+ * Canonical OpenRegister object store for the 'agentskill' schema
+ * (hermiq-skill-markdown-authoring). A Skill's CREATE goes through the
+ * dedicated `SkillController`/`SkillService` import path (`src/api/skills.js`,
+ * so `SkillSerializer::fromPackage` is the single source of truth for
+ * splitting a package into `frontmatter`+`body`); this store is used ONLY for
+ * EDIT — the generic OpenRegister object PUT the SkillsCatalog page's
+ * (now-superseded) built-in dialog already issued, mirroring the `agent`/
+ * `evaldataset` stores above (`SkillFormModal`, agent-form-slot parity).
+ */
+export const useSkillStore = createObjectStore('agentskill', {
+	register: 'hermiq',
+	schema: 'agentskill',
+})
+
 export { useSettingsStore }

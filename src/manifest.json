@@ -429,7 +429,8 @@
 			},
 			"title": "Skills",
 			"slots": {
-				"row-actions": "skill-row-actions"
+				"row-actions": "skill-row-actions",
+				"form-dialog": "SkillFormModal"
 			}
 		},
 		{
