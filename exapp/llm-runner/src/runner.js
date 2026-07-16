@@ -100,6 +100,30 @@ function selectCredentialEnv(provider, credentialEnv) {
 }
 
 /**
+ * Assert the governed-MCP lockdown flags are present on the assembled argv before
+ * the CLI is spawned. A governed turn (one carrying an mcpConfig) MUST include
+ * `--tools ""` and `--strict-mcp-config`, or the boundary is gone — the runner
+ * refuses to spawn rather than run an ungoverned CLI with a live token in its
+ * config file (cli-runner-governed-mcp-and-egress). Throws with the missing flag.
+ *
+ * @param {Array<string>} args The assembled CLI argv.
+ * @returns {void}
+ */
+function assertGovernedArgs(args) {
+    const toolsIdx = args.indexOf('--tools');
+    // `--tools` must be present AND followed by the empty string (disable all built-ins).
+    if (toolsIdx === -1 || args[toolsIdx + 1] !== '') {
+        throw new Error('refusing to spawn: governed turn is missing `--tools ""`');
+    }
+    if (!args.includes('--strict-mcp-config')) {
+        throw new Error('refusing to spawn: governed turn is missing `--strict-mcp-config`');
+    }
+    if (!args.includes('--mcp-config')) {
+        throw new Error('refusing to spawn: governed turn is missing `--mcp-config`');
+    }
+}
+
+/**
  * Run one LLM turn through the given provider's CLI.
  *
  * @param {object} args Arguments.
@@ -107,15 +131,43 @@ function selectCredentialEnv(provider, credentialEnv) {
  * @param {string} args.model Model id (may be empty).
  * @param {Array<object>} args.messages Assembled message history.
  * @param {object} args.credentialEnv Credential env map (allowlisted keys only).
+ * @param {object} [args.mcpConfig] Governed MCP server config ({mcpServers:{...}}). When
+ *        present the turn is GOVERNED: the config (which carries the per-run bearer token)
+ *        is written to a 0600 file in the scratch dir, its path is passed via
+ *        `--mcp-config`, and the CLI is locked down with `--tools "" --strict-mcp-config`.
+ *        Never placed inline on argv. Absent ⇒ the unchanged text-only turn.
  * @returns {Promise<{text: string, toolCalls: Array, usage: object}>} Result.
  */
-function run({ provider, model, messages, credentialEnv }) {
+function run({ provider, model, messages, credentialEnv, mcpConfig }) {
     return new Promise((resolve, reject) => {
         const prompt = buildPrompt(messages);
-        const args = provider.args(model);
 
         // Throwaway scratch dir — the only filesystem the child is pointed at.
         const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-runner-'));
+
+        // Governed turn: write the MCP config (with its live bearer token) to a 0600
+        // file — never an inline argv string, which would put the token on the process
+        // table. It is removed with the scratch dir by cleanup() in every exit path.
+        let mcpConfigPath = null;
+        if (mcpConfig && typeof mcpConfig === 'object') {
+            mcpConfigPath = path.join(scratch, 'mcp.json');
+            fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig), { mode: 0o600 });
+            fs.chmodSync(mcpConfigPath, 0o600);
+        }
+
+        const args = provider.args(model, { mcpConfigPath });
+
+        // A governed turn MUST carry the lockdown flags, or the boundary is gone —
+        // refuse to spawn rather than run an ungoverned CLI holding a live token.
+        if (mcpConfigPath !== null) {
+            try {
+                assertGovernedArgs(args);
+            } catch (err) {
+                cleanup(scratch);
+                reject(err);
+                return;
+            }
+        }
 
         // Minimal, sanitised env: keep PATH/HOME so the binary resolves, add the
         // provider credential(s), and NOTHING the caller supplied beyond that.
@@ -231,4 +283,4 @@ function cleanup(dir) {
     }
 }
 
-module.exports = { run, buildPrompt, selectCredentialEnv, redact };
+module.exports = { run, buildPrompt, selectCredentialEnv, redact, assertGovernedArgs };

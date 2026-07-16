@@ -959,50 +959,17 @@ class ProviderFactoryTest extends TestCase
     }//end testAnthropicDriverNormalisesUnknownExecutionModeToHttp()
 
     /**
-     * THE BOUNDARY TEST. A tool-carrying `cli` turn is REFUSED with a 503 naming tools — it is
-     * never degraded to a text-only turn the way the `http` branch degrades (tools + no
-     * executor → warn → proceed). A tool-less agent looks completely healthy and simply never
-     * calls a tool, so nothing alarms on it; that is the defect this chain exists to correct.
-     *
-     * If a future "make it more robust" refactor reintroduces degradation, or falls back to
-     * `http`, this test breaks rather than the boundary.
+     * cli-runner-governed-mcp-and-egress REPLACES the link-2 refusal: a tool-carrying `cli`
+     * turn is no longer refused FOR carrying tools — it is governed via Hermiq's MCP
+     * endpoint. With no app manager it now fails at the AVAILABILITY guard (naming the app
+     * manager), never with the old "the Claude CLI accepts no tool schema" message. This
+     * pins the removal of the refusal branch.
      *
      * @return void
      *
-     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-a-cli-turn-that-carries-tools-is-refused-never-run-tool-less
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
      */
-    public function testCliTurnWithToolsIsRefused(): void
-    {
-        [$factory] = $this->factory();
-
-        $this->expectException(ProviderUnavailableException::class);
-        $this->expectExceptionCode(503);
-        $this->expectExceptionMessageMatches('/tools/i');
-
-        $factory->callAnthropicChat(
-            credentialId: '00000000-0000-0000-0000-000000000000',
-            model: 'claude-opus-4-8',
-            baseUrl: 'https://api.anthropic.com/v1',
-            messageHistory: [LLPhantMessage::user('Book me a room.')],
-            functions: [['name' => 'book_room', 'description' => 'Book a room', 'parameters' => []]],
-            executionMode: 'cli'
-        );
-
-    }//end testCliTurnWithToolsIsRefused()
-
-    /**
-     * The tool refusal fires BEFORE the credential is resolved and BEFORE the ExApp is called,
-     * so a doomed turn spends no subscription quota and pulls no secret from the vault.
-     *
-     * Pinned structurally: this factory has NO app manager, so if the refusal were ordered
-     * after the availability guard the message would name the app manager instead of tools.
-     * Asserting the message names tools therefore pins the ORDER, not just the outcome.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-a-cli-turn-that-carries-tools-is-refused-never-run-tool-less
-     */
-    public function testCliToolRefusalPrecedesCredentialAndDispatch(): void
+    public function testGovernedCliTurnIsNoLongerRefusedForCarryingTools(): void
     {
         [$factory] = $this->factory();
 
@@ -1013,15 +980,220 @@ class ProviderFactoryTest extends TestCase
                 baseUrl: 'https://api.anthropic.com/v1',
                 messageHistory: [LLPhantMessage::user('Book me a room.')],
                 functions: [['name' => 'book_room', 'description' => 'Book a room', 'parameters' => []]],
-                executionMode: 'cli'
+                executionMode: 'cli',
+                agentId: 'agent-uuid-1'
             );
-            $this->fail('A tool-carrying cli turn must be refused.');
+            $this->fail('A cli turn without an app manager must fail loud.');
         } catch (ProviderUnavailableException $e) {
-            $this->assertStringContainsStringIgnoringCase('tool', $e->getMessage());
-            $this->assertStringNotContainsStringIgnoringCase('app manager', $e->getMessage());
+            $this->assertSame(503, $e->getCode());
+            // The failure is now the availability guard, not the removed tool-schema refusal.
+            $this->assertStringContainsStringIgnoringCase('app manager', $e->getMessage());
+            $this->assertStringNotContainsStringIgnoringCase('accepts no tool schema', $e->getMessage());
         }
 
-    }//end testCliToolRefusalPrecedesCredentialAndDispatch()
+    }//end testGovernedCliTurnIsNoLongerRefusedForCarryingTools()
+
+    /**
+     * `mintGovernedRunToken()` fails LOUD (503) when the run-token service is unavailable —
+     * a tool-requiring turn that cannot be governed is refused, never downgraded text-only.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-requiring-turn-with-an-unreachable-governed-endpoint-raises
+     */
+    public function testMintGovernedRunTokenFailsLoudWithoutTokenService(): void
+    {
+        [$factory] = $this->factory();
+
+        $this->expectException(ProviderUnavailableException::class);
+        $this->expectExceptionCode(503);
+
+        $this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', 'alice']);
+
+    }//end testMintGovernedRunTokenFailsLoudWithoutTokenService()
+
+    /**
+     * `mintGovernedRunToken()` fails LOUD (503) without an agent identity to bind the run to.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+     */
+    public function testMintGovernedRunTokenFailsLoudWithoutAgentId(): void
+    {
+        $factory = $this->governedFactory(runTokenService: $this->realRunTokenService());
+
+        try {
+            $this->callPrivate($factory, 'mintGovernedRunToken', [null, 'alice']);
+            $this->fail('A tool-requiring turn without an agent id must fail loud.');
+        } catch (ProviderUnavailableException $e) {
+            $this->assertSame(503, $e->getCode());
+            $this->assertStringContainsStringIgnoringCase('agent identity', $e->getMessage());
+        }
+
+    }//end testMintGovernedRunTokenFailsLoudWithoutAgentId()
+
+    /**
+     * `mintGovernedRunToken()` fails LOUD (503) without a user context to bind the token to.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+     */
+    public function testMintGovernedRunTokenFailsLoudWithoutUser(): void
+    {
+        $factory = $this->governedFactory(runTokenService: $this->realRunTokenService());
+
+        try {
+            $this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', null]);
+            $this->fail('A tool-requiring turn without a user context must fail loud.');
+        } catch (ProviderUnavailableException $e) {
+            $this->assertSame(503, $e->getCode());
+            $this->assertStringContainsStringIgnoringCase('user context', $e->getMessage());
+        }
+
+    }//end testMintGovernedRunTokenFailsLoudWithoutUser()
+
+    /**
+     * A minted token is bound to (runId, agentId, userId) and the SAME service verifies it —
+     * the token re-enters an already-authorized run and resolves the run's agent + user.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+     */
+    public function testMintGovernedRunTokenBindsAndVerifies(): void
+    {
+        $runTokenService = $this->realRunTokenService();
+        $factory         = $this->governedFactory(runTokenService: $runTokenService);
+
+        $token = $this->callPrivate($factory, 'mintGovernedRunToken', ['agent-uuid-1', 'alice']);
+        $this->assertIsString($token);
+        $this->assertNotSame('', $token);
+
+        $binding = $runTokenService->verify(token: $token);
+        $this->assertIsArray($binding);
+        $this->assertSame('agent-uuid-1', $binding['agentId']);
+        $this->assertSame('alice', $binding['userId']);
+
+    }//end testMintGovernedRunTokenBindsAndVerifies()
+
+    /**
+     * `buildGovernedMcpConfig()` fails LOUD (503) when the endpoint URL cannot be resolved —
+     * the MCP config cannot be written, so the turn is refused rather than run tool-less.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+     */
+    public function testBuildGovernedMcpConfigFailsLoudWithoutUrlGenerator(): void
+    {
+        $factory = $this->governedFactory(runTokenService: $this->realRunTokenService());
+
+        $this->expectException(ProviderUnavailableException::class);
+        $this->expectExceptionCode(503);
+
+        $this->callPrivate($factory, 'buildGovernedMcpConfig', ['YOUR_RUN_TOKEN_HERE']);
+
+    }//end testBuildGovernedMcpConfigFailsLoudWithoutUrlGenerator()
+
+    /**
+     * `buildGovernedMcpConfig()` produces an `http` MCP server whose headers carry the bearer
+     * token and `OCS-APIRequest: true` — the exact block the runner writes to a 0600 file.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+     */
+    public function testBuildGovernedMcpConfigProducesHttpBearerConfig(): void
+    {
+        $urlGenerator = $this->createMock(\OCP\IURLGenerator::class);
+        $urlGenerator->method('linkToRouteAbsolute')
+            ->with('hermiq.mcpRun.handle')
+            ->willReturn('https://nc.example/apps/hermiq/api/mcp/run');
+
+        $factory = $this->governedFactory(runTokenService: $this->realRunTokenService(), urlGenerator: $urlGenerator);
+
+        $config = $this->callPrivate($factory, 'buildGovernedMcpConfig', ['RUN-TOKEN-VALUE']);
+
+        $server = $config['mcpServers']['hermiq'];
+        $this->assertSame('http', $server['type']);
+        $this->assertSame('https://nc.example/apps/hermiq/api/mcp/run', $server['url']);
+        $this->assertSame('Bearer RUN-TOKEN-VALUE', $server['headers']['Authorization']);
+        $this->assertSame('true', $server['headers']['OCS-APIRequest']);
+
+    }//end testBuildGovernedMcpConfigProducesHttpBearerConfig()
+
+    /**
+     * Build a ProviderFactory wired with the governed-MCP collaborators (RunTokenService,
+     * IURLGenerator) plus a session user, for the governance-helper tests.
+     *
+     * @param \OCA\Hermiq\Service\Llm\RunTokenService|null $runTokenService The token service.
+     * @param \OCP\IURLGenerator|null                      $urlGenerator    The URL generator.
+     *
+     * @return ProviderFactory
+     */
+    private function governedFactory(
+        ?\OCA\Hermiq\Service\Llm\RunTokenService $runTokenService=null,
+        ?\OCP\IURLGenerator $urlGenerator=null
+    ): ProviderFactory {
+        $manager  = $this->createMock(IManager::class);
+        $settings = $this->createMock(LlmSettingsHandler::class);
+
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn('alice');
+        $userSession = $this->createMock(IUserSession::class);
+        $userSession->method('getUser')->willReturn($user);
+
+        return new ProviderFactory(
+            $settings,
+            $manager,
+            $userSession,
+            new NullLogger(),
+            'hermiq',
+            null,
+            null,
+            null,
+            $runTokenService,
+            $urlGenerator
+        );
+
+    }//end governedFactory()
+
+    /**
+     * A real `RunTokenService` backed by an in-memory cache and a deterministic CSPRNG stub,
+     * so mint→verify round-trips without a live Nextcloud cache.
+     *
+     * @return \OCA\Hermiq\Service\Llm\RunTokenService
+     */
+    private function realRunTokenService(): \OCA\Hermiq\Service\Llm\RunTokenService
+    {
+        $store = new class implements \OCP\ICache {
+            /** @var array<string, mixed> */
+            private array $data = [];
+            public function get($key) { return ($this->data[$key] ?? null); }
+            public function set($key, $value, $ttl=0) { $this->data[$key] = $value; return true; }
+            public function hasKey($key) { return isset($this->data[$key]); }
+            public function remove($key) { unset($this->data[$key]); return true; }
+            public function clear($prefix='') { $this->data = []; return true; }
+            public static function isAvailable(): bool { return true; }
+        };
+
+        $cacheFactory = $this->createMock(\OCP\ICacheFactory::class);
+        $cacheFactory->method('createDistributed')->willReturn($store);
+
+        $secureRandom = $this->createMock(\OCP\Security\ISecureRandom::class);
+        $counter      = 0;
+        $secureRandom->method('generate')->willReturnCallback(
+            static function () use (&$counter): string {
+                $counter++;
+                return str_pad('token'.$counter, 43, 'x');
+            }
+        );
+
+        return new \OCA\Hermiq\Service\Llm\RunTokenService($cacheFactory, $secureRandom);
+
+    }//end realRunTokenService()
 
     /**
      * A text-only `cli` turn with no app manager fails with a 503 that NAMES the missing

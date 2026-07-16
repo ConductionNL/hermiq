@@ -16,8 +16,8 @@ provider exists and a text-only `cli` turn already dispatches.
   - GIVEN `HTTPS_PROXY` is set WHEN the CLI makes its MCP call THEN record whether MCP traffic honours the proxy (this decides whether the Hermiq origins must be proxy-allowlisted or bypassed via `NO_PROXY`)
   - GIVEN the results WHEN they contradict the design THEN STOP and report — do not silently adapt the design
   - Record every finding in discovery.md as verified fact with the exact command used
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Correct the `llm-cli-runner-exapp` spec and remove the false passthrough comment
 - **spec_ref**: `openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run`
@@ -26,8 +26,8 @@ provider exists and a text-only `cli` turn already dispatches.
   - GIVEN the CLI cannot accept a tool schema WHEN the spec is read THEN the tool-schema dispatch requirement is gone and custom-tools-via-MCP-only is stated
   - GIVEN the governed endpoint needs reachability WHEN "no Nextcloud access" is read THEN it is narrowed to exactly one token-gated Hermiq origin; all other hardening unchanged
   - GIVEN `server.js:110` destructures no `tools` WHEN `server.js:121` is read THEN the false "tools is accepted and passed through" comment is gone
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: `EgressAuthorizeController` — the governed egress PDP (Endpoint 2)
 - **spec_ref**: `openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy`
@@ -38,8 +38,8 @@ provider exists and a text-only `cli` turn already dispatches.
   - GIVEN a CONNECT exposes only host:port WHEN deciding THEN decide at host granularity; do NOT attempt TLS interception (rejected — breaks cert pinning, exposes prompt plaintext)
   - GIVEN no/invalid/expired/foreign-run token WHEN called THEN 401/403 before any policy evaluation; the SAME token as Endpoint 1, never a second credential
   - GIVEN the controller WHEN inspected THEN `#[PublicPage]` + `#[NoCSRFRequired]`, with a docblock stating plainly that the per-run token IS the authorization, so gate-9/semantic-auth and the security reviewer read it as intentional
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: `RunTokenService` — mint, verify, consume per-run tokens
 - **spec_ref**: `openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token`
@@ -49,8 +49,8 @@ provider exists and a text-only `cli` turn already dispatches.
   - GIVEN a missing/malformed/expired/consumed token WHEN verified THEN it is rejected; comparison is constant-time (`hash_equals`)
   - GIVEN a run that closes (success, error, or timeout) WHEN the run ends THEN the token is consumed in a `finally` and later use is rejected
   - GIVEN any code path WHEN logs and error bodies are inspected THEN no token value appears
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: `McpRunController` — governed JSON-RPC MCP server route
 - **spec_ref**: `openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run`
@@ -62,8 +62,8 @@ provider exists and a text-only `cli` turn already dispatches.
   - GIVEN a request body naming a different runId/agentId/userId WHEN handled THEN identity is resolved from the token only; the body cannot redirect the run served
   - GIVEN no/invalid token WHEN handled THEN 401 before any tool is resolved; errors are static and generic per ADR-005
   - GIVEN the route WHEN inspected THEN `#[PublicPage]` + `#[NoCSRFRequired]`, and the body calls no `requireAdmin()`/`isAdmin()` (ADR-005 semantic-auth)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: `ProviderFactory` cli branch — mint the token, assemble the MCP config, fail loudly
 - **spec_ref**: `openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less`
@@ -72,8 +72,8 @@ provider exists and a text-only `cli` turn already dispatches.
   - GIVEN a tool-requiring cli turn WHEN dispatched THEN a token is minted and the MCP server config travels to the runner
   - GIVEN the endpoint is unreachable, the token cannot be minted, the MCP config cannot be written, or the resolved tool set is EMPTY WHEN a tool-requiring turn is dispatched THEN `ProviderUnavailableException` (503) naming the cause — never a text-only downgrade
   - GIVEN `callAnthropicChat()` logs a warning and runs text-only at `ProviderFactory.php:624-635` WHEN the cli branch is written THEN it does NOT copy that fail-open behaviour
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: Runner — governed CLI argv + 0600 MCP config file
 - **spec_ref**: `openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags`
@@ -83,8 +83,8 @@ provider exists and a text-only `cli` turn already dispatches.
   - GIVEN the config carries a live bearer token WHEN it is passed THEN it is a FILE in the existing scratch dir (`runner.js:118`) at mode 0600 — never an inline string; no token on argv; removed by the existing `cleanup()`
   - GIVEN `--tools ""` or `--strict-mcp-config` is absent WHEN spawning THEN the runner refuses and reports the missing boundary
   - GIVEN `run()` has no `tools` parameter today (`runner.js:112`) WHEN reworked THEN it accepts the governed-MCP parameters it structurally lacks
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 8: Egress exception + hardening docs
 - **spec_ref**: `openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy`

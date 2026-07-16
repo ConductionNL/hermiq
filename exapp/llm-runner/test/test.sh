@@ -216,6 +216,15 @@ else
 fi
 
 # =============================================================================
+# (e) Governed-MCP argv lockdown + 0600 config file (runner.mcp.test.js)
+# =============================================================================
+if node --test "${ROOT}/test/runner.mcp.test.js" > "${WORK}/mcp.log" 2>&1; then
+    pass "(e) governed-MCP runner tests (argv lockdown, 0600 file, token off argv)"
+else
+    fail "(e) governed-MCP runner tests failed"; cat "${WORK}/mcp.log" || true
+fi
+
+# =============================================================================
 echo
 echo "==== ${PASS} passed, ${FAIL} failed ===="
 [ "${FAIL}" -eq 0 ]

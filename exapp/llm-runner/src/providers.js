@@ -125,9 +125,29 @@ const PROVIDERS = {
     anthropic: {
         // Installed via `npm i -g @anthropic-ai/claude-code`.
         bin: process.env.RUNNER_ANTHROPIC_BIN || 'claude',
-        args: (model) => {
+        // args(model, options): a text-only turn keeps the link-2 argv unchanged. A
+        // GOVERNED turn (options.mcpConfigPath set — cli-runner-governed-mcp-and-egress)
+        // locks the CLI to Hermiq's governance:
+        //   --tools ""            disables EVERY built-in (Bash/Read/Write/Edit AND
+        //                         WebFetch/WebSearch) — the container fs is unreachable to
+        //                         the model and it has no native internet route;
+        //   --strict-mcp-config   restricts the CLI to the MCP servers Hermiq names;
+        //   --mcp-config <path>    the 0600 scratch file carrying the per-run bearer token
+        //                         (a FILE, never an inline string — a string would put the
+        //                         token on the process table);
+        //   --allowedTools mcp__hermiq__*   admits only Hermiq's governed MCP tools.
+        args: (model, options) => {
             const base = ['-p', '--output-format', 'json'];
-            return model ? base.concat(['--model', model]) : base;
+            const withModel = model ? base.concat(['--model', model]) : base;
+            if (options && options.mcpConfigPath) {
+                return withModel.concat([
+                    '--tools', '',
+                    '--strict-mcp-config',
+                    '--mcp-config', options.mcpConfigPath,
+                    '--allowedTools', 'mcp__hermiq__*',
+                ]);
+            }
+            return withModel;
         },
         credentialKeys: ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
         apiHost: 'api.anthropic.com',

@@ -470,6 +470,16 @@ return [
         // deterministic next-best-course list (EU AI Act Annex III §3, advisory only).
         ['name' => 'courseRecommendation#index', 'url' => '/api/recommendations', 'verb' => 'GET'],
 
+        // Governed CLI MCP transport (cli-runner-governed-mcp-and-egress). Both routes
+        // are machine-to-machine, token-gated (RunTokenService), #[PublicPage] +
+        // #[NoCSRFRequired] — the caller is the CLI's MCP client / the egress proxy,
+        // neither of which holds a Nextcloud session; the per-run bearer token IS the
+        // authorization (ADR-005 semantic-auth — see each controller's docblock).
+        //   Endpoint 1 — the governed MCP server (initialize/tools/list/tools/call).
+        ['name' => 'mcpRun#handle', 'url' => '/api/mcp/run', 'verb' => 'POST'],
+        //   Endpoint 2 — the governed egress Policy Decision Point (per-CONNECT allow/deny).
+        ['name' => 'egressAuthorize#authorize', 'url' => '/api/egress/authorize', 'verb' => 'POST'],
+
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).
         ['name' => 'dashboard#catchAll', 'url' => '/{path}', 'verb' => 'GET', 'requirements' => ['path' => '.+'], 'defaults' => ['path' => '']],
