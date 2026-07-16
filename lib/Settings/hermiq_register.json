@@ -3,7 +3,7 @@
 	"info": {
 		"title": "Hermiq Register",
 		"description": "Schedule autonomous AI agents in Nextcloud",
-		"version": "0.14.0"
+		"version": "0.15.0"
 	},
 	"x-openregister": {
 		"type": "application",
@@ -1834,7 +1834,7 @@
 			"Context": {
 				"slug": "context",
 				"icon": "BookOpenVariantOutline",
-				"version": "0.1.0",
+				"version": "0.1.1",
 				"title": "Context",
 				"description": "A named, budgeted bundle of files, object-queries, and view refs, resolved at run start into a text preamble prepended to the system prompt. Tenant scope is inherited from ObjectEntity and not declared here.",
 				"type": "object",
@@ -1874,6 +1874,38 @@
 									"type": "string",
 									"title": "Description",
 									"description": "Optional note on why this file is included."
+								}
+							}
+						}
+					},
+					"documents": {
+						"type": "array",
+						"default": [],
+						"title": "Documents",
+						"description": "Inline document-shaped context (a project design.md, standards doc, persona brief) authored directly on this Context bundle — self-contained and versioned, distinct from `files` (Nextcloud file refs) and `objectQueries` (live data). Each is rendered as a titled section into the budgeted preamble at run start (ADR-024).",
+						"items": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string",
+									"title": "Name",
+									"description": "Human-readable name of this document, used as its section title in the assembled preamble (e.g. \"design.md\")."
+								},
+								"body": {
+									"type": "string",
+									"title": "Body",
+									"description": "The document content, authored/pasted inline (Markdown by default)."
+								},
+								"format": {
+									"type": "string",
+									"default": "markdown",
+									"title": "Format",
+									"description": "Content format of the body; defaults to `markdown`."
+								},
+								"description": {
+									"type": "string",
+									"title": "Description",
+									"description": "Optional note on why this document is included."
 								}
 							}
 						}
