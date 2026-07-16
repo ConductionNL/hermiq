@@ -492,105 +492,57 @@
 			"config": {
 				"widgets": [
 					{
-						"id": "schedules",
-						"title": "Schedules",
-						"type": "stats-block",
-						"iconClass": "icon-category-monitoring",
-						"dataSource": {
-							"register": "hermiq",
-							"schema": "schedule",
-							"aggregate": "count"
-						},
-						"props": {
-							"countLabel": "schedules",
-							"variant": "primary"
-						}
+						"id": "analytics-kpis",
+						"type": "custom",
+						"title": "Analytics"
 					},
 					{
-						"id": "skills",
-						"title": "Skills",
-						"type": "stats-block",
-						"iconClass": "icon-category-customization",
-						"dataSource": {
-							"register": "hermiq",
-							"schema": "agentskill",
-							"aggregate": "count"
-						},
-						"props": {
-							"countLabel": "skills",
-							"variant": "success"
-						}
+						"id": "quota-usage",
+						"type": "custom",
+						"title": "Quota usage"
 					},
 					{
-						"id": "approvals",
-						"title": "Approvals",
-						"type": "stats-block",
-						"iconClass": "icon-checkmark",
-						"dataSource": {
-							"register": "hermiq",
-							"schema": "approval",
-							"aggregate": "count"
-						},
-						"props": {
-							"countLabel": "approvals",
-							"variant": "warning"
-						}
+						"id": "analytics-breakdown",
+						"type": "custom",
+						"title": "Breakdown"
 					}
 				],
 				"layout": [
 					{
-						"id": 1,
-						"widgetId": "schedules",
+						"id": "1",
+						"widgetId": "analytics-kpis",
 						"gridX": 0,
 						"gridY": 0,
-						"gridWidth": 3,
-						"gridHeight": 1
+						"gridWidth": 12,
+						"gridHeight": 3,
+						"showTitle": false
 					},
 					{
-						"id": 2,
-						"widgetId": "skills",
-						"gridX": 3,
-						"gridY": 0,
-						"gridWidth": 3,
-						"gridHeight": 1
+						"id": "2",
+						"widgetId": "quota-usage",
+						"gridX": 0,
+						"gridY": 3,
+						"gridWidth": 12,
+						"gridHeight": 3,
+						"showTitle": false
 					},
 					{
-						"id": 3,
-						"widgetId": "approvals",
-						"gridX": 6,
-						"gridY": 0,
-						"gridWidth": 3,
-						"gridHeight": 1
+						"id": "3",
+						"widgetId": "analytics-breakdown",
+						"gridX": 0,
+						"gridY": 6,
+						"gridWidth": 12,
+						"gridHeight": 4,
+						"showTitle": false
 					}
 				]
 			},
-			"widgets": [
-				{
-					"widgetKey": "analytics-kpis",
-					"slot": "body",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 12,
-					"gridHeight": 2
-				},
-				{
-					"widgetKey": "quota-usage",
-					"slot": "body",
-					"gridX": 0,
-					"gridY": 2,
-					"gridWidth": 12,
-					"gridHeight": 1
-				},
-				{
-					"widgetKey": "analytics-breakdown",
-					"slot": "body",
-					"gridX": 0,
-					"gridY": 3,
-					"gridWidth": 12,
-					"gridHeight": 3
-				}
-			],
-			"_note": "Single dashboard: /analytics was merged in here and dropped (one dashboard). Run analytics stay two custom kind:widget components over the computed /api/analytics endpoint — runs are not OR-schema objects, so they are not declarative stats-block dataSources."
+			"_note": "Single dashboard (/analytics merged in and dropped). Custom widgets MUST be declared as config.widgets type:'custom' + config.layout + a TOP-LEVEL slots map ('widget-<id>' -> registry key) — the decidesk pattern. A top-level widgets[] instead makes CnPageRenderer mount a bare CnWidgetGrid and skip CnDashboardPage, so no page header renders and nothing carries the 56px nav-toggle clearance.",
+			"slots": {
+				"widget-analytics-kpis": "analytics-kpis",
+				"widget-quota-usage": "quota-usage",
+				"widget-analytics-breakdown": "analytics-breakdown"
+			}
 		},
 		{
 			"id": "FeaturesRoadmap",
