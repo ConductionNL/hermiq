@@ -1,10 +1,11 @@
 # Skills Catalog Specification
 
-**Status**: active (management surface live-verified; run-loop consumption is an OR seam)
+**Status**: in-progress (management surface live-verified; skill authoring UI being added)
 
 **Feature tier**: V1
 
 **OpenSpec changes:** `skills-catalog` — DONE: `agentskill`/`agentskillsource` schemas; dependency-free `SkillSerializer` (byte-for-byte agentskills.io round-trip); `SkillService` (import/export/list/install-onto-agent); `SkillController` endpoints; `SkillsCatalog` UI (Playwright-verified: browse, import, install, export). Run-loop consumption of `installedOn` (skill available during a turn) is an OpenRegister seam.
+`hermiq-skill-markdown-authoring` — IN PROGRESS: a `SkillFormModal` (via SkillsCatalog's `#form-dialog` slot) authors a skill's `body` (SKILL.md) with `CnMarkdownEditor` + `name`/`description`/`frontmatter` + an auxiliary `files` editor, replacing the generic Add-Skill form; write/paste, no backend change. `hermiq-skill-conversational-authoring` — IN PROGRESS: seeds a `skill-creator` agentskills.io Skill (repair step) and adds a chat→"Save as skill" seam that pre-fills the modal and lands the result quarantined.
 `hermiq-github-store-skill-schema` — DONE: `Skill` schema gains `githubOwner`/`githubRepo`/`publishedAt` (mirroring `AgentTemplate`) so a skill published to GitHub carries its provenance; head of the `hermiq-github-store` config→code chain.
 
 ## Purpose
