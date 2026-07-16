@@ -118,9 +118,10 @@ async function handleRun(req, res, rawBody) {
         return;
     }
 
-    // 3. Run exactly one turn. `tools` is accepted and passed through the
-    //    assembled turn but never executed by the runner — tool-call requests
-    //    the model emits are returned to Hermiq's ToolLoop.
+    // 3. Run exactly one turn. TEXT-ONLY: there is no `tools` field on this route —
+    //    `claude -p` accepts no tool schema, so a tool-carrying turn is refused by
+    //    Hermiq before it is ever dispatched here. Tool support arrives as governed
+    //    MCP, not as a field on this payload.
     log('info', `/run provider=${providerId} model=${model || '(default)'} messages=${messages.length}`);
     try {
         const result = await run({ provider, model, messages, credentialEnv });

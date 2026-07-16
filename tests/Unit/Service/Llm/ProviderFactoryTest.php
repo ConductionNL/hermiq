@@ -25,6 +25,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Llm;
 
+use LLPhant\Chat\Message as LLPhantMessage;
 use LLPhant\Chat\OllamaChat;
 use LLPhant\Chat\OpenAIChat;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
@@ -841,4 +842,458 @@ class ProviderFactoryTest extends TestCase
         $this->assertSame(['query'], $tools[0]['input_schema']['required']);
 
     }//end testBuildAnthropicToolsPreservesRealProperties()
+
+    /*
+     * cli-runner-text-turn-dispatch — `executionMode: cli` (the hermiq-llm-runner ExApp).
+     */
+
+    /**
+     * Call a private/protected method on the factory.
+     *
+     * The `cli` dispatch's internals are private by design (design.md: a private method on
+     * the class that already owns every other provider branch, not a new Service). Reflection
+     * is used rather than widening the API purely for tests.
+     *
+     * @param ProviderFactory $factory The factory under test.
+     * @param string          $method  The method name.
+     * @param array           $args    Positional arguments.
+     *
+     * @return mixed The method's return value.
+     */
+    private function callPrivate(ProviderFactory $factory, string $method, array $args=[])
+    {
+        $reflected = new \ReflectionMethod(ProviderFactory::class, $method);
+        $reflected->setAccessible(true);
+
+        return $reflected->invokeArgs($factory, $args);
+
+    }//end callPrivate()
+
+    /**
+     * Read a private constant off the factory.
+     *
+     * @param string $name The constant name.
+     *
+     * @return mixed The constant's value.
+     */
+    private function constant(string $name)
+    {
+        return (new \ReflectionClass(ProviderFactory::class))->getConstant($name);
+
+    }//end constant()
+
+    /**
+     * With no `executionMode` configured the driver carries `http` — the default transport is
+     * unchanged and depends on neither AppAPI nor the ExApp.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-execution-mode-selects-the-anthropic-transport-and-defaults-to-http
+     */
+    public function testAnthropicDriverDefaultsExecutionModeToHttp(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => ['credentialId' => 'cred-uuid-anthropic'],
+            ]
+        );
+
+        $this->assertSame('http', $driver->executionMode);
+
+    }//end testAnthropicDriverDefaultsExecutionModeToHttp()
+
+    /**
+     * `executionMode: cli` reaches the driver instead of the removed 503 stub — the factory no
+     * longer throws, and the driver actually CARRIES the mode. A driver carrying a mode nobody
+     * reads was the original bug: the mode was accepted in settings, then silently ignored.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-execution-mode-selects-the-anthropic-transport-and-defaults-to-http
+     */
+    public function testAnthropicDriverCarriesCliExecutionMode(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId'  => 'cred-uuid-anthropic',
+                    'executionMode' => 'cli',
+                ],
+            ]
+        );
+
+        $this->assertSame('cli', $driver->executionMode);
+
+    }//end testAnthropicDriverCarriesCliExecutionMode()
+
+    /**
+     * An unrecognised `executionMode` normalises to `http` — an unknown value can never select
+     * a transport that does not exist.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-execution-mode-selects-the-anthropic-transport-and-defaults-to-http
+     */
+    public function testAnthropicDriverNormalisesUnknownExecutionModeToHttp(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId'  => 'cred-uuid-anthropic',
+                    'executionMode' => 'sidecar',
+                ],
+            ]
+        );
+
+        $this->assertSame('http', $driver->executionMode);
+
+    }//end testAnthropicDriverNormalisesUnknownExecutionModeToHttp()
+
+    /**
+     * THE BOUNDARY TEST. A tool-carrying `cli` turn is REFUSED with a 503 naming tools — it is
+     * never degraded to a text-only turn the way the `http` branch degrades (tools + no
+     * executor → warn → proceed). A tool-less agent looks completely healthy and simply never
+     * calls a tool, so nothing alarms on it; that is the defect this chain exists to correct.
+     *
+     * If a future "make it more robust" refactor reintroduces degradation, or falls back to
+     * `http`, this test breaks rather than the boundary.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-a-cli-turn-that-carries-tools-is-refused-never-run-tool-less
+     */
+    public function testCliTurnWithToolsIsRefused(): void
+    {
+        [$factory] = $this->factory();
+
+        $this->expectException(ProviderUnavailableException::class);
+        $this->expectExceptionCode(503);
+        $this->expectExceptionMessageMatches('/tools/i');
+
+        $factory->callAnthropicChat(
+            credentialId: '00000000-0000-0000-0000-000000000000',
+            model: 'claude-opus-4-8',
+            baseUrl: 'https://api.anthropic.com/v1',
+            messageHistory: [LLPhantMessage::user('Book me a room.')],
+            functions: [['name' => 'book_room', 'description' => 'Book a room', 'parameters' => []]],
+            executionMode: 'cli'
+        );
+
+    }//end testCliTurnWithToolsIsRefused()
+
+    /**
+     * The tool refusal fires BEFORE the credential is resolved and BEFORE the ExApp is called,
+     * so a doomed turn spends no subscription quota and pulls no secret from the vault.
+     *
+     * Pinned structurally: this factory has NO app manager, so if the refusal were ordered
+     * after the availability guard the message would name the app manager instead of tools.
+     * Asserting the message names tools therefore pins the ORDER, not just the outcome.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-a-cli-turn-that-carries-tools-is-refused-never-run-tool-less
+     */
+    public function testCliToolRefusalPrecedesCredentialAndDispatch(): void
+    {
+        [$factory] = $this->factory();
+
+        try {
+            $factory->callAnthropicChat(
+                credentialId: '00000000-0000-0000-0000-000000000000',
+                model: 'claude-opus-4-8',
+                baseUrl: 'https://api.anthropic.com/v1',
+                messageHistory: [LLPhantMessage::user('Book me a room.')],
+                functions: [['name' => 'book_room', 'description' => 'Book a room', 'parameters' => []]],
+                executionMode: 'cli'
+            );
+            $this->fail('A tool-carrying cli turn must be refused.');
+        } catch (ProviderUnavailableException $e) {
+            $this->assertStringContainsStringIgnoringCase('tool', $e->getMessage());
+            $this->assertStringNotContainsStringIgnoringCase('app manager', $e->getMessage());
+        }
+
+    }//end testCliToolRefusalPrecedesCredentialAndDispatch()
+
+    /**
+     * A text-only `cli` turn with no app manager fails with a 503 that NAMES the missing
+     * component — never a generic "cli unavailable" an operator cannot act on.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     */
+    public function testCliWithoutAppManagerNamesTheMissingComponent(): void
+    {
+        [$factory] = $this->factory();
+
+        try {
+            $factory->callAnthropicChat(
+                credentialId: '00000000-0000-0000-0000-000000000000',
+                model: 'claude-opus-4-8',
+                baseUrl: 'https://api.anthropic.com/v1',
+                messageHistory: [LLPhantMessage::user('Hello.')],
+                executionMode: 'cli'
+            );
+            $this->fail('A cli turn without an app manager must be refused.');
+        } catch (ProviderUnavailableException $e) {
+            $this->assertSame(503, $e->getCode());
+            $this->assertStringContainsStringIgnoringCase('app manager', $e->getMessage());
+        }
+
+    }//end testCliWithoutAppManagerNamesTheMissingComponent()
+
+    /**
+     * THE 3-SECOND TRAP. AppAPI defaults `timeout` to 3s (guarded by
+     * `if (!isset($options['timeout']))`) while the runner allows the CLI 120s. Omitting it
+     * makes the feature 0% functional: every turn fails at 3s while the container runs to
+     * completion and bills the user's real subscription.
+     *
+     * This pins that the option is PRESENT and EXCEEDS the runner's own timeout, so it cannot
+     * regress to the default and the runner's kill-and-report wins the race.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     */
+    public function testCliDispatchPassesAnExplicitTimeoutExceedingTheRunners(): void
+    {
+        [$factory] = $this->factory();
+
+        $options = $this->callPrivate($factory, 'cliDispatchOptions');
+
+        $this->assertArrayHasKey('timeout', $options, 'Omitting timeout falls back to AppAPI\'s 3s default.');
+        $this->assertIsInt($options['timeout']);
+        $this->assertGreaterThan(
+            $this->constant('RUNNER_CLI_TIMEOUT_SECONDS'),
+            $options['timeout'],
+            'Hermiq must outwait the runner so the runner reports the real reason.'
+        );
+        $this->assertGreaterThan(3, $options['timeout'], 'This is AppAPI\'s default — the trap.');
+
+    }//end testCliDispatchPassesAnExplicitTimeoutExceedingTheRunners()
+
+    /**
+     * The system prompt is carried IN-BAND in `messages` for the runner.
+     *
+     * The Messages API mapper hoists system turns into a separate top-level `system` field,
+     * but the runner has NO such field — reusing it would silently drop the agent's entire
+     * persona on every `cli` turn. The runner renders `ROLE: content`, so the system turn must
+     * survive as a message.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
+     */
+    public function testCliMessageMappingKeepsTheSystemPromptInBand(): void
+    {
+        [$factory] = $this->factory();
+
+        $messages = $this->callPrivate(
+            $factory,
+            'mapHistoryToCliMessages',
+            [
+                [
+                    LLPhantMessage::system('You are a terse assistant.'),
+                    LLPhantMessage::user('Hello.'),
+                ],
+            ]
+        );
+
+        $this->assertCount(2, $messages);
+        $this->assertSame('system', $messages[0]['role']);
+        $this->assertSame('You are a terse assistant.', $messages[0]['content']);
+        $this->assertSame('user', $messages[1]['role']);
+
+    }//end testCliMessageMappingKeepsTheSystemPromptInBand()
+
+    /**
+     * The runner's 200 body maps to the turn's answer.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
+     */
+    public function testCliCompletionMapsTextToTheAnswer(): void
+    {
+        [$factory] = $this->factory();
+
+        $text = $this->callPrivate(
+            $factory,
+            'mapCliCompletion',
+            [(string) json_encode(['text' => 'Amsterdam.', 'toolCalls' => [], 'usage' => ['input_tokens' => 12]])]
+        );
+
+        $this->assertSame('Amsterdam.', $text);
+
+    }//end testCliCompletionMapsTextToTheAnswer()
+
+    /**
+     * A runner body carrying no usable `text` is a FAILURE, never an empty answer — an empty
+     * completion delivered as the model's turn is indistinguishable from a real one.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     */
+    public function testCliCompletionWithoutTextIsRefused(): void
+    {
+        [$factory] = $this->factory();
+
+        $this->expectException(ProviderUnavailableException::class);
+        $this->expectExceptionCode(503);
+
+        $this->callPrivate(
+            $factory,
+            'mapCliCompletion',
+            [(string) json_encode(['toolCalls' => [], 'usage' => []])]
+        );
+
+    }//end testCliCompletionWithoutTextIsRefused()
+
+    /**
+     * An undecodable runner body is a failure, not an answer.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     */
+    public function testCliCompletionWithUndecodableBodyIsRefused(): void
+    {
+        [$factory] = $this->factory();
+
+        $this->expectException(ProviderUnavailableException::class);
+        $this->expectExceptionCode(503);
+
+        $this->callPrivate($factory, 'mapCliCompletion', ['ExApp `hermiq-llm-runner` not found']);
+
+    }//end testCliCompletionWithUndecodableBodyIsRefused()
+
+    /**
+     * An organisation-scope credential is REFUSED for `cli`: a Claude Max/Pro subscription is
+     * PERSONAL-SCOPE ONLY under the Anthropic Terms of Service and serves only its owner.
+     *
+     * The broker does NOT enforce this — its Guard 1 deliberately admits any organisation
+     * MEMBER for an organisation-scope credential — so this is the only enforcement point.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+     */
+    public function testCliRefusesAnOrganisationScopeCredential(): void
+    {
+        $resolver = $this->createMock(CredentialScopeResolver::class);
+        $resolver->method('scopeOfCredential')->willReturn('organisation');
+        $factory = $this->factoryWithCredentialResolver($resolver);
+
+        try {
+            $this->callPrivate(
+                $factory,
+                'assertPersonalScopeCredential',
+                ['00000000-0000-0000-0000-000000000000']
+            );
+            $this->fail('An organisation-scope subscription credential must be refused.');
+        } catch (ProviderUnavailableException $e) {
+            $this->assertSame(503, $e->getCode());
+            $this->assertStringContainsStringIgnoringCase('personal', $e->getMessage());
+        }
+
+    }//end testCliRefusesAnOrganisationScopeCredential()
+
+    /**
+     * A personal-scope credential passes the ToS guard.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+     */
+    public function testCliAcceptsAPersonalScopeCredential(): void
+    {
+        $resolver = $this->createMock(CredentialScopeResolver::class);
+        $resolver->method('scopeOfCredential')->willReturn('personal');
+        $factory = $this->factoryWithCredentialResolver($resolver);
+
+        $this->callPrivate($factory, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
+
+        $this->addToAssertionCount(1);
+
+    }//end testCliAcceptsAPersonalScopeCredential()
+
+    /**
+     * An unknown credential FAILS CLOSED: a scope that cannot be established is never assumed
+     * personal.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+     */
+    public function testCliFailsClosedWhenTheScopeCannotBeEstablished(): void
+    {
+        $resolver = $this->createMock(CredentialScopeResolver::class);
+        $resolver->method('scopeOfCredential')->willReturn(null);
+        $factory = $this->factoryWithCredentialResolver($resolver);
+
+        $this->expectException(ProviderUnavailableException::class);
+        $this->expectExceptionCode(503);
+
+        $this->callPrivate($factory, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
+
+    }//end testCliFailsClosedWhenTheScopeCannotBeEstablished()
+
+    /**
+     * With no `CredentialScopeResolver` the scope cannot be verified, so the turn fails closed
+     * rather than proceeding with an unverified subscription credential.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+     */
+    public function testCliFailsClosedWithoutACredentialResolver(): void
+    {
+        $factory = $this->factoryWithCredentialResolver(null);
+
+        $this->expectException(ProviderUnavailableException::class);
+        $this->expectExceptionCode(503);
+
+        $this->callPrivate($factory, 'assertPersonalScopeCredential', ['00000000-0000-0000-0000-000000000000']);
+
+    }//end testCliFailsClosedWithoutACredentialResolver()
+
+    /**
+     * No `cli` failure message may leak the subscription token. The token is a local variable
+     * passed straight into the dispatch payload: never stored on the driver, never logged,
+     * never in an exception message.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+     */
+    public function testCliDriverNeverCarriesTheToken(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider'    => 'anthropic',
+                'anthropicConfig' => [
+                    'credentialId'  => '00000000-0000-0000-0000-000000000000',
+                    'executionMode' => 'cli',
+                ],
+            ]
+        );
+
+        // The driver carries a broker REFERENCE, never a secret — handlers hold this object.
+        $this->assertSame('00000000-0000-0000-0000-000000000000', $driver->credentialId);
+        $this->assertObjectNotHasProperty('token', $driver);
+        $this->assertObjectNotHasProperty('credentialEnv', $driver);
+
+    }//end testCliDriverNeverCarriesTheToken()
 }//end class

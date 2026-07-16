@@ -347,7 +347,8 @@ class ResponseGenerationHandler
                     messageHistory: $messageHistory,
                     authMode: (string) $driver->authMode,
                     functions: $functions,
-                    toolExecutor: $anthropicToolExecutor
+                    toolExecutor: $anthropicToolExecutor,
+                    executionMode: $driver->executionMode
                 );
                 $llmTime  = microtime(true) - $llmStartTime;
 

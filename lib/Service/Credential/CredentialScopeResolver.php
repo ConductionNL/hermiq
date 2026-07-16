@@ -163,6 +163,43 @@ class CredentialScopeResolver
     }//end resolve()
 
     /**
+     * Resolve the scope of ONE known credential id.
+     *
+     * A companion to {@see resolve()}, which picks a credential id by provider. This
+     * answers the inverse question — "what scope is THIS id?" — which the `anthropic-cli`
+     * (Claude Max/Pro subscription) path needs: that credential is PERSONAL-SCOPE ONLY per
+     * the Anthropic Terms of Service and must be refused at organisation scope.
+     *
+     * The broker cannot answer this: `CredentialBrokerService::resolveInjectable()` returns
+     * a bare `string|null`, its `scopeOf()` is private, and its Guard 1 deliberately ADMITS
+     * any organisation member for an organisation-scope credential
+     * (`loadAdmittedCredential()` → `assertOrganisationMember()`). Enforcing a
+     * personal-only ToS constraint therefore has to happen caller-side, and this class is
+     * already this app's sanctioned reader of that one collection (see the class docblock).
+     *
+     * Read-only and guard-free by design: like {@see resolve()}, this is a policy input, not
+     * a trust boundary — the broker still re-runs its own guards before any secret is
+     * touched.
+     *
+     * @param string $credentialId The `credential` object UUID.
+     *
+     * @return string|null `personal`|`organisation`, or null when no such credential exists.
+     *
+     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+     */
+    public function scopeOfCredential(string $credentialId): ?string
+    {
+        foreach ($this->loadCandidates() as $candidate) {
+            if ((string) $candidate->getUuid() === $credentialId) {
+                return $this->scopeOf(data: $candidate->getObject());
+            }
+        }
+
+        return null;
+
+    }//end scopeOfCredential()
+
+    /**
      * Load every brokered-credential object, system-wide — the same small,
      * admin/user-curated collection `TenantModelPolicyService::getForOrganisation()`
      * and `ScheduleWebhookSecretService` read in the same `_rbac: false,
