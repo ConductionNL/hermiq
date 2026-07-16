@@ -328,6 +328,14 @@ export default {
 	margin: 0 0 8px;
 }
 
+/* This widget renders in the Compliance index page's below-header slot, so its
+   FIRST section heading is the topmost content under the Nextcloud nav toggle
+   (44px). Clear only that first heading (body + later sections keep full
+   width), mirroring nc-vue's dashboard-header rule. */
+.compliance-operations__section:first-of-type .compliance-operations__subhead {
+	padding-inline-start: 56px;
+}
+
 .compliance-operations__note {
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
