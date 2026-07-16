@@ -5,10 +5,11 @@
  * Asserts the CLI is locked to Hermiq's governance by its invocation flags, and
  * that the per-run bearer token never reaches the process table:
  *
- *   - a governed turn's argv contains EXACTLY `--tools ""`, `--strict-mcp-config`
+ *   - a governed turn's argv denies the built-ins via `--disallowedTools` (NOT
+ *     `--tools ""`, which excludes MCP tools too), and carries `--strict-mcp-config`
  *     and `--mcp-config <path>` (a regression breaks the build, not the boundary);
  *   - a text-only turn's argv contains NONE of them (link-2 path unaffected);
- *   - the runner REFUSES to spawn when `--tools ""` or `--strict-mcp-config` is
+ *   - the runner REFUSES to spawn when `--disallowedTools` or `--strict-mcp-config` is
  *     absent from the assembled argv;
  *   - the MCP config is written to a 0600 FILE in the scratch dir, the bearer
  *     token appears in the FILE but never on argv, and the file is removed after
@@ -96,9 +97,13 @@ test('governed anthropic argv contains the exact lockdown flags', () => {
     const { getProvider } = require('../src/providers');
     const args = getProvider('anthropic').args('claude-opus-4-8', { mcpConfigPath: '/scratch/mcp.json' });
 
-    const toolsIdx = args.indexOf('--tools');
-    assert.notStrictEqual(toolsIdx, -1, '--tools present');
-    assert.strictEqual(args[toolsIdx + 1], '', '--tools value is the empty string');
+    const disallowedIdx = args.indexOf('--disallowedTools');
+    assert.notStrictEqual(disallowedIdx, -1, '--disallowedTools present');
+    assert.ok(args[disallowedIdx + 1].includes('Bash'), '--disallowedTools strips Bash');
+    assert.ok(args[disallowedIdx + 1].includes('WebFetch'), '--disallowedTools strips WebFetch');
+    // `--tools` must NEVER appear: it excludes MCP tools, silently leaving a governed
+    // turn with none (verified against the real CLI).
+    assert.ok(!args.includes('--tools'), '--tools is absent (it would kill MCP tools)');
     assert.ok(args.includes('--strict-mcp-config'), '--strict-mcp-config present');
 
     const cfgIdx = args.indexOf('--mcp-config');
@@ -119,10 +124,21 @@ test('text-only anthropic argv carries NONE of the governed flags', () => {
 // assertGovernedArgs — refuse to spawn when a boundary flag is gone.
 // ---------------------------------------------------------------------------
 
-test('assertGovernedArgs throws when --tools "" is missing', () => {
+test('assertGovernedArgs throws when --disallowedTools is missing', () => {
     const { assertGovernedArgs } = require('../src/runner');
     assert.throws(
         () => assertGovernedArgs(['-p', '--strict-mcp-config', '--mcp-config', '/x']),
+        /--disallowedTools/,
+    );
+});
+
+test('assertGovernedArgs REFUSES --tools (it would exclude MCP tools)', () => {
+    const { assertGovernedArgs } = require('../src/runner');
+    assert.throws(
+        () => assertGovernedArgs([
+            '-p', '--tools', '', '--disallowedTools', 'Bash',
+            '--strict-mcp-config', '--mcp-config', '/x',
+        ]),
         /--tools/,
     );
 });
@@ -130,7 +146,7 @@ test('assertGovernedArgs throws when --tools "" is missing', () => {
 test('assertGovernedArgs throws when --strict-mcp-config is missing', () => {
     const { assertGovernedArgs } = require('../src/runner');
     assert.throws(
-        () => assertGovernedArgs(['-p', '--tools', '', '--mcp-config', '/x']),
+        () => assertGovernedArgs(['-p', '--disallowedTools', 'Bash', '--mcp-config', '/x']),
         /--strict-mcp-config/,
     );
 });
@@ -138,7 +154,10 @@ test('assertGovernedArgs throws when --strict-mcp-config is missing', () => {
 test('assertGovernedArgs accepts a complete governed argv', () => {
     const { assertGovernedArgs } = require('../src/runner');
     assert.doesNotThrow(
-        () => assertGovernedArgs(['-p', '--tools', '', '--strict-mcp-config', '--mcp-config', '/x']),
+        () => assertGovernedArgs([
+            '-p', '--disallowedTools', 'Bash,WebFetch',
+            '--strict-mcp-config', '--mcp-config', '/x',
+        ]),
     );
 });
 
@@ -159,7 +178,8 @@ test('run() writes a 0600 MCP file, keeps the token off argv, and cleans up', ()
 
         const logged = fs.readFileSync(log, 'utf8');
         const argvLine = logged.split('\n').find((l) => l.startsWith('ARGV:'));
-        assert.ok(argvLine.includes('--tools'), 'governed flag reached the CLI argv');
+        assert.ok(argvLine.includes('--disallowedTools'), 'governed flag reached the CLI argv');
+        assert.ok(!argvLine.includes('--tools '), '--tools never reaches argv (kills MCP tools)');
         assert.ok(argvLine.includes('--strict-mcp-config'), 'strict flag reached the CLI argv');
         assert.ok(argvLine.includes('--mcp-config'), 'mcp-config flag reached the CLI argv');
 

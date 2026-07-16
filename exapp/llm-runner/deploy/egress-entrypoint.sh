@@ -34,17 +34,36 @@ iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
 iptables -A OUTPUT -p tcp --dport 53 -j ACCEPT
 
-# Allow HTTPS to each allowlisted provider host (resolved at start-up). DNS may
-# return multiple A records; allow each.
-for host in ${ALLOWED_HOSTS}; do
+# Allow each allowlisted entry (resolved at start-up). DNS may return multiple A
+# records; allow each.
+#
+# An entry is `host` (defaults to 443, the provider APIs) or `host:port`. The
+# port suffix exists because the governed Hermiq origins are NOT necessarily
+# HTTPS: a Nextcloud reachable from this container over plain HTTP (`nextcloud:80`
+# on the container network) is the normal dev shape, and hardcoding 443 silently
+# blackholed it — the CLI's MCP calls just timed out, which reads like a broken
+# endpoint rather than a blocked port. Default-DROP still applies to everything
+# else, so this widens nothing beyond the named entry.
+for entry in ${ALLOWED_HOSTS}; do
+    case "${entry}" in
+        *:*)
+            host="${entry%:*}"
+            port="${entry##*:}"
+            ;;
+        *)
+            host="${entry}"
+            port="443"
+            ;;
+    esac
+
     ips="$(getent ahostsv4 "${host}" | awk '{print $1}' | sort -u || true)"
     if [ -z "${ips}" ]; then
         echo "[egress-jail] WARNING: could not resolve ${host} — its egress will be blocked"
         continue
     fi
     for ip in ${ips}; do
-        iptables -A OUTPUT -p tcp -d "${ip}" --dport 443 -j ACCEPT
-        echo "[egress-jail] allow 443 -> ${host} (${ip})"
+        iptables -A OUTPUT -p tcp -d "${ip}" --dport "${port}" -j ACCEPT
+        echo "[egress-jail] allow ${port} -> ${host} (${ip})"
     done
 done
 

@@ -161,6 +161,7 @@ class RunTokenService
 
         $this->cache->set(key: $this->digest(token: $token), value: $encoded, ttl: $this->ttlSeconds());
 
+
         return $token;
 
     }//end mint()

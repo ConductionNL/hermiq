@@ -110,10 +110,18 @@ function selectCredentialEnv(provider, credentialEnv) {
  * @returns {void}
  */
 function assertGovernedArgs(args) {
-    const toolsIdx = args.indexOf('--tools');
-    // `--tools` must be present AND followed by the empty string (disable all built-ins).
-    if (toolsIdx === -1 || args[toolsIdx + 1] !== '') {
-        throw new Error('refusing to spawn: governed turn is missing `--tools ""`');
+    // The built-ins must be denied, so the model can only act through Hermiq's
+    // governed MCP tools. NOTE: this deliberately asserts `--disallowedTools` and
+    // NOT `--tools ""` — `--tools` excludes MCP tools as well, which would leave a
+    // governed turn with no tools at all (verified against the real CLI).
+    const disallowedIdx = args.indexOf('--disallowedTools');
+    if (disallowedIdx === -1 || !args[disallowedIdx + 1]) {
+        throw new Error('refusing to spawn: governed turn is missing `--disallowedTools <builtins>`');
+    }
+    // Belt-and-braces: a regression back to `--tools` would silently strip the MCP
+    // tools this turn depends on, so refuse it outright rather than run tool-less.
+    if (args.includes('--tools')) {
+        throw new Error('refusing to spawn: `--tools` excludes MCP tools; use `--disallowedTools`');
     }
     if (!args.includes('--strict-mcp-config')) {
         throw new Error('refusing to spawn: governed turn is missing `--strict-mcp-config`');
@@ -187,6 +195,15 @@ function run({ provider, model, messages, credentialEnv, mcpConfig }) {
 
         let child;
         try {
+            if (process.env.RUNNER_DEBUG_ARGV === '1') {
+                // eslint-disable-next-line no-console
+                console.log(`[hermiq-llm-runner] DEBUG argv: ${provider.bin} ${JSON.stringify(args)}`);
+                if (mcpConfigPath !== null) {
+                    const raw = fs.readFileSync(mcpConfigPath, 'utf8');
+                    // Redact the bearer token before logging.
+                    console.log(`[hermiq-llm-runner] DEBUG mcp.json: ${raw.replace(/Bearer [^"]+/g, 'Bearer <redacted>')}`);
+                }
+            }
             child = spawn(provider.bin, args, {
                 cwd: scratch,
                 env: childEnv,
@@ -231,6 +248,11 @@ function run({ provider, model, messages, credentialEnv, mcpConfig }) {
         child.on('close', (code) => {
             settled = true;
             clearTimeout(timer);
+            if (process.env.RUNNER_DEBUG_ARGV === '1') {
+                const err = redact(stderr.toString('utf8')).trim();
+                // eslint-disable-next-line no-console
+                console.log(`[hermiq-llm-runner] DEBUG exit=${code} stderr=${err.slice(0, 900) || '(empty)'}`);
+            }
             cleanup(scratch);
             if (overflow) {
                 reject(new Error('CLI output exceeded the maximum size'));

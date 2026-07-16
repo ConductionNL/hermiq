@@ -121,6 +121,68 @@ function pickToolCalls(parsed) {
     return Array.isArray(raw) ? raw : [];
 }
 
+/**
+ * Built-in CLI capabilities stripped from a governed turn.
+ *
+ * The model must reach the world ONLY through Hermiq's governed MCP tools, where the
+ * per-agent grant, guardrails, approval gate and redaction apply. Anything the CLI can
+ * do natively — run a shell, touch the container filesystem, fetch the web itself —
+ * bypasses all of that, so it is denied here.
+ *
+ * A DENYLIST is used rather than `--tools ""` because `--tools` excludes MCP tools too
+ * (see the anthropic adapter's comment). It therefore has the usual denylist weakness:
+ * a newly-shipped built-in arrives un-denied. Keep this list current when bumping the
+ * pinned CLI, and note the container hardening (no default route off the egress
+ * allowlist, read-only fs, no mounts, non-root) is the backstop that bounds the gap.
+ *
+ * @type {Array<string>}
+ */
+const DISALLOWED_BUILTIN_TOOLS = [
+    // Shell / process.
+    'Bash',
+    'BashOutput',
+    'KillShell',
+    // Filesystem.
+    'Read',
+    'Write',
+    'Edit',
+    'NotebookEdit',
+    'Glob',
+    'Grep',
+    // Native network — the model reaches the web ONLY via Hermiq's governed tools.
+    'WebFetch',
+    'WebSearch',
+    // Autonomy / fan-out / side effects outside the turn.
+    'Task',
+    'Agent',
+    'Workflow',
+    'TodoWrite',
+    'Skill',
+    'SlashCommand',
+    'Artifact',
+    'EnterWorktree',
+    'ExitWorktree',
+    'DesignSync',
+    'Monitor',
+    'PushNotification',
+    'RemoteTrigger',
+    'CronCreate',
+    'CronDelete',
+    'CronList',
+    'TaskOutput',
+    'TaskStop',
+    'ScheduleWakeup',
+    'AskUserQuestion',
+    // 🔥 NOT denied on purpose: `ToolSearch`.
+    // The CLI DEFERS MCP tools — they are not in the initial toolset and the model
+    // loads them on demand THROUGH ToolSearch. Denying it silently makes every
+    // governed MCP tool unreachable: `tools/list` serves them, the model still says
+    // "I don't have that tool", and nothing errors. It is the load mechanism for the
+    // very tools this transport exists to deliver, not a capability of its own —
+    // ToolSearch can only surface servers named by `--strict-mcp-config`, which is
+    // Hermiq's endpoint alone.
+];
+
 const PROVIDERS = {
     anthropic: {
         // Installed via `npm i -g @anthropic-ai/claude-code`.
@@ -128,20 +190,33 @@ const PROVIDERS = {
         // args(model, options): a text-only turn keeps the link-2 argv unchanged. A
         // GOVERNED turn (options.mcpConfigPath set — cli-runner-governed-mcp-and-egress)
         // locks the CLI to Hermiq's governance:
-        //   --tools ""            disables EVERY built-in (Bash/Read/Write/Edit AND
-        //                         WebFetch/WebSearch) — the container fs is unreachable to
-        //                         the model and it has no native internet route;
+        //   --disallowedTools <builtins>  strips every built-in capability (shell, file
+        //                         read/write, native web) while LEAVING the MCP tools
+        //                         intact;
         //   --strict-mcp-config   restricts the CLI to the MCP servers Hermiq names;
         //   --mcp-config <path>    the 0600 scratch file carrying the per-run bearer token
         //                         (a FILE, never an inline string — a string would put the
         //                         token on the process table);
-        //   --allowedTools mcp__hermiq__*   admits only Hermiq's governed MCP tools.
+        //   --allowedTools mcp__hermiq__*   pre-approves Hermiq's governed MCP tools so the
+        //                         non-interactive run never blocks on a permission prompt.
+        //
+        // 🔥 DO NOT "harden" this back to `--tools ""`. It reads like the stronger
+        // boundary and the spec originally required it, but VERIFIED against the real
+        // CLI (2.1.x): `--tools` selects from the BUILT-IN set and EXCLUDES MCP tools
+        // entirely — `--tools ""` yields NO tools at all (MCP included), and
+        // `--allowedTools` does NOT rescue them. It silently destroys the very tools
+        // this transport exists to deliver: the model answers "I have no such tool"
+        // with exit 0 and an empty stderr, so it looks like a broken endpoint rather
+        // than a self-inflicted flag. `--disallowedTools` is a denylist, so a NEW
+        // built-in could appear un-denied — that residual risk is carried by the
+        // container itself (no default route beyond the egress allowlist, read-only fs,
+        // no mounts, non-root), which is the backstop layer by design.
         args: (model, options) => {
             const base = ['-p', '--output-format', 'json'];
             const withModel = model ? base.concat(['--model', model]) : base;
             if (options && options.mcpConfigPath) {
                 return withModel.concat([
-                    '--tools', '',
+                    '--disallowedTools', DISALLOWED_BUILTIN_TOOLS.join(','),
                     '--strict-mcp-config',
                     '--mcp-config', options.mcpConfigPath,
                     '--allowedTools', 'mcp__hermiq__*',
