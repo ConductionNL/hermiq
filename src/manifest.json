@@ -188,23 +188,16 @@
 				"rowRoute": "AgentDetail",
 				"headerActions": [
 					{
-						"id": "create-agent",
-						"label": "Create agent",
-						"type": "open-modal",
-						"target": "agent-form",
-						"icon": "Plus",
-						"props": {
-							"show": true
-						}
-					},
-					{
 						"id": "browse-templates",
 						"label": "Browse templates",
-						"type": "open-page",
-						"target": "AgentTemplateGallery",
-						"icon": "PackageVariantClosed"
+						"icon": "PackageVariantClosed",
+						"handler": "navigate",
+						"route": "AgentTemplateGallery"
 					}
 				]
+			},
+			"slots": {
+				"form-dialog": "AgentFormModal"
 			}
 		},
 		{
