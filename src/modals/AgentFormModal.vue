@@ -13,12 +13,18 @@
   (views, groups, invitedUsers, quotas, …) survive the PUT.
 
   Fields cover what the ported engine actually reads (OR EditAgent parity where
-  it matters): identity (name, description), LLM config (provider, model,
+  it matters): identity (name, description, icon), LLM config (provider, model,
   prompt, temperature, maxTokens), the tool whitelist (empty = every tool
   allowed, ADR-035), the delegation allowlist (empty = may delegate to no one,
   sub-agent-delegation default-deny), and RAG settings (enableRag,
   ragNumSources, searchFiles, searchObjects). Every NcSelect carries an
   `inputLabel` for the nc-input-labels accessibility gate (WCAG 2.1 AA).
+
+  Icon (agent-icon-picker): a Material Design Icon name (e.g. "RobotOutline"),
+  picked via the shared `CnIconPicker` in searchable+clearable mode (the full
+  MDI range via @mdi/js, not the small curated dashboard-widget icon set) —
+  matching the Agent schema's `icon` property description. Empty clears back
+  to the default agent icon.
 
   @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
   @spec openspec/changes/agent-engine-port/tasks.md#task-5-2
@@ -50,6 +56,19 @@
 				:value.sync="form.description"
 				:label="t('hermiq', 'Description')"
 				:placeholder="t('hermiq', 'What does this agent do?')" />
+
+			<!-- Icon (agent-icon-picker): a Material Design Icon name shown for this
+			     agent in lists and on its detail page. Searchable over the full MDI
+			     range (not the small curated dashboard set) since agent icons are
+			     free-form (e.g. "RobotOutline"); clearable — empty means the default
+			     agent icon. -->
+			<div class="agent-form__field">
+				<label class="agent-form__icon-label">{{ t('hermiq', 'Icon') }}</label>
+				<CnIconPicker
+					v-model="form.icon"
+					searchable
+					clearable />
+			</div>
 
 			<!-- Provider/Model are policy-filtered pickers (tenant-model-policy):
 			     only the caller's effective policy's providers are offered, and the
@@ -183,6 +202,7 @@
 
 <script>
 import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import { CnIconPicker } from '@conduction/nextcloud-vue'
 import { listTools } from '../api/agents.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { useAgentStore } from '../store/store.js'
@@ -191,6 +211,7 @@ export default {
 	name: 'AgentFormModal',
 
 	components: {
+		CnIconPicker,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
@@ -405,6 +426,7 @@ export default {
 			return {
 				name: '',
 				description: '',
+				icon: '',
 				provider: '',
 				model: '',
 				prompt: '',
@@ -436,6 +458,7 @@ export default {
 			this.form = {
 				name: source.name || '',
 				description: source.description || '',
+				icon: source.icon || '',
 				provider: source.provider || '',
 				model: source.model || '',
 				prompt: source.prompt || '',
@@ -563,6 +586,7 @@ export default {
 				...base,
 				name: this.form.name,
 				description: this.form.description,
+				icon: this.form.icon || '',
 				provider: this.form.provider,
 				model: this.form.model,
 				prompt: this.form.prompt,
@@ -656,6 +680,11 @@ export default {
 	margin: 4px 0 0;
 	font-size: 13px;
 	color: var(--color-text-maxcontrast);
+}
+
+.agent-form__icon-label {
+	font-weight: bold;
+	margin-bottom: 4px;
 }
 
 .agent-form__actions {

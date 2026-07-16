@@ -89,13 +89,6 @@
 			"order": 18
 		},
 		{
-			"id": "RunAnalytics",
-			"label": "Analytics",
-			"icon": "icon-category-monitoring",
-			"route": "RunAnalytics",
-			"order": 19
-		},
-		{
 			"id": "Dashboard",
 			"label": "Dashboard",
 			"icon": "icon-category-dashboard",
@@ -126,18 +119,42 @@
 			"order": 20
 		},
 		{
-			"id": "Settings",
-			"label": "Settings",
-			"icon": "icon-settings",
-			"route": "Settings",
-			"order": 22
-		},
-		{
 			"id": "EvalDatasets",
 			"label": "Evaluations",
 			"icon": "icon-category-monitoring",
 			"route": "EvalDatasets",
 			"order": 101
+		},
+		{
+			"id": "McpTools",
+			"label": "MCP tools",
+			"icon": "icon-category-integration",
+			"route": "McpTools",
+			"order": 21
+		},
+		{
+			"id": "GuardrailPolicy",
+			"label": "Guardrail policy",
+			"icon": "icon-category-security",
+			"route": "GuardrailPolicy",
+			"section": "settings",
+			"order": 10
+		},
+		{
+			"id": "AlgorithmRegister",
+			"label": "Algorithm register",
+			"icon": "icon-category-office",
+			"route": "AlgorithmRegister",
+			"section": "settings",
+			"order": 20
+		},
+		{
+			"id": "Compliance",
+			"label": "Compliance",
+			"icon": "icon-checkmark",
+			"route": "Compliance",
+			"section": "settings",
+			"order": 30
 		}
 	],
 	"pages": [
@@ -393,10 +410,34 @@
 		{
 			"id": "SkillsCatalog",
 			"route": "/skills",
-			"type": "custom",
-			"component": "SkillsCatalog",
+			"type": "index",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentskill",
+				"_note": "Converted from type:custom to the default index layout. The agentskills.io import/export + install-onto-agent actions are NOT dropped — they move to the skill-row-actions widget behind their existing guarded endpoints (same pattern as agent-template-row-actions).",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "state",
+						"label": "State"
+					},
+					{
+						"key": "source",
+						"label": "Source"
+					}
+				]
+			},
 			"title": "Skills",
-			"_note": "Custom page: the skills catalog imports/exports agentskills.io packages (lossless SkillSerializer round-trip) and installs a skill onto an agent (installedOn association) — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
+			"slots": {
+				"row-actions": "skill-row-actions"
+			}
 		},
 		{
 			"id": "AgentTemplateGallery",
@@ -442,31 +483,6 @@
 				"below-header": "agent-template-github-store",
 				"row-actions": "agent-template-row-actions"
 			}
-		},
-		{
-			"id": "RunAnalytics",
-			"route": "/analytics",
-			"type": "dashboard",
-			"title": "Analytics",
-			"_note": "Dashboard page: run analytics as two custom widgets (KPIs + status/per-agent breakdown) over the computed /api/analytics endpoint. Runs are not OR-schema objects, so these are custom kind:widget components, not declarative stats-block dataSources.",
-			"widgets": [
-				{
-					"widgetKey": "analytics-kpis",
-					"slot": "body",
-					"gridX": 0,
-					"gridY": 0,
-					"gridWidth": 12,
-					"gridHeight": 2
-				},
-				{
-					"widgetKey": "analytics-breakdown",
-					"slot": "body",
-					"gridX": 0,
-					"gridY": 2,
-					"gridWidth": 12,
-					"gridHeight": 3
-				}
-			]
 		},
 		{
 			"id": "Dashboard",
@@ -550,100 +566,31 @@
 			},
 			"widgets": [
 				{
+					"widgetKey": "analytics-kpis",
+					"slot": "body",
+					"gridX": 0,
+					"gridY": 0,
+					"gridWidth": 12,
+					"gridHeight": 2
+				},
+				{
 					"widgetKey": "quota-usage",
 					"slot": "body",
 					"gridX": 0,
-					"gridY": 1,
+					"gridY": 2,
 					"gridWidth": 12,
 					"gridHeight": 1
+				},
+				{
+					"widgetKey": "analytics-breakdown",
+					"slot": "body",
+					"gridX": 0,
+					"gridY": 3,
+					"gridWidth": 12,
+					"gridHeight": 3
 				}
-			]
-		},
-		{
-			"id": "Settings",
-			"route": "/settings",
-			"type": "settings",
-			"title": "Settings",
-			"config": {
-				"saveEndpoint": "/index.php/apps/hermiq/api/settings",
-				"tabs": [
-					{
-						"id": "guardrail-policy",
-						"label": "Guardrail policy",
-						"sections": [
-							{
-								"widgets": [
-									{
-										"type": "component",
-										"componentName": "GuardrailPolicySettings",
-										"props": {}
-									}
-								]
-							}
-						]
-					},
-					{
-						"id": "algorithm-register",
-						"label": "Algorithm register",
-						"sections": [
-							{
-								"widgets": [
-									{
-										"type": "component",
-										"componentName": "AlgorithmRegister",
-										"props": {}
-									}
-								]
-							}
-						]
-					},
-					{
-						"id": "mcp-tools",
-						"label": "MCP tools",
-						"sections": [
-							{
-								"widgets": [
-									{
-										"type": "component",
-										"componentName": "McpTools",
-										"props": {}
-									}
-								]
-							}
-						]
-					},
-					{
-						"id": "compliance",
-						"label": "Compliance",
-						"sections": [
-							{
-								"widgets": [
-									{
-										"type": "component",
-										"componentName": "ComplianceDashboard",
-										"props": {}
-									}
-								]
-							}
-						]
-					},
-					{
-						"id": "agent-credentials",
-						"label": "Agent credentials",
-						"sections": [
-							{
-								"widgets": [
-									{
-										"type": "component",
-										"componentName": "AgentCredentialsSettings",
-										"props": {}
-									}
-								]
-							}
-						]
-					}
-				]
-			}
+			],
+			"_note": "Single dashboard: /analytics was merged in here and dropped (one dashboard). Run analytics stay two custom kind:widget components over the computed /api/analytics endpoint — runs are not OR-schema objects, so they are not declarative stats-block dataSources."
 		},
 		{
 			"id": "FeaturesRoadmap",
@@ -731,6 +678,83 @@
 			"slots": {
 				"widget-eval-run-panel": "eval-run-panel"
 			}
+		},
+		{
+			"id": "GuardrailPolicy",
+			"route": "/guardrail-policy",
+			"type": "custom",
+			"component": "GuardrailPolicySettings",
+			"_note": "Settings-section page: a per-organisation policy FORM (GuardrailPolicy has no name/title property — inputFilters/outputFilters/toolPolicy/enabled only), so the built-in index page type has no meaningful columns to list. Reached from the nav settings foldout (section:settings).",
+			"title": "Guardrail policy"
+		},
+		{
+			"id": "AlgorithmRegister",
+			"route": "/algorithm-register",
+			"type": "index",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentaifeature",
+				"_note": "Settings-section page: high-risk AI features eligible for Dutch Algoritmeregister publication. Read path is a plain findAll over agentaifeature, so the built-in index type is read-equivalent.",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "riskCategory",
+						"label": "Risk category"
+					},
+					{
+						"key": "lifecycle",
+						"label": "Lifecycle"
+					},
+					{
+						"key": "dpoAckBy",
+						"label": "DPO acknowledged by"
+					}
+				]
+			},
+			"title": "Algorithm register"
+		},
+		{
+			"id": "Compliance",
+			"route": "/compliance",
+			"type": "index",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentcompliancecontrol",
+				"_note": "Settings-section page: compliance controls per framework. EU AI Act audit export / retention / incidents are folded in here (moved off tenant-ops).",
+				"columns": [
+					{
+						"key": "controlId",
+						"label": "Control"
+					},
+					{
+						"key": "title",
+						"label": "Title"
+					},
+					{
+						"key": "frameworkSlug",
+						"label": "Framework"
+					},
+					{
+						"key": "evidenceSource",
+						"label": "Evidence source"
+					}
+				]
+			},
+			"title": "Compliance",
+			"slots": {
+				"below-header": "compliance-operations"
+			}
+		},
+		{
+			"id": "McpTools",
+			"route": "/mcp-tools",
+			"type": "custom",
+			"component": "McpTools",
+			"_note": "Custom page rendering the standard nc-vue list UI (CnDataTable): MCP tools are resolved live from OpenRegister's tool registry, NOT a hermiq schema, so type:index (which requires register+schema) cannot express it.",
+			"title": "MCP tools"
 		}
 	],
 	"setup": {

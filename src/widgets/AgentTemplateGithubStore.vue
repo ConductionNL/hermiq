@@ -46,7 +46,7 @@
 		</div>
 
 		<NcNoteCard v-if="rateLimitHintVisible" type="warning">
-			{{ t('hermiq', 'GitHub\'s anonymous search rate limit was reached. Add a GitHub credential under Settings → Agent credentials to raise the limit and see private repos.') }}
+			{{ t('hermiq', 'GitHub\'s anonymous search rate limit was reached. Add a personal GitHub credential under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, to raise the limit and see private repos.') }}
 		</NcNoteCard>
 		<NcNoteCard v-else-if="unreachableHintVisible" type="warning">
 			{{ t('hermiq', 'Could not reach GitHub right now. Please try again later.') }}
