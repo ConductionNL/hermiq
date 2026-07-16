@@ -38,6 +38,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IUserSession;
 
 /**
  * Reads and writes agent memory (Memory/UserProfile/Session/SessionTurn) via OpenRegister.
@@ -117,12 +118,17 @@ class MemoryService
      *                                           `appendEntry()` (agent-memory-tools) — closes the
      *                                           gap where operator-seeded memory previously bypassed
      *                                           redaction entirely.
+     * @param IUserSession     $userSession      Resolves the requesting user so `listSessions()`
+     *                                           can scope to the caller's OWN Session objects
+     *                                           (`@self.owner`) — Session has no user/owner
+     *                                           schema property, so this is the only guard.
      *
      * @spec openspec/changes/agent-memory-tools/tasks.md#task-2
      */
     public function __construct(
         private readonly ObjectService $objectService,
         private readonly RedactionService $redactionService,
+        private readonly IUserSession $userSession,
     ) {
     }//end __construct()
 
@@ -341,17 +347,36 @@ class MemoryService
     }//end recordTurn()
 
     /**
-     * List an agent's Sessions, scoped to the caller's tenant.
+     * List an agent's Sessions, scoped to the caller's tenant AND to the caller's OWN
+     * Sessions — the `Session` schema carries no user/owner property, so `agentId` alone
+     * would return every user's chat sessions for that agent (a cross-user disclosure).
+     * `@self.owner` is OpenRegister's object-owner meta-filter (NEVER `_owner`, which is
+     * silently ignored and returns unfiltered results — see MemoryServiceTest).
      *
      * @param string $agentId The agent UUID.
      *
-     * @return array<int, ObjectEntity> The agent's Session objects.
+     * @return array<int, ObjectEntity> The CALLER's own Session objects for this agent.
      *
      * @spec openspec/changes/agent-memory/tasks.md#task-2-4
      */
     public function listSessions(string $agentId): array
     {
-        return $this->findMany(schema: self::SESSION_SCHEMA, filters: ['agentId' => $agentId]);
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            // Fail CLOSED: no session context means there is no safe owner to scope to,
+            // so this returns nothing rather than every tenant's sessions. The caller
+            // (MemoryController::sessions()) already 401s before reaching here — this is
+            // a belt-and-braces guard on the service seam itself.
+            return [];
+        }
+
+        return $this->findMany(
+            schema: self::SESSION_SCHEMA,
+            filters: [
+                'agentId'     => $agentId,
+                '@self.owner' => $user->getUID(),
+            ]
+        );
 
     }//end listSessions()
 

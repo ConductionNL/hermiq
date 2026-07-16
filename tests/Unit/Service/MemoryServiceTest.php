@@ -38,6 +38,8 @@ use OCA\Hermiq\Service\RedactionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IConfig;
+use OCP\IUser;
+use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -78,6 +80,31 @@ class MemoryServiceTest extends TestCase
         return new RedactionService($config);
 
     }//end redactionService()
+
+    /**
+     * An IUserSession whose `getUser()` returns a user carrying the given uid, or
+     * (when `$uid` is null) no user at all — used to exercise `listSessions()`'s
+     * owner-scoping and its fail-closed no-session path.
+     *
+     * @param string|null $uid The uid `getUser()->getUID()` should resolve to, or null
+     *                         to simulate no authenticated session.
+     *
+     * @return IUserSession
+     */
+    private function userSession(?string $uid): IUserSession
+    {
+        $session = $this->createMock(IUserSession::class);
+        if ($uid === null) {
+            $session->method('getUser')->willReturn(null);
+            return $session;
+        }
+
+        $user = $this->createMock(IUser::class);
+        $user->method('getUID')->willReturn($uid);
+        $session->method('getUser')->willReturn($user);
+        return $session;
+
+    }//end userSession()
 
     /**
      * An ObjectService whose findAll returns the given list and whose saveObject records
@@ -172,7 +199,7 @@ class MemoryServiceTest extends TestCase
         );
 
         $captured = null;
-        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService(), $this->userSession('admin'));
         $service->appendMemoryEntry(agentId: 'agent-1', text: 'another fact');
 
         $this->assertNotNull($captured);
@@ -200,7 +227,7 @@ class MemoryServiceTest extends TestCase
         );
 
         $captured = null;
-        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService(), $this->userSession('admin'));
         $service->appendMemoryEntry(agentId: 'agent-1', text: 'over the limit now');
 
         $this->assertNotNull($captured);
@@ -234,7 +261,7 @@ class MemoryServiceTest extends TestCase
         );
 
         $captured = null;
-        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService(), $this->userSession('admin'));
         $service->consolidateMemory(
             agentId: 'agent-1',
             entries: [['text' => 'consolidated summary', 'createdAt' => '2026-01-01T00:00:00+00:00']]
@@ -245,6 +272,73 @@ class MemoryServiceTest extends TestCase
         $this->assertFalse($captured['needsConsolidation']);
 
     }//end testConsolidateClearsFlagWhenUnderBudget()
+
+    /**
+     * listSessions() scopes to the CALLER's own Sessions via OpenRegister's
+     * `@self.owner` object-owner meta-filter, alongside `agentId` — Session has no
+     * user/owner schema property, so this is the only guard against one user seeing
+     * another user's chat sessions for the same agent. Without the fix, `filters`
+     * carries only `agentId` and this assertion fails.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-4
+     */
+    public function testListSessionsScopesToCallerOwnedSessionsOnly(): void
+    {
+        $capturedConfig = null;
+        $service        = $this->createMock(ObjectService::class);
+        $service->method('setRegister')->willReturnSelf();
+        $service->method('setSchema')->willReturnSelf();
+        $service->method('findAll')->willReturnCallback(
+            function (array $config) use (&$capturedConfig): array {
+                $capturedConfig = $config;
+                return [];
+            }
+        );
+
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession('alice'));
+        $memory->listSessions(agentId: 'agent-1');
+
+        $this->assertNotNull($capturedConfig);
+        $this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
+        $this->assertArrayHasKey(
+            '@self.owner',
+            $capturedConfig['filters'],
+            'listSessions() must scope by the OpenRegister object-owner meta-filter, never just agentId — '
+            .'otherwise every authenticated user sees every other user\'s sessions for this agent.'
+        );
+        $this->assertSame('alice', $capturedConfig['filters']['@self.owner']);
+
+    }//end testListSessionsScopesToCallerOwnedSessionsOnly()
+
+    /**
+     * `listSessions()` fails CLOSED when there is no authenticated user: it must return
+     * an empty array rather than falling back to an unfiltered (everyone's-sessions)
+     * query. `findAll()` must never even be called in this case.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-4
+     */
+    public function testListSessionsFailsClosedWithNoAuthenticatedUser(): void
+    {
+        $service = $this->createMock(ObjectService::class);
+        // Both setRegister() and setSchema() must ALSO be stubbed to return the same
+        // mock (fluent chain) — otherwise PHPUnit's auto-generated return value for an
+        // unconfigured "static"-typed method hands back a DIFFERENT, unconfigured
+        // double, and a findAll() call landing on THAT object would silently escape
+        // the expectation below, making this assertion vacuous.
+        $service->method('setRegister')->willReturnSelf();
+        $service->method('setSchema')->willReturnSelf();
+        $service->expects($this->never())->method('findAll');
+
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession(null));
+        $result = $memory->listSessions(agentId: 'agent-1');
+
+        $this->assertSame([], $result);
+
+    }//end testListSessionsFailsClosedWithNoAuthenticatedUser()
 
     /**
      * Recall passes the agent filter + search term through to ObjectService search.
@@ -266,7 +360,7 @@ class MemoryServiceTest extends TestCase
             }
         );
 
-        $memory = new MemoryService($service, $this->redactionService());
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession('admin'));
         $memory->recallSessions(agentId: 'agent-9', query: 'budget report');
 
         $this->assertNotNull($capturedConfig);
@@ -289,7 +383,7 @@ class MemoryServiceTest extends TestCase
         $existing = $this->memory(['agentId' => 'agent-1', 'entries' => [], 'charBudget' => 8000, 'needsConsolidation' => false]);
 
         $captured = null;
-        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService(), $this->userSession('admin'));
         $service->appendMemoryEntry(agentId: 'agent-1', text: 'the client\'s API key is sk-abcdefghijklmnop, keep it safe');
 
         $this->assertNotNull($captured);
@@ -312,7 +406,7 @@ class MemoryServiceTest extends TestCase
         $existing = $this->memory(['agentId' => 'agent-1', 'entries' => [], 'charBudget' => 8000, 'needsConsolidation' => false]);
 
         $captured = null;
-        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService(), $this->userSession('admin'));
         $service->appendMemoryEntry(agentId: 'agent-1', text: 'fact one');
 
         $this->assertNotNull($captured);
@@ -330,7 +424,7 @@ class MemoryServiceTest extends TestCase
             ]
         );
         $captured2 = null;
-        $service2  = new MemoryService($this->objectService([$existingWithOneEntry], $captured2), $this->redactionService());
+        $service2  = new MemoryService($this->objectService([$existingWithOneEntry], $captured2), $this->redactionService(), $this->userSession('admin'));
         $service2->appendMemoryEntry(agentId: 'agent-1', text: 'fact two');
 
         $secondId = $captured2['entries'][1]['id'];
@@ -359,7 +453,7 @@ class MemoryServiceTest extends TestCase
         );
 
         $captured = null;
-        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService(), $this->userSession('admin'));
         $result   = $service->forgetEntry(agentId: 'agent-1', subjectUid: null, entryId: 'entry-1');
 
         $this->assertTrue($result['found']);
@@ -392,7 +486,7 @@ class MemoryServiceTest extends TestCase
         );
 
         $captured = null;
-        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectService([$existing], $captured), $this->redactionService(), $this->userSession('admin'));
         $service->forgetEntry(agentId: 'agent-1', subjectUid: null, entryId: 'entry-1');
 
         $this->assertNotNull($captured);
@@ -429,7 +523,7 @@ class MemoryServiceTest extends TestCase
         );
 
         $captured = null;
-        $service  = new MemoryService($this->objectServiceBySchema([$memoryObject], [$profileObject], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectServiceBySchema([$memoryObject], [$profileObject], $captured), $this->redactionService(), $this->userSession('admin'));
         $result   = $service->forgetEntry(agentId: 'agent-1', subjectUid: 'alice', entryId: 'profile-entry');
 
         $this->assertTrue($result['found']);
@@ -454,7 +548,7 @@ class MemoryServiceTest extends TestCase
         $profileObject = $this->memory(['agentId' => 'agent-1', 'subjectUid' => 'alice', 'entries' => [], 'charBudget' => 4000, 'needsConsolidation' => false]);
 
         $captured = null;
-        $service  = new MemoryService($this->objectServiceBySchema([$memoryObject], [$profileObject], $captured), $this->redactionService());
+        $service  = new MemoryService($this->objectServiceBySchema([$memoryObject], [$profileObject], $captured), $this->redactionService(), $this->userSession('admin'));
         $result   = $service->forgetEntry(agentId: 'agent-1', subjectUid: 'alice', entryId: 'no-such-id');
 
         $this->assertFalse($result['found']);
@@ -495,7 +589,7 @@ class MemoryServiceTest extends TestCase
             }
         );
 
-        $memory = new MemoryService($service, $this->redactionService());
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession('admin'));
         $result = $memory->recallEntries(agentId: 'agent-1', subjectUid: null, query: 'budget');
 
         $this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
