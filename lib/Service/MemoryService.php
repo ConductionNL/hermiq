@@ -38,6 +38,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IUserSession;
 
 /**
  * Reads and writes agent memory (Memory/UserProfile/Session/SessionTurn) via OpenRegister.
@@ -117,12 +118,19 @@ class MemoryService
      *                                           `appendEntry()` (agent-memory-tools) — closes the
      *                                           gap where operator-seeded memory previously bypassed
      *                                           redaction entirely.
+     * @param IUserSession     $userSession      Resolves the requesting user so `listSessions()`/
+     *                                           `recallSessions()` can scope to the caller's OWN
+     *                                           Session/SessionTurn objects (`@self.owner`) — those
+     *                                           schemas have no user/owner property, so this is the
+     *                                           only guard — and `listUserProfiles()` can scope to
+     *                                           the caller's own `subjectUid`.
      *
      * @spec openspec/changes/agent-memory-tools/tasks.md#task-2
      */
     public function __construct(
         private readonly ObjectService $objectService,
         private readonly RedactionService $redactionService,
+        private readonly IUserSession $userSession,
     ) {
     }//end __construct()
 
@@ -341,32 +349,69 @@ class MemoryService
     }//end recordTurn()
 
     /**
-     * List an agent's Sessions, scoped to the caller's tenant.
+     * List an agent's Sessions, scoped to the caller's tenant AND to the caller's OWN
+     * Sessions — the `Session` schema carries no user/owner property, so `agentId` alone
+     * would return every user's chat sessions for that agent (a cross-user disclosure).
+     * `@self.owner` is OpenRegister's object-owner meta-filter (NEVER `_owner`, which is
+     * silently ignored and returns unfiltered results — see MemoryServiceTest).
      *
      * @param string $agentId The agent UUID.
      *
-     * @return array<int, ObjectEntity> The agent's Session objects.
+     * @return array<int, ObjectEntity> The CALLER's own Session objects for this agent.
      *
      * @spec openspec/changes/agent-memory/tasks.md#task-2-4
      */
     public function listSessions(string $agentId): array
     {
-        return $this->findMany(schema: self::SESSION_SCHEMA, filters: ['agentId' => $agentId]);
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            // Fail CLOSED: no session context means there is no safe owner to scope to,
+            // so this returns nothing rather than every tenant's sessions. The caller
+            // (MemoryController::sessions()) already 401s before reaching here — this is
+            // a belt-and-braces guard on the service seam itself.
+            return [];
+        }
+
+        return $this->findMany(
+            schema: self::SESSION_SCHEMA,
+            filters: [
+                'agentId'     => $agentId,
+                '@self.owner' => $user->getUID(),
+            ]
+        );
 
     }//end listSessions()
 
     /**
-     * List an agent's UserProfiles, scoped to the caller's tenant.
+     * List an agent's UserProfiles, scoped to the caller's tenant AND to the caller's
+     * OWN UserProfile — `agentId` alone would return every user's UserProfile for
+     * that agent (a cross-user disclosure). `UserProfile` DOES carry a `subjectUid`
+     * property (unlike Session/SessionTurn), so this follows the same idiom as the
+     * sibling `getUserProfile()` lookup rather than needing `@self.owner`.
      *
      * @param string $agentId The agent UUID.
      *
-     * @return array<int, ObjectEntity> The agent's UserProfile objects.
+     * @return array<int, ObjectEntity> The CALLER's own UserProfile object(s) for this agent.
      *
      * @spec openspec/changes/agent-memory/tasks.md#task-2-1
      */
     public function listUserProfiles(string $agentId): array
     {
-        return $this->findMany(schema: self::USER_PROFILE_SCHEMA, filters: ['agentId' => $agentId]);
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            // Fail CLOSED: no session context means there is no safe subjectUid to scope
+            // to, so this returns nothing rather than every user's UserProfile. Mirrors
+            // `listSessions()`'s belt-and-braces guard on this service seam.
+            return [];
+        }
+
+        return $this->findMany(
+            schema: self::USER_PROFILE_SCHEMA,
+            filters: [
+                'agentId'    => $agentId,
+                'subjectUid' => $user->getUID(),
+            ]
+        );
 
     }//end listUserProfiles()
 
@@ -374,8 +419,10 @@ class MemoryService
      * Recall relevant SessionTurns for an agent via OpenRegister's own search substrate.
      *
      * Reuses ObjectService search (the same substrate VectorizationService builds on) — NO
-     * bespoke SQLite/FTS5 index. The query runs in the caller's session context (RBAC +
-     * multitenancy ON), so turns from another organisation are never returned.
+     * bespoke SQLite/FTS5 index. Scoped to the CALLER's own turns via `@self.owner`
+     * (SessionTurn has no owner/subject property) so one user never recalls another's
+     * conversation content; fails CLOSED (no user ⇒ no recall). See the body comment for
+     * the agent-run-loop trade-off.
      *
      * @param string $agentId The agent UUID.
      * @param string $query   The recall query.
@@ -387,9 +434,27 @@ class MemoryService
      */
     public function recallSessions(string $agentId, string $query, int $limit=20): array
     {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            // Fail CLOSED: recall full-text searches conversation turn CONTENT, so an
+            // unscoped read would expose every user's turns for this agent. SessionTurn
+            // carries no owner/subject property, so `@self.owner` is the only scoping key.
+            //
+            // Behavioural trade-off (see PR discussion): recallSessions has two callers —
+            // MemoryController::recall() (user-facing) and HermiqToolProvider (the AGENT
+            // calls it as an MCP tool during a run). Scoping to the actor means an agent
+            // recalls only the run actor's own history ("identity, never stale authority").
+            // A scheduled/background run with no resolvable user therefore recalls NOTHING
+            // rather than leaking across users — an intentional loss of recall, not a bug.
+            return [];
+        }
+
         return $this->findMany(
             schema: self::SESSION_TURN_SCHEMA,
-            filters: ['agentId' => $agentId],
+            filters: [
+                'agentId'     => $agentId,
+                '@self.owner' => $user->getUID(),
+            ],
             search: $query,
             limit: $limit
         );

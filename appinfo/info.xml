@@ -8,11 +8,11 @@
     <summary lang="nl">Plan autonome AI-agents in Nextcloud</summary>
     <description lang="en"><![CDATA[Hermiq brings autonomous AI agents to Nextcloud. Define an agent, give it tools, and run it on a schedule — daily reports, inbox triage, monitoring, morning briefings — all inside your own Nextcloud, delivered to Nextcloud Talk. Agents, their memory and their self-improving skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant.
 
-**Requires:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.13 or higher (install/upgrade from the [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent engine (chat, scheduled runs, flow-triggered agent actions) calls OpenRegister's `ToolRegistryFacade` and dispatches on its `AgentRunRequestedEvent`, both of which only exist from that OpenRegister version onward.]]></description>
+**Requires:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 or higher (install/upgrade from the [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent engine (chat, scheduled runs, flow-triggered agent actions) calls OpenRegister's `ToolRegistryFacade` and dispatches on its `AgentRunRequestedEvent`, both of which only exist from that OpenRegister version onward; the "Agent credentials" Settings section and the personal/organisation credential-resolution precedence additionally need OpenRegister's organisation-scope credential broker, shipped from that same version.]]></description>
     <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
 
-**Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.13 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan.]]></description>
-    <version>0.1.62</version>
+**Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
+    <version>0.1.80</version>
     <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
@@ -50,7 +50,7 @@
       NC's info.xml <dependencies> has no element to pin the version of another
       Nextcloud app (only php/nextcloud/database/lib/architecture/backend — see
       resources/app-info.xsd upstream); an inter-Conduction-app version floor like
-      "OpenRegister >= 0.2.17-unstable.13" cannot be expressed/enforced there. The
+      "OpenRegister >= 0.2.17-unstable.14" cannot be expressed/enforced there. The
       requirement is documented in <description> above; CheckOpenRegisterCompatibility
       below is the enforceable half — it runs class_exists() on the two classes the
       agent engine hard-depends on and logs a clear, actionable warning/error instead
@@ -69,6 +69,7 @@
             <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
         </install>
         <post-migration>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
@@ -81,6 +82,7 @@
             <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
             <step>OCA\Hermiq\Repair\MigrateAgentData</step>
             <step>OCA\Hermiq\Repair\RemoveLegacyLlmKeys</step>
         </post-migration>

@@ -30,7 +30,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\SkillMarketplaceController;
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
+use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSForbiddenException;
@@ -39,6 +41,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 /**
  * Tests for the skills-marketplace controller's action-auth gate.
@@ -107,10 +110,12 @@ class SkillMarketplaceControllerTest extends TestCase
     /**
      * Build the controller with the given collaborators.
      *
-     * @param SkillMarketplaceService $service    The marketplace service.
-     * @param ActionAuthService       $actionAuth The action-auth service.
-     * @param IUserSession            $session    The user session.
-     * @param IRequest|null           $request    An optional request mock (defaults to no params).
+     * @param SkillMarketplaceService   $service      The marketplace service.
+     * @param ActionAuthService         $actionAuth   The action-auth service.
+     * @param IUserSession              $session      The user session.
+     * @param IRequest|null             $request      An optional request mock (defaults to no params).
+     * @param SkillService|null         $skillService An optional SkillService mock (hermiq-github-store).
+     * @param GitHubTemplatePushService|null $pushService An optional push-service mock (hermiq-github-store).
      *
      * @return SkillMarketplaceController
      */
@@ -118,14 +123,18 @@ class SkillMarketplaceControllerTest extends TestCase
         SkillMarketplaceService $service,
         ActionAuthService $actionAuth,
         IUserSession $session,
-        ?IRequest $request=null
+        ?IRequest $request=null,
+        ?SkillService $skillService=null,
+        ?GitHubTemplatePushService $pushService=null
     ): SkillMarketplaceController {
         return new SkillMarketplaceController(
             ($request ?? $this->request()),
             $service,
             $actionAuth,
             $session,
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            ($skillService ?? $this->createMock(SkillService::class)),
+            ($pushService ?? $this->createMock(GitHubTemplatePushService::class))
         );
 
     }//end controller()
@@ -167,6 +176,55 @@ class SkillMarketplaceControllerTest extends TestCase
         $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
 
     }//end testInstallFromSourceEmptyPackageIsBadRequest()
+
+    /**
+     * installFromSource() passes `source: "local"` straight through to the service
+     * (hermiq-skill-conversational-authoring — the whitelist relaxation), landing the
+     * skill quarantined with honest local provenance.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-skill-conversational-authoring/specs/skills-marketplace/spec.md#requirement-a-locally-authored-skill-can-be-installed-through-the-quarantine-gate
+     */
+    public function testInstallFromSourceAcceptsLocalSource(): void
+    {
+        $service = $this->createMock(SkillMarketplaceService::class);
+        $service->expects($this->once())
+            ->method('installFromSource')
+            ->with('name: Demo skill', 'local', 'alice')
+            ->willReturn($this->skill('quarantined'));
+
+        $request  = $this->request(['package' => 'name: Demo skill', 'source' => 'local']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request)->installFromSource();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame('quarantined', $response->getData()['state']);
+
+    }//end testInstallFromSourceAcceptsLocalSource()
+
+    /**
+     * installFromSource() still defaults an unrecognised source to "hub" (the existing
+     * safe fallback) — the whitelist relaxation only ADDS "local", it does not loosen
+     * validation for anything else.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-skill-conversational-authoring/specs/skills-marketplace/spec.md#requirement-a-locally-authored-skill-can-be-installed-through-the-quarantine-gate
+     */
+    public function testInstallFromSourceUnknownSourceDefaultsToHub(): void
+    {
+        $service = $this->createMock(SkillMarketplaceService::class);
+        $service->expects($this->once())
+            ->method('installFromSource')
+            ->with('name: Demo skill', 'hub', 'alice')
+            ->willReturn($this->skill('quarantined'));
+
+        $request  = $this->request(['package' => 'name: Demo skill', 'source' => 'not-a-real-source']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request)->installFromSource();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+    }//end testInstallFromSourceUnknownSourceDefaultsToHub()
 
     /**
      * installFromSource() returns 401 for an unauthenticated caller.
@@ -352,4 +410,242 @@ class SkillMarketplaceControllerTest extends TestCase
         $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 
     }//end testPublishForbiddenForNonAdmin()
+
+    /**
+     * An unauthenticated caller gets 401 on githubPublish(), never reaching action-auth
+     * (hermiq-github-store).
+     *
+     * @return void
+     */
+    public function testGithubPublishUnauthenticated(): void
+    {
+        $actionAuth = $this->createMock(ActionAuthService::class);
+        $actionAuth->expects($this->never())->method('requireAction');
+
+        $response = $this->controller(
+            $this->createMock(SkillMarketplaceService::class),
+            $actionAuth,
+            $this->session(null)
+        )->githubPublish('skill-1');
+
+        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+
+    }//end testGithubPublishUnauthenticated()
+
+    /**
+     * githubPublish() gates on the SAME `skill.publish-hub` action as publish()
+     * (hermiq-github-store — design.md does not introduce a distinct action).
+     *
+     * @return void
+     */
+    public function testGithubPublishForbiddenForNonAdmin(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->expects($this->never())->method('exportSkill');
+
+        $actionAuth = $this->createMock(ActionAuthService::class);
+        $actionAuth->expects($this->once())
+            ->method('requireAction')
+            ->with($this->anything(), 'skill.publish-hub')
+            ->willThrowException(new OCSForbiddenException('nope'));
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
+        $response = $this->controller(
+            $this->createMock(SkillMarketplaceService::class),
+            $actionAuth,
+            $this->session('mallory'),
+            $request,
+            $skillService
+        )->githubPublish('skill-1');
+
+        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+
+    }//end testGithubPublishForbiddenForNonAdmin()
+
+    /**
+     * An invalid owner/repo is rejected with 400 before any export or push call
+     * (hermiq-github-store).
+     *
+     * @return void
+     */
+    public function testGithubPublishRejectsInvalidRepo(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->expects($this->never())->method('exportSkill');
+
+        $request  = $this->request(['owner' => '../evil', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
+        $response = $this->controller(
+            $this->createMock(SkillMarketplaceService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('admin'),
+            $request,
+            $skillService
+        )->githubPublish('skill-1');
+
+        $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+
+    }//end testGithubPublishRejectsInvalidRepo()
+
+    /**
+     * A missing credentialId is rejected with 422 before any export or push call
+     * (hermiq-github-store).
+     *
+     * @return void
+     */
+    public function testGithubPublishRequiresCredentialId(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->expects($this->never())->method('exportSkill');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill']);
+        $response = $this->controller(
+            $this->createMock(SkillMarketplaceService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('admin'),
+            $request,
+            $skillService
+        )->githubPublish('skill-1');
+
+        $this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
+
+    }//end testGithubPublishRequiresCredentialId()
+
+    /**
+     * A skill outside the caller's visibility (exportSkill() returns null) is a 404,
+     * never a 403 that would confirm existence (hermiq-github-store).
+     *
+     * @return void
+     */
+    public function testGithubPublishSkillOutsideVisibilityIsNotFound(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('exportSkill')->willReturn(null);
+
+        $pushService = $this->createMock(GitHubTemplatePushService::class);
+        $pushService->expects($this->never())->method('push');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
+        $response = $this->controller(
+            $this->createMock(SkillMarketplaceService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('admin'),
+            $request,
+            $skillService,
+            $pushService
+        )->githubPublish('skill-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testGithubPublishSkillOutsideVisibilityIsNotFound()
+
+    /**
+     * Publish fails closed (503) when the broker is unavailable — no token-bearing
+     * fallback is attempted (hermiq-github-store).
+     *
+     * @return void
+     */
+    public function testGithubPublishFailsClosedWhenBrokerUnavailable(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('exportSkill')->willReturn('---
+name: Demo skill
+---
+Body.');
+
+        $pushService = $this->createMock(GitHubTemplatePushService::class);
+        $pushService->method('isBrokerAvailable')->willReturn(false);
+        $pushService->expects($this->never())->method('push');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
+        $response = $this->controller(
+            $this->createMock(SkillMarketplaceService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('admin'),
+            $request,
+            $skillService,
+            $pushService
+        )->githubPublish('skill-1');
+
+        $this->assertSame(Http::STATUS_SERVICE_UNAVAILABLE, $response->getStatus());
+
+    }//end testGithubPublishFailsClosedWhenBrokerUnavailable()
+
+    /**
+     * A successful publish pushes with `kind: KIND_SKILL` and stamps provenance
+     * (hermiq-github-store).
+     *
+     * @return void
+     */
+    public function testGithubPublishSucceedsAndStampsProvenance(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('exportSkill')->willReturn('---
+name: Demo skill
+---
+Body.');
+        $skillService->expects($this->once())
+            ->method('stampGithubPublish')
+            ->with('skill-1', 'acme', 'demo-skill', $this->isType('string'));
+
+        $pushService = $this->createMock(GitHubTemplatePushService::class);
+        $pushService->method('isBrokerAvailable')->willReturn(true);
+        $pushService->expects($this->once())
+            ->method('push')
+            ->with(
+                $this->anything(),
+                'acme',
+                'demo-skill',
+                'private',
+                'cred-uuid',
+                'admin',
+                GitHubTemplatePushService::KIND_SKILL
+            )
+            ->willReturn(['repoUrl' => 'https://github.com/acme/demo-skill', 'commitSha' => 'abc123']);
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
+        $response = $this->controller(
+            $this->createMock(SkillMarketplaceService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('admin'),
+            $request,
+            $skillService,
+            $pushService
+        )->githubPublish('skill-1');
+
+        $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+
+    }//end testGithubPublishSucceedsAndStampsProvenance()
+
+    /**
+     * push() refusing the call (e.g. repo already exists) surfaces as 422, and no
+     * provenance stamp is written (hermiq-github-store).
+     *
+     * @return void
+     */
+    public function testGithubPublishRefusedByServiceIsUnprocessable(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('exportSkill')->willReturn('---
+name: Demo skill
+---
+Body.');
+        $skillService->expects($this->never())->method('stampGithubPublish');
+
+        $pushService = $this->createMock(GitHubTemplatePushService::class);
+        $pushService->method('isBrokerAvailable')->willReturn(true);
+        $pushService->method('push')->willThrowException(new RuntimeException('Repository acme/demo-skill already exists'));
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
+        $response = $this->controller(
+            $this->createMock(SkillMarketplaceService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('admin'),
+            $request,
+            $skillService,
+            $pushService
+        )->githubPublish('skill-1');
+
+        $this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
+
+    }//end testGithubPublishRefusedByServiceIsUnprocessable()
 }//end class

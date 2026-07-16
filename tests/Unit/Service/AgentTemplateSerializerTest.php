@@ -4,7 +4,8 @@
  * Unit tests for AgentTemplateSerializer (agent-template-gallery).
  *
  * Covers: toPackage() emits only the portable fields (never state/source/quarantineReason/
- * scanReport/createdBy), fromPackage() round-trips those fields, and fromPackage() is
+ * scanReport/createdBy, nor agent-template-github-store's githubOwner/githubRepo/publishedAt
+ * provenance fields), fromPackage() round-trips those fields, and fromPackage() is
  * tolerant of missing optional fields and malformed JSON (mirrors SkillSerializerTest's
  * lossless-round-trip + tolerant-defaults coverage).
  *
@@ -18,6 +19,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
+ * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-record-github-publish-provenance-without-leaking-it-into-packages
  */
 
 declare(strict_types=1);
@@ -64,6 +66,9 @@ class AgentTemplateSerializerTest extends TestCase
                 'quarantineReason'  => 'should never appear',
                 'scanReport'        => ['severity' => 'clean'],
                 'createdBy'         => 'alice',
+                'githubOwner'       => 'acme-council',
+                'githubRepo'        => 'morning-briefing-template',
+                'publishedAt'       => '2026-01-01T00:00:00+00:00',
             ]
         );
 
@@ -77,6 +82,11 @@ class AgentTemplateSerializerTest extends TestCase
         $this->assertArrayNotHasKey('quarantineReason', $decoded);
         $this->assertArrayNotHasKey('scanReport', $decoded);
         $this->assertArrayNotHasKey('createdBy', $decoded);
+        // agent-template-github-store: publish provenance is never round-tripped through
+        // the portable package (design.md/spec.md "record ... without leaking it into packages").
+        $this->assertArrayNotHasKey('githubOwner', $decoded);
+        $this->assertArrayNotHasKey('githubRepo', $decoded);
+        $this->assertArrayNotHasKey('publishedAt', $decoded);
 
     }//end testToPackageEmitsOnlyPortableFields()
 

@@ -1,10 +1,11 @@
 # Skills Marketplace Specification
 
-**Status**: active (Hermiq surface live-verified; content-scan + a live hub are OpenRegister/OpenConnector seams)
+**Status**: active (Hermiq surface live-verified; content-scan + a live hub are OpenRegister/OpenConnector seams; GitHub publish live alongside hub publish)
 
 **Feature tier**: V2
 
 **OpenSpec changes:** `skills-marketplace` — DONE: `Skill` schema gains `quarantined` state + `source`/`quarantineReason`/`lastActivityAt`/`staleSince`/`archivedAt`; `SkillMarketplaceService` (installFromSource → quarantine; approveQuarantined review gate → active; age-based `curate()` active→stale→archived that NEVER hard-deletes; publishToHub via SkillSerializer + OpenConnector CallService, structured error when unavailable); `SkillCuratorTask` (daily TimedJob); `SkillMarketplaceController` + routes; Skills UI gains a quarantine badge + Approve + Publish + "Install from hub (quarantine)". The content **security scan** (OR has no scanner — SecurityService is auth rate-limiting) is a documented seam realised as the review gate; a live external **hub** needs an OpenConnector connector; usage-based staleness needs OR run-loop last-used stamping.
+`hermiq-github-store` — DONE: adds GitHub publish for skills (generalise `GitHubTemplatePushService` to push a Skill's agentskills.io package to a `topic:hermiq-skill` repo, stamping `githubOwner`/`githubRepo`/`publishedAt`); the OpenConnector `publishToHub` path stays secondary.
 
 ## Purpose
 
@@ -86,6 +87,73 @@ a skill to an external hub via OpenConnector.
 - **WHEN** the caller calls `POST /api/skills/{id}/publish`
 - **THEN** the system MUST respond `403 Forbidden`
 - **AND** no outbound OpenConnector call MUST be made
+
+### Requirement: A skill can be published to a tagged GitHub repository as the primary path
+The system MUST let a skill owner publish an existing `Skill` to a NEW GitHub repository tagged
+`topic:hermiq-skill`, committing the skill in agentskills.io format produced by `SkillSerializer`
+(via `SkillService::exportSkill()`). Publish MUST reuse the broker-mediated, fail-closed
+`GitHubTemplatePushService.push()` path: it MUST validate owner/repo coordinates before any GitHub call,
+MUST refuse to overwrite an existing repository, and MUST never hold or log the GitHub token. Publish
+MUST be scoped to skills the caller can already see — a skill outside the caller's tenant visibility
+MUST yield a 404 (never a 403 that confirms existence), matching template publish. The OpenConnector
+`publishToHub` path MUST remain available as the secondary publish route.
+
+#### Scenario: Publishing a skill creates a tagged repo and stamps provenance
+- GIVEN an authenticated user who can see `Skill` X and has an allowed `github` broker credential
+- WHEN they publish `Skill` X to owner/repo `YOUR_OWNER_HERE/hermiq-skill-example` (visibility private)
+- THEN the system exports the skill via `SkillSerializer`, creates the repo, tags it
+  `topic:hermiq-skill`, and commits the agentskills.io package
+- AND `Skill` X is updated with `githubOwner`, `githubRepo`, and `publishedAt` set
+- AND the GitHub token is never held or logged by Hermiq
+
+#### Scenario: Publish fails closed when the broker is unavailable
+- GIVEN the OpenRegister credential broker is not available
+- WHEN a user attempts to publish a skill to GitHub
+- THEN the publish is refused (503) and no token-bearing fallback is attempted
+
+#### Scenario: Publish refuses to overwrite an existing repository
+- GIVEN the target owner/repo already exists on GitHub
+- WHEN a user attempts to publish a skill to it
+- THEN the publish is refused and no commit is made, exactly as template publish refuses
+
+#### Scenario: Publishing a skill outside the caller's visibility is a 404
+- GIVEN a `Skill` that is not visible to the caller's tenant
+- WHEN the caller attempts to publish it to GitHub
+- THEN the system returns 404 (never a 403), and makes no outbound GitHub call
+
+#### Scenario: The provenance fields are never emitted into the committed package
+- GIVEN a skill being published to GitHub
+- WHEN `SkillSerializer` produces the agentskills.io package that is committed
+- THEN the package MUST NOT contain `githubOwner`, `githubRepo`, or `publishedAt` — those are stamped on
+  the `Skill` object only, mirroring `AgentTemplateSerializer::toPackage()` never emitting provenance
+
+### Requirement: A locally-authored skill can be installed through the quarantine gate
+
+The system MUST accept `source: "local"` on the install-from-source quarantine path
+(`SkillMarketplaceController::installFromSource` → `SkillMarketplaceService::installFromSource`)
+so a skill authored inside this instance (e.g. via the chat "Save as skill" seam) is landed
+`quarantined`, content-scanned via OpenRegister `ContentScanService`, and recorded with honest
+`source` `local` provenance. `local` is already a valid value of the `Skill` schema's `source`
+enum (`["local","org","hub"]`), so this MUST require no schema change — only the controller's
+existing `org`/`hub` source whitelist is relaxed to also accept `local`. The quarantine
+invariant MUST hold unchanged: a skill installed through this path MUST NOT be `active`, and
+MUST require the existing action-gated Approve (`skill.approve-quarantined`) before an agent
+can use it.
+
+#### Scenario: A chat-authored skill lands quarantined with local provenance
+
+- GIVEN a user has reviewed a chat-produced SKILL.md in the authoring modal
+- WHEN the seam installs it through `installFromSource` with `source: "local"`
+- THEN the resulting `Skill` MUST have `state` `quarantined` and `source` `local`
+- AND `ContentScanService` MUST have run over its body + frontmatter, recording a `scanReport`
+- AND the skill MUST NOT be usable by an agent until it is Approved
+
+#### Scenario: An unknown source value still defaults safely
+
+- GIVEN a caller passes a `source` value that is not one of `local`, `org`, or `hub`
+- WHEN `installFromSource` runs
+- THEN the source MUST default to `hub` (the existing safe fallback), and the skill MUST
+  still land `quarantined`
 
 ## User Stories
 

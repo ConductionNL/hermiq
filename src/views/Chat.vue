@@ -236,6 +236,17 @@
 										<ThumbDown :size="16" />
 									</template>
 								</NcButton>
+								<!-- hermiq-skill-conversational-authoring: turn this assistant message
+								     (e.g. a SKILL.md drafted by the seeded skill-creator skill) into a
+								     reviewable Skill via the pre-filled authoring modal. -->
+								<NcButton
+									type="tertiary"
+									:aria-label="t('hermiq', 'Save as skill')"
+									@click="openSaveAsSkill(message)">
+									<template #icon>
+										<PuzzlePlusOutline :size="16" />
+									</template>
+								</NcButton>
 							</div>
 							<div v-if="message.showFeedbackInput" class="chat-page__feedback-comment">
 								<textarea
@@ -334,6 +345,16 @@
 			:value="settings"
 			@input="settings = $event"
 			@close="showSettings = false" />
+
+		<!-- hermiq-skill-conversational-authoring: "Save as skill" seam — opens the
+		     hermiq-skill-markdown-authoring SkillFormModal pre-filled from an assistant
+		     message, saving through the quarantine review path (source: local). -->
+		<SkillFormModal
+			:show="showSaveAsSkill"
+			:initial-body="saveAsSkillBody"
+			save-target="quarantine"
+			@close="showSaveAsSkill = false"
+			@saved="onSkillSaved" />
 	</div>
 </template>
 
@@ -353,6 +374,7 @@ import FileDocumentOutline from 'vue-material-design-icons/FileDocumentOutline.v
 import MessageText from 'vue-material-design-icons/MessageText.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
+import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
 import Robot from 'vue-material-design-icons/Robot.vue'
 import Send from 'vue-material-design-icons/Send.vue'
@@ -375,6 +397,7 @@ import AgentSelector from '../components/AgentSelector.vue'
 import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
 import ConversationDeleteModal from '../modals/ConversationDeleteModal.vue'
 import ConversationRenameModal from '../modals/ConversationRenameModal.vue'
+import SkillFormModal from '../modals/SkillFormModal.vue'
 
 export default {
 	name: 'Chat',
@@ -398,9 +421,11 @@ export default {
 		NcNoteCard,
 		Pencil,
 		Plus,
+		PuzzlePlusOutline,
 		Restore,
 		Robot,
 		Send,
+		SkillFormModal,
 		ThumbDown,
 		ThumbUp,
 	},
@@ -441,6 +466,10 @@ export default {
 			showSettings: false,
 			showDelete: false,
 			deleteTarget: null,
+
+			// hermiq-skill-conversational-authoring: "Save as skill" seam state.
+			showSaveAsSkill: false,
+			saveAsSkillBody: '',
 		}
 	},
 
@@ -903,6 +932,32 @@ export default {
 		},
 
 		/**
+		 * "Save as skill" (hermiq-skill-conversational-authoring): open the
+		 * hermiq-skill-markdown-authoring SkillFormModal pre-filled with this
+		 * assistant message's content as the SKILL.md `body`, for review/edit
+		 * before saving. No new agent run — the SKILL.md is whatever the
+		 * existing chat/agent engine already produced in this message.
+		 *
+		 * @param {object} message The assistant message to turn into a skill.
+		 * @return {void}
+		 */
+		openSaveAsSkill(message) {
+			this.saveAsSkillBody = message.content || ''
+			this.showSaveAsSkill = true
+		},
+
+		/**
+		 * SkillFormModal's `saved` handler for the chat seam — the skill was
+		 * saved via `save-target="quarantine"`, so it lands `quarantined` and
+		 * is NOT immediately usable by an agent until Approved.
+		 *
+		 * @return {void}
+		 */
+		onSkillSaved() {
+			showSuccess(this.t('hermiq', 'Skill saved for review. Approve it in the Skills catalog before it can be used.'))
+		},
+
+		/**
 		 * Archive (soft delete) a conversation.
 		 *
 		 * @param {object} conversation The conversation to archive.
@@ -1092,17 +1147,19 @@ export default {
 .chat-page__rows {
 	display: flex;
 	flex-direction: column;
-	gap: 8px;
+	gap: 2px;
 }
 
+/* Flush list rows matching nc-vue's index-sidebar / NC app-navigation
+   convention (cf. procest /cases): no per-item border, a subtle rounded
+   hover, and a filled active pill — rather than bordered cards. */
 .chat-page__row {
 	display: flex;
 	align-items: center;
 	gap: 4px;
-	padding: 10px 12px;
-	border: 1px solid var(--color-border);
+	padding: 8px 12px;
 	border-radius: var(--border-radius-large, 8px);
-	transition: background-color 0.2s ease;
+	transition: background-color 0.1s ease-in-out;
 }
 
 .chat-page__row:hover {
@@ -1110,8 +1167,11 @@ export default {
 }
 
 .chat-page__row--active {
-	border-color: var(--color-primary-element);
 	background-color: var(--color-primary-element-light);
+}
+
+.chat-page__row--active:hover {
+	background-color: var(--color-primary-element-light-hover, var(--color-primary-element-light));
 }
 
 .chat-page__row-main {

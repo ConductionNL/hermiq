@@ -268,7 +268,12 @@ return [
         ['name' => 'guardrailPolicy#effective', 'url' => '/api/guardrail-policies/effective', 'verb' => 'GET'],
         ['name' => 'guardrailPolicy#index',  'url' => '/api/guardrail-policies', 'verb' => 'GET'],
         ['name' => 'guardrailPolicy#create', 'url' => '/api/guardrail-policies', 'verb' => 'POST'],
-        ['name' => 'guardrailPolicy#update', 'url' => '/api/guardrail-policies/{policyId}', 'verb' => 'PUT', 'requirements' => ['policyId' => '[^/]+']],
+        [
+            'name'         => 'guardrailPolicy#update',
+            'url'          => '/api/guardrail-policies/{policyId}',
+            'verb'         => 'PUT',
+            'requirements' => ['policyId' => '[^/]+'],
+        ],
 
         // Compliance control packs (compliance-control-packs): org-scoped dashboard,
         // auditor's-pack export (both action-auth-gated), and per-agent AI factsheet
@@ -286,6 +291,11 @@ return [
         ['name' => 'skill#index',   'url' => '/api/skills', 'verb' => 'GET'],
         ['name' => 'skill#import',  'url' => '/api/skills', 'verb' => 'POST'],
         ['name' => 'skill#export',  'url' => '/api/skills/{id}/export', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        // GitHub-backed skill store (hermiq-github-store): registered before the
+        // {id} routes, same reasoning as agent-templates' 'github/search' below —
+        // the literal 'github' path segment must never fall into the {id} matcher.
+        ['name' => 'skill#githubSearch',  'url' => '/api/skills/github/search', 'verb' => 'GET'],
+        ['name' => 'skill#githubInstall', 'url' => '/api/skills/github/install', 'verb' => 'POST'],
         ['name' => 'skill#install', 'url' => '/api/skills/{id}/install', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         [
             'name'         => 'skill#uninstall',
@@ -298,6 +308,14 @@ return [
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skillMarketplace#publish',           'url' => '/api/skills/{id}/publish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        // GitHub publish — the new PRIMARY skill-publish path (hermiq-github-store);
+        // the OpenConnector hub 'publish' route above remains secondary.
+        [
+            'name'         => 'skillMarketplace#githubPublish',
+            'url'          => '/api/skills/{id}/github/publish',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
 
         // Agent template gallery (agent-template-gallery): browse/CRUD the tenant's
         // AgentTemplate catalog, export an Agent to a package, import a package
@@ -314,6 +332,11 @@ return [
             'verb'         => 'GET',
             'requirements' => ['agentId' => '[^/]+'],
         ],
+        // GitHub-backed template store (agent-template-github-store): search/install are
+        // registered before the {id} routes, same reasoning as 'import'/'from-agent' above —
+        // the literal 'github' path segment must never fall into the {id} matcher.
+        ['name' => 'agentTemplate#githubSearch',  'url' => '/api/agent-templates/github/search', 'verb' => 'GET'],
+        ['name' => 'agentTemplate#githubInstall', 'url' => '/api/agent-templates/github/install', 'verb' => 'POST'],
         ['name' => 'agentTemplate#show',    'url' => '/api/agent-templates/{id}', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentTemplate#update',  'url' => '/api/agent-templates/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentTemplate#destroy', 'url' => '/api/agent-templates/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
@@ -332,6 +355,12 @@ return [
         [
             'name'         => 'agentTemplate#instantiate',
             'url'          => '/api/agent-templates/{id}/instantiate',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        [
+            'name'         => 'agentTemplate#publishGithub',
+            'url'          => '/api/agent-templates/{id}/publish-github',
             'verb'         => 'POST',
             'requirements' => ['id' => '[^/]+'],
         ],
@@ -405,6 +434,12 @@ return [
         // synchronous conversational endpoint for leaf apps — deliberately
         // separate from chat#sendMessage, see design.md.
         ['name' => 'assistant#converse', 'url' => '/api/assistant/converse', 'verb' => 'POST'],
+
+        // Structured PII/redaction-span detection surface (woo-llm-anonymisation):
+        // stateless, tool-free, reuses the case-assistant-surface plumbing —
+        // see design.md for why it is a sibling of assistant#converse, not a
+        // reuse of it as-is.
+        ['name' => 'assistant#detectPii', 'url' => '/api/assistant/detect-pii', 'verb' => 'POST'],
 
         // Conversations: CRUD + messages + archive lifecycle (restore/permanent).
         ['name' => 'conversation#index', 'url' => '/api/conversations', 'verb' => 'GET'],

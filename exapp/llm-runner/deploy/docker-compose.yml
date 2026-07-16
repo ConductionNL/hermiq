@@ -14,8 +14,17 @@ services:
   hermiq-llm-runner:
     image: ghcr.io/conductionnl/hermiq-llm-runner:latest
     entrypoint: ["/app/deploy/egress-entrypoint.sh"]
+    # The image sets `USER node`, but the egress-jail entrypoint MUST start as
+    # root to install the iptables allowlist; it then drops to the non-root
+    # `node` user via gosu before exec'ing the server. Without this override the
+    # container starts unprivileged and the jail fails with
+    # `iptables ... Permission denied (you must be root)`.
+    user: root
     cap_add:
+      # NET_ADMIN + NET_RAW: iptables (nftables backend) needs both to install
+      # and load the allowlist ruleset.
       - NET_ADMIN
+      - NET_RAW
     cap_drop:
       - ALL
     read_only: true
@@ -23,6 +32,9 @@ services:
       - /tmp
       - /app/scratch
     security_opt:
+      # gosu DROPS privileges to `node`, which is permitted under
+      # no-new-privileges (dropping is not gaining). Validated live: the jail
+      # installs as root, then PID 1 runs as the non-root `node` user.
       - no-new-privileges:true
     environment:
       APP_ID: hermiq-llm-runner

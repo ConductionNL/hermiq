@@ -7,15 +7,18 @@
 
   Own file per ADR-004 modal-isolation. Reads OpenRegister's AuditTrail via
   GET /api/agents/{id}/versions (AgentVersionController::index — no new
-  storage). Selecting exactly two versions and clicking "Compare" emits
-  `compare` so the parent (AgentDetail.vue) can open AgentVersionDiffDialog.
-  "Roll back" is owner-only (the `can-rollback` prop, mirroring every other
-  owner-gated action already on AgentDetail.vue) and calls the rollback
-  endpoint itself, then refreshes its own list and emits `rolled-back` so the
-  parent re-fetches the agent's live config.
+  storage). Selecting exactly two versions and clicking "Compare" mounts
+  AgentVersionDiffDialog INTERNALLY (manifest-driven-pages task 3) — the
+  registry resolves this dialog as one self-contained `kind:"modal"` entry, so
+  no parent page needs to also mount a sibling diff dialog. "Roll back" is
+  owner-only (the `can-rollback` prop, mirroring every other owner-gated
+  action already on the agent detail page) and calls the rollback endpoint
+  itself, then refreshes its own list and emits `rolled-back` so the host
+  re-fetches the agent's live config.
 
   @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
   @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-008-header-actions-open-their-modal-via-a-registry-resolved-open-modal-action
 -->
 <template>
 	<NcDialog
@@ -52,7 +55,7 @@
 					<span v-if="version.changedFields && version.changedFields.length" class="agent-version-history-dialog__fields">
 						{{ t('hermiq', 'Changed: {fields}', { fields: version.changedFields.join(', ') }) }}
 					</span>
-					<template v-if="canRollback">
+					<template v-if="resolvedCanRollback">
 						<span v-if="confirmingId === version.id" class="agent-version-history-dialog__confirm">
 							<span class="agent-version-history-dialog__confirm-text">
 								{{ t('hermiq', 'Roll back to this version? This creates a new version — nothing is deleted.') }}
@@ -83,6 +86,13 @@
 			</ul>
 		</div>
 
+		<AgentVersionDiffDialog
+			:show="showDiff"
+			:agent-id="resolvedAgentId"
+			:from-id="diffFromId"
+			:to-id="diffToId"
+			@close="showDiff = false" />
+
 		<template #actions>
 			<NcButton @click="$emit('close')">
 				{{ t('hermiq', 'Close') }}
@@ -98,14 +108,18 @@
 </template>
 
 <script>
+import { getCurrentUser } from '@nextcloud/auth'
 import { NcButton, NcCheckboxRadioSwitch, NcDialog, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { listAgentVersions, rollbackAgentVersion } from '../../api/agents.js'
+import { useAgentStore } from '../../store/store.js'
+import AgentVersionDiffDialog from './AgentVersionDiffDialog.vue'
 
 export default {
 	name: 'AgentVersionHistoryDialog',
 
 	components: {
+		AgentVersionDiffDialog,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcDialog,
@@ -119,15 +133,28 @@ export default {
 			type: Boolean,
 			default: false,
 		},
-		/** The Agent UUID whose version history is shown. */
+		/**
+		 * The Agent UUID whose version history is shown. Optional — when
+		 * opened as the registry `agent-version-history` open-modal target
+		 * (manifest-driven-pages), no prop is available (open-modal action
+		 * props are static JSON, not resolved against the current object),
+		 * so it self-resolves from the route's `:id` param instead (see
+		 * `resolvedAgentId`).
+		 */
 		agentId: {
 			type: String,
-			required: true,
+			default: '',
 		},
-		/** Whether the current user may roll back this agent (owner-only). */
+		/**
+		 * Whether the current user may roll back this agent (owner-only).
+		 * `null` (default) means "auto-resolve": self-fetch the agent and
+		 * compare its `owner` against the current user, the same check
+		 * AgentDetail used to pass down explicitly. An explicit true/false
+		 * still wins (e.g. tests).
+		 */
 		canRollback: {
 			type: Boolean,
-			default: false,
+			default: null,
 		},
 	},
 
@@ -141,15 +168,51 @@ export default {
 			error: '',
 			confirmingId: null,
 			rollingBackId: null,
+			agent: null,
 		}
 	},
 
-	watch: {
-		show(open) {
-			if (open) {
-				this.selected = []
-				this.load()
+	computed: {
+		/**
+		 * The agent uuid — the `agentId` prop when explicitly supplied, else
+		 * the current route's `:id` param.
+		 *
+		 * @return {string} The resolved agent uuid.
+		 */
+		resolvedAgentId() {
+			return this.agentId || this.$route?.params?.id || ''
+		},
+
+		/**
+		 * Whether rollback is offered — the explicit `canRollback` prop when
+		 * set, else the self-fetched agent's owner compared to the current user.
+		 *
+		 * @return {boolean} True when rollback should be offered.
+		 */
+		resolvedCanRollback() {
+			if (this.canRollback !== null) {
+				return this.canRollback
 			}
+			const user = getCurrentUser()
+			return !!(user && this.agent && this.agent.owner === user.uid)
+		},
+	},
+
+	watch: {
+		// `immediate: true`: when opened via the registry
+		// `agent-version-history` open-modal action, CnAppRoot mounts this
+		// component FRESH with `show` already `true` — a plain watcher only
+		// fires on a CHANGE, so it would never run for that mount path
+		// without `immediate`.
+		show: {
+			immediate: true,
+			handler(open) {
+				if (open) {
+					this.selected = []
+					this.load()
+					this.loadAgentForRollbackGate()
+				}
+			},
 		},
 	},
 
@@ -163,13 +226,28 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				this.versions = await listAgentVersions(this.agentId)
+				this.versions = await listAgentVersions(this.resolvedAgentId)
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 				this.versions = []
 			} finally {
 				this.loading = false
 			}
+		},
+
+		/**
+		 * Self-fetch the agent for `resolvedCanRollback`'s owner check, only
+		 * when the caller did not already supply an explicit `canRollback`.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadAgentForRollbackGate() {
+			if (this.canRollback !== null || !this.resolvedAgentId) {
+				return
+			}
+			const store = useAgentStore()
+			store.registerObjectType('agent', 'agent', 'hermiq')
+			this.agent = await store.fetchObject('agent', this.resolvedAgentId).catch(() => null)
 		},
 
 		/**
@@ -225,7 +303,7 @@ export default {
 		async performRollback(version) {
 			this.rollingBackId = version.id
 			try {
-				await rollbackAgentVersion(this.agentId, version.id)
+				await rollbackAgentVersion(this.resolvedAgentId, version.id)
 				showSuccess(this.t('hermiq', 'Agent rolled back to the selected version.'))
 				this.selected = []
 				this.confirmingId = null

@@ -27,10 +27,11 @@
   "dependencies": {
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.5",
-    "@conduction/nextcloud-vue": "^1.0.0-beta.194",
+    "@conduction/nextcloud-vue": "^1.0.0-beta.213",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.5.2",
     "@nextcloud/dialogs": "^3.2.0",
+    "@nextcloud/event-bus": "^3.3.3",
     "@nextcloud/initial-state": "^2.2.0",
     "@nextcloud/l10n": "^3.4.1",
     "@nextcloud/router": "^3.1.0",

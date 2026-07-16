@@ -13,12 +13,18 @@
   (views, groups, invitedUsers, quotas, …) survive the PUT.
 
   Fields cover what the ported engine actually reads (OR EditAgent parity where
-  it matters): identity (name, description), LLM config (provider, model,
+  it matters): identity (name, description, icon), LLM config (provider, model,
   prompt, temperature, maxTokens), the tool whitelist (empty = every tool
   allowed, ADR-035), the delegation allowlist (empty = may delegate to no one,
   sub-agent-delegation default-deny), and RAG settings (enableRag,
   ragNumSources, searchFiles, searchObjects). Every NcSelect carries an
   `inputLabel` for the nc-input-labels accessibility gate (WCAG 2.1 AA).
+
+  Icon (agent-icon-picker): a Material Design Icon name (e.g. "RobotOutline"),
+  picked via the shared `CnIconPicker` in searchable+clearable mode (the full
+  MDI range via @mdi/js, not the small curated dashboard-widget icon set) —
+  matching the Agent schema's `icon` property description. Empty clears back
+  to the default agent icon.
 
   @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
   @spec openspec/changes/agent-engine-port/tasks.md#task-5-2
@@ -30,7 +36,7 @@
 		:show="show"
 		size="normal"
 		:name="heading"
-		@close="$emit('close')">
+		@close="handleClose">
 		<div class="agent-form">
 			<h2 class="agent-form__title">
 				{{ heading }}
@@ -50,6 +56,19 @@
 				:value.sync="form.description"
 				:label="t('hermiq', 'Description')"
 				:placeholder="t('hermiq', 'What does this agent do?')" />
+
+			<!-- Icon (agent-icon-picker): a Material Design Icon name shown for this
+			     agent in lists and on its detail page. Searchable over the full MDI
+			     range (not the small curated dashboard set) since agent icons are
+			     free-form (e.g. "RobotOutline"); clearable — empty means the default
+			     agent icon. -->
+			<div class="agent-form__field">
+				<label class="agent-form__icon-label">{{ t('hermiq', 'Icon') }}</label>
+				<CnIconPicker
+					v-model="form.icon"
+					searchable
+					clearable />
+			</div>
 
 			<!-- Provider/Model are policy-filtered pickers (tenant-model-policy):
 			     only the caller's effective policy's providers are offered, and the
@@ -164,7 +183,7 @@
 			</template>
 
 			<div class="agent-form__actions">
-				<NcButton :disabled="saving" @click="$emit('close')">
+				<NcButton :disabled="saving" @click="handleClose">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
@@ -183,6 +202,7 @@
 
 <script>
 import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import { CnIconPicker } from '@conduction/nextcloud-vue'
 import { listTools } from '../api/agents.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { useAgentStore } from '../store/store.js'
@@ -191,6 +211,7 @@ export default {
 	name: 'AgentFormModal',
 
 	components: {
+		CnIconPicker,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
@@ -212,6 +233,38 @@ export default {
 			type: Object,
 			default: null,
 		},
+		/**
+		 * The item being edited, or null in create mode (agent-form-slot):
+		 * supplied by CnIndexPage's `#form-dialog` scoped slot ({ show, item,
+		 * schema, close }) when this modal is wired via
+		 * AgentCatalog's `slots.form-dialog`. Folded into `effectiveAgent`
+		 * below `agent` but above `routeAgent`.
+		 */
+		item: {
+			type: Object,
+			default: null,
+		},
+		/**
+		 * Closes the host dialog (agent-form-slot): the `close` binding from
+		 * CnIndexPage's `#form-dialog` scoped slot. Called in ADDITION to
+		 * `$emit('close')` on cancel/save-success so both the slot path and
+		 * the existing registry `agent-form` open-modal path keep working.
+		 */
+		close: {
+			type: Function,
+			default: null,
+		},
+		/**
+		 * The effective JSON schema driving the form (agent-form-slot): the
+		 * `schema` binding from CnIndexPage's `#form-dialog` scoped slot.
+		 * Not currently consumed — this form's fields are hand-authored
+		 * rather than schema-driven — but accepted so the slot binding lands
+		 * without a Vue "extraneous non-prop attribute" warning.
+		 */
+		schema: {
+			type: Object,
+			default: null,
+		},
 	},
 
 	emits: ['close', 'saved'],
@@ -230,17 +283,39 @@ export default {
 			// ids to human-readable names.
 			agentCatalog: [],
 			agentCatalogLoading: false,
+			// manifest-driven-pages: when opened as the registry `agent-form`
+			// open-modal target from AgentDetail's "Edit agent" header action,
+			// no `agent` prop is available (open-modal action props are static
+			// JSON, not resolved against the current object) — self-fetched
+			// here from the route's `:id` param instead. Stays null on
+			// AgentCatalog's "Create agent" route (no `:id` param), so create
+			// mode is unaffected.
+			routeAgent: null,
 		}
 	},
 
 	computed: {
+		/**
+		 * The agent being edited — the explicit `agent` prop wins (tests /
+		 * direct usage), then the `item` prop (agent-form-slot: CnIndexPage's
+		 * `#form-dialog` scoped slot — the row being edited, or null in create
+		 * mode), then the route-fetched agent (the registry `agent-form`
+		 * open-modal path used by AgentDetail's "Edit agent" action, which
+		 * supplies no `agent`/`item` prop).
+		 *
+		 * @return {object|null} The effective agent, or null when creating.
+		 */
+		effectiveAgent() {
+			return this.agent || this.item || this.routeAgent
+		},
+
 		/**
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
 		 */
 		heading() {
-			return this.agent ? this.t('hermiq', 'Edit agent') : this.t('hermiq', 'Create agent')
+			return this.effectiveAgent ? this.t('hermiq', 'Edit agent') : this.t('hermiq', 'Create agent')
 		},
 
 		/**
@@ -313,7 +388,7 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		delegationAllowlistOptions() {
-			const editingId = this.agent?.uuid || this.agent?.id || null
+			const editingId = this.effectiveAgent?.uuid || this.effectiveAgent?.id || null
 			return this.agentCatalog
 				.filter((candidate) => (candidate.uuid || candidate.id) !== editingId)
 				.map((candidate) => ({
@@ -324,13 +399,23 @@ export default {
 	},
 
 	watch: {
-		show(open) {
-			if (open) {
+		// `immediate: true`: when opened via the registry `agent-form`
+		// open-modal action, CnAppRoot mounts this component FRESH with
+		// `show` already `true` (from the action's static `props: {show:
+		// true}`) — a plain watcher only fires on a CHANGE, so it would
+		// never run for that mount path without `immediate`.
+		show: {
+			immediate: true,
+			async handler(open) {
+				if (!open) {
+					return
+				}
+				await this.loadRouteAgent()
 				this.resetForm()
 				this.loadTools()
 				this.loadPolicy()
 				this.loadAgentCatalog()
-			}
+			},
 		},
 	},
 
@@ -341,6 +426,48 @@ export default {
 
 	methods: {
 		/**
+		 * Close the modal (agent-form-slot). Always emits `close` (the
+		 * existing registry `agent-form` open-modal path — AgentDetail's
+		 * "Edit agent" action — listens for this event), and ADDITIONALLY
+		 * invokes the `close` prop when supplied (CnIndexPage's
+		 * `#form-dialog` scoped slot passes its own `close` function to hide
+		 * the dialog). Called on Cancel, the modal's own close (X / overlay),
+		 * and after a successful save.
+		 *
+		 * @return {void}
+		 */
+		handleClose() {
+			this.$emit('close')
+			this.close?.()
+		},
+
+		/**
+		 * When no `agent` prop is supplied (the registry `agent-form`
+		 * open-modal path), self-fetch the agent from the route's `:id` param
+		 * — present on AgentDetail's "Edit agent" action, absent on
+		 * AgentCatalog's "Create agent" action (leaving `routeAgent` null, so
+		 * create mode proceeds unaffected). Uses a fresh `useAgentStore()`
+		 * call (idempotent — the same Pinia singleton `created()` also uses)
+		 * rather than `this.store`, since this can run before `created()` due
+		 * to the `show` watcher's `immediate: true`.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadRouteAgent() {
+			this.routeAgent = null
+			if (this.agent) {
+				return
+			}
+			const routeAgentId = this.$route?.params?.id
+			if (!routeAgentId) {
+				return
+			}
+			const store = useAgentStore()
+			store.registerObjectType('agent', 'agent', 'hermiq')
+			this.routeAgent = await store.fetchObject('agent', routeAgentId).catch(() => null)
+		},
+
+		/**
 		 * An empty agent form.
 		 *
 		 * @return {object} The blank form model.
@@ -349,6 +476,7 @@ export default {
 			return {
 				name: '',
 				description: '',
+				icon: '',
 				provider: '',
 				model: '',
 				prompt: '',
@@ -364,32 +492,34 @@ export default {
 		},
 
 		/**
-		 * Seed the form from the `agent` prop (edit) or blank (create).
+		 * Seed the form from `effectiveAgent` (edit) or blank (create).
 		 *
 		 * @return {void}
 		 */
 		resetForm() {
 			this.error = ''
-			if (!this.agent) {
+			if (!this.effectiveAgent) {
 				this.form = this.blankForm()
 				return
 			}
-			const tools = Array.isArray(this.agent.tools) ? this.agent.tools : []
-			const delegationAllowlist = Array.isArray(this.agent.delegationAllowlist) ? this.agent.delegationAllowlist : []
+			const source = this.effectiveAgent
+			const tools = Array.isArray(source.tools) ? source.tools : []
+			const delegationAllowlist = Array.isArray(source.delegationAllowlist) ? source.delegationAllowlist : []
 			this.form = {
-				name: this.agent.name || '',
-				description: this.agent.description || '',
-				provider: this.agent.provider || '',
-				model: this.agent.model || '',
-				prompt: this.agent.prompt || '',
-				temperature: this.agent.temperature ?? '',
-				maxTokens: this.agent.maxTokens ?? '',
+				name: source.name || '',
+				description: source.description || '',
+				icon: source.icon || '',
+				provider: source.provider || '',
+				model: source.model || '',
+				prompt: source.prompt || '',
+				temperature: source.temperature ?? '',
+				maxTokens: source.maxTokens ?? '',
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
 				delegationAllowlist: this.mapDelegationAllowlistToOptions(delegationAllowlist),
-				enableRag: this.agent.enableRag === true,
-				searchObjects: this.agent.searchObjects !== false,
-				searchFiles: this.agent.searchFiles !== false,
-				ragNumSources: this.agent.ragNumSources ?? '',
+				enableRag: source.enableRag === true,
+				searchObjects: source.searchObjects !== false,
+				searchFiles: source.searchFiles !== false,
+				ragNumSources: source.ragNumSources ?? '',
 			}
 		},
 
@@ -499,13 +629,14 @@ export default {
 		 * @return {object} The agent payload for saveObject().
 		 */
 		buildPayload() {
-			const base = this.agent ? { ...this.agent } : {}
+			const base = this.effectiveAgent ? { ...this.effectiveAgent } : {}
 			delete base['@self']
 
 			const payload = {
 				...base,
 				name: this.form.name,
 				description: this.form.description,
+				icon: this.form.icon || '',
 				provider: this.form.provider,
 				model: this.form.model,
 				prompt: this.form.prompt,
@@ -530,8 +661,8 @@ export default {
 			}
 
 			// Preserve the object id on edit so saveObject issues a PUT.
-			if (this.agent && this.agent.id) {
-				payload.id = this.agent.id
+			if (this.effectiveAgent && this.effectiveAgent.id) {
+				payload.id = this.effectiveAgent.id
 			}
 			return payload
 		},
@@ -556,7 +687,7 @@ export default {
 					return
 				}
 				this.$emit('saved', saved)
-				this.$emit('close')
+				this.handleClose()
 			} catch (e) {
 				this.error = e?.message || this.t('hermiq', 'Unknown error')
 			} finally {
@@ -599,6 +730,11 @@ export default {
 	margin: 4px 0 0;
 	font-size: 13px;
 	color: var(--color-text-maxcontrast);
+}
+
+.agent-form__icon-label {
+	font-weight: bold;
+	margin-bottom: 4px;
 }
 
 .agent-form__actions {

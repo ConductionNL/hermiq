@@ -94,7 +94,11 @@ test.describe('hermiq regression: wave-2 surfaces', () => {
 
 		await page.goto('/apps/hermiq/evals', { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
-		await expect(page.locator('[data-testid="evals-heading"]')).toBeVisible({ timeout: 10_000 })
+		// manifest-driven-pages: EvalDatasets converted from a bespoke
+		// type:"custom" page (data-testid="evals-heading") to a generic
+		// type:"index" page — assert on CnPageRenderer's stable
+		// data-testid-page-id instead of the removed bespoke testid.
+		await expect(page.locator('[data-testid-page-id="EvalDatasets"]')).toBeVisible({ timeout: 10_000 })
 
 		// Create a dataset with one substring case and assert it persists + re-renders.
 		// Scope to the dialog and use exact labels — the modal has several textboxes
@@ -152,13 +156,17 @@ test.describe('hermiq regression: wave-2 surfaces', () => {
 		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
 	})
 
-	test('Agent templates gallery renders the seeded starter templates', async ({ page }) => {
+	test('Store page renders the seeded starter templates', async ({ page }) => {
 		const errors = collectConsoleErrors(page)
 		await login(page)
 
-		await page.goto('/apps/hermiq/agent-templates', { waitUntil: 'domcontentloaded' })
+		await page.goto('/apps/hermiq/store', { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
-		await expect(page.locator('[data-testid="agent-template-gallery-heading"]')).toBeVisible({ timeout: 10_000 })
+		// hermiq-github-store: AgentTemplateGallery (/agent-templates) was retired and
+		// replaced by the unified Store page (/store) — same underlying local list
+		// (register:hermiq schema:agenttemplate), so CnPageRenderer's stable
+		// data-testid-page-id now reads "Store" instead of "AgentTemplateGallery".
+		await expect(page.locator('[data-testid-page-id="Store"]')).toBeVisible({ timeout: 10_000 })
 
 		// The SeedAgentTemplates repair step seeds five starters; assert a representative one.
 		await expect(page.getByRole('cell', { name: 'Morning briefing' })).toBeVisible()

@@ -24,16 +24,26 @@
 //
 // See hydra ADR-036 for the v2 registry design.
 
-import AgentCatalog from './views/AgentCatalog.vue'
-import AgentDetail from './views/AgentDetail.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
-import SkillsCatalog from './views/SkillsCatalog.vue'
 import TenantOps from './views/TenantOps.vue'
 import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
 import AlgorithmRegister from './views/AlgorithmRegister.vue'
 import McpTools from './views/McpTools.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
+import AgentFormModal from './modals/AgentFormModal.vue'
+// Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
+// SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
+// CnIndexPage's built-in Add CTA + row-edit mount the markdown-authoring form
+// (CnMarkdownEditor body, files editor) in place of the generic schema-driven
+// create/edit dialog — the skills analogue of AgentFormModal above.
+import SkillFormModal from './modals/SkillFormModal.vue'
+// Context form (hermiq-context-documents): resolved by the Contexts page's
+// top-level `slots.form-dialog` -> "ContextFormModal", so CnIndexPage's
+// built-in Add CTA + row-edit mount the Context editor (documents/files/
+// objectQueries authoring, CnMarkdownEditor per document body) in place of
+// the generic schema-driven create/edit dialog.
+import ContextFormModal from './modals/ContextFormModal.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -42,11 +52,6 @@ import ComplianceDashboard from './views/ComplianceDashboard.vue'
 // ConductionNL/hydra#251.
 
 export default {
-	// Agent-management-ui pages (agent-management-ui change). Custom pages because
-	// they need bespoke behaviour (agents resource + Run now + run history) that the
-	// built-in index/detail page types cannot express.
-	AgentCatalog,
-	AgentDetail,
 	// Approval inbox (human-approval-gate-ui change). Custom page: reviewer-scoped
 	// pending Approvals + guarded approve/deny + org kill-switch — not expressible
 	// via the built-in index page type.
@@ -54,9 +59,6 @@ export default {
 	// Agent memory (agent-memory change). Custom page: agent picker + tenant-scoped
 	// Memory/Session objects + char-budget bar + consolidation nudge + OR-search recall.
 	AgentMemory,
-	// Skills catalog (skills-catalog change). Custom page: import/export agentskills.io
-	// packages + install a skill onto an agent.
-	SkillsCatalog,
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,
@@ -86,4 +88,18 @@ export default {
 	// Compliance tab — re-homed from the removed top-level `/compliance` nav
 	// page. Unchanged component.
 	ComplianceDashboard,
+	// Agent form (agent-form-slot): resolved by AgentCatalog's top-level
+	// `slots.form-dialog` -> "AgentFormModal", so CnIndexPage's built-in
+	// Add CTA mounts the rich agent form (with CnIconPicker) in place of
+	// the generic schema-driven create/edit dialog. Also still registered
+	// as the `agent-form` v2 modal in registry.js for AgentDetail's
+	// route-based "Edit agent" open-modal action.
+	AgentFormModal,
+	// Skill form (skill-form-slot): resolved by SkillsCatalog's top-level
+	// `slots.form-dialog` -> "SkillFormModal" (see the import above).
+	SkillFormModal,
+	// Context form (hermiq-context-documents): resolved by the Contexts
+	// page's top-level `slots.form-dialog` -> "ContextFormModal" (see the
+	// import above).
+	ContextFormModal,
 }

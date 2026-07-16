@@ -297,6 +297,122 @@ class ContextAssemblerTest extends TestCase
     }//end testNoExtraSaveWhenFlagUnchanged()
 
     /**
+     * A valid `documents` entry renders as a titled section (its `name`) alongside
+     * files/object-queries, and a malformed entry (missing `body`) is skipped without
+     * aborting the rest of the assembly (hermiq-context-documents).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-contextassembler-renders-documents-into-the-budgeted-preamble
+     */
+    public function testDocumentsRenderAndMalformedEntryIsSkipped(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn(
+            $this->context(
+                [
+                    'name'      => 'Project reference',
+                    'documents' => [
+                        ['name' => 'design.md', 'body' => "# Design\nSome design content.", 'format' => 'markdown'],
+                        ['name' => 'incomplete'],
+                        // Missing `body` — must be skipped, not fatal.
+                        'not-an-object',
+                        // Non-array entry — must be skipped, not fatal.
+                    ],
+                    'files'      => [['path' => 'notes.md']],
+                    'charBudget' => 8000,
+                ]
+            )
+        );
+
+        $rootFolder = $this->rootFolderWithFiles(['notes.md' => 'Some reference text.']);
+
+        $assembler = new ContextAssembler($objectService, $rootFolder, new NullLogger());
+        $result    = $assembler->assemble(contextId: 'ctx-uuid', actingUserId: 'alice');
+
+        $this->assertStringContainsString('Context: Project reference', $result['text']);
+        $this->assertStringContainsString('Source: design.md', $result['text']);
+        $this->assertStringContainsString('Some design content.', $result['text']);
+        $this->assertStringNotContainsString('incomplete', $result['text']);
+        $this->assertStringContainsString('Some reference text.', $result['text']);
+        $this->assertFalse($result['needsConsolidation']);
+
+    }//end testDocumentsRenderAndMalformedEntryIsSkipped()
+
+    /**
+     * A Context with no `documents` value (absent) assembles exactly as it did before
+     * this change — files/object-queries only, no extra section.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-contextassembler-renders-documents-into-the-budgeted-preamble
+     */
+    public function testNoDocumentsAssemblesIdenticallyToPreChange(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn(
+            $this->context(
+                [
+                    'name'       => 'No documents',
+                    'files'      => [['path' => 'notes.md']],
+                    'charBudget' => 8000,
+                ]
+            )
+        );
+
+        $rootFolder = $this->rootFolderWithFiles(['notes.md' => 'Some reference text.']);
+
+        $assembler = new ContextAssembler($objectService, $rootFolder, new NullLogger());
+        $result    = $assembler->assemble(contextId: 'ctx-uuid', actingUserId: 'alice');
+
+        $this->assertSame("Context: No documents\nSource: notes.md\nSome reference text.", $result['text']);
+        $this->assertFalse($result['needsConsolidation']);
+
+    }//end testNoDocumentsAssemblesIdenticallyToPreChange()
+
+    /**
+     * A `documents` body pushing the assembled bundle over `charBudget` flags
+     * `needsConsolidation` inside the EXISTING budget contract — no new/separate budget,
+     * and the text is never truncated.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-documents-share-the-existing-budget-contract
+     */
+    public function testDocumentPushesBundleOverExistingBudget(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn(
+            $this->context(
+                [
+                    'name'       => 'Big document bundle',
+                    'documents'  => [
+                        ['name' => 'design.md', 'body' => 'This document body is way more than five characters.'],
+                    ],
+                    'charBudget' => 5,
+                ]
+            )
+        );
+
+        $saved = [];
+        $objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $assembler = new ContextAssembler($objectService, $this->createMock(IRootFolder::class), new NullLogger());
+        $result    = $assembler->assemble(contextId: 'ctx-uuid', actingUserId: 'alice');
+
+        $this->assertTrue($result['needsConsolidation']);
+        $this->assertStringContainsString('This document body is way more than five characters.', $result['text'], 'The text must never be truncated.');
+        $this->assertCount(1, $saved, 'The flag flip must be persisted.');
+        $this->assertTrue($saved[0]['needsConsolidation']);
+
+    }//end testDocumentPushesBundleOverExistingBudget()
+
+    /**
      * assembleForAgent concatenates every referenced Context and returns '' for a null
      * agent or an agent with no contextRefs.
      *

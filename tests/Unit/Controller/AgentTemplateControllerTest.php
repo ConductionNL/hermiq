@@ -31,6 +31,8 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\AgentTemplateController;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\AgentTemplateService;
+use OCA\Hermiq\Service\GitHubTemplateCatalogService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Http;
@@ -40,6 +42,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 /**
  * Tests for the agent-template-gallery controller's auth + action-auth gates.
@@ -124,11 +127,13 @@ class AgentTemplateControllerTest extends TestCase
     /**
      * Build the controller with the given collaborators.
      *
-     * @param AgentTemplateService    $service    The template service.
-     * @param ActionAuthService       $actionAuth The action-auth service.
-     * @param IUserSession            $session    The user session.
-     * @param IRequest|null           $request    An optional request mock (defaults to no params).
-     * @param OrganisationMapper|null $mapper     An optional organisation mapper.
+     * @param AgentTemplateService              $service    The template service.
+     * @param ActionAuthService                 $actionAuth The action-auth service.
+     * @param IUserSession                      $session    The user session.
+     * @param IRequest|null                      $request    An optional request mock (defaults to no params).
+     * @param OrganisationMapper|null            $mapper     An optional organisation mapper.
+     * @param GitHubTemplateCatalogService|null  $catalog    An optional GitHub catalog service mock.
+     * @param GitHubTemplatePushService|null     $push       An optional GitHub push service mock.
      *
      * @return AgentTemplateController
      */
@@ -137,7 +142,9 @@ class AgentTemplateControllerTest extends TestCase
         ActionAuthService $actionAuth,
         IUserSession $session,
         ?IRequest $request=null,
-        ?OrganisationMapper $mapper=null
+        ?OrganisationMapper $mapper=null,
+        ?GitHubTemplateCatalogService $catalog=null,
+        ?GitHubTemplatePushService $push=null
     ): AgentTemplateController {
         return new AgentTemplateController(
             ($request ?? $this->request()),
@@ -145,7 +152,9 @@ class AgentTemplateControllerTest extends TestCase
             $actionAuth,
             $session,
             ($mapper ?? $this->organisationMapper()),
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            ($catalog ?? $this->createMock(GitHubTemplateCatalogService::class)),
+            ($push ?? $this->createMock(GitHubTemplatePushService::class))
         );
 
     }//end controller()
@@ -391,4 +400,331 @@ class AgentTemplateControllerTest extends TestCase
         $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
     }//end testInstantiateUnauthenticated()
+
+    /**
+     * githubSearch() returns 401 for an unauthenticated caller, never reaching the catalog service.
+     *
+     * @return void
+     */
+    public function testGithubSearchUnauthenticated(): void
+    {
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->expects($this->never())->method('search');
+
+        $response = $this->controller(
+            $this->createMock(AgentTemplateService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session(null),
+            null,
+            null,
+            $catalog
+        )->githubSearch();
+
+        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+
+    }//end testGithubSearchUnauthenticated()
+
+    /**
+     * githubSearch() returns 200 with the catalog service's cards for an authenticated caller.
+     *
+     * @return void
+     */
+    public function testGithubSearchReturnsCards(): void
+    {
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('search')->willReturn([
+            'outcome'     => 'ok',
+            'cards'       => [['owner' => 'acme', 'repo' => 'demo']],
+            'brokerUsed'  => false,
+            'rateLimited' => false,
+        ]);
+        $catalog->method('isBrokerAvailable')->willReturn(true);
+
+        $response = $this->controller(
+            $this->createMock(AgentTemplateService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('alice'),
+            null,
+            null,
+            $catalog
+        )->githubSearch();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertCount(1, $response->getData()['cards']);
+        $this->assertTrue($response->getData()['brokerCredentialAvailable']);
+
+    }//end testGithubSearchReturnsCards()
+
+    /**
+     * githubSearch() degrades to 200 (never a 5xx) when the catalog service throws.
+     *
+     * @return void
+     */
+    public function testGithubSearchDegradesOnFailure(): void
+    {
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('search')->willThrowException(new RuntimeException('boom'));
+
+        $response = $this->controller(
+            $this->createMock(AgentTemplateService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('alice'),
+            null,
+            null,
+            $catalog
+        )->githubSearch();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame([], $response->getData()['cards']);
+        $this->assertSame(GitHubTemplateCatalogService::OUTCOME_UNREACHABLE, $response->getData()['outcome']);
+
+    }//end testGithubSearchDegradesOnFailure()
+
+    /**
+     * githubInstall() returns 401 for an unauthenticated caller, never reaching the catalog service.
+     *
+     * @return void
+     */
+    public function testGithubInstallUnauthenticated(): void
+    {
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->expects($this->never())->method('fetchTemplateFile');
+
+        $response = $this->controller(
+            $this->createMock(AgentTemplateService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session(null),
+            null,
+            null,
+            $catalog
+        )->githubInstall();
+
+        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+
+    }//end testGithubInstallUnauthenticated()
+
+    /**
+     * githubInstall() rejects an invalid owner/repo with 400, never calling the catalog service.
+     *
+     * @return void
+     */
+    public function testGithubInstallInvalidRepoIsBadRequest(): void
+    {
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->expects($this->never())->method('fetchTemplateFile');
+
+        $request  = $this->request(['owner' => '../evil', 'repo' => 'demo']);
+        $response = $this->controller(
+            $this->createMock(AgentTemplateService::class),
+            $this->createMock(ActionAuthService::class),
+            $this->session('alice'),
+            $request,
+            null,
+            $catalog
+        )->githubInstall();
+
+        $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+        $this->assertSame('invalid_repo', $response->getData()['error']);
+
+    }//end testGithubInstallInvalidRepoIsBadRequest()
+
+    /**
+     * githubInstall() returns 404 when the repo's template package file cannot be fetched.
+     *
+     * @return void
+     */
+    public function testGithubInstallMissingPackageIsNotFound(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->expects($this->never())->method('importPackage');
+
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('fetchTemplateFile')->willReturn(null);
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request, null, $catalog)->githubInstall();
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testGithubInstallMissingPackageIsNotFound()
+
+    /**
+     * githubInstall() fetches the package and imports it with source='hub', landing quarantined.
+     *
+     * @return void
+     */
+    public function testGithubInstallImportsWithHubSource(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->expects($this->once())
+            ->method('importPackage')
+            ->with('{"name":"Demo"}', 'hub', 'alice')
+            ->willReturn($this->template('quarantined'));
+
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('fetchTemplateFile')->willReturn('{"name":"Demo"}');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request, null, $catalog)->githubInstall();
+
+        $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+        $this->assertSame('quarantined', $response->getData()['state']);
+
+    }//end testGithubInstallImportsWithHubSource()
+
+    /**
+     * publishGithub() returns 401 for an unauthenticated caller, never reaching the template service.
+     *
+     * @return void
+     */
+    public function testPublishGithubUnauthenticated(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->expects($this->never())->method('exportTemplate');
+
+        $response = $this->controller(
+            $service,
+            $this->createMock(ActionAuthService::class),
+            $this->session(null)
+        )->publishGithub('template-1');
+
+        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+
+    }//end testPublishGithubUnauthenticated()
+
+    /**
+     * publishGithub() rejects an invalid owner/repo with 400, never reaching the template service.
+     *
+     * @return void
+     */
+    public function testPublishGithubInvalidRepoIsBadRequest(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->expects($this->never())->method('exportTemplate');
+
+        $request  = $this->request(['owner' => 'ok', 'repo' => 'bad repo', 'credentialId' => 'cred-1']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request)->publishGithub('template-1');
+
+        $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+        $this->assertSame('invalid_repo', $response->getData()['error']);
+
+    }//end testPublishGithubInvalidRepoIsBadRequest()
+
+    /**
+     * publishGithub() requires a credentialId (422), never reaching the template service.
+     *
+     * @return void
+     */
+    public function testPublishGithubRequiresCredential(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->expects($this->never())->method('exportTemplate');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request)->publishGithub('template-1');
+
+        $this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
+
+    }//end testPublishGithubRequiresCredential()
+
+    /**
+     * publishGithub() returns 404 for a template outside the caller's tenant visibility
+     * (exportTemplate() is the same tenant-scoped read show()/export() already use).
+     *
+     * @return void
+     */
+    public function testPublishGithubNotFound(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->method('exportTemplate')->willReturn(null);
+
+        $push = $this->createMock(GitHubTemplatePushService::class);
+        $push->expects($this->never())->method('push');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo', 'credentialId' => 'cred-1']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request, null, null, $push)->publishGithub('template-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testPublishGithubNotFound()
+
+    /**
+     * publishGithub() fails closed (503) when the credential broker is unavailable.
+     *
+     * @return void
+     */
+    public function testPublishGithubFailsClosedWithoutBroker(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->method('exportTemplate')->willReturn('{"name":"Demo"}');
+
+        $push = $this->createMock(GitHubTemplatePushService::class);
+        $push->method('isBrokerAvailable')->willReturn(false);
+        $push->expects($this->never())->method('push');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo', 'credentialId' => 'cred-1']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request, null, null, $push)->publishGithub('template-1');
+
+        $this->assertSame(Http::STATUS_SERVICE_UNAVAILABLE, $response->getStatus());
+
+    }//end testPublishGithubFailsClosedWithoutBroker()
+
+    /**
+     * publishGithub() pushes the exported package and records provenance on success.
+     *
+     * @return void
+     */
+    public function testPublishGithubSucceedsAndRecordsProvenance(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->method('exportTemplate')->willReturn('{"name":"Demo"}');
+        $service->expects($this->once())
+            ->method('update')
+            ->with(
+                'template-1',
+                $this->callback(static function (array $payload): bool {
+                    return ($payload['githubOwner'] ?? null) === 'acme'
+                        && ($payload['githubRepo'] ?? null) === 'demo'
+                        && is_string($payload['publishedAt'] ?? null) === true;
+                })
+            )
+            ->willReturn($this->template());
+
+        $push = $this->createMock(GitHubTemplatePushService::class);
+        $push->method('isBrokerAvailable')->willReturn(true);
+        $push->expects($this->once())
+            ->method('push')
+            ->with('{"name":"Demo"}', 'acme', 'demo', 'private', 'cred-1', 'alice')
+            ->willReturn(['repoUrl' => 'https://github.com/acme/demo', 'commitSha' => 'abc123']);
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo', 'credentialId' => 'cred-1']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request, null, null, $push)->publishGithub('template-1');
+
+        $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+        $this->assertSame('abc123', $response->getData()['commitSha']);
+
+    }//end testPublishGithubSucceedsAndRecordsProvenance()
+
+    /**
+     * publishGithub() surfaces a RuntimeException from the push service (e.g. "already
+     * exists") as 422, never recording provenance.
+     *
+     * @return void
+     */
+    public function testPublishGithubRefusedByPushServiceIsUnprocessable(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->method('exportTemplate')->willReturn('{"name":"Demo"}');
+        $service->expects($this->never())->method('update');
+
+        $push = $this->createMock(GitHubTemplatePushService::class);
+        $push->method('isBrokerAvailable')->willReturn(true);
+        $push->method('push')->willThrowException(new RuntimeException('Repository acme/demo already exists'));
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo', 'credentialId' => 'cred-1']);
+        $response = $this->controller($service, $this->createMock(ActionAuthService::class), $this->session('alice'), $request, null, null, $push)->publishGithub('template-1');
+
+        $this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
+
+    }//end testPublishGithubRefusedByPushServiceIsUnprocessable()
 }//end class

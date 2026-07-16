@@ -60,4 +60,33 @@ export const useEvalRunStore = createObjectStore('evalrun', {
 	schema: 'evalrun',
 })
 
+/**
+ * Canonical OpenRegister object store for the 'agentskill' schema
+ * (hermiq-skill-markdown-authoring). A Skill's CREATE goes through the
+ * dedicated `SkillController`/`SkillService` import path (`src/api/skills.js`,
+ * so `SkillSerializer::fromPackage` is the single source of truth for
+ * splitting a package into `frontmatter`+`body`); this store is used ONLY for
+ * EDIT — the generic OpenRegister object PUT the SkillsCatalog page's
+ * (now-superseded) built-in dialog already issued, mirroring the `agent`/
+ * `evaldataset` stores above (`SkillFormModal`, agent-form-slot parity).
+ */
+export const useSkillStore = createObjectStore('agentskill', {
+	register: 'hermiq',
+	schema: 'agentskill',
+})
+
+/**
+ * Canonical OpenRegister object store for the 'context' schema
+ * (hermiq-context-documents). A Context has no package/import format —
+ * `documents` is authored inline — so BOTH create and edit persist through
+ * this generic OpenRegister object write path (`ContextFormModal`), unlike
+ * `agentskill` above which only uses its store for edit.
+ *
+ * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+ */
+export const useContextStore = createObjectStore('context', {
+	register: 'hermiq',
+	schema: 'context',
+})
+
 export { useSettingsStore }

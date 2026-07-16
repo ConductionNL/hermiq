@@ -20,6 +20,17 @@
  * `installFromSource()` only ever produces `quarantined` output (never `active`), so it
  * remains open to any authenticated tenant member.
  *
+ * hermiq-github-store adds `githubPublish()` on this SAME controller — the new PRIMARY
+ * publish path (a `topic:hermiq-skill` GitHub repo in agentskills.io format via the
+ * generalised `GitHubTemplatePushService`), gated by the SAME `skill.publish-hub` action as
+ * the existing OpenConnector `publish()` (both are "publish this skill externally"
+ * mutations — design.md does not introduce a distinct action for the GitHub path).
+ * Tenant-scoped via `SkillService::exportSkill()` (404, never 403, for an out-of-visibility
+ * skill) exactly as `AgentTemplateController::publishGithub()` scopes template publish. On
+ * success, stamps `githubOwner`/`githubRepo`/`publishedAt` via
+ * `SkillService::stampGithubPublish()` — provenance only, never round-tripped through the
+ * exported package.
+ *
  * @category Controller
  * @package  OCA\Hermiq\Controller
  *
@@ -33,15 +44,20 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/fix-skill-marketplace-action-auth/tasks.md#2-controller
+ * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
  */
 
 declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
+use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
@@ -50,6 +66,7 @@ use OCP\AppFramework\OCS\OCSForbiddenException;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -60,13 +77,27 @@ use Throwable;
 class SkillMarketplaceController extends Controller
 {
     /**
+     * Safe GitHub owner/repo pattern (hermiq-github-store), validated before any
+     * path interpolation on the publish endpoint — mirrors
+     * `AgentTemplateController::OWNER_REPO_PATTERN` exactly.
+     *
+     * @var string
+     */
+    private const OWNER_REPO_PATTERN = '/^[A-Za-z0-9._-]{1,100}$/';
+
+    /**
      * Constructor.
      *
-     * @param IRequest                $request            The request object.
-     * @param SkillMarketplaceService $marketplaceService The marketplace service.
-     * @param ActionAuthService       $actionAuth         The ADR-023 action-authorization service.
-     * @param IUserSession            $userSession        Resolves the requesting user.
-     * @param LoggerInterface         $logger             PSR-3 logger.
+     * @param IRequest                  $request            The request object.
+     * @param SkillMarketplaceService   $marketplaceService The marketplace service.
+     * @param ActionAuthService         $actionAuth         The ADR-023 action-authorization service.
+     * @param IUserSession              $userSession        Resolves the requesting user.
+     * @param LoggerInterface           $logger             PSR-3 logger.
+     * @param SkillService              $skillService       Export + provenance stamp (hermiq-github-store).
+     * @param GitHubTemplatePushService $pushService        GitHub publish (hermiq-github-store).
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct injected collaborator, not a logic-bearing argument list.
      *
      * @spec openspec/changes/fix-skill-marketplace-action-auth/tasks.md#task-2-1
      */
@@ -76,6 +107,8 @@ class SkillMarketplaceController extends Controller
         private readonly ActionAuthService $actionAuth,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
+        private readonly SkillService $skillService,
+        private readonly GitHubTemplatePushService $pushService,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -103,7 +136,11 @@ class SkillMarketplaceController extends Controller
             return new JSONResponse(['error' => 'A non-empty package is required'], Http::STATUS_BAD_REQUEST);
         }
 
-        if (in_array($source, ['org', 'hub'], true) === false) {
+        // Hermiq-skill-conversational-authoring: 'local' is the honest provenance for a
+        // skill authored inside this instance (the chat "Save as skill" seam) — an
+        // already-valid `source` enum value, no schema change. installFromSource() still
+        // ALWAYS lands the skill `quarantined` regardless of source.
+        if (in_array($source, ['local', 'org', 'hub'], true) === false) {
             $source = 'hub';
         }
 
@@ -219,6 +256,98 @@ class SkillMarketplaceController extends Controller
         }
 
     }//end publish()
+
+    /**
+     * Publish a skill to a NEW GitHub repository tagged `topic:hermiq-skill`, built
+     * from `SkillSerializer::toPackage()` output via `SkillService::exportSkill()`
+     * (hermiq-github-store — the new PRIMARY publish path; OpenConnector's
+     * `publish()` above remains the secondary route). Gated by the SAME
+     * `skill.publish-hub` action as `publish()` — both are "publish this skill
+     * externally" mutations. Tenant-scoped: resolves the skill through the same
+     * `SkillService::exportSkill()` path `export()` already uses, so a caller
+     * cannot publish a skill outside their organisation's visibility. On success,
+     * records `githubOwner`/`githubRepo`/`publishedAt` on the skill — provenance
+     * only, never round-tripped through the exported package.
+     *
+     * @param string $id The Skill UUID.
+     *
+     * @return JSONResponse 201 with `{repoUrl, commitSha}`; 400/401/404/422/503 on failure.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    public function githubPublish(string $id): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        try {
+            $this->actionAuth->requireAction(user: $user, action: 'skill.publish-hub');
+        } catch (OCSForbiddenException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+        }
+
+        $owner        = (string) ($this->request->getParam('owner') ?? '');
+        $repo         = (string) ($this->request->getParam('repo') ?? '');
+        $visibility   = (string) ($this->request->getParam('visibility') ?? 'private');
+        $credentialId = (string) ($this->request->getParam('credentialId') ?? '');
+
+        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+            return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+        }
+
+        if (in_array($visibility, ['public', 'private'], true) === false) {
+            $visibility = 'private';
+        }
+
+        if ($credentialId === '') {
+            return new JSONResponse(['error' => 'A broker credentialId is required to publish'], Http::STATUS_UNPROCESSABLE_ENTITY);
+        }
+
+        // Tenant-scoped read: a skill outside the caller's organisation's visibility
+        // is 404, identical to export()'s existing behaviour (never a 403 that would
+        // confirm existence) — mirrors AgentTemplateController::publishGithub().
+        $package = $this->skillService->exportSkill(skillId: $id);
+        if ($package === null) {
+            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+        }
+
+        if ($this->pushService->isBrokerAvailable() === false) {
+            return new JSONResponse(['error' => 'The GitHub credential broker is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
+        }
+
+        try {
+            $result = $this->pushService->push(
+                package: $package,
+                owner: $owner,
+                repo: $repo,
+                visibility: $visibility,
+                credentialId: $credentialId,
+                actingUserId: $user->getUID(),
+                kind: GitHubTemplatePushService::KIND_SKILL
+            );
+        } catch (RuntimeException $e) {
+            $this->logger->warning('Hermiq skill github publish refused: '.$e->getMessage());
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_UNPROCESSABLE_ENTITY);
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq skill github publish failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Publish failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }//end try
+
+        $this->skillService->stampGithubPublish(
+            skillId: $id,
+            owner: $owner,
+            repo: $repo,
+            publishedAt: (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c')
+        );
+
+        return new JSONResponse($result, Http::STATUS_CREATED);
+
+    }//end githubPublish()
 
     /**
      * Shape a Skill ObjectEntity into a UUID + payload response map.

@@ -27,6 +27,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/case-assistant-surface/tasks.md#task-1-1
+ * @spec openspec/changes/woo-llm-anonymisation/tasks.md#task-1-1
  */
 
 declare(strict_types=1);
@@ -109,6 +110,22 @@ class AssistantService
      * @var int
      */
     private const MAX_CONTEXT_DATA_LENGTH = 20000;
+
+    /**
+     * Maximum accepted `text` length for `detectPii()` (characters).
+     *
+     * @var int
+     *
+     * @spec openspec/changes/woo-llm-anonymisation/tasks.md#task-1-1
+     */
+    private const MAX_DETECT_TEXT_LENGTH = 12000;
+
+    /**
+     * Detector-agent display name template (`sprintf` with the calling app id).
+     *
+     * @var string
+     */
+    private const DETECTOR_AGENT_NAME_TEMPLATE = 'PII Span Detector (%s)';
 
     /**
      * Constructor.
@@ -236,6 +253,219 @@ class AssistantService
             'usage'     => $this->responseHandler->lastUsage,
         ];
     }//end converse()
+
+    /**
+     * Run one stateless, structured PII/redaction-span detection call.
+     *
+     * Deliberately does NOT persist a `Conversation`/`Message` (design.md
+     * Decision 2) and deliberately bypasses the effective `GuardrailPolicy`'s
+     * PII input-redaction action while keeping prompt-injection filtering
+     * active (design.md Decision 1) — the caller's document text must reach
+     * the model unredacted for detection to work at all.
+     *
+     * @param string $userId  Authenticated caller (only used for logging — no
+     *                        per-user state is created by this call).
+     * @param string $text    The document text to scan (already length-capped
+     *                        by the caller's own bound, further capped here).
+     * @param array  $context `{app, objectType?, objectRef?}` — `app` is
+     *                        required so a dedicated detector Agent can be
+     *                        provisioned/found.
+     *
+     * @return array{spans: array<int, array<string, mixed>>, usage: array<string, int|float>}
+     *
+     * @throws Exception On validation failure (code 400) or malformed model
+     *                   output (code 502).
+     * @throws GuardrailBlockedException When the input is refused by the
+     *                                   effective GuardrailPolicy's
+     *                                   prompt-injection filter.
+     *
+     * @spec openspec/changes/woo-llm-anonymisation/tasks.md#task-1-2
+     */
+    public function detectPii(string $userId, string $text, array $context): array
+    {
+        $this->validateDetectText(text: $text);
+        $app = $this->validateContext(context: $context);
+
+        $guardrailPolicy = $this->resolveGuardrailPolicy(organisation: '');
+        $guardrailPolicy['inputFilters']['piiAction'] = 'off';
+
+        $inputFilter = $this->guardrailPolicyService?->filterInput(
+            policy: $guardrailPolicy,
+            text: $text
+        ) ?? ['text' => $text, 'blocked' => false, 'reason' => null];
+
+        if ($inputFilter['blocked'] === true) {
+            $this->logger->warning(
+                message: '[AssistantService] detectPii input blocked by guardrail policy',
+                context: ['file' => __FILE__, 'line' => __LINE__, 'app' => $app, 'userId' => $userId]
+            );
+            throw new GuardrailBlockedException(reason: (string) $inputFilter['reason']);
+        }
+
+        $agent = $this->findOrCreateDetectorAgent(app: $app);
+
+        $reply = $this->responseHandler->generateResponse(
+            userMessage: $text,
+            context: ['text' => '', 'sources' => []],
+            messageHistory: [],
+            agent: $agent,
+            selectedTools: [],
+            channel: null,
+            cnAiContext: $this->cnAiContextFor(context: $context),
+            contextPreamble: '',
+            trace: null,
+            dryRun: false
+        );
+
+        $spans = $this->parseDetectPiiReply(reply: $reply);
+
+        return [
+            'spans' => $spans,
+            'usage' => $this->responseHandler->lastUsage,
+        ];
+    }//end detectPii()
+
+    /**
+     * Validate the `text` field for `detectPii()`.
+     *
+     * @param string $text The document text.
+     *
+     * @return void
+     *
+     * @throws Exception (code 400) When empty or over the length cap.
+     */
+    private function validateDetectText(string $text): void
+    {
+        if (trim($text) === '') {
+            throw new Exception('text is required', 400);
+        }
+
+        if (strlen($text) > self::MAX_DETECT_TEXT_LENGTH) {
+            throw new Exception(
+                'text exceeds the maximum length of '.self::MAX_DETECT_TEXT_LENGTH.' characters',
+                400
+            );
+        }
+    }//end validateDetectText()
+
+    /**
+     * Find, or idempotently create, the dedicated tool-locked PII-detector
+     * Agent for `$app` — the same `tools: ['__none__']` sentinel pattern as
+     * `findOrCreateAgent()`, distinct name and prompt (design.md Decision 3).
+     *
+     * @param string $app Calling app id.
+     *
+     * @return ObjectEntity The Agent object.
+     *
+     * @spec openspec/changes/woo-llm-anonymisation/design.md#decision-3
+     */
+    private function findOrCreateDetectorAgent(string $app): ObjectEntity
+    {
+        $name = sprintf(self::DETECTOR_AGENT_NAME_TEMPLATE, $app);
+
+        $existing = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::AGENT_SCHEMA)
+            ->findAll(config: ['filters' => ['name' => $name], 'limit' => 1]);
+
+        foreach ($existing as $candidate) {
+            if ($candidate instanceof ObjectEntity) {
+                return $candidate;
+            }
+        }
+
+        $this->logger->info(
+            message: '[AssistantService] Provisioning dedicated PII-span-detector agent',
+            context: ['file' => __FILE__, 'line' => __LINE__, 'app' => $app]
+        );
+
+        return $this->objectService->saveObject(
+            object: $this->sanitizeForSave(
+                data: [
+                    'name'        => $name,
+                    'description' => 'Auto-provisioned tool-free structured PII/redaction-span detector for '
+                        .'the '.$app.' woo-llm-anonymisation surface. Do not add tools — this Agent is '
+                        .'deliberately locked to zero tool execution.',
+                    'prompt'      => $this->detectPiiSystemPrompt(),
+                    'tools'       => [self::NO_TOOLS_SENTINEL],
+                    'isPrivate'   => true,
+                    'active'      => true,
+                ]
+            ),
+            register: self::REGISTER_SLUG,
+            schema: self::AGENT_SCHEMA
+        );
+    }//end findOrCreateDetectorAgent()
+
+    /**
+     * System prompt for the PII-span-detector agent — instructs strict
+     * JSON-only output so `parseDetectPiiReply()` can parse a structured
+     * span list instead of prose.
+     *
+     * @return string
+     */
+    private function detectPiiSystemPrompt(): string
+    {
+        return 'You are a precise PII and redaction-span detector for Dutch government Woo '
+            .'(Wet open overheid) document disclosure review. You are given a block of document text. '
+            .'Identify every span that should be considered for redaction before public disclosure: '
+            .'persons\' names, BSN (burgerservicenummer), postal addresses, phone numbers, email '
+            .'addresses, signatures, and medical or financial mentions about an identifiable natural '
+            .'person. Respond with STRICT JSON ONLY, no prose, no markdown code fence, in exactly this '
+            .'shape: {"spans":[{"start":<int>,"end":<int>,"category":'
+            .'"<person|bsn|address|contact|signature|medical|financial>","confidence":"<low|medium|high>"}]}. '
+            .'`start`/`end` are character offsets into the EXACT text you were given (0-indexed, `end` '
+            .'exclusive). Do NOT repeat the matched substring anywhere in your response — offsets and a '
+            .'category label are sufficient. If nothing should be redacted, respond with {"spans":[]}.';
+    }//end detectPiiSystemPrompt()
+
+    /**
+     * Parse a `detectPii()` model reply into a validated spans array.
+     *
+     * Strips a leading/trailing markdown code fence (models routinely wrap
+     * JSON in ```json even when instructed not to), then requires the exact
+     * `{"spans": [...]}` shape — anything else fails loud rather than
+     * returning a partial/guessed result (design.md Decision 4).
+     *
+     * @param string $reply The raw model reply text.
+     *
+     * @return array<int, array<string, mixed>> The validated spans.
+     *
+     * @throws Exception (code 502) When the reply is not the expected JSON shape.
+     */
+    private function parseDetectPiiReply(string $reply): array
+    {
+        $cleaned = trim($reply);
+        $cleaned = preg_replace('/^```(?:json)?\s*/i', '', $cleaned) ?? $cleaned;
+        $cleaned = preg_replace('/\s*```$/', '', $cleaned) ?? $cleaned;
+
+        $decoded = json_decode(trim($cleaned), true);
+        if (is_array($decoded) === false || array_key_exists('spans', $decoded) === false
+            || is_array($decoded['spans']) === false
+        ) {
+            throw new Exception('AI response was not valid PII-span JSON', 502);
+        }
+
+        $spans = [];
+        foreach ($decoded['spans'] as $span) {
+            if (is_array($span) === false
+                || is_int($span['start'] ?? null) === false
+                || is_int($span['end'] ?? null) === false
+                || is_string($span['category'] ?? null) === false
+            ) {
+                continue;
+            }
+
+            $spans[] = [
+                'start'      => $span['start'],
+                'end'        => $span['end'],
+                'category'   => $span['category'],
+                'confidence' => (string) ($span['confidence'] ?? 'medium'),
+            ];
+        }
+
+        return $spans;
+    }//end parseDetectPiiReply()
 
     /**
      * Validate the `message` field.

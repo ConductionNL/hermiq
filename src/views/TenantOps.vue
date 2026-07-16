@@ -4,11 +4,15 @@
 <!--
   TenantOps — the Hermiq "Tenant ops" nav page (multi-tenant-ops).
 
-  Org-level operational controls: cost guardrails, model policy, access
-  review, incidents, retention, and a per-tenant EU AI Act audit export
-  (downloads the caller's own governance records from OpenRegister's hash-chained
-  AuditTrail). Shown only to org owners / instance admins via the backend
+  Org-level operational controls only: cost guardrails, model policy, and
+  access review. Shown only to org owners / instance admins via the backend
   `can_manage_killswitch` capability (loadState — never a DOM read, ADR-004).
+
+  Incidents, the per-tenant EU AI Act audit export, and Retention moved to
+  the Compliance page's below-header slot (src/widgets/ComplianceOperations.vue,
+  inapp-settings-section) — they are compliance-framework surfaces, not
+  per-organisation operational controls, and now exist in exactly that one
+  place.
 
   Per-organisation quota usage (schedules + agents-in-use vs. configured limits)
   moved to the main Dashboard as QuotaUsageWidget (dashboard-org-widgets); the
@@ -23,7 +27,7 @@
   @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
   @spec openspec/changes/multi-tenant-ops/specs/multi-tenant-ops/spec.md
   @spec openspec/changes/dashboard-org-widgets/specs/dashboard-org-widgets/spec.md#requirement-tenant-ops-must-no-longer-display-organisation-quota-usage
-  @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
+  @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 -->
 <template>
 	<div class="tenant-ops">
@@ -203,99 +207,6 @@
 					</template>
 				</CnDataTable>
 			</section>
-
-			<!-- Incident records (agent-lifecycle-governance): human-authored incident
-				     response, linked to an agent/run, included in the AI Act audit export. -->
-			<section class="tenant-ops__section">
-				<div class="tenant-ops__section-head">
-					<h3 class="tenant-ops__subhead">
-						{{ t('hermiq', 'Incidents') }}
-					</h3>
-					<NcButton type="secondary" @click="showIncidentDialog = true">
-						{{ t('hermiq', 'Open incident') }}
-					</NcButton>
-				</div>
-
-				<NcNoteCard v-if="incidentError" type="error" :heading="t('hermiq', 'Incident error')">
-					{{ incidentError }}
-				</NcNoteCard>
-
-				<p v-if="!incidentsLoading && incidents.length === 0 && !incidentError" class="tenant-ops__note">
-					{{ t('hermiq', 'No incidents recorded yet.') }}
-				</p>
-
-				<div v-if="incidentsLoading" class="tenant-ops__loading">
-					<NcLoadingIcon :size="24" />
-				</div>
-
-				<ul v-else class="tenant-ops__incident-list">
-					<li v-for="incident in incidents" :key="incident.uuid" class="tenant-ops__incident">
-						<p class="tenant-ops__incident-description">
-							{{ incident.description }}
-						</p>
-						<p class="tenant-ops__note">
-							<strong>{{ t('hermiq', 'Impact') }}:</strong> {{ incident.impact }}
-						</p>
-						<p class="tenant-ops__note">
-							<strong>{{ t('hermiq', 'Actions taken') }}:</strong> {{ incident.actionsTaken }}
-						</p>
-						<p class="tenant-ops__note">
-							{{ formatDate(incident.createdAt) }} — {{ incident.createdBy }}
-						</p>
-					</li>
-				</ul>
-			</section>
-
-			<section class="tenant-ops__section">
-				<h3 class="tenant-ops__subhead">
-					{{ t('hermiq', 'EU AI Act audit export') }}
-				</h3>
-				<p class="tenant-ops__note">
-					{{ t('hermiq', 'Download your organisation\'s governance records (runs, decisions) from the hash-chained audit trail — scoped to your tenant, produced entirely on this instance.') }}
-				</p>
-				<NcNoteCard v-if="auditError" type="error" :heading="t('hermiq', 'Audit export error')">
-					{{ auditError }}
-				</NcNoteCard>
-				<NcButton
-					type="primary"
-					:disabled="exporting"
-					:aria-label="t('hermiq', 'Export AI Act audit trail')"
-					@click="exportAudit">
-					<template v-if="exporting" #icon>
-						<NcLoadingIcon :size="18" />
-					</template>
-					{{ t('hermiq', 'Export AI Act audit trail') }}
-				</NcButton>
-				<p v-if="lastExportCount !== null" class="tenant-ops__export-result">
-					{{ n('hermiq', 'Exported %n record.', 'Exported %n records.', lastExportCount) }}
-				</p>
-			</section>
-
-			<!-- Retention statement (agent-lifecycle-governance / multi-tenant-ops):
-				     a STATED policy value (EU AI Act Art. 12 minimum 6 months) — this does
-				     NOT trigger automated purge/archive of audit records. -->
-			<section class="tenant-ops__section">
-				<h3 class="tenant-ops__subhead">
-					{{ t('hermiq', 'Retention') }}
-				</h3>
-				<p class="tenant-ops__note">
-					{{ t('hermiq', 'How long your organisation states it keeps governance records for (EU AI Act Art. 12), at least 6 months. This is a stated policy, not automated deletion.') }}
-				</p>
-
-				<NcNoteCard v-if="retentionError" type="error" :heading="t('hermiq', 'Retention error')">
-					{{ retentionError }}
-				</NcNoteCard>
-
-				<div class="tenant-ops__retention-row">
-					<NcTextField
-						:value.sync="retentionDraft"
-						type="number"
-						:label="t('hermiq', 'Retention period (months)')" />
-					<NcButton type="primary" :disabled="retentionSaving" @click="saveRetention">
-						{{ t('hermiq', 'Save') }}
-					</NcButton>
-				</div>
-			</section>
 		</template>
 
 		<BudgetFormModal
@@ -304,11 +215,6 @@
 			:budget="editingBudget"
 			@close="showBudgetForm = false"
 			@saved="onBudgetSaved" />
-
-		<CreateIncidentDialog
-			:show="showIncidentDialog"
-			@close="showIncidentDialog = false"
-			@created="onIncidentCreated" />
 	</div>
 </template>
 
@@ -321,17 +227,12 @@ import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import {
 	attestReviewed,
 	getAccessReview,
-	getAuditExport,
-	getIncidents,
-	getRetention,
 	reassignAgent,
-	setRetention,
 } from '../api/tenantOps.js'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
 import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
 import BudgetFormModal from '../modals/BudgetFormModal.vue'
-import CreateIncidentDialog from '../dialogs/CreateIncidentDialog.vue'
 
 export default {
 	name: 'TenantOps',
@@ -339,7 +240,6 @@ export default {
 	components: {
 		BudgetFormModal,
 		CnDataTable,
-		CreateIncidentDialog,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
@@ -356,9 +256,6 @@ export default {
 		const organisations = loadState('hermiq', 'managed_organisations', [])
 		return {
 			canManage: loadState('hermiq', 'can_manage_killswitch', false) === true,
-			exporting: false,
-			lastExportCount: null,
-			auditError: '',
 			// Cost-guardrails (cost-guardrails): budgets are org-scoped, so admins who
 			// manage more than one organisation need an org picker (mirrors KillSwitchToggle).
 			organisations: Array.isArray(organisations) ? organisations : [],
@@ -380,15 +277,6 @@ export default {
 			reviewError: '',
 			reviewBusyUuid: '',
 			reassignDrafts: {},
-			// Incidents (agent-lifecycle-governance).
-			incidents: [],
-			incidentsLoading: false,
-			incidentError: '',
-			showIncidentDialog: false,
-			// Retention (agent-lifecycle-governance / multi-tenant-ops).
-			retentionDraft: 6,
-			retentionSaving: false,
-			retentionError: '',
 		}
 	},
 
@@ -459,8 +347,6 @@ export default {
 	created() {
 		if (this.canManage) {
 			this.loadAccessReview()
-			this.loadIncidents()
-			this.loadRetention()
 		}
 		if (this.canManage && this.organisations.length > 0) {
 			this.selectedOrg = this.organisations[0].id
@@ -475,44 +361,6 @@ export default {
 		// Shared org-id → label lookup (src/utils/organisationLabel.js) —
 		// registered as a plain method so the template can call it directly.
 		organisationLabel,
-
-		/**
-		 * Fetch the AI Act audit export and download it as a JSON file.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async exportAudit() {
-			this.exporting = true
-			this.auditError = ''
-			try {
-				const data = await getAuditExport()
-				this.lastExportCount = data.recordCount || 0
-				this.downloadJson(data, 'hermiq-ai-act-audit.json')
-			} catch (e) {
-				this.auditError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.exporting = false
-			}
-		},
-
-		/**
-		 * Trigger a client-side download of a JSON object.
-		 *
-		 * @param {object} data The payload to download.
-		 * @param {string} filename The download filename.
-		 * @return {void}
-		 */
-		downloadJson(data, filename) {
-			const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-			const url = URL.createObjectURL(blob)
-			const a = document.createElement('a')
-			a.href = url
-			a.download = filename
-			document.body.appendChild(a)
-			a.click()
-			document.body.removeChild(a)
-			URL.revokeObjectURL(url)
-		},
 
 		/**
 		 * Load the selected organisation's budgets plus each one's current-period
@@ -803,70 +651,6 @@ export default {
 				this.reviewBusyUuid = ''
 			}
 		},
-
-		/**
-		 * Load the organisation's incident records (agent-lifecycle-governance).
-		 *
-		 * @return {Promise<void>}
-		 */
-		async loadIncidents() {
-			this.incidentsLoading = true
-			this.incidentError = ''
-			try {
-				const data = await getIncidents()
-				this.incidents = Array.isArray(data.incidents) ? data.incidents : []
-			} catch (e) {
-				this.incidentError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			} finally {
-				this.incidentsLoading = false
-			}
-		},
-
-		/**
-		 * Refresh the incident list after CreateIncidentDialog creates one.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async onIncidentCreated() {
-			showSuccess(this.t('hermiq', 'Incident recorded.'))
-			await this.loadIncidents()
-		},
-
-		/**
-		 * Load the organisation's currently configured retention period.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async loadRetention() {
-			this.retentionError = ''
-			try {
-				const data = await getRetention()
-				this.retentionDraft = data.retentionMonths || 6
-			} catch (e) {
-				this.retentionError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
-			}
-		},
-
-		/**
-		 * Persist the drafted retention period; a rejected (<6) value shows an
-		 * inline error and leaves the displayed value unchanged.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async saveRetention() {
-			this.retentionSaving = true
-			this.retentionError = ''
-			try {
-				const data = await setRetention(Number(this.retentionDraft))
-				this.retentionDraft = data.retentionMonths
-				showSuccess(this.t('hermiq', 'Retention period saved.'))
-			} catch (e) {
-				this.retentionError = e?.response?.data?.error || this.t('hermiq', 'Retention period must be at least 6 months.')
-				await this.loadRetention()
-			} finally {
-				this.retentionSaving = false
-			}
-		},
 	},
 }
 </script>
@@ -942,11 +726,6 @@ export default {
 	margin: 4px 0 12px;
 }
 
-.tenant-ops__export-result {
-	margin-top: 8px;
-	color: var(--color-success);
-}
-
 .tenant-ops__section-head {
 	display: flex;
 	align-items: center;
@@ -1005,32 +784,5 @@ export default {
 
 .tenant-ops__reassign-input {
 	max-width: 180px;
-}
-
-.tenant-ops__incident-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-}
-
-.tenant-ops__incident {
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large);
-	padding: 12px;
-}
-
-.tenant-ops__incident-description {
-	margin: 0 0 4px;
-	font-weight: 600;
-}
-
-.tenant-ops__retention-row {
-	display: flex;
-	align-items: flex-end;
-	gap: 12px;
-	max-width: 320px;
 }
 </style>

@@ -28,6 +28,13 @@
  it still reads `is_admin` / `opencatalogi_available` via
  `loadState('hermiq', …)`, now provided by this class's `getForm()`
  instead of DashboardController.
+
+ Also hosts organisation-scope credential management (agent-credentials): the
+ shared, already-tested `CnCredentials` component mounted `scope="organisation"`
+ — an admin manages the FULL allowed-app list for each org-wide broker
+ credential. Personal-scope credentials stay exactly where they already are
+ (the app's own in-app "Credentials" settings section, src/App.vue) — this
+ admin panel never reintroduces a personal-scope surface.
 -->
 <template>
 	<div class="hermiq-admin-settings">
@@ -76,17 +83,29 @@
 			:description="t('hermiq', 'Review the EU AI Act risk classification of each AI feature and acknowledge it as DPO before it may be enabled instance-wide.')">
 			<AiFeatureRegister />
 		</NcSettingsSection>
+
+		<NcSettingsSection
+			:name="t('hermiq', 'Organisation credentials')"
+			:description="t('hermiq', 'Manage organisation-wide broker credentials (e.g. GitHub) that any allowed Nextcloud app may use on behalf of your organisation. The secret is stored in Doriath — Nextcloud’s native credential vault — never in Hermiq itself.')">
+			<CnCredentials
+				scope="organisation"
+				app-id="hermiq"
+				:app-name="t('hermiq', 'Hermiq')"
+				:app-credentials="(manifest && manifest.credentials) || []" />
+		</NcSettingsSection>
 	</div>
 </template>
 
 <script>
 import { NcButton, NcSettingsSection } from '@nextcloud/vue'
+import { CnCredentials } from '@conduction/nextcloud-vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
 import { getLlmSettings } from '../api/llm.js'
 import { getWebResearchSettings } from '../api/webResearch.js'
+import manifest from '../manifest.json'
 
 const PROVIDER_LABELS = {
 	openai: 'OpenAI',
@@ -104,6 +123,7 @@ export default {
 	name: 'AdminRoot',
 	components: {
 		AiFeatureRegister,
+		CnCredentials,
 		Cog,
 		LlmProviderModal,
 		NcButton,
@@ -117,6 +137,9 @@ export default {
 			chatProvider: null,
 			showWebResearchModal: false,
 			searchProvider: null,
+			// The app's own manifest.json — read-only, for CnCredentials'
+			// "what {app} uses" informational list (agent-credentials).
+			manifest,
 		}
 	},
 
