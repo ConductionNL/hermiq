@@ -75,4 +75,18 @@ export const useSkillStore = createObjectStore('agentskill', {
 	schema: 'agentskill',
 })
 
+/**
+ * Canonical OpenRegister object store for the 'context' schema
+ * (hermiq-context-documents). A Context has no package/import format —
+ * `documents` is authored inline — so BOTH create and edit persist through
+ * this generic OpenRegister object write path (`ContextFormModal`), unlike
+ * `agentskill` above which only uses its store for edit.
+ *
+ * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
+ */
+export const useContextStore = createObjectStore('context', {
+	register: 'hermiq',
+	schema: 'context',
+})
+
 export { useSettingsStore }
