@@ -61,10 +61,10 @@
 			"order": 15
 		},
 		{
-			"id": "AgentTemplateGallery",
-			"label": "Agent templates",
+			"id": "Store",
+			"label": "Store",
 			"icon": "icon-category-integration",
-			"route": "AgentTemplateGallery",
+			"route": "Store",
 			"order": 11
 		},
 		{
@@ -192,7 +192,7 @@
 						"label": "Browse templates",
 						"icon": "PackageVariantClosed",
 						"handler": "navigate",
-						"route": "AgentTemplateGallery"
+						"route": "Store"
 					}
 				]
 			},
@@ -433,14 +433,14 @@
 			}
 		},
 		{
-			"id": "AgentTemplateGallery",
-			"route": "/agent-templates",
+			"id": "Store",
+			"route": "/store",
 			"type": "index",
-			"title": "Agent templates",
+			"title": "Store",
 			"config": {
 				"register": "hermiq",
 				"schema": "agenttemplate",
-				"_note": "manifest-driven-pages: converted from type:custom — AgentTemplateController::list() is a bare findAll(['limit'=>200]) with no extra scoping beyond OpenRegister's own RBAC, read-equivalent to the generic objects endpoint (design.md Decision 5). Write actions (Use this template / Approve / Export) stay behind their existing guarded endpoints via the agent-template-row-actions widget — Approve is NEVER a declarative object-op, since it gates through ActionAuthService::requireAction('agenttemplate.approve-quarantined') server-side, a check the generic OR object-patch path does not express (design.md Decision 6).",
+				"_note": "hermiq-github-store: the retired AgentTemplateGallery page, renamed 'Store' and repointed from /agent-templates to /store — the underlying local list is UNCHANGED (register:hermiq schema:agenttemplate, same agent-template-row-actions row actions), so agent-template browse/approve/export/instantiate/publish-to-GitHub behaviour is regression-safe. What changes is the below-header agent-template-github-store widget: it now discovers BOTH agent templates AND skills (per-kind filter) — an installed skill is not an agenttemplate row, so it does not appear in THIS table; it surfaces on the separate /skills page instead (design.md Decision 4 — /skills stays separate). Originally converted from type:custom — AgentTemplateController::list() is a bare findAll(['limit'=>200]) with no extra scoping beyond OpenRegister's own RBAC, read-equivalent to the generic objects endpoint (design.md Decision 5). Write actions (Use this template / Approve / Export) stay behind their existing guarded endpoints via the agent-template-row-actions widget — Approve is NEVER a declarative object-op, since it gates through ActionAuthService::requireAction('agenttemplate.approve-quarantined') server-side, a check the generic OR object-patch path does not express (design.md Decision 6).",
 				"columns": [
 					{
 						"key": "name",

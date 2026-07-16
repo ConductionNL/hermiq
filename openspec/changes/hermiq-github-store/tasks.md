@@ -13,8 +13,8 @@
     `githubRepo`, and `publishedAt` are present as optional fields (register `info.version` >= 0.14.0).
   - GIVEN the fields are absent WHEN this change is applied THEN the builder halts (the chain order was
     violated) rather than writing to non-existent fields.
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## 2. Generalise the GitHub services
 
@@ -26,8 +26,8 @@
     `topic:hermiq-skill`, tags each card with `kind`, and fetches the per-kind package file in
     `buildCard()`; the 200-always/never-5xx and rate-limit-degradation contract is unchanged.
   - GIVEN a kind filter WHEN supplied THEN results are restricted to that kind.
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Generalise GitHubTemplatePushService to push skills in agentskills.io format
 - **spec_ref**: `openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path`
@@ -37,8 +37,8 @@
     `topic:hermiq-skill`, and commits the agentskills.io package under the skill package filename.
   - GIVEN the broker is unavailable OR the repo exists OR coordinates are invalid THEN publish fails
     closed / refuses / rejects, and the token is never held or logged (template path unchanged).
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## 3. Skill GitHub endpoints
 
@@ -50,8 +50,8 @@
   - GIVEN a skill install request THEN it fetches the package and calls
     `SkillMarketplaceService::installFromSource(source: 'hub')`, landing the skill quarantined + scanned;
     invalid coordinates return `400 invalid_repo` with no outbound call.
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: Add skill GitHub publish endpoint on SkillMarketplaceController with provenance stamp
 - **spec_ref**: `openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path`
@@ -62,8 +62,8 @@
     (mirrors `AgentTemplateController::publishGithub()`); a skill outside visibility is 404; missing
     `credentialId` is 422; broker unavailable is 503.
   - GIVEN the committed package THEN it contains none of the three provenance fields.
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## 4. Unified Store UI
 
@@ -76,8 +76,8 @@
     accessible per-kind filter, reusing the store + row-action widgets (with a `kind` prop).
   - GIVEN the agent-detail action that linked to `AgentTemplateGallery` (`src/manifest.json:195`) THEN it
     is repointed to the Store route with no dead route.
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: i18n + regression proof for retained agent-template behaviour
 - **spec_ref**: `openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos`
@@ -86,8 +86,8 @@
   - GIVEN new Store strings THEN `nl_NL` + `en_US` translations exist (ADR-005).
   - GIVEN the existing agent-template search/install/publish scenarios THEN they still pass (the template
     `DISCOVERY_TOPIC`/`PACKAGE_FILE` path is regression-verified unchanged).
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 

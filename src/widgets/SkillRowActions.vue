@@ -23,14 +23,26 @@
   AgentTemplateRowActions lazily loads GitHub credentials in
   `fetchCredentials()`.
 
+  hermiq-github-store adds a fifth action here, "Publish to GitHub" — a form
+  (owner/repo/visibility/credential) that calls the new guarded
+  `github/publish` endpoint, the new PRIMARY skill-publish path (the existing
+  "Publish" button above stays as the secondary OpenConnector hub route). A
+  broker `credentialId` is required; the GitHub token never reaches Hermiq —
+  mirrors AgentTemplateRowActions' publish-to-GitHub form exactly.
+
   @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-010-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
   @spec openspec/changes/skills-catalog/specs/skills-catalog/spec.md
   @spec openspec/changes/skills-marketplace/tasks.md
+  @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
 -->
 <template>
 	<div class="skill-row-actions">
 		<NcNoteCard v-if="error" type="error">
 			{{ error }}
+		</NcNoteCard>
+
+		<NcNoteCard v-if="githubPublishNotice" type="success">
+			{{ githubPublishNotice }}
 		</NcNoteCard>
 
 		<div class="skill-row-actions__buttons">
@@ -55,6 +67,13 @@
 				:aria-label="t('hermiq', 'Publish skill to a hub')"
 				@click="doPublish">
 				{{ t('hermiq', 'Publish') }}
+			</NcButton>
+			<NcButton
+				type="tertiary"
+				:disabled="busy"
+				:aria-label="t('hermiq', 'Publish skill to GitHub')"
+				@click="openGithubPublishModal">
+				{{ t('hermiq', 'Publish to GitHub') }}
 			</NcButton>
 			<NcButton
 				type="tertiary"
@@ -95,13 +114,51 @@
 				</NcButton>
 			</div>
 		</NcModal>
+
+		<NcModal v-if="showGithubPublish" @close="closeGithubPublishModal">
+			<div class="skill-row-actions__publish-modal">
+				<h3>{{ t('hermiq', 'Publish skill to GitHub') }}</h3>
+				<NcNoteCard v-if="githubPublishError" type="error">
+					{{ githubPublishError }}
+				</NcNoteCard>
+				<NcTextField :value.sync="githubPublishForm.owner"
+					:label="t('hermiq', 'Owner')"
+					:placeholder="t('hermiq', 'e.g. acme-council')" />
+				<NcTextField :value.sync="githubPublishForm.repo"
+					:label="t('hermiq', 'Repository name')"
+					:placeholder="t('hermiq', 'e.g. demo-skill')" />
+				<NcSelect v-model="githubPublishVisibility"
+					:options="visibilityOptions"
+					:input-label="t('hermiq', 'Visibility')"
+					:clearable="false"
+					label="label"
+					track-by="value" />
+				<NcSelect v-model="githubPublishCredential"
+					:options="githubCredentials"
+					:input-label="t('hermiq', 'GitHub credential')"
+					:loading="loadingGithubCredentials"
+					:placeholder="t('hermiq', 'Select a credential')"
+					label="label" />
+				<p v-if="!loadingGithubCredentials && githubCredentials.length === 0" class="skill-row-actions__hint">
+					{{ t('hermiq', 'No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.') }}
+				</p>
+				<NcButton
+					type="primary"
+					:disabled="githubPublishing || !canGithubPublish"
+					@click="doGithubPublish">
+					{{ githubPublishing ? t('hermiq', 'Publishing…') : t('hermiq', 'Publish') }}
+				</NcButton>
+			</div>
+		</NcModal>
 	</div>
 </template>
 
 <script>
-import { NcButton, NcModal, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import { emit } from '@nextcloud/event-bus'
-import { approveSkill, exportSkill, installSkill, publishSkill } from '../api/skills.js'
+import { approveSkill, exportSkill, installSkill, publishSkill, publishSkillToGithub } from '../api/skills.js'
 import { useAgentStore } from '../store/store.js'
 
 export default {
@@ -112,6 +169,7 @@ export default {
 		NcModal,
 		NcNoteCard,
 		NcSelect,
+		NcTextField,
 	},
 
 	props: {
@@ -134,6 +192,20 @@ export default {
 			selectedAgent: null,
 			agents: [],
 			loadingAgents: false,
+			// hermiq-github-store: "Publish to GitHub" form state, mirroring
+			// AgentTemplateRowActions' publish-modal state exactly.
+			showGithubPublish: false,
+			githubPublishing: false,
+			githubPublishError: '',
+			githubPublishNotice: '',
+			githubPublishForm: {
+				owner: '',
+				repo: '',
+			},
+			githubPublishVisibility: { label: this.t('hermiq', 'Private'), value: 'private' },
+			githubPublishCredential: null,
+			githubCredentialsList: [],
+			loadingGithubCredentials: false,
 		}
 	},
 
@@ -157,6 +229,40 @@ export default {
 		 */
 		canInstall() {
 			return !!this.selectedAgent
+		},
+
+		/**
+		 * The publish visibility options (hermiq-github-store, mirrors
+		 * AgentTemplateRowActions' `visibilityOptions`).
+		 *
+		 * @return {Array<object>} NcSelect options.
+		 */
+		visibilityOptions() {
+			return [
+				{ label: this.t('hermiq', 'Private'), value: 'private' },
+				{ label: this.t('hermiq', 'Public'), value: 'public' },
+			]
+		},
+
+		/**
+		 * The caller's broker credentials scoped to the `github` provider
+		 * (hermiq-github-store).
+		 *
+		 * @return {Array<object>} NcSelect options.
+		 */
+		githubCredentials() {
+			return this.githubCredentialsList
+				.filter((c) => c.provider === 'github')
+				.map((c) => ({ label: c.name || c.id, value: c.id }))
+		},
+
+		/**
+		 * Whether the "Publish to GitHub" form has everything it needs to submit.
+		 *
+		 * @return {boolean}
+		 */
+		canGithubPublish() {
+			return this.githubPublishForm.owner.trim() !== '' && this.githubPublishForm.repo.trim() !== '' && !!this.githubPublishCredential
 		},
 	},
 
@@ -224,6 +330,77 @@ export default {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
+			}
+		},
+
+		/**
+		 * Open the "Publish to GitHub" form, loading the caller's broker
+		 * credentials (for the required GitHub credential picker) the first
+		 * time (hermiq-github-store, mirrors AgentTemplateRowActions'
+		 * `openPublishModal()`).
+		 *
+		 * @return {void}
+		 */
+		openGithubPublishModal() {
+			this.githubPublishError = ''
+			this.githubPublishNotice = ''
+			this.showGithubPublish = true
+			this.fetchGithubCredentials()
+		},
+
+		/**
+		 * Close the "Publish to GitHub" form, resetting its per-open state.
+		 *
+		 * @return {void}
+		 */
+		closeGithubPublishModal() {
+			this.showGithubPublish = false
+			this.githubPublishError = ''
+		},
+
+		/**
+		 * Load the caller's broker credentials (for the GitHub credential
+		 * picker) (hermiq-github-store).
+		 *
+		 * @return {Promise<void>}
+		 */
+		async fetchGithubCredentials() {
+			this.loadingGithubCredentials = true
+			try {
+				const { data } = await axios.get(generateUrl('/apps/openregister/api/credentials'))
+				this.githubCredentialsList = data.results || []
+			} catch (e) {
+				this.githubCredentialsList = []
+			} finally {
+				this.loadingGithubCredentials = false
+			}
+		},
+
+		/**
+		 * Publish this skill to a new GitHub repository tagged
+		 * `topic:hermiq-skill` (hermiq-github-store — the new primary publish
+		 * path). A broker `github` credential is required — the GitHub token
+		 * never reaches Hermiq.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async doGithubPublish() {
+			this.githubPublishing = true
+			this.githubPublishError = ''
+			try {
+				const result = await publishSkillToGithub(this.skillId(), {
+					owner: this.githubPublishForm.owner.trim(),
+					repo: this.githubPublishForm.repo.trim(),
+					visibility: this.githubPublishVisibility?.value || 'private',
+					credentialId: this.githubPublishCredential?.value,
+				})
+				this.githubPublishNotice = this.t('hermiq', 'Published to {repoUrl}', { repoUrl: result.repoUrl })
+				this.showGithubPublish = false
+				emit('cn:page:refresh', {})
+			} catch (e) {
+				this.githubPublishError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.githubPublishing = false
 			}
 		},
 
@@ -307,7 +484,8 @@ export default {
 }
 
 .skill-row-actions__export-modal,
-.skill-row-actions__install-modal {
+.skill-row-actions__install-modal,
+.skill-row-actions__publish-modal {
 	padding: 20px;
 	display: flex;
 	flex-direction: column;

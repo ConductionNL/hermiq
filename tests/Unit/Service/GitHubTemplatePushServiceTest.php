@@ -189,4 +189,66 @@ final class GitHubTemplatePushServiceTest extends TestCase
             credentialId: 'cred-uuid'
         );
     }//end testPushRefusesInvalidRepo()
+
+    /**
+     * push() carries a `$kind` seam defaulting to `KIND_AGENT_TEMPLATE`
+     * (hermiq-github-store) — every existing caller that omits `$kind` gets
+     * EXACTLY the prior agent-template-only behaviour.
+     *
+     * @return void
+     */
+    public function testPushKindParameterDefaultsToAgentTemplate(): void
+    {
+        $reflection = new ReflectionMethod(GitHubTemplatePushService::class, 'push');
+        $kind       = null;
+        foreach ($reflection->getParameters() as $parameter) {
+            if ($parameter->getName() === 'kind') {
+                $kind = $parameter;
+            }
+        }
+
+        self::assertNotNull($kind, 'push() must carry a kind parameter (hermiq-github-store)');
+        self::assertTrue($kind->isDefaultValueAvailable(), 'kind must default (regression-safe for every existing caller)');
+        self::assertSame(GitHubTemplatePushService::KIND_AGENT_TEMPLATE, $kind->getDefaultValue());
+    }//end testPushKindParameterDefaultsToAgentTemplate()
+
+    /**
+     * The two publish kinds are distinct, stable string constants
+     * (hermiq-github-store) — `GitHubTemplateCatalogService`'s matching
+     * constants must agree with these on the wire (kind-tagged cards / install
+     * dispatch).
+     *
+     * @return void
+     */
+    public function testKindConstantsAreDistinctStrings(): void
+    {
+        self::assertSame('agent-template', GitHubTemplatePushService::KIND_AGENT_TEMPLATE);
+        self::assertSame('skill', GitHubTemplatePushService::KIND_SKILL);
+        self::assertNotSame(GitHubTemplatePushService::KIND_AGENT_TEMPLATE, GitHubTemplatePushService::KIND_SKILL);
+    }//end testKindConstantsAreDistinctStrings()
+
+    /**
+     * Passing `kind: KIND_SKILL` does not bypass the pre-broker guards — an
+     * invalid repo is still refused before any broker call, exactly as for the
+     * default agent-template kind (hermiq-github-store regression: the kind
+     * seam only changes topic/package-file selection, never the guard order).
+     *
+     * @return void
+     */
+    public function testPushRefusesInvalidRepoForSkillKindToo(): void
+    {
+        $service = new GitHubTemplatePushService(new NullLogger());
+
+        $this->expectException(RuntimeException::class);
+
+        $service->push(
+            package: "---\nname: Demo\n---\nBody.",
+            owner: '../evil',
+            repo: 'demo-skill',
+            visibility: 'private',
+            credentialId: 'cred-uuid',
+            actingUserId: null,
+            kind: GitHubTemplatePushService::KIND_SKILL
+        );
+    }//end testPushRefusesInvalidRepoForSkillKindToo()
 }//end class

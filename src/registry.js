@@ -54,15 +54,19 @@ import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
 import AgentRunOperationsWidget from './widgets/AgentRunOperationsWidget.vue'
 import AgentRunHistoryWidget from './widgets/AgentRunHistoryWidget.vue'
 import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
-// manifest-driven-pages: AgentTemplateGallery's row-actions widget + the
-// EvalDatasetDetail page's sole content widget.
+// manifest-driven-pages: the Store page's (formerly AgentTemplateGallery,
+// hermiq-github-store) row-actions widget + the EvalDatasetDetail page's sole
+// content widget.
 import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
 // skills-catalog: SkillsCatalog's row-actions widget (Approve/Export/Publish/
-// Install), the same pattern as agent-template-row-actions above.
+// Publish-to-GitHub/Install), the same pattern as agent-template-row-actions
+// above.
 import SkillRowActions from './widgets/SkillRowActions.vue'
-// agent-template-github-store: the GitHub-backed store section on
-// AgentTemplateGallery, resolved via page.slots.below-header.
+// agent-template-github-store: the GitHub-backed store section on the unified
+// Store page (formerly AgentTemplateGallery), resolved via
+// page.slots.below-header. Generalised by hermiq-github-store to discover
+// BOTH agent templates and skills behind a per-kind filter.
 import AgentTemplateGithubStore from './widgets/AgentTemplateGithubStore.vue'
 // inapp-settings-section: Incidents / EU AI Act audit export / Retention,
 // moved off TenantOps.vue onto the Compliance index page's below-header slot.
@@ -136,8 +140,8 @@ export default {
 
 	/**
 	 * Template import — paste an agent-template-gallery JSON package, local or
-	 * quarantined-from-another-org. Opened via AgentTemplateGallery's
-	 * "Import template" header action.
+	 * quarantined-from-another-org. Opened via the Store page's (formerly
+	 * AgentTemplateGallery) "Import template" header action.
 	 */
 	'template-import': {
 		kind: 'modal',
@@ -381,10 +385,10 @@ export default {
 
 	/**
 	 * Agent-template row actions — "Use this template" / "Approve"
-	 * (quarantined only) / "Export", resolved via
-	 * AgentTemplateGallery's `page.slots.row-actions`. Calls the existing
-	 * guarded AgentTemplateController endpoints unchanged — approving a
-	 * quarantined template gates through
+	 * (quarantined only) / "Export" / "Publish to GitHub", resolved via the
+	 * Store page's (formerly AgentTemplateGallery) `page.slots.row-actions`.
+	 * Calls the existing guarded AgentTemplateController endpoints unchanged —
+	 * approving a quarantined template gates through
 	 * `ActionAuthService::requireAction('agenttemplate.approve-quarantined')`
 	 * server-side, a check the generic OR object-patch path does not express
 	 * (design.md Decision 6); never a declarative object-op.
@@ -407,10 +411,12 @@ export default {
 
 	/**
 	 * Skill row actions — "Approve" (quarantined only), "Export", "Publish"
-	 * and "Install on agent" (lazy agent picker), resolved via
+	 * (OpenConnector hub, secondary), "Publish to GitHub" (hermiq-github-store,
+	 * primary) and "Install on agent" (lazy agent picker), resolved via
 	 * SkillsCatalog's `page.slots.row-actions`. Calls the existing tenant-
-	 * scoped SkillController endpoints (src/api/skills.js) unchanged — never
-	 * a declarative object-op patch, mirroring agent-template-row-actions.
+	 * scoped SkillController/SkillMarketplaceController endpoints
+	 * (src/api/skills.js) unchanged — never a declarative object-op patch,
+	 * mirroring agent-template-row-actions.
 	 */
 	'skill-row-actions': {
 		kind: 'widget',
@@ -425,16 +431,18 @@ export default {
 				row: { type: 'object' },
 			},
 		},
-		_note: 'Approve/Export/Publish/Install call tenant-scoped SkillController endpoints (skills-catalog, skills-marketplace) — installedOn association and the quarantine review-gate approval are not expressible via a declarative object-op patch (ADR-049).',
+		_note: 'Approve/Export/Publish/Publish-to-GitHub/Install call tenant-scoped SkillController/SkillMarketplaceController endpoints (skills-catalog, skills-marketplace, hermiq-github-store) — installedOn association, the quarantine review-gate approval, and the broker-mediated GitHub publish are not expressible via a declarative object-op patch (ADR-049).',
 	},
 
 	/**
-	 * Agent-template GitHub store (agent-template-github-store) — the "GitHub
-	 * store" section of AgentTemplateGallery, resolved via
+	 * Agent-template GitHub store (agent-template-github-store, generalised by
+	 * hermiq-github-store) — the "GitHub store" discovery section of the
+	 * unified Store page (formerly AgentTemplateGallery), resolved via
 	 * `page.slots.below-header`. Searches/installs against
-	 * AgentTemplateController's new githubSearch/githubInstall endpoints (a
-	 * GitHub REST search + broker-mediated install, not an OpenRegister object
-	 * collection).
+	 * AgentTemplateController's githubSearch/githubInstall endpoints AND (per
+	 * the active kind filter) SkillController's githubSearch/githubInstall
+	 * endpoints — a GitHub REST search + broker-mediated install, not an
+	 * OpenRegister object collection.
 	 */
 	'agent-template-github-store': {
 		kind: 'widget',
