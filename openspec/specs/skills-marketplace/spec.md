@@ -127,6 +127,34 @@ MUST yield a 404 (never a 403 that confirms existence), matching template publis
 - THEN the package MUST NOT contain `githubOwner`, `githubRepo`, or `publishedAt` — those are stamped on
   the `Skill` object only, mirroring `AgentTemplateSerializer::toPackage()` never emitting provenance
 
+### Requirement: A locally-authored skill can be installed through the quarantine gate
+
+The system MUST accept `source: "local"` on the install-from-source quarantine path
+(`SkillMarketplaceController::installFromSource` → `SkillMarketplaceService::installFromSource`)
+so a skill authored inside this instance (e.g. via the chat "Save as skill" seam) is landed
+`quarantined`, content-scanned via OpenRegister `ContentScanService`, and recorded with honest
+`source` `local` provenance. `local` is already a valid value of the `Skill` schema's `source`
+enum (`["local","org","hub"]`), so this MUST require no schema change — only the controller's
+existing `org`/`hub` source whitelist is relaxed to also accept `local`. The quarantine
+invariant MUST hold unchanged: a skill installed through this path MUST NOT be `active`, and
+MUST require the existing action-gated Approve (`skill.approve-quarantined`) before an agent
+can use it.
+
+#### Scenario: A chat-authored skill lands quarantined with local provenance
+
+- GIVEN a user has reviewed a chat-produced SKILL.md in the authoring modal
+- WHEN the seam installs it through `installFromSource` with `source: "local"`
+- THEN the resulting `Skill` MUST have `state` `quarantined` and `source` `local`
+- AND `ContentScanService` MUST have run over its body + frontmatter, recording a `scanReport`
+- AND the skill MUST NOT be usable by an agent until it is Approved
+
+#### Scenario: An unknown source value still defaults safely
+
+- GIVEN a caller passes a `source` value that is not one of `local`, `org`, or `hub`
+- WHEN `installFromSource` runs
+- THEN the source MUST default to `hub` (the existing safe fallback), and the skill MUST
+  still land `quarantined`
+
 ## User Stories
 
 - As an org admin, I want to share skills across tenants within my organisation so that teams don't duplicate work.
