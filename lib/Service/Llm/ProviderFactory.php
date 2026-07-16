@@ -771,7 +771,7 @@ class ProviderFactory
                 'description'  => (string) ($function['description'] ?? ''),
                 'input_schema' => $schema,
             ];
-        }
+        }//end foreach
 
         return $tools;
 
