@@ -11,8 +11,8 @@
   - GIVEN the `Context` schema `required` list WHEN inspected THEN `documents` is NOT present (the field is optional).
   - GIVEN the other `Context` fields (`files`, `objectQueries`, `viewRefs`, `charBudget`, `needsConsolidation`) WHEN the diff is inspected THEN they are unchanged and no new schema is added.
   - GIVEN the register `info.version` (0.14.0) and the app `<version>` WHEN this change is applied THEN `info.version` reads 0.15.0 and `appinfo/info.xml` `<version>` is bumped above its prior value.
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Provide a seed Context object carrying a `documents` entry
 - **spec_ref**: `openspec/changes/hermiq-context-documents-schema/specs/context-documents/spec.md#requirement-context-schema-declares-an-inline-documents-source-kind`
@@ -20,8 +20,8 @@
 - **acceptance_criteria**:
   - GIVEN a fresh install/re-import WHEN the seed data loads THEN a `Context` object `permit-team-project-context` exists with one `documents` entry (`name: "design.md"`, inline markdown `body`, `format: "markdown"`, a `description`), per design.md Seed Data.
   - GIVEN the seed object WHEN validated against the widened schema THEN it passes (safe placeholder content only, no secrets).
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 
