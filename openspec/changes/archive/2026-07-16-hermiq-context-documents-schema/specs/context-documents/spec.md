@@ -21,6 +21,10 @@ code change.
 
 ### Requirement: Context schema declares an inline documents source kind
 
+The `Context` schema MUST declare an inline `documents` source kind, so that
+document-shaped context (a design.md, persona brief, standards doc) is a
+first-class Context source distinct from `files` and `objectQueries` (ADR-024).
+
 The `Context` schema (slug `context`, in `lib/Settings/hermiq_register.json`)
 MUST declare a `documents` property of `type: array` with `default: []`, whose
 items are objects with the fields `name`, `body`, `format`, and `description`.
