@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: EUPL-1.2
 // Copyright (C) 2026 Conduction B.V.
 
+// Must stay first: sets __webpack_public_path__ before any dynamic import()
+// (the CnIconPicker MDI catalogue, the toast-ui markdown editor) triggers
+// lazy-chunk loading from the wrong path.
+import './publicPath.js'
 import Vue from 'vue'
 import VueRouter from 'vue-router'
 import { PiniaVuePlugin } from 'pinia'
