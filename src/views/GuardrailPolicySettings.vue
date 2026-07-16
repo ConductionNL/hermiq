@@ -52,6 +52,60 @@
 				{{ t('hermiq', 'No guardrail policies configured — agents run with every filter off and every tool auto-approved.') }}
 			</p>
 
+			<div v-if="!creatingPolicy && organisationOptions.length > 0" class="guardrail-policy-settings__actions">
+				<NcButton type="primary" @click="startCreateGuardrailPolicy">
+					<template #icon>
+						<PlusIcon :size="20" />
+					</template>
+					{{ t('hermiq', 'New guardrail policy') }}
+				</NcButton>
+			</div>
+
+			<div v-if="creatingPolicy" class="guardrail-policy-settings__policy">
+				<div class="guardrail-policy-settings__policy-head">
+					<strong>{{ t('hermiq', 'New guardrail policy') }}</strong>
+					<NcButton type="tertiary" @click="creatingPolicy = false">
+						{{ t('hermiq', 'Cancel') }}
+					</NcButton>
+				</div>
+				<div class="guardrail-policy-settings__policy-edit">
+					<NcSelect
+						:value="selectedCreateOrganisation"
+						:options="organisationOptions"
+						:input-label="t('hermiq', 'Applies to')"
+						:clearable="false"
+						@input="(option) => { createOrganisation = option ? option.value : '' }" />
+					<NcSelect
+						:value="guardrailActionOption(guardrailPolicyDraft.inputPiiAction, piiActionOptions)"
+						:options="piiActionOptions"
+						:input-label="t('hermiq', 'Input: PII/secret action')"
+						:clearable="false"
+						@input="(option) => { guardrailPolicyDraft.inputPiiAction = option ? option.value : 'off' }" />
+					<NcSelect
+						:value="guardrailActionOption(guardrailPolicyDraft.inputPromptInjectionAction, injectionActionOptions)"
+						:options="injectionActionOptions"
+						:input-label="t('hermiq', 'Input: prompt-injection action')"
+						:clearable="false"
+						@input="(option) => { guardrailPolicyDraft.inputPromptInjectionAction = option ? option.value : 'off' }" />
+					<NcSelect
+						:value="guardrailActionOption(guardrailPolicyDraft.outputPiiAction, piiActionOptions)"
+						:options="piiActionOptions"
+						:input-label="t('hermiq', 'Output: PII/secret action')"
+						:clearable="false"
+						@input="(option) => { guardrailPolicyDraft.outputPiiAction = option ? option.value : 'off' }" />
+					<NcTextArea
+						:value.sync="guardrailPolicyDraft.toolPolicyText"
+						:label="t('hermiq', 'Per-tool classification')"
+						:placeholder="t('hermiq', 'One per line: toolId: auto|confirm|deny')"
+						resize="vertical" />
+					<div class="guardrail-policy-settings__actions">
+						<NcButton type="primary" :disabled="guardrailPolicySaving" @click="saveNewGuardrailPolicy">
+							{{ t('hermiq', 'Create policy') }}
+						</NcButton>
+					</div>
+				</div>
+			</div>
+
 			<div v-for="policy in guardrailPolicies" :key="policy.id" class="guardrail-policy-settings__policy">
 				<div class="guardrail-policy-settings__policy-head">
 					<strong>{{ policy.organisation ? organisationLabel(policy.organisation, organisations) : t('hermiq', 'Instance default') }}</strong>
@@ -102,7 +156,8 @@ import { NcButton, NcEmptyContent, NcNoteCard, NcSelect, NcTextArea } from '@nex
 import { loadState } from '@nextcloud/initial-state'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
-import { listGuardrailPolicies, updateGuardrailPolicy } from '../api/guardrailPolicy.js'
+import PlusIcon from 'vue-material-design-icons/Plus.vue'
+import { createGuardrailPolicy, listGuardrailPolicies, updateGuardrailPolicy } from '../api/guardrailPolicy.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
 
 export default {
@@ -115,6 +170,7 @@ export default {
 		NcSelect,
 		NcTextArea,
 		ShieldIcon,
+		PlusIcon,
 	},
 
 	data() {
@@ -134,6 +190,11 @@ export default {
 				toolPolicyText: '',
 			},
 			guardrailPolicySaving: false,
+			// Create-mode state: the "New guardrail policy" flow. `creatingPolicy`
+			// toggles the create form; `createOrganisation` is the target org
+			// ('' = the instance-default policy, admin-only server-side).
+			creatingPolicy: false,
+			createOrganisation: '',
 		}
 	},
 
@@ -163,6 +224,38 @@ export default {
 				{ label: this.t('hermiq', 'Off'), value: 'off' },
 				{ label: this.t('hermiq', 'Block'), value: 'block' },
 			]
+		},
+
+		/**
+		 * NcSelect options for the create form's organisation picker: the
+		 * instance-default policy plus each managed organisation that does not
+		 * already have a policy (so create never collides with an existing one —
+		 * those are edited in place). Value `''` is the instance default.
+		 *
+		 * @return {Array<object>} The { label, value } options.
+		 */
+		organisationOptions() {
+			const taken = new Set(this.guardrailPolicies.map((p) => p.organisation || ''))
+			const options = []
+			if (!taken.has('')) {
+				options.push({ label: this.t('hermiq', 'Instance default'), value: '' })
+			}
+			for (const org of this.organisations) {
+				const value = org.id || org.uuid || org
+				if (!taken.has(value)) {
+					options.push({ label: organisationLabel(value, this.organisations), value })
+				}
+			}
+			return options
+		},
+
+		/**
+		 * The currently-selected organisation option for the create picker.
+		 *
+		 * @return {?object} The matching option, or null.
+		 */
+		selectedCreateOrganisation() {
+			return this.organisationOptions.find((o) => o.value === this.createOrganisation) || null
 		},
 	},
 
@@ -226,6 +319,76 @@ export default {
 		},
 
 		/**
+		 * Parse the tool-policy textarea (one `toolId: classification` per line)
+		 * into the schema's `toolPolicy` array. Shared by create + edit.
+		 *
+		 * @return {Array<object>} The `{ toolId, classification }` rules.
+		 */
+		parseToolPolicyDraft() {
+			return this.guardrailPolicyDraft.toolPolicyText
+				.split('\n')
+				.map((line) => line.trim())
+				.filter((line) => line !== '')
+				.map((line) => {
+					const [toolId, classification] = line.split(':')
+					return {
+						toolId: (toolId || '').trim(),
+						classification: (classification || 'auto').trim(),
+					}
+				})
+				.filter((entry) => entry.toolId !== '')
+		},
+
+		/**
+		 * Open the "New guardrail policy" create form, resetting the draft and
+		 * defaulting the organisation picker to the first available option.
+		 *
+		 * @return {void}
+		 */
+		startCreateGuardrailPolicy() {
+			this.editingGuardrailPolicyId = null
+			this.guardrailPolicyDraft = {
+				inputPiiAction: 'off',
+				inputPromptInjectionAction: 'off',
+				outputPiiAction: 'off',
+				toolPolicyText: '',
+			}
+			this.createOrganisation = this.organisationOptions.length > 0 ? this.organisationOptions[0].value : ''
+			this.creatingPolicy = true
+		},
+
+		/**
+		 * Persist a new guardrail policy for the chosen organisation via
+		 * POST /api/guardrail-policies (upsert-for-organisation server-side).
+		 *
+		 * @return {Promise<void>}
+		 */
+		async saveNewGuardrailPolicy() {
+			this.guardrailPolicySaving = true
+			try {
+				await createGuardrailPolicy({
+					organisation: this.createOrganisation,
+					inputFilters: {
+						piiAction: this.guardrailPolicyDraft.inputPiiAction,
+						promptInjectionAction: this.guardrailPolicyDraft.inputPromptInjectionAction,
+					},
+					outputFilters: {
+						piiAction: this.guardrailPolicyDraft.outputPiiAction,
+					},
+					toolPolicy: this.parseToolPolicyDraft(),
+					enabled: true,
+				})
+				showSuccess(this.t('hermiq', 'Guardrail policy created.'))
+				this.creatingPolicy = false
+				await this.loadGuardrailPolicies()
+			} catch (e) {
+				showError(e?.response?.data?.error || this.t('hermiq', 'Could not create the guardrail policy.'))
+			} finally {
+				this.guardrailPolicySaving = false
+			}
+		},
+
+		/**
 		 * Open/close the inline editor for a guardrail policy, seeding the draft
 		 * from it. Tool-policy draft format: one line per rule —
 		 * `toolId: classification`.
@@ -234,6 +397,7 @@ export default {
 		 * @return {void}
 		 */
 		toggleGuardrailPolicyEdit(policy) {
+			this.creatingPolicy = false
 			if (this.editingGuardrailPolicyId === policy.id) {
 				this.editingGuardrailPolicyId = null
 				return
@@ -303,6 +467,11 @@ export default {
 	margin: 0 0 8px;
 	font-size: 22px;
 	font-weight: 600;
+	/* Settings-section custom page rendered at the top of .app-content, so the
+	   heading is the first thing under the Nextcloud navigation toggle (44px,
+	   absolutely positioned at the left edge). Clear it, mirroring nc-vue's
+	   .cn-dashboard-page__header rule. */
+	padding-inline-start: 56px;
 }
 
 .guardrail-policy-settings__intro {
