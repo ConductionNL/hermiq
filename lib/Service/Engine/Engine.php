@@ -115,13 +115,6 @@ class Engine
     private const CONVERSATION_SCHEMA = 'conversation';
 
     /**
-     * Schema slug for message objects.
-     *
-     * @var string
-     */
-    private const MESSAGE_SCHEMA = 'message';
-
-    /**
      * Constructor.
      *
      * @param ObjectService                 $objectService          OpenRegister object read/write.
@@ -438,7 +431,11 @@ class Engine
             // ConversationTitleWriter re-reads the conversation and re-checks whether it
             // still wants a title, so the decision stays correct even though it is made
             // later.
-            $this->queueTitleGeneration(conversationId: $conversationId, userMessage: $userMessage);
+            $this->queueTitleGeneration(
+                conversationId: $conversationId,
+                userMessage: $userMessage,
+                userId: $userId
+            );
 
             $totalTime = ($contextTime + $historyTime + $llmTime);
 
@@ -534,12 +531,17 @@ class Engine
      *
      * @param string $conversationId The conversation UUID.
      * @param string $userMessage    The user message to name the conversation from.
+     * @param string $userId         The conversation owner, carried into the job so it can
+     *                               run as them. A job has no session, and naming needs an
+     *                               identity twice over: the credential broker will not
+     *                               resolve a provider credential for an anonymous
+     *                               principal, and OpenRegister RBAC refuses the write.
      *
      * @return void
      *
      * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
      */
-    private function queueTitleGeneration(string $conversationId, string $userMessage): void
+    private function queueTitleGeneration(string $conversationId, string $userMessage, string $userId): void
     {
         if ($this->jobList === null) {
             return;
@@ -550,6 +552,7 @@ class Engine
             [
                 'conversationId' => $conversationId,
                 'userMessage'    => $userMessage,
+                'userId'         => $userId,
             ]
         );
 

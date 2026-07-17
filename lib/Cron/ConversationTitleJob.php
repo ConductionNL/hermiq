@@ -68,9 +68,12 @@ class ConversationTitleJob extends QueuedJob
     /**
      * Run the job: generate and persist the conversation's title.
      *
-     * @param mixed $argument `['conversationId' => string, 'userMessage' => string]`.
-     *                        Defensively re-checked: `IJobList` argument storage is a
-     *                        JSON round-trip, not a compile-time-guaranteed shape.
+     * @param mixed $argument `['conversationId' => string, 'userMessage' => string,
+     *                        'userId' => string]`. Defensively re-checked: `IJobList`
+     *                        argument storage is a JSON round-trip, not a compile-time-
+     *                        guaranteed shape. `userId` is the owner this runs as — a job
+     *                        has no session, and both the write (OpenRegister RBAC) and the
+     *                        credential broker refuse an anonymous principal.
      *
      * @return void
      *
@@ -85,11 +88,16 @@ class ConversationTitleJob extends QueuedJob
 
         $conversationId = (string) ($payload['conversationId'] ?? '');
         $userMessage    = (string) ($payload['userMessage'] ?? '');
-        if ($conversationId === '' || $userMessage === '') {
+        $userId         = (string) ($payload['userId'] ?? '');
+        if ($conversationId === '' || $userMessage === '' || $userId === '') {
             return;
         }
 
-        $this->writer->write(conversationId: $conversationId, userMessage: $userMessage);
+        $this->writer->write(
+            conversationId: $conversationId,
+            userMessage: $userMessage,
+            userId: $userId
+        );
 
     }//end run()
 }//end class

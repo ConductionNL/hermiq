@@ -8,9 +8,21 @@
  * reply's critical path (`ConversationTitleJob`) while staying directly testable
  * without a job runner (session-context-performance).
  *
- * Behaviour is deliberately identical to the synchronous version it replaces —
- * same "should this be titled?" test, same organisation-scoped generation, same
- * uniqueness pass. Only *when* it runs changes.
+ * Same organisation-scoped generation and same uniqueness pass as the synchronous
+ * version it replaces. Two things deliberately differ:
+ *
+ * 1. It runs as the conversation's OWNER (see `write()`). A job has no session, and
+ *    both the credential broker and OpenRegister RBAC refuse an anonymous principal.
+ * 2. The "should this be titled?" test is the placeholder ALONE. The synchronous
+ *    version also required `messageCount <= 2`, meaning "only name from the first
+ *    exchange". That condition cannot survive deferral: the job runs after the reply,
+ *    so a user who sends a second message before it runs would push the count past the
+ *    threshold and the conversation would never be named at all — re-creating, by a
+ *    different route, the permanent-placeholder bug this change exists to fix. The
+ *    placeholder is the invariant that actually means "unnamed", it is re-read at write
+ *    time, and it is what makes a duplicate or replayed job a no-op. The visible
+ *    consequence is intended: a long conversation still stuck on the placeholder now
+ *    gets named from its next message rather than staying "New conversation" forever.
  *
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
@@ -32,6 +44,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IUserManager;
+use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -63,11 +77,15 @@ class ConversationTitleWriter
      *
      * @param ObjectService                 $objectService       Reads the conversation, writes the title.
      * @param ConversationManagementHandler $conversationHandler Generates + de-duplicates the title.
+     * @param IUserSession                  $userSession         Impersonates the conversation's owner.
+     * @param IUserManager                  $userManager         Resolves the owner's UID to an IUser.
      * @param LoggerInterface               $logger              Logger.
      */
     public function __construct(
         private readonly ObjectService $objectService,
         private readonly ConversationManagementHandler $conversationHandler,
+        private readonly IUserSession $userSession,
+        private readonly IUserManager $userManager,
         private readonly LoggerInterface $logger,
     ) {
     }//end __construct()
@@ -85,14 +103,70 @@ class ConversationTitleWriter
      * that already succeeded. Failing loudly here would turn a naming hiccup into a
      * red job with nothing to retry usefully.
      *
+     * Runs AS the conversation's owner. A background job has no session, and both
+     * things this needs are identity-bound: OpenRegister RBAC refuses an `update` from
+     * `Anonymous`, and the credential broker refuses to resolve a provider credential
+     * for an unauthenticated principal. Without impersonation the deferred title
+     * silently degraded to a fallback string that RBAC then refused to persist — the
+     * work happened, cost a job, and changed nothing. The owner is impersonated rather
+     * than RBAC being elevated (`runAsSystem()`) because naming a conversation from a
+     * user's own message is that user's write, not a system write.
+     *
      * @param string $conversationId The conversation UUID.
      * @param string $userMessage    The first user message to name it from.
+     * @param string $userId         The conversation owner's UID, impersonated for the
+     *                               read, the generation and the write.
      *
      * @return void
      *
      * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
      */
-    public function write(string $conversationId, string $userMessage): void
+    public function write(string $conversationId, string $userMessage, string $userId): void
+    {
+        $user = null;
+        if ($userId !== '') {
+            $user = $this->userManager->get($userId);
+        }
+
+        if ($user === null) {
+            $this->logger->warning(
+                message: '[ConversationTitleWriter] Owner could not be resolved — skipping rather than '
+                    .'writing as Anonymous, which RBAC would refuse anyway',
+                context: [
+                    'file'           => __FILE__,
+                    'line'           => __LINE__,
+                    'conversationId' => $conversationId,
+                    'userId'         => $userId,
+                ]
+            );
+            return;
+        }
+
+        $priorUser = $this->userSession->getUser();
+        $this->userSession->setUser($user);
+
+        try {
+            $this->writeAsOwner(conversationId: $conversationId, userMessage: $userMessage, userId: $userId);
+        } finally {
+            // Restored unconditionally: this job runs in a shared worker process, so a
+            // leaked session would hand the NEXT job this user's identity.
+            $this->userSession->setUser($priorUser);
+        }
+
+    }//end write()
+
+    /**
+     * Generate and persist the title, with the owner already impersonated.
+     *
+     * @param string $conversationId The conversation UUID.
+     * @param string $userMessage    The first user message to name it from.
+     * @param string $userId         The impersonated owner's UID.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+     */
+    private function writeAsOwner(string $conversationId, string $userMessage, string $userId): void
     {
         try {
             $conversation = $this->objectService->find(
@@ -117,6 +191,25 @@ class ConversationTitleWriter
         }
 
         $conversationData = $conversation->getObject();
+
+        // The job payload is the only thing that decided whose identity to assume, so
+        // the object itself has to confirm it. A stale or malformed payload must not be
+        // able to name someone else's conversation under their own credential.
+        $owner = (string) ($conversationData['userId'] ?? '');
+        if ($owner !== '' && $owner !== $userId) {
+            $this->logger->warning(
+                message: '[ConversationTitleWriter] Job payload owner does not match the conversation owner — '
+                    .'refusing to title it',
+                context: [
+                    'file'           => __FILE__,
+                    'line'           => __LINE__,
+                    'conversationId' => $conversationId,
+                    'payloadUserId'  => $userId,
+                ]
+            );
+            return;
+        }
+
         if ($this->needsTitle(conversationData: $conversationData) === false) {
             return;
         }
@@ -167,7 +260,7 @@ class ConversationTitleWriter
             uuid: $conversationId
         );
 
-    }//end write()
+    }//end writeAsOwner()
 
     /**
      * Whether a conversation still wants a generated title.
