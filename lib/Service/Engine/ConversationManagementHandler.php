@@ -382,7 +382,10 @@ class ConversationManagementHandler
             ->findAll(
                 config: [
                     'filters' => ['conversationId' => $conversationId],
-                    'sort'    => ['created' => 'ASC'],
+                    // `@self.created`, NOT `created` — a bare key is an object-property sort and
+                    // Message has no `created` property, so this silently did nothing. It feeds
+                    // a summary, so an arbitrary order produces a quietly wrong summary.
+                    'sort'    => ['@self.created' => 'ASC'],
                     'limit'   => self::MAX_MESSAGES_FOR_SUMMARY,
                 ]
             );

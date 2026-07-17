@@ -876,7 +876,11 @@ class ChatController extends Controller
             ->findAll(
                 config: [
                     'filters' => ['conversationId' => $conversationId],
-                    'sort'    => ['created' => 'ASC'],
+                    // `@self.created`, NOT `created`: a bare key is read as an object property,
+                    // and Message's timestamp is metadata, so the sort was silently ignored and
+                    // the thread only read chronologically because natural insertion order
+                    // happens to agree.
+                    'sort'    => ['@self.created' => 'ASC'],
                     'limit'   => $limit,
                     'offset'  => $offset,
                 ]

@@ -163,7 +163,7 @@
 			"route": "/chat",
 			"type": "custom",
 			"component": "Chat",
-			"title": "Chat",
+			"title": "Sessions",
 			"_note": "Custom page: a streaming chat thread is genuinely custom — SSE token/tool-call consumption with a live assistant bubble, a conversation archive lifecycle driven by Hermiq's payload-marker soft delete, per-message feedback, and an agent-selector empty state are not expressible via the built-in index/detail/dashboard page types (agent-engine-port). Standard nav page — not a dashboard."
 		},
 		{

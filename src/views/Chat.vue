@@ -486,12 +486,12 @@ export default {
 		/**
 		 * The thread header title.
 		 *
-		 * @return {string} Agent name, conversation title, or the page name.
+		 * @return {string} Agent name, session title, or the page name.
 		 */
 		headerTitle() {
 			return this.currentAgent?.name
 				|| this.activeConversation?.title
-				|| this.t('hermiq', 'Chat')
+				|| this.t('hermiq', 'Sessions')
 		},
 
 		/**
@@ -738,7 +738,7 @@ export default {
 				this.messages = []
 				this.settings = this.defaultSettingsFor(agent)
 				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Conversation started with {agent}', { agent: agent.name || agentUuid }))
+				showSuccess(this.t('hermiq', 'Session started with {agent}', { agent: agent.name || agentUuid }))
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not start the session.'))
 			} finally {
@@ -970,9 +970,9 @@ export default {
 					this.newConversation()
 				}
 				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Conversation archived'))
+				showSuccess(this.t('hermiq', 'Session archived'))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not archive the conversation.'))
+				showError(this.t('hermiq', 'Could not archive the session.'))
 			}
 		},
 
@@ -988,9 +988,9 @@ export default {
 				this.archivedConversations = this.archivedConversations
 					.filter((entry) => entry.uuid !== conversation.uuid)
 				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Conversation restored'))
+				showSuccess(this.t('hermiq', 'Session restored'))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not restore the conversation.'))
+				showError(this.t('hermiq', 'Could not restore the session.'))
 			}
 		},
 
@@ -1017,7 +1017,7 @@ export default {
 			if (this.isActive(conversation)) {
 				this.newConversation()
 			}
-			showSuccess(this.t('hermiq', 'Conversation deleted'))
+			showSuccess(this.t('hermiq', 'Session deleted'))
 		},
 
 		/**
@@ -1029,7 +1029,7 @@ export default {
 		async onRenamed(conversation) {
 			this.activeConversation = conversation
 			await this.loadConversations(true)
-			showSuccess(this.t('hermiq', 'Conversation renamed'))
+			showSuccess(this.t('hermiq', 'Session renamed'))
 		},
 
 		/**

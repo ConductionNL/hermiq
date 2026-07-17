@@ -158,7 +158,17 @@ class MessageHistoryHandlerTest extends TestCase
 
         // The fetch is filtered + capped + newest-first.
         $this->assertSame('conv-1', $capturedConfig['filters']['conversationId']);
-        $this->assertSame(['created' => 'DESC'], $capturedConfig['sort']);
+        // MUST be the `@self.` metadata key. A bare `created` is read by OpenRegister as an
+        // OBJECT PROPERTY, and Message has no `created` property — so the sort silently does
+        // nothing, findAll returns the OLDEST rows in natural order, and the array_reverse in
+        // buildMessageHistory then feeds the LLM the conversation's opening turns backwards.
+        // This assertion previously read `['created' => 'DESC']`: it asserted the config we
+        // send, never that the substrate honours it, so it locked the defect in place.
+        $this->assertSame(
+            ['@self.created' => 'DESC'],
+            $capturedConfig['sort'],
+            'History must sort on the @self metadata key — a bare property key sorts nothing.'
+        );
         $this->assertSame(10, $capturedConfig['limit']);
 
         // tool role (unknown to LLPhant mapping) and the empty-content turn are
