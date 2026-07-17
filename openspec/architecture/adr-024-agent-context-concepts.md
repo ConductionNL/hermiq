@@ -80,10 +80,30 @@ and `objectQueries` — no new budget contract.
 
 Context documents are **data prepended to a prompt**, never executable and never
 a way to escalate. They inherit the run's identity (acting user, ADR-023) and
-carry no authorization of their own. Guardrail input filters (the guardrail
-policy this session made configurable) apply to the assembled preamble exactly
-as they do to any other model input — a `design.md` cannot smuggle a
-prompt-injection past the org's guardrail policy.
+carry no authorization of their own — note that inheriting the acting user's
+identity does not authenticate a document's *content*, which may have been
+authored by anyone who could write to the referenced file.
+
+Guardrail input filters (the guardrail policy this session made configurable)
+apply to the assembled preamble exactly as they do to the user's own message —
+a `design.md` cannot smuggle a prompt-injection past the org's guardrail policy.
+The preamble is filtered by its own `filterInput()` call, separate from the user
+message, so a match stays attributable to the boundary it came from: a preamble
+block raises the `_in_context`-suffixed reason (`prompt_injection_in_context`)
+and its own `Context preamble filter` trace step, because "the user tried to
+jailbreak this agent" and "an attached document contains the phrase" demand
+opposite responses from an operator (`hermiq-guardrail-preamble-filter`).
+
+Two boundaries of this rule are deliberate and must not be read away:
+
+- **It is the org's policy that binds.** Prompt-injection filtering is `off` by
+  default; an org that has not enabled it is not protected by this rule, and a
+  Context that legitimately *documents* injection will refuse every turn of every
+  agent referencing it while the filter is `block`. The escape hatch is the
+  per-organisation policy.
+- **The RAG context block is not covered.** `ContextRetrievalHandler::retrieveContext()`
+  output is also model input and is still unfiltered. This rule is about the
+  assembled Context preamble; it does not claim the whole prompt is filtered.
 
 ### Rule 4 — Reuse, don't reinvent, for authoring + sharing
 

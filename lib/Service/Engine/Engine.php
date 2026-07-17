@@ -318,6 +318,46 @@ class Engine
 
             $userMessage = (string) $inputFilter['text'];
 
+            // Agent-guardrails (hermiq-guardrail-preamble-filter): the assembled context
+            // preamble is model input too — ADR-024 Rule 3 — so it gets the SAME input
+            // filter, in its OWN filterInput() call. Two calls, never one concatenated:
+            // concatenating would destroy attribution ("did the USER try to jailbreak
+            // this agent, or does an attached document merely contain the phrase?" demand
+            // opposite responses from an operator) and would mangle the boundary between
+            // them. Runs before storeMessage() so a refused turn persists nothing,
+            // whichever boundary refused it.
+            if ($contextPreamble !== '') {
+                $preambleFilter = $this->guardrailPolicyService?->filterInput(
+                    policy: $guardrailPolicy,
+                    text: $contextPreamble
+                ) ?? ['text' => $contextPreamble, 'blocked' => false, 'reason' => null];
+
+                // Same "only an ACTION is recorded" contract as the user-message filter
+                // above: a fully-open policy inserts no step, so an organisation without
+                // a GuardrailPolicy keeps an IDENTICAL trace timeline.
+                if ($this->guardrailActed(filter: $preambleFilter, originalText: $contextPreamble) === true) {
+                    $preambleOutcome = 'redacted';
+                    if ($preambleFilter['blocked'] === true) {
+                        $preambleOutcome = 'blocked';
+                    }
+
+                    $preambleToken = $trace?->startStep(type: 'guardrail', name: 'Context preamble filter');
+                    if ($preambleToken !== null) {
+                        $trace?->endStep(token: $preambleToken, outcome: $preambleOutcome);
+                    }
+                }
+
+                if ($preambleFilter['blocked'] === true) {
+                    throw new GuardrailBlockedException(
+                        reason: $this->contextReasonFor(reason: $preambleFilter['reason'])
+                    );
+                }
+
+                // The model only ever sees the masked text — same contract as the user
+                // message.
+                $contextPreamble = (string) $preambleFilter['text'];
+            }
+
             // Store user message with the CnAiContext snapshot.
             $this->historyHandler->storeMessage(
                 conversationId: $conversationId,
@@ -623,4 +663,30 @@ class Engine
         return ((string) $filter['text']) !== $originalText;
 
     }//end guardrailActed()
+
+    /**
+     * Suffix a guardrail reason code so it names the BOUNDARY that matched, not just
+     * what matched. "The user tried to jailbreak this agent" and "an attached document
+     * contains the phrase" demand opposite responses from an operator
+     * (hermiq-guardrail-preamble-filter design.md Decision 3). Suffixing — rather than a
+     * hand-written code per case — preserves BOTH facts the operator needs (WHAT matched,
+     * and WHERE it came from) and stays correct if `GuardrailPolicyService` ever grows a
+     * third reason code, where a `match` would silently fall through to a wrong or null
+     * reason.
+     *
+     * @param string|null $reason The filter's reason code (`prompt_injection`|`sensitive_content`).
+     *
+     * @return string The `_in_context`-suffixed code, e.g. `prompt_injection_in_context`.
+     *
+     * @spec openspec/changes/hermiq-guardrail-preamble-filter/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
+     */
+    private function contextReasonFor(?string $reason): string
+    {
+        if ($reason === null || $reason === '') {
+            return 'context_blocked';
+        }
+
+        return $reason.'_in_context';
+
+    }//end contextReasonFor()
 }//end class

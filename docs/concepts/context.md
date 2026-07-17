@@ -68,10 +68,16 @@ process design document, the house style, and a live query of open cases.
 ## A note on trust
 
 Context is *material*, never instructions the agent must obey. It is data placed
-in front of the model, and it is subject to the same guardrails as any other
-input — an organisation's guardrail policy filters it exactly as it filters
-anything else. A document cannot smuggle an instruction past your policy just by
-being called context.
+in front of the model, and your organisation's **guardrail policy filters it**
+before the model sees it — the assembled context bundle goes through the same
+input filter as your own message, so PII is redacted and a document attempting a
+prompt injection refuses the turn rather than being obeyed. The two are filtered
+*separately*, so an operator can tell whether the user or a document tripped it.
+
+Two honest limits: guardrail filtering is **off by default** (it is a
+per-organisation policy you enable), and it covers your message and the context
+bundle — **not** the [RAG](./rag.md) retrieval block, which is not filtered
+today.
 
 ## Where to find it
 
