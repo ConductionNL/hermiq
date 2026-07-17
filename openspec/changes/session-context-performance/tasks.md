@@ -50,8 +50,8 @@
   - GIVEN a `New conversation` placeholder is written at creation (`ChatStreamController.php:689`) WHEN the title has not yet generated THEN this is not a failure state
   - GIVEN a ~20s title round-trip within a 65–106s wall WHEN the change lands THEN first-turn wall time drops by approximately that round-trip — MEASURED on the reference instance, not asserted from theory
   - GIVEN title generation fails WHEN the turn completes THEN the reply was still delivered and the conversation retains a usable title
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: Keep the deferred title write safe
 - **spec_ref**: `openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object`
@@ -61,8 +61,8 @@
   - GIVEN this is a known repeated failure mode WHEN testing THEN a test asserts that a NON-CHANGED field (`userId`) survives the title write
   - GIVEN `generateConversationTitle(string $firstMessage, ?string $organisation = null)` treats null as "skip policy enforcement" (a backward-compatible default) WHEN the call is deferred THEN the conversation's organisation is still passed
   - GIVEN an org model policy would reject the background model WHEN the deferred title generates THEN the policy is enforced exactly as on today's synchronous path — a latency fix must not become a governance hole
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 
