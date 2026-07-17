@@ -25,8 +25,11 @@ recallable by an agent through OpenRegister's existing search substrate, without
 separate SQLite FTS5 index. `Message` carries no `agentId` property, so the system MUST resolve
 the agent binding through the caller's own `Conversation` objects (which carry `agentId`) and
 MUST restrict the message search to those conversations. The system MUST scope every match to
-the calling user via OpenRegister's `@self.owner` meta-filter, and MUST return an empty result
-when no user can be resolved from the session.
+the calling user via the `Conversation.userId` property, and MUST return an empty result
+when no user can be resolved from the session. It MUST NOT scope on `@self.owner`: the engine
+writes conversations from paths with no session user, so 135 of the reference instance's 184
+conversations are owned by `__system__` while all 184 carry `userId`, and owner scoping would
+silently hide most of a user's own history.
 
 Previous behavior: recall queried `Session`/`SessionTurn` objects, filtering `SessionTurn` by
 its own `agentId` property. Those objects have never been written, so recall has always
@@ -79,8 +82,11 @@ Because no `SessionTurn` has ever been written, the tool has never returned a co
 
 ### Requirement: Session listing reads the live conversation store
 The system MUST serve `GET /api/agents/{agentId}/sessions` from the caller's own `Conversation`
-objects for that agent, filtered by `agentId` and the `@self.owner` meta-filter, and MUST return
-an empty result when no user can be resolved from the session.
+objects for that agent, filtered by `agentId` and the `userId` property, and MUST return
+an empty result when no user can be resolved from the session. It MUST NOT scope on the
+`@self.owner` meta-filter: `Conversation` carries `userId` (unlike the retired `Session`, which
+did not), and the engine writes conversations from paths with no session user, so owner scoping
+would hide the caller's own sessions.
 
 #### Scenario: A user lists their sessions for an agent
 - GIVEN a user has existing conversations with an agent
