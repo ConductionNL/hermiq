@@ -1,3 +1,8 @@
+---
+draft: true
+description: Internal engineering note — fleet drift research, not hermiq user documentation.
+---
+
 # Fleet drift research — beyond root files
 
 The [`fleet-extras-audit.md`](fleet-extras-audit.md) snapshot covered
