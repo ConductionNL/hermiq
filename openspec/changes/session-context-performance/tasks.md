@@ -22,24 +22,29 @@
 - **spec_ref**: `openspec/changes/session-context-performance/specs/agent-context-retrieval/spec.md#requirement-the-context-search-is-explicitly-scoped-never-ambient-and-never-unbounded`
 - **files**: `lib/Service/Engine/ContextRetrievalHandler.php`
 - **acceptance_criteria**:
-  - GIVEN the docblock (lines 313-320) documents `'_register' => null, '_schema' => null` (line 333) as a DELIBERATE defence against a previous caller's ambient scope on the shared `ObjectService` WHEN scoping THEN the nulls are REPLACED with concrete derived values — never deleted, never omitted
+  - GIVEN `Agent.enableRag` is a boolean with schema default FALSE, described as "Whether Retrieval-Augmented Generation is used to ground responses in context" and exposed in `AgentFormModal` WHEN a message is processed THEN retrieval runs ONLY if the agent opted in — absent means false, matching the schema default
+  - GIVEN a conversation carries no agent (Engine passes a null agent) WHEN a message is processed THEN no retrieval runs, because there is no enableRag and no views to bound it — the worst case for an unscoped scan
+  - GIVEN `Agent.views` is documented as "UUIDs of views that filter which data the agent can access" and `retrieveContext()` resolved it and discarded it ("TODO: Apply view filters here") WHEN retrieval runs THEN the resolved views are passed to `ObjectService::searchObjectsPaginated(views:)` — an access boundary, not only a performance hint
+  - GIVEN the docblock documents `'_register' => null, '_schema' => null` as a DELIBERATE defence against a previous caller's ambient scope on the shared `ObjectService` WHEN scoping THEN the nulls are KEPT and scope is expressed explicitly alongside them — never deleted, never omitted
   - GIVEN `ObjectService` carries ambient `setRegister()`/`setSchema()` state WHEN the search runs THEN the resolved scope does NOT depend on which caller last used the instance
-  - GIVEN 2116 magic tables and a 26–62s baseline WHEN a scoped search runs THEN it completes in under 5 seconds and does not scan every register/schema
-  - GIVEN an agent with no derivable scope WHEN the search runs THEN a BOUNDED default applies — never an unbounded search (fast-and-silently-empty is worse than slow-and-complete)
-  - GIVEN scope is derived from the agent's configuration WHEN a request carries user input THEN that input cannot broaden the scope
-  - GIVEN this trades recall for latency and fails SILENTLY WHEN an agent's context lies within its scope THEN the same relevant sources are returned as today — a recall assertion, not just a latency one
-- [ ] Implement
-- [ ] Test
+  - GIVEN scope is derived from the agent's configuration WHEN a request carries user input THEN that input cannot broaden the scope (`resolveViewFilters()` intersects, never unions)
+  - GIVEN this fails SILENTLY WHEN an agent's context lies within its scope THEN the same relevant sources are returned as today — a recall assertion, not just a latency one; and an agent with NO views searches unscoped, never "scoped to nothing"
+- **notes**:
+  - The original criteria assumed the dominant cost was ambient/unbounded register+schema scope and required deriving concrete `_register`/`_schema` values plus a BOUNDED default. Investigation found otherwise: the cost was a search nobody asked for. 16/16 agents on the reference instance have `enableRag` false and every message still scanned 2038 magic tables. Deriving a register/schema scope would have optimised a query that should not run at all.
+  - RESIDUAL (deliberate, tracked): an agent with RAG ON and no views is still unscoped — there is nothing to scope it to, and inventing a bound would silently starve it of context (fast-and-silently-empty is worse than slow-and-complete). It is now an opted-in, logged cost rather than a tax on every message. Tracked as a follow-up issue.
+- [x] Implement
+- [x] Test
 
 ### Task 3: Log the resolved retrieval scope
 - **spec_ref**: `openspec/changes/session-context-performance/specs/agent-context-retrieval/spec.md#requirement-the-resolved-retrieval-scope-is-logged`
 - **files**: `lib/Service/Engine/ContextRetrievalHandler.php`
 - **acceptance_criteria**:
-  - GIVEN an over-narrow scope degrades answers without raising an error WHEN any retrieval runs THEN the resolved `_register`/`_schema` scope is logged
-  - GIVEN an operator reads the log WHEN a retrieval ran THEN they can distinguish a derived scope from the bounded default
-  - GIVEN the docblock at lines 313-320 currently documents the nulls as intentional WHEN the change lands THEN it is corrected to describe the explicit derived scope
-- [ ] Implement
-- [ ] Test
+  - GIVEN an over-narrow scope degrades answers without raising an error WHEN any retrieval runs THEN the resolved scope (`viewCount`, `viewIds`, `isUnscoped`) is logged
+  - GIVEN an operator reads the log WHEN a retrieval ran THEN they can distinguish a view-scoped search from an unscoped one, and a skip from a search that found nothing
+  - GIVEN retrieval was skipped WHEN the operator reads the log THEN the REASON is stated — RAG disabled, or both source types excluded
+  - GIVEN the docblock documents the nulls as intentional WHEN the change lands THEN it is corrected to explain that the nulls remain as the anti-ambient defence while scope is expressed explicitly via views
+- [x] Implement
+- [x] Test
 
 ### Task 4: Take conversation-title generation off the reply path
 - **spec_ref**: `openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply`

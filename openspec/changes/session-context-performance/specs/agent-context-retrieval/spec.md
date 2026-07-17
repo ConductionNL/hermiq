@@ -42,60 +42,79 @@ search runs and all its results are discarded.
 - THEN the system MUST issue the search
 - AND object results MUST be returned as they are today
 
-### Requirement: The context search is explicitly scoped, never ambient and never unbounded
-The system MUST pass concrete `_register` and `_schema` values to every context search. It MUST
-NOT pass `null` for either, and it MUST NOT omit them — omitting them would let a previous
-caller's ambient `setRegister()`/`setSchema()` state on the shared `ObjectService` instance
-determine the retrieval scope. The scope MUST be derived from the agent's own configuration, MUST
-NOT be derivable from user-supplied request input, and MUST be bounded by a hard cap on the number
-of registers and schemas searched. When no scope can be derived for an agent, the system MUST fall
-back to a bounded default scope and MUST NOT fall back to an unbounded search.
+### Requirement: Context retrieval is scoped to what the agent may actually read
+The system MUST treat context retrieval as opt-in per agent and MUST scope it to the data the agent
+declares it may access. Retrieval MUST run only when `Agent.enableRag` is true; an absent value MUST
+be treated as false, matching the schema default. When a conversation carries no agent, the system
+MUST NOT retrieve. When retrieval does run, the system MUST pass the agent's resolved `Agent.views`
+to the search as its scope, because `views` is documented as "UUIDs of views that filter which data
+the agent can access" and is therefore an access boundary and not merely a performance hint. The
+system MUST continue to pass explicit `null` values for `_register` and `_schema` and MUST NOT omit
+them, so that a previous caller's ambient `setRegister()`/`setSchema()` state on the shared
+`ObjectService` instance can never determine the retrieval scope. The scope MUST be derived from the
+agent's own configuration and MUST NOT be broadened by user-supplied request input. An agent with no
+views MUST search unscoped rather than "scoped to nothing", because a silently empty result is worse
+than a slow complete one.
 
-#### Scenario: A turn requests context retrieval
-- GIVEN an agent with a derivable retrieval scope
+#### Scenario: An agent has not enabled RAG
+- GIVEN an agent whose `enableRag` is false or absent
+- WHEN a turn would request context retrieval
+- THEN the system MUST NOT issue any context search
+- AND the system MUST return the documented empty-context shape
+- AND the reason MUST be logged
+
+#### Scenario: A conversation has no agent
+- GIVEN a conversation carrying no `agentId`, so the engine resolves a null agent
+- WHEN a turn would request context retrieval
+- THEN the system MUST NOT issue any context search
+- AND the system MUST NOT fall back to an instance-wide scan on behalf of no configuration
+
+#### Scenario: An opted-in agent declares views
+- GIVEN an agent with `enableRag` true and one or more `views`
 - WHEN the system issues the context search
-- THEN the search MUST carry concrete `_register` and `_schema` values derived from the agent's configuration
-- AND the search MUST NOT scan every register and schema on the instance
-- AND the retrieval MUST complete in under 5 seconds, against a baseline of 26–62 seconds on an instance with 2116 magic tables
+- THEN the search MUST carry those view UUIDs as its scope
+- AND the search MUST NOT scan data outside those views
 
 #### Scenario: The ambient-scope trap is avoided
 - GIVEN `ObjectService` is a shared instance carrying ambient register/schema state from previous callers
 - WHEN the system issues the context search
-- THEN the search MUST set `_register` and `_schema` explicitly
+- THEN the search MUST pass `_register` and `_schema` as explicit nulls
 - AND the resolved scope MUST NOT depend on which caller last used the `ObjectService` instance
 
-#### Scenario: An agent has no derivable scope
-- GIVEN an agent whose configuration yields no retrieval scope
+#### Scenario: An opted-in agent declares no views
+- GIVEN an agent with `enableRag` true and no `views`
 - WHEN the system issues the context search
-- THEN the system MUST apply a bounded default scope
-- AND the system MUST NOT issue an unbounded search across all registers and schemas
+- THEN the search MUST be unscoped
+- AND the system MUST NOT pass an empty scope, which would return zero rows for every query
+- AND the cost MUST be logged as unscoped
 
 #### Scenario: The scope cannot be widened by the caller
-- GIVEN a request carrying user-supplied input
+- GIVEN a request carrying user-supplied view selections
 - WHEN the retrieval scope is resolved
-- THEN the scope MUST be derived only from the agent's configuration
+- THEN the system MUST intersect them with the agent's declared views and MUST NOT union them
 - AND the system MUST NOT allow the request to broaden the scope beyond what the agent declares
 
 #### Scenario: Retrieval recall is preserved for a scoped agent
-- GIVEN an agent whose relevant context lives within its derived scope
+- GIVEN an agent whose relevant context lives within its declared views
 - WHEN a turn requests context retrieval for a query matching that context
 - THEN the system MUST return the same relevant sources it returns today with the unscoped search
 
 ### Requirement: The resolved retrieval scope is logged
-The system MUST log the resolved register/schema scope for every context retrieval, so an
-over-narrow scope is diagnosable from logs. An over-narrow scope MUST NOT be silent: it degrades
-answer quality without raising an error.
+The system MUST log the resolved scope for every context retrieval, so an over-narrow scope is
+diagnosable from logs. An over-narrow scope MUST NOT be silent: it degrades answer quality without
+raising an error. A skipped retrieval MUST state its reason, so that "the agent has RAG off" is
+never mistaken for "the search found nothing".
 
 #### Scenario: A retrieval runs
 - GIVEN any context retrieval
 - WHEN the search is issued
-- THEN the system MUST log the resolved `_register` and `_schema` scope
-- AND the log MUST allow an operator to distinguish a derived scope from the bounded default
+- THEN the system MUST log the resolved scope, including the view count and view UUIDs
+- AND the log MUST allow an operator to distinguish a view-scoped search from an unscoped one
 
 #### Scenario: A retrieval is skipped
-- GIVEN both `includeFiles` and `includeObjects` are `false`
+- GIVEN an agent with `enableRag` false, or with both `includeFiles` and `includeObjects` false
 - WHEN the search is skipped
-- THEN the system MUST log that the retrieval was skipped and why
+- THEN the system MUST log that the retrieval was skipped and which of those reasons applied
 
 ## Non-Functional Requirements
 

@@ -34,10 +34,30 @@ Three root causes, all verified against HEAD:
    **unconditionally**. `includeFiles` (line 127) and `includeObjects` (line 128) only filter the
    **results afterwards** (lines 178-179: `$skipFile`/`$skipObject`). With both false, the search
    runs in full and every row is discarded. **26–62s of work, thrown away.**
-2. **The search is unscoped.** `searchKeywordOnly()` (line 333) calls
-   `searchObjectsPaginated(['_search' => …, '_limit' => …, '_register' => null, '_schema' =>
-   null])` — an unscoped scan across **all registers and schemas**, i.e. 2116 magic tables. This
-   is the 26–62s.
+2. **The search is unscoped, and — the real finding — nobody asked for it.**
+   `searchKeywordOnly()` (line 333) calls `searchObjectsPaginated(['_search' => …, '_limit' => …,
+   '_register' => null, '_schema' => null])` — an unscoped scan across **all registers and
+   schemas**, i.e. 2038 magic tables on this box. That is the 26–62s.
+
+   **CORRECTED after investigation (2026-07-17).** This proposal originally treated the fix as
+   "derive a register/schema scope". That would have optimised a query that should never run:
+
+   - `Agent.enableRag` is a boolean, schema **default false**, described as *"Whether
+     Retrieval-Augmented Generation is used to ground responses in context"*, and
+     `AgentFormModal` exposes it. **No engine code reads it.** **16 of 16 agents** on this box
+     have it false — and every message still paid the full scan.
+   - `Agent.views` — *"UUIDs of views that filter which data the agent can access"* — is resolved
+     by `retrieveContext()` and then **thrown away** (`TODO: Apply view filters here when view
+     filtering is implemented`), even though `searchObjectsPaginated` has taken a `views`
+     parameter all along. That is an **access boundary**, not just a perf hint: an agent
+     restricted to a view could retrieve from everything. No agent sets views, so there is no
+     live exposure.
+
+   So the dominant cost was not an unscoped query but an **unread opt-in flag**, and the scoping
+   mechanism the product already intends (views) was an orphaned capability. Both are now wired.
+   Residual, deliberate: an agent with RAG **on** and no views is still unscoped — there is
+   nothing to scope it to, and inventing a bound would silently starve it of context. It is now
+   an opted-in, logged cost rather than a tax on every message.
 3. **Title generation blocks the reply.** `Engine::maybeGenerateTitle()` (line 525, called at
    line 424) runs synchronously inside the turn, delegating to
    `ConversationManagementHandler::generateConversationTitle()` (line 135) →
