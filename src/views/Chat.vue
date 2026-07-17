@@ -40,7 +40,7 @@
 					<template #icon>
 						<Plus :size="20" />
 					</template>
-					{{ t('hermiq', 'New conversation') }}
+					{{ t('hermiq', 'New session') }}
 				</NcButton>
 				<div class="chat-page__tabs">
 					<NcCheckboxRadioSwitch
@@ -74,8 +74,8 @@
 				v-else-if="visibleConversations.length === 0"
 				type="info">
 				{{ showArchive
-					? t('hermiq', 'No archived conversations.')
-					: t('hermiq', 'No conversations yet. Start one to chat with an agent.') }}
+					? t('hermiq', 'No archived sessions.')
+					: t('hermiq', 'No sessions yet. Start one to chat with an agent.') }}
 			</NcNoteCard>
 
 			<div v-else class="chat-page__rows">
@@ -90,14 +90,14 @@
 						tabindex="0"
 						@click="selectConversation(conversation)"
 						@keydown.enter="selectConversation(conversation)">
-						<strong>{{ conversation.title || t('hermiq', 'New conversation') }}</strong>
+						<strong>{{ conversation.title || t('hermiq', 'New session') }}</strong>
 						<span class="chat-page__row-date">{{ formatTime(conversation.updated) }}</span>
 					</div>
 					<div class="chat-page__row-actions">
 						<template v-if="!showArchive">
 							<NcButton
 								type="tertiary"
-								:aria-label="t('hermiq', 'Archive conversation')"
+								:aria-label="t('hermiq', 'Archive session')"
 								@click="archive(conversation)">
 								<template #icon>
 									<Archive :size="20" />
@@ -107,7 +107,7 @@
 						<template v-else>
 							<NcButton
 								type="tertiary"
-								:aria-label="t('hermiq', 'Restore conversation')"
+								:aria-label="t('hermiq', 'Restore session')"
 								@click="restore(conversation)">
 								<template #icon>
 									<Restore :size="20" />
@@ -137,7 +137,7 @@
 				<div v-if="activeConversation" class="chat-page__header-actions">
 					<NcButton
 						type="tertiary"
-						:aria-label="t('hermiq', 'Rename conversation')"
+						:aria-label="t('hermiq', 'Rename session')"
 						@click="showRename = true">
 						<template #icon>
 							<Pencil :size="20" />
@@ -159,7 +159,7 @@
 				<div class="chat-page__empty-icon">
 					<MessageText :size="56" />
 				</div>
-				<h3>{{ t('hermiq', 'Start a conversation') }}</h3>
+				<h3>{{ t('hermiq', 'Start a session') }}</h3>
 				<p>{{ t('hermiq', 'Select an agent to begin chatting with your data.') }}</p>
 				<AgentSelector
 					:agents="agents"
@@ -174,7 +174,7 @@
 				<div ref="messagesContainer" class="chat-page__messages">
 					<div v-if="messagesLoading && messages.length === 0" class="chat-page__messages-state">
 						<NcLoadingIcon :size="28" />
-						<p>{{ t('hermiq', 'Loading conversation…') }}</p>
+						<p>{{ t('hermiq', 'Loading session…') }}</p>
 					</div>
 
 					<div
@@ -613,7 +613,7 @@ export default {
 					this.archivedConversations = archived.results
 				}
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not load conversations.'))
+				showError(this.t('hermiq', 'Could not load sessions.'))
 			} finally {
 				this.conversationsLoading = false
 			}
@@ -650,7 +650,7 @@ export default {
 					const { results } = await listConversations({ archived: true })
 					this.archivedConversations = results
 				} catch (e) {
-					showError(this.t('hermiq', 'Could not load archived conversations.'))
+					showError(this.t('hermiq', 'Could not load archived sessions.'))
 				} finally {
 					this.conversationsLoading = false
 				}
@@ -701,7 +701,7 @@ export default {
 				this.settings = this.defaultSettingsFor(this.currentAgent)
 				this.scrollToBottom()
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not load the conversation.'))
+				showError(this.t('hermiq', 'Could not load the session.'))
 			} finally {
 				this.messagesLoading = false
 			}
@@ -740,7 +740,7 @@ export default {
 				await this.loadConversations(true)
 				showSuccess(this.t('hermiq', 'Conversation started with {agent}', { agent: agent.name || agentUuid }))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not start the conversation.'))
+				showError(this.t('hermiq', 'Could not start the session.'))
 			} finally {
 				this.startingId = ''
 			}

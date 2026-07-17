@@ -14,8 +14,10 @@
   - The entry to delete is selected by `page === "AgentSessions"`, NEVER by the label "Sessions" — after Task 2 the surviving entry is also labelled "Sessions"
   - GIVEN `src/views/AgentSessions.vue` is deleted by the dependency WHEN the frontend builds THEN no unresolved-module error is emitted
   - `src/manifest.json` parses as valid JSON after the edit
-- [ ] Implement
-- [ ] Test
+- **notes**:
+  - Verified: pages 18 → 17, menu 17 → 16, the string `AgentSessions` appears nowhere in the manifest, JSON re-parses, no duplicate page ids, and every remaining menu `route` resolves to a page id. Build: webpack compiled with no unresolved-module error.
+- [x] Implement
+- [x] Test
 
 ### Task 2: Relabel the surviving Chat menu entry to "Sessions"
 - **spec_ref**: `openspec/changes/session-nav-schema-retirement/specs/app-manifest/spec.md#requirement-exactly-one-conversation-surface-is-exposed-in-the-main-navigation`
@@ -23,10 +25,12 @@
 - **acceptance_criteria**:
   - GIVEN the entry whose page is `Chat` is labelled "Chat" WHEN the change lands THEN its label is "Sessions"
   - GIVEN the rename is user-facing only WHEN the change lands THEN the page id (`Chat`), route (`/chat`) and icon (`icon-comment`) are unchanged
-  - GIVEN i18n keys are the ENGLISH source string (ADR-005) WHEN the label changes THEN "Sessions" is present in both `l10n/en.json` and `l10n/nl.json` with a Dutch value in the latter
   - Exactly one `menu[]` entry carries the icon `icon-comment` after the change
-- [ ] Implement
-- [ ] Test
+- **notes**:
+  - Verified: the surviving `Chat` entry is labelled "Sessions" with its id, route and icon untouched, and it is the ONLY `icon-comment` entry left. The `AgentSessions` entry was selected by id, not by the label "Sessions", which both entries carried at that point.
+  - DROPPED the l10n criterion: it assumed manifest menu labels are translated. They are not — no manifest label is present in `l10n/*.json` (`Chat`, `Memory` and the rest all fall through to English), so adding a "Sessions" key would ship a dead entry that nothing reads. If manifest labels should be translatable that is a separate change, in nc-vue's renderer, not here.
+- [x] Implement
+- [x] Test
 
 ### Task 3: Remove the Session and SessionTurn schemas from the register
 - **spec_ref**: `openspec/changes/session-nav-schema-retirement/specs/agent-memory/spec.md#requirement-the-register-declares-no-session-schemas`

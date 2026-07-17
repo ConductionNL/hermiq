@@ -24,7 +24,7 @@
 			</h2>
 
 			<p class="chat-settings__description">
-				{{ t('hermiq', 'Control which views and tools the AI may use in this conversation. By default, all agent capabilities are enabled.') }}
+				{{ t('hermiq', 'Control which views and tools the AI may use in this session. By default, all agent capabilities are enabled.') }}
 			</p>
 
 			<!-- Views -->

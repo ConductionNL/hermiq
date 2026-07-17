@@ -48,8 +48,10 @@
   - GIVEN `AgentSessions.vue` imports `listSessions`/`recall` from `../api/memory.js` (line 104) WHEN the change lands THEN the view file is deleted and both helpers (`memory.js` lines 77 and 100) are removed
   - GIVEN the view is deleted WHEN the app is built THEN no import of `AgentSessions.vue` remains and the build emits no unresolved-module warning
   - The manifest still references the `AgentSessions` page at this point — removing it is `session-nav-schema-retirement`'s job; this task MUST NOT edit `src/manifest.json`
-- [ ] Implement
-- [ ] Test
+- **notes**:
+  - `src/registry.js` also had to lose its import and page entry — it is the only other referent, and leaving it would have kept the deleted module imported. Build verified: webpack 5.107.2 compiled with no unresolved-module warning (the 5 remaining warnings are pre-existing entrypoint-size ones).
+- [x] Implement
+- [x] Test
 
 ### Task 5: Rename user-facing chat wording to "session"
 - **spec_ref**: `openspec/changes/session-store-consolidation/specs/agent-memory/spec.md#requirement-session-listing-reads-the-live-conversation-store`
@@ -58,8 +60,12 @@
   - GIVEN `Chat.vue` renders strings such as `New conversation` (line 43), `No conversations yet. Start one to chat with an agent.` (line 78) and `Archive conversation` (line 100) WHEN the change lands THEN the user-facing wording reads "session"
   - GIVEN i18n keys are the ENGLISH source string (ADR-005) WHEN a string is renamed THEN both the key and the value are updated in `l10n/en.json` and the key is updated with a Dutch value in `l10n/nl.json`
   - GIVEN routes are internal WHEN the change lands THEN `/api/chat/*` and `/api/agents/{agentId}/sessions` are unchanged and no schema slug is renamed
-- [ ] Implement
-- [ ] Test
+  - GIVEN the engine writes a literal `New conversation` placeholder title and `ConversationTitleWriter::needsTitle()` matches it WHEN the UI wording is renamed THEN the PERSISTED placeholder is left alone, or every new session becomes permanently unnameable again
+- **notes**:
+  - Scope: `Chat.vue` plus the three session modals (`ConversationRenameModal`, `ConversationDeleteModal`, `ChatSettingsModal`). The l10n files turned out to hold only ONE of these strings (the AdminRoot provider description); the rest were never extracted, so they fall through to their English source and no key rename was needed. AdminRoot/LlmProviderModal keep the word "conversation" deliberately — they describe background-work examples in admin settings, not the session UI, and the user scoped this to "session UI only for now".
+  - The persisted `New conversation` / `New Conversation` placeholders in `ChatController`/`ChatStreamController`/`ConversationController` are deliberately NOT renamed: they are data, the user deferred the data rename, and `needsTitle()` matches that literal. Renaming them without updating the matcher would silently re-create the permanent-placeholder bug.
+- [x] Implement
+- [x] Test
 
 ## Quality checklist
 
