@@ -1,6 +1,7 @@
 ---
 kind: code
-depends_on: []
+depends_on:
+  - cli-runner-governed-mcp-and-egress
 ---
 
 # Proposal: claude-cli-session-reuse
@@ -109,6 +110,26 @@ None. A writable persistent volume for the session root is a deployment requirem
 
 None outside this repo. The runner is hermiq's own sidecar ExApp; the `/run` interface is internal
 to hermiq (PHP producer, Node consumer, one deployable pair) and is consumed by no other app.
+
+### In-repo dependency: `cli-runner-governed-mcp-and-egress`
+
+`depends_on: [cli-runner-governed-mcp-and-egress]` is load-bearing, not caution. That change owns
+the per-run bearer token written to a `0600` MCP config inside the very directory this change makes
+persistent, and its code (hermiq#120) is **still open at the time of writing** — `development`'s
+`exapp/llm-runner/src/runner.js` has no `mcpConfig` handling at all.
+
+Two consequences a reviewer should hold onto:
+
+- **Ordering.** Landing this change first would make the session home persistent while the token
+  path is still being written in #120, and the two would meet in the same `cleanup()` seam with
+  neither author having seen the other. The token requirement in this change's spec (`the per-run
+  token never becomes persistent`) is only implementable — and only testable — against #120's code.
+- **Conflict surface.** Both changes edit `runner.js` around the scratch-dir lifecycle. Sequencing
+  them turns a merge conflict into a rebase.
+
+If #120 is closed unmerged, this change must be re-scoped: the session-home work stands on its own,
+but the token requirement and its task become vacuous and should be struck rather than left as
+unimplementable spec text.
 
 ## Risks
 
