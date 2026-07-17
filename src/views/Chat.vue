@@ -145,7 +145,7 @@
 					</NcButton>
 					<NcButton
 						type="tertiary"
-						:aria-label="t('hermiq', 'Chat settings')"
+						:aria-label="t('hermiq', 'Session settings')"
 						@click="showSettings = true">
 						<template #icon>
 							<CogOutline :size="20" />

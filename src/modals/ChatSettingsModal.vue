@@ -16,11 +16,11 @@
 	<NcModal
 		:show="show"
 		size="normal"
-		:name="t('hermiq', 'Chat settings')"
+		:name="t('hermiq', 'Session settings')"
 		@close="$emit('close')">
 		<div class="chat-settings">
 			<h2 class="chat-settings__title">
-				{{ t('hermiq', 'Chat settings') }}
+				{{ t('hermiq', 'Session settings') }}
 			</h2>
 
 			<p class="chat-settings__description">
