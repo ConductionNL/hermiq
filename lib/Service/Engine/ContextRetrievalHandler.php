@@ -121,6 +121,17 @@ class ContextRetrievalHandler
             ]
         );
 
+        // Retrieval is opt-in per agent. `Agent.enableRag` is a boolean with schema
+        // default FALSE and the description "Whether Retrieval-Augmented Generation is
+        // used to ground responses in context", and AgentFormModal exposes it — but no
+        // engine code read it, so the switch was wired to nothing. Every agent on the
+        // reference instance (16/16) has it false, and every message still paid a full
+        // unscoped keyword scan across ~2k magic tables (26–62s of a ~65s reply) to
+        // ground a response in context the agent was configured not to want.
+        //
+        // Absent means false, matching the schema default: an agent object that predates
+        // the field never opted in either.
+        $enableRag = (($agentData['enableRag'] ?? false) === true);
         // Get search settings from agent or use defaults, then apply RAG settings overrides.
         $searchMode        = $agentData['ragSearchMode'] ?? 'hybrid';
         $numSources        = $agentData['ragNumSources'] ?? 5;
@@ -132,11 +143,11 @@ class ContextRetrievalHandler
         // Calculate total sources needed (will be filtered by type later).
         $totalSources = max($numSourcesFiles, $numSourcesObjects);
 
-        // Resolve view filters from the agent's views and the caller's selection.
-        // NOTE (ported verbatim): the original computed these but did not yet apply
-        // them to the search ("TODO: Apply view filters here when view filtering is
-        // implemented"); the resolution logic is preserved so the eventual wiring
-        // is a one-line change, and the count is logged below.
+        // Resolve view filters from the agent's views and the caller's selection, and
+        // hand them to the search (see searchKeywordOnly). The port carried these
+        // forward computed-but-unapplied ("TODO: Apply view filters here when view
+        // filtering is implemented"); OpenRegister's searchObjectsPaginated has taken a
+        // `views` parameter all along, so the wiring is now done.
         $viewFilters = $this->resolveViewFilters(
             agentViews: ($agentData['views'] ?? []),
             selectedViews: $selectedViews
@@ -172,7 +183,17 @@ class ContextRetrievalHandler
             // *inputs* but are applied as a post-filter, so an agent configured to want
             // neither files nor objects still paid for a full unscoped scan (26–62s on an
             // instance with ~2k magic tables) to build an empty context.
-            if ($includeFiles === false && $includeObjects === false) {
+            if ($enableRag === false) {
+                $this->logger->debug(
+                    message: '[ContextRetrievalHandler] Retrieval skipped — the agent has RAG disabled '
+                        .'(Agent.enableRag, default false)',
+                    context: [
+                        'file' => __FILE__,
+                        'line' => __LINE__,
+                    ]
+                );
+                $results = [];
+            } else if ($includeFiles === false && $includeObjects === false) {
                 $this->logger->debug(
                     message: '[ContextRetrievalHandler] Retrieval skipped — neither files nor objects are '
                         .'included, so every result would be discarded by the type filter',
@@ -185,8 +206,12 @@ class ContextRetrievalHandler
                 );
                 $results = [];
             } else {
-                $results = $this->searchKeywordOnly(query: $query, limit: $fetchLimit);
-            }
+                $results = $this->searchKeywordOnly(
+                    query: $query,
+                    limit: $fetchLimit,
+                    viewFilters: $viewFilters
+                );
+            }//end if
 
             // Filter and build context - track file and object counts separately.
             $fileSourceCount   = 0;
@@ -336,10 +361,25 @@ class ContextRetrievalHandler
      * that already ran on a public surface (`ObjectService::searchObjectsPaginated`,
      * `_search` full-text term). `_register`/`_schema` are explicitly nulled so a
      * previous caller's ambient register/schema context on the shared ObjectService
-     * instance cannot silently scope RAG retrieval down to one schema.
+     * instance cannot silently scope RAG retrieval down to one schema. That defence
+     * is KEPT: the nulls are what stop an unrelated caller's leftover scope from
+     * quietly deciding what this agent may retrieve.
      *
-     * @param string $query Query text.
-     * @param int    $limit Result limit.
+     * Scope is now expressed explicitly instead, via the agent's views. `Agent.views`
+     * is documented as "UUIDs of views that filter which data the agent can access" —
+     * an access boundary, not merely a performance hint — and `retrieveContext()` has
+     * always resolved it and then thrown it away ("TODO: Apply view filters here"), so
+     * an agent restricted to a view could in fact retrieve from everything. Passing it
+     * to OpenRegister's `views` parameter closes that and narrows the scan.
+     *
+     * An agent with RAG on and NO views is still unscoped, by construction: there is
+     * nothing to scope it to. That is now an explicit, logged, opted-in cost rather
+     * than a tax on every message.
+     *
+     * @param string        $query       Query text.
+     * @param int           $limit       Result limit.
+     * @param array<string> $viewFilters View UUIDs the agent is restricted to; empty
+     *                                   means unscoped.
      *
      * @return array Search results in the standardized entity shape. Kept wide
      *               (`list<array<string, mixed>>`) deliberately: the consuming
@@ -352,15 +392,32 @@ class ContextRetrievalHandler
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
      */
-    private function searchKeywordOnly(string $query, int $limit): array
+    private function searchKeywordOnly(string $query, int $limit, array $viewFilters=[]): array
     {
+        $this->logger->debug(
+            message: '[ContextRetrievalHandler] Keyword retrieval scope resolved',
+            context: [
+                'file'       => __FILE__,
+                'line'       => __LINE__,
+                'viewCount'  => count($viewFilters),
+                'viewIds'    => $viewFilters,
+                'isUnscoped' => empty($viewFilters),
+            ]
+        );
+
+        $views = null;
+        if (empty($viewFilters) === false) {
+            $views = array_values($viewFilters);
+        }
+
         $results = $this->objectService->searchObjectsPaginated(
             query: [
                 '_search'   => $query,
                 '_limit'    => $limit,
                 '_register' => null,
                 '_schema'   => null,
-            ]
+            ],
+            views: $views
         );
 
         $transformed = [];
