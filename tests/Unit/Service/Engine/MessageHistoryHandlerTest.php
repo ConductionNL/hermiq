@@ -124,6 +124,53 @@ class MessageHistoryHandlerTest extends TestCase
     }//end testStoreMessageAttachesOptionalFieldsOnlyWhenPresent()
 
     /**
+     * storeMessage() persists a non-empty `attachments` value onto the Message
+     * payload; omitting it (every pre-existing caller) leaves the key absent —
+     * byte-for-byte unchanged behaviour for callers that do not pass it
+     * (hermiq-chat-attachments Task 4).
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-the-user-message-persists-its-attachment-references
+     */
+    public function testStoreMessagePersistsAttachmentsOnlyWhenPresent(): void
+    {
+        $saved         = [];
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                $entity  = new ObjectEntity();
+                $entity->setUuid('msg-1');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $handler = new MessageHistoryHandler($objectService, new NullLogger());
+
+        $attachments = [['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt']];
+        $handler->storeMessage(
+            conversationId: 'conv-1',
+            role: 'user',
+            content: 'What does the report say?',
+            attachments: $attachments
+        );
+
+        // A second turn with no attachments must NOT carry the key at all.
+        $handler->storeMessage(
+            conversationId: 'conv-1',
+            role: 'user',
+            content: 'Follow-up question'
+        );
+
+        $this->assertCount(2, $saved);
+        $this->assertSame($attachments, $saved[0]['attachments']);
+        $this->assertArrayNotHasKey('attachments', $saved[1]);
+
+    }//end testStoreMessagePersistsAttachmentsOnlyWhenPresent()
+
+    /**
      * buildMessageHistory re-orders the most-recent-first fetch chronologically,
      * maps roles onto LLPhant factories, and skips incomplete or unknown turns.
      *

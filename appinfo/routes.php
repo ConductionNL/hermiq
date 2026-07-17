@@ -427,6 +427,13 @@ return [
         // Chat health probe (PublicPage — widget probes before authenticating).
         ['name' => 'chatHealth#health', 'url' => '/api/chat/health', 'verb' => 'GET'],
 
+        // Chat attachment upload (hermiq-chat-attachments): multipart upload endpoint,
+        // kept SEPARATE from chat#sendMessage/chatStream#stream (both stay JSON-only —
+        // design.md Decision 1). Stores into the acting user's own
+        // Hermiq/Attachments/ and returns a {path, name} reference the chat endpoints
+        // accept in their existing JSON body.
+        ['name' => 'chatAttachment#upload', 'url' => '/api/chat/attachments', 'verb' => 'POST'],
+
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
 

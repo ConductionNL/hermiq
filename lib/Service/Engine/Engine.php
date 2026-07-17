@@ -120,6 +120,17 @@ class Engine
     private const MESSAGE_SCHEMA = 'message';
 
     /**
+     * Maximum attachments accepted on a single turn (hermiq-chat-attachments Task 3
+     * per-turn cap). Attachment text is never truncated to fit `charBudget` (design.md
+     * Decision 6), so this COUNT cap — together with `ContextAssembler::MAX_FILE_BYTES`
+     * bounding each individual file — is the only bound on the aggregate size a turn's
+     * attachments can add to the preamble.
+     *
+     * @var int
+     */
+    private const MAX_ATTACHMENTS_PER_TURN = 5;
+
+    /**
      * Constructor.
      *
      * @param ObjectService                 $objectService          OpenRegister object read/write.
@@ -193,6 +204,24 @@ class Engine
      *                                                neutralised instead of actually invoked.
      *                                                False (every pre-existing caller) is
      *                                                byte-for-byte unchanged behavior.
+     * @param array                   $attachments    Per-turn attachment references
+     *                                                ({path, name, description} entries,
+     *                                                hermiq-chat-attachments) the user attached
+     *                                                to this turn. Persisted on the
+     *                                                user-authored Message when non-empty;
+     *                                                resolved via the acting user's Nextcloud
+     *                                                folder and folded into the SAME preamble
+     *                                                `ContextAssembler::assembleForAgent()`
+     *                                                builds (no second assembly path). Rejected
+     *                                                with a 400-coded `Exception` when it exceeds
+     *                                                `MAX_ATTACHMENTS_PER_TURN`. Appended as the
+     *                                                LAST parameter (rather than grouped next to
+     *                                                `$context` above) so every pre-existing
+     *                                                positional test double of this method (which
+     *                                                mock frameworks bind by resolved position, not
+     *                                                by name, even for named-argument call sites)
+     *                                                keeps seeing `$channel`/`$trace`/`$dryRun` at
+     *                                                their original positions.
      *
      * @return array The result envelope.
      *
@@ -214,6 +243,10 @@ class Engine
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-the-user-message-persists-its-attachment-references
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-attachment-content-is-resolved-into-the-turn-preamble-via-the-acting-users-folder
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-attachment-content-is-untrusted-input-and-is-guardrail-filtered
      */
     public function processMessage(
         string $conversationId,
@@ -225,7 +258,8 @@ class Engine
         array $context=[],
         ?StreamYieldChannel $channel=null,
         ?RunTraceCollector $trace=null,
-        bool $dryRun=false
+        bool $dryRun=false,
+        array $attachments=[]
     ): array {
         $this->logger->info(
             message: '[Engine] Processing message',
@@ -254,6 +288,22 @@ class Engine
                 throw new Exception('Access denied to conversation');
             }
 
+            // Hermiq-chat-attachments Task 3: bound the aggregate attachment size per
+            // turn BEFORE any assembly/guardrail/LLM work runs, so a rejected turn
+            // costs nothing and makes no LLM call. Attachment text is never
+            // truncated to fit charBudget (design.md Decision 6), so this count cap
+            // — together with ContextAssembler::MAX_FILE_BYTES per file — is the
+            // only bound on the aggregate.
+            if (count($attachments) > self::MAX_ATTACHMENTS_PER_TURN) {
+                throw new Exception(
+                    sprintf(
+                        'Too many attachments: at most %d are allowed per turn',
+                        self::MAX_ATTACHMENTS_PER_TURN
+                    ),
+                    400
+                );
+            }
+
             // Get agent if configured.
             $agent   = null;
             $agentId = $conversationData['agentId'] ?? null;
@@ -276,6 +326,22 @@ class Engine
             // block in the system prompt (ResponseGenerationHandler prepends it right
             // after Agent.prompt). '' when the agent has none — no-op for most agents.
             $contextPreamble = $this->contextAssembler->assembleForAgent(agent: $agent, actingUserId: $userId);
+
+            // Hermiq-chat-attachments Task 5: fold this turn's attachment references
+            // into the SAME preamble string — Context-kind material with a Message
+            // lifecycle (design.md Decision 3), not a second assembly path. Doing
+            // this BEFORE the preamble guardrail filter below (rather than filtering
+            // attachment text with its own separate call) is deliberate: it means
+            // attachment text inherits the SAME guardrail coverage and the SAME
+            // never-truncate budget accounting the Context preamble already gets,
+            // with no new trust posture to reason about.
+            $attachmentPreamble = $this->contextAssembler->assembleAttachments(
+                attachments: $attachments,
+                actingUserId: $userId
+            );
+            if ($attachmentPreamble !== '') {
+                $contextPreamble = trim($contextPreamble."\n\n".$attachmentPreamble);
+            }
 
             // Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this
             // turn (organisation comes from the conversation, exactly like
@@ -356,15 +422,19 @@ class Engine
                 // The model only ever sees the masked text — same contract as the user
                 // message.
                 $contextPreamble = (string) $preambleFilter['text'];
-            }
+            }//end if
 
-            // Store user message with the CnAiContext snapshot.
+            // Store user message with the CnAiContext snapshot and this turn's
+            // attachment references (hermiq-chat-attachments Task 4) — persisted
+            // AFTER both guardrail filters, so a refused turn (either boundary)
+            // stores nothing.
             $this->historyHandler->storeMessage(
                 conversationId: $conversationId,
                 role: 'user',
                 content: $userMessage,
                 sources: null,
-                context: $cnAiContext
+                context: $cnAiContext,
+                attachments: $attachments
             );
 
             // Check if conversation needs summarization.
