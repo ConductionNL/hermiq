@@ -15,8 +15,8 @@
   - GIVEN a baseline of 26–62s WHEN both flags are `false` THEN retrieval completes in under 1 second
   - GIVEN either flag is `true` WHEN a turn runs THEN the search is still issued and results are unchanged
   - The skip is logged with its reason
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Scope the context search explicitly
 - **spec_ref**: `openspec/changes/session-context-performance/specs/agent-context-retrieval/spec.md#requirement-the-context-search-is-explicitly-scoped-never-ambient-and-never-unbounded`

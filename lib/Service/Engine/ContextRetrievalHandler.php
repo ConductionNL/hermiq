@@ -164,7 +164,29 @@ class ContextRetrievalHandler
                 );
             }
 
-            $results = $this->searchKeywordOnly(query: $query, limit: $fetchLimit);
+            // Both source types excluded ⇒ every row the search returns is dropped by the
+            // type filter below, so the query is pure cost. Skipping it is behaviour-
+            // preserving by construction: the loop would have `continue`d on every row.
+            //
+            // Worth stating because the shape hides it — the flags read like search
+            // *inputs* but are applied as a post-filter, so an agent configured to want
+            // neither files nor objects still paid for a full unscoped scan (26–62s on an
+            // instance with ~2k magic tables) to build an empty context.
+            if ($includeFiles === false && $includeObjects === false) {
+                $this->logger->debug(
+                    message: '[ContextRetrievalHandler] Retrieval skipped — neither files nor objects are '
+                        .'included, so every result would be discarded by the type filter',
+                    context: [
+                        'file'           => __FILE__,
+                        'line'           => __LINE__,
+                        'includeFiles'   => $includeFiles,
+                        'includeObjects' => $includeObjects,
+                    ]
+                );
+                $results = [];
+            } else {
+                $results = $this->searchKeywordOnly(query: $query, limit: $fetchLimit);
+            }
 
             // Filter and build context - track file and object counts separately.
             $fileSourceCount   = 0;

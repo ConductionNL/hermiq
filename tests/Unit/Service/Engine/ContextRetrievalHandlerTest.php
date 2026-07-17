@@ -64,6 +64,86 @@ class ContextRetrievalHandlerTest extends TestCase
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
      */
+    /**
+     * Excluding BOTH source types skips the query entirely.
+     *
+     * The flags read like search inputs but are applied as a post-filter, so an
+     * agent wanting neither files nor objects still paid for a full unscoped scan
+     * (26–62s measured on an instance with ~2k magic tables) only to discard every
+     * row. Asserts the OUTPUT as well as the absence of the query: the skip has to
+     * be behaviour-preserving, not merely faster.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/session-context-performance/specs/agent-context-retrieval/spec.md#requirement-context-retrieval-is-skipped-when-its-results-would-all-be-discarded
+     */
+    public function testRetrievalIsSkippedWhenNeitherFilesNorObjectsAreIncluded(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        // The assertion that matters: the expensive call is never made.
+        $objectService->expects($this->never())->method('searchObjectsPaginated');
+
+        $handler = new ContextRetrievalHandler($objectService, new NullLogger());
+        $context = $handler->retrieveContext(
+            query: 'leave policy',
+            agent: $this->agent(
+                [
+                    'ragSearchMode' => 'keyword',
+                    'ragNumSources' => 5,
+                    'searchFiles'   => false,
+                    'searchObjects' => false,
+                ]
+            )
+        );
+
+        // Byte-identical to what the pre-change code produced: it searched, then
+        // `continue`d on every row, arriving at exactly this empty context.
+        $this->assertSame([], $context['sources']);
+        $this->assertSame('', $context['text']);
+
+    }//end testRetrievalIsSkippedWhenNeitherFilesNorObjectsAreIncluded()
+
+    /**
+     * One included type is enough to keep the search — the skip must not
+     * over-trigger and silently starve an agent of context.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/session-context-performance/specs/agent-context-retrieval/spec.md#requirement-context-retrieval-is-skipped-when-its-results-would-all-be-discarded
+     */
+    public function testRetrievalStillRunsWhenOnlyOneSourceTypeIsExcluded(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->expects($this->once())->method('searchObjectsPaginated')->willReturn(
+            [
+                'results' => [
+                    [
+                        'id'   => 'obj-1',
+                        'name' => 'Leave policy',
+                    ],
+                ],
+                'total'   => 1,
+            ]
+        );
+
+        $handler = new ContextRetrievalHandler($objectService, new NullLogger());
+        $context = $handler->retrieveContext(
+            query: 'leave policy',
+            agent: $this->agent(
+                [
+                    'ragSearchMode' => 'keyword',
+                    'ragNumSources' => 5,
+                    'searchFiles'   => false,
+                    'searchObjects' => true,
+                ]
+            )
+        );
+
+        $this->assertCount(1, $context['sources']);
+        $this->assertSame('obj-1', $context['sources'][0]['id']);
+
+    }//end testRetrievalStillRunsWhenOnlyOneSourceTypeIsExcluded()
+
     public function testKeywordModeSearchesAndFormatsSources(): void
     {
         $capturedQuery = null;
