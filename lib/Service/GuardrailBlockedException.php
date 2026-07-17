@@ -47,7 +47,12 @@ class GuardrailBlockedException extends Exception
     /**
      * Constructor.
      *
-     * @param string $reason The filter's short reason code (`prompt_injection`|`sensitive_content`).
+     * @param string $reason The filter's short reason code. `prompt_injection`|`sensitive_content`
+     *                       when the acting user's own message matched; the `_in_context`-suffixed
+     *                       `prompt_injection_in_context`|`sensitive_content_in_context` when the
+     *                       assembled context preamble matched instead — the suffix is what tells
+     *                       an operator that a document, not the user, tripped the filter
+     *                       (hermiq-guardrail-preamble-filter).
      */
     public function __construct(private readonly string $reason)
     {
