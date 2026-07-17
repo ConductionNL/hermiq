@@ -174,6 +174,7 @@ class ChatStreamController extends Controller
      * multiple methods and make the error-path analysis harder.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
      */
     public function stream(): Response
     {
@@ -214,6 +215,13 @@ class ChatStreamController extends Controller
             $agentUuid        = (string) ($body['agentUuid'] ?? '');
             $conversationUuid = (string) ($body['conversationUuid'] ?? '');
             $context          = ($body['context'] ?? null);
+
+            // Optional attachment references ({path, name, description} entries
+            // returned by ChatAttachmentController::upload()). This endpoint stays
+            // JSON-only (hermiq-chat-attachments design.md Decision 1) — multipart
+            // is NOT accepted here; readRequestBody() reads php://input, which PHP
+            // does not populate for multipart/form-data requests.
+            $attachmentsBody = ($body['attachments'] ?? null);
 
             // Widget UX: when the widget opens a fresh chat it doesn't know which
             // agent to use (no agent picker in v1). Fall back to an agent the
@@ -258,6 +266,11 @@ class ChatStreamController extends Controller
             $contextArr = [];
             if (is_array($context) === true) {
                 $contextArr = $context;
+            }
+
+            $attachments = [];
+            if (is_array($attachmentsBody) === true) {
+                $attachments = $attachmentsBody;
             }
 
             // Emit a heartbeat right after headers so the client knows we're alive
@@ -307,6 +320,7 @@ class ChatStreamController extends Controller
                 selectedTools: [],
                 ragSettings: [],
                 context: $contextArr,
+                attachments: $attachments,
                 channel: $channel
             );
 

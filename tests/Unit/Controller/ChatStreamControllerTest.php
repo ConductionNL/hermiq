@@ -396,6 +396,93 @@ class ChatStreamControllerTest extends TestCase
     }//end testSuccessfulTurnEmitsExactlyOneFinal()
 
     /**
+     * hermiq-chat-attachments: an `attachments` array in the JSON body reaches
+     * `Engine::processMessage()` as the named `attachments` argument, and the
+     * turn still completes/streams normally.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
+     */
+    public function testAttachmentsInTheJsonBodyReachTheEngine(): void
+    {
+        $this->authenticate('alice');
+        $this->objectService->method('find')->willReturnCallback(
+            function (): ObjectEntity {
+                $conversation = new ObjectEntity();
+                $conversation->setUuid('conv-1');
+                $conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+                return $conversation;
+            }
+        );
+
+        // `attachments` is Engine::processMessage()'s LAST parameter (appended
+        // after $channel/$trace/$dryRun to keep every pre-existing positional
+        // test double of this method unaffected) — a variadic capture stays
+        // correct regardless of how many named args a given call site
+        // supplies; `end($args)` is always the final resolved parameter.
+        $seenAttachments = null;
+        $this->engine->method('processMessage')->willReturnCallback(
+            function (...$args) use (&$seenAttachments): array {
+                $seenAttachments = end($args);
+                return ['message' => 'ok', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []];
+            }
+        );
+
+        $body = json_encode(
+            [
+                'message'          => 'What does the report say?',
+                'conversationUuid' => 'conv-1',
+                'attachments'      => [['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt']],
+            ]
+        );
+        $controller = $this->makeController((string) $body);
+        $this->runStream($controller);
+
+        $this->assertSame(
+            [['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt']],
+            $seenAttachments
+        );
+        $this->assertCount(1, $this->frames($controller, 'final'));
+
+    }//end testAttachmentsInTheJsonBodyReachTheEngine()
+
+    /**
+     * Omitting `attachments` from the JSON body defaults to `[]` — byte-for-byte
+     * unchanged behaviour for every request predating this change.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
+     */
+    public function testOmittedAttachmentsDefaultToEmptyArray(): void
+    {
+        $this->authenticate('alice');
+        $this->objectService->method('find')->willReturnCallback(
+            function (): ObjectEntity {
+                $conversation = new ObjectEntity();
+                $conversation->setUuid('conv-1');
+                $conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+                return $conversation;
+            }
+        );
+
+        $seenAttachments = 'unset';
+        $this->engine->method('processMessage')->willReturnCallback(
+            function (...$args) use (&$seenAttachments): array {
+                $seenAttachments = end($args);
+                return ['message' => 'ok', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []];
+            }
+        );
+
+        $controller = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+        $this->runStream($controller);
+
+        $this->assertSame([], $seenAttachments);
+
+    }//end testOmittedAttachmentsDefaultToEmptyArray()
+
+    /**
      * A failed turn (engine throws) emits exactly one terminal `error`
      * (stream_failed) and zero `final` frames — and the wire message is the
      * generic public string, never the exception text.
