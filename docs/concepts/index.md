@@ -42,6 +42,17 @@ rest: **[approvals](../approvals.md)** (a human says yes before something risky
 happens) and **[incidents](../incidents.md)** (a written record when something
 goes wrong).
 
+And underneath all of it sits one architectural choice — **[the safe
+setup](./safe-setup.md)**. The model runs in a hardened container on your own
+hardware with **no outside access at all**: no internet, no files, no tools. It
+only thinks. Every file, lookup and action goes through Hermiq instead, which
+does it *as you* and only if you granted it.
+
+Which is what lets you answer the question everyone actually has: *"can I have an
+assistant that summarises my mailbox every morning, but can't read my files or
+delete my mail?"* Yes — and not because you asked it nicely in a prompt. That
+page has the diagram.
+
 ## How they fit together
 
 Think of hiring someone:
@@ -111,5 +122,7 @@ part of your organisation rather than a service outside it.
 - Want the agent to know your material? **[Context](./context.md)** and
   **[RAG](./rag.md)**.
 - Want the agent to *do* things? **[Tools & MCP](./tools-and-mcp.md)**.
+- Worried about your data leaving? **[The safe setup](./safe-setup.md)** — start
+  there before you configure anything.
 - Responsible for governance? **[Approvals](../approvals.md)** and
   **[Incidents](../incidents.md)**.
