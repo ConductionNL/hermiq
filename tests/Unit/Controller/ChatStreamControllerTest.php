@@ -37,6 +37,7 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IAppConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\IUser;
@@ -218,20 +219,92 @@ class ChatStreamControllerTest extends TestCase
      *
      * @return TestableChatStreamController
      */
-    private function makeController(string $body=''): TestableChatStreamController
+    private function makeController(string $body='', string $companionAgentUuid=''): TestableChatStreamController
     {
+        $appConfig = $this->createMock(IAppConfig::class);
+        $appConfig->method('getValueString')->willReturnCallback(
+            static function (string $app, string $key, string $default='') use ($companionAgentUuid): string {
+                if ($key === 'companion_agent_uuid') {
+                    return $companionAgentUuid;
+                }
+
+                return $default;
+            }
+        );
+
         $controller = new TestableChatStreamController(
             $this->createMock(IRequest::class),
             $this->engine,
             $this->objectService,
             $this->userSession,
             $this->createMock(IDBConnection::class),
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            $appConfig
         );
         $controller->requestBody = $body;
         return $controller;
 
     }//end makeController()
+
+    /**
+     * The configured companion agent is preferred over the register-order
+     * fallback when the current user may access it.
+     *
+     * @return void
+     */
+    public function testConfiguredCompanionAgentIsPreferred(): void
+    {
+        $this->authenticate('alice');
+
+        $configured = $this->createMock(ObjectEntity::class);
+        $configured->method('getUuid')->willReturn('configured-agent-uuid');
+        // Non-private agent → org-accessible → canUserAccessAgent() true.
+        $configured->method('getObject')->willReturn(['isPrivate' => false]);
+
+        // find() resolves the configured agent. (ObjectService::find has more
+        // parameters than the three we pass by name, so we assert the call
+        // happened rather than pin an exact positional signature.)
+        $this->objectService->expects($this->once())
+            ->method('find')
+            ->willReturn($configured);
+        // The register-order scan MUST NOT run when the configured agent resolves.
+        $this->objectService->expects($this->never())->method('findAll');
+
+        $controller = $this->makeController(companionAgentUuid: 'configured-agent-uuid');
+
+        $method = new \ReflectionMethod($controller, 'pickFallbackAgentForUser');
+        $method->setAccessible(true);
+        $this->assertSame('configured-agent-uuid', $method->invoke($controller, 'alice'));
+
+    }//end testConfiguredCompanionAgentIsPreferred()
+
+    /**
+     * When no companion agent is configured, the controller falls back to the
+     * first agent in register order the user can access (pre-existing behaviour,
+     * unchanged).
+     *
+     * @return void
+     */
+    public function testFallsBackToFirstAccessibleAgentWhenUnconfigured(): void
+    {
+        $this->authenticate('alice');
+
+        $first = $this->createMock(ObjectEntity::class);
+        $first->method('getUuid')->willReturn('first-accessible-uuid');
+        $first->method('getObject')->willReturn(['isPrivate' => false]);
+
+        // No configured agent → find() is never called for a companion uuid;
+        // the register-order scan runs and returns the first accessible agent.
+        $this->objectService->expects($this->never())->method('find');
+        $this->objectService->expects($this->once())->method('findAll')->willReturn([$first]);
+
+        $controller = $this->makeController();
+
+        $method = new \ReflectionMethod($controller, 'pickFallbackAgentForUser');
+        $method->setAccessible(true);
+        $this->assertSame('first-accessible-uuid', $method->invoke($controller, 'alice'));
+
+    }//end testFallsBackToFirstAccessibleAgentWhenUnconfigured()
 
     /**
      * Drive stream() and absorb the sentinel stop signal.

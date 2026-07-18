@@ -44,6 +44,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Response;
+use OCP\IAppConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -102,6 +103,16 @@ class ChatStreamController extends Controller
     private const AGENT_SCHEMA = 'agent';
 
     /**
+     * App-config key holding the UUID of the agent the companion widget uses by
+     * default (the widget itself sends no agentUuid — there is no agent picker
+     * in v1). Set with `occ config:app:set hermiq companion_agent_uuid <uuid>`;
+     * empty/unset falls back to the first agent the user can access.
+     *
+     * @var string
+     */
+    private const COMPANION_AGENT_CONFIG_KEY = 'companion_agent_uuid';
+
+    /**
      * Schema slug for conversation objects.
      *
      * @var string
@@ -139,6 +150,7 @@ class ChatStreamController extends Controller
         private readonly IUserSession $userSession,
         private readonly IDBConnection $db,
         private readonly LoggerInterface $logger,
+        private readonly IAppConfig $appConfig,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -571,6 +583,48 @@ class ChatStreamController extends Controller
      */
     private function pickFallbackAgentForUser(string $userId): string
     {
+        // Prefer the admin-configured companion agent when one is set AND the
+        // current user may access it. This makes the widget deterministic —
+        // otherwise the agent is whichever the register happens to return first,
+        // which on a busy instance is arbitrary and can be a misconfigured test
+        // agent (e.g. one whose model is not available on the active provider).
+        $configuredUuid = trim($this->appConfig->getValueString(self::REGISTER_SLUG, self::COMPANION_AGENT_CONFIG_KEY, ''));
+        if ($configuredUuid !== '') {
+            try {
+                $configuredAgent = $this->objectService->find(
+                    id: $configuredUuid,
+                    register: self::REGISTER_SLUG,
+                    schema: self::AGENT_SCHEMA
+                );
+                if (($configuredAgent instanceof ObjectEntity) === true
+                    && $this->canUserAccessAgent(agent: $configuredAgent, userId: $userId) === true
+                ) {
+                    return (string) $configuredAgent->getUuid();
+                }
+
+                // Configured but inaccessible/missing: log and fall through to
+                // the access-scoped scan rather than failing the whole chat.
+                $this->logger->warning(
+                    message: '[ChatStreamController] Configured companion agent is missing or inaccessible; using access-scoped fallback',
+                    context: [
+                        'file'      => __FILE__,
+                        'line'      => __LINE__,
+                        'agentUuid' => $configuredUuid,
+                        'userId'    => $userId,
+                    ]
+                );
+            } catch (Throwable $e) {
+                $this->logger->warning(
+                    message: '[ChatStreamController] Configured companion agent lookup failed; using access-scoped fallback',
+                    context: [
+                        'file'  => __FILE__,
+                        'line'  => __LINE__,
+                        'error' => $e->getMessage(),
+                    ]
+                );
+            }//end try
+        }//end if
+
         try {
             // Cheap cap — we only need the first match. Twenty rows is
             // enough headroom for any realistic instance.
