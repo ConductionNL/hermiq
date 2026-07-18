@@ -173,25 +173,32 @@ test.describe('hermiq regression: the default-agent picker', () => {
 	test('the agent detail page can set and clear this agent as the default', async ({ page }) => {
 		await login(page)
 		// Reach an agent's detail page via the catalogue (data-agnostic — no hard-coded uuid).
+		// The index table's rows carry a stable `data-testid="cn-object-row"`; clicking one
+		// navigates to /agents/:id.
 		await page.goto('/apps/hermiq/agents', { waitUntil: 'domcontentloaded' })
 		await dismissWalkthrough(page)
-		await page.locator('tbody tr, .list-item, [class*="row"]').first().waitFor({ state: 'visible', timeout: 15_000 })
-		await page.locator('tbody tr, .list-item, [class*="row"]').first().click()
+		const firstRow = page.locator('[data-testid="cn-object-row"]').first()
+		await expect(firstRow).toBeVisible()
+		await firstRow.click()
 		await expect(page).toHaveURL(/\/agents\/[^/]+$/)
 
-		// Open the "Set as default" header action → the SetDefaultAgentDialog.
+		// Open the "Set as default" header action → the SetDefaultAgentDialog. The header
+		// action is a direct button (no overflow menu).
 		await page.getByRole('button', { name: 'Set as default' }).first().click()
-		const dialog = page.locator('.set-default-agent-dialog')
-		await expect(dialog).toBeVisible()
+
+		// Scope to the dialog that hosts THIS content — the run-operations widget mounts its
+		// own hidden dialogs whose buttons would otherwise share these names.
+		const dialog = page.locator('[role="dialog"]').filter({ has: page.locator('.set-default-agent-dialog') })
+		await expect(dialog.locator('.set-default-agent-dialog')).toBeVisible()
 		// The dialog resolved the agent (name interpolated into the prompt), no store-init error.
 		await expect(dialog).not.toContainText('undefined')
 
 		// Set it, and the dialog flips to the "is your default" state with a Clear action.
-		await page.getByRole('button', { name: 'Set as default', exact: true }).last().click()
-		await expect(page.getByRole('button', { name: 'Clear default' })).toBeVisible()
+		await dialog.getByRole('button', { name: 'Set as default', exact: true }).click()
+		await expect(dialog.getByRole('button', { name: 'Clear default' })).toBeVisible()
 
 		// Clear it again — back to the offer-to-set state.
-		await page.getByRole('button', { name: 'Clear default' }).click()
-		await expect(page.getByRole('button', { name: 'Set as default', exact: true }).last()).toBeVisible()
+		await dialog.getByRole('button', { name: 'Clear default' }).click()
+		await expect(dialog.getByRole('button', { name: 'Set as default', exact: true })).toBeVisible()
 	})
 })
