@@ -201,6 +201,14 @@ return [
             'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+'],
         ],
 
+        // Agent related files (agent-related-files): curated, Claude-project-style list of
+        // existing Nextcloud files the agent can scan/use, backed by the Context system
+        // (ADR-024) — Context.files[] on an agent-owned bundle in agent.contextRefs, riding
+        // the existing ContextAssembler preamble path (distinct from chat attachments).
+        ['name' => 'agentFiles#list',   'url' => '/api/agents/{agentId}/files', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'agentFiles#add',    'url' => '/api/agents/{agentId}/files', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'agentFiles#remove', 'url' => '/api/agents/{agentId}/files', 'verb' => 'DELETE', 'requirements' => ['agentId' => '[^/]+']],
+
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
 

@@ -279,6 +279,13 @@
 						"title": "Run history",
 						"icon": "History",
 						"_note": "Per-row trace expand-and-cache, a dead_letter-only Re-run, and a Replay dry-run + diff preview — object-list's static columns/rowRoute shape has no per-row expand or conditional actions (design.md Decision 2/3). Resolved via page.slots.widget-agent-run-history -> agent-run-history."
+					},
+					{
+						"id": "agent-files",
+						"type": "custom",
+						"title": "Files",
+						"icon": "FolderMultipleOutline",
+						"_note": "Curated, Claude-project-style list of existing Nextcloud files the agent can scan/use (item 7), persisted onto an agent-owned Context bundle's files[] (referenced from agent.contextRefs) so they ride the existing ContextAssembler run-start preamble path (ADR-024) — distinct from chat attachments. The picker UI is the shared nc-vue CnRelatedFiles component. Resolved via page.slots.widget-agent-files -> agent-files."
 					}
 				],
 				"layout": [
@@ -337,6 +344,14 @@
 						"gridY": 18,
 						"gridWidth": 12,
 						"gridHeight": 6
+					},
+					{
+						"id": "8",
+						"widgetId": "agent-files",
+						"gridX": 0,
+						"gridY": 24,
+						"gridWidth": 12,
+						"gridHeight": 4
 					}
 				],
 				"headerActions": [
@@ -381,7 +396,8 @@
 				"widget-agent-tool-governance": "agent-tool-governance",
 				"widget-agent-run-operations": "agent-run-operations",
 				"widget-agent-memory": "agent-memory",
-				"widget-agent-run-history": "agent-run-history"
+				"widget-agent-run-history": "agent-run-history",
+				"widget-agent-files": "agent-files"
 			}
 		},
 		{
