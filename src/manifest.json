@@ -234,7 +234,8 @@
 								"temperature",
 								"maxTokens",
 								"active"
-							]
+							],
+							"editable": false
 						}
 					},
 					{
