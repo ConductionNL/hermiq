@@ -22,6 +22,12 @@
   AgentRunHistoryWidget reloads its run list without a bespoke sibling
   channel.
 
+  The Budget section's tokens/€ readouts render through the shared
+  BudgetMeter component (src/components/BudgetMeter.vue) — the SAME
+  presentation Memory's char budget uses — rather than bespoke text/bar
+  markup; the two dimensions (tokens, €) stay distinct meters since they
+  measure genuinely different quantities.
+
   @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-006-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 -->
 <template>
@@ -188,16 +194,35 @@
 			<NcNoteCard v-else-if="budgetStatus.softThresholdReached" type="warning">
 				{{ t('hermiq', 'Soft threshold crossed for the current period.') }}
 			</NcNoteCard>
-			<dl class="agent-run-ops-widget__meta">
-				<div v-if="budgetStatus.tokens && budgetStatus.tokens.limit">
-					<dt>{{ t('hermiq', 'Tokens this period') }}</dt>
-					<dd>{{ budgetStatus.tokens.used }} / {{ budgetStatus.tokens.limit }} ({{ budgetStatus.tokens.percent }}%)</dd>
-				</div>
-				<div v-if="budgetStatus.eur && budgetStatus.eur.limit">
-					<dt>{{ t('hermiq', 'Spend this period') }}</dt>
-					<dd>€{{ budgetStatus.eur.used }} / €{{ budgetStatus.eur.limit }}</dd>
-				</div>
-			</dl>
+			<div class="agent-run-ops-widget__budget-meters">
+				<!--
+					No `over`/warn-threshold override is passed: BudgetService::status()
+					only returns a COMBINED hardCapReached/softThresholdReached across
+					both dimensions (whichever one tripped first), so forwarding it to
+					BOTH meters would wrongly colour an under-limit dimension as
+					over/warn when only the OTHER one crossed. Each meter instead
+					computes its own used>=limit / percent>=90 state from its own
+					used/limit — accurate per-dimension, at the cost of not matching
+					the budget's own (possibly non-default) softThresholdPercent, which
+					status() does not expose per-dimension.
+				-->
+				<BudgetMeter
+					v-if="budgetStatus.tokens && budgetStatus.tokens.limit"
+					:label="t('hermiq', 'Cost (tokens)')"
+					:used="budgetStatus.tokens.used"
+					:limit="budgetStatus.tokens.limit"
+					:percent-override="budgetStatus.tokens.percent"
+					show-percent-text
+					:unit="t('hermiq', 'tokens')" />
+				<BudgetMeter
+					v-if="budgetStatus.eur && budgetStatus.eur.limit"
+					:label="t('hermiq', 'Cost (€)')"
+					:used="budgetStatus.eur.used"
+					:limit="budgetStatus.eur.limit"
+					:percent-override="budgetStatus.eur.percent"
+					format="prefix"
+					unit="€" />
+			</div>
 		</section>
 
 		<ScheduleFormModal
@@ -224,6 +249,7 @@ import { dryRunSchedule, runScheduleNow } from '../api/agents.js'
 import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { createWebhookSecret, getWebhookStatus, revokeWebhookSecret, rotateWebhookSecret } from '../api/webhooks.js'
 import { useScheduleStore } from '../store/store.js'
+import BudgetMeter from '../components/BudgetMeter.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import WebhookSecretDialog from '../modals/WebhookSecretDialog.vue'
 
@@ -232,6 +258,7 @@ export default {
 
 	components: {
 		BeakerOutline,
+		BudgetMeter,
 		NcButton,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -582,6 +609,12 @@ export default {
 .agent-run-ops-widget__meta dd {
 	margin: 0;
 	white-space: pre-wrap;
+}
+
+.agent-run-ops-widget__budget-meters {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
 }
 
 .agent-run-ops-widget__trace-steps {
