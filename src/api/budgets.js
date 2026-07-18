@@ -104,3 +104,16 @@ export async function getBudgetEstimate(agentId) {
 	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/budget-estimate`))
 	return response.data
 }
+
+/**
+ * The bound agent's per-day token/request quota status — today's usage vs.
+ * Agent.tokenQuota / Agent.requestQuota (0 = unlimited), the same figure the
+ * dispatch gate enforces.
+ *
+ * @param {string} agentId The agent UUID.
+ * @return {Promise<object>} The quota payload ({ day, tokens:{used,limit}, requests:{used,limit}, tokenQuotaReached, requestQuotaReached, blocked }).
+ */
+export async function getAgentQuota(agentId) {
+	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/quota`))
+	return response.data
+}

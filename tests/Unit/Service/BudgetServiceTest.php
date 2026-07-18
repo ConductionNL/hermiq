@@ -200,6 +200,58 @@ class BudgetServiceTest extends TestCase
     }//end runEntry()
 
     /**
+     * An Agent ObjectEntity carrying per-day quotas.
+     *
+     * @param string $uuid         The agent uuid.
+     * @param int    $tokenQuota   Daily token quota (0 = unlimited).
+     * @param int    $requestQuota Daily request quota (0 = unlimited).
+     *
+     * @return ObjectEntity
+     */
+    private function agent(string $uuid, int $tokenQuota, int $requestQuota): ObjectEntity
+    {
+        $e = new ObjectEntity();
+        $e->setUuid($uuid);
+        $e->setObject(
+            [
+                'name'         => 'Agent '.$uuid,
+                'tokenQuota'   => $tokenQuota,
+                'requestQuota' => $requestQuota,
+            ]
+        );
+        return $e;
+
+    }//end agent()
+
+    /**
+     * A run AuditTrail entry carrying an agentId in context (the shape
+     * ScheduleService::writeRunAudit writes) plus token usage and a dry-run flag.
+     *
+     * @param string $agentId          The bound agent uuid (context.agentId).
+     * @param int    $promptTokens     Prompt tokens recorded.
+     * @param int    $completionTokens Completion tokens recorded.
+     * @param bool   $dryRun           Whether this run is a dry-run/replay preview.
+     *
+     * @return AuditTrail
+     */
+    private function agentRunEntry(string $agentId, int $promptTokens, int $completionTokens, bool $dryRun=false): AuditTrail
+    {
+        $a = new AuditTrail();
+        $a->setAction('run');
+        $a->setObjectUuid('schedule-x');
+        $a->setCreated(new DateTime('now'));
+        $a->setChanged(
+            [
+                'agentId' => $agentId,
+                'dryRun'  => $dryRun,
+                'usage'   => ['promptTokens' => $promptTokens, 'completionTokens' => $completionTokens],
+            ]
+        );
+        return $a;
+
+    }//end agentRunEntry()
+
+    /**
      * An OrganisationMapper resolving every organisation to the given owner.
      *
      * @param string $owner The owner uid to resolve to.
@@ -797,4 +849,161 @@ class BudgetServiceTest extends TestCase
         $service->delete(budgetId: 'b1');
 
     }//end testDeleteRemovesTheBudget()
+
+    /**
+     * An unlimited agent (both quotas 0) is never blocked by quota AND the audit
+     * trail is never scanned — the dispatch-gate short-circuit.
+     *
+     * @return void
+     */
+    public function testAgentQuotaUnlimitedSkipsScanAndNeverBlocks(): void
+    {
+        // A poisoned run mapper: if the quota path scanned it, the test would see
+        // usage; instead the 0/0 short-circuit must return before any scan.
+        $service = $this->service(
+            bySchema: [
+                'agent'    => [$this->agent('agent-1', 0, 0)],
+                '__runs__' => [$this->agentRunEntry('agent-1', 9999, 9999)],
+            ]
+        );
+
+        $status = $service->agentQuotaStatus(agentId: 'agent-1');
+        $this->assertFalse($status['blocked']);
+        $this->assertSame(0, $status['tokens']['used'], 'unlimited agent must not scan the audit trail');
+        $this->assertSame(0, $status['tokens']['limit']);
+        $this->assertFalse($service->isBlocked(organisation: 'org-a', agentId: 'agent-1'));
+
+    }//end testAgentQuotaUnlimitedSkipsScanAndNeverBlocks()
+
+    /**
+     * isBlocked() returns true once today's token usage reaches the agent's
+     * tokenQuota, with no budget object in play.
+     *
+     * @return void
+     */
+    public function testIsBlockedTrueWhenTokenQuotaReached(): void
+    {
+        $service = $this->service(
+            bySchema: [
+                'agent'    => [$this->agent('agent-1', 100, 0)],
+                '__runs__' => [
+                    $this->agentRunEntry('agent-1', 40, 30),
+                    $this->agentRunEntry('agent-1', 40, 10),
+                ],
+            ]
+        );
+
+        // 40+30+40+10 = 120 >= 100.
+        $this->assertTrue($service->isBlocked(organisation: 'org-a', agentId: 'agent-1'));
+
+    }//end testIsBlockedTrueWhenTokenQuotaReached()
+
+    /**
+     * isBlocked() returns true once today's request count reaches requestQuota.
+     *
+     * @return void
+     */
+    public function testIsBlockedTrueWhenRequestQuotaReached(): void
+    {
+        $service = $this->service(
+            bySchema: [
+                'agent'    => [$this->agent('agent-1', 0, 2)],
+                '__runs__' => [
+                    $this->agentRunEntry('agent-1', 1, 1),
+                    $this->agentRunEntry('agent-1', 1, 1),
+                ],
+            ]
+        );
+
+        $this->assertTrue($service->isBlocked(organisation: 'org-a', agentId: 'agent-1'));
+
+    }//end testIsBlockedTrueWhenRequestQuotaReached()
+
+    /**
+     * Below both quotas, isBlocked() stays false.
+     *
+     * @return void
+     */
+    public function testIsBlockedFalseBelowQuota(): void
+    {
+        $service = $this->service(
+            bySchema: [
+                'agent'    => [$this->agent('agent-1', 1000, 10)],
+                '__runs__' => [$this->agentRunEntry('agent-1', 40, 30)],
+            ]
+        );
+
+        $this->assertFalse($service->isBlocked(organisation: 'org-a', agentId: 'agent-1'));
+
+    }//end testIsBlockedFalseBelowQuota()
+
+    /**
+     * Dry-run/replay previews never count toward the quota (marked dryRun).
+     *
+     * @return void
+     */
+    public function testQuotaExcludesDryRuns(): void
+    {
+        $service = $this->service(
+            bySchema: [
+                'agent'    => [$this->agent('agent-1', 50, 1)],
+                '__runs__' => [
+                    $this->agentRunEntry('agent-1', 999, 999, dryRun: true),
+                    $this->agentRunEntry('agent-1', 999, 999, dryRun: true),
+                ],
+            ]
+        );
+
+        $status = $service->agentQuotaStatus(agentId: 'agent-1');
+        $this->assertSame(0, $status['tokens']['used']);
+        $this->assertSame(0, $status['requests']['used']);
+        $this->assertFalse($service->isBlocked(organisation: 'org-a', agentId: 'agent-1'));
+
+    }//end testQuotaExcludesDryRuns()
+
+    /**
+     * A run bound to another agent never counts toward this agent's quota.
+     *
+     * @return void
+     */
+    public function testQuotaCountsOnlyThatAgent(): void
+    {
+        $service = $this->service(
+            bySchema: [
+                'agent'    => [$this->agent('agent-1', 0, 1)],
+                '__runs__' => [$this->agentRunEntry('agent-2', 10, 10)],
+            ]
+        );
+
+        $status = $service->agentQuotaStatus(agentId: 'agent-1');
+        $this->assertSame(0, $status['requests']['used'], 'agent-2 runs must not count toward agent-1.');
+        $this->assertFalse($service->isBlocked(organisation: 'org-a', agentId: 'agent-1'));
+
+    }//end testQuotaCountsOnlyThatAgent()
+
+    /**
+     * agentQuotaStatus() reports today's used-vs-limit for both dimensions.
+     *
+     * @return void
+     */
+    public function testAgentQuotaStatusReportsUsageAndLimits(): void
+    {
+        $service = $this->service(
+            bySchema: [
+                'agent'    => [$this->agent('agent-1', 500, 5)],
+                '__runs__' => [
+                    $this->agentRunEntry('agent-1', 40, 30),
+                    $this->agentRunEntry('agent-1', 10, 20),
+                ],
+            ]
+        );
+
+        $status = $service->agentQuotaStatus(agentId: 'agent-1');
+        $this->assertSame(100, $status['tokens']['used']);
+        $this->assertSame(500, $status['tokens']['limit']);
+        $this->assertSame(2, $status['requests']['used']);
+        $this->assertSame(5, $status['requests']['limit']);
+        $this->assertFalse($status['blocked']);
+
+    }//end testAgentQuotaStatusReportsUsageAndLimits()
 }//end class
