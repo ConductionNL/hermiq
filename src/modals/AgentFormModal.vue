@@ -182,6 +182,16 @@
 					:placeholder="'5'" />
 			</template>
 
+			<div class="agent-form__field">
+				<NcTextField
+					:value.sync="form.uploadFolder"
+					:label="t('hermiq', 'Upload folder')"
+					:placeholder="'Hermiq/Attachments'" />
+				<p class="agent-form__hint">
+					{{ t('hermiq', 'Folder in your own Files where chat attachments to this agent are stored. Leave blank for the default (Hermiq/Attachments).') }}
+				</p>
+			</div>
+
 			<div class="agent-form__actions">
 				<NcButton :disabled="saving" @click="handleClose">
 					{{ t('hermiq', 'Cancel') }}
@@ -488,6 +498,7 @@ export default {
 				searchObjects: true,
 				searchFiles: true,
 				ragNumSources: '',
+				uploadFolder: '',
 			}
 		},
 
@@ -520,6 +531,7 @@ export default {
 				searchObjects: source.searchObjects !== false,
 				searchFiles: source.searchFiles !== false,
 				ragNumSources: source.ragNumSources ?? '',
+				uploadFolder: source.uploadFolder ?? '',
 			}
 		},
 
@@ -645,6 +657,7 @@ export default {
 				enableRag: this.form.enableRag,
 				searchObjects: this.form.searchObjects,
 				searchFiles: this.form.searchFiles,
+				uploadFolder: (this.form.uploadFolder || '').trim(),
 			}
 
 			const temperature = Number(this.form.temperature)

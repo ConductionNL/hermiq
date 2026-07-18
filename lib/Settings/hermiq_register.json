@@ -3,7 +3,7 @@
 	"info": {
 		"title": "Hermiq Register",
 		"description": "Schedule autonomous AI agents in Nextcloud",
-		"version": "0.16.0"
+		"version": "0.17.0"
 	},
 	"x-openregister": {
 		"type": "application",
@@ -1414,7 +1414,7 @@
 			"Agent": {
 				"slug": "agent",
 				"icon": "RobotOutline",
-				"version": "0.3.0",
+				"version": "0.3.1",
 				"title": "Agent",
 				"description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target).",
 				"type": "object",
@@ -1604,6 +1604,12 @@
 							"format": "uuid",
 							"$ref": "Context"
 						}
+					},
+					"uploadFolder": {
+						"type": "string",
+						"default": "Hermiq/Attachments",
+						"title": "Upload folder",
+						"description": "Folder (relative to each acting user's own Nextcloud Files) where chat attachments to this agent are stored. Empty falls back to the app default 'Hermiq/Attachments'. Resolved per acting user, never shared; the same anti-traversal rules as chat attachments apply."
 					},
 					"reassignmentFlag": {
 						"type": "boolean",
