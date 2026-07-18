@@ -90,6 +90,14 @@ class BudgetService
     private const BUDGET_SCHEMA = 'agentbudget';
 
     /**
+     * OpenRegister schema slug for agent objects — read for the per-agent
+     * daily token/request quota (Agent.tokenQuota / Agent.requestQuota).
+     *
+     * @var string
+     */
+    private const AGENT_SCHEMA = 'agent';
+
+    /**
      * OpenRegister schema slug for schedule objects.
      *
      * @var string
@@ -186,9 +194,143 @@ class BudgetService
             }
         }
 
+        // GATE 3 — the agent's own per-day token/request quota
+        // (Agent.tokenQuota / Agent.requestQuota; 0 = unlimited). Orthogonal to
+        // the Budget objects above: a run is blocked if EITHER a matching budget
+        // hard cap OR the bound agent's daily quota is reached. Fails open on any
+        // read error, exactly like the budget gate above.
+        if ($agentId !== null && $agentId !== '') {
+            try {
+                if ($this->agentQuotaStatus(agentId: $agentId)['blocked'] === true) {
+                    return true;
+                }
+            } catch (Throwable $e) {
+                $this->logger->error(
+                    'Hermiq could not evaluate the agent quota for the dispatch gate: '.$e->getMessage(),
+                    ['exception' => $e]
+                );
+            }
+        }
+
         return false;
 
     }//end isBlocked()
+
+    /**
+     * The bound agent's per-day quota status: today's token and request usage
+     * versus the agent's `tokenQuota` / `requestQuota` (0 = unlimited). Used both
+     * by the dispatch gate (`isBlocked()`) and the run-operations UI meter.
+     *
+     * "Today" is the current UTC calendar day `[00:00, next 00:00)`, matching the
+     * UTC timestamps the run audit entries are written with. Dry-run/replay
+     * previews never count (they are marked `dryRun` and excluded, same as in
+     * AnalyticsService). When BOTH quotas are unlimited the audit scan is skipped
+     * entirely, so an unlimited agent adds zero cost to the dispatch gate.
+     *
+     * @param string $agentId The bound agent UUID.
+     *
+     * @return array<string, mixed> The quota payload: agentId, day (Y-m-d),
+     *                              tokens/requests as {used, limit}, the two
+     *                              *QuotaReached booleans, and blocked.
+     *
+     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     */
+    public function agentQuotaStatus(string $agentId): array
+    {
+        $tokenQuota   = 0;
+        $requestQuota = 0;
+        $agent        = $this->objectService->find(
+            id: $agentId,
+            register: self::REGISTER_SLUG,
+            schema: self::AGENT_SCHEMA
+        );
+        if ($agent !== null) {
+            $data         = $agent->getObject();
+            $tokenQuota   = max(0, (int) ($data['tokenQuota'] ?? 0));
+            $requestQuota = max(0, (int) ($data['requestQuota'] ?? 0));
+        }
+
+        $now   = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $start = $now->setTime(0, 0, 0);
+        $end   = $start->modify('+1 day');
+        $day   = $start->format('Y-m-d');
+
+        // Unlimited on both axes → no enforcement, skip the audit scan.
+        if ($tokenQuota === 0 && $requestQuota === 0) {
+            return [
+                'agentId'             => $agentId,
+                'day'                 => $day,
+                'tokens'              => ['used' => 0, 'limit' => 0],
+                'requests'            => ['used' => 0, 'limit' => 0],
+                'tokenQuotaReached'   => false,
+                'requestQuotaReached' => false,
+                'blocked'             => false,
+            ];
+        }
+
+        $usage        = $this->agentDailyUsage(agentId: $agentId, start: $start, end: $end);
+        $tokensUsed   = $usage['tokens'];
+        $requestsUsed = $usage['requests'];
+
+        $tokenReached   = ($tokenQuota > 0 && $tokensUsed >= $tokenQuota);
+        $requestReached = ($requestQuota > 0 && $requestsUsed >= $requestQuota);
+
+        return [
+            'agentId'             => $agentId,
+            'day'                 => $day,
+            'tokens'              => ['used' => $tokensUsed, 'limit' => $tokenQuota],
+            'requests'            => ['used' => $requestsUsed, 'limit' => $requestQuota],
+            'tokenQuotaReached'   => $tokenReached,
+            'requestQuotaReached' => $requestReached,
+            'blocked'             => ($tokenReached || $requestReached),
+        ];
+
+    }//end agentQuotaStatus()
+
+    /**
+     * Sum today's token usage and count today's real runs for one agent from the
+     * `action='run'` audit trail — the SAME source `currentUsageTokens()` and
+     * AnalyticsService read, scoped by the run entry's `agentId` context and
+     * windowed to `[start, end)`. Dry-run/replay previews are excluded.
+     *
+     * @param string            $agentId The bound agent UUID.
+     * @param DateTimeImmutable $start   Window start (inclusive).
+     * @param DateTimeImmutable $end     Window end (exclusive).
+     *
+     * @return array{tokens: int, requests: int}
+     */
+    private function agentDailyUsage(string $agentId, DateTimeImmutable $start, DateTimeImmutable $end): array
+    {
+        $tokens   = 0;
+        $requests = 0;
+        $logs     = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTION]);
+
+        foreach ($logs as $log) {
+            $context = ($log->getChanged() ?? []);
+            if ((string) ($context['agentId'] ?? '') !== $agentId) {
+                continue;
+            }
+
+            if (($context['dryRun'] ?? false) === true) {
+                continue;
+            }
+
+            $created = $log->getCreated();
+            if ($created === null || $created < $start || $created >= $end) {
+                continue;
+            }
+
+            $requests++;
+            $usage = ($context['usage'] ?? null);
+            if (is_array($usage) === true) {
+                $tokens += (int) ($usage['promptTokens'] ?? 0);
+                $tokens += (int) ($usage['completionTokens'] ?? 0);
+            }
+        }//end foreach
+
+        return ['tokens' => $tokens, 'requests' => $requests];
+
+    }//end agentDailyUsage()
 
     /**
      * Check every matching, enabled budget for a first-in-period soft-threshold

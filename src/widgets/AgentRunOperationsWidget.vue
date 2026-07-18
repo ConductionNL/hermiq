@@ -225,6 +225,29 @@
 			</div>
 		</section>
 
+		<section v-if="hasDailyQuota" class="agent-run-ops-widget__section">
+			<h4>{{ t('hermiq', 'Daily quota') }}</h4>
+			<NcNoteCard v-if="quotaStatus.blocked" type="error">
+				{{ t('hermiq', 'Daily quota reached — new runs are blocked until the next UTC day.') }}
+			</NcNoteCard>
+			<div class="agent-run-ops-widget__budget-meters">
+				<BudgetMeter
+					v-if="quotaStatus.tokens && quotaStatus.tokens.limit"
+					:label="t('hermiq', 'Daily tokens')"
+					:used="quotaStatus.tokens.used"
+					:limit="quotaStatus.tokens.limit"
+					:over="quotaStatus.tokenQuotaReached"
+					:unit="t('hermiq', 'tokens')" />
+				<BudgetMeter
+					v-if="quotaStatus.requests && quotaStatus.requests.limit"
+					:label="t('hermiq', 'Daily requests')"
+					:used="quotaStatus.requests.used"
+					:limit="quotaStatus.requests.limit"
+					:over="quotaStatus.requestQuotaReached"
+					:unit="t('hermiq', 'requests')" />
+			</div>
+		</section>
+
 		<ScheduleFormModal
 			:show="showScheduleForm"
 			:agent-id="agentId"
@@ -246,7 +269,7 @@ import { emit } from '@nextcloud/event-bus'
 import BeakerOutline from 'vue-material-design-icons/BeakerOutline.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import { dryRunSchedule, runScheduleNow } from '../api/agents.js'
-import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
+import { getAgentQuota, getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { createWebhookSecret, getWebhookStatus, revokeWebhookSecret, rotateWebhookSecret } from '../api/webhooks.js'
 import { useScheduleStore } from '../store/store.js'
 import BudgetMeter from '../components/BudgetMeter.vue'
@@ -277,6 +300,7 @@ export default {
 			showScheduleForm: false,
 			estimate: null,
 			budgetStatus: null,
+			quotaStatus: null,
 			webhookStatus: null,
 			webhookBusy: false,
 			showWebhookSecretDialog: false,
@@ -292,6 +316,17 @@ export default {
 		 */
 		agentId() {
 			return this.$route.params.id
+		},
+
+		/**
+		 * Whether this agent has at least one per-day quota set (0 = unlimited),
+		 * gating the Daily-quota section so unlimited agents show nothing.
+		 *
+		 * @return {boolean} True when a token or request quota is configured.
+		 */
+		hasDailyQuota() {
+			const q = this.quotaStatus
+			return !!q && ((q.tokens && q.tokens.limit > 0) || (q.requests && q.requests.limit > 0))
 		},
 
 		/**
@@ -355,12 +390,14 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async loadBudgetInfo() {
-			const [estimate, budgetStatus] = await Promise.all([
+			const [estimate, budgetStatus, quotaStatus] = await Promise.all([
 				getBudgetEstimate(this.agentId).catch(() => null),
 				getBudgetStatus('', this.agentId).catch(() => null),
+				getAgentQuota(this.agentId).catch(() => null),
 			])
 			this.estimate = estimate
 			this.budgetStatus = budgetStatus
+			this.quotaStatus = quotaStatus
 		},
 
 		/**

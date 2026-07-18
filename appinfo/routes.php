@@ -267,6 +267,7 @@ return [
         ['name' => 'budget#update',  'url' => '/api/budgets/{budgetId}', 'verb' => 'PUT', 'requirements' => ['budgetId' => '[^/]+']],
         ['name' => 'budget#destroy', 'url' => '/api/budgets/{budgetId}', 'verb' => 'DELETE', 'requirements' => ['budgetId' => '[^/]+']],
         ['name' => 'budget#estimate', 'url' => '/api/agents/{agentId}/budget-estimate', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        ['name' => 'budget#quota', 'url' => '/api/agents/{agentId}/quota', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
 
         // Tenant model policy (tenant-model-policy): per-organisation provider/model
         // allowlists. 'effective' is registered before the {policyId} routes so the
