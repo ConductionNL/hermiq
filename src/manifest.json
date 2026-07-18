@@ -384,6 +384,16 @@
 						"props": {
 							"show": true
 						}
+					},
+					{
+						"id": "set-default-agent",
+						"label": "Set as default",
+						"type": "open-modal",
+						"target": "set-default-agent",
+						"icon": "StarOutline",
+						"props": {
+							"show": true
+						}
 					}
 				],
 				"sidebar": {

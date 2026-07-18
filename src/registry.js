@@ -79,6 +79,7 @@ import ComplianceOperations from './widgets/ComplianceOperations.vue'
 import AgentFormModal from './modals/AgentFormModal.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
+import SetDefaultAgentDialog from './dialogs/SetDefaultAgentDialog.vue'
 import TemplateImportModal from './modals/TemplateImportModal.vue'
 import EvalDatasetFormModal from './modals/EvalDatasetFormModal.vue'
 
@@ -133,6 +134,23 @@ export default {
 	'agent-factsheet': {
 		kind: 'modal',
 		component: AgentFactsheetDialog,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+			},
+		},
+	},
+
+	/**
+	 * Set-as-default — make the agent on this detail page the user's default
+	 * companion agent (companion-default-agent). Self-resolves the agent id from
+	 * the route when opened via AgentDetail's "Set as default" action; writes the
+	 * same per-user `default-agent` preference the personal-settings picker uses.
+	 */
+	'set-default-agent': {
+		kind: 'modal',
+		component: SetDefaultAgentDialog,
 		propsSchema: {
 			type: 'object',
 			properties: {

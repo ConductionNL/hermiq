@@ -66,6 +66,11 @@
 					</ul>
 				</NcAppSettingsSection>
 				<NcAppSettingsSection
+					id="default-agent"
+					:name="t('hermiq', 'Default agent')">
+					<DefaultAgentSettings />
+				</NcAppSettingsSection>
+				<NcAppSettingsSection
 					id="talk-delivery"
 					:name="t('hermiq', 'Talk delivery')">
 					<TalkDeliverySettings />
@@ -108,6 +113,7 @@ import Vue from 'vue'
 import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { CnAppRoot, CnObjectSidebar, CnSetupWizard, CnCredentials } from '@conduction/nextcloud-vue'
+import DefaultAgentSettings from './components/DefaultAgentSettings.vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
 
 export default {
@@ -120,6 +126,7 @@ export default {
 		CnCredentials,
 		NcAppSettingsSection,
 		NcButton,
+		DefaultAgentSettings,
 		TalkDeliverySettings,
 	},
 
