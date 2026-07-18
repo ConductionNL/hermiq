@@ -1,11 +1,11 @@
 /**
  * End-to-end regression for the per-user default-agent picker.
  *
- * Drives the real personal-settings panel of the Hermiq app and pins the scenarios the
- * unit tests and a build cannot see: that the picker renders in the app settings ABOVE
- * Talk delivery (where the request put it), lists the agents the user can access, saves
- * a choice through the existing preferences API, persists it across a reload, and clears
- * it again.
+ * Drives the real personal-settings panel AND the agent detail page, pinning both surfaces
+ * that set the per-user default agent: the settings picker renders ABOVE Talk delivery (where
+ * the request put it), lists the accessible agents, saves through the preferences API,
+ * persists across a reload, and clears again; and the AgentDetail "Set as default" header
+ * action opens a dialog that sets and clears the same preference.
  *
  * The picker's storage is the generic PreferencesController (`pref_default-agent`), which
  * ships in development already, so these scenarios need only the built frontend bundle —
@@ -168,5 +168,30 @@ test.describe('hermiq regression: the default-agent picker', () => {
 		await dismissWalkthrough(page)
 		await openSettings(page)
 		await expect(page.locator('.default-agent__select .vs__selected')).toHaveCount(0)
+	})
+
+	test('the agent detail page can set and clear this agent as the default', async ({ page }) => {
+		await login(page)
+		// Reach an agent's detail page via the catalogue (data-agnostic — no hard-coded uuid).
+		await page.goto('/apps/hermiq/agents', { waitUntil: 'domcontentloaded' })
+		await dismissWalkthrough(page)
+		await page.locator('tbody tr, .list-item, [class*="row"]').first().waitFor({ state: 'visible', timeout: 15_000 })
+		await page.locator('tbody tr, .list-item, [class*="row"]').first().click()
+		await expect(page).toHaveURL(/\/agents\/[^/]+$/)
+
+		// Open the "Set as default" header action → the SetDefaultAgentDialog.
+		await page.getByRole('button', { name: 'Set as default' }).first().click()
+		const dialog = page.locator('.set-default-agent-dialog')
+		await expect(dialog).toBeVisible()
+		// The dialog resolved the agent (name interpolated into the prompt), no store-init error.
+		await expect(dialog).not.toContainText('undefined')
+
+		// Set it, and the dialog flips to the "is your default" state with a Clear action.
+		await page.getByRole('button', { name: 'Set as default', exact: true }).last().click()
+		await expect(page.getByRole('button', { name: 'Clear default' })).toBeVisible()
+
+		// Clear it again — back to the offer-to-set state.
+		await page.getByRole('button', { name: 'Clear default' }).click()
+		await expect(page.getByRole('button', { name: 'Set as default', exact: true }).last()).toBeVisible()
 	})
 })
