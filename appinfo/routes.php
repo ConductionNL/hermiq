@@ -194,6 +194,12 @@ return [
             'requirements' => ['agentId' => '[^/]+'],
         ],
         ['name' => 'memory#recall',        'url' => '/api/agents/{agentId}/recall', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
+        [
+            'name'         => 'memory#forget',
+            'url'          => '/api/agents/{agentId}/memory/{entryId}',
+            'verb'         => 'DELETE',
+            'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+'],
+        ],
 
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],

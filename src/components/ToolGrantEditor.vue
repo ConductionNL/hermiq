@@ -81,10 +81,26 @@
 				{{ t('hermiq', 'Only the agent owner can change tool grants.') }}
 			</p>
 
+			<NcCheckboxRadioSwitch
+				:checked.sync="showAllTools"
+				type="switch"
+				class="tool-grants__show-all">
+				{{ t('hermiq', 'Show all tools') }}
+			</NcCheckboxRadioSwitch>
+
 			<NcEmptyContent
 				v-if="!catalog.tools.length"
 				:name="t('hermiq', 'No tools discovered')"
 				:description="t('hermiq', 'No app has exposed any MCP tool to this instance yet.')">
+				<template #icon>
+					<ToolboxOutline :size="20" />
+				</template>
+			</NcEmptyContent>
+
+			<NcEmptyContent
+				v-else-if="!showAllTools && visibleTools.length === 0"
+				:name="t('hermiq', 'No tools granted yet')"
+				:description="t('hermiq', 'Grant a tool below, or turn on \'Show all tools\' to browse the full catalogue.')">
 				<template #icon>
 					<ToolboxOutline :size="20" />
 				</template>
@@ -111,7 +127,7 @@
 					</tr>
 				</thead>
 				<tbody>
-					<tr v-for="tool in catalog.tools" :key="tool.id">
+					<tr v-for="tool in visibleTools" :key="tool.id">
 						<td>
 							<span class="tool-grants__id">{{ tool.id }}</span>
 							<span v-if="tool.description" class="tool-grants__desc">{{ tool.description }}</span>
@@ -160,7 +176,7 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import { NcButton, NcCheckboxRadioSwitch, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import ToolboxOutline from 'vue-material-design-icons/ToolboxOutline.vue'
@@ -172,6 +188,7 @@ export default {
 	components: {
 		ContentSave,
 		NcButton,
+		NcCheckboxRadioSwitch,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -202,6 +219,7 @@ export default {
 			loading: true,
 			saving: false,
 			error: '',
+			showAllTools: false,
 		}
 	},
 
@@ -216,6 +234,32 @@ export default {
 				return true
 			}
 			return this.draftGrants.some((grant, index) => grant !== this.savedGrants[index])
+		},
+
+		/**
+		 * The catalogue tools currently granted to this agent.
+		 *
+		 * @return {Array<object>} The granted catalogue rows.
+		 */
+		grantedTools() {
+			if (!this.catalog) {
+				return []
+			}
+			return this.catalog.tools.filter((tool) => tool.granted === true)
+		},
+
+		/**
+		 * The rows shown in the table: only granted tools by default, or the whole
+		 * catalogue when "Show all tools" is on (still needed to reach an ungranted
+		 * tool's "Grant" action).
+		 *
+		 * @return {Array<object>} The visible catalogue rows.
+		 */
+		visibleTools() {
+			if (!this.catalog) {
+				return []
+			}
+			return this.showAllTools ? this.catalog.tools : this.grantedTools
 		},
 
 		/**
@@ -408,6 +452,10 @@ export default {
 
 .tool-grants__readonly {
 	color: var(--color-text-maxcontrast);
+	margin-block-end: 12px;
+}
+
+.tool-grants__show-all {
 	margin-block-end: 12px;
 }
 

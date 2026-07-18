@@ -94,6 +94,23 @@
 							{{ t('hermiq', 'Forgotten') }}
 						</span>
 						<span class="agent-memory-panel__entry-date">{{ formatDate(entry.createdAt) }}</span>
+						<NcButton
+							v-if="entry.id && !isForgotten(entry)"
+							type="tertiary"
+							:disabled="busy"
+							:aria-label="t('hermiq', 'Remove memory entry')"
+							:title="t('hermiq', 'Remove')"
+							@click="removeEntry(entry.id)">
+							<template #icon>
+								<TrashCanOutlineIcon :size="18" />
+							</template>
+						</NcButton>
+						<span
+							v-else-if="!isForgotten(entry)"
+							class="agent-memory-panel__entry-noremove"
+							:title="t('hermiq', 'This entry predates removal support and has no id — it cannot be removed individually.')">
+							<InformationOutlineIcon :size="14" />
+						</span>
 					</li>
 				</ul>
 			</section>
@@ -103,10 +120,13 @@
 
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcTextField } from '@nextcloud/vue'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import EyeOffIcon from 'vue-material-design-icons/EyeOffOutline.vue'
-import { addMemory, consolidateMemory, getMemory } from '../api/memory.js'
+import InformationOutlineIcon from 'vue-material-design-icons/InformationOutline.vue'
+import TrashCanOutlineIcon from 'vue-material-design-icons/TrashCanOutline.vue'
+import { addMemory, consolidateMemory, forgetMemory, getMemory } from '../api/memory.js'
 
 export default {
 	name: 'AgentMemoryPanel',
@@ -115,11 +135,13 @@ export default {
 		AlertIcon,
 		BrainIcon,
 		EyeOffIcon,
+		InformationOutlineIcon,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
 		NcTextField,
+		TrashCanOutlineIcon,
 	},
 
 	props: {
@@ -252,6 +274,34 @@ export default {
 			this.error = ''
 			try {
 				this.memory = await consolidateMemory(this.agentId)
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
+		 * Remove (soft-delete) one memory entry, then reload. Only offered for entries
+		 * that carry an `id` — entries appended before agent-memory-tools may not.
+		 *
+		 * @param {string} entryId The entry id to forget.
+		 * @return {Promise<void>}
+		 */
+		async removeEntry(entryId) {
+			if (!entryId || !this.agentId) {
+				return
+			}
+			this.busy = true
+			this.error = ''
+			try {
+				const result = await forgetMemory(this.agentId, entryId)
+				if (result && result.found === false) {
+					showError(this.t('hermiq', 'That memory entry could not be found.'))
+				} else {
+					showSuccess(this.t('hermiq', 'Memory entry removed.'))
+				}
+				await this.load()
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
 			} finally {
@@ -407,5 +457,12 @@ export default {
 	color: var(--color-text-maxcontrast);
 	font-size: 12px;
 	white-space: nowrap;
+}
+
+.agent-memory-panel__entry-noremove {
+	display: flex;
+	align-items: center;
+	color: var(--color-text-maxcontrast);
+	flex: 0 0 auto;
 }
 </style>
