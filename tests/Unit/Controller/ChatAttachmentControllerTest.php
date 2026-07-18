@@ -27,6 +27,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ChatAttachmentController;
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\Files\Folder;
 use OCP\Files\IRootFolder;
 use OCP\IL10N;
@@ -75,6 +77,13 @@ class ChatAttachmentControllerTest extends TestCase
     private LoggerInterface $logger;
 
     /**
+     * Mock OpenRegister object service (agent reads for uploadFolder).
+     *
+     * @var ObjectService&MockObject
+     */
+    private ObjectService $objectService;
+
+    /**
      * Temp files created by a test, cleaned up in tearDown().
      *
      * @var array<int, string>
@@ -89,9 +98,10 @@ class ChatAttachmentControllerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->request     = $this->createMock(IRequest::class);
-        $this->rootFolder  = $this->createMock(IRootFolder::class);
-        $this->logger      = $this->createMock(LoggerInterface::class);
+        $this->request       = $this->createMock(IRequest::class);
+        $this->rootFolder    = $this->createMock(IRootFolder::class);
+        $this->logger        = $this->createMock(LoggerInterface::class);
+        $this->objectService = $this->createMock(ObjectService::class);
 
         $user = $this->createMock(IUser::class);
         $user->method('getUID')->willReturn('alice');
@@ -140,7 +150,8 @@ class ChatAttachmentControllerTest extends TestCase
             $this->rootFolder,
             $this->userSession,
             $l10n,
-            $this->logger
+            $this->logger,
+            $this->objectService
         );
 
     }//end controller()
@@ -269,6 +280,74 @@ class ChatAttachmentControllerTest extends TestCase
         $this->assertSame('report.txt', $response->getData()['name']);
 
     }//end testUploadNeverOverwritesAndDeduplicatesPath()
+
+    /**
+     * When an `agentId` is given and that agent carries an `uploadFolder`, the
+     * file lands in the agent's folder (created on demand) and the returned
+     * path reflects it — not the default `Hermiq/Attachments/`.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-agent-files/specs/agent-files/spec.md#requirement-chat-attachments-are-stored-in-the-agents-configured-upload-folder
+     */
+    public function testUploadUsesAgentUploadFolder(): void
+    {
+        $this->stubUpload(content: 'Agent note', name: 'note.txt');
+        $this->request->method('getParam')->with('agentId', '')->willReturn('agent-uuid-1');
+
+        $agent = new ObjectEntity();
+        $agent->setUuid('agent-uuid-1');
+        $agent->setObject(['uploadFolder' => 'Projects/AgentX']);
+        $this->objectService->method('find')->willReturn($agent);
+
+        $attachmentsFolder = $this->createMock(Folder::class);
+        $attachmentsFolder->method('getNonExistingName')->willReturnCallback(
+            static fn (string $name): string => $name
+        );
+        $attachmentsFolder->expects($this->once())->method('newFile')->with('note.txt', 'Agent note');
+
+        $userFolder = $this->createMock(Folder::class);
+        $userFolder->method('nodeExists')->with('Projects/AgentX')->willReturn(false);
+        $userFolder->expects($this->once())->method('newFolder')->with('Projects/AgentX');
+        $userFolder->method('get')->with('Projects/AgentX')->willReturn($attachmentsFolder);
+        $this->rootFolder->method('getUserFolder')->with('alice')->willReturn($userFolder);
+
+        $response = $this->controller()->upload();
+
+        $this->assertSame(200, $response->getStatus());
+        $this->assertSame('Projects/AgentX/note.txt', $response->getData()['path']);
+
+    }//end testUploadUsesAgentUploadFolder()
+
+    /**
+     * A hostile `uploadFolder` (traversal) on the agent is void: the upload
+     * falls back to the default `Hermiq/Attachments/` rather than escaping the
+     * acting user's Files.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-agent-files/specs/agent-files/spec.md#requirement-chat-attachments-are-stored-in-the-agents-configured-upload-folder
+     */
+    public function testUploadSanitisesTraversalInAgentFolder(): void
+    {
+        $this->stubUpload(content: 'Safe', name: 'note.txt');
+        $this->request->method('getParam')->with('agentId', '')->willReturn('agent-uuid-1');
+
+        $agent = new ObjectEntity();
+        $agent->setUuid('agent-uuid-1');
+        $agent->setObject(['uploadFolder' => '../../../../etc/cron.d']);
+        $this->objectService->method('find')->willReturn($agent);
+
+        // Falls back to the default folder — proves no traversal reached storage.
+        $folders = $this->freshAttachmentsFolder();
+        $folders['attachmentsFolder']->expects($this->once())->method('newFile')->with('note.txt', 'Safe');
+
+        $response = $this->controller()->upload();
+
+        $this->assertSame(200, $response->getStatus());
+        $this->assertSame('Hermiq/Attachments/note.txt', $response->getData()['path']);
+
+    }//end testUploadSanitisesTraversalInAgentFolder()
 
     /**
      * A binary (non-UTF-8) upload is rejected with 400 and nothing is written.
