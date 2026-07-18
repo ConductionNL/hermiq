@@ -8,8 +8,10 @@
   Extracted from AgentMemory.vue so the same panel renders both on the standalone
   Memory nav page and in-place on the agent detail page — one implementation, no
   duplicated markup. Given an `agentId`, it loads the agent's Memory and offers the
-  char-budget bar, the needsConsolidation nudge with a manual Consolidate action, an
-  add-a-fact input, and the entry list. All reads/writes go through the tenant-scoped
+  char-budget meter (shared BudgetMeter component — hermiq's budget-shaped
+  quantities are unified in presentation only, never merged into one number),
+  the needsConsolidation nudge with a manual Consolidate action, an add-a-fact
+  input, and the entry list. All reads/writes go through the tenant-scoped
   MemoryController endpoints (src/api/memory.js).
 
   @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
@@ -25,15 +27,14 @@
 		</div>
 
 		<template v-else-if="agentId">
-			<!-- Char-budget bar + consolidation nudge -->
+			<!-- Char-budget meter + consolidation nudge -->
 			<section class="agent-memory-panel__budget">
-				<div class="agent-memory-panel__budget-head">
-					<span class="agent-memory-panel__budget-label">{{ t('hermiq', 'Memory budget') }}</span>
-					<span class="agent-memory-panel__budget-count">{{ charCount }} / {{ charBudget }} {{ t('hermiq', 'characters') }}</span>
-				</div>
-				<div class="agent-memory-panel__budget-bar" :class="{ 'agent-memory-panel__budget-bar--over': memory.needsConsolidation }">
-					<div class="agent-memory-panel__budget-fill" :style="{ width: budgetPct + '%' }" />
-				</div>
+				<BudgetMeter
+					:label="t('hermiq', 'Memory')"
+					:used="charCount"
+					:limit="charBudget"
+					:unit="t('hermiq', 'characters')"
+					:over="memory.needsConsolidation" />
 				<div v-if="memory.needsConsolidation" class="agent-memory-panel__nudge">
 					<AlertIcon :size="18" class="agent-memory-panel__nudge-icon" />
 					<span>{{ t('hermiq', 'Over budget — consolidation suggested. No entries were dropped.') }}</span>
@@ -127,6 +128,7 @@ import EyeOffIcon from 'vue-material-design-icons/EyeOffOutline.vue'
 import InformationOutlineIcon from 'vue-material-design-icons/InformationOutline.vue'
 import TrashCanOutlineIcon from 'vue-material-design-icons/TrashCanOutline.vue'
 import { addMemory, consolidateMemory, forgetMemory, getMemory } from '../api/memory.js'
+import BudgetMeter from './BudgetMeter.vue'
 
 export default {
 	name: 'AgentMemoryPanel',
@@ -134,6 +136,7 @@ export default {
 	components: {
 		AlertIcon,
 		BrainIcon,
+		BudgetMeter,
 		EyeOffIcon,
 		InformationOutlineIcon,
 		NcButton,
@@ -192,18 +195,6 @@ export default {
 		 */
 		charBudget() {
 			return Number(this.memory.charBudget) || 8000
-		},
-
-		/**
-		 * The budget-bar fill percentage (capped at 100).
-		 *
-		 * @return {number} The percentage.
-		 */
-		budgetPct() {
-			if (this.charBudget <= 0) {
-				return 0
-			}
-			return Math.min(100, Math.round((this.charCount / this.charBudget) * 100))
 		},
 	},
 
@@ -352,35 +343,6 @@ export default {
 	border-radius: var(--border-radius-large, 8px);
 	padding: 12px 16px;
 	margin-bottom: 16px;
-}
-
-.agent-memory-panel__budget-head {
-	display: flex;
-	justify-content: space-between;
-	margin-bottom: 8px;
-	font-weight: 600;
-}
-
-.agent-memory-panel__budget-count {
-	color: var(--color-text-maxcontrast);
-	font-weight: normal;
-}
-
-.agent-memory-panel__budget-bar {
-	height: 8px;
-	background: var(--color-background-dark);
-	border-radius: 4px;
-	overflow: hidden;
-}
-
-.agent-memory-panel__budget-fill {
-	height: 100%;
-	background: var(--color-primary-element);
-	transition: width 0.3s ease;
-}
-
-.agent-memory-panel__budget-bar--over .agent-memory-panel__budget-fill {
-	background: var(--color-error);
 }
 
 .agent-memory-panel__nudge {
