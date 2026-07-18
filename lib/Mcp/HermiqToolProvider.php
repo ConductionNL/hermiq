@@ -827,10 +827,15 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
     }//end rememberedResult()
 
     /**
-     * Search the agent's own Memory/UserProfile entries and past SessionTurns for a
+     * Search the agent's own Memory/UserProfile entries and past conversation turns for a
      * query — agent-memory-tools' self-service recall. Reuses the SAME OpenRegister
      * search substrate `recallSessions()` already uses (`MemoryService::recallEntries()`
      * + `recallSessions()`, merged into one result) — no second search index.
+     *
+     * The turn half reads the LIVE conversation/message store. It previously searched the
+     * `agentsessionturn` schema, which nothing ever wrote (0 rows against 297 messages on
+     * the reference instance), so this tool has never once returned a turn — and returning
+     * nothing is indistinguishable from "no match", which is why it went unnoticed.
      *
      * @param string               $uid       The acting user id (whose own UserProfile
      *                                        is also searched).
@@ -908,20 +913,35 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
     }//end forgetMemory()
 
     /**
-     * Shape a SessionTurn ObjectEntity into the recall result's turn payload.
+     * Shape a recalled Message ObjectEntity into the recall result's turn payload.
      *
-     * @param ObjectEntity $turn The SessionTurn object.
+     * `Message` carries `role` and `content` like the retired `SessionTurn` did, but its
+     * timestamp is OpenRegister metadata (`_created`), not an object property — reading
+     * `$data['createdAt']` here would hand every recalled turn an empty date, which is
+     * exactly the kind of quiet nothing this change is removing. `conversationId` is
+     * included so a recalled turn can be traced back to the session it came from.
+     *
+     * @param ObjectEntity $turn The Message object.
      *
      * @return array<string, string> The shaped turn.
+     *
+     * @spec openspec/changes/session-store-consolidation/specs/agent-memory/spec.md#requirement-cross-session-recall-via-or-search
      */
     private function shapeSessionTurn(ObjectEntity $turn): array
     {
         $data = $turn->getObject();
 
+        $createdAt = '';
+        $created   = $turn->getCreated();
+        if ($created !== null) {
+            $createdAt = $created->format('c');
+        }
+
         return [
-            'role'      => (string) ($data['role'] ?? ''),
-            'content'   => (string) ($data['content'] ?? ''),
-            'createdAt' => (string) ($data['createdAt'] ?? ''),
+            'role'           => (string) ($data['role'] ?? ''),
+            'content'        => (string) ($data['content'] ?? ''),
+            'createdAt'      => $createdAt,
+            'conversationId' => (string) ($data['conversationId'] ?? ''),
         ];
 
     }//end shapeSessionTurn()

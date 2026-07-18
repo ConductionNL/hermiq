@@ -61,8 +61,10 @@ namespace OCA\Hermiq\Service\Engine;
 use Exception;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Cron\ConversationTitleJob;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -113,13 +115,6 @@ class Engine
     private const CONVERSATION_SCHEMA = 'conversation';
 
     /**
-     * Schema slug for message objects.
-     *
-     * @var string
-     */
-    private const MESSAGE_SCHEMA = 'message';
-
-    /**
      * Constructor.
      *
      * @param ObjectService                 $objectService          OpenRegister object read/write.
@@ -142,6 +137,15 @@ class Engine
      *                                                              configured" — fail-open,
      *                                                              design.md Decision 1); real DI
      *                                                              always provides it.
+     * @param IJobList|null                 $jobList                Queues the conversation-title job
+     *                                                              so naming never sits on the reply's
+     *                                                              critical path
+     *                                                              (session-context-performance).
+     *                                                              Nullable/defaulted for the same
+     *                                                              backward-compat reason; a null list
+     *                                                              simply means no title is queued —
+     *                                                              the reply is unaffected, which is
+     *                                                              the point of deferring it.
      *
      * @return void
      *
@@ -157,7 +161,8 @@ class Engine
         private readonly MessageHistoryHandler $historyHandler,
         private readonly ContextAssembler $contextAssembler,
         private readonly LoggerInterface $logger,
-        private readonly ?GuardrailPolicyService $guardrailPolicyService=null
+        private readonly ?GuardrailPolicyService $guardrailPolicyService=null,
+        private readonly ?IJobList $jobList=null
     ) {
     }//end __construct()
 
@@ -420,11 +425,16 @@ class Engine
                 sources: $context['sources']
             );
 
-            // Generate a title if this is the first exchange.
-            $this->maybeGenerateTitle(
-                conversation: $conversation,
+            // Name the conversation OFF this path. Naming is a second LLM round trip —
+            // on the `cli` transport a second `claude` process, ~20s of a ~65s wall — and
+            // nothing below depends on the title, so the user should not wait for it.
+            // ConversationTitleWriter re-reads the conversation and re-checks whether it
+            // still wants a title, so the decision stays correct even though it is made
+            // later.
+            $this->queueTitleGeneration(
                 conversationId: $conversationId,
-                userMessage: $userMessage
+                userMessage: $userMessage,
+                userId: $userId
             );
 
             $totalTime = ($contextTime + $historyTime + $llmTime);
@@ -502,75 +512,51 @@ class Engine
     }//end ensureUniqueTitle()
 
     /**
-     * Generate and persist a conversation title when this is the first exchange
-     * (message count <= 2 and the current title is unset or a "New Conversation"
-     * placeholder).
+     * Queue the conversation-title generation instead of running it inline.
      *
-     * The persisted-count probe fetches at most 3 Message objects — enough to
-     * decide `count <= 2` — instead of a full count query (the ported original
-     * used `MessageMapper::countByConversation()`; ObjectService's `count()`
-     * needs ambient register/schema context, and a limit-3 fetch is equivalent
-     * for a boolean threshold this small).
+     * Naming a conversation costs a second LLM round trip — on the `cli` transport a
+     * whole second `claude` process. It used to run synchronously right after the
+     * reply was stored, so the user waited ~20s of a ~65s wall for a string they had
+     * not asked for and were not yet reading.
      *
-     * NOTE (save-side gotcha, load-bearing): the payload is routed through
-     * `sanitizeForSave()` and the `$conversation` entity is NOT re-read after
-     * `saveObject()` — the returned in-memory entity is stale by contract.
+     * Only the enqueue happens here. Whether the conversation actually wants a title
+     * is decided by ConversationTitleWriter at write time, against a fresh read —
+     * which is strictly more correct than deciding it here: by the time the job runs
+     * the user may have titled the conversation themselves, and a snapshot taken now
+     * would happily overwrite them.
      *
-     * @param ObjectEntity $conversation   The Conversation object (pre-save state).
-     * @param string       $conversationId The conversation UUID.
-     * @param string       $userMessage    The user message to derive a title from.
+     * A null `$jobList` (test callers constructed before this parameter existed)
+     * simply means no title is queued. That is a safe default precisely because the
+     * title is not on the reply's path.
+     *
+     * @param string $conversationId The conversation UUID.
+     * @param string $userMessage    The user message to name the conversation from.
+     * @param string $userId         The conversation owner, carried into the job so it can
+     *                               run as them. A job has no session, and naming needs an
+     *                               identity twice over: the credential broker will not
+     *                               resolve a provider credential for an anonymous
+     *                               principal, and OpenRegister RBAC refuses the write.
      *
      * @return void
+     *
+     * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
      */
-    private function maybeGenerateTitle(
-        ObjectEntity $conversation,
-        string $conversationId,
-        string $userMessage
-    ): void {
-        $recentMessages = $this->objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::MESSAGE_SCHEMA)
-            ->findAll(
-                config: [
-                    'filters' => ['conversationId' => $conversationId],
-                    'limit'   => 3,
-                ]
-            );
-        $messageCount   = count($recentMessages);
-
-        $conversationData    = $conversation->getObject();
-        $currentTitle        = $conversationData['title'] ?? null;
-        $isNewConversation   = ($currentTitle === null || strpos($currentTitle, 'New Conversation') === 0);
-        $shouldGenerateTitle = ($messageCount <= 2 && $isNewConversation === true);
-
-        if ($shouldGenerateTitle === false) {
+    private function queueTitleGeneration(string $conversationId, string $userMessage, string $userId): void
+    {
+        if ($this->jobList === null) {
             return;
         }
 
-        // Tenant-model-policy: the conversation already carries its organisation
-        // (ObjectEntity metadata) — no new lookup needed to enforce the effective
-        // policy on this background title-generation call too.
-        $organisation = (string) ($conversation->getOrganisation() ?? '');
-        $title        = $this->conversationHandler->generateConversationTitle(firstMessage: $userMessage, organisation: $organisation);
-        $agentId      = $conversationData['agentId'] ?? null;
-        if (is_string($agentId) === true && $agentId !== '') {
-            $title = $this->conversationHandler->ensureUniqueTitle(
-                baseTitle: $title,
-                userId: (string) ($conversationData['userId'] ?? ''),
-                agentId: $agentId
-            );
-        }
-
-        $conversationData['title'] = $title;
-
-        $this->objectService->saveObject(
-            object: $this->sanitizeForSave(data: $conversationData),
-            register: self::REGISTER_SLUG,
-            schema: self::CONVERSATION_SCHEMA,
-            uuid: $conversationId
+        $this->jobList->add(
+            ConversationTitleJob::class,
+            [
+                'conversationId' => $conversationId,
+                'userMessage'    => $userMessage,
+                'userId'         => $userId,
+            ]
         );
 
-    }//end maybeGenerateTitle()
+    }//end queueTitleGeneration()
 
     /**
      * Resolve the effective GuardrailPolicy for an organisation, or the
