@@ -38,6 +38,7 @@ use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
+use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\IUser;
@@ -81,7 +82,7 @@ class TestableChatStreamController extends ChatStreamController
     /**
      * Whether a terminal frame has been emitted (production exited).
      *
-     * @var bool
+     * @var boolean
      */
     private bool $terminated = false;
 
@@ -219,13 +220,25 @@ class ChatStreamControllerTest extends TestCase
      *
      * @return TestableChatStreamController
      */
-    private function makeController(string $body='', string $companionAgentUuid=''): TestableChatStreamController
+    private function makeController(string $body='', string $companionAgentUuid='', string $userDefaultAgentUuid=''): TestableChatStreamController
     {
         $appConfig = $this->createMock(IAppConfig::class);
         $appConfig->method('getValueString')->willReturnCallback(
             static function (string $app, string $key, string $default='') use ($companionAgentUuid): string {
                 if ($key === 'companion_agent_uuid') {
                     return $companionAgentUuid;
+                }
+
+                return $default;
+            }
+        );
+
+        // Per-user default agent, stored by PreferencesController under `pref_default-agent`.
+        $config = $this->createMock(IConfig::class);
+        $config->method('getUserValue')->willReturnCallback(
+            static function (string $uid, string $app, string $key, $default='') use ($userDefaultAgentUuid) {
+                if ($key === 'pref_default-agent') {
+                    return $userDefaultAgentUuid;
                 }
 
                 return $default;
@@ -239,7 +252,8 @@ class ChatStreamControllerTest extends TestCase
             $this->userSession,
             $this->createMock(IDBConnection::class),
             $this->createMock(LoggerInterface::class),
-            $appConfig
+            $appConfig,
+            $config
         );
         $controller->requestBody = $body;
         return $controller;
@@ -277,6 +291,85 @@ class ChatStreamControllerTest extends TestCase
         $this->assertSame('configured-agent-uuid', $method->invoke($controller, 'alice'));
 
     }//end testConfiguredCompanionAgentIsPreferred()
+
+    /**
+     * The user's own default agent wins over the instance-wide companion agent.
+     *
+     * A per-user choice at the top tier: if it did not beat the app-config default,
+     * setting a personal default would silently do nothing whenever an admin default is
+     * also configured. `find()` is asserted to run exactly ONCE — proof the app-config
+     * tier is never consulted, since reaching it would be a second `find()`.
+     *
+     * @return void
+     */
+    public function testUserDefaultAgentBeatsTheConfiguredCompanionAgent(): void
+    {
+        $this->authenticate('alice');
+
+        $mine = $this->createMock(ObjectEntity::class);
+        $mine->method('getUuid')->willReturn('my-default-uuid');
+        $mine->method('getObject')->willReturn(['isPrivate' => false]);
+
+        $this->objectService->expects($this->once())
+            ->method('find')
+            ->willReturn($mine);
+        $this->objectService->expects($this->never())->method('findAll');
+
+        $controller = $this->makeController(
+            companionAgentUuid: 'admin-default-uuid',
+            userDefaultAgentUuid: 'my-default-uuid'
+        );
+
+        $method = new \ReflectionMethod($controller, 'pickFallbackAgentForUser');
+        $method->setAccessible(true);
+        $this->assertSame('my-default-uuid', $method->invoke($controller, 'alice'));
+
+    }//end testUserDefaultAgentBeatsTheConfiguredCompanionAgent()
+
+    /**
+     * A per-user default the user can no longer access falls through to the next tier.
+     *
+     * The stored UUID is a preference, not an authorization: revoking access must not
+     * strand the user on an agent they cannot use. Here the user default is private and
+     * not theirs, so it fails canUserAccessAgent() and the accessible app-config agent
+     * is used instead.
+     *
+     * @return void
+     */
+    public function testUserDefaultAgentFallsThroughWhenInaccessible(): void
+    {
+        $this->authenticate('alice');
+
+        $mineInaccessible = $this->createMock(ObjectEntity::class);
+        $mineInaccessible->method('getUuid')->willReturn('my-default-uuid');
+        // Private and owned by someone else → canUserAccessAgent() false.
+        $mineInaccessible->method('getObject')->willReturn(['isPrivate' => true, 'owner' => 'bob']);
+
+        $configured = $this->createMock(ObjectEntity::class);
+        $configured->method('getUuid')->willReturn('admin-default-uuid');
+        $configured->method('getObject')->willReturn(['isPrivate' => false]);
+
+        // find() is called twice: once for the (inaccessible) user default, once for the
+        // (accessible) configured agent. The scan must not run.
+        $this->objectService->expects($this->exactly(2))
+            ->method('find')
+            ->willReturnCallback(
+                function (string | int $id) use ($mineInaccessible, $configured): ObjectEntity {
+                    return $id === 'my-default-uuid' ? $mineInaccessible : $configured;
+                }
+            );
+        $this->objectService->expects($this->never())->method('findAll');
+
+        $controller = $this->makeController(
+            companionAgentUuid: 'admin-default-uuid',
+            userDefaultAgentUuid: 'my-default-uuid'
+        );
+
+        $method = new \ReflectionMethod($controller, 'pickFallbackAgentForUser');
+        $method->setAccessible(true);
+        $this->assertSame('admin-default-uuid', $method->invoke($controller, 'alice'));
+
+    }//end testUserDefaultAgentFallsThroughWhenInaccessible()
 
     /**
      * When no companion agent is configured, the controller falls back to the

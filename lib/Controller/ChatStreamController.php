@@ -45,6 +45,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\Response;
 use OCP\IAppConfig;
+use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -113,6 +114,21 @@ class ChatStreamController extends Controller
     private const COMPANION_AGENT_CONFIG_KEY = 'companion_agent_uuid';
 
     /**
+     * Per-user config key holding the UUID of the user's chosen default agent.
+     *
+     * Written by the personal-settings picker through `PreferencesController`, which
+     * stores every preference under the `pref_` prefix, so the stored key is
+     * `pref_default-agent`. Read here as the HIGHEST-precedence tier: a user's own
+     * choice beats the instance-wide `companion_agent_uuid`, which beats the
+     * access-scoped scan. The stored value is a preference, never an authorization —
+     * `canUserAccessAgent()` re-checks it on every read, so a UUID the user can no
+     * longer reach simply falls through to the next tier.
+     *
+     * @var string
+     */
+    private const DEFAULT_AGENT_PREF_KEY = 'pref_default-agent';
+
+    /**
      * Schema slug for conversation objects.
      *
      * @var string
@@ -140,6 +156,8 @@ class ChatStreamController extends Controller
      *                                       transaction before the SSE handler bypasses the
      *                                       framework via exit; (connection-leak mitigation).
      * @param LoggerInterface $logger        PSR-3 logger.
+     * @param IAppConfig      $appConfig     Reads the instance-wide `companion_agent_uuid`.
+     * @param IConfig         $config        Reads the per-user `pref_default-agent` preference.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
      */
@@ -151,6 +169,7 @@ class ChatStreamController extends Controller
         private readonly IDBConnection $db,
         private readonly LoggerInterface $logger,
         private readonly IAppConfig $appConfig,
+        private readonly IConfig $config,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -552,24 +571,73 @@ class ChatStreamController extends Controller
     }//end emitSseHeaders()
 
     /**
-     * Find an agent the current user is allowed to start a conversation with.
+     * Resolve which agent the companion widget starts a conversation with.
      *
-     * Iterates agents (bounded fetch) and returns the first uuid whose access
-     * check passes — non-private OR owned-by-user OR invited (the same
-     * semantics OR's AgentMapper::canUserAccessAgent applied). Falls back to
-     * '' when no accessible agent exists. NEVER returns "the first agent
-     * regardless of owner": that caused cross-user data exposure in
-     * multi-user deployments.
+     * Three tiers, highest precedence first, each gated by the SAME access check so a
+     * stored UUID is never treated as evidence of access:
+     *   1. the user's own default agent (`pref_default-agent`, set in personal settings);
+     *   2. the instance-wide companion agent (`companion_agent_uuid` app-config);
+     *   3. the first agent the user can access (bounded scan) — non-private OR
+     *      owned-by-user OR invited, the semantics OR's AgentMapper::canUserAccessAgent
+     *      applies.
+     * Falls back to '' when no accessible agent exists. NEVER returns "the first agent
+     * regardless of owner": that caused cross-user data exposure in multi-user
+     * deployments. An inaccessible or missing agent at any tier falls through to the
+     * next rather than erroring the chat.
      *
      * @param string $userId Nextcloud user id.
      *
      * @return string The accessible agent uuid, or '' when none is found.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+     * @spec openspec/changes/default-companion-agent/specs/default-companion-agent/spec.md#requirement-the-companion-agent-resolves-by-per-user-then-app-config-then-first-accessible-precedence
      */
     private function pickFallbackAgentForUser(string $userId): string
     {
-        // Prefer the admin-configured companion agent when one is set AND the
+        // Highest precedence: the user's OWN chosen default agent. A per-user choice
+        // must win over the instance-wide companion agent — otherwise setting a personal
+        // default would do nothing whenever an admin default is also configured. The
+        // stored value is a preference, not an authorization: canUserAccessAgent()
+        // re-checks it here, so a default the user can no longer access (revoked,
+        // deleted) falls through to the tiers below rather than erroring the chat.
+        $preferredUuid = trim(
+            $this->config->getUserValue($userId, Application::APP_ID, self::DEFAULT_AGENT_PREF_KEY, '')
+        );
+        if ($preferredUuid !== '') {
+            try {
+                $preferredAgent = $this->objectService->find(
+                    id: $preferredUuid,
+                    register: self::REGISTER_SLUG,
+                    schema: self::AGENT_SCHEMA
+                );
+                if (($preferredAgent instanceof ObjectEntity) === true
+                    && $this->canUserAccessAgent(agent: $preferredAgent, userId: $userId) === true
+                ) {
+                    return (string) $preferredAgent->getUuid();
+                }
+
+                $this->logger->info(
+                    message: '[ChatStreamController] User default agent is missing or inaccessible; falling through',
+                    context: [
+                        'file'      => __FILE__,
+                        'line'      => __LINE__,
+                        'agentUuid' => $preferredUuid,
+                        'userId'    => $userId,
+                    ]
+                );
+            } catch (Throwable $e) {
+                $this->logger->warning(
+                    message: '[ChatStreamController] User default agent lookup failed; falling through',
+                    context: [
+                        'file'  => __FILE__,
+                        'line'  => __LINE__,
+                        'error' => $e->getMessage(),
+                    ]
+                );
+            }//end try
+        }//end if
+
+        // Next: the admin-configured companion agent when one is set AND the
         // current user may access it. This makes the widget deterministic —
         // otherwise the agent is whichever the register happens to return first,
         // which on a busy instance is arbitrary and can be a misconfigured test
