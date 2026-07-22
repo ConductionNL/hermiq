@@ -203,6 +203,23 @@ class ToolLoop
 
         $functions = $this->resolveFunctions(whitelist: $whitelist);
 
+        // An agent that WAS granted tools but resolved to none is broken, not
+        // tool-less: downstream both look like an empty function list, so the run
+        // would continue text-only and every layer would report success while the
+        // agent silently lost every capability it was configured with. Raise it
+        // here, the last point where both facts are still known.
+        if ($this->grantResolver->resolvesToNothing(grants: $whitelist, resolvedTools: $functions) === true) {
+            $this->logger->error(
+                message: '[ToolLoop] Agent tool grants resolved to no tools',
+                context: [
+                    'file'   => __FILE__,
+                    'line'   => __LINE__,
+                    'grants' => $whitelist,
+                ]
+            );
+            throw new ToolGrantResolutionException(grants: $whitelist);
+        }
+
         $this->logger->debug(
             message: '[ToolLoop] Resolved agent tool functions',
             context: [
@@ -251,6 +268,16 @@ class ToolLoop
             // "empty whitelist" path — post-filter the already-fetched catalog
             // rather than re-querying the facade with a concrete id list.
             return $this->filterDescriptorsByIds(descriptors: $catalog, allowedIds: $resolvedIds);
+        }
+
+        if ($resolvedIds === []) {
+            // The grants expanded to NOTHING. Never hand that to the facade: an
+            // empty whitelist there means "all tools allowed", so a grant that
+            // matched nothing would silently escalate into a grant of the entire
+            // catalog, destructive tools included — the exact inverse of the
+            // failure this method's caller guards against. Return the honest
+            // empty set and let listAgentFunctions() raise on it.
+            return [];
         }
 
         return $this->toolRegistryFacade->listTools(toolWhitelist: $resolvedIds);
@@ -487,6 +514,15 @@ class ToolLoop
             }
 
             $expanded[] = $id;
+
+            // The no-tools sentinel is a marker, not a legacy bare tool id —
+            // expanding it to `openregister.__none__` would leave a grant list
+            // that no longer reads as "deliberately tool-less", and the
+            // resolves-to-nothing guard would then reject a perfectly valid agent.
+            if ($id === ToolGrantResolver::NO_TOOLS_SENTINEL) {
+                continue;
+            }
+
             if (str_contains($id, '.') === false) {
                 $expanded[] = 'openregister.'.$id;
             }

@@ -74,7 +74,9 @@ cat > "${BODY_FILE}" <<JSON
 }
 JSON
 
-sig() { openssl dgst -sha256 -hmac "${APP_SECRET}" "$1" | sed 's/^.*= *//'; }
+# AppAPI 34 authenticates with AUTHORIZATION-APP-API = base64(userId:secret),
+# no request signature. A valid header carries the real shared secret.
+AUTH_APP="$(printf 'user:%s' "${APP_SECRET}" | base64 | tr -d '\n')"
 
 # =============================================================================
 # (a) POST /run WITHOUT the shared secret -> rejected before any CLI runs
@@ -97,28 +99,26 @@ else
     fail "(a) CLI ran before auth check (stub log grew)"
 fi
 
-# Also verify a wrong signature is rejected (403), still before any CLI runs.
+# Also verify a wrong shared secret is rejected (403), still before any CLI runs.
+# 'dXNlcjpzZWNyZXQ=' is base64('user:secret') — a secret that is NOT our APP_SECRET.
 code=$(curl -s -o /dev/null -w '%{http_code}' \
     -X POST "http://127.0.0.1:${PORT}/run" \
     -H 'Content-Type: application/json' \
     -H "EX-APP-ID: ${APP_ID}" \
     -H 'AUTHORIZATION-APP-API: dXNlcjpzZWNyZXQ=' \
-    -H 'AA-SIGNATURE: deadbeefdeadbeef' \
     --data-binary "@${BODY_FILE}")
 [ "${code}" = "403" ] \
-    && pass "(a) invalid signature rejected with 403" \
-    || fail "(a) expected 403 for bad signature, got ${code}"
+    && pass "(a) wrong shared secret rejected with 403" \
+    || fail "(a) expected 403 for wrong secret, got ${code}"
 
 # =============================================================================
 # (b) POST /run WITH the secret + stubbed CLI -> returns a completion
 # =============================================================================
-SIG="$(sig "${BODY_FILE}")"
 code=$(curl -s -o "${WORK}/ok.json" -w '%{http_code}' \
     -X POST "http://127.0.0.1:${PORT}/run" \
     -H 'Content-Type: application/json' \
     -H "EX-APP-ID: ${APP_ID}" \
-    -H 'AUTHORIZATION-APP-API: dXNlcjpzZWNyZXQ=' \
-    -H "AA-SIGNATURE: ${SIG}" \
+    -H "AUTHORIZATION-APP-API: ${AUTH_APP}" \
     --data-binary "@${BODY_FILE}")
 
 if [ "${code}" = "200" ]; then
@@ -214,6 +214,49 @@ if grep -Eq 'iptables -A OUTPUT .*-j ACCEPT.*0\.0\.0\.0/0' "${ENTRY}"; then
 else
     pass "(d) egress-entrypoint.sh has no wildcard ACCEPT rule"
 fi
+
+# =============================================================================
+# (e) AppAPI lifecycle: PUT /enabled must authenticate and return NO error key.
+#     AppAPI reads response.error to decide enable success; the generic 404
+#     ({error:'not found'}) would fail every `occ app_api:app:enable`.
+# =============================================================================
+# Unauthenticated /enabled is rejected before any state change.
+code=$(curl -s -o /dev/null -w '%{http_code}' \
+    -X PUT "http://127.0.0.1:${PORT}/enabled?enabled=1")
+[ "${code}" = "401" ] \
+    && pass "(e) unauthenticated /enabled rejected with 401" \
+    || fail "(e) expected 401 for unauthenticated /enabled, got ${code}"
+
+# Authenticated /enabled returns 200 with an empty-error body (success).
+code=$(curl -s -o "${WORK}/enabled.json" -w '%{http_code}' \
+    -X PUT "http://127.0.0.1:${PORT}/enabled?enabled=1" \
+    -H "EX-APP-ID: ${APP_ID}" \
+    -H "AUTHORIZATION-APP-API: ${AUTH_APP}")
+if [ "${code}" = "200" ] && ! grep -q '"error"' "${WORK}/enabled.json"; then
+    pass "(e) authenticated /enabled returned 200 with no error key"
+else
+    fail "(e) /enabled did not succeed cleanly (code ${code})"; cat "${WORK}/enabled.json" || true
+fi
+
+# =============================================================================
+# (f) Governed-MCP argv lockdown + 0600 config file (runner.mcp.test.js)
+# =============================================================================
+if node --test "${ROOT}/test/runner.mcp.test.js" > "${WORK}/mcp.log" 2>&1; then
+    pass "(f) governed-MCP runner tests (argv lockdown, 0600 file, token off argv)"
+else
+    fail "(f) governed-MCP runner tests failed"; cat "${WORK}/mcp.log" || true
+fi
+
+# =============================================================================
+# (g) Governed egress proxy: fail-closed on every PDP failure, per-run token
+# =============================================================================
+if node --test "${ROOT}/test/egress.proxy.test.js" > "${WORK}/egress.log" 2>&1; then
+    pass "(g) governed egress-proxy tests (default-deny, fail-closed, per-run token)"
+else
+    fail "(g) governed egress-proxy tests failed"; cat "${WORK}/egress.log" || true
+fi
+
+# =============================================================================
 
 # =============================================================================
 echo

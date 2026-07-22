@@ -30,6 +30,7 @@ use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Service\Engine\ToolGrantResolutionException;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\ToolSearchService;
@@ -159,7 +160,10 @@ class ToolLoopTest extends TestCase
         $facade->expects($this->once())
             ->method('listTools')
             ->with(['decidesk.listMeetings', 'objects', 'openregister.objects'])
-            ->willReturn([]);
+            // A resolving grant set: this test is about the whitelist that REACHES
+            // the facade, and an empty return would now (correctly) raise as
+            // "grants matched nothing" before the assertion could matter.
+            ->willReturn([['name' => 'decidesk_listMeetings']]);
 
         $loop = $this->loop(facade: $facade);
         $loop->listAgentFunctions(agent: $this->agent(tools: ['decidesk.listMeetings', 'objects']));
@@ -179,7 +183,7 @@ class ToolLoopTest extends TestCase
         $facade->expects($this->once())
             ->method('listTools')
             ->with(['a.one'])
-            ->willReturn([]);
+            ->willReturn([['name' => 'a_one']]);
 
         $loop = $this->loop(facade: $facade);
         $loop->listAgentFunctions(
@@ -227,7 +231,7 @@ class ToolLoopTest extends TestCase
         $facade->expects($this->once())
             ->method('listTools')
             ->with(['a.one'])
-            ->willReturn([]);
+            ->willReturn([['name' => 'a_one']]);
 
         $loop = $this->loop(facade: $facade);
         $loop->listAgentFunctions(agent: $this->agent(tools: []), selectedTools: ['a.one']);
@@ -276,6 +280,91 @@ class ToolLoopTest extends TestCase
         $this->assertSame($resolved, $result);
 
     }//end testWildcardGrantIsExpandedAgainstCatalogBeforeFacadeQuery()
+
+    /**
+     * A wildcard grant that expands to NOTHING must never re-query the facade
+     * with the resulting empty id list.
+     *
+     * Regression — privilege ESCALATION, the inverse of a silent zero: an empty
+     * whitelist means "all tools allowed" to the facade, so passing an empty
+     * RESOLVED set straight through turned a grant that matched nothing into a
+     * grant of the ENTIRE catalog, destructive tools included. The wildcard
+     * expanding to zero is exactly the case where that happens (the grant names a
+     * schema whose derived verb ids the catalog does not carry), and it is
+     * indistinguishable at the facade from a legitimate "all" request.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     */
+    public function testWildcardGrantExpandingToNothingNeverRequeriesTheFacadeWithAnEmptyWhitelist(): void
+    {
+        // The catalog carries no `openregister.schema.*` derived ids at all, so
+        // the wildcard expands to zero.
+        $catalog = [
+            ['name' => 'list_schemas'],
+            ['name' => 'delete_schema'],
+        ];
+
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        // Exactly ONE call — fetching the catalog to expand against. A second
+        // call would necessarily carry the empty (= "all") whitelist.
+        $facade->expects($this->once())
+            ->method('listTools')
+            ->with([])
+            ->willReturn($catalog);
+
+        $loop = $this->loop(facade: $facade);
+
+        $this->expectException(ToolGrantResolutionException::class);
+        $loop->listAgentFunctions(agent: $this->agent(tools: ['openregister.schema.*']));
+
+    }//end testWildcardGrantExpandingToNothingNeverRequeriesTheFacadeWithAnEmptyWhitelist()
+
+    /**
+     * Grants that were configured but match nothing raise, rather than degrading
+     * to a silent text-only run.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     */
+    public function testGrantsResolvingToNoToolsRaise(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->method('listTools')->willReturn([]);
+
+        $loop = $this->loop(facade: $facade);
+
+        // `openregister.schemas` (plural) is not a real id — the tool is
+        // `openregister.schema`. The agent loses every capability it was given.
+        $this->expectException(ToolGrantResolutionException::class);
+        $this->expectExceptionMessageMatches('/openregister\.schemas/');
+        $loop->listAgentFunctions(agent: $this->agent(tools: ['openregister.schemas']));
+
+    }//end testGrantsResolvingToNoToolsRaise()
+
+    /**
+     * The `__none__` sentinel means "no tools ON PURPOSE" and must NOT raise —
+     * the one case where an empty function list is correct.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     */
+    public function testExplicitNoToolsSentinelDoesNotRaise(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->method('listTools')->willReturn([]);
+
+        $loop = $this->loop(facade: $facade);
+
+        $this->assertSame(
+            [],
+            $loop->listAgentFunctions(agent: $this->agent(tools: [ToolGrantResolver::NO_TOOLS_SENTINEL]))
+        );
+
+    }//end testExplicitNoToolsSentinelDoesNotRaise()
 
     /**
      * An empty whitelist calls listTools([]) exactly ONCE (preserving the

@@ -85,17 +85,20 @@ fails closed (401 for everything).
 ## Hardening guarantees
 
 1. **Non-root.** The runner process runs as the unprivileged `node` user
-   (UID 1000). The default `CMD` never runs privileged; the optional egress jail
-   starts root only to install iptables, then `exec gosu node`.
-2. **Egress allowlist — provider API hosts only.** No general internet. Two
-   enforceable options (see `deploy/`):
-   - **A (in-container iptables jail):** `deploy/egress-entrypoint.sh` sets
-     `OUTPUT DROP` and allows only DNS + 443 to the resolved provider IPs.
-     Needs `--cap-add=NET_ADMIN`.
-   - **B (network-layer):** an `internal: true` Docker network (no gateway) plus
-     an explicit egress proxy allowlisting the provider hosts.
-   The `test.sh` egress checks assert default-deny + no wildcard ACCEPT and that
-   a non-allowlisted host is denied.
+   (UID 1000), with `cap_drop: [ALL]`. The governed posture needs no privilege
+   at all — there is no jail to install, because there is no route to jail.
+2. **Governed egress — no default route.** The container sits on an
+   `internal: true` network, so Docker installs no gateway; its only way out is
+   the `egress-proxy` sidecar, which asks Hermiq's PDP about **every** connection
+   and **denies by default** (an unreachable, slow, erroring or unparseable PDP
+   all deny). `WebResearchEgressGuard` is the one policy source, shared with the
+   agent's `webFetch` tool — no second allowlist. See
+   [`deploy/egress-allowlist.md`](deploy/egress-allowlist.md).
+   > **Migration:** this replaces the old Option A iptables jail with its static
+   > `RUNNER_ALLOWED_HOSTS` list. `deploy/egress-entrypoint.sh` remains only to
+   > support that migration.
+   `test/egress.proxy.test.js` covers each fail-closed path and proves the
+   backstop holds regardless of the CLI's flags.
 3. **No Nextcloud / host access.** The container declares **no volumes**. It
    cannot read user files, the OpenRegister object store, or any host path. Its
    only writable surface is a per-call `tmpfs` scratch dir, wiped on exit.

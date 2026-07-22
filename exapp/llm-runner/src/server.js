@@ -107,7 +107,7 @@ async function handleRun(req, res, rawBody) {
         return;
     }
 
-    const { provider: providerId, model, messages, credentialEnv } = payload;
+    const { provider: providerId, model, messages, credentialEnv, mcpConfig, runToken } = payload;
     const provider = getProvider(providerId);
     if (!provider) {
         sendJson(res, 400, { error: `unknown provider '${providerId}'` });
@@ -118,13 +118,15 @@ async function handleRun(req, res, rawBody) {
         return;
     }
 
-    // 3. Run exactly one turn. TEXT-ONLY: there is no `tools` field on this route —
-    //    `claude -p` accepts no tool schema, so a tool-carrying turn is refused by
-    //    Hermiq before it is ever dispatched here. Tool support arrives as governed
-    //    MCP, not as a field on this payload.
-    log('info', `/run provider=${providerId} model=${model || '(default)'} messages=${messages.length}`);
+    // 3. Run exactly one turn. Custom tools reach the CLI ONLY via governed MCP
+    //    (cli-runner-governed-mcp-and-egress): a tool-requiring turn carries `mcpConfig`
+    //    — the {mcpServers:{hermiq:{type:"http",...}}} block Hermiq assembled, whose
+    //    headers carry the per-run bearer token. run() writes it to a 0600 scratch file
+    //    and locks the CLI down with `--tools "" --strict-mcp-config --mcp-config <path>`.
+    //    A text-only turn omits `mcpConfig` and is served exactly as link 2 built it.
+    log('info', `/run provider=${providerId} model=${model || '(default)'} messages=${messages.length} governed=${mcpConfig ? 'yes' : 'no'}`);
     try {
-        const result = await run({ provider, model, messages, credentialEnv });
+        const result = await run({ provider, model, messages, credentialEnv, mcpConfig, runToken });
         sendJson(res, 200, {
             text: result.text,
             toolCalls: result.toolCalls,

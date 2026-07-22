@@ -340,6 +340,14 @@ class ResponseGenerationHandler
                     };
                 }//end if
 
+                // Bind the per-run token (cli-runner-governed-mcp-and-egress) so a
+                // tool-requiring `cli` turn is governed via Hermiq's MCP endpoint rather
+                // than refused. Null on the `http` path / agent-less chat.
+                $cliAgentId = null;
+                if ($agent !== null) {
+                    $cliAgentId = (string) $agent->getUuid();
+                }
+
                 $response = $this->providerFactory->callAnthropicChat(
                     credentialId: (string) $driver->credentialId,
                     model: $driver->model,
@@ -348,7 +356,8 @@ class ResponseGenerationHandler
                     authMode: (string) $driver->authMode,
                     functions: $functions,
                     toolExecutor: $anthropicToolExecutor,
-                    executionMode: $driver->executionMode
+                    executionMode: $driver->executionMode,
+                    agentId: $cliAgentId
                 );
                 $llmTime  = microtime(true) - $llmStartTime;
 

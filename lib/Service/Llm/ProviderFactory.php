@@ -63,9 +63,12 @@ use LLPhant\Chat\OpenAIChat;
 use LLPhant\OllamaConfig;
 use LLPhant\OpenAIConfig;
 use OCA\Hermiq\Service\Credential\CredentialScopeResolver;
+use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\TenantModelPolicyService;
 use OCP\App\IAppManager;
 use OCP\Http\Client\IResponse;
+use OCP\IAppConfig;
+use OCP\IURLGenerator;
 use OCP\IUserSession;
 use OCP\Server;
 use OCP\TaskProcessing\IManager;
@@ -221,6 +224,34 @@ class ProviderFactory
      *                                                          `createChatDriver()` — the exact
      *                                                          same opt-in guard
      *                                                          `enforceModelPolicy()` uses.
+     * @param RunTokenService|null          $runTokenService    Mints/consumes the per-run bearer
+     *                                                          token that authenticates the governed
+     *                                                          `cli` MCP + egress endpoints
+     *                                                          (cli-runner-governed-mcp-and-egress).
+     *                                                          Nullable/defaulted so existing test
+     *                                                          call sites keep working; DI autowires
+     *                                                          a real instance in production. A null
+     *                                                          service makes a tool-requiring `cli`
+     *                                                          turn fail loud (503) — never a
+     *                                                          text-only downgrade.
+     * @param IURLGenerator|null            $urlGenerator       Resolves the absolute URL of Hermiq's
+     *                                                          governed MCP endpoint written into the
+     *                                                          runner's MCP config
+     *                                                          (cli-runner-governed-mcp-and-egress).
+     *                                                          Nullable/defaulted for the same
+     *                                                          backward-compat reason; a null
+     *                                                          generator makes a tool-requiring `cli`
+     *                                                          turn fail loud (503).
+     * @param IAppConfig|null               $appConfig          Reads the `mcp_run_base_url` override —
+     *                                                          the CONTAINER-reachable origin of the
+     *                                                          governed MCP endpoint. Needed because
+     *                                                          `IURLGenerator` yields the URL published
+     *                                                          to browsers, which the runner container
+     *                                                          usually cannot resolve
+     *                                                          (cli-runner-governed-mcp-and-egress).
+     *                                                          Nullable/defaulted for the same
+     *                                                          backward-compat reason; a null config
+     *                                                          simply means no override is applied.
      *
      * @return void
      *
@@ -237,7 +268,10 @@ class ProviderFactory
         private readonly string $appName='hermiq',
         private readonly ?TenantModelPolicyService $modelPolicyService=null,
         private readonly ?IAppManager $appManager=null,
-        private readonly ?CredentialScopeResolver $credentialResolver=null
+        private readonly ?CredentialScopeResolver $credentialResolver=null,
+        private readonly ?RunTokenService $runTokenService=null,
+        private readonly ?IURLGenerator $urlGenerator=null,
+        private readonly ?IAppConfig $appConfig=null
     ) {
     }//end __construct()
 
@@ -635,8 +669,16 @@ class ProviderFactory
      *                                      ExApp running the official `claude` CLI). Defaulted
      *                                      so the signature stays backward-compatible: a call
      *                                      site that does not pass it keeps today's exact
-     *                                      behaviour. `cli` is TEXT-ONLY — see
+     *                                      behaviour. On `cli`, a text-only turn runs
+     *                                      directly and a tool-requiring turn is served
+     *                                      over Hermiq's governed MCP endpoint —
      *                                      {@see callAnthropicCli()}.
+     * @param string|null   $agentId        The acting agent's UUID (cli-runner-governed-mcp-and-egress).
+     *                                      Required to govern a tool-requiring `cli` turn: it
+     *                                      binds the per-run token and lets the governed MCP
+     *                                      endpoint resolve the run's granted tools. Null on the
+     *                                      `http` path and on text-only `cli` turns, where it is
+     *                                      unused.
      *
      * @return string Generated response text (the final assistant turn).
      *
@@ -659,7 +701,8 @@ class ProviderFactory
         int $maxTokens=4096,
         array $functions=[],
         ?callable $toolExecutor=null,
-        string $executionMode='http'
+        string $executionMode='http',
+        ?string $agentId=null
     ): string {
         // `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
         // Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
@@ -669,7 +712,8 @@ class ProviderFactory
                 credentialId: $credentialId,
                 model: $model,
                 messageHistory: $messageHistory,
-                functions: $functions
+                functions: $functions,
+                agentId: $agentId
             );
         }
 
@@ -761,67 +805,298 @@ class ProviderFactory
      * counters — see the 429 handler below); the official CLI is the ToS-sanctioned path for
      * a subscription.
      *
-     * **TEXT-ONLY, by construction.** `claude -p` accepts no tool schema and the runner
-     * carries no `tools` field, so a tool-bearing turn is REFUSED here rather than quietly
-     * served tool-less. Governed MCP tool support is a separate change.
+     * **Text-only turns run directly; tool-requiring turns are GOVERNED, never refused.**
+     * `claude -p` accepts no tool schema, so custom tools reach it only via MCP. When
+     * `$functions` is non-empty this method mints a per-run token, assembles the governed
+     * MCP server config (Hermiq's own `POST /api/mcp/run`, bearer-authenticated by that
+     * token), and hands both to the runner in the `/run` payload — so every tool call the
+     * CLI makes lands back in Hermiq's `FacadeToolInvoker`. It is the exact inverse of the
+     * link-2 refusal: instead of failing a tool-using agent, it governs it.
      *
-     * Order is load-bearing — tools and availability are checked BEFORE the credential is
-     * resolved, so a doomed turn pulls no secret from the vault and spends no subscription
-     * quota.
+     * It still FAILS LOUD — `ProviderUnavailableException` (503), never a text-only
+     * downgrade — when a tool-requiring turn cannot be governed: no agent identity to bind
+     * the run to, no user context, the token cannot be minted, or the MCP endpoint URL
+     * cannot be resolved (so the config cannot be written). This deliberately does NOT copy
+     * the `http` path's fail-open (tools + no executor → warn → run text-only): a tool-less
+     * agent looks completely healthy and simply never calls a tool.
      *
-     * @param string $credentialId   Broker credential UUID — NOT a secret.
-     * @param string $model          Model identifier; empty ⇒ the CLI's own default.
-     * @param array  $messageHistory Array of LLPhant Message objects.
-     * @param array  $functions      OpenAI-style tool definitions. Non-empty ⇒ the turn is refused.
+     * Order is load-bearing — availability and the run token are established BEFORE the
+     * subscription credential is resolved, so a doomed turn pulls no secret from the vault
+     * and spends no subscription quota. The run token is consumed in a `finally` so it never
+     * outlives the turn.
+     *
+     * @param string      $credentialId   Broker credential UUID — NOT a secret.
+     * @param string      $model          Model identifier; empty ⇒ the CLI's own default.
+     * @param array       $messageHistory Array of LLPhant Message objects.
+     * @param array       $functions      OpenAI-style tool definitions. Non-empty ⇒ governed MCP turn.
+     * @param string|null $agentId        The acting agent's UUID (binds the per-run token). Required
+     *                                    for a tool-requiring turn; unused for a text-only one.
      *
      * @return string The completion text.
      *
-     * @throws ProviderUnavailableException When tools are present (503), the runner or AppAPI
-     *                                      is unavailable (503), the credential cannot be
-     *                                      resolved or is organisation-scope (503), or the
-     *                                      dispatch fails (503).
+     * @throws ProviderUnavailableException When a tool-requiring turn cannot be governed (503),
+     *                                      the runner or AppAPI is unavailable (503), the
+     *                                      credential cannot be resolved or is organisation-scope
+     *                                      (503), or the dispatch fails (503).
      *
-     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-a-cli-turn-that-carries-tools-is-refused-never-run-tool-less
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
      * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-cli-completion-is-mapped-back-into-the-driver-response-and-the-sse-envelope
      */
     private function callAnthropicCli(
         string $credentialId,
         string $model,
         array $messageHistory,
-        array $functions=[]
+        array $functions=[],
+        ?string $agentId=null
     ): string {
-        // 0. Tools are REFUSED, not served. Deliberately NOT the fail-open the `http` path
-        // above uses (tools + no executor → warn → run text-only): a tool-less agent looks
-        // completely healthy and simply never calls a tool, so nothing alarms on it. An
-        // operator who selected `cli` for a tool-using agent must get a clear signal, and
-        // must NOT be silently downgraded to `http` either — a different transport with a
-        // different credential is a confusing failure far from its cause.
-        if (empty($functions) === false) {
-            throw new ProviderUnavailableException(
-                'Anthropic executionMode "cli" cannot serve a turn that carries tools: the Claude CLI '
-                .'accepts no tool schema, so this turn was refused rather than answered without its '
-                .'tools. Switch this agent to executionMode "http" to use tools.',
-                503
-            );
-        }
+        $governedMcpConfig = null;
+        $runToken          = null;
 
         // 1. Availability — each component named separately, before any secret is touched.
         $this->assertCliRunnerAvailable();
 
-        // 2. Credential. Local variable only: never stored on the ChatDriver (handlers hold
-        // that object), never logged, never in an exception message, never in a trace.
-        $uid   = $this->currentUid();
-        $token = $this->resolveCliToken(credentialId: $credentialId, uid: $uid);
+        $uid = $this->currentUid();
 
-        // 3+4. Dispatch and map.
-        return $this->dispatchCliTurn(
-            model: $model,
-            messageHistory: $messageHistory,
-            token: $token,
-            uid: $uid
-        );
+        try {
+            // 2. A tool-requiring turn is GOVERNED, not refused: mint a run token and
+            // assemble the MCP server config the runner hands to the CLI. Done BEFORE the
+            // subscription credential is resolved, so a turn that cannot be governed pulls
+            // no secret from the vault. Fails LOUD when governance is impossible — never a
+            // silent text-only downgrade.
+            //
+            // An EMPTY $functions here means the agent is legitimately tool-less: an agent
+            // whose grants were configured but matched nothing never reaches this point,
+            // because `ToolLoop::listAgentFunctions()` raises ToolGrantResolutionException
+            // at the resolution site. That distinction cannot be recovered here — both
+            // cases arrive as an empty array — which is exactly why it is enforced there.
+            // EVERY cli turn needs a run token, not only a tool-requiring one: it is also
+            // the identity the egress proxy presents to the PDP, and the runner container
+            // has no default route — a turn without one cannot reach api.anthropic.com at
+            // all. The two mints differ in STRICTNESS, deliberately:
+            //
+            // - a GOVERNED turn must have an agent (its grants are what the token
+            // resolves) and fails LOUD without one;
+            // - a text-only turn may legitimately have NO agent — conversation-title
+            // generation calls this path with `agentId: null` — so it gets a tolerant
+            // egress-only identity instead. Minting strictly here would 503 every
+            // title generation the moment `executionMode: cli` is switched on.
+            if (empty($functions) === false) {
+                $runToken          = $this->mintGovernedRunToken(agentId: $agentId, uid: $uid);
+                $governedMcpConfig = $this->buildGovernedMcpConfig(runToken: $runToken);
+            }
+
+            if (empty($functions) === true) {
+                $runToken = $this->mintEgressRunToken(agentId: $agentId, uid: $uid);
+            }
+
+            // 3. Credential (subscription token). Local variable only: never stored on the
+            // ChatDriver (handlers hold that object), never logged, never in an exception
+            // message, never in a trace.
+            $token = $this->resolveCliToken(credentialId: $credentialId, uid: $uid);
+
+            // 4+5. Dispatch and map.
+            return $this->dispatchCliTurn(
+                model: $model,
+                messageHistory: $messageHistory,
+                token: $token,
+                uid: $uid,
+                mcpConfig: $governedMcpConfig,
+                runToken: $runToken
+            );
+        } finally {
+            // The run token dies with the turn (success, error, or timeout), so a token
+            // outliving its run has no legitimate caller.
+            if ($runToken !== null && $this->runTokenService !== null) {
+                $this->runTokenService->consume(token: $runToken);
+            }
+        }//end try
 
     }//end callAnthropicCli()
+
+    /**
+     * Mint the per-run token that authenticates the governed MCP + egress endpoints for a
+     * tool-requiring `cli` turn. Fails LOUD (503) when the turn cannot be governed: no agent
+     * identity to bind it to, no user context, or the token service is unavailable.
+     *
+     * @param string|null $agentId The acting agent's UUID.
+     * @param string|null $uid     The acting user's UID.
+     *
+     * @return string The minted run token (never logged, never on argv).
+     *
+     * @throws ProviderUnavailableException When the turn cannot be governed (503).
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+     */
+    private function mintGovernedRunToken(?string $agentId, ?string $uid): string
+    {
+        if ($this->runTokenService === null) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed run-token '
+                .'service is unavailable, so the turn cannot be governed. It was refused rather than run '
+                .'without its tools.',
+                503
+            );
+        }
+
+        if ($agentId === null || $agentId === '') {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot govern a tool-requiring turn without an agent '
+                .'identity to bind the run to. It was refused rather than run without its tools.',
+                503
+            );
+        }
+
+        if ($uid === null || $uid === '') {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot govern a tool-requiring turn without a user context '
+                .'to bind the run token to. It was refused rather than run without its tools.',
+                503
+            );
+        }
+
+        try {
+            return $this->runTokenService->mint(
+                runId: bin2hex(random_bytes(16)),
+                agentId: $agentId,
+                userId: $uid
+            );
+        } catch (Throwable $e) {
+            $this->logger->error(
+                '[ProviderFactory] Anthropic cli run token could not be minted',
+                ['reason' => $e->getMessage()]
+            );
+
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the per-run token could '
+                .'not be minted. It was refused rather than run without its tools.',
+                503
+            );
+        }//end try
+
+    }//end mintGovernedRunToken()
+
+    /**
+     * Mint the egress-only run identity for a TEXT-ONLY cli turn.
+     *
+     * Deliberately tolerant where `mintGovernedRunToken()` is strict. A text-only
+     * turn may legitimately have no agent at all — conversation-title generation
+     * reaches this path with `agentId: null` — and it has no tools to lose, so
+     * there is nothing to fail loud about. It still needs an identity to get out
+     * of the container, because the proxy is the only route and it denies an
+     * identity-less connection.
+     *
+     * Returns '' (rather than throwing) whenever a token cannot be minted, so the
+     * turn is never blocked by the absence of a capability it does not need:
+     *   - no `RunTokenService` (an older DI wiring) — nothing to mint with;
+     *   - no acting user — nothing to bind to.
+     * With an empty token the runner injects no proxy env. Under the governed
+     * posture the CLI then has no way out and the turn fails as a provider error
+     * (correct: fail-closed); under the legacy jail posture it is a no-op.
+     *
+     * The token binds `agentId: ''` when there is no agent. That is safe: the MCP
+     * endpoint resolves the granted tool set FROM the bound agent, so a token with
+     * no agent resolves to no tools — it can open connections policy allows, and
+     * nothing else. A text-only turn is never handed the MCP endpoint's address
+     * anyway (it carries no `mcpConfig`).
+     *
+     * @param string|null $agentId The acting agent's UUID, when there is one.
+     * @param string|null $uid     The acting user's UID.
+     *
+     * @return string The token, or '' when one could not be minted.
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
+     */
+    private function mintEgressRunToken(?string $agentId, ?string $uid): string
+    {
+        if ($this->runTokenService === null || $uid === null || $uid === '') {
+            return '';
+        }
+
+        try {
+            return $this->runTokenService->mint(
+                runId: bin2hex(random_bytes(16)),
+                agentId: ($agentId ?? ''),
+                userId: $uid
+            );
+        } catch (Throwable $e) {
+            // Never fatal: a text-only turn has no tools to protect, and the
+            // network layer already denies anything this token would have allowed.
+            $this->logger->warning(
+                '[ProviderFactory] Anthropic cli egress run token could not be minted',
+                ['reason' => $e->getMessage()]
+            );
+
+            return '';
+        }//end try
+
+    }//end mintEgressRunToken()
+
+    /**
+     * Assemble the governed MCP server config the runner writes to a 0600 file and hands to
+     * the CLI. The bearer token rides in the `headers`, never on argv. Fails LOUD (503) when
+     * the endpoint URL cannot be resolved (so the config cannot be written).
+     *
+     * @param string $runToken The minted per-run token.
+     *
+     * @return array<string, mixed> The `{mcpServers: {...}}` config.
+     *
+     * @throws ProviderUnavailableException When the MCP endpoint URL cannot be resolved (503).
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+     */
+    private function buildGovernedMcpConfig(string $runToken): array
+    {
+        if ($this->urlGenerator === null) {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
+                .'endpoint URL could not be resolved, so the MCP config could not be written. It was '
+                .'refused rather than run without its tools.',
+                503
+            );
+        }
+
+        $mcpUrl = $this->urlGenerator->linkToRouteAbsolute('hermiq.mcpRun.handle');
+
+        // The linkToRouteAbsolute() call returns the URL Nextcloud publishes to BROWSERS
+        // (overwrite.cli.url / the trusted domain). The CLI dials this endpoint from
+        // INSIDE the runner container, where that host frequently does not resolve to
+        // Nextcloud — a stock dev instance publishes `http://localhost`, which inside
+        // the container is the container itself, so every tool call would fail with a
+        // connection error that looks like a broken endpoint. AppAPI already records
+        // the container-facing origin (its daemon's `nextcloud_url`, e.g.
+        // `http://nextcloud`); `mcp_run_base_url` lets the operator pin the same value
+        // here. Unset → the published URL is used unchanged (correct whenever
+        // Nextcloud's public origin IS reachable from the container).
+        $baseOverride = trim($this->appConfig?->getValueString('hermiq', 'mcp_run_base_url', '') ?? '');
+        if ($baseOverride !== '' && $mcpUrl !== '') {
+            $path = (string) parse_url($mcpUrl, PHP_URL_PATH);
+            if ($path !== '') {
+                $mcpUrl = rtrim($baseOverride, '/').$path;
+            }
+        }
+
+        if ($mcpUrl === '') {
+            throw new ProviderUnavailableException(
+                'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed MCP '
+                .'endpoint URL resolved empty. It was refused rather than run without its tools.',
+                503
+            );
+        }
+
+        return [
+            'mcpServers' => [
+                'hermiq' => [
+                    'type'    => 'http',
+                    'url'     => $mcpUrl,
+                    'headers' => [
+                        'Authorization'  => 'Bearer '.$runToken,
+                        'OCS-APIRequest' => 'true',
+                    ],
+                ],
+            ],
+        ];
+
+    }//end buildGovernedMcpConfig()
 
     /**
      * Assert that the `cli` transport's components are installed and enabled.
@@ -1032,19 +1307,38 @@ class ProviderFactory
      *    error, then status, then a usable `text`. Any other order reads an error string as the
      *    model's answer.
      *
-     * @param string      $model          Model identifier; empty ⇒ the CLI's own default.
-     * @param array       $messageHistory Array of LLPhant Message objects.
-     * @param string      $token          The resolved subscription token (never logged).
-     * @param string|null $uid            The acting user's UID.
+     * @param string                   $model          Model identifier; empty ⇒ the CLI's own
+     *                                                 default.
+     * @param array                    $messageHistory Array of LLPhant Message objects.
+     * @param string                   $token          The resolved subscription token (never logged).
+     * @param string|null              $uid            The acting user's UID.
+     * @param array<string,mixed>|null $mcpConfig      The governed MCP server config for a tool-requiring
+     *                                                 turn (cli-runner-governed-mcp-and-egress), or null
+     *                                                 for a text-only turn. Carries the per-run bearer
+     *                                                 token in its `headers`; the runner writes it to a
+     *                                                 0600 file, never inline argv.
+     * @param string                   $runToken       The per-run token. Sent on EVERY cli turn (not just
+     *                                                 a governed one) because the runner also presents it
+     *                                                 to the egress proxy, which is the container's only
+     *                                                 route out — a text-only turn without it could not
+     *                                                 reach the provider at all.
      *
      * @return string The completion text.
      *
      * @throws ProviderUnavailableException On any transport, status, or shape failure (503).
      *
      * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
      */
-    private function dispatchCliTurn(string $model, array $messageHistory, string $token, ?string $uid): string
-    {
+    private function dispatchCliTurn(
+        string $model,
+        array $messageHistory,
+        string $token,
+        ?string $uid,
+        ?array $mcpConfig=null,
+        string $runToken=''
+    ): string {
         // `credentialEnv`'s key is EXACTLY the one the runner's anthropic adapter allowlists.
         // A key outside the allowlist is dropped WITHOUT an error, which would yield an
         // unauthenticated CLI rather than a 400 — so this string has to be exactly right.
@@ -1054,6 +1348,21 @@ class ProviderFactory
             'messages'      => $this->mapHistoryToCliMessages(messageHistory: $messageHistory),
             'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
         ];
+
+        // A tool-requiring turn carries the governed MCP config; the runner writes it to a
+        // 0600 scratch file and locks the CLI down with `--tools "" --strict-mcp-config
+        // --mcp-config <path>`. A text-only turn omits it entirely (unchanged link-2 path).
+        if ($mcpConfig !== null) {
+            $params['mcpConfig'] = $mcpConfig;
+        }
+
+        // The run identity for the egress PEP. The runner turns this into
+        // `HTTPS_PROXY=http://run:<token>@<proxy>` in the CLI's ENVIRONMENT — never on
+        // argv, where the process table would expose it. Sent on every turn: the proxy
+        // is the container's only route out.
+        if ($runToken !== '') {
+            $params['runToken'] = $runToken;
+        }
 
         $result = $this->appApiPublicFunctions()->exAppRequest(
             self::RUNNER_EXAPP_ID,

@@ -38,6 +38,7 @@ use Exception;
 use OCA\Hermiq\Service\Engine\MessageHistoryHandler;
 use OCA\Hermiq\Service\Engine\ResponseGenerationHandler;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -79,15 +80,19 @@ class AssistantService
     private const CONVERSATION_SCHEMA = 'conversation';
 
     /**
-     * Sentinel tool-whitelist entry that never matches a real tool id (every
-     * real id is `{app}.{toolName}` or `{app}.{schema}.{verb}` — always
-     * contains a dot). A non-empty, non-wildcard whitelist is passed straight
-     * to the tool facade by `ToolLoop::resolveFunctions()`, so this
-     * deterministically resolves to zero functions — see design.md Decision 1.
+     * Sentinel tool-whitelist entry meaning "this agent is intentionally
+     * tool-less" — it matches no real tool id, so a whitelist containing only it
+     * deterministically resolves to zero functions (design.md Decision 1).
+     *
+     * Aliased to `ToolGrantResolver::NO_TOOLS_SENTINEL` rather than re-spelled:
+     * the resolver now recognises the value to tell a deliberate no-tools agent
+     * apart from one whose grants resolve to zero by accident (which raises
+     * `ToolGrantResolutionException`). Two independent copies of the string would
+     * mean a rename here silently turns these agents into "broken grants".
      *
      * @var string
      */
-    private const NO_TOOLS_SENTINEL = '__none__';
+    private const NO_TOOLS_SENTINEL = ToolGrantResolver::NO_TOOLS_SENTINEL;
 
     /**
      * Marker written to `Conversation.metadata.surface` for conversations
