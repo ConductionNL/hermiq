@@ -17,11 +17,6 @@ parameters:
         - lib/Resources/template
     scanDirectories:
         - vendor/nextcloud/ocp
-        # Cross-app stubs (OCA\OpenRegister\*, OCA\Talk\*, OC\Hooks\Emitter) — scanned
-        # for symbol resolution here, NOT registered in composer autoload-dev, so the
-        # served app's runtime autoloader can never shadow the real classes (see
-        # tests/bootstrap.php for the rationale / the 2026-07-18 register-import outage).
-        - tests/Stubs
     reportUnmatchedIgnoredErrors: false
     ignoreErrors:
         # Nextcloud server internals (\OC, OC_App, OC\) not stubbed in nextcloud/ocp

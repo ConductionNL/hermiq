@@ -22,12 +22,6 @@
   AgentRunHistoryWidget reloads its run list without a bespoke sibling
   channel.
 
-  The Budget section's tokens/€ readouts render through the shared
-  BudgetMeter component (src/components/BudgetMeter.vue) — the SAME
-  presentation Memory's char budget uses — rather than bespoke text/bar
-  markup; the two dimensions (tokens, €) stay distinct meters since they
-  measure genuinely different quantities.
-
   @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-006-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 -->
 <template>
@@ -194,58 +188,16 @@
 			<NcNoteCard v-else-if="budgetStatus.softThresholdReached" type="warning">
 				{{ t('hermiq', 'Soft threshold crossed for the current period.') }}
 			</NcNoteCard>
-			<div class="agent-run-ops-widget__budget-meters">
-				<!--
-					No `over`/warn-threshold override is passed: BudgetService::status()
-					only returns a COMBINED hardCapReached/softThresholdReached across
-					both dimensions (whichever one tripped first), so forwarding it to
-					BOTH meters would wrongly colour an under-limit dimension as
-					over/warn when only the OTHER one crossed. Each meter instead
-					computes its own used>=limit / percent>=90 state from its own
-					used/limit — accurate per-dimension, at the cost of not matching
-					the budget's own (possibly non-default) softThresholdPercent, which
-					status() does not expose per-dimension.
-				-->
-				<BudgetMeter
-					v-if="budgetStatus.tokens && budgetStatus.tokens.limit"
-					:label="t('hermiq', 'Cost (tokens)')"
-					:used="budgetStatus.tokens.used"
-					:limit="budgetStatus.tokens.limit"
-					:percent-override="budgetStatus.tokens.percent"
-					show-percent-text
-					:unit="t('hermiq', 'tokens')" />
-				<BudgetMeter
-					v-if="budgetStatus.eur && budgetStatus.eur.limit"
-					:label="t('hermiq', 'Cost (€)')"
-					:used="budgetStatus.eur.used"
-					:limit="budgetStatus.eur.limit"
-					:percent-override="budgetStatus.eur.percent"
-					format="prefix"
-					unit="€" />
-			</div>
-		</section>
-
-		<section v-if="hasDailyQuota" class="agent-run-ops-widget__section">
-			<h4>{{ t('hermiq', 'Daily quota') }}</h4>
-			<NcNoteCard v-if="quotaStatus.blocked" type="error">
-				{{ t('hermiq', 'Daily quota reached — new runs are blocked until the next UTC day.') }}
-			</NcNoteCard>
-			<div class="agent-run-ops-widget__budget-meters">
-				<BudgetMeter
-					v-if="quotaStatus.tokens && quotaStatus.tokens.limit"
-					:label="t('hermiq', 'Daily tokens')"
-					:used="quotaStatus.tokens.used"
-					:limit="quotaStatus.tokens.limit"
-					:over="quotaStatus.tokenQuotaReached"
-					:unit="t('hermiq', 'tokens')" />
-				<BudgetMeter
-					v-if="quotaStatus.requests && quotaStatus.requests.limit"
-					:label="t('hermiq', 'Daily requests')"
-					:used="quotaStatus.requests.used"
-					:limit="quotaStatus.requests.limit"
-					:over="quotaStatus.requestQuotaReached"
-					:unit="t('hermiq', 'requests')" />
-			</div>
+			<dl class="agent-run-ops-widget__meta">
+				<div v-if="budgetStatus.tokens && budgetStatus.tokens.limit">
+					<dt>{{ t('hermiq', 'Tokens this period') }}</dt>
+					<dd>{{ budgetStatus.tokens.used }} / {{ budgetStatus.tokens.limit }} ({{ budgetStatus.tokens.percent }}%)</dd>
+				</div>
+				<div v-if="budgetStatus.eur && budgetStatus.eur.limit">
+					<dt>{{ t('hermiq', 'Spend this period') }}</dt>
+					<dd>€{{ budgetStatus.eur.used }} / €{{ budgetStatus.eur.limit }}</dd>
+				</div>
+			</dl>
 		</section>
 
 		<ScheduleFormModal
@@ -269,10 +221,9 @@ import { emit } from '@nextcloud/event-bus'
 import BeakerOutline from 'vue-material-design-icons/BeakerOutline.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import { dryRunSchedule, runScheduleNow } from '../api/agents.js'
-import { getAgentQuota, getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
+import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import { createWebhookSecret, getWebhookStatus, revokeWebhookSecret, rotateWebhookSecret } from '../api/webhooks.js'
 import { useScheduleStore } from '../store/store.js'
-import BudgetMeter from '../components/BudgetMeter.vue'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import WebhookSecretDialog from '../modals/WebhookSecretDialog.vue'
 
@@ -281,7 +232,6 @@ export default {
 
 	components: {
 		BeakerOutline,
-		BudgetMeter,
 		NcButton,
 		NcLoadingIcon,
 		NcNoteCard,
@@ -300,7 +250,6 @@ export default {
 			showScheduleForm: false,
 			estimate: null,
 			budgetStatus: null,
-			quotaStatus: null,
 			webhookStatus: null,
 			webhookBusy: false,
 			showWebhookSecretDialog: false,
@@ -316,17 +265,6 @@ export default {
 		 */
 		agentId() {
 			return this.$route.params.id
-		},
-
-		/**
-		 * Whether this agent has at least one per-day quota set (0 = unlimited),
-		 * gating the Daily-quota section so unlimited agents show nothing.
-		 *
-		 * @return {boolean} True when a token or request quota is configured.
-		 */
-		hasDailyQuota() {
-			const q = this.quotaStatus
-			return !!q && ((q.tokens && q.tokens.limit > 0) || (q.requests && q.requests.limit > 0))
 		},
 
 		/**
@@ -390,14 +328,12 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async loadBudgetInfo() {
-			const [estimate, budgetStatus, quotaStatus] = await Promise.all([
+			const [estimate, budgetStatus] = await Promise.all([
 				getBudgetEstimate(this.agentId).catch(() => null),
 				getBudgetStatus('', this.agentId).catch(() => null),
-				getAgentQuota(this.agentId).catch(() => null),
 			])
 			this.estimate = estimate
 			this.budgetStatus = budgetStatus
-			this.quotaStatus = quotaStatus
 		},
 
 		/**
@@ -646,12 +582,6 @@ export default {
 .agent-run-ops-widget__meta dd {
 	margin: 0;
 	white-space: pre-wrap;
-}
-
-.agent-run-ops-widget__budget-meters {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
 }
 
 .agent-run-ops-widget__trace-steps {

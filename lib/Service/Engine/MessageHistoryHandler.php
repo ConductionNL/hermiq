@@ -104,17 +104,7 @@ class MessageHistoryHandler
             ->findAll(
                 config: [
                     'filters' => ['conversationId' => $conversationId],
-                    // `@self.created`, NOT `created`. OpenRegister reads a bare key as an OBJECT
-                    // PROPERTY; `Message` has no `created` property (the timestamp is metadata),
-                    // so this sort silently did NOTHING — and this is the one place where that
-                    // was not cosmetic. The intent is "newest N, then reverse to chronological".
-                    // Unsorted, findAll returned the OLDEST N in natural order and the
-                    // array_reverse below then handed the LLM the conversation's OPENING
-                    // messages, backwards. Any conversation longer than RECENT_MESSAGES_COUNT
-                    // was answered without a single recent turn in context.
-                    // Verified live: `_order[created]=DESC` returns the oldest row first;
-                    // `_order[@self.created]=DESC` returns the newest.
-                    'sort'    => ['@self.created' => 'DESC'],
+                    'sort'    => ['created' => 'DESC'],
                     'limit'   => self::RECENT_MESSAGES_COUNT,
                 ]
             );
@@ -191,26 +181,18 @@ class MessageHistoryHandler
      * @param string     $content        Message content.
      * @param array|null $sources        Optional RAG sources.
      * @param array|null $context        Optional AI Chat Companion context snapshot.
-     * @param array|null $attachments    Optional per-turn attachment references
-     *                                   ({path, name, description} entries) —
-     *                                   persisted onto the user Message so a
-     *                                   conversation read back after the fact
-     *                                   shows which files were attached to which
-     *                                   turn (hermiq-chat-attachments).
      *
      * @return ObjectEntity The persisted Message object.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
-     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-the-user-message-persists-its-attachment-references
      */
     public function storeMessage(
         string $conversationId,
         string $role,
         string $content,
         ?array $sources=null,
-        ?array $context=null,
-        ?array $attachments=null
+        ?array $context=null
     ): ObjectEntity {
         $payload = [
             'conversationId' => $conversationId,
@@ -224,10 +206,6 @@ class MessageHistoryHandler
 
         if ($context !== null && empty($context) === false) {
             $payload['context'] = $context;
-        }
-
-        if ($attachments !== null && empty($attachments) === false) {
-            $payload['attachments'] = $attachments;
         }
 
         $stored = $this->objectService->saveObject(
@@ -245,7 +223,6 @@ class MessageHistoryHandler
                 'conversationId' => $conversationId,
                 'role'           => $role,
                 'hasSources'     => $sources !== null && empty($sources) === false,
-                'hasAttachments' => $attachments !== null && empty($attachments) === false,
             ]
         );
 

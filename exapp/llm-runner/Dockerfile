@@ -48,17 +48,9 @@ RUN npm install -g --no-fund --no-audit \
 WORKDIR /app
 COPY package.json ./
 COPY src/ ./src/
-# deploy/ carries the OPTIONAL in-container egress jail (egress-entrypoint.sh)
-# that the CMD comment below and deploy/docker-compose.yml's Option A both
-# select via `--entrypoint /app/deploy/egress-entrypoint.sh`. Without it in the
-# image that override cannot resolve — the container dies at start with
-# `stat /app/deploy/egress-entrypoint.sh: no such file or directory`. The
-# unprivileged default CMD keeps working, so this only ever breaks for whoever
-# opts INTO the hardening the README calls recommended.
-COPY deploy/ ./deploy/
 
 # Persistent-storage / scratch dir owned by the runtime user.
-RUN mkdir -p /app/scratch && chmod +x /app/deploy/*.sh && chown -R node:node /app
+RUN mkdir -p /app/scratch && chown -R node:node /app
 
 ENV NODE_ENV=production \
     RUNNER_HOST=0.0.0.0 \

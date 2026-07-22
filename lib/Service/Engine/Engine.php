@@ -61,10 +61,8 @@ namespace OCA\Hermiq\Service\Engine;
 use Exception;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
-use OCA\Hermiq\Cron\ConversationTitleJob;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
-use OCP\BackgroundJob\IJobList;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -115,15 +113,11 @@ class Engine
     private const CONVERSATION_SCHEMA = 'conversation';
 
     /**
-     * Maximum attachments accepted on a single turn (hermiq-chat-attachments Task 3
-     * per-turn cap). Attachment text is never truncated to fit `charBudget` (design.md
-     * Decision 6), so this COUNT cap — together with `ContextAssembler::MAX_FILE_BYTES`
-     * bounding each individual file — is the only bound on the aggregate size a turn's
-     * attachments can add to the preamble.
+     * Schema slug for message objects.
      *
-     * @var int
+     * @var string
      */
-    private const MAX_ATTACHMENTS_PER_TURN = 5;
+    private const MESSAGE_SCHEMA = 'message';
 
     /**
      * Constructor.
@@ -148,15 +142,6 @@ class Engine
      *                                                              configured" — fail-open,
      *                                                              design.md Decision 1); real DI
      *                                                              always provides it.
-     * @param IJobList|null                 $jobList                Queues the conversation-title job
-     *                                                              so naming never sits on the reply's
-     *                                                              critical path
-     *                                                              (session-context-performance).
-     *                                                              Nullable/defaulted for the same
-     *                                                              backward-compat reason; a null list
-     *                                                              simply means no title is queued —
-     *                                                              the reply is unaffected, which is
-     *                                                              the point of deferring it.
      *
      * @return void
      *
@@ -172,8 +157,7 @@ class Engine
         private readonly MessageHistoryHandler $historyHandler,
         private readonly ContextAssembler $contextAssembler,
         private readonly LoggerInterface $logger,
-        private readonly ?GuardrailPolicyService $guardrailPolicyService=null,
-        private readonly ?IJobList $jobList=null
+        private readonly ?GuardrailPolicyService $guardrailPolicyService=null
     ) {
     }//end __construct()
 
@@ -209,24 +193,6 @@ class Engine
      *                                                neutralised instead of actually invoked.
      *                                                False (every pre-existing caller) is
      *                                                byte-for-byte unchanged behavior.
-     * @param array                   $attachments    Per-turn attachment references
-     *                                                ({path, name, description} entries,
-     *                                                hermiq-chat-attachments) the user attached
-     *                                                to this turn. Persisted on the
-     *                                                user-authored Message when non-empty;
-     *                                                resolved via the acting user's Nextcloud
-     *                                                folder and folded into the SAME preamble
-     *                                                `ContextAssembler::assembleForAgent()`
-     *                                                builds (no second assembly path). Rejected
-     *                                                with a 400-coded `Exception` when it exceeds
-     *                                                `MAX_ATTACHMENTS_PER_TURN`. Appended as the
-     *                                                LAST parameter (rather than grouped next to
-     *                                                `$context` above) so every pre-existing
-     *                                                positional test double of this method (which
-     *                                                mock frameworks bind by resolved position, not
-     *                                                by name, even for named-argument call sites)
-     *                                                keeps seeing `$channel`/`$trace`/`$dryRun` at
-     *                                                their original positions.
      *
      * @return array The result envelope.
      *
@@ -248,10 +214,6 @@ class Engine
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
      * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
-     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
-     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-the-user-message-persists-its-attachment-references
-     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-attachment-content-is-resolved-into-the-turn-preamble-via-the-acting-users-folder
-     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-attachment-content-is-untrusted-input-and-is-guardrail-filtered
      */
     public function processMessage(
         string $conversationId,
@@ -263,8 +225,7 @@ class Engine
         array $context=[],
         ?StreamYieldChannel $channel=null,
         ?RunTraceCollector $trace=null,
-        bool $dryRun=false,
-        array $attachments=[]
+        bool $dryRun=false
     ): array {
         $this->logger->info(
             message: '[Engine] Processing message',
@@ -293,22 +254,6 @@ class Engine
                 throw new Exception('Access denied to conversation');
             }
 
-            // Hermiq-chat-attachments Task 3: bound the aggregate attachment size per
-            // turn BEFORE any assembly/guardrail/LLM work runs, so a rejected turn
-            // costs nothing and makes no LLM call. Attachment text is never
-            // truncated to fit charBudget (design.md Decision 6), so this count cap
-            // — together with ContextAssembler::MAX_FILE_BYTES per file — is the
-            // only bound on the aggregate.
-            if (count($attachments) > self::MAX_ATTACHMENTS_PER_TURN) {
-                throw new Exception(
-                    sprintf(
-                        'Too many attachments: at most %d are allowed per turn',
-                        self::MAX_ATTACHMENTS_PER_TURN
-                    ),
-                    400
-                );
-            }
-
             // Get agent if configured.
             $agent   = null;
             $agentId = $conversationData['agentId'] ?? null;
@@ -331,22 +276,6 @@ class Engine
             // block in the system prompt (ResponseGenerationHandler prepends it right
             // after Agent.prompt). '' when the agent has none — no-op for most agents.
             $contextPreamble = $this->contextAssembler->assembleForAgent(agent: $agent, actingUserId: $userId);
-
-            // Hermiq-chat-attachments Task 5: fold this turn's attachment references
-            // into the SAME preamble string — Context-kind material with a Message
-            // lifecycle (design.md Decision 3), not a second assembly path. Doing
-            // this BEFORE the preamble guardrail filter below (rather than filtering
-            // attachment text with its own separate call) is deliberate: it means
-            // attachment text inherits the SAME guardrail coverage and the SAME
-            // never-truncate budget accounting the Context preamble already gets,
-            // with no new trust posture to reason about.
-            $attachmentPreamble = $this->contextAssembler->assembleAttachments(
-                attachments: $attachments,
-                actingUserId: $userId
-            );
-            if ($attachmentPreamble !== '') {
-                $contextPreamble = trim($contextPreamble."\n\n".$attachmentPreamble);
-            }
 
             // Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this
             // turn (organisation comes from the conversation, exactly like
@@ -389,57 +318,13 @@ class Engine
 
             $userMessage = (string) $inputFilter['text'];
 
-            // Agent-guardrails (hermiq-guardrail-preamble-filter): the assembled context
-            // preamble is model input too — ADR-024 Rule 3 — so it gets the SAME input
-            // filter, in its OWN filterInput() call. Two calls, never one concatenated:
-            // concatenating would destroy attribution ("did the USER try to jailbreak
-            // this agent, or does an attached document merely contain the phrase?" demand
-            // opposite responses from an operator) and would mangle the boundary between
-            // them. Runs before storeMessage() so a refused turn persists nothing,
-            // whichever boundary refused it.
-            if ($contextPreamble !== '') {
-                $preambleFilter = $this->guardrailPolicyService?->filterInput(
-                    policy: $guardrailPolicy,
-                    text: $contextPreamble
-                ) ?? ['text' => $contextPreamble, 'blocked' => false, 'reason' => null];
-
-                // Same "only an ACTION is recorded" contract as the user-message filter
-                // above: a fully-open policy inserts no step, so an organisation without
-                // a GuardrailPolicy keeps an IDENTICAL trace timeline.
-                if ($this->guardrailActed(filter: $preambleFilter, originalText: $contextPreamble) === true) {
-                    $preambleOutcome = 'redacted';
-                    if ($preambleFilter['blocked'] === true) {
-                        $preambleOutcome = 'blocked';
-                    }
-
-                    $preambleToken = $trace?->startStep(type: 'guardrail', name: 'Context preamble filter');
-                    if ($preambleToken !== null) {
-                        $trace?->endStep(token: $preambleToken, outcome: $preambleOutcome);
-                    }
-                }
-
-                if ($preambleFilter['blocked'] === true) {
-                    throw new GuardrailBlockedException(
-                        reason: $this->contextReasonFor(reason: $preambleFilter['reason'])
-                    );
-                }
-
-                // The model only ever sees the masked text — same contract as the user
-                // message.
-                $contextPreamble = (string) $preambleFilter['text'];
-            }//end if
-
-            // Store user message with the CnAiContext snapshot and this turn's
-            // attachment references (hermiq-chat-attachments Task 4) — persisted
-            // AFTER both guardrail filters, so a refused turn (either boundary)
-            // stores nothing.
+            // Store user message with the CnAiContext snapshot.
             $this->historyHandler->storeMessage(
                 conversationId: $conversationId,
                 role: 'user',
                 content: $userMessage,
                 sources: null,
-                context: $cnAiContext,
-                attachments: $attachments
+                context: $cnAiContext
             );
 
             // Check if conversation needs summarization.
@@ -535,16 +420,11 @@ class Engine
                 sources: $context['sources']
             );
 
-            // Name the conversation OFF this path. Naming is a second LLM round trip —
-            // on the `cli` transport a second `claude` process, ~20s of a ~65s wall — and
-            // nothing below depends on the title, so the user should not wait for it.
-            // ConversationTitleWriter re-reads the conversation and re-checks whether it
-            // still wants a title, so the decision stays correct even though it is made
-            // later.
-            $this->queueTitleGeneration(
+            // Generate a title if this is the first exchange.
+            $this->maybeGenerateTitle(
+                conversation: $conversation,
                 conversationId: $conversationId,
-                userMessage: $userMessage,
-                userId: $userId
+                userMessage: $userMessage
             );
 
             $totalTime = ($contextTime + $historyTime + $llmTime);
@@ -622,51 +502,75 @@ class Engine
     }//end ensureUniqueTitle()
 
     /**
-     * Queue the conversation-title generation instead of running it inline.
+     * Generate and persist a conversation title when this is the first exchange
+     * (message count <= 2 and the current title is unset or a "New Conversation"
+     * placeholder).
      *
-     * Naming a conversation costs a second LLM round trip — on the `cli` transport a
-     * whole second `claude` process. It used to run synchronously right after the
-     * reply was stored, so the user waited ~20s of a ~65s wall for a string they had
-     * not asked for and were not yet reading.
+     * The persisted-count probe fetches at most 3 Message objects — enough to
+     * decide `count <= 2` — instead of a full count query (the ported original
+     * used `MessageMapper::countByConversation()`; ObjectService's `count()`
+     * needs ambient register/schema context, and a limit-3 fetch is equivalent
+     * for a boolean threshold this small).
      *
-     * Only the enqueue happens here. Whether the conversation actually wants a title
-     * is decided by ConversationTitleWriter at write time, against a fresh read —
-     * which is strictly more correct than deciding it here: by the time the job runs
-     * the user may have titled the conversation themselves, and a snapshot taken now
-     * would happily overwrite them.
+     * NOTE (save-side gotcha, load-bearing): the payload is routed through
+     * `sanitizeForSave()` and the `$conversation` entity is NOT re-read after
+     * `saveObject()` — the returned in-memory entity is stale by contract.
      *
-     * A null `$jobList` (test callers constructed before this parameter existed)
-     * simply means no title is queued. That is a safe default precisely because the
-     * title is not on the reply's path.
-     *
-     * @param string $conversationId The conversation UUID.
-     * @param string $userMessage    The user message to name the conversation from.
-     * @param string $userId         The conversation owner, carried into the job so it can
-     *                               run as them. A job has no session, and naming needs an
-     *                               identity twice over: the credential broker will not
-     *                               resolve a provider credential for an anonymous
-     *                               principal, and OpenRegister RBAC refuses the write.
+     * @param ObjectEntity $conversation   The Conversation object (pre-save state).
+     * @param string       $conversationId The conversation UUID.
+     * @param string       $userMessage    The user message to derive a title from.
      *
      * @return void
-     *
-     * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
      */
-    private function queueTitleGeneration(string $conversationId, string $userMessage, string $userId): void
-    {
-        if ($this->jobList === null) {
+    private function maybeGenerateTitle(
+        ObjectEntity $conversation,
+        string $conversationId,
+        string $userMessage
+    ): void {
+        $recentMessages = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::MESSAGE_SCHEMA)
+            ->findAll(
+                config: [
+                    'filters' => ['conversationId' => $conversationId],
+                    'limit'   => 3,
+                ]
+            );
+        $messageCount   = count($recentMessages);
+
+        $conversationData    = $conversation->getObject();
+        $currentTitle        = $conversationData['title'] ?? null;
+        $isNewConversation   = ($currentTitle === null || strpos($currentTitle, 'New Conversation') === 0);
+        $shouldGenerateTitle = ($messageCount <= 2 && $isNewConversation === true);
+
+        if ($shouldGenerateTitle === false) {
             return;
         }
 
-        $this->jobList->add(
-            ConversationTitleJob::class,
-            [
-                'conversationId' => $conversationId,
-                'userMessage'    => $userMessage,
-                'userId'         => $userId,
-            ]
+        // Tenant-model-policy: the conversation already carries its organisation
+        // (ObjectEntity metadata) — no new lookup needed to enforce the effective
+        // policy on this background title-generation call too.
+        $organisation = (string) ($conversation->getOrganisation() ?? '');
+        $title        = $this->conversationHandler->generateConversationTitle(firstMessage: $userMessage, organisation: $organisation);
+        $agentId      = $conversationData['agentId'] ?? null;
+        if (is_string($agentId) === true && $agentId !== '') {
+            $title = $this->conversationHandler->ensureUniqueTitle(
+                baseTitle: $title,
+                userId: (string) ($conversationData['userId'] ?? ''),
+                agentId: $agentId
+            );
+        }
+
+        $conversationData['title'] = $title;
+
+        $this->objectService->saveObject(
+            object: $this->sanitizeForSave(data: $conversationData),
+            register: self::REGISTER_SLUG,
+            schema: self::CONVERSATION_SCHEMA,
+            uuid: $conversationId
         );
 
-    }//end queueTitleGeneration()
+    }//end maybeGenerateTitle()
 
     /**
      * Resolve the effective GuardrailPolicy for an organisation, or the
@@ -719,30 +623,4 @@ class Engine
         return ((string) $filter['text']) !== $originalText;
 
     }//end guardrailActed()
-
-    /**
-     * Suffix a guardrail reason code so it names the BOUNDARY that matched, not just
-     * what matched. "The user tried to jailbreak this agent" and "an attached document
-     * contains the phrase" demand opposite responses from an operator
-     * (hermiq-guardrail-preamble-filter design.md Decision 3). Suffixing — rather than a
-     * hand-written code per case — preserves BOTH facts the operator needs (WHAT matched,
-     * and WHERE it came from) and stays correct if `GuardrailPolicyService` ever grows a
-     * third reason code, where a `match` would silently fall through to a wrong or null
-     * reason.
-     *
-     * @param string|null $reason The filter's reason code (`prompt_injection`|`sensitive_content`).
-     *
-     * @return string The `_in_context`-suffixed code, e.g. `prompt_injection_in_context`.
-     *
-     * @spec openspec/changes/hermiq-guardrail-preamble-filter/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
-     */
-    private function contextReasonFor(?string $reason): string
-    {
-        if ($reason === null || $reason === '') {
-            return 'context_blocked';
-        }
-
-        return $reason.'_in_context';
-
-    }//end contextReasonFor()
 }//end class

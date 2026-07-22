@@ -69,17 +69,14 @@ export async function consolidateMemory(agentId, entries = null) {
 }
 
 /**
- * Soft-delete one memory entry by id (operator-facing forget — mirrors the
- * `hermiq.forgetMemory` agent-run tool). Never a hard delete; an unknown id is a
- * soft not-found (`{ found: false }`), not a thrown error.
+ * List an agent's Sessions (tenant-scoped).
  *
  * @param {string} agentId The agent UUID.
- * @param {string} entryId The entry id to forget.
- * @return {Promise<object>} `{ found, scope }`.
+ * @return {Promise<Array<object>>} The Session objects.
  */
-export async function forgetMemory(agentId, entryId) {
-	const response = await axios.delete(generateUrl(`${AGENTS_BASE}/${agentId}/memory/${entryId}`))
-	return response.data
+export async function listSessions(agentId) {
+	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/sessions`))
+	return toList(response.data)
 }
 
 /**
@@ -93,3 +90,14 @@ export async function listUserProfiles(agentId) {
 	return toList(response.data)
 }
 
+/**
+ * Recall an agent's SessionTurns matching a query (tenant-scoped OR search).
+ *
+ * @param {string} agentId The agent UUID.
+ * @param {string} q The recall query.
+ * @return {Promise<Array<object>>} The matching SessionTurn objects.
+ */
+export async function recall(agentId, q) {
+	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/recall`), { params: { q } })
+	return toList(response.data)
+}

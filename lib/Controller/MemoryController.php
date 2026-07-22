@@ -133,42 +133,6 @@ class MemoryController extends Controller
     }//end addMemory()
 
     /**
-     * Soft-delete one memory entry by id (operator-facing forget — mirrors the
-     * `hermiq.forgetMemory` agent-run tool's `MemoryService::forgetEntry()` call, only
-     * reachable over HTTP now). Scoped to the agent's own Memory and the ACTING user's
-     * own UserProfile only (never a caller-supplied subject) — same IDOR posture as the
-     * tool. An id matching nothing in either object is a soft not-found, never a 404 for
-     * "already forgotten" (idempotent).
-     *
-     * @param string $agentId The agent UUID.
-     * @param string $entryId The entry id to soft-delete.
-     *
-     * @return JSONResponse `{found, scope}`, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/agent-memory/tasks.md#task-3-1
-     * @spec openspec/specs/agent-memory/spec.md#requirement-agent-self-service-memory-forget-tool-soft-delete-only
-     */
-    public function forget(string $agentId, string $entryId): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
-
-        try {
-            $result = $this->memoryService->forgetEntry(agentId: $agentId, subjectUid: $user->getUID(), entryId: $entryId);
-            return new JSONResponse($result);
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq memory forget failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Could not forget the memory entry'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
-
-    }//end forget()
-
-    /**
      * List an agent's UserProfile objects (tenant-scoped).
      *
      * @param string $agentId The agent UUID.

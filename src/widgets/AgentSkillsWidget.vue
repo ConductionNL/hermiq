@@ -5,18 +5,12 @@
   AgentSkillsWidget — this agent's skill attach/detach section as a
   type:"detail" custom widget (manifest-driven-pages).
 
-  Extracted from AgentDetail.vue's Skills section. `Agent.skillInstalls` is an
-  array-of-uuid field referencing an independent `Skill` catalogue — the
-  reverse of an `object-list`'s FK-child-collection shape, so it can't be
-  expressed declaratively either (design.md Decision 3). Self-fetches the
-  agent id from `$route.params.id` and the tenant's skill catalogue.
-
-  Installed-skill membership is read from `Skill.installedOn` (an
-  array-of-agentId on each catalogue skill, returned by
-  `SkillController::shape()`) rather than `Agent.skillInstalls` — that mirror
-  is written best-effort by `SkillService::syncAgentSkillInstalls()` behind a
-  swallowed catch, so it can silently fail to round-trip and leave the list
-  empty even after a successful attach. `Skill.installedOn` is authoritative.
+  Extracted from AgentDetail.vue's Skills section. `skillInstalls` is an
+  array-of-uuid field on `Agent` referencing an independent `Skill` catalogue
+  — the reverse of an `object-list`'s FK-child-collection shape, so it can't
+  be expressed declaratively either (design.md Decision 3). Self-fetches the
+  agent id from `$route.params.id` and the agent object (for its current
+  `skillInstalls`) plus the tenant's skill catalogue.
 
   @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-004-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
 -->
@@ -71,6 +65,7 @@ import { NcButton, NcLoadingIcon, NcSelect } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import Close from 'vue-material-design-icons/Close.vue'
 import { installSkill, listSkills, uninstallSkill } from '../api/skills.js'
+import { useAgentStore } from '../store/store.js'
 
 export default {
 	name: 'AgentSkillsWidget',
@@ -84,6 +79,7 @@ export default {
 
 	data() {
 		return {
+			agent: null,
 			skills: [],
 			loading: true,
 			skillBusy: false,
@@ -102,47 +98,52 @@ export default {
 		},
 
 		/**
-		 * The agent's installed skills as { label, value } options, derived from the
-		 * AUTHORITATIVE `Skill.installedOn` field on each catalogue skill (rather than
-		 * the best-effort `Agent.skillInstalls` mirror, which can silently fail to
-		 * round-trip — SkillService::syncAgentSkillInstalls swallows its write error).
+		 * The agent's installed skills as { label, value } options, resolved from
+		 * skillInstalls uuids against the skills catalogue (falls back to the uuid).
 		 *
 		 * @return {Array<object>} The installed-skill options.
 		 */
 		installedSkills() {
-			return this.skills
-				.filter((skill) => Array.isArray(skill.installedOn) && skill.installedOn.includes(this.agentId))
-				.map((skill) => ({ label: skill.name || skill.uuid || skill.id, value: skill.uuid || skill.id }))
+			const installed = Array.isArray(this.agent && this.agent.skillInstalls) ? this.agent.skillInstalls : []
+			return installed.map((uuid) => {
+				const match = this.skills.find((skill) => (skill.uuid || skill.id) === uuid)
+				return { label: (match && match.name) || uuid, value: uuid }
+			})
 		},
 
 		/**
-		 * Catalogue skills not yet installed on this agent (per `Skill.installedOn`),
-		 * as attach options.
+		 * Catalogue skills not yet installed on this agent, as attach options.
 		 *
 		 * @return {Array<object>} The attachable-skill options.
 		 */
 		attachableSkillOptions() {
+			const installed = Array.isArray(this.agent && this.agent.skillInstalls) ? this.agent.skillInstalls : []
 			return this.skills
-				.filter((skill) => !(Array.isArray(skill.installedOn) && skill.installedOn.includes(this.agentId)))
+				.filter((skill) => !installed.includes(skill.uuid || skill.id))
 				.map((skill) => ({ label: skill.name || skill.uuid || skill.id, value: skill.uuid || skill.id }))
 		},
 	},
 
 	created() {
+		this.agentStore = useAgentStore()
+		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.load()
 	},
 
 	methods: {
 		/**
-		 * Load the tenant's skill catalogue (the authoritative source for this
-		 * agent's installed skills, via each skill's `installedOn`).
+		 * Load this agent (for its skillInstalls) and the tenant's skill catalogue.
 		 *
 		 * @return {Promise<void>}
 		 */
 		async load() {
 			this.loading = true
 			try {
-				const skills = await listSkills().catch(() => [])
+				const [agent, skills] = await Promise.all([
+					this.agentStore.fetchObject('agent', this.agentId),
+					listSkills().catch(() => []),
+				])
+				this.agent = agent || null
 				this.skills = Array.isArray(skills) ? skills : []
 			} finally {
 				this.loading = false

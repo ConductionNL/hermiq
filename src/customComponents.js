@@ -38,12 +38,6 @@ import AgentFormModal from './modals/AgentFormModal.vue'
 // (CnMarkdownEditor body, files editor) in place of the generic schema-driven
 // create/edit dialog — the skills analogue of AgentFormModal above.
 import SkillFormModal from './modals/SkillFormModal.vue'
-// Context form (hermiq-context-documents): resolved by the Contexts page's
-// top-level `slots.form-dialog` -> "ContextFormModal", so CnIndexPage's
-// built-in Add CTA + row-edit mount the Context editor (documents/files/
-// objectQueries authoring, CnMarkdownEditor per document body) in place of
-// the generic schema-driven create/edit dialog.
-import ContextFormModal from './modals/ContextFormModal.vue'
 // Features & Roadmap page — thin wrapper around the lib's
 // CnFeaturesAndRoadmapView (in-product roadmap surface powered by
 // OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
@@ -98,8 +92,4 @@ export default {
 	// Skill form (skill-form-slot): resolved by SkillsCatalog's top-level
 	// `slots.form-dialog` -> "SkillFormModal" (see the import above).
 	SkillFormModal,
-	// Context form (hermiq-context-documents): resolved by the Contexts
-	// page's top-level `slots.form-dialog` -> "ContextFormModal" (see the
-	// import above).
-	ContextFormModal,
 }

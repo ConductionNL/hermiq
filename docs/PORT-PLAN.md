@@ -1,8 +1,3 @@
----
-draft: true
-description: Internal engineering note — the Hermes to Nextcloud port plan, not user documentation.
----
-
 <!--
 SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
 SPDX-License-Identifier: EUPL-1.2
