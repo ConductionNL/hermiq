@@ -40,6 +40,7 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\IAppConfig;
 use OCP\IRequest;
 use OCP\IUser;
+use OCP\IGroupManager;
 use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -96,6 +97,13 @@ class ToolOversightControllerTest extends TestCase
     private IUserSession $userSession;
 
     /**
+     * Mock group manager (non-admin by default).
+     *
+     * @var IGroupManager&MockObject
+     */
+    private IGroupManager $groupManager;
+
+    /**
      * Wire fresh mocks before each test.
      *
      * @return void
@@ -116,6 +124,10 @@ class ToolOversightControllerTest extends TestCase
         $user->method('getUID')->willReturn('alice');
         $this->userSession = $this->createMock(IUserSession::class);
         $this->userSession->method('getUser')->willReturn($user);
+
+        // Non-admin by default; the owner/invited checks carry the existing tests.
+        $this->groupManager = $this->createMock(IGroupManager::class);
+        $this->groupManager->method('isAdmin')->willReturn(false);
 
     }//end setUp()
 
@@ -138,6 +150,7 @@ class ToolOversightControllerTest extends TestCase
             $this->auditTrailMapper,
             $this->appConfig,
             $this->userSession,
+            $this->groupManager,
             $this->createMock(LoggerInterface::class),
             $richAvailable
         ) extends ToolOversightController {
@@ -152,6 +165,7 @@ class ToolOversightControllerTest extends TestCase
                 AuditTrailMapper $auditTrailMapper,
                 IAppConfig $appConfig,
                 IUserSession $userSession,
+                IGroupManager $groupManager,
                 LoggerInterface $logger,
                 private readonly bool $richAvailable
             ) {
@@ -163,6 +177,7 @@ class ToolOversightControllerTest extends TestCase
                     $auditTrailMapper,
                     $appConfig,
                     $userSession,
+                    $groupManager,
                     $logger
                 );
             }//end __construct()
@@ -269,6 +284,29 @@ class ToolOversightControllerTest extends TestCase
         $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 
     }//end testToolCatalogRefusesNonAccessibleAgent()
+
+    /**
+     * An instance admin may inspect the tool catalogue of a private agent they do
+     * not own — including a system-owned seeded agent (owner `__system__`) — via
+     * the oversight bypass. Without it, admins get a spurious 403 on the very
+     * agents they are meant to oversee (EU AI Act art.12/14).
+     *
+     * @return void
+     */
+    public function testToolCatalogAllowsInstanceAdminOnSystemOwnedAgent(): void
+    {
+        $this->groupManager = $this->createMock(IGroupManager::class);
+        $this->groupManager->method('isAdmin')->willReturn(true);
+        $this->objectService->method('find')->willReturn(
+            $this->agent(['tools' => [], 'isPrivate' => true], '__system__')
+        );
+        $this->toolRegistry->method('listTools')->willReturn([]);
+
+        $response = $this->controller()->toolCatalog('agent-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+    }//end testToolCatalogAllowsInstanceAdminOnSystemOwnedAgent()
 
     /**
      * toolCatalog 404s when the agent cannot be found.
