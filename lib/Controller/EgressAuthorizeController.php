@@ -56,7 +56,6 @@ use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
-use Psr\Log\LoggerInterface;
 
 /**
  * The token-gated egress PDP: answers allow/deny per CONNECT from the shared
@@ -66,7 +65,6 @@ use Psr\Log\LoggerInterface;
  */
 class EgressAuthorizeController extends Controller
 {
-
     /**
      * Constructor.
      *
@@ -77,14 +75,12 @@ class EgressAuthorizeController extends Controller
      *                                                    dependency-free — no second allowlist).
      * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
      *                                                    knobs `hermiq.webFetch` reads.
-     * @param LoggerInterface            $logger          PSR-3 logger (never receives a token value).
      */
     public function __construct(
         IRequest $request,
         private readonly RunTokenService $runTokenService,
         private readonly WebResearchEgressGuard $guard,
-        private readonly WebResearchSettingsHandler $settingsHandler,
-        private readonly LoggerInterface $logger
+        private readonly WebResearchSettingsHandler $settingsHandler
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
 

@@ -114,17 +114,17 @@ class McpRunController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest           $request           The request object.
-     * @param RunTokenService    $runTokenService   Verifies the per-run bearer token.
-     * @param ObjectService      $objectService     Loads the run's agent (under the impersonated user).
+     * @param IRequest           $request            The request object.
+     * @param RunTokenService    $runTokenService    Verifies the per-run bearer token.
+     * @param ObjectService      $objectService      Loads the run's agent (under the impersonated user).
      * @param ToolRegistryFacade $toolRegistryFacade OR's public tool read/invoke surface.
-     * @param ToolGrantResolver  $grantResolver     Expands `Agent.tools` against the catalog.
-     * @param ToolLoop           $toolLoop          Builds the governed `FacadeToolInvoker` (reused,
-     *                                              not reimplemented).
-     * @param ToolSearchService  $toolSearchService Holds the run's resolved set for the approval gate.
-     * @param IUserManager       $userManager       Resolves the token's user to an `IUser`.
-     * @param IUserSession       $userSession       Impersonates that user for RBAC on dispatch.
-     * @param LoggerInterface    $logger            PSR-3 logger (never receives a token value).
+     * @param ToolGrantResolver  $grantResolver      Expands `Agent.tools` against the catalog.
+     * @param ToolLoop           $toolLoop           Builds the governed `FacadeToolInvoker` (reused,
+     *                                               not reimplemented).
+     * @param ToolSearchService  $toolSearchService  Holds the run's resolved set for the approval gate.
+     * @param IUserManager       $userManager        Resolves the token's user to an `IUser`.
+     * @param IUserSession       $userSession        Impersonates that user for RBAC on dispatch.
+     * @param LoggerInterface    $logger             PSR-3 logger (never receives a token value).
      */
     public function __construct(
         IRequest $request,
@@ -300,7 +300,6 @@ class McpRunController extends Controller
             ];
         }
 
-
         return $tools;
 
     }//end resolveMcpTools()
@@ -416,10 +415,6 @@ class McpRunController extends Controller
 
         $out = [];
         foreach ($catalog as $descriptor) {
-            if (is_array($descriptor) === false) {
-                continue;
-            }
-
             $descriptorId = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
             if (is_string($descriptorId) === true && isset($allowed[$descriptorId]) === true) {
                 $out[] = $descriptor;
