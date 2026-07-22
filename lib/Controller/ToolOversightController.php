@@ -48,6 +48,7 @@ use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IAppConfig;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -107,6 +108,7 @@ class ToolOversightController extends Controller
      * @param AuditTrailMapper   $auditTrailMapper OR audit read (MCP invocation / run entries).
      * @param IAppConfig         $appConfig        Reads `hermiq.tools.disclosureThreshold`.
      * @param IUserSession       $userSession      Resolves the requesting user.
+     * @param IGroupManager      $groupManager     Instance-admin check for the oversight bypass.
      * @param LoggerInterface    $logger           PSR-3 logger.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
@@ -122,6 +124,7 @@ class ToolOversightController extends Controller
         private readonly AuditTrailMapper $auditTrailMapper,
         private readonly IAppConfig $appConfig,
         private readonly IUserSession $userSession,
+        private readonly IGroupManager $groupManager,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
@@ -400,7 +403,17 @@ class ToolOversightController extends Controller
         }
 
         $invitedUsers = ($data['invitedUsers'] ?? []);
-        return (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true);
+        if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
+            return true;
+        }
+
+        // Instance-admin oversight bypass. This is a governance surface (EU AI Act
+        // art.12/14 tool-invocation oversight), so an instance admin must be able to
+        // inspect any agent's tool catalogue/activity — including system-owned seeded
+        // agents (owner `__system__`) that no human owns and OpenRegister lets admins
+        // read anyway. Deliberately scoped to this oversight controller; it does NOT
+        // widen general private-agent access elsewhere.
+        return $this->groupManager->isAdmin($userId);
 
     }//end canAccessAgent()
 
