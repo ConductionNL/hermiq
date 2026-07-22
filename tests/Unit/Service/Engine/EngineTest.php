@@ -38,7 +38,9 @@ use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Cron\ConversationTitleJob;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
@@ -98,7 +100,8 @@ class EngineTest extends TestCase
         ConversationManagementHandler|MockObject $conversationHandler,
         MessageHistoryHandler|MockObject $historyHandler,
         ContextAssembler|MockObject|null $contextAssembler=null,
-        GuardrailPolicyService|MockObject|null $guardrailPolicyService=null
+        GuardrailPolicyService|MockObject|null $guardrailPolicyService=null,
+        IJobList|MockObject|null $jobList=null
     ): Engine {
         if ($contextAssembler === null) {
             $contextAssembler = $this->createMock(ContextAssembler::class);
@@ -113,7 +116,8 @@ class EngineTest extends TestCase
             $historyHandler,
             $contextAssembler,
             new NullLogger(),
-            $guardrailPolicyService
+            $guardrailPolicyService,
+            $jobList
         );
 
     }//end engine()
@@ -772,14 +776,19 @@ class EngineTest extends TestCase
     }//end testProcessMessageFailsOnUnknownConversation()
 
     /**
-     * First exchange on an untitled conversation: a title is generated, made
-     * unique for the user+agent pair, and persisted on the Conversation object.
+     * The reply does not wait for the conversation to be named.
+     *
+     * Naming costs a second LLM round trip — on the `cli` transport a second
+     * `claude` process, ~20s of a ~65s wall — and nothing in the reply depends on
+     * it. This test replaces one that asserted the old synchronous write: the
+     * behaviour change is deliberate (session-context-performance), so the
+     * assertion inverts rather than being deleted.
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+     * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
      */
-    public function testProcessMessageGeneratesTitleOnFirstExchange(): void
+    public function testProcessMessageQueuesTheTitleInsteadOfBlockingOnIt(): void
     {
         $conversation = $this->entity(
             'conv-1',
@@ -802,18 +811,8 @@ class EngineTest extends TestCase
                 return $agent;
             }
         );
-        // Title probe: 2 messages → first exchange.
         $objectService->method('findAll')->willReturn([1, 2]);
-
-        $savedPayload = null;
-        $objectService->expects($this->once())
-            ->method('saveObject')
-            ->willReturnCallback(
-                function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$savedPayload): ObjectEntity {
-                    $savedPayload = ['object' => $object, 'uuid' => $uuid];
-                    return new ObjectEntity();
-                }
-            );
+        $objectService->method('saveObject')->willReturn(new ObjectEntity());
 
         $contextHandler = $this->createMock(ContextRetrievalHandler::class);
         $contextHandler->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
@@ -821,15 +820,82 @@ class EngineTest extends TestCase
         $responseHandler = $this->createMock(ResponseGenerationHandler::class);
         $responseHandler->method('generateResponse')->willReturn('Answer');
 
+        // The point of the change: no title work on this path at all.
         $conversationHandler = $this->createMock(ConversationManagementHandler::class);
-        $conversationHandler->expects($this->once())
-            ->method('generateConversationTitle')
-            ->with('What is our leave policy?')
-            ->willReturn('Leave policy');
-        $conversationHandler->expects($this->once())
-            ->method('ensureUniqueTitle')
-            ->with('Leave policy', 'alice', 'agent-1')
-            ->willReturn('Leave policy (2)');
+        $conversationHandler->expects($this->never())->method('generateConversationTitle');
+        $conversationHandler->expects($this->never())->method('ensureUniqueTitle');
+
+        $historyHandler = $this->createMock(MessageHistoryHandler::class);
+        $historyHandler->method('storeMessage')->willReturn(new ObjectEntity());
+        $historyHandler->method('buildMessageHistory')->willReturn([]);
+
+        $queued  = null;
+        $jobList = $this->createMock(IJobList::class);
+        $jobList->expects($this->once())
+            ->method('add')
+            ->willReturnCallback(
+                function (string $job, mixed $argument) use (&$queued): void {
+                    $queued = ['job' => $job, 'argument' => $argument];
+                }
+            );
+
+        $engine = $this->engine(
+            $objectService,
+            $contextHandler,
+            $responseHandler,
+            $conversationHandler,
+            $historyHandler,
+            null,
+            null,
+            $jobList
+        );
+
+        $result = $engine->processMessage(
+            conversationId: 'conv-1',
+            userId: 'alice',
+            userMessage: 'What is our leave policy?'
+        );
+
+        // The reply still lands, unchanged.
+        $this->assertSame('Answer', $result['message']);
+
+        // And the naming is queued with what the job needs to do it later.
+        $this->assertSame(ConversationTitleJob::class, $queued['job']);
+        $this->assertSame('conv-1', $queued['argument']['conversationId']);
+        $this->assertSame('What is our leave policy?', $queued['argument']['userMessage']);
+
+    }//end testProcessMessageQueuesTheTitleInsteadOfBlockingOnIt()
+
+    /**
+     * A null job list (callers constructed before the parameter existed) must not
+     * break a turn — the title is simply not queued, which is safe precisely
+     * because it is not on the reply's path.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+     */
+    public function testProcessMessageWithoutAJobListStillReplies(): void
+    {
+        $conversation = $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1']);
+        $agent        = $this->entity('agent-1', ['name' => 'Helper']);
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('setRegister')->willReturnSelf();
+        $objectService->method('setSchema')->willReturnSelf();
+        $objectService->method('find')->willReturnCallback(
+            static function (int|string $id) use ($conversation, $agent): ?ObjectEntity {
+                return $id === 'conv-1' ? $conversation : $agent;
+            }
+        );
+        $objectService->method('findAll')->willReturn([1, 2]);
+        $objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $contextHandler = $this->createMock(ContextRetrievalHandler::class);
+        $contextHandler->method('retrieveContext')->willReturn(['text' => '', 'sources' => []]);
+
+        $responseHandler = $this->createMock(ResponseGenerationHandler::class);
+        $responseHandler->method('generateResponse')->willReturn('Answer');
 
         $historyHandler = $this->createMock(MessageHistoryHandler::class);
         $historyHandler->method('storeMessage')->willReturn(new ObjectEntity());
@@ -839,17 +905,19 @@ class EngineTest extends TestCase
             $objectService,
             $contextHandler,
             $responseHandler,
-            $conversationHandler,
+            $this->createMock(ConversationManagementHandler::class),
             $historyHandler
         );
 
-        $engine->processMessage(conversationId: 'conv-1', userId: 'alice', userMessage: 'What is our leave policy?');
+        $result = $engine->processMessage(
+            conversationId: 'conv-1',
+            userId: 'alice',
+            userMessage: 'What is our leave policy?'
+        );
 
-        $this->assertNotNull($savedPayload);
-        $this->assertSame('Leave policy (2)', $savedPayload['object']['title']);
-        $this->assertSame('conv-1', $savedPayload['uuid']);
+        $this->assertSame('Answer', $result['message']);
 
-    }//end testProcessMessageGeneratesTitleOnFirstExchange()
+    }//end testProcessMessageWithoutAJobListStillReplies()
 
     /**
      * The title/uniqueness delegation helpers forward to the conversation handler.

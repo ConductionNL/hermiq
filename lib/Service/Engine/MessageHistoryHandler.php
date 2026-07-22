@@ -104,7 +104,17 @@ class MessageHistoryHandler
             ->findAll(
                 config: [
                     'filters' => ['conversationId' => $conversationId],
-                    'sort'    => ['created' => 'DESC'],
+                    // `@self.created`, NOT `created`. OpenRegister reads a bare key as an OBJECT
+                    // PROPERTY; `Message` has no `created` property (the timestamp is metadata),
+                    // so this sort silently did NOTHING — and this is the one place where that
+                    // was not cosmetic. The intent is "newest N, then reverse to chronological".
+                    // Unsorted, findAll returned the OLDEST N in natural order and the
+                    // array_reverse below then handed the LLM the conversation's OPENING
+                    // messages, backwards. Any conversation longer than RECENT_MESSAGES_COUNT
+                    // was answered without a single recent turn in context.
+                    // Verified live: `_order[created]=DESC` returns the oldest row first;
+                    // `_order[@self.created]=DESC` returns the newest.
+                    'sort'    => ['@self.created' => 'DESC'],
                     'limit'   => self::RECENT_MESSAGES_COUNT,
                 ]
             );

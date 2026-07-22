@@ -107,6 +107,23 @@ class MemoryServiceTest extends TestCase
     }//end userSession()
 
     /**
+     * An ObjectEntity with the given uuid and payload.
+     *
+     * @param string               $uuid    The object's UUID.
+     * @param array<string, mixed> $payload The object's data.
+     *
+     * @return ObjectEntity
+     */
+    private function objectEntity(string $uuid, array $payload): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid($uuid);
+        $entity->setObject($payload);
+        return $entity;
+
+    }//end objectEntity()
+
+    /**
      * An ObjectService whose findAll returns the given list and whose saveObject records
      * the last saved payload into $captured and echoes it back as an entity.
      *
@@ -274,22 +291,32 @@ class MemoryServiceTest extends TestCase
     }//end testConsolidateClearsFlagWhenUnderBudget()
 
     /**
-     * listSessions() scopes to the CALLER's own Sessions via OpenRegister's
-     * `@self.owner` object-owner meta-filter, alongside `agentId` — Session has no
-     * user/owner schema property, so this is the only guard against one user seeing
-     * another user's chat sessions for the same agent. Without the fix, `filters`
-     * carries only `agentId` and this assertion fails.
+     * listSessions() reads the LIVE conversation store, scoped to the caller.
+     *
+     * The cross-user guarantee is unchanged — `agentId` alone would show every user's
+     * sessions for that agent — but the KEY changed with the store. `Session` had no user
+     * property, so `@self.owner` was the only option there. `Conversation` has `userId`,
+     * and owner scoping would be actively wrong on it: on the reference instance all 184
+     * conversations have `userId = admin` while only 49 have `_owner = admin`, the rest
+     * being written as `__system__` from paths with no session user. `@self.owner` would
+     * hide 73% of the caller's own sessions, silently.
      *
      * @return void
      *
-     * @spec openspec/changes/agent-memory/tasks.md#task-2-4
+     * @spec openspec/changes/session-store-consolidation/specs/agent-memory/spec.md#requirement-session-listing-reads-the-live-conversation-store
      */
-    public function testListSessionsScopesToCallerOwnedSessionsOnly(): void
+    public function testListSessionsReadsTheConversationStoreScopedToTheCaller(): void
     {
+        $capturedSchema = null;
         $capturedConfig = null;
         $service        = $this->createMock(ObjectService::class);
         $service->method('setRegister')->willReturnSelf();
-        $service->method('setSchema')->willReturnSelf();
+        $service->method('setSchema')->willReturnCallback(
+            function (string $schema) use (&$capturedSchema, $service): ObjectService {
+                $capturedSchema = $schema;
+                return $service;
+            }
+        );
         $service->method('findAll')->willReturnCallback(
             function (array $config) use (&$capturedConfig): array {
                 $capturedConfig = $config;
@@ -300,17 +327,21 @@ class MemoryServiceTest extends TestCase
         $memory = new MemoryService($service, $this->redactionService(), $this->userSession('alice'));
         $memory->listSessions(agentId: 'agent-1');
 
+        $this->assertSame(
+            'conversation',
+            $capturedSchema,
+            'listSessions() must read the live conversation store — `agentsession` was never written to.'
+        );
         $this->assertNotNull($capturedConfig);
         $this->assertSame('agent-1', $capturedConfig['filters']['agentId']);
-        $this->assertArrayHasKey(
-            '@self.owner',
-            $capturedConfig['filters'],
-            'listSessions() must scope by the OpenRegister object-owner meta-filter, never just agentId — '
-            .'otherwise every authenticated user sees every other user\'s sessions for this agent.'
+        $this->assertSame(
+            'alice',
+            $capturedConfig['filters']['userId'] ?? null,
+            'listSessions() must scope to the caller, never just agentId — otherwise every authenticated '
+            .'user sees every other user\'s sessions for this agent.'
         );
-        $this->assertSame('alice', $capturedConfig['filters']['@self.owner']);
 
-    }//end testListSessionsScopesToCallerOwnedSessionsOnly()
+    }//end testListSessionsReadsTheConversationStoreScopedToTheCaller()
 
     /**
      * `listSessions()` fails CLOSED when there is no authenticated user: it must return
@@ -341,26 +372,37 @@ class MemoryServiceTest extends TestCase
     }//end testListSessionsFailsClosedWithNoAuthenticatedUser()
 
     /**
-     * Recall passes the agent filter + search term through to ObjectService search,
-     * AND — like `listSessions()` — scopes to the CALLER's own SessionTurns via the
-     * `@self.owner` object-owner meta-filter: `SessionTurn` has no owner/subject
-     * property, so without this a query would full-text-search every user's turns
-     * for the agent. Without the fix, `filters` carries only `agentId` and the
-     * `@self.owner` assertion fails.
+     * Recall resolves the caller's conversations, then searches only those messages.
+     *
+     * `Message` carries neither `agentId` nor `userId` — only `conversationId` — so the
+     * agent binding and the ownership scope both have to come from `Conversation`. The
+     * search term reaches the message query, and the message query is confined to the ids
+     * the first query returned: that confinement IS the cross-user guard, since any
+     * authenticated user could otherwise full-text-search every other user's turns.
      *
      * @return void
      *
-     * @spec openspec/changes/agent-memory/tasks.md#task-2-5
+     * @spec openspec/changes/session-store-consolidation/specs/agent-memory/spec.md#requirement-cross-session-recall-via-or-search
      */
-    public function testRecallPassesAgentFilterAndSearch(): void
+    public function testRecallJoinsThroughTheCallersConversations(): void
     {
-        $capturedConfig = null;
-        $service        = $this->createMock(ObjectService::class);
+        $calls   = [];
+        $service = $this->createMock(ObjectService::class);
         $service->method('setRegister')->willReturnSelf();
-        $service->method('setSchema')->willReturnSelf();
+        $service->method('setSchema')->willReturnCallback(
+            function (string $schema) use (&$calls, $service): ObjectService {
+                $calls[] = ['schema' => $schema];
+                return $service;
+            }
+        );
         $service->method('findAll')->willReturnCallback(
-            function (array $config) use (&$capturedConfig): array {
-                $capturedConfig = $config;
+            function (array $config) use (&$calls): array {
+                $index                    = (count($calls) - 1);
+                $calls[$index]['config'] = $config;
+                if ($calls[$index]['schema'] === 'conversation') {
+                    return [$this->objectEntity('conv-1', []), $this->objectEntity('conv-2', [])];
+                }
+
                 return [];
             }
         );
@@ -368,18 +410,99 @@ class MemoryServiceTest extends TestCase
         $memory = new MemoryService($service, $this->redactionService(), $this->userSession('admin'));
         $memory->recallSessions(agentId: 'agent-9', query: 'budget report');
 
-        $this->assertNotNull($capturedConfig);
-        $this->assertSame('agent-9', $capturedConfig['filters']['agentId']);
-        $this->assertSame('budget report', $capturedConfig['search']);
-        $this->assertArrayHasKey(
-            '@self.owner',
-            $capturedConfig['filters'],
-            'recallSessions() must scope by the OpenRegister object-owner meta-filter, never just agentId — '
-            .'otherwise any authenticated user can full-text search every other user\'s SessionTurns for this agent.'
-        );
-        $this->assertSame('admin', $capturedConfig['filters']['@self.owner']);
+        $this->assertCount(2, $calls, 'Recall must issue exactly two queries: conversations, then messages.');
 
-    }//end testRecallPassesAgentFilterAndSearch()
+        // First: the caller's conversations for this agent.
+        $this->assertSame('conversation', $calls[0]['schema']);
+        $this->assertSame('agent-9', $calls[0]['config']['filters']['agentId']);
+        $this->assertSame('admin', $calls[0]['config']['filters']['userId']);
+
+        // Second: messages, confined to exactly those conversations.
+        $this->assertSame('message', $calls[1]['schema']);
+        $this->assertSame('budget report', $calls[1]['config']['search']);
+        $this->assertSame(
+            ['conv-1', 'conv-2'],
+            $calls[1]['config']['filters']['conversationId'],
+            'The message search must be confined to the caller\'s own conversations — that confinement '
+            .'is what stops one user full-text searching another user\'s turns.'
+        );
+
+    }//end testRecallJoinsThroughTheCallersConversations()
+
+    /**
+     * A caller with no conversations recalls nothing, and issues no message query.
+     *
+     * Not an optimisation: an empty `conversationId` filter list is an UNSCOPED message
+     * query, which would recall every user's turns for the agent.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/session-store-consolidation/specs/agent-memory/spec.md#requirement-cross-session-recall-via-or-search
+     */
+    public function testRecallWithNoConversationsNeverIssuesAnUnscopedMessageQuery(): void
+    {
+        $schemas = [];
+        $service = $this->createMock(ObjectService::class);
+        $service->method('setRegister')->willReturnSelf();
+        $service->method('setSchema')->willReturnCallback(
+            function (string $schema) use (&$schemas, $service): ObjectService {
+                $schemas[] = $schema;
+                return $service;
+            }
+        );
+        $service->method('findAll')->willReturn([]);
+
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession('admin'));
+        $result = $memory->recallSessions(agentId: 'agent-9', query: 'budget report');
+
+        $this->assertSame([], $result);
+        $this->assertNotContains('message', $schemas, 'No conversations must mean no message query at all.');
+
+    }//end testRecallWithNoConversationsNeverIssuesAnUnscopedMessageQuery()
+
+    /**
+     * More conversations than OpenRegister's `IN ()` cap are chunked, not truncated.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/session-store-consolidation/specs/agent-memory/spec.md#requirement-cross-session-recall-via-or-search
+     */
+    public function testRecallChunksTheConversationIdFilterAtTheInListCap(): void
+    {
+        $conversations = [];
+        for ($i = 0; $i < 1200; $i++) {
+            $conversations[] = $this->objectEntity('conv-'.$i, []);
+        }
+
+        $messageFilters = [];
+        $schema         = '';
+        $service        = $this->createMock(ObjectService::class);
+        $service->method('setRegister')->willReturnSelf();
+        $service->method('setSchema')->willReturnCallback(
+            function (string $s) use (&$schema, $service): ObjectService {
+                $schema = $s;
+                return $service;
+            }
+        );
+        $service->method('findAll')->willReturnCallback(
+            function (array $config) use (&$schema, &$messageFilters, $conversations): array {
+                if ($schema === 'conversation') {
+                    return $conversations;
+                }
+
+                $messageFilters[] = $config['filters']['conversationId'];
+                return [];
+            }
+        );
+
+        $memory = new MemoryService($service, $this->redactionService(), $this->userSession('admin'));
+        $memory->recallSessions(agentId: 'agent-9', query: 'budget report');
+
+        $this->assertCount(2, $messageFilters, '1200 conversations must be split across two message queries.');
+        $this->assertCount(1000, $messageFilters[0], 'No chunk may exceed OpenRegister\'s 1000-expression IN() cap.');
+        $this->assertCount(200, $messageFilters[1]);
+
+    }//end testRecallChunksTheConversationIdFilterAtTheInListCap()
 
     /**
      * `recallSessions()` fails CLOSED when there is no authenticated user: it must

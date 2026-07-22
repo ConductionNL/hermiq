@@ -16,11 +16,11 @@
 	<NcModal
 		:show="show"
 		size="small"
-		:name="t('hermiq', 'Delete conversation permanently')"
+		:name="t('hermiq', 'Delete session permanently')"
 		@close="$emit('close')">
 		<div class="conversation-delete">
 			<h2 class="conversation-delete__title">
-				{{ t('hermiq', 'Delete conversation permanently') }}
+				{{ t('hermiq', 'Delete session permanently') }}
 			</h2>
 
 			<NcNoteCard v-if="error" type="error">
@@ -28,10 +28,10 @@
 			</NcNoteCard>
 
 			<p class="conversation-delete__text">
-				{{ t('hermiq', 'This permanently deletes the conversation and all of its messages. This cannot be undone.') }}
+				{{ t('hermiq', 'This permanently deletes the session and all of its messages. This cannot be undone.') }}
 			</p>
 			<p v-if="conversation" class="conversation-delete__name">
-				{{ conversation.title || t('hermiq', 'New conversation') }}
+				{{ conversation.title || t('hermiq', 'New session') }}
 			</p>
 
 			<div class="conversation-delete__actions">

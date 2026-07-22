@@ -9,7 +9,7 @@
   translations (OR shipped a placeholder t()), CSS variables only, and the
   empty state links to hermiq's own /agents catalogue page. Each card shows
   the agent's tool whitelist / views and offers a one-click
-  "Start conversation" — the parent (Chat.vue) creates the conversation.
+  "Start session" — the parent (Chat.vue) creates the conversation object.
 -->
 <template>
 	<div class="agent-selector">
@@ -28,7 +28,7 @@
 		<NcEmptyContent
 			v-else-if="agents.length === 0"
 			:name="t('hermiq', 'No agents available')"
-			:description="t('hermiq', 'You need an agent to start a conversation. Create one in the Agents page.')">
+			:description="t('hermiq', 'You need an agent to start a session. Create one in the Agents page.')">
 			<template #icon>
 				<Robot :size="20" />
 			</template>
@@ -74,7 +74,7 @@
 						<NcLoadingIcon v-if="startingId === (agent.id || agent.uuid)" :size="20" />
 						<MessagePlus v-else :size="20" />
 					</template>
-					{{ t('hermiq', 'Start conversation') }}
+					{{ t('hermiq', 'Start session') }}
 				</NcButton>
 			</div>
 		</div>
