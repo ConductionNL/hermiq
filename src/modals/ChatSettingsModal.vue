@@ -16,15 +16,15 @@
 	<NcModal
 		:show="show"
 		size="normal"
-		:name="t('hermiq', 'Session settings')"
+		:name="t('hermiq', 'Chat settings')"
 		@close="$emit('close')">
 		<div class="chat-settings">
 			<h2 class="chat-settings__title">
-				{{ t('hermiq', 'Session settings') }}
+				{{ t('hermiq', 'Chat settings') }}
 			</h2>
 
 			<p class="chat-settings__description">
-				{{ t('hermiq', 'Control which views and tools the AI may use in this session. By default, all agent capabilities are enabled.') }}
+				{{ t('hermiq', 'Control which views and tools the AI may use in this conversation. By default, all agent capabilities are enabled.') }}
 			</p>
 
 			<!-- Views -->

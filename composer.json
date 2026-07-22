@@ -14,6 +14,15 @@
 			"OCA\\Hermiq\\": "lib/"
 		}
 	},
+	"autoload-dev": {
+		"psr-4": {
+			"OCA\\OpenRegister\\": "tests/Stubs/",
+			"OCA\\Talk\\": "tests/Stubs/Talk/"
+		},
+		"classmap": [
+			"tests/Stubs/OC/"
+		]
+	},
 	"repositories": [
 		{
 			"type": "vcs",

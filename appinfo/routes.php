@@ -194,20 +194,6 @@ return [
             'requirements' => ['agentId' => '[^/]+'],
         ],
         ['name' => 'memory#recall',        'url' => '/api/agents/{agentId}/recall', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
-        [
-            'name'         => 'memory#forget',
-            'url'          => '/api/agents/{agentId}/memory/{entryId}',
-            'verb'         => 'DELETE',
-            'requirements' => ['agentId' => '[^/]+', 'entryId' => '[^/]+'],
-        ],
-
-        // Agent related files (agent-related-files): curated, Claude-project-style list of
-        // existing Nextcloud files the agent can scan/use, backed by the Context system
-        // (ADR-024) — Context.files[] on an agent-owned bundle in agent.contextRefs, riding
-        // the existing ContextAssembler preamble path (distinct from chat attachments).
-        ['name' => 'agentFiles#list',   'url' => '/api/agents/{agentId}/files', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
-        ['name' => 'agentFiles#add',    'url' => '/api/agents/{agentId}/files', 'verb' => 'POST', 'requirements' => ['agentId' => '[^/]+']],
-        ['name' => 'agentFiles#remove', 'url' => '/api/agents/{agentId}/files', 'verb' => 'DELETE', 'requirements' => ['agentId' => '[^/]+']],
 
         // Run analytics (run-analytics): tenant-scoped run metrics from OR AuditTrail (optional agentId).
         ['name' => 'analytics#index', 'url' => '/api/analytics', 'verb' => 'GET'],
@@ -267,7 +253,6 @@ return [
         ['name' => 'budget#update',  'url' => '/api/budgets/{budgetId}', 'verb' => 'PUT', 'requirements' => ['budgetId' => '[^/]+']],
         ['name' => 'budget#destroy', 'url' => '/api/budgets/{budgetId}', 'verb' => 'DELETE', 'requirements' => ['budgetId' => '[^/]+']],
         ['name' => 'budget#estimate', 'url' => '/api/agents/{agentId}/budget-estimate', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
-        ['name' => 'budget#quota', 'url' => '/api/agents/{agentId}/quota', 'verb' => 'GET', 'requirements' => ['agentId' => '[^/]+']],
 
         // Tenant model policy (tenant-model-policy): per-organisation provider/model
         // allowlists. 'effective' is registered before the {policyId} routes so the
@@ -441,13 +426,6 @@ return [
 
         // Chat health probe (PublicPage — widget probes before authenticating).
         ['name' => 'chatHealth#health', 'url' => '/api/chat/health', 'verb' => 'GET'],
-
-        // Chat attachment upload (hermiq-chat-attachments): multipart upload endpoint,
-        // kept SEPARATE from chat#sendMessage/chatStream#stream (both stay JSON-only —
-        // design.md Decision 1). Stores into the acting user's own
-        // Hermiq/Attachments/ and returns a {path, name} reference the chat endpoints
-        // accept in their existing JSON body.
-        ['name' => 'chatAttachment#upload', 'url' => '/api/chat/attachments', 'verb' => 'POST'],
 
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],

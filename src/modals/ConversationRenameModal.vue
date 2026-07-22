@@ -13,11 +13,11 @@
 	<NcModal
 		:show="show"
 		size="small"
-		:name="t('hermiq', 'Rename session')"
+		:name="t('hermiq', 'Rename conversation')"
 		@close="$emit('close')">
 		<div class="conversation-rename">
 			<h2 class="conversation-rename__title">
-				{{ t('hermiq', 'Rename session') }}
+				{{ t('hermiq', 'Rename conversation') }}
 			</h2>
 
 			<NcNoteCard v-if="error" type="error">
@@ -26,8 +26,8 @@
 
 			<NcTextField
 				:value.sync="title"
-				:label="t('hermiq', 'Session title')"
-				:placeholder="t('hermiq', 'New session')" />
+				:label="t('hermiq', 'Conversation title')"
+				:placeholder="t('hermiq', 'New conversation')" />
 
 			<div class="conversation-rename__actions">
 				<NcButton :disabled="saving" @click="$emit('close')">

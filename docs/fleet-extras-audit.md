@@ -1,8 +1,3 @@
----
-draft: true
-description: Internal engineering note — fleet audit, not hermiq user documentation.
----
-
 # Fleet root-file extras audit
 
 Snapshot of root-directory files that exist in fleet apps but **not** in this

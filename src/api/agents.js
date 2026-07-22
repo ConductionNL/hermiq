@@ -203,33 +203,3 @@ export async function rollbackAgentVersion(agentId, versionId) {
 	const response = await axios.post(generateUrl(`${AGENTS_BASE}/${agentId}/versions/${versionId}/rollback`))
 	return response.data
 }
-
-/**
- * The preference key (without the `pref_` prefix that PreferencesController adds)
- * holding the user's chosen default companion agent.
- */
-const DEFAULT_AGENT_PREF = 'default-agent'
-
-/**
- * Read the user's default agent UUID (`''` = none; resolver falls back to the
- * instance-wide companion agent, then the first accessible agent).
- *
- * @return {Promise<string>} The stored agent UUID, or `''`.
- */
-export async function getDefaultAgent() {
-	const { data } = await axios.get(generateUrl(`/apps/hermiq/api/preferences/${DEFAULT_AGENT_PREF}`))
-	return (data && data.value) || ''
-}
-
-/**
- * Persist the user's default agent UUID (`''` clears it → fall back to the
- * instance-wide default). Storing is a preference, not an authorization: the
- * server re-checks access on every resolve, so a stored UUID the user cannot
- * reach simply falls through.
- *
- * @param {string} uuid The agent UUID, or `''` to clear.
- * @return {Promise<void>}
- */
-export async function setDefaultAgent(uuid) {
-	await axios.put(generateUrl(`/apps/hermiq/api/preferences/${DEFAULT_AGENT_PREF}`), { value: uuid || '' })
-}

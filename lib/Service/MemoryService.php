@@ -82,47 +82,19 @@ class MemoryService
     private const USER_PROFILE_SCHEMA = 'userprofile';
 
     /**
-     * Schema slug for conversation objects — the LIVE session store.
-     *
-     * "Session" is the user-facing word for what the engine persists as a
-     * `Conversation`. There is no second store: the `agentsession`/`agentsessionturn`
-     * schemas ADR-003 mandated were created, read by `listSessions()`/`recallSessions()`,
-     * and never written by anything — `startSession()`/`recordTurn()` had zero callers,
-     * so both tables held 0 rows on the reference instance while `conversation` held 184
-     * and `message` held 297. Everything reading the session store therefore returned
-     * empty, silently and by construction.
+     * Schema slug for conversation-session objects (namespaced to avoid a cross-app slug
+     * collision — a bare `session` slug resolves to another register's schema).
      *
      * @var string
      */
-    private const CONVERSATION_SCHEMA = 'conversation';
+    private const SESSION_SCHEMA = 'agentsession';
 
     /**
-     * Schema slug for message objects — the LIVE turn store.
+     * Schema slug for session-turn objects.
      *
      * @var string
      */
-    private const MESSAGE_SCHEMA = 'message';
-
-    /**
-     * OpenRegister's hard cap on expressions in a single `IN ()` list.
-     *
-     * Exceeding it is not a slow query, it is a broken one, so the recall join chunks its
-     * conversation-id filter rather than truncating it.
-     *
-     * @var int
-     */
-    private const OR_IN_LIST_CAP = 1000;
-
-    /**
-     * How many of the caller's conversations a single recall will consider.
-     *
-     * Bounds the first of recall's two queries. Stated rather than left to `findMany()`'s
-     * default so that a heavy user degrades to "recall over your most recent
-     * conversations" instead of an unbounded scan.
-     *
-     * @var int
-     */
-    private const RECALL_CONVERSATION_SCAN_LIMIT = 500;
+    private const SESSION_TURN_SCHEMA = 'agentsessionturn';
 
     /**
      * Default character budget for a Memory object when none is stored.
@@ -303,34 +275,97 @@ class MemoryService
     }//end consolidateMemory()
 
     /**
-     * List an agent's sessions — the caller's own `Conversation` objects for that agent.
+     * Start a conversation Session for an agent.
      *
-     * Reads the live store. This used to read `agentsession`, which nothing ever wrote,
-     * so it always returned an empty list.
+     * @param string $agentId The agent UUID.
+     * @param string $title   The session title.
      *
-     * Scoped on the `userId` PROPERTY, deliberately, not on the `@self.owner` meta-filter
-     * the sibling lookups use. `Session` carried no user property, which is why owner
-     * scoping was the only option there; `Conversation` carries `userId`, and it is the
-     * accurate one. On the reference instance all 184 conversations have `userId = admin`
-     * while only 49 have `_owner = admin` — the other 135 are owned by `__system__`,
-     * because the engine writes them from paths with no session user. Scoping this on
-     * `@self.owner` would therefore hide 73% of a user's own sessions, and hide them
-     * silently, which is the failure this whole change exists to stop.
+     * @return ObjectEntity The persisted Session object.
      *
-     * Still cross-user safe: `userId` is filtered server-side against the resolved session
-     * UID and is written by the engine from that same session — never from request input.
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-4
+     */
+    public function startSession(string $agentId, string $title): ObjectEntity
+    {
+        $now = $this->now();
+        return $this->objectService->saveObject(
+            object: [
+                'agentId'        => $agentId,
+                'title'          => $title,
+                'startedAt'      => $now,
+                'lastActivityAt' => $now,
+            ],
+            register: self::REGISTER_SLUG,
+            schema: self::SESSION_SCHEMA
+        );
+
+    }//end startSession()
+
+    /**
+     * Record a SessionTurn and touch the parent Session's last-activity timestamp.
+     *
+     * @param string $sessionId The parent Session UUID.
+     * @param string $agentId   The agent UUID (denormalised for recall filtering).
+     * @param string $role      The turn role (user|assistant|system|tool).
+     * @param string $content   The turn content.
+     *
+     * @return ObjectEntity The persisted SessionTurn object.
+     *
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-4
+     */
+    public function recordTurn(string $sessionId, string $agentId, string $role, string $content): ObjectEntity
+    {
+        $now  = $this->now();
+        $turn = $this->objectService->saveObject(
+            object: [
+                'sessionId' => $sessionId,
+                'agentId'   => $agentId,
+                'role'      => $role,
+                'content'   => $content,
+                'createdAt' => $now,
+            ],
+            register: self::REGISTER_SLUG,
+            schema: self::SESSION_TURN_SCHEMA
+        );
+
+        // Fetch by UUID via find() (a uuid is metadata, not an object-property filter).
+        $session = $this->objectService->find(
+            id: $sessionId,
+            register: self::REGISTER_SLUG,
+            schema: self::SESSION_SCHEMA
+        );
+        if ($session !== null) {
+            $data = $session->getObject();
+            $data['lastActivityAt'] = $now;
+            $this->objectService->saveObject(
+                object: $data,
+                register: self::REGISTER_SLUG,
+                schema: self::SESSION_SCHEMA,
+                uuid: (string) $session->getUuid()
+            );
+        }
+
+        return $turn;
+
+    }//end recordTurn()
+
+    /**
+     * List an agent's Sessions, scoped to the caller's tenant AND to the caller's OWN
+     * Sessions — the `Session` schema carries no user/owner property, so `agentId` alone
+     * would return every user's chat sessions for that agent (a cross-user disclosure).
+     * `@self.owner` is OpenRegister's object-owner meta-filter (NEVER `_owner`, which is
+     * silently ignored and returns unfiltered results — see MemoryServiceTest).
      *
      * @param string $agentId The agent UUID.
      *
-     * @return array<int, ObjectEntity> The CALLER's own Conversation objects for this agent.
+     * @return array<int, ObjectEntity> The CALLER's own Session objects for this agent.
      *
-     * @spec openspec/changes/session-store-consolidation/specs/agent-memory/spec.md#requirement-session-listing-reads-the-live-conversation-store
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-4
      */
     public function listSessions(string $agentId): array
     {
         $user = $this->userSession->getUser();
         if ($user === null) {
-            // Fail CLOSED: no session context means there is no safe user to scope to,
+            // Fail CLOSED: no session context means there is no safe owner to scope to,
             // so this returns nothing rather than every tenant's sessions. The caller
             // (MemoryController::sessions()) already 401s before reaching here — this is
             // a belt-and-braces guard on the service seam itself.
@@ -338,10 +373,10 @@ class MemoryService
         }
 
         return $this->findMany(
-            schema: self::CONVERSATION_SCHEMA,
+            schema: self::SESSION_SCHEMA,
             filters: [
-                'agentId' => $agentId,
-                'userId'  => $user->getUID(),
+                'agentId'     => $agentId,
+                '@self.owner' => $user->getUID(),
             ]
         );
 
@@ -384,82 +419,45 @@ class MemoryService
      * Recall relevant SessionTurns for an agent via OpenRegister's own search substrate.
      *
      * Reuses ObjectService search (the same substrate VectorizationService builds on) — NO
-     * bespoke SQLite/FTS5 index. Reads the live store: this used to search
-     * `agentsessionturn`, which nothing ever wrote, so `hermiq.recallMemory` has never
-     * returned a turn in its life — it failed by returning nothing, which reads exactly
-     * like "no match".
-     *
-     * Two queries, because `Message` carries neither `agentId` nor `userId` — only
-     * `conversationId`. The agent binding and the ownership scope both live on
-     * `Conversation`, so the caller's conversations for this agent are resolved first and
-     * the message search is restricted to their ids. Fails CLOSED (no user ⇒ no recall).
-     *
-     * Behavioural trade-off (unchanged from the version this replaces): recallSessions has
-     * two callers — MemoryController::recall() (user-facing) and HermiqToolProvider (the
-     * AGENT calls it as an MCP tool during a run). Scoping to the actor means an agent
-     * recalls only the run actor's own history ("identity, never stale authority"). A
-     * scheduled/background run with no resolvable user therefore recalls NOTHING rather
-     * than leaking across users — an intentional loss of recall, not a bug.
+     * bespoke SQLite/FTS5 index. Scoped to the CALLER's own turns via `@self.owner`
+     * (SessionTurn has no owner/subject property) so one user never recalls another's
+     * conversation content; fails CLOSED (no user ⇒ no recall). See the body comment for
+     * the agent-run-loop trade-off.
      *
      * @param string $agentId The agent UUID.
      * @param string $query   The recall query.
      * @param int    $limit   Maximum turns to return.
      *
-     * @return array<int, ObjectEntity> The matching Message objects (tenant-scoped).
+     * @return array<int, ObjectEntity> The matching SessionTurn objects (tenant-scoped).
      *
-     * @spec openspec/changes/session-store-consolidation/specs/agent-memory/spec.md#requirement-cross-session-recall-via-or-search
+     * @spec openspec/changes/agent-memory/tasks.md#task-2-5
      */
     public function recallSessions(string $agentId, string $query, int $limit=20): array
     {
         $user = $this->userSession->getUser();
         if ($user === null) {
+            // Fail CLOSED: recall full-text searches conversation turn CONTENT, so an
+            // unscoped read would expose every user's turns for this agent. SessionTurn
+            // carries no owner/subject property, so `@self.owner` is the only scoping key.
+            //
+            // Behavioural trade-off (see PR discussion): recallSessions has two callers —
+            // MemoryController::recall() (user-facing) and HermiqToolProvider (the AGENT
+            // calls it as an MCP tool during a run). Scoping to the actor means an agent
+            // recalls only the run actor's own history ("identity, never stale authority").
+            // A scheduled/background run with no resolvable user therefore recalls NOTHING
+            // rather than leaking across users — an intentional loss of recall, not a bug.
             return [];
         }
 
-        $conversations = $this->findMany(
-            schema: self::CONVERSATION_SCHEMA,
+        return $this->findMany(
+            schema: self::SESSION_TURN_SCHEMA,
             filters: [
-                'agentId' => $agentId,
-                'userId'  => $user->getUID(),
+                'agentId'     => $agentId,
+                '@self.owner' => $user->getUID(),
             ],
-            limit: self::RECALL_CONVERSATION_SCAN_LIMIT
+            search: $query,
+            limit: $limit
         );
-
-        $conversationIds = [];
-        foreach ($conversations as $conversation) {
-            $uuid = (string) $conversation->getUuid();
-            if ($uuid !== '') {
-                $conversationIds[] = $uuid;
-            }
-        }
-
-        if (empty($conversationIds) === true) {
-            // No conversations ⇒ no turns. Returning here is not just an optimisation: an
-            // empty `conversationId` filter list is an UNSCOPED message query, which would
-            // recall every user's turns.
-            return [];
-        }
-
-        // OpenRegister caps an `IN ()` list at 1000 expressions, so a caller with more
-        // conversations than that must be chunked rather than silently truncated.
-        $turns = [];
-        foreach (array_chunk($conversationIds, self::OR_IN_LIST_CAP) as $chunk) {
-            $turns = array_merge(
-                $turns,
-                $this->findMany(
-                    schema: self::MESSAGE_SCHEMA,
-                    filters: ['conversationId' => $chunk],
-                    search: $query,
-                    limit: $limit
-                )
-            );
-
-            if (count($turns) >= $limit) {
-                break;
-            }
-        }
-
-        return array_slice($turns, 0, $limit);
 
     }//end recallSessions()
 

@@ -260,52 +260,6 @@ class BudgetControllerTest extends TestCase
     }//end testEstimateReturnsPayloadShape()
 
     /**
-     * quota() delegates to BudgetService::agentQuotaStatus and returns its payload.
-     *
-     * @return void
-     */
-    public function testQuotaReturnsPayloadShape(): void
-    {
-        $service = $this->createMock(BudgetService::class);
-        $service->method('agentQuotaStatus')->with('agent-1')->willReturn(
-            [
-                'agentId'             => 'agent-1',
-                'day'                 => '2026-07-18',
-                'tokens'              => ['used' => 120, 'limit' => 500],
-                'requests'            => ['used' => 2, 'limit' => 5],
-                'tokenQuotaReached'   => false,
-                'requestQuotaReached' => false,
-                'blocked'             => false,
-            ]
-        );
-
-        $response = $this->controller($service, $this->session('alice'))->quota('agent-1');
-
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $data = $response->getData();
-        $this->assertSame(120, $data['tokens']['used']);
-        $this->assertSame(5, $data['requests']['limit']);
-        $this->assertFalse($data['blocked']);
-
-    }//end testQuotaReturnsPayloadShape()
-
-    /**
-     * quota() returns 401 for an unauthenticated caller, never calling the service.
-     *
-     * @return void
-     */
-    public function testQuotaUnauthenticated(): void
-    {
-        $service = $this->createMock(BudgetService::class);
-        $service->expects($this->never())->method('agentQuotaStatus');
-
-        $response = $this->controller($service, $this->session(null))->quota('agent-1');
-
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
-
-    }//end testQuotaUnauthenticated()
-
-    /**
      * create() refuses a plain (non-admin, non-owner) caller with 403, never calling
      * the service (TC-7: write endpoints are admin/owner-gated).
      *

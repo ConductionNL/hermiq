@@ -11,11 +11,6 @@
 >
     <projectFiles>
         <directory name="lib" />
-        <!-- Cross-app stubs (OCA\OpenRegister\*, OCA\Talk\*, OC\Hooks\Emitter): scanned for
-             symbol resolution but NOT analysed (listed under ignoreFiles below). They are
-             registered in tests/bootstrap.php, never in composer autoload-dev, so the served
-             app's runtime autoloader can never shadow the real classes (see tests/bootstrap.php). -->
-        <directory name="tests/Stubs" />
         <ignoreFiles>
             <directory name="vendor" />
             <!-- Apps that ship a verbatim template snapshot under lib/Resources/template/ (e.g. openbuild)
@@ -138,16 +133,6 @@
         <InvalidMethodCall errorLevel="suppress"/>
         <UndefinedInterfaceMethod errorLevel="suppress"/>
         <MissingTemplateParam errorLevel="suppress"/>
-        <!-- The cross-app stubs under tests/Stubs/ are scanned for symbol resolution
-             (they replace composer autoload-dev, which would shadow the real classes at
-             runtime — see tests/bootstrap.php). They are test doubles, not production
-             code, so psalm parser quirks on them (e.g. UnrecognizedStatement on a bare
-             interface declaration) are suppressed here rather than analysed. -->
-        <UnrecognizedStatement errorLevel="suppress">
-            <errorLevel type="suppress">
-                <directory name="tests/Stubs" />
-            </errorLevel>
-        </UnrecognizedStatement>
     </issueHandlers>
     <extraFiles>
         <directory name="vendor/nextcloud/ocp" />

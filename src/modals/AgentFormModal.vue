@@ -182,32 +182,6 @@
 					:placeholder="'5'" />
 			</template>
 
-			<div class="agent-form__field">
-				<NcTextField
-					:value.sync="form.uploadFolder"
-					:label="t('hermiq', 'Upload folder')"
-					:placeholder="'Hermiq/Attachments'" />
-				<p class="agent-form__hint">
-					{{ t('hermiq', 'Folder in your own Files where chat attachments to this agent are stored. Leave blank for the default (Hermiq/Attachments).') }}
-				</p>
-			</div>
-
-			<div class="agent-form__row">
-				<NcTextField
-					:value.sync="form.tokenQuota"
-					type="number"
-					:label="t('hermiq', 'Daily token quota')"
-					:placeholder="'0'" />
-				<NcTextField
-					:value.sync="form.requestQuota"
-					type="number"
-					:label="t('hermiq', 'Daily request quota')"
-					:placeholder="'0'" />
-			</div>
-			<p class="agent-form__hint">
-				{{ t('hermiq', 'Per-day caps on this agent\'s scheduled/flow/webhook runs (0 = unlimited). Reaching either blocks further runs until the next UTC day.') }}
-			</p>
-
 			<div class="agent-form__actions">
 				<NcButton :disabled="saving" @click="handleClose">
 					{{ t('hermiq', 'Cancel') }}
@@ -514,9 +488,6 @@ export default {
 				searchObjects: true,
 				searchFiles: true,
 				ragNumSources: '',
-				uploadFolder: '',
-				tokenQuota: '',
-				requestQuota: '',
 			}
 		},
 
@@ -549,9 +520,6 @@ export default {
 				searchObjects: source.searchObjects !== false,
 				searchFiles: source.searchFiles !== false,
 				ragNumSources: source.ragNumSources ?? '',
-				uploadFolder: source.uploadFolder ?? '',
-				tokenQuota: source.tokenQuota ?? '',
-				requestQuota: source.requestQuota ?? '',
 			}
 		},
 
@@ -677,7 +645,6 @@ export default {
 				enableRag: this.form.enableRag,
 				searchObjects: this.form.searchObjects,
 				searchFiles: this.form.searchFiles,
-				uploadFolder: (this.form.uploadFolder || '').trim(),
 			}
 
 			const temperature = Number(this.form.temperature)
@@ -692,13 +659,6 @@ export default {
 			if (this.form.ragNumSources !== '' && Number.isInteger(ragNumSources)) {
 				payload.ragNumSources = ragNumSources
 			}
-			// Per-day quotas: always send an integer (0 = unlimited) so clearing
-			// the field back to blank persists as "unlimited" rather than leaving a
-			// stale cap in place (OR saveObject is PUT-semantic).
-			const tokenQuota = Number(this.form.tokenQuota)
-			payload.tokenQuota = (this.form.tokenQuota !== '' && Number.isInteger(tokenQuota) && tokenQuota > 0) ? tokenQuota : 0
-			const requestQuota = Number(this.form.requestQuota)
-			payload.requestQuota = (this.form.requestQuota !== '' && Number.isInteger(requestQuota) && requestQuota > 0) ? requestQuota : 0
 
 			// Preserve the object id on edit so saveObject issues a PUT.
 			if (this.effectiveAgent && this.effectiveAgent.id) {

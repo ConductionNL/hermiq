@@ -10,15 +10,6 @@ tools, and run it on a schedule — all inside your own Nextcloud. Agents,
 their memory and skills are stored as OpenRegister objects, so every run
 is governed, auditable and multi-tenant.
 
-:::tip New to AI agents?
-
-If words like *agent*, *skill*, *memory*, *context*, *MCP* or *RAG* are new to
-you, start with **[Agentic concepts, explained](./concepts/index.md)** — a
-plain-language introduction to all of them, in the order they make sense. No
-prior AI knowledge needed.
-
-:::
-
 ## What is this?
 
 Hermiq is an agent engine built on ConductionNL conventions — a

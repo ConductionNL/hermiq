@@ -40,7 +40,7 @@
 					<template #icon>
 						<Plus :size="20" />
 					</template>
-					{{ t('hermiq', 'New session') }}
+					{{ t('hermiq', 'New conversation') }}
 				</NcButton>
 				<div class="chat-page__tabs">
 					<NcCheckboxRadioSwitch
@@ -74,8 +74,8 @@
 				v-else-if="visibleConversations.length === 0"
 				type="info">
 				{{ showArchive
-					? t('hermiq', 'No archived sessions.')
-					: t('hermiq', 'No sessions yet. Start one to chat with an agent.') }}
+					? t('hermiq', 'No archived conversations.')
+					: t('hermiq', 'No conversations yet. Start one to chat with an agent.') }}
 			</NcNoteCard>
 
 			<div v-else class="chat-page__rows">
@@ -90,14 +90,14 @@
 						tabindex="0"
 						@click="selectConversation(conversation)"
 						@keydown.enter="selectConversation(conversation)">
-						<strong>{{ conversation.title || t('hermiq', 'New session') }}</strong>
+						<strong>{{ conversation.title || t('hermiq', 'New conversation') }}</strong>
 						<span class="chat-page__row-date">{{ formatTime(conversation.updated) }}</span>
 					</div>
 					<div class="chat-page__row-actions">
 						<template v-if="!showArchive">
 							<NcButton
 								type="tertiary"
-								:aria-label="t('hermiq', 'Archive session')"
+								:aria-label="t('hermiq', 'Archive conversation')"
 								@click="archive(conversation)">
 								<template #icon>
 									<Archive :size="20" />
@@ -107,7 +107,7 @@
 						<template v-else>
 							<NcButton
 								type="tertiary"
-								:aria-label="t('hermiq', 'Restore session')"
+								:aria-label="t('hermiq', 'Restore conversation')"
 								@click="restore(conversation)">
 								<template #icon>
 									<Restore :size="20" />
@@ -137,7 +137,7 @@
 				<div v-if="activeConversation" class="chat-page__header-actions">
 					<NcButton
 						type="tertiary"
-						:aria-label="t('hermiq', 'Rename session')"
+						:aria-label="t('hermiq', 'Rename conversation')"
 						@click="showRename = true">
 						<template #icon>
 							<Pencil :size="20" />
@@ -145,7 +145,7 @@
 					</NcButton>
 					<NcButton
 						type="tertiary"
-						:aria-label="t('hermiq', 'Session settings')"
+						:aria-label="t('hermiq', 'Chat settings')"
 						@click="showSettings = true">
 						<template #icon>
 							<CogOutline :size="20" />
@@ -159,7 +159,7 @@
 				<div class="chat-page__empty-icon">
 					<MessageText :size="56" />
 				</div>
-				<h3>{{ t('hermiq', 'Start a session') }}</h3>
+				<h3>{{ t('hermiq', 'Start a conversation') }}</h3>
 				<p>{{ t('hermiq', 'Select an agent to begin chatting with your data.') }}</p>
 				<AgentSelector
 					:agents="agents"
@@ -174,7 +174,7 @@
 				<div ref="messagesContainer" class="chat-page__messages">
 					<div v-if="messagesLoading && messages.length === 0" class="chat-page__messages-state">
 						<NcLoadingIcon :size="28" />
-						<p>{{ t('hermiq', 'Loading session…') }}</p>
+						<p>{{ t('hermiq', 'Loading conversation…') }}</p>
 					</div>
 
 					<div
@@ -486,12 +486,12 @@ export default {
 		/**
 		 * The thread header title.
 		 *
-		 * @return {string} Agent name, session title, or the page name.
+		 * @return {string} Agent name, conversation title, or the page name.
 		 */
 		headerTitle() {
 			return this.currentAgent?.name
 				|| this.activeConversation?.title
-				|| this.t('hermiq', 'Sessions')
+				|| this.t('hermiq', 'Chat')
 		},
 
 		/**
@@ -613,7 +613,7 @@ export default {
 					this.archivedConversations = archived.results
 				}
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not load sessions.'))
+				showError(this.t('hermiq', 'Could not load conversations.'))
 			} finally {
 				this.conversationsLoading = false
 			}
@@ -650,7 +650,7 @@ export default {
 					const { results } = await listConversations({ archived: true })
 					this.archivedConversations = results
 				} catch (e) {
-					showError(this.t('hermiq', 'Could not load archived sessions.'))
+					showError(this.t('hermiq', 'Could not load archived conversations.'))
 				} finally {
 					this.conversationsLoading = false
 				}
@@ -701,7 +701,7 @@ export default {
 				this.settings = this.defaultSettingsFor(this.currentAgent)
 				this.scrollToBottom()
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not load the session.'))
+				showError(this.t('hermiq', 'Could not load the conversation.'))
 			} finally {
 				this.messagesLoading = false
 			}
@@ -738,9 +738,9 @@ export default {
 				this.messages = []
 				this.settings = this.defaultSettingsFor(agent)
 				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Session started with {agent}', { agent: agent.name || agentUuid }))
+				showSuccess(this.t('hermiq', 'Conversation started with {agent}', { agent: agent.name || agentUuid }))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not start the session.'))
+				showError(this.t('hermiq', 'Could not start the conversation.'))
 			} finally {
 				this.startingId = ''
 			}
@@ -970,9 +970,9 @@ export default {
 					this.newConversation()
 				}
 				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Session archived'))
+				showSuccess(this.t('hermiq', 'Conversation archived'))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not archive the session.'))
+				showError(this.t('hermiq', 'Could not archive the conversation.'))
 			}
 		},
 
@@ -988,9 +988,9 @@ export default {
 				this.archivedConversations = this.archivedConversations
 					.filter((entry) => entry.uuid !== conversation.uuid)
 				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Session restored'))
+				showSuccess(this.t('hermiq', 'Conversation restored'))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not restore the session.'))
+				showError(this.t('hermiq', 'Could not restore the conversation.'))
 			}
 		},
 
@@ -1017,7 +1017,7 @@ export default {
 			if (this.isActive(conversation)) {
 				this.newConversation()
 			}
-			showSuccess(this.t('hermiq', 'Session deleted'))
+			showSuccess(this.t('hermiq', 'Conversation deleted'))
 		},
 
 		/**
@@ -1029,7 +1029,7 @@ export default {
 		async onRenamed(conversation) {
 			this.activeConversation = conversation
 			await this.loadConversations(true)
-			showSuccess(this.t('hermiq', 'Session renamed'))
+			showSuccess(this.t('hermiq', 'Conversation renamed'))
 		},
 
 		/**

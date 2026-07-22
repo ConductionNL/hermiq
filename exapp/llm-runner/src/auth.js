@@ -1,25 +1,21 @@
 /**
  * AppAPI shared-secret authentication for the hermiq-llm-runner ExApp.
  *
- * Nextcloud AppAPI authenticates every request it proxies to an ExApp with the
- * shared secret it generated at registration time (the ExApp receives it as
- * APP_SECRET). AppAPI 34's `AppAPICommonService::buildAppAPIAuthHeaders()`
- * attaches these headers and NO request signature:
+ * Nextcloud AppAPI signs every request it proxies to an ExApp with the shared
+ * secret it generated at registration time (the ExApp receives it as APP_SECRET).
+ * This module validates that contract BEFORE the caller reaches any CLI:
  *
- *   - `EX-APP-ID`             the target ExApp id — must equal our APP_ID.
- *   - `EX-APP-VERSION`        the ExApp version (not validated here).
- *   - `AA-VERSION`            the AppAPI version (not validated here).
- *   - `AUTHORIZATION-APP-API` base64(`userId:secret`). This carries BOTH the
- *                             acting user id and the shared secret; validating
- *                             the secret half against APP_SECRET is the whole
- *                             authentication check.
+ *   - `EX-APP-ID`            must equal our APP_ID.
+ *   - `AUTHORIZATION-APP-API` must be present (base64 `userId:secret` that
+ *                             AppAPI attaches — carries the acting user).
+ *   - `AA-SIGNATURE`         must be an HMAC-SHA256 of the raw request body
+ *                             keyed by APP_SECRET, hex-encoded.
  *
- * NOTE: an earlier revision of this module required an `AA-SIGNATURE` HMAC of
- * the request body, on the assumption AppAPI signs every proxied request. It
- * does not — AppAPI 34 sends no signature — so that scheme rejected every real
- * AppAPI call (including the /enabled lifecycle call and /run dispatch) as
- * "missing AppAPI authentication headers". The secret still never travels in
- * cleartext outside the internal AppAPI network and never appears in a log line.
+ * The HMAC is computed over the raw body with the shared secret, mirroring
+ * AppAPI's request-signing model (nc_py_api's AppAPIAuthMiddleware performs the
+ * canonical-string HMAC on the Nextcloud side; the deployer sets APP_SECRET to
+ * the value Nextcloud minted at registration). The secret never travels in the
+ * clear and never appears in a log line.
  *
  * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  * @copyright 2026 Conduction B.V.
@@ -33,14 +29,14 @@ const APP_ID = process.env.APP_ID || 'hermiq-llm-runner';
 const APP_SECRET = process.env.APP_SECRET || '';
 
 /**
- * Constant-time string comparison. Returns false on any length or value
- * mismatch without leaking timing information.
+ * Constant-time comparison of two hex strings. Returns false on any length or
+ * value mismatch without leaking timing information.
  *
- * @param {string} a First string.
- * @param {string} b Second string.
+ * @param {string} a First hex string.
+ * @param {string} b Second hex string.
  * @returns {boolean} True when equal.
  */
-function timingSafeEqualStr(a, b) {
+function timingSafeEqualHex(a, b) {
     if (typeof a !== 'string' || typeof b !== 'string') {
         return false;
     }
@@ -53,39 +49,25 @@ function timingSafeEqualStr(a, b) {
 }
 
 /**
- * Extract the shared secret from an `AUTHORIZATION-APP-API` header value.
- * The header is base64(`userId:secret`); the user id may be empty (CLI-issued
- * requests carry no user) and the secret itself may legitimately contain a
- * colon, so split on the FIRST colon only.
+ * Compute the expected AA-SIGNATURE for a raw request body.
  *
- * @param {string} authApp The raw header value.
- * @returns {string|null} The secret, or null when the header is malformed.
+ * @param {Buffer|string} rawBody The exact bytes of the request body.
+ * @returns {string} Hex-encoded HMAC-SHA256.
  */
-function secretFromAuthHeader(authApp) {
-    let decoded;
-    try {
-        decoded = Buffer.from(authApp, 'base64').toString('utf8');
-    } catch (e) {
-        return null;
-    }
-    const idx = decoded.indexOf(':');
-    if (idx < 0) {
-        return null;
-    }
-    return decoded.slice(idx + 1);
+function expectedSignature(rawBody) {
+    return crypto.createHmac('sha256', APP_SECRET).update(rawBody).digest('hex');
 }
 
 /**
  * Validate an incoming request against the AppAPI shared-secret contract.
  *
  * @param {object} headers Lower-cased request headers.
- * @param {Buffer} _rawBody The raw request body bytes (unused — AppAPI 34 does
- *   not sign the body; retained so the call site stays uniform across routes).
+ * @param {Buffer} rawBody The raw request body bytes.
  * @returns {{ok: boolean, status: number, reason: string}} Verdict. `ok:true`
  *   means the request is authorised; otherwise `status` is the HTTP code to
  *   return (401 for missing credentials, 403 for a present-but-invalid one).
  */
-function verify(headers, _rawBody) {
+function verify(headers, rawBody) {
     if (APP_SECRET === '') {
         // Fail closed: an unconfigured secret must never accept traffic.
         return { ok: false, status: 401, reason: 'runner APP_SECRET is not configured' };
@@ -93,22 +75,18 @@ function verify(headers, _rawBody) {
 
     const appId = headers['ex-app-id'];
     const authApp = headers['authorization-app-api'];
+    const signature = headers['aa-signature'];
 
-    if (!appId || !authApp) {
+    if (!appId || !authApp || !signature) {
         return { ok: false, status: 401, reason: 'missing AppAPI authentication headers' };
     }
     if (appId !== APP_ID) {
         return { ok: false, status: 403, reason: 'EX-APP-ID does not match this runner' };
     }
-
-    const secret = secretFromAuthHeader(authApp);
-    if (secret === null) {
-        return { ok: false, status: 403, reason: 'AUTHORIZATION-APP-API is not valid base64 user:secret' };
-    }
-    if (!timingSafeEqualStr(secret, APP_SECRET)) {
-        return { ok: false, status: 403, reason: 'AUTHORIZATION-APP-API secret does not match' };
+    if (!timingSafeEqualHex(signature, expectedSignature(rawBody))) {
+        return { ok: false, status: 403, reason: 'AA-SIGNATURE verification failed' };
     }
     return { ok: true, status: 200, reason: 'ok' };
 }
 
-module.exports = { verify, timingSafeEqualStr, secretFromAuthHeader, APP_ID };
+module.exports = { verify, expectedSignature, timingSafeEqualHex, APP_ID };

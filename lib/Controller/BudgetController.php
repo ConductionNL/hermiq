@@ -165,35 +165,6 @@ class BudgetController extends Controller
     }//end estimate()
 
     /**
-     * The bound agent's per-day token/request quota status — today's usage versus
-     * `Agent.tokenQuota` / `Agent.requestQuota` (0 = unlimited) — the same figure
-     * the dispatch gate enforces, surfaced for the run-operations meter.
-     *
-     * @param string $agentId The agent UUID.
-     *
-     * @return JSONResponse The quota status payload, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
-     */
-    public function quota(string $agentId): JSONResponse
-    {
-        if ($this->userSession->getUser() === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
-
-        try {
-            return new JSONResponse($this->budgetService->agentQuotaStatus(agentId: $agentId));
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq agent quota status failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Could not load the agent quota'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
-
-    }//end quota()
-
-    /**
      * Create a budget for an organisation. Admin/owner-gated.
      *
      * @return JSONResponse The created budget, or an error status.

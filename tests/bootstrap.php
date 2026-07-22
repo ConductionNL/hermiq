@@ -48,34 +48,11 @@ if (!defined('OC_CONSOLE') && file_exists(__DIR__ . '/../../../lib/base.php')) {
     }
 }
 
-// Register the OpenRegister, Talk and OC\Hooks stubs — but ONLY here in the test
-// entry point, and only when the real apps/server do not already supply them.
-//
-// These mappings MUST NEVER live in composer.json. `autoload-dev` is baked into the
-// generated autoloader by a plain `composer install`, and in this dev topology the
-// app checkout IS the served app — Application.php requires vendor/autoload.php, so
-// the stubs would shadow the real classes on EVERY request. A
-// `tests/Stubs/Db/OrganisationMapper.php` fake then shadows the real OpenRegister
-// OrganisationMapper for the whole instance, and OpenRegister's ConfigurationService
-// fatals with "Call to undefined method OrganisationMapper::getDefaultOrganisationFromConfig()"
-// — silently breaking the register import of EVERY app on the instance (the
-// 2026-07-18 hrmq/doriath/decidesk outage). Static analysis does not need the
-// mapping either: PHPStan ignores unknown `OCA\OpenRegister\`/`OC\` classes and Psalm
-// suppresses them via <referencedClass>.
+// Load the IMcpToolProvider stub when the openregister runtime (PR #1466,
+// ai-chat-companion-orchestrator) is absent. Also registered via autoload-dev
+// PSR-4 in composer.json (OCA\OpenRegister\ -> tests/Stubs/).
 if (interface_exists(\OCA\OpenRegister\Mcp\IMcpToolProvider::class) === false) {
-    $openRegisterStubLoader = new \Composer\Autoload\ClassLoader();
-    $openRegisterStubLoader->addPsr4('OCA\\OpenRegister\\', __DIR__ . '/Stubs/');
-    $openRegisterStubLoader->register();
-}
-
-if (class_exists(\OCA\Talk\Room::class) === false) {
-    $talkStubLoader = new \Composer\Autoload\ClassLoader();
-    $talkStubLoader->addPsr4('OCA\\Talk\\', __DIR__ . '/Stubs/Talk/');
-    $talkStubLoader->register();
-}
-
-if (interface_exists(\OC\Hooks\Emitter::class) === false) {
-    require_once __DIR__ . '/Stubs/OC/Hooks/Emitter.php';
+    require_once __DIR__ . '/Stubs/Mcp/IMcpToolProvider.php';
 }
 
 // Load minimal Doctrine\DBAL stubs when doctrine/dbal is absent (standalone

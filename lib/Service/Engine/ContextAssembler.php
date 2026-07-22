@@ -8,9 +8,7 @@
  * `objectQueries` entry through `ObjectService` (the same public surface `MemoryService`/
  * `ContextRetrievalHandler` already use), reads each `files` entry from the acting user's
  * Nextcloud folder via `IRootFolder` (the same public OCP surface
- * `HermiqToolProvider::readFile()` already uses), renders each inline `documents` entry
- * (ADR-024 — a `design.md`-style document authored directly on the Context, distinct from
- * a `files` pointer at a user's Nextcloud file), and concatenates everything under a
+ * `HermiqToolProvider::readFile()` already uses), and concatenates everything under a
  * character budget — mirroring `MemoryService`'s `charBudget`/`needsConsolidation`
  * contract: the assembled text is NEVER truncated to fit the budget; exceeding it only
  * flags (and persists) a `needsConsolidation` nudge.
@@ -51,12 +49,6 @@ use Throwable;
  * Resolves Context objects into a budgeted text preamble for the Engine's system prompt.
  *
  * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
- *
- * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) hermiq-chat-attachments' assembleAttachments()
- * pushes the class over the threshold by ONE more (trivial, one-line) method. The alternative — a
- * separate AttachmentAssembler class — was explicitly rejected (design.md Decision 3): an
- * attachment is Context-kind material with a Message lifecycle, not a fourth concept, so its
- * resolution reuses resolveFiles() verbatim rather than becoming a second seam by another name.
  */
 class ContextAssembler
 {
@@ -186,7 +178,6 @@ class ContextAssembler
         $sections = [];
         $sections = array_merge($sections, $this->resolveObjectQueries(queries: ($data['objectQueries'] ?? [])));
         $sections = array_merge($sections, $this->resolveFiles(files: ($data['files'] ?? []), actingUserId: $actingUserId));
-        $sections = array_merge($sections, $this->resolveDocuments(documents: ($data['documents'] ?? [])));
 
         $this->logViewRefs(contextId: $contextId, viewRefs: ($data['viewRefs'] ?? []));
 
@@ -281,36 +272,6 @@ class ContextAssembler
     }//end resolveObjectQueries()
 
     /**
-     * Resolve a chat turn's per-turn `attachments` references into `Source:` blocks,
-     * reusing `resolveFiles()` VERBATIM — the SAME `IRootFolder` read, the SAME
-     * `MAX_FILE_BYTES` cap, and the SAME skip-and-log tolerance for a missing/folder/
-     * unreadable entry `Context.files` already gets. An attachment is Context-kind
-     * material with a Message lifecycle, not a fourth concept (hermiq-chat-attachments
-     * design.md Decision 3): it introduces no second read path. The caller (Engine)
-     * folds the returned text into the SAME preamble `assembleForAgent()` produces,
-     * so attachment text inherits that preamble's guardrail filtering and budget
-     * accounting rather than needing either of its own.
-     *
-     * `{path, name, description}` attachment entries are read here purely by their
-     * `path` key — `resolveFiles()` never looks at `name`/`description` — so no
-     * shape adaptation is needed between the two.
-     *
-     * @param mixed  $attachments  The turn's `attachments` value.
-     * @param string $actingUserId The acting user id, for reading files from their
-     *                             Nextcloud folder.
-     *
-     * @return string The concatenated attachment blocks ('' when there are none, or
-     *                none resolve).
-     *
-     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-attachment-content-is-resolved-into-the-turn-preamble-via-the-acting-users-folder
-     */
-    public function assembleAttachments(mixed $attachments, string $actingUserId): string
-    {
-        return implode("\n\n", $this->resolveFiles(files: $attachments, actingUserId: $actingUserId));
-
-    }//end assembleAttachments()
-
-    /**
      * Read each `files` entry from the acting user's Nextcloud folder. A missing file,
      * a path resolving to a folder, or a read failure is skipped (logged) — it never
      * aborts the whole assembly.
@@ -380,50 +341,6 @@ class ContextAssembler
         return $blocks;
 
     }//end resolveFiles()
-
-    /**
-     * Render each inline `documents` entry (ADR-024) as a titled section identified by
-     * its `name`, formatted with the SAME `Source: {identifier}` prefix convention
-     * `resolveFiles()` uses for its blocks — so the model sees a uniform section shape
-     * across all three source kinds. An entry that is not a valid object, or that lacks
-     * a non-empty `name` or `body`, is skipped (logged) — it never aborts the whole
-     * assembly, mirroring `resolveFiles()`/`resolveObjectQueries()`. Rendered documents
-     * feed the SAME `$sections` collection `assemble()` merges, so they inherit the
-     * existing `charBudget`/`needsConsolidation` accounting with no new budget contract
-     * and no per-document byte cap. `format` is carried on the schema for future use;
-     * every body is currently rendered as plain text (no branching by format).
-     *
-     * @param mixed $documents The Context's `documents` value.
-     *
-     * @return array<int, string> One formatted block per valid entry.
-     *
-     * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-contextassembler-renders-documents-into-the-budgeted-preamble
-     */
-    private function resolveDocuments(mixed $documents): array
-    {
-        if (is_array($documents) === false) {
-            return [];
-        }
-
-        $blocks = [];
-        foreach ($documents as $document) {
-            if (is_array($document) === false) {
-                continue;
-            }
-
-            $name = (string) ($document['name'] ?? '');
-            $body = (string) ($document['body'] ?? '');
-            if ($name === '' || $body === '') {
-                $this->logger->info('Hermiq ContextAssembler: document entry missing name/body, skipping.');
-                continue;
-            }
-
-            $blocks[] = sprintf("Source: %s\n%s", $name, $body);
-        }//end foreach
-
-        return $blocks;
-
-    }//end resolveDocuments()
 
     /**
      * Log the count of declared `viewRefs` — resolution is deferred (see class docblock).

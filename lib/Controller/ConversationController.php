@@ -172,15 +172,7 @@ class ConversationController extends Controller
                 ->findAll(
                     config: [
                         'filters' => ['userId' => $userId],
-                        // `@self.updated`, NOT `updated`: OpenRegister reads a bare key as an
-                        // OBJECT PROPERTY, and Conversation has no `updated` property — the
-                        // timestamp is metadata. A property that does not exist sorts nothing,
-                        // silently, so the list came back in natural (oldest-first) order and a
-                        // freshly created session landed at position ~185 of 185, i.e. nowhere
-                        // the user would ever look. Verified against the live substrate:
-                        // `_order[updated]` returns 2026-07-15 first, `_order[@self.updated]`
-                        // returns 2026-07-17 first.
-                        'sort'    => ['@self.updated' => 'DESC'],
+                        'sort'    => ['updated' => 'DESC'],
                         'limit'   => self::MAX_CONVERSATION_SCAN,
                     ]
                 );
@@ -332,12 +324,7 @@ class ConversationController extends Controller
                 ->findAll(
                     config: [
                         'filters' => ['conversationId' => $uuid],
-                        // `@self.created`, NOT `created` — same trap as the list above: Message
-                        // has no `created` PROPERTY, so the sort was silently doing nothing and
-                        // a thread only read chronologically because natural insertion order
-                        // happens to agree. That is luck, not ordering, and it stops being true
-                        // the moment a row is rewritten.
-                        'sort'    => ['@self.created' => 'ASC'],
+                        'sort'    => ['created' => 'ASC'],
                         'limit'   => $limit,
                         'offset'  => $offset,
                     ]

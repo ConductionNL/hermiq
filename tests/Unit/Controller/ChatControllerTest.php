@@ -257,72 +257,6 @@ class ChatControllerTest extends TestCase
     }//end testSendMessageDelegatesToEngine()
 
     /**
-     * hermiq-chat-attachments: an `attachments` array in the request reaches
-     * `Engine::processMessage()` as the named `attachments` argument; an absent
-     * one defaults to `[]` (byte-for-byte unchanged behaviour for every
-     * pre-existing caller).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
-     */
-    public function testSendMessagePassesAttachmentsThroughToEngine(): void
-    {
-        $attachments = [['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt']];
-        $this->stubParams(['conversation' => 'conv-1', 'message' => 'What does the report say?', 'attachments' => $attachments]);
-        $this->objectService->method('find')->willReturn(
-            $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
-        );
-
-        // `attachments` is Engine::processMessage()'s LAST parameter (appended
-        // after $channel/$trace/$dryRun to keep every pre-existing positional
-        // test double of this method unaffected) — a variadic capture is what
-        // stays correct regardless of how many named args a given call site
-        // supplies; `end($args)` is always the final resolved parameter.
-        $seenAttachments = null;
-        $this->engine->expects($this->once())->method('processMessage')->willReturnCallback(
-            function (...$args) use (&$seenAttachments): array {
-                $seenAttachments = end($args);
-                return ['message' => 'ok', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []];
-            }
-        );
-
-        $this->controller()->sendMessage();
-
-        $this->assertSame($attachments, $seenAttachments);
-
-    }//end testSendMessagePassesAttachmentsThroughToEngine()
-
-    /**
-     * A non-array `attachments` request param is silently dropped to `[]` —
-     * mirrors how a malformed `context` is already handled.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
-     */
-    public function testSendMessageDropsNonArrayAttachments(): void
-    {
-        $this->stubParams(['conversation' => 'conv-1', 'message' => 'hi', 'attachments' => 'not-an-array']);
-        $this->objectService->method('find')->willReturn(
-            $this->entity('conv-1', ['userId' => 'alice', 'agentId' => 'agent-1'])
-        );
-
-        $seenAttachments = 'unset';
-        $this->engine->expects($this->once())->method('processMessage')->willReturnCallback(
-            function (...$args) use (&$seenAttachments): array {
-                $seenAttachments = end($args);
-                return ['message' => 'ok', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []];
-            }
-        );
-
-        $this->controller()->sendMessage();
-
-        $this->assertSame([], $seenAttachments);
-
-    }//end testSendMessageDropsNonArrayAttachments()
-
-    /**
      * A missing conversation AND agentUuid is a 400 (resolveConversation's
      * input-validation guard) and must log at WARNING — not ERROR with a full
      * stack trace — because it is expected client input error, not a server fault.
@@ -421,15 +355,7 @@ class ChatControllerTest extends TestCase
         );
         $this->objectService->method('findAll')->willReturn(
             [
-                $this->entity(
-                    'msg-1',
-                    [
-                        'conversationId' => 'conv-1',
-                        'role'           => 'user',
-                        'content'        => 'hi',
-                        'attachments'    => [['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt']],
-                    ]
-                ),
+                $this->entity('msg-1', ['conversationId' => 'conv-1', 'role' => 'user', 'content' => 'hi']),
                 $this->entity('msg-2', ['conversationId' => 'conv-1', 'role' => 'assistant', 'content' => 'hello']),
             ]
         );
@@ -442,13 +368,6 @@ class ChatControllerTest extends TestCase
         $this->assertCount(2, $response->getData()['messages']);
         $this->assertSame('msg-1', $response->getData()['messages'][0]['id']);
         $this->assertSame('user', $response->getData()['messages'][0]['role']);
-        // hermiq-chat-attachments: a Message's attachment references round-trip
-        // through history; a Message with none defaults to [].
-        $this->assertSame(
-            [['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt']],
-            $response->getData()['messages'][0]['attachments']
-        );
-        $this->assertSame([], $response->getData()['messages'][1]['attachments']);
 
     }//end testGetHistoryReturnsMessagesAndTotal()
 
