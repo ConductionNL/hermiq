@@ -140,9 +140,7 @@ export default {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
-	padding: 12px;
-	background: var(--color-background-hover);
-	border-radius: var(--border-radius-large, 8px);
+	padding: 4px 0;
 }
 
 .agent-kpi-widget__value {

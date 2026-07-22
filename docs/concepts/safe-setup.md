@@ -181,7 +181,13 @@ flowchart LR
 1. **Tools are granted, not assumed.** Enforced when the turn is assembled. Grant
    nothing and it can do nothing — that is the default.
 2. **Guardrails filter both directions.** Per organisation: redact or block PII
-   and secrets, block prompt-injection attempts, on input *and* output.
+   and secrets, block prompt-injection attempts, on input *and* output. Your
+   message and the assembled [context](./context.md) bundle are filtered
+   *separately*, so the trace tells an operator which one tripped — "the user
+   tried to jailbreak this agent" and "an attached document contains the phrase"
+   want opposite responses. Two limits worth knowing: filtering is **off by
+   default** (it is a policy you enable), and the [RAG](./rag.md) retrieval block
+   is **not** covered today.
 3. **Risky tools wait for a person.** Classify `confirm` → every call becomes an
    [approval](../approvals.md).
 4. **Everything is recorded.** Every run and tool call lands in OpenRegister's

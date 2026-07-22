@@ -191,7 +191,8 @@ class ChatController extends Controller
                 selectedViews: $params['selectedViews'],
                 selectedTools: $params['selectedTools'],
                 ragSettings: $params['ragSettings'],
-                context: $params['context']
+                context: $params['context'],
+                attachments: $params['attachments']
             );
 
             // Add conversation UUID to result for frontend.
@@ -640,9 +641,11 @@ class ChatController extends Controller
      * @psalm-return array{conversationUuid: string, agentUuid: string,
      *     message: string, selectedViews: array, selectedTools: array,
      *     ragSettings: array{includeObjects: bool|mixed, includeFiles: bool|mixed,
-     *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array}
+     *     numSourcesFiles: int|mixed, numSourcesObjects: int|mixed}, context: array,
+     *     attachments: array}
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
      */
     private function extractMessageRequestParams(): array
     {
@@ -681,6 +684,16 @@ class ChatController extends Controller
             $context = $contextParam;
         }
 
+        // Extract optional attachment references ({path, name, description}
+        // entries returned by ChatAttachmentController::upload()); anything
+        // that is not an array is silently dropped — an omitted/missing
+        // `attachments` is fine (hermiq-chat-attachments).
+        $attachmentsParam = $this->request->getParam('attachments');
+        $attachments      = [];
+        if (is_array($attachmentsParam) === true) {
+            $attachments = $attachmentsParam;
+        }
+
         return [
             'conversationUuid' => $conversationUuid,
             'agentUuid'        => $agentUuid,
@@ -689,6 +702,7 @@ class ChatController extends Controller
             'selectedTools'    => $selectedTools,
             'ragSettings'      => $ragSettings,
             'context'          => $context,
+            'attachments'      => $attachments,
         ];
     }//end extractMessageRequestParams()
 
@@ -975,6 +989,7 @@ class ChatController extends Controller
      * @return array<string, mixed> Serialized message.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-the-user-message-persists-its-attachment-references
      */
     private function serializeMessage(ObjectEntity $message): array
     {
@@ -987,6 +1002,7 @@ class ChatController extends Controller
             'role'           => ($data['role'] ?? null),
             'content'        => ($data['content'] ?? null),
             'sources'        => ($data['sources'] ?? []),
+            'attachments'    => ($data['attachments'] ?? []),
             'created'        => $message->getCreated()?->format('c'),
         ];
     }//end serializeMessage()

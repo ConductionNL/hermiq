@@ -37,6 +37,8 @@ use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IAppConfig;
+use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\IUser;
@@ -80,7 +82,7 @@ class TestableChatStreamController extends ChatStreamController
     /**
      * Whether a terminal frame has been emitted (production exited).
      *
-     * @var bool
+     * @var boolean
      */
     private bool $terminated = false;
 
@@ -218,20 +220,184 @@ class ChatStreamControllerTest extends TestCase
      *
      * @return TestableChatStreamController
      */
-    private function makeController(string $body=''): TestableChatStreamController
+    private function makeController(string $body='', string $companionAgentUuid='', string $userDefaultAgentUuid=''): TestableChatStreamController
     {
+        $appConfig = $this->createMock(IAppConfig::class);
+        $appConfig->method('getValueString')->willReturnCallback(
+            static function (string $app, string $key, string $default='') use ($companionAgentUuid): string {
+                if ($key === 'companion_agent_uuid') {
+                    return $companionAgentUuid;
+                }
+
+                return $default;
+            }
+        );
+
+        // Per-user default agent, stored by PreferencesController under `pref_default-agent`.
+        $config = $this->createMock(IConfig::class);
+        $config->method('getUserValue')->willReturnCallback(
+            static function (string $uid, string $app, string $key, $default='') use ($userDefaultAgentUuid) {
+                if ($key === 'pref_default-agent') {
+                    return $userDefaultAgentUuid;
+                }
+
+                return $default;
+            }
+        );
+
         $controller = new TestableChatStreamController(
             $this->createMock(IRequest::class),
             $this->engine,
             $this->objectService,
             $this->userSession,
             $this->createMock(IDBConnection::class),
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            $appConfig,
+            $config
         );
         $controller->requestBody = $body;
         return $controller;
 
     }//end makeController()
+
+    /**
+     * The configured companion agent is preferred over the register-order
+     * fallback when the current user may access it.
+     *
+     * @return void
+     */
+    public function testConfiguredCompanionAgentIsPreferred(): void
+    {
+        $this->authenticate('alice');
+
+        $configured = $this->createMock(ObjectEntity::class);
+        $configured->method('getUuid')->willReturn('configured-agent-uuid');
+        // Non-private agent → org-accessible → canUserAccessAgent() true.
+        $configured->method('getObject')->willReturn(['isPrivate' => false]);
+
+        // find() resolves the configured agent. (ObjectService::find has more
+        // parameters than the three we pass by name, so we assert the call
+        // happened rather than pin an exact positional signature.)
+        $this->objectService->expects($this->once())
+            ->method('find')
+            ->willReturn($configured);
+        // The register-order scan MUST NOT run when the configured agent resolves.
+        $this->objectService->expects($this->never())->method('findAll');
+
+        $controller = $this->makeController(companionAgentUuid: 'configured-agent-uuid');
+
+        $method = new \ReflectionMethod($controller, 'pickFallbackAgentForUser');
+        $method->setAccessible(true);
+        $this->assertSame('configured-agent-uuid', $method->invoke($controller, 'alice'));
+
+    }//end testConfiguredCompanionAgentIsPreferred()
+
+    /**
+     * The user's own default agent wins over the instance-wide companion agent.
+     *
+     * A per-user choice at the top tier: if it did not beat the app-config default,
+     * setting a personal default would silently do nothing whenever an admin default is
+     * also configured. `find()` is asserted to run exactly ONCE — proof the app-config
+     * tier is never consulted, since reaching it would be a second `find()`.
+     *
+     * @return void
+     */
+    public function testUserDefaultAgentBeatsTheConfiguredCompanionAgent(): void
+    {
+        $this->authenticate('alice');
+
+        $mine = $this->createMock(ObjectEntity::class);
+        $mine->method('getUuid')->willReturn('my-default-uuid');
+        $mine->method('getObject')->willReturn(['isPrivate' => false]);
+
+        $this->objectService->expects($this->once())
+            ->method('find')
+            ->willReturn($mine);
+        $this->objectService->expects($this->never())->method('findAll');
+
+        $controller = $this->makeController(
+            companionAgentUuid: 'admin-default-uuid',
+            userDefaultAgentUuid: 'my-default-uuid'
+        );
+
+        $method = new \ReflectionMethod($controller, 'pickFallbackAgentForUser');
+        $method->setAccessible(true);
+        $this->assertSame('my-default-uuid', $method->invoke($controller, 'alice'));
+
+    }//end testUserDefaultAgentBeatsTheConfiguredCompanionAgent()
+
+    /**
+     * A per-user default the user can no longer access falls through to the next tier.
+     *
+     * The stored UUID is a preference, not an authorization: revoking access must not
+     * strand the user on an agent they cannot use. Here the user default is private and
+     * not theirs, so it fails canUserAccessAgent() and the accessible app-config agent
+     * is used instead.
+     *
+     * @return void
+     */
+    public function testUserDefaultAgentFallsThroughWhenInaccessible(): void
+    {
+        $this->authenticate('alice');
+
+        $mineInaccessible = $this->createMock(ObjectEntity::class);
+        $mineInaccessible->method('getUuid')->willReturn('my-default-uuid');
+        // Private and owned by someone else → canUserAccessAgent() false.
+        $mineInaccessible->method('getObject')->willReturn(['isPrivate' => true, 'owner' => 'bob']);
+
+        $configured = $this->createMock(ObjectEntity::class);
+        $configured->method('getUuid')->willReturn('admin-default-uuid');
+        $configured->method('getObject')->willReturn(['isPrivate' => false]);
+
+        // find() is called twice: once for the (inaccessible) user default, once for the
+        // (accessible) configured agent. The scan must not run.
+        $this->objectService->expects($this->exactly(2))
+            ->method('find')
+            ->willReturnCallback(
+                function (string | int $id) use ($mineInaccessible, $configured): ObjectEntity {
+                    return $id === 'my-default-uuid' ? $mineInaccessible : $configured;
+                }
+            );
+        $this->objectService->expects($this->never())->method('findAll');
+
+        $controller = $this->makeController(
+            companionAgentUuid: 'admin-default-uuid',
+            userDefaultAgentUuid: 'my-default-uuid'
+        );
+
+        $method = new \ReflectionMethod($controller, 'pickFallbackAgentForUser');
+        $method->setAccessible(true);
+        $this->assertSame('admin-default-uuid', $method->invoke($controller, 'alice'));
+
+    }//end testUserDefaultAgentFallsThroughWhenInaccessible()
+
+    /**
+     * When no companion agent is configured, the controller falls back to the
+     * first agent in register order the user can access (pre-existing behaviour,
+     * unchanged).
+     *
+     * @return void
+     */
+    public function testFallsBackToFirstAccessibleAgentWhenUnconfigured(): void
+    {
+        $this->authenticate('alice');
+
+        $first = $this->createMock(ObjectEntity::class);
+        $first->method('getUuid')->willReturn('first-accessible-uuid');
+        $first->method('getObject')->willReturn(['isPrivate' => false]);
+
+        // No configured agent → find() is never called for a companion uuid;
+        // the register-order scan runs and returns the first accessible agent.
+        $this->objectService->expects($this->never())->method('find');
+        $this->objectService->expects($this->once())->method('findAll')->willReturn([$first]);
+
+        $controller = $this->makeController();
+
+        $method = new \ReflectionMethod($controller, 'pickFallbackAgentForUser');
+        $method->setAccessible(true);
+        $this->assertSame('first-accessible-uuid', $method->invoke($controller, 'alice'));
+
+    }//end testFallsBackToFirstAccessibleAgentWhenUnconfigured()
 
     /**
      * Drive stream() and absorb the sentinel stop signal.
@@ -394,6 +560,93 @@ class ChatStreamControllerTest extends TestCase
         $this->assertSame('final', $last['type']);
 
     }//end testSuccessfulTurnEmitsExactlyOneFinal()
+
+    /**
+     * hermiq-chat-attachments: an `attachments` array in the JSON body reaches
+     * `Engine::processMessage()` as the named `attachments` argument, and the
+     * turn still completes/streams normally.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
+     */
+    public function testAttachmentsInTheJsonBodyReachTheEngine(): void
+    {
+        $this->authenticate('alice');
+        $this->objectService->method('find')->willReturnCallback(
+            function (): ObjectEntity {
+                $conversation = new ObjectEntity();
+                $conversation->setUuid('conv-1');
+                $conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+                return $conversation;
+            }
+        );
+
+        // `attachments` is Engine::processMessage()'s LAST parameter (appended
+        // after $channel/$trace/$dryRun to keep every pre-existing positional
+        // test double of this method unaffected) — a variadic capture stays
+        // correct regardless of how many named args a given call site
+        // supplies; `end($args)` is always the final resolved parameter.
+        $seenAttachments = null;
+        $this->engine->method('processMessage')->willReturnCallback(
+            function (...$args) use (&$seenAttachments): array {
+                $seenAttachments = end($args);
+                return ['message' => 'ok', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []];
+            }
+        );
+
+        $body = json_encode(
+            [
+                'message'          => 'What does the report say?',
+                'conversationUuid' => 'conv-1',
+                'attachments'      => [['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt']],
+            ]
+        );
+        $controller = $this->makeController((string) $body);
+        $this->runStream($controller);
+
+        $this->assertSame(
+            [['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt']],
+            $seenAttachments
+        );
+        $this->assertCount(1, $this->frames($controller, 'final'));
+
+    }//end testAttachmentsInTheJsonBodyReachTheEngine()
+
+    /**
+     * Omitting `attachments` from the JSON body defaults to `[]` — byte-for-byte
+     * unchanged behaviour for every request predating this change.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-both-chat-endpoints-accept-an-attachment-reference-in-their-json-body
+     */
+    public function testOmittedAttachmentsDefaultToEmptyArray(): void
+    {
+        $this->authenticate('alice');
+        $this->objectService->method('find')->willReturnCallback(
+            function (): ObjectEntity {
+                $conversation = new ObjectEntity();
+                $conversation->setUuid('conv-1');
+                $conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+                return $conversation;
+            }
+        );
+
+        $seenAttachments = 'unset';
+        $this->engine->method('processMessage')->willReturnCallback(
+            function (...$args) use (&$seenAttachments): array {
+                $seenAttachments = end($args);
+                return ['message' => 'ok', 'messageId' => 'msg-1', 'sources' => [], 'timings' => [], 'usage' => []];
+            }
+        );
+
+        $controller = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+        $this->runStream($controller);
+
+        $this->assertSame([], $seenAttachments);
+
+    }//end testOmittedAttachmentsDefaultToEmptyArray()
 
     /**
      * A failed turn (engine throws) emits exactly one terminal `error`

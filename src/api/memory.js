@@ -69,6 +69,20 @@ export async function consolidateMemory(agentId, entries = null) {
 }
 
 /**
+ * Soft-delete one memory entry by id (operator-facing forget — mirrors the
+ * `hermiq.forgetMemory` agent-run tool). Never a hard delete; an unknown id is a
+ * soft not-found (`{ found: false }`), not a thrown error.
+ *
+ * @param {string} agentId The agent UUID.
+ * @param {string} entryId The entry id to forget.
+ * @return {Promise<object>} `{ found, scope }`.
+ */
+export async function forgetMemory(agentId, entryId) {
+	const response = await axios.delete(generateUrl(`${AGENTS_BASE}/${agentId}/memory/${entryId}`))
+	return response.data
+}
+
+/**
  * List an agent's UserProfiles (tenant-scoped).
  *
  * @param {string} agentId The agent UUID.

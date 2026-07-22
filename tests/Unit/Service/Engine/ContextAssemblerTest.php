@@ -454,4 +454,52 @@ class ContextAssemblerTest extends TestCase
         $this->assertStringContainsString('Context: B', $combined);
 
     }//end testAssembleForAgentConcatenatesAndNoOps()
+
+    /**
+     * assembleAttachments() reuses resolveFiles() verbatim: it reads each
+     * `{path, name, description}` entry from the acting user's folder (ignoring
+     * `name`/`description` — only `path` drives resolution) and renders the SAME
+     * `Source: {path}\n{content}` block resolveFiles() already produces. A missing
+     * path is skipped, never fatal, and no `Context:` header is added (unlike
+     * assemble()) — attachments have no Context object of their own.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-attachment-content-is-resolved-into-the-turn-preamble-via-the-acting-users-folder
+     */
+    public function testAssembleAttachmentsReusesResolveFilesAndSkipsMissingEntries(): void
+    {
+        $rootFolder = $this->rootFolderWithFiles(['Hermiq/Attachments/report.txt' => 'Revenue was 12M']);
+
+        $assembler = new ContextAssembler($this->createMock(ObjectService::class), $rootFolder, new NullLogger());
+
+        $result = $assembler->assembleAttachments(
+            attachments: [
+                ['path' => 'Hermiq/Attachments/report.txt', 'name' => 'report.txt', 'description' => 'Q3 numbers'],
+                ['path' => 'Hermiq/Attachments/missing.txt', 'name' => 'missing.txt'],
+            ],
+            actingUserId: 'alice'
+        );
+
+        $this->assertSame("Source: Hermiq/Attachments/report.txt\nRevenue was 12M", $result);
+        $this->assertStringNotContainsString('missing.txt', $result);
+        $this->assertStringNotContainsString('Context:', $result, 'Attachments render with no Context: header.');
+
+    }//end testAssembleAttachmentsReusesResolveFilesAndSkipsMissingEntries()
+
+    /**
+     * An empty/absent attachments value assembles to '' — the no-op case for a
+     * turn with no attachments.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-attachment-content-is-resolved-into-the-turn-preamble-via-the-acting-users-folder
+     */
+    public function testAssembleAttachmentsIsNoOpWhenEmpty(): void
+    {
+        $assembler = new ContextAssembler($this->createMock(ObjectService::class), $this->createMock(IRootFolder::class), new NullLogger());
+
+        $this->assertSame('', $assembler->assembleAttachments(attachments: [], actingUserId: 'alice'));
+
+    }//end testAssembleAttachmentsIsNoOpWhenEmpty()
 }//end class

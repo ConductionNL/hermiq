@@ -191,18 +191,26 @@ class MessageHistoryHandler
      * @param string     $content        Message content.
      * @param array|null $sources        Optional RAG sources.
      * @param array|null $context        Optional AI Chat Companion context snapshot.
+     * @param array|null $attachments    Optional per-turn attachment references
+     *                                   ({path, name, description} entries) —
+     *                                   persisted onto the user Message so a
+     *                                   conversation read back after the fact
+     *                                   shows which files were attached to which
+     *                                   turn (hermiq-chat-attachments).
      *
      * @return ObjectEntity The persisted Message object.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+     * @spec openspec/changes/hermiq-chat-attachments/specs/chat-attachments/spec.md#requirement-the-user-message-persists-its-attachment-references
      */
     public function storeMessage(
         string $conversationId,
         string $role,
         string $content,
         ?array $sources=null,
-        ?array $context=null
+        ?array $context=null,
+        ?array $attachments=null
     ): ObjectEntity {
         $payload = [
             'conversationId' => $conversationId,
@@ -216,6 +224,10 @@ class MessageHistoryHandler
 
         if ($context !== null && empty($context) === false) {
             $payload['context'] = $context;
+        }
+
+        if ($attachments !== null && empty($attachments) === false) {
+            $payload['attachments'] = $attachments;
         }
 
         $stored = $this->objectService->saveObject(
@@ -233,6 +245,7 @@ class MessageHistoryHandler
                 'conversationId' => $conversationId,
                 'role'           => $role,
                 'hasSources'     => $sources !== null && empty($sources) === false,
+                'hasAttachments' => $attachments !== null && empty($attachments) === false,
             ]
         );
 

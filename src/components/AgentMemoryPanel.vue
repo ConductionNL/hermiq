@@ -8,8 +8,10 @@
   Extracted from AgentMemory.vue so the same panel renders both on the standalone
   Memory nav page and in-place on the agent detail page — one implementation, no
   duplicated markup. Given an `agentId`, it loads the agent's Memory and offers the
-  char-budget bar, the needsConsolidation nudge with a manual Consolidate action, an
-  add-a-fact input, and the entry list. All reads/writes go through the tenant-scoped
+  char-budget meter (shared BudgetMeter component — hermiq's budget-shaped
+  quantities are unified in presentation only, never merged into one number),
+  the needsConsolidation nudge with a manual Consolidate action, an add-a-fact
+  input, and the entry list. All reads/writes go through the tenant-scoped
   MemoryController endpoints (src/api/memory.js).
 
   @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
@@ -25,15 +27,14 @@
 		</div>
 
 		<template v-else-if="agentId">
-			<!-- Char-budget bar + consolidation nudge -->
+			<!-- Char-budget meter + consolidation nudge -->
 			<section class="agent-memory-panel__budget">
-				<div class="agent-memory-panel__budget-head">
-					<span class="agent-memory-panel__budget-label">{{ t('hermiq', 'Memory budget') }}</span>
-					<span class="agent-memory-panel__budget-count">{{ charCount }} / {{ charBudget }} {{ t('hermiq', 'characters') }}</span>
-				</div>
-				<div class="agent-memory-panel__budget-bar" :class="{ 'agent-memory-panel__budget-bar--over': memory.needsConsolidation }">
-					<div class="agent-memory-panel__budget-fill" :style="{ width: budgetPct + '%' }" />
-				</div>
+				<BudgetMeter
+					:label="t('hermiq', 'Memory')"
+					:used="charCount"
+					:limit="charBudget"
+					:unit="t('hermiq', 'characters')"
+					:over="memory.needsConsolidation" />
 				<div v-if="memory.needsConsolidation" class="agent-memory-panel__nudge">
 					<AlertIcon :size="18" class="agent-memory-panel__nudge-icon" />
 					<span>{{ t('hermiq', 'Over budget — consolidation suggested. No entries were dropped.') }}</span>
@@ -94,6 +95,23 @@
 							{{ t('hermiq', 'Forgotten') }}
 						</span>
 						<span class="agent-memory-panel__entry-date">{{ formatDate(entry.createdAt) }}</span>
+						<NcButton
+							v-if="entry.id && !isForgotten(entry)"
+							type="tertiary"
+							:disabled="busy"
+							:aria-label="t('hermiq', 'Remove memory entry')"
+							:title="t('hermiq', 'Remove')"
+							@click="removeEntry(entry.id)">
+							<template #icon>
+								<TrashCanOutlineIcon :size="18" />
+							</template>
+						</NcButton>
+						<span
+							v-else-if="!isForgotten(entry)"
+							class="agent-memory-panel__entry-noremove"
+							:title="t('hermiq', 'This entry predates removal support and has no id — it cannot be removed individually.')">
+							<InformationOutlineIcon :size="14" />
+						</span>
 					</li>
 				</ul>
 			</section>
@@ -103,10 +121,14 @@
 
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcTextField } from '@nextcloud/vue'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import EyeOffIcon from 'vue-material-design-icons/EyeOffOutline.vue'
-import { addMemory, consolidateMemory, getMemory } from '../api/memory.js'
+import InformationOutlineIcon from 'vue-material-design-icons/InformationOutline.vue'
+import TrashCanOutlineIcon from 'vue-material-design-icons/TrashCanOutline.vue'
+import { addMemory, consolidateMemory, forgetMemory, getMemory } from '../api/memory.js'
+import BudgetMeter from './BudgetMeter.vue'
 
 export default {
 	name: 'AgentMemoryPanel',
@@ -114,12 +136,15 @@ export default {
 	components: {
 		AlertIcon,
 		BrainIcon,
+		BudgetMeter,
 		EyeOffIcon,
+		InformationOutlineIcon,
 		NcButton,
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
 		NcTextField,
+		TrashCanOutlineIcon,
 	},
 
 	props: {
@@ -170,18 +195,6 @@ export default {
 		 */
 		charBudget() {
 			return Number(this.memory.charBudget) || 8000
-		},
-
-		/**
-		 * The budget-bar fill percentage (capped at 100).
-		 *
-		 * @return {number} The percentage.
-		 */
-		budgetPct() {
-			if (this.charBudget <= 0) {
-				return 0
-			}
-			return Math.min(100, Math.round((this.charCount / this.charBudget) * 100))
 		},
 	},
 
@@ -260,6 +273,34 @@ export default {
 		},
 
 		/**
+		 * Remove (soft-delete) one memory entry, then reload. Only offered for entries
+		 * that carry an `id` — entries appended before agent-memory-tools may not.
+		 *
+		 * @param {string} entryId The entry id to forget.
+		 * @return {Promise<void>}
+		 */
+		async removeEntry(entryId) {
+			if (!entryId || !this.agentId) {
+				return
+			}
+			this.busy = true
+			this.error = ''
+			try {
+				const result = await forgetMemory(this.agentId, entryId)
+				if (result && result.found === false) {
+					showError(this.t('hermiq', 'That memory entry could not be found.'))
+				} else {
+					showSuccess(this.t('hermiq', 'Memory entry removed.'))
+				}
+				await this.load()
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
 		 * Human-friendly timestamp.
 		 *
 		 * @param {string} value The ISO timestamp.
@@ -302,35 +343,6 @@ export default {
 	border-radius: var(--border-radius-large, 8px);
 	padding: 12px 16px;
 	margin-bottom: 16px;
-}
-
-.agent-memory-panel__budget-head {
-	display: flex;
-	justify-content: space-between;
-	margin-bottom: 8px;
-	font-weight: 600;
-}
-
-.agent-memory-panel__budget-count {
-	color: var(--color-text-maxcontrast);
-	font-weight: normal;
-}
-
-.agent-memory-panel__budget-bar {
-	height: 8px;
-	background: var(--color-background-dark);
-	border-radius: 4px;
-	overflow: hidden;
-}
-
-.agent-memory-panel__budget-fill {
-	height: 100%;
-	background: var(--color-primary-element);
-	transition: width 0.3s ease;
-}
-
-.agent-memory-panel__budget-bar--over .agent-memory-panel__budget-fill {
-	background: var(--color-error);
 }
 
 .agent-memory-panel__nudge {
@@ -407,5 +419,12 @@ export default {
 	color: var(--color-text-maxcontrast);
 	font-size: 12px;
 	white-space: nowrap;
+}
+
+.agent-memory-panel__entry-noremove {
+	display: flex;
+	align-items: center;
+	color: var(--color-text-maxcontrast);
+	flex: 0 0 auto;
 }
 </style>

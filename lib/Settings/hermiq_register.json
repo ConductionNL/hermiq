@@ -3,7 +3,7 @@
 	"info": {
 		"title": "Hermiq Register",
 		"description": "Schedule autonomous AI agents in Nextcloud",
-		"version": "0.15.0"
+		"version": "0.17.0"
 	},
 	"x-openregister": {
 		"type": "application",
@@ -1414,7 +1414,7 @@
 			"Agent": {
 				"slug": "agent",
 				"icon": "RobotOutline",
-				"version": "0.3.0",
+				"version": "0.3.1",
 				"title": "Agent",
 				"description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target).",
 				"type": "object",
@@ -1605,6 +1605,12 @@
 							"$ref": "Context"
 						}
 					},
+					"uploadFolder": {
+						"type": "string",
+						"default": "Hermiq/Attachments",
+						"title": "Upload folder",
+						"description": "Folder (relative to each acting user's own Nextcloud Files) where chat attachments to this agent are stored. Empty falls back to the app default 'Hermiq/Attachments'. Resolved per acting user, never shared; the same anti-traversal rules as chat attachments apply."
+					},
 					"reassignmentFlag": {
 						"type": "boolean",
 						"default": false,
@@ -1684,7 +1690,7 @@
 			"Message": {
 				"slug": "message",
 				"icon": "MessageTextOutline",
-				"version": "0.1.0",
+				"version": "0.1.1",
 				"title": "Message",
 				"description": "One turn within a Conversation, optionally carrying RAG sources and an AI Chat Companion context snapshot.",
 				"type": "object",
@@ -1761,6 +1767,32 @@
 						"type": "object",
 						"title": "Context",
 						"description": "AI Chat Companion context snapshot captured when the message was sent (appId, pageKind, objectUuid, registerSlug, schemaSlug, route, capturedAt), preserved verbatim as free-form JSON."
+					},
+					"attachments": {
+						"type": "array",
+						"default": [],
+						"title": "Attachments",
+						"description": "Files the user attached to this turn, read from the acting user's Nextcloud folder for this turn only — a per-turn reference, not part of the agent's durable Context (hermiq-chat-attachments).",
+						"items": {
+							"type": "object",
+							"properties": {
+								"path": {
+									"type": "string",
+									"title": "Path",
+									"description": "File path relative to the acting user's Nextcloud folder."
+								},
+								"name": {
+									"type": "string",
+									"title": "Name",
+									"description": "Display filename, which may differ from path once Nextcloud de-duplicates a colliding upload (e.g. \"report (2).txt\")."
+								},
+								"description": {
+									"type": "string",
+									"title": "Description",
+									"description": "Optional note on why this file is attached."
+								}
+							}
+						}
 					}
 				}
 			},

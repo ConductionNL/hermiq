@@ -53,6 +53,9 @@ import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
 import AgentRunOperationsWidget from './widgets/AgentRunOperationsWidget.vue'
 import AgentRunHistoryWidget from './widgets/AgentRunHistoryWidget.vue'
 import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
+// agent-related-files: AgentDetail's curated related-files section, built on the
+// shared nc-vue CnRelatedFiles picker over the Context system (ADR-024).
+import AgentFilesWidget from './widgets/AgentFilesWidget.vue'
 // manifest-driven-pages: the Store page's (formerly AgentTemplateGallery,
 // hermiq-github-store) row-actions widget + the EvalDatasetDetail page's sole
 // content widget.
@@ -75,6 +78,7 @@ import ComplianceOperations from './widgets/ComplianceOperations.vue'
 import AgentFormModal from './modals/AgentFormModal.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
+import SetDefaultAgentDialog from './dialogs/SetDefaultAgentDialog.vue'
 import TemplateImportModal from './modals/TemplateImportModal.vue'
 import EvalDatasetFormModal from './modals/EvalDatasetFormModal.vue'
 
@@ -129,6 +133,23 @@ export default {
 	'agent-factsheet': {
 		kind: 'modal',
 		component: AgentFactsheetDialog,
+		propsSchema: {
+			type: 'object',
+			properties: {
+				show: { type: 'boolean' },
+			},
+		},
+	},
+
+	/**
+	 * Set-as-default — make the agent on this detail page the user's default
+	 * companion agent (companion-default-agent). Self-resolves the agent id from
+	 * the route when opened via AgentDetail's "Set as default" action; writes the
+	 * same per-user `default-agent` preference the personal-settings picker uses.
+	 */
+	'set-default-agent': {
+		kind: 'modal',
+		component: SetDefaultAgentDialog,
 		propsSchema: {
 			type: 'object',
 			properties: {
@@ -371,6 +392,25 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'Wraps the existing AgentMemoryPanel.vue (char-budget bar, consolidation nudge, add-a-fact, entries) unchanged — no built-in widget renders a bespoke budget bar + nudge action over a non-OR-collection endpoint (ADR-049).',
+	},
+
+	/**
+	 * Agent related files — a curated, Claude-project-style list of existing
+	 * Nextcloud files this agent can scan and use (item 7), built on the shared
+	 * nc-vue CnRelatedFiles picker. Persisted onto an agent-owned Context
+	 * bundle's files[] array (referenced from agent.contextRefs) via the guarded
+	 * AgentFilesController, so the files ride the existing ContextAssembler
+	 * preamble path at run start (ADR-024) — distinct from chat attachments.
+	 */
+	'agent-files': {
+		kind: 'widget',
+		component: AgentFilesWidget,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 4, h: 2 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'A curated related-files list persisted onto an agent-owned Context bundle (Context.files[] referenced from agent.contextRefs) via guarded add/remove endpoints that also maintain contextRefs (PUT-guarded) — not a declarative object-op: the files ride the existing ContextAssembler run-start preamble path (ADR-024, ADR-049), and the picker UI is the shared nc-vue CnRelatedFiles component.',
 	},
 
 	/**

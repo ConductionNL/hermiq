@@ -35,6 +35,8 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\ChatStreamController;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IAppConfig;
+use OCP\IConfig;
 use OCP\IDBConnection;
 use OCP\IRequest;
 use OCP\IUserSession;
@@ -128,7 +130,6 @@ class HeartbeatTestableChatStreamController extends ChatStreamController
  */
 class ChatStreamControllerHeartbeatTest extends TestCase
 {
-
     /**
      * Build the testable controller with inert mocks.
      *
@@ -142,7 +143,9 @@ class ChatStreamControllerHeartbeatTest extends TestCase
             $this->createMock(ObjectService::class),
             $this->createMock(IUserSession::class),
             $this->createMock(IDBConnection::class),
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            $this->createMock(IAppConfig::class),
+            $this->createMock(IConfig::class)
         );
 
     }//end makeController()
