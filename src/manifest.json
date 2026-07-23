@@ -155,6 +155,13 @@
 			"route": "Compliance",
 			"section": "settings",
 			"order": 30
+		},
+		{
+			"id": "FlowBuilder",
+			"label": "Flows",
+			"icon": "icon-category-workflow",
+			"route": "FlowBuilder",
+			"order": 16
 		}
 	],
 	"pages": [
@@ -701,6 +708,14 @@
 			"component": "McpTools",
 			"_note": "Custom page rendering the standard nc-vue list UI (CnDataTable): MCP tools are resolved live from OpenRegister's tool registry, NOT a hermiq schema, so type:index (which requires register+schema) cannot express it.",
 			"title": "MCP tools"
+		},
+		{
+			"id": "FlowBuilder",
+			"route": "/flows",
+			"type": "custom",
+			"component": "FlowBuilder",
+			"title": "Flows",
+			"_note": "Custom page: a direct-manipulation canvas over an agentflow node/edge document (drag to place, drag-to-connect, per-node config, run + trace). No built-in page type expresses graph authoring — index/detail/dashboard are all record-shaped."
 		}
 	],
 	"setup": {

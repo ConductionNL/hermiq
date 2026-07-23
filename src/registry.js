@@ -45,6 +45,7 @@ import Chat from './views/Chat.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import AgentSessions from './views/AgentSessions.vue'
+import FlowBuilder from './views/FlowBuilder.vue'
 import TenantOps from './views/TenantOps.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
 // the agent-memory wrapper (AgentMemoryPanel.vue itself stays unchanged).
@@ -250,6 +251,18 @@ export default {
 	TenantOps: {
 		kind: 'page',
 		component: TenantOps,
+	},
+
+	/**
+	 * Visual editor for the `agentflow` graphs GraphExecutor walks. A custom page
+	 * because it is a canvas over a node/edge document, not a record list — no
+	 * built-in page type (index/detail/dashboard) can express direct-manipulation
+	 * authoring. Geometry comes from the shared CnGraphCanvas; the palette, the
+	 * per-node config and the run/trace surface are hermiq-specific.
+	 */
+	FlowBuilder: {
+		kind: 'page',
+		component: FlowBuilder,
 	},
 
 	/**
