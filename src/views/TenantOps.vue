@@ -599,7 +599,7 @@ export default {
 				this.reviewAgents = Array.isArray(data.agents) ? data.agents : []
 				this.reviewAgents.forEach((agent) => {
 					if (!(agent.uuid in this.reassignDrafts)) {
-						this.$set(this.reassignDrafts, agent.uuid, '')
+						this.reassignDrafts[agent.uuid] = ''
 					}
 				})
 			} catch (e) {
@@ -643,7 +643,7 @@ export default {
 			try {
 				await reassignAgent(row.uuid, target)
 				showSuccess(this.t('hermiq', 'Agent reassigned.'))
-				this.$set(this.reassignDrafts, row.uuid, '')
+				this.reassignDrafts[row.uuid] = ''
 				await this.loadAccessReview()
 			} catch (e) {
 				showError(e?.response?.data?.error || this.t('hermiq', 'Could not reassign the agent.'))

@@ -231,7 +231,7 @@ export default {
 		subscribe('cn:page:refresh', this.onPageRefresh)
 	},
 
-	beforeDestroy() {
+	beforeUnmount() {
 		unsubscribe('cn:page:refresh', this.onPageRefresh)
 	},
 

@@ -104,7 +104,7 @@
 </template>
 
 <script>
-import Vue from 'vue'
+import { reactive } from 'vue'
 import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { CnAppRoot, CnObjectSidebar, CnSetupWizard, CnCredentials } from '@conduction/nextcloud-vue'
@@ -133,7 +133,9 @@ export default {
 	provide() {
 		return {
 			// Channel for CnDetailPage → host-rendered CnObjectSidebar.
-			// Vue.observable makes the plain object reactive for Vue 2.
+			// Vue 3: `reactive()` replaces Vue 2's `Vue.observable()` (removed
+			// from the global API; under @vue/compat MODE 3 it hard-errors with
+			// "GLOBAL_OBSERVABLE compat has been disabled").
 			objectSidebarState: this.objectSidebarState,
 		}
 	},
@@ -182,7 +184,7 @@ export default {
 	data() {
 		return {
 			showSetup: false,
-			objectSidebarState: Vue.observable({
+			objectSidebarState: reactive({
 				active: false,
 				open: true,
 				objectType: '',
