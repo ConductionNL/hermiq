@@ -5,9 +5,8 @@
 // (the CnIconPicker MDI catalogue, the toast-ui markdown editor) triggers
 // lazy-chunk loading from the wrong path.
 import './publicPath.js'
-import Vue from 'vue'
-import VueRouter from 'vue-router'
-import { PiniaVuePlugin } from 'pinia'
+import { createApp, configureCompat } from 'vue'
+import { createRouter, createWebHistory } from 'vue-router'
 import { translate as t, translatePlural as n, loadTranslations, register } from '@nextcloud/l10n'
 import enTranslations from '../l10n/en.json'
 import { generateUrl } from '@nextcloud/router'
@@ -32,9 +31,11 @@ import '@conduction/nextcloud-vue/css/index.css'
 // Global (unscoped) app styles
 import './assets/app.css'
 
-Vue.mixin({ methods: { t, n } })
-Vue.use(PiniaVuePlugin)
-Vue.use(VueRouter)
+// Vue 3 (ADR-066 straddle): global t/n install via app.config.globalProperties
+// after createApp (below); pinia + router install via app.use. @vue/compat runs
+// in MODE 3 (Vue 3 default) so @nextcloud/vue v9 + the Vue-3 nextcloud-vue line
+// behave natively; hermiq's own remaining Vue-2 idioms are migrated incrementally.
+configureCompat({ MODE: 3 })
 
 // Register library-side icon set + lib translations once at bootstrap.
 registerIcons()
@@ -97,13 +98,13 @@ function routesFromManifest(manifest) {
 		props: page.route.includes(':'),
 	}))
 	// Catch-all: redirect unknown paths to the first page (the dashboard).
-	routes.push({ path: '*', redirect: '/' })
+	// vue-router 4 replaces the `*` wildcard with a named param matcher.
+	routes.push({ path: '/:pathMatch(.*)*', redirect: '/' })
 	return routes
 }
 
-const router = new VueRouter({
-	mode: 'history',
-	base: generateUrl('/apps/hermiq'),
+const router = createRouter({
+	history: createWebHistory(generateUrl('/apps/hermiq')),
 	routes: routesFromManifest(bundledManifest),
 })
 
@@ -123,16 +124,15 @@ const customComponentsProp = { ...customComponents }
 // customComponents prop can be removed.
 const registryProp = { ...registry }
 
-// eslint-disable-next-line no-new
-new Vue({
-	pinia,
-	router,
-	render: (h) => h(App, {
-		props: {
-			manifest: bundledManifest,
-			customComponents: customComponentsProp,
-			pageTypes: pageTypesProp,
-			registry: registryProp,
-		},
-	}),
-}).$mount('#content')
+const app = createApp(App, {
+	manifest: bundledManifest,
+	customComponents: customComponentsProp,
+	pageTypes: pageTypesProp,
+	registry: registryProp,
+})
+// Vue 3: global helpers replace Vue.mixin({ methods: { t, n } }).
+app.config.globalProperties.t = t
+app.config.globalProperties.n = n
+app.use(pinia)
+app.use(router)
+app.mount('#content')
