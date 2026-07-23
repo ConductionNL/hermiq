@@ -45,6 +45,8 @@ use Throwable;
  * Routes OpenRegister object events to matching agent graphs.
  *
  * @template-implements IEventListener<Event>
+ *
+ * @spec openspec/changes/agent-graph-builder/specs/agent-graph/spec.md
  */
 class GraphRunRequestedListener implements IEventListener
 {
@@ -82,6 +84,8 @@ class GraphRunRequestedListener implements IEventListener
      * @param Event $event The dispatched event.
      *
      * @return void
+     *
+     * @spec openspec/changes/agent-graph-builder/specs/agent-graph/spec.md
      */
     public function handle(Event $event): void
     {
@@ -159,7 +163,13 @@ class GraphRunRequestedListener implements IEventListener
 
         $out = [];
         foreach ($graphs as $graph) {
-            $data = ($graph instanceof ObjectEntity) ? $graph->getObject() : (is_array($graph) ? $graph : null);
+            $data = null;
+            if ($graph instanceof ObjectEntity) {
+                $data = $graph->getObject();
+            } else if (is_array($graph) === true) {
+                $data = $graph;
+            }
+
             if (is_array($data) === false) {
                 continue;
             }

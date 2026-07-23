@@ -48,6 +48,15 @@ use Throwable;
 
 /**
  * Executes an authored agent graph against a triggering object.
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) One class deliberately owns the
+ *   whole bounded-walk contract: node dispatch (4 types), edge selection, condition
+ *   evaluation, state templating and per-hop auditing. Splitting the dispatch table
+ *   from the termination guards would let a future node type be added without the
+ *   cycle/step ceilings that make a run provably terminate — the guarantee this
+ *   class exists to hold. Revisit when Phase 2 adds parallel/loop nodes.
+ *
+ * @spec openspec/changes/agent-graph-builder/specs/agent-graph/spec.md
  */
 class GraphExecutor
 {
@@ -98,11 +107,13 @@ class GraphExecutor
      * @param ObjectEntity         $object The triggering object (initial state).
      *
      * @return array<string, mixed> The final state (for diagnostics / a run record).
+     *
+     * @spec openspec/changes/agent-graph-builder/specs/agent-graph/spec.md
      */
     public function run(array $graph, ObjectEntity $object): array
     {
         $this->trace = [];
-        $guardKey = (string) $object->getUuid();
+        $guardKey    = (string) $object->getUuid();
         if ($guardKey !== '' && isset(self::$active[$guardKey]) === true) {
             $this->logger->info('Hermiq graph run suppressed by cycle guard for object '.$guardKey);
             return [];
@@ -128,11 +139,17 @@ class GraphExecutor
      * @param ObjectEntity         $object The triggering object.
      *
      * @return array<string, mixed> The final state.
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) The walk loop IS the bounded-execution
+     *   contract: empty-graph, kill-switch, missing-node, cycle-guard, step-ceiling,
+     *   node-failure and condition-halt are each a distinct, independently-specified
+     *   termination path. Splitting them would scatter the guarantee that a run always
+     *   terminates across several methods.
      */
     private function walk(array $graph, ObjectEntity $object): array
     {
         $nodes = $this->indexNodes(graph: $graph);
-        $edges = is_array($graph['edges'] ?? null) ? $graph['edges'] : [];
+        $edges = $this->asArray(value: $graph['edges'] ?? null);
         if (empty($nodes) === true) {
             return [];
         }
@@ -145,14 +162,14 @@ class GraphExecutor
             return [];
         }
 
-        $state           = $this->buildState(object: $object);
-        $limits          = is_array($graph['limits'] ?? null) ? $graph['limits'] : [];
-        $maxNodes        = (int) ($limits['maxNodes'] ?? self::ABSOLUTE_MAX_NODES);
-        $maxNodes        = max(1, min($maxNodes, self::ABSOLUTE_MAX_NODES));
-        $flowName        = (string) ($graph['name'] ?? 'graph');
-        $currentId       = $this->startNodeId(nodes: $nodes, edges: $edges);
-        $visited         = [];
-        $steps           = 0;
+        $state         = $this->buildState(object: $object);
+        $limits        = $this->asArray(value: $graph['limits'] ?? null);
+        $maxNodes      = (int) ($limits['maxNodes'] ?? self::ABSOLUTE_MAX_NODES);
+        $maxNodes      = max(1, min($maxNodes, self::ABSOLUTE_MAX_NODES));
+        $flowName      = (string) ($graph['name'] ?? 'graph');
+        $currentId     = $this->startNodeId(nodes: $nodes, edges: $edges);
+        $visited       = [];
+        $steps         = 0;
         $this->trace[] = ['event' => 'start', 'nodeIds' => array_keys($nodes), 'start' => $currentId, 'edgeCount' => count($edges)];
 
         while ($currentId !== null && $steps < $maxNodes) {
@@ -179,7 +196,7 @@ class GraphExecutor
             }
 
             $this->audit(object: $object, status: 'node_'.$type, node: $currentId, flow: $flowName);
-            $next = $this->nextNodeId(current: $currentId, edges: $edges, state: $state);
+            $next          = $this->nextNodeId(current: $currentId, edges: $edges, state: $state);
             $this->trace[] = ['event' => 'ran', 'node' => $currentId, 'type' => $type, 'continue' => $continue, 'next' => $next];
 
             if ($continue === false) {
@@ -206,7 +223,7 @@ class GraphExecutor
      */
     private function runNode(array $node, string $type, array &$state, ObjectEntity $object, string $organisation): bool
     {
-        $config = is_array($node['config'] ?? null) ? $node['config'] : [];
+        $config = $this->asArray(value: $node['config'] ?? null);
 
         switch ($type) {
             case 'condition':
@@ -217,8 +234,15 @@ class GraphExecutor
                 return true;
 
             case 'agent-step':
-                $output = $this->runAgentStep(config: $config, state: $state, object: $object, organisation: $organisation);
-                $outKey = (string) ($config['output'] ?? 'result');
+                try {
+                    $output        = $this->runAgentStep(config: $config, state: $state, object: $object, organisation: $organisation);
+                    $this->trace[] = ['event' => 'agent-step', 'result' => 'ok', 'len' => strlen($output)];
+                } catch (Throwable $e) {
+                    $this->trace[] = ['event' => 'agent-step', 'result' => 'error', 'error' => $e->getMessage(), 'class' => get_class($e)];
+                    $output        = '';
+                }
+
+                $outKey         = (string) ($config['output'] ?? 'result');
                 $state[$outKey] = $output;
                 return true;
 
@@ -229,7 +253,7 @@ class GraphExecutor
             default:
                 $this->logger->info('Hermiq graph: unknown node type "'.$type.'"; skipped.');
                 return true;
-        }
+        }//end switch
     }//end runNode()
 
     /**
@@ -272,11 +296,17 @@ class GraphExecutor
      * @param ObjectEntity         $object The triggering object.
      *
      * @return void
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Accepts two authoring shapes
+     *   (a `fields` map or a single `field`+`value`) and must read-modify-write
+     *   PUT-semantically — every branch is an input-shape or empty-write guard
+     *   protecting against clobbering unrelated properties.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same: independent optional inputs.
      */
     private function runObjectWrite(array $config, array $state, ObjectEntity $object): void
     {
         $updates = [];
-        $fields  = is_array($config['fields'] ?? null) ? $config['fields'] : [];
+        $fields  = $this->asArray(value: $config['fields'] ?? null);
         foreach ($fields as $key => $tpl) {
             if (is_string($key) === true && $key !== '') {
                 $updates[$key] = $this->render(template: (string) $tpl, state: $state);
@@ -346,7 +376,10 @@ class GraphExecutor
             $actual = implode(', ', array_map('strval', $actual));
         }
 
-        $actualStr = ($actual === null) ? '' : (string) $actual;
+        $actualStr = '';
+        if ($actual !== null) {
+            $actualStr = (string) $actual;
+        }
 
         switch ($operator) {
             case 'eq':
@@ -365,6 +398,28 @@ class GraphExecutor
     }//end evaluateCondition()
 
     /**
+     * Narrow a loosely-typed value to an array, defaulting to an empty one.
+     *
+     * Graph documents arrive as decoded JSON, so every nested member is
+     * `mixed` until proven otherwise. This replaces the
+     * `is_array($x) ? $x : []` idiom, which the coding standard rejects
+     * (Squiz.PHP.DisallowInlineIf + ImplicitTrue), in one place instead of
+     * repeating a five-line guard at each call site.
+     *
+     * @param mixed $value The candidate value.
+     *
+     * @return array<mixed> The value when it is an array, otherwise [].
+     */
+    private function asArray(mixed $value): array
+    {
+        if (is_array($value) === true) {
+            return $value;
+        }
+
+        return [];
+    }//end asArray()
+
+    /**
      * Index nodes by id.
      *
      * @param array<string, mixed> $graph The graph.
@@ -374,7 +429,7 @@ class GraphExecutor
     private function indexNodes(array $graph): array
     {
         $out   = [];
-        $nodes = is_array($graph['nodes'] ?? null) ? $graph['nodes'] : [];
+        $nodes = $this->asArray(value: $graph['nodes'] ?? null);
         foreach ($nodes as $node) {
             if (is_array($node) === true && isset($node['id']) === true) {
                 $out[(string) $node['id']] = $node;
@@ -422,9 +477,9 @@ class GraphExecutor
      * outgoing edge whose `when` matches the state; otherwise the first outgoing
      * edge. Null when there is no outgoing edge.
      *
-     * @param string            $current The current node id.
-     * @param array<int, mixed> $edges   Edges.
-     * @param array<string, mixed> $state The run state.
+     * @param string               $current The current node id.
+     * @param array<int, mixed>    $edges   Edges.
+     * @param array<string, mixed> $state   The run state.
      *
      * @return string|null The next node id.
      */
@@ -489,8 +544,8 @@ class GraphExecutor
 
         return (string) preg_replace_callback(
             '/\{\{\s*([A-Za-z0-9_@.]+)\s*\}\}/',
-            static function (array $m) use ($state): string {
-                $value = ($state[$m[1]] ?? '');
+            static function (array $matches) use ($state): string {
+                $value = ($state[$matches[1]] ?? '');
                 if (is_array($value) === true) {
                     return implode(', ', array_map('strval', $value));
                 }

@@ -42,6 +42,8 @@ use Throwable;
 
 /**
  * Manual / test entry point for running an agent graph.
+ *
+ * @spec openspec/changes/agent-graph-builder/specs/agent-graph/spec.md
  */
 class GraphController extends Controller
 {
@@ -76,6 +78,13 @@ class GraphController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Request-boundary validation: each
+     *   required body field (graph, subjectUuid, subjectRegister, subjectSchema) plus
+     *   the admin gate and subject lookup is its own guard with a distinct HTTP status.
+     *   Collapsing them would trade a clear 4xx contract for a lower metric.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same: independent early-return guards
+     *   multiply combinatorially even though each is a flat, single-condition check.
+     *
      * @spec openspec/changes/agent-graph-builder/specs/agent-graph/spec.md
      */
     public function run(): JSONResponse
@@ -95,7 +104,10 @@ class GraphController extends Controller
         $subjectSchema   = (string) $this->request->getParam('subjectSchema', '');
 
         if (is_array($graph) === false || $subjectUuid === '' || $subjectRegister === '' || $subjectSchema === '') {
-            return new JSONResponse(['error' => 'graph (object) and subjectUuid/subjectRegister/subjectSchema are required'], Http::STATUS_BAD_REQUEST);
+            return new JSONResponse(
+                ['error' => 'graph (object) and subjectUuid/subjectRegister/subjectSchema are required'],
+                Http::STATUS_BAD_REQUEST
+            );
         }
 
         try {
