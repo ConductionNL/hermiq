@@ -58,8 +58,8 @@
 				</tr>
 			</thead>
 			<tbody>
-				<template v-for="run in runs">
-					<tr :key="run.id">
+				<template v-for="run in runs" :key="run.id">
+					<tr>
 						<td>
 							<span :class="['agent-run-history-widget__badge', statusBadgeClass(run.status)]">
 								{{ statusLabel(run.status) }}
@@ -97,7 +97,7 @@
 							</NcButton>
 						</td>
 					</tr>
-					<tr v-if="expandedRunId === run.id" :key="`${run.id}-trace`">
+					<tr v-if="expandedRunId === run.id">
 						<td colspan="6" class="agent-run-history-widget__trace-cell">
 							<NcLoadingIcon v-if="traceLoading" :size="24" />
 							<NcNoteCard v-else-if="traceError" type="warning">
@@ -126,7 +126,7 @@
 							</div>
 						</td>
 					</tr>
-					<tr v-if="replayResultRunId === run.id" :key="`${run.id}-replay`">
+					<tr v-if="replayResultRunId === run.id">
 						<td colspan="6" class="agent-run-history-widget__trace-cell">
 							<div class="agent-run-history-widget__replay-head">
 								<strong>{{ t('hermiq', 'Replay preview') }}</strong>

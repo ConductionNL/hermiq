@@ -46,7 +46,15 @@ const useLocalLib = process.env.USE_LOCAL_LIB === 'false'
 
 // Extend the base resolve config (preserves defaults from @nextcloud/webpack-vue-config)
 webpackConfig.resolve = webpackConfig.resolve || {}
-webpackConfig.resolve.modules = [path.resolve(__dirname, 'node_modules'), 'node_modules']
+// NOTE: deliberately NO `resolve.modules = [<app>/node_modules, 'node_modules']`.
+// Pinning the app's top-level node_modules first defeats npm's nested resolution,
+// so a package that legitimately needs its OWN nested copy of a dependency gets
+// the hoisted one instead. Concretely: @nextcloud/dialogs is built against
+// @vueuse/core <=12 (it imports `toValue`, removed in v13) and npm nests
+// @vueuse/core@11 under it, while @nextcloud/vue needs @vueuse/components@14 and
+// its v14-only symbols. Forcing top-level resolution gave the dialogs chunk
+// @vueuse/core@14 -> "export 'toValue' was not found". Standard node resolution
+// (nested first) lets each consumer get the version it was built against.
 webpackConfig.resolve.alias = {
 	...(webpackConfig.resolve.alias || {}),
 	'@': path.resolve(__dirname, 'src'),

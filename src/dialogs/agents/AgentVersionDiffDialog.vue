@@ -33,11 +33,11 @@
 			</p>
 
 			<dl v-else class="agent-version-diff-dialog__list">
-				<template v-for="field in fields">
-					<dt :key="`${field}-label`" class="agent-version-diff-dialog__field">
+				<template v-for="field in fields" :key="field">
+					<dt class="agent-version-diff-dialog__field">
 						{{ fieldLabel(field) }}
 					</dt>
-					<dd :key="`${field}-value`" class="agent-version-diff-dialog__values">
+					<dd class="agent-version-diff-dialog__values">
 						<span class="agent-version-diff-dialog__old">
 							<span class="agent-version-diff-dialog__tag">{{ t('hermiq', 'Before') }}</span>
 							<code>{{ formatValue(diff[field].old) }}</code>

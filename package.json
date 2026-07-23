@@ -38,6 +38,7 @@
     "@nextcloud/vue": "^9.9.0",
     "@vue/compat": "^3.5.13",
     "babel-loader": "^10.1.1",
+    "dexie": "^4.4.4",
     "dompurify": "^3.4.11",
     "marked": "^15.0.12",
     "node-polyfill-webpack-plugin": "^4.0.0",
@@ -50,6 +51,9 @@
     "libxmljs2": "^0.37.0",
     "@nextcloud/axios": "~2.5.2",
     "@nextcloud/vue": "^9.9.0",
+    "@nextcloud/dialogs": {
+      "@vueuse/core": "11.3.0"
+    },
     "eslint-import-resolver-typescript": "~3.8.7",
     "eslint-plugin-import-x": {
       "@typescript-eslint/utils": "^7.18.0"
@@ -67,7 +71,9 @@
     "@playwright/test": "^1.61.1",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
+    "@vue/compiler-sfc": "^3.5.13",
     "@vue/eslint-config-typescript": "^13.0.0",
+    "@vue/test-utils": "^2.4.6",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "css-loader": "~7.1.1",
@@ -82,8 +88,6 @@
     "stylelint": "^15.11.0",
     "vue-eslint-parser": "^9.4.3",
     "vue-loader": "^17.4.2",
-    "@vue/compiler-sfc": "^3.5.13",
-    "@vue/test-utils": "^2.4.6",
     "webpack": "^5.106.2",
     "webpack-cli": "^6.0.1"
   }
