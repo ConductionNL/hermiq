@@ -67,6 +67,7 @@
                 <referencedClass name="OCA\OpenRegister\Db\ObjectEntity"/>
                 <referencedClass name="OCA\OpenRegister\Db\RegisterMapper"/>
                 <referencedClass name="OCA\OpenRegister\Db\SchemaMapper"/>
+                <referencedClass name="OCA\OpenRegister\Db\AuditTrailMapper"/>
                 <referencedClass name="OCA\OpenRegister\Event\DeepLinkRegistrationEvent"/>
                 <referencedClass name="OCA\OpenRegister\Event\ObjectCreatingEvent"/>
                 <referencedClass name="OCA\OpenRegister\Event\ObjectCreatedEvent"/>

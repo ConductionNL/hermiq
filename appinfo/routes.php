@@ -65,6 +65,10 @@ return [
         // (run-replay-and-dry-run).
         ['name' => 'runNow#dryRun', 'url' => '/api/schedules/{scheduleId}/dry-run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
+        // Agent graph — manual/test run of an authored graph against a subject object
+        // (the primary trigger is a Nextcloud event via GraphRunRequestedListener).
+        ['name' => 'graph#run', 'url' => '/api/graph/run', 'verb' => 'POST'],
+
         // Replay — owner-scoped re-run of a past run's recorded prompt as a dry-run,
         // with a step-by-step diff against the original (run-replay-and-dry-run).
         [
