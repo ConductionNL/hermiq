@@ -2782,6 +2782,43 @@
 						"description": "The effective regression-gate threshold (percentage points of passRate drop) applied to this run — the instance-wide IAppConfig default unless a per-trigger override was supplied."
 					}
 				}
+			},
+			"AgentFlow": {
+				"slug": "agentflow",
+				"icon": "Sitemap",
+				"version": "0.1.0",
+				"title": "Agent flow",
+				"description": "An authored agent graph: nodes/edges triggered by a Nextcloud event, run by the Hermiq GraphExecutor. Reuses the nc-vue CnFlowCanvas for authoring.",
+				"type": "object",
+				"required": ["name"],
+				"x-openregister": { "publicRead": false, "publicWrite": false },
+				"properties": {
+					"name": { "type": "string", "title": "Name" },
+					"triggerSchema": { "type": "string", "title": "Trigger schema", "description": "OpenRegister schema id/slug whose object events start this graph." },
+					"trigger": { "type": "string", "title": "Trigger", "description": "Event-catalog trigger id (object.created/updated/deleted).", "default": "object.updated" },
+					"enabled": { "type": "boolean", "title": "Enabled", "default": true },
+					"nodes": { "type": "array", "default": [], "title": "Nodes", "description": "Graph nodes {id,type,config,position}.", "items": { "type": "object" } },
+					"edges": { "type": "array", "default": [], "title": "Edges", "description": "Graph edges {id,source,target,when?}.", "items": { "type": "object" } },
+					"limits": { "type": "object", "title": "Limits", "description": "Execution bounds {maxNodes,maxIterations}.", "default": {} }
+				}
+			},
+			"AgentFlowRun": {
+				"slug": "agentflowrun",
+				"icon": "History",
+				"version": "0.1.0",
+				"title": "Agent flow run",
+				"description": "A record of one agent-graph run: ordered node steps, state checkpoints, status and usage.",
+				"type": "object",
+				"required": [],
+				"x-openregister": { "publicRead": false, "publicWrite": false },
+				"properties": {
+					"agentflow": { "type": "string", "format": "uuid", "title": "Agent flow", "$ref": "AgentFlow" },
+					"correlationId": { "type": "string", "title": "Correlation id" },
+					"status": { "type": "string", "title": "Status" },
+					"steps": { "type": "array", "default": [], "title": "Steps", "items": { "type": "object" } },
+					"state": { "type": "object", "title": "State", "default": {} },
+					"usage": { "type": "object", "title": "Usage", "default": {} }
+				}
 			}
 		}
 	}

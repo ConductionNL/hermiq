@@ -1,0 +1,530 @@
+<?php
+
+/**
+ * Hermiq GraphExecutor
+ *
+ * Walks an authored agent graph (an `agentflow` definition) over a typed state,
+ * generalising {@see \OCA\Hermiq\Service\FlowAgentRunService} from "run one agent"
+ * to "walk a graph of nodes." Each node is dispatched to an existing Hermiq
+ * service; the same synchronous oversight gates (kill-switch, budget) that guard a
+ * single flow-agent run are applied per hop, and every hop writes a redacted
+ * AuditTrail entry.
+ *
+ * Node types (Phase 1):
+ *   - agent-step    → ScheduleService::runAgentAsOwner() (the proven agent turn)
+ *   - object-write  → ObjectService::saveObject() (structured output back to OR)
+ *   - condition     → boolean guard on state; false halts the graph
+ *   - router        → classify state → follow the matching outgoing edge
+ *
+ * Bounded by design: a visited-node cycle guard and `limits.maxNodes` /
+ * `limits.maxIterations` stop a run rather than ever looping without bound
+ * (mirrors OpenRegister FlowActionService's activeObjects guard).
+ *
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
+ *
+ * @category Service
+ * @package  OCA\Hermiq\Service\Graph
+ *
+ * @author    Conduction Development Team <dev@conduction.nl>
+ * @copyright 2026 Conduction B.V.
+ * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ *
+ * @link https://hermiq.app
+ *
+ * @spec openspec/changes/agent-graph-builder/specs/agent-graph/spec.md
+ */
+
+declare(strict_types=1);
+
+namespace OCA\Hermiq\Service\Graph;
+
+use OCA\Hermiq\Service\ScheduleService;
+use OCA\OpenRegister\Db\AuditTrailMapper;
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ObjectService;
+use Psr\Log\LoggerInterface;
+use Throwable;
+
+/**
+ * Executes an authored agent graph against a triggering object.
+ */
+class GraphExecutor
+{
+    /**
+     * Hard ceiling on node executions per run, even if a graph's own
+     * `limits.maxNodes` is missing or larger — a runaway backstop.
+     *
+     * @var int
+     */
+    private const ABSOLUTE_MAX_NODES = 100;
+
+    /**
+     * UUIDs of objects a graph run is currently acting on, so an object-write
+     * that re-dispatches an event into another graph run cannot recurse without
+     * bound within a request.
+     *
+     * @var array<string, true>
+     */
+    private static array $active = [];
+
+    /**
+     * Ordered trace of the last run (node id, type, outcome) — diagnostics only.
+     *
+     * @var array<int, array>
+     */
+    public array $trace = [];
+
+    /**
+     * Constructor.
+     *
+     * @param ObjectService    $objectService    Resolve/write OR objects.
+     * @param LoggerInterface  $logger           Structured logging.
+     * @param AuditTrailMapper $auditTrailMapper Per-hop audit write-path.
+     * @param ScheduleService  $scheduleService  Kill-switch + the reused agent turn (runAgentAsOwner).
+     */
+    public function __construct(
+        private readonly ObjectService $objectService,
+        private readonly LoggerInterface $logger,
+        private readonly AuditTrailMapper $auditTrailMapper,
+        private readonly ScheduleService $scheduleService,
+    ) {
+    }//end __construct()
+
+    /**
+     * Run a graph against a triggering object.
+     *
+     * @param array<string, mixed> $graph  The agentflow definition ({nodes, edges, limits}).
+     * @param ObjectEntity         $object The triggering object (initial state).
+     *
+     * @return array<string, mixed> The final state (for diagnostics / a run record).
+     */
+    public function run(array $graph, ObjectEntity $object): array
+    {
+        $this->trace = [];
+        $guardKey = (string) $object->getUuid();
+        if ($guardKey !== '' && isset(self::$active[$guardKey]) === true) {
+            $this->logger->info('Hermiq graph run suppressed by cycle guard for object '.$guardKey);
+            return [];
+        }
+
+        if ($guardKey !== '') {
+            self::$active[$guardKey] = true;
+        }
+
+        try {
+            return $this->walk(graph: $graph, object: $object);
+        } finally {
+            if ($guardKey !== '') {
+                unset(self::$active[$guardKey]);
+            }
+        }
+    }//end run()
+
+    /**
+     * Walk the graph node-by-node from the start node.
+     *
+     * @param array<string, mixed> $graph  The agentflow definition.
+     * @param ObjectEntity         $object The triggering object.
+     *
+     * @return array<string, mixed> The final state.
+     */
+    private function walk(array $graph, ObjectEntity $object): array
+    {
+        $nodes = $this->indexNodes(graph: $graph);
+        $edges = is_array($graph['edges'] ?? null) ? $graph['edges'] : [];
+        if (empty($nodes) === true) {
+            return [];
+        }
+
+        $organisation = (string) ($object->getOrganisation() ?? '');
+
+        // GATE — kill-switch (same TenantControl source ScheduleService reads).
+        if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+            $this->audit(object: $object, status: 'skipped_killswitch', node: '', flow: (string) ($graph['name'] ?? 'graph'));
+            return [];
+        }
+
+        $state           = $this->buildState(object: $object);
+        $limits          = is_array($graph['limits'] ?? null) ? $graph['limits'] : [];
+        $maxNodes        = (int) ($limits['maxNodes'] ?? self::ABSOLUTE_MAX_NODES);
+        $maxNodes        = max(1, min($maxNodes, self::ABSOLUTE_MAX_NODES));
+        $flowName        = (string) ($graph['name'] ?? 'graph');
+        $currentId       = $this->startNodeId(nodes: $nodes, edges: $edges);
+        $visited         = [];
+        $steps           = 0;
+        $this->trace[] = ['event' => 'start', 'nodeIds' => array_keys($nodes), 'start' => $currentId, 'edgeCount' => count($edges)];
+
+        while ($currentId !== null && $steps < $maxNodes) {
+            $node = $nodes[$currentId] ?? null;
+            if ($node === null) {
+                break;
+            }
+
+            // Cycle guard: a node may only run once per walk (Phase-1 acyclic).
+            if (isset($visited[$currentId]) === true) {
+                $this->logger->info('Hermiq graph '.$flowName.': cycle detected at node '.$currentId.'; stopping.');
+                break;
+            }
+
+            $visited[$currentId] = true;
+            $steps++;
+
+            $type = (string) ($node['type'] ?? '');
+            try {
+                $continue = $this->runNode(node: $node, type: $type, state: $state, object: $object, organisation: $organisation);
+            } catch (Throwable $e) {
+                $this->logger->warning('Hermiq graph '.$flowName.' node '.$currentId.' ('.$type.') failed: '.$e->getMessage(), ['exception' => $e]);
+                $continue = true;
+            }
+
+            $this->audit(object: $object, status: 'node_'.$type, node: $currentId, flow: $flowName);
+            $next = $this->nextNodeId(current: $currentId, edges: $edges, state: $state);
+            $this->trace[] = ['event' => 'ran', 'node' => $currentId, 'type' => $type, 'continue' => $continue, 'next' => $next];
+
+            if ($continue === false) {
+                // A condition halted the graph.
+                break;
+            }
+
+            $currentId = $this->nextNodeId(current: $currentId, edges: $edges, state: $state);
+        }//end while
+
+        return $state;
+    }//end walk()
+
+    /**
+     * Execute a single node; return false to halt the graph (a failed condition).
+     *
+     * @param array<string, mixed> $node         The node.
+     * @param string               $type         The node type.
+     * @param array<string, mixed> $state        The mutable run state (by reference).
+     * @param ObjectEntity         $object       The triggering object.
+     * @param string               $organisation The owning organisation.
+     *
+     * @return bool True to continue, false to halt.
+     */
+    private function runNode(array $node, string $type, array &$state, ObjectEntity $object, string $organisation): bool
+    {
+        $config = is_array($node['config'] ?? null) ? $node['config'] : [];
+
+        switch ($type) {
+            case 'condition':
+                return $this->evaluateCondition(config: $config, state: $state);
+
+            case 'router':
+                // Routing is resolved at edge-selection time; nothing to do here.
+                return true;
+
+            case 'agent-step':
+                $output = $this->runAgentStep(config: $config, state: $state, object: $object, organisation: $organisation);
+                $outKey = (string) ($config['output'] ?? 'result');
+                $state[$outKey] = $output;
+                return true;
+
+            case 'object-write':
+                $this->runObjectWrite(config: $config, state: $state, object: $object);
+                return true;
+
+            default:
+                $this->logger->info('Hermiq graph: unknown node type "'.$type.'"; skipped.');
+                return true;
+        }
+    }//end runNode()
+
+    /**
+     * Run an agent-step node — the proven ScheduleService::runAgentAsOwner() turn.
+     *
+     * @param array<string, mixed> $config       Node config (agent, prompt, output).
+     * @param array<string, mixed> $state        The run state.
+     * @param ObjectEntity         $object       The triggering object (anchor).
+     * @param string               $organisation The organisation.
+     *
+     * @return string The agent output.
+     */
+    private function runAgentStep(array $config, array $state, ObjectEntity $object, string $organisation): string
+    {
+        $agentRef = (string) ($config['agent'] ?? '');
+        if ($agentRef === '') {
+            return '';
+        }
+
+        $owner  = (string) ($config['owner'] ?? ($object->getOwner() ?? ''));
+        $prompt = $this->render(template: (string) ($config['prompt'] ?? ''), state: $state);
+
+        return $this->scheduleService->runAgentAsOwner(
+            owner: $owner,
+            agentId: $agentRef,
+            prompt: $prompt,
+            organisation: $organisation,
+            dryRun: false,
+            forceOwner: false,
+            anchor: $object
+        );
+    }//end runAgentStep()
+
+    /**
+     * Run an object-write node — merge templated fields onto the object and persist
+     * (PUT-semantic read-modify-write, mirroring FlowAgentRunService::writeResultField).
+     *
+     * @param array<string, mixed> $config Node config (fields map and/or field+value).
+     * @param array<string, mixed> $state  The run state.
+     * @param ObjectEntity         $object The triggering object.
+     *
+     * @return void
+     */
+    private function runObjectWrite(array $config, array $state, ObjectEntity $object): void
+    {
+        $updates = [];
+        $fields  = is_array($config['fields'] ?? null) ? $config['fields'] : [];
+        foreach ($fields as $key => $tpl) {
+            if (is_string($key) === true && $key !== '') {
+                $updates[$key] = $this->render(template: (string) $tpl, state: $state);
+            }
+        }
+
+        $single = (string) ($config['field'] ?? '');
+        if ($single !== '') {
+            $updates[$single] = $this->render(template: (string) ($config['value'] ?? ''), state: $state);
+        }
+
+        if (empty($updates) === true) {
+            $this->trace[] = ['event' => 'object-write', 'result' => 'no-updates'];
+            return;
+        }
+
+        $uuid     = (string) $object->getUuid();
+        $register = (string) $object->getRegister();
+        $schema   = (string) $object->getSchema();
+
+        $fresh = $this->objectService->find(id: $uuid, register: $register, schema: $schema, _rbac: false, _multitenancy: false);
+        if (($fresh instanceof ObjectEntity) === false) {
+            $this->trace[] = ['event' => 'object-write', 'result' => 'fresh-not-found'];
+            return;
+        }
+
+        $data = $fresh->getObject();
+        if (is_array($data) === false) {
+            $data = [];
+        }
+
+        foreach ($updates as $k => $v) {
+            $data[$k] = $v;
+        }
+
+        try {
+            $this->objectService->saveObject(
+                object: $data,
+                register: $register,
+                schema: $schema,
+                uuid: $uuid,
+                _rbac: false,
+                _multitenancy: false
+            );
+            $this->trace[] = ['event' => 'object-write', 'result' => 'saved', 'fields' => array_keys($updates)];
+        } catch (Throwable $e) {
+            $this->trace[] = ['event' => 'object-write', 'result' => 'save-failed', 'error' => $e->getMessage()];
+            $this->logger->warning('Hermiq graph object-write failed for '.$uuid.': '.$e->getMessage());
+        }
+    }//end runObjectWrite()
+
+    /**
+     * Evaluate a condition node against the state.
+     *
+     * @param array<string, mixed> $config Condition config (field, operator, value).
+     * @param array<string, mixed> $state  The run state.
+     *
+     * @return bool True when the condition holds (continue).
+     */
+    private function evaluateCondition(array $config, array $state): bool
+    {
+        $field    = (string) ($config['field'] ?? '');
+        $operator = (string) ($config['operator'] ?? 'eq');
+        $expected = $this->render(template: (string) ($config['value'] ?? ''), state: $state);
+        $actual   = ($state[$field] ?? null);
+        if (is_array($actual) === true) {
+            $actual = implode(', ', array_map('strval', $actual));
+        }
+
+        $actualStr = ($actual === null) ? '' : (string) $actual;
+
+        switch ($operator) {
+            case 'eq':
+                return $actualStr === $expected;
+            case 'ne':
+                return $actualStr !== $expected;
+            case 'empty':
+                return $actualStr === '';
+            case 'notEmpty':
+                return $actualStr !== '';
+            case 'contains':
+                return $expected !== '' && str_contains($actualStr, $expected);
+            default:
+                return false;
+        }
+    }//end evaluateCondition()
+
+    /**
+     * Index nodes by id.
+     *
+     * @param array<string, mixed> $graph The graph.
+     *
+     * @return array<string, array> Node id => node.
+     */
+    private function indexNodes(array $graph): array
+    {
+        $out   = [];
+        $nodes = is_array($graph['nodes'] ?? null) ? $graph['nodes'] : [];
+        foreach ($nodes as $node) {
+            if (is_array($node) === true && isset($node['id']) === true) {
+                $out[(string) $node['id']] = $node;
+            }
+        }
+
+        return $out;
+    }//end indexNodes()
+
+    /**
+     * The start node: an explicit `start:true` node, else a node that is not the
+     * target of any edge, else the first node.
+     *
+     * @param array<string, array> $nodes Indexed nodes.
+     * @param array<int, mixed>    $edges Edges.
+     *
+     * @return string|null The start node id.
+     */
+    private function startNodeId(array $nodes, array $edges): ?string
+    {
+        foreach ($nodes as $id => $node) {
+            if (($node['start'] ?? false) === true) {
+                return (string) $id;
+            }
+        }
+
+        $targets = [];
+        foreach ($edges as $edge) {
+            if (is_array($edge) === true && isset($edge['target']) === true) {
+                $targets[(string) $edge['target']] = true;
+            }
+        }
+
+        foreach ($nodes as $id => $node) {
+            if (isset($targets[(string) $id]) === false) {
+                return (string) $id;
+            }
+        }
+
+        return array_key_first($nodes);
+    }//end startNodeId()
+
+    /**
+     * The next node id from the current node: for a router/condition, the first
+     * outgoing edge whose `when` matches the state; otherwise the first outgoing
+     * edge. Null when there is no outgoing edge.
+     *
+     * @param string            $current The current node id.
+     * @param array<int, mixed> $edges   Edges.
+     * @param array<string, mixed> $state The run state.
+     *
+     * @return string|null The next node id.
+     */
+    private function nextNodeId(string $current, array $edges, array $state): ?string
+    {
+        $fallback = null;
+        foreach ($edges as $edge) {
+            if (is_array($edge) === false || (string) ($edge['source'] ?? '') !== $current) {
+                continue;
+            }
+
+            $when = ($edge['when'] ?? null);
+            if ($when === null || $when === '') {
+                $fallback ??= (string) ($edge['target'] ?? '');
+                continue;
+            }
+
+            // `when` is a {field, operator, value} guard on state.
+            if (is_array($when) === true && $this->evaluateCondition(config: $when, state: $state) === true) {
+                return (string) ($edge['target'] ?? '');
+            }
+        }
+
+        return $fallback;
+    }//end nextNodeId()
+
+    /**
+     * Build the initial run state from the object plus @meta keys.
+     *
+     * @param ObjectEntity $object The triggering object.
+     *
+     * @return array<string, mixed> The state.
+     */
+    private function buildState(ObjectEntity $object): array
+    {
+        $data = $object->getObject();
+        if (is_array($data) === false) {
+            $data = [];
+        }
+
+        $data['@id']           = $object->getUuid();
+        $data['@uuid']         = $object->getUuid();
+        $data['@register']     = $object->getRegister();
+        $data['@schema']       = $object->getSchema();
+        $data['@organisation'] = $object->getOrganisation();
+        return $data;
+    }//end buildState()
+
+    /**
+     * Render `{{ field }}` placeholders against the state.
+     *
+     * @param mixed                $template The template.
+     * @param array<string, mixed> $state    The state.
+     *
+     * @return string The rendered string.
+     */
+    private function render(mixed $template, array $state): string
+    {
+        if (is_string($template) === false) {
+            return '';
+        }
+
+        return (string) preg_replace_callback(
+            '/\{\{\s*([A-Za-z0-9_@.]+)\s*\}\}/',
+            static function (array $m) use ($state): string {
+                $value = ($state[$m[1]] ?? '');
+                if (is_array($value) === true) {
+                    return implode(', ', array_map('strval', $value));
+                }
+
+                return (string) $value;
+            },
+            $template
+        );
+    }//end render()
+
+    /**
+     * Write a redacted per-hop AuditTrail entry on the triggering object.
+     *
+     * @param ObjectEntity $object The triggering object.
+     * @param string       $status The hop status.
+     * @param string       $node   The node id.
+     * @param string       $flow   The graph name.
+     *
+     * @return void
+     */
+    private function audit(ObjectEntity $object, string $status, string $node, string $flow): void
+    {
+        try {
+            $this->auditTrailMapper->createAuditTrailEntry(
+                object: $object,
+                action: 'graph-run',
+                context: [
+                    'flowName' => $flow,
+                    'status'   => $status,
+                    'node'     => $node,
+                ],
+            );
+        } catch (Throwable $e) {
+            $this->logger->debug('Hermiq graph audit write skipped: '.$e->getMessage());
+        }
+    }//end audit()
+}//end class
