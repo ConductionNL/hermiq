@@ -27,6 +27,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
+use OCA\Hermiq\Listener\GraphRunRequestedListener;
+use OCA\OpenRegister\Event\ObjectCreatedEvent;
+use OCA\OpenRegister\Event\ObjectUpdatedEvent;
+use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
@@ -94,6 +98,15 @@ class Application extends App implements IBootstrap
             event: AgentRunRequestedEvent::class,
             listener: AgentRunRequestedListener::class
         );
+
+        // Agent-graph ingress: OpenRegister object lifecycle events drive authored
+        // `agentflow` graphs (GraphRunRequestedListener discovers graphs whose
+        // triggerSchema + trigger match, and runs each via GraphExecutor). The
+        // discovery is a no-op until an agentflow schema/graph exists, so this is
+        // safe on an instance without any graphs.
+        $context->registerEventListener(event: ObjectCreatedEvent::class, listener: GraphRunRequestedListener::class);
+        $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: GraphRunRequestedListener::class);
+        $context->registerEventListener(event: ObjectDeletedEvent::class, listener: GraphRunRequestedListener::class);
 
         // Offboarding (agent-lifecycle-governance): a Nextcloud user being deleted
         // or disabled auto-pauses their schedules (ScheduleService::pauseForUser())
