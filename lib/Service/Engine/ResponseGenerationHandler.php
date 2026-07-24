@@ -207,6 +207,17 @@ class ResponseGenerationHandler
                 $agentTemperature = (float) $agentData['temperature'];
             }
 
+            // The agent's output ceiling. Stored, versioned and shown in the UI
+            // since agents existed, but never read here — so every request used
+            // the provider default regardless of what an admin had set. A
+            // non-positive value is treated as unset rather than as "no tokens".
+            $agentMaxTokens = null;
+            if (isset($agentData['maxTokens']) === true && is_numeric($agentData['maxTokens']) === true
+                && (int) $agentData['maxTokens'] > 0
+            ) {
+                $agentMaxTokens = (int) $agentData['maxTokens'];
+            }
+
             // Tenant-model-policy: the agent's organisation (already in hand — no new
             // lookup) is threaded to ProviderFactory so the resolved (provider, model)
             // pair is checked against its effective ModelPolicy before any provider
@@ -220,7 +231,8 @@ class ResponseGenerationHandler
                 llmConfig: $llmConfig,
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature,
-                organisation: $organisation
+                organisation: $organisation,
+                agentMaxTokens: $agentMaxTokens
             );
 
             if ($driver->provider === 'nextcloud') {
@@ -357,7 +369,8 @@ class ResponseGenerationHandler
                     functions: $functions,
                     toolExecutor: $anthropicToolExecutor,
                     executionMode: $driver->executionMode,
-                    agentId: $cliAgentId
+                    agentId: $cliAgentId,
+                    maxTokens: $driver->maxTokens
                 );
                 $llmTime  = microtime(true) - $llmStartTime;
 

@@ -78,6 +78,62 @@ class ProviderFactoryTest extends TestCase
     }//end factory()
 
     /**
+     * An agent's maxTokens must actually reach the provider.
+     *
+     * It was stored, versioned and shown in the UI while every request used the
+     * provider default, because nothing read it here (#31). These tests pin the
+     * wiring so it cannot silently come loose again.
+     *
+     * @return void
+     */
+    public function testAgentMaxTokensReachesTheOllamaDriver(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider' => 'ollama',
+                'ollamaConfig' => ['url' => 'http://ollama:11434', 'chatModel' => 'llama3'],
+            ],
+            agentMaxTokens: 512
+        );
+
+        $this->assertSame(512, $driver->maxTokens);
+
+        // Reach the protected config: asserting only on the driver would pass
+        // even if the value never reached the chat instance that builds the
+        // request, which is exactly the class of gap this fixes.
+        $config = (new \ReflectionProperty(\LLPhant\Chat\OllamaChat::class, 'config'));
+        $config->setAccessible(true);
+        $this->assertSame(512, $config->getValue($driver->chat)->modelOptions['num_predict'] ?? null);
+
+    }//end testAgentMaxTokensReachesTheOllamaDriver()
+
+    /**
+     * An agent that sets no ceiling leaves the provider default in place.
+     *
+     * @return void
+     */
+    public function testNoAgentCeilingLeavesTheProviderDefault(): void
+    {
+        [$factory] = $this->factory();
+
+        $driver = $factory->createChatDriver(
+            llmConfig: [
+                'chatProvider' => 'ollama',
+                'ollamaConfig' => ['url' => 'http://ollama:11434', 'chatModel' => 'llama3'],
+            ]
+        );
+
+        $this->assertNull($driver->maxTokens);
+
+        $config = (new \ReflectionProperty(\LLPhant\Chat\OllamaChat::class, 'config'));
+        $config->setAccessible(true);
+        $this->assertArrayNotHasKey('num_predict', ($config->getValue($driver->chat)->modelOptions ?? []));
+
+    }//end testNoAgentCeilingLeavesTheProviderDefault()
+
+    /**
      * No configured provider raises the recoverable unavailable signal (503).
      *
      * @return void
