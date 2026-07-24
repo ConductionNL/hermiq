@@ -188,16 +188,34 @@ class GraphExecutor
             $steps++;
 
             $type = (string) ($node['type'] ?? '');
+
+            // Snapshot the state before the hop so the trace can report what
+            // THIS node produced, rather than the whole accumulated state. The
+            // builder renders that per-step output on the edge leaving the node.
+            $before = $state;
+            $error  = null;
             try {
                 $continue = $this->runNode(node: $node, type: $type, state: $state, object: $object, organisation: $organisation);
             } catch (Throwable $e) {
                 $this->logger->warning('Hermiq graph '.$flowName.' node '.$currentId.' ('.$type.') failed: '.$e->getMessage(), ['exception' => $e]);
                 $continue = true;
+                $error    = $e->getMessage();
             }
 
             $this->audit(object: $object, status: 'node_'.$type, node: $currentId, flow: $flowName);
+            // `error` is always present (null on success) rather than added
+            // conditionally: every trace entry then has the same shape, so the
+            // builder can read it without a guard.
             $next          = $this->nextNodeId(current: $currentId, edges: $edges, state: $state);
-            $this->trace[] = ['event' => 'ran', 'node' => $currentId, 'type' => $type, 'continue' => $continue, 'next' => $next];
+            $this->trace[] = [
+                'event'    => 'ran',
+                'node'     => $currentId,
+                'type'     => $type,
+                'continue' => $continue,
+                'next'     => $next,
+                'produced' => $this->stateDelta(before: $before, after: $state),
+                'error'    => $error,
+            ];
 
             if ($continue === false) {
                 // A condition halted the graph.
@@ -396,6 +414,30 @@ class GraphExecutor
                 return false;
         }
     }//end evaluateCondition()
+
+    /**
+     * The keys a single node added to or changed on the run state.
+     *
+     * A node's usable "result" is what it contributed, not the whole state it
+     * inherited — the builder shows this on the edge leaving the node so an
+     * author can see what the next node will be able to read.
+     *
+     * @param array<string, mixed> $before State before the hop.
+     * @param array<string, mixed> $after  State after the hop.
+     *
+     * @return array<string, mixed> Added/changed keys only.
+     */
+    private function stateDelta(array $before, array $after): array
+    {
+        $delta = [];
+        foreach ($after as $key => $value) {
+            if (array_key_exists($key, $before) === false || $before[$key] !== $value) {
+                $delta[$key] = $value;
+            }
+        }
+
+        return $delta;
+    }//end stateDelta()
 
     /**
      * Narrow a loosely-typed value to an array, defaulting to an empty one.

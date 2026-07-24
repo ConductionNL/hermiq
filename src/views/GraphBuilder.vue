@@ -5,304 +5,128 @@
 
 <template>
 	<div class="graph-builder">
-		<div class="graph-builder__body">
-			<!-- Canvas is the page: name, actions and the palette all live in the
-			     sidebar, so nothing but the graph itself occupies this space. -->
-			<div class="graph-builder__canvas">
-				<NcButton
-					v-if="!sidebarOpen"
-					class="graph-builder__reopen"
-					type="secondary"
-					:aria-label="t('hermiq', 'Show graph panel')"
-					:title="t('hermiq', 'Show graph panel')"
-					@click="sidebarOpen = true">
-					<template #icon>
-						<DockRight :size="20" />
-					</template>
-				</NcButton>
+		<CnGraphCanvas
+			:nodes="editor.nodes"
+			:edges="editor.edges"
+			:selected-node-id="editor.selectedNodeId"
+			:node-width="nodeWidth"
+			:node-height="nodeHeight"
+			@node-select="editor.selectedNodeId = $event"
+			@canvas-click="editor.selectedNodeId = null"
+			@node-move="editor.moveNode($event)"
+			@connect="editor.connect($event)"
+			@canvas-drop="onCanvasDrop">
+			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
+			     in one direction, which a plain line does not convey. When a run
+			     has produced a result for this hop, a badge sits on the midpoint
+			     and opens that step's output. -->
+			<template #edge="{ edge, from, to }">
+				<g>
+					<path
+						class="graph-builder__edge"
+						:d="elbowPath(from, to)"
+						fill="none"
+						:marker-end="`url(#${arrowId})`" />
 
-				<CnGraphCanvas
-					:nodes="nodes"
-					:edges="edges"
-					:selected-node-id="selectedNodeId"
-					:node-width="200"
-					:node-height="80"
-					@node-select="onNodeSelect"
-					@canvas-click="selectedNodeId = null"
-					@node-move="onNodeMove"
-					@connect="onConnect"
-					@canvas-drop="onCanvasDrop">
-					<!-- Orthogonal routing: a straight diagonal reads poorly for a
-					     flow, so route out of the source, along a mid-line, and into
-					     the target, with rounded corners. -->
-					<template #edge="{ from, to }">
-						<path
-							class="graph-builder__edge"
-							:d="elbowPath(from, to)"
-							fill="none"
-							marker-end="url(#cn-graph-canvas-arrow)" />
-					</template>
+					<g
+						v-if="resultFor(edge)"
+						class="graph-builder__edge-badge"
+						:transform="`translate(${midpoint(from, to).x}, ${midpoint(from, to).y})`"
+						role="button"
+						tabindex="0"
+						:aria-label="t('hermiq', 'Show this step’s result')"
+						@click.stop="openResult(edge)"
+						@keydown.enter.stop="openResult(edge)">
+						<circle r="11" class="graph-builder__edge-badge-bg" />
+						<text text-anchor="middle" dominant-baseline="central" class="graph-builder__edge-badge-text">
+							{}
+						</text>
+					</g>
+				</g>
+			</template>
 
-					<template #node="{ node, selected }">
-						<div
-							class="graph-builder__node"
-							:class="[`graph-builder__node--${node.type}`, { 'graph-builder__node--selected': selected }]">
-							<span class="graph-builder__node-type">{{ typeLabel(node.type) }}</span>
-							<span class="graph-builder__node-label">{{ nodeLabel(node) }}</span>
-							<span v-if="traceByNode[node.id]" class="graph-builder__node-badge">
-								{{ traceByNode[node.id] }}
-							</span>
-						</div>
-					</template>
-				</CnGraphCanvas>
-
-				<NcEmptyContent
-					v-if="nodes.length === 0"
-					class="graph-builder__empty"
-					:name="t('hermiq', 'No nodes yet')"
-					:description="t('hermiq', 'Add a node from the palette to start building this agent graph.')">
-					<template #icon>
-						<Sitemap :size="20" />
-					</template>
-				</NcEmptyContent>
-			</div>
-
-			<!-- Controls panel: a flex sibling of the canvas, not NcAppSidebar.
-			     NcAppSidebar is positioned by NcContent as a sibling of NcAppContent;
-			     rendering one inside a page makes it an overlay that swallows pointer
-			     events across the whole page (it covered the palette). This keeps the
-			     same tabbed side-panel behaviour with predictable layout. -->
-			<aside v-if="sidebarOpen" class="graph-builder__sidebar">
-				<div class="graph-builder__sidebar-head">
-					<span class="graph-builder__sidebar-title">{{ graph.name || t('hermiq', 'Untitled graph') }}</span>
-					<span class="graph-builder__sidebar-sub">{{ sidebarSubname }}</span>
+			<template #node="{ node, selected }">
+				<div
+					class="graph-builder__node"
+					:class="[`graph-builder__node--${node.type}`, { 'graph-builder__node--selected': selected }]">
+					<span class="graph-builder__node-type">{{ typeLabel(node.type) }}</span>
+					<span class="graph-builder__node-label">{{ nodeLabel(node) }}</span>
+					<span v-if="editor.traceByNode[node.id]" class="graph-builder__node-badge">
+						{{ editor.traceByNode[node.id] }}
+					</span>
 				</div>
+			</template>
+		</CnGraphCanvas>
 
-				<div class="graph-builder__tabs" role="tablist">
-					<button
-						v-for="tab in tabs"
-						:key="tab.id"
-						class="graph-builder__tab"
-						:class="{ 'graph-builder__tab--active': activeTab === tab.id }"
-						role="tab"
-						:aria-selected="activeTab === tab.id"
-						@click="activeTab = tab.id">
-						{{ tab.label }}
-					</button>
-				</div>
+		<!-- Arrowhead marker. Defined here (not relying on the canvas's own) so
+		     the colour and size are ours to control. -->
+		<svg class="graph-builder__defs" aria-hidden="true" focusable="false">
+			<defs>
+				<marker
+					:id="arrowId"
+					viewBox="0 0 10 10"
+					refX="9"
+					refY="5"
+					markerWidth="5"
+					markerHeight="5"
+					orient="auto-start-reverse">
+					<path d="M 0 0 L 10 5 L 0 10 z" class="graph-builder__arrowhead" />
+				</marker>
+			</defs>
+		</svg>
 
-				<div class="graph-builder__tabpanel">
-					<!-- Nodes: add from the palette, then configure the selected one. -->
-					<div v-if="activeTab === 'nodes'" class="graph-builder__pane">
-						<div class="graph-builder__palette">
-							<button
-								v-for="type in nodeTypes"
-								:key="type.key"
-								class="graph-builder__palette-item"
-								:class="`graph-builder__palette-item--${type.key}`"
-								:title="type.hint"
-								draggable="true"
-								@dragstart="paletteDragType = type.key"
-								@dragend="paletteDragType = null"
-								@click="addNode(type.key)">
-								<span class="graph-builder__palette-swatch" />
-								<span class="graph-builder__palette-label">{{ type.label }}</span>
-							</button>
-						</div>
-						<p class="graph-builder__pane-hint">
-							{{ t('hermiq', 'Click to add, or drag onto the canvas.') }}
-						</p>
-
-						<hr class="graph-builder__rule">
-
-						<template v-if="selectedNode">
-							<p class="graph-builder__pane-hint">{{ typeLabel(selectedNode.type) }}</p>
-
-							<template v-if="selectedNode.type === 'trigger'">
-							<NcTextField
-								:model-value="selectedNode.config.triggerSchema || ''"
-								:label="t('hermiq', 'Trigger schema')"
-								:placeholder="t('hermiq', 'e.g. case — leave blank for any')"
-								@update:model-value="setConfig('triggerSchema', $event)" />
-							<NcSelect
-								v-model="selectedNode.config.event"
-								:options="triggers"
-								:input-label="t('hermiq', 'On event')"
-								@update:model-value="touch" />
-							<p class="graph-builder__pane-hint">
-								{{ t('hermiq', 'A trigger node is the graph’s entry point; its wiring is what the event listener matches on.') }}
-							</p>
-						</template>
-
-						<template v-else-if="selectedNode.type === 'agent-step'">
-								<NcTextField
-									:model-value="selectedNode.config.agentId || ''"
-									:label="t('hermiq', 'Agent UUID')"
-									@update:model-value="setConfig('agentId', $event)" />
-								<NcTextArea
-									:model-value="selectedNode.config.prompt || ''"
-									:label="t('hermiq', 'Prompt')"
-									@update:model-value="setConfig('prompt', $event)" />
-							</template>
-
-							<template v-else-if="selectedNode.type === 'object-write'">
-								<NcTextField
-									:model-value="selectedNode.config.field || ''"
-									:label="t('hermiq', 'Field')"
-									@update:model-value="setConfig('field', $event)" />
-								<NcTextField
-									:model-value="selectedNode.config.value || ''"
-									:label="t('hermiq', 'Value')"
-									@update:model-value="setConfig('value', $event)" />
-							</template>
-
-							<template v-else-if="selectedNode.type === 'condition'">
-								<NcTextField
-									:model-value="selectedNode.config.left || ''"
-									:label="t('hermiq', 'Left (state key)')"
-									@update:model-value="setConfig('left', $event)" />
-								<NcSelect
-									v-model="selectedNode.config.operator"
-									:options="operators"
-									:input-label="t('hermiq', 'Operator')"
-									@update:model-value="touch" />
-								<NcTextField
-									:model-value="selectedNode.config.right || ''"
-									:label="t('hermiq', 'Right (value)')"
-									@update:model-value="setConfig('right', $event)" />
-							</template>
-
-							<template v-else-if="selectedNode.type === 'router'">
-								<NcTextField
-									:model-value="selectedNode.config.on || ''"
-									:label="t('hermiq', 'Route on (state key)')"
-									@update:model-value="setConfig('on', $event)" />
-							</template>
-
-							<NcButton type="error" @click="removeNode(selectedNode.id)">
-								{{ t('hermiq', 'Remove node') }}
-							</NcButton>
-						</template>
-
-						<p v-else class="graph-builder__pane-hint">
-							{{ t('hermiq', 'Select a node on the canvas to configure it.') }}
-						</p>
-					</div>
-
-					<!-- Graph: identity, trigger wiring and the two verbs. -->
-					<div v-else-if="activeTab === 'settings'" class="graph-builder__pane">
-						<div class="graph-builder__verbs">
-							<NcButton type="primary" :disabled="saving || !graph.name" @click="save">
-								<template #icon>
-									<NcLoadingIcon v-if="saving" :size="20" />
-									<ContentSave v-else :size="20" />
-								</template>
-								{{ t('hermiq', 'Save') }}
-							</NcButton>
-							<NcButton type="secondary" :disabled="nodes.length === 0" @click="showRun = true">
-								<template #icon>
-									<Play :size="20" />
-								</template>
-								{{ t('hermiq', 'Run…') }}
-							</NcButton>
-						</div>
-						<p v-if="dirty" class="graph-builder__pane-hint">
-							{{ t('hermiq', 'Unsaved changes') }}
-						</p>
-
-						<NcTextField
-							:model-value="graph.name"
-							:label="t('hermiq', 'Name')"
-							required
-							@update:model-value="graph.name = $event" />
-						<NcTextField
-							:model-value="graph.description || ''"
-							:label="t('hermiq', 'Description')"
-							@update:model-value="graph.description = $event" />
-						<NcTextField
-							:model-value="graph.triggerSchema || ''"
-							:label="t('hermiq', 'Trigger schema')"
-							:placeholder="t('hermiq', 'e.g. case')"
-							@update:model-value="graph.triggerSchema = $event" />
-						<NcSelect
-							v-model="graph.trigger"
-							:options="triggers"
-							:input-label="t('hermiq', 'Trigger')" />
-						<NcCheckboxRadioSwitch v-model="graph.enabled" type="switch">
-							{{ t('hermiq', 'Enabled') }}
-						</NcCheckboxRadioSwitch>
-						<p class="graph-builder__pane-hint">
-							{{ n('hermiq', '%n node', '%n nodes', nodes.length) }} ·
-							{{ n('hermiq', '%n connection', '%n connections', edges.length) }}
-						</p>
-					</div>
-
-					<!-- Notes -->
-					<div v-else-if="activeTab === 'notes'" class="graph-builder__pane">
-						<NcTextArea
-							:model-value="graph.notes || ''"
-							:label="t('hermiq', 'Notes')"
-							:placeholder="t('hermiq', 'Why this graph exists, what it assumes, anything the next person should know.')"
-							rows="12"
-							@update:model-value="graph.notes = $event" />
-						<p class="graph-builder__pane-hint">{{ t('hermiq', 'Saved with the graph.') }}</p>
-					</div>
-				</div>
-			</aside>
-		</div>
+		<NcEmptyContent
+			v-if="editor.nodes.length === 0"
+			class="graph-builder__empty"
+			:name="t('hermiq', 'No nodes yet')"
+			:description="t('hermiq', 'Add a node from the sidebar to start building this agent graph.')">
+			<template #icon>
+				<Sitemap :size="20" />
+			</template>
+		</NcEmptyContent>
 
 		<RunGraphDialog
-			v-if="showRun"
-			:graph="graphForRun"
-			@close="showRun = false"
+			v-if="editor.showRun"
+			@close="editor.showRun = false"
 			@ran="onRan" />
+
+		<StepResultDialog
+			v-if="resultDialog !== null"
+			:title="resultDialog.title"
+			:result="resultDialog.result"
+			@close="resultDialog = null" />
 	</div>
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcEmptyContent, NcLoadingIcon, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import { NcEmptyContent } from '@nextcloud/vue'
 import { CnGraphCanvas } from '@conduction/nextcloud-vue'
-import { showError, showSuccess } from '@nextcloud/dialogs'
-import ContentSave from 'vue-material-design-icons/ContentSave.vue'
-import Delete from 'vue-material-design-icons/Delete.vue'
-import DockRight from 'vue-material-design-icons/DockRight.vue'
-import Play from 'vue-material-design-icons/Play.vue'
+import { showSuccess } from '@nextcloud/dialogs'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
 import RunGraphDialog from '../dialogs/RunGraphDialog.vue'
-import { useAgentFlowStore } from '../store/store.js'
+import StepResultDialog from '../dialogs/StepResultDialog.vue'
+import { useGraphEditorStore } from '../store/graphEditor.js'
 
 /**
- * GraphBuilder — author the agent graphs GraphExecutor walks.
+ * GraphBuilder — the canvas half of the graph editor.
  *
- * The definition is an `agentflow` OpenRegister object; this page is the visual
- * editor over one of them, reached from the Graphs index. Geometry and
- * interaction come from the shared `CnGraphCanvas`; everything here is
- * hermiq-specific — the palette matching the executor's node types, per-node
- * config, persistence, and a run that renders the executor's trace back onto
- * the nodes.
- *
- * Layout: the canvas is the page. Only the palette sits beside it (placing
- * nodes is the primary gesture); every other control lives in the app sidebar,
- * so nothing permanently occupies canvas width.
+ * This page is only the graph itself: geometry and interaction (pan, zoom,
+ * drag, drag-to-connect) come from the shared CnGraphCanvas, and this component
+ * supplies typed node cards, directional edge routing, and per-hop result
+ * badges. Every control — palette, node config, graph settings, notes,
+ * Save/Run — lives in GraphSidebar, rendered in Nextcloud's real app sidebar
+ * via the manifest's `pages[].sidebarComponent`. The two halves share the
+ * graph-editor store, since they sit in different parts of the tree.
  */
 export default {
 	name: 'GraphBuilder',
 
 	components: {
 		CnGraphCanvas,
-		ContentSave,
-		Delete,
-		DockRight,
-		NcButton,
-		NcCheckboxRadioSwitch,
 		NcEmptyContent,
-		NcLoadingIcon,
-		NcSelect,
-		NcTextArea,
-		NcTextField,
-		Play,
 		RunGraphDialog,
 		Sitemap,
+		StepResultDialog,
 	},
 
 	props: {
@@ -316,367 +140,137 @@ export default {
 		},
 	},
 
+	setup() {
+		return { editor: useGraphEditorStore() }
+	},
+
 	data() {
 		return {
-			loading: false,
-			saving: false,
-			showRun: false,
-			dirty: false,
-			sidebarOpen: true,
-			activeTab: 'nodes',
-			tabs: [
-				{ id: 'nodes', label: this.t('hermiq', 'Nodes') },
-				{ id: 'settings', label: this.t('hermiq', 'Graph') },
-				{ id: 'notes', label: this.t('hermiq', 'Notes') },
-			],
-			graphs: [],
-			selectedNodeId: null,
-			paletteDragType: null,
-			lastTrace: [],
-			graph: this.emptyGraph(),
-			operators: ['equals', 'notEquals', 'contains', 'empty', 'notEmpty'],
-			triggers: ['object.created', 'object.updated', 'object.deleted'],
+			arrowId: 'graph-builder-arrow',
+			resultDialog: null,
+			// Node box size. Shared with the canvas and with edge trimming, which
+			// has to know where a card ends to stop the arrowhead short of it.
+			nodeWidth: 200,
+			nodeHeight: 80,
 			nodeTypes: [
-				{ key: 'trigger', label: this.t('hermiq', 'Trigger'), hint: this.t('hermiq', 'Start the graph on an object create/update/delete event') },
-				{ key: 'agent-step', label: this.t('hermiq', 'Agent step'), hint: this.t('hermiq', 'Run an agent turn and put its answer on the state') },
-				{ key: 'object-write', label: this.t('hermiq', 'Object write'), hint: this.t('hermiq', 'Write a field back onto the subject object') },
-				{ key: 'condition', label: this.t('hermiq', 'Condition'), hint: this.t('hermiq', 'Halt the graph unless the guard holds') },
-				{ key: 'router', label: this.t('hermiq', 'Router'), hint: this.t('hermiq', 'Follow the outgoing edge matching a state value') },
+				{ key: 'trigger', label: this.t('hermiq', 'Trigger') },
+				{ key: 'agent-step', label: this.t('hermiq', 'Agent step') },
+				{ key: 'object-write', label: this.t('hermiq', 'Object write') },
+				{ key: 'condition', label: this.t('hermiq', 'Condition') },
+				{ key: 'router', label: this.t('hermiq', 'Router') },
 			],
 		}
 	},
 
-	computed: {
-		/** @return {Array<object>} Canvas nodes. */
-		nodes() {
-			return this.graph.nodes || []
-		},
-
-		/** @return {Array<object>} Canvas edges. */
-		edges() {
-			return this.graph.edges || []
-		},
-
-		/** @return {object|null} The selected node. */
-		selectedNode() {
-			if (this.selectedNodeId === null) {
-				return null
-			}
-
-			return this.nodes.find((node) => node.id === this.selectedNodeId) || null
-		},
-
-
-		/** @return {string} Sidebar subtitle: what this graph reacts to. */
-		sidebarSubname() {
-			if (!this.graph.triggerSchema) {
-				return this.t('hermiq', 'No trigger schema set')
-			}
-
-			return `${this.graph.trigger || 'object.updated'} · ${this.graph.triggerSchema}`
-		},
-
-		/** @return {object} The definition posted to the executor. */
-		graphForRun() {
-			return {
-				name: this.graph.name,
-				nodes: this.nodes,
-				edges: this.edges,
-				limits: this.graph.limits || {},
-			}
-		},
-
-		/** @return {object} Node id => short outcome from the last run's trace. */
-		traceByNode() {
-			const out = {}
-			for (const entry of this.lastTrace) {
-				if (entry.event === 'ran' && entry.node) {
-					out[entry.node] = entry.continue === false ? this.t('hermiq', 'halted') : this.t('hermiq', 'ran')
-				}
-			}
-
-			return out
-		},
-	},
-
 	watch: {
-		graph: {
-			deep: true,
-			handler() {
-				this.dirty = true
-			},
-		},
 		id() {
-			this.loadCurrent()
+			this.editor.open(this.id)
 		},
 	},
 
 	created() {
-		this.flowStore = useAgentFlowStore()
-		this.flowStore.registerObjectType('agentflow', 'agentflow', 'hermiq')
-		this.load()
+		this.editor.load(this.id)
 	},
 
 	methods: {
-		/** @return {object} A blank graph definition. */
-		emptyGraph() {
-			return {
-				name: '',
-				description: '',
-				notes: '',
-				triggerSchema: '',
-				trigger: 'object.updated',
-				enabled: false,
-				nodes: [],
-				edges: [],
-				limits: {},
-			}
-		},
-
 		/**
-		 * Load every saved graph (for the sidebar switcher), then the routed one.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async load() {
-			this.loading = true
-			try {
-				const rows = await this.flowStore.fetchCollection('agentflow')
-				this.graphs = Array.isArray(rows) ? rows : []
-			} catch (e) {
-				this.graphs = []
-			} finally {
-				this.loading = false
-			}
-
-			this.loadCurrent()
-		},
-
-		/**
-		 * Put the graph named by the route onto the canvas (`new` = blank).
-		 *
-		 * @return {void}
-		 */
-		loadCurrent() {
-			if (!this.id || this.id === 'new') {
-				this.graph = this.emptyGraph()
-				this.graph.name = this.t('hermiq', 'New graph')
-				this.selectedNodeId = null
-				this.lastTrace = []
-				this.$nextTick(() => { this.dirty = false })
-				return
-			}
-
-			const match = this.graphs.find((flow) => String(flow.id) === String(this.id))
-			if (match) {
-				this.applyGraph(match)
-			}
-		},
-
-		/**
-		 * Copy a stored graph onto the canvas (deep-cloned so edits stay local
-		 * until saved).
-		 *
-		 * @param {object} flow The stored graph object.
-		 * @return {void}
-		 */
-		applyGraph(flow) {
-			this.graph = {
-				...this.emptyGraph(),
-				...flow,
-				nodes: Array.isArray(flow.nodes) ? JSON.parse(JSON.stringify(flow.nodes)) : [],
-				edges: Array.isArray(flow.edges) ? JSON.parse(JSON.stringify(flow.edges)) : [],
-			}
-			this.selectedNodeId = null
-			this.lastTrace = []
-			this.$nextTick(() => { this.dirty = false })
-		},
-
-
-		/**
-		 * Add a node of `type`, at an explicit canvas point when dropped.
-		 *
-		 * Default placement stacks a vertical chain near the left of the canvas:
-		 * wide default columns pushed later nodes past the visible area, where
-		 * they could be neither read nor used as a connection target.
-		 *
-		 * @param {string} type The node type.
-		 * @param {number} x    Canvas x (optional).
-		 * @param {number} y    Canvas y (optional).
-		 * @return {void}
-		 */
-		addNode(type, x = null, y = null) {
-			const index = this.nodes.length
-			const node = {
-				id: `${type}-${Date.now().toString(36)}-${index}`,
-				type,
-				x: x === null ? 80 : x,
-				y: y === null ? (60 + index * 130) : y,
-				config: {},
-			}
-			if (index === 0) {
-				node.start = true
-			}
-
-			this.graph.nodes = [...this.nodes, node]
-			this.selectedNodeId = node.id
-			this.activeTab = 'nodes'
-		},
-
-		/**
-		 * Select a node and reveal its config.
-		 *
-		 * @param {string} nodeId The node id.
-		 * @return {void}
-		 */
-		onNodeSelect(nodeId) {
-			this.selectedNodeId = nodeId
-			if (nodeId !== null) {
-				this.activeTab = 'nodes'
-				this.sidebarOpen = true
-			}
-		},
-
-		/**
-		 * Drop from the palette onto the canvas at the drop point.
+		 * Drop from the sidebar palette onto the canvas at the drop point.
 		 *
 		 * @param {object} payload `{x, y}` in canvas space.
 		 * @return {void}
 		 */
 		onCanvasDrop({ x, y }) {
-			if (this.paletteDragType === null) {
+			if (this.editor.paletteDragType === null) {
 				return
 			}
 
-			this.addNode(this.paletteDragType, x, y)
-			this.paletteDragType = null
+			this.editor.addNode(this.editor.paletteDragType, x, y)
+			this.editor.paletteDragType = null
 		},
 
 		/**
-		 * Persist a node's new position.
-		 *
-		 * @param {object} payload `{id, x, y}`.
-		 * @return {void}
-		 */
-		onNodeMove({ id, x, y }) {
-			this.graph.nodes = this.nodes.map((node) => {
-				if (node.id !== id) {
-					return node
-				}
-
-				return { ...node, x, y }
-			})
-		},
-
-		/**
-		 * Connect two nodes (no duplicates, no self-edges).
-		 *
-		 * @param {object} payload `{source, target}`.
-		 * @return {void}
-		 */
-		onConnect({ source, target }) {
-			if (!source || !target || source === target) {
-				return
-			}
-
-			const exists = this.edges.some((edge) => edge.source === source && edge.target === target)
-			if (exists === true) {
-				return
-			}
-
-			this.graph.edges = [...this.edges, { source, target }]
-		},
-
-		/**
-		 * Remove a node and every edge touching it.
-		 *
-		 * @param {string} id The node id.
-		 * @return {void}
-		 */
-		removeNode(id) {
-			this.graph.nodes = this.nodes.filter((node) => node.id !== id)
-			this.graph.edges = this.edges.filter((edge) => edge.source !== id && edge.target !== id)
-			this.selectedNodeId = null
-		},
-
-		/**
-		 * Write a config key on the selected node.
-		 *
-		 * @param {string} key   The config key.
-		 * @param {*}      value The value.
-		 * @return {void}
-		 */
-		setConfig(key, value) {
-			if (this.selectedNode === null) {
-				return
-			}
-
-			this.graph.nodes = this.nodes.map((node) => {
-				if (node.id !== this.selectedNodeId) {
-					return node
-				}
-
-				return { ...node, config: { ...(node.config || {}), [key]: value } }
-			})
-		},
-
-		/**
-		 * Force a re-render after an in-place NcSelect write.
+		 * A completed run's trace is already on the store; close and notify.
 		 *
 		 * @return {void}
 		 */
-		touch() {
-			this.graph = { ...this.graph }
-		},
-
-		/**
-		 * Save the graph as an `agentflow` object.
-		 *
-		 * @return {Promise<void>}
-		 */
-		async save() {
-			this.saving = true
-			try {
-				const payload = { ...this.graph }
-				// A trigger node is the authored entry point; mirror its config onto
-				// the graph fields the event listener actually matches on, so the
-				// canvas stays the single place you configure triggering.
-				const triggerNode = this.nodes.find((node) => node.type === 'trigger')
-				if (triggerNode) {
-					const config = triggerNode.config || {}
-					payload.triggerSchema = config.triggerSchema || payload.triggerSchema || ''
-					payload.trigger = config.event || payload.trigger || 'object.updated'
-				}
-
-				const saved = await this.flowStore.saveObject('agentflow', payload)
-				showSuccess(this.t('hermiq', 'Graph saved.'))
-				const rows = await this.flowStore.fetchCollection('agentflow')
-				this.graphs = Array.isArray(rows) ? rows : []
-				if (saved && saved.id) {
-					this.graph = { ...this.graph, id: saved.id }
-					if (String(this.id) !== String(saved.id)) {
-						this.$router.replace({ name: 'GraphDetail', params: { id: String(saved.id) } })
-					}
-				}
-
-				this.$nextTick(() => { this.dirty = false })
-			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the graph.'))
-			} finally {
-				this.saving = false
-			}
-		},
-
-		/**
-		 * Render a completed run's trace onto the canvas.
-		 *
-		 * @param {object} result The run result (`{state, trace}`).
-		 * @return {void}
-		 */
-		onRan(result) {
-			this.lastTrace = Array.isArray(result?.trace) ? result.trace : []
-			this.showRun = false
+		onRan() {
+			this.editor.showRun = false
 			showSuccess(this.t('hermiq', 'Graph run finished.'))
+		},
+
+		/**
+		 * Midpoint of an edge, where the result badge sits.
+		 *
+		 * @param {{x: number, y: number}} from Source centre.
+		 * @param {{x: number, y: number}} to   Target centre.
+		 * @return {{x: number, y: number}} The midpoint.
+		 */
+		midpoint(from, to) {
+			const [a, b] = this.trim(from, to)
+			return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+		},
+
+		/**
+		 * Pull an edge's endpoints from the node centres back to the node
+		 * borders (plus a small gap), on whichever axis the elbow leaves and
+		 * enters by.
+		 *
+		 * The canvas hands the slot centre points. Drawn from centre to centre,
+		 * the last stretch — the arrowhead included — is covered by the target
+		 * card, so the flow reads as an undirected line.
+		 *
+		 * @param {{x: number, y: number}} from Source centre.
+		 * @param {{x: number, y: number}} to   Target centre.
+		 * @return {Array<{x: number, y: number}>} Trimmed `[from, to]`.
+		 */
+		trim(from, to) {
+			const dx = to.x - from.x
+			const dy = to.y - from.y
+			const gap = 6
+
+			if (Math.abs(dy) >= Math.abs(dx)) {
+				const inset = Math.min((this.nodeHeight / 2) + gap, Math.abs(dy) / 2)
+				const step = Math.sign(dy) * inset
+				return [{ x: from.x, y: from.y + step }, { x: to.x, y: to.y - step }]
+			}
+
+			const inset = Math.min((this.nodeWidth / 2) + gap, Math.abs(dx) / 2)
+			const step = Math.sign(dx) * inset
+			return [{ x: from.x + step, y: from.y }, { x: to.x - step, y: to.y }]
+		},
+
+		/**
+		 * The last run's result for the step an edge leaves from, or null when
+		 * this hop did not run.
+		 *
+		 * @param {object} edge The edge.
+		 * @return {object|null} That step's trace entry.
+		 */
+		resultFor(edge) {
+			if (!edge || !edge.source) {
+				return null
+			}
+
+			return this.editor.resultByNode[edge.source] || null
+		},
+
+		/**
+		 * Show a step's output as JSON.
+		 *
+		 * @param {object} edge The edge whose source produced the result.
+		 * @return {void}
+		 */
+		openResult(edge) {
+			const entry = this.resultFor(edge)
+			if (!entry) {
+				return
+			}
+
+			const node = this.editor.nodes.find((candidate) => candidate.id === edge.source)
+			this.resultDialog = {
+				title: node ? this.typeLabel(node.type) : edge.source,
+				result: entry,
+			}
 		},
 
 		/**
@@ -685,12 +279,12 @@ export default {
 		 * when they sit side by side, so a chain reads as a flow rather than a
 		 * web of diagonals.
 		 *
-		 * @param {{x: number, y: number}} from Source centre.
-		 * @param {{x: number, y: number}} to   Target centre.
+		 * @param {{x: number, y: number}} rawFrom Source centre.
+		 * @param {{x: number, y: number}} rawTo   Target centre.
 		 * @return {string} An SVG path `d`.
 		 */
-		elbowPath(from, to) {
-			const r = 12
+		elbowPath(rawFrom, rawTo) {
+			const [from, to] = this.trim(rawFrom, rawTo)
 			const dx = to.x - from.x
 			const dy = to.y - from.y
 			if (Math.abs(dx) < 1 || Math.abs(dy) < 1) {
@@ -698,12 +292,11 @@ export default {
 			}
 
 			// Corner radius must never exceed half of either leg.
-			const rad = Math.min(r, Math.abs(dx) / 2, Math.abs(dy) / 2)
+			const rad = Math.min(12, Math.abs(dx) / 2, Math.abs(dy) / 2)
 			const sx = Math.sign(dx)
 			const sy = Math.sign(dy)
 
 			if (Math.abs(dy) >= Math.abs(dx)) {
-				// Vertical-dominant: down, across at the midpoint, then down.
 				const midY = from.y + (dy / 2)
 				return [
 					`M ${from.x} ${from.y}`,
@@ -715,7 +308,6 @@ export default {
 				].join(' ')
 			}
 
-			// Horizontal-dominant: across, down at the midpoint, then across.
 			const midX = from.x + (dx / 2)
 			return [
 				`M ${from.x} ${from.y}`,
@@ -775,61 +367,18 @@ export default {
 
 <style scoped>
 .graph-builder {
-	display: flex;
-	flex-direction: column;
+	position: relative;
 	height: 100%;
 	min-height: 0;
-}
-
-.graph-builder__body {
-	display: flex;
-	flex: 1 1 auto;
-	min-height: 0;
-}
-
-/* Compact palette — narrow enough to leave the canvas dominant. */
-.graph-builder__palette {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 6px;
-}
-
-.graph-builder__rule {
-	border: none;
-	border-top: 1px solid var(--color-border);
-	margin: 4px 0;
-}
-
-.graph-builder__palette-item {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-	padding: 8px;
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius-large, 8px);
-	background-color: var(--color-main-background);
-	cursor: grab;
-	text-align: start;
-	font-size: 13px;
-}
-
-.graph-builder__palette-item:hover {
-	background-color: var(--color-background-hover);
-}
-
-.graph-builder__palette-swatch {
-	width: 10px;
-	height: 10px;
-	border-radius: 3px;
-	flex: 0 0 auto;
-}
-
-.graph-builder__canvas {
-	position: relative;
-	flex: 1 1 auto;
-	min-width: 0;
 	/* Clip so a node dragged past the edge can't paint over neighbouring chrome. */
 	overflow: hidden;
+}
+
+/* Marker definitions only — never painted itself. */
+.graph-builder__defs {
+	position: absolute;
+	width: 0;
+	height: 0;
 }
 
 .graph-builder__empty {
@@ -843,95 +392,29 @@ export default {
 	stroke-width: 2;
 }
 
-.graph-builder__reopen {
-	position: absolute;
-	top: 12px;
-	inset-inline-end: 12px;
-	z-index: 2;
+.graph-builder__arrowhead {
+	fill: var(--color-border-dark);
 }
 
-.graph-builder__verbs {
-	display: flex;
-	gap: 8px;
+.graph-builder__edge-badge {
+	cursor: pointer;
+	pointer-events: all;
 }
 
-/* Controls panel — a flex sibling, so it never overlays the canvas or palette. */
-.graph-builder__sidebar {
-	width: 320px;
-	flex: 0 0 auto;
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-	border-inline-start: 1px solid var(--color-border);
-	background-color: var(--color-main-background);
+.graph-builder__edge-badge-bg {
+	fill: var(--color-main-background);
+	stroke: var(--color-border-dark);
+	stroke-width: 2;
 }
 
-.graph-builder__sidebar-head {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-	padding: 12px 12px 8px;
+.graph-builder__edge-badge:hover .graph-builder__edge-badge-bg {
+	stroke: var(--color-primary-element);
 }
 
-.graph-builder__sidebar-title {
+.graph-builder__edge-badge-text {
+	font-size: 11px;
 	font-weight: 600;
-	font-size: 16px;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.graph-builder__sidebar-sub {
-	font-size: 13px;
-	color: var(--color-text-maxcontrast);
-}
-
-.graph-builder__tabs {
-	display: flex;
-	gap: 2px;
-	padding: 0 8px;
-	border-bottom: 1px solid var(--color-border);
-}
-
-.graph-builder__tab {
-	flex: 1 1 auto;
-	padding: 8px 4px;
-	border: none;
-	border-bottom: 2px solid transparent;
-	background-color: transparent;
-	font-size: 13px;
-	color: var(--color-text-maxcontrast);
-}
-
-.graph-builder__tab:hover {
-	background-color: var(--color-background-hover);
-}
-
-.graph-builder__tab--active {
-	color: var(--color-main-text);
-	border-bottom-color: var(--color-primary-element);
-	font-weight: 600;
-}
-
-.graph-builder__tabpanel {
-	flex: 1 1 auto;
-	min-height: 0;
-	overflow-y: auto;
-	padding: 8px 12px 16px;
-}
-
-/* Sidebar panes */
-.graph-builder__pane {
-	display: flex;
-	flex-direction: column;
-	gap: 12px;
-	padding: 8px 4px;
-}
-
-.graph-builder__pane-hint {
-	color: var(--color-text-maxcontrast);
-	font-size: 13px;
-	margin: 0;
+	fill: var(--color-main-text);
 }
 
 /* The canvas gives every node wrapper its own border/background/radius. This
@@ -943,7 +426,6 @@ export default {
 	border-radius: 0;
 }
 
-/* Node card rendered into CnGraphCanvas's `node` slot. */
 .graph-builder__node {
 	display: flex;
 	flex-direction: column;
@@ -988,42 +470,23 @@ export default {
 }
 
 /* Type accents — NC variables only (ADR-010). */
-.graph-builder__node--trigger,
-.graph-builder__palette-item--trigger .graph-builder__palette-swatch {
+.graph-builder__node--trigger {
 	border-inline-start-color: var(--color-warning, #c28900);
-	background-color: var(--color-warning, #c28900);
 }
 
-.graph-builder__node--agent-step,
-.graph-builder__palette-item--agent-step .graph-builder__palette-swatch {
+.graph-builder__node--agent-step {
 	border-inline-start-color: var(--color-primary-element);
-	background-color: var(--color-primary-element);
 }
 
-.graph-builder__node--object-write,
-.graph-builder__palette-item--object-write .graph-builder__palette-swatch {
+.graph-builder__node--object-write {
 	border-inline-start-color: var(--color-success, #46ba61);
-	background-color: var(--color-success, #46ba61);
 }
 
-.graph-builder__node--condition,
-.graph-builder__palette-item--condition .graph-builder__palette-swatch {
+.graph-builder__node--condition {
 	border-inline-start-color: var(--color-warning, #c28900);
-	background-color: var(--color-warning, #c28900);
 }
 
-.graph-builder__node--router,
-.graph-builder__palette-item--router .graph-builder__palette-swatch {
-	border-inline-start-color: var(--color-info, #4271b6);
-	background-color: var(--color-info, #4271b6);
-}
-
-/* The node card must not take the palette swatch's solid fill. */
-.graph-builder__node--trigger,
-.graph-builder__node--agent-step,
-.graph-builder__node--object-write,
-.graph-builder__node--condition,
 .graph-builder__node--router {
-	background-color: var(--color-main-background);
+	border-inline-start-color: var(--color-info, #4271b6);
 }
 </style>

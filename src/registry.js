@@ -46,6 +46,7 @@ import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import AgentSessions from './views/AgentSessions.vue'
 import GraphBuilder from './views/GraphBuilder.vue'
+import GraphSidebar from './views/GraphSidebar.vue'
 import TenantOps from './views/TenantOps.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
 // the agent-memory wrapper (AgentMemoryPanel.vue itself stays unchanged).
@@ -264,6 +265,17 @@ export default {
 	GraphBuilder: {
 		kind: 'page',
 		component: GraphBuilder,
+	},
+
+	/**
+	 * The graph editor's controls, resolved via GraphDetail's
+	 * `sidebarComponent` so CnPageRenderer hands it to CnAppRoot's #sidebar
+	 * slot — Nextcloud's real app sidebar, the same place CnObjectSidebar
+	 * renders. Shares state with the canvas through the graph-editor store.
+	 */
+	GraphSidebar: {
+		kind: 'page',
+		component: GraphSidebar,
 	},
 
 	/**

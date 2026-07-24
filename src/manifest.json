@@ -763,7 +763,8 @@
 			"type": "custom",
 			"component": "GraphBuilder",
 			"title": "Graph",
-			"_note": "Custom page: a direct-manipulation canvas over an agentflow node/edge document (drag to place, drag-to-connect, per-node config, run + trace). No built-in page type expresses graph authoring — index/detail/dashboard are all record-shaped. Controls live in the NcAppSidebar so the canvas gets the full width."
+			"_note": "Custom page: a direct-manipulation canvas over an agentflow node/edge document (drag to place, drag-to-connect, per-node config, run + trace). No built-in page type expresses graph authoring — index/detail/dashboard are all record-shaped. Controls live in the NcAppSidebar so the canvas gets the full width.",
+			"sidebarComponent": "GraphSidebar"
 		}
 	],
 	"setup": {
