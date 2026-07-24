@@ -14,11 +14,25 @@
 				{{ t('hermiq', 'This step halted the graph — nothing after it ran.') }}
 			</NcNoteCard>
 
+			<NcNoteCard v-if="result.error" type="error">
+				{{ result.error }}
+			</NcNoteCard>
+
+			<h4 class="step-result__heading">
+				{{ t('hermiq', 'Produced by this step') }}
+			</h4>
 			<p class="step-result__hint">
 				{{ hintText }}
 			</p>
+			<pre class="step-result__json">{{ producedPretty }}</pre>
 
-			<pre class="step-result__json">{{ pretty }}</pre>
+			<h4 class="step-result__heading">
+				{{ t('hermiq', 'Sent to the next node') }}
+			</h4>
+			<p class="step-result__hint">
+				{{ passedHint }}
+			</p>
+			<pre class="step-result__json">{{ passedPretty }}</pre>
 		</div>
 
 		<template #actions>
@@ -84,18 +98,32 @@ export default {
 			const token = '{{key}}'
 			return this.t(
 				'hermiq',
-				'What this step put on the run state. Later nodes read these values via {token} placeholders.',
+				'Only what this step added to the run state. Later nodes read these values via {token} placeholders.',
 				{ token },
 			)
 		},
 
-		/** @return {string} The result, pretty-printed. */
+		/** @return {string} Explanatory line for the outgoing state. */
+		passedHint() {
+			return this.t(
+				'hermiq',
+				'The whole run state as the next node receives it — the subject object plus everything earlier steps put on it.',
+			)
+		},
+
+		/** @return {string} What this step added, pretty-printed. */
+		producedPretty() {
+			return this.stringify(this.result?.produced)
+		},
+
+		/** @return {string} The state handed onward, pretty-printed. */
+		passedPretty() {
+			return this.stringify(this.result?.passed)
+		},
+
+		/** @return {string} Both halves, for the clipboard. */
 		pretty() {
-			try {
-				return JSON.stringify(this.result, null, 2)
-			} catch (e) {
-				return String(this.result)
-			}
+			return this.stringify(this.result)
 		},
 
 		/** @return {boolean} Whether this step stopped the walk. */
@@ -105,6 +133,24 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Pretty-print a value, tolerating one that will not serialise.
+		 *
+		 * @param {*} value The value.
+		 * @return {string} The JSON, or a readable stand-in.
+		 */
+		stringify(value) {
+			if (value === undefined || value === null) {
+				return this.t('hermiq', '(nothing)')
+			}
+
+			try {
+				return JSON.stringify(value, null, 2)
+			} catch (e) {
+				return String(value)
+			}
+		},
+
 		/**
 		 * Copy the JSON to the clipboard.
 		 *
@@ -131,6 +177,12 @@ export default {
 	padding: 0 12px 12px;
 }
 
+.step-result__heading {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+}
+
 .step-result__hint {
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
@@ -140,7 +192,7 @@ export default {
 .step-result__json {
 	margin: 0;
 	padding: 12px;
-	max-height: 50vh;
+	max-height: 32vh;
 	overflow: auto;
 	background-color: var(--color-background-dark);
 	border-radius: var(--border-radius-large, 8px);

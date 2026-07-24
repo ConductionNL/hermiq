@@ -60,15 +60,32 @@
 				</template>
 
 				<template v-else-if="editor.selectedNode.type === 'agent-step'">
-					<NcTextField
-						:model-value="editor.selectedNode.config.agentId || ''"
-						:label="t('hermiq', 'Agent UUID')"
-						@update:model-value="editor.setNodeConfig('agentId', $event)" />
+					<NcSelect
+						:model-value="selectedAgent"
+						:options="editor.agentOptions"
+						label="label"
+						:input-label="t('hermiq', 'Agent')"
+						:placeholder="t('hermiq', 'Pick an agent')"
+						@update:model-value="editor.setNodeConfig('agentId', $event ? $event.id : '')" />
 					<NcTextArea
 						:model-value="editor.selectedNode.config.prompt || ''"
 						:label="t('hermiq', 'Prompt')"
 						:placeholder="t('hermiq', 'Supports {{state}} placeholders')"
 						@update:model-value="editor.setNodeConfig('prompt', $event)" />
+					<NcTextField
+						:model-value="editor.selectedNode.config.output || ''"
+						:label="t('hermiq', 'Store answer as')"
+						:placeholder="t('hermiq', 'result')"
+						@update:model-value="editor.setNodeConfig('output', $event)" />
+					<NcCheckboxRadioSwitch
+						:model-value="editor.selectedNode.config.expectJson === true"
+						type="switch"
+						@update:model-value="editor.setNodeConfig('expectJson', $event)">
+						{{ t('hermiq', 'Answer must be JSON') }}
+					</NcCheckboxRadioSwitch>
+					<p class="graph-sidebar__hint">
+						{{ jsonHint }}
+					</p>
 				</template>
 
 				<!-- Object write targets a register/schema too, so it gets the
@@ -273,6 +290,36 @@ export default {
 			}
 
 			return `${this.editor.graph.trigger || 'object.updated'} · ${this.editor.graph.triggerSchema}`
+		},
+
+		/**
+		 * The dropdown option matching the selected node's stored agent id.
+		 *
+		 * @return {object|null} The option, or null when nothing is chosen.
+		 */
+		selectedAgent() {
+			const id = this.editor.selectedNode?.config?.agentId || ''
+			return this.editor.agentOptions.find((option) => option.id === id) || null
+		},
+
+		/**
+		 * How to read an agent step's answer downstream. Built here rather than
+		 * inline because it contains placeholder tokens in double braces, which
+		 * the template compiler would try to interpolate.
+		 *
+		 * @return {string} The hint.
+		 */
+		jsonHint() {
+			const key = this.editor.selectedNode?.config?.output || 'result'
+			if (this.editor.selectedNode?.config?.expectJson === true) {
+				return this.t(
+					'hermiq',
+					'The answer is parsed, so a later node can read one field with {field} — not just the whole reply.',
+					{ field: `{{${key}.someField}}` },
+				)
+			}
+
+			return this.t('hermiq', 'A later node reads this step’s answer with {token}.', { token: `{{${key}}}` })
 		},
 	},
 

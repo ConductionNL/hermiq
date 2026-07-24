@@ -14,7 +14,7 @@
 // state and the actions both halves need to trigger.
 
 import { defineStore } from 'pinia'
-import { useAgentFlowStore } from './store.js'
+import { useAgentFlowStore, useAgentStore } from './store.js'
 import { runGraph } from '../api/graph.js'
 
 /**
@@ -41,6 +41,7 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 	state: () => ({
 		graph: emptyGraph(),
 		graphs: [],
+		agents: [],
 		selectedNodeId: null,
 		paletteDragType: null,
 		lastTrace: [],
@@ -100,6 +101,18 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 			return out
 		},
 
+		/**
+		 * Agents as dropdown options. The id is what the node stores; the
+		 * label is what an author recognises.
+		 *
+		 * @return {Array<object>} `{id, label, maxTokens}` per agent.
+		 */
+		agentOptions: (state) => state.agents.map((agent) => ({
+			id: agent['@self']?.id || agent.id,
+			label: agent.name || agent['@self']?.id || agent.id,
+			maxTokens: agent.maxTokens ?? null,
+		})).filter((option) => option.id),
+
 		/** @return {object} The definition posted to the executor. */
 		graphForRun: (state) => ({
 			name: state.graph.name,
@@ -130,7 +143,30 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 				this.loading = false
 			}
 
+			this.loadAgents()
 			this.open(id)
+		},
+
+		/**
+		 * Load the agents an agent-step node can choose from.
+		 *
+		 * Kept off the critical path: the canvas is usable while this resolves,
+		 * and a failure only costs the dropdown, not the editor.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadAgents() {
+			try {
+				const agentStore = useAgentStore()
+				agentStore.registerObjectType('agent', 'agent', 'hermiq')
+				const rows = await agentStore.fetchCollection('agent')
+				this.agents = Array.isArray(rows) ? rows : []
+			} catch (e) {
+				// Logged, not swallowed: an empty agent dropdown with no trace of
+				// why is indistinguishable from "this instance has no agents".
+				console.error('hermiq: could not load agents for the graph editor', e)
+				this.agents = []
+			}
 		},
 
 		/**
