@@ -32,6 +32,17 @@
 					@node-move="onNodeMove"
 					@connect="onConnect"
 					@canvas-drop="onCanvasDrop">
+					<!-- Orthogonal routing: a straight diagonal reads poorly for a
+					     flow, so route out of the source, along a mid-line, and into
+					     the target, with rounded corners. -->
+					<template #edge="{ from, to }">
+						<path
+							class="graph-builder__edge"
+							:d="elbowPath(from, to)"
+							fill="none"
+							marker-end="url(#cn-graph-canvas-arrow)" />
+					</template>
+
 					<template #node="{ node, selected }">
 						<div
 							class="graph-builder__node"
@@ -107,7 +118,23 @@
 						<template v-if="selectedNode">
 							<p class="graph-builder__pane-hint">{{ typeLabel(selectedNode.type) }}</p>
 
-							<template v-if="selectedNode.type === 'agent-step'">
+							<template v-if="selectedNode.type === 'trigger'">
+							<NcTextField
+								:model-value="selectedNode.config.triggerSchema || ''"
+								:label="t('hermiq', 'Trigger schema')"
+								:placeholder="t('hermiq', 'e.g. case — leave blank for any')"
+								@update:model-value="setConfig('triggerSchema', $event)" />
+							<NcSelect
+								v-model="selectedNode.config.event"
+								:options="triggers"
+								:input-label="t('hermiq', 'On event')"
+								@update:model-value="touch" />
+							<p class="graph-builder__pane-hint">
+								{{ t('hermiq', 'A trigger node is the graph’s entry point; its wiring is what the event listener matches on.') }}
+							</p>
+						</template>
+
+						<template v-else-if="selectedNode.type === 'agent-step'">
 								<NcTextField
 									:model-value="selectedNode.config.agentId || ''"
 									:label="t('hermiq', 'Agent UUID')"
@@ -310,6 +337,7 @@ export default {
 			operators: ['equals', 'notEquals', 'contains', 'empty', 'notEmpty'],
 			triggers: ['object.created', 'object.updated', 'object.deleted'],
 			nodeTypes: [
+				{ key: 'trigger', label: this.t('hermiq', 'Trigger'), hint: this.t('hermiq', 'Start the graph on an object create/update/delete event') },
 				{ key: 'agent-step', label: this.t('hermiq', 'Agent step'), hint: this.t('hermiq', 'Run an agent turn and put its answer on the state') },
 				{ key: 'object-write', label: this.t('hermiq', 'Object write'), hint: this.t('hermiq', 'Write a field back onto the subject object') },
 				{ key: 'condition', label: this.t('hermiq', 'Condition'), hint: this.t('hermiq', 'Halt the graph unless the guard holds') },
@@ -609,7 +637,18 @@ export default {
 		async save() {
 			this.saving = true
 			try {
-				const saved = await this.flowStore.saveObject('agentflow', { ...this.graph })
+				const payload = { ...this.graph }
+				// A trigger node is the authored entry point; mirror its config onto
+				// the graph fields the event listener actually matches on, so the
+				// canvas stays the single place you configure triggering.
+				const triggerNode = this.nodes.find((node) => node.type === 'trigger')
+				if (triggerNode) {
+					const config = triggerNode.config || {}
+					payload.triggerSchema = config.triggerSchema || payload.triggerSchema || ''
+					payload.trigger = config.event || payload.trigger || 'object.updated'
+				}
+
+				const saved = await this.flowStore.saveObject('agentflow', payload)
 				showSuccess(this.t('hermiq', 'Graph saved.'))
 				const rows = await this.flowStore.fetchCollection('agentflow')
 				this.graphs = Array.isArray(rows) ? rows : []
@@ -641,6 +680,54 @@ export default {
 		},
 
 		/**
+		 * Orthogonal ("elbow") path between two node centres, with rounded
+		 * corners. Routes vertically when the nodes are stacked and horizontally
+		 * when they sit side by side, so a chain reads as a flow rather than a
+		 * web of diagonals.
+		 *
+		 * @param {{x: number, y: number}} from Source centre.
+		 * @param {{x: number, y: number}} to   Target centre.
+		 * @return {string} An SVG path `d`.
+		 */
+		elbowPath(from, to) {
+			const r = 12
+			const dx = to.x - from.x
+			const dy = to.y - from.y
+			if (Math.abs(dx) < 1 || Math.abs(dy) < 1) {
+				return `M ${from.x} ${from.y} L ${to.x} ${to.y}`
+			}
+
+			// Corner radius must never exceed half of either leg.
+			const rad = Math.min(r, Math.abs(dx) / 2, Math.abs(dy) / 2)
+			const sx = Math.sign(dx)
+			const sy = Math.sign(dy)
+
+			if (Math.abs(dy) >= Math.abs(dx)) {
+				// Vertical-dominant: down, across at the midpoint, then down.
+				const midY = from.y + (dy / 2)
+				return [
+					`M ${from.x} ${from.y}`,
+					`L ${from.x} ${midY - (rad * sy)}`,
+					`Q ${from.x} ${midY} ${from.x + (rad * sx)} ${midY}`,
+					`L ${to.x - (rad * sx)} ${midY}`,
+					`Q ${to.x} ${midY} ${to.x} ${midY + (rad * sy)}`,
+					`L ${to.x} ${to.y}`,
+				].join(' ')
+			}
+
+			// Horizontal-dominant: across, down at the midpoint, then across.
+			const midX = from.x + (dx / 2)
+			return [
+				`M ${from.x} ${from.y}`,
+				`L ${midX - (rad * sx)} ${from.y}`,
+				`Q ${midX} ${from.y} ${midX} ${from.y + (rad * sy)}`,
+				`L ${midX} ${to.y - (rad * sy)}`,
+				`Q ${midX} ${to.y} ${midX + (rad * sx)} ${to.y}`,
+				`L ${to.x} ${to.y}`,
+			].join(' ')
+		},
+
+		/**
 		 * Human label for a node type.
 		 *
 		 * @param {string} type The node type.
@@ -659,6 +746,11 @@ export default {
 		 */
 		nodeLabel(node) {
 			const config = node.config || {}
+			if (node.type === 'trigger') {
+				const schema = config.triggerSchema || this.t('hermiq', 'any schema')
+				return `${config.event || 'object.updated'} · ${schema}`
+			}
+
 			if (node.type === 'agent-step') {
 				return config.agentId || this.t('hermiq', 'no agent set')
 			}
@@ -744,6 +836,11 @@ export default {
 	position: absolute;
 	inset: 0;
 	pointer-events: none;
+}
+
+.graph-builder__edge {
+	stroke: var(--color-border-dark);
+	stroke-width: 2;
 }
 
 .graph-builder__reopen {
@@ -837,6 +934,15 @@ export default {
 	margin: 0;
 }
 
+/* The canvas gives every node wrapper its own border/background/radius. This
+   card supplies the real chrome (type accent, padding), so neutralise the
+   wrapper's — otherwise every node renders as a box inside a box. */
+:deep(.cn-graph-canvas__node) {
+	border: none;
+	background-color: transparent;
+	border-radius: 0;
+}
+
 /* Node card rendered into CnGraphCanvas's `node` slot. */
 .graph-builder__node {
 	display: flex;
@@ -882,6 +988,12 @@ export default {
 }
 
 /* Type accents — NC variables only (ADR-010). */
+.graph-builder__node--trigger,
+.graph-builder__palette-item--trigger .graph-builder__palette-swatch {
+	border-inline-start-color: var(--color-warning, #c28900);
+	background-color: var(--color-warning, #c28900);
+}
+
 .graph-builder__node--agent-step,
 .graph-builder__palette-item--agent-step .graph-builder__palette-swatch {
 	border-inline-start-color: var(--color-primary-element);
@@ -907,6 +1019,7 @@ export default {
 }
 
 /* The node card must not take the palette swatch's solid fill. */
+.graph-builder__node--trigger,
 .graph-builder__node--agent-step,
 .graph-builder__node--object-write,
 .graph-builder__node--condition,
