@@ -5,70 +5,22 @@
 
 <template>
 	<div class="graph-builder">
-		<!-- Slim top bar: identity + the two verbs. Everything else lives in the
-		     sidebar so the canvas keeps the full width. -->
-		<div class="graph-builder__bar">
-			<NcTextField
-				:model-value="graph.name"
-				:label="t('hermiq', 'Graph name')"
-				:label-visible="false"
-				class="graph-builder__name"
-				:placeholder="t('hermiq', 'Untitled graph')"
-				@update:model-value="graph.name = $event" />
-
-			<span v-if="dirty" class="graph-builder__dirty" :title="t('hermiq', 'Unsaved changes')">
-				{{ t('hermiq', 'Unsaved') }}
-			</span>
-
-			<div class="graph-builder__bar-actions">
-				<NcButton type="primary" :disabled="saving || !graph.name" @click="save">
-					<template #icon>
-						<NcLoadingIcon v-if="saving" :size="20" />
-						<ContentSave v-else :size="20" />
-					</template>
-					{{ t('hermiq', 'Save') }}
-				</NcButton>
-
-				<NcButton type="secondary" :disabled="nodes.length === 0" @click="showRun = true">
-					<template #icon>
-						<Play :size="20" />
-					</template>
-					{{ t('hermiq', 'Run…') }}
-				</NcButton>
-
+		<div class="graph-builder__body">
+			<!-- Canvas is the page: name, actions and the palette all live in the
+			     sidebar, so nothing but the graph itself occupies this space. -->
+			<div class="graph-builder__canvas">
 				<NcButton
-					type="tertiary"
-					:aria-label="t('hermiq', 'Toggle graph details')"
-					:title="t('hermiq', 'Toggle graph details')"
-					@click="sidebarOpen = !sidebarOpen">
+					v-if="!sidebarOpen"
+					class="graph-builder__reopen"
+					type="secondary"
+					:aria-label="t('hermiq', 'Show graph panel')"
+					:title="t('hermiq', 'Show graph panel')"
+					@click="sidebarOpen = true">
 					<template #icon>
 						<DockRight :size="20" />
 					</template>
 				</NcButton>
-			</div>
-		</div>
 
-		<div class="graph-builder__body">
-			<!-- Compact palette: the one control that must stay next to the canvas,
-			     since placing nodes is the page's primary gesture. -->
-			<div class="graph-builder__palette">
-				<button
-					v-for="type in nodeTypes"
-					:key="type.key"
-					class="graph-builder__palette-item"
-					:class="`graph-builder__palette-item--${type.key}`"
-					:title="type.hint"
-					draggable="true"
-					@dragstart="paletteDragType = type.key"
-					@dragend="paletteDragType = null"
-					@click="addNode(type.key)">
-					<span class="graph-builder__palette-swatch" />
-					<span class="graph-builder__palette-label">{{ type.label }}</span>
-				</button>
-			</div>
-
-			<!-- Canvas gets everything that's left. -->
-			<div class="graph-builder__canvas">
 				<CnGraphCanvas
 					:nodes="nodes"
 					:edges="edges"
@@ -129,8 +81,29 @@
 				</div>
 
 				<div class="graph-builder__tabpanel">
-					<!-- Node config -->
-					<div v-if="activeTab === 'node'" class="graph-builder__pane">
+					<!-- Nodes: add from the palette, then configure the selected one. -->
+					<div v-if="activeTab === 'nodes'" class="graph-builder__pane">
+						<div class="graph-builder__palette">
+							<button
+								v-for="type in nodeTypes"
+								:key="type.key"
+								class="graph-builder__palette-item"
+								:class="`graph-builder__palette-item--${type.key}`"
+								:title="type.hint"
+								draggable="true"
+								@dragstart="paletteDragType = type.key"
+								@dragend="paletteDragType = null"
+								@click="addNode(type.key)">
+								<span class="graph-builder__palette-swatch" />
+								<span class="graph-builder__palette-label">{{ type.label }}</span>
+							</button>
+						</div>
+						<p class="graph-builder__pane-hint">
+							{{ t('hermiq', 'Click to add, or drag onto the canvas.') }}
+						</p>
+
+						<hr class="graph-builder__rule">
+
 						<template v-if="selectedNode">
 							<p class="graph-builder__pane-hint">{{ typeLabel(selectedNode.type) }}</p>
 
@@ -189,8 +162,27 @@
 						</p>
 					</div>
 
-					<!-- Graph settings -->
+					<!-- Graph: identity, trigger wiring and the two verbs. -->
 					<div v-else-if="activeTab === 'settings'" class="graph-builder__pane">
+						<div class="graph-builder__verbs">
+							<NcButton type="primary" :disabled="saving || !graph.name" @click="save">
+								<template #icon>
+									<NcLoadingIcon v-if="saving" :size="20" />
+									<ContentSave v-else :size="20" />
+								</template>
+								{{ t('hermiq', 'Save') }}
+							</NcButton>
+							<NcButton type="secondary" :disabled="nodes.length === 0" @click="showRun = true">
+								<template #icon>
+									<Play :size="20" />
+								</template>
+								{{ t('hermiq', 'Run…') }}
+							</NcButton>
+						</div>
+						<p v-if="dirty" class="graph-builder__pane-hint">
+							{{ t('hermiq', 'Unsaved changes') }}
+						</p>
+
 						<NcTextField
 							:model-value="graph.name"
 							:label="t('hermiq', 'Name')"
@@ -218,31 +210,8 @@
 						</p>
 					</div>
 
-					<!-- Saved graphs -->
-					<div v-else-if="activeTab === 'graphs'" class="graph-builder__pane">
-						<NcTextField
-							:model-value="graphFilter"
-							:label="t('hermiq', 'Search graphs')"
-							@update:model-value="graphFilter = $event" />
-						<NcLoadingIcon v-if="loading" :size="24" />
-						<ul v-else class="graph-builder__list">
-							<li v-for="flow in filteredGraphs" :key="flow.id">
-								<button
-									class="graph-builder__list-item"
-									:class="{ 'graph-builder__list-item--current': flow.id === graph.id }"
-									@click="openGraph(flow)">
-									<span class="graph-builder__list-name">{{ flow.name || flow.id }}</span>
-									<span v-if="flow.triggerSchema" class="graph-builder__list-meta">{{ flow.triggerSchema }}</span>
-								</button>
-							</li>
-						</ul>
-						<p v-if="!loading && filteredGraphs.length === 0" class="graph-builder__pane-hint">
-							{{ t('hermiq', 'No graphs found.') }}
-						</p>
-					</div>
-
 					<!-- Notes -->
-					<div v-else class="graph-builder__pane">
+					<div v-else-if="activeTab === 'notes'" class="graph-builder__pane">
 						<NcTextArea
 							:model-value="graph.notes || ''"
 							:label="t('hermiq', 'Notes')"
@@ -327,14 +296,12 @@ export default {
 			showRun: false,
 			dirty: false,
 			sidebarOpen: true,
-			activeTab: 'settings',
+			activeTab: 'nodes',
 			tabs: [
-				{ id: 'node', label: this.t('hermiq', 'Node') },
+				{ id: 'nodes', label: this.t('hermiq', 'Nodes') },
 				{ id: 'settings', label: this.t('hermiq', 'Graph') },
-				{ id: 'graphs', label: this.t('hermiq', 'Graphs') },
 				{ id: 'notes', label: this.t('hermiq', 'Notes') },
 			],
-			graphFilter: '',
 			graphs: [],
 			selectedNodeId: null,
 			paletteDragType: null,
@@ -371,15 +338,6 @@ export default {
 			return this.nodes.find((node) => node.id === this.selectedNodeId) || null
 		},
 
-		/** @return {Array<object>} Saved graphs matching the sidebar filter. */
-		filteredGraphs() {
-			const needle = this.graphFilter.trim().toLowerCase()
-			if (needle === '') {
-				return this.graphs
-			}
-
-			return this.graphs.filter((flow) => String(flow.name || '').toLowerCase().includes(needle))
-		},
 
 		/** @return {string} Sidebar subtitle: what this graph reacts to. */
 		sidebarSubname() {
@@ -506,20 +464,6 @@ export default {
 			this.$nextTick(() => { this.dirty = false })
 		},
 
-		/**
-		 * Switch to another saved graph from the sidebar.
-		 *
-		 * @param {object} flow The graph to open.
-		 * @return {void}
-		 */
-		openGraph(flow) {
-			if (String(flow.id) === String(this.id)) {
-				return
-			}
-
-			this.$router.push({ name: 'GraphDetail', params: { id: String(flow.id) } })
-			this.applyGraph(flow)
-		},
 
 		/**
 		 * Add a node of `type`, at an explicit canvas point when dropped.
@@ -548,7 +492,7 @@ export default {
 
 			this.graph.nodes = [...this.nodes, node]
 			this.selectedNodeId = node.id
-			this.activeTab = 'node'
+			this.activeTab = 'nodes'
 		},
 
 		/**
@@ -560,7 +504,7 @@ export default {
 		onNodeSelect(nodeId) {
 			this.selectedNodeId = nodeId
 			if (nodeId !== null) {
-				this.activeTab = 'node'
+				this.activeTab = 'nodes'
 				this.sidebarOpen = true
 			}
 		},
@@ -745,30 +689,6 @@ export default {
 	min-height: 0;
 }
 
-.graph-builder__bar {
-	display: flex;
-	align-items: center;
-	gap: 12px;
-	padding: 8px 12px;
-	border-bottom: 1px solid var(--color-border);
-}
-
-.graph-builder__name {
-	max-width: 340px;
-}
-
-.graph-builder__dirty {
-	font-size: 13px;
-	color: var(--color-text-maxcontrast);
-	white-space: nowrap;
-}
-
-.graph-builder__bar-actions {
-	display: flex;
-	gap: 8px;
-	margin-inline-start: auto;
-}
-
 .graph-builder__body {
 	display: flex;
 	flex: 1 1 auto;
@@ -777,14 +697,15 @@ export default {
 
 /* Compact palette — narrow enough to leave the canvas dominant. */
 .graph-builder__palette {
-	width: 150px;
-	flex: 0 0 auto;
-	padding: 8px;
-	border-inline-end: 1px solid var(--color-border);
-	display: flex;
-	flex-direction: column;
+	display: grid;
+	grid-template-columns: 1fr 1fr;
 	gap: 6px;
-	overflow-y: auto;
+}
+
+.graph-builder__rule {
+	border: none;
+	border-top: 1px solid var(--color-border);
+	margin: 4px 0;
 }
 
 .graph-builder__palette-item {
@@ -823,6 +744,18 @@ export default {
 	position: absolute;
 	inset: 0;
 	pointer-events: none;
+}
+
+.graph-builder__reopen {
+	position: absolute;
+	top: 12px;
+	inset-inline-end: 12px;
+	z-index: 2;
+}
+
+.graph-builder__verbs {
+	display: flex;
+	gap: 8px;
 }
 
 /* Controls panel — a flex sibling, so it never overlays the canvas or palette. */
@@ -902,45 +835,6 @@ export default {
 	color: var(--color-text-maxcontrast);
 	font-size: 13px;
 	margin: 0;
-}
-
-.graph-builder__list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.graph-builder__list-item {
-	width: 100%;
-	display: flex;
-	flex-direction: column;
-	align-items: flex-start;
-	gap: 2px;
-	padding: 8px;
-	border: none;
-	border-radius: var(--border-radius-large, 8px);
-	background-color: transparent;
-	text-align: start;
-}
-
-.graph-builder__list-item:hover {
-	background-color: var(--color-background-hover);
-}
-
-.graph-builder__list-item--current {
-	background-color: var(--color-primary-element-light);
-}
-
-.graph-builder__list-name {
-	font-weight: 600;
-}
-
-.graph-builder__list-meta {
-	font-size: 13px;
-	color: var(--color-text-maxcontrast);
 }
 
 /* Node card rendered into CnGraphCanvas's `node` slot. */
