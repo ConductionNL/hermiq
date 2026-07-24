@@ -59,13 +59,15 @@ webpackConfig.resolve.alias = {
 	...(webpackConfig.resolve.alias || {}),
 	'@': path.resolve(__dirname, 'src'),
 	...(useLocalLib ? { '@conduction/nextcloud-vue': localLib } : {}),
-	// VUE 3 STRADDLE: route the runtime `vue` import to @vue/compat (MODE 3),
-	// so hermiq's un-migrated Vue-2 components keep rendering while the app is
-	// incrementally de-compat'd. vue-loader 17 still finds the real compiler via
-	// @vue/compiler-sfc. One ABSOLUTE file so the app + aliased lib source share
-	// ONE copy (dual copies = two currentRenderingInstance states → CnAppRoot crash).
-	vue$: path.resolve(__dirname, 'node_modules/@vue/compat/dist/vue.runtime.esm-bundler.js'),
-	'@vue/compat$': path.resolve(__dirname, 'node_modules/@vue/compat/dist/vue.runtime.esm-bundler.js'),
+	// PURE VUE 3 — @vue/compat removed. hermiq's source is compat-construct-free
+	// (no Vue.observable / $set / $listeners / $children / beforeDestroy / filters),
+	// so the compat runtime is unnecessary AND actively harmful when consuming the
+	// PUBLISHED @conduction/nextcloud-vue: that dist is pre-compiled against real
+	// Vue 3, and pairing pre-compiled Vue-3 components with a compat runtime made
+	// CnAppRoot render nothing at all — silently, with zero console errors.
+	// One ABSOLUTE file so the app and the library share ONE Vue copy (dual copies
+	// = two currentRenderingInstance states → CnAppRoot null crash).
+	vue$: path.resolve(__dirname, 'node_modules/vue/dist/vue.runtime.esm-bundler.js'),
 	pinia$: path.resolve(__dirname, 'node_modules/pinia'),
 	// Dedupe vue-router to ONE copy (absolute file): the aliased lib worktree ships
 	// its own vue-router, and a per-importer resolve gives @nextcloud/vue's

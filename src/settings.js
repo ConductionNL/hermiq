@@ -14,16 +14,16 @@
 // because the Nextcloud admin section is the canonical place for
 // "before the app boots" config (e.g. an app's OR register binding).
 
-import { createApp, configureCompat } from 'vue'
+import { createApp } from 'vue'
 import { translate as t, translatePlural as n, loadTranslations } from '@nextcloud/l10n'
 import pinia from './pinia.js'
 import AdminRoot from './views/AdminRoot.vue'
 
-// Vue 3 (ADR-066 straddle): mirror main.js — MODE 3 so @nextcloud/vue v9 and the
-// Vue-3 nextcloud-vue line behave natively; global t/n move from Vue.mixin to
+// Vue 3 (ADR-066): mirror main.js — global t/n move from Vue.mixin to
 // app.config.globalProperties, and pinia installs via app.use instead of
-// PiniaVuePlugin (which is Vue-2 only).
-configureCompat({ MODE: 3 })
+// PiniaVuePlugin (Vue-2 only). @vue/compat removed: hermiq is
+// compat-construct-free and the published nextcloud-vue dist is
+// pre-compiled against real Vue 3.
 
 loadTranslations('hermiq', () => {
 	const app = createApp(AdminRoot)

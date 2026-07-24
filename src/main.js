@@ -5,7 +5,7 @@
 // (the CnIconPicker MDI catalogue, the toast-ui markdown editor) triggers
 // lazy-chunk loading from the wrong path.
 import './publicPath.js'
-import { createApp, configureCompat } from 'vue'
+import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
 import { translate as t, translatePlural as n, loadTranslations, register } from '@nextcloud/l10n'
 import enTranslations from '../l10n/en.json'
@@ -31,11 +31,10 @@ import '@conduction/nextcloud-vue/css/index.css'
 // Global (unscoped) app styles
 import './assets/app.css'
 
-// Vue 3 (ADR-066 straddle): global t/n install via app.config.globalProperties
-// after createApp (below); pinia + router install via app.use. @vue/compat runs
-// in MODE 3 (Vue 3 default) so @nextcloud/vue v9 + the Vue-3 nextcloud-vue line
-// behave natively; hermiq's own remaining Vue-2 idioms are migrated incrementally.
-configureCompat({ MODE: 3 })
+// Vue 3 (ADR-066): global t/n install via app.config.globalProperties after
+// createApp (below); pinia + router install via app.use. @vue/compat has been
+// REMOVED — hermiq's source carries no Vue-2 constructs, and the compat runtime
+// breaks the published (pre-compiled Vue-3) @conduction/nextcloud-vue dist.
 
 // Register library-side icon set + lib translations once at bootstrap.
 registerIcons()
