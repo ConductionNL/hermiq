@@ -157,10 +157,10 @@
 			"order": 30
 		},
 		{
-			"id": "FlowBuilder",
-			"label": "Flows",
+			"id": "GraphIndex",
+			"label": "Graphs",
 			"icon": "icon-category-workflow",
-			"route": "FlowBuilder",
+			"route": "GraphIndex",
 			"order": 16
 		}
 	],
@@ -710,12 +710,60 @@
 			"title": "MCP tools"
 		},
 		{
-			"id": "FlowBuilder",
-			"route": "/flows",
+			"id": "GraphIndex",
+			"route": "/graphs",
+			"type": "index",
+			"title": "Graphs",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentflow",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "triggerSchema",
+						"label": "Trigger schema"
+					},
+					{
+						"key": "trigger",
+						"label": "Trigger"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled"
+					}
+				],
+				"rowRoute": "GraphDetail",
+				"headerActions": [
+					{
+						"id": "new-graph",
+						"label": "New graph",
+						"icon": "Plus",
+						"handler": "navigate",
+						"route": "GraphDetail",
+						"params": {
+							"id": "new"
+						}
+					}
+				],
+				"_note": "Agent graphs are plain OpenRegister objects, so the browse/search surface is a standard type:index — no bespoke list code. Authoring happens on GraphDetail, which is type:custom because a direct-manipulation canvas is not expressible as a widget grid.",
+				"showAdd": false,
+				"inlineActionCount": 2
+			}
+		},
+		{
+			"id": "GraphDetail",
+			"route": "/graphs/:id",
 			"type": "custom",
-			"component": "FlowBuilder",
-			"title": "Flows",
-			"_note": "Custom page: a direct-manipulation canvas over an agentflow node/edge document (drag to place, drag-to-connect, per-node config, run + trace). No built-in page type expresses graph authoring — index/detail/dashboard are all record-shaped."
+			"component": "GraphBuilder",
+			"title": "Graph",
+			"_note": "Custom page: a direct-manipulation canvas over an agentflow node/edge document (drag to place, drag-to-connect, per-node config, run + trace). No built-in page type expresses graph authoring — index/detail/dashboard are all record-shaped. Controls live in the NcAppSidebar so the canvas gets the full width."
 		}
 	],
 	"setup": {
