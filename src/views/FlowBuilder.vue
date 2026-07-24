@@ -440,11 +440,17 @@ export default {
 		 */
 		addNode(type, x = null, y = null) {
 			const index = this.nodes.length
+			// Default placement stacks a vertical chain near the left of the canvas.
+			// The inspector takes 300px on the right, so laying nodes out in wide
+			// columns pushed later ones past the visible canvas — their bodies ended
+			// up geometrically behind the inspector, where they could neither be seen
+			// nor receive a dropped connection. A top-to-bottom chain also matches how
+			// the executor walks the graph. Nodes stay freely draggable from here.
 			const node = {
 				id: `${type}-${Date.now().toString(36)}-${index}`,
 				type,
-				x: x === null ? (120 + (index % 3) * 260) : x,
-				y: y === null ? (100 + Math.floor(index / 3) * 160) : y,
+				x: x === null ? 80 : x,
+				y: y === null ? (60 + index * 130) : y,
 				config: {},
 			}
 			if (index === 0) {
@@ -697,6 +703,10 @@ export default {
 	position: relative;
 	flex: 1 1 auto;
 	min-width: 0;
+	/* Clip nodes at the canvas edge so a node parked near the right can't paint
+	   under (and be obscured by) the inspector panel — which also made it
+	   impossible to drop a connection onto that node. */
+	overflow: hidden;
 }
 
 .flow-builder__empty {
