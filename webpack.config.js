@@ -31,26 +31,59 @@ webpackConfig.entry = {
 	},
 }
 
-// Use local source when available (monorepo dev), otherwise fall back to npm package
-const localLib = path.resolve(__dirname, '../nextcloud-vue/src')
-const useLocalLib = process.env.USE_LOCAL_LIB !== 'false' && fs.existsSync(localLib)
+// Use local source when available (monorepo dev), otherwise fall back to npm package.
+// LOCAL_LIB_PATH repoints the alias at another checkout of the library's `src`
+// (e.g. the reconciled feat/vue-3 worktree) so a Vue 3 library change can be built
+// and validated here before it is published. The default sibling `../nextcloud-vue`
+// is the Vue 2 BETA submodule — do NOT use it for this Vue 3 build; set
+// LOCAL_LIB_PATH to a Vue 3 source, or USE_LOCAL_LIB=false to consume the npm 2.x.
+const localLib = process.env.LOCAL_LIB_PATH
+	? path.resolve(process.env.LOCAL_LIB_PATH)
+	: path.resolve(__dirname, '../nextcloud-vue/src')
+const useLocalLib = process.env.USE_LOCAL_LIB === 'false'
+	? false
+	: (Boolean(process.env.LOCAL_LIB_PATH) && fs.existsSync(localLib))
 
 // Extend the base resolve config (preserves defaults from @nextcloud/webpack-vue-config)
 webpackConfig.resolve = webpackConfig.resolve || {}
-webpackConfig.resolve.modules = [path.resolve(__dirname, 'node_modules'), 'node_modules']
+// NOTE: deliberately NO `resolve.modules = [<app>/node_modules, 'node_modules']`.
+// Pinning the app's top-level node_modules first defeats npm's nested resolution,
+// so a package that legitimately needs its OWN nested copy of a dependency gets
+// the hoisted one instead. Concretely: @nextcloud/dialogs is built against
+// @vueuse/core <=12 (it imports `toValue`, removed in v13) and npm nests
+// @vueuse/core@11 under it, while @nextcloud/vue needs @vueuse/components@14 and
+// its v14-only symbols. Forcing top-level resolution gave the dialogs chunk
+// @vueuse/core@14 -> "export 'toValue' was not found". Standard node resolution
+// (nested first) lets each consumer get the version it was built against.
 webpackConfig.resolve.alias = {
 	...(webpackConfig.resolve.alias || {}),
 	'@': path.resolve(__dirname, 'src'),
 	...(useLocalLib ? { '@conduction/nextcloud-vue': localLib } : {}),
-	vue$: path.resolve(__dirname, 'node_modules/vue'),
+	// PURE VUE 3 — @vue/compat removed. hermiq's source is compat-construct-free
+	// (no Vue.observable / $set / $listeners / $children / beforeDestroy / filters),
+	// so the compat runtime is unnecessary AND actively harmful when consuming the
+	// PUBLISHED @conduction/nextcloud-vue: that dist is pre-compiled against real
+	// Vue 3, and pairing pre-compiled Vue-3 components with a compat runtime made
+	// CnAppRoot render nothing at all — silently, with zero console errors.
+	// One ABSOLUTE file so the app and the library share ONE Vue copy (dual copies
+	// = two currentRenderingInstance states → CnAppRoot null crash).
+	vue$: path.resolve(__dirname, 'node_modules/vue/dist/vue.runtime.esm-bundler.js'),
 	pinia$: path.resolve(__dirname, 'node_modules/pinia'),
-	'@nextcloud/vue$': path.resolve(__dirname, 'node_modules/@nextcloud/vue'),
+	// Dedupe vue-router to ONE copy (absolute file): the aliased lib worktree ships
+	// its own vue-router, and a per-importer resolve gives @nextcloud/vue's
+	// RouterLink a different router instance than app.use(router) provided.
+	'vue-router$': path.resolve(__dirname, 'node_modules/vue-router/dist/vue-router.mjs'),
+	// @nextcloud/vue v9 is ESM-only (exports '.' -> ./dist/index.mjs, no main/module),
+	// so a directory alias can't resolve it — point at the explicit entry file.
+	'@nextcloud/vue$': path.resolve(__dirname, 'node_modules/@nextcloud/vue/dist/index.mjs'),
+	// @nextcloud/dialogs v6 ships its stylesheet at dist/style.css via the exports
+	// map; the aliased lib imports '@nextcloud/dialogs/style.css' — resolve it here.
+	'@nextcloud/dialogs/style.css$': path.resolve(__dirname, 'node_modules/@nextcloud/dialogs/dist/style.css'),
 	'@nextcloud/dialogs': path.resolve(__dirname, 'node_modules/@nextcloud/dialogs'),
 	// Force the lib's transitive @nextcloud/axios import to resolve to
 	// the app's installed copy. Without the `$` exact-match suffix,
 	// webpack would walk up to the lib's own node_modules and load a
 	// second axios instance, breaking shared interceptors / CSRF tokens.
-	// Decidesk reference: commit ed34703c.
 	'@nextcloud/axios$': path.resolve(__dirname, 'node_modules/@nextcloud/axios'),
 }
 
@@ -71,6 +104,14 @@ webpackConfig.plugins = [
 	new NodePolyfillPlugin({ additionalAliases: ['process'] }),
 	new webpack.DefinePlugin({ appName: JSON.stringify(appId) }),
 	new webpack.DefinePlugin({ appVersion: JSON.stringify(process.env.npm_package_version) }),
+	// Vue 3 esm-bundler feature flags (tree-shaking hints). __VUE_OPTIONS_API__
+	// MUST stay true — the app and @nextcloud/vue are Options-API based, and
+	// @vue/compat requires it during the straddle.
+	new webpack.DefinePlugin({
+		__VUE_OPTIONS_API__: 'true',
+		__VUE_PROD_DEVTOOLS__: 'false',
+		__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false',
+	}),
 ]
 
 // Share Vue + @nextcloud/vue + pinia + icons + @conduction/nextcloud-vue across

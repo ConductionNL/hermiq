@@ -61,6 +61,20 @@ export const useEvalRunStore = createObjectStore('evalrun', {
 })
 
 /**
+ * Canonical OpenRegister object store for the 'agentflow' schema
+ * (agent-graph-builder): the authored graph definition — {nodes, edges, trigger,
+ * triggerSchema, enabled, limits} — that GraphExecutor walks. The definition IS
+ * an OR object (same pattern as OpenRegister's x-openregister-flows), so the
+ * flow builder reads and writes it through the generic object path; only the
+ * "run this graph now" ACTION is a bespoke Hermiq endpoint (/api/graph/run),
+ * because OpenRegister has no notion of executing an agent graph.
+ */
+export const useAgentFlowStore = createObjectStore('agentflow', {
+	register: 'hermiq',
+	schema: 'agentflow',
+})
+
+/**
  * Canonical OpenRegister object store for the 'agentskill' schema
  * (hermiq-skill-markdown-authoring). A Skill's CREATE goes through the
  * dedicated `SkillController`/`SkillService` import path (`src/api/skills.js`,

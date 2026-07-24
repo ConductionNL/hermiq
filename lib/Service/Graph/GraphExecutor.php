@@ -69,6 +69,16 @@ class GraphExecutor
     private const ABSOLUTE_MAX_NODES = 100;
 
     /**
+     * Appended to an agent step's prompt when the node declares `expectJson`.
+     * Spelled out because a model that merely "returns JSON" still tends to
+     * wrap it in prose or a fence, and the next node has to address fields.
+     *
+     * @var string
+     */
+    private const JSON_INSTRUCTION = 'Reply with a single valid JSON object and nothing else. '
+        .'No prose before or after it, and no markdown code fence.';
+
+    /**
      * UUIDs of objects a graph run is currently acting on, so an object-write
      * that re-dispatches an event into another graph run cannot recurse without
      * bound within a request.
@@ -188,16 +198,41 @@ class GraphExecutor
             $steps++;
 
             $type = (string) ($node['type'] ?? '');
+
+            // Snapshot the state before the hop so the trace can report what
+            // THIS node produced, rather than the whole accumulated state. The
+            // builder renders that per-step output on the edge leaving the node.
+            $before = $state;
+            $error  = null;
             try {
                 $continue = $this->runNode(node: $node, type: $type, state: $state, object: $object, organisation: $organisation);
             } catch (Throwable $e) {
                 $this->logger->warning('Hermiq graph '.$flowName.' node '.$currentId.' ('.$type.') failed: '.$e->getMessage(), ['exception' => $e]);
                 $continue = true;
+                $error    = $e->getMessage();
             }
 
             $this->audit(object: $object, status: 'node_'.$type, node: $currentId, flow: $flowName);
+            // `error` is always present (null on success) rather than added
+            // conditionally: every trace entry then has the same shape, so the
+            // builder can read it without a guard.
+            //
+            // `passed` is the WHOLE state as the next node receives it, next to
+            // `produced` (only what this step added). Both are needed: the delta
+            // says what this step did, the state says what the next step can
+            // actually read — and only the second answers "what is being sent
+            // between these two nodes".
             $next          = $this->nextNodeId(current: $currentId, edges: $edges, state: $state);
-            $this->trace[] = ['event' => 'ran', 'node' => $currentId, 'type' => $type, 'continue' => $continue, 'next' => $next];
+            $this->trace[] = [
+                'event'    => 'ran',
+                'node'     => $currentId,
+                'type'     => $type,
+                'continue' => $continue,
+                'next'     => $next,
+                'produced' => $this->stateDelta(before: $before, after: $state),
+                'passed'   => $state,
+                'error'    => $error,
+            ];
 
             if ($continue === false) {
                 // A condition halted the graph.
@@ -243,7 +278,7 @@ class GraphExecutor
                 }
 
                 $outKey         = (string) ($config['output'] ?? 'result');
-                $state[$outKey] = $output;
+                $state[$outKey] = $this->decodeAgentOutput(config: $config, output: $output);
                 return true;
 
             case 'object-write':
@@ -268,13 +303,18 @@ class GraphExecutor
      */
     private function runAgentStep(array $config, array $state, ObjectEntity $object, string $organisation): string
     {
-        $agentRef = (string) ($config['agent'] ?? '');
+        // `agentId` is what the builder authors; `agent` is the original key and
+        // is still honoured so graphs saved before the builder existed keep running.
+        $agentRef = (string) ($config['agentId'] ?? ($config['agent'] ?? ''));
         if ($agentRef === '') {
             return '';
         }
 
         $owner  = (string) ($config['owner'] ?? ($object->getOwner() ?? ''));
         $prompt = $this->render(template: (string) ($config['prompt'] ?? ''), state: $state);
+        if (($config['expectJson'] ?? false) === true) {
+            $prompt .= "\n\n".self::JSON_INSTRUCTION;
+        }
 
         return $this->scheduleService->runAgentAsOwner(
             owner: $owner,
@@ -396,6 +436,103 @@ class GraphExecutor
                 return false;
         }
     }//end evaluateCondition()
+
+    /**
+     * Turn an agent step's raw answer into the value put on the run state.
+     *
+     * With `expectJson` the answer is parsed, so a later node can address a
+     * single field (`{{result.status}}`) instead of receiving one opaque blob
+     * of prose. Models routinely wrap JSON in a ```json fence even when told
+     * not to, so the fence is stripped before decoding.
+     *
+     * A parse failure keeps the raw text rather than discarding the step's
+     * work — the trace records that the contract was not met, which is what
+     * the author needs in order to fix the prompt.
+     *
+     * @param array<string, mixed> $config The node config.
+     * @param string               $output The agent's answer.
+     *
+     * @return mixed The decoded value, or the raw string.
+     */
+    private function decodeAgentOutput(array $config, string $output)
+    {
+        if (($config['expectJson'] ?? false) !== true || $output === '') {
+            return $output;
+        }
+
+        $text = trim($output);
+        if (str_starts_with($text, '```') === true) {
+            $text = trim((string) preg_replace('/^```[a-zA-Z]*\s*|\s*```$/', '', $text));
+        }
+
+        $decoded = json_decode($text, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->trace[] = [
+                'event'  => 'agent-step',
+                'result' => 'json-parse-failed',
+                'error'  => json_last_error_msg(),
+            ];
+
+            return $output;
+        }
+
+        return $decoded;
+    }//end decodeAgentOutput()
+
+    /**
+     * Read a `{{dotted.path}}` out of the run state.
+     *
+     * A flat key wins, so a state key that literally contains a dot still
+     * resolves. Otherwise each segment walks one level down, which is what
+     * makes a JSON agent answer addressable field by field.
+     *
+     * @param string               $path  The placeholder path.
+     * @param array<string, mixed> $state The run state.
+     *
+     * @return mixed The value, or null when the path does not resolve.
+     */
+    private function resolvePath(string $path, array $state)
+    {
+        if (array_key_exists($path, $state) === true) {
+            return $state[$path];
+        }
+
+        $value = $state;
+        foreach (explode('.', $path) as $segment) {
+            if (is_array($value) === false || array_key_exists($segment, $value) === false) {
+                return null;
+            }
+
+            $value = $value[$segment];
+        }
+
+        return $value;
+    }//end resolvePath()
+
+    /**
+     * The keys a single node added to or changed on the run state.
+     *
+     * A node's usable "result" is what it contributed, not the whole state it
+     * inherited — the builder shows this on the edge leaving the node so an
+     * author can see what the step itself did, next to the full state that
+     * travels onward.
+     *
+     * @param array<string, mixed> $before State before the hop.
+     * @param array<string, mixed> $after  State after the hop.
+     *
+     * @return array<string, mixed> Added/changed keys only.
+     */
+    private function stateDelta(array $before, array $after): array
+    {
+        $delta = [];
+        foreach ($after as $key => $value) {
+            if (array_key_exists($key, $before) === false || $before[$key] !== $value) {
+                $delta[$key] = $value;
+            }
+        }
+
+        return $delta;
+    }//end stateDelta()
 
     /**
      * Narrow a loosely-typed value to an array, defaulting to an empty one.
@@ -544,10 +681,21 @@ class GraphExecutor
 
         return (string) preg_replace_callback(
             '/\{\{\s*([A-Za-z0-9_@.]+)\s*\}\}/',
-            static function (array $matches) use ($state): string {
-                $value = ($state[$matches[1]] ?? '');
+            function (array $matches) use ($state): string {
+                $value = $this->resolvePath(path: $matches[1], state: $state);
                 if (is_array($value) === true) {
-                    return implode(', ', array_map('strval', $value));
+                    // A nested structure (a parsed JSON answer) is handed on as
+                    // JSON, so the receiving step gets the shape rather than
+                    // PHP's comma-joined flattening of it.
+                    return (string) json_encode($value);
+                }
+
+                if ($value === true) {
+                    return 'true';
+                }
+
+                if ($value === false) {
+                    return 'false';
                 }
 
                 return (string) $value;

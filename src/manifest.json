@@ -155,6 +155,13 @@
 			"route": "Compliance",
 			"section": "settings",
 			"order": 30
+		},
+		{
+			"id": "GraphIndex",
+			"label": "Graphs",
+			"icon": "icon-category-workflow",
+			"route": "GraphIndex",
+			"order": 16
 		}
 	],
 	"pages": [
@@ -701,6 +708,63 @@
 			"component": "McpTools",
 			"_note": "Custom page rendering the standard nc-vue list UI (CnDataTable): MCP tools are resolved live from OpenRegister's tool registry, NOT a hermiq schema, so type:index (which requires register+schema) cannot express it.",
 			"title": "MCP tools"
+		},
+		{
+			"id": "GraphIndex",
+			"route": "/graphs",
+			"type": "index",
+			"title": "Graphs",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentflow",
+				"columns": [
+					{
+						"key": "name",
+						"label": "Name"
+					},
+					{
+						"key": "description",
+						"label": "Description"
+					},
+					{
+						"key": "triggerSchema",
+						"label": "Trigger schema"
+					},
+					{
+						"key": "trigger",
+						"label": "Trigger"
+					},
+					{
+						"key": "enabled",
+						"label": "Enabled"
+					}
+				],
+				"rowRoute": "GraphDetail",
+				"headerActions": [
+					{
+						"id": "new-graph",
+						"label": "New graph",
+						"icon": "Plus",
+						"handler": "navigate",
+						"route": "GraphDetail",
+						"params": {
+							"id": "new"
+						}
+					}
+				],
+				"_note": "Agent graphs are plain OpenRegister objects, so the browse/search surface is a standard type:index — no bespoke list code. Authoring happens on GraphDetail, which is type:custom because a direct-manipulation canvas is not expressible as a widget grid.",
+				"showAdd": false,
+				"inlineActionCount": 2
+			}
+		},
+		{
+			"id": "GraphDetail",
+			"route": "/graphs/:id",
+			"type": "custom",
+			"component": "GraphBuilder",
+			"title": "Graph",
+			"_note": "Custom page: a direct-manipulation canvas over an agentflow node/edge document (drag to place, drag-to-connect, per-node config, run + trace). No built-in page type expresses graph authoring — index/detail/dashboard are all record-shaped. Controls live in the NcAppSidebar so the canvas gets the full width.",
+			"sidebarComponent": "GraphSidebar"
 		}
 	],
 	"setup": {

@@ -27,28 +27,32 @@
   "dependencies": {
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.5",
-    "@conduction/nextcloud-vue": "^1.0.0-beta.213",
+    "@conduction/nextcloud-vue": "^2.0.5",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.5.2",
-    "@nextcloud/dialogs": "^3.2.0",
+    "@nextcloud/dialogs": "^6.0.0",
     "@nextcloud/event-bus": "^3.3.3",
     "@nextcloud/initial-state": "^2.2.0",
     "@nextcloud/l10n": "^3.4.1",
     "@nextcloud/router": "^3.1.0",
-    "@nextcloud/vue": "^8.39.0",
+    "@nextcloud/vue": "^9.9.0",
     "babel-loader": "^10.1.1",
+    "dexie": "^4.4.4",
     "dompurify": "^3.4.11",
     "marked": "^15.0.12",
     "node-polyfill-webpack-plugin": "^4.0.0",
     "pinia": "^2.1.7",
-    "vue": "^2.7.14",
+    "vue": "^3.5.13",
     "vue-material-design-icons": "^5.3.0",
-    "vue-router": "^3.6.5"
+    "vue-router": "^4.6.4"
   },
   "overrides": {
     "libxmljs2": "^0.37.0",
     "@nextcloud/axios": "~2.5.2",
-    "@nextcloud/vue": "^8.39.0",
+    "@nextcloud/vue": "^9.9.0",
+    "@nextcloud/dialogs": {
+      "@vueuse/core": "11.3.0"
+    },
     "eslint-import-resolver-typescript": "~3.8.7",
     "eslint-plugin-import-x": {
       "@typescript-eslint/utils": "^7.18.0"
@@ -66,7 +70,9 @@
     "@playwright/test": "^1.61.1",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
+    "@vue/compiler-sfc": "^3.5.13",
     "@vue/eslint-config-typescript": "^13.0.0",
+    "@vue/test-utils": "^2.4.6",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "css-loader": "~7.1.1",
@@ -80,8 +86,7 @@
     "style-loader": "~4.0.0",
     "stylelint": "^15.11.0",
     "vue-eslint-parser": "^9.4.3",
-    "vue-loader": "^15.11.1",
-    "vue-template-compiler": "^2.7.16",
+    "vue-loader": "^17.4.2",
     "webpack": "^5.106.2",
     "webpack-cli": "^6.0.1"
   }

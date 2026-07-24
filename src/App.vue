@@ -4,8 +4,7 @@
 <!--
  Hermiq app shell. Mounts CnAppRoot with the bundled manifest and the
  registry; provides the `objectSidebarState` channel so detail pages
- (CnDetailPage) can drive a single host-rendered CnObjectSidebar through
- the #sidebar slot.
+ (CnDetailPage) can drive the CnObjectSidebar that CnAppRoot auto-mounts.
 
  Onboarding uses the standard nc-vue system (the same one every other app uses):
  the first-visit product tour is declared in `manifest.walkthrough` and mounted
@@ -30,6 +29,17 @@
 			:translate="translateForApp"
 			:permissions="permissions"
 			:requires-apps="[]">
+			<!--
+			  This app provides `objectSidebarState`, which makes CnAppRoot defer its
+			  own CnObjectSidebar auto-mount to us — so this slot MUST render it.
+
+			  The graph editor's sidebar is dispatched here too. It cannot go through
+			  the manifest's `pages[].sidebarComponent`: CnPageRenderer *provides*
+			  `cnPageSidebarComponent` while CnAppRoot *injects* it, and the renderer
+			  is CnAppRoot's descendant — provide/inject only flows downward, so that
+			  value never reaches the slot's default content. Dispatching on the route
+			  keeps the real NcAppSidebar in the real sidebar slot.
+			-->
 			<template #sidebar>
 				<CnObjectSidebar
 					v-if="objectSidebarState.active"
@@ -43,6 +53,8 @@
 					:tabs="objectSidebarState.tabs"
 					:open="objectSidebarState.open"
 					@update:open="objectSidebarState.open = $event" />
+
+				<GraphSidebar v-else-if="$route.name === 'GraphDetail'" />
 			</template>
 			<!--
 			  user-settings slot: NcAppSettingsSection children rendered inside
@@ -104,11 +116,12 @@
 </template>
 
 <script>
-import Vue from 'vue'
+import { reactive } from 'vue'
 import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { CnAppRoot, CnObjectSidebar, CnSetupWizard, CnCredentials } from '@conduction/nextcloud-vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
+import GraphSidebar from './views/GraphSidebar.vue'
 
 export default {
 	name: 'App',
@@ -120,6 +133,7 @@ export default {
 		CnCredentials,
 		NcAppSettingsSection,
 		NcButton,
+		GraphSidebar,
 		TalkDeliverySettings,
 	},
 
@@ -133,7 +147,9 @@ export default {
 	provide() {
 		return {
 			// Channel for CnDetailPage → host-rendered CnObjectSidebar.
-			// Vue.observable makes the plain object reactive for Vue 2.
+			// Vue 3: `reactive()` replaces Vue 2's `Vue.observable()` (removed
+			// from the global API; under @vue/compat MODE 3 it hard-errors with
+			// "GLOBAL_OBSERVABLE compat has been disabled").
 			objectSidebarState: this.objectSidebarState,
 		}
 	},
@@ -182,7 +198,7 @@ export default {
 	data() {
 		return {
 			showSetup: false,
-			objectSidebarState: Vue.observable({
+			objectSidebarState: reactive({
 				active: false,
 				open: true,
 				objectType: '',
