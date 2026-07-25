@@ -122,36 +122,54 @@ class AgentContextBuilder
 
         $allowlist = [];
         foreach ($spec as $key => $entry) {
-            // Plain list entry: a bare property name string.
-            if (is_int($key) === true && is_string($entry) === true && $entry !== '') {
-                $allowlist[$entry] = [];
-                continue;
+            [$name, $caps] = $this->normaliseEntry(key: $key, entry: $entry);
+            if ($name !== '') {
+                $allowlist[$name] = $caps;
             }
-
-            // List of {property, maxLength, ...} entries.
-            if (is_int($key) === true && is_array($entry) === true) {
-                $name = (string) ($entry['property'] ?? '');
-                if ($name !== '') {
-                    $allowlist[$name] = $entry;
-                }
-
-                continue;
-            }
-
-            // Associative name => caps map.
-            if (is_string($key) === true && $key !== '') {
-                $caps = [];
-                if (is_array($entry) === true) {
-                    $caps = $entry;
-                }
-
-                $allowlist[$key] = $caps;
-            }
-        }//end foreach
+        }
 
         return $allowlist;
 
     }//end normaliseAllowlist()
+
+    /**
+     * Normalise one allowlist entry into a `[name, caps]` pair.
+     *
+     * Handles the three accepted shapes; an unrecognised entry yields an empty
+     * name so the caller drops it (fail-closed).
+     *
+     * @param int|string $key   The array key (int for a list, string for a map).
+     * @param mixed      $entry The entry value.
+     *
+     * @return array{0:string,1:array<string,mixed>} The `[name, caps]` pair.
+     *
+     * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+     */
+    private function normaliseEntry(int | string $key, mixed $entry): array
+    {
+        // Associative name => caps map: the key is the property name.
+        if (is_string($key) === true) {
+            $caps = [];
+            if (is_array($entry) === true) {
+                $caps = $entry;
+            }
+
+            return [$key, $caps];
+        }
+
+        // Plain list entry: a bare property name string.
+        if (is_string($entry) === true) {
+            return [$entry, []];
+        }
+
+        // List of {property, maxLength, ...} entries.
+        if (is_array($entry) === true) {
+            return [(string) ($entry['property'] ?? ''), $entry];
+        }
+
+        return ['', []];
+
+    }//end normaliseEntry()
 
     /**
      * Apply per-field caps (currently `maxLength`, multibyte-safe) to a value.

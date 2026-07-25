@@ -70,6 +70,10 @@ use Throwable;
 /**
  * Object-scoped agent-run endpoint (agent-object-leaf).
  *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates several OR/Hermiq
+ *   collaborators (object/schema resolution, agent resolution, context building,
+ *   event dispatch) — DI wiring, not logic-bearing coupling.
+ *
  * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-scoped-run-on-object-endpoint
  */
 class AgentRunController extends Controller
