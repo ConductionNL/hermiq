@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud",
-        "version": "0.15.0"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.15.1 — re-authored the AiFeature (Algoritmekader) property titles from Dutch to English (doel/wettelijkeGrondslag/impacttoetsen/soort/referentie/dataBronnen/menselijkeTussenkomst/verantwoordelijke/organisatie/publicatiecategorie) so manifest-driven UI labels are translatable; the Dutch labels now live in the app's l10n/nl.json. Property keys, enum values, and all other fields are unchanged.",
+        "version": "0.15.1"
     },
     "x-openregister": {
         "type": "application",
@@ -556,17 +556,17 @@
                     },
                     "doel": {
                         "type": "string",
-                        "title": "Doel",
+                        "title": "Purpose",
                         "description": "Algoritmekader: the purpose of the algorithm — why the public body deploys it. Mandatory only to publish to the Algoritmeregister."
                     },
                     "wettelijkeGrondslag": {
                         "type": "string",
-                        "title": "Wettelijke grondslag",
+                        "title": "Legal basis",
                         "description": "Algoritmekader: the legal basis for using the algorithm. Mandatory only to publish."
                     },
                     "impacttoetsen": {
                         "type": "array",
-                        "title": "Impacttoetsen",
+                        "title": "Impact assessments",
                         "description": "Algoritmekader: the impact assessments performed (IAMA / DPIA / FRAIA) with a reference to each. Mandatory only to publish.",
                         "items": {
                             "type": "object",
@@ -578,12 +578,12 @@
                                         "DPIA",
                                         "FRAIA"
                                     ],
-                                    "title": "Soort",
+                                    "title": "Type",
                                     "description": "Which impact assessment was performed."
                                 },
                                 "referentie": {
                                     "type": "string",
-                                    "title": "Referentie",
+                                    "title": "Reference",
                                     "description": "A reference (document id / URL) to the completed assessment."
                                 }
                             }
@@ -591,22 +591,22 @@
                     },
                     "dataBronnen": {
                         "type": "string",
-                        "title": "Databronnen",
+                        "title": "Data sources",
                         "description": "Algoritmekader: the data sources and data categories the algorithm uses. Mandatory only to publish."
                     },
                     "menselijkeTussenkomst": {
                         "type": "string",
-                        "title": "Menselijke tussenkomst",
+                        "title": "Human oversight",
                         "description": "Algoritmekader: the human-oversight arrangement (links to the human-approval gate). Mandatory only to publish."
                     },
                     "verantwoordelijke": {
                         "type": "object",
-                        "title": "Verantwoordelijke",
+                        "title": "Responsible party",
                         "description": "Algoritmekader: the responsible organisation and its contact. Mandatory only to publish.",
                         "properties": {
                             "organisatie": {
                                 "type": "string",
-                                "title": "Organisatie",
+                                "title": "Organisation",
                                 "description": "The owning public organisation."
                             },
                             "contact": {
@@ -618,7 +618,7 @@
                     },
                     "publicatiecategorie": {
                         "type": "string",
-                        "title": "Publicatiecategorie",
+                        "title": "Publication category",
                         "description": "Algoritmekader: the publication category of the algorithm in the national register. Mandatory only to publish."
                     },
                     "algoritmeregisterStatus": {

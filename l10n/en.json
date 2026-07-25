@@ -533,7 +533,16 @@
         "name: my-skill, description: …, version: 0.1.0": "name: my-skill, description: …, version: 0.1.0",
         "reference.md": "reference.md",
         "Save as skill": "Save as skill",
-        "Skill saved for review. Approve it in the Skills catalog before it can be used.": "Skill saved for review. Approve it in the Skills catalog before it can be used."
+        "Skill saved for review. Approve it in the Skills catalog before it can be used.": "Skill saved for review. Approve it in the Skills catalog before it can be used.",
+        "Purpose": "Purpose",
+        "Legal basis": "Legal basis",
+        "Impact assessments": "Impact assessments",
+        "Type": "Type",
+        "Reference": "Reference",
+        "Data sources": "Data sources",
+        "Human oversight": "Human oversight",
+        "Responsible party": "Responsible party",
+        "Publication category": "Publication category"
     },
     "plurals": ""
 }
