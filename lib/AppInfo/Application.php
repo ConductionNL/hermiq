@@ -28,6 +28,7 @@ namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\GraphRunRequestedListener;
+use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
@@ -39,6 +40,7 @@ use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
+use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -107,6 +109,28 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(event: ObjectCreatedEvent::class, listener: GraphRunRequestedListener::class);
         $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: GraphRunRequestedListener::class);
         $context->registerEventListener(event: ObjectDeletedEvent::class, listener: GraphRunRequestedListener::class);
+
+        // Agent render leaf (agent-object-leaf, ADR-019 + ADR-066): contribute the
+        // `hermiq-agent` leaf to OpenRegister's cross-app leaf catalogue via the
+        // sibling-app leaf-registration hook (RegisterLeafProvidersEvent). This makes
+        // an Agent tab/widget discoverable on any OpenRegister object in any OpenBuild
+        // app. Guarded on the event class existing so an instance whose OpenRegister
+        // predates the leaf hook still boots. The matching JS registration
+        // (registerIntegration under the SAME id) ships in the always-loaded
+        // `hermiq-agent-leaf` bundle added below.
+        if (class_exists(RegisterLeafProvidersEvent::class) === true) {
+            $context->registerEventListener(
+                RegisterLeafProvidersEvent::class,
+                RegisterAgentLeafListener::class
+            );
+
+            // Load the leaf's render-registration bundle on EVERY Nextcloud page so
+            // `registerIntegration('hermiq-agent', …)` runs wherever an OpenBuild app
+            // renders the OpenRegister integration registry — not only on Hermiq's own
+            // pages. The load-order-safe registry shim queues the call when OR's bundle
+            // has not loaded yet and replays it on install (ADR-019 cross-bundle trap).
+            \OCP\Util::addInitScript(self::APP_ID, self::APP_ID.'-agent-leaf');
+        }
 
         // Offboarding (agent-lifecycle-governance): a Nextcloud user being deleted
         // or disabled auto-pauses their schedules (ScheduleService::pauseForUser())

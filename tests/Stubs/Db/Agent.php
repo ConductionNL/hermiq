@@ -147,4 +147,92 @@ class Agent
     {
         $this->organisation = $organisation;
     }//end setOrganisation()
+
+    /**
+     * Agent display name.
+     *
+     * @var string|null
+     */
+    private ?string $name = null;
+
+    /**
+     * Whether the agent is active.
+     *
+     * @var bool
+     */
+    private bool $active = true;
+
+    /**
+     * Free-form agent configuration bag (holds the agent's policy, e.g.
+     * `requiresApproval`).
+     *
+     * @var array<string,mixed>|null
+     */
+    private ?array $configuration = null;
+
+    /**
+     * Get the agent display name.
+     *
+     * @return string|null
+     */
+    public function getName(): ?string
+    {
+        return $this->name;
+    }//end getName()
+
+    /**
+     * Set the agent display name.
+     *
+     * @param string|null $name The name.
+     *
+     * @return void
+     */
+    public function setName(?string $name): void
+    {
+        $this->name = $name;
+    }//end setName()
+
+    /**
+     * Whether the agent is active.
+     *
+     * @return bool
+     */
+    public function getActive(): bool
+    {
+        return $this->active;
+    }//end getActive()
+
+    /**
+     * Set whether the agent is active.
+     *
+     * @param bool $active Active flag.
+     *
+     * @return void
+     */
+    public function setActive(bool $active): void
+    {
+        $this->active = $active;
+    }//end setActive()
+
+    /**
+     * Get the agent configuration bag.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function getConfiguration(): ?array
+    {
+        return $this->configuration;
+    }//end getConfiguration()
+
+    /**
+     * Set the agent configuration bag.
+     *
+     * @param array<string,mixed>|null $configuration The configuration.
+     *
+     * @return void
+     */
+    public function setConfiguration(?array $configuration): void
+    {
+        $this->configuration = $configuration;
+    }//end setConfiguration()
 }//end class
