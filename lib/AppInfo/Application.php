@@ -108,6 +108,23 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: GraphRunRequestedListener::class);
         $context->registerEventListener(event: ObjectDeletedEvent::class, listener: GraphRunRequestedListener::class);
 
+        // Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
+        // contributes the agent step as a flow node, and a resolver so OR's engine
+        // and worker can load and run hermiq's agentflows. This makes hermiq a
+        // consumer of the fleet's one flow engine; its own GraphExecutor becomes
+        // redundant. Guarded on the classes existing so an instance whose
+        // OpenRegister predates the flow engine still boots.
+        if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class) === true) {
+            $context->registerEventListener(
+                \OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class,
+                \OCA\Hermiq\Flow\HermiqFlowNodeListener::class
+            );
+            $context->registerEventListener(
+                \OCA\OpenRegister\Service\Flow\RegisterFlowResolversEvent::class,
+                \OCA\Hermiq\Flow\HermiqFlowResolverListener::class
+            );
+        }
+
         // Offboarding (agent-lifecycle-governance): a Nextcloud user being deleted
         // or disabled auto-pauses their schedules (ScheduleService::pauseForUser())
         // and flags the owning Agent(s) for reassignment. This NC version has no
