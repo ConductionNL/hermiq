@@ -18,8 +18,9 @@
     "check:manifest-v2": "node tests/manifest-v2.spec.js",
     "check:register": "node tests/validate-register.js",
     "check:registry": "node tests/registry.spec.js",
+    "check:agent-context": "node tests/agent-context.spec.js",
     "check:json-strict": "node tests/validate-json-strict.js",
-    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry"
+    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context"
   },
   "browserslist": [
     "extends @nextcloud/browserslist-config"

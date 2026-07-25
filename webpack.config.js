@@ -29,6 +29,14 @@ webpackConfig.entry = {
 		import: path.join(__dirname, 'src', 'settings.js'),
 		filename: appId + '-settings.js',
 	},
+	// Agent render leaf (agent-object-leaf, ADR-019): the always-loaded bundle
+	// attached on every page via `\OCP\Util::addInitScript('hermiq', 'hermiq-agent-leaf')`
+	// so `registerIntegration('hermiq-agent', …)` runs wherever an OpenBuild app
+	// renders the OpenRegister integration registry.
+	'agent-leaf': {
+		import: path.join(__dirname, 'src', 'integration-leaf.js'),
+		filename: appId + '-agent-leaf.js',
+	},
 }
 
 // Use local source when available (monorepo dev), otherwise fall back to npm package.

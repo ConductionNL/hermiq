@@ -180,7 +180,7 @@ class ResponseGenerationHandlerTest extends TestCase
                 string $baseUrl,
                 array $messageHistory,
                 string $authMode,
-                int $maxTokens,
+                ?int $maxTokens,
                 array $functions,
                 ?callable $toolExecutor
             ) use (&$capturedExecutor): string {
