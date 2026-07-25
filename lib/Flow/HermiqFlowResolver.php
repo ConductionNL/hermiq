@@ -159,7 +159,7 @@ class HermiqFlowResolver implements IFlowResolver
     {
         try {
             $flows = $this->objectService->findAll(
-                config: ['register' => self::REGISTER, 'schema' => self::SCHEMA],
+                config: ['filters' => ['register' => self::REGISTER, 'schema' => self::SCHEMA]],
                 _rbac: false,
                 _multitenancy: false
             );
