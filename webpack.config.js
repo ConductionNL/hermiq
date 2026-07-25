@@ -136,11 +136,24 @@ webpackConfig.plugins = [
 //   3. <appId>-<widget>Widget  (your widget code)
 // `Util::addScript` dedupes by (app, file) so eagerly loading every widget
 // still emits each shared chunk exactly once.
+//
+// EXCEPTION — the `agent-leaf` entry is SELF-CONTAINED. Unlike the widgets, it is
+// injected GLOBALLY on every page via `\OCP\Util::addInitScript('hermiq',
+// 'hermiq-agent-leaf')` (Application.php), with NO PHP `load()` to attach the
+// shared chunks first. If splitChunks hoisted its `registerIntegration` /
+// @nextcloud/vue / @conduction/nextcloud-vue / Vue into the shared chunks, the
+// built entry would become a DEFERRED bundle doing `__webpack_require__.e(...)`
+// for chunks that are never on the page — so the deferred body never runs,
+// `registerIntegration('hermiq-agent', …)` never fires, and the Agent tab never
+// renders (the failure is silent). We therefore exclude the `agent-leaf` chunk
+// from every cacheGroup by making `chunks` a predicate: it inlines its own
+// framework copy (~a few hundred KB, correct for a globally-injected script),
+// while `main` + `adminSettings` still share the extracted chunks as before.
 webpackConfig.optimization = {
 	...(webpackConfig.optimization || {}),
 	splitChunks: {
 		...(webpackConfig.optimization?.splitChunks || {}),
-		chunks: 'all',
+		chunks: (chunk) => chunk.name !== 'agent-leaf',
 		cacheGroups: {
 			default: false,
 			defaultVendors: false,
