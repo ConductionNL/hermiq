@@ -149,6 +149,17 @@ class Application extends App implements IBootstrap
             \OCP\Util::addInitScript(self::APP_ID, self::APP_ID.'-agent-leaf');
         }
 
+        // Federated configuration sharing: contribute hermiq's skill type to
+        // OpenRegister's shareable-config engine (agent templates ride the schema
+        // marker instead). Guarded on the event class existing so an instance whose
+        // OpenRegister predates the engine still boots.
+        if (class_exists(\OCA\OpenRegister\Service\Config\RegisterShareableConfigTypesEvent::class) === true) {
+            $context->registerEventListener(
+                \OCA\OpenRegister\Service\Config\RegisterShareableConfigTypesEvent::class,
+                \OCA\Hermiq\Listener\ShareableConfigTypeListener::class
+            );
+        }
+
         // Offboarding (agent-lifecycle-governance): a Nextcloud user being deleted
         // or disabled auto-pauses their schedules (ScheduleService::pauseForUser())
         // and flags the owning Agent(s) for reassignment. This NC version has no

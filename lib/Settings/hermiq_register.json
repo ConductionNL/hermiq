@@ -2323,8 +2323,15 @@
             "AgentTemplate": {
                 "slug": "agenttemplate",
                 "icon": "PackageVariantOutline",
-                "version": "0.2.0",
+                "version": "0.3.0",
                 "title": "Agent template",
+                "configuration": {
+                    "x-openregister-shareable": {
+                        "id": "hermiq.agent-template",
+                        "topic": "hermiq-agent-template",
+                        "name": "Agent template"
+                    }
+                },
                 "description": "A portable, versionable agent definition (agent-template-gallery) — the agent-level analogue of Skill. Carries NO secrets and NO tenant data by construction: no field for an API key, credential, RAG source id, invited-user id, group id, or quota exists on this schema. \"Use this template\" instantiates a real Agent; the suggested provider/model is coerced through the caller's effective TenantModelPolicy at that point and is never persisted back onto the template.",
                 "type": "object",
                 "required": [
