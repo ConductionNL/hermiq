@@ -306,6 +306,8 @@ class ProviderFactory
      *                                      flow listener) shares. When null, no check is made
      *                                      (opt-in; existing callers that do not pass an
      *                                      organisation see zero behavior change).
+     * @param int|null    $agentMaxTokens   Agent-level max-tokens override, applied to the
+     *                                      resolved driver when set and non-null.
      *
      * @return ChatDriver The resolved driver.
      *
@@ -1982,6 +1984,7 @@ class ProviderFactory
      * @param array       $ollamaConfig     The `ollamaConfig` sub-block.
      * @param string|null $agentModel       Agent model override.
      * @param float|null  $agentTemperature Agent temperature override.
+     * @param int|null    $agentMaxTokens   Agent max-tokens override (maps to `num_predict`).
      *
      * @return ChatDriver
      *
@@ -2027,6 +2030,7 @@ class ProviderFactory
      * @param string|null $credentialOverride Personal/organisation broker credential id
      *                                        (agent-credentials) that overrides
      *                                        `$openaiConfig['credentialId']` when non-empty.
+     * @param int|null    $agentMaxTokens     Agent max-tokens override (maps to `max_tokens`).
      *
      * @return ChatDriver
      *
@@ -2179,6 +2183,7 @@ class ProviderFactory
      *
      * @param array       $anthropicConfig The `anthropicConfig` sub-block.
      * @param string|null $agentModel      Agent model override.
+     * @param int|null    $agentMaxTokens  Agent max-tokens override, applied when set.
      *
      * @return ChatDriver
      *
