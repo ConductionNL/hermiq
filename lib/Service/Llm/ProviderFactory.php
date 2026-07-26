@@ -306,6 +306,8 @@ class ProviderFactory
      *                                      flow listener) shares. When null, no check is made
      *                                      (opt-in; existing callers that do not pass an
      *                                      organisation see zero behavior change).
+     * @param int|null    $agentMaxTokens   Agent-level max-tokens override, applied to the
+     *                                      resolved driver when set and non-null.
      *
      * @return ChatDriver The resolved driver.
      *
@@ -324,7 +326,8 @@ class ProviderFactory
         array $llmConfig,
         ?string $agentModel=null,
         ?float $agentTemperature=null,
-        ?string $organisation=null
+        ?string $organisation=null,
+        ?int $agentMaxTokens=null
     ): ChatDriver {
         $chatProvider = $llmConfig['chatProvider'] ?? null;
 
@@ -339,14 +342,16 @@ class ProviderFactory
             $driver = $this->createOllamaDriver(
                 ollamaConfig: $llmConfig['ollamaConfig'] ?? [],
                 agentModel: $agentModel,
-                agentTemperature: $agentTemperature
+                agentTemperature: $agentTemperature,
+                agentMaxTokens: $agentMaxTokens
             );
         } else if ($chatProvider === 'openai') {
             $driver = $this->createOpenAiDriver(
                 openaiConfig: $llmConfig['openaiConfig'] ?? [],
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature,
-                credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation)
+                credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation),
+                agentMaxTokens: $agentMaxTokens
             );
         } else if ($chatProvider === 'fireworks') {
             $driver = $this->createFireworksDriver(
@@ -357,7 +362,8 @@ class ProviderFactory
         } else if ($chatProvider === 'anthropic') {
             $driver = $this->createAnthropicDriver(
                 anthropicConfig: $llmConfig['anthropicConfig'] ?? [],
-                agentModel: $agentModel
+                agentModel: $agentModel,
+                agentMaxTokens: $agentMaxTokens
             );
         } else if ($chatProvider === 'nextcloud') {
             $driver = $this->createNextcloudDriver();
@@ -658,7 +664,9 @@ class ProviderFactory
      * @param string        $baseUrl        Base API URL (e.g. `https://api.anthropic.com/v1`).
      * @param array         $messageHistory Array of LLPhant Message objects.
      * @param string        $authMode       Auth mode: `api_key` (default) or `oauth`.
-     * @param int           $maxTokens      Max output tokens (Messages API requires it).
+     * @param int|null      $maxTokens      Max output tokens; null uses the 4096 default.
+     *                                      The Messages API requires a value, so null is
+     *                                      resolved at the request rather than omitted.
      * @param array         $functions      OpenAI-style function/tool definitions.
      * @param callable|null $toolExecutor   `fn(string $name, array $input): string` — Hermiq's
      *                                      governed tool executor. When null, tools are NOT
@@ -698,7 +706,7 @@ class ProviderFactory
         string $baseUrl,
         array $messageHistory,
         string $authMode='api_key',
-        int $maxTokens=4096,
+        ?int $maxTokens=null,
         array $functions=[],
         ?callable $toolExecutor=null,
         string $executionMode='http',
@@ -747,7 +755,7 @@ class ProviderFactory
         for ($iteration = 0; $iteration < self::MAX_TOOL_ITERATIONS; $iteration++) {
             $payload = [
                 'model'      => $model,
-                'max_tokens' => $maxTokens,
+                'max_tokens' => ($maxTokens ?? 4096),
                 'messages'   => $messages,
             ];
 
@@ -1976,12 +1984,13 @@ class ProviderFactory
      * @param array       $ollamaConfig     The `ollamaConfig` sub-block.
      * @param string|null $agentModel       Agent model override.
      * @param float|null  $agentTemperature Agent temperature override.
+     * @param int|null    $agentMaxTokens   Agent max-tokens override (maps to `num_predict`).
      *
      * @return ChatDriver
      *
      * @throws ProviderUnavailableException When the Ollama URL is not configured.
      */
-    private function createOllamaDriver(array $ollamaConfig, ?string $agentModel, ?float $agentTemperature): ChatDriver
+    private function createOllamaDriver(array $ollamaConfig, ?string $agentModel, ?float $agentTemperature, ?int $agentMaxTokens=null): ChatDriver
     {
         if (empty($ollamaConfig['url']) === true) {
             throw new ProviderUnavailableException('Ollama URL is not configured');
@@ -1999,9 +2008,16 @@ class ProviderFactory
             $config->modelOptions['temperature'] = $agentTemperature;
         }
 
+        // The agent's own ceiling, wired the same way temperature already was.
+        // Without this the field was stored, versioned and shown in the UI while
+        // having no effect on a single request.
+        if ($agentMaxTokens !== null) {
+            $config->modelOptions['num_predict'] = $agentMaxTokens;
+        }
+
         $chat = new OllamaChat($config);
 
-        return new ChatDriver(provider: 'ollama', chat: $chat, model: $config->model);
+        return new ChatDriver(provider: 'ollama', chat: $chat, model: $config->model, maxTokens: $agentMaxTokens);
 
     }//end createOllamaDriver()
 
@@ -2014,6 +2030,7 @@ class ProviderFactory
      * @param string|null $credentialOverride Personal/organisation broker credential id
      *                                        (agent-credentials) that overrides
      *                                        `$openaiConfig['credentialId']` when non-empty.
+     * @param int|null    $agentMaxTokens     Agent max-tokens override (maps to `max_tokens`).
      *
      * @return ChatDriver
      *
@@ -2025,7 +2042,8 @@ class ProviderFactory
         array $openaiConfig,
         ?string $agentModel,
         ?float $agentTemperature,
-        ?string $credentialOverride=null
+        ?string $credentialOverride=null,
+        ?int $agentMaxTokens=null
     ): ChatDriver {
         $credentialId = (string) ($openaiConfig['credentialId'] ?? '');
         if (empty($credentialOverride) === false) {
@@ -2076,6 +2094,11 @@ class ProviderFactory
             $config->modelOptions['temperature'] = $agentTemperature;
         }
 
+        // The agent's own ceiling, wired the same way temperature already was.
+        if ($agentMaxTokens !== null) {
+            $config->modelOptions['max_tokens'] = $agentMaxTokens;
+        }
+
         $chat = new OpenAIChat($config);
 
         // `credentialId` is carried on the driver for OpenAI too (previously only
@@ -2085,7 +2108,7 @@ class ProviderFactory
         // credential a personal/organisation override actually resolved to
         // (agent-credentials). Nothing reads `$driver->credentialId` on the openai path
         // today; this is metadata only, not a behaviour change.
-        return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model, credentialId: $credentialId);
+        return new ChatDriver(provider: 'openai', chat: $chat, model: $config->model, credentialId: $credentialId, maxTokens: $agentMaxTokens);
 
     }//end createOpenAiDriver()
 
@@ -2160,6 +2183,7 @@ class ProviderFactory
      *
      * @param array       $anthropicConfig The `anthropicConfig` sub-block.
      * @param string|null $agentModel      Agent model override.
+     * @param int|null    $agentMaxTokens  Agent max-tokens override, applied when set.
      *
      * @return ChatDriver
      *
@@ -2169,7 +2193,7 @@ class ProviderFactory
      *
      * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
      */
-    private function createAnthropicDriver(array $anthropicConfig, ?string $agentModel): ChatDriver
+    private function createAnthropicDriver(array $anthropicConfig, ?string $agentModel, ?int $agentMaxTokens=null): ChatDriver
     {
         $credentialId = (string) ($anthropicConfig['credentialId'] ?? '');
         if ($credentialId === '') {
@@ -2218,7 +2242,8 @@ class ProviderFactory
             credentialId: $credentialId,
             baseUrl: $baseUrl,
             authMode: $authMode,
-            executionMode: $executionMode
+            executionMode: $executionMode,
+            maxTokens: $agentMaxTokens
         );
 
     }//end createAnthropicDriver()

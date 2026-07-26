@@ -40,6 +40,11 @@ parameters:
         - '#has invalid return type OCA\\OpenRegister\\#'
         - '#has invalid type OCA\\OpenRegister\\#'
         - '#implements unknown interface OCA\\OpenRegister\\#'
+        # An OpenRegister *RequestedEvent (e.g. AgentRunRequestedEvent) dispatched via
+        # IEventDispatcher::dispatchTyped(): the real event extends OCP\EventDispatcher\Event,
+        # but the class is not resolvable in static analysis (OR is not a composer require),
+        # so phpstan cannot verify the subtype. Same root cause as the OR ignores above.
+        - '#dispatchTyped\(\) expects OCP\\EventDispatcher\\Event, OCA\\OpenRegister\\Event\\[a-zA-Z]+ given#'
         # Nextcloud Talk (spreed) — optional runtime dependency, resolved lazily; not in static analysis
         - '#unknown class OCA\\Talk\\#'
         - '#OCA\\Talk\\[a-zA-Z\\]+.*not found#'

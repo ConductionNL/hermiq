@@ -69,6 +69,12 @@ final class ChatDriver
      *                                                  `hermiq-llm-runner` ExApp). `http` for every
      *                                                  provider that has no CLI backend, so nothing
      *                                                  changes for existing configs.
+     * @param int|null                   $maxTokens     The agent's own output ceiling, when it
+     *                                                  set one. Carried here because the
+     *                                                  Anthropic path builds its request at the
+     *                                                  call site rather than on a chat object,
+     *                                                  so it has nowhere else to read it from.
+     *                                                  Null means "use the provider default".
      */
     public function __construct(
         public readonly string $provider,
@@ -78,6 +84,7 @@ final class ChatDriver
         public readonly ?string $baseUrl=null,
         public readonly ?string $authMode=null,
         public readonly string $executionMode='http',
+        public readonly ?int $maxTokens=null,
     ) {
     }//end __construct()
 }//end class

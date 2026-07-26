@@ -65,6 +65,21 @@ return [
         // (run-replay-and-dry-run).
         ['name' => 'runNow#dryRun', 'url' => '/api/schedules/{scheduleId}/dry-run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
+        // Agent graph — manual/test run of an authored graph against a subject object
+        // (the primary trigger is a Nextcloud event via GraphRunRequestedListener).
+        ['name' => 'graph#run', 'url' => '/api/graph/run', 'verb' => 'POST'],
+
+        // Run-on-object — user-initiated, OBJECT-permission-scoped run of an agent
+        // against a single OpenRegister object (agent-object-leaf). #[NoAdminRequired];
+        // authorized by the object's own permissions in the caller's RBAC scope
+        // (fail-closed 404), dispatches the governed AgentRunRequestedEvent recipe.
+        [
+            'name'         => 'agentRun#runOnObject',
+            'url'          => '/api/agents/{id}/run-on-object',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+
         // Replay — owner-scoped re-run of a past run's recorded prompt as a dry-run,
         // with a step-by-step diff against the original (run-replay-and-dry-run).
         [
@@ -475,9 +490,9 @@ return [
         // #[NoCSRFRequired] — the caller is the CLI's MCP client / the egress proxy,
         // neither of which holds a Nextcloud session; the per-run bearer token IS the
         // authorization (ADR-005 semantic-auth — see each controller's docblock).
-        //   Endpoint 1 — the governed MCP server (initialize/tools/list/tools/call).
+        // Endpoint 1 — the governed MCP server (initialize/tools/list/tools/call).
         ['name' => 'mcpRun#handle', 'url' => '/api/mcp/run', 'verb' => 'POST'],
-        //   Endpoint 2 — the governed egress Policy Decision Point (per-CONNECT allow/deny).
+        // Endpoint 2 — the governed egress Policy Decision Point (per-CONNECT allow/deny).
         ['name' => 'egressAuthorize#authorize', 'url' => '/api/egress/authorize', 'verb' => 'POST'],
 
         // SPA catch-all — same controller as the index route; must use a distinct route name
