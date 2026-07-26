@@ -117,6 +117,11 @@ class RegisterAgentLeafListener implements IEventListener
                     'single-entity',
                 ],
                 referenceType: self::LEAF_ID,
+                // Vue 3 leaf under a Vue 2.7 host: the JS registration renders via a
+                // `mount`/`unmount` DOM hand-off (openregister#2127, ADR-066), so the
+                // server descriptor MUST declare the SAME render mode under the shared
+                // id for cross-layer parity (gate-24 integration-parity).
+                renderMode: LeafDescriptor::RENDER_MODE_MOUNT,
             );
 
             // Render-only leaf: no IntegrationProvider (null). The chat reads via
