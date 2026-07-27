@@ -1,9 +1,9 @@
 # agent-evals Specification
 
-**Status**: in-progress
+**Status**: active (agent-scoped engine + skill-scoped paired evals shipped; live-verified via Playwright on NC34+OR)
 
 **OpenSpec changes:** `agent-evals` — DONE (archived): the agent-scoped eval engine below.
-`skill-evals` — in-progress: `EvalDataset` gains `skillRefs` (relation dialect: uuid
+`skill-evals` — DONE (archived 2026-07-27): `EvalDataset` gains `skillRefs` (relation dialect: uuid
 items, `$ref: Skill`); `EvalRun` gains a paired with-skill vs without-skill baseline mode
 (same cases twice through the real engine path, everything else frozen; detachment is
 per-run in-memory only — stored `skillInstalls`/`installedOn` never mutated; both halves
@@ -11,7 +11,7 @@ count toward the SAME budgets, ~2× token cost); the minimal run-loop skill-expo
 (active skills only); completed paired runs write `levelEvidence.l5` on each linked skill
 — the ONLY l5 writer (skill-maturity contract); widened 404-never-403 trigger guard;
 dataset skill link/unlink UI + SkillDetail eval-evidence card. See
-`openspec/changes/skill-evals/specs/agent-evals/spec.md`.
+`openspec/changes/archive/2026-07-27-skill-evals/specs/agent-evals/spec.md`.
 
 ## Purpose
 TBD - created by archiving change agent-evals. Update Purpose after archive.

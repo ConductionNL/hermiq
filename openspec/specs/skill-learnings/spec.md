@@ -1,10 +1,10 @@
 # Skill Learnings Specification
 
-**Status**: in-progress
+**Status**: active (shipped 2026-07-27; live-verified via Playwright on NC34+OR — Learnings tab + seeded tender-summary demo learnings)
 
 **Feature tier**: V2
 
-**OpenSpec changes:** `skill-learnings` — in-progress (depends on
+**OpenSpec changes:** `skill-learnings` — DONE (archived 2026-07-27; depends on
 `skill-maturity-model`): the L6 capture substrate — the engine records which installed
 skills' content was loaded into the run context (`skillsUsed`); a queued post-run,
 budget-gated, idempotent, failure-isolated capture pass extracts dated atomic
