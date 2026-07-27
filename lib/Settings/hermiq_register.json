@@ -3,7 +3,7 @@
     "info": {
         "title": "Hermiq Register",
         "description": "Schedule autonomous AI agents in Nextcloud. v0.15.1 — re-authored the AiFeature (Algoritmekader) property titles from Dutch to English (doel/wettelijkeGrondslag/impacttoetsen/soort/referentie/dataBronnen/menselijkeTussenkomst/verantwoordelijke/organisatie/publicatiecategorie) so manifest-driven UI labels are translatable; the Dutch labels now live in the app's l10n/nl.json. Property keys, enum values, and all other fields are unchanged.",
-        "version": "0.15.1"
+        "version": "0.15.2"
     },
     "x-openregister": {
         "type": "application",
@@ -2786,9 +2786,9 @@
             "AgentFlow": {
                 "slug": "agentflow",
                 "icon": "Sitemap",
-                "version": "0.1.1",
+                "version": "0.1.2",
                 "title": "Agent flow",
-                "description": "An authored agent graph: nodes/edges triggered by a Nextcloud event, run by the Hermiq GraphExecutor. Reuses the nc-vue CnFlowCanvas for authoring.",
+                "description": "An authored agent graph: nodes/edges triggered by a Nextcloud event, walked by OpenRegister's flow engine (ADR-065). Reuses the nc-vue CnFlowCanvas for authoring. v0.1.2 adds triggerRegister (already read by HermiqFlowResolver but undeclared, so it was silently dropped on save) and owner (the NC UID a trigger-fired run is attributed to).",
                 "type": "object",
                 "required": [
                     "name"
@@ -2802,10 +2802,20 @@
                         "type": "string",
                         "title": "Name"
                     },
+                    "triggerRegister": {
+                        "type": "string",
+                        "title": "Trigger register",
+                        "description": "OpenRegister register id/slug whose object events start this graph. Empty means any register. HermiqFlowResolver::flowsForTrigger() already matched on this field; it was missing from the schema, so the value was dropped on save and every flow matched every register."
+                    },
                     "triggerSchema": {
                         "type": "string",
                         "title": "Trigger schema",
-                        "description": "OpenRegister schema id/slug whose object events start this graph."
+                        "description": "OpenRegister schema id/slug whose object events start this graph. Empty means any schema."
+                    },
+                    "owner": {
+                        "type": "string",
+                        "title": "Owner",
+                        "description": "Nextcloud UID of the person who authored and activated this flow. A trigger fires with no acting user, so this is who the run is attributed to and whose identity its steps execute as. A flow with no owner MUST NOT dispatch — never defaulted to an empty or system owner."
                     },
                     "trigger": {
                         "type": "string",

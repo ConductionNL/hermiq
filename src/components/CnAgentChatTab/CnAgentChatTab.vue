@@ -13,7 +13,15 @@
   - grounded on the same object. Render-only: it reads and chats; it writes no
   - object field and invokes no tool.
   -
+  - When the allowlist resolves to ZERO properties the surface says so IN TEXT
+  - (hydra-console-agent-leaves). Fail-closed context is correct security, but an
+  - agent answering about an object it received no properties for is
+  - indistinguishable from one that read it — so the two states must be
+  - distinguishable in the surface, and a reply produced with no context is marked
+  - as not grounded in the object rather than presented as if it were.
+  -
   - @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-object-scoped-agent-chat-reuses-the-tool-free-surface
+  - @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist
 -->
 <template>
 	<div class="cn-agent-chat-tab" data-testid="cn-agent-chat-tab">
@@ -22,6 +30,13 @@
 		</NcNoteCard>
 
 		<div v-else class="cn-agent-chat-tab__conversation">
+			<NcNoteCard
+				v-if="contextResolved && !hasBoundedContext"
+				type="warning"
+				data-testid="cn-agent-chat-tab-no-context">
+				{{ t('hermiq', 'No object context is available. This object\'s schema shares no fields with the agent, so its answers are not grounded in this object.') }}
+			</NcNoteCard>
+
 			<ul class="cn-agent-chat-tab__messages">
 				<li
 					v-for="(entry, idx) in messages"
@@ -30,6 +45,12 @@
 					:class="`cn-agent-chat-tab__message--${entry.role}`">
 					<span class="cn-agent-chat-tab__role">{{ roleLabel(entry.role) }}</span>
 					<span class="cn-agent-chat-tab__text">{{ entry.text }}</span>
+					<span
+						v-if="entry.role === 'agent' && entry.grounded === false"
+						class="cn-agent-chat-tab__ungrounded"
+						data-testid="cn-agent-chat-tab-ungrounded">
+						{{ t('hermiq', 'Not grounded in this object — no object context was shared.') }}
+					</span>
 				</li>
 				<li v-if="messages.length === 0" class="cn-agent-chat-tab__empty">
 					{{ t('hermiq', 'Ask the agent about this object. Only allowlisted fields are shared.') }}
@@ -89,7 +110,23 @@ export default {
 			unavailable: false,
 			sessionId: null,
 			boundedContext: {},
+			// False until the allowlist has actually been resolved for this object,
+			// so the "no context" notice never flashes during the initial load and
+			// is never shown for an object that simply has not been read yet.
+			contextResolved: false,
 		}
+	},
+	computed: {
+		/**
+		 * Whether the schema's `x-openregister-agent-context` allowlist resolved to at
+		 * least one property on this object.
+		 *
+		 * @return {boolean} True when the agent receives any object field at all.
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
+		hasBoundedContext() {
+			return Object.keys(this.boundedContext || {}).length > 0
+		},
 	},
 	watch: {
 		objectId: { immediate: true, handler() { this.reset() } },
@@ -106,6 +143,7 @@ export default {
 			this.sessionId = null
 			this.unavailable = false
 			this.boundedContext = {}
+			this.contextResolved = false
 			if (this.objectId === '') {
 				return
 			}
@@ -114,6 +152,12 @@ export default {
 		/**
 		 * Resolve the object + its schema and build the fail-closed bounded context.
 		 * Any failure leaves an EMPTY context — the safe default — never the object.
+		 *
+		 * `contextResolved` is set either way: a failed read yields the same empty
+		 * context a missing allowlist does, and the user must be told about both. An
+		 * empty context that stayed invisible is the defect this flag exists for.
+		 *
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
 		 */
 		async loadBoundedContext() {
 			try {
@@ -124,6 +168,8 @@ export default {
 				this.boundedContext = buildAgentContext(objectData, schemaDef)
 			} catch (e) {
 				this.boundedContext = {}
+			} finally {
+				this.contextResolved = true
 			}
 		},
 		async fetchObject() {
@@ -186,7 +232,14 @@ export default {
 					return
 				}
 				this.sessionId = body?.sessionId || this.sessionId
-				this.messages.push({ role: 'agent', text: body?.reply || '' })
+				// Carry the grounding fact onto the reply itself, not just onto the
+				// tab: a reply scrolled away from the notice must still be readable
+				// as ungrounded.
+				this.messages.push({
+					role: 'agent',
+					text: body?.reply || '',
+					grounded: this.hasBoundedContext,
+				})
 			} catch (e) {
 				this.error = t('hermiq', 'The agent service is unreachable.')
 			} finally {
@@ -205,5 +258,8 @@ export default {
 .cn-agent-chat-tab__role { font-size: 0.8em; font-weight: 600; color: var(--color-text-maxcontrast); }
 .cn-agent-chat-tab__text { white-space: pre-wrap; }
 .cn-agent-chat-tab__empty { color: var(--color-text-maxcontrast); padding: 8px 0; }
+/* Text state, never a colour-only state (WCAG 2.1 AA 1.4.1): the words carry the
+   meaning and the variable-driven colour only reinforces it. */
+.cn-agent-chat-tab__ungrounded { font-size: 0.8em; font-style: italic; color: var(--color-text-maxcontrast); }
 .cn-agent-chat-tab__composer { display: flex; flex-direction: column; gap: 8px; }
 </style>
