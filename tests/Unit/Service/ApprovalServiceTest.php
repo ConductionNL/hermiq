@@ -762,7 +762,7 @@ class ApprovalServiceTest extends TestCase
      */
     public function testListForAgentFiltersByAgentId(): void
     {
-        $mine  = $this->approval(['status' => 'approved', 'agentId' => 'agent-1']);
+        $mine = $this->approval(['status' => 'approved', 'agentId' => 'agent-1']);
         $mine->setUuid('a1');
         $other = $this->approval(['status' => 'approved', 'agentId' => 'agent-2']);
         $other->setUuid('a2');
@@ -965,4 +965,244 @@ class ApprovalServiceTest extends TestCase
         $this->assertSame('approved', $saved[0]['status']);
 
     }//end testApproveToolSourceTypeResumesNothing()
+
+    /**
+     * The complete skill-draft decision-evidence payload the ensure call requires.
+     *
+     * @return array<string, mixed>
+     */
+    private function draftPayload(): array
+    {
+        return [
+            'deepLink'         => 'https://cloud.example.test/index.php/apps/hermiq/skills/skill-1',
+            'scanVerdict'      => 'clean',
+            'noEvalEvidence'   => true,
+            'learningsSummary' => 'Consolidates 3 promoted learnings entries into the skill body.',
+        ];
+
+    }//end draftPayload()
+
+    /**
+     * A draft + skill entity pair for the skill-draft ensure call.
+     *
+     * @return array{0: ObjectEntity, 1: ObjectEntity}
+     */
+    private function draftAndSkill(): array
+    {
+        $draft = new ObjectEntity();
+        $draft->setUuid('draft-1');
+        $draft->setOwner('alice');
+        $draft->setObject(
+            [
+                'skillId' => 'skill-1',
+                'status'  => 'awaiting-approval',
+            ]
+        );
+
+        $skill = new ObjectEntity();
+        $skill->setUuid('skill-1');
+        $skill->setOwner('alice');
+        $skill->setObject(['name' => 'tender-summary']);
+
+        return [
+            $draft,
+            $skill,
+        ];
+
+    }//end draftAndSkill()
+
+    /**
+     * An Approval whose decision-evidence payload misses ANY required element is
+     * rejected as invalid at creation — nothing is persisted, nothing is notified,
+     * so a payload-incomplete Approval can never reach an inbox.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function testSkillDraftApprovalWithoutFullPayloadIsInvalid(): void
+    {
+        [$draft, $skill] = $this->draftAndSkill();
+
+        $this->objectService->expects($this->never())->method('saveObject');
+        $this->deliveryService->expects($this->never())->method('deliverApprovalRequestForSkillDraft');
+
+        $variants = [
+            'deepLink',
+            'scanVerdict',
+            'noEvalEvidence',
+            'learningsSummary',
+        ];
+        foreach ($variants as $missing) {
+            $payload = $this->draftPayload();
+            unset($payload[$missing]);
+
+            $thrown = null;
+            try {
+                $this->service()->ensurePendingApprovalForSkillDraft(draft: $draft, skill: $skill, draftPayload: $payload);
+            } catch (\InvalidArgumentException $exception) {
+                $thrown = $exception;
+            }
+
+            $this->assertNotNull($thrown, 'Missing "'.$missing.'" must invalidate the Approval at creation.');
+        }
+
+    }//end testSkillDraftApprovalWithoutFullPayloadIsInvalid()
+
+    /**
+     * A COMPLETE payload creates the pending Approval (sourceType skill-draft,
+     * payload aboard, reviewer = skill owner) and fires the pending-approval ping.
+     * An eval-measured payload (evalDelta, no noEvalEvidence flag) is equally valid.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function testSkillDraftApprovalWithCompletePayloadIsCreatedAndNotified(): void
+    {
+        [$draft, $skill] = $this->draftAndSkill();
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                $entity  = new ObjectEntity();
+                $entity->setUuid('appr-new');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+        $this->deliveryService->expects($this->once())
+            ->method('deliverApprovalRequestForSkillDraft')
+            ->willReturn(new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null));
+
+        $payload = [
+            'deepLink'         => 'https://cloud.example.test/index.php/apps/hermiq/skills/skill-1',
+            'scanVerdict'      => 'clean',
+            'evalDelta'        => 0.05,
+            'noEvalEvidence'   => false,
+            'learningsSummary' => 'Consolidates 3 promoted learnings entries.',
+        ];
+
+        $approval = $this->service()->ensurePendingApprovalForSkillDraft(draft: $draft, skill: $skill, draftPayload: $payload);
+
+        $this->assertSame('appr-new', (string) $approval->getUuid());
+        $this->assertSame('skill-draft', $saved[0]['sourceType']);
+        $this->assertSame('draft-1', $saved[0]['draftId']);
+        $this->assertSame('alice', $saved[0]['reviewer'], 'The reviewer defaults to the skill owner.');
+        $this->assertSame($payload, $saved[0]['draftPayload'], 'The decision evidence rides the Approval verbatim.');
+
+    }//end testSkillDraftApprovalWithCompletePayloadIsCreatedAndNotified()
+
+    /**
+     * Approving a skill-draft Approval from ANY surface (this is the generic
+     * decision path the inbox uses) fires the apply step: the draft's content is
+     * applied via the consolidation service with the decider recorded.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function testApproveSkillDraftSourceTypeAppliesTheDraft(): void
+    {
+        $approval = $this->approval(
+            [
+                'status'       => 'pending',
+                'sourceType'   => 'skill-draft',
+                'draftId'      => 'draft-1',
+                'skillId'      => 'skill-1',
+                'reviewer'     => 'bob',
+                'reviewerType' => 'user',
+            ]
+        );
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved[] = $object;
+                return new ObjectEntity();
+            }
+        );
+
+        $consolidation = $this->createMock(\OCA\Hermiq\Service\SkillConsolidationService::class);
+        $consolidation->method('isDraftApprovable')->with('draft-1')->willReturn(true);
+        $consolidation->expects($this->once())
+            ->method('applyDraft')
+            ->with('draft-1', 'bob')
+            ->willReturn('v-new');
+        $this->container->method('get')->willReturn($consolidation);
+
+        $result = $this->service()->approve($approval, 'bob');
+
+        $this->assertSame('approved', $result['status']);
+        $this->assertTrue($result['ran'], 'The approval transition IS the applier.');
+        $this->assertSame('approved', $saved[0]['status']);
+
+    }//end testApproveSkillDraftSourceTypeAppliesTheDraft()
+
+    /**
+     * An edited-but-not-requalified draft REFUSES the approve transition from every
+     * surface: the Approval stays pending, nothing is persisted, nothing applies.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function testApproveSkillDraftIsRefusedWhileAwaitingRequalification(): void
+    {
+        $approval = $this->approval(
+            [
+                'status'       => 'pending',
+                'sourceType'   => 'skill-draft',
+                'draftId'      => 'draft-1',
+                'reviewer'     => 'bob',
+                'reviewerType' => 'user',
+            ]
+        );
+
+        $this->objectService->expects($this->never())->method('saveObject');
+
+        $consolidation = $this->createMock(\OCA\Hermiq\Service\SkillConsolidationService::class);
+        $consolidation->method('isDraftApprovable')->willReturn(false);
+        $consolidation->expects($this->never())->method('applyDraft');
+        $this->container->method('get')->willReturn($consolidation);
+
+        $result = $this->service()->approve($approval, 'bob');
+
+        $this->assertSame('pending', $result['status'], 'The transition is refused, not consumed.');
+        $this->assertFalse($result['ran']);
+
+    }//end testApproveSkillDraftIsRefusedWhileAwaitingRequalification()
+
+    /**
+     * Denying a skill-draft Approval (any surface) reconciles the draft to
+     * `rejected` through the consolidation service.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function testDenySkillDraftSourceTypeReconcilesTheDraft(): void
+    {
+        $approval = $this->approval(
+            [
+                'status'       => 'pending',
+                'sourceType'   => 'skill-draft',
+                'draftId'      => 'draft-1',
+                'reviewer'     => 'bob',
+                'reviewerType' => 'user',
+            ]
+        );
+
+        $this->objectService->method('saveObject')->willReturn(new ObjectEntity());
+
+        $consolidation = $this->createMock(\OCA\Hermiq\Service\SkillConsolidationService::class);
+        $consolidation->expects($this->once())
+            ->method('rejectDraftByDecision')
+            ->with('draft-1', 'bob', 'not convincing');
+        $this->container->method('get')->willReturn($consolidation);
+
+        $this->service()->deny($approval, 'bob', 'not convincing');
+
+    }//end testDenySkillDraftSourceTypeReconcilesTheDraft()
 }//end class

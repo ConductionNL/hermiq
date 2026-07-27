@@ -128,6 +128,38 @@ class ContextAssembler
     }//end __construct()
 
     /**
+     * Per-run, IN-MEMORY skill CONTENT override (skill-self-improvement): map of
+     * skill uuid → `{name, description, body}` used INSTEAD of the stored content
+     * when that skill is assembled. The thin adapter the paired draft-vs-active
+     * eval sets around its draft half — the stored Skill object is never written,
+     * mirroring the skill-set override's in-memory-only contract. Always null for
+     * every non-draft-eval caller.
+     *
+     * @var array<string, array<string, mixed>>|null
+     */
+    private ?array $transientContentOverride = null;
+
+    /**
+     * Set (or clear, with null) the transient per-run skill content override.
+     *
+     * Halves run strictly sequentially (impersonation is not concurrency-safe
+     * already), so a set→run→clear window can never leak into another run. The
+     * caller MUST clear it in a `finally` block.
+     *
+     * @param array<string, array<string, mixed>>|null $override Map of skill uuid →
+     *                                                           draft content, or null.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
+     */
+    public function setTransientSkillContentOverride(?array $override): void
+    {
+        $this->transientContentOverride = $override;
+
+    }//end setTransientSkillContentOverride()
+
+    /**
      * Assemble every Context an agent references into a single preamble string.
      *
      * Null agent or an empty `contextRefs` returns `''` (no-op — most agents have no
@@ -254,6 +286,16 @@ class ContextAssembler
             $name        = (string) ($data['name'] ?? 'skill');
             $description = (string) ($data['description'] ?? '');
             $body        = (string) ($data['body'] ?? '');
+
+            // Skill-self-improvement: the paired draft-vs-active eval's draft half
+            // swaps in the DRAFT's content in memory — the stored object above was
+            // still consulted for existence and the marketplace state gate.
+            $override = ($this->transientContentOverride[(string) $skill->getUuid()] ?? null);
+            if (is_array($override) === true) {
+                $name        = (string) ($override['name'] ?? $name);
+                $description = (string) ($override['description'] ?? $description);
+                $body        = (string) ($override['body'] ?? $body);
+            }
 
             $block = "Skill: {$name}";
             if ($description !== '') {

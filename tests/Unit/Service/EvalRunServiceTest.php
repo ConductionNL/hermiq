@@ -27,10 +27,12 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\EvalScoringService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -47,7 +49,6 @@ use RuntimeException;
  */
 class EvalRunServiceTest extends TestCase
 {
-
     /**
      * An ObjectService stub: findAll() returns the given prior runs (regression gate),
      * saveObject() echoes back an ObjectEntity carrying a uuid and the saved data.
@@ -59,28 +60,27 @@ class EvalRunServiceTest extends TestCase
     private function objectService(array $priorRuns=[]): ObjectService
     {
         return new class ($priorRuns) extends ObjectService {
-
             /**
              * @param array<int, ObjectEntity> $priorRuns Prior runs.
              */
             public function __construct(private array $priorRuns)
             {
-            }
+            }//end __construct()
 
             public function setRegister(mixed $register): static
             {
                 return $this;
-            }
+            }//end setRegister()
 
             public function setSchema(mixed $schema): static
             {
                 return $this;
-            }
+            }//end setSchema()
 
             public function findAll(array $config=[], bool $_rbac=true, bool $_multitenancy=true): array
             {
                 return $this->priorRuns;
-            }
+            }//end findAll()
 
             public function saveObject(
                 ObjectEntity | array $object,
@@ -95,7 +95,7 @@ class EvalRunServiceTest extends TestCase
                 $entity->setUuid('eval-run-uuid');
                 $entity->setObject(is_array($object) ? $object : $object->getObject());
                 return $entity;
-            }
+            }//end saveObject()
         };
 
     }//end objectService()
@@ -137,10 +137,10 @@ class EvalRunServiceTest extends TestCase
     /**
      * Build the service with the given collaborators; unspecified ones are permissive mocks.
      *
-     * @param ObjectService        $objectService   The (stub) object service.
-     * @param ScheduleService|null $scheduleService The schedule service mock.
-     * @param BudgetService|null   $budgetService   The budget service mock.
-     * @param EvalScoringService|null $scoring      The scoring service mock.
+     * @param ObjectService           $objectService   The (stub) object service.
+     * @param ScheduleService|null    $scheduleService The schedule service mock.
+     * @param BudgetService|null      $budgetService   The budget service mock.
+     * @param EvalScoringService|null $scoring         The scoring service mock.
      *
      * @return EvalRunService
      */
@@ -167,6 +167,8 @@ class EvalRunServiceTest extends TestCase
             redactionService: $redaction,
             appConfig: $appConfig,
             logger: $this->createMock(LoggerInterface::class),
+            contextAssembler: $this->createMock(ContextAssembler::class),
+            skillVersionService: $this->createMock(SkillVersionService::class),
         );
 
     }//end service()
@@ -245,10 +247,12 @@ class EvalRunServiceTest extends TestCase
         );
 
         $result = $service->run(
-            $this->dataset([
-                ['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
-                ['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
-            ]),
+            $this->dataset(
+                    [
+                        ['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
+                        ['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
+                    ]
+                    ),
             $this->agent()
         );
 
@@ -289,10 +293,12 @@ class EvalRunServiceTest extends TestCase
         );
 
         $result = $service->run(
-            $this->dataset([
-                ['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
-                ['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
-            ]),
+            $this->dataset(
+                    [
+                        ['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
+                        ['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
+                    ]
+                    ),
             $this->agent()
         );
 

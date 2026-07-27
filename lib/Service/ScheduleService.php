@@ -235,6 +235,10 @@ class ScheduleService
      * @param AgentVersionService    $agentVersionService    Resolves the executing agent's current version
      *                                                       identifier, pinned onto the run-audit context
      *                                                       (agent-versioning).
+     * @param SkillVersionService    $skillVersionService    Resolves the exposed skills' version
+     *                                                       identifiers, pinned onto the run-audit
+     *                                                       context (skill-self-improvement) — never
+     *                                                       fatal to the run.
      * @param DelegationContext      $delegationContext      Request-scoped delegation call-stack
      *                                                       (sub-agent-delegation): pushed/popped around
      *                                                       every Engine-path turn so a mid-turn
@@ -267,6 +271,7 @@ class ScheduleService
         private readonly BudgetService $budgetService,
         private readonly GuardrailPolicyService $guardrailPolicyService,
         private readonly AgentVersionService $agentVersionService,
+        private readonly SkillVersionService $skillVersionService,
         private readonly DelegationContext $delegationContext,
         private readonly IJobList $jobList,
     ) {
@@ -1665,6 +1670,11 @@ class ScheduleService
                 // this run's context — persisted for EVERY run (not just evals) so
                 // skill-learnings can later attribute run outcomes to skills.
                 'skillsUsed'         => $this->lastRunSkillsUsed,
+                // Skill-self-improvement: pin each exposed skill's version as of run
+                // start (AuditTrail entry UUID) so any run traces to the exact skill
+                // content that shaped it. Never fatal — a failed lookup just omits
+                // that skill's pin (the run itself is unaffected).
+                'skillVersions'      => $this->skillVersionService->pinsFor(skillUuids: $this->lastRunSkillsUsed),
                 // Agent-versioning: the version of the agent config that actually ran
                 // this occurrence, captured at write time (null when unresolvable —
                 // never fatal to the run).

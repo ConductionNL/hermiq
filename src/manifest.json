@@ -492,6 +492,20 @@
 						"title": "Learnings",
 						"icon": "SchoolOutline",
 						"_note": "skill-learnings: read-only Learnings card — files['learnings.md'] rendered as sanitised markdown + the levelEvidence.l6 activity strip (candidate count, learnings count, last capture/promotion); honest empty state; deliberately NO editing surface. Resolved via page.slots.widget-skill-learnings -> skill-learnings."
+					},
+					{
+						"id": "skill-draft-review",
+						"type": "custom",
+						"title": "Improvement draft",
+						"icon": "FileDocumentEditOutline",
+						"_note": "skill-self-improvement: the draft review surface — side-by-side diff of proposed vs active, driving learnings entries, scan verdict, eval delta or the verbatim no-eval-evidence flag, and the action-gated Accept / Edit-then-accept / Reject (skill.review-draft, deciding via the linked Approval). Resolved via page.slots.widget-skill-draft-review -> skill-draft-review."
+					},
+					{
+						"id": "skill-version-history",
+						"type": "custom",
+						"title": "Versions",
+						"icon": "History",
+						"_note": "skill-self-improvement: AuditTrail-backed version history with per-version diff, explicit rollback-as-new-version, the 'published copy is behind' badge (client-side publishedAt < lastAcceptedVersionAt — the catalog row badge in skill-row-actions does the same comparison) with the never-automatic Republish, and the advisory post-acceptance rollback suggestion. Resolved via page.slots.widget-skill-version-history -> skill-version-history."
 					}
 				],
 				"layout": [
@@ -518,6 +532,22 @@
 						"gridY": 11,
 						"gridWidth": 12,
 						"gridHeight": 6
+					},
+					{
+						"id": "4",
+						"widgetId": "skill-draft-review",
+						"gridX": 0,
+						"gridY": 17,
+						"gridWidth": 12,
+						"gridHeight": 7
+					},
+					{
+						"id": "5",
+						"widgetId": "skill-version-history",
+						"gridX": 0,
+						"gridY": 24,
+						"gridWidth": 12,
+						"gridHeight": 6
 					}
 				],
 				"sidebar": {
@@ -527,7 +557,9 @@
 			"slots": {
 				"widget-skill-maturity-scorecard": "skill-maturity-scorecard",
 				"widget-skill-eval-evidence": "skill-eval-evidence",
-				"widget-skill-learnings": "skill-learnings"
+				"widget-skill-learnings": "skill-learnings",
+				"widget-skill-draft-review": "skill-draft-review",
+				"widget-skill-version-history": "skill-version-history"
 			}
 		},
 		{

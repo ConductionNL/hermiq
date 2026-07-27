@@ -42,6 +42,18 @@
  *   — it authorises exactly one subsequent, argument-matching retry, which
  *   `FacadeToolInvoker::handleConfirmClassifiedInvocation()` consumes.
  *
+ * - A **skill consolidation draft** (`sourceType: "skill-draft"`,
+ *   skill-self-improvement, ADR-068 §5): `SkillConsolidationService` asks this
+ *   service to ensure a pending Approval for a pre-qualified `SkillDraft`, keyed
+ *   by the draft's UUID for idempotency. The Approval's `draftPayload` (deep link
+ *   to the SkillDetail review surface, scan verdict, eval delta or the explicit
+ *   `noEvalEvidence` flag, driving-learnings summary) is REQUIRED at creation —
+ *   an Approval missing any of it is rejected as invalid and never reaches an
+ *   inbox. The pending→`approved` TRANSITION is the ONLY applier of the draft's
+ *   content (from ANY surface, the generic inbox included); denial reconciles the
+ *   draft to `rejected`. An edited-but-not-yet-requalified draft blocks the
+ *   transition entirely (the approve is refused, the Approval stays pending).
+ *
  * Either way, a reviewer (or an instance admin) later approves or denies:
  * approve transitions the object to `approved`, audits the decision, and
  * dispatches the resume path matching `sourceType`; deny transitions to
@@ -542,6 +554,165 @@ class ApprovalService
         return $approval;
 
     }//end ensurePendingApprovalForToolCall()
+
+    /**
+     * Idempotently ensure a single pending Approval exists for a pre-qualified
+     * skill consolidation draft (skill-self-improvement, EU AI Act Art. 14).
+     * Mirrors the other ensure* shapes, keyed by the draft's UUID.
+     *
+     * The `draftPayload` decision evidence is REQUIRED at creation: the SkillDetail
+     * deep link, the scan verdict, the eval delta OR the explicit `noEvalEvidence`
+     * flag, and the one-line driving-learnings summary — an Approval missing any of
+     * them is rejected as invalid (`InvalidArgumentException`) and never persisted,
+     * so it never reaches any approval surface; the draft stays awaiting a valid
+     * Approval. The reviewer defaults to the skill's owner, falling back to the
+     * `admin` group (the flow-run default).
+     *
+     * @param ObjectEntity         $draft        The pre-qualified draft (`awaiting-approval`).
+     * @param ObjectEntity         $skill        The skill the draft targets.
+     * @param array<string, mixed> $draftPayload The REQUIRED decision-evidence payload.
+     *
+     * @return ObjectEntity The pending (or already-pending) Approval.
+     *
+     * @throws \InvalidArgumentException When the decision-evidence payload is incomplete.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function ensurePendingApprovalForSkillDraft(
+        ObjectEntity $draft,
+        ObjectEntity $skill,
+        array $draftPayload
+    ): ObjectEntity {
+        $this->assertSkillDraftPayloadComplete(draftPayload: $draftPayload);
+
+        $draftId  = (string) $draft->getUuid();
+        $existing = $this->findPendingApprovalForSkillDraft(draftId: $draftId);
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        $owner        = (string) ($skill->getOwner() ?? '');
+        $reviewer     = $owner;
+        $reviewerType = 'user';
+        if ($reviewer === '') {
+            $reviewer     = 'admin';
+            $reviewerType = 'group';
+        }
+
+        $payload = [
+            'status'       => 'pending',
+            'sourceType'   => 'skill-draft',
+            'draftId'      => $draftId,
+            'skillId'      => (string) ($draft->getObject()['skillId'] ?? ''),
+            'draftPayload' => $draftPayload,
+            'agentId'      => '',
+            'prompt'       => (string) ($draftPayload['learningsSummary'] ?? ''),
+            'requestedAt'  => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+            'reviewer'     => $reviewer,
+            'reviewerType' => $reviewerType,
+            'decidedAt'    => null,
+            'decidedBy'    => null,
+            'reason'       => null,
+        ];
+
+        $approval = $this->persistApproval(data: $payload, uuid: null, owner: $owner);
+
+        // Notify the resolved reviewer(s) — the existing pending-approval ping.
+        // Never fatal to the pipeline.
+        try {
+            $this->deliveryService->deliverApprovalRequestForSkillDraft(
+                approval: $approval,
+                reviewerUids: $this->reviewerUids(reviewer: $reviewer, reviewerType: $reviewerType),
+                skillName: (string) ($skill->getObject()['name'] ?? '')
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Hermiq could not notify reviewer for skill-draft approval '
+                .((string) $approval->getUuid()).': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+        return $approval;
+
+    }//end ensurePendingApprovalForSkillDraft()
+
+    /**
+     * Enforce the skill-draft Approval's decision-evidence contract: a payload
+     * missing the deep link, the scan verdict, the learnings summary, or BOTH the
+     * eval delta and the `noEvalEvidence` flag is invalid — the Approval is never
+     * created (payload-incomplete Approvals must not reach an inbox).
+     *
+     * @param array<string, mixed> $draftPayload The candidate payload.
+     *
+     * @return void
+     *
+     * @throws \InvalidArgumentException When any required element is missing.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    private function assertSkillDraftPayloadComplete(array $draftPayload): void
+    {
+        if (trim((string) ($draftPayload['deepLink'] ?? '')) === '') {
+            throw new \InvalidArgumentException('Skill-draft Approval payload is missing the SkillDetail deep link.');
+        }
+
+        if (trim((string) ($draftPayload['scanVerdict'] ?? '')) === '') {
+            throw new \InvalidArgumentException('Skill-draft Approval payload is missing the scan verdict.');
+        }
+
+        $hasDelta = (isset($draftPayload['evalDelta']) === true && is_numeric($draftPayload['evalDelta']) === true);
+        if ($hasDelta === false && ($draftPayload['noEvalEvidence'] ?? false) !== true) {
+            throw new \InvalidArgumentException('Skill-draft Approval payload is missing the eval delta / noEvalEvidence flag.');
+        }
+
+        if (trim((string) ($draftPayload['learningsSummary'] ?? '')) === '') {
+            throw new \InvalidArgumentException('Skill-draft Approval payload is missing the driving-learnings summary.');
+        }
+
+    }//end assertSkillDraftPayloadComplete()
+
+    /**
+     * Find the open pending Approval for a skill draft, if one exists — the
+     * skill-draft counterpart to `findPendingApprovalForSchedule()`.
+     *
+     * @param string $draftId The SkillDraft UUID.
+     *
+     * @return ObjectEntity|null The pending approval, or null.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function findPendingApprovalForSkillDraft(string $draftId): ?ObjectEntity
+    {
+        if ($draftId === '') {
+            return null;
+        }
+
+        $objects = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::APPROVAL_SCHEMA)
+            ->findAll(
+                config: ['filters' => ['draftId' => $draftId, 'status' => 'pending']],
+                _rbac: false,
+                _multitenancy: false
+            );
+
+        foreach ($objects as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $data = $object->getObject();
+            if ((string) ($data['draftId'] ?? '') === $draftId
+                && (string) ($data['status'] ?? '') === 'pending'
+            ) {
+                return $object;
+            }
+        }
+
+        return null;
+
+    }//end findPendingApprovalForSkillDraft()
 
     /**
      * Find the open pending `toolcall` Approval for a correlationId, if one
@@ -1116,6 +1287,22 @@ class ApprovalService
             return ['status' => (string) ($data['status'] ?? ''), 'ran' => false];
         }
 
+        // Skill-self-improvement: a skill-draft Approval is only approvable while its
+        // draft holds VALID gate evidence — a content edit invalidates scan+eval and
+        // re-runs pre-qualification, and until it passes the transition is REFUSED
+        // from EVERY surface (the Approval stays pending, nothing is written), so an
+        // edited-but-unscanned body can never apply through an inbox approval.
+        if ((string) ($data['sourceType'] ?? '') === 'skill-draft') {
+            $consolidation = $this->container->get(SkillConsolidationService::class);
+            if ($consolidation->isDraftApprovable(draftId: (string) ($data['draftId'] ?? '')) === false) {
+                $this->logger->info(
+                    'Hermiq refused approval of skill-draft Approval '
+                    .((string) $approval->getUuid()).': the draft is awaiting re-qualification.'
+                );
+                return ['status' => 'pending', 'ran' => false];
+            }
+        }
+
         $data['status']    = 'approved';
         $data['decidedBy'] = $deciderUid;
         $data['decidedAt'] = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
@@ -1149,6 +1336,21 @@ class ApprovalService
      */
     private function resumeGatedRun(string $sourceType, array $data): bool
     {
+        if ($sourceType === 'skill-draft') {
+            // Skill-self-improvement: the pending→approved TRANSITION is the ONE
+            // applier — a decision from ANY surface (SkillDetail review card or the
+            // generic approval inbox) lands here and applies the draft's content
+            // onto the Skill through the normal versioned write path. Resolved
+            // lazily (the ScheduleService pattern) to avoid a constructor cycle.
+            $consolidation = $this->container->get(SkillConsolidationService::class);
+            $versionId     = $consolidation->applyDraft(
+                draftId: (string) ($data['draftId'] ?? ''),
+                deciderUid: (string) ($data['decidedBy'] ?? '')
+            );
+
+            return ($versionId !== null);
+        }
+
         if ($sourceType === 'toolcall' || $sourceType === 'tool') {
             // Design.md Decision 5: approving authorises exactly one future
             // matching retry (toolcall) or flips a permanent per-(agentId,toolId)
@@ -1220,6 +1422,17 @@ class ApprovalService
             owner: (string) ($approval->getOwner() ?? '')
         );
         $this->writeDecisionAudit(approval: $approval, action: 'deny', reason: $cleanReason);
+
+        if ((string) ($data['sourceType'] ?? '') === 'skill-draft') {
+            // Skill-self-improvement: denial from ANY surface reconciles the draft
+            // to `rejected` (idempotent — a draft already settled stays settled).
+            $consolidation = $this->container->get(SkillConsolidationService::class);
+            $consolidation->rejectDraftByDecision(
+                draftId: (string) ($data['draftId'] ?? ''),
+                deciderUid: $deciderUid,
+                note: $cleanReason
+            );
+        }
 
     }//end deny()
 

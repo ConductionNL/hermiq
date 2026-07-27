@@ -39,12 +39,11 @@ use Psr\Log\NullLogger;
  */
 class SkillServiceTest extends TestCase
 {
-
     /**
      * A Skill ObjectEntity with the given payload.
      *
      * @param array<string, mixed> $payload The object data.
-     * @param string                $uuid    The object uuid.
+     * @param string               $uuid    The object uuid.
      *
      * @return ObjectEntity
      */
@@ -61,7 +60,7 @@ class SkillServiceTest extends TestCase
      * An Agent ObjectEntity with the given payload.
      *
      * @param array<string, mixed>|null $payload The object data (null = agent not found).
-     * @param string                     $uuid    The object uuid.
+     * @param string                    $uuid    The object uuid.
      *
      * @return ObjectEntity|null
      */
@@ -405,4 +404,64 @@ class SkillServiceTest extends TestCase
         $this->assertSame('edited body', $saved['body'], 'Ordinary fields stay editable.');
 
     }//end testUpdateSkillIgnoresClientSuppliedComputedMaturity()
+
+    /**
+     * The publish-time file selection ships `learnings.md` and STRIPS
+     * `learning-candidates.md` — the ONE selection both publish routes (GitHub
+     * primary and the OpenConnector secondary via `exportSkill()`) use; the
+     * serializer's byte-for-byte fidelity is untouched because the strip is file
+     * SELECTION, not serialization.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    public function testPublishFileSelectionStripsCandidatesAndKeepsLearnings(): void
+    {
+        $skill = new ObjectEntity();
+        $skill->setUuid('skill-uuid');
+        $skill->setObject(
+            [
+                'name'        => 'tender-summary',
+                'frontmatter' => "name: tender-summary\ndescription: Summarise a tender publication.",
+                'body'        => "# Tender Summary\nBody line.",
+                'files'       => [
+                    [
+                        'name'    => 'references/exemption-grounds.md',
+                        'content' => 'reference content',
+                    ],
+                    [
+                        'name'    => 'learnings.md',
+                        'content' => '# Learnings',
+                    ],
+                    [
+                        'name'    => 'learning-candidates.md',
+                        'content' => '- [2026-07-20] {domain} unvetted observation <!-- runs: 00000000-0000-0000-0000-000000000000 -->',
+                    ],
+                ],
+            ]
+        );
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($skill);
+
+        $serializer = new SkillSerializer();
+        $service    = new SkillService($objectService, $serializer, new SkillMaturityService($objectService), new NullLogger());
+
+        $selection = $service->publishFileSelection(skillId: 'skill-uuid');
+        $names     = array_column($selection, 'name');
+
+        $this->assertContains('learnings.md', $names, 'A skill\'s vetted experience travels with it (ADR-068 §3).');
+        $this->assertContains('references/exemption-grounds.md', $names);
+        $this->assertNotContains('learning-candidates.md', $names, 'Unvetted observations never leave the instance.');
+
+        // Fidelity: the exported package's frontmatter/body round-trip byte-for-byte
+        // — the selection changed WHICH files ship, never how content serializes.
+        $package = $service->exportSkill(skillId: 'skill-uuid');
+        $parsed  = $serializer->fromPackage(package: (string) $package);
+        $this->assertSame($skill->getObject()['frontmatter'], $parsed['frontmatter']);
+        $this->assertSame($skill->getObject()['body'], $parsed['body']);
+        $this->assertStringNotContainsString('unvetted observation', (string) $package);
+
+    }//end testPublishFileSelectionStripsCandidatesAndKeepsLearnings()
 }//end class

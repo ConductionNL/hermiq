@@ -279,8 +279,10 @@ class SkillMarketplaceService
             return ['error' => ['code' => 'not_found', 'message' => 'Skill not found.']];
         }
 
-        // Serialise via the catalog serializer (agentskills.io) before any outbound call.
-        $package = $this->skillSerializer->toPackage(skill: $skill->getObject());
+        // Serialise via the ONE export selection (skills-marketplace delta): the
+        // OpenConnector secondary route applies the SAME `learning-candidates.md`
+        // strip as GitHub publish — unvetted observations never leave the instance.
+        $package = ($this->skillService->exportSkill(skillId: $skillId) ?? '');
 
         try {
             // Route outbound through OpenConnector's CallService — never a direct HTTP client.

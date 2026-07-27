@@ -328,7 +328,10 @@ class SkillMarketplaceController extends Controller
                 visibility: $visibility,
                 credentialId: $credentialId,
                 actingUserId: $user->getUID(),
-                kind: GitHubTemplatePushService::KIND_SKILL
+                kind: GitHubTemplatePushService::KIND_SKILL,
+                // Publish-time file SELECTION (skills-marketplace delta): learnings.md
+                // ships, learning-candidates.md is stripped — same selection as republish.
+                auxFiles: ($this->skillService->publishFileSelection(skillId: $id) ?? [])
             );
         } catch (RuntimeException $e) {
             $this->logger->warning('Hermiq skill github publish refused: '.$e->getMessage());

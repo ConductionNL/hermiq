@@ -335,6 +335,29 @@ return [
             'requirements' => ['id' => '[^/]+'],
         ],
 
+        // Skill self-improvement (skill-self-improvement): consolidation drafts —
+        // manual propose (owner-guarded, gated like the job), the SkillDetail draft
+        // list, edit-then-accept content update, and the accept/reject decisions
+        // (skill.review-draft, ADR-023) that transition the linked Approval.
+        [
+            'name'         => 'skillDraft#propose',
+            'url'          => '/api/skills/{id}/propose-improvement',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        ['name' => 'skillDraft#index', 'url' => '/api/skills/{id}/drafts', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillDraft#content', 'url' => '/api/skill-drafts/{id}/content', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillDraft#accept', 'url' => '/api/skill-drafts/{id}/accept', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillDraft#reject', 'url' => '/api/skill-drafts/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        // Skill versioning (skill-self-improvement): AuditTrail-backed history,
+        // content-plane diff, rollback-as-new-version (owner-guarded, 404 never 403),
+        // and the explicit one-click republish (skill.publish-hub, own provenance
+        // repo only, never automatic).
+        ['name' => 'skillVersion#index', 'url' => '/api/skills/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillVersion#diff', 'url' => '/api/skills/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillVersion#rollback', 'url' => '/api/skills/{id}/rollback', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillVersion#republish', 'url' => '/api/skills/{id}/republish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
         ['name' => 'skillMarketplace#approve',           'url' => '/api/skills/{id}/approve', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],

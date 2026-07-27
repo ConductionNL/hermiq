@@ -369,6 +369,124 @@ class DeliveryService
     }//end deliverApprovalRequestForWebhookRun()
 
     /**
+     * Notify a skill consolidation draft's resolved reviewer(s) that an approval is
+     * pending (skill-self-improvement, Art. 14) — the `sourceType: "skill-draft"`
+     * counterpart to the ensure-approval deliveries above. The display name is the
+     * skill's name (the human anchor of the review); the approval deep link leads to
+     * the inbox, whose payload carries the SkillDetail deep link with the full diff.
+     * NEVER throws for a delivery problem.
+     *
+     * @param ObjectEntity      $approval     The pending approval to link to.
+     * @param array<int,string> $reviewerUids The resolved reviewer user ids.
+     * @param string            $skillName    The skill's display name.
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function deliverApprovalRequestForSkillDraft(
+        ObjectEntity $approval,
+        array $reviewerUids,
+        string $skillName
+    ): DeliveryResult {
+        $data = $approval->getObject();
+
+        return $this->notifyApprovalReviewers(
+            approvalUuid: (string) $approval->getUuid(),
+            displayName: $skillName,
+            reviewerUids: $reviewerUids,
+            messageParams: ['draftId' => (string) ($data['draftId'] ?? '')]
+        );
+
+    }//end deliverApprovalRequestForSkillDraft()
+
+    /**
+     * Notify a skill's publisher that its published GitHub copy is now BEHIND the
+     * locally accepted version (skill-self-improvement republish signal). Raised once
+     * per newly-behind transition by the draft apply step — never on every pass, and
+     * never accompanied by any automatic GitHub call. NEVER throws.
+     *
+     * @param string $skillUuid    The skill UUID (deep link target).
+     * @param string $skillName    The skill's display name.
+     * @param string $recipientUid The publisher to notify.
+     *
+     * @return DeliveryResult The notification outcome.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+     */
+    public function deliverSkillPublishedBehind(string $skillUuid, string $skillName, string $recipientUid): DeliveryResult
+    {
+        if ($recipientUid === '') {
+            return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: 'No publisher to notify.');
+        }
+
+        try {
+            $notification = $this->notificationManager->createNotification();
+            $notification->setApp('hermiq')
+                ->setUser($recipientUid)
+                ->setDateTime(new DateTime())
+                ->setObject('skill', $skillUuid)
+                ->setSubject('skill_published_behind', ['name' => $skillName])
+                ->setMessage('skill_published_behind_summary', [])
+                ->setLink($this->buildSkillLink(uuid: $skillUuid));
+            $this->notificationManager->notify($notification);
+
+            return new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null);
+        } catch (Throwable $e) {
+            return new DeliveryResult(
+                delivered: false,
+                channel: 'none',
+                fellBack: false,
+                warning: sprintf('notify %s failed: %s', $recipientUid, $e->getMessage())
+            );
+        }
+
+    }//end deliverSkillPublishedBehind()
+
+    /**
+     * Notify the accepting reviewer that the NEXT eval run after their acceptance
+     * regressed — the advisory "roll back to previous version?" suggestion
+     * (skill-self-improvement regression watch). Advisory only: no rollback happens
+     * without an explicit request on SkillDetail. NEVER throws.
+     *
+     * @param string $skillUuid    The skill UUID (deep link target).
+     * @param string $skillName    The skill's display name.
+     * @param string $recipientUid The accepting reviewer to notify.
+     *
+     * @return DeliveryResult The notification outcome.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-post-acceptance-regression-surfaces-a-rollback-suggestion
+     */
+    public function deliverSkillRollbackSuggestion(string $skillUuid, string $skillName, string $recipientUid): DeliveryResult
+    {
+        if ($recipientUid === '') {
+            return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: 'No reviewer to notify.');
+        }
+
+        try {
+            $notification = $this->notificationManager->createNotification();
+            $notification->setApp('hermiq')
+                ->setUser($recipientUid)
+                ->setDateTime(new DateTime())
+                ->setObject('skill', $skillUuid)
+                ->setSubject('skill_rollback_suggested', ['name' => $skillName])
+                ->setMessage('skill_rollback_suggested_summary', [])
+                ->setLink($this->buildSkillLink(uuid: $skillUuid));
+            $this->notificationManager->notify($notification);
+
+            return new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null);
+        } catch (Throwable $e) {
+            return new DeliveryResult(
+                delivered: false,
+                channel: 'none',
+                fellBack: false,
+                warning: sprintf('notify %s failed: %s', $recipientUid, $e->getMessage())
+            );
+        }
+
+    }//end deliverSkillRollbackSuggestion()
+
+    /**
      * Shared reviewer-notification loop behind `deliverApprovalRequest()`,
      * `deliverApprovalRequestForFlowRun()`, and `deliverApprovalRequestForWebhookRun()`
      * (design.md Decision 3) — extracted so a THIRD near-identical copy (after the
@@ -1328,6 +1446,22 @@ class DeliveryService
         return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/approvals/'.$uuid);
 
     }//end buildApprovalLink()
+
+    /**
+     * Build an absolute deep link to a skill's SkillDetail page for a notification
+     * (skill-self-improvement: behind-badge + rollback-suggestion notifications).
+     *
+     * @param string $uuid The skill UUID.
+     *
+     * @return string The absolute URL.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+     */
+    private function buildSkillLink(string $uuid): string
+    {
+        return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/skills/'.$uuid);
+
+    }//end buildSkillLink()
 
     /**
      * Build an absolute deep link to the tenant-ops budgets surface for a notification.

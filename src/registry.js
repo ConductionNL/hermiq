@@ -77,6 +77,11 @@ import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
 // skill-learnings: the SkillDetail page's read-only Learnings card (rendered
 // learnings.md + l6 activity strip; honest empty state; no edit affordance).
 import SkillLearnings from './widgets/SkillLearnings.vue'
+// skill-self-improvement: the SkillDetail draft review surface (side-by-side
+// diff, provenance, verdicts, Accept/Edit/Reject) and the version history +
+// rollback + republish widget.
+import SkillDraftReview from './widgets/SkillDraftReview.vue'
+import SkillVersionHistory from './widgets/SkillVersionHistory.vue'
 // agent-template-github-store: the GitHub-backed store section on the unified
 // Store page (formerly AgentTemplateGallery), resolved via
 // page.slots.below-header. Generalised by hermiq-github-store to discover
@@ -596,6 +601,42 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'Joins the skill\'s levelEvidence.l5, the datasets whose skillRefs reference it, and the paired EvalRun history — a cross-schema read + a bespoke trigger action (EvalRunController), not expressible as object-table/object-op (ADR-049).',
+	},
+
+	/**
+	 * Draft review surface on SkillDetail (skill-self-improvement): the
+	 * awaiting-approval draft's side-by-side diff, driving learnings entries,
+	 * scan verdict, eval delta / verbatim no-eval-evidence flag, and the three
+	 * action-gated decisions (Accept / Edit-then-accept / Reject with
+	 * bad-learnings marking) — plus the owner-guarded manual Propose trigger.
+	 */
+	'skill-draft-review': {
+		kind: 'widget',
+		component: SkillDraftReview,
+		defaultSize: { w: 12, h: 7 },
+		minSize: { w: 6, h: 5 },
+		maxSize: { w: 12, h: 14 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Joins the SkillDraft pipeline (bespoke SkillDraftController endpoints deciding via the Approval state machine, ADR-023 action-gated) with the active skill — a review/decision surface, not expressible as object-table/object-op (ADR-049).',
+	},
+
+	/**
+	 * Version history + rollback + republish on SkillDetail
+	 * (skill-self-improvement, mirroring agent-versioning): AuditTrail-backed
+	 * history, content-plane diff, explicit rollback-as-new-version, the
+	 * behind-badge and the never-automatic one-click Republish, plus the
+	 * advisory post-acceptance rollback-suggestion banner.
+	 */
+	'skill-version-history': {
+		kind: 'widget',
+		component: SkillVersionHistory,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Versions ARE AuditTrail entries read through bespoke SkillVersionController endpoints (history/diff/rollback/republish) — not expressible as object-table/object-op (ADR-049); rollback and republish are explicit human actions by spec.',
 	},
 
 	/**

@@ -107,6 +107,17 @@ class BudgetService
     private const EVALRUN_SCHEMA = 'evalrun';
 
     /**
+     * The OpenRegister schema slug for skill consolidation drafts
+     * (skill-self-improvement): a consolidation pass's LLM usage is recorded as an
+     * `action='run'` AuditTrail entry on the draft, so draft UUIDs join the same
+     * scope union eval runs did — one usage-aggregation code path, no separate
+     * spend meter.
+     *
+     * @var string
+     */
+    private const SKILLDRAFT_SCHEMA = 'agentskilldraft';
+
+    /**
      * The audit action written per run by ScheduleService/FlowAgentRunService.
      *
      * @var string
@@ -892,7 +903,17 @@ class BudgetService
             agentId: $agentId
         );
 
-        return array_merge($uuids, $evalRunUuids);
+        // Skill-self-improvement: consolidation drafts join the union so the
+        // consolidation LLM pass's `action='run'` usage rolls into the SAME budget
+        // total (the agent-evals precedent). Additive: no drafts ⇒ unchanged set.
+        $draftUuids = $this->loadInScopeUuidsForSchema(
+            schema: self::SKILLDRAFT_SCHEMA,
+            scope: $scope,
+            organisation: $organisation,
+            agentId: $agentId
+        );
+
+        return array_merge($uuids, $evalRunUuids, $draftUuids);
 
     }//end loadScheduleUuidsForScope()
 

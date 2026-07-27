@@ -53,6 +53,7 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -147,27 +148,36 @@ class EvalRunService
     /**
      * Constructor.
      *
-     * @param ObjectService      $objectService    Loads the dataset's cases source-of-truth
-     *                                             and persists the EvalRun (single
-     *                                             write-path).
-     * @param ScheduleService    $scheduleService  Reused kill-switch check
-     *                                             (`isOrganisationEngaged()`)
-     *                                             AND the reused
-     *                                             agent-turn dispatch
-     *                                             (`runAgentAsOwner()`)
-     *                                             — the SAME
-     *                                             ScheduleService/Engine
-     *                                             path a scheduled run
-     *                                             uses.
-     * @param BudgetService      $budgetService    Reused budget hard-cap gate + soft-threshold
-     *                                             warning (cost-guardrails).
-     * @param EvalScoringService $scoringService   Deterministic + LLM-as-judge case scoring.
-     * @param AuditTrailMapper   $auditTrailMapper OR audit write-path for the redacted
-     *                                             per-run entry.
-     * @param RedactionService   $redactionService Masks secrets/PII before the audit write.
-     * @param IAppConfig         $appConfig        Reads the instance-wide regression-gate
-     *                                             threshold default.
-     * @param LoggerInterface    $logger           Logs gate skips + non-fatal failures.
+     * @param ObjectService       $objectService       Loads the dataset's cases source-of-truth
+     *                                                 and persists the EvalRun (single
+     *                                                 write-path).
+     * @param ScheduleService     $scheduleService     Reused kill-switch check
+     *                                                 (`isOrganisationEngaged()`)
+     *                                                 AND the reused
+     *                                                 agent-turn dispatch
+     *                                                 (`runAgentAsOwner()`)
+     *                                                 — the SAME
+     *                                                 ScheduleService/Engine
+     *                                                 path a scheduled run
+     *                                                 uses.
+     * @param BudgetService       $budgetService       Reused budget hard-cap gate + soft-threshold
+     *                                                 warning (cost-guardrails).
+     * @param EvalScoringService  $scoringService      Deterministic + LLM-as-judge case scoring.
+     * @param AuditTrailMapper    $auditTrailMapper    OR audit write-path for the redacted
+     *                                                 per-run entry.
+     * @param RedactionService    $redactionService    Masks secrets/PII before the audit write.
+     * @param IAppConfig          $appConfig           Reads the instance-wide regression-gate
+     *                                                 threshold default.
+     * @param LoggerInterface     $logger              Logs gate skips + non-fatal failures.
+     * @param ContextAssembler    $contextAssembler    The engine's skill-exposure seam —
+     *                                                 the draft comparison sets its
+     *                                                 transient CONTENT override around
+     *                                                 the draft half (skill-self-improvement).
+     * @param SkillVersionService $skillVersionService Never-fatal skill version pins for the
+     *                                                 run audit entry (skill-self-improvement).
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
+     *   a distinct injected collaborator, not a logic-bearing argument list.
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -178,6 +188,8 @@ class EvalRunService
         private readonly RedactionService $redactionService,
         private readonly IAppConfig $appConfig,
         private readonly LoggerInterface $logger,
+        private readonly ContextAssembler $contextAssembler,
+        private readonly SkillVersionService $skillVersionService,
     ) {
     }//end __construct()
 
@@ -296,6 +308,181 @@ class EvalRunService
         );
 
     }//end run()
+
+    /**
+     * Run the DRAFT-vs-ACTIVE paired comparison for one skill (skill-self-improvement
+     * pre-qualification): two sequential halves over the same frozen agent/dataset/
+     * cases — the ACTIVE half with the stored skill content, the DRAFT half with the
+     * draft's content swapped in via the ContextAssembler's transient IN-MEMORY
+     * override (the thin adapter over the per-run skill-set seam; no stored object is
+     * ever written). Kill-switch and budget gates apply exactly as `run()` applies
+     * them. Persisted as ONE EvalRun with the dedicated `draft-comparison` status so
+     * it can NEVER become a regression-gate baseline (`findPreviousCompletedRun()`
+     * only matches `completed`), and NEVER writes `levelEvidence.l5` (spec: accepting
+     * an unmeasured draft never grants L5; measured evidence stays `skill-evals`'
+     * paired mode's).
+     *
+     * @param ObjectEntity         $dataset      The linked EvalDataset (frozen cases).
+     * @param Agent                $agent        The agent to execute the halves as.
+     * @param string               $skillId      The skill under comparison.
+     * @param array<string, mixed> $draftContent The draft's `{name, description, body}`
+     *                                           override for the draft half.
+     *
+     * @return array{evalRunId:string,status:string,draftPassRate:float,activePassRate:float}
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-and-its-evals-respect-the-kill-switch-and-budget-hard-caps
+     */
+    public function runDraftComparison(
+        ObjectEntity $dataset,
+        Agent $agent,
+        string $skillId,
+        array $draftContent
+    ): array {
+        $organisation = (string) ($agent->getOrganisation() ?? '');
+        $agentId      = (string) $agent->getUuid();
+        $datasetId    = (string) $dataset->getUuid();
+        $owner        = (string) ($agent->getOwner() ?? '');
+        $startedAt    = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        // GATE 1 — KILL-SWITCH (exactly like run()).
+        if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+            $skip = $this->persistGateSkip(
+                dataset: $dataset,
+                agentId: $agentId,
+                organisation: $organisation,
+                agentVersionId: null,
+                status: 'blocked_killswitch',
+                startedAt: $startedAt
+            );
+            return [
+                'evalRunId'      => (string) $skip['evalRunId'],
+                'status'         => 'blocked_killswitch',
+                'draftPassRate'  => 0.0,
+                'activePassRate' => 0.0,
+            ];
+        }
+
+        // GATE 2 — BUDGET HARD CAP (exactly like run()).
+        if ($this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true) {
+            $skip = $this->persistGateSkip(
+                dataset: $dataset,
+                agentId: $agentId,
+                organisation: $organisation,
+                agentVersionId: null,
+                status: 'blocked_budget',
+                startedAt: $startedAt
+            );
+            return [
+                'evalRunId'      => (string) $skip['evalRunId'],
+                'status'         => 'blocked_budget',
+                'draftPassRate'  => 0.0,
+                'activePassRate' => 0.0,
+            ];
+        }
+
+        $data  = $dataset->getObject();
+        $cases = ($data['cases'] ?? []);
+        if (is_array($cases) === false) {
+            $cases = [];
+        }
+
+        [$installedSkills] = $this->agentSkillProfile(agentId: $agentId);
+        $withSet           = array_values(array_unique(array_merge($installedSkills, [$skillId])));
+
+        $aggregateUsage = [
+            'promptTokens'     => 0,
+            'completionTokens' => 0,
+        ];
+        $skillsUsed     = [];
+
+        // ACTIVE half: the stored skill content, same effective set.
+        $activeHalf = $this->runHalf(
+            cases: $cases,
+            owner: $owner,
+            agentId: $agentId,
+            organisation: $organisation,
+            skillSetOverride: $withSet,
+            aggregateUsage: $aggregateUsage,
+            skillsUsed: $skillsUsed
+        );
+
+        // DRAFT half: identical set, the draft's content swapped in IN MEMORY only —
+        // cleared in `finally` so no later run can ever see it.
+        $this->contextAssembler->setTransientSkillContentOverride(override: [$skillId => $draftContent]);
+        try {
+            $draftHalf = $this->runHalf(
+                cases: $cases,
+                owner: $owner,
+                agentId: $agentId,
+                organisation: $organisation,
+                skillSetOverride: $withSet,
+                aggregateUsage: $aggregateUsage,
+                skillsUsed: $skillsUsed
+            );
+        } finally {
+            $this->contextAssembler->setTransientSkillContentOverride(override: null);
+        }
+
+        $activePassRate = $activeHalf['passRate'];
+        $draftPassRate  = $draftHalf['passRate'];
+        $hadInfraError  = ($activeHalf['hadInfraError'] === true || $draftHalf['hadInfraError'] === true);
+
+        $status = 'draft-comparison';
+        if ($hadInfraError === true) {
+            // An infrastructure error means the comparison is NOT evidence — the
+            // caller treats a failed comparison as "eval unavailable" (fail closed).
+            $status = 'failed';
+        }
+
+        $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+
+        $saved = $this->persistEvalRun(
+            datasetId: $datasetId,
+            agentId: $agentId,
+            organisation: $organisation,
+            agentVersionId: null,
+            status: $status,
+            startedAt: $startedAt,
+            endedAt: $endedAt,
+            results: $draftHalf['results'],
+            passRate: $draftPassRate,
+            regressionGateResult: 'not_applicable',
+            previousPassRate: null,
+            regressionThresholdPercent: 0,
+            extra: [
+                'baselineResults'  => $activeHalf['results'],
+                'baselinePassRate' => $activePassRate,
+                'skillResults'     => [
+                    [
+                        'skillId'         => $skillId,
+                        'passRateWith'    => $draftPassRate,
+                        'passRateWithout' => $activePassRate,
+                        'baselineDelta'   => ($draftPassRate - $activePassRate),
+                    ],
+                ],
+            ]
+        );
+
+        // Both halves' usage in ONE audit entry — the EvalRun UUID is already in
+        // BudgetService's scope union, so the spend rolls into the same budgets.
+        $this->writeRunAudit(
+            evalRun: $saved,
+            status: $status,
+            usage: $aggregateUsage,
+            passRate: $draftPassRate,
+            startedAt: $startedAt,
+            skillsUsed: $skillsUsed
+        );
+
+        return [
+            'evalRunId'      => (string) $saved->getUuid(),
+            'status'         => $status,
+            'draftPassRate'  => $draftPassRate,
+            'activePassRate' => $activePassRate,
+        ];
+
+    }//end runDraftComparison()
 
     /**
      * The dataset's linked skill uuids (`skillRefs`), filtered to non-empty strings.
@@ -1152,21 +1339,25 @@ class EvalRunService
             $summary = sprintf('Eval run %s — pass rate %.2f', $status, $passRate);
 
             $context = [
-                'status'     => $status,
-                'startedAt'  => $startedAt->format('c'),
-                'endedAt'    => $endedAt->format('c'),
-                'durationMs' => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
+                'status'        => $status,
+                'startedAt'     => $startedAt->format('c'),
+                'endedAt'       => $endedAt->format('c'),
+                'durationMs'    => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
                 // Run-analytics/cost-guardrails: the SAME shape ScheduleService::writeRunAudit()
                 // records, so BudgetService's existing `currentUsageTokens()` reader needs no
                 // eval-specific branch.
-                'usage'      => $usage,
+                'usage'         => $usage,
                 // Skill-evals: which skill uuids the run(s) actually exposed — the same
                 // key ScheduleService::writeRunAudit() records for scheduled runs.
-                'skillsUsed' => $skillsUsed,
+                'skillsUsed'    => $skillsUsed,
+                // Skill-self-improvement: pin each exposed skill's version as of run
+                // start (AuditTrail entry UUID) alongside the existing agent-version
+                // pin. Never fatal — an unresolvable skill is simply absent.
+                'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $skillsUsed),
                 // REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write
                 // (ADR-004). The raw, unredacted per-case output only ever lives on the
                 // EvalRun object itself (tenant/RBAC-scoped like any other Hermiq object).
-                'summary'    => $this->redactionService->redact($summary),
+                'summary'       => $this->redactionService->redact($summary),
             ];
 
             $this->auditTrailMapper->createAuditTrailEntry(

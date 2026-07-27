@@ -92,6 +92,9 @@ class FlowAgentRunService
      * @param AgentVersionService $agentVersionService Resolves the executing agent's current version
      *                                                 identifier, pinned onto the run-audit context
      *                                                 (agent-versioning).
+     * @param SkillVersionService $skillVersionService Resolves the exposed skills' version identifiers,
+     *                                                 pinned onto the run-audit context
+     *                                                 (skill-self-improvement) — never fatal to the run.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -106,6 +109,7 @@ class FlowAgentRunService
         private readonly ApprovalService $approvalService,
         private readonly BudgetService $budgetService,
         private readonly AgentVersionService $agentVersionService,
+        private readonly SkillVersionService $skillVersionService,
     ) {
     }//end __construct()
 
@@ -442,6 +446,10 @@ class FlowAgentRunService
                 // Agent-versioning: the version of the agent config that actually ran
                 // this occurrence (null when unresolvable — never fatal to the run).
                 'agentVersion'  => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+                // Skill-self-improvement: which skills the run-loop seam exposed and
+                // each one's pinned version as of run start (never fatal).
+                'skillsUsed'    => $this->scheduleService->getLastRunSkillsUsed(),
+                'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $this->scheduleService->getLastRunSkillsUsed()),
             ];
 
             $this->auditTrailMapper->createAuditTrailEntry(

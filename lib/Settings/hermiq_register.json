@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud. v0.18.0 — Skill (agentskill) levelEvidence.l6 gains the OPTIONAL capture-activity fields candidateCount + lastCaptureAt (skill-learnings, ADR-068 §3), declared explicitly because OpenRegister silently drops undeclared object keys on write; both are written only by the learnings capture/promotion subsystem. Nothing added to required; no conditionals; no existing object becomes invalid; all other schemas unchanged.",
-        "version": "0.18.0"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.19.0 — skill-self-improvement (ADR-068 §5): new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill (agentskill) gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Nothing added to any existing required list; no existing object becomes invalid; all other schemas unchanged.",
+        "version": "0.19.0"
     },
     "x-openregister": {
         "type": "application",
@@ -288,11 +288,12 @@
                             "flow",
                             "webhook",
                             "tool",
-                            "toolcall"
+                            "toolcall",
+                            "skill-draft"
                         ],
                         "default": "schedule",
                         "title": "Source type",
-                        "description": "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, a webhook-triggered agent run, an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds), or a guardrail-policy confirm-classified tool call (nothing auto-resumes — the next MATCHING agentId+toolId+arguments attempt within the validity window proceeds exactly once, then the authorization expires)."
+                        "description": "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, a webhook-triggered agent run, an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds), a guardrail-policy confirm-classified tool call (nothing auto-resumes — the next MATCHING agentId+toolId+arguments attempt within the validity window proceeds exactly once, then the authorization expires), or a skill consolidation draft (skill-self-improvement: the pending→approved transition applies the draft onto the Skill as a new version from ANY surface; denial reconciles the draft to rejected)."
                     },
                     "scheduleId": {
                         "type": "string",
@@ -384,6 +385,48 @@
                         "type": "string",
                         "title": "Reason",
                         "description": "Optional decision reason (typically supplied on denial)."
+                    },
+                    "draftId": {
+                        "type": "string",
+                        "title": "Skill draft",
+                        "description": "UUID of the SkillDraft this Approval decides. Present only when sourceType=skill-draft."
+                    },
+                    "skillId": {
+                        "type": "string",
+                        "title": "Skill",
+                        "description": "UUID of the Skill the gated draft would become a new version of. Present only when sourceType=skill-draft."
+                    },
+                    "draftPayload": {
+                        "type": "object",
+                        "title": "Draft decision evidence",
+                        "description": "REQUIRED at creation for sourceType=skill-draft (an Approval missing any field is invalid and never reaches an inbox): everything an informed out-of-band decision needs without opening SkillDetail.",
+                        "properties": {
+                            "deepLink": {
+                                "type": "string",
+                                "title": "Deep link",
+                                "description": "Deep link to the SkillDetail review surface carrying the full side-by-side diff."
+                            },
+                            "scanVerdict": {
+                                "type": "string",
+                                "title": "Scan verdict",
+                                "description": "The content-scan verdict recorded during pre-qualification (learnings.md scanned as instruction content)."
+                            },
+                            "evalDelta": {
+                                "type": "number",
+                                "title": "Eval delta",
+                                "description": "The paired draft-vs-active eval delta (draftPassRate - activePassRate). Absent when noEvalEvidence is true."
+                            },
+                            "noEvalEvidence": {
+                                "type": "boolean",
+                                "title": "No eval evidence",
+                                "description": "True when the skill has no linked EvalDataset — the draft survived pre-qualification honestly unmeasured and can never grant L5."
+                            },
+                            "learningsSummary": {
+                                "type": "string",
+                                "title": "Learnings summary",
+                                "description": "One-line summary of the driving learnings entries behind the proposal."
+                            }
+                        }
                     }
                 }
             },
@@ -1371,6 +1414,12 @@
                         "title": "Published at",
                         "description": "When this skill was last published to GitHub. Provenance only — never round-tripped through the exported package."
                     },
+                    "lastAcceptedVersionAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Last accepted version at",
+                        "description": "When a consolidation draft was last accepted onto this skill (skill-self-improvement). Stamped by the draft-acceptance service, never hand-set. A value postdating publishedAt on a GitHub-published skill drives the client-side 'published copy is behind' badge. Hermiq metadata only — never round-tripped through the exported agentskills.io package."
+                    },
                     "maturityLevel": {
                         "type": "integer",
                         "minimum": 0,
@@ -1608,6 +1657,217 @@
                         "default": "package",
                         "title": "Type",
                         "description": "The source kind."
+                    }
+                }
+            },
+            "SkillDraft": {
+                "slug": "agentskilldraft",
+                "icon": "FileDocumentEditOutline",
+                "version": "0.1.0",
+                "title": "Skill draft",
+                "description": "A machine-proposed DRAFT new version of a Skill (skill-self-improvement, ADR-068 §5). The active skill is NEVER edited in place: consolidation writes only draft objects, every draft passes a content scan (learnings.md treated as instruction content) and a paired draft-vs-active eval before a human sees it, and acceptance runs through the human-approval-gate Approval state machine. Slug namespaced (agentskilldraft) to avoid a cross-app slug collision. At most ONE draft per skill may be open (proposed/awaiting-approval).",
+                "type": "object",
+                "required": [
+                    "skillId"
+                ],
+                "x-openregister": {
+                    "publicRead": false,
+                    "publicWrite": false
+                },
+                "properties": {
+                    "skillId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Skill",
+                        "description": "UUID of the Skill this draft proposes a new version of.",
+                        "example": "00000000-0000-0000-0000-000000000000",
+                        "$ref": "Skill"
+                    },
+                    "baseVersionId": {
+                        "type": "string",
+                        "title": "Base version",
+                        "description": "The active skill version (AuditTrail entry UUID) this draft was proposed against — pinned at proposal time so the review diff is unambiguous."
+                    },
+                    "trigger": {
+                        "type": "string",
+                        "enum": [
+                            "threshold",
+                            "regression",
+                            "manual"
+                        ],
+                        "title": "Trigger",
+                        "description": "What proposed this draft: the learnings-entry threshold, a linked eval run failing the regression gate, or the manual Propose improvement action."
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "proposed",
+                            "awaiting-approval",
+                            "accepted",
+                            "rejected",
+                            "discarded"
+                        ],
+                        "default": "proposed",
+                        "title": "Status",
+                        "description": "Pipeline state (service-owned; see design.md Decision 1): proposed → awaiting-approval → accepted|rejected, with discarded reachable only from proposed (scan/eval auto-discard). Hand-setting 'accepted' through the generic object path changes a label, not the skill — content applies ONLY on the linked Approval's pending→approved transition."
+                    },
+                    "proposedFrontmatter": {
+                        "type": "string",
+                        "title": "Proposed frontmatter",
+                        "description": "The draft's proposed raw agentskills.io frontmatter block."
+                    },
+                    "proposedBody": {
+                        "type": "string",
+                        "title": "Proposed body",
+                        "description": "The draft's proposed skill body (markdown)."
+                    },
+                    "proposedFiles": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Proposed files",
+                        "description": "The draft's proposed auxiliary files.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "title": "File name",
+                                    "description": "The auxiliary file's name."
+                                },
+                                "content": {
+                                    "type": "string",
+                                    "title": "File content",
+                                    "description": "The auxiliary file's raw content."
+                                }
+                            }
+                        }
+                    },
+                    "provenance": {
+                        "type": "object",
+                        "title": "Provenance",
+                        "description": "What drove this proposal — reconstructable evidence, never prose.",
+                        "properties": {
+                            "learningRefs": {
+                                "type": "array",
+                                "default": [],
+                                "title": "Driving learnings entries",
+                                "description": "Dated-entry keys (YYYY-MM-DD-<hash>) of the learnings.md entries that drove this proposal.",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "runIds": {
+                                "type": "array",
+                                "default": [],
+                                "title": "Run IDs",
+                                "description": "Run identifiers recorded on the driving learnings entries.",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "triggerEvalRunId": {
+                                "type": "string",
+                                "title": "Triggering eval run",
+                                "description": "The regressed EvalRun UUID when trigger=regression."
+                            }
+                        }
+                    },
+                    "scanVerdict": {
+                        "type": "string",
+                        "title": "Scan verdict",
+                        "description": "The pre-qualification content-scan severity (clean/suspicious/dangerous) over frontmatter+body+ALL files with learnings.md scanned as instruction content. Cleared when the draft content is edited (re-qualification required)."
+                    },
+                    "scanReport": {
+                        "type": "object",
+                        "title": "Scan report",
+                        "description": "The full ContentScanService report backing scanVerdict."
+                    },
+                    "evalEvidence": {
+                        "type": "object",
+                        "title": "Eval evidence",
+                        "description": "The paired draft-vs-active eval outcome (skill-evals paired seam). Cleared when the draft content is edited (re-qualification required).",
+                        "properties": {
+                            "datasetId": {
+                                "type": "string",
+                                "title": "Dataset",
+                                "description": "The linked EvalDataset UUID the paired comparison ran on."
+                            },
+                            "draftPassRate": {
+                                "type": "number",
+                                "title": "Draft pass rate",
+                                "description": "The draft half's pass rate (0–1)."
+                            },
+                            "activePassRate": {
+                                "type": "number",
+                                "title": "Active pass rate",
+                                "description": "The active half's pass rate (0–1)."
+                            },
+                            "delta": {
+                                "type": "number",
+                                "title": "Delta",
+                                "description": "draftPassRate - activePassRate."
+                            },
+                            "draftEvalRunId": {
+                                "type": "string",
+                                "title": "Draft eval run",
+                                "description": "The EvalRun UUID recording the comparison (draft half)."
+                            },
+                            "activeEvalRunId": {
+                                "type": "string",
+                                "title": "Active eval run",
+                                "description": "The EvalRun UUID recording the comparison (active half)."
+                            }
+                        }
+                    },
+                    "noEvalEvidence": {
+                        "type": "boolean",
+                        "title": "No eval evidence",
+                        "description": "True when the skill has no linked EvalDataset: the draft survives to review honestly unmeasured, the review surface says so verbatim, and accepting it never writes levelEvidence.l5."
+                    },
+                    "approvalId": {
+                        "type": "string",
+                        "title": "Approval",
+                        "description": "UUID of the linked human-approval-gate Approval object (sourceType=skill-draft) — the ONE human-decision surface; its pending→approved transition is the only applier."
+                    },
+                    "editedBeforeAccept": {
+                        "type": "boolean",
+                        "title": "Edited before accept",
+                        "description": "Whether a reviewer edited the proposed content before accepting (human curation is evidence — recorded, never noise)."
+                    },
+                    "editedBy": {
+                        "type": "string",
+                        "title": "Edited by",
+                        "description": "The user id who edited the draft content (edit-then-accept, SkillDetail-only)."
+                    },
+                    "rejectedLearningRefs": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Rejected learnings entries",
+                        "description": "Dated-entry keys the rejecting curator marked as bad — excluded from driving the skill's next proposal. Marking lives HERE, never as an edit to learnings.md.",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "auditNote": {
+                        "type": "string",
+                        "title": "Audit note",
+                        "description": "The last transition's gate evidence note (discard reason with scan verdict or both pass rates, acceptance version id, …)."
+                    },
+                    "decidedBy": {
+                        "type": "string",
+                        "title": "Decided by",
+                        "description": "The user id whose Approval decision settled this draft (accepted/rejected)."
+                    },
+                    "decidedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Decided at",
+                        "description": "When the draft was settled (accepted/rejected/discarded)."
+                    },
+                    "regressionNotifiedRunId": {
+                        "type": "string",
+                        "title": "Regression notified for run",
+                        "description": "Service bookkeeping: the failing post-acceptance EvalRun UUID the accepting reviewer was already notified about, so the rollback suggestion notifies once per regressing run — never a repeat."
                     }
                 }
             },
@@ -2902,10 +3162,11 @@
                             "completed",
                             "failed",
                             "blocked_killswitch",
-                            "blocked_budget"
+                            "blocked_budget",
+                            "draft-comparison"
                         ],
                         "title": "Status",
-                        "description": "completed = every case executed (individual cases may still fail their own assertion); failed = an infrastructure-level error (e.g. no LLM provider configured) hit at least one case; blocked_killswitch/blocked_budget = the run never executed any case because the target organisation's kill-switch was engaged or its budget hard cap was reached."
+                        "description": "completed = every case executed (individual cases may still fail their own assertion); failed = an infrastructure-level error (e.g. no LLM provider configured) hit at least one case; blocked_killswitch/blocked_budget = the run never executed any case because the target organisation's kill-switch was engaged or its budget hard cap was reached; draft-comparison = a skill-self-improvement draft-vs-active pre-qualification comparison — deliberately NOT 'completed' so it can never become a regression-gate baseline and never writes levelEvidence.l5."
                     },
                     "startedAt": {
                         "type": "string",

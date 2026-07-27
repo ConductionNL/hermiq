@@ -132,9 +132,95 @@ class SkillService
             return null;
         }
 
-        return $this->skillSerializer->toPackage(skill: $skill->getObject());
+        return $this->skillSerializer->toPackage(skill: $this->applyPublishFileSelection(data: $skill->getObject()));
 
     }//end exportSkill()
+
+    /**
+     * The publish-time FILE SELECTION (skill-self-improvement / skills-marketplace
+     * delta): the exported/committed package ships `files['learnings.md']` (a skill's
+     * vetted experience travels with it — ADR-068 §3) but STRIPS
+     * `files['learning-candidates.md']` — unvetted observations never leave the
+     * instance. This is selection, not serialization: `SkillSerializer`'s
+     * byte-for-byte round-trip of the files it does emit is untouched. Both publish
+     * routes (GitHub primary AND the OpenConnector `publishToHub` secondary) export
+     * through this one selection.
+     *
+     * @param string $skillId The Skill UUID.
+     *
+     * @return array<int, array{name: string, content: string}>|null The selected
+     *         files, or null when the skill is not found (tenant-scoped, 404 shape).
+     *
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    public function publishFileSelection(string $skillId): ?array
+    {
+        $skill = $this->getSkill(skillId: $skillId);
+        if ($skill === null) {
+            return null;
+        }
+
+        $selected = $this->applyPublishFileSelection(data: $skill->getObject());
+        $files    = ($selected['files'] ?? []);
+        if (is_array($files) === false) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($files as $file) {
+            if (is_array($file) === false) {
+                continue;
+            }
+
+            $name = (string) ($file['name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+
+            $out[] = [
+                'name'    => $name,
+                'content' => (string) ($file['content'] ?? ''),
+            ];
+        }
+
+        return $out;
+
+    }//end publishFileSelection()
+
+    /**
+     * Apply the export file selection to a skill payload: drop
+     * `learning-candidates.md`, keep everything else (including `learnings.md`)
+     * byte-identical. Never touches the stored object.
+     *
+     * @param array<string, mixed> $data The skill payload.
+     *
+     * @return array<string, mixed> The payload with the selection applied.
+     *
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    private function applyPublishFileSelection(array $data): array
+    {
+        $files = ($data['files'] ?? []);
+        if (is_array($files) === false) {
+            return $data;
+        }
+
+        $data['files'] = array_values(
+                array_filter(
+            $files,
+            static function ($file): bool {
+                if (is_array($file) === false) {
+                    return false;
+                }
+
+                return (string) ($file['name'] ?? '') !== SkillLearningsCaptureService::CANDIDATES_FILE;
+            }
+        )
+                );
+
+        return $data;
+
+    }//end applyPublishFileSelection()
 
     /**
      * Stamp GitHub publish provenance onto a Skill — `githubOwner`/`githubRepo`/

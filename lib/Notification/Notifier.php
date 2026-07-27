@@ -64,6 +64,8 @@ class Notifier implements INotifier
         'budget_soft_threshold',
         'run_dead_letter',
         'schedule_paused_circuit_breaker',
+        'skill_published_behind',
+        'skill_rollback_suggested',
     ];
 
     /**
@@ -176,6 +178,14 @@ class Notifier implements INotifier
 
         if ($subjectKey === 'schedule_paused_circuit_breaker') {
             return $this->circuitBreakerPausedText(name: $name, l: $l);
+        }
+
+        if ($subjectKey === 'skill_published_behind') {
+            return $this->skillPublishedBehindText(name: $name, l: $l);
+        }
+
+        if ($subjectKey === 'skill_rollback_suggested') {
+            return $this->skillRollbackSuggestedText(name: $name, l: $l);
         }
 
         return $this->runCompleteText(name: $name, l: $l);
@@ -293,4 +303,53 @@ class Notifier implements INotifier
         return [$subject, $l->t('It was disabled after repeated failures. Review it and re-enable when ready.')];
 
     }//end circuitBreakerPausedText()
+
+    /**
+     * The `skill_published_behind` wording (skill-self-improvement): an accepted
+     * skill version postdates the GitHub publish — an explicit, never-automatic
+     * republish is available.
+     *
+     * @param string $name The skill's display name, when known.
+     * @param IL10N  $l    The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+     */
+    private function skillPublishedBehindText(string $name, IL10N $l): array
+    {
+        $subject = $l->t('A published skill is behind its accepted version');
+        if ($name !== '') {
+            $subject = $l->t('Published copy of “%s” is behind', [$name]);
+        }
+
+        $message = $l->t('A newer version was accepted locally. Republish it to GitHub when you are ready — nothing is pushed automatically.');
+
+        return [$subject, $message];
+
+    }//end skillPublishedBehindText()
+
+    /**
+     * The `skill_rollback_suggested` wording (skill-self-improvement): the next eval
+     * run after an accepted draft regressed — an advisory rollback suggestion.
+     *
+     * @param string $name The skill's display name, when known.
+     * @param IL10N  $l    The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-post-acceptance-regression-surfaces-a-rollback-suggestion
+     */
+    private function skillRollbackSuggestedText(string $name, IL10N $l): array
+    {
+        $subject = $l->t('A skill may need a rollback');
+        if ($name !== '') {
+            $subject = $l->t('“%s” regressed after its last accepted version', [$name]);
+        }
+
+        $message = $l->t('The first eval run after acceptance failed the regression gate. Review the versions and roll back if you agree.');
+
+        return [$subject, $message];
+
+    }//end skillRollbackSuggestedText()
 }//end class

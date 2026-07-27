@@ -34,10 +34,12 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\BudgetService;
+use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\EvalScoringService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleService;
+use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -226,8 +228,8 @@ class EvalRunServicePairedTest extends TestCase
     /**
      * An ObjectEntity with the given uuid + payload.
      *
-     * @param string               $uuid    The object uuid.
-     * @param array<string,mixed>  $payload The object data.
+     * @param string              $uuid    The object uuid.
+     * @param array<string,mixed> $payload The object data.
      *
      * @return ObjectEntity
      */
@@ -402,6 +404,8 @@ class EvalRunServicePairedTest extends TestCase
             redactionService: $redaction,
             appConfig: $appConfig,
             logger: $this->createMock(LoggerInterface::class),
+            contextAssembler: $this->createMock(ContextAssembler::class),
+            skillVersionService: $this->createMock(SkillVersionService::class),
         );
 
     }//end service()
@@ -772,12 +776,15 @@ class EvalRunServicePairedTest extends TestCase
      */
     public function testRegressionGateComparesWithHalfAgainstPreviousPlainRun(): void
     {
-        $previous = $this->entity('previous-run', [
-            'datasetId' => 'dataset-uuid',
-            'agentId'   => 'agent-uuid',
-            'status'    => 'completed',
-            'passRate'  => 0.90,
-        ]);
+        $previous = $this->entity(
+                'previous-run',
+                [
+                    'datasetId' => 'dataset-uuid',
+                    'agentId'   => 'agent-uuid',
+                    'status'    => 'completed',
+                    'passRate'  => 0.90,
+                ]
+                );
         $previous->setCreated(new \DateTime('2026-07-01T00:00:00+00:00'));
 
         $overrides     = [];

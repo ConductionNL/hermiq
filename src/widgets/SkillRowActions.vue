@@ -37,6 +37,16 @@
 -->
 <template>
 	<div class="skill-row-actions">
+		<!-- skill-self-improvement: the catalog behind-badge — a pure client-side
+		     publishedAt < lastAcceptedVersionAt comparison (no per-row history
+		     query); text, never icon-only. -->
+		<span
+			v-if="publishedCopyBehind"
+			class="skill-row-actions__behind-badge"
+			role="status">
+			{{ t('hermiq', 'Published copy is behind') }}
+		</span>
+
 		<NcNoteCard v-if="error" type="error">
 			{{ error }}
 		</NcNoteCard>
@@ -230,6 +240,24 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the published GitHub copy is behind the locally accepted version
+		 * (skill-self-improvement): githubRepo set AND publishedAt older than
+		 * lastAcceptedVersionAt — computed client-side per row, no history query.
+		 *
+		 * @return {boolean}
+		 */
+		publishedCopyBehind() {
+			const publishedAt = this.row?.publishedAt
+			const acceptedAt = this.row?.lastAcceptedVersionAt
+			if (!this.row?.githubRepo || !publishedAt || !acceptedAt) {
+				return false
+			}
+			const published = new Date(publishedAt).getTime()
+			const accepted = new Date(acceptedAt).getTime()
+			return Number.isFinite(published) && Number.isFinite(accepted) && accepted > published
+		},
+
 		/**
 		 * The available agents as NcSelect options.
 		 *
@@ -515,6 +543,17 @@ export default {
 </script>
 
 <style scoped>
+.skill-row-actions__behind-badge {
+	display: inline-block;
+	padding: 2px 8px;
+	border: 1px solid var(--color-warning);
+	border-radius: var(--border-radius-pill);
+	color: var(--color-warning-text, var(--color-main-text));
+	background-color: var(--color-warning-hover, transparent);
+	font-size: 12px;
+	white-space: nowrap;
+}
+
 .skill-row-actions__buttons {
 	display: flex;
 	align-items: center;
