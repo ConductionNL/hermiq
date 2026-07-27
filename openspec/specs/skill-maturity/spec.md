@@ -403,6 +403,15 @@ consultancy tender summarisation with `references/` + `examples/` files and seed
 `SkillMaturityService` computes for its content. Placeholders MUST be nil UUIDs /
 `YOUR_API_KEY_HERE` style only.
 
+Seed freshness: the creation payload MUST stamp `lastActivityAt` (the Curator's
+staleness clock starts at seed time), and a repair re-run MUST refresh
+`lastActivityAt` on a `__system__`-owned seed still in state `active` or `stale` —
+flipping a `stale` seed back to `active` — so age-based curation never empties the
+seed catalog (and with it the skill link-pickers) on a longer-lived instance.
+`archived`/`quarantined` seeds and skills not owned by `__system__` MUST NEVER be
+touched: curator and human decisions win. All other fields keep the
+only-when-absent semantics.
+
 #### Scenario: A fresh install shows the maturity spread
 
 - GIVEN a fresh Hermiq install runs its repair steps
@@ -417,7 +426,10 @@ consultancy tender summarisation with `references/` + `examples/` files and seed
 - GIVEN the three seed skills exist (one edited by an admin)
 - WHEN the repair step runs again on a later upgrade
 - THEN no duplicate objects MUST be created
-- AND the admin-edited skill MUST be left untouched
+- AND the admin-edited skill's content MUST be left untouched
+- AND a `__system__`-owned seed still `active` or `stale` MUST get a fresh
+  `lastActivityAt` (a `stale` seed flips back to `active`), while `archived`/
+  `quarantined` seeds and human-created skills MUST NOT be touched
 
 @e2e exclude repair-step idempotency has no browser trigger (repair steps run on
 install/upgrade only); the by-name match + never-overwrite behaviour mirrors the

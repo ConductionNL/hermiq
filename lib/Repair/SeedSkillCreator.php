@@ -10,6 +10,12 @@
  * exactly like `SeedAgentTemplates`, matched by its seeded `name` so a re-run never
  * duplicates it or overwrites an admin's edit.
  *
+ * Seed freshness (SeedFreshnessService): the creation payload stamps `lastActivityAt`
+ * so the Curator's staleness clock starts at seed time, and a re-run refreshes the
+ * still-`active`/`stale` `__system__`-owned seed (a stale seed flips back to active)
+ * without touching its content — archived/quarantined and human-owned skills are
+ * never touched.
+ *
  * The seed writes DIRECTLY via ObjectService (never through
  * `SkillMarketplaceService::installFromSource`): it is first-party trusted content, must
  * land `active` immediately, and must never be content-scanned or quarantined.
@@ -33,6 +39,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use OCA\Hermiq\Service\SeedFreshnessService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -73,13 +80,15 @@ class SeedSkillCreator implements IRepairStep
     /**
      * Constructor.
      *
-     * @param ContainerInterface $container Server container for lazy ObjectService resolution
-     *                                      (OpenRegister may not be installed yet).
-     * @param LoggerInterface    $logger    PSR-3 logger.
+     * @param ContainerInterface   $container Server container for lazy ObjectService resolution
+     *                                        (OpenRegister may not be installed yet).
+     * @param LoggerInterface      $logger    PSR-3 logger.
+     * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
      */
     public function __construct(
         private readonly ContainerInterface $container,
         private readonly LoggerInterface $logger,
+        private readonly SeedFreshnessService $freshness,
     ) {
     }//end __construct()
 
@@ -98,7 +107,10 @@ class SeedSkillCreator implements IRepairStep
 
     /**
      * Seed the `skill-creator` Skill if it does not already exist (matched by name); an
-     * existing seeded skill — including one an admin has since edited — is left untouched.
+     * existing seeded skill — including one an admin has since edited — keeps its
+     * content untouched, but a still-`active`/`stale` `__system__`-owned seed gets its
+     * `lastActivityAt` refreshed (a stale seed flips back to active) so the Curator's
+     * age-staleness never empties the seed catalog on a longer-lived instance.
      *
      * @param IOutput $output Repair output channel.
      *
@@ -117,8 +129,23 @@ class SeedSkillCreator implements IRepairStep
         }
 
         try {
-            if ($this->nameExists(objectService: $objectService) === true) {
-                $output->info('skill-creator seed already present — skipped.');
+            $existing = $this->findByName(objectService: $objectService);
+            if ($existing !== null) {
+                $refreshed = $this->freshness->refreshedPayload(skill: $existing);
+                if ($refreshed === null) {
+                    $output->info('skill-creator seed already present — skipped.');
+                    return;
+                }
+
+                $objectService->saveObject(
+                    object: $refreshed,
+                    register: self::REGISTER_SLUG,
+                    schema: self::SKILL_SCHEMA,
+                    uuid: (string) $existing->getUuid(),
+                    _rbac: false,
+                    _multitenancy: false
+                );
+                $output->info('skill-creator seed already present — freshness refreshed.');
                 return;
             }
 
@@ -127,21 +154,23 @@ class SeedSkillCreator implements IRepairStep
             // its own. Written DIRECTLY (never via installFromSource): first-party trusted
             // content, never scanned/quarantined.
             $objectService->saveObject(
-                object: [
-                    'name'             => self::SKILL_NAME,
-                    'description'      => 'Guides you through authoring a new agent skill in the agentskills.io '
-                        .'format — interviews you about the capability, then drafts a clean SKILL.md (frontmatter '
-                        .'+ body) you can save to your catalog.',
-                    'frontmatter'      => $this->seedFrontmatter(),
-                    'body'             => $this->seedBody(),
-                    'files'            => [],
-                    'state'            => 'active',
-                    'source'           => 'local',
-                    'quarantineReason' => null,
-                    'scanReport'       => null,
-                    'createdBy'        => '',
-                    'installedOn'      => [],
-                ],
+                object: $this->freshness->stampFresh(
+                    seed: [
+                        'name'             => self::SKILL_NAME,
+                        'description'      => 'Guides you through authoring a new agent skill in the agentskills.io '
+                            .'format — interviews you about the capability, then drafts a clean SKILL.md (frontmatter '
+                            .'+ body) you can save to your catalog.',
+                        'frontmatter'      => $this->seedFrontmatter(),
+                        'body'             => $this->seedBody(),
+                        'files'            => [],
+                        'state'            => 'active',
+                        'source'           => 'local',
+                        'quarantineReason' => null,
+                        'scanReport'       => null,
+                        'createdBy'        => '',
+                        'installedOn'      => [],
+                    ]
+                ),
                 register: self::REGISTER_SLUG,
                 schema: self::SKILL_SCHEMA,
                 _rbac: false,
@@ -223,13 +252,14 @@ class SeedSkillCreator implements IRepairStep
     }//end seedBody()
 
     /**
-     * Whether a Skill with the seeded name already exists (system context, no RBAC).
+     * Find the seeded Skill when it exists (system context, no RBAC). Formerly a
+     * boolean `nameExists()` — the freshness refresh needs the entity itself.
      *
      * @param ObjectService $objectService The OpenRegister object service.
      *
-     * @return bool True when a matching object exists.
+     * @return ObjectEntity|null The matching Skill, or null when absent.
      */
-    private function nameExists(ObjectService $objectService): bool
+    private function findByName(ObjectService $objectService): ?ObjectEntity
     {
         $objects = $objectService
             ->setRegister(self::REGISTER_SLUG)
@@ -246,11 +276,11 @@ class SeedSkillCreator implements IRepairStep
             }
 
             if ((string) ($object->getObject()['name'] ?? '') === self::SKILL_NAME) {
-                return true;
+                return $object;
             }
         }
 
-        return false;
+        return null;
 
-    }//end nameExists()
+    }//end findByName()
 }//end class

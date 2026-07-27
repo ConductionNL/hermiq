@@ -95,7 +95,7 @@
 				</NcNoteCard>
 				<div class="skill-maturity-scorecard__attest-form">
 					<NcTextField
-						:value.sync="attestNote"
+						v-model="attestNote"
 						:label="t('hermiq', 'Attestation note')"
 						:placeholder="t('hermiq', 'e.g. Tuned for our municipality\'s WOO workflow')" />
 					<NcButton

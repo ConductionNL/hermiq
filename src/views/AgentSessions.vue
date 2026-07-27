@@ -22,10 +22,10 @@
 				<NcSelect
 					:input-label="t('hermiq', 'Agent')"
 					:options="agentOptions"
-					:value="selectedAgent"
+					:model-value="selectedAgent"
 					:placeholder="t('hermiq', 'Select an agent')"
 					label="label"
-					@input="onAgentChange" />
+					@update:modelValue="onAgentChange" />
 			</div>
 		</div>
 
@@ -54,7 +54,7 @@
 				</h3>
 				<div class="agent-sessions__recall">
 					<NcTextField
-						:value.sync="recallQuery"
+						v-model="recallQuery"
 						:label="t('hermiq', 'Search prior conversation turns')"
 						:disabled="busy"
 						@keydown.enter="runRecall" />

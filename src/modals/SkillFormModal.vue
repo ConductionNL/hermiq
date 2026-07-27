@@ -83,7 +83,7 @@
 					{{ pasteError }}
 				</NcNoteCard>
 				<NcTextArea
-					:value.sync="pasteText"
+					v-model="pasteText"
 					:label="t('hermiq', 'Package (starts with a --- frontmatter fence)')"
 					:placeholder="t('hermiq', 'Paste the whole package, starting with the --- fence')"
 					resize="vertical" />
@@ -99,18 +99,18 @@
 			</div>
 
 			<NcTextField
-				:value.sync="form.name"
+				v-model="form.name"
 				:label="t('hermiq', 'Name')"
 				:placeholder="t('hermiq', 'my-skill')"
 				required />
 
 			<NcTextField
-				:value.sync="form.description"
+				v-model="form.description"
 				:label="t('hermiq', 'Description')"
 				:placeholder="t('hermiq', 'What does this skill teach an agent to do?')" />
 
 			<NcTextArea
-				:value.sync="form.frontmatter"
+				v-model="form.frontmatter"
 				:label="t('hermiq', 'Frontmatter (YAML)')"
 				:placeholder="t('hermiq', 'name: my-skill, description: …, version: 0.1.0')"
 				resize="vertical" />
@@ -134,10 +134,10 @@
 			<div v-for="(file, index) in files" :key="index" class="skill-form__file">
 				<div class="skill-form__file-head">
 					<NcTextField
-						:value="file.name"
+						:model-value="file.name"
 						:label="t('hermiq', 'File name')"
 						:placeholder="t('hermiq', 'reference.md')"
-						@update:value="renameFile(index, $event)" />
+						@update:modelValue="renameFile(index, $event)" />
 					<NcButton
 						type="tertiary"
 						:aria-label="t('hermiq', 'Remove file')"
@@ -152,14 +152,14 @@
 					@input="file.content = $event" />
 				<NcTextArea
 					v-else
-					:value.sync="file.content"
+					v-model="file.content"
 					:label="t('hermiq', 'File content')"
 					resize="vertical" />
 			</div>
 
 			<div class="skill-form__add-file">
 				<NcTextField
-					:value.sync="newFileName"
+					v-model="newFileName"
 					:label="t('hermiq', 'New file name')"
 					:placeholder="t('hermiq', 'reference.md')" />
 				<NcButton type="secondary" :disabled="!newFileName.trim()" @click="addFile">

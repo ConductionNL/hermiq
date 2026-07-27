@@ -38,8 +38,8 @@
 				<ul class="skill-draft-reject__refs">
 					<li v-for="ref in learningRefs" :key="ref">
 						<NcCheckboxRadioSwitch
-							:checked="marked.includes(ref)"
-							@update:checked="toggle(ref, $event)">
+							:model-value="marked.includes(ref)"
+							@update:modelValue="toggle(ref, $event)">
 							<code>{{ ref }}</code>
 						</NcCheckboxRadioSwitch>
 					</li>

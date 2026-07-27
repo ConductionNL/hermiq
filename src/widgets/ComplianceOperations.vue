@@ -115,7 +115,7 @@
 
 				<div class="compliance-operations__retention-row">
 					<NcTextField
-						:value.sync="retentionDraft"
+						v-model="retentionDraft"
 						type="number"
 						:label="t('hermiq', 'Retention period (months)')" />
 					<NcButton type="primary" :disabled="retentionSaving" @click="saveRetention">

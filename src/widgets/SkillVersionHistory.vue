@@ -35,7 +35,7 @@
 				</span>
 				<div class="skill-version-history__republish">
 					<NcTextField
-						:value.sync="republishCredentialId"
+						v-model="republishCredentialId"
 						:label="t('hermiq', 'Broker credential ID')"
 						:placeholder="t('hermiq', 'github credential UUID')" />
 					<NcButton type="secondary"

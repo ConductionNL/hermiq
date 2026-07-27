@@ -22,10 +22,10 @@
 			<NcNoteCard v-if="githubPublishError" type="error">
 				{{ githubPublishError }}
 			</NcNoteCard>
-			<NcTextField :value.sync="githubPublishForm.owner"
+			<NcTextField v-model="githubPublishForm.owner"
 				:label="t('hermiq', 'Owner')"
 				:placeholder="t('hermiq', 'e.g. acme-council')" />
-			<NcTextField :value.sync="githubPublishForm.repo"
+			<NcTextField v-model="githubPublishForm.repo"
 				:label="t('hermiq', 'Repository name')"
 				:placeholder="t('hermiq', 'e.g. demo-skill')" />
 			<NcSelect v-model="githubPublishVisibility"

@@ -29,7 +29,7 @@
 			</NcNoteCard>
 
 			<NcTextField
-				:value="secret"
+				:model-value="secret"
 				readonly
 				:label="t('hermiq', 'Secret')"
 				@focus="selectAll" />

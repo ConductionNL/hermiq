@@ -47,6 +47,7 @@ namespace OCA\Hermiq\Repair;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use OCA\Hermiq\Service\SeedFreshnessService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -87,13 +88,15 @@ class SeedMaturityExampleSkills implements IRepairStep
     /**
      * Constructor.
      *
-     * @param ContainerInterface $container Server container for lazy ObjectService resolution
-     *                                      (OpenRegister may not be installed yet).
-     * @param LoggerInterface    $logger    PSR-3 logger.
+     * @param ContainerInterface   $container Server container for lazy ObjectService resolution
+     *                                        (OpenRegister may not be installed yet).
+     * @param LoggerInterface      $logger    PSR-3 logger.
+     * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
      */
     public function __construct(
         private readonly ContainerInterface $container,
         private readonly LoggerInterface $logger,
+        private readonly SeedFreshnessService $freshness,
     ) {
     }//end __construct()
 
@@ -112,7 +115,11 @@ class SeedMaturityExampleSkills implements IRepairStep
 
     /**
      * Seed each example skill that does not already exist (matched by name); an
-     * existing seed — including one an admin has since edited — is left untouched.
+     * existing seed — including one an admin has since edited — keeps its content
+     * untouched, but a still-`active`/`stale` `__system__`-owned seed gets its
+     * `lastActivityAt` refreshed (a stale seed flips back to active) so the daily
+     * Curator's age-staleness never empties the seed catalog — and with it every
+     * skill link-picker — on a longer-lived instance.
      *
      * @param IOutput $output Repair output channel.
      *
@@ -136,23 +143,48 @@ class SeedMaturityExampleSkills implements IRepairStep
             try {
                 $existing = $this->findByName(objectService: $objectService, name: $name);
                 if ($existing !== null) {
+                    // Seed freshness: refresh lastActivityAt (and un-stale) for a
+                    // __system__-owned seed still in active/stale; null = untouchable
+                    // (human-owned, archived, or quarantined — those decisions win).
+                    $refreshed = $this->freshness->refreshedPayload(skill: $existing);
+
                     if ($name === 'tender-summary') {
                         // Skill-learnings: an upgraded install already carries the
                         // tender-summary seed — add ONLY the missing demo learnings
                         // artifacts (files added only when absent; admin edits and
                         // any real l6 activity are never overwritten).
-                        $this->ensureLearningsSeed(objectService: $objectService, skill: $existing, output: $output);
+                        $this->ensureLearningsSeed(
+                            objectService: $objectService,
+                            skill: $existing,
+                            output: $output,
+                            refreshed: $refreshed
+                        );
                         continue;
                     }
 
-                    $output->info($name.' seed already present — skipped.');
+                    if ($refreshed === null) {
+                        $output->info($name.' seed already present — skipped.');
+                        continue;
+                    }
+
+                    $objectService->saveObject(
+                        object: $refreshed,
+                        register: self::REGISTER_SLUG,
+                        schema: self::SKILL_SCHEMA,
+                        uuid: (string) $existing->getUuid(),
+                        _rbac: false,
+                        _multitenancy: false
+                    );
+                    $output->info($name.' seed already present — freshness refreshed.');
                     continue;
-                }
+                }//end if
 
                 // Written DIRECTLY (never via installFromSource): first-party trusted
-                // content, lands `active` immediately, never scanned/quarantined.
+                // content, lands `active` immediately, never scanned/quarantined. The
+                // creation payload is stamped fresh so the Curator's staleness clock
+                // starts at seed time.
                 $objectService->saveObject(
-                    object: $seed,
+                    object: $this->freshness->stampFresh(seed: $seed),
                     register: self::REGISTER_SLUG,
                     schema: self::SKILL_SCHEMA,
                     _rbac: false,
@@ -530,40 +562,47 @@ class SeedMaturityExampleSkills implements IRepairStep
      * Add the missing demo learnings artifacts to an EXISTING tender-summary seed
      * (upgrade path): each of the two files is added only when absent, and the l6
      * activity is stamped only when no l6 evidence exists yet — an admin's edits and
-     * any real learnings activity are never overwritten, and a re-run changes nothing.
+     * any real learnings activity are never overwritten. A `$refreshed` payload from
+     * `SeedFreshnessService` (fresh `lastActivityAt`, stale flipped back to active) is
+     * folded into the same single write; when both are no-ops, a re-run changes nothing.
      *
-     * @param ObjectService $objectService The OpenRegister object service.
-     * @param ObjectEntity  $skill         The existing tender-summary Skill.
-     * @param IOutput       $output        Repair output channel.
+     * @param ObjectService             $objectService The OpenRegister object service.
+     * @param ObjectEntity              $skill         The existing tender-summary Skill.
+     * @param IOutput                   $output        Repair output channel.
+     * @param array<string, mixed>|null $refreshed     Freshness-refreshed payload, or null when untouchable.
      *
      * @return void
      *
      * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
      */
-    private function ensureLearningsSeed(ObjectService $objectService, ObjectEntity $skill, IOutput $output): void
-    {
-        $data  = $skill->getObject();
+    private function ensureLearningsSeed(
+        ObjectService $objectService,
+        ObjectEntity $skill,
+        IOutput $output,
+        ?array $refreshed=null,
+    ): void {
+        $data  = ($refreshed ?? $skill->getObject());
         $files = ($data['files'] ?? []);
         if (is_array($files) === false) {
             $files = [];
         }
 
-        $changed = false;
+        $filesAdded = false;
 
         if ($this->hasFile(files: $files, name: 'learnings.md') === false) {
-            $files[] = [
+            $files[]    = [
                 'name'    => 'learnings.md',
                 'content' => self::seedLearningsContent(),
             ];
-            $changed = true;
+            $filesAdded = true;
         }
 
         if ($this->hasFile(files: $files, name: 'learning-candidates.md') === false) {
-            $files[] = [
+            $files[]    = [
                 'name'    => 'learning-candidates.md',
                 'content' => self::seedCandidatesContent(),
             ];
-            $changed = true;
+            $filesAdded = true;
         }
 
         $evidence = ($data['levelEvidence'] ?? []);
@@ -572,12 +611,12 @@ class SeedMaturityExampleSkills implements IRepairStep
         }
 
         $l6 = ($evidence['l6'] ?? []);
-        if ($changed === true && (is_array($l6) === false || $l6 === [])) {
+        if ($filesAdded === true && (is_array($l6) === false || $l6 === [])) {
             $evidence['l6']        = self::seedL6Evidence();
             $data['levelEvidence'] = $evidence;
         }
 
-        if ($changed === false) {
+        if ($filesAdded === false && $refreshed === null) {
             $output->info('tender-summary seed already present (learnings included) — skipped.');
             return;
         }
@@ -592,7 +631,13 @@ class SeedMaturityExampleSkills implements IRepairStep
             _rbac: false,
             _multitenancy: false
         );
-        $output->info('tender-summary seed gained the demo learnings files.');
+
+        if ($filesAdded === true) {
+            $output->info('tender-summary seed gained the demo learnings files.');
+            return;
+        }
+
+        $output->info('tender-summary seed already present — freshness refreshed.');
 
     }//end ensureLearningsSeed()
 
