@@ -1,10 +1,10 @@
 # Skill Maturity Specification
 
-**Status**: in-progress
+**Status**: active (shipped 2026-07-27; live-verified via Playwright on NC34+OR — catalog dots, SkillDetail scorecard, Qualify, seeded L1/L2/L4 spread)
 
 **Feature tier**: V2
 
-**OpenSpec changes:** `skill-maturity-model` — in-progress: `agentskill` schema gains
+**OpenSpec changes:** `skill-maturity-model` — DONE (archived 2026-07-27): `agentskill` schema gains
 `maturityLevel` (computed 0–7) / `targetLevel` (curator intent) / `levelEvidence`
 (per-level evidence); `SkillMaturityService` computes L1–L3 mechanically; L4 is
 human-attested via the action-gated attest endpoint (ADR-023); L5–L7 are read from
@@ -12,12 +12,13 @@ evidence written by the future `skill-evals` / `skill-learnings` /
 `skill-self-improvement` / `skill-orchestration` changes; owner-guarded Qualify endpoint
 + scorecard; catalog maturity dots + SkillDetail scorecard; three seed skills at
 L1/L2/L4.
-`skill-evals` — in-progress: adds the read surface for the L5 evidence written by paired
+`skill-evals` — DONE (archived 2026-07-27): adds the read surface for the L5 evidence written by paired
 eval runs — a SkillDetail eval-evidence card (pass rate, baseline delta, trend, last
 validated) + owner-guarded "Run paired eval" action; the l5 contract itself and its
 silent-preserve write protection are unchanged (the writer lives in the agent-evals
-delta of that change). See `openspec/changes/skill-evals/specs/skill-maturity/spec.md`.
-`skill-learnings` — in-progress (delta, depends on `skill-maturity-model`):
+delta of that change). See
+`openspec/changes/archive/2026-07-27-skill-evals/specs/skill-maturity/spec.md`.
+`skill-learnings` — DONE (archived 2026-07-27; delta, depends on `skill-maturity-model`):
 `levelEvidence.l6` gains optional capture-activity fields `candidateCount` +
 `lastCaptureAt` (declared explicitly — OR drops undeclared keys); the computed-evidence
 write guard extends to `l6` (written only by the learnings capture/promotion

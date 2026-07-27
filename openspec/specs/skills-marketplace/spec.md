@@ -1,12 +1,12 @@
 # Skills Marketplace Specification
 
-**Status**: active (Hermiq surface live-verified; content-scan + a live hub are OpenRegister/OpenConnector seams; GitHub publish live alongside hub publish) — republish/export delta in-progress via `skill-self-improvement`
+**Status**: active (Hermiq surface live-verified; content-scan + a live hub are OpenRegister/OpenConnector seams; GitHub publish live alongside hub publish; republish carve-out + learning-candidates export strip shipped via `skill-self-improvement`)
 
 **Feature tier**: V2
 
 **OpenSpec changes:** `skills-marketplace` — DONE: `Skill` schema gains `quarantined` state + `source`/`quarantineReason`/`lastActivityAt`/`staleSince`/`archivedAt`; `SkillMarketplaceService` (installFromSource → quarantine; approveQuarantined review gate → active; age-based `curate()` active→stale→archived that NEVER hard-deletes; publishToHub via SkillSerializer + OpenConnector CallService, structured error when unavailable); `SkillCuratorTask` (daily TimedJob); `SkillMarketplaceController` + routes; Skills UI gains a quarantine badge + Approve + Publish + "Install from hub (quarantine)". The content **security scan** (OR has no scanner — SecurityService is auth rate-limiting) is a documented seam realised as the review gate; a live external **hub** needs an OpenConnector connector; usage-based staleness needs OR run-loop last-used stamping.
 `hermiq-github-store` — DONE: adds GitHub publish for skills (generalise `GitHubTemplatePushService` to push a Skill's agentskills.io package to a `topic:hermiq-skill` repo, stamping `githubOwner`/`githubRepo`/`publishedAt`); the OpenConnector `publishToHub` path stays secondary.
-`skill-self-improvement` — in-progress (delta): the GitHub publish requirement gains (a) a REPUBLISH carve-out — an update-mode push allowed ONLY to the skill's own provenance-stamped `githubOwner`/`githubRepo`, same publish action authorization, never automatic; and (b) an export-policy refinement — publish AND republish (both routes) ship `files['learnings.md']` but STRIP `files['learning-candidates.md']` (unvetted observations never leave the instance). See `openspec/changes/skill-self-improvement/specs/skills-marketplace/spec.md`.
+`skill-self-improvement` — DONE (archived 2026-07-27; delta): the GitHub publish requirement gains (a) a REPUBLISH carve-out — an update-mode push allowed ONLY to the skill's own provenance-stamped `githubOwner`/`githubRepo`, same publish action authorization, never automatic; and (b) an export-policy refinement — publish AND republish (both routes) ship `files['learnings.md']` but STRIP `files['learning-candidates.md']` (unvetted observations never leave the instance). See `openspec/changes/archive/2026-07-27-skill-self-improvement/specs/skills-marketplace/spec.md`.
 
 ## Purpose
 

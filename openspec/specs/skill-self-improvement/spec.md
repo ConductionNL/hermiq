@@ -1,10 +1,10 @@
 # Skill Self-Improvement Specification
 
-**Status**: in-progress
+**Status**: active (shipped 2026-07-27; live-verified via Playwright on NC34+OR — seeded pending draft review surface, versions, behind-badge)
 
 **Feature tier**: V2
 
-**OpenSpec changes:** `skill-self-improvement` — in-progress: closes the ADR-068 §5
+**OpenSpec changes:** `skill-self-improvement` — DONE (archived 2026-07-27): closes the ADR-068 §5
 loop — `SkillConsolidationTask` (TimedJob) proposes DRAFT skill versions from
 `files['learnings.md']` (threshold / eval-regression / manual triggers; one LLM pass
 via `ProviderFactory`, kill-switch + budget gated); new `SkillDraft` OR object with
