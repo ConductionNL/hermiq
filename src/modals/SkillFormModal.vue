@@ -188,8 +188,7 @@
 <script>
 import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcTextArea, NcTextField } from '@nextcloud/vue'
 import { CnMarkdownEditor } from '@conduction/nextcloud-vue'
-import { importSkill, installFromSource } from '../api/skills.js'
-import { useSkillStore } from '../store/store.js'
+import { importSkill, installFromSource, updateSkill } from '../api/skills.js'
 
 export default {
 	name: 'SkillFormModal',
@@ -325,11 +324,6 @@ export default {
 				this.resetForm()
 			}
 		},
-	},
-
-	created() {
-		this.store = useSkillStore()
-		this.store.registerObjectType('agentskill', 'agentskill', 'hermiq')
 	},
 
 	methods: {
@@ -567,9 +561,12 @@ export default {
 				let saved
 
 				if (this.effectiveSkill && this.effectiveSkill.id) {
-					saved = await this.store.saveObject('agentskill', this.buildEditPayload())
+					// skill-maturity: EDIT goes through the guarded hermiq merge path
+					// (PUT /api/skills/{id}) so the server silently preserves the
+					// computed maturity fields; targetLevel stays freely editable.
+					saved = await updateSkill(this.effectiveSkill.id, this.buildEditPayload())
 					if (saved === null) {
-						this.error = this.store.errors?.agentskill?.message || this.t('hermiq', 'Could not save skill')
+						this.error = this.t('hermiq', 'Could not save skill')
 						return
 					}
 				} else {
@@ -579,7 +576,9 @@ export default {
 						: await importSkill(pkg)
 
 					if (this.files.length > 0) {
-						const withFiles = await this.store.saveObject('agentskill', {
+						// skill-maturity: the follow-up files write uses the same
+						// guarded merge path as an edit save.
+						const withFiles = await updateSkill(saved.uuid || saved.id, {
 							...saved,
 							files: this.files.map((file) => ({ name: file.name, content: file.content })),
 						})

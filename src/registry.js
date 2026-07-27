@@ -65,6 +65,9 @@ import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
 // Publish-to-GitHub/Install), the same pattern as agent-template-row-actions
 // above.
 import SkillRowActions from './widgets/SkillRowActions.vue'
+// skill-maturity: the SkillDetail page's durable maturity scorecard widget
+// (per-level pass/fail + reasons + Qualify + action-gated Attest-L4).
+import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
 // agent-template-github-store: the GitHub-backed store section on the unified
 // Store page (formerly AgentTemplateGallery), resolved via
 // page.slots.below-header. Generalised by hermiq-github-store to discover
@@ -458,6 +461,25 @@ export default {
 			},
 		},
 		_note: 'Approve/Export/Publish/Publish-to-GitHub/Install call tenant-scoped SkillController/SkillMarketplaceController endpoints (skills-catalog, skills-marketplace, hermiq-github-store) — installedOn association, the quarantine review-gate approval, and the broker-mediated GitHub publish are not expressible via a declarative object-op patch (ADR-049).',
+	},
+
+	/**
+	 * Skill maturity scorecard (skill-maturity) — the SkillDetail page's sole
+	 * content widget: seven per-level pass/fail rows with reasons + evidence
+	 * timestamps, the owner-guarded Qualify action, and the action-gated
+	 * Attest-L4 form. Qualify/attest are bespoke Hermiq endpoints (recompute
+	 * + ADR-023 action gate), not OR object CRUD, so a custom widget is
+	 * required (ADR-049).
+	 */
+	'skill-maturity-scorecard': {
+		kind: 'widget',
+		component: SkillMaturityScorecard,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Self-fetches the skill from $route.params.id (the eval-run-panel pattern); the maturity scorecard, qualify and attest-l4 are bespoke SkillMaturityController endpoints, not expressible as object-table/object-op (ADR-049).',
 	},
 
 	/**

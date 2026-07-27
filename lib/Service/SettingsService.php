@@ -133,6 +133,39 @@ class SettingsService
     }//end updateSettings()
 
     /**
+     * Read the register configuration version declared in hermiq_register.json.
+     *
+     * Used by the InitializeSettings repair step to decide whether the import must be
+     * FORCED: OpenRegister's `importFromApp(force: false)` advances the stored version
+     * WITHOUT applying schema changes to existing schemas (openregister#2075), so a
+     * version bump that must reach existing installs (e.g. the skill-maturity
+     * `agentskill` properties) needs a forced import keyed on this value.
+     *
+     * @return string The configured register version (SemVer), or '0.0.0' when unreadable.
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-skill-schema-carries-maturity-metadata-as-optional-inert-fields
+     */
+    public function getRegisterConfigVersion(): string
+    {
+        $configPath = __DIR__.'/../Settings/hermiq_register.json';
+        if (file_exists($configPath) === false) {
+            return '0.0.0';
+        }
+
+        $configContent = file_get_contents($configPath);
+        if ($configContent === false) {
+            return '0.0.0';
+        }
+
+        $configData = json_decode($configContent, true);
+        if (json_last_error() !== JSON_ERROR_NONE || is_array($configData) === false) {
+            return '0.0.0';
+        }
+
+        return (string) ($configData['info']['version'] ?? '0.0.0');
+    }//end getRegisterConfigVersion()
+
+    /**
      * Load configuration from hermiq_register.json via OpenRegister.
      *
      * @param bool $force Force re-import even if already configured.

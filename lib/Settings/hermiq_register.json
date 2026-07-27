@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud. v0.15.1 — re-authored the AiFeature (Algoritmekader) property titles from Dutch to English (doel/wettelijkeGrondslag/impacttoetsen/soort/referentie/dataBronnen/menselijkeTussenkomst/verantwoordelijke/organisatie/publicatiecategorie) so manifest-driven UI labels are translatable; the Dutch labels now live in the app's l10n/nl.json. Property keys, enum values, and all other fields are unchanged.",
-        "version": "0.15.1"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.16.0 — Skill (agentskill) gains the L1–L7 maturity metadata (skill-maturity, ADR-068): optional maturityLevel (computed 0–7, never hand-set), targetLevel (curator intent 1–7), and levelEvidence (per-level evidence sub-objects l1–l7). Nothing added to required; no existing object becomes invalid; all other schemas unchanged.",
+        "version": "0.16.0"
     },
     "x-openregister": {
         "type": "application",
@@ -1182,7 +1182,7 @@
             "Skill": {
                 "slug": "agentskill",
                 "icon": "PuzzleOutline",
-                "version": "0.1.0",
+                "version": "0.2.0",
                 "title": "Skill",
                 "description": "A self-improving agent skill in the agentskills.io format (ported from Hermes). Stores the raw frontmatter block (byte-preserved for lossless round-trip), the body, auxiliary files, a lifecycle state, and which agents it is installed on. Slug namespaced (agentskill) to avoid a cross-app slug collision.",
                 "type": "object",
@@ -1370,6 +1370,185 @@
                         "format": "date-time",
                         "title": "Published at",
                         "description": "When this skill was last published to GitHub. Provenance only — never round-tripped through the exported package."
+                    },
+                    "maturityLevel": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 7,
+                        "default": 0,
+                        "title": "Maturity level",
+                        "description": "The skill's L1–L7 maturity level (ADR-068), computed by SkillMaturityService as the highest contiguous level passed — never hand-set; client-supplied values are ignored on every write path (skill-maturity). Hermiq metadata only — never round-tripped through the exported agentskills.io package."
+                    },
+                    "targetLevel": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 7,
+                        "title": "Target level",
+                        "description": "The curator-intended maturity level for this skill (freely editable, skill-maturity). Hermiq metadata only — never round-tripped through the exported agentskills.io package."
+                    },
+                    "levelEvidence": {
+                        "type": "object",
+                        "title": "Level evidence",
+                        "description": "Per-level maturity evidence (skill-maturity). l1–l3 are refreshed by SkillMaturityService on every qualify; l4 is written only by the action-gated attest endpoint; l5–l7 are written by the skill-evals / skill-learnings / skill-orchestration subsystems and only read here. Hermiq metadata only — never round-tripped through the exported agentskills.io package.",
+                        "properties": {
+                            "l1": {
+                                "type": "object",
+                                "title": "L1 evidence",
+                                "description": "Mechanical L1 (anatomy) check result, refreshed on every qualify.",
+                                "properties": {
+                                    "passed": {
+                                        "type": "boolean",
+                                        "title": "Passed",
+                                        "description": "Whether the L1 anatomy check passed at the last qualify."
+                                    },
+                                    "checkedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Checked at",
+                                        "description": "When the L1 check last ran."
+                                    }
+                                }
+                            },
+                            "l2": {
+                                "type": "object",
+                                "title": "L2 evidence",
+                                "description": "Mechanical L2 (triggering) check result, refreshed on every qualify.",
+                                "properties": {
+                                    "passed": {
+                                        "type": "boolean",
+                                        "title": "Passed",
+                                        "description": "Whether the L2 triggering check passed at the last qualify."
+                                    },
+                                    "checkedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Checked at",
+                                        "description": "When the L2 check last ran."
+                                    }
+                                }
+                            },
+                            "l3": {
+                                "type": "object",
+                                "title": "L3 evidence",
+                                "description": "Mechanical L3 (patterns) check result, refreshed on every qualify.",
+                                "properties": {
+                                    "passed": {
+                                        "type": "boolean",
+                                        "title": "Passed",
+                                        "description": "Whether the L3 patterns check passed at the last qualify."
+                                    },
+                                    "checkedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Checked at",
+                                        "description": "When the L3 check last ran."
+                                    }
+                                }
+                            },
+                            "l4": {
+                                "type": "object",
+                                "title": "L4 attestation",
+                                "description": "Human L4 (personalization) attestation — set ONLY by the action-gated attest endpoint (skill.attest-maturity, ADR-023), never auto-detected.",
+                                "properties": {
+                                    "attestedBy": {
+                                        "type": "string",
+                                        "title": "Attested by",
+                                        "description": "The user id of the curator who attested L4."
+                                    },
+                                    "attestedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Attested at",
+                                        "description": "When L4 was attested."
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "title": "Attestation note",
+                                        "description": "Optional curator note on what the personalization covers."
+                                    }
+                                }
+                            },
+                            "l5": {
+                                "type": "object",
+                                "title": "L5 eval evidence",
+                                "description": "Measurement evidence written by the future skill-evals change; this change only reads it.",
+                                "properties": {
+                                    "evalDatasetId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "title": "Eval dataset id",
+                                        "description": "The EvalDataset UUID that validated this skill."
+                                    },
+                                    "passRate": {
+                                        "type": "number",
+                                        "title": "Pass rate",
+                                        "description": "The latest eval pass rate (0–1)."
+                                    },
+                                    "baselineDelta": {
+                                        "type": "number",
+                                        "title": "Baseline delta",
+                                        "description": "Pass-rate delta versus the no-skill baseline."
+                                    },
+                                    "lastValidated": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last validated",
+                                        "description": "When the eval evidence was last refreshed."
+                                    }
+                                }
+                            },
+                            "l6": {
+                                "type": "object",
+                                "title": "L6 learnings evidence",
+                                "description": "Self-improvement evidence written by the future skill-learnings / skill-self-improvement changes; this change only reads it.",
+                                "properties": {
+                                    "learningsCount": {
+                                        "type": "integer",
+                                        "title": "Learnings count",
+                                        "description": "Number of consolidated learnings captured for this skill."
+                                    },
+                                    "lastConsolidatedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last consolidated at",
+                                        "description": "When learnings were last consolidated."
+                                    },
+                                    "lastPromotedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last promoted at",
+                                        "description": "When a learning was last promoted into the skill."
+                                    }
+                                }
+                            },
+                            "l7": {
+                                "type": "object",
+                                "title": "L7 orchestration evidence",
+                                "description": "AI-workforce evidence written by the future skill-orchestration change; this change only reads it. A declared-but-never-executed chain is structurally L7, not mature L7.",
+                                "properties": {
+                                    "declaredChain": {
+                                        "type": "array",
+                                        "title": "Declared chain",
+                                        "description": "Skill UUIDs this skill declares as its orchestration chain.",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        }
+                                    },
+                                    "lastExecutedChainRunId": {
+                                        "type": "string",
+                                        "title": "Last executed chain run id",
+                                        "description": "The run id of the last executed orchestration chain."
+                                    },
+                                    "lastExecutedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last executed at",
+                                        "description": "When the declared chain was last executed."
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },

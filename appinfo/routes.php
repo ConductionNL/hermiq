@@ -311,12 +311,28 @@ return [
         // the literal 'github' path segment must never fall into the {id} matcher.
         ['name' => 'skill#githubSearch',  'url' => '/api/skills/github/search', 'verb' => 'GET'],
         ['name' => 'skill#githubInstall', 'url' => '/api/skills/github/install', 'verb' => 'POST'],
+        // Skill update — the edit-form merge path (skill-maturity): applies the
+        // computed-maturity write guard server-side (client-supplied maturityLevel /
+        // levelEvidence.l1–l4 are ignored, stored values carried forward).
+        ['name' => 'skill#update', 'url' => '/api/skills/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skill#install', 'url' => '/api/skills/{id}/install', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         [
             'name'         => 'skill#uninstall',
             'url'          => '/api/skills/{id}/install/{agentId}',
             'verb'         => 'DELETE',
             'requirements' => ['id' => '[^/]+', 'agentId' => '[^/]+'],
+        ],
+
+        // Skill maturity (skill-maturity): owner-guarded qualify (recompute + scorecard)
+        // and the action-gated human L4 attestation (skill.attest-maturity, ADR-023).
+        // Standard-CSRF POSTs; literal suffixes after {id} never collide with the
+        // install/export routes above.
+        ['name' => 'skillMaturity#qualify', 'url' => '/api/skills/{id}/qualify', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        [
+            'name'         => 'skillMaturity#attestL4',
+            'url'          => '/api/skills/{id}/attest-l4',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
         ],
 
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.

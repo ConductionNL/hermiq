@@ -57,6 +57,13 @@
 			<NcButton
 				type="tertiary"
 				:disabled="busy"
+				:aria-label="t('hermiq', 'Qualify skill maturity')"
+				@click="doQualify">
+				{{ t('hermiq', 'Qualify') }}
+			</NcButton>
+			<NcButton
+				type="tertiary"
+				:disabled="busy"
 				:aria-label="t('hermiq', 'Export skill')"
 				@click="doExport">
 				{{ t('hermiq', 'Export') }}
@@ -83,6 +90,12 @@
 				{{ t('hermiq', 'Install') }}
 			</NcButton>
 		</div>
+
+		<SkillScorecardModal
+			v-if="scorecardResult"
+			:result="scorecardResult"
+			:skill-name="row.name || ''"
+			@close="scorecardResult = null" />
 
 		<NcModal v-if="showExport" @close="showExport = false">
 			<div class="skill-row-actions__export-modal">
@@ -158,8 +171,11 @@ import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { emit } from '@nextcloud/event-bus'
-import { approveSkill, exportSkill, installSkill, publishSkill, publishSkillToGithub } from '../api/skills.js'
+import { approveSkill, exportSkill, installSkill, publishSkill, publishSkillToGithub, qualifySkill } from '../api/skills.js'
 import { useAgentStore } from '../store/store.js'
+// skill-maturity: the post-qualify scorecard, its own file per the
+// modal-isolation rule.
+import SkillScorecardModal from '../modals/SkillScorecardModal.vue'
 
 export default {
 	name: 'SkillRowActions',
@@ -170,6 +186,7 @@ export default {
 		NcNoteCard,
 		NcSelect,
 		NcTextField,
+		SkillScorecardModal,
 	},
 
 	props: {
@@ -184,6 +201,9 @@ export default {
 		return {
 			busy: false,
 			error: '',
+			// skill-maturity: the qualify endpoint's scorecard payload; non-null
+			// opens the SkillScorecardModal.
+			scorecardResult: null,
 			exportedPackage: '',
 			showExport: false,
 			showInstall: false,
@@ -289,6 +309,26 @@ export default {
 			this.error = ''
 			try {
 				await approveSkill(this.skillId())
+				emit('cn:page:refresh', {})
+			} catch (e) {
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+			} finally {
+				this.busy = false
+			}
+		},
+
+		/**
+		 * Qualify this skill (skill-maturity): recompute + persist its maturity
+		 * server-side, show the returned scorecard (with the failing levels'
+		 * reasons), and refresh the list so the dots column updates.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async doQualify() {
+			this.busy = true
+			this.error = ''
+			try {
+				this.scorecardResult = await qualifySkill(this.skillId())
 				emit('cn:page:refresh', {})
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')

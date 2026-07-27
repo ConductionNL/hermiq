@@ -192,6 +192,50 @@ class SkillController extends Controller
     }//end export()
 
     /**
+     * Update a Skill from the edit form's merge payload (skill-maturity). The service
+     * applies the computed-maturity write guard: client-supplied `maturityLevel` /
+     * `levelEvidence.l1`–`l4` are ignored and stored values carried forward, while
+     * `targetLevel` and ordinary fields stay editable. RBAC-scoped in the caller's
+     * session (a skill outside the caller's scope 404s).
+     *
+     * @param string $id The Skill UUID.
+     *
+     * @return JSONResponse The updated skill, or an error status.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+     */
+    public function update(string $id): JSONResponse
+    {
+        if ($this->userSession->getUser() === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $params = $this->request->getParams();
+        $data   = [];
+        foreach ($params as $key => $value) {
+            if (is_string($key) === true && $key !== 'id' && $key !== '_route') {
+                $data[$key] = $value;
+            }
+        }
+
+        try {
+            $skill = $this->skillService->updateSkill(skillId: $id, data: $data);
+            if ($skill === null) {
+                return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            return new JSONResponse($this->shape(object: $skill));
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq skill update failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Update failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+    }//end update()
+
+    /**
      * Install a Skill onto an agent (records the agent on installedOn).
      *
      * @param string $id The Skill UUID.

@@ -9,6 +9,7 @@
     "skill.approve-quarantined": ["admin"],
     "skill.override-scan-verdict": ["admin"],
     "skill.publish-hub": ["admin"],
+    "skill.attest-maturity": ["admin"],
     "agenttemplate.approve-quarantined": ["admin"],
     "agenttemplate.override-scan-verdict": ["admin"],
     "tenantops.attest-review": ["admin"],

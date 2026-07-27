@@ -89,6 +89,49 @@ export async function uninstallSkill(id, agentId) {
 }
 
 /**
+ * Update a Skill via the guarded hermiq merge path (skill-maturity). The server
+ * applies the computed-maturity write guard: client-supplied `maturityLevel` /
+ * `levelEvidence.l1`–`l4` are ignored and stored values carried forward, while
+ * `targetLevel` and ordinary fields stay editable — the reason edits go through
+ * this endpoint instead of the generic OpenRegister object PUT.
+ *
+ * @param {string} id The Skill UUID.
+ * @param {object} skill The full merge payload (stored fields spread first).
+ * @return {Promise<object>} The updated Skill.
+ */
+export async function updateSkill(id, skill) {
+	const response = await axios.put(generateUrl(`${SKILLS_BASE}/${id}`), skill)
+	return response.data
+}
+
+/**
+ * Qualify a skill (skill-maturity): recompute its L1–L7 maturity from content +
+ * evidence, persist it, and return the seven-level scorecard. Owner-guarded
+ * server-side (404 for a skill the caller does not own).
+ *
+ * @param {string} id The Skill UUID.
+ * @return {Promise<object>} `{ skillId, maturityLevel, targetLevel, scorecard }`.
+ */
+export async function qualifySkill(id) {
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/qualify`))
+	return response.data
+}
+
+/**
+ * Attest a skill's L4 (personalization) level (skill-maturity) — a curator act
+ * gated by the `skill.attest-maturity` action (ADR-023); 403 when the caller's
+ * groups are not mapped to it.
+ *
+ * @param {string} id The Skill UUID.
+ * @param {string} note Optional curator note on what the personalization covers.
+ * @return {Promise<object>} The refreshed `{ skillId, maturityLevel, targetLevel, scorecard }`.
+ */
+export async function attestSkillL4(id, note = '') {
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/attest-l4`), { note })
+	return response.data
+}
+
+/**
  * Install a skill from an external source (another org / hub) into quarantine
  * (skills-marketplace). The skill is NOT usable until it passes the review gate.
  *

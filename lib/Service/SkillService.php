@@ -67,13 +67,15 @@ class SkillService
     /**
      * Constructor.
      *
-     * @param ObjectService   $objectService   OpenRegister object read/write (single write-path).
-     * @param SkillSerializer $skillSerializer The agentskills.io (de)serialiser.
-     * @param LoggerInterface $logger          Logger (best-effort agent-side sync warnings).
+     * @param ObjectService        $objectService   OpenRegister object read/write (single write-path).
+     * @param SkillSerializer      $skillSerializer The agentskills.io (de)serialiser.
+     * @param SkillMaturityService $maturityService Computed-maturity write guard (skill-maturity).
+     * @param LoggerInterface      $logger          Logger (best-effort agent-side sync warnings).
      */
     public function __construct(
         private readonly ObjectService $objectService,
         private readonly SkillSerializer $skillSerializer,
+        private readonly SkillMaturityService $maturityService,
         private readonly LoggerInterface $logger,
     ) {
     }//end __construct()
@@ -171,6 +173,46 @@ class SkillService
         );
 
     }//end stampGithubPublish()
+
+    /**
+     * Update a Skill from a client-supplied payload — the skill "merge" write path
+     * (skill-maturity): the incoming payload is guarded by
+     * `SkillMaturityService::preserveComputedFields()`, so client-supplied
+     * `maturityLevel` and `levelEvidence.l1`–`l4` are silently overwritten by the
+     * STORED values (only qualify/attest write them), while `targetLevel` and every
+     * ordinary field stay freely editable. Runs in the caller's session context, so
+     * OpenRegister's native RBAC still authorizes the write itself.
+     *
+     * @param string               $skillId The Skill UUID.
+     * @param array<string, mixed> $data    The client-supplied skill payload.
+     *
+     * @return ObjectEntity|null The updated Skill, or null when not found.
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+     */
+    public function updateSkill(string $skillId, array $data): ?ObjectEntity
+    {
+        $skill = $this->getSkill(skillId: $skillId);
+        if ($skill === null) {
+            return null;
+        }
+
+        $guarded = $this->maturityService->preserveComputedFields(
+            incoming: $data,
+            stored: $skill->getObject()
+        );
+
+        // Strip read-path envelope keys a client payload may echo back.
+        unset($guarded['id'], $guarded['uuid'], $guarded['@self']);
+
+        return $this->objectService->saveObject(
+            object: $guarded,
+            register: self::REGISTER_SLUG,
+            schema: self::SKILL_SCHEMA,
+            uuid: (string) $skill->getUuid()
+        );
+
+    }//end updateSkill()
 
     /**
      * List the skills visible in the caller's tenant.

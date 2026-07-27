@@ -25,6 +25,7 @@
 			:custom-components="customComponents"
 			:page-types="pageTypes"
 			:registry="registry"
+			:cell-widgets="cellWidgets"
 			app-id="hermiq"
 			:translate="translateForApp"
 			:permissions="permissions"
@@ -116,6 +117,9 @@ import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { CnAppRoot, CnObjectSidebar, CnSetupWizard, CnCredentials } from '@conduction/nextcloud-vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
+// skill-maturity: the SkillsCatalog maturityLevel column's dots badge, resolved
+// via CnAppRoot's cellWidgets registry (manifest column `widget: "maturity-dots"`).
+import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
 
 export default {
 	name: 'App',
@@ -207,6 +211,20 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Consumer cell-widget registry for manifest columns declaring a
+		 * `widget` id (CnCellRenderer resolves it via the injected
+		 * `cnCellWidgets`). Currently only the skill-maturity dots badge.
+		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
+		 * @return {object} Map of cell-widget id → component.
+		 */
+		cellWidgets() {
+			return {
+				'maturity-dots': SkillMaturityDots,
+			}
+		},
+
 		/**
 		 * @spec exclude framework passthrough — surfaces the current user's
 		 *   Nextcloud permission list (window.OC.currentUser.permissions) to

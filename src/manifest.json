@@ -414,7 +414,8 @@
 			"config": {
 				"register": "hermiq",
 				"schema": "agentskill",
-				"_note": "Converted from type:custom to the default index layout. The agentskills.io import/export + install-onto-agent actions are NOT dropped — they move to the skill-row-actions widget behind their existing guarded endpoints (same pattern as agent-template-row-actions).",
+				"_note": "Converted from type:custom to the default index layout. The agentskills.io import/export + install-onto-agent actions are NOT dropped — they move to the skill-row-actions widget behind their existing guarded endpoints (same pattern as agent-template-row-actions). skill-maturity adds the maturityLevel dots column (consumer cell widget 'maturity-dots', App.vue cellWidgets) and the rowRoute onto the SkillDetail scorecard page.",
+				"rowRoute": "SkillDetail",
 				"columns": [
 					{
 						"key": "name",
@@ -423,6 +424,11 @@
 					{
 						"key": "description",
 						"label": "Description"
+					},
+					{
+						"key": "maturityLevel",
+						"label": "Maturity",
+						"widget": "maturity-dots"
 					},
 					{
 						"key": "state",
@@ -438,6 +444,42 @@
 			"slots": {
 				"row-actions": "skill-row-actions",
 				"form-dialog": "SkillFormModal"
+			}
+		},
+		{
+			"id": "SkillDetail",
+			"route": "/skills/:id",
+			"type": "detail",
+			"title": "Skill",
+			"config": {
+				"register": "hermiq",
+				"schema": "agentskill",
+				"_note": "skill-maturity (mirrors EvalDatasetDetail): the durable maturity scorecard home — per-level pass/fail + reasons + evidence timestamps, the owner-guarded Qualify action and the action-gated Attest-L4 form live in the one custom skill-maturity-scorecard widget; qualify/attest are bespoke SkillMaturityController endpoints, not OR object CRUD.",
+				"widgets": [
+					{
+						"id": "skill-maturity-scorecard",
+						"type": "custom",
+						"title": "Maturity scorecard",
+						"icon": "ChartTimelineVariant",
+						"_note": "Per-level L1–L7 scorecard + Qualify + Attest-L4. Resolved via page.slots.widget-skill-maturity-scorecard -> skill-maturity-scorecard."
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "skill-maturity-scorecard",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 6
+					}
+				],
+				"sidebar": {
+					"enabled": false
+				}
+			},
+			"slots": {
+				"widget-skill-maturity-scorecard": "skill-maturity-scorecard"
 			}
 		},
 		{
