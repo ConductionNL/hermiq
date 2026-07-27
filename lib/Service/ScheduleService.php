@@ -194,6 +194,18 @@ class ScheduleService
     private string $lastRunId = '';
 
     /**
+     * The skill uuids actually exposed to the last run's context by the
+     * run-loop skill-exposure seam (skill-evals: `ContextAssembler::
+     * assembleSkillsForRun()` — active skills of the effective set, override
+     * else stored installs). Recorded on EVERY run's audit entry as
+     * `skillsUsed` (skill-learnings consumes it later); empty on the legacy
+     * (flag-off) ChatService path, which exposes no skills. Reset per run.
+     *
+     * @var array<int, string>
+     */
+    private array $lastRunSkillsUsed = [];
+
+    /**
      * Constructor.
      *
      * @param ObjectService          $objectService          OpenRegister object read/write (single write-path).
@@ -1637,6 +1649,10 @@ class ScheduleService
                 // step (only ever true on the in-app Engine path; never fabricated).
                 'steps'              => $this->lastRunSteps,
                 'toolStepsAvailable' => $this->stepsIncludeToolCall(steps: $this->lastRunSteps),
+                // Skill-evals: the skill uuids the run-loop seam actually exposed to
+                // this run's context — persisted for EVERY run (not just evals) so
+                // skill-learnings can later attribute run outcomes to skills.
+                'skillsUsed'         => $this->lastRunSkillsUsed,
                 // Agent-versioning: the version of the agent config that actually ran
                 // this occurrence, captured at write time (null when unresolvable —
                 // never fatal to the run).
@@ -1858,60 +1874,69 @@ class ScheduleService
      * scheduled runs use"). `$owner` is the schedule owner for a scheduled run, or
      * the agent's own `owner` (acting user) for a flow-triggered run.
      *
-     * @param string            $owner        The uid to impersonate for this run.
-     * @param string            $agentId      The bound agent UUID.
-     * @param string            $prompt       The prompt to run.
-     * @param string            $organisation The run's organisation (schedule/agent/flow-subject
-     *                                        organisation — '' resolves the org-less instance
-     *                                        default), used ONLY to resolve the effective
-     *                                        GuardrailPolicy (agent-guardrails): the input
-     *                                        filter on the legacy ChatService branch (the one
-     *                                        path Engine::processMessage() never sees), and the
-     *                                        defense-in-depth output filter applied to BOTH
-     *                                        branches' result before it reaches this method's
-     *                                        single return point.
-     * @param bool              $dryRun       Whether this run is a dry-run preview
-     *                                        (run-replay-and-dry-run):
-     *                                        side-effecting tool calls are
-     *                                        neutralised instead of actually
-     *                                        invoked. Requires the in-app Engine
-     *                                        path (`hermiq.engine.enabled=true`)
-     *                                        — throws `EngineRequiredException`
-     *                                        otherwise, since dry-run's entire
-     *                                        mechanism depends on
-     *                                        `FacadeToolInvoker`, which only
-     *                                        exists on that path. False (every
-     *                                        pre-existing caller) is byte-for-byte
-     *                                        unchanged behavior.
-     * @param bool              $forceOwner   Sub-agent-delegation: when true, skip
-     *                                        `resolveActingUser()` entirely and
-     *                                        impersonate `$owner` verbatim, even
-     *                                        when the target Agent has its own
-     *                                        `actingUser` set — the ONLY way a
-     *                                        delegated sub-run's attribution
-     *                                        cannot be laundered from the parent's
-     *                                        already-resolved identity to a
-     *                                        different one. `DelegationService` is
-     *                                        the ONLY caller that ever passes
-     *                                        `true`; every pre-existing caller
-     *                                        (scheduled tick, Run-now,
-     *                                        `FlowAgentRunService`,
-     *                                        `WebhookAgentRunService`) omits it
-     *                                        and is byte-for-byte unaffected.
-     * @param ObjectEntity|null $anchor       Sub-agent-delegation: the object this run's
-     *                                        (and any of ITS OWN delegated sub-runs')
-     *                                        `AuditTrail` entry rolls up to for
-     *                                        `BudgetService`'s existing usage
-     *                                        aggregation — the schedule for a
-     *                                        scheduled run, the triggering object for a
-     *                                        flow-triggered run, the Agent object for a
-     *                                        webhook-triggered run, or null (every
-     *                                        pre-existing caller before this change)
-     *                                        when delegation is not in play. Threaded
-     *                                        onto the `DelegationContext` frame
-     *                                        `runAgentViaEngine()` pushes, so a NESTED
-     *                                        delegate call inherits the SAME anchor
-     *                                        however deep the tree goes.
+     * @param string            $owner            The uid to impersonate for this run.
+     * @param string            $agentId          The bound agent UUID.
+     * @param string            $prompt           The prompt to run.
+     * @param string            $organisation     The run's organisation (schedule/agent/flow-subject
+     *                                            organisation — '' resolves the org-less instance
+     *                                            default), used ONLY to resolve the effective
+     *                                            GuardrailPolicy (agent-guardrails): the input
+     *                                            filter on the legacy ChatService branch (the one
+     *                                            path Engine::processMessage() never sees), and the
+     *                                            defense-in-depth output filter applied to BOTH
+     *                                            branches' result before it reaches this method's
+     *                                            single return point.
+     * @param bool              $dryRun           Whether this run is a dry-run preview
+     *                                            (run-replay-and-dry-run):
+     *                                            side-effecting tool calls are
+     *                                            neutralised instead of actually
+     *                                            invoked. Requires the in-app Engine
+     *                                            path (`hermiq.engine.enabled=true`)
+     *                                            — throws `EngineRequiredException`
+     *                                            otherwise, since dry-run's entire
+     *                                            mechanism depends on
+     *                                            `FacadeToolInvoker`, which only
+     *                                            exists on that path. False (every
+     *                                            pre-existing caller) is byte-for-byte
+     *                                            unchanged behavior.
+     * @param bool              $forceOwner       Sub-agent-delegation: when true, skip
+     *                                            `resolveActingUser()` entirely and
+     *                                            impersonate `$owner` verbatim, even
+     *                                            when the target Agent has its own
+     *                                            `actingUser` set — the ONLY way a
+     *                                            delegated sub-run's attribution
+     *                                            cannot be laundered from the parent's
+     *                                            already-resolved identity to a
+     *                                            different one. `DelegationService` is
+     *                                            the ONLY caller that ever passes
+     *                                            `true`; every pre-existing caller
+     *                                            (scheduled tick, Run-now,
+     *                                            `FlowAgentRunService`,
+     *                                            `WebhookAgentRunService`) omits it
+     *                                            and is byte-for-byte unaffected.
+     * @param ObjectEntity|null $anchor           Sub-agent-delegation: the object this run's
+     *                                            (and any of ITS OWN delegated sub-runs')
+     *                                            `AuditTrail` entry rolls up to for
+     *                                            `BudgetService`'s existing usage
+     *                                            aggregation — the schedule for a
+     *                                            scheduled run, the triggering object for a
+     *                                            flow-triggered run, the Agent object for a
+     *                                            webhook-triggered run, or null (every
+     *                                            pre-existing caller before this change)
+     *                                            when delegation is not in play. Threaded
+     *                                            onto the `DelegationContext` frame
+     *                                            `runAgentViaEngine()` pushes, so a NESTED
+     *                                            delegate call inherits the SAME anchor
+     *                                            however deep the tree goes.
+     * @param array|null        $skillSetOverride Per-run effective-skill-set override
+     *                                            (skill uuids) for the run-loop
+     *                                            skill-exposure seam (skill-evals): a
+     *                                            paired eval half varies exactly this
+     *                                            set, IN MEMORY ONLY — the agent's
+     *                                            stored `skillInstalls` and the skills'
+     *                                            `installedOn` are never written. Null
+     *                                            (every non-eval caller) exposes the
+     *                                            agent's stored installs.
      *
      * @return string The agent's response text (already output-filtered).
      *
@@ -1951,7 +1976,8 @@ class ScheduleService
         string $organisation='',
         bool $dryRun=false,
         bool $forceOwner=false,
-        ?ObjectEntity $anchor=null
+        ?ObjectEntity $anchor=null,
+        ?array $skillSetOverride=null
     ): string {
         // Run-replay-and-dry-run: dry-run's tool-call interception depends entirely
         // on the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and
@@ -1961,11 +1987,12 @@ class ScheduleService
         }
 
         // Reset per-run usage/steps so a failed run never records the previous run's
-        // tokens or step timeline.
-        $this->lastRunUsage  = [];
-        $this->lastRunSteps  = [];
-        $this->lastRunAsUser = $owner;
-        $this->lastRunId     = '';
+        // tokens, step timeline, or exposed skill set.
+        $this->lastRunUsage      = [];
+        $this->lastRunSteps      = [];
+        $this->lastRunAsUser     = $owner;
+        $this->lastRunId         = '';
+        $this->lastRunSkillsUsed = [];
 
         // Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this run.
         $guardrailPolicy = $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
@@ -2003,7 +2030,14 @@ class ScheduleService
             // too (defense-in-depth at the delivery/persistence trust boundary,
             // design.md Decision 7) — idempotent on already-filtered text.
             if ($this->isEngineEnabled() === true) {
-                $output = $this->runAgentViaEngine(owner: $impersonateAs, agentId: $agentId, prompt: $prompt, dryRun: $dryRun, anchor: $anchor);
+                $output = $this->runAgentViaEngine(
+                    owner: $impersonateAs,
+                    agentId: $agentId,
+                    prompt: $prompt,
+                    dryRun: $dryRun,
+                    anchor: $anchor,
+                    skillSetOverride: $skillSetOverride
+                );
                 return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
             }
 
@@ -2103,6 +2137,25 @@ class ScheduleService
         return $this->lastRunUsage;
 
     }//end getLastRunUsage()
+
+    /**
+     * The just-completed `runAgentAsOwner()` call's own exposed skill set
+     * (skill-evals run-loop seam) — the uuids `ContextAssembler::
+     * assembleSkillsForRun()` actually injected into the run context, exposed
+     * so `EvalRunService` can record which skills each half of a paired run
+     * saw without duplicating capture logic. Empty on the legacy (flag-off)
+     * ChatService path, which exposes no skills, or when no run has completed
+     * yet on this instance.
+     *
+     * @return array<int,string>
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function getLastRunSkillsUsed(): array
+    {
+        return $this->lastRunSkillsUsed;
+
+    }//end getLastRunSkillsUsed()
 
     /**
      * The just-completed `runAgentAsOwner()` call's own captured step timeline
@@ -2299,28 +2352,33 @@ class ScheduleService
      * usage shape must survive). Callers hold the impersonation (schedule owner,
      * or the Agent's `actingUser` when set/valid — agent-capability-profile).
      *
-     * @param string            $owner   The identity to run as (schedule owner, or the
-     *                                   resolved `actingUser` — see
-     *                                   resolveActingUser()).
-     * @param string            $agentId The bound agent UUID (hermiq register `agent` object).
-     * @param string            $prompt  The prompt to run.
-     * @param bool              $dryRun  Whether this turn is a dry-run preview
-     *                                   (run-replay-and-dry-run): threaded
-     *                                   onto `Engine::processMessage()` so a
-     *                                   side-effecting tool call is
-     *                                   neutralised, and the scratch
-     *                                   `Conversation`/`Message` objects
-     *                                   created below are deleted once the
-     *                                   turn completes (success or failure)
-     *                                   — a preview leaves no persisted
-     *                                   transcript behind. False (every
-     *                                   pre-existing caller) is byte-for-byte
-     *                                   unchanged behavior.
-     * @param ObjectEntity|null $anchor  Sub-agent-delegation: the budget-rollup anchor
-     *                                   object passed straight through from
-     *                                   `runAgentAsOwner()` — pushed verbatim onto
-     *                                   the `DelegationContext` frame below, never
-     *                                   re-derived here.
+     * @param string            $owner            The identity to run as (schedule owner, or the
+     *                                            resolved `actingUser` — see
+     *                                            resolveActingUser()).
+     * @param string            $agentId          The bound agent UUID (hermiq register `agent` object).
+     * @param string            $prompt           The prompt to run.
+     * @param bool              $dryRun           Whether this turn is a dry-run preview
+     *                                            (run-replay-and-dry-run): threaded
+     *                                            onto `Engine::processMessage()` so a
+     *                                            side-effecting tool call is
+     *                                            neutralised, and the scratch
+     *                                            `Conversation`/`Message` objects
+     *                                            created below are deleted once the
+     *                                            turn completes (success or failure)
+     *                                            — a preview leaves no persisted
+     *                                            transcript behind. False (every
+     *                                            pre-existing caller) is byte-for-byte
+     *                                            unchanged behavior.
+     * @param ObjectEntity|null $anchor           Sub-agent-delegation: the budget-rollup anchor
+     *                                            object passed straight through from
+     *                                            `runAgentAsOwner()` — pushed verbatim onto
+     *                                            the `DelegationContext` frame below, never
+     *                                            re-derived here.
+     * @param array|null        $skillSetOverride Per-run effective-skill-set override
+     *                                            (skill uuids, skill-evals) passed straight
+     *                                            through to `Engine::processMessage()`;
+     *                                            null (every non-eval caller) exposes the
+     *                                            agent's stored installs.
      *
      * @return string The agent's response text.
      *
@@ -2331,8 +2389,14 @@ class ScheduleService
      * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
      * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
      */
-    private function runAgentViaEngine(string $owner, string $agentId, string $prompt, bool $dryRun=false, ?ObjectEntity $anchor=null): string
-    {
+    private function runAgentViaEngine(
+        string $owner,
+        string $agentId,
+        string $prompt,
+        bool $dryRun=false,
+        ?ObjectEntity $anchor=null,
+        ?array $skillSetOverride=null
+    ): string {
         $agent = $this->objectService->find(
             id: $agentId,
             register: self::REGISTER_SLUG,
@@ -2383,7 +2447,8 @@ class ScheduleService
                 userId: $owner,
                 userMessage: $prompt,
                 trace: $trace,
-                dryRun: $dryRun
+                dryRun: $dryRun,
+                skillSetOverride: $skillSetOverride
             );
 
             // Capture the LLM token/latency usage identically to the flag-off path, so
@@ -2395,6 +2460,16 @@ class ScheduleService
             $usage = ($result['usage'] ?? []);
             if (is_array($usage) === true) {
                 $this->lastRunUsage = $usage;
+            }
+
+            // Skill-evals: which skill uuids the seam actually exposed to this run's
+            // context — recorded on the run's audit entry for ALL runs (skillsUsed).
+            // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+            $skillsUsed = ($result['skillsUsed'] ?? []);
+            if (is_array($skillsUsed) === true) {
+                $this->lastRunSkillsUsed = array_values(
+                    array_filter($skillsUsed, static fn ($uuid): bool => is_string($uuid) === true && $uuid !== '')
+                );
             }
 
             // Prefer the collector's own record (this call owns it end-to-end); fall

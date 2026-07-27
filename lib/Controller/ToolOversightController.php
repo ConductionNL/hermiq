@@ -734,7 +734,9 @@ class ToolOversightController extends Controller
             return '';
         }
 
-        fputcsv($handle, ['at', 'toolId', 'actingUser', 'paramsDigest', 'resultSummary', 'dataTouched']);
+        // Explicit $escape: PHP 8.4 deprecates relying on the default (RFC 4180
+        // knows no escape character — pass '' once the minimum PHP allows it).
+        fputcsv($handle, ['at', 'toolId', 'actingUser', 'paramsDigest', 'resultSummary', 'dataTouched'], ',', '"', '\\');
 
         foreach ($rows as $row) {
             fputcsv(
@@ -746,7 +748,10 @@ class ToolOversightController extends Controller
                     (string) ($row['paramsDigest'] ?? ''),
                     (string) json_encode($row['resultSummary'] ?? null),
                     (string) json_encode($row['dataTouched'] ?? []),
-                ]
+                ],
+                ',',
+                '"',
+                '\\'
             );
         }
 

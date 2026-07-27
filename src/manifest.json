@@ -278,6 +278,13 @@
 						"title": "Run history",
 						"icon": "History",
 						"_note": "Per-row trace expand-and-cache, a dead_letter-only Re-run, and a Replay dry-run + diff preview — object-list's static columns/rowRoute shape has no per-row expand or conditional actions (design.md Decision 2/3). Resolved via page.slots.widget-agent-run-history -> agent-run-history."
+					},
+					{
+						"id": "agent-eval-baseline",
+						"type": "custom",
+						"title": "Eval baseline mode",
+						"icon": "FlaskOutline",
+						"_note": "skill-evals: the data widget holding Agent.evalBaselineMode — edited here, with the register property's consequence-explaining description (joint vs per-skill, 2x vs (N+1)x cost) surfaced as an info affordance exactly where the value is changed (spec scenario). Resolved via page.slots.widget-agent-eval-baseline -> agent-eval-baseline."
 					}
 				],
 				"layout": [
@@ -336,6 +343,14 @@
 						"gridY": 18,
 						"gridWidth": 12,
 						"gridHeight": 6
+					},
+					{
+						"id": "8",
+						"widgetId": "agent-eval-baseline",
+						"gridX": 0,
+						"gridY": 24,
+						"gridWidth": 6,
+						"gridHeight": 3
 					}
 				],
 				"headerActions": [
@@ -380,7 +395,8 @@
 				"widget-agent-tool-governance": "agent-tool-governance",
 				"widget-agent-run-operations": "agent-run-operations",
 				"widget-agent-memory": "agent-memory",
-				"widget-agent-run-history": "agent-run-history"
+				"widget-agent-run-history": "agent-run-history",
+				"widget-agent-eval-baseline": "agent-eval-baseline"
 			}
 		},
 		{
@@ -454,7 +470,7 @@
 			"config": {
 				"register": "hermiq",
 				"schema": "agentskill",
-				"_note": "skill-maturity (mirrors EvalDatasetDetail): the durable maturity scorecard home — per-level pass/fail + reasons + evidence timestamps, the owner-guarded Qualify action and the action-gated Attest-L4 form live in the one custom skill-maturity-scorecard widget; qualify/attest are bespoke SkillMaturityController endpoints, not OR object CRUD.",
+				"_note": "skill-maturity (mirrors EvalDatasetDetail): the durable maturity scorecard home — per-level pass/fail + reasons + evidence timestamps, the owner-guarded Qualify action and the action-gated Attest-L4 form live in the one custom skill-maturity-scorecard widget; qualify/attest are bespoke SkillMaturityController endpoints, not OR object CRUD. skill-evals adds the skill-eval-evidence card (l5 pass rate + mode-labelled delta + trend + Run paired eval).",
 				"widgets": [
 					{
 						"id": "skill-maturity-scorecard",
@@ -462,6 +478,13 @@
 						"title": "Maturity scorecard",
 						"icon": "ChartTimelineVariant",
 						"_note": "Per-level L1–L7 scorecard + Qualify + Attest-L4. Resolved via page.slots.widget-skill-maturity-scorecard -> skill-maturity-scorecard."
+					},
+					{
+						"id": "skill-eval-evidence",
+						"type": "custom",
+						"title": "Eval evidence",
+						"icon": "FlaskOutline",
+						"_note": "skill-evals: the L5 eval-evidence card (pass rate, baseline delta with attribution-mode label, trend, last validated, honest empty state) + owner-guarded Run paired eval. Resolved via page.slots.widget-skill-eval-evidence -> skill-eval-evidence."
 					}
 				],
 				"layout": [
@@ -472,6 +495,14 @@
 						"gridY": 0,
 						"gridWidth": 12,
 						"gridHeight": 6
+					},
+					{
+						"id": "2",
+						"widgetId": "skill-eval-evidence",
+						"gridX": 0,
+						"gridY": 6,
+						"gridWidth": 12,
+						"gridHeight": 5
 					}
 				],
 				"sidebar": {
@@ -479,7 +510,8 @@
 				}
 			},
 			"slots": {
-				"widget-skill-maturity-scorecard": "skill-maturity-scorecard"
+				"widget-skill-maturity-scorecard": "skill-maturity-scorecard",
+				"widget-skill-eval-evidence": "skill-eval-evidence"
 			}
 		},
 		{
@@ -646,24 +678,39 @@
 			"config": {
 				"register": "hermiq",
 				"schema": "evaldataset",
-				"_note": "manifest-driven-pages (design.md Decision 8): hosts the per-dataset agent-picker + Run + run history as one custom eval-run-panel widget — 'Run' has no OR-object equivalent (the one bespoke src/api/evals.js action; every other eval path is object CRUD).",
+				"_note": "manifest-driven-pages (design.md Decision 8): hosts the per-dataset agent-picker + Run + run history as one custom eval-run-panel widget — 'Run' has no OR-object equivalent (the one bespoke src/api/evals.js action; every other eval path is object CRUD). skill-evals adds the skill-link-panel widget (plain skillRefs object writes) and the paired-baseline toggle + with/without rendering inside eval-run-panel.",
 				"widgets": [
+					{
+						"id": "skill-link-panel",
+						"type": "custom",
+						"title": "Linked skills",
+						"icon": "PuzzleOutline",
+						"_note": "skill-evals: link/unlink skills onto this dataset's skillRefs (generic object writes; picker over visible active skills). Resolved via page.slots.widget-skill-link-panel -> skill-link-panel."
+					},
 					{
 						"id": "eval-run-panel",
 						"type": "custom",
 						"title": "Run",
 						"icon": "PlayCircleOutline",
-						"_note": "Agent-picker + Run + this dataset's run history. Resolved via page.slots.widget-eval-run-panel -> eval-run-panel."
+						"_note": "Agent-picker + Run (+ paired-baseline toggle with the mode-dependent cost note) + this dataset's run history incl. with/without paired rendering. Resolved via page.slots.widget-eval-run-panel -> eval-run-panel."
 					}
 				],
 				"layout": [
 					{
 						"id": "1",
-						"widgetId": "eval-run-panel",
+						"widgetId": "skill-link-panel",
 						"gridX": 0,
 						"gridY": 0,
 						"gridWidth": 12,
-						"gridHeight": 6
+						"gridHeight": 4
+					},
+					{
+						"id": "2",
+						"widgetId": "eval-run-panel",
+						"gridX": 0,
+						"gridY": 4,
+						"gridWidth": 12,
+						"gridHeight": 7
 					}
 				],
 				"sidebar": {
@@ -671,6 +718,7 @@
 				}
 			},
 			"slots": {
+				"widget-skill-link-panel": "skill-link-panel",
 				"widget-eval-run-panel": "eval-run-panel"
 			}
 		},

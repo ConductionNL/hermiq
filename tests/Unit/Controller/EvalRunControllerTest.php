@@ -5,7 +5,10 @@
  *
  * Covers the owner-guard (IDOR) posture: unauthenticated → 401; a dataset or agent the
  * caller does not own → 404 (never 403, so existence is not confirmed); the happy path
- * delegates to EvalRunService and returns its result (agent-evals).
+ * delegates to EvalRunService and returns its result (agent-evals). skill-evals widens
+ * the guard for `baseline: true`: empty `skillRefs` → 400 with zero cases executed; a
+ * missing or non-owned linked skill → the same indistinguishable 404; an owned set
+ * delegates with `baseline: true`.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Controller
@@ -200,4 +203,198 @@ class EvalRunControllerTest extends TestCase
         $this->assertSame($outcome, $response->getData());
 
     }//end testOwnedRunDelegatesToService()
+
+    /**
+     * A dataset ObjectEntity owned by $owner carrying the given skillRefs.
+     *
+     * @param string             $owner     The owner UID.
+     * @param array<int, string> $skillRefs Linked skill uuids.
+     *
+     * @return ObjectEntity
+     */
+    private function datasetWithSkills(string $owner, array $skillRefs): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid('ds-1');
+        $entity->setOwner($owner);
+        $entity->setObject(['name' => 'demo', 'skillRefs' => $skillRefs]);
+        return $entity;
+
+    }//end datasetWithSkills()
+
+    /**
+     * A skill ObjectEntity owned by $owner.
+     *
+     * @param string $owner The owner UID.
+     * @param string $uuid  The skill uuid.
+     *
+     * @return ObjectEntity
+     */
+    private function skill(string $owner, string $uuid='sk-1'): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid($uuid);
+        $entity->setOwner($owner);
+        $entity->setObject(['name' => 'skill']);
+        return $entity;
+
+    }//end skill()
+
+    /**
+     * A request mock whose params include agentId=ag-1 and baseline=true.
+     *
+     * @return IRequest
+     */
+    private function baselineRequest(): IRequest
+    {
+        $request = $this->createMock(IRequest::class);
+        $request->method('getParam')->willReturnCallback(
+            static function (string $key, $default=null) {
+                if ($key === 'agentId') {
+                    return 'ag-1';
+                }
+
+                if ($key === 'baseline') {
+                    return true;
+                }
+
+                return $default;
+            }
+        );
+        return $request;
+
+    }//end baselineRequest()
+
+    /**
+     * An AgentMapper mock resolving an agent owned by alice.
+     *
+     * @return AgentMapper
+     */
+    private function aliceAgentMapper(): AgentMapper
+    {
+        $agent = $this->createMock(Agent::class);
+        $agent->method('getOwner')->willReturn('alice');
+        $agentMapper = $this->createMock(AgentMapper::class);
+        $agentMapper->method('findByUuid')->willReturn($agent);
+        return $agentMapper;
+
+    }//end aliceAgentMapper()
+
+    /**
+     * `baseline: true` on a dataset with empty skillRefs is 400 and no case executes.
+     *
+     * @return void
+     */
+    public function testBaselineWithEmptySkillRefsReturns400(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->datasetWithSkills('alice', []));
+
+        $evalRunService = $this->createMock(EvalRunService::class);
+        $evalRunService->expects($this->never())->method('run');
+
+        $controller = new EvalRunController(
+            request: $this->baselineRequest(),
+            objectService: $objectService,
+            agentMapper: $this->aliceAgentMapper(),
+            userSession: $this->session('alice'),
+            evalRunService: $evalRunService,
+            logger: $this->createMock(LoggerInterface::class),
+        );
+
+        $this->assertSame(Http::STATUS_BAD_REQUEST, $controller->run('ds-1')->getStatus());
+
+    }//end testBaselineWithEmptySkillRefsReturns400()
+
+    /**
+     * `baseline: true` when a linked skill is owned by ANOTHER user is 404 — never
+     * 403 — and no case executes (the widened IDOR guard covers every linked skill).
+     *
+     * @return void
+     */
+    public function testBaselineWithNonOwnedLinkedSkillReturns404(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturnCallback(
+            fn (string $id) => ($id === 'ds-1') ? $this->datasetWithSkills('alice', ['sk-bob']) : $this->skill('bob', 'sk-bob')
+        );
+
+        $evalRunService = $this->createMock(EvalRunService::class);
+        $evalRunService->expects($this->never())->method('run');
+
+        $controller = new EvalRunController(
+            request: $this->baselineRequest(),
+            objectService: $objectService,
+            agentMapper: $this->aliceAgentMapper(),
+            userSession: $this->session('alice'),
+            evalRunService: $evalRunService,
+            logger: $this->createMock(LoggerInterface::class),
+        );
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->run('ds-1')->getStatus());
+
+    }//end testBaselineWithNonOwnedLinkedSkillReturns404()
+
+    /**
+     * `baseline: true` when a linked skill does not resolve at all is the SAME 404
+     * (missing and non-owned are indistinguishable — no existence oracle).
+     *
+     * @return void
+     */
+    public function testBaselineWithMissingLinkedSkillReturns404(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturnCallback(
+            fn (string $id) => ($id === 'ds-1') ? $this->datasetWithSkills('alice', ['sk-gone']) : null
+        );
+
+        $evalRunService = $this->createMock(EvalRunService::class);
+        $evalRunService->expects($this->never())->method('run');
+
+        $controller = new EvalRunController(
+            request: $this->baselineRequest(),
+            objectService: $objectService,
+            agentMapper: $this->aliceAgentMapper(),
+            userSession: $this->session('alice'),
+            evalRunService: $evalRunService,
+            logger: $this->createMock(LoggerInterface::class),
+        );
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->run('ds-1')->getStatus());
+
+    }//end testBaselineWithMissingLinkedSkillReturns404()
+
+    /**
+     * When the caller owns dataset + agent + every linked skill, `baseline: true`
+     * is forwarded to EvalRunService.
+     *
+     * @return void
+     */
+    public function testOwnedBaselineRunDelegatesWithBaselineTrue(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturnCallback(
+            fn (string $id) => ($id === 'ds-1') ? $this->datasetWithSkills('alice', ['sk-1']) : $this->skill('alice')
+        );
+
+        $outcome        = ['evalRunId' => 'er-1', 'status' => 'completed', 'passRate' => 1.0, 'regressionGateResult' => 'not_applicable', 'previousPassRate' => null];
+        $evalRunService = $this->createMock(EvalRunService::class);
+        $evalRunService->expects($this->once())->method('run')
+            ->with($this->anything(), $this->anything(), null, null, true)
+            ->willReturn($outcome);
+
+        $controller = new EvalRunController(
+            request: $this->baselineRequest(),
+            objectService: $objectService,
+            agentMapper: $this->aliceAgentMapper(),
+            userSession: $this->session('alice'),
+            evalRunService: $evalRunService,
+            logger: $this->createMock(LoggerInterface::class),
+        );
+
+        $response = $controller->run('ds-1');
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame($outcome, $response->getData());
+
+    }//end testOwnedBaselineRunDelegatesWithBaselineTrue()
 }//end class

@@ -83,6 +83,8 @@ class ToolGrantResolutionException extends RuntimeException
      * The unresolved grant entries, for structured logging and API bodies.
      *
      * @return array<int, string> The grants that matched no tool.
+     *
+     * @spec exclude Trivial exception-payload accessor; no behavioural spec.
      */
     public function getGrants(): array
     {

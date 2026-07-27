@@ -14,6 +14,9 @@
  * agentId blindly. It loads BOTH the EvalDataset and the target Agent WITH RBAC on and
  * refuses (404) unless the requesting user owns each — a non-owner can neither run nor
  * confirm the existence of another tenant's dataset or agent (mirrors RunNowController).
+ * skill-evals widens the guard for `baseline: true`: the caller must ALSO own EVERY skill
+ * referenced by the dataset's `skillRefs` (the paired run writes l5 evidence onto those
+ * skills); any missing/invisible/non-owned linked skill is the same indistinguishable 404.
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -73,6 +76,14 @@ class EvalRunController extends Controller
     private const DATASET_SCHEMA = 'evaldataset';
 
     /**
+     * OpenRegister schema slug for Skill objects (widened baseline owner guard;
+     * namespaced to avoid a cross-app slug collision).
+     *
+     * @var string
+     */
+    private const SKILL_SCHEMA = 'agentskill';
+
+    /**
      * Constructor.
      *
      * @param IRequest        $request        The request object.
@@ -107,6 +118,7 @@ class EvalRunController extends Controller
      * @NoCSRFRequired
      *
      * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-run-trigger-endpoint-is-owner-guarded-idor
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-paired-trigger-owner-guard-covers-dataset-agent-and-every-linked-skill
      */
     public function run(string $datasetId): JSONResponse
     {
@@ -128,6 +140,27 @@ class EvalRunController extends Controller
             return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
         }
 
+        // Skill-evals: optional paired-baseline mode. Default false — the existing
+        // agent-scoped behaviour is byte-identical for every pre-existing caller.
+        $baseline = filter_var($this->request->getParam('baseline', false), FILTER_VALIDATE_BOOLEAN);
+        if ($baseline === true) {
+            $skillRefs = $this->linkedSkillRefs(dataset: $dataset);
+            if ($skillRefs === []) {
+                return new JSONResponse(
+                    ['error' => 'Baseline mode requires a dataset with linked skills'],
+                    Http::STATUS_BAD_REQUEST
+                );
+            }
+
+            // Widened owner guard: the paired run writes l5 evidence onto every
+            // linked skill, so the caller must own each — any missing, invisible,
+            // or non-owned skill is 404, never 403 (no existence oracle for any
+            // of the three object kinds).
+            if ($this->ownsEverySkill(skillRefs: $skillRefs, uid: $user->getUID()) === false) {
+                return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+            }
+        }
+
         $agentVersionId = $this->request->getParam('agentVersionId', null);
         if ($agentVersionId !== null) {
             $agentVersionId = (string) $agentVersionId;
@@ -144,8 +177,11 @@ class EvalRunController extends Controller
                 dataset: $dataset,
                 agent: $agent,
                 agentVersionId: $agentVersionId,
-                regressionThresholdOverride: $thresholdOverride
+                regressionThresholdOverride: $thresholdOverride,
+                baseline: $baseline
             );
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         } catch (ModelPolicyViolationException $e) {
             return new JSONResponse(['error' => $e->getMessage()], 422);
         } catch (ProviderUnavailableException $e) {
@@ -220,4 +256,63 @@ class EvalRunController extends Controller
         return $agent;
 
     }//end loadOwnedAgent()
+
+    /**
+     * The dataset's linked skill uuids (`skillRefs`), filtered to non-empty strings.
+     *
+     * @param ObjectEntity $dataset The (already owner-guarded) EvalDataset.
+     *
+     * @return array<int, string> The linked skill uuids (deduplicated, reindexed).
+     */
+    private function linkedSkillRefs(ObjectEntity $dataset): array
+    {
+        $refs = ($dataset->getObject()['skillRefs'] ?? []);
+        if (is_array($refs) === false) {
+            return [];
+        }
+
+        $ids = array_filter($refs, static fn ($ref): bool => is_string($ref) === true && $ref !== '');
+
+        return array_values(array_unique($ids));
+
+    }//end linkedSkillRefs()
+
+    /**
+     * Whether the given user owns EVERY referenced skill (widened baseline IDOR
+     * guard). Fetches WITH RBAC enabled and additionally asserts owner identity —
+     * a missing, cross-tenant, or merely-visible-but-not-owned skill all fail
+     * identically, so the caller learns nothing about any single skill.
+     *
+     * @param array<int, string> $skillRefs The linked skill uuids.
+     * @param string             $uid       The requesting user's UID.
+     *
+     * @return bool True only when every referenced skill resolves and is owned by $uid.
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-paired-trigger-owner-guard-covers-dataset-agent-and-every-linked-skill
+     */
+    private function ownsEverySkill(array $skillRefs, string $uid): bool
+    {
+        foreach ($skillRefs as $skillId) {
+            try {
+                $skill = $this->objectService->find(
+                    id: $skillId,
+                    register: self::REGISTER_SLUG,
+                    schema: self::SKILL_SCHEMA
+                );
+            } catch (Throwable $e) {
+                return false;
+            }
+
+            if (($skill instanceof ObjectEntity) === false) {
+                return false;
+            }
+
+            if ((string) ($skill->getOwner() ?? '') !== $uid) {
+                return false;
+            }
+        }
+
+        return true;
+
+    }//end ownsEverySkill()
 }//end class

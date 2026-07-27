@@ -61,6 +61,12 @@ import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
 // content widget.
 import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
 import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
+// skill-evals: the EvalDatasetDetail page's skill link/unlink panel, the
+// SkillDetail page's L5 eval-evidence card (+ Run paired eval action), and the
+// AgentDetail widget holding evalBaselineMode with its info affordance.
+import SkillLinkPanel from './widgets/SkillLinkPanel.vue'
+import SkillEvalEvidence from './widgets/SkillEvalEvidence.vue'
+import AgentEvalBaselineWidget from './widgets/AgentEvalBaselineWidget.vue'
 // skills-catalog: SkillsCatalog's row-actions widget (Approve/Export/Publish/
 // Publish-to-GitHub/Install), the same pattern as agent-template-row-actions
 // above.
@@ -536,6 +542,55 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'Running a dataset against an agent is a governed, non-delivering Hermiq action (EvalRunController) with no OpenRegister object-trigger equivalent — object-list/object-op cannot express it (ADR-049).',
+	},
+
+	/**
+	 * Skill link/unlink panel on EvalDatasetDetail (skill-evals): plain
+	 * `skillRefs` object writes through the generic store — the picker offers
+	 * the caller's visible active skills.
+	 */
+	'skill-link-panel': {
+		kind: 'widget',
+		component: SkillLinkPanel,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'skillRefs is an array-of-uuid relation on EvalDataset referencing the independent Skill catalogue — the reverse of an object-list FK-child-collection shape (the agent-skills precedent), so it stays a custom widget.',
+	},
+
+	/**
+	 * L5 eval-evidence card on SkillDetail (skill-evals): the paired-run
+	 * evidence (pass rate, mode-labelled baseline delta, trend, last
+	 * validated), an honest empty state, and the owner-guarded Run paired
+	 * eval action.
+	 */
+	'skill-eval-evidence': {
+		kind: 'widget',
+		component: SkillEvalEvidence,
+		defaultSize: { w: 12, h: 5 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 10 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Joins the skill\'s levelEvidence.l5, the datasets whose skillRefs reference it, and the paired EvalRun history — a cross-schema read + a bespoke trigger action (EvalRunController), not expressible as object-table/object-op (ADR-049).',
+	},
+
+	/**
+	 * evalBaselineMode editor + info affordance on AgentDetail (skill-evals):
+	 * the register property's consequence-explaining description is shown
+	 * exactly where the value is changed.
+	 */
+	'agent-eval-baseline': {
+		kind: 'widget',
+		component: AgentEvalBaselineWidget,
+		defaultSize: { w: 6, h: 3 },
+		minSize: { w: 4, h: 2 },
+		maxSize: { w: 12, h: 4 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'The built-in type:data widget renders values only — no per-property info affordance or inline editor at HEAD — so the property gets a dedicated small widget (spec scenario: the description surfaces where the value is changed).',
 	},
 
 	// -------------------------------------------------------------------------

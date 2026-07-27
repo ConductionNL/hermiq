@@ -3,7 +3,7 @@
     "info": {
         "title": "Hermiq Register",
         "description": "Schedule autonomous AI agents in Nextcloud. v0.16.0 — Skill (agentskill) gains the L1–L7 maturity metadata (skill-maturity, ADR-068): optional maturityLevel (computed 0–7, never hand-set), targetLevel (curator intent 1–7), and levelEvidence (per-level evidence sub-objects l1–l7). Nothing added to required; no existing object becomes invalid; all other schemas unchanged.",
-        "version": "0.16.0"
+        "version": "0.17.0"
     },
     "x-openregister": {
         "type": "application",
@@ -1182,7 +1182,7 @@
             "Skill": {
                 "slug": "agentskill",
                 "icon": "PuzzleOutline",
-                "version": "0.2.0",
+                "version": "0.3.0",
                 "title": "Skill",
                 "description": "A self-improving agent skill in the agentskills.io format (ported from Hermes). Stores the raw frontmatter block (byte-preserved for lossless round-trip), the body, auxiliary files, a lifecycle state, and which agents it is installed on. Slug namespaced (agentskill) to avoid a cross-app slug collision.",
                 "type": "object",
@@ -1471,13 +1471,22 @@
                             "l5": {
                                 "type": "object",
                                 "title": "L5 eval evidence",
-                                "description": "Measurement evidence written by the future skill-evals change; this change only reads it.",
+                                "description": "Measurement evidence written ONLY by a completed paired eval run (skill-evals); read here for the maturity fold. Client writes are silently preserved-over.",
                                 "properties": {
                                     "evalDatasetId": {
                                         "type": "string",
                                         "format": "uuid",
                                         "title": "Eval dataset id",
                                         "description": "The EvalDataset UUID that validated this skill."
+                                    },
+                                    "mode": {
+                                        "type": "string",
+                                        "enum": [
+                                            "joint",
+                                            "per-skill"
+                                        ],
+                                        "title": "Attribution mode",
+                                        "description": "How the baselineDelta was attributed (skill-evals): 'joint' marks it as the JOINT contribution of the whole linked skill set (shared, never split); 'per-skill' marks it as this skill's true marginal contribution from its own dedicated without-half."
                                     },
                                     "passRate": {
                                         "type": "number",
@@ -1593,7 +1602,7 @@
             "Agent": {
                 "slug": "agent",
                 "icon": "RobotOutline",
-                "version": "0.3.0",
+                "version": "0.4.0",
                 "title": "Agent",
                 "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target).",
                 "type": "object",
@@ -1766,12 +1775,22 @@
                         "type": "array",
                         "default": [],
                         "title": "Skill installs",
-                        "description": "Skill uuids explicitly installed on this agent; the allowlist a future run loop uses to decide which skills are exposed to it. Kept in sync by SkillService::installOnAgent().",
+                        "description": "Skill uuids explicitly installed on this agent; the allowlist the engine run loop exposes to a run (skill-evals run-loop seam: ContextAssembler injects each active installed skill's content into the run context). Kept in sync by SkillService::installOnAgent().",
                         "items": {
                             "type": "string",
                             "format": "uuid",
                             "$ref": "Skill"
                         }
+                    },
+                    "evalBaselineMode": {
+                        "type": "string",
+                        "enum": [
+                            "joint",
+                            "per-skill"
+                        ],
+                        "default": "joint",
+                        "title": "Eval baseline mode",
+                        "description": "How a paired (with-skill vs without-skill) eval baseline is constructed for this agent. 'joint' (the default, also when unset): every paired run executes ONE without-skill half that detaches all of the dataset's linked skills together — each case runs exactly twice, at roughly 2x the token cost of a normal eval run, and the recorded baseline delta is the JOINT contribution of the whole linked skill set, shared by every linked skill. 'per-skill': every paired run executes one without-skill half PER linked skill (the with-set minus only that skill) — with N linked skills each case runs N+1 times, at (N+1)x the token cost per paired run, and each skill receives its own TRUE marginal baseline delta. Every half counts toward the same organisation and agent budgets."
                     },
                     "contextRefs": {
                         "type": "array",
@@ -2732,7 +2751,7 @@
             "EvalDataset": {
                 "slug": "evaldataset",
                 "icon": "FlaskOutline",
-                "version": "0.1.0",
+                "version": "0.2.0",
                 "title": "Eval dataset",
                 "description": "A named set of EvalCases (agent-evals) — an input prompt plus a deterministic assertion or an LLM-judge rubric — run on demand against an Agent as an EvalRun, so an operator can verify an agent's behaviour before trusting it with real, delivered runs. A case has no independent lifecycle, ownership, or cross-dataset reuse need, so it is stored as an embedded array property, not a standalone schema/register relation (mirrors Schedule.repeat).",
                 "type": "object",
@@ -2813,13 +2832,24 @@
                                 }
                             }
                         }
+                    },
+                    "skillRefs": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Linked skills",
+                        "description": "Skill uuids this dataset measures (skill-evals): a paired baseline run exposes these skills in its with-half and detaches them (per the agent's evalBaselineMode) in its without-half(s), and a completed paired run writes levelEvidence.l5 on each of them. Linked and unlinked through the generic object write path — no bespoke link endpoint. For the cleanest attribution link ONE skill per dataset (joint mode measures the linked set as a whole).",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "$ref": "Skill"
+                        }
                     }
                 }
             },
             "EvalRun": {
                 "slug": "evalrun",
                 "icon": "ChartLine",
-                "version": "0.1.0",
+                "version": "0.2.0",
                 "title": "Eval run",
                 "description": "One execution of an EvalDataset against an Agent (agent-evals): each case runs through ScheduleService::runAgentAsOwner() — the same impersonation and Engine/ChatService path a schedule tick or Run now uses — but non-delivering (DeliveryService is never called). Scored deterministically or via LLM-as-judge, aggregated into a passRate, and compared against the immediately preceding completed EvalRun for the same datasetId+agentId as a regression gate.",
                 "type": "object",
@@ -2959,6 +2989,126 @@
                         "nullable": true,
                         "title": "Regression threshold (pp)",
                         "description": "The effective regression-gate threshold (percentage points of passRate drop) applied to this run — the instance-wide IAppConfig default unless a per-trigger override was supplied."
+                    },
+                    "baselineMode": {
+                        "type": "boolean",
+                        "default": false,
+                        "title": "Paired baseline run",
+                        "description": "True when this run executed as a paired with-skill vs without-skill baseline (skill-evals): the with-half lands in results/passRate, the without-half(s) per the agent's evalBaselineMode. False (the default) is a plain agent-scoped run — byte-identical to pre-skill-evals behaviour."
+                    },
+                    "attributionMode": {
+                        "type": "string",
+                        "enum": [
+                            "joint",
+                            "per-skill"
+                        ],
+                        "title": "Attribution mode",
+                        "description": "Snapshot of the baseline-attribution mode this paired run actually used (the agent's evalBaselineMode at trigger time — agent config may change later; run history stays honest). joint = one without-half detaching all linked skills together (joint delta); per-skill = one without-half per linked skill (true per-skill marginals). Unset on non-paired runs."
+                    },
+                    "baselineResults": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Baseline results",
+                        "description": "The joint-mode without-half's per-case outcomes, in dataset case order (same item shape as results). Unset in per-skill mode — each skillResults entry carries its own dedicated without-half there.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "caseIndex": {
+                                    "type": "integer",
+                                    "title": "Case index",
+                                    "description": "0-based index of this case within the dataset's cases array at run time."
+                                },
+                                "prompt": {
+                                    "type": "string",
+                                    "title": "Prompt",
+                                    "description": "The case's input prompt, snapshotted at run time."
+                                },
+                                "expectationType": {
+                                    "type": "string",
+                                    "title": "Expectation type",
+                                    "description": "The case's expectationType, snapshotted at run time."
+                                },
+                                "actualOutput": {
+                                    "type": "string",
+                                    "title": "Actual output",
+                                    "description": "The agent's real output for this case in the without-skill half."
+                                },
+                                "passed": {
+                                    "type": "boolean",
+                                    "title": "Passed",
+                                    "description": "Whether this case's scoring judged the without-half output to meet its expectation."
+                                },
+                                "errorMessage": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "title": "Error message",
+                                    "description": "Why scoring could not complete or why an infrastructure-level error occurred in the without-half."
+                                },
+                                "score": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "title": "Score",
+                                    "description": "The LLM judge's numeric score (0–1) for a rubric case; absent for deterministic cases."
+                                },
+                                "judgeRationale": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "title": "Judge rationale",
+                                    "description": "The LLM judge's rationale for its score, for a rubric case."
+                                }
+                            }
+                        }
+                    },
+                    "baselinePassRate": {
+                        "type": "number",
+                        "nullable": true,
+                        "minimum": 0,
+                        "maximum": 1,
+                        "title": "Baseline pass rate",
+                        "description": "Fraction of cases that passed in the joint-mode without-skill half. Unset in per-skill mode (there is no single without-half to promote) and on non-paired runs."
+                    },
+                    "skillResults": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Per-skill results",
+                        "description": "One entry per linked skill on a paired run. In joint mode every entry shares the same with/without numbers (the joint contribution of the linked set); in per-skill mode each entry carries its own dedicated without-half results and a TRUE per-skill marginal baselineDelta.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "skillId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "title": "Skill",
+                                    "description": "UUID of the linked skill this entry measures.",
+                                    "example": "00000000-0000-0000-0000-000000000000",
+                                    "$ref": "Skill"
+                                },
+                                "passRateWith": {
+                                    "type": "number",
+                                    "title": "Pass rate with skill",
+                                    "description": "The with-half pass rate (0–1) — identical to the run's passRate."
+                                },
+                                "passRateWithout": {
+                                    "type": "number",
+                                    "title": "Pass rate without skill",
+                                    "description": "The without-half pass rate (0–1) this entry's baselineDelta is computed against (the joint without-half in joint mode; this skill's dedicated without-half in per-skill mode)."
+                                },
+                                "baselineDelta": {
+                                    "type": "number",
+                                    "title": "Baseline delta",
+                                    "description": "passRateWith minus passRateWithout. In joint mode this is the JOINT contribution of the whole linked set (shared across entries); in per-skill mode it is this skill's true marginal contribution."
+                                },
+                                "baselineResults": {
+                                    "type": "array",
+                                    "default": [],
+                                    "title": "Baseline results",
+                                    "description": "Per-skill mode only: this skill's dedicated without-half per-case outcomes, in dataset case order (same item shape as the run's results). Unset in joint mode — the shared without-half lives on the run's top-level baselineResults.",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },

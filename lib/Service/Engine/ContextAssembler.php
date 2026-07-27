@@ -19,6 +19,14 @@
  * view-filter mechanism just for `Context` would create two inconsistent behaviors in the
  * same codebase, so `viewRefs` is collected and logged (count only), not applied.
  *
+ * skill-evals additionally lands the run-loop skill-exposure seam here
+ * (`assembleSkillsForRun()`): the effective skill set — a per-run override when supplied
+ * (paired eval halves), otherwise the agent's stored `skillInstalls` — is resolved and
+ * each `state: active` skill's content (name/description + body) is injected into the
+ * run's system context. Non-active skills (quarantined/stale/archived) are NEVER exposed,
+ * preserving the marketplace approval gate. Context exposure only — no skill
+ * tool-calling semantics.
+ *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
  *
@@ -66,6 +74,21 @@ class ContextAssembler
      * @var string
      */
     private const CONTEXT_SCHEMA = 'context';
+
+    /**
+     * Schema slug for Skill objects (namespaced to avoid a cross-app slug collision).
+     *
+     * @var string
+     */
+    private const SKILL_SCHEMA = 'agentskill';
+
+    /**
+     * The ONLY skill lifecycle state the run loop may expose (skills-marketplace
+     * approval gate: quarantined/stale/archived skills never reach a run context).
+     *
+     * @var string
+     */
+    private const SKILL_ACTIVE_STATE = 'active';
 
     /**
      * Default character budget for a Context object when none is stored.
@@ -148,6 +171,109 @@ class ContextAssembler
         return implode("\n\n", $blocks);
 
     }//end assembleForAgent()
+
+    /**
+     * Resolve a run's effective skill set and assemble the exposed skills' content
+     * into a system-context block (the run-loop skill-exposure seam, skill-evals).
+     *
+     * The effective set is the per-run override when supplied (a paired eval half:
+     * with = installed ∪ linked, without = per the agent's evalBaselineMode),
+     * otherwise the agent's stored `skillInstalls` — so every non-eval caller
+     * (schedule tick, Run now, chat, webhook, flow) exposes the stored installs,
+     * which is the run-loop consumption the skills-catalog spec reserved. ONLY
+     * `state: active` skills are exposed; a quarantined/stale/archived skill
+     * referenced by an install or an override is skipped (logged), preserving the
+     * marketplace approval gate. A skill uuid that fails to resolve is skipped
+     * (logged), never fatal. Context exposure only — no tool-calling semantics.
+     *
+     * @param ObjectEntity|null       $agent            Agent object (optional).
+     * @param array<int, string>|null $skillSetOverride Per-run effective-skill-set
+     *                                                  override (skill uuids); null =
+     *                                                  the agent's stored installs
+     *                                                  (every non-eval caller).
+     *
+     * @return array{text: string, skillsUsed: array<int, string>} The assembled skill
+     *         block ('' when nothing is exposed) and the uuids actually exposed —
+     *         recorded on the run's audit entry as `skillsUsed` for ALL runs
+     *         (consumed later by skill-learnings).
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function assembleSkillsForRun(?ObjectEntity $agent, ?array $skillSetOverride=null): array
+    {
+        $effective = $skillSetOverride;
+        if ($effective === null) {
+            $effective = [];
+            if ($agent !== null) {
+                $stored = ($agent->getObject()['skillInstalls'] ?? []);
+                if (is_array($stored) === true) {
+                    $effective = $stored;
+                }
+            }
+        }
+
+        $blocks     = [];
+        $skillsUsed = [];
+        foreach ($effective as $skillId) {
+            if (is_string($skillId) === false || $skillId === '') {
+                continue;
+            }
+
+            try {
+                $skill = $this->objectService->find(
+                    id: $skillId,
+                    register: self::REGISTER_SLUG,
+                    schema: self::SKILL_SCHEMA,
+                    _rbac: false,
+                    _multitenancy: false
+                );
+            } catch (Throwable $e) {
+                $this->logger->warning(
+                    sprintf('Hermiq ContextAssembler could not resolve skill %s: %s', $skillId, $e->getMessage()),
+                    ['exception' => $e]
+                );
+                continue;
+            }
+
+            if ($skill === null) {
+                $this->logger->info(sprintf('Hermiq ContextAssembler: skill not found, skipping: %s', $skillId));
+                continue;
+            }
+
+            $data  = $skill->getObject();
+            $state = (string) ($data['state'] ?? self::SKILL_ACTIVE_STATE);
+            if ($state !== self::SKILL_ACTIVE_STATE) {
+                // Marketplace approval gate: an agent MUST NOT use an unapproved skill —
+                // neither via install nor via a dataset's skillRefs reaching an override.
+                $this->logger->info(
+                    sprintf('Hermiq ContextAssembler: skill %s is %s, not exposed to the run.', $skillId, $state)
+                );
+                continue;
+            }
+
+            $name        = (string) ($data['name'] ?? 'skill');
+            $description = (string) ($data['description'] ?? '');
+            $body        = (string) ($data['body'] ?? '');
+
+            $block = "Skill: {$name}";
+            if ($description !== '') {
+                $block .= "\n".$description;
+            }
+
+            if ($body !== '') {
+                $block .= "\n\n".$body;
+            }
+
+            $blocks[]     = $block;
+            $skillsUsed[] = (string) $skill->getUuid();
+        }//end foreach
+
+        return [
+            'text'       => implode("\n\n", $blocks),
+            'skillsUsed' => $skillsUsed,
+        ];
+
+    }//end assembleSkillsForRun()
 
     /**
      * Resolve ONE Context object into its budgeted preamble text.
