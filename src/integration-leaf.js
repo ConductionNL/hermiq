@@ -32,6 +32,7 @@
  * command. No agent logic lives here.
  *
  * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
+ * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  */
 
 import { createApp } from 'vue'
@@ -60,6 +61,20 @@ const mountedApps = new Map()
  * @type {string[]}
  */
 const WIDGET_SURFACES = ['detail-page', 'app-dashboard', 'user-dashboard']
+
+/**
+ * The render surfaces this leaf targets — the SAME set, in the same order, as the
+ * PHP half declares (RegisterAgentLeafListener::SURFACES).
+ *
+ * Declared EXPLICITLY rather than by omission (hydra-console-agent-leaves). This
+ * half previously shipped no `surfaces` key at all while contributing a
+ * dashboard-sized widget, and the PHP half declared only detail-page/single-entity
+ * — so the two halves disagreed about whether the widget could be placed on a
+ * dashboard, and a silent half is exactly what let them drift without the
+ * cross-layer parity gate noticing. Every member is drawn from OpenRegister's
+ * authoritative `LeafDescriptor::VALID_SURFACES` vocabulary.
+ */
+const SURFACES = ['user-dashboard', 'app-dashboard', 'detail-page', 'single-entity']
 
 /**
  * Pick the root component for a mount, off the host-forwarded `surface`.
@@ -116,6 +131,7 @@ registerIntegration({
 	order: 60,
 	group: 'workflow',
 	referenceType: 'hermiq-agent',
+	surfaces: SURFACES,
 	// Vue 3 leaf under a Vue 2.7 host: render via the DOM mount hand-off, not an
 	// SFC the host would interpret under its own runtime (openregister#2127).
 	// `mount`/`unmount` travel as a pair; no `tab`/`widget` in mount mode.
