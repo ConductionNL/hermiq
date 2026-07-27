@@ -901,12 +901,6 @@
         "tool": "tool",
         "{count} result(s)": "{count} result(s)",
         "{count} learnings, consolidated {date}": "{count} learnings, consolidated {date}",
-        "%n connection": "%n connection",
-        "%n connections": "%n connections",
-        "%n node": "%n node",
-        "%n nodes": "%n nodes",
-        "%n tool": "%n tool",
-        "%n tools": "%n tools",
         "A curator act: confirms this skill has been tuned for your organisation. Requires the skill.attest-maturity action.": "A curator act: confirms this skill has been tuned for your organisation. Requires the skill.attest-maturity action.",
         "AI Workforce": "AI Workforce",
         "Anatomy": "Anatomy",
@@ -919,8 +913,6 @@
         "Checked {date}": "Checked {date}",
         "Could not load the skill.": "Could not load the skill.",
         "e.g. Tuned for our municipality's WOO workflow": "e.g. Tuned for our municipality's WOO workflow",
-        "Exported %n record.": "Exported %n record.",
-        "Exported %n records.": "Exported %n records.",
         "Level": "Level",
         "Maturity error": "Maturity error",
         "Maturity level {level} of 7": "Maturity level {level} of 7",
@@ -1077,7 +1069,29 @@
         "Then": "Then",
         "Trigger: {trigger}": "Trigger: {trigger}",
         "Version history error": "Version history error",
-        "Working…": "Working…"
+        "Working…": "Working…",
+        "Exported %n record.": [
+            "Exported %n record.",
+            "Exported %n records."
+        ],
+        "Exported %n records.": "Exported %n records.",
+        "%n node": [
+            "%n node",
+            "%n nodes"
+        ],
+        "%n nodes": "%n nodes",
+        "%n connection": [
+            "%n connection",
+            "%n connections"
+        ],
+        "%n connections": "%n connections",
+        "%n tool": [
+            "%n tool",
+            "%n tools"
+        ],
+        "%n tools": "%n tools",
+        "No object context is available. This object's schema shares no fields with the agent, so its answers are not grounded in this object.": "No object context is available. This object's schema shares no fields with the agent, so its answers are not grounded in this object.",
+        "Not grounded in this object — no object context was shared.": "Not grounded in this object — no object context was shared."
     },
     "plurals": ""
 }

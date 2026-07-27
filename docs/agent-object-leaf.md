@@ -36,6 +36,38 @@ stays an ADR-041 typed command — the leaf never runs anything itself.
 The surface is gated on Hermiq being installed (`requiredApp: 'hermiq'`) — on an
 instance without Hermiq the tab is hidden, never a broken tab.
 
+### Render surfaces
+
+Both halves of the registration declare the SAME surface set, EXPLICITLY:
+
+| Half | Where |
+|------|-------|
+| PHP `LeafDescriptor` | `RegisterAgentLeafListener::SURFACES` |
+| JS `registerIntegration()` | the `SURFACES` const in `src/integration-leaf.js` |
+
+```
+['user-dashboard', 'app-dashboard', 'detail-page', 'single-entity']
+```
+
+Every member is drawn from OpenRegister's `LeafDescriptor::VALID_SURFACES`. The
+dashboard surfaces are included because the leaf ships a `widget` with a default
+grid size (`{ w: 4, h: 4 }`) and consuming apps place that widget on dashboards.
+
+Neither half may declare its surfaces by OMISSION. That is not style: the JS half
+previously declared no `surfaces` key at all while shipping a dashboard-sized
+widget, and the PHP half said the leaf was not dashboard-placeable — so the two
+disagreed, dashboard-first consumers could not place the widget, and there was
+nothing for a parity check to compare. `tests/Unit/Listener/LeafSurfaceParityTest.php`
+now compares them.
+
+### When the object contributes no context
+
+When the schema's allowlist resolves to ZERO properties, the chat tab says so in
+text (`[data-testid="cn-agent-chat-tab-no-context"]`) and marks each reply
+produced in that state as not grounded in the object. Fail-closed context is
+correct security; an ungrounded answer presented as grounded is a correctness
+defect, and the two must be distinguishable in the surface.
+
 ## The run-on-object endpoint
 
 ```
@@ -135,6 +167,80 @@ the queued/running state, not a synchronous result), so migrating from the
 interim `api-call` is manifest-only. Those nextcloud-vue schema/dispatcher files
 are authored in a **separate change**; this change only fixes the contract they
 must satisfy.
+
+## Argument-scoped tool grants
+
+`Agent.tools` stays a `string[]` (ADR-035 Decision 4). An entry may now narrow an
+exact tool id by constraining the ARGUMENTS it may be invoked with:
+
+```
+openregister.runFlow?flowId=00000000-0000-0000-0000-000000000000
+openregister.runFlow?flowId=00000000-0000-0000-0000-000000000000&label=in:needs-input,retry:queued
+```
+
+- `?` opens the constraint list, `&` separates constraints.
+- `key=value` PINS an argument to one literal value.
+- `key=in:a,b,c` declares a CLOSED set of permitted values.
+- Values containing `,` or `&` are percent-encoded.
+
+**Why it exists.** Some tools pick their target from an argument rather than from
+their id. OpenRegister's `openregister.runFlow` runs ANY flow on the instance from
+a `flowId` argument, so before this form the only way to let an agent run one flow
+was to let it run all of them.
+
+**Semantics you can rely on:**
+
+- An argument-scoped grant resolves to the SAME catalog tool id as the bare
+  exact-id grant. No second catalog entry, no rewritten descriptor.
+- Constraints are enforced BEFORE dispatch, at `FacadeToolInvoker` — the one
+  chokepoint that already holds the guardrail, approval-gate and dry-run
+  short-circuits. A non-conforming call never reaches the facade.
+- A pinned argument must match exactly; a constrained argument must be a member of
+  the set; an argument the grant does not mention is left to the tool's own
+  validation. An argument the grant DOES mention but the call omits is a violation.
+- Two grants over the same tool are ALTERNATIVES whose arguments stay paired:
+  `?flowId=A&label=x` plus `?flowId=B&label=y` permits (A,x) and (B,y), not (A,y).
+- A bare exact-id grant beside a constrained one stays unconstrained — it means
+  every target, and a sibling grant does not narrow it.
+- Narrowing NEVER downgrades classification. A write/destructive tool stays
+  write/destructive for default-deny, dry-run and approval.
+- A constrained WILDCARD (`app.schema.*?x=y`) resolves to NOTHING — fail closed,
+  reported by `ToolGrantResolver::resolvesToNothing()`.
+
+**Refusal shape** (structured, never thrown):
+
+```json
+{
+  "ok": false,
+  "error": "grant_constraint_violated",
+  "argument": "label",
+  "message": "Argument 'label' is not permitted by this agent's grant."
+}
+```
+
+The refusal's trace step records the tool, the offending argument and the
+constraint it violated.
+
+**Every pre-existing grant form is unchanged.** A grant string with no `?` is
+split, expanded and classified byte-for-byte as before, so no stored `Agent.tools`
+value needs rewriting.
+
+## Flow-run owner attribution
+
+A tool that QUEUES A FLOW RUN (`openregister.runFlow`) is refused outright when the
+run has no resolvable owning Nextcloud UID — `{"error": "owner_unresolved"}` — and
+carries the owner into the call when it does. A flow's terminal step may command an
+external system, so an unattributed run of one is an unattributed command;
+refusing is deliberately chosen over defaulting to an empty or system owner.
+
+The owner is resolved, most authoritative first: the acting session user, then the
+agent record's `actingUser`, then the agent object's owner.
+
+> **Upstream gap.** `FlowMcpToolProvider::runFlow()` calls
+> `FlowRunService::queue()` without a `$user`, even though that method already
+> accepts one (ConductionNL/openregister#2158). Hermiq injects the resolved owner
+> as a `triggeredBy` argument so attribution lands the moment that gap closes;
+> until then the REFUSAL half is what holds the line.
 
 ## References
 

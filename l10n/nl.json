@@ -968,13 +968,9 @@
         "Open": "Openen",
         "This agent does not exist or you may not have access to it.": "Deze agent bestaat niet of je hebt er mogelijk geen toegang toe.",
         "ollama": "ollama",
-        "%n connection": "%n verbinding",
         "%n connections": "%n verbindingen",
-        "%n node": "%n knooppunt",
         "%n nodes": "%n knooppunten",
-        "%n tool": "%n tool",
         "%n tools": "%n tools",
-        "Exported %n record.": "%n record geëxporteerd.",
         "Exported %n records.": "%n records geëxporteerd.",
         "Baseline": "Basislijn",
         "Baseline delta": "Basislijndelta",
@@ -1102,7 +1098,25 @@
         "Then": "Toen",
         "Trigger: {trigger}": "Trigger: {trigger}",
         "Version history error": "Fout in versiegeschiedenis",
-        "Working…": "Bezig…"
+        "Working…": "Bezig…",
+        "Exported %n record.": [
+            "%n record geëxporteerd.",
+            "%n records geëxporteerd."
+        ],
+        "%n node": [
+            "%n node",
+            "%n nodes"
+        ],
+        "%n connection": [
+            "%n verbinding",
+            "%n verbindingen"
+        ],
+        "%n tool": [
+            "%n tool",
+            "%n tools"
+        ],
+        "No object context is available. This object's schema shares no fields with the agent, so its answers are not grounded in this object.": "Er is geen objectcontext beschikbaar. Het schema van dit object deelt geen velden met de agent, dus de antwoorden zijn niet gebaseerd op dit object.",
+        "Not grounded in this object — no object context was shared.": "Niet gebaseerd op dit object — er is geen objectcontext gedeeld."
     },
     "plurals": ""
 }
