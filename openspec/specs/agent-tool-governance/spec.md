@@ -1,12 +1,13 @@
 # Agent Tool Governance Specification
 
-**Status**: active (backend shipped + unit-verified; frontend source-only, bundle deferred)
+**Status**: in-progress (was: active — backend shipped + unit-verified; frontend source-only, bundle deferred; new change in flight)
 **Standards**: EU AI Act (Reg. 2024/1689) Art. 12 (record-keeping) & Art. 14 (human oversight)
 **Feature tier**: V1
 
 **OpenSpec changes:**
 - `openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/` — the Hermiq consumer side of ADR-063: schema-scoped grants with default-deny, progressive tool disclosure via `hermiq.searchTools`, and the per-agent art.12/14 oversight surface (kind: code) — **DONE**
 - `openspec/changes/archive/2026-07-13-hermiq-prefer-tool-hints/` — prefers OpenRegister's now-forwarded `scope`/`destructiveHint`/`readOnlyHint` descriptor hints over the verb-suffix classification heuristic, and fails CLOSED (was fail-open) on a hint-less, non-3-segment id (kind: code) — **DONE**
+- `openspec/changes/hydra-console-agent-leaves/` — MODIFIED delta: argument-scoped grant form (e.g. `openregister.runFlow?flowId=…&label=in:a,b,c`) enforced at `FacadeToolInvoker`, flow-run owner attribution (refuse unattributed dispatch), and the one approval-gated command grant with a closed label vocabulary (kind: code) — **in-progress**
 
 ## Purpose
 
