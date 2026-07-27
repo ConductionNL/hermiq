@@ -919,7 +919,9 @@
             "%n tool",
             "%n tools"
         ],
-        "%n tools": "%n tools"
+        "%n tools": "%n tools",
+        "No object context is available. This object's schema shares no fields with the agent, so its answers are not grounded in this object.": "No object context is available. This object's schema shares no fields with the agent, so its answers are not grounded in this object.",
+        "Not grounded in this object — no object context was shared.": "Not grounded in this object — no object context was shared."
     },
     "plurals": ""
 }

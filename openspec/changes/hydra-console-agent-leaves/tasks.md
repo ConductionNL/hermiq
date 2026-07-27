@@ -13,8 +13,10 @@ Hermiq tool descriptor** — that path is dropped by the architectural pivot.
   - GIVEN the in-flight merge of `origin/development` into `feat/agent-graph-builder` WHEN it is completed THEN the branch carries both the agent graph builder and the `mount(el, props)` leaf hand-off (hermiq#44/#47, v0.1.94) and the flow-engine consumer (hermiq#35)
   - GIVEN the merge completes without textual conflict WHEN no leaf render has been observed live THEN the task is NOT done — a clean merge alone is not acceptance
   - GIVEN a console detail page on a Vue-major-mismatched host WHEN the Agent tab is opened THEN the tab body renders its own content, and an empty body is treated as merge failure
-- [ ] Implement
-- [ ] Test
+- [ ] Implement — NOT DONE. The `origin/development` merge is a git operation handled
+  outside this implementation pass; everything else was implemented assuming it has
+  happened. No file needed by the other tasks turned out to exist only on `development`.
+- [ ] Test — blocked on the merge, and acceptance is a LIVE leaf render, not a clean merge.
 
 ### Task 2: Align the leaf surface vocabulary across both halves
 - **spec_ref**: `openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration`
@@ -24,8 +26,13 @@ Hermiq tool descriptor** — that path is dropped by the architectural pivot.
   - GIVEN the leaf ships `widget: CnAgentRunsWidget` with `defaultSize: { w: 4, h: 4 }` WHEN the surface set is chosen THEN it includes the dashboard surfaces the console places that widget on
   - GIVEN the JS half previously declared surfaces by omission WHEN it is edited THEN it declares them explicitly so the cross-layer parity gate has something to compare
   - GIVEN an OpenBuild dashboard page WHEN its widget picker is opened THEN the `hermiq-agent` widget is offered and renders at its default size
-- [ ] Implement
-- [ ] Test
+- [x] Implement — `RegisterAgentLeafListener::SURFACES` and the `SURFACES` const in
+  `src/integration-leaf.js` both declare
+  `['user-dashboard','app-dashboard','detail-page','single-entity']` explicitly.
+- [x] Test — `tests/Unit/Listener/LeafSurfaceParityTest.php` reads the JS source and
+  compares it to the PHP constant, and asserts the dashboard surfaces are present
+  because the leaf ships a widget. The widget-picker half is LIVE-ONLY (needs an
+  OpenBuild dashboard page).
 
 ### Task 3: Make the fail-closed empty context visible
 - **spec_ref**: `openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-declarative-bounded-agent-context-allowlist`
@@ -36,8 +43,14 @@ Hermiq tool descriptor** — that path is dropped by the architectural pivot.
   - GIVEN a listed property missing on the instance WHEN context is built THEN it is omitted and the build succeeds
   - GIVEN a resolved context of zero properties WHEN the user opens the chat THEN the surface states in text that no object context is available and does not present the reply as grounded
   - GIVEN the new notice string WHEN the UI is viewed in Dutch and English THEN both are translated
-- [ ] Implement
-- [ ] Test
+- [x] Implement — `CnAgentChatTab.vue` gains `contextResolved` + `hasBoundedContext`, a
+  text notice (`data-testid="cn-agent-chat-tab-no-context"`) and a per-reply
+  "not grounded" marker. Both strings are in `l10n/en.json` and `l10n/nl.json`.
+  `AgentContextBuilder` needed NO change — its fail-closed resolution was already correct;
+  what was missing was only the disclosure.
+- [x] Test — `npm run check:agent-context` (the JS mirror's fail-closed matrix) passes.
+  The live-object half is LIVE-ONLY: it needs hydra's schemas and is covered by the
+  Playwright spec's precondition-guarded case.
 
 ### Task 4: Argument-scoped grants in the resolver
 - **spec_ref**: `openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools`
@@ -48,8 +61,12 @@ Hermiq tool descriptor** — that path is dropped by the architectural pivot.
   - GIVEN an argument-scoped grant over a write/destructive tool WHEN it is classified THEN it still classifies write/destructive for default-deny, dry-run and approval — narrowing never downgrades
   - GIVEN every pre-existing grant form (exact id, `{app}.{schema}.*`, `{app}.{schema}.{verb}`, `*:write`, the no-tools sentinel) WHEN resolution runs THEN each keeps its current meaning with no behaviour change
   - GIVEN an unconstrained exact-id grant for a multi-target tool WHEN it resolves THEN it remains legal and is understood as granting every target
-- [ ] Implement
-- [ ] Test
+- [x] Implement — `ToolGrantResolver` gains `baseToolIds()`, `argumentConstraints()`,
+  `violationFor()` and the `?`/`&`/`in:` grammar; `expandGrant()` reduces an
+  argument-scoped grant to its base id and refuses a constrained wildcard. `ToolLoop`
+  strips constraints before the facade call (still exactly one catalog fetch).
+- [x] Test — `tests/Unit/Service/Engine/ToolGrantResolverArgumentScopeTest.php`: 23 tests,
+  including a regression case for every pre-existing grant form.
 
 ### Task 5: Constraint enforcement and owner attribution at the dispatch chokepoint
 - **spec_ref**: `openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-argument-constraints-on-a-grant-are-enforced-at-invocation`
@@ -61,8 +78,17 @@ Hermiq tool descriptor** — that path is dropped by the architectural pivot.
   - GIVEN an agent invoking a flow-queueing tool WHEN the run has a resolvable owning UID THEN the queued flow run records it and the flow's steps execute as that owner
   - GIVEN no resolvable owning UID WHEN the same tool is invoked THEN the invocation is refused and no flow run is queued — never defaulted to an empty or system owner
   - GIVEN the existing short-circuits (searchTools, guardrail deny/confirm, approval gate, dry-run) WHEN the new check is added THEN no second invocation path is introduced and their ordering still holds
-- [ ] Implement
-- [ ] Test
+- [x] Implement — `FacadeToolInvoker.__call()` gains ONE constraint check and ONE owner
+  check, both immediately after guardrail `deny` and before every remaining gate. Refusals
+  are structured (`grant_constraint_violated` / `owner_unresolved`), never thrown, and each
+  records a `refused` trace step naming the tool, the argument and the violated constraint.
+  `withFlowOwner()` injects the resolved owner (overwriting any model-supplied value).
+- [x] Test — `tests/Unit/Service/Engine/FacadeToolInvokerConstraintTest.php`: 11 tests,
+  each refusal asserting the facade was NEVER invoked.
+- [ ] PARTIAL: the queued run does not yet actually RECORD the owner. OpenRegister's
+  `FlowMcpToolProvider::runFlow()` drops the injected `triggeredBy`
+  (ConductionNL/openregister#2158 is unfixed). The REFUSAL half is enforced today; the
+  positive half lands when that upstream gap closes. Live-verify, not CI-verifiable.
 
 ### Task 6: Seed the Hydra Triage agent
 - **spec_ref**: `openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-a-seeded-read-only-triage-agent-as-data`
@@ -73,8 +99,20 @@ Hermiq tool descriptor** — that path is dropped by the architectural pivot.
   - GIVEN the command grant WHEN it is written THEN the label vocabulary is resolved from hydra's own state-machine definition at seed time and never hardcoded in Hermiq
   - GIVEN the seeded agent WHEN its policy is read THEN `requiresApproval` is true and `delegationAllowlist` is empty
   - GIVEN an agent that named grants, used no no-tools sentinel, and resolved to zero tools WHEN resolution completes THEN it is reported as a misconfiguration and not run as chat-only; an agent using the sentinel is NOT reported
-- [ ] Implement
-- [ ] Test
+- [x] Implement — `lib/Repair/SeedHydraTriageAgent.php`, registered in `appinfo/info.xml`
+  (install + post-migration), idempotent by name via `ObjectService` in system context.
+  The command grant is built from DATA only: the flow id from the
+  `hermiq.hydra.commandFlowId` app config the console deployment writes, and the label
+  vocabulary from hydra's own `stage` schema enum. When either is unresolvable the grant is
+  OMITTED and the agent seeds strictly read-only — never a guessed vocabulary and never an
+  unconstrained `openregister.runFlow`.
+- [x] Test — `tests/Unit/Repair/SeedHydraTriageAgentTest.php` (8 tests). The
+  resolves-to-nothing reporting needed no new code: `ToolGrantResolver::resolvesToNothing()`
+  + `ToolGrantResolutionException` already did it; both branches are regression-tested in
+  `ToolGrantResolverArgumentScopeTest`.
+- [ ] NOTE: on an instance today the command grant will be ABSENT, because neither the app
+  config nor hydra's `stage` schema exists yet. That is the specified behaviour, not a gap
+  in the seed — but it does mean the command path is unexercised until the hydra repo lands.
 
 ### Task 7: Seed the triage agentflow
 - **spec_ref**: `openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code`
@@ -85,8 +123,23 @@ Hermiq tool descriptor** — that path is dropped by the architectural pivot.
   - GIVEN the seeded flow definition WHEN its node types are enumerated THEN every node is a built-in engine node, the `hermiq.agent-step` node, or the OpenConnector-backed command node — and none opens an HTTP client from Hermiq code
   - GIVEN an instance where the OpenConnector-backed command node is absent WHEN the flow runs THEN it terminates with the proposed label recorded and no forge write attempted
   - GIVEN the flow object WHEN its trigger fires with no acting user THEN the run is attributed to the NC UID of the person who authored and activated it, and an ownerless flow does not dispatch
-- [ ] Implement
-- [ ] Test
+- [x] Implement — `lib/Repair/SeedHydraTriageFlow.php`, registered in `appinfo/info.xml`
+  BEFORE the agent seed. Nodes: `hermiq.agent-step` → `openregister.route` →
+  `openregister.stop` (command branch) / `openregister.stop` (no-result branch). The router
+  rule is `{"!!": {"var": "json.triage.label"}}` with `default: "no-result"`, so a failed
+  turn's empty string can never reach the command step.
+  The command branch is a built-in stop node WHILE the OpenConnector-backed command node
+  does not exist — the flow terminates with the proposed label already on the run's items
+  and writes nothing. Swapping that one node's `type` is the whole change when the upstream
+  half ships.
+  The flow ships DISABLED and unowned on purpose: a trigger fires with no acting user, so
+  enabling it is the human act that supplies the owner an attributable run needs.
+- [x] Test — `tests/Unit/Repair/SeedHydraTriageFlowTest.php` (7 tests), including the
+  node-type inventory and the empty-result branch.
+- [ ] SCHEMA CHANGE, needs a forced register import: `AgentFlow` gained `triggerRegister`
+  (already READ by `HermiqFlowResolver::flowsForTrigger()` but never declared, so OR's
+  mapper silently dropped it on save — a pre-existing defect) and `owner`. Register bumped
+  0.15.1 → 0.15.2, `AgentFlow` 0.1.1 → 0.1.2.
 
 ### Task 8: Live end-to-end verification on the console
 - **spec_ref**: `openspec/changes/hydra-console-agent-leaves/specs/nc-native-tools/spec.md#requirement-remote-systems-route-through-openconnector`
@@ -98,8 +151,15 @@ Hermiq tool descriptor** — that path is dropped by the architectural pivot.
   - GIVEN a dry run and a wildcard-only agent WHEN each is exercised THEN no flow run is queued and the command capability is absent
   - GIVEN every scenario added by this change WHEN gate-19 runs THEN each is referenced by a Playwright e2e test or carries a reason-bearing `@e2e exclude` (the exclusions named in test-plan.md)
   - GIVEN nothing under `OCA\OpenRegister` is statically analysable in this repo WHEN cross-app behaviour is signed off THEN it is on live observation, not on a green analyzer
-- [ ] Implement
-- [ ] Test
+- [x] Implement — `tests/e2e/spec-coverage/hydra-console-agent-leaves.spec.ts` written, and
+  `docs/agent-object-leaf.md` updated with the render surfaces, the empty-context state, the
+  argument-scoped grant grammar and the owner-attribution rule.
+  Repository sweep confirmed: no `lib/Service/Forge/`, no forge/label/issue tool descriptor,
+  and `IClientService` is used only by the two named web-research exceptions.
+- [ ] Test — NOT RUN. The Playwright specs are written but not executed; several cases skip
+  loudly on a missing `hydra` register or console page rather than passing vacuously. Live
+  sign-off is still outstanding, and no cross-app claim in this change may be signed off on
+  the green PHPUnit run alone.
 
 ## Quality checklist
 
