@@ -905,7 +905,23 @@
         "tokens": "tokens",
         "tool": "tool",
         "via wildcard": "via wildcard",
-        "{count} result(s)": "{count} resulta(a)t(en)"
+        "{count} result(s)": "{count} resulta(a)t(en)",
+        "Exported %n record.": [
+            "%n record geëxporteerd.",
+            "%n records geëxporteerd."
+        ],
+        "%n node": [
+            "%n node",
+            "%n nodes"
+        ],
+        "%n connection": [
+            "%n verbinding",
+            "%n verbindingen"
+        ],
+        "%n tool": [
+            "%n tool",
+            "%n tools"
+        ]
     },
     "plurals": ""
 }

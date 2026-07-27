@@ -899,7 +899,27 @@
         "risk category must be high": "risk category must be high",
         "tokens": "tokens",
         "tool": "tool",
-        "{count} result(s)": "{count} result(s)"
+        "{count} result(s)": "{count} result(s)",
+        "Exported %n record.": [
+            "Exported %n record.",
+            "Exported %n records."
+        ],
+        "Exported %n records.": "Exported %n records.",
+        "%n node": [
+            "%n node",
+            "%n nodes"
+        ],
+        "%n nodes": "%n nodes",
+        "%n connection": [
+            "%n connection",
+            "%n connections"
+        ],
+        "%n connections": "%n connections",
+        "%n tool": [
+            "%n tool",
+            "%n tools"
+        ],
+        "%n tools": "%n tools"
     },
     "plurals": ""
 }
