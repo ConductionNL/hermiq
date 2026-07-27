@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud. v0.16.0 — Skill (agentskill) gains the L1–L7 maturity metadata (skill-maturity, ADR-068): optional maturityLevel (computed 0–7, never hand-set), targetLevel (curator intent 1–7), and levelEvidence (per-level evidence sub-objects l1–l7). Nothing added to required; no existing object becomes invalid; all other schemas unchanged.",
-        "version": "0.17.0"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.18.0 — Skill (agentskill) levelEvidence.l6 gains the OPTIONAL capture-activity fields candidateCount + lastCaptureAt (skill-learnings, ADR-068 §3), declared explicitly because OpenRegister silently drops undeclared object keys on write; both are written only by the learnings capture/promotion subsystem. Nothing added to required; no conditionals; no existing object becomes invalid; all other schemas unchanged.",
+        "version": "0.18.0"
     },
     "x-openregister": {
         "type": "application",
@@ -1509,8 +1509,20 @@
                             "l6": {
                                 "type": "object",
                                 "title": "L6 learnings evidence",
-                                "description": "Self-improvement evidence written by the future skill-learnings / skill-self-improvement changes; this change only reads it.",
+                                "description": "Self-improvement evidence. The activity fields (candidateCount, learningsCount, lastCaptureAt, lastPromotedAt) are written ONLY by the skill-learnings capture/promotion subsystem; lastConsolidatedAt is reserved for skill-self-improvement consolidation.",
                                 "properties": {
+                                    "candidateCount": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "title": "Candidate count",
+                                        "description": "Number of unpromoted candidate lines in files['learning-candidates.md']. Written only by the learnings subsystem (capture/promotion services); client-supplied values are discarded by the skill write paths."
+                                    },
+                                    "lastCaptureAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last capture at",
+                                        "description": "When the post-run capture pass last appended or confirmed a candidate. Written only by the learnings subsystem; client-supplied values are discarded by the skill write paths."
+                                    },
                                     "learningsCount": {
                                         "type": "integer",
                                         "title": "Learnings count",

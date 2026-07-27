@@ -178,8 +178,9 @@ class SkillService
      * Update a Skill from a client-supplied payload — the skill "merge" write path
      * (skill-maturity): the incoming payload is guarded by
      * `SkillMaturityService::preserveComputedFields()`, so client-supplied
-     * `maturityLevel` and `levelEvidence.l1`–`l4` are silently overwritten by the
-     * STORED values (only qualify/attest write them), while `targetLevel` and every
+     * `maturityLevel` and `levelEvidence.l1`–`l4` + `l6` are silently overwritten by
+     * the STORED values (only qualify/attest write l1–l4; only the skill-learnings
+     * capture/promotion subsystem writes l6), while `targetLevel` and every
      * ordinary field stay freely editable. Runs in the caller's session context, so
      * OpenRegister's native RBAC still authorizes the write itself.
      *

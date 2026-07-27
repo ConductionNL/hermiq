@@ -470,7 +470,7 @@
 			"config": {
 				"register": "hermiq",
 				"schema": "agentskill",
-				"_note": "skill-maturity (mirrors EvalDatasetDetail): the durable maturity scorecard home — per-level pass/fail + reasons + evidence timestamps, the owner-guarded Qualify action and the action-gated Attest-L4 form live in the one custom skill-maturity-scorecard widget; qualify/attest are bespoke SkillMaturityController endpoints, not OR object CRUD. skill-evals adds the skill-eval-evidence card (l5 pass rate + mode-labelled delta + trend + Run paired eval).",
+				"_note": "skill-maturity (mirrors EvalDatasetDetail): the durable maturity scorecard home — per-level pass/fail + reasons + evidence timestamps, the owner-guarded Qualify action and the action-gated Attest-L4 form live in the one custom skill-maturity-scorecard widget; qualify/attest are bespoke SkillMaturityController endpoints, not OR object CRUD. skill-evals adds the skill-eval-evidence card (l5 pass rate + mode-labelled delta + trend + Run paired eval). skill-learnings adds the read-only skill-learnings card (rendered learnings.md + l6 activity strip; no edit affordance — no new write channel).",
 				"widgets": [
 					{
 						"id": "skill-maturity-scorecard",
@@ -485,6 +485,13 @@
 						"title": "Eval evidence",
 						"icon": "FlaskOutline",
 						"_note": "skill-evals: the L5 eval-evidence card (pass rate, baseline delta with attribution-mode label, trend, last validated, honest empty state) + owner-guarded Run paired eval. Resolved via page.slots.widget-skill-eval-evidence -> skill-eval-evidence."
+					},
+					{
+						"id": "skill-learnings",
+						"type": "custom",
+						"title": "Learnings",
+						"icon": "SchoolOutline",
+						"_note": "skill-learnings: read-only Learnings card — files['learnings.md'] rendered as sanitised markdown + the levelEvidence.l6 activity strip (candidate count, learnings count, last capture/promotion); honest empty state; deliberately NO editing surface. Resolved via page.slots.widget-skill-learnings -> skill-learnings."
 					}
 				],
 				"layout": [
@@ -503,6 +510,14 @@
 						"gridY": 6,
 						"gridWidth": 12,
 						"gridHeight": 5
+					},
+					{
+						"id": "3",
+						"widgetId": "skill-learnings",
+						"gridX": 0,
+						"gridY": 11,
+						"gridWidth": 12,
+						"gridHeight": 6
 					}
 				],
 				"sidebar": {
@@ -511,7 +526,8 @@
 			},
 			"slots": {
 				"widget-skill-maturity-scorecard": "skill-maturity-scorecard",
-				"widget-skill-eval-evidence": "skill-eval-evidence"
+				"widget-skill-eval-evidence": "skill-eval-evidence",
+				"widget-skill-learnings": "skill-learnings"
 			}
 		},
 		{

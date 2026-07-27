@@ -74,6 +74,9 @@ import SkillRowActions from './widgets/SkillRowActions.vue'
 // skill-maturity: the SkillDetail page's durable maturity scorecard widget
 // (per-level pass/fail + reasons + Qualify + action-gated Attest-L4).
 import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
+// skill-learnings: the SkillDetail page's read-only Learnings card (rendered
+// learnings.md + l6 activity strip; honest empty state; no edit affordance).
+import SkillLearnings from './widgets/SkillLearnings.vue'
 // agent-template-github-store: the GitHub-backed store section on the unified
 // Store page (formerly AgentTemplateGallery), resolved via
 // page.slots.below-header. Generalised by hermiq-github-store to discover
@@ -558,6 +561,24 @@ export default {
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
 		_note: 'skillRefs is an array-of-uuid relation on EvalDataset referencing the independent Skill catalogue — the reverse of an object-list FK-child-collection shape (the agent-skills precedent), so it stays a custom widget.',
+	},
+
+	/**
+	 * Read-only Learnings card on SkillDetail (skill-learnings): renders
+	 * files['learnings.md'] as sanitised markdown plus the levelEvidence.l6
+	 * activity strip (candidate count, learnings count, last capture, last
+	 * promotion). Deliberately NO editing surface — a manual editor would be
+	 * a second write channel bypassing the capture pipeline's redaction.
+	 */
+	'skill-learnings': {
+		kind: 'widget',
+		component: SkillLearnings,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Renders one files[] entry as markdown + the l6 activity stamp — file-content rendering with a joined evidence strip, not expressible as object-table/object-op (ADR-049); read-only by spec (no new write channel).',
 	},
 
 	/**

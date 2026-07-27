@@ -1007,7 +1007,15 @@
         "With skills — per case": "With skills — per case",
         "Without {skill} — per case": "Without {skill} — per case",
         "Without skill": "Without skill",
-        "Without skills — per case": "Without skills — per case"
+        "Without skills — per case": "Without skills — per case",
+        "Candidates are being collected, but nothing has been promoted into learnings yet.": "Candidates are being collected, but nothing has been promoted into learnings yet.",
+        "Last capture": "Last capture",
+        "Last promotion": "Last promotion",
+        "Learnings are captured automatically after runs that used this skill and promoted by a daily background pass. This view is read-only.": "Learnings are captured automatically after runs that used this skill and promoted by a daily background pass. This view is read-only.",
+        "Learnings error": "Learnings error",
+        "No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.": "No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.",
+        "Open candidates": "Open candidates",
+        "Promoted learnings": "Promoted learnings"
     },
     "plurals": ""
 }

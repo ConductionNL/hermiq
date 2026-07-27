@@ -1029,7 +1029,15 @@
         "With skills — per case": "Met skills — per case",
         "Without {skill} — per case": "Zonder {skill} — per case",
         "Without skill": "Zonder skill",
-        "Without skills — per case": "Zonder skills — per case"
+        "Without skills — per case": "Zonder skills — per case",
+        "Candidates are being collected, but nothing has been promoted into learnings yet.": "Kandidaten worden verzameld, maar er is nog niets gepromoveerd naar leerpunten.",
+        "Last capture": "Laatste vastlegging",
+        "Last promotion": "Laatste promotie",
+        "Learnings are captured automatically after runs that used this skill and promoted by a daily background pass. This view is read-only.": "Leerpunten worden automatisch vastgelegd na runs die deze skill gebruikten en gepromoveerd door een dagelijkse achtergrondtaak. Deze weergave is alleen-lezen.",
+        "Learnings error": "Fout in leerpunten",
+        "No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.": "Nog geen leerpunten. Zodra agenten met deze skill draaien, worden observaties automatisch vastgelegd en worden bevestigde observaties hier gepromoveerd.",
+        "Open candidates": "Open kandidaten",
+        "Promoted learnings": "Gepromoveerde leerpunten"
     },
     "plurals": ""
 }

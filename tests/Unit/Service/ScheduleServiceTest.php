@@ -49,6 +49,7 @@ use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IUser;
@@ -345,6 +346,7 @@ class ScheduleServiceTest extends TestCase
             guardrailPolicyService: $this->guardrailPolicyService,
             agentVersionService: $this->agentVersionService,
             delegationContext: $this->delegationContext,
+            jobList: $this->createMock(IJobList::class),
         );
 
     }//end makeService()

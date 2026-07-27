@@ -284,10 +284,13 @@ class SkillMaturityService
 
     /**
      * Silent-preserve write guard: return the incoming client payload with the
-     * computed maturity fields (`maturityLevel` + `levelEvidence.l1`–`l4`) overwritten
-     * by the STORED values — a hand-set value never survives a hermiq write path.
-     * `targetLevel` (curator intent) and `l5`–`l7` (owned by other subsystems'
-     * write paths) pass through untouched.
+     * computed maturity fields (`maturityLevel` + `levelEvidence.l1`–`l4` + `l6`)
+     * overwritten by the STORED values — a hand-set value never survives a hermiq
+     * write path. `targetLevel` (curator intent) and `l5`/`l7` (owned by other
+     * subsystems' write paths) pass through untouched. `l6` joined the guard with
+     * skill-learnings: as of that change it has a real single writer (the learnings
+     * capture/promotion services, which write via ObjectService directly and never
+     * pass through this guard), so a client-forged `l6` is discarded here.
      *
      * @param array<string, mixed> $incoming The client-supplied skill payload.
      * @param array<string, mixed> $stored   The currently stored skill payload.
@@ -295,6 +298,7 @@ class SkillMaturityService
      * @return array<string, mixed> The guarded payload.
      *
      * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidencel6-activity-is-written-by-the-learnings-subsystem-only
      */
     public function preserveComputedFields(array $incoming, array $stored): array
     {
@@ -307,7 +311,7 @@ class SkillMaturityService
         $storedEvidence   = $this->evidenceOf(data: $stored);
         $incomingEvidence = $this->evidenceOf(data: $incoming);
 
-        foreach (['l1', 'l2', 'l3', 'l4'] as $key) {
+        foreach (['l1', 'l2', 'l3', 'l4', 'l6'] as $key) {
             if (array_key_exists($key, $storedEvidence) === true) {
                 $incomingEvidence[$key] = $storedEvidence[$key];
             } else {

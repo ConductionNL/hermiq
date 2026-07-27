@@ -44,8 +44,10 @@ use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\Conversation;
 use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Cron\SkillLearningsCaptureJob;
 use OCA\OpenRegister\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IUserManager;
@@ -238,6 +240,11 @@ class ScheduleService
      *                                                       every Engine-path turn so a mid-turn
      *                                                       `hermiq.delegateAgent` call sees this run's
      *                                                       true depth/ancestry/fan-out/anchor.
+     * @param IJobList               $jobList                Enqueues the post-run learnings capture
+     *                                                       QueuedJob AFTER the run's audit entry is
+     *                                                       written (skill-learnings) — try/catch
+     *                                                       wrapped; capture never sits on the run's
+     *                                                       critical path.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -261,6 +268,7 @@ class ScheduleService
         private readonly GuardrailPolicyService $guardrailPolicyService,
         private readonly AgentVersionService $agentVersionService,
         private readonly DelegationContext $delegationContext,
+        private readonly IJobList $jobList,
     ) {
     }//end __construct()
 
@@ -785,11 +793,15 @@ class ScheduleService
         // to writeRunAudit(): without this, a gate-skipped schedule's audit entry could leak
         // a PREVIOUS schedule's lastRunAsUser/lastRunUsage/lastRunSteps from earlier in the
         // same tick. A skip never runs an agent, so all three reflect "nothing ran" (owner,
-        // empty usage, empty step timeline).
-        $this->lastRunAsUser = $owner;
-        $this->lastRunUsage  = [];
-        $this->lastRunSteps  = [];
-        $this->lastRunId     = '';
+        // empty usage, empty step timeline). skill-learnings: lastRunSkillsUsed joins the
+        // reset (pre-existing gap since skill-evals) — a gate-skipped entry must never leak
+        // a previous run's exposed skill set, or capture could be enqueued for a run that
+        // never happened.
+        $this->lastRunAsUser     = $owner;
+        $this->lastRunUsage      = [];
+        $this->lastRunSteps      = [];
+        $this->lastRunId         = '';
+        $this->lastRunSkillsUsed = [];
 
         // GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
         if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
@@ -1675,6 +1687,15 @@ class ScheduleService
                 context: $context
             );
 
+            // Skill-learnings: AFTER the run record is written, enqueue the post-run
+            // capture job for a REAL run that actually exposed skills. Never for a
+            // dry-run/replay preview (no learnings from a preview), never for a
+            // gate-skip or legacy-path run (both have an empty skillsUsed), and never
+            // fatal — the enqueue helper is try/catch wrapped.
+            if ($dryRun === false && $this->lastRunSkillsUsed !== [] && $this->lastRunId !== '') {
+                $this->enqueueLearningsCapture(schedule: $schedule, agentId: $agentId);
+            }
+
             return (string) ($entry->getUuid() ?? '');
         } catch (Throwable $e) {
             $this->logger->warning(
@@ -1690,6 +1711,50 @@ class ScheduleService
         }//end try
 
     }//end writeRunAudit()
+
+    /**
+     * Enqueue the post-run learnings capture QueuedJob for the just-audited run
+     * (skill-learnings): `IJobList::add()` with the run's identity, schedule/agent
+     * scope, and the `skillsUsed` recorded by the injection seam — capture executes
+     * in a later background-job pass, never inline in the run.
+     *
+     * Non-fatal by hard contract: an enqueue failure is logged and swallowed — it can
+     * never fail, delay, or alter the run or its recorded outcome.
+     *
+     * @param ObjectEntity $schedule The schedule the run belongs to.
+     * @param string       $agentId  The run's agent uuid.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-the-engine-records-which-skills-were-exercised-in-a-run
+     */
+    private function enqueueLearningsCapture(ObjectEntity $schedule, string $agentId): void
+    {
+        try {
+            $this->jobList->add(
+                SkillLearningsCaptureJob::class,
+                [
+                    'runId'        => $this->lastRunId,
+                    'scheduleUuid' => (string) $schedule->getUuid(),
+                    'agentId'      => $agentId,
+                    'skillIds'     => $this->lastRunSkillsUsed,
+                    'organisation' => (string) ($schedule->getOrganisation() ?? ''),
+                ]
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf(
+                    'Hermiq could not enqueue learnings capture for run %s (schedule %s): %s',
+                    $this->lastRunId,
+                    (string) $schedule->getUuid(),
+                    $e->getMessage()
+                ),
+                ['exception' => $e]
+            );
+        }//end try
+
+    }//end enqueueLearningsCapture()
 
     /**
      * Whether a step timeline includes any `tool`-type step.
