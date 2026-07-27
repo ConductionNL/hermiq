@@ -53,11 +53,13 @@ namespace OCA\Hermiq\Service;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Cron\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -175,6 +177,10 @@ class EvalRunService
      *                                                 the draft half (skill-self-improvement).
      * @param SkillVersionService $skillVersionService Never-fatal skill version pins for the
      *                                                 run audit entry (skill-self-improvement).
+     * @param IJobList            $jobList             Enqueues the post-run learnings capture
+     *                                                 job for failing cases of a COMPLETED
+     *                                                 run (skill-learnings design.md
+     *                                                 Decision 8 marker producer).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -190,6 +196,7 @@ class EvalRunService
         private readonly LoggerInterface $logger,
         private readonly ContextAssembler $contextAssembler,
         private readonly SkillVersionService $skillVersionService,
+        private readonly IJobList $jobList,
     ) {
     }//end __construct()
 
@@ -615,6 +622,18 @@ class EvalRunService
             skillsUsed: $skillsUsed
         );
 
+        // Skill-learnings Decision 8 producer: AFTER the audit write (the capture
+        // job reads the trace from that entry), failure-isolated like every other
+        // capture enqueue.
+        $this->enqueueEvalFailCaptures(
+            evalRun: $saved,
+            status: $status,
+            results: $results,
+            skillsUsed: $skillsUsed,
+            agentId: $agentId,
+            organisation: $organisation
+        );
+
         return [
             'evalRunId'            => (string) $saved->getUuid(),
             'status'               => $status,
@@ -823,6 +842,17 @@ class EvalRunService
             passRate: $passRate,
             startedAt: $startedAt,
             skillsUsed: $skillsUsed
+        );
+
+        // Skill-learnings Decision 8 producer over the WITH-half results (the real
+        // configuration) — after the audit write, failure-isolated.
+        $this->enqueueEvalFailCaptures(
+            evalRun: $saved,
+            status: $status,
+            results: $withHalf['results'],
+            skillsUsed: $skillsUsed,
+            agentId: $agentId,
+            organisation: $organisation
         );
 
         // L5 evidence: ONLY on completed (every case of ALL halves executed), in
@@ -1340,6 +1370,10 @@ class EvalRunService
 
             $context = [
                 'status'        => $status,
+                // Skill-learnings: the run's own identity INSIDE the context — the
+                // capture pass's trace loader matches entries on `context.runId`
+                // (an EvalRun's audit anchor object IS the run, so uuid = runId).
+                'runId'         => (string) $evalRun->getUuid(),
                 'startedAt'     => $startedAt->format('c'),
                 'endedAt'       => $endedAt->format('c'),
                 'durationMs'    => (((int) $endedAt->format('U') - (int) $startedAt->format('U')) * 1000),
@@ -1377,6 +1411,86 @@ class EvalRunService
         }//end try
 
     }//end writeRunAudit()
+
+    /**
+     * Skill-learnings design.md Decision 8 PRODUCER: for every FAILING case of a
+     * COMPLETED eval run that actually exercised skills, enqueue the post-run
+     * learnings capture job carrying the failed-eval marker
+     * `<evalRunUuid>#<caseIndex>` — the promotion pass promotes a candidate with
+     * this marker regardless of confirmation count ("explains a failed eval case").
+     *
+     * Deliberately NEVER called from `runDraftComparison()` (its `draft-comparison`
+     * status would be filtered here anyway): a draft's transient content must never
+     * write learnings. Runs AFTER the audit write (the capture job reads the trace
+     * from that entry via `context.runId`), and mirrors
+     * `ScheduleService::enqueueLearningsCapture()`'s hard non-fatal contract — an
+     * enqueue failure is logged and swallowed, never failing the eval run.
+     *
+     * The capture pass is idempotent per (skill, runId): with several failing
+     * cases the first executed job captures and stamps the run id, later jobs
+     * no-op — one marker per run's candidates, exactly what promotion needs.
+     *
+     * @param ObjectEntity                   $evalRun      The persisted EvalRun.
+     * @param string                         $status       The run's final status.
+     * @param array<int,array<string,mixed>> $results      The run's (with-half) case results.
+     * @param array<int,string>              $skillsUsed   Skill uuids the run actually exposed.
+     * @param string                         $agentId      The run's agent uuid.
+     * @param string                         $organisation The run's organisation (budget scope).
+     *
+     * @return void
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Threaded call-context from the
+     *   two run paths, not a logic-bearing argument list.
+     *
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
+     */
+    private function enqueueEvalFailCaptures(
+        ObjectEntity $evalRun,
+        string $status,
+        array $results,
+        array $skillsUsed,
+        string $agentId,
+        string $organisation
+    ): void {
+        if ($status !== 'completed' || $skillsUsed === []) {
+            return;
+        }
+
+        $evalRunUuid = (string) $evalRun->getUuid();
+
+        foreach ($results as $result) {
+            if (is_array($result) === false || ($result['passed'] ?? null) !== false) {
+                continue;
+            }
+
+            try {
+                $this->jobList->add(
+                    SkillLearningsCaptureJob::class,
+                    [
+                        'runId'        => $evalRunUuid,
+                        // The trace anchor: the audit entry lives ON the EvalRun
+                        // object (same lookup shape a Schedule's runs use).
+                        'scheduleUuid' => $evalRunUuid,
+                        'agentId'      => $agentId,
+                        'skillIds'     => $skillsUsed,
+                        'organisation' => $organisation,
+                        'evalFail'     => $evalRunUuid.'#'.((int) ($result['caseIndex'] ?? 0)),
+                    ]
+                );
+            } catch (Throwable $e) {
+                $this->logger->warning(
+                    sprintf(
+                        'Hermiq could not enqueue eval-fail learnings capture for run %s: %s',
+                        $evalRunUuid,
+                        $e->getMessage()
+                    ),
+                    ['exception' => $e]
+                );
+            }//end try
+        }//end foreach
+
+    }//end enqueueEvalFailCaptures()
 
     /**
      * Write `levelEvidence.l5` on each linked skill after a COMPLETED paired run —

@@ -64,7 +64,10 @@ forced import so existing installs actually gain the fields.
 - AND its `maturityLevel` MUST read as absent/0 with no backfill or data transformation
 
 @e2e exclude upgrade-path/repair-step concern with no user-visible browser surface; the
-forced-import decision logic is unit-covered (InitializeSettings) and the live upgrade
+forced-import decision logic is unit-covered by InitializeSettingsTest
+(testForcesImportWhenRegisterVersionDiffersFromApplied,
+testSkipsForceWhenRegisterVersionEqualsApplied,
+testUpdatesStoredAppliedVersionOnlyAfterSuccessfulApply) and the live upgrade
 check is TC-11 in test-plan.md (deferred to the deployment phase of this pipeline).
 
 #### Scenario: The upgraded schema exposes the three properties

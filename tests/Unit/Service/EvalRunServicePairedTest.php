@@ -45,6 +45,7 @@ use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -406,6 +407,7 @@ class EvalRunServicePairedTest extends TestCase
             logger: $this->createMock(LoggerInterface::class),
             contextAssembler: $this->createMock(ContextAssembler::class),
             skillVersionService: $this->createMock(SkillVersionService::class),
+            jobList: $this->createMock(IJobList::class),
         );
 
     }//end service()

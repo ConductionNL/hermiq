@@ -31,11 +31,13 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\EvalRunController;
 use OCA\Hermiq\Service\EvalRunService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -73,6 +75,23 @@ class EvalRunControllerTest extends TestCase
     }//end session()
 
     /**
+     * A REAL SeedCustodyService over an IGroupManager mock: the plain owner rule
+     * plus the seed-custodian rule (admin acts as owner of `__system__` objects).
+     *
+     * @param bool $callerIsAdmin Whether isAdmin() reports the caller as instance admin.
+     *
+     * @return SeedCustodyService
+     */
+    private function custody(bool $callerIsAdmin=false): SeedCustodyService
+    {
+        $groupManager = $this->createMock(IGroupManager::class);
+        $groupManager->method('isAdmin')->willReturn($callerIsAdmin);
+
+        return new SeedCustodyService(groupManager: $groupManager);
+
+    }//end custody()
+
+    /**
      * A dataset ObjectEntity owned by $owner.
      *
      * @param string $owner The owner UID.
@@ -101,6 +120,7 @@ class EvalRunControllerTest extends TestCase
             agentMapper: $this->createMock(AgentMapper::class),
             userSession: $this->session(null),
             evalRunService: $this->createMock(EvalRunService::class),
+            seedCustody: $this->custody(),
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -124,6 +144,7 @@ class EvalRunControllerTest extends TestCase
             agentMapper: $this->createMock(AgentMapper::class),
             userSession: $this->session('alice'),
             evalRunService: $this->createMock(EvalRunService::class),
+            seedCustody: $this->custody(),
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -157,6 +178,7 @@ class EvalRunControllerTest extends TestCase
             agentMapper: $agentMapper,
             userSession: $this->session('alice'),
             evalRunService: $this->createMock(EvalRunService::class),
+            seedCustody: $this->custody(),
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -195,6 +217,7 @@ class EvalRunControllerTest extends TestCase
             agentMapper: $agentMapper,
             userSession: $this->session('alice'),
             evalRunService: $evalRunService,
+            seedCustody: $this->custody(),
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -299,6 +322,7 @@ class EvalRunControllerTest extends TestCase
             agentMapper: $this->aliceAgentMapper(),
             userSession: $this->session('alice'),
             evalRunService: $evalRunService,
+            seedCustody: $this->custody(),
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -328,6 +352,7 @@ class EvalRunControllerTest extends TestCase
             agentMapper: $this->aliceAgentMapper(),
             userSession: $this->session('alice'),
             evalRunService: $evalRunService,
+            seedCustody: $this->custody(),
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -357,6 +382,7 @@ class EvalRunControllerTest extends TestCase
             agentMapper: $this->aliceAgentMapper(),
             userSession: $this->session('alice'),
             evalRunService: $evalRunService,
+            seedCustody: $this->custody(),
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -389,6 +415,7 @@ class EvalRunControllerTest extends TestCase
             agentMapper: $this->aliceAgentMapper(),
             userSession: $this->session('alice'),
             evalRunService: $evalRunService,
+            seedCustody: $this->custody(),
             logger: $this->createMock(LoggerInterface::class),
         );
 
@@ -397,4 +424,100 @@ class EvalRunControllerTest extends TestCase
         $this->assertSame($outcome, $response->getData());
 
     }//end testOwnedBaselineRunDelegatesWithBaselineTrue()
+
+    /**
+     * Seed custodianship: an instance ADMIN acts as owner of the `__system__`-seeded
+     * dataset AND the `__system__`-seeded agent — without this rule the seeded
+     * example pair would 404 for everyone forever (repair steps stamp no human owner).
+     *
+     * @return void
+     */
+    public function testAdminCanRunSystemSeededDatasetAndAgent(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->dataset(SeedCustodyService::SYSTEM_OWNER));
+
+        $agent = $this->createMock(Agent::class);
+        $agent->method('getOwner')->willReturn(SeedCustodyService::SYSTEM_OWNER);
+        $agentMapper = $this->createMock(AgentMapper::class);
+        $agentMapper->method('findByUuid')->willReturn($agent);
+
+        $request = $this->createMock(IRequest::class);
+        $request->method('getParam')->willReturnCallback(
+            static fn (string $key, $default=null) => $key === 'agentId' ? 'ag-1' : $default
+        );
+
+        $outcome        = ['evalRunId' => 'er-1', 'status' => 'completed', 'passRate' => 1.0, 'regressionGateResult' => 'not_applicable', 'previousPassRate' => null];
+        $evalRunService = $this->createMock(EvalRunService::class);
+        $evalRunService->expects($this->once())->method('run')->willReturn($outcome);
+
+        $controller = new EvalRunController(
+            request: $request,
+            objectService: $objectService,
+            agentMapper: $agentMapper,
+            userSession: $this->session('admin'),
+            evalRunService: $evalRunService,
+            seedCustody: $this->custody(callerIsAdmin: true),
+            logger: $this->createMock(LoggerInterface::class),
+        );
+
+        $this->assertSame(Http::STATUS_OK, $controller->run('ds-1')->getStatus());
+
+    }//end testAdminCanRunSystemSeededDatasetAndAgent()
+
+    /**
+     * A NON-admin caller still 404s on the `__system__`-seeded dataset — seed
+     * custodianship never widens access to regular users.
+     *
+     * @return void
+     */
+    public function testNonAdminCannotRunSystemSeededDataset(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->dataset(SeedCustodyService::SYSTEM_OWNER));
+
+        $evalRunService = $this->createMock(EvalRunService::class);
+        $evalRunService->expects($this->never())->method('run');
+
+        $controller = new EvalRunController(
+            request: $this->createMock(IRequest::class),
+            objectService: $objectService,
+            agentMapper: $this->createMock(AgentMapper::class),
+            userSession: $this->session('alice'),
+            evalRunService: $evalRunService,
+            seedCustody: $this->custody(callerIsAdmin: false),
+            logger: $this->createMock(LoggerInterface::class),
+        );
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->run('ds-1')->getStatus());
+
+    }//end testNonAdminCannotRunSystemSeededDataset()
+
+    /**
+     * A HUMAN-owned dataset stays closed to admins — custodianship applies to
+     * `__system__`-seeded objects ONLY, never between two human users.
+     *
+     * @return void
+     */
+    public function testAdminCannotRunAnotherHumansDataset(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($this->dataset('bob'));
+
+        $evalRunService = $this->createMock(EvalRunService::class);
+        $evalRunService->expects($this->never())->method('run');
+
+        $controller = new EvalRunController(
+            request: $this->createMock(IRequest::class),
+            objectService: $objectService,
+            agentMapper: $this->createMock(AgentMapper::class),
+            userSession: $this->session('admin'),
+            evalRunService: $evalRunService,
+            seedCustody: $this->custody(callerIsAdmin: true),
+            logger: $this->createMock(LoggerInterface::class),
+        );
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->run('ds-1')->getStatus());
+
+    }//end testAdminCannotRunAnotherHumansDataset()
 }//end class

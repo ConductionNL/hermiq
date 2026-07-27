@@ -886,12 +886,78 @@ class SkillConsolidationServiceTest extends TestCase
         $this->assertSame([], ($data['evalEvidence'] ?? null));
         $this->assertTrue((bool) $data['editedBeforeAccept']);
         $this->assertSame('reviewer', $data['editedBy']);
+        $this->assertSame(
+            '',
+            (string) ($data['approvalId'] ?? ''),
+            'The edit severs the link to the pre-edit Approval (TOCTOU hardening).'
+        );
         $this->assertFalse(
             $service->isDraftApprovable(draftId: 'draft-1'),
             'An edited-but-unscanned draft is not approvable from ANY surface.'
         );
 
     }//end testEditInvalidatesEvidenceAndRequiresRequalification()
+
+    /**
+     * TOCTOU hardening: a decision recorded on the PRE-EDIT Approval can never
+     * apply the edited draft — the edit clears `approvalId`, so reconciliation
+     * of the old (now-approved) Approval is a no-op: the draft never reaches
+     * `accepted` and no skill write happens.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function testEditedDraftsOldApprovalCanNeverApplyIt(): void
+    {
+        $service = $this->service();
+        $this->skill();
+        $draft = $this->draft(
+            [
+                'status'         => SkillConsolidationService::STATUS_AWAITING_APPROVAL,
+                'scanVerdict'    => 'clean',
+                'noEvalEvidence' => true,
+                'approvalId'     => 'approval-old',
+            ]
+        );
+
+        // The OLD Approval got approved concurrently (the race this hardening
+        // closes) — if reconciliation ever consulted it, it would apply.
+        $oldApproval = new ObjectEntity();
+        $oldApproval->setUuid('approval-old');
+        $oldApproval->setObject(
+            [
+                'status'    => 'approved',
+                'decidedBy' => 'raced-reviewer',
+            ]
+        );
+        $this->approvalService->method('loadApproval')->willReturn($oldApproval);
+        $this->contentScanService->method('scan')->willThrowException(new RuntimeException('scanner down'));
+
+        $edited = $service->editDraftContent(
+            draft: $draft,
+            frontmatter: null,
+            body: 'HUMAN-EDITED BODY',
+            files: null,
+            editorUid: 'reviewer'
+        );
+
+        $this->assertFalse(
+            $service->reconcileDraftApproval(draft: $edited),
+            'Reconciliation must ignore the severed pre-edit Approval entirely.'
+        );
+
+        $draftData = $this->found['agentskilldraft:draft-1']->getObject();
+        $this->assertNotSame(
+            SkillConsolidationService::STATUS_ACCEPTED,
+            $draftData['status'],
+            'The edited draft was never applied by the old Approval.'
+        );
+
+        $skillWrites = count(array_filter($this->savedObjects, static fn (array $save): bool => $save[0] === 'agentskill'));
+        $this->assertSame(0, $skillWrites, 'No skill version write happened off the old Approval.');
+
+    }//end testEditedDraftsOldApprovalCanNeverApplyIt()
 
     /**
      * Reconciliation idempotently applies a missed approved transition — and a

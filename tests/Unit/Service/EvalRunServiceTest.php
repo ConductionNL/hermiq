@@ -37,7 +37,9 @@ use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -49,6 +51,15 @@ use RuntimeException;
  */
 class EvalRunServiceTest extends TestCase
 {
+
+    /**
+     * The IJobList mock the built service enqueues capture jobs on
+     * (skill-learnings Decision 8 producer assertions).
+     *
+     * @var IJobList&MockObject
+     */
+    private IJobList&MockObject $jobList;
+
     /**
      * An ObjectService stub: findAll() returns the given prior runs (regression gate),
      * saveObject() echoes back an ObjectEntity carrying a uuid and the saved data.
@@ -158,6 +169,8 @@ class EvalRunServiceTest extends TestCase
         $redaction = $this->createMock(RedactionService::class);
         $redaction->method('redact')->willReturnArgument(0);
 
+        $this->jobList = $this->createMock(IJobList::class);
+
         return new EvalRunService(
             objectService: $objectService,
             scheduleService: ($scheduleService ?? $this->createMock(ScheduleService::class)),
@@ -169,6 +182,7 @@ class EvalRunServiceTest extends TestCase
             logger: $this->createMock(LoggerInterface::class),
             contextAssembler: $this->createMock(ContextAssembler::class),
             skillVersionService: $this->createMock(SkillVersionService::class),
+            jobList: $this->jobList,
         );
 
     }//end service()
@@ -306,4 +320,134 @@ class EvalRunServiceTest extends TestCase
         $this->assertSame(0.5, $result['passRate']);
 
     }//end testAgentTurnFailureDoesNotAbortRun()
+
+    /**
+     * Skill-learnings Decision 8 producer: a FAILING case of a COMPLETED run that
+     * exercised skills enqueues the capture job carrying the failed-eval marker
+     * `<evalRunUuid>#<caseIndex>` and the run's exercised skills.
+     *
+     * @return void
+     */
+    public function testFailingCaseOfCompletedRunEnqueuesEvalFailCapture(): void
+    {
+        $schedule = $this->createMock(ScheduleService::class);
+        $schedule->method('isOrganisationEngaged')->willReturn(false);
+        $schedule->method('runAgentAsOwner')->willReturn('agent output');
+        $schedule->method('getLastRunUsage')->willReturn([]);
+        $schedule->method('getLastRunSkillsUsed')->willReturn(['skill-1']);
+
+        $scoring = $this->createMock(EvalScoringService::class);
+        $scoring->method('score')->willReturnOnConsecutiveCalls(
+            ['passed' => true, 'errorMessage' => null, 'score' => null, 'judgeRationale' => null],
+            ['passed' => false, 'errorMessage' => 'nope', 'score' => null, 'judgeRationale' => null]
+        );
+
+        $service = $this->service(
+            objectService: $this->objectService(),
+            scheduleService: $schedule,
+            scoring: $scoring
+        );
+
+        $this->jobList->expects($this->once())->method('add')->with(
+            $this->stringContains('SkillLearningsCaptureJob'),
+            $this->callback(
+                static function (array $payload): bool {
+                    return ($payload['evalFail'] ?? '') === 'eval-run-uuid#1'
+                        && ($payload['runId'] ?? '') === 'eval-run-uuid'
+                        && ($payload['scheduleUuid'] ?? '') === 'eval-run-uuid'
+                        && ($payload['skillIds'] ?? []) === ['skill-1']
+                        && ($payload['agentId'] ?? '') === 'agent-uuid';
+                }
+            )
+        );
+
+        $result = $service->run(
+            $this->dataset(
+                    [
+                        ['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x'],
+                        ['prompt' => 'b', 'expectationType' => 'contains', 'expectedSubstring' => 'y'],
+                    ]
+                    ),
+            $this->agent()
+        );
+
+        $this->assertSame('completed', $result['status']);
+
+    }//end testFailingCaseOfCompletedRunEnqueuesEvalFailCapture()
+
+    /**
+     * A passing-only completed run enqueues NO eval-fail capture job — the marker
+     * exists only for failing cases.
+     *
+     * @return void
+     */
+    public function testPassingOnlyRunDoesNotEnqueueEvalFailCapture(): void
+    {
+        $schedule = $this->createMock(ScheduleService::class);
+        $schedule->method('isOrganisationEngaged')->willReturn(false);
+        $schedule->method('runAgentAsOwner')->willReturn('agent output');
+        $schedule->method('getLastRunUsage')->willReturn([]);
+        $schedule->method('getLastRunSkillsUsed')->willReturn(['skill-1']);
+
+        $scoring = $this->createMock(EvalScoringService::class);
+        $scoring->method('score')->willReturn(
+            ['passed' => true, 'errorMessage' => null, 'score' => null, 'judgeRationale' => null]
+        );
+
+        $service = $this->service(
+            objectService: $this->objectService(),
+            scheduleService: $schedule,
+            scoring: $scoring
+        );
+
+        $this->jobList->expects($this->never())->method('add');
+
+        $result = $service->run(
+            $this->dataset([['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x']]),
+            $this->agent()
+        );
+
+        $this->assertSame('completed', $result['status']);
+
+    }//end testPassingOnlyRunDoesNotEnqueueEvalFailCapture()
+
+    /**
+     * A draft-comparison run NEVER enqueues learnings capture, failing cases and
+     * exercised skills notwithstanding — a draft's transient content must never
+     * write learnings (skill-self-improvement isolation).
+     *
+     * @return void
+     */
+    public function testDraftComparisonRunDoesNotEnqueueEvalFailCapture(): void
+    {
+        $schedule = $this->createMock(ScheduleService::class);
+        $schedule->method('isOrganisationEngaged')->willReturn(false);
+        $schedule->method('runAgentAsOwner')->willReturn('agent output');
+        $schedule->method('getLastRunUsage')->willReturn([]);
+        $schedule->method('getLastRunSkillsUsed')->willReturn(['skill-1']);
+
+        $scoring = $this->createMock(EvalScoringService::class);
+        // Both halves fail their single case — still no capture enqueue.
+        $scoring->method('score')->willReturn(
+            ['passed' => false, 'errorMessage' => 'nope', 'score' => null, 'judgeRationale' => null]
+        );
+
+        $service = $this->service(
+            objectService: $this->objectService(),
+            scheduleService: $schedule,
+            scoring: $scoring
+        );
+
+        $this->jobList->expects($this->never())->method('add');
+
+        $result = $service->runDraftComparison(
+            dataset: $this->dataset([['prompt' => 'a', 'expectationType' => 'contains', 'expectedSubstring' => 'x']]),
+            agent: $this->agent(),
+            skillId: 'skill-1',
+            draftContent: ['name' => 's', 'description' => 'd', 'body' => 'DRAFT']
+        );
+
+        $this->assertSame('draft-comparison', $result['status']);
+
+    }//end testDraftComparisonRunDoesNotEnqueueEvalFailCapture()
 }//end class

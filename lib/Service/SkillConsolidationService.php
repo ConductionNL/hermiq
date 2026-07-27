@@ -974,7 +974,11 @@ class SkillConsolidationService
         $data['scanReport']         = [];
         $data['evalEvidence']       = [];
         $data['noEvalEvidence']     = false;
-        $data['status'] = self::STATUS_PROPOSED;
+        // TOCTOU hardening: sever the link to the pre-edit Approval too — a decision
+        // recorded on the OLD Approval (raced in around the edit) must never apply
+        // the edited content; the re-qualification pass links a fresh Approval.
+        $data['approvalId'] = '';
+        $data['status']     = self::STATUS_PROPOSED;
 
         $draft = $this->persistDraft(data: $data, uuid: (string) $draft->getUuid(), owner: (string) ($draft->getOwner() ?? ''));
 
