@@ -230,8 +230,11 @@ maturity via `SkillMaturityService`, persists `maturityLevel` and the refreshed
 `passed` and human-readable `reasons` covering structure, triggering, eval evidence,
 learnings activity, and orchestration use. The endpoint MUST refuse to qualify a skill
 the caller does not own, returning `404` (not `403`) on any mismatch so a non-owner
-cannot confirm the skill's existence (the agent-evals IDOR pattern). Qualification MUST
-be allowed in every lifecycle `state`.
+cannot confirm the skill's existence (the agent-evals IDOR pattern). System-seeded
+skills (owner `__system__`) have no human owner: for those objects — and ONLY those —
+an instance admin acts as custodian-owner (mirroring the tool-oversight custodianship
+rule), otherwise the seeds would ship with a permanently dead Qualify surface.
+Qualification MUST be allowed in every lifecycle `state`.
 
 #### Scenario: A non-owner cannot qualify a skill
 

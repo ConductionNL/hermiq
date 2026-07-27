@@ -118,6 +118,7 @@
 </template>
 
 <script>
+import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { NcButton, NcLoadingIcon, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import { diffSkillVersions, listSkillVersions, republishSkill, rollbackSkill } from '../api/skills.js'
 import { useEvalDatasetStore, useEvalRunStore, useSkillStore } from '../store/store.js'
@@ -218,6 +219,15 @@ export default {
 		this.runStore = useEvalRunStore()
 		this.runStore.registerObjectType('evalrun', 'evalrun', 'hermiq')
 		this.load()
+		// Refetch on the shared page-refresh signal (same pattern as
+		// AgentRunHistoryWidget) — an accepted draft writes a NEW version and
+		// SkillDraftReview announces it on this channel.
+		this.onPageRefresh = () => this.load()
+		subscribe('cn:page:refresh', this.onPageRefresh)
+	},
+
+	beforeUnmount() {
+		unsubscribe('cn:page:refresh', this.onPageRefresh)
 	},
 
 	methods: {

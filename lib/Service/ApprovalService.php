@@ -599,13 +599,16 @@ class ApprovalService
             $reviewerType = 'group';
         }
 
+        // NOTE: `agentId` is OMITTED — a skill-draft Approval gates a skill
+        // version, not an agent run, and OR validates `format: uuid` on any
+        // PRESENT value (an empty string fails validation and made every
+        // skill-draft Approval write silently impossible).
         $payload = [
             'status'       => 'pending',
             'sourceType'   => 'skill-draft',
             'draftId'      => $draftId,
             'skillId'      => (string) ($draft->getObject()['skillId'] ?? ''),
             'draftPayload' => $draftPayload,
-            'agentId'      => '',
             'prompt'       => (string) ($draftPayload['learningsSummary'] ?? ''),
             'requestedAt'  => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
             'reviewer'     => $reviewer,

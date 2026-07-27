@@ -31,11 +31,13 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\SkillMaturityController;
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSForbiddenException;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -103,7 +105,8 @@ class SkillMaturityControllerTest extends TestCase
         IUserSession $session,
         ?SkillService $skillService=null,
         ?SkillMaturityService $maturityService=null,
-        ?ActionAuthService $actionAuth=null
+        ?ActionAuthService $actionAuth=null,
+        bool $callerIsAdmin=false
     ): SkillMaturityController {
         if ($skillService === null) {
             $skillService = $this->createMock(SkillService::class);
@@ -117,11 +120,15 @@ class SkillMaturityControllerTest extends TestCase
             $actionAuth = $this->createMock(ActionAuthService::class);
         }
 
+        $groupManager = $this->createMock(IGroupManager::class);
+        $groupManager->method('isAdmin')->willReturn($callerIsAdmin);
+
         return new SkillMaturityController(
             $this->createMock(IRequest::class),
             $skillService,
             $maturityService,
             $actionAuth,
+            new SeedCustodyService(groupManager: $groupManager),
             $session,
             $this->createMock(LoggerInterface::class)
         );
@@ -228,6 +235,54 @@ class SkillMaturityControllerTest extends TestCase
         $this->assertSame($payload, $response->getData());
 
     }//end testQualifyByOwnerReturnsScorecard()
+
+    /**
+     * Seed custodianship: an instance admin qualifies a system-seeded skill
+     * (owner `__system__` — no human owner exists for seeds), while a
+     * non-admin still gets 404 and a HUMAN-owned skill stays closed to admins.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+     */
+    public function testQualifySystemSeededSkillIsAdminCustodied(): void
+    {
+        $seeded       = $this->skill(owner: SeedCustodyService::SYSTEM_OWNER);
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('getSkill')->willReturn($seeded);
+
+        $maturityService = $this->createMock(SkillMaturityService::class);
+        $maturityService->method('qualify')->willReturn(['scorecard' => []]);
+
+        // Admin caller: custodian-owner of the seed → 200.
+        $admin = $this->controller(
+            session: $this->session('admin'),
+            skillService: $skillService,
+            maturityService: $maturityService,
+            callerIsAdmin: true
+        );
+        $this->assertSame(Http::STATUS_OK, $admin->qualify('skill-uuid')->getStatus());
+
+        // Non-admin caller: still 404 on the seed.
+        $nonAdmin = $this->controller(
+            session: $this->session('bob'),
+            skillService: $skillService,
+            maturityService: $maturityService
+        );
+        $this->assertSame(Http::STATUS_NOT_FOUND, $nonAdmin->qualify('skill-uuid')->getStatus());
+
+        // A HUMAN-owned skill is NOT opened to admins by the custodian rule.
+        $humanOwnedService = $this->createMock(SkillService::class);
+        $humanOwnedService->method('getSkill')->willReturn($this->skill(owner: 'alice'));
+        $adminOnHuman = $this->controller(
+            session: $this->session('admin'),
+            skillService: $humanOwnedService,
+            maturityService: $maturityService,
+            callerIsAdmin: true
+        );
+        $this->assertSame(Http::STATUS_NOT_FOUND, $adminOnHuman->qualify('skill-uuid')->getStatus());
+
+    }//end testQualifySystemSeededSkillIsAdminCustodied()
 
     /**
      * Attesting an invisible skill is 404 BEFORE the action check — the action matrix

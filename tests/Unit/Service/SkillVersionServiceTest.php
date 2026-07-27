@@ -220,6 +220,39 @@ class SkillVersionServiceTest extends TestCase
     }//end testListVersionsNewestFirstWithEntryUuids()
 
     /**
+     * The AuditTrail multi-action filter is passed as a comma-separated STRING —
+     * OpenRegister's `AuditTrailMapper::findAll()` string-casts filter values, so an
+     * ARRAY becomes the literal "Array" and matches zero rows (green-but-dead: the
+     * live instance showed an empty version history while this suite stayed green
+     * on a permissive mock).
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
+     */
+    public function testVersionEntriesFilterUsesCommaSeparatedActionString(): void
+    {
+        $service = $this->service();
+        $this->auditTrailMapper->expects($this->once())
+            ->method('findAll')
+            ->with(
+                $this->anything(),
+                $this->anything(),
+                $this->callback(
+                    function (array $filters): bool {
+                        $this->assertSame('create,update', $filters['action'] ?? null);
+                        $this->assertSame('skill-1', $filters['object_uuid'] ?? null);
+                        return true;
+                    }
+                )
+            )
+            ->willReturn([]);
+
+        $this->assertSame([], $service->listVersions(skillUuid: 'skill-1'));
+
+    }//end testVersionEntriesFilterUsesCommaSeparatedActionString()
+
+    /**
      * Diff covers ONLY the versioned field set: two versions differing in body AND
      * state yield a diff containing body — never state.
      *

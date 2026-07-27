@@ -44,6 +44,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
@@ -87,6 +88,7 @@ class SkillDraftController extends Controller
      * @param ApprovalService           $approvalService The ONE human-decision surface.
      * @param SkillVersionService       $versionService  Post-accept version id resolution.
      * @param ActionAuthService         $actionAuth      ADR-023 action authorization.
+     * @param SeedCustodyService        $seedCustody     Owner-or-seed-custodian check.
      * @param IUserSession              $userSession     Resolves the requesting user.
      * @param LoggerInterface           $logger          PSR-3 logger.
      *
@@ -100,6 +102,7 @@ class SkillDraftController extends Controller
         private readonly ApprovalService $approvalService,
         private readonly SkillVersionService $versionService,
         private readonly ActionAuthService $actionAuth,
+        private readonly SeedCustodyService $seedCustody,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
     ) {
@@ -440,7 +443,7 @@ class SkillDraftController extends Controller
             return null;
         }
 
-        if ((string) ($skill->getOwner() ?? '') !== $uid) {
+        if ($this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $uid) === false) {
             return null;
         }
 

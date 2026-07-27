@@ -266,6 +266,11 @@ class SeedSkillDraftExample implements IRepairStep
      */
     private function approvalPayload(ObjectEntity $draft, string $skillId): array
     {
+        // NOTE: `agentId` is OMITTED — a skill-draft Approval gates a skill version,
+        // not an agent run, and OR validates `format: uuid` on any PRESENT value
+        // (an empty string fails validation and aborted this whole seed silently).
+        // The decided-* fields are omitted for the same reason: the decision
+        // endpoint writes them; null values are not schema-typed.
         return [
             'status'       => 'pending',
             'sourceType'   => 'skill-draft',
@@ -277,14 +282,10 @@ class SeedSkillDraftExample implements IRepairStep
                 'noEvalEvidence'   => true,
                 'learningsSummary' => 'Consolidates 3 promoted learnings entries into the skill body (seeded example).',
             ],
-            'agentId'      => '',
             'prompt'       => 'Seeded example: review the proposed tender-summary improvement.',
             'requestedAt'  => $this->now(),
             'reviewer'     => 'admin',
             'reviewerType' => 'group',
-            'decidedAt'    => null,
-            'decidedBy'    => null,
-            'reason'       => null,
         ];
 
     }//end approvalPayload()

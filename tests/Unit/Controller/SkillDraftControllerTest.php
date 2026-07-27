@@ -34,12 +34,14 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\SkillDraftController;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\ApprovalService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillConsolidationService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSForbiddenException;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -128,7 +130,7 @@ class SkillDraftControllerTest extends TestCase
      *
      * @return SkillDraftController
      */
-    private function controller(IUserSession $session): SkillDraftController
+    private function controller(IUserSession $session, bool $callerIsAdmin=false): SkillDraftController
     {
         $this->skillService    = $this->createMock(SkillService::class);
         $this->consolidation   = $this->createMock(SkillConsolidationService::class);
@@ -137,6 +139,9 @@ class SkillDraftControllerTest extends TestCase
         $this->actionAuth      = $this->createMock(ActionAuthService::class);
         $this->request         = $this->createMock(IRequest::class);
 
+        $groupManager = $this->createMock(IGroupManager::class);
+        $groupManager->method('isAdmin')->willReturn($callerIsAdmin);
+
         return new SkillDraftController(
             $this->request,
             $this->skillService,
@@ -144,6 +149,7 @@ class SkillDraftControllerTest extends TestCase
             $this->approvalService,
             $this->versionService,
             $this->actionAuth,
+            new SeedCustodyService(groupManager: $groupManager),
             $session,
             $this->createMock(LoggerInterface::class)
         );

@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -75,6 +76,7 @@ class SkillMaturityController extends Controller
      * @param SkillService         $skillService    The tenant-scoped skill read path.
      * @param SkillMaturityService $maturityService Computes + persists maturity.
      * @param ActionAuthService    $actionAuth      ADR-023 action authorization (attest gate).
+     * @param SeedCustodyService   $seedCustody     Owner-or-seed-custodian check.
      * @param IUserSession         $userSession     Resolves the requesting user.
      * @param LoggerInterface      $logger          PSR-3 logger.
      *
@@ -86,6 +88,7 @@ class SkillMaturityController extends Controller
         private readonly SkillService $skillService,
         private readonly SkillMaturityService $maturityService,
         private readonly ActionAuthService $actionAuth,
+        private readonly SeedCustodyService $seedCustody,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
     ) {
@@ -183,7 +186,9 @@ class SkillMaturityController extends Controller
     /**
      * Load the skill only if the given user OWNS it (IDOR guard). Fetches WITH RBAC
      * enabled and additionally asserts owner identity — mirrors
-     * `EvalRunController::loadOwnedDataset()` exactly.
+     * `EvalRunController::loadOwnedDataset()` — with ONE widening: an instance
+     * admin acts as custodian-owner of system-seeded skills (owner `__system__`,
+     * which no human owns; see `SeedCustodyService`).
      *
      * @param string $skillId The Skill UUID.
      * @param string $uid     The requesting user's UID.
@@ -197,7 +202,7 @@ class SkillMaturityController extends Controller
             return null;
         }
 
-        if ((string) ($skill->getOwner() ?? '') !== $uid) {
+        if ($this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $uid) === false) {
             return null;
         }
 

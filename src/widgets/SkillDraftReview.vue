@@ -99,22 +99,25 @@
 					</li>
 				</ul>
 
+				<!--
+				  No aria-label overrides here: each button's visible text IS its
+				  accessible name. An aria-label that replaces visible text breaks
+				  WCAG 2.5.3 (Label in Name) when the visible label is not contained
+				  in it ("Edit, then accept" vs "Edit the draft before accepting").
+				-->
 				<div class="skill-draft-review__actions">
 					<NcButton type="primary"
 						:disabled="busy"
-						:aria-label="t('hermiq', 'Accept the proposed draft')"
 						@click="doAccept">
 						{{ busy ? t('hermiq', 'Working…') : t('hermiq', 'Accept') }}
 					</NcButton>
 					<NcButton type="secondary"
 						:disabled="busy"
-						:aria-label="t('hermiq', 'Edit the draft before accepting')"
 						@click="openEditor">
 						{{ t('hermiq', 'Edit, then accept') }}
 					</NcButton>
 					<NcButton type="tertiary"
 						:disabled="busy"
-						:aria-label="t('hermiq', 'Reject the proposed draft')"
 						@click="showReject = true">
 						{{ t('hermiq', 'Reject') }}
 					</NcButton>
@@ -155,6 +158,7 @@
 </template>
 
 <script>
+import { emit } from '@nextcloud/event-bus'
 import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import {
 	acceptSkillDraft,
@@ -362,6 +366,10 @@ export default {
 			try {
 				await acceptSkillDraft(this.pendingDraft.uuid)
 				await this.load()
+				// The accept applied a NEW skill version: the page's other surfaces
+				// (body display, version history) must refetch too — same pattern
+				// as SkillRowActions' qualify.
+				emit('cn:page:refresh', {})
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Accept failed.')
 			} finally {
@@ -414,6 +422,9 @@ export default {
 				await rejectSkillDraft(this.pendingDraft.uuid, decision.note, decision.rejectedLearningRefs)
 				this.showReject = false
 				await this.load()
+				// The decision changed the draft's lifecycle — refresh the page's
+				// other surfaces (same pattern as doAccept).
+				emit('cn:page:refresh', {})
 			} catch (e) {
 				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Reject failed.')
 			} finally {

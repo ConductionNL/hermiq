@@ -42,6 +42,7 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -86,6 +87,7 @@ class SkillVersionController extends Controller
      * @param GitHubTemplatePushService $pushService      Fail-closed broker-mediated GitHub push.
      * @param ActionAuthService         $actionAuth       ADR-023 action authorization.
      * @param AuditTrailMapper          $auditTrailMapper Rollback/republish audit entries.
+     * @param SeedCustodyService        $seedCustody      Owner-or-seed-custodian check.
      * @param IUserSession              $userSession      Resolves the requesting user.
      * @param LoggerInterface           $logger           PSR-3 logger.
      *
@@ -99,6 +101,7 @@ class SkillVersionController extends Controller
         private readonly GitHubTemplatePushService $pushService,
         private readonly ActionAuthService $actionAuth,
         private readonly AuditTrailMapper $auditTrailMapper,
+        private readonly SeedCustodyService $seedCustody,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
     ) {
@@ -328,7 +331,9 @@ class SkillVersionController extends Controller
     /**
      * Owner guard shared by the version endpoints: the caller must OWN the skill; a
      * missing skill and a non-owner both 404 (never 403), mirroring
-     * `SkillMaturityController::loadOwnedSkill()`.
+     * `SkillMaturityController::loadOwnedSkill()`. An instance admin acts as
+     * custodian-owner of system-seeded skills (owner `__system__`; see
+     * `SeedCustodyService`).
      *
      * @param string $skillId The Skill UUID.
      *
@@ -344,7 +349,7 @@ class SkillVersionController extends Controller
         }
 
         $skill = $this->loadVisibleSkill(skillId: $skillId);
-        if ($skill === null || (string) ($skill->getOwner() ?? '') !== $user->getUID()) {
+        if ($skill === null || $this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $user->getUID()) === false) {
             return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
         }
 

@@ -92,8 +92,11 @@ test.describe('skill-scoped paired evals (skill-evals)', () => {
 		await expect(page.getByText('woo-request-triage').first()).toBeVisible()
 
 		// Link a second skill via the picker, then unlink it again.
+		// NOTE: match the option by rendered text, not accessible name — NcSelect v9
+		// splits option labels into word-break spans, so the computed accessible name
+		// gains spaces ("tender- summary") and a name-based lookup misses.
 		await page.getByLabel('Link a skill').first().click()
-		await page.getByRole('option', { name: 'tender-summary' }).first().click()
+		await page.getByRole('option').filter({ hasText: 'tender-summary' }).first().click()
 		await page.getByRole('button', { name: 'Link', exact: true }).click()
 		await expect(page.getByText('Skill linked.').first()).toBeVisible({ timeout: 15_000 })
 		await expect(page.getByText('tender-summary').first()).toBeVisible()
@@ -109,9 +112,13 @@ test.describe('skill-scoped paired evals (skill-evals)', () => {
 	test('paired baseline toggle is gated on linked skills and states the cost', async ({ page }) => {
 		await openSeededDataset(page)
 
-		const toggle = page.getByText('Paired baseline (with vs without skills)').first()
+		// The switch input starts DISABLED until the linked-skills fetch resolves
+		// (gating on skillRefs), so wait for enabled before toggling; the styled
+		// NcCheckboxRadioSwitch hides the native input, hence the forced check.
+		const toggle = page.getByRole('checkbox', { name: 'Paired baseline (with vs without skills)' })
 		await expect(toggle).toBeVisible()
-		await toggle.click()
+		await expect(toggle).toBeEnabled({ timeout: 15_000 })
+		await toggle.check({ force: true })
 		await expect(page.getByText(/about 2x the token cost/).first()).toBeVisible()
 	})
 
@@ -138,8 +145,21 @@ test.describe('skill-scoped paired evals (skill-evals)', () => {
 	// where the value is changed.
 	test('agent detail surfaces the evalBaselineMode description as an info affordance', async ({ page }) => {
 		await page.goto('/apps/hermiq/agents', { waitUntil: 'domcontentloaded' })
+		await expect(page.getByRole('button', { name: 'Add Agent' })).toBeVisible({ timeout: 30_000 })
 
+		// A fresh instance seeds no agents — create one through the UI when the
+		// catalog is empty (the scenario only needs SOME agent detail surface).
 		const firstRow = page.locator('tbody tr').first()
+		if (await firstRow.count() === 0) {
+			await page.getByRole('button', { name: 'Add Agent' }).click()
+			const modal = page.locator('.modal-container, [role="dialog"]').last()
+			await modal.getByLabel('Name').first().fill('e2e-baseline-agent')
+			await modal.getByRole('button', { name: 'Save' }).click()
+			// The page keeps latent [role=dialog] hosts mounted, so assert on the
+			// OUTCOME (the created row) rather than on dialog count reaching zero.
+			await expect(page.getByText('e2e-baseline-agent').first()).toBeVisible({ timeout: 30_000 })
+		}
+
 		await firstRow.waitFor({ state: 'visible', timeout: 30_000 })
 		await firstRow.click()
 

@@ -3,7 +3,7 @@
     "info": {
         "title": "Hermiq Register",
         "description": "Schedule autonomous AI agents in Nextcloud. v0.19.0 — skill-self-improvement (ADR-068 §5): new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill (agentskill) gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Nothing added to any existing required list; no existing object becomes invalid; all other schemas unchanged.",
-        "version": "0.19.0"
+        "version": "0.19.1"
     },
     "x-openregister": {
         "type": "application",
@@ -257,13 +257,12 @@
             "Approval": {
                 "slug": "approval",
                 "icon": "CheckDecagramOutline",
-                "version": "0.4.0",
+                "version": "0.4.1",
                 "title": "Approval",
                 "description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook), an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure), or a guardrail-policy confirm-classified tool call (sourceType=toolcall, agent-guardrails — distinct from sourceType=tool: keyed by agentId+toolId+arguments and single-use/TTL-bounded rather than a permanent per-(agentId,toolId) decision).",
                 "type": "object",
                 "required": [
                     "status",
-                    "agentId",
                     "requestedAt"
                 ],
                 "x-openregister": {
@@ -341,7 +340,7 @@
                         "type": "string",
                         "format": "uuid",
                         "title": "Agent",
-                        "description": "UUID of the agent the gated run/invocation would act as.",
+                        "description": "UUID of the agent the gated run/invocation would act as. OMITTED (not empty) for sourceType=skill-draft — a draft approval gates a skill version, not an agent run — which is why this property is not in `required`.",
                         "example": "00000000-0000-0000-0000-000000000000",
                         "$ref": "Agent"
                     },

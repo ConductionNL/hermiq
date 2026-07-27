@@ -296,7 +296,9 @@ versioned-field values as a NEW version — existing AuditTrail entries MUST NOT
 altered or deleted, and non-versioned fields (identity, lifecycle `state`, provenance
 `githubOwner`/`githubRepo`/`publishedAt`, maturity and evidence fields, `installedOn`)
 MUST retain their current values. Version endpoints MUST be owner-guarded, returning
-404 (never 403) on any mismatch.
+404 (never 403) on any mismatch; system-seeded skills (owner `__system__`) have no
+human owner, so for those objects — and ONLY those — an instance admin acts as
+custodian-owner (the same seed-custodianship rule as the qualify endpoint).
 
 #### Scenario: Rolling back restores content as a new version
 

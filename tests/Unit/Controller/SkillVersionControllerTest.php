@@ -34,11 +34,13 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\SkillVersionController;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -108,12 +110,15 @@ class SkillVersionControllerTest extends TestCase
      *
      * @return SkillVersionController
      */
-    private function controller(IUserSession $session): SkillVersionController
+    private function controller(IUserSession $session, bool $callerIsAdmin=false): SkillVersionController
     {
         $this->skillService   = $this->createMock(SkillService::class);
         $this->versionService = $this->createMock(SkillVersionService::class);
         $this->pushService    = $this->createMock(GitHubTemplatePushService::class);
         $this->request        = $this->createMock(IRequest::class);
+
+        $groupManager = $this->createMock(IGroupManager::class);
+        $groupManager->method('isAdmin')->willReturn($callerIsAdmin);
 
         return new SkillVersionController(
             $this->request,
@@ -122,6 +127,7 @@ class SkillVersionControllerTest extends TestCase
             $this->pushService,
             $this->createMock(ActionAuthService::class),
             $this->createMock(AuditTrailMapper::class),
+            new SeedCustodyService(groupManager: $groupManager),
             $session,
             $this->createMock(LoggerInterface::class)
         );
@@ -171,6 +177,37 @@ class SkillVersionControllerTest extends TestCase
         $this->assertSame(Http::STATUS_NOT_FOUND, $controller->rollback('skill-1')->getStatus());
 
     }//end testVersionEndpointsOwnerGuardWith404Never403()
+
+    /**
+     * Seed custodianship: an instance admin reads the version history of a
+     * system-seeded skill (owner `__system__`), while a non-admin still 404s and
+     * a HUMAN-owned skill stays closed to admins (see SeedCustodyService).
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
+     */
+    public function testVersionIndexOnSystemSeededSkillIsAdminCustodied(): void
+    {
+        // Admin caller on the seed: custodian-owner → 200.
+        $admin = $this->controller(session: $this->session('admin'), callerIsAdmin: true);
+        $this->skillService->method('getSkill')
+            ->willReturn($this->publishedSkill(owner: SeedCustodyService::SYSTEM_OWNER));
+        $this->versionService->method('listVersions')->willReturn([]);
+        $this->assertSame(Http::STATUS_OK, $admin->index('skill-1')->getStatus());
+
+        // Non-admin caller on the seed: still 404.
+        $nonAdmin = $this->controller(session: $this->session('mallory'));
+        $this->skillService->method('getSkill')
+            ->willReturn($this->publishedSkill(owner: SeedCustodyService::SYSTEM_OWNER));
+        $this->assertSame(Http::STATUS_NOT_FOUND, $nonAdmin->index('skill-1')->getStatus());
+
+        // Admin caller on a HUMAN-owned skill: the custodian rule does not apply.
+        $adminOnHuman = $this->controller(session: $this->session('admin'), callerIsAdmin: true);
+        $this->skillService->method('getSkill')->willReturn($this->publishedSkill(owner: 'alice'));
+        $this->assertSame(Http::STATUS_NOT_FOUND, $adminOnHuman->index('skill-1')->getStatus());
+
+    }//end testVersionIndexOnSystemSeededSkillIsAdminCustodied()
 
     /**
      * Rollback (owner) delegates to the version service and returns the NEW
