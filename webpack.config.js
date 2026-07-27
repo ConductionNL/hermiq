@@ -101,6 +101,24 @@ webpackConfig.module.rules.push({
 	use: ['style-loader', 'css-loader', 'sass-loader'],
 })
 
+// PUBLISHED @conduction/nextcloud-vue dist: rollup emits each SFC as three
+// modules — `X.vue2.js` (the options object, default-exported), `X.vue3.js`
+// (the compiled render function), and a wrapper (`X.vue.js` or `X.vue2.js`,
+// naming alternates) whose ONLY job is the side-effectful glue
+// `script.render = render; script.__scopeId = ...`. The barrel index.js
+// imports that wrapper for side effects and re-exports the render-less
+// options module. The lib's package.json `sideEffects` allowlist only covers
+// `**/*.vue` — which does NOT glob-match the compiled `*.vue.js` files — so
+// webpack tree-shakes the wrapper import away and every Cn component ships
+// WITHOUT its render function. Vue 3 then silently renders a comment node for
+// the whole component tree (a template-less options component is "missing
+// render"; prod runtime emits no warning). Force side-effect evaluation for
+// the entire published dist so the render-attach glue survives.
+webpackConfig.module.rules.push({
+	test: /[\\/]node_modules[\\/]@conduction[\\/]nextcloud-vue[\\/]dist[\\/]/,
+	sideEffects: true,
+})
+
 // Replace plugins to avoid duplicate VueLoaderPlugin (base config also registers one).
 // CRITICAL: re-add the appName / appVersion DefinePlugin entries — without them
 // every @nextcloud/vue widget mount logs `[ERROR] @nextcloud/vue: The library

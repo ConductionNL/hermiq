@@ -42,15 +42,15 @@
 
 				<template v-if="providerValue">
 					<NcTextField
-						:value.sync="form.searchEndpoint"
+						v-model="form.searchEndpoint"
 						:label="t('hermiq', 'Search endpoint')"
 						:placeholder="'https://searxng.internal:8080'" />
 
 					<template v-if="providerValue === 'generic-json'">
-						<NcTextField :value.sync="form.searchFieldMapping.resultsPath" :label="t('hermiq', 'Results path (dot-separated)')" placeholder="results" />
-						<NcTextField :value.sync="form.searchFieldMapping.titleField" :label="t('hermiq', 'Title field')" placeholder="title" />
-						<NcTextField :value.sync="form.searchFieldMapping.urlField" :label="t('hermiq', 'URL field')" placeholder="url" />
-						<NcTextField :value.sync="form.searchFieldMapping.snippetField" :label="t('hermiq', 'Snippet field')" placeholder="content" />
+						<NcTextField v-model="form.searchFieldMapping.resultsPath" :label="t('hermiq', 'Results path (dot-separated)')" placeholder="results" />
+						<NcTextField v-model="form.searchFieldMapping.titleField" :label="t('hermiq', 'Title field')" placeholder="title" />
+						<NcTextField v-model="form.searchFieldMapping.urlField" :label="t('hermiq', 'URL field')" placeholder="url" />
+						<NcTextField v-model="form.searchFieldMapping.snippetField" :label="t('hermiq', 'Snippet field')" placeholder="content" />
 					</template>
 
 					<NcSelect v-model="searchCredential"
@@ -72,21 +72,21 @@
 				</p>
 
 				<NcTextArea
-					:value.sync="allowlistText"
+					v-model="allowlistText"
 					:label="t('hermiq', 'Allowlist (one host per line — empty means any public host is reachable)')"
 					:placeholder="'en.wikipedia.org\nwww.rijksoverheid.nl'" />
 				<NcTextArea
-					:value.sync="denylistText"
+					v-model="denylistText"
 					:label="t('hermiq', 'Denylist (one host per line)')" />
-				<NcCheckboxRadioSwitch :checked.sync="form.allowInsecureHttp" type="switch">
+				<NcCheckboxRadioSwitch v-model="form.allowInsecureHttp" type="switch">
 					{{ t('hermiq', 'Allow plain http:// (an explicit opt-in — https:// is required by default)') }}
 				</NcCheckboxRadioSwitch>
 				<NcTextField
-					:value.sync="maxResponseBytesText"
+					v-model="maxResponseBytesText"
 					:label="t('hermiq', 'Max response size (bytes)')"
 					placeholder="500000" />
 				<NcTextField
-					:value.sync="timeoutSecondsText"
+					v-model="timeoutSecondsText"
 					:label="t('hermiq', 'Timeout (seconds)')"
 					placeholder="10" />
 

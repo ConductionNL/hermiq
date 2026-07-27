@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud. v0.15.1 — re-authored the AiFeature (Algoritmekader) property titles from Dutch to English (doel/wettelijkeGrondslag/impacttoetsen/soort/referentie/dataBronnen/menselijkeTussenkomst/verantwoordelijke/organisatie/publicatiecategorie) so manifest-driven UI labels are translatable; the Dutch labels now live in the app's l10n/nl.json. Property keys, enum values, and all other fields are unchanged.",
-        "version": "0.15.2"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.19.2 — merge of the skill-maturity wave and development. Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
+        "version": "0.19.2"
     },
     "x-openregister": {
         "type": "application",
@@ -257,13 +257,12 @@
             "Approval": {
                 "slug": "approval",
                 "icon": "CheckDecagramOutline",
-                "version": "0.4.0",
+                "version": "0.4.1",
                 "title": "Approval",
                 "description": "A human-oversight approval request for a gated agent run or tool invocation (EU AI Act Art. 14); its status is the audited pending→approved/denied decision. Gates a scheduled run (sourceType=schedule, the original shape), a flow-triggered run (sourceType=flow, from OpenRegister's AgentRunRequestedEvent), a webhook-triggered run (sourceType=webhook, from an external system calling the agent's inbound webhook), an un-granted destructive tool invocation attempted mid-run (sourceType=tool, agent-tool-governance-and-disclosure), or a guardrail-policy confirm-classified tool call (sourceType=toolcall, agent-guardrails — distinct from sourceType=tool: keyed by agentId+toolId+arguments and single-use/TTL-bounded rather than a permanent per-(agentId,toolId) decision).",
                 "type": "object",
                 "required": [
                     "status",
-                    "agentId",
                     "requestedAt"
                 ],
                 "x-openregister": {
@@ -288,11 +287,12 @@
                             "flow",
                             "webhook",
                             "tool",
-                            "toolcall"
+                            "toolcall",
+                            "skill-draft"
                         ],
                         "default": "schedule",
                         "title": "Source type",
-                        "description": "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, a webhook-triggered agent run, an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds), or a guardrail-policy confirm-classified tool call (nothing auto-resumes — the next MATCHING agentId+toolId+arguments attempt within the validity window proceeds exactly once, then the authorization expires)."
+                        "description": "What the gated action resumes into on approval: a Hermiq Schedule (default, back-compatible), a flow-triggered agent run, a webhook-triggered agent run, an un-granted destructive tool invocation (nothing auto-resumes — the next invocation attempt of the same agentId+toolId proceeds), a guardrail-policy confirm-classified tool call (nothing auto-resumes — the next MATCHING agentId+toolId+arguments attempt within the validity window proceeds exactly once, then the authorization expires), or a skill consolidation draft (skill-self-improvement: the pending→approved transition applies the draft onto the Skill as a new version from ANY surface; denial reconciles the draft to rejected)."
                     },
                     "scheduleId": {
                         "type": "string",
@@ -340,7 +340,7 @@
                         "type": "string",
                         "format": "uuid",
                         "title": "Agent",
-                        "description": "UUID of the agent the gated run/invocation would act as.",
+                        "description": "UUID of the agent the gated run/invocation would act as. OMITTED (not empty) for sourceType=skill-draft — a draft approval gates a skill version, not an agent run — which is why this property is not in `required`.",
                         "example": "00000000-0000-0000-0000-000000000000",
                         "$ref": "Agent"
                     },
@@ -384,6 +384,48 @@
                         "type": "string",
                         "title": "Reason",
                         "description": "Optional decision reason (typically supplied on denial)."
+                    },
+                    "draftId": {
+                        "type": "string",
+                        "title": "Skill draft",
+                        "description": "UUID of the SkillDraft this Approval decides. Present only when sourceType=skill-draft."
+                    },
+                    "skillId": {
+                        "type": "string",
+                        "title": "Skill",
+                        "description": "UUID of the Skill the gated draft would become a new version of. Present only when sourceType=skill-draft."
+                    },
+                    "draftPayload": {
+                        "type": "object",
+                        "title": "Draft decision evidence",
+                        "description": "REQUIRED at creation for sourceType=skill-draft (an Approval missing any field is invalid and never reaches an inbox): everything an informed out-of-band decision needs without opening SkillDetail.",
+                        "properties": {
+                            "deepLink": {
+                                "type": "string",
+                                "title": "Deep link",
+                                "description": "Deep link to the SkillDetail review surface carrying the full side-by-side diff."
+                            },
+                            "scanVerdict": {
+                                "type": "string",
+                                "title": "Scan verdict",
+                                "description": "The content-scan verdict recorded during pre-qualification (learnings.md scanned as instruction content)."
+                            },
+                            "evalDelta": {
+                                "type": "number",
+                                "title": "Eval delta",
+                                "description": "The paired draft-vs-active eval delta (draftPassRate - activePassRate). Absent when noEvalEvidence is true."
+                            },
+                            "noEvalEvidence": {
+                                "type": "boolean",
+                                "title": "No eval evidence",
+                                "description": "True when the skill has no linked EvalDataset — the draft survived pre-qualification honestly unmeasured and can never grant L5."
+                            },
+                            "learningsSummary": {
+                                "type": "string",
+                                "title": "Learnings summary",
+                                "description": "One-line summary of the driving learnings entries behind the proposal."
+                            }
+                        }
                     }
                 }
             },
@@ -1182,7 +1224,7 @@
             "Skill": {
                 "slug": "agentskill",
                 "icon": "PuzzleOutline",
-                "version": "0.1.0",
+                "version": "0.3.0",
                 "title": "Skill",
                 "description": "A self-improving agent skill in the agentskills.io format (ported from Hermes). Stores the raw frontmatter block (byte-preserved for lossless round-trip), the body, auxiliary files, a lifecycle state, and which agents it is installed on. Slug namespaced (agentskill) to avoid a cross-app slug collision.",
                 "type": "object",
@@ -1370,6 +1412,212 @@
                         "format": "date-time",
                         "title": "Published at",
                         "description": "When this skill was last published to GitHub. Provenance only — never round-tripped through the exported package."
+                    },
+                    "lastAcceptedVersionAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Last accepted version at",
+                        "description": "When a consolidation draft was last accepted onto this skill (skill-self-improvement). Stamped by the draft-acceptance service, never hand-set. A value postdating publishedAt on a GitHub-published skill drives the client-side 'published copy is behind' badge. Hermiq metadata only — never round-tripped through the exported agentskills.io package."
+                    },
+                    "maturityLevel": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 7,
+                        "default": 0,
+                        "title": "Maturity level",
+                        "description": "The skill's L1–L7 maturity level (ADR-068), computed by SkillMaturityService as the highest contiguous level passed — never hand-set; client-supplied values are ignored on every write path (skill-maturity). Hermiq metadata only — never round-tripped through the exported agentskills.io package."
+                    },
+                    "targetLevel": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 7,
+                        "title": "Target level",
+                        "description": "The curator-intended maturity level for this skill (freely editable, skill-maturity). Hermiq metadata only — never round-tripped through the exported agentskills.io package."
+                    },
+                    "levelEvidence": {
+                        "type": "object",
+                        "title": "Level evidence",
+                        "description": "Per-level maturity evidence (skill-maturity). l1–l3 are refreshed by SkillMaturityService on every qualify; l4 is written only by the action-gated attest endpoint; l5–l7 are written by the skill-evals / skill-learnings / skill-orchestration subsystems and only read here. Hermiq metadata only — never round-tripped through the exported agentskills.io package.",
+                        "properties": {
+                            "l1": {
+                                "type": "object",
+                                "title": "L1 evidence",
+                                "description": "Mechanical L1 (anatomy) check result, refreshed on every qualify.",
+                                "properties": {
+                                    "passed": {
+                                        "type": "boolean",
+                                        "title": "Passed",
+                                        "description": "Whether the L1 anatomy check passed at the last qualify."
+                                    },
+                                    "checkedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Checked at",
+                                        "description": "When the L1 check last ran."
+                                    }
+                                }
+                            },
+                            "l2": {
+                                "type": "object",
+                                "title": "L2 evidence",
+                                "description": "Mechanical L2 (triggering) check result, refreshed on every qualify.",
+                                "properties": {
+                                    "passed": {
+                                        "type": "boolean",
+                                        "title": "Passed",
+                                        "description": "Whether the L2 triggering check passed at the last qualify."
+                                    },
+                                    "checkedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Checked at",
+                                        "description": "When the L2 check last ran."
+                                    }
+                                }
+                            },
+                            "l3": {
+                                "type": "object",
+                                "title": "L3 evidence",
+                                "description": "Mechanical L3 (patterns) check result, refreshed on every qualify.",
+                                "properties": {
+                                    "passed": {
+                                        "type": "boolean",
+                                        "title": "Passed",
+                                        "description": "Whether the L3 patterns check passed at the last qualify."
+                                    },
+                                    "checkedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Checked at",
+                                        "description": "When the L3 check last ran."
+                                    }
+                                }
+                            },
+                            "l4": {
+                                "type": "object",
+                                "title": "L4 attestation",
+                                "description": "Human L4 (personalization) attestation — set ONLY by the action-gated attest endpoint (skill.attest-maturity, ADR-023), never auto-detected.",
+                                "properties": {
+                                    "attestedBy": {
+                                        "type": "string",
+                                        "title": "Attested by",
+                                        "description": "The user id of the curator who attested L4."
+                                    },
+                                    "attestedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Attested at",
+                                        "description": "When L4 was attested."
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "title": "Attestation note",
+                                        "description": "Optional curator note on what the personalization covers."
+                                    }
+                                }
+                            },
+                            "l5": {
+                                "type": "object",
+                                "title": "L5 eval evidence",
+                                "description": "Measurement evidence written ONLY by a completed paired eval run (skill-evals); read here for the maturity fold. Client writes are silently preserved-over.",
+                                "properties": {
+                                    "evalDatasetId": {
+                                        "type": "string",
+                                        "format": "uuid",
+                                        "title": "Eval dataset id",
+                                        "description": "The EvalDataset UUID that validated this skill."
+                                    },
+                                    "mode": {
+                                        "type": "string",
+                                        "enum": [
+                                            "joint",
+                                            "per-skill"
+                                        ],
+                                        "title": "Attribution mode",
+                                        "description": "How the baselineDelta was attributed (skill-evals): 'joint' marks it as the JOINT contribution of the whole linked skill set (shared, never split); 'per-skill' marks it as this skill's true marginal contribution from its own dedicated without-half."
+                                    },
+                                    "passRate": {
+                                        "type": "number",
+                                        "title": "Pass rate",
+                                        "description": "The latest eval pass rate (0–1)."
+                                    },
+                                    "baselineDelta": {
+                                        "type": "number",
+                                        "title": "Baseline delta",
+                                        "description": "Pass-rate delta versus the no-skill baseline."
+                                    },
+                                    "lastValidated": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last validated",
+                                        "description": "When the eval evidence was last refreshed."
+                                    }
+                                }
+                            },
+                            "l6": {
+                                "type": "object",
+                                "title": "L6 learnings evidence",
+                                "description": "Self-improvement evidence. The activity fields (candidateCount, learningsCount, lastCaptureAt, lastPromotedAt) are written ONLY by the skill-learnings capture/promotion subsystem; lastConsolidatedAt is reserved for skill-self-improvement consolidation.",
+                                "properties": {
+                                    "candidateCount": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "title": "Candidate count",
+                                        "description": "Number of unpromoted candidate lines in files['learning-candidates.md']. Written only by the learnings subsystem (capture/promotion services); client-supplied values are discarded by the skill write paths."
+                                    },
+                                    "lastCaptureAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last capture at",
+                                        "description": "When the post-run capture pass last appended or confirmed a candidate. Written only by the learnings subsystem; client-supplied values are discarded by the skill write paths."
+                                    },
+                                    "learningsCount": {
+                                        "type": "integer",
+                                        "title": "Learnings count",
+                                        "description": "Number of consolidated learnings captured for this skill."
+                                    },
+                                    "lastConsolidatedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last consolidated at",
+                                        "description": "When learnings were last consolidated."
+                                    },
+                                    "lastPromotedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last promoted at",
+                                        "description": "When a learning was last promoted into the skill."
+                                    }
+                                }
+                            },
+                            "l7": {
+                                "type": "object",
+                                "title": "L7 orchestration evidence",
+                                "description": "AI-workforce evidence written by the future skill-orchestration change; this change only reads it. A declared-but-never-executed chain is structurally L7, not mature L7.",
+                                "properties": {
+                                    "declaredChain": {
+                                        "type": "array",
+                                        "title": "Declared chain",
+                                        "description": "Skill UUIDs this skill declares as its orchestration chain.",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        }
+                                    },
+                                    "lastExecutedChainRunId": {
+                                        "type": "string",
+                                        "title": "Last executed chain run id",
+                                        "description": "The run id of the last executed orchestration chain."
+                                    },
+                                    "lastExecutedAt": {
+                                        "type": "string",
+                                        "format": "date-time",
+                                        "title": "Last executed at",
+                                        "description": "When the declared chain was last executed."
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -1411,10 +1659,221 @@
                     }
                 }
             },
+            "SkillDraft": {
+                "slug": "agentskilldraft",
+                "icon": "FileDocumentEditOutline",
+                "version": "0.1.0",
+                "title": "Skill draft",
+                "description": "A machine-proposed DRAFT new version of a Skill (skill-self-improvement, ADR-068 §5). The active skill is NEVER edited in place: consolidation writes only draft objects, every draft passes a content scan (learnings.md treated as instruction content) and a paired draft-vs-active eval before a human sees it, and acceptance runs through the human-approval-gate Approval state machine. Slug namespaced (agentskilldraft) to avoid a cross-app slug collision. At most ONE draft per skill may be open (proposed/awaiting-approval).",
+                "type": "object",
+                "required": [
+                    "skillId"
+                ],
+                "x-openregister": {
+                    "publicRead": false,
+                    "publicWrite": false
+                },
+                "properties": {
+                    "skillId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "title": "Skill",
+                        "description": "UUID of the Skill this draft proposes a new version of.",
+                        "example": "00000000-0000-0000-0000-000000000000",
+                        "$ref": "Skill"
+                    },
+                    "baseVersionId": {
+                        "type": "string",
+                        "title": "Base version",
+                        "description": "The active skill version (AuditTrail entry UUID) this draft was proposed against — pinned at proposal time so the review diff is unambiguous."
+                    },
+                    "trigger": {
+                        "type": "string",
+                        "enum": [
+                            "threshold",
+                            "regression",
+                            "manual"
+                        ],
+                        "title": "Trigger",
+                        "description": "What proposed this draft: the learnings-entry threshold, a linked eval run failing the regression gate, or the manual Propose improvement action."
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "proposed",
+                            "awaiting-approval",
+                            "accepted",
+                            "rejected",
+                            "discarded"
+                        ],
+                        "default": "proposed",
+                        "title": "Status",
+                        "description": "Pipeline state (service-owned; see design.md Decision 1): proposed → awaiting-approval → accepted|rejected, with discarded reachable only from proposed (scan/eval auto-discard). Hand-setting 'accepted' through the generic object path changes a label, not the skill — content applies ONLY on the linked Approval's pending→approved transition."
+                    },
+                    "proposedFrontmatter": {
+                        "type": "string",
+                        "title": "Proposed frontmatter",
+                        "description": "The draft's proposed raw agentskills.io frontmatter block."
+                    },
+                    "proposedBody": {
+                        "type": "string",
+                        "title": "Proposed body",
+                        "description": "The draft's proposed skill body (markdown)."
+                    },
+                    "proposedFiles": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Proposed files",
+                        "description": "The draft's proposed auxiliary files.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "title": "File name",
+                                    "description": "The auxiliary file's name."
+                                },
+                                "content": {
+                                    "type": "string",
+                                    "title": "File content",
+                                    "description": "The auxiliary file's raw content."
+                                }
+                            }
+                        }
+                    },
+                    "provenance": {
+                        "type": "object",
+                        "title": "Provenance",
+                        "description": "What drove this proposal — reconstructable evidence, never prose.",
+                        "properties": {
+                            "learningRefs": {
+                                "type": "array",
+                                "default": [],
+                                "title": "Driving learnings entries",
+                                "description": "Dated-entry keys (YYYY-MM-DD-<hash>) of the learnings.md entries that drove this proposal.",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "runIds": {
+                                "type": "array",
+                                "default": [],
+                                "title": "Run IDs",
+                                "description": "Run identifiers recorded on the driving learnings entries.",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "triggerEvalRunId": {
+                                "type": "string",
+                                "title": "Triggering eval run",
+                                "description": "The regressed EvalRun UUID when trigger=regression."
+                            }
+                        }
+                    },
+                    "scanVerdict": {
+                        "type": "string",
+                        "title": "Scan verdict",
+                        "description": "The pre-qualification content-scan severity (clean/suspicious/dangerous) over frontmatter+body+ALL files with learnings.md scanned as instruction content. Cleared when the draft content is edited (re-qualification required)."
+                    },
+                    "scanReport": {
+                        "type": "object",
+                        "title": "Scan report",
+                        "description": "The full ContentScanService report backing scanVerdict."
+                    },
+                    "evalEvidence": {
+                        "type": "object",
+                        "title": "Eval evidence",
+                        "description": "The paired draft-vs-active eval outcome (skill-evals paired seam). Cleared when the draft content is edited (re-qualification required).",
+                        "properties": {
+                            "datasetId": {
+                                "type": "string",
+                                "title": "Dataset",
+                                "description": "The linked EvalDataset UUID the paired comparison ran on."
+                            },
+                            "draftPassRate": {
+                                "type": "number",
+                                "title": "Draft pass rate",
+                                "description": "The draft half's pass rate (0–1)."
+                            },
+                            "activePassRate": {
+                                "type": "number",
+                                "title": "Active pass rate",
+                                "description": "The active half's pass rate (0–1)."
+                            },
+                            "delta": {
+                                "type": "number",
+                                "title": "Delta",
+                                "description": "draftPassRate - activePassRate."
+                            },
+                            "draftEvalRunId": {
+                                "type": "string",
+                                "title": "Draft eval run",
+                                "description": "The EvalRun UUID recording the comparison (draft half)."
+                            },
+                            "activeEvalRunId": {
+                                "type": "string",
+                                "title": "Active eval run",
+                                "description": "The EvalRun UUID recording the comparison (active half)."
+                            }
+                        }
+                    },
+                    "noEvalEvidence": {
+                        "type": "boolean",
+                        "title": "No eval evidence",
+                        "description": "True when the skill has no linked EvalDataset: the draft survives to review honestly unmeasured, the review surface says so verbatim, and accepting it never writes levelEvidence.l5."
+                    },
+                    "approvalId": {
+                        "type": "string",
+                        "title": "Approval",
+                        "description": "UUID of the linked human-approval-gate Approval object (sourceType=skill-draft) — the ONE human-decision surface; its pending→approved transition is the only applier."
+                    },
+                    "editedBeforeAccept": {
+                        "type": "boolean",
+                        "title": "Edited before accept",
+                        "description": "Whether a reviewer edited the proposed content before accepting (human curation is evidence — recorded, never noise)."
+                    },
+                    "editedBy": {
+                        "type": "string",
+                        "title": "Edited by",
+                        "description": "The user id who edited the draft content (edit-then-accept, SkillDetail-only)."
+                    },
+                    "rejectedLearningRefs": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Rejected learnings entries",
+                        "description": "Dated-entry keys the rejecting curator marked as bad — excluded from driving the skill's next proposal. Marking lives HERE, never as an edit to learnings.md.",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "auditNote": {
+                        "type": "string",
+                        "title": "Audit note",
+                        "description": "The last transition's gate evidence note (discard reason with scan verdict or both pass rates, acceptance version id, …)."
+                    },
+                    "decidedBy": {
+                        "type": "string",
+                        "title": "Decided by",
+                        "description": "The user id whose Approval decision settled this draft (accepted/rejected)."
+                    },
+                    "decidedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Decided at",
+                        "description": "When the draft was settled (accepted/rejected/discarded)."
+                    },
+                    "regressionNotifiedRunId": {
+                        "type": "string",
+                        "title": "Regression notified for run",
+                        "description": "Service bookkeeping: the failing post-acceptance EvalRun UUID the accepting reviewer was already notified about, so the rollback suggestion notifies once per regressing run — never a repeat."
+                    }
+                }
+            },
             "Agent": {
                 "slug": "agent",
                 "icon": "RobotOutline",
-                "version": "0.3.0",
+                "version": "0.4.0",
                 "title": "Agent",
                 "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target).",
                 "type": "object",
@@ -1587,12 +2046,22 @@
                         "type": "array",
                         "default": [],
                         "title": "Skill installs",
-                        "description": "Skill uuids explicitly installed on this agent; the allowlist a future run loop uses to decide which skills are exposed to it. Kept in sync by SkillService::installOnAgent().",
+                        "description": "Skill uuids explicitly installed on this agent; the allowlist the engine run loop exposes to a run (skill-evals run-loop seam: ContextAssembler injects each active installed skill's content into the run context). Kept in sync by SkillService::installOnAgent().",
                         "items": {
                             "type": "string",
                             "format": "uuid",
                             "$ref": "Skill"
                         }
+                    },
+                    "evalBaselineMode": {
+                        "type": "string",
+                        "enum": [
+                            "joint",
+                            "per-skill"
+                        ],
+                        "default": "joint",
+                        "title": "Eval baseline mode",
+                        "description": "How a paired (with-skill vs without-skill) eval baseline is constructed for this agent. 'joint' (the default, also when unset): every paired run executes ONE without-skill half that detaches all of the dataset's linked skills together — each case runs exactly twice, at roughly 2x the token cost of a normal eval run, and the recorded baseline delta is the JOINT contribution of the whole linked skill set, shared by every linked skill. 'per-skill': every paired run executes one without-skill half PER linked skill (the with-set minus only that skill) — with N linked skills each case runs N+1 times, at (N+1)x the token cost per paired run, and each skill receives its own TRUE marginal baseline delta. Every half counts toward the same organisation and agent budgets."
                     },
                     "contextRefs": {
                         "type": "array",
@@ -2553,7 +3022,7 @@
             "EvalDataset": {
                 "slug": "evaldataset",
                 "icon": "FlaskOutline",
-                "version": "0.1.0",
+                "version": "0.2.0",
                 "title": "Eval dataset",
                 "description": "A named set of EvalCases (agent-evals) — an input prompt plus a deterministic assertion or an LLM-judge rubric — run on demand against an Agent as an EvalRun, so an operator can verify an agent's behaviour before trusting it with real, delivered runs. A case has no independent lifecycle, ownership, or cross-dataset reuse need, so it is stored as an embedded array property, not a standalone schema/register relation (mirrors Schedule.repeat).",
                 "type": "object",
@@ -2634,13 +3103,24 @@
                                 }
                             }
                         }
+                    },
+                    "skillRefs": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Linked skills",
+                        "description": "Skill uuids this dataset measures (skill-evals): a paired baseline run exposes these skills in its with-half and detaches them (per the agent's evalBaselineMode) in its without-half(s), and a completed paired run writes levelEvidence.l5 on each of them. Linked and unlinked through the generic object write path — no bespoke link endpoint. For the cleanest attribution link ONE skill per dataset (joint mode measures the linked set as a whole).",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid",
+                            "$ref": "Skill"
+                        }
                     }
                 }
             },
             "EvalRun": {
                 "slug": "evalrun",
                 "icon": "ChartLine",
-                "version": "0.1.0",
+                "version": "0.2.0",
                 "title": "Eval run",
                 "description": "One execution of an EvalDataset against an Agent (agent-evals): each case runs through ScheduleService::runAgentAsOwner() — the same impersonation and Engine/ChatService path a schedule tick or Run now uses — but non-delivering (DeliveryService is never called). Scored deterministically or via LLM-as-judge, aggregated into a passRate, and compared against the immediately preceding completed EvalRun for the same datasetId+agentId as a regression gate.",
                 "type": "object",
@@ -2681,10 +3161,11 @@
                             "completed",
                             "failed",
                             "blocked_killswitch",
-                            "blocked_budget"
+                            "blocked_budget",
+                            "draft-comparison"
                         ],
                         "title": "Status",
-                        "description": "completed = every case executed (individual cases may still fail their own assertion); failed = an infrastructure-level error (e.g. no LLM provider configured) hit at least one case; blocked_killswitch/blocked_budget = the run never executed any case because the target organisation's kill-switch was engaged or its budget hard cap was reached."
+                        "description": "completed = every case executed (individual cases may still fail their own assertion); failed = an infrastructure-level error (e.g. no LLM provider configured) hit at least one case; blocked_killswitch/blocked_budget = the run never executed any case because the target organisation's kill-switch was engaged or its budget hard cap was reached; draft-comparison = a skill-self-improvement draft-vs-active pre-qualification comparison — deliberately NOT 'completed' so it can never become a regression-gate baseline and never writes levelEvidence.l5."
                     },
                     "startedAt": {
                         "type": "string",
@@ -2780,6 +3261,126 @@
                         "nullable": true,
                         "title": "Regression threshold (pp)",
                         "description": "The effective regression-gate threshold (percentage points of passRate drop) applied to this run — the instance-wide IAppConfig default unless a per-trigger override was supplied."
+                    },
+                    "baselineMode": {
+                        "type": "boolean",
+                        "default": false,
+                        "title": "Paired baseline run",
+                        "description": "True when this run executed as a paired with-skill vs without-skill baseline (skill-evals): the with-half lands in results/passRate, the without-half(s) per the agent's evalBaselineMode. False (the default) is a plain agent-scoped run — byte-identical to pre-skill-evals behaviour."
+                    },
+                    "attributionMode": {
+                        "type": "string",
+                        "enum": [
+                            "joint",
+                            "per-skill"
+                        ],
+                        "title": "Attribution mode",
+                        "description": "Snapshot of the baseline-attribution mode this paired run actually used (the agent's evalBaselineMode at trigger time — agent config may change later; run history stays honest). joint = one without-half detaching all linked skills together (joint delta); per-skill = one without-half per linked skill (true per-skill marginals). Unset on non-paired runs."
+                    },
+                    "baselineResults": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Baseline results",
+                        "description": "The joint-mode without-half's per-case outcomes, in dataset case order (same item shape as results). Unset in per-skill mode — each skillResults entry carries its own dedicated without-half there.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "caseIndex": {
+                                    "type": "integer",
+                                    "title": "Case index",
+                                    "description": "0-based index of this case within the dataset's cases array at run time."
+                                },
+                                "prompt": {
+                                    "type": "string",
+                                    "title": "Prompt",
+                                    "description": "The case's input prompt, snapshotted at run time."
+                                },
+                                "expectationType": {
+                                    "type": "string",
+                                    "title": "Expectation type",
+                                    "description": "The case's expectationType, snapshotted at run time."
+                                },
+                                "actualOutput": {
+                                    "type": "string",
+                                    "title": "Actual output",
+                                    "description": "The agent's real output for this case in the without-skill half."
+                                },
+                                "passed": {
+                                    "type": "boolean",
+                                    "title": "Passed",
+                                    "description": "Whether this case's scoring judged the without-half output to meet its expectation."
+                                },
+                                "errorMessage": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "title": "Error message",
+                                    "description": "Why scoring could not complete or why an infrastructure-level error occurred in the without-half."
+                                },
+                                "score": {
+                                    "type": "number",
+                                    "nullable": true,
+                                    "title": "Score",
+                                    "description": "The LLM judge's numeric score (0–1) for a rubric case; absent for deterministic cases."
+                                },
+                                "judgeRationale": {
+                                    "type": "string",
+                                    "nullable": true,
+                                    "title": "Judge rationale",
+                                    "description": "The LLM judge's rationale for its score, for a rubric case."
+                                }
+                            }
+                        }
+                    },
+                    "baselinePassRate": {
+                        "type": "number",
+                        "nullable": true,
+                        "minimum": 0,
+                        "maximum": 1,
+                        "title": "Baseline pass rate",
+                        "description": "Fraction of cases that passed in the joint-mode without-skill half. Unset in per-skill mode (there is no single without-half to promote) and on non-paired runs."
+                    },
+                    "skillResults": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Per-skill results",
+                        "description": "One entry per linked skill on a paired run. In joint mode every entry shares the same with/without numbers (the joint contribution of the linked set); in per-skill mode each entry carries its own dedicated without-half results and a TRUE per-skill marginal baselineDelta.",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "skillId": {
+                                    "type": "string",
+                                    "format": "uuid",
+                                    "title": "Skill",
+                                    "description": "UUID of the linked skill this entry measures.",
+                                    "example": "00000000-0000-0000-0000-000000000000",
+                                    "$ref": "Skill"
+                                },
+                                "passRateWith": {
+                                    "type": "number",
+                                    "title": "Pass rate with skill",
+                                    "description": "The with-half pass rate (0–1) — identical to the run's passRate."
+                                },
+                                "passRateWithout": {
+                                    "type": "number",
+                                    "title": "Pass rate without skill",
+                                    "description": "The without-half pass rate (0–1) this entry's baselineDelta is computed against (the joint without-half in joint mode; this skill's dedicated without-half in per-skill mode)."
+                                },
+                                "baselineDelta": {
+                                    "type": "number",
+                                    "title": "Baseline delta",
+                                    "description": "passRateWith minus passRateWithout. In joint mode this is the JOINT contribution of the whole linked set (shared across entries); in per-skill mode it is this skill's true marginal contribution."
+                                },
+                                "baselineResults": {
+                                    "type": "array",
+                                    "default": [],
+                                    "title": "Baseline results",
+                                    "description": "Per-skill mode only: this skill's dedicated without-half per-case outcomes, in dataset case order (same item shape as the run's results). Unset in joint mode — the shared without-half lives on the run's top-level baselineResults.",
+                                    "items": {
+                                        "type": "object"
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             },

@@ -33,9 +33,9 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
- * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
- * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
  */
 
 declare(strict_types=1);
@@ -49,7 +49,7 @@ use RuntimeException;
 /**
  * GitHub delivery target for a published AgentTemplate package. Broker-only.
  *
- * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
  */
 class GitHubTemplatePushService
 {
@@ -132,7 +132,7 @@ class GitHubTemplatePushService
      *
      * @return bool True when the broker class can be resolved.
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
      */
     public function isBrokerAvailable(): bool
     {
@@ -155,15 +155,21 @@ class GitHubTemplatePushService
      *                                  hermiq-github-store). Defaults to `KIND_AGENT_TEMPLATE` —
      *                                  every existing caller that omits `$kind` gets EXACTLY the
      *                                  prior agent-template-only behaviour.
+     * @param array       $auxFiles     Additional repo-root files (`{name, content}` entries) to
+     *                                  commit alongside the package (skill-self-improvement:
+     *                                  the ALREADY-SELECTED skill files — the caller applies the
+     *                                  `learning-candidates.md` strip BEFORE this boundary).
+     *                                  Empty (every pre-existing caller) is byte-identical to
+     *                                  before.
      *
      * @return array{repoUrl:string,commitSha:string} The repo URL and the commit SHA the package landed in.
      *
      * @throws RuntimeException On any GitHub API failure (broker absent, no credential,
      *                          repo already exists, auth failure, …).
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
-     * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
      */
     public function push(
         string $package,
@@ -173,6 +179,7 @@ class GitHubTemplatePushService
         string $credentialId,
         ?string $actingUserId=null,
         string $kind=self::KIND_AGENT_TEMPLATE,
+        array $auxFiles=[],
     ): array {
         // Audit log names only owner/repo — never the credential, never the package contents
         // (a template's systemPrompt/a skill's body may carry anything the author typed).
@@ -216,7 +223,8 @@ class GitHubTemplatePushService
             package: $package,
             credentialId: $credentialId,
             actingUserId: $actingUserId,
-            kind: $kind
+            kind: $kind,
+            auxFiles: $auxFiles
         );
 
         return [
@@ -224,6 +232,93 @@ class GitHubTemplatePushService
             'commitSha' => $commitSha,
         ];
     }//end push()
+
+    /**
+     * REPUBLISH: update-mode push to an EXISTING repository (skill-self-improvement) —
+     * the exactly-one carve-out from "refuse to overwrite an existing repository".
+     * Reachable ONLY for the repo already stamped on the SAME skill's provenance:
+     * the CALLER (SkillVersionController::republish()) derives owner/repo from the
+     * skill's own `githubOwner`/`githubRepo` and never accepts client coordinates,
+     * so publishing to any OTHER existing repository still refuses through the
+     * normal `push()` path. Same fail-closed broker chain, token never held or
+     * logged. The repo MUST already exist — the inverse of `assertRepoAbsent()`.
+     *
+     * @param string      $package      The serialized package string.
+     * @param string      $owner        The provenance-stamped GitHub owner.
+     * @param string      $repo         The provenance-stamped repository name.
+     * @param string      $credentialId Broker credential UUID for a `github` provider credential.
+     * @param string|null $actingUserId Credential owner.
+     * @param string      $kind         The publish kind (`KIND_SKILL` for skills).
+     * @param array       $auxFiles     Additional repo-root files (already selection-filtered).
+     *
+     * @return array{repoUrl:string,commitSha:string} The repo URL and the update commit SHA.
+     *
+     * @throws RuntimeException On any GitHub API failure (broker absent, no credential,
+     *                          repo missing, auth failure, …).
+     *
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+     */
+    public function pushUpdate(
+        string $package,
+        string $owner,
+        string $repo,
+        string $credentialId,
+        ?string $actingUserId=null,
+        string $kind=self::KIND_SKILL,
+        array $auxFiles=[],
+    ): array {
+        $this->logger->info(
+            'Hermiq GitHub republish: updating repository',
+            ['owner' => $owner, 'repo' => $repo, 'kind' => $kind]
+        );
+
+        if ($this->isBrokerAvailable() === false) {
+            // Fail closed. There is deliberately no token-bearing fallback.
+            throw new RuntimeException(
+                'GitHub republish requires the OpenRegister credential broker, which is not available.'
+            );
+        }
+
+        if ($credentialId === '') {
+            throw new RuntimeException('GitHub republish requires a broker credential.');
+        }
+
+        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+            throw new RuntimeException('GitHub republish requires a valid owner and repository name.');
+        }
+
+        // The provenance repo must EXIST — a vanished repo is a refusal, never a
+        // silent re-create (that would be a first publish, which has its own path).
+        $repoData = $this->brokerCall(
+            method: 'GET',
+            path: '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo),
+            body: null,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
+        if ($repoData === null) {
+            throw new RuntimeException(sprintf('Repository %s/%s does not exist — cannot republish.', $owner, $repo));
+        }
+
+        $defaultBranch = (string) ($repoData['default_branch'] ?? 'main');
+
+        $commitSha = $this->commitPackage(
+            owner: $owner,
+            repo: $repo,
+            branch: $defaultBranch,
+            package: $package,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId,
+            kind: $kind,
+            auxFiles: $auxFiles
+        );
+
+        return [
+            'repoUrl'   => (string) ($repoData['html_url'] ?? ('https://github.com/'.$owner.'/'.$repo)),
+            'commitSha' => $commitSha,
+        ];
+    }//end pushUpdate()
 
     /**
      * Fail fast when the target repository already exists.
@@ -237,7 +332,7 @@ class GitHubTemplatePushService
      *
      * @throws RuntimeException When the repo already exists.
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
      */
     private function assertRepoAbsent(
         string $owner,
@@ -343,6 +438,10 @@ class GitHubTemplatePushService
      * @param string      $credentialId Broker credential UUID.
      * @param string|null $actingUserId Owner of the credential.
      * @param string      $kind         The publish kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
+     * @param array       $auxFiles     Additional `{name, content}` files committed
+     *                                  alongside the package (already selection-filtered
+     *                                  by the caller — `learning-candidates.md` never
+     *                                  reaches this boundary).
      *
      * @return string Commit SHA.
      *
@@ -355,7 +454,8 @@ class GitHubTemplatePushService
         string $package,
         string $credentialId,
         ?string $actingUserId,
-        string $kind
+        string $kind,
+        array $auxFiles=[]
     ): string {
         $base = '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo);
 
@@ -384,18 +484,48 @@ class GitHubTemplatePushService
         );
         $blobSha = (string) ($blob['sha'] ?? '');
 
+        $treeEntries = [
+            [
+                'path' => $this->packageFileFor(kind: $kind),
+                'mode' => '100644',
+                'type' => 'blob',
+                'sha'  => $blobSha,
+            ],
+        ];
+
+        // Skill-self-improvement: auxiliary skill files (learnings.md included, the
+        // learning-candidates.md strip already applied by the caller's selection)
+        // ride the SAME commit as additional blobs at their own paths.
+        foreach ($auxFiles as $auxFile) {
+            if (is_array($auxFile) === false) {
+                continue;
+            }
+
+            $auxName = (string) ($auxFile['name'] ?? '');
+            if ($auxName === '' || $this->isSafeRepoPath(path: $auxName) === false) {
+                continue;
+            }
+
+            $auxBlob = $this->postJson(
+                path: $base.'/git/blobs',
+                body: ['content' => base64_encode((string) ($auxFile['content'] ?? '')), 'encoding' => 'base64'],
+                credentialId: $credentialId,
+                actingUserId: $actingUserId
+            );
+
+            $treeEntries[] = [
+                'path' => $auxName,
+                'mode' => '100644',
+                'type' => 'blob',
+                'sha'  => (string) ($auxBlob['sha'] ?? ''),
+            ];
+        }//end foreach
+
         $tree    = $this->postJson(
             path: $base.'/git/trees',
             body: [
                 'base_tree' => $baseTreeSha,
-                'tree'      => [
-                    [
-                        'path' => $this->packageFileFor(kind: $kind),
-                        'mode' => '100644',
-                        'type' => 'blob',
-                        'sha'  => $blobSha,
-                    ],
-                ],
+                'tree'      => $treeEntries,
             ],
             credentialId: $credentialId,
             actingUserId: $actingUserId
@@ -505,7 +635,7 @@ class GitHubTemplatePushService
      *
      * @return array<string,mixed>|null Decoded payload, or null on any non-2xx.
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
      */
     private function brokerCall(
         string $method,
@@ -621,6 +751,31 @@ class GitHubTemplatePushService
     }//end commitMessageFor()
 
     /**
+     * Whether an auxiliary file name is a safe repo-relative path: no absolute
+     * paths, no `..` traversal, no backslashes, sane length.
+     *
+     * @param string $path The candidate repo path.
+     *
+     * @return bool True when safe to commit.
+     *
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    private function isSafeRepoPath(string $path): bool
+    {
+        if (strlen($path) > 200 || str_starts_with($path, '/') === true || str_contains($path, '\\') === true) {
+            return false;
+        }
+
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return false;
+            }
+        }
+
+        return true;
+    }//end isSafeRepoPath()
+
+    /**
      * Decode a JSON response body into an array.
      *
      * @param string $body Raw response body.
@@ -645,7 +800,7 @@ class GitHubTemplatePushService
      *
      * @return string Scrubbed message.
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
      */
     private function scrub(string $message): string
     {

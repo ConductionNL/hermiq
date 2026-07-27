@@ -28,7 +28,7 @@
 			</NcNoteCard>
 
 			<NcTextField
-				:value.sync="form.name"
+				v-model="form.name"
 				:label="t('hermiq', 'Name')"
 				:placeholder="t('hermiq', 'Support-tone regression set')"
 				required />
@@ -46,35 +46,35 @@
 				</div>
 
 				<NcTextArea
-					:value.sync="evalCase.prompt"
+					v-model="evalCase.prompt"
 					:label="t('hermiq', 'Prompt')"
 					:placeholder="t('hermiq', 'The input given to the agent for this case')"
 					resize="vertical" />
 
 				<div class="eval-form__field">
 					<NcSelect
-						:value="expectationOptionFor(evalCase)"
+						:model-value="expectationOptionFor(evalCase)"
 						:input-label="t('hermiq', 'Expectation')"
 						:options="expectationOptions"
 						:clearable="false"
 						label="label"
 						track-by="value"
-						@input="(opt) => setExpectation(evalCase, opt)" />
+						@update:modelValue="(opt) => setExpectation(evalCase, opt)" />
 				</div>
 
 				<NcTextField
 					v-if="evalCase.expectationType === 'contains' || evalCase.expectationType === 'notContains'"
-					:value.sync="evalCase.expectedSubstring"
+					v-model="evalCase.expectedSubstring"
 					:label="t('hermiq', 'Expected substring')" />
 
 				<template v-if="evalCase.expectationType === 'jsonPathEquals'">
-					<NcTextField :value.sync="evalCase.jsonPath" :label="t('hermiq', 'JSON path')" placeholder="result.status" />
-					<NcTextField :value.sync="evalCase.expectedValue" :label="t('hermiq', 'Expected value')" />
+					<NcTextField v-model="evalCase.jsonPath" :label="t('hermiq', 'JSON path')" placeholder="result.status" />
+					<NcTextField v-model="evalCase.expectedValue" :label="t('hermiq', 'Expected value')" />
 				</template>
 
 				<NcTextArea
 					v-if="evalCase.expectationType === 'rubric'"
-					:value.sync="evalCase.rubric"
+					v-model="evalCase.rubric"
 					:label="t('hermiq', 'Rubric (graded by an LLM judge)')"
 					:placeholder="t('hermiq', 'e.g. The reply is polite and answers the question.')"
 					resize="vertical" />

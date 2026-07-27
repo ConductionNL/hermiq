@@ -59,7 +59,7 @@
 
 			<form class="cn-agent-chat-tab__composer" @submit.prevent="send">
 				<NcTextArea
-					:value.sync="draft"
+					v-model="draft"
 					:label="t('hermiq', 'Message')"
 					:disabled="sending"
 					resize="vertical"

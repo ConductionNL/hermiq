@@ -19,6 +19,14 @@
  * view-filter mechanism just for `Context` would create two inconsistent behaviors in the
  * same codebase, so `viewRefs` is collected and logged (count only), not applied.
  *
+ * skill-evals additionally lands the run-loop skill-exposure seam here
+ * (`assembleSkillsForRun()`): the effective skill set — a per-run override when supplied
+ * (paired eval halves), otherwise the agent's stored `skillInstalls` — is resolved and
+ * each `state: active` skill's content (name/description + body) is injected into the
+ * run's system context. Non-active skills (quarantined/stale/archived) are NEVER exposed,
+ * preserving the marketplace approval gate. Context exposure only — no skill
+ * tool-calling semantics.
+ *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
  *
@@ -68,6 +76,21 @@ class ContextAssembler
     private const CONTEXT_SCHEMA = 'context';
 
     /**
+     * Schema slug for Skill objects (namespaced to avoid a cross-app slug collision).
+     *
+     * @var string
+     */
+    private const SKILL_SCHEMA = 'agentskill';
+
+    /**
+     * The ONLY skill lifecycle state the run loop may expose (skills-marketplace
+     * approval gate: quarantined/stale/archived skills never reach a run context).
+     *
+     * @var string
+     */
+    private const SKILL_ACTIVE_STATE = 'active';
+
+    /**
      * Default character budget for a Context object when none is stored.
      *
      * @var int
@@ -105,6 +128,38 @@ class ContextAssembler
     }//end __construct()
 
     /**
+     * Per-run, IN-MEMORY skill CONTENT override (skill-self-improvement): map of
+     * skill uuid → `{name, description, body}` used INSTEAD of the stored content
+     * when that skill is assembled. The thin adapter the paired draft-vs-active
+     * eval sets around its draft half — the stored Skill object is never written,
+     * mirroring the skill-set override's in-memory-only contract. Always null for
+     * every non-draft-eval caller.
+     *
+     * @var array<string, array<string, mixed>>|null
+     */
+    private ?array $transientContentOverride = null;
+
+    /**
+     * Set (or clear, with null) the transient per-run skill content override.
+     *
+     * Halves run strictly sequentially (impersonation is not concurrency-safe
+     * already), so a set→run→clear window can never leak into another run. The
+     * caller MUST clear it in a `finally` block.
+     *
+     * @param array<string, array<string, mixed>>|null $override Map of skill uuid →
+     *                                                           draft content, or null.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
+     */
+    public function setTransientSkillContentOverride(?array $override): void
+    {
+        $this->transientContentOverride = $override;
+
+    }//end setTransientSkillContentOverride()
+
+    /**
      * Assemble every Context an agent references into a single preamble string.
      *
      * Null agent or an empty `contextRefs` returns `''` (no-op — most agents have no
@@ -118,7 +173,7 @@ class ContextAssembler
      * @return string The concatenated preamble (each bundle under a `Context: {name}`
      *                header), or `''` when the agent has no attached context.
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-5
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     public function assembleForAgent(?ObjectEntity $agent, string $actingUserId): string
     {
@@ -150,6 +205,119 @@ class ContextAssembler
     }//end assembleForAgent()
 
     /**
+     * Resolve a run's effective skill set and assemble the exposed skills' content
+     * into a system-context block (the run-loop skill-exposure seam, skill-evals).
+     *
+     * The effective set is the per-run override when supplied (a paired eval half:
+     * with = installed ∪ linked, without = per the agent's evalBaselineMode),
+     * otherwise the agent's stored `skillInstalls` — so every non-eval caller
+     * (schedule tick, Run now, chat, webhook, flow) exposes the stored installs,
+     * which is the run-loop consumption the skills-catalog spec reserved. ONLY
+     * `state: active` skills are exposed; a quarantined/stale/archived skill
+     * referenced by an install or an override is skipped (logged), preserving the
+     * marketplace approval gate. A skill uuid that fails to resolve is skipped
+     * (logged), never fatal. Context exposure only — no tool-calling semantics.
+     *
+     * @param ObjectEntity|null       $agent            Agent object (optional).
+     * @param array<int, string>|null $skillSetOverride Per-run effective-skill-set
+     *                                                  override (skill uuids); null =
+     *                                                  the agent's stored installs
+     *                                                  (every non-eval caller).
+     *
+     * @return array{text: string, skillsUsed: array<int, string>} The assembled skill
+     *         block ('' when nothing is exposed) and the uuids actually exposed —
+     *         recorded on the run's audit entry as `skillsUsed` for ALL runs
+     *         (consumed later by skill-learnings).
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function assembleSkillsForRun(?ObjectEntity $agent, ?array $skillSetOverride=null): array
+    {
+        $effective = $skillSetOverride;
+        if ($effective === null) {
+            $effective = [];
+            if ($agent !== null) {
+                $stored = ($agent->getObject()['skillInstalls'] ?? []);
+                if (is_array($stored) === true) {
+                    $effective = $stored;
+                }
+            }
+        }
+
+        $blocks     = [];
+        $skillsUsed = [];
+        foreach ($effective as $skillId) {
+            if (is_string($skillId) === false || $skillId === '') {
+                continue;
+            }
+
+            try {
+                $skill = $this->objectService->find(
+                    id: $skillId,
+                    register: self::REGISTER_SLUG,
+                    schema: self::SKILL_SCHEMA,
+                    _rbac: false,
+                    _multitenancy: false
+                );
+            } catch (Throwable $e) {
+                $this->logger->warning(
+                    sprintf('Hermiq ContextAssembler could not resolve skill %s: %s', $skillId, $e->getMessage()),
+                    ['exception' => $e]
+                );
+                continue;
+            }
+
+            if ($skill === null) {
+                $this->logger->info(sprintf('Hermiq ContextAssembler: skill not found, skipping: %s', $skillId));
+                continue;
+            }
+
+            $data  = $skill->getObject();
+            $state = (string) ($data['state'] ?? self::SKILL_ACTIVE_STATE);
+            if ($state !== self::SKILL_ACTIVE_STATE) {
+                // Marketplace approval gate: an agent MUST NOT use an unapproved skill —
+                // neither via install nor via a dataset's skillRefs reaching an override.
+                $this->logger->info(
+                    sprintf('Hermiq ContextAssembler: skill %s is %s, not exposed to the run.', $skillId, $state)
+                );
+                continue;
+            }
+
+            $name        = (string) ($data['name'] ?? 'skill');
+            $description = (string) ($data['description'] ?? '');
+            $body        = (string) ($data['body'] ?? '');
+
+            // Skill-self-improvement: the paired draft-vs-active eval's draft half
+            // swaps in the DRAFT's content in memory — the stored object above was
+            // still consulted for existence and the marketplace state gate.
+            $override = ($this->transientContentOverride[(string) $skill->getUuid()] ?? null);
+            if (is_array($override) === true) {
+                $name        = (string) ($override['name'] ?? $name);
+                $description = (string) ($override['description'] ?? $description);
+                $body        = (string) ($override['body'] ?? $body);
+            }
+
+            $block = "Skill: {$name}";
+            if ($description !== '') {
+                $block .= "\n".$description;
+            }
+
+            if ($body !== '') {
+                $block .= "\n\n".$body;
+            }
+
+            $blocks[]     = $block;
+            $skillsUsed[] = (string) $skill->getUuid();
+        }//end foreach
+
+        return [
+            'text'       => implode("\n\n", $blocks),
+            'skillsUsed' => $skillsUsed,
+        ];
+
+    }//end assembleSkillsForRun()
+
+    /**
      * Resolve ONE Context object into its budgeted preamble text.
      *
      * @param string $contextId    The Context object uuid.
@@ -159,7 +327,7 @@ class ContextAssembler
      *         by `Context: {name}`; `''` when the Context cannot be resolved) and
      *         whether it exceeded the object's charBudget.
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-1
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     public function assemble(string $contextId, string $actingUserId): array
     {
@@ -208,7 +376,7 @@ class ContextAssembler
      *
      * @return array<int, string> One formatted block per resolved query.
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-2
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     private function resolveObjectQueries(mixed $queries): array
     {
@@ -281,7 +449,7 @@ class ContextAssembler
      *
      * @return array<int, string> One formatted block per resolved file.
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-3
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     private function resolveFiles(mixed $files, string $actingUserId): array
     {
@@ -376,7 +544,7 @@ class ContextAssembler
      *
      * @return void
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-4
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     private function persistFlagIfChanged(ObjectEntity $context, array $data, bool $needsConsolidation): void
     {
