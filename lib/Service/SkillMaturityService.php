@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1l3-mechanically-from-skill-content
+ * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Computes and persists the L1–L7 maturity level + per-level scorecard for a Skill.
  *
- * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1l3-mechanically-from-skill-content
+ * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
  */
 class SkillMaturityService
 {
@@ -238,8 +238,8 @@ class SkillMaturityService
      *
      * @return array{maturityLevel: int, scorecard: array<int, array{level: int, passed: bool, reasons: array<int, string>}>}
      *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1l3-mechanically-from-skill-content
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-l5l7-are-read-from-evidence-written-by-other-subsystems
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-l5-l7-are-read-from-evidence-written-by-other-subsystems
      */
     public function computeScorecard(array $data): array
     {
@@ -298,7 +298,7 @@ class SkillMaturityService
      * @return array<string, mixed> The guarded payload.
      *
      * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidencel6-activity-is-written-by-the-learnings-subsystem-only
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidence-l6-activity-is-written-by-the-learnings-subsystem-only
      */
     public function preserveComputedFields(array $incoming, array $stored): array
     {
@@ -385,7 +385,7 @@ class SkillMaturityService
      *
      * @return array{passed: bool, reasons: array<int, string>}
      *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1l3-mechanically-from-skill-content
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
      */
     private function checkL1(array $data): array
     {
@@ -425,7 +425,7 @@ class SkillMaturityService
      *
      * @return array{passed: bool, reasons: array<int, string>}
      *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1l3-mechanically-from-skill-content
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
      */
     private function checkL2(array $data): array
     {
@@ -469,7 +469,7 @@ class SkillMaturityService
      *
      * @return array{passed: bool, reasons: array<int, string>}
      *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1l3-mechanically-from-skill-content
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
      */
     private function checkL3(array $data): array
     {
@@ -528,7 +528,7 @@ class SkillMaturityService
      *
      * @return array{passed: bool, reasons: array<int, string>}
      *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-l5l7-are-read-from-evidence-written-by-other-subsystems
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-l5-l7-are-read-from-evidence-written-by-other-subsystems
      */
     private function checkL5(array $evidence): array
     {
@@ -569,7 +569,7 @@ class SkillMaturityService
      *
      * @return array{passed: bool, reasons: array<int, string>}
      *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-l5l7-are-read-from-evidence-written-by-other-subsystems
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-l5-l7-are-read-from-evidence-written-by-other-subsystems
      */
     private function checkL6(array $evidence): array
     {
@@ -605,7 +605,7 @@ class SkillMaturityService
      *
      * @return array{passed: bool, reasons: array<int, string>}
      *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-l5l7-are-read-from-evidence-written-by-other-subsystems
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-l5-l7-are-read-from-evidence-written-by-other-subsystems
      */
     private function checkL7(array $evidence): array
     {

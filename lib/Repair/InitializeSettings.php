@@ -34,7 +34,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Repair step that initializes Hermiq configuration via SettingsService.
  *
- * @spec openspec/specs/configuration-initialization/spec.md#REQ-INIT-002
+ * @spec openspec/specs/configuration-initialization/spec.md#req-init-002-import-configuration-on-install-upgrade
  */
 class InitializeSettings implements IRepairStep
 {
@@ -90,7 +90,7 @@ class InitializeSettings implements IRepairStep
      *
      * @return void
      *
-     * @spec openspec/specs/configuration-initialization/spec.md#REQ-INIT-002
+     * @spec openspec/specs/configuration-initialization/spec.md#req-init-002-import-configuration-on-install-upgrade
      * @spec openspec/specs/skill-maturity/spec.md#requirement-the-skill-schema-carries-maturity-metadata-as-optional-inert-fields
      */
     public function run(IOutput $output): void

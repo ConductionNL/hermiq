@@ -24,7 +24,7 @@
   color-only), and expandable per-case results for both halves so failing
   cases are distinguishable in each.
 
-  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-011-evaldatasets-renders-as-an-index-type-list-page-with-per-dataset-run-management-on-a-new-evaldatasetdetail-page
+  @spec openspec/specs/manifest-driven-pages/spec.md#requirement-evaldatasets-renders-as-an-index-type-list-page-with-per-dataset-run-management-on-a-new-evaldatasetdetail-page
   @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 -->
 <template>
@@ -217,6 +217,7 @@ export default {
 		/**
 		 * The dataset's linked skill uuids (skillRefs).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @return {Array<string>} The linked skill uuids.
 		 */
 		linkedSkillIds() {
@@ -236,6 +237,7 @@ export default {
 		/**
 		 * The selected agent's evalBaselineMode ('joint' unless explicitly 'per-skill').
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-every-half-of-a-paired-run-counts-toward-the-same-budgets-and-gates
 		 * @return {string} joint|per-skill.
 		 */
 		selectedAgentMode() {
@@ -247,6 +249,7 @@ export default {
 		 * The mode-dependent cost note for the paired toggle (~2x joint, (N+1)x
 		 * per-skill for N linked skills, per the selected agent's evalBaselineMode).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-every-half-of-a-paired-run-counts-toward-the-same-budgets-and-gates
 		 * @return {string} The translated cost note.
 		 */
 		costNote() {
@@ -258,6 +261,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Register the object stores and kick off the initial load.
+	 *
+	 * @spec exclude framework lifecycle hook — only wires stores and delegates to load()
+	 */
 	created() {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
@@ -273,6 +281,7 @@ export default {
 		 * Load the caller's agents, this dataset (for its skillRefs), the skill
 		 * catalogue (for names), and this dataset's prior runs.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @return {Promise<void>}
 		 */
 		async load() {
@@ -299,6 +308,7 @@ export default {
 		/**
 		 * Run this dataset against the selected agent (paired when toggled).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @return {Promise<void>}
 		 */
 		async run() {
@@ -322,6 +332,7 @@ export default {
 		/**
 		 * Toggle the expanded paired-run details row.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @param {string} runId The run's object id.
 		 * @return {void}
 		 */
@@ -333,6 +344,7 @@ export default {
 		 * The without-half blocks to render for a paired run: the shared joint
 		 * without-half, or (per-skill mode) one block per skillResults entry.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @param {object} runRow The paired EvalRun.
 		 * @return {Array<object>} { key, title, results } blocks.
 		 */
@@ -354,6 +366,7 @@ export default {
 		/**
 		 * Resolve a skill uuid to its catalogue name (falls back to the uuid).
 		 *
+		 * @spec exclude pure display lookup — maps a uuid to a name with uuid fallback, no behaviour of its own
 		 * @param {string} skillId The skill uuid.
 		 * @return {string} The display name.
 		 */
@@ -366,6 +379,7 @@ export default {
 		 * The baseline column label for a paired run row (joint pass rate, or the
 		 * per-skill marker when there is no single without-half).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @param {object} runRow The paired EvalRun.
 		 * @return {string} The label.
 		 */
@@ -379,6 +393,7 @@ export default {
 		/**
 		 * The paired-details heading for an attribution mode.
 		 *
+		 * @spec exclude presentational heading text for the paired-details block, no logic beyond label choice
 		 * @param {string} mode joint|per-skill.
 		 * @return {string} The heading.
 		 */
@@ -392,6 +407,7 @@ export default {
 		/**
 		 * One case's outcome line — pass/fail as TEXT (never color-only).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-ui-surfaces-per-case-results-and-pass-rate-trend
 		 * @param {object} caseResult The per-case result.
 		 * @return {string} The line.
 		 */
@@ -407,6 +423,7 @@ export default {
 		/**
 		 * A signed delta label (sign + value, never color-only).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @param {number} delta The baseline delta (-1..1).
 		 * @return {string} The label, e.g. "+30 pp" / "−10 pp" / "±0 pp".
 		 */
@@ -489,6 +506,7 @@ export default {
 		/**
 		 * Format an ISO timestamp for display.
 		 *
+		 * @spec exclude pure date-formatting display helper, no domain behaviour
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or an em dash.
 		 */

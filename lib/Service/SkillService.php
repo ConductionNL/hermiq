@@ -88,7 +88,7 @@ class SkillService
      *
      * @return ObjectEntity The persisted Skill object.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
      */
     public function importSkill(string $package, string $createdBy): ObjectEntity
     {
@@ -123,7 +123,7 @@ class SkillService
      *
      * @return string|null The package string, or null when the skill is not found.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
      */
     public function exportSkill(string $skillId): ?string
     {
@@ -237,7 +237,7 @@ class SkillService
      *
      * @return ObjectEntity|null The updated Skill, or null when not found.
      *
-     * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
      */
     public function stampGithubPublish(string $skillId, string $owner, string $repo, string $publishedAt): ?ObjectEntity
     {
@@ -306,7 +306,7 @@ class SkillService
      *
      * @return array<int, ObjectEntity> The Skill objects.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
      */
     public function listSkills(): array
     {
@@ -333,7 +333,7 @@ class SkillService
      *
      * @return ObjectEntity|null The Skill object, or null.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
      */
     public function getSkill(string $skillId): ?ObjectEntity
     {
@@ -357,8 +357,8 @@ class SkillService
      *
      * @return ObjectEntity|null The updated Skill object, or null when not found.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-2
-     * @spec openspec/changes/agent-capability-profile/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+     * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
      */
     public function installOnAgent(string $skillId, string $agentId): ?ObjectEntity
     {
@@ -403,7 +403,7 @@ class SkillService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-capability-profile/tasks.md#task-4-1
+     * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
      */
     private function syncAgentSkillInstalls(string $agentId, string $skillId): void
     {

@@ -140,6 +140,7 @@ export default {
 		/**
 		 * This skill's uuid from the route param.
 		 *
+		 * @spec exclude framework route-param accessor; behaviour owned by the widget's spec-tagged load/run methods
 		 * @return {string} The skill uuid.
 		 */
 		skillId() {
@@ -149,6 +150,7 @@ export default {
 		/**
 		 * The stored l5 evidence map ({} when absent).
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
 		 * @return {object} The levelEvidence.l5 map.
 		 */
 		l5() {
@@ -170,6 +172,7 @@ export default {
 		 * The delta term, honest about attribution: a joint delta never reads as
 		 * a per-skill marginal.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
 		 * @return {string} The label.
 		 */
 		deltaTermLabel() {
@@ -185,6 +188,7 @@ export default {
 		/**
 		 * The honest empty state: what is missing and how to obtain evidence.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
 		 * @return {string} The empty-state text.
 		 */
 		emptyStateText() {
@@ -197,6 +201,7 @@ export default {
 		/**
 		 * Datasets whose skillRefs reference THIS skill, as picker options.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		datasetOptions() {
@@ -208,6 +213,7 @@ export default {
 		/**
 		 * The caller's agents as picker options.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		agentOptions() {
@@ -220,6 +226,7 @@ export default {
 		/**
 		 * The selected agent's evalBaselineMode ('joint' unless explicitly 'per-skill').
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-every-half-of-a-paired-run-counts-toward-the-same-budgets-and-gates
 		 * @return {string} joint|per-skill.
 		 */
 		selectedAgentMode() {
@@ -230,6 +237,7 @@ export default {
 		/**
 		 * The linked-skill count of the selected dataset (for the (N+1)x note).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-every-half-of-a-paired-run-counts-toward-the-same-budgets-and-gates
 		 * @return {number} The count (at least 1).
 		 */
 		selectedDatasetSkillCount() {
@@ -242,6 +250,7 @@ export default {
 		 * The mode-dependent cost note (~2x joint, (N+1)x per-skill, per the
 		 * selected agent's evalBaselineMode).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-every-half-of-a-paired-run-counts-toward-the-same-budgets-and-gates
 		 * @return {string} The translated cost note.
 		 */
 		costNote() {
@@ -255,6 +264,7 @@ export default {
 		 * The pass-rate trend across this skill's paired runs (oldest first, real
 		 * executed runs only — ADR-060).
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
 		 * @return {Array<object>} { id, startedAt, passRateWith } points.
 		 */
 		trend() {
@@ -274,6 +284,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Wire the four stores and kick off the initial load.
+	 *
+	 * @spec exclude framework lifecycle hook; only registers stores and delegates to the spec-tagged load()
+	 */
 	created() {
 		this.skillStore = useSkillStore()
 		this.skillStore.registerObjectType('agentskill', 'agentskill', 'hermiq')
@@ -291,6 +306,7 @@ export default {
 		 * Load the skill (for its l5 evidence), the datasets (for skillRefs
 		 * matches), the agents (picker + mode), and the paired-run history.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
 		 * @return {Promise<void>}
 		 */
 		async load() {
@@ -318,6 +334,7 @@ export default {
 		 * Trigger the owner-guarded paired run endpoint, then refresh so the card
 		 * reflects the freshly written l5 evidence.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-paired-trigger-owner-guard-covers-dataset-agent-and-every-linked-skill
 		 * @return {Promise<void>}
 		 */
 		async runPaired() {
@@ -339,6 +356,7 @@ export default {
 		/**
 		 * Human pass-rate percentage (the stored value is a 0..1 fraction).
 		 *
+		 * @spec exclude presentational percentage formatting for the eval-evidence card; behaviour owned by the widget's spec-tagged load/run methods
 		 * @param {number} passRate The 0..1 pass rate.
 		 * @return {string} A percentage label.
 		 */
@@ -352,6 +370,7 @@ export default {
 		/**
 		 * A signed delta label (sign + value, never color-only).
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-skilldetail-surfaces-eval-evidence-and-a-run-paired-eval-action
 		 * @param {number} delta The baseline delta (-1..1).
 		 * @return {string} The label, e.g. "+30 pp".
 		 */
@@ -372,6 +391,7 @@ export default {
 		/**
 		 * Format an ISO timestamp for display.
 		 *
+		 * @spec exclude presentational date formatting for the eval-evidence card; behaviour owned by the widget's spec-tagged load/run methods
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or an em dash.
 		 */

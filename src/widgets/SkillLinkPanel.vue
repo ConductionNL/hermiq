@@ -102,6 +102,7 @@ export default {
 		/**
 		 * This dataset's uuid from the route param.
 		 *
+		 * @spec exclude framework route-param accessor; behaviour owned by the panel's spec-tagged load/link/unlink methods
 		 * @return {string} The dataset uuid.
 		 */
 		datasetId() {
@@ -111,6 +112,7 @@ export default {
 		/**
 		 * The dataset's linked skill uuids (skillRefs).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
 		 * @return {Array<string>} The linked skill uuids.
 		 */
 		linkedSkillIds() {
@@ -122,6 +124,7 @@ export default {
 		 * The linked skills as { label, value } rows, resolved against the skill
 		 * catalogue (falls back to the uuid).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @return {Array<object>} The linked-skill rows.
 		 */
 		linkedSkills() {
@@ -134,6 +137,7 @@ export default {
 		/**
 		 * Visible ACTIVE skills not yet linked, as picker options.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		linkableSkillOptions() {
@@ -144,6 +148,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Wire the dataset store and kick off the initial load.
+	 *
+	 * @spec exclude framework lifecycle hook; only registers the store and delegates to the spec-tagged load()
+	 */
 	created() {
 		this.datasetStore = useEvalDatasetStore()
 		this.datasetStore.registerObjectType('evaldataset', 'evaldataset', 'hermiq')
@@ -154,6 +163,7 @@ export default {
 		/**
 		 * Load this dataset (for its skillRefs) and the caller's skill catalogue.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @return {Promise<void>}
 		 */
 		async load() {
@@ -177,6 +187,7 @@ export default {
 		 * Persist an updated skillRefs array through the generic object path
 		 * (plain PUT — the id is preserved so saveObject updates in place).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
 		 * @param {Array<string>} skillRefs The new linked uuids.
 		 * @return {Promise<void>}
 		 */
@@ -189,6 +200,7 @@ export default {
 		/**
 		 * Link the selected catalogue skill to this dataset.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @return {Promise<void>}
 		 */
 		async linkSkill() {
@@ -210,6 +222,7 @@ export default {
 		/**
 		 * Unlink a skill from this dataset.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 * @param {string} skillUuid The skill uuid to unlink.
 		 * @return {Promise<void>}
 		 */

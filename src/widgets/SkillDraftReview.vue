@@ -194,6 +194,7 @@ export default {
 		/**
 		 * This skill's uuid from the route param.
 		 *
+		 * @spec exclude pure route-param accessor, no spec behaviour
 		 * @return {string} The skill uuid.
 		 */
 		skillId() {
@@ -203,6 +204,7 @@ export default {
 		/**
 		 * The draft awaiting the human decision, when one exists.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
 		 * @return {object|null} The awaiting-approval draft.
 		 */
 		pendingDraft() {
@@ -212,6 +214,7 @@ export default {
 		/**
 		 * A draft still inside pre-qualification (proposed), when one exists.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
 		 * @return {object|null} The proposed draft.
 		 */
 		qualifyingDraft() {
@@ -221,6 +224,7 @@ export default {
 		/**
 		 * The active skill body ('' when unavailable).
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
 		 * @return {string} The active body.
 		 */
 		activeBody() {
@@ -230,6 +234,7 @@ export default {
 		/**
 		 * The proposed draft body ('' when unavailable).
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
 		 * @return {string} The proposed body.
 		 */
 		proposedBody() {
@@ -239,6 +244,7 @@ export default {
 		/**
 		 * The driving learnings refs from the draft's provenance.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
 		 * @return {Array<string>} The refs.
 		 */
 		learningRefs() {
@@ -249,6 +255,7 @@ export default {
 		/**
 		 * A human eval-delta label ('' when no eval evidence is recorded).
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
 		 * @return {string} The label.
 		 */
 		evalDeltaLabel() {
@@ -270,6 +277,7 @@ export default {
 		 * A simple line-level diff (added/removed) between the active and proposed
 		 * bodies — markers + accessible names, never color-only.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
 		 * @return {Array<{kind: string, text: string}>} The changed lines.
 		 */
 		diffLines() {
@@ -287,6 +295,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Vue lifecycle hook — wires the store and kicks off the initial load.
+	 *
+	 * @spec exclude framework lifecycle hook, only wires the store and delegates to load()
+	 */
 	created() {
 		this.skillStore = useSkillStore()
 		this.skillStore.registerObjectType('agentskill', 'agentskill', 'hermiq')
@@ -297,6 +310,7 @@ export default {
 		/**
 		 * Load the skill + its drafts.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
 		 * @return {Promise<void>}
 		 */
 		async load() {
@@ -319,6 +333,7 @@ export default {
 		/**
 		 * Manual propose (trigger (c)) — the gates apply server-side.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
 		 * @return {Promise<void>}
 		 */
 		async doPropose() {
@@ -338,6 +353,7 @@ export default {
 		 * Accept — the linked Approval transitions to approved and the apply step
 		 * fires on that transition (a new skill version).
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
 		 * @return {Promise<void>}
 		 */
 		async doAccept() {
@@ -355,6 +371,8 @@ export default {
 
 		/**
 		 * Open the edit-then-accept editor (SkillDetail-only surface).
+		 *
+		 * @spec exclude pure UI state toggle showing the edit modal; the spec behaviour lives in doEditContent
 		 */
 		openEditor() {
 			this.showEditor = true
@@ -364,6 +382,7 @@ export default {
 		 * Save the edited draft content — invalidates scan/eval evidence and re-runs
 		 * pre-qualification server-side.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
 		 * @param {object} content The edited `{ body }` payload.
 		 * @return {Promise<void>}
 		 */
@@ -384,6 +403,7 @@ export default {
 		/**
 		 * Reject with an optional note + bad-learnings marking.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
 		 * @param {object} decision The `{ note, rejectedLearningRefs }` payload.
 		 * @return {Promise<void>}
 		 */

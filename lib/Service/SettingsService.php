@@ -91,7 +91,7 @@ class SettingsService
      *
      * @return array<string,mixed>
      *
-     * @spec openspec/specs/settings-management/spec.md#REQ-CFG-001
+     * @spec openspec/specs/settings-management/spec.md#req-cfg-001-read-current-settings
      */
     public function getSettings(): array
     {
@@ -119,7 +119,7 @@ class SettingsService
      *
      * @return array<string,mixed> The updated settings
      *
-     * @spec openspec/specs/settings-management/spec.md#REQ-CFG-002
+     * @spec openspec/specs/settings-management/spec.md#req-cfg-002-update-settings-admin-only
      */
     public function updateSettings(array $data): array
     {
@@ -175,7 +175,7 @@ class SettingsService
      * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$force` is a standard idempotent-import
      *   override toggle (skip-if-configured vs. re-import), not a behavioural mode switch.
      *
-     * @spec openspec/specs/settings-management/spec.md#REQ-CFG-003
+     * @spec openspec/specs/settings-management/spec.md#req-cfg-003-reload-configuration-from-json-file-admin-only
      */
     public function loadConfiguration(bool $force=false): array
     {

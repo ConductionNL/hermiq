@@ -130,7 +130,7 @@ class FlowAgentRunService
      *   authorisation input (normal dispatch vs. an already-approved occurrence),
      *   mirroring ScheduleService::runNow()'s identical parameter.
      *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-1
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
      */
     public function run(array $payload, bool $bypassApprovalGate=false): bool
     {
@@ -155,7 +155,7 @@ class FlowAgentRunService
      *
      * @return bool Whether the agent run executed.
      *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-1
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
      */
     private function dispatch(array $payload, bool $bypassApprovalGate): bool
     {
@@ -251,10 +251,10 @@ class FlowAgentRunService
      *
      * @return bool Whether the run completed successfully (result written).
      *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-2
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-3
-     * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
-     * @spec openspec/changes/sub-agent-delegation/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+     * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     private function runAgentAndWriteBack(ObjectEntity $object, array $payload, string $organisation=''): bool
     {
@@ -340,7 +340,7 @@ class FlowAgentRunService
      *
      * @return Agent|null The resolved agent, or null when unresolvable.
      *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-2
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
      */
     private function resolveAgent(string $ref): ?Agent
     {
@@ -369,7 +369,7 @@ class FlowAgentRunService
      *
      * @return void
      *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-3
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
      */
     private function writeResultField(
         string $resultField,
@@ -420,7 +420,7 @@ class FlowAgentRunService
      *
      * @return void
      *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-4
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
      */
     private function writeRunAudit(
         ObjectEntity $object,

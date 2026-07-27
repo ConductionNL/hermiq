@@ -43,7 +43,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-evals/tasks.md#task-6-evalrunservice-orchestration
+ * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-6-evalrunservice-orchestration
  */
 
 declare(strict_types=1);
@@ -70,7 +70,7 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
  *   distinct injected collaborator, not a logic-bearing argument list.
  *
- * @spec openspec/changes/agent-evals/tasks.md#task-6-evalrunservice-orchestration
+ * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-6-evalrunservice-orchestration
  */
 class EvalRunService
 {
@@ -224,7 +224,7 @@ class EvalRunService
      *                                   linked skills (`skillRefs` empty) — the
      *                                   controller maps this to 400.
      *
-     * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-kill-switch-and-budget-hard-cap-gate-an-eval-run-exactly-as-they-gate-a-schedule-tick
+     * @spec openspec/specs/agent-evals/spec.md#requirement-kill-switch-and-budget-hard-cap-gate-an-eval-run-exactly-as-they-gate-a-schedule-tick
      * @spec openspec/specs/agent-evals/spec.md#requirement-every-half-of-a-paired-run-counts-toward-the-same-budgets-and-gates
      */
     public function run(
@@ -528,8 +528,8 @@ class EvalRunService
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Threaded call-context, not a
      *   logic-bearing argument list — every value is already resolved by run().
      *
-     * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-an-evalrun-executes-each-case-through-the-agents-real-engine-path
-     * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-eval-runs-are-non-delivering
+     * @spec openspec/specs/agent-evals/spec.md#requirement-an-evalrun-executes-each-case-through-the-agent-s-real-engine-path
+     * @spec openspec/specs/agent-evals/spec.md#requirement-eval-runs-are-non-delivering
      */
     private function executeCases(
         ObjectEntity $dataset,
@@ -661,7 +661,7 @@ class EvalRunService
      *
      * @spec openspec/specs/agent-evals/spec.md#requirement-a-paired-baseline-run-executes-with-and-without-halves-per-evalbaselinemode
      * @spec openspec/specs/agent-evals/spec.md#requirement-baseline-detachment-is-per-run-and-in-memory-only
-     * @spec openspec/specs/agent-evals/spec.md#requirement-the-regression-gate-applies-to-a-paired-runs-with-half-pass-rate
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-regression-gate-applies-to-a-paired-run-s-with-half-pass-rate
      */
     private function executePairedRun(
         ObjectEntity $dataset,
@@ -1091,7 +1091,7 @@ class EvalRunService
      *
      * @return array{0:string,1:?float} `[regressionGateResult, previousPassRate]`.
      *
-     * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-regression-gate-compares-aggregate-pass-rate-against-the-previous-run
+     * @spec openspec/specs/agent-evals/spec.md#requirement-regression-gate-compares-aggregate-pass-rate-against-the-previous-run
      */
     private function evaluateRegressionGate(string $datasetId, string $agentId, float $passRate, int $thresholdPercent): array
     {

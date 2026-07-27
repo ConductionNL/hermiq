@@ -50,8 +50,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+ * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
  */
 
 declare(strict_types=1);
@@ -84,7 +84,7 @@ use Psr\Log\LoggerInterface;
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Facade orchestrates the handler set by design.
  */
@@ -148,10 +148,10 @@ class Engine
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     * @spec openspec/changes/agent-context-system/tasks.md#task-3-1
-     * @spec openspec/changes/agent-guardrails/tasks.md#task-3-wire-inputoutput-filters-into-engineprocessmessage
-     * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+     * @spec openspec/changes/agent-context-system/tasks.md#3-engine-wiring
+     * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-3-wire-input-output-filters-into-engine-processmessage
+     * @spec openspec/specs/agent-engine-port/spec.md
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -229,10 +229,10 @@ class Engine
      *   optional input (run-trace-observability adds one more to an already-wide, long-established
      *   list) — grouping them would obscure, not simplify, the call site.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
-     * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+     * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-engine-toolloop-facadetoolinvoker
+     * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
      * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
      */
     public function processMessage(
@@ -519,7 +519,7 @@ class Engine
      *
      * @return string Generated title.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
      */
     public function generateConversationTitle(string $firstMessage): string
     {
@@ -538,7 +538,7 @@ class Engine
      *
      * @return string Unique title.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
      */
     public function ensureUniqueTitle(string $baseTitle, string $userId, string $agentId): string
     {
@@ -578,7 +578,7 @@ class Engine
      *
      * @return void
      *
-     * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+     * @spec openspec/specs/agent-engine-port/spec.md
      */
     private function queueTitleGeneration(string $conversationId, string $userMessage, string $userId): void
     {
@@ -607,7 +607,7 @@ class Engine
      *
      * @return array<string,mixed> The effective policy.
      *
-     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+     * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
      */
     private function resolveGuardrailPolicy(string $organisation): array
     {
@@ -637,7 +637,7 @@ class Engine
      *
      * @return bool
      *
-     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+     * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
      */
     private function guardrailActed(array $filter, string $originalText): bool
     {

@@ -4,40 +4,6 @@
 	"dependencies": [
 		"openregister"
 	],
-	"credentials": [
-		{
-			"provider": "openai",
-			"reason": "Chat/embedding generation for agents using the OpenAI driver.",
-			"scopes": []
-		},
-		{
-			"provider": "fireworks",
-			"reason": "Chat generation for agents using the Fireworks AI driver.",
-			"scopes": []
-		},
-		{
-			"provider": "github",
-			"reason": "Publishing to and discovering agent templates in a GitHub-backed template store.",
-			"scopes": [
-				"repo"
-			]
-		},
-		{
-			"provider": "anthropic",
-			"reason": "Chat generation for agents using Claude via an Anthropic API key.",
-			"scopes": []
-		},
-		{
-			"provider": "anthropic-oauth",
-			"reason": "Chat generation for agents using a personal Claude Max (OAuth) subscription.",
-			"scopes": []
-		},
-		{
-			"provider": "anthropic-cli",
-			"reason": "Chat generation for agents running your personal Claude Max subscription through the official Claude CLI, inside the hardened llm-runner sidecar. Anthropic does not permit a subscription to be used against its API directly, and the CLI reads its token from the environment rather than from a request header — so this token cannot be kept inside OpenRegister and proxied on your behalf the way an API key is. It is released only to Hermiq, only for you, and only while a turn is running. Personal use only, per Anthropic's terms.",
-			"scopes": []
-		}
-	],
 	"menu": [
 		{
 			"id": "Chat",
@@ -248,28 +214,28 @@
 						"id": "agent-skills",
 						"type": "custom",
 						"title": "Skills",
-						"icon": "PuzzleOutline",
+						"icon": "Package",
 						"_note": "skillInstalls attach/detach against the tenant Skill catalogue — the reverse of an object-list FK-child-collection shape (design.md Decision 3). Resolved via page.slots.widget-agent-skills -> agent-skills."
 					},
 					{
 						"id": "agent-tool-governance",
 						"type": "custom",
 						"title": "Tool governance",
-						"icon": "ToolboxOutline",
+						"icon": "ShieldCheckOutline",
 						"_note": "Combines the schema-scoped tool-grant editor and the EU AI Act art.12/14 tool-invocation audit table — two read/write surfaces over the SAME ADR-063 derived catalogue capability (design.md Decision 3). Resolved via page.slots.widget-agent-tool-governance -> agent-tool-governance."
 					},
 					{
 						"id": "agent-run-operations",
 						"type": "custom",
 						"title": "Run operations",
-						"icon": "PlayCircleOutline",
+						"icon": "RocketLaunch",
 						"_note": "Schedule attach/edit, Dry run, Run now, cost estimate, budget status and the webhook trigger all read/write the SAME schedule object and share previewResult/runError state — the manifest grid has no cross-widget state channel, so they stay one widget (design.md Decision 3). Resolved via page.slots.widget-agent-run-operations -> agent-run-operations."
 					},
 					{
 						"id": "agent-memory",
 						"type": "custom",
 						"title": "Memory",
-						"icon": "Brain",
+						"icon": "DatabaseOutline",
 						"_note": "Wraps the existing AgentMemoryPanel.vue unchanged (char-budget bar, consolidation nudge, entries) — a bespoke surface over a non-OR-collection endpoint (design.md Decision 3, task 2). Resolved via page.slots.widget-agent-memory -> agent-memory."
 					},
 					{
@@ -283,7 +249,7 @@
 						"id": "agent-eval-baseline",
 						"type": "custom",
 						"title": "Eval baseline mode",
-						"icon": "FlaskOutline",
+						"icon": "ClipboardCheckOutline",
 						"_note": "skill-evals: the data widget holding Agent.evalBaselineMode — edited here, with the register property's consequence-explaining description (joint vs per-skill, 2x vs (N+1)x cost) surfaced as an info affordance exactly where the value is changed (spec scenario). Resolved via page.slots.widget-agent-eval-baseline -> agent-eval-baseline."
 					}
 				],
@@ -310,7 +276,7 @@
 						"gridX": 8,
 						"gridY": 2,
 						"gridWidth": 4,
-						"gridHeight": 4
+						"gridHeight": 3
 					},
 					{
 						"id": "4",
@@ -476,28 +442,28 @@
 						"id": "skill-maturity-scorecard",
 						"type": "custom",
 						"title": "Maturity scorecard",
-						"icon": "ChartTimelineVariant",
+						"icon": "Gauge",
 						"_note": "Per-level L1–L7 scorecard + Qualify + Attest-L4. Resolved via page.slots.widget-skill-maturity-scorecard -> skill-maturity-scorecard."
 					},
 					{
 						"id": "skill-eval-evidence",
 						"type": "custom",
 						"title": "Eval evidence",
-						"icon": "FlaskOutline",
+						"icon": "ClipboardCheckOutline",
 						"_note": "skill-evals: the L5 eval-evidence card (pass rate, baseline delta with attribution-mode label, trend, last validated, honest empty state) + owner-guarded Run paired eval. Resolved via page.slots.widget-skill-eval-evidence -> skill-eval-evidence."
 					},
 					{
 						"id": "skill-learnings",
 						"type": "custom",
 						"title": "Learnings",
-						"icon": "SchoolOutline",
+						"icon": "School",
 						"_note": "skill-learnings: read-only Learnings card — files['learnings.md'] rendered as sanitised markdown + the levelEvidence.l6 activity strip (candidate count, learnings count, last capture/promotion); honest empty state; deliberately NO editing surface. Resolved via page.slots.widget-skill-learnings -> skill-learnings."
 					},
 					{
 						"id": "skill-draft-review",
 						"type": "custom",
 						"title": "Improvement draft",
-						"icon": "FileDocumentEditOutline",
+						"icon": "FileSign",
 						"_note": "skill-self-improvement: the draft review surface — side-by-side diff of proposed vs active, driving learnings entries, scan verdict, eval delta or the verbatim no-eval-evidence flag, and the action-gated Accept / Edit-then-accept / Reject (skill.review-draft, deciding via the linked Approval). Resolved via page.slots.widget-skill-draft-review -> skill-draft-review."
 					},
 					{
@@ -732,14 +698,14 @@
 						"id": "skill-link-panel",
 						"type": "custom",
 						"title": "Linked skills",
-						"icon": "PuzzleOutline",
+						"icon": "LinkVariant",
 						"_note": "skill-evals: link/unlink skills onto this dataset's skillRefs (generic object writes; picker over visible active skills). Resolved via page.slots.widget-skill-link-panel -> skill-link-panel."
 					},
 					{
 						"id": "eval-run-panel",
 						"type": "custom",
 						"title": "Run",
-						"icon": "PlayCircleOutline",
+						"icon": "RocketLaunch",
 						"_note": "Agent-picker + Run (+ paired-baseline toggle with the mode-dependent cost note) + this dataset's run history incl. with/without paired rendering. Resolved via page.slots.widget-eval-run-panel -> eval-run-panel."
 					}
 				],
@@ -883,11 +849,8 @@
 						"id": "new-graph",
 						"label": "New graph",
 						"icon": "Plus",
-						"handler": "navigate",
-						"route": "GraphDetail",
-						"params": {
-							"id": "new"
-						}
+						"type": "navigate",
+						"target": "/graphs/new"
 					}
 				],
 				"_note": "Agent graphs are plain OpenRegister objects, so the browse/search surface is a standard type:index — no bespoke list code. Authoring happens on GraphDetail, which is type:custom because a direct-manipulation canvas is not expressible as a widget grid.",

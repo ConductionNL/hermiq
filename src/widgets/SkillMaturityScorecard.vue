@@ -156,6 +156,7 @@ export default {
 		/**
 		 * This skill's uuid from the route param.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {string} The skill uuid.
 		 */
 		skillId() {
@@ -165,6 +166,7 @@ export default {
 		/**
 		 * The skill's current maturity level (stored, or the freshest qualify result).
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {number} The level (0–7).
 		 */
 		maturityLevel() {
@@ -174,6 +176,7 @@ export default {
 		/**
 		 * The target-level line ("Target: L4" or a not-set hint).
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {string} The label.
 		 */
 		targetLabel() {
@@ -188,6 +191,7 @@ export default {
 		 * The seven per-level display rows: name, pass/fail, reasons (from the last
 		 * qualify call, when available) and stored evidence summaries.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {Array<object>} The rows.
 		 */
 		rows() {
@@ -216,6 +220,12 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Refetch when the route's skill id changes.
+		 *
+		 * @spec exclude framework watcher — re-triggers the spec-tagged
+		 *   fetchSkill() when navigating between skills; no domain logic here.
+		 */
 		skillId() {
 			this.fetchSkill()
 		},
@@ -231,6 +241,7 @@ export default {
 		 * qualify call in this session): l1–l3 from their refreshed evidence,
 		 * falling back to the contiguous stored level; l4 from the attestation.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @param {number} level The level (1–7).
 		 * @param {object} evidence The stored levelEvidence map.
 		 * @return {boolean} Whether the level reads as passed.
@@ -252,6 +263,7 @@ export default {
 		 * A one-line evidence summary for a level (attestation, eval evidence,
 		 * learnings, orchestration timestamps) — empty when there is none.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @param {number} level The level (1–7).
 		 * @param {object} evidence The stored levelEvidence map.
 		 * @return {string} The summary line.
@@ -298,6 +310,7 @@ export default {
 		/**
 		 * A locale date-time string for an ISO timestamp ('' on garbage input).
 		 *
+		 * @spec exclude pure date formatting helper, no domain behaviour
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date.
 		 */
@@ -312,6 +325,7 @@ export default {
 		/**
 		 * Load the skill object for the route's id.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {Promise<void>}
 		 */
 		async fetchSkill() {
@@ -332,6 +346,7 @@ export default {
 		 * Qualify the skill: recompute + persist server-side, then show the returned
 		 * per-level scorecard (with failure reasons) and refresh the stored object.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
 		 * @return {Promise<void>}
 		 */
 		async doQualify() {
@@ -352,6 +367,7 @@ export default {
 		 * Attest L4 (action-gated server-side). A 403 surfaces as an error note; the
 		 * skill is unchanged in that case.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-l4-is-human-attested-only-behind-action-authorization
 		 * @return {Promise<void>}
 		 */
 		async doAttest() {

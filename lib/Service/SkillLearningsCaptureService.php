@@ -563,7 +563,7 @@ class SkillLearningsCaptureService
      *
      * @return int The parseable candidate-line count.
      *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidencel6-activity-is-written-by-the-learnings-subsystem-only
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidence-l6-activity-is-written-by-the-learnings-subsystem-only
      */
     public function countCandidateLines(string $content): int
     {
@@ -1025,7 +1025,7 @@ class SkillLearningsCaptureService
      *
      * @return array<string, mixed> The updated `levelEvidence` map.
      *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidencel6-activity-is-written-by-the-learnings-subsystem-only
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidence-l6-activity-is-written-by-the-learnings-subsystem-only
      */
     public function stampL6(array $data, array $fields): array
     {

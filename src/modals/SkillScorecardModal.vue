@@ -109,6 +109,7 @@ export default {
 		/**
 		 * The scorecard rows with their translated level names.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {Array<object>} The display entries.
 		 */
 		entries() {

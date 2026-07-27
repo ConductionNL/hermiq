@@ -173,7 +173,7 @@ class ContextAssembler
      * @return string The concatenated preamble (each bundle under a `Context: {name}`
      *                header), or `''` when the agent has no attached context.
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-5
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     public function assembleForAgent(?ObjectEntity $agent, string $actingUserId): string
     {
@@ -327,7 +327,7 @@ class ContextAssembler
      *         by `Context: {name}`; `''` when the Context cannot be resolved) and
      *         whether it exceeded the object's charBudget.
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-1
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     public function assemble(string $contextId, string $actingUserId): array
     {
@@ -376,7 +376,7 @@ class ContextAssembler
      *
      * @return array<int, string> One formatted block per resolved query.
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-2
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     private function resolveObjectQueries(mixed $queries): array
     {
@@ -449,7 +449,7 @@ class ContextAssembler
      *
      * @return array<int, string> One formatted block per resolved file.
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-3
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     private function resolveFiles(mixed $files, string $actingUserId): array
     {
@@ -544,7 +544,7 @@ class ContextAssembler
      *
      * @return void
      *
-     * @spec openspec/changes/agent-context-system/tasks.md#task-2-4
+     * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     private function persistFlagIfChanged(ObjectEntity $context, array $data, bool $needsConsolidation): void
     {

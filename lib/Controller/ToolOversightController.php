@@ -29,7 +29,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-5
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-5-tooloversightcontroller-routes-catalog-grants-invocations
  */
 
 declare(strict_types=1);
@@ -44,6 +44,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http\JSONResponse;
@@ -57,7 +58,7 @@ use Throwable;
 /**
  * Tool-catalog / tool-grants / tool-invocations endpoints.
  *
- * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-5
+ * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-5-tooloversightcontroller-routes-catalog-grants-invocations
  */
 class ToolOversightController extends Controller
 {
@@ -114,7 +115,7 @@ class ToolOversightController extends Controller
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-5
+     * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-5-tooloversightcontroller-routes-catalog-grants-invocations
      */
     public function __construct(
         IRequest $request,
@@ -140,7 +141,7 @@ class ToolOversightController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/design.md#api-design
+     * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#api-design
      */
     public function toolCatalog(string $agentId): JSONResponse
     {
@@ -225,7 +226,7 @@ class ToolOversightController extends Controller
      *
      * @NoAdminRequired
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/design.md#put-apiagentsagentidtool-grants
+     * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#put-api-agents-agentid-tool-grants
      */
     public function updateToolGrants(string $agentId): JSONResponse
     {
@@ -275,6 +276,11 @@ class ToolOversightController extends Controller
                     'tools'   => ($updated->getObject()['tools'] ?? $grants),
                 ]
             );
+        } catch (DoesNotExistException $e) {
+            // ObjectService::saveObject() re-throws DoesNotExistException on a
+            // tenant/scope mismatch — translate to 404 (never a raw 500 on the
+            // defended path; gate-49 / opencatalogi#86 lesson).
+            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
         } catch (Throwable $e) {
             $this->logger->error('Hermiq tool-grants update failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Could not update tool grants'], Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -297,7 +303,7 @@ class ToolOversightController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art1214
+     * @spec openspec/specs/agent-tool-governance/spec.md#requirement-per-agent-tool-invocation-oversight-surface-ai-act-art-12-14
      */
     public function toolInvocations(string $agentId, string $format='json', string $from='', string $to=''): JSONResponse|DataDownloadResponse
     {
@@ -391,7 +397,7 @@ class ToolOversightController extends Controller
      */
     private function canAccessAgent(ObjectEntity $agent, string $userId): bool
     {
-        $data      = $agent->getObject();
+        $data      = $this->agentData(agent: $agent);
         $isPrivate = ($data['isPrivate'] ?? null);
 
         if ($isPrivate === false || $isPrivate === null) {
@@ -416,6 +422,20 @@ class ToolOversightController extends Controller
         return $this->groupManager->isAdmin($userId);
 
     }//end canAccessAgent()
+
+    /**
+     * The agent entity's decoded object payload — a plain in-memory accessor
+     * (`ObjectEntity::getObject()` never touches storage and cannot throw).
+     *
+     * @param ObjectEntity $agent Agent object.
+     *
+     * @return array<string, mixed>
+     */
+    private function agentData(ObjectEntity $agent): array
+    {
+        return $agent->getObject();
+
+    }//end agentData()
 
     /**
      * The agent's raw `Agent.tools` grant strings, sanitized.
@@ -571,7 +591,7 @@ class ToolOversightController extends Controller
      *
      * @return array<int, array<string, mixed>> Newest-first rows.
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-an-operator-reviews-an-agents-tool-activity
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-an-operator-reviews-an-agent-s-tool-activity
      */
     private function richRows(array $ownerUids, ?string $from, ?string $to): array
     {
@@ -630,7 +650,11 @@ class ToolOversightController extends Controller
      *
      * @return array<int, array<string, mixed>> Newest-first rows.
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
+     * @throws DoesNotExistException Propagated when the hermiq register/schema
+     *         cannot be resolved by `ObjectService::findAll()` — intentional:
+     *         `toolInvocations()`'s catch translates it to a JSON error response.
+     *
+     * @spec openspec/specs/agent-tool-governance/spec.md#scenario-the-richer-invocation-audit-shape-is-not-yet-available
      */
     private function degradedRows(string $agentId, ?string $from, ?string $to): array
     {

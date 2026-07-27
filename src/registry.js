@@ -486,6 +486,7 @@ export default {
 	 * required (ADR-049).
 	 */
 	'skill-maturity-scorecard': {
+		// @custom-widget-ratchet exclude seven-level pass/fail scorecard with per-level reasons plus the owner-guarded Qualify and ADR-023 action-gated Attest-L4 calls (bespoke SkillMaturityController endpoints) — object-table/stats-block bind OR object collections/counts and cannot render a computed scorecard or trigger these gated actions.
 		kind: 'widget',
 		component: SkillMaturityScorecard,
 		defaultSize: { w: 12, h: 6 },
@@ -558,6 +559,7 @@ export default {
 	 * the caller's visible active skills.
 	 */
 	'skill-link-panel': {
+		// @custom-widget-ratchet exclude reverse-FK link/unlink picker writing EvalDataset.skillRefs against the independent Skill catalogue — object-list renders FK child collections and has no cross-schema picker affordance, so no built-in widget can express this surface.
 		kind: 'widget',
 		component: SkillLinkPanel,
 		defaultSize: { w: 12, h: 4 },
@@ -576,6 +578,7 @@ export default {
 	 * a second write channel bypassing the capture pipeline's redaction.
 	 */
 	'skill-learnings': {
+		// @custom-widget-ratchet exclude renders one files[] entry (learnings.md) as sanitised markdown joined with the levelEvidence.l6 activity strip, read-only by spec — no built-in widget renders a file-map entry as markdown, and adding an editor would open a second write channel bypassing the capture pipeline's redaction.
 		kind: 'widget',
 		component: SkillLearnings,
 		defaultSize: { w: 12, h: 6 },
@@ -593,6 +596,7 @@ export default {
 	 * eval action.
 	 */
 	'skill-eval-evidence': {
+		// @custom-widget-ratchet exclude joins the skill's levelEvidence.l5 with the paired EvalRun trend of every dataset whose skillRefs references it, plus the owner-guarded Run-paired-eval trigger (EvalRunController) — a cross-schema join with a bespoke governed trigger that object-table/stats-block cannot express.
 		kind: 'widget',
 		component: SkillEvalEvidence,
 		defaultSize: { w: 12, h: 5 },
@@ -611,6 +615,7 @@ export default {
 	 * bad-learnings marking) — plus the owner-guarded manual Propose trigger.
 	 */
 	'skill-draft-review': {
+		// @custom-widget-ratchet exclude side-by-side diff of proposed vs active skill content with provenance, scan verdict, eval delta and three ADR-023 action-gated decisions routed through the Approval state machine (SkillDraftController) — a review/decision surface no built-in object-table/form-renderer provides.
 		kind: 'widget',
 		component: SkillDraftReview,
 		defaultSize: { w: 12, h: 7 },
@@ -629,6 +634,7 @@ export default {
 	 * advisory post-acceptance rollback-suggestion banner.
 	 */
 	'skill-version-history': {
+		// @custom-widget-ratchet exclude version list read from OpenRegister AuditTrail entries via bespoke SkillVersionController endpoints, with per-version diff, explicit rollback-as-new-version and the never-automatic Republish action — object-table binds OR object collections, not audit-entry versions with governed actions.
 		kind: 'widget',
 		component: SkillVersionHistory,
 		defaultSize: { w: 12, h: 6 },
@@ -645,6 +651,7 @@ export default {
 	 * exactly where the value is changed.
 	 */
 	'agent-eval-baseline': {
+		// @custom-widget-ratchet exclude inline enum editor with the register property's consequence-explaining description surfaced as an info affordance exactly where the value is changed (spec scenario) — the built-in type:data widget renders values read-only with no per-property info affordance or inline editor at HEAD.
 		kind: 'widget',
 		component: AgentEvalBaselineWidget,
 		defaultSize: { w: 6, h: 3 },

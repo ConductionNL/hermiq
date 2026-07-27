@@ -121,7 +121,7 @@ class SkillMarketplaceService
      *
      * @return ObjectEntity The quarantined Skill object.
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-2-1
+     * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
      */
     public function installFromSource(string $package, string $source, string $createdBy): ObjectEntity
     {
@@ -175,7 +175,7 @@ class SkillMarketplaceService
      * reviewer decision (explicit dangerous-verdict override), part of the public
      * seam the controller exposes — not an SRP smell.
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-2-2
+     * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
      */
     public function approveQuarantined(string $skillId, bool $force=false): ?ObjectEntity
     {
@@ -216,7 +216,7 @@ class SkillMarketplaceService
      *
      * @return array<string, int> Summary counts { scanned, staled, archived }.
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-2-3
+     * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
      */
     public function curate(): array
     {
@@ -270,7 +270,7 @@ class SkillMarketplaceService
      *
      * @return array<string, mixed> The publish result or a structured error.
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-2-4
+     * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
      */
     public function publishToHub(string $skillId, string $hubId): array
     {

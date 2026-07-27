@@ -60,7 +60,12 @@ test.describe('skill maturity (skill-maturity-model)', () => {
 	})
 
 	// Scenario: The list shows maturity dots + Scenario: A fresh install shows the
-	// maturity spread — the three seed skills render maturity badges L1/L2/L4.
+	// maturity spread — the three seed skills render maturity badges L1/L2/L4. The L2
+	// badge on woo-request-triage is the browser surface of the compact-well-triggering
+	// L2 computation rule.
+	// @e2e skill-maturity::the-list-shows-maturity-dots
+	// @e2e skill-maturity::a-fresh-install-shows-the-maturity-spread
+	// @e2e skill-maturity::a-compact-well-triggering-skill-without-reference-files-is-l2
 	test('catalog shows maturity dots for the three seed skills', async ({ page }) => {
 		await openSkillsCatalog(page)
 
@@ -76,6 +81,7 @@ test.describe('skill maturity (skill-maturity-model)', () => {
 	// Scenario: Qualifying from the row shows the scorecard — the Qualify row action
 	// calls the endpoint and the returned per-level scorecard shows the first failing
 	// level's reasons (woo-request-triage fails L3 for missing references/examples).
+	// @e2e skill-maturity::qualifying-from-the-row-shows-the-scorecard
 	test('Qualify row action shows the scorecard with failing reasons', async ({ page }) => {
 		await openSkillsCatalog(page)
 
@@ -90,6 +96,7 @@ test.describe('skill maturity (skill-maturity-model)', () => {
 	// Scenario: The detail page shows the durable scorecard — /skills/:id renders the
 	// stored maturity level, target level and per-level evidence, including the seeded
 	// L4 attestation of tender-summary.
+	// @e2e skill-maturity::the-detail-page-shows-the-durable-scorecard
 	test('SkillDetail page shows the durable scorecard with the seeded attestation', async ({ page }) => {
 		await openSkillsCatalog(page)
 

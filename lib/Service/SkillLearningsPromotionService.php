@@ -187,7 +187,7 @@ class SkillLearningsPromotionService
      *   write is one auditable sequence.
      *
      * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidencel6-activity-is-written-by-the-learnings-subsystem-only
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidence-l6-activity-is-written-by-the-learnings-subsystem-only
      */
     public function promoteSkill(ObjectEntity $skill): void
     {
@@ -371,7 +371,7 @@ class SkillLearningsPromotionService
      *
      * @return int The entry count.
      *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidencel6-activity-is-written-by-the-learnings-subsystem-only
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-levelevidence-l6-activity-is-written-by-the-learnings-subsystem-only
      */
     public function countLearningsEntries(string $content): int
     {

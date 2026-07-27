@@ -98,6 +98,7 @@ export default {
 		/**
 		 * This agent's uuid from the route param.
 		 *
+		 * @spec exclude framework route-param accessor; behaviour owned by the widget's spec-tagged load/save methods
 		 * @return {string} The agent uuid.
 		 */
 		agentId() {
@@ -107,6 +108,7 @@ export default {
 		/**
 		 * The two attribution modes as picker options.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-agent-schema-declares-evalbaselinemode-with-a-consequence-explaining-description
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		modeOptions() {
@@ -120,6 +122,7 @@ export default {
 		 * The stored mode ('joint' unless explicitly 'per-skill' — an agent
 		 * without the property behaves as joint).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-agent-schema-declares-evalbaselinemode-with-a-consequence-explaining-description
 		 * @return {string} joint|per-skill.
 		 */
 		storedMode() {
@@ -140,6 +143,7 @@ export default {
 		 * the SAME text stored on Agent.evalBaselineMode in
 		 * lib/Settings/hermiq_register.json (the info affordance's content).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-agent-schema-declares-evalbaselinemode-with-a-consequence-explaining-description
 		 * @return {string} The translated description.
 		 */
 		modeDescription() {
@@ -149,6 +153,7 @@ export default {
 		/**
 		 * A one-line summary of the currently STORED mode.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-agent-schema-declares-evalbaselinemode-with-a-consequence-explaining-description
 		 * @return {string} The summary line.
 		 */
 		currentModeSummary() {
@@ -159,6 +164,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Wire the agent store and kick off the initial load.
+	 *
+	 * @spec exclude framework lifecycle hook; only registers the store and delegates to the spec-tagged load()
+	 */
 	created() {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
@@ -169,6 +179,7 @@ export default {
 		/**
 		 * Load the agent and initialise the picker from the stored value.
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-agent-schema-declares-evalbaselinemode-with-a-consequence-explaining-description
 		 * @return {Promise<void>}
 		 */
 		async load() {
@@ -188,6 +199,7 @@ export default {
 		 * Persist the changed mode through the generic object path (plain PUT —
 		 * every other agent field carried forward).
 		 *
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-agent-schema-declares-evalbaselinemode-with-a-consequence-explaining-description
 		 * @return {Promise<void>}
 		 */
 		async save() {

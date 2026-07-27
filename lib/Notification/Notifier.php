@@ -37,7 +37,7 @@ use OCP\Notification\UnknownNotificationException;
 /**
  * Parses Hermiq notifications into localised, rendered form.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+ * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
  */
 class Notifier implements INotifier
 {
@@ -85,7 +85,7 @@ class Notifier implements INotifier
      *
      * @return string
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+     * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
      */
     public function getID(): string
     {
@@ -98,7 +98,7 @@ class Notifier implements INotifier
      *
      * @return string
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+     * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
      */
     public function getName(): string
     {
@@ -116,8 +116,8 @@ class Notifier implements INotifier
      *
      * @throws UnknownNotificationException When the notification is not a Hermiq one.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     public function prepare(INotification $notification, string $languageCode): INotification
     {
@@ -201,7 +201,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+     * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
      */
     private function runCompleteText(string $name, IL10N $l): array
     {
@@ -222,7 +222,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
      */
     private function approvalRequestedText(string $name, IL10N $l): array
     {
@@ -246,7 +246,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
      */
     private function budgetSoftThresholdText(array $subjectRaw, IL10N $l): array
     {
@@ -269,7 +269,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     private function runDeadLetterText(string $name, IL10N $l): array
     {
@@ -291,7 +291,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     private function circuitBreakerPausedText(string $name, IL10N $l): array
     {

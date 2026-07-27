@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-evals/tasks.md#task-7-evalruncontroller--route
+ * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-7-evalruncontroller-route
  */
 
 declare(strict_types=1);
@@ -56,7 +56,7 @@ use Throwable;
 /**
  * Owner-scoped "run this EvalDataset against this Agent" endpoint.
  *
- * @spec openspec/changes/agent-evals/tasks.md#task-7-evalruncontroller--route
+ * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-7-evalruncontroller-route
  */
 class EvalRunController extends Controller
 {
@@ -117,7 +117,7 @@ class EvalRunController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-run-trigger-endpoint-is-owner-guarded-idor
+     * @spec openspec/specs/agent-evals/spec.md#requirement-run-trigger-endpoint-is-owner-guarded-idor
      * @spec openspec/specs/agent-evals/spec.md#requirement-the-paired-trigger-owner-guard-covers-dataset-agent-and-every-linked-skill
      */
     public function run(string $datasetId): JSONResponse

@@ -151,6 +151,7 @@ export default {
 		/**
 		 * This skill's uuid from the route param.
 		 *
+		 * @spec exclude pure route-param accessor, no spec behaviour
 		 * @return {string} The skill uuid.
 		 */
 		skillId() {
@@ -161,6 +162,7 @@ export default {
 		 * Whether the published GitHub copy is behind the accepted local version
 		 * (pure client-side comparison — no history query).
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
 		 * @return {boolean}
 		 */
 		publishedCopyBehind() {
@@ -179,6 +181,7 @@ export default {
 		 * a dataset linking this skill failed the regression gate AFTER the last
 		 * accepted version.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-post-acceptance-regression-surfaces-a-rollback-suggestion
 		 * @return {boolean}
 		 */
 		rollbackSuggestion() {
@@ -202,6 +205,11 @@ export default {
 		},
 	},
 
+	/**
+	 * Vue lifecycle hook — wires the stores and kicks off the initial load.
+	 *
+	 * @spec exclude framework lifecycle hook, only wires stores and delegates to load()
+	 */
 	created() {
 		this.skillStore = useSkillStore()
 		this.skillStore.registerObjectType('agentskill', 'agentskill', 'hermiq')
@@ -217,6 +225,7 @@ export default {
 		 * Load the skill, its version history, and the eval context for the
 		 * regression-watch banner.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
 		 * @return {Promise<void>}
 		 */
 		async load() {
@@ -243,6 +252,7 @@ export default {
 		/**
 		 * Show the diff of one version against the current version.
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
 		 * @param {string} versionId The older version id.
 		 * @return {Promise<void>}
 		 */
@@ -264,6 +274,7 @@ export default {
 		 * Roll back to a previous version — an explicit human action, creating a
 		 * brand-new version (history never mutated).
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
 		 * @param {string} versionId The target version id.
 		 * @return {Promise<void>}
 		 */
@@ -286,6 +297,7 @@ export default {
 		 * One-click republish to the skill's own provenance repo (never automatic;
 		 * requires the publish authorization server-side).
 		 *
+		 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
 		 * @return {Promise<void>}
 		 */
 		async doRepublish() {
@@ -304,6 +316,7 @@ export default {
 		/**
 		 * Render a diff value for display.
 		 *
+		 * @spec exclude pure display formatting of a diff value
 		 * @param {*} value The old/new value.
 		 * @return {string} The printable form.
 		 */
@@ -320,6 +333,7 @@ export default {
 		/**
 		 * Format an ISO timestamp for display.
 		 *
+		 * @spec exclude pure date formatting for display
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or an em dash.
 		 */

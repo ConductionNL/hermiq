@@ -46,7 +46,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
 
 declare(strict_types=1);
@@ -69,7 +69,7 @@ use Throwable;
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates several OR/Hermiq services.
  *
- * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+ * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
 class WebhookAgentRunService
 {
@@ -146,7 +146,7 @@ class WebhookAgentRunService
      *   authorisation input (normal dispatch vs. an already-approved occurrence),
      *   mirroring FlowAgentRunService::run()'s identical parameter.
      *
-     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
      */
     public function run(array $context, bool $bypassApprovalGate=false): bool
     {
@@ -172,7 +172,7 @@ class WebhookAgentRunService
      *
      * @return bool Whether the agent run executed.
      *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
+     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
      */
     private function dispatch(array $context, bool $bypassApprovalGate): bool
     {
@@ -238,9 +238,9 @@ class WebhookAgentRunService
      *
      * @return bool Whether the run completed successfully.
      *
-     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
-     * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
-     * @spec openspec/changes/sub-agent-delegation/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails--soft-threshold-and-hard-cap
+     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+     * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     private function runAgentAndAudit(ObjectEntity $agentObject, array $context, string $owner, string $organisation=''): bool
     {
@@ -289,7 +289,7 @@ class WebhookAgentRunService
      *
      * @return string The prompt handed to ScheduleService::runAgentAsOwner().
      *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
+     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
      */
     private function buildPrompt(array $context): string
     {
@@ -317,7 +317,7 @@ class WebhookAgentRunService
      *
      * @return array<string,mixed> The context with a redacted `payload`.
      *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
+     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
      */
     private function redactedContext(array $context): array
     {
@@ -339,7 +339,7 @@ class WebhookAgentRunService
      *
      * @return array<string,mixed> The redacted payload.
      *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
+     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
      */
     private function redactedPayload(array $context): array
     {
@@ -375,7 +375,7 @@ class WebhookAgentRunService
      *                                                           or null when either
      *                                                           is unresolvable.
      *
-     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
      */
     private function resolveAgentAndObject(string $agentId): ?array
     {
@@ -418,7 +418,7 @@ class WebhookAgentRunService
      *
      * @return bool True when the run must be blocked (budget hard cap reached).
      *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
+     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
      */
     private function isBudgetBlocked(string $organisation, string $agentId): bool
     {
@@ -448,7 +448,7 @@ class WebhookAgentRunService
      *
      * @return bool True when the run was gated (must not proceed); false to continue.
      *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
+     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
      */
     private function applyApprovalGate(Agent $agent, ObjectEntity $agentObject, array $context, bool $bypassApprovalGate): bool
     {
@@ -485,7 +485,7 @@ class WebhookAgentRunService
      *
      * @return Agent|null The resolved agent, or null when unresolvable.
      *
-     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
      */
     private function resolveAgent(string $agentId): ?Agent
     {
@@ -516,7 +516,7 @@ class WebhookAgentRunService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
+     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
      */
     private function writeRunAudit(
         ObjectEntity $agentObject,

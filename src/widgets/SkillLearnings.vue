@@ -94,6 +94,7 @@ export default {
 		/**
 		 * This skill's uuid from the route param.
 		 *
+		 * @spec exclude trivial route-param accessor (framework plumbing), no domain behaviour
 		 * @return {string} The skill uuid.
 		 */
 		skillId() {
@@ -103,6 +104,7 @@ export default {
 		/**
 		 * The stored l6 activity map ({} when absent).
 		 *
+		 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
 		 * @return {object} The levelEvidence.l6 map.
 		 */
 		l6() {
@@ -113,6 +115,7 @@ export default {
 		/**
 		 * The files array ([] when absent).
 		 *
+		 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
 		 * @return {Array<object>} The skill's files entries.
 		 */
 		files() {
@@ -122,6 +125,7 @@ export default {
 		/**
 		 * The learnings.md content ('' when absent).
 		 *
+		 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
 		 * @return {string} The markdown source.
 		 */
 		learningsMarkdown() {
@@ -133,6 +137,7 @@ export default {
 		 * Whether ANY learnings activity exists — either learnings file, or a
 		 * recorded l6 activity stamp. Without it the honest empty state renders.
 		 *
+		 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
 		 * @return {boolean} True when the learnings surface has content to show.
 		 */
 		hasLearningsActivity() {
@@ -141,6 +146,13 @@ export default {
 		},
 	},
 
+	/**
+	 * Wire the skill store (agentskill object type) and self-fetch the skill
+	 * so the read-only Learnings card can render.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
+	 * @return {void}
+	 */
 	created() {
 		this.skillStore = useSkillStore()
 		this.skillStore.registerObjectType('agentskill', 'agentskill', 'hermiq')
@@ -152,6 +164,7 @@ export default {
 		 * Load the skill (files + l6 activity). A missing skill is an error state;
 		 * a skill without learnings files is the empty state, never an error.
 		 *
+		 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
 		 * @return {Promise<void>}
 		 */
 		async load() {
@@ -171,6 +184,7 @@ export default {
 		 * Render the learnings markdown safely (marked + DOMPurify with the
 		 * shared safe config — the Chat.vue pattern).
 		 *
+		 * @spec openspec/specs/skill-learnings/spec.md#requirement-skilldetail-shows-a-read-only-learnings-surface
 		 * @param {string} content The markdown source.
 		 * @return {string} Sanitised HTML.
 		 */
@@ -181,6 +195,7 @@ export default {
 		/**
 		 * A count label ('—' when the subsystem has not stamped the field yet).
 		 *
+		 * @spec exclude pure display formatting of a stored count, no domain behaviour
 		 * @param {number} value The stored count.
 		 * @return {string} The label.
 		 */
@@ -191,6 +206,7 @@ export default {
 		/**
 		 * Format an ISO timestamp for display.
 		 *
+		 * @spec exclude pure date-formatting display helper, no domain behaviour
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or an em dash.
 		 */

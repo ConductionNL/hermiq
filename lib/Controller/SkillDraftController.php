@@ -49,6 +49,7 @@ use OCA\Hermiq\Service\SkillService;
 use OCA\Hermiq\Service\SkillVersionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\AppFramework\OCS\OCSForbiddenException;
@@ -279,6 +280,11 @@ class SkillDraftController extends Controller
 
         try {
             $outcome = $this->approvalService->approve(approval: $approval, deciderUid: $user->getUID());
+        } catch (DoesNotExistException $e) {
+            // The approval/draft/skill vanished or fell out of the caller's scope
+            // between the guard and the transition — 404, not a raw 500 on the
+            // defended path (gate-49 / opencatalogi#86 lesson).
+            return new JSONResponse(['error' => 'Draft approval not found'], Http::STATUS_NOT_FOUND);
         } catch (Throwable $e) {
             $this->logger->error('Hermiq draft accept failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Accept failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -355,6 +361,10 @@ class SkillDraftController extends Controller
                     refs: $refs
                 );
             }
+        } catch (DoesNotExistException $e) {
+            // The approval/draft vanished or fell out of the caller's scope between
+            // the guard and the transition — 404, not a raw 500 (gate-49).
+            return new JSONResponse(['error' => 'Draft approval not found'], Http::STATUS_NOT_FOUND);
         } catch (Throwable $e) {
             $this->logger->error('Hermiq draft reject failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Reject failed'], Http::STATUS_INTERNAL_SERVER_ERROR);

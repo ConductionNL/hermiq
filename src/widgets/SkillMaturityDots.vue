@@ -61,6 +61,7 @@ export default {
 		/**
 		 * The maximum maturity level (dot count).
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {number} Always 7.
 		 */
 		maxLevel() {
@@ -70,6 +71,7 @@ export default {
 		/**
 		 * The clamped numeric maturity level (0–7; absent/invalid reads as 0).
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {number} The level.
 		 */
 		level() {
@@ -83,6 +85,7 @@ export default {
 		/**
 		 * The visible textual level ("L0"–"L7") — the non-color-only channel.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {string} The level label.
 		 */
 		levelLabel() {
@@ -92,6 +95,7 @@ export default {
 		/**
 		 * The accessible name announcing the level out of 7.
 		 *
+		 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 		 * @return {string} The aria label.
 		 */
 		ariaLabel() {

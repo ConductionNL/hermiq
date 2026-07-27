@@ -14,8 +14,8 @@
  wizard" settings button below. The wrapper uses `display: contents` so CnAppRoot
  still behaves as the direct child of #content.
 
- @spec openspec/changes/template-manifest-v1/specs/template-manifest-v1/spec.md
- @spec openspec/changes/scaffold-v2/specs/scaffold-v2/spec.md
+ @spec openspec/specs/app-manifest/spec.md
+ @spec openspec/specs/manifest-driven-pages/spec.md
 -->
 <template>
 	<div class="hermiq-root">
@@ -96,7 +96,7 @@
 						scope="personal"
 						app-id="hermiq"
 						:app-name="t('hermiq', 'Hermiq')"
-						:app-credentials="(manifest && manifest.credentials) || []" />
+						:app-credentials="appCredentials" />
 				</NcAppSettingsSection>
 			</template>
 		</CnAppRoot>
@@ -117,6 +117,10 @@ import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import { CnAppRoot, CnObjectSidebar, CnSetupWizard, CnCredentials } from '@conduction/nextcloud-vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
+// Provider-credential declarations for the CnCredentials settings surface.
+// Lives beside the manifest (not inside it): the app-manifest v2 schema has no
+// root `credentials` block, and the declaration is consumed only by this shell.
+import credentialDeclarations from './credentials.json'
 // skill-maturity: the SkillsCatalog maturityLevel column's dots badge, resolved
 // via CnAppRoot's cellWidgets registry (manifest column `widget: "maturity-dots"`).
 import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
@@ -223,6 +227,17 @@ export default {
 			return {
 				'maturity-dots': SkillMaturityDots,
 			}
+		},
+
+		/**
+		 * @spec exclude declaration passthrough — surfaces the static
+		 *   provider-credential declarations (src/credentials.json) to the
+		 *   CnCredentials settings surface unchanged. No domain logic; the
+		 *   broker semantics are owned by OpenRegister's credential broker.
+		 * @return {Array} Provider-credential declaration list.
+		 */
+		appCredentials() {
+			return credentialDeclarations
 		},
 
 		/**

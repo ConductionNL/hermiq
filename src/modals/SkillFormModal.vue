@@ -53,10 +53,10 @@
   ever affects the CREATE branch; an edit's save target is always the
   existing generic-object PUT regardless of `saveTarget`.
 
-  @spec openspec/changes/hermiq-skill-markdown-authoring/specs/skills-catalog/spec.md#requirement-a-dedicated-markdown-authoring-form-replaces-the-generic-skill-createedit-dialog
-  @spec openspec/changes/hermiq-skill-markdown-authoring/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
-  @spec openspec/changes/hermiq-skill-markdown-authoring/specs/skills-catalog/spec.md#requirement-a-pasted-agentskillsio-package-is-split-into-frontmatter-and-body
-  @spec openspec/changes/hermiq-skill-conversational-authoring/specs/skills-catalog/spec.md#requirement-a-chat-assistant-message-can-be-saved-as-a-reviewable-skill
+  @spec openspec/specs/skills-catalog/spec.md#requirement-a-dedicated-markdown-authoring-form-replaces-the-generic-skill-create-edit-dialog
+  @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
+  @spec openspec/specs/skills-catalog/spec.md#requirement-a-pasted-agentskills-io-package-is-split-into-frontmatter-and-body
+  @spec openspec/specs/skills-catalog/spec.md#requirement-a-chat-assistant-message-can-be-saved-as-a-reviewable-skill
 -->
 <template>
 	<NcModal
@@ -548,6 +548,7 @@ export default {
 		 * (`saveTarget`), with a follow-up PUT to land any authored `files`
 		 * (both create endpoints always persist `files: []`).
 		 *
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 * @return {Promise<void>}
 		 */
 		async save() {

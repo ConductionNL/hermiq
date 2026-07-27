@@ -32,7 +32,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
- * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
  */
 
 declare(strict_types=1);
@@ -88,7 +88,7 @@ class SkillController extends Controller
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function __construct(
         IRequest $request,
@@ -109,7 +109,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function index(): JSONResponse
     {
@@ -135,7 +135,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function import(): JSONResponse
     {
@@ -169,7 +169,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function export(string $id): JSONResponse
     {
@@ -245,7 +245,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function install(string $id): JSONResponse
     {
@@ -325,7 +325,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
      */
     public function githubSearch(): JSONResponse
     {
@@ -385,7 +385,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
      */
     public function githubInstall(): JSONResponse
     {
