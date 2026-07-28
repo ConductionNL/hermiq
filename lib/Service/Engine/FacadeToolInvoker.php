@@ -358,6 +358,8 @@ class FacadeToolInvoker
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI + per-run governance
      *   context; every parameter is independently optional/nullable for backward
      *   compatibility with existing (pre-governance) call sites.
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
+     *   is a cross-cutting mode threaded through the engine as a flag by design.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
@@ -994,7 +996,9 @@ class FacadeToolInvoker
             $envelope['status']     = 'denied';
             $envelope['approvalId'] = (string) $decided->getUuid();
             $envelope['message']    = 'This action was denied by a reviewer and cannot be run.';
-        } else {
+        }
+
+        if ($decided === null) {
             $approval = $this->approvalService->ensurePendingApprovalForToolInvocation(
                 agentId: (string) $this->agentId,
                 toolId: $toolId,
@@ -1088,6 +1092,11 @@ class FacadeToolInvoker
      *                                              original ok/error derivation unchanged.
      *
      * @return string JSON-encoded tool result for the follow-up LLM turn.
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) The single dispatch chokepoint carries
+     *   every optional per-run concern (channel frames, trace step, dry-run neutralisation,
+     *   outcome override, encode fallback) as one flat nullable-guard each — splitting it
+     *   would re-scatter the dry-run interception across governance branches.
      *
      * @spec openspec/changes/agent-guardrails/tasks.md#task-7-confirm-tool-retry-and-consume-flow-in-facadetoolinvoker
      * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-2-facadetoolinvoker-dry-run-neutralisation-with-redacted-would-have-called-steps

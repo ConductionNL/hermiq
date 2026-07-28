@@ -354,7 +354,9 @@ class SkillDraftController extends Controller
             $approval = $this->approvalService->loadApproval(uuid: (string) ($draft->getObject()['approvalId'] ?? ''));
             if ($approval !== null) {
                 $this->approvalService->deny(approval: $approval, deciderUid: $user->getUID(), reason: $note);
-            } else {
+            }
+
+            if ($approval === null) {
                 // No Approval yet (e.g. draft still proposed) — settle the draft
                 // directly through the same reconcile path a denial runs.
                 $this->consolidation->rejectDraftByDecision(

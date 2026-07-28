@@ -49,6 +49,7 @@
     "vue-router": "^4.6.4"
   },
   "overrides": {
+    "vue3-apexcharts": "1.8.0",
     "libxmljs2": "^0.37.0",
     "@nextcloud/axios": "~2.5.2",
     "@nextcloud/vue": "^9.9.0",

@@ -87,6 +87,9 @@ use Psr\Log\LoggerInterface;
  * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Facade orchestrates the handler set by design.
+ * @SuppressWarnings(PHPMD.LongVariable)           `$guardrailPolicyService` is a promoted
+ *   constructor collaborator named after its class (GuardrailPolicyService) —
+ *   shortening it would obscure which service is injected.
  */
 class Engine
 {
@@ -228,6 +231,8 @@ class Engine
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Each parameter is a distinct, independently
      *   optional input (run-trace-observability adds one more to an already-wide, long-established
      *   list) — grouping them would obscure, not simplify, the call site.
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
+     *   is a cross-cutting mode threaded through the engine as a flag by design.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
      * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine

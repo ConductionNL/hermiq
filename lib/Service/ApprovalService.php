@@ -86,6 +86,7 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
+use InvalidArgumentException;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -107,6 +108,12 @@ use Throwable;
  *   toolcall) added its own pair rather than duplicating an unrelated class, per the
  *   established "generalise ApprovalService" pattern (flow-agent-listener,
  *   agent-webhook-trigger, agent-tool-governance-and-disclosure, agent-guardrails).
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same five-sourceType generalisation:
+ *   each ensure/run/shape trio is short but the class hosts all five shapes.
+ * @SuppressWarnings(PHPMD.TooManyMethods)           One ensure/find/resume method set per
+ *   sourceType (schedule/flow/webhook/tool/toolcall/skill-draft) by design.
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     Each sourceType exposes its own public
+ *   ensure/find/decide entry points consumed by distinct callers.
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#1-approvalservice-create-pending-apply-decision
  */
@@ -574,7 +581,7 @@ class ApprovalService
      *
      * @return ObjectEntity The pending (or already-pending) Approval.
      *
-     * @throws \InvalidArgumentException When the decision-evidence payload is incomplete.
+     * @throws InvalidArgumentException When the decision-evidence payload is incomplete.
      *
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
      */
@@ -650,27 +657,27 @@ class ApprovalService
      *
      * @return void
      *
-     * @throws \InvalidArgumentException When any required element is missing.
+     * @throws InvalidArgumentException When any required element is missing.
      *
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
      */
     private function assertSkillDraftPayloadComplete(array $draftPayload): void
     {
         if (trim((string) ($draftPayload['deepLink'] ?? '')) === '') {
-            throw new \InvalidArgumentException('Skill-draft Approval payload is missing the SkillDetail deep link.');
+            throw new InvalidArgumentException('Skill-draft Approval payload is missing the SkillDetail deep link.');
         }
 
         if (trim((string) ($draftPayload['scanVerdict'] ?? '')) === '') {
-            throw new \InvalidArgumentException('Skill-draft Approval payload is missing the scan verdict.');
+            throw new InvalidArgumentException('Skill-draft Approval payload is missing the scan verdict.');
         }
 
         $hasDelta = (isset($draftPayload['evalDelta']) === true && is_numeric($draftPayload['evalDelta']) === true);
         if ($hasDelta === false && ($draftPayload['noEvalEvidence'] ?? false) !== true) {
-            throw new \InvalidArgumentException('Skill-draft Approval payload is missing the eval delta / noEvalEvidence flag.');
+            throw new InvalidArgumentException('Skill-draft Approval payload is missing the eval delta / noEvalEvidence flag.');
         }
 
         if (trim((string) ($draftPayload['learningsSummary'] ?? '')) === '') {
-            throw new \InvalidArgumentException('Skill-draft Approval payload is missing the driving-learnings summary.');
+            throw new InvalidArgumentException('Skill-draft Approval payload is missing the driving-learnings summary.');
         }
 
     }//end assertSkillDraftPayloadComplete()

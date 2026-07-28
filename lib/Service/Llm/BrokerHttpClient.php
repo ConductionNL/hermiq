@@ -154,6 +154,10 @@ class BrokerHttpClient implements ClientInterface
      *                                  the call. Failing closed is deliberate: there is no
      *                                  app-held key left to fall back to.
      *
+     * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
+     *   of the optional OpenRegister broker (feature-detected via isAvailable()) so this
+     *   class stays constructible when the broker is absent.
+     *
      * @spec openspec/changes/llm-keys-via-broker/tasks.md#task-1-brokerhttpclient
      */
     public function sendRequest(RequestInterface $request): ResponseInterface

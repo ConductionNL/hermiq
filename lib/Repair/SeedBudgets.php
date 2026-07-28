@@ -137,7 +137,9 @@ class SeedBudgets implements IRepairStep
         $organisation = $this->firstOrganisation(organisationMapper: $organisationMapper);
         if ($organisation === '') {
             $output->info('No OpenRegister organisation exists yet — org-level budget seed deferred.');
-        } else {
+        }
+
+        if ($organisation !== '') {
             $seeded += $this->seedIfMissing(
                 objectService: $objectService,
                 budgetService: $budgetService,

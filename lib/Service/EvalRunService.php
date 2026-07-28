@@ -50,8 +50,10 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use DateTime;
 use DateTimeImmutable;
 use DateTimeZone;
+use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Cron\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
@@ -68,9 +70,14 @@ use Throwable;
  * Executes an EvalRun: gate checks, per-case execution + scoring, regression gate,
  * persistence, and the redacted audit write.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates several OR/Hermiq services.
- * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several OR/Hermiq services.
+ * @SuppressWarnings(PHPMD.ExcessiveParameterList)   Constructor DI: each parameter is a
  *   distinct injected collaborator, not a logic-bearing argument list.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) One class owns the whole eval-run
+ *   lifecycle (gates, halves, scoring, regression gate, persistence, audit) so the
+ *   paired-run invariants stay in a single place.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Plain, paired and draft-comparison
+ *   orchestration plus their shared persistence/audit helpers live together by design.
  *
  * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-6-evalrunservice-orchestration
  */
@@ -227,9 +234,14 @@ class EvalRunService
      *
      * @return array{evalRunId:string,status:string,passRate:float,regressionGateResult:string,previousPassRate:?float}
      *
-     * @throws \InvalidArgumentException When `$baseline` is true but the dataset has no
-     *                                   linked skills (`skillRefs` empty) — the
-     *                                   controller maps this to 400.
+     * @throws InvalidArgumentException When `$baseline` is true but the dataset has no
+     *                                  linked skills (`skillRefs` empty) — the
+     *                                  controller maps this to 400.
+     *
+     * @SuppressWarnings(PHPMD.LongVariable)        $regressionThresholdOverride mirrors the
+     *   documented regressionThresholdPercent contract field — the clarity IS the length.
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) $baseline is the documented paired-mode
+     *   API switch (skill-evals); false keeps every pre-existing caller byte-identical.
      *
      * @spec openspec/specs/agent-evals/spec.md#requirement-kill-switch-and-budget-hard-cap-gate-an-eval-run-exactly-as-they-gate-a-schedule-tick
      * @spec openspec/specs/agent-evals/spec.md#requirement-every-half-of-a-paired-run-counts-toward-the-same-budgets-and-gates
@@ -251,7 +263,7 @@ class EvalRunService
         // ever persisted (the controller mirrors this as a 400).
         $linkedSkills = $this->linkedSkillIds(dataset: $dataset);
         if ($baseline === true && $linkedSkills === []) {
-            throw new \InvalidArgumentException('Baseline mode requires a dataset with linked skills (skillRefs).');
+            throw new InvalidArgumentException('Baseline mode requires a dataset with linked skills (skillRefs).');
         }
 
         // GATE 1 — KILL-SWITCH (highest priority, exactly like ScheduleService::dispatch()).
@@ -304,7 +316,6 @@ class EvalRunService
 
         return $this->executeCases(
             dataset: $dataset,
-            agent: $agent,
             organisation: $organisation,
             agentId: $agentId,
             datasetId: $datasetId,
@@ -336,6 +347,10 @@ class EvalRunService
      *                                           override for the draft half.
      *
      * @return array{evalRunId:string,status:string,draftPassRate:float,activePassRate:float}
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One linear gates → active-half →
+     *   draft-half → persist → audit sequence mirroring run(); splitting it would
+     *   scatter the draft-comparison invariants across helpers.
      *
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-and-its-evals-respect-the-kill-switch-and-budget-hard-caps
@@ -520,7 +535,6 @@ class EvalRunService
      * the EvalRun, and write the redacted audit entry.
      *
      * @param ObjectEntity      $dataset                     The EvalDataset.
-     * @param Agent             $agent                       The target Agent.
      * @param string            $organisation                The agent's organisation.
      * @param string            $agentId                     The agent UUID.
      * @param string            $datasetId                   The dataset UUID.
@@ -534,13 +548,18 @@ class EvalRunService
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Threaded call-context, not a
      *   logic-bearing argument list — every value is already resolved by run().
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength)  One linear run-half → threshold →
+     *   regression gate → persist → audit → capture-enqueue sequence; splitting it
+     *   would scatter the single-run invariants across helpers.
+     * @SuppressWarnings(PHPMD.LongVariable)           $regressionThresholdOverride mirrors
+     *   the documented regressionThresholdPercent contract field — the clarity IS the
+     *   length.
      *
      * @spec openspec/specs/agent-evals/spec.md#requirement-an-evalrun-executes-each-case-through-the-agent-s-real-engine-path
      * @spec openspec/specs/agent-evals/spec.md#requirement-eval-runs-are-non-delivering
      */
     private function executeCases(
         ObjectEntity $dataset,
-        Agent $agent,
         string $organisation,
         string $agentId,
         string $datasetId,
@@ -677,6 +696,13 @@ class EvalRunService
      * @SuppressWarnings(PHPMD.ExcessiveMethodLength)  One linear with-half →
      *   without-half(s) → aggregate → persist → evidence sequence; splitting it
      *   would scatter the paired-run invariants across helpers.
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)   Paired-run orchestration mirrors
+     *   the spec's gate order across both attribution modes in one place.
+     * @SuppressWarnings(PHPMD.NPathComplexity)        The joint/per-skill branches and
+     *   infra-error checks are the spec's own decision points, kept linear here.
+     * @SuppressWarnings(PHPMD.LongVariable)           $regressionThresholdOverride mirrors
+     *   the documented regressionThresholdPercent contract field — the clarity IS the
+     *   length.
      *
      * @spec openspec/specs/agent-evals/spec.md#requirement-a-paired-baseline-run-executes-with-and-without-halves-per-evalbaselinemode
      * @spec openspec/specs/agent-evals/spec.md#requirement-baseline-detachment-is-per-run-and-in-memory-only
@@ -753,7 +779,9 @@ class EvalRunService
                     'baselineResults' => $withoutHalf['results'],
                 ];
             }//end foreach
-        } else {
+        }//end if
+
+        if ($attributionMode !== self::MODE_PER_SKILL) {
             $withoutHalf = $this->runHalf(
                 cases: $cases,
                 owner: $owner,
@@ -1196,8 +1224,8 @@ class EvalRunService
         usort(
             $matching,
             function (ObjectEntity $left, ObjectEntity $right): int {
-                $leftCreated  = ($left->getCreated() ?? new \DateTime('@0'));
-                $rightCreated = ($right->getCreated() ?? new \DateTime('@0'));
+                $leftCreated  = ($left->getCreated() ?? new DateTime('@0'));
+                $rightCreated = ($right->getCreated() ?? new DateTime('@0'));
                 return ($rightCreated <=> $leftCreated);
             }
         );
@@ -1234,6 +1262,8 @@ class EvalRunService
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Every field is a distinct EvalRun
      *   column being persisted, not a logic-bearing argument list.
+     * @SuppressWarnings(PHPMD.LongVariable)           $regressionThresholdPercent mirrors
+     *   the persisted EvalRun schema field of the same name — the clarity IS the length.
      */
     private function persistEvalRun(
         string $datasetId,

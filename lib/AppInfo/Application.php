@@ -52,6 +52,10 @@ use OCP\User\Events\UserDeletedEvent;
  * Main application class for the Hermiq Nextcloud app.
  *
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires every listener,
+ * notifier, tool provider and TaskProcessing provider the app ships — one reference per
+ * registered integration point, no behavioural coupling.
  */
 class Application extends App implements IBootstrap
 {
@@ -75,6 +79,11 @@ class Application extends App implements IBootstrap
      * @return void
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Linear registration list — one block per
+     * integration point, each with the comment explaining WHY it is registered; splitting it
+     * would scatter the bootstrap story.
+     * @SuppressWarnings(PHPMD.StaticAccess)          \OCP\Util::addInitScript is the Nextcloud
+     * asset API — there is no injectable equivalent in a bootstrap register() hook.
      *
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
      */

@@ -75,6 +75,9 @@ use Throwable;
  *   transitions across classes would scatter the one-applier invariant.
  * @SuppressWarnings(PHPMD.TooManyPublicMethods)     One public seam per pipeline verb
  *   (propose/prequalify/apply/reject/edit/reconcile/watch) plus small read helpers.
+ * @SuppressWarnings(PHPMD.TooManyMethods)           Same reasoning including the private
+ *   helpers: each pipeline gate/transition is a small single-purpose method kept tiny
+ *   to stay under the per-method complexity thresholds.
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
  */
@@ -359,6 +362,10 @@ class SkillConsolidationService
      *
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-and-its-evals-respect-the-kill-switch-and-budget-hard-caps
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One linear, spec-ordered gate chain
+     *   (open-draft, kill-switch, budget, learnings, LLM pass, persist, audit) — each
+     *   gate is a simple early return; splitting would obscure the binding order.
      */
     public function proposeForSkill(ObjectEntity $skill, string $trigger, ?string $triggerEvalRunId=null): array
     {
@@ -501,6 +508,10 @@ class SkillConsolidationService
      *
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-every-draft-is-content-scanned-with-learnings-treated-as-instruction-content
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-paired-draft-vs-active-eval-gates-the-draft-and-a-worse-draft-is-auto-discarded
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) The spec's binding gate order
+     *   (content scan → paired eval → advance) with its fail-closed early returns and
+     *   per-gate audit writes must stay one readable sequence.
      */
     public function prequalifyDraft(ObjectEntity $draft): ObjectEntity
     {
@@ -560,7 +571,9 @@ class SkillConsolidationService
         $dataset = $this->findLinkedDataset(skillId: $skillId);
         if ($dataset === null) {
             $data['noEvalEvidence'] = true;
-        } else {
+        }
+
+        if ($dataset !== null) {
             $evalOutcome = $this->runDraftEval(dataset: $dataset, skill: $skill, data: $data);
             if ($evalOutcome === null) {
                 // Eval engine unavailable / blocked / failed — evidence, not bypass:
@@ -1561,7 +1574,7 @@ class SkillConsolidationService
             // `- text <!-- promoted YYYY-MM-DD | runs: id1,id2 [| eval-fail: ref] -->`
             // (the promotion grammar). Undated bullets get a stable nil-date ref so a
             // hand-edited file still yields deterministic provenance keys.
-            $text    = $trimmed;
+            $text    = trim(substr($trimmed, 2));
             $date    = '0000-00-00';
             $runs    = [];
             $pattern = '/^- (.+?) <!-- promoted (\d{4}-\d{2}-\d{2}) \| runs: '
@@ -1570,8 +1583,6 @@ class SkillConsolidationService
                 $text = $matches[1];
                 $date = $matches[2];
                 $runs = array_values(array_filter(explode(',', $matches[3])));
-            } else {
-                $text = trim(substr($trimmed, 2));
             }
 
             if ($text === '') {

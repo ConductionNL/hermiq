@@ -61,10 +61,14 @@ use Throwable;
  * Computes budget status, gates dispatch on the hard cap, warns on the soft threshold,
  * and derives the pre-run cost estimate — all over OpenRegister `Budget` objects.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates several OR/Hermiq services.
- * @SuppressWarnings(PHPMD.ExcessiveClassLength)   One cohesive guardrail surface (status
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates several OR/Hermiq services.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     One cohesive guardrail surface (status
  *   computation, gate check, warning delivery, CRUD, estimate) intentionally kept in one
  *   service rather than split, mirroring TenantOpsService's single-surface shape.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Same single-surface trade-off: the
+ *   token/EUR dual-dimension checks and period windowing each add branches to one class.
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     The guardrail surface exposes status,
+ *   gate, warn, estimate AND Budget CRUD as separate public entry points by design.
  *
  * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
  */
@@ -308,6 +312,8 @@ class BudgetService
      * @SuppressWarnings(PHPMD.CyclomaticComplexity) Single-pass threshold evaluation
      *   across the token AND (optional) EUR dimensions; splitting would duplicate the
      *   period-window/usage computation.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same: the optional tokenLimit/eurLimit/
+     *   rate guards are independent, multiplying paths without adding real branching depth.
      *
      * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
      */
@@ -780,6 +786,10 @@ class BudgetService
      * @param string|null $agentId      Optional agent UUID.
      *
      * @return ObjectEntity|null The matching budget, or null when none is configured.
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) One linear filter loop whose guards
+     *   (entity type, organisation, agent-vs-organisation scope preference) are each a
+     *   single condition; extracting them would obscure the preference order.
      */
     private function findBudgetTenantScoped(string $organisation, ?string $agentId): ?ObjectEntity
     {

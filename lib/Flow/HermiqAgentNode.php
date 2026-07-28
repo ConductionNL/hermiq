@@ -42,6 +42,8 @@ use UnexpectedValueException;
 
 /**
  * Runs an agent turn as one step of an OpenRegister flow.
+ *
+ * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 class HermiqAgentNode implements IFlowNode
 {
@@ -73,6 +75,8 @@ class HermiqAgentNode implements IFlowNode
      * The step type.
      *
      * @return string The id.
+     *
+     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     public function getId(): string
     {
@@ -84,6 +88,8 @@ class HermiqAgentNode implements IFlowNode
      * Palette name.
      *
      * @return string The display name.
+     *
+     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     public function getDisplayName(): string
     {
@@ -95,6 +101,8 @@ class HermiqAgentNode implements IFlowNode
      * Palette description.
      *
      * @return string The description.
+     *
+     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     public function getDescription(): string
     {
@@ -106,6 +114,8 @@ class HermiqAgentNode implements IFlowNode
      * Palette icon.
      *
      * @return string The icon URL.
+     *
+     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     public function getIcon(): string
     {
@@ -119,6 +129,8 @@ class HermiqAgentNode implements IFlowNode
      * @param int $scope The scope constant.
      *
      * @return boolean Whether it is available.
+     *
+     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     public function isAvailableForScope(int $scope): bool
     {
@@ -134,6 +146,8 @@ class HermiqAgentNode implements IFlowNode
      * @return void
      *
      * @throws UnexpectedValueException When no agent is named.
+     *
+     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     public function validateConfig(array $config): void
     {
@@ -156,6 +170,8 @@ class HermiqAgentNode implements IFlowNode
      * @param array $context Run-level metadata (carries the triggering user).
      *
      * @return array The items, each with the agent's answer added.
+     *
+     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     public function execute(array $items, array $config, array $context): array
     {

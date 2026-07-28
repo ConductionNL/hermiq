@@ -56,6 +56,10 @@ use Throwable;
 /**
  * Resolves Context objects into a budgeted text preamble for the Engine's system prompt.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Every resolver (skills, object
+ *   queries, files) is a skip-and-log loop whose per-entry defensive guards each add a
+ *   branch; the class-wide sum crosses the threshold without any deep nesting.
+ *
  * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
  */
 class ContextAssembler
@@ -137,7 +141,7 @@ class ContextAssembler
      *
      * @var array<string, array<string, mixed>>|null
      */
-    private ?array $transientContentOverride = null;
+    private ?array $skillContentOverride = null;
 
     /**
      * Set (or clear, with null) the transient per-run skill content override.
@@ -155,7 +159,7 @@ class ContextAssembler
      */
     public function setTransientSkillContentOverride(?array $override): void
     {
-        $this->transientContentOverride = $override;
+        $this->skillContentOverride = $override;
 
     }//end setTransientSkillContentOverride()
 
@@ -232,6 +236,12 @@ class ContextAssembler
      *         test doubles or a future assembler swap; this implementation always
      *         returns both keys.
      *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) One skip-and-log loop: each per-skill
+     *   guard (string uuid, resolvable, found, active state, content override) is a
+     *   single flat condition preserving the never-fatal contract.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same: the guards are independent
+     *   skips, multiplying paths without nesting.
+     *
      * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
      */
     public function assembleSkillsForRun(?ObjectEntity $agent, ?array $skillSetOverride=null): array
@@ -293,7 +303,7 @@ class ContextAssembler
             // Skill-self-improvement: the paired draft-vs-active eval's draft half
             // swaps in the DRAFT's content in memory — the stored object above was
             // still consulted for existence and the marketplace state gate.
-            $override = ($this->transientContentOverride[(string) $skill->getUuid()] ?? null);
+            $override = ($this->skillContentOverride[(string) $skill->getUuid()] ?? null);
             if (is_array($override) === true) {
                 $name        = (string) ($override['name'] ?? $name);
                 $description = (string) ($override['description'] ?? $description);
@@ -379,6 +389,12 @@ class ContextAssembler
      *
      * @return array<int, string> One formatted block per resolved query.
      *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) One skip-and-log loop: each per-query
+     *   guard (array shape, register/schema present, optional filters/search, read
+     *   failure) is a single flat condition preserving the never-fatal contract.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same: independent skips multiply
+     *   paths without nesting.
+     *
      * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */
     private function resolveObjectQueries(mixed $queries): array
@@ -451,6 +467,12 @@ class ContextAssembler
      * @param string $actingUserId The acting user id.
      *
      * @return array<int, string> One formatted block per resolved file.
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) One skip-and-log loop: each per-file
+     *   guard (array shape, non-empty path, exists, is-a-file, size cap, read failure)
+     *   is a single flat condition preserving the never-fatal contract.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same: independent skips multiply
+     *   paths without nesting.
      *
      * @spec openspec/changes/agent-context-system/tasks.md#2-contextassembler
      */

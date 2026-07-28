@@ -126,6 +126,10 @@ class CredentialScopeResolver
      * @return string|null The resolved credential uuid, or null when neither a personal
      *                     nor an organisation match exists (fall back to instance).
      *
+     * @SuppressWarnings(PHPMD.UnusedFormalParameter) The personal-scope predicate closure
+     *   must keep `$_data`: `firstMatch()`'s callable contract is (ObjectEntity, array)
+     *   even when a predicate only inspects the entity.
+     *
      * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
      */
     public function resolve(string $provider, ?string $actingUserId, ?string $organisation): ?string
