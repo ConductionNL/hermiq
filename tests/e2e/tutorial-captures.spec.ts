@@ -82,6 +82,16 @@ test.describe('tutorial captures', () => {
 	// Part 1, TODO 2: Save as skill on an assistant chat message + pre-filled modal.
 	test('capture 2 — save-as-skill modal over the chat', async ({ page }) => {
 		await page.goto('/apps/hermiq/chat', { waitUntil: 'domcontentloaded' })
+		// The curated demo conversation is HAND-MADE state (needs a configured
+		// LLM provider to produce the assistant SKILL.md answer) — it is not
+		// seeded by any repair step. Skip loudly when absent (fresh/disposable
+		// instance) instead of timing out: same not-a-pass pattern as the
+		// hydra-console spec's precondition skips.
+		await page.getByText('Draft a meeting-notes skill').first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {})
+		test.skip(
+			await page.getByText('Draft a meeting-notes skill').count() === 0,
+			'PRECONDITION MISSING: the curated "Draft a meeting-notes skill" demo conversation does not exist on this instance (requires an LLM provider + manual authoring). Not a pass.',
+		)
 		await page.getByText('Draft a meeting-notes skill').first().click()
 		await expect(page.getByText('meeting-notes-to-decisions').first()).toBeVisible({ timeout: 30_000 })
 		await page.getByRole('button', { name: 'Save as skill' }).first().click()
@@ -112,6 +122,14 @@ test.describe('tutorial captures', () => {
 		await page.goto('/apps/hermiq/evals', { waitUntil: 'domcontentloaded' })
 		await page.getByText('woo-triage-paired-eval').first().click()
 		await expect(page.getByText('Linked skills').first()).toBeVisible({ timeout: 30_000 })
+		// A COMPLETED paired run is curated state — executing one needs a
+		// configured LLM provider, which a fresh/disposable instance lacks.
+		// Skip loudly instead of timing out (not-a-pass precondition pattern).
+		await page.getByRole('button', { name: 'Details' }).first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {})
+		test.skip(
+			await page.getByRole('button', { name: 'Details' }).count() === 0,
+			'PRECONDITION MISSING: no completed paired eval run exists on this instance (requires an LLM provider to execute one). Not a pass.',
+		)
 		await page.getByRole('button', { name: 'Details' }).first().click()
 		await expect(page.getByText('Baseline delta').first()).toBeVisible()
 		await expect(page.getByText('With skill').first()).toBeVisible()
