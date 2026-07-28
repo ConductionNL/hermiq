@@ -41,6 +41,7 @@ use OCA\Hermiq\Service\Talk\TalkBridge;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\EventDispatcher\Event;
 use OCP\EventDispatcher\IEventListener;
 use Psr\Log\LoggerInterface;
@@ -132,25 +133,148 @@ class TalkBotInvokeListener implements IEventListener
      */
     private function handleInvocation(Event $event): void
     {
-        // Not our bot, or a spreed too old to carry this event shape.
+        $payload = $this->readPayload(event: $event);
+        if ($payload === null) {
+            return;
+        }
+
+        $turn = $this->readTurn(payload: $payload);
+        if ($turn === null) {
+            return;
+        }
+
+        $agentId = $this->agentBinding->agentForRoom(roomToken: $turn['roomToken']);
+        if ($agentId === null) {
+            // No opted-in agent is bound to this room — both opt-ins are
+            // required, so this is the default state and not an error.
+            return;
+        }
+
+        if ($this->isAddressed(payload: $payload, roomToken: $turn['roomToken']) === false) {
+            return;
+        }
+
+        $conversation = $this->resolveConversation(
+            roomToken: $turn['roomToken'],
+            agentId: $agentId,
+            speakerUid: $turn['speakerUid']
+        );
+        if ($conversation === null) {
+            return;
+        }
+
+        if ($this->admitAndAcknowledge(event: $event, conversation: $conversation, turn: $turn) === false) {
+            return;
+        }
+
+        $path = $this->dispatcher->dispatch(
+            conversationUuid: (string) $conversation->getUuid(),
+            speakerUid: $turn['speakerUid'],
+            message: $turn['content'],
+            roomToken: $turn['roomToken']
+        );
+
+        $this->logger->info(
+            message: '[TalkBotInvokeListener] Talk turn handed off',
+            context: [
+                'file'         => __FILE__,
+                'line'         => __LINE__,
+                'roomToken'    => $turn['roomToken'],
+                'conversation' => (string) $conversation->getUuid(),
+                'speaker'      => $turn['speakerUid'],
+                'path'         => $path,
+            ]
+        );
+
+    }//end handleInvocation()
+
+    /**
+     * Admit the speaker and acknowledge receipt, or refuse the turn.
+     *
+     * The participant check is enforced here as well as in the engine: a room
+     * member who is not on the roster of the conversation bound to that room
+     * does not get to take a turn on it.
+     *
+     * @param Event        $event        The spreed BotInvokeEvent.
+     * @param ObjectEntity $conversation The bound conversation.
+     * @param array        $turn         The read turn (room, speaker, content).
+     *
+     * @return bool True when the turn may proceed.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+     */
+    private function admitAndAcknowledge(Event $event, ObjectEntity $conversation, array $turn): bool
+    {
+        if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $turn['speakerUid']) === false) {
+            $this->logger->info(
+                message: '[TalkBotInvokeListener] Speaker is not a participant of the bound conversation — refusing the turn',
+                context: [
+                    'file'         => __FILE__,
+                    'line'         => __LINE__,
+                    'roomToken'    => $turn['roomToken'],
+                    'conversation' => (string) $conversation->getUuid(),
+                ]
+            );
+            return false;
+        }
+
+        // Acknowledge INSIDE this request — the one prompt signal the user gets.
+        if (method_exists($event, 'addReaction') === true) {
+            $event->addReaction(self::ACK_REACTION);
+        }
+
+        return true;
+
+    }//end admitAndAcknowledge()
+
+    /**
+     * Read the invocation payload, or null when this event is not our turn.
+     *
+     * Guards on `method_exists` rather than a type check because the event is a
+     * third-party shape from an OPTIONAL app — a spreed too old to carry it must
+     * degrade to "no turn", never to a fatal inside someone's message send. The
+     * guard and the call live together deliberately: split apart, static
+     * analysis cannot see that the method is checked before it is used.
+     *
+     * @param Event $event The spreed BotInvokeEvent.
+     *
+     * @return array|null The actionable payload, or null.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-listener-registration-is-unconditional-and-availability-is-probed-at-invoke-time
+     */
+    private function readPayload(Event $event): ?array
+    {
         if (method_exists($event, 'getBotUrl') === false || $event->getBotUrl() !== TalkBridge::BOT_URL) {
-            return;
+            return null;
         }
 
-        if ($this->bridge->isAvailable() === false) {
-            return;
-        }
-
-        if (method_exists($event, 'getMessage') === false) {
-            return;
+        if (method_exists($event, 'getMessage') === false || $this->bridge->isAvailable() === false) {
+            return null;
         }
 
         $payload = $event->getMessage();
+
+        // Joins, leaves, reactions and system messages are not turns.
         if (is_array($payload) === false || ($payload['type'] ?? null) !== 'Create') {
-            // Joins, leaves, reactions and system messages are not turns.
-            return;
+            return null;
         }
 
+        return $payload;
+
+    }//end readPayload()
+
+    /**
+     * Read the room, speaker and text out of an invocation payload.
+     *
+     * @param array $payload The ActivityPub-shaped invocation payload.
+     *
+     * @return array{roomToken: string, speakerUid: string, content: string}|null
+     *         The turn, or null when the payload is not actionable.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+     */
+    private function readTurn(array $payload): ?array
+    {
         $roomToken  = (string) ($payload['target']['id'] ?? '');
         $speakerUid = (string) ($payload['actor']['id'] ?? '');
         $content    = $this->plainText(raw: (string) ($payload['object']['content'] ?? ''));
@@ -161,83 +285,53 @@ class TalkBotInvokeListener implements IEventListener
         }
 
         if ($roomToken === '' || $speakerUid === '' || trim($content) === '') {
-            return;
+            return null;
         }
 
-        $agentId = $this->agentBinding->agentForRoom(roomToken: $roomToken);
-        if ($agentId === null) {
-            // No opted-in agent is bound to this room — both opt-ins are
-            // required, so this is the default state and not an error.
-            return;
-        }
+        return [
+            'roomToken'  => $roomToken,
+            'speakerUid' => $speakerUid,
+            'content'    => $content,
+        ];
 
-        if ($this->isAddressed(payload: $payload, roomToken: $roomToken) === false) {
-            return;
-        }
+    }//end readTurn()
 
+    /**
+     * Resolve the conversation bound to the room, opening one on first contact.
+     *
+     * @param string $roomToken  The Talk room token.
+     * @param string $agentId    The opted-in agent bound to the room.
+     * @param string $speakerUid The uid opening the session, when new.
+     *
+     * @return ObjectEntity|null The bound conversation, or null when unavailable.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+     */
+    private function resolveConversation(string $roomToken, string $agentId, string $speakerUid): ?ObjectEntity
+    {
         $conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);
-        if ($conversation === null) {
-            $conversation = $this->roomBinding->createBound(
-                roomToken: $roomToken,
-                agentId: $agentId,
-                ownerUid: $speakerUid,
-                participants: $this->bridge->roomUserIds(roomToken: $roomToken)
-            );
-
-            // Newly bound: file the room under each participant's own Hermiq
-            // tag so agent rooms stop competing with their human conversations
-            // (talk-room-grouping). Cosmetic and best-effort — it can never
-            // fail the bind or the turn.
-            if ($conversation !== null) {
-                $this->grouping->groupRoom(roomToken: $roomToken);
-            }
+        if ($conversation !== null) {
+            return $conversation;
         }
 
-        if ($conversation === null) {
-            return;
-        }
-
-        // Owner-or-participant, enforced here as well as in the engine. A room
-        // member who is not on the roster of a conversation bound to that room
-        // does not get to take a turn on it.
-        if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $speakerUid) === false) {
-            $this->logger->info(
-                message: '[TalkBotInvokeListener] Speaker is not a participant of the bound conversation — refusing the turn',
-                context: [
-                    'file'         => __FILE__,
-                    'line'         => __LINE__,
-                    'roomToken'    => $roomToken,
-                    'conversation' => (string) $conversation->getUuid(),
-                ]
-            );
-            return;
-        }
-
-        // Acknowledge INSIDE this request — the one prompt signal the user gets.
-        if (method_exists($event, 'addReaction') === true) {
-            $event->addReaction(self::ACK_REACTION);
-        }
-
-        $path = $this->dispatcher->dispatch(
-            conversationUuid: (string) $conversation->getUuid(),
-            speakerUid: $speakerUid,
-            message: $content,
-            roomToken: $roomToken
+        $conversation = $this->roomBinding->createBound(
+            roomToken: $roomToken,
+            agentId: $agentId,
+            ownerUid: $speakerUid,
+            participants: $this->bridge->roomUserIds(roomToken: $roomToken)
         );
 
-        $this->logger->info(
-            message: '[TalkBotInvokeListener] Talk turn handed off',
-            context: [
-                'file'         => __FILE__,
-                'line'         => __LINE__,
-                'roomToken'    => $roomToken,
-                'conversation' => (string) $conversation->getUuid(),
-                'speaker'      => $speakerUid,
-                'path'         => $path,
-            ]
-        );
+        // Newly bound: file the room under each participant's own Hermiq tag so
+        // agent rooms stop competing with their human conversations
+        // (talk-room-grouping). Cosmetic and best-effort — it can never fail the
+        // bind or the turn.
+        if ($conversation !== null) {
+            $this->grouping->groupRoom(roomToken: $roomToken);
+        }
 
-    }//end handleInvocation()
+        return $conversation;
+
+    }//end resolveConversation()
 
     /**
      * Extract the human-readable text from a bot invocation's `object.content`.
@@ -278,12 +372,27 @@ class TalkBotInvokeListener implements IEventListener
             return $raw;
         }
 
-        $text       = (string) $decoded['message'];
         $parameters = ($decoded['parameters'] ?? []);
         if (is_array($parameters) === false) {
-            return $text;
+            return (string) $decoded['message'];
         }
 
+        return $this->substituteParameters(text: (string) $decoded['message'], parameters: $parameters);
+
+    }//end plainText()
+
+    /**
+     * Replace `{mention-user1}`-style placeholders with their display names.
+     *
+     * @param string $text       The message text carrying placeholders.
+     * @param array  $parameters The invocation payload's parameter map.
+     *
+     * @return string The text with placeholders substituted.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+     */
+    private function substituteParameters(string $text, array $parameters): string
+    {
         foreach ($parameters as $key => $parameter) {
             if (is_array($parameter) === false) {
                 continue;
@@ -297,7 +406,7 @@ class TalkBotInvokeListener implements IEventListener
 
         return $text;
 
-    }//end plainText()
+    }//end substituteParameters()
 
     /**
      * Whether the agent is being addressed by this message.

@@ -2525,10 +2525,9 @@ class ScheduleService
         // Remember which conversation this run produced so a Talk-room delivery
         // can bind it and become repliable. A dry run's scratch conversation is
         // deleted at the end of the run, so it is deliberately never bound.
-        $this->lastRunConversationUuid = '';
-        if ($dryRun === false) {
-            $this->lastRunConversationUuid = (string) $conversation->getUuid();
-        }
+        // A dry run's scratch conversation is deleted at the end of the run, so
+        // it is deliberately never bound to a room.
+        $this->lastRunConversationUuid = $this->bindableConversationUuid(conversation: $conversation, dryRun: $dryRun);
 
         // Run-trace-observability: the in-app Engine path is the ONLY path Hermiq
         // instruments fine-grained tool-call steps on (agent-engine-port ownership
@@ -2722,6 +2721,26 @@ class ScheduleService
         );
 
     }//end deliver()
+
+    /**
+     * The conversation uuid a Talk-room delivery may bind to, or empty.
+     *
+     * @param ObjectEntity $conversation The conversation this run produced.
+     * @param bool         $dryRun       Whether this run is a dry-run preview.
+     *
+     * @return string The uuid, or '' when the conversation must not be bound.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+     */
+    private function bindableConversationUuid(ObjectEntity $conversation, bool $dryRun): string
+    {
+        if ($dryRun === true) {
+            return '';
+        }
+
+        return (string) $conversation->getUuid();
+
+    }//end bindableConversationUuid()
 
     /**
      * Append a `delivery` step onto `$this->lastRunSteps` (run-trace-observability),

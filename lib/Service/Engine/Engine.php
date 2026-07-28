@@ -161,6 +161,9 @@ class Engine
      * @spec openspec/changes/agent-context-system/tasks.md#3-engine-wiring
      * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-3-wire-input-output-filters-into-engine-processmessage
      * @spec openspec/specs/agent-engine-port/spec.md
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct collaborator, not a logic-bearing argument list.
      */
     public function __construct(
         private readonly ObjectService $objectService,

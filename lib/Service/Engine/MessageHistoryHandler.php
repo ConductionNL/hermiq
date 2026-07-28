@@ -183,6 +183,40 @@ class MessageHistoryHandler
     }//end buildMessageHistory()
 
     /**
+     * Attach authorship to a message payload, for human turns only.
+     *
+     * Authorship is a property of HUMAN turns. The schema cannot bind these
+     * fields to `role` — the OpenRegister importer rejects conditional blocks —
+     * so the constraint is upheld here, at the single writer.
+     *
+     * @param array       $payload           The message payload being built.
+     * @param string      $role              The message role.
+     * @param string|null $authorId          The human author's uid, if any.
+     * @param string|null $authorDisplayName The author's display name at send time.
+     *
+     * @return array The payload, with authorship attached where applicable.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+     */
+    private function withAuthorship(array $payload, string $role, ?string $authorId, ?string $authorDisplayName): array
+    {
+        if ($role !== 'user') {
+            return $payload;
+        }
+
+        if ($authorId !== null && $authorId !== '') {
+            $payload['authorId'] = $authorId;
+        }
+
+        if ($authorDisplayName !== null && $authorDisplayName !== '') {
+            $payload['authorDisplayName'] = $authorDisplayName;
+        }
+
+        return $payload;
+
+    }//end withAuthorship()
+
+    /**
      * Whether the given messages carry human turns from more than one author.
      *
      * Used to decide if speaker labelling is warranted: in the overwhelmingly
@@ -287,18 +321,12 @@ class MessageHistoryHandler
             $payload['context'] = $context;
         }
 
-        // Authorship is a property of HUMAN turns only. The schema cannot bind
-        // these to `role` (the OpenRegister importer rejects conditional
-        // blocks), so the constraint is upheld here, at the single writer.
-        if ($role === 'user') {
-            if ($authorId !== null && $authorId !== '') {
-                $payload['authorId'] = $authorId;
-            }
-
-            if ($authorDisplayName !== null && $authorDisplayName !== '') {
-                $payload['authorDisplayName'] = $authorDisplayName;
-            }
-        }
+        $payload = $this->withAuthorship(
+            payload: $payload,
+            role: $role,
+            authorId: $authorId,
+            authorDisplayName: $authorDisplayName
+        );
 
         $stored = $this->objectService->saveObject(
             object: $this->sanitizeForSave(data: $payload),

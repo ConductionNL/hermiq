@@ -224,9 +224,8 @@ class TalkAgentBinding
         }
 
         $map = $this->roomAgentMap();
-        if ($agentId === '') {
-            unset($map[$roomToken]);
-        } else {
+        unset($map[$roomToken]);
+        if ($agentId !== '') {
             $map[$roomToken] = $agentId;
         }
 
