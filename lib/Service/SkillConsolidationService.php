@@ -610,7 +610,7 @@ class SkillConsolidationService
                 'transition'     => self::STATUS_AWAITING_APPROVAL,
                 'actor'          => $this->actorId(),
                 'scanVerdict'    => $verdict,
-                'noEvalEvidence' => (bool) ($data['noEvalEvidence'] ?? false),
+                'noEvalEvidence' => (bool) $data['noEvalEvidence'],
             ]
         );
 

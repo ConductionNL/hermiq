@@ -177,6 +177,8 @@ export default {
 		 * Drop from the sidebar palette onto the canvas at the drop point.
 		 *
 		 * @param {object} payload `{x, y}` in canvas space.
+		 * @param {number} payload.x Drop x-coordinate in canvas space.
+		 * @param {number} payload.y Drop y-coordinate in canvas space.
 		 * @return {void}
 		 */
 		onCanvasDrop({ x, y }) {

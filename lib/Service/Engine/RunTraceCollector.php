@@ -67,8 +67,11 @@ class RunTraceCollector
     /**
      * Completed steps, in COMPLETION (endStep call) order — see class docblock.
      *
+     * The shape is unsealed (`...<string, mixed>`): endStep() merges caller-supplied
+     * `$extra` keys (e.g. tool call metadata) alongside the fixed timeline keys.
+     *
      * @var array<int, array{seq: int, type: string, name: string, startedAt: string,
-     *     endedAt: string, durationMs: int, outcome: string}>
+     *     endedAt: string, durationMs: int, outcome: string, ...<string, mixed>}>
      */
     private array $steps = [];
 
@@ -169,7 +172,7 @@ class RunTraceCollector
      * Return every recorded step, in completion order (see class docblock).
      *
      * @return array<int, array{seq: int, type: string, name: string, startedAt: string,
-     *     endedAt: string, durationMs: int, outcome: string}>
+     *     endedAt: string, durationMs: int, outcome: string, ...<string, mixed>}>
      *
      * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
      */

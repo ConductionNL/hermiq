@@ -320,7 +320,7 @@ class SkillVersionController extends Controller
                 'transition' => 'republish',
                 'owner'      => $owner,
                 'repo'       => $repo,
-                'commitSha'  => (string) ($result['commitSha'] ?? ''),
+                'commitSha'  => $result['commitSha'],
             ]
         );
 

@@ -262,7 +262,10 @@ class SkillVersionService
      * Never fatal: an unresolvable skill is simply absent from the map (the audit
      * entry is written without that pin, the run unaffected).
      *
-     * @param array<int, string> $skillUuids The exercised skill UUIDs.
+     * @param array<int, mixed> $skillUuids The exercised skill UUIDs. Deliberately
+     *                                      typed loose: entries come from stored
+     *                                      run metadata, so non-string or empty
+     *                                      junk is filtered here (never fatal).
      *
      * @return array<string, string> Map of skill UUID → version id (AuditTrail
      *         entry UUID); unresolvable skills omitted.

@@ -43,8 +43,6 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\EvalRunService;
-use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
-use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
@@ -191,10 +189,10 @@ class EvalRunController extends Controller
             );
         } catch (\InvalidArgumentException $e) {
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
-        } catch (ModelPolicyViolationException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 422);
-        } catch (ProviderUnavailableException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 503);
+            // NOTE: no ModelPolicyViolationException / ProviderUnavailableException
+            // catches here — EvalRunService::run() swallows per-case engine failures
+            // (each failed case is recorded as a failed case, never rethrown), so
+            // those exceptions cannot escape it (phpstan dead-catch).
         } catch (Throwable $e) {
             $this->logger->error('Hermiq eval run failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(

@@ -137,7 +137,7 @@ class CredentialScopeResolver
                 candidates: $candidates,
                 provider: $provider,
                 scope: self::SCOPE_PERSONAL,
-                predicate: static fn (ObjectEntity $candidate, array $data): bool => $candidate->getOwner() === $actingUserId
+                predicate: static fn (ObjectEntity $candidate, array $_data): bool => $candidate->getOwner() === $actingUserId
             );
 
             if ($personal !== null) {

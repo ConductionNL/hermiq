@@ -224,10 +224,13 @@ class ContextAssembler
      *                                                  the agent's stored installs
      *                                                  (every non-eval caller).
      *
-     * @return array{text: string, skillsUsed: array<int, string>} The assembled skill
+     * @return array{text?: string, skillsUsed?: array<int, string>} The assembled skill
      *         block ('' when nothing is exposed) and the uuids actually exposed —
      *         recorded on the run's audit entry as `skillsUsed` for ALL runs
-     *         (consumed later by skill-learnings).
+     *         (consumed later by skill-learnings). Keys are declared optional so
+     *         the consuming seam (Engine) may defend against partial bundles from
+     *         test doubles or a future assembler swap; this implementation always
+     *         returns both keys.
      *
      * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
      */

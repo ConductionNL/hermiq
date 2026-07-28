@@ -308,9 +308,6 @@ class Engine
             $skillBundle = $this->contextAssembler->assembleSkillsForRun(agent: $agent, skillSetOverride: $skillSetOverride);
             $skillText   = (string) ($skillBundle['text'] ?? '');
             $skillsUsed  = ($skillBundle['skillsUsed'] ?? []);
-            if (is_array($skillsUsed) === false) {
-                $skillsUsed = [];
-            }
 
             if ($skillText !== '') {
                 $contextPreamble = ltrim($contextPreamble."\n\n".$skillText, "\n");

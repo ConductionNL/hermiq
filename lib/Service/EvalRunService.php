@@ -1460,7 +1460,9 @@ class EvalRunService
         $evalRunUuid = (string) $evalRun->getUuid();
 
         foreach ($results as $result) {
-            if (is_array($result) === false || ($result['passed'] ?? null) !== false) {
+            // Entries are built in-process by executeCase(), so the shape is
+            // guaranteed — only the pass/fail verdict needs checking.
+            if (($result['passed'] ?? null) !== false) {
                 continue;
             }
 

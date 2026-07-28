@@ -1618,8 +1618,8 @@ class ScheduleService
      *                                            pre-existing caller) reads `$data['prompt']` instead — the
      *                                            prompt that WAS actually used for a real run/direct dry-run.
      *
-     * @return string|null The newly-written entry's UUID, or null when the write failed
-     *                      (never fatal — see below).
+     * @return void The write is fire-and-forget: no caller consumes an entry
+     *              UUID, and a failed write is never fatal — see below.
      *
      * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
      * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
@@ -1635,7 +1635,7 @@ class ScheduleService
         bool $dryRun=false,
         ?string $replayOf=null,
         ?string $promptOverride=null
-    ): ?string {
+    ): void {
         try {
             $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
             $agentId = (string) ($data['agentId'] ?? '');
@@ -1691,7 +1691,7 @@ class ScheduleService
                 'replayOf'           => $replayOf,
             ];
 
-            $entry = $this->auditTrailMapper->createAuditTrailEntry(
+            $this->auditTrailMapper->createAuditTrailEntry(
                 object: $schedule,
                 action: 'run',
                 context: $context
@@ -1705,8 +1705,6 @@ class ScheduleService
             if ($dryRun === false && $this->lastRunSkillsUsed !== [] && $this->lastRunId !== '') {
                 $this->enqueueLearningsCapture(schedule: $schedule, agentId: $agentId);
             }
-
-            return (string) ($entry->getUuid() ?? '');
         } catch (Throwable $e) {
             $this->logger->warning(
                 sprintf(
@@ -1716,8 +1714,6 @@ class ScheduleService
                 ),
                 ['exception' => $e]
             );
-
-            return null;
         }//end try
 
     }//end writeRunAudit()
