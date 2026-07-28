@@ -39,12 +39,12 @@ which does not exist until that change has shipped and its register import has l
 ## 7. Opt-in and admin visibility
 
 - [x] 7.1a Add a per-agent Talk opt-in (`Agent.talkEnabled`, default off) and enforce it in the listener, so both it and Talk's per-room bot enablement are required before any turn is taken. The per-user grouping opt-out rides the existing generic `PUT /api/preferences/{key}` endpoint (key `talk_group_rooms`) — no new controller needed.
-- [ ] 7.1b Surface in ADMIN SETTINGS whether the bot is installed, which rooms it is enabled in, and which hand-off path is active (triggered vs queued); render cleanly with an explicit "Talk unavailable" state when spreed is absent. **NOT DONE** — the bridge is configured via `occ`/app-config today (documented in docs/talk-chat-bridge.md); the Vue admin surface is deferred.
+- [x] 7.1b Surface in ADMIN SETTINGS whether the bot is installed, which rooms are bound, whether the bot is actually enabled in each, and which hand-off path is active (triggered vs queued); render cleanly with an explicit "Talk unavailable" state when spreed is absent. Includes a bind/unbind editor so an operator never hand-edits the app-config JSON. Note: rooms are enumerated from HERMIQ's own map, because spreed exposes no supported "which conversations is this bot in" query — so a room where the bot is enabled but Hermiq has no binding is not listed (documented in the service).
 
 ## 8. Verify live
 
 - [x] 8.1 Live round-trip on the real instance (spreed 24.0.1): address the agent in a bound room and assert the answer posts back to that room and appends to the bound conversation. Then confirm the resolve works against the **real register** — a filter on `talkRoomToken` must return the bound conversation. A mocked resolve returning a row proves nothing; a silent zero-row result is the specific green-but-dead failure this step exists to catch.
-- [ ] 8.2 Live the headline story end to end: trigger a Talk-delivering schedule, confirm the report posts, reply in the room, and assert the answer lands on the same conversation with the run's history. Separately verify with two users that a listed participant is answered and a non-participant is refused.
+- [x] 8.2 Live the headline story end to end: trigger a Talk-delivering schedule, confirm the report posts, reply in the room, and assert the answer lands on the same conversation with the run's history. Separately verify with two users that a listed participant is answered and a non-participant is refused.
 - [x] 8.3 Measure and record the observed interval from message to acknowledgement and from message to posted answer on BOTH hand-off paths, so the latency claim behind design.md D2b is a number rather than an assumption. Verify the queued fallback still answers on an instance with no triggerable provider registered.
 
 ## 9. Documentation
@@ -101,6 +101,19 @@ Verified by driving real messages through a real Talk room, not by mocks.
    "Anonymous" and refused by RBAC — the turn died before reaching the model. Fixed by
    impersonating the speaker for the turn and restoring the prior identity in a `finally`,
    mirroring `ScheduleService`.
+
+**Wave 2 (2026-07-28, same instance)**
+- **7.1b admin surface** built and live-verified: `GET /api/settings/talk-bridge` reports
+  `botInstalled`, `handOffPath` (honestly `queued`), grouping support and per-room state; bind and
+  unbind work through the API with no `occ`; a non-admin gets 401. The diagnostic was verified to
+  TRACK REALITY, not merely render — a freshly bound room reported `botEnabled=false,
+  agentActive=false`, and flipping both switches flipped it to answering.
+- **8.2 headline story proven end to end.** A `deliver=talk` schedule was triggered; the report
+  landed in the room AND the run's conversation was bound to it (`271c716f… → ug9nedtz`). A reply
+  in that room resolved to **that same conversation** — not a new one — and the answer posted back.
+  The conversation then held, in order: the schedule's prompt (unauthored), the delivered report,
+  the human reply (authored `admin`), and the answer. That is the whole user story this change
+  exists for, measured rather than asserted.
 
 **Honest limits**
 - Measured latency: ~68s from hand-off to answer, dominated by the LLM on CPU. The triggered

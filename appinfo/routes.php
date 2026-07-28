@@ -35,6 +35,9 @@ return [
         // Admin web-research backend configuration (web-research-tool): the pluggable
         // search endpoint/provider shape, the web.fetch allowlist/denylist, and the
         // egress-governance caps (insecure-HTTP opt-in, size cap, timeout).
+        // @spec openspec/changes/talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
+        ['name' => 'Settings\TalkBridgeSettings#get',       'url' => '/api/settings/talk-bridge',      'verb' => 'GET'],
+        ['name' => 'Settings\TalkBridgeSettings#bindRoom',  'url' => '/api/settings/talk-bridge/room', 'verb' => 'PUT'],
         ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
         ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
 
