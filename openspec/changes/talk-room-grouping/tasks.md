@@ -28,9 +28,9 @@ Depends on `talk-chat-bridge` — grouping hooks the bind moment that change int
 
 ## 6. Verify live
 
-- [ ] 6.1 **NOT LIVE-VERIFIED.** Live on the real instance (spreed 24.0.1): bind a two-participant agent room and assert both users see it under a Hermiq tag; bind a second room for the same user and assert exactly one tag exists.
-- [ ] 6.2 **NOT LIVE-VERIFIED.** Live-verify the destructive case does NOT happen: pre-assign a user's own tag to a room, trigger the bind, and assert both tags remain assigned afterwards.
-- [ ] 6.3 **NOT LIVE-VERIFIED.** Live-verify the opt-out: disable the preference, bind, and assert no tag is created or assigned for that user; confirm previously assigned rooms keep their tag.
+- [x] 6.1 Live on the real instance (spreed 24.0.1): bind a two-participant agent room and assert both users see it under a Hermiq tag; bind a second room for the same user and assert exactly one tag exists.
+- [x] 6.2 Live-verify the destructive case does NOT happen: pre-assign a user's own tag to a room, trigger the bind, and assert both tags remain assigned afterwards.
+- [x] 6.3 Live-verify the opt-out: disable the preference, bind, and assert no tag is created or assigned for that user; confirm previously assigned rooms keep their tag.
 
 ## 7. Documentation
 
@@ -55,13 +55,23 @@ Depends on `talk-chat-bridge` — grouping hooks the bind moment that change int
 - Do not use sed/awk/scripts to modify code — use the Edit tool.
 - Grouping is cosmetic. If it ever ends up in the failure path of chat, the wiring is wrong.
 
-## Status (2026-07-28)
+## Verification record (2026-07-28, live on NC 34 + spreed 24.0.1)
 
-Implemented and wired into the bind path; unit-level behaviour and the spreed API surface were
-verified against spreed 24.0.1 source (`ConversationTagService::createTag/getTags`,
-`ParticipantService::assignConversationToTags`, `oc_talk_attendees.tag_ids`).
+Verified with two real users (`admin`, `ddverify-a`) sharing an agent room.
 
-**The live checks in §6 were NOT run.** They need two real users sharing an agent room, one of
-them with a pre-existing personal tag on it, and that setup was not built. The read-modify-write
-in §3.1 is the risky part — a blind write destroys the user's own tags — so it is the thing most
-deserving of the live check that has not happened yet.
+- **Both participants grouped, each in their OWN tag.** After the bind, `admin` and `ddverify-a`
+  each held a distinct `Hermiq` tag id — confirming tags are per-user and there is no shared tag.
+  `ddverify-a` never interacted with the room; grouping still filed it for them.
+- **The destructive case does NOT happen (§3.1, the risky one).** `admin` was given a personal
+  tag `MyImportantStuff` on the room BEFORE the bind. Afterwards their `tag_ids` held BOTH ids —
+  the read-modify-write preserved it. A blind write would have left only Hermiq's id and silently
+  destroyed a tag Hermiq does not own.
+- **Opt-out honoured.** With `talk_group_rooms=no` for `ddverify-a`, a fresh bound room produced
+  `(none)` for them while `admin` was still filed — and `ddverify-a`'s assignment on the earlier
+  room was left in place, as specified.
+
+**Operational note (not a defect):** the first attempt on the opt-out room no-op'd because the
+message was sent immediately after `occ config:app:set hermiq talk_room_agents` — the running
+process had not picked up the new room→agent map yet. The identical config bound correctly
+seconds later. Worth knowing when scripting a room binding: allow for app-config propagation
+before expecting the first message to take.
