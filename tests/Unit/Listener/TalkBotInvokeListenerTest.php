@@ -201,17 +201,22 @@ class TalkBotInvokeListenerTest extends TestCase
     }//end makeEvent()
 
     /**
-     * A conversation entity stub with the given payload.
+     * A conversation entity carrying the given payload.
+     *
+     * Built as a REAL ObjectEntity rather than a mock: OpenRegister entities
+     * expose their getters through `Entity::__call`, so `getUuid()`/`getObject()`
+     * are not real methods and PHPUnit refuses to configure them. That only
+     * shows up against the real OpenRegister (CI), not against the local stub.
      *
      * @param array $data The conversation payload.
      *
-     * @return ObjectEntity&MockObject The stub.
+     * @return ObjectEntity The entity.
      */
-    private function makeConversation(array $data)
+    private function makeConversation(array $data): ObjectEntity
     {
-        $conversation = $this->createMock(ObjectEntity::class);
-        $conversation->method('getObject')->willReturn($data);
-        $conversation->method('getUuid')->willReturn('conv-1');
+        $conversation = new ObjectEntity();
+        $conversation->setUuid('conv-1');
+        $conversation->setObject($data);
 
         return $conversation;
 

@@ -76,16 +76,19 @@ class EngineParticipantGuardTest extends TestCase
     {
         parent::setUp();
 
-        $conversation = $this->createMock(ObjectEntity::class);
-        $conversation->method('getObject')->willReturnCallback(
-            function (): array {
-                return $this->conversationData;
+        // A REAL ObjectEntity, not a mock: OpenRegister entities expose getters
+        // via `Entity::__call`, so PHPUnit cannot configure getObject()/getUuid()
+        // against the real class — a failure that only appears in CI.
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturnCallback(
+            function (): ObjectEntity {
+                $conversation = new ObjectEntity();
+                $conversation->setUuid('conv-1');
+                $conversation->setObject($this->conversationData);
+
+                return $conversation;
             }
         );
-        $conversation->method('getUuid')->willReturn('conv-1');
-
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('find')->willReturn($conversation);
 
         $this->historyHandler = $this->createMock(MessageHistoryHandler::class);
 
