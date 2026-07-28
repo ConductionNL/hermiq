@@ -120,7 +120,8 @@ class GuardrailPolicyServiceTest extends TestCase
                 mixed $register=null,
                 mixed $schema=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $_render=true
             ): ?ObjectEntity {
                 foreach ($this->policies as $policy) {
                     if ((string) $policy->getUuid() === (string) $id) {
@@ -138,7 +139,10 @@ class GuardrailPolicyServiceTest extends TestCase
                 mixed $schema=null,
                 ?string $uuid=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $silent=false,
+                ?array $uploadedFiles=null,
+                ?\OCP\IUser $currentUser=null
             ): ObjectEntity {
                 $data         = is_array($object) ? $object : $object->getObject();
                 $self         = (array) ($data['@self'] ?? []);

@@ -155,6 +155,12 @@ class FlowAgentRunService
      *
      * @return bool Whether the agent run executed.
      *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Gate-by-gate dispatch mirrors
+     *   ScheduleService::dispatch()'s spec-mandated gate order in one linear method.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Each branch is one oversight gate
+     *   (subject identity, kill-switch, budget, approval) — the spec's own decision
+     *   points, kept together so the ordering stays auditable.
+     *
      * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
      */
     private function dispatch(array $payload, bool $bypassApprovalGate): bool

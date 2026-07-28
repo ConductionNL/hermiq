@@ -45,6 +45,10 @@ use OCA\OpenRegister\Service\ObjectService;
 /**
  * Computes and persists the L1–L7 maturity level + per-level scorecard for a Skill.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The scorecard is seven per-level
+ *   checkers (checkL1–checkL7) plus small content heuristics; each method is
+ *   individually simple, but the level ladder legitimately sums up.
+ *
  * @spec openspec/specs/skill-maturity/spec.md#requirement-skillmaturityservice-computes-l1-l3-mechanically-from-skill-content
  */
 class SkillMaturityService
@@ -302,20 +306,20 @@ class SkillMaturityService
      */
     public function preserveComputedFields(array $incoming, array $stored): array
     {
+        // A hand-set value never survives: drop the client's, then restore the stored one.
+        unset($incoming['maturityLevel']);
         if (array_key_exists('maturityLevel', $stored) === true) {
             $incoming['maturityLevel'] = $stored['maturityLevel'];
-        } else {
-            unset($incoming['maturityLevel']);
         }
 
         $storedEvidence   = $this->evidenceOf(data: $stored);
         $incomingEvidence = $this->evidenceOf(data: $incoming);
 
         foreach (['l1', 'l2', 'l3', 'l4', 'l6'] as $key) {
+            // Same mechanic per guarded evidence key: client value out, stored value back.
+            unset($incomingEvidence[$key]);
             if (array_key_exists($key, $storedEvidence) === true) {
                 $incomingEvidence[$key] = $storedEvidence[$key];
-            } else {
-                unset($incomingEvidence[$key]);
             }
         }
 
@@ -392,16 +396,18 @@ class SkillMaturityService
         $reasons     = [];
         $frontmatter = $this->stringOf(value: ($data['frontmatter'] ?? ''));
 
-        if (trim($frontmatter) === '') {
+        $hasFrontmatter = (trim($frontmatter) !== '');
+        if ($hasFrontmatter === false) {
             $reasons[] = 'frontmatter is missing or empty';
-        } else {
-            if ($this->frontmatterField(frontmatter: $frontmatter, field: 'name') === '') {
-                $reasons[] = 'frontmatter has no name';
-            }
+        }
 
-            if ($this->frontmatterField(frontmatter: $frontmatter, field: 'description') === '') {
-                $reasons[] = 'frontmatter has no description';
-            }
+        // The field checks only apply to a frontmatter block that exists at all.
+        if ($hasFrontmatter === true && $this->frontmatterField(frontmatter: $frontmatter, field: 'name') === '') {
+            $reasons[] = 'frontmatter has no name';
+        }
+
+        if ($hasFrontmatter === true && $this->frontmatterField(frontmatter: $frontmatter, field: 'description') === '') {
+            $reasons[] = 'frontmatter has no description';
         }
 
         if (trim($this->stringOf(value: ($data['body'] ?? ''))) === '') {
@@ -501,10 +507,10 @@ class SkillMaturityService
      */
     private function checkL4(array $evidence): array
     {
-        $l4 = $this->levelEntry(evidence: $evidence, key: 'l4');
+        $attestation = $this->levelEntry(evidence: $evidence, key: 'l4');
 
-        $attestedBy = $this->stringOf(value: ($l4['attestedBy'] ?? ''));
-        $attestedAt = $this->stringOf(value: ($l4['attestedAt'] ?? ''));
+        $attestedBy = $this->stringOf(value: ($attestation['attestedBy'] ?? ''));
+        $attestedAt = $this->stringOf(value: ($attestation['attestedAt'] ?? ''));
         $passed     = ($attestedBy !== '' && $attestedAt !== '');
 
         $reasons = [];
@@ -532,19 +538,19 @@ class SkillMaturityService
      */
     private function checkL5(array $evidence): array
     {
-        $l5 = $this->levelEntry(evidence: $evidence, key: 'l5');
+        $evalEvidence = $this->levelEntry(evidence: $evidence, key: 'l5');
 
-        if ($l5 === []) {
+        if ($evalEvidence === []) {
             return [
                 'passed'  => false,
                 'reasons' => ['no eval evidence (levelEvidence.l5 empty)'],
             ];
         }
 
-        $hasDataset   = ($this->stringOf(value: ($l5['evalDatasetId'] ?? '')) !== '');
-        $hasPassRate  = (isset($l5['passRate']) === true && is_numeric($l5['passRate']) === true);
-        $hasDelta     = (isset($l5['baselineDelta']) === true && is_numeric($l5['baselineDelta']) === true);
-        $hasValidated = ($this->stringOf(value: ($l5['lastValidated'] ?? '')) !== '');
+        $hasDataset   = ($this->stringOf(value: ($evalEvidence['evalDatasetId'] ?? '')) !== '');
+        $hasPassRate  = (isset($evalEvidence['passRate']) === true && is_numeric($evalEvidence['passRate']) === true);
+        $hasDelta     = (isset($evalEvidence['baselineDelta']) === true && is_numeric($evalEvidence['baselineDelta']) === true);
+        $hasValidated = ($this->stringOf(value: ($evalEvidence['lastValidated'] ?? '')) !== '');
         $passed       = ($hasDataset === true && $hasPassRate === true && $hasDelta === true && $hasValidated === true);
 
         $reasons = [];
@@ -573,14 +579,14 @@ class SkillMaturityService
      */
     private function checkL6(array $evidence): array
     {
-        $l6 = $this->levelEntry(evidence: $evidence, key: 'l6');
+        $learningsEntry = $this->levelEntry(evidence: $evidence, key: 'l6');
 
         $count = 0;
-        if (isset($l6['learningsCount']) === true && is_numeric($l6['learningsCount']) === true) {
-            $count = (int) $l6['learningsCount'];
+        if (isset($learningsEntry['learningsCount']) === true && is_numeric($learningsEntry['learningsCount']) === true) {
+            $count = (int) $learningsEntry['learningsCount'];
         }
 
-        $hasConsolidated = ($this->stringOf(value: ($l6['lastConsolidatedAt'] ?? '')) !== '');
+        $hasConsolidated = ($this->stringOf(value: ($learningsEntry['lastConsolidatedAt'] ?? '')) !== '');
         $passed          = ($count > 0 && $hasConsolidated === true);
 
         $reasons = [];
@@ -609,10 +615,10 @@ class SkillMaturityService
      */
     private function checkL7(array $evidence): array
     {
-        $l7 = $this->levelEntry(evidence: $evidence, key: 'l7');
+        $chainEvidence = $this->levelEntry(evidence: $evidence, key: 'l7');
 
-        $hasRunId   = ($this->stringOf(value: ($l7['lastExecutedChainRunId'] ?? '')) !== '');
-        $hasRunTime = ($this->stringOf(value: ($l7['lastExecutedAt'] ?? '')) !== '');
+        $hasRunId   = ($this->stringOf(value: ($chainEvidence['lastExecutedChainRunId'] ?? '')) !== '');
+        $hasRunTime = ($this->stringOf(value: ($chainEvidence['lastExecutedAt'] ?? '')) !== '');
         $passed     = ($hasRunId === true && $hasRunTime === true);
 
         $reasons = [];

@@ -49,6 +49,10 @@ use RuntimeException;
 /**
  * GitHub delivery target for a published AgentTemplate package. Broker-only.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) One class owns the whole broker-only
+ *   publish path (repo create, topics, git-data commit chain, scrubbed logging) so the
+ *   token-never-here invariant stays in a single place.
+ *
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
  */
 class GitHubTemplatePushService
@@ -446,6 +450,10 @@ class GitHubTemplatePushService
      * @return string Commit SHA.
      *
      * @throws RuntimeException On API failure.
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One linear GitHub git-data
+     *   sequence (ref → base commit → blobs → tree → commit → ref update); splitting
+     *   it would scatter the commit-chain invariants across helpers.
      */
     private function commitPackage(
         string $owner,
@@ -634,6 +642,13 @@ class GitHubTemplatePushService
      * @param bool                     $failQuietly  Suppress the error log on failure.
      *
      * @return array<string,mixed>|null Decoded payload, or null on any non-2xx.
+     *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) $failQuietly is a genuine two-mode
+     *   logging input: setTopics() treats failure as cosmetic while every other caller
+     *   wants the scrubbed warning.
+     * @SuppressWarnings(PHPMD.StaticAccess)        OCP\Server::get is deliberate lazy
+     *   resolution of the optional OpenRegister broker so this class stays
+     *   constructible when the broker is absent.
      *
      * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
      */

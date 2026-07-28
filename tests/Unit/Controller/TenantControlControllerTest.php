@@ -103,8 +103,10 @@ class TenantControlControllerTest extends TestCase
             return $mapper;
         }
 
-        $org = $this->createMock(Organisation::class);
-        $org->method('getOwner')->willReturn($ownerUid);
+        // Real entity, not a mock: the real Organisation resolves getOwner()
+        // via Entity magic, unmockable under a server tree.
+        $org = new Organisation();
+        $org->setOwner($ownerUid);
         $mapper->method('findByUuid')->willReturn($org);
         return $mapper;
 

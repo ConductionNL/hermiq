@@ -56,6 +56,9 @@ use Throwable;
  *
  * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
  *   distinct injected collaborator, not a logic-bearing argument list.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One injected collaborator per seam
+ *   (compliance service, action auth, org mapper, user session, logger) plus the HTTP
+ *   response/exception types every endpoint returns.
  *
  * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
  */

@@ -60,6 +60,7 @@ namespace OCA\Hermiq\Service\Llm;
 use OCP\ICache;
 use OCP\ICacheFactory;
 use OCP\Security\ISecureRandom;
+use RuntimeException;
 
 /**
  * Mint / verify / consume the per-run bearer token that authenticates both
@@ -156,7 +157,7 @@ class RunTokenService
         if (is_string($encoded) === false) {
             // Never mint a token whose record could not be stored — a token that
             // cannot be verified later is worse than no token.
-            throw new \RuntimeException('Could not encode the run-token record.');
+            throw new RuntimeException('Could not encode the run-token record.');
         }
 
         $this->cache->set(key: $this->digest(token: $token), value: $encoded, ttl: $this->ttlSeconds());

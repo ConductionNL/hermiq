@@ -162,8 +162,10 @@ class EvalRunControllerTest extends TestCase
         $objectService = $this->createMock(ObjectService::class);
         $objectService->method('find')->willReturn($this->dataset('alice'));
 
-        $agent = $this->createMock(Agent::class);
-        $agent->method('getOwner')->willReturn('bob');
+        // Real entity, not a mock (Entity magic accessors are unmockable
+        // under a server tree with the real OpenRegister loaded).
+        $agent = new Agent();
+        $agent->setOwner('bob');
         $agentMapper = $this->createMock(AgentMapper::class);
         $agentMapper->method('findByUuid')->willReturn($agent);
 
@@ -197,8 +199,10 @@ class EvalRunControllerTest extends TestCase
         $objectService = $this->createMock(ObjectService::class);
         $objectService->method('find')->willReturn($this->dataset('alice'));
 
-        $agent = $this->createMock(Agent::class);
-        $agent->method('getOwner')->willReturn('alice');
+        // Real entity, not a mock (Entity magic accessors are unmockable
+        // under a server tree with the real OpenRegister loaded).
+        $agent = new Agent();
+        $agent->setOwner('alice');
         $agentMapper = $this->createMock(AgentMapper::class);
         $agentMapper->method('findByUuid')->willReturn($agent);
 
@@ -295,8 +299,10 @@ class EvalRunControllerTest extends TestCase
      */
     private function aliceAgentMapper(): AgentMapper
     {
-        $agent = $this->createMock(Agent::class);
-        $agent->method('getOwner')->willReturn('alice');
+        // Real entity, not a mock (Entity magic accessors are unmockable
+        // under a server tree with the real OpenRegister loaded).
+        $agent = new Agent();
+        $agent->setOwner('alice');
         $agentMapper = $this->createMock(AgentMapper::class);
         $agentMapper->method('findByUuid')->willReturn($agent);
         return $agentMapper;
@@ -437,8 +443,10 @@ class EvalRunControllerTest extends TestCase
         $objectService = $this->createMock(ObjectService::class);
         $objectService->method('find')->willReturn($this->dataset(SeedCustodyService::SYSTEM_OWNER));
 
-        $agent = $this->createMock(Agent::class);
-        $agent->method('getOwner')->willReturn(SeedCustodyService::SYSTEM_OWNER);
+        // Real entity, not a mock (Entity magic accessors are unmockable
+        // under a server tree with the real OpenRegister loaded).
+        $agent = new Agent();
+        $agent->setOwner(SeedCustodyService::SYSTEM_OWNER);
         $agentMapper = $this->createMock(AgentMapper::class);
         $agentMapper->method('findByUuid')->willReturn($agent);
 

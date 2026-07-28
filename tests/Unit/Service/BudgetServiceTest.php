@@ -96,7 +96,8 @@ class BudgetServiceTest extends TestCase
                 mixed $register=null,
                 mixed $schema=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $_render=true
             ): ?ObjectEntity {
                 foreach (($this->bySchema[(string) $schema] ?? []) as $object) {
                     if ((string) $object->getUuid() === (string) $id) {
@@ -114,7 +115,10 @@ class BudgetServiceTest extends TestCase
                 mixed $schema=null,
                 ?string $uuid=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $silent=false,
+                ?array $uploadedFiles=null,
+                ?\OCP\IUser $currentUser=null
             ): ObjectEntity {
                 $this->saved[] = is_array($object) ? $object : $object->getObject();
                 $entity        = new ObjectEntity();
@@ -209,8 +213,10 @@ class BudgetServiceTest extends TestCase
     private function orgMapper(string $owner): OrganisationMapper
     {
         $mapper = $this->createMock(OrganisationMapper::class);
-        $org    = $this->createMock(Organisation::class);
-        $org->method('getOwner')->willReturn($owner);
+        // Real entity, not a mock: the real Organisation resolves getOwner()
+        // via Entity magic, unmockable under a server tree.
+        $org = new Organisation();
+        $org->setOwner($owner);
         $mapper->method('findByUuid')->willReturn($org);
         return $mapper;
 

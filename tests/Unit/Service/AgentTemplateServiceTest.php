@@ -96,7 +96,8 @@ class AgentTemplateServiceTest extends TestCase
                 mixed $register=null,
                 mixed $schema=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $_render=true
             ): ?ObjectEntity {
                 return ($this->byId[$schema.':'.$id] ?? null);
             }
@@ -108,7 +109,10 @@ class AgentTemplateServiceTest extends TestCase
                 mixed $schema=null,
                 ?string $uuid=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $silent=false,
+                ?array $uploadedFiles=null,
+                ?\OCP\IUser $currentUser=null
             ): ObjectEntity {
                 $payload = is_array($object) ? $object : $object->getObject();
                 $this->saved[] = ['schema' => (string) $schema, 'object' => $payload, 'uuid' => $uuid];

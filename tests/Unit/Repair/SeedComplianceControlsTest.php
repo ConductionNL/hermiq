@@ -87,7 +87,10 @@ class SeedComplianceControlsTest extends TestCase
                 mixed $schema=null,
                 ?string $uuid=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $silent=false,
+                ?array $uploadedFiles=null,
+                ?\OCP\IUser $currentUser=null
             ): ObjectEntity {
                 $payload = is_array($object) ? $object : $object->getObject();
                 $this->saved[] = ['schema' => (string) $schema, 'object' => $payload];

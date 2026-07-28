@@ -41,6 +41,8 @@ use Throwable;
 
 /**
  * Resolves hermiq agentflows for OpenRegister's flow engine.
+ *
+ * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 class HermiqFlowResolver implements IFlowResolver
 {
@@ -171,6 +173,10 @@ class HermiqFlowResolver implements IFlowResolver
      * @return array<int, string> The ids of the matching agentflows.
      *
      * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) One linear match loop whose
+     *   branches are the spec'd trigger predicate (event equality + register/schema
+     *   match with empty-as-wildcard) plus defensive shape guards.
      */
     public function flowsForTrigger(string $event, string $register, string $schema): array
     {

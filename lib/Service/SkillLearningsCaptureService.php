@@ -845,7 +845,7 @@ class SkillLearningsCaptureService
 
         foreach ($logs as $log) {
             $context = ($log->getChanged() ?? []);
-            if (is_array($context) === false || (string) ($context['runId'] ?? '') !== $runId) {
+            if ((string) ($context['runId'] ?? '') !== $runId) {
                 continue;
             }
 

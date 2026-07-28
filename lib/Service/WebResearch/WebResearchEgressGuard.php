@@ -66,6 +66,10 @@ namespace OCA\Hermiq\Service\WebResearch;
 /**
  * SSRF/allowlist/denylist validation for every web-research outbound destination.
  *
+ * @SuppressWarnings(PHPMD.LongVariable) $isAdminConfiguredEndpoint names the design's
+ *   two trust tiers exactly (see the file docblock) across all three guard methods —
+ *   the length IS the clarity.
+ *
  * @spec openspec/changes/web-research-tool/tasks.md#task-3-webresearchegressguard-ssrf--allowlistdenylist
  */
 class WebResearchEgressGuard
@@ -101,6 +105,10 @@ class WebResearchEgressGuard
      *
      * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
      * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-the-admin-configured-search-endpoint-is-exempt-from-the-private-address-block
+     *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Not ad-hoc mode switches:
+     *   `$isAdminConfiguredEndpoint` is the spec's binding trust-tier input and
+     *   `$allowInsecureHttp` the admin's persisted non-HTTPS opt-in from config.
      */
     public function assertSafe(
         string $url,

@@ -78,6 +78,9 @@ use Throwable;
  *   under the per-method complexity threshold; design.md's Trade-offs rejected a
  *   separate RetryPolicyService because it would duplicate the kill-switch/approval
  *   gate call site instead of inheriting it for free from dispatch().
+ * @SuppressWarnings(PHPMD.LongVariable)             $guardrailPolicyService is a promoted
+ *   constructor collaborator named after its class (GuardrailPolicyService) — the
+ *   length IS the clarity.
  *
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
  * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
@@ -423,6 +426,12 @@ class ScheduleService
      * @return int The number of schedules actually paused (flipped from enabled to disabled).
      *
      * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) One linear sweep whose per-schedule
+     *   guards (entity check, owner/actingUser match, already-disabled skip) each add
+     *   a branch; no nested decision logic.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+     *   early-continue guards multiply paths without nesting.
      */
     public function pauseForUser(string $uid): int
     {
@@ -1051,8 +1060,8 @@ class ScheduleService
             promptOverride: $originalPrompt
         );
 
-        $redactedReplaySummary   = $this->redactionService->redact($summary);
-        $redactedOriginalSummary = (string) ($originalTrace['summary'] ?? '');
+        $replaySummary   = $this->redactionService->redact($summary);
+        $originalSummary = (string) ($originalTrace['summary'] ?? '');
 
         return [
             'status'     => $status,
@@ -1066,13 +1075,13 @@ class ScheduleService
             'replay'     => [
                 'status'  => $status,
                 'steps'   => $this->lastRunSteps,
-                'summary' => $redactedReplaySummary,
+                'summary' => $replaySummary,
             ],
             'diff'       => $this->diffTrace(
                 originalSteps: ($originalTrace['steps'] ?? []),
                 replaySteps: $this->lastRunSteps,
-                originalSummary: $redactedOriginalSummary,
-                replaySummary: $redactedReplaySummary
+                originalSummary: $originalSummary,
+                replaySummary: $replaySummary
             ),
         ];
 
@@ -1618,13 +1627,16 @@ class ScheduleService
      *                                            pre-existing caller) reads `$data['prompt']` instead — the
      *                                            prompt that WAS actually used for a real run/direct dry-run.
      *
-     * @return string|null The newly-written entry's UUID, or null when the write failed
-     *                      (never fatal — see below).
+     * @return void The write is fire-and-forget: no caller consumes an entry
+     *              UUID, and a failed write is never fatal — see below.
      *
      * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
      * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
      * @spec openspec/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-letter-circuit-breaker-outcomes-mvp
      * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) Dry-run preview (run-replay-and-dry-run)
+     *   is a cross-cutting mode threaded through the run/audit path as a flag by design.
      */
     private function writeRunAudit(
         ObjectEntity $schedule,
@@ -1635,7 +1647,7 @@ class ScheduleService
         bool $dryRun=false,
         ?string $replayOf=null,
         ?string $promptOverride=null
-    ): ?string {
+    ): void {
         try {
             $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
             $agentId = (string) ($data['agentId'] ?? '');
@@ -1691,7 +1703,7 @@ class ScheduleService
                 'replayOf'           => $replayOf,
             ];
 
-            $entry = $this->auditTrailMapper->createAuditTrailEntry(
+            $this->auditTrailMapper->createAuditTrailEntry(
                 object: $schedule,
                 action: 'run',
                 context: $context
@@ -1705,8 +1717,6 @@ class ScheduleService
             if ($dryRun === false && $this->lastRunSkillsUsed !== [] && $this->lastRunId !== '') {
                 $this->enqueueLearningsCapture(schedule: $schedule, agentId: $agentId);
             }
-
-            return (string) ($entry->getUuid() ?? '');
         } catch (Throwable $e) {
             $this->logger->warning(
                 sprintf(
@@ -1716,8 +1726,6 @@ class ScheduleService
                 ),
                 ['exception' => $e]
             );
-
-            return null;
         }//end try
 
     }//end writeRunAudit()
@@ -2463,6 +2471,12 @@ class ScheduleService
      * @spec openspec/changes/agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
      * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
      * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+     *
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag)   Dry-run preview (run-replay-and-dry-run)
+     *   is a cross-cutting mode threaded onto Engine::processMessage() as a flag by design.
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One linear Engine turn — resolve agent,
+     *   create the conversation, push the delegation frame, run, capture usage/trace/
+     *   skillsUsed; splitting would scatter the try/finally frame-pop + dry-run cleanup.
      */
     private function runAgentViaEngine(
         string $owner,

@@ -174,10 +174,9 @@ class EvalScoringService
             );
         }
 
+        $actualValue = json_encode($value);
         if (is_scalar($value) === true) {
             $actualValue = (string) $value;
-        } else {
-            $actualValue = json_encode($value);
         }
 
         return $this->result(passed: ($actualValue === $expectedValue));

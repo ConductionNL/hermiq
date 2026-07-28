@@ -26,8 +26,8 @@
 			@update:modelValue="onSelect" />
 		<div class="talk-delivery__new">
 			<NcTextField
-				class="talk-delivery__new-name"
 				v-model="newName"
+				class="talk-delivery__new-name"
 				:label="t('hermiq', 'Create a new room')"
 				:placeholder="t('hermiq', 'e.g. Hermiq')" />
 			<NcButton

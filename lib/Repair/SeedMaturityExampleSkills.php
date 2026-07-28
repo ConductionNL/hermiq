@@ -355,6 +355,10 @@ class SeedMaturityExampleSkills implements IRepairStep
      * pointing at the future skill-evals change.
      *
      * @return array<string, mixed> The Skill payload.
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) The length is literal seed
+     *   content (frontmatter + skill body + reference/example files in heredocs),
+     *   not logic to split.
      */
     private static function tenderSummary(): array
     {
@@ -574,6 +578,12 @@ class SeedMaturityExampleSkills implements IRepairStep
      * @return void
      *
      * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Each only-when-absent idempotency
+     *   guard (two files, l6 evidence, no-op detection, refresh fold-in) adds a branch
+     *   on one linear upgrade path.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+     *   presence guards multiply paths without nested logic.
      */
     private function ensureLearningsSeed(
         ObjectService $objectService,
@@ -610,8 +620,8 @@ class SeedMaturityExampleSkills implements IRepairStep
             $evidence = [];
         }
 
-        $l6 = ($evidence['l6'] ?? []);
-        if ($filesAdded === true && (is_array($l6) === false || $l6 === [])) {
+        $l6Evidence = ($evidence['l6'] ?? []);
+        if ($filesAdded === true && (is_array($l6Evidence) === false || $l6Evidence === [])) {
             $evidence['l6']        = self::seedL6Evidence();
             $data['levelEvidence'] = $evidence;
         }

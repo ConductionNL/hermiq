@@ -244,6 +244,12 @@ class SkillVersionController extends Controller
      *
      * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
      * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential spec-mandated guards
+     *   (auth, action auth, provenance stamp present, credential, tenant-scoped 404,
+     *   broker availability) each add a branch on one linear republish path.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+     *   early-return guards multiply paths without nested logic.
      */
     public function republish(string $id): JSONResponse
     {
@@ -320,7 +326,7 @@ class SkillVersionController extends Controller
                 'transition' => 'republish',
                 'owner'      => $owner,
                 'repo'       => $repo,
-                'commitSha'  => (string) ($result['commitSha'] ?? ''),
+                'commitSha'  => $result['commitSha'],
             ]
         );
 

@@ -78,6 +78,15 @@ use Throwable;
  *   than splitting by channel, which would duplicate the shared fallback-chain/
  *   redaction/never-throws plumbing across multiple classes for no behavioural
  *   benefit.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same single-owner trade-off: every
+ *   delivery/alert channel lives here to share the fallback-chain plumbing.
+ * @SuppressWarnings(PHPMD.TooManyMethods)           One small deliver/alert method per
+ *   channel-and-event pair by design (see ExcessiveClassComplexity rationale).
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     Each caller (schedule runner, approval
+ *   gate, budget guard, dead-letter, circuit breaker) gets its own public entry point.
+ * @SuppressWarnings(PHPMD.LongVariable)             `$scheduleWebhookSecretService` is a
+ *   promoted constructor collaborator named after its class
+ *   (ScheduleWebhookSecretService) — shortening it would obscure which service is injected.
  *
  * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
  * @spec openspec/changes/archive/2026-07-13-delivery-channels/design.md
@@ -204,6 +213,9 @@ class DeliveryService
      * @param RedactionService             $redactionService             Redacts output before it crosses the instance boundary (email/webhook only).
      * @param ScheduleWebhookSecretService $scheduleWebhookSecretService Retrieves a schedule's outbound webhook signing secret (delivery-channels).
      * @param LoggerInterface              $logger                       PSR-3 logger for delivery warnings.
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct always-present Nextcloud/Hermiq collaborator, not a logic-bearing list.
      */
     public function __construct(
         private readonly INotificationManager $notificationManager,
