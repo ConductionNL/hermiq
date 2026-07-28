@@ -43,8 +43,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/fix-skill-marketplace-action-auth/tasks.md#2-controller
- * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+ * @spec openspec/changes/archive/2026-07-12-fix-skill-marketplace-action-auth/tasks.md#2-controller
+ * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
  */
 
 declare(strict_types=1);
@@ -55,7 +55,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\FederatedStoreService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -72,7 +72,7 @@ use Throwable;
 /**
  * Tenant-scoped skills-marketplace endpoints (install-from-source / approve / publish).
  *
- * @spec openspec/changes/fix-skill-marketplace-action-auth/tasks.md#2-controller
+ * @spec openspec/changes/archive/2026-07-12-fix-skill-marketplace-action-auth/tasks.md#2-controller
  */
 class SkillMarketplaceController extends Controller
 {
@@ -88,18 +88,18 @@ class SkillMarketplaceController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest                $request            The request object.
-     * @param SkillMarketplaceService $marketplaceService The marketplace service.
-     * @param ActionAuthService       $actionAuth         The ADR-023 action-authorization service.
-     * @param IUserSession            $userSession        Resolves the requesting user.
-     * @param LoggerInterface         $logger             PSR-3 logger.
-     * @param SkillService            $skillService       Export + provenance stamp (hermiq-github-store).
-     * @param FederatedStoreService   $store              The federated store adapter (publish via the shared engine).
+     * @param IRequest                  $request            The request object.
+     * @param SkillMarketplaceService   $marketplaceService The marketplace service.
+     * @param ActionAuthService         $actionAuth         The ADR-023 action-authorization service.
+     * @param IUserSession              $userSession        Resolves the requesting user.
+     * @param LoggerInterface           $logger             PSR-3 logger.
+     * @param SkillService              $skillService       Export + provenance stamp (hermiq-github-store).
+     * @param GitHubTemplatePushService $pushService        GitHub publish (hermiq-github-store).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
      *
-     * @spec openspec/changes/fix-skill-marketplace-action-auth/tasks.md#task-2-1
+     * @spec openspec/changes/archive/2026-07-12-fix-skill-marketplace-action-auth/tasks.md#2-controller
      */
     public function __construct(
         IRequest $request,
@@ -108,7 +108,7 @@ class SkillMarketplaceController extends Controller
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
         private readonly SkillService $skillService,
-        private readonly FederatedStoreService $store,
+        private readonly GitHubTemplatePushService $pushService,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -121,7 +121,7 @@ class SkillMarketplaceController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-4-1
+     * @spec openspec/changes/skills-marketplace/tasks.md#4-controller-routes
      */
     public function installFromSource(): JSONResponse
     {
@@ -164,8 +164,8 @@ class SkillMarketplaceController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/fix-skill-marketplace-action-auth/specs/skills-marketplace/spec.md#requirement-approving-a-quarantined-skill-requires-action-authorization
-     * @spec openspec/changes/fix-skill-marketplace-action-auth/specs/skills-marketplace/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-approving-a-quarantined-skill-requires-action-authorization
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
      */
     public function approve(string $id): JSONResponse
     {
@@ -231,7 +231,7 @@ class SkillMarketplaceController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/fix-skill-marketplace-action-auth/specs/skills-marketplace/spec.md#requirement-publishing-a-skill-to-a-hub-requires-action-authorization
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-publishing-a-skill-to-a-hub-requires-action-authorization
      */
     public function publish(string $id): JSONResponse
     {
@@ -276,7 +276,7 @@ class SkillMarketplaceController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
      */
     public function githubPublish(string $id): JSONResponse
     {
@@ -293,10 +293,15 @@ class SkillMarketplaceController extends Controller
 
         $owner        = (string) ($this->request->getParam('owner') ?? '');
         $repo         = (string) ($this->request->getParam('repo') ?? '');
+        $visibility   = (string) ($this->request->getParam('visibility') ?? 'private');
         $credentialId = (string) ($this->request->getParam('credentialId') ?? '');
 
         if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
             return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+        }
+
+        if (in_array($visibility, ['public', 'private'], true) === false) {
+            $visibility = 'private';
         }
 
         if ($credentialId === '') {
@@ -305,24 +310,28 @@ class SkillMarketplaceController extends Controller
 
         // Tenant-scoped read: a skill outside the caller's organisation's visibility
         // is 404, identical to export()'s existing behaviour (never a 403 that would
-        // confirm existence) — mirrors AgentTemplateController::publishGithub(). The
-        // package is re-serialised by the shared engine's type; this is the gate.
+        // confirm existence) — mirrors AgentTemplateController::publishGithub().
         $package = $this->skillService->exportSkill(skillId: $id);
         if ($package === null) {
             return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
         }
 
-        if ($this->store->isBrokerAvailable() === false) {
+        if ($this->pushService->isBrokerAvailable() === false) {
             return new JSONResponse(['error' => 'The GitHub credential broker is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
         }
 
         try {
-            $result = $this->store->publish(
-                kind: FederatedStoreService::KIND_SKILL,
-                uuid: $id,
+            $result = $this->pushService->push(
+                package: $package,
                 owner: $owner,
                 repo: $repo,
-                credentialId: $credentialId
+                visibility: $visibility,
+                credentialId: $credentialId,
+                actingUserId: $user->getUID(),
+                kind: GitHubTemplatePushService::KIND_SKILL,
+                // Publish-time file SELECTION (skills-marketplace delta): learnings.md
+                // ships, learning-candidates.md is stripped — same selection as republish.
+                auxFiles: ($this->skillService->publishFileSelection(skillId: $id) ?? [])
             );
         } catch (RuntimeException $e) {
             $this->logger->warning('Hermiq skill github publish refused: '.$e->getMessage());

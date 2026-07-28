@@ -114,9 +114,16 @@ class LeafSurfaceParityTest extends TestCase
     }//end testEverySurfaceIsInTheOpenRegisterVocabulary()
 
     /**
-     * The dashboard surfaces are included, because the leaf ships a `widget` with a
-     * default grid size and consuming apps place that widget on dashboards. This is
-     * the assertion that would have failed before the fix.
+     * The dashboard surfaces are included, because the leaf ships a run-history
+     * widget with a default grid size and consuming apps place that widget on
+     * dashboards. This is the assertion that would have failed before the fix.
+     *
+     * The widget is asserted by the component it roots rather than by a literal
+     * `widget:` key: under renderMode `mount` (openregister#2127, ADR-066) the leaf
+     * registers a `mount`/`unmount` pair instead of `tab`/`widget` SFCs, and
+     * `componentForSurface()` roots `CnAgentRunsWidget` on the dashboard surfaces.
+     * The thing that matters — a dashboard-sized run widget the declared surfaces
+     * can host — holds in either registration form.
      *
      * @return void
      *
@@ -126,7 +133,7 @@ class LeafSurfaceParityTest extends TestCase
     {
         $source = file_get_contents(__DIR__.'/../../../src/integration-leaf.js');
 
-        $this->assertStringContainsString('widget: CnAgentRunsWidget', (string) $source);
+        $this->assertStringContainsString('CnAgentRunsWidget', (string) $source);
         $this->assertStringContainsString('defaultSize:', (string) $source);
 
         $this->assertContains('user-dashboard', RegisterAgentLeafListener::SURFACES);

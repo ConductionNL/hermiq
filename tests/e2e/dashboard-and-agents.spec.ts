@@ -46,6 +46,13 @@ function collectConsoleErrors(page: Page): string[] {
 		if (/favicon|manifest\.json|the server responded with a status of 404/i.test(text)) {
 			return
 		}
+		// The chat-health probe answers a DESIGNED 503 ({"status":"no_provider"})
+		// on instances without an LLM provider configured (e.g. disposable e2e
+		// instances); the browser logs that as a resource error, but it is an
+		// expected response, not an app failure.
+		if ((msg.location()?.url || '').includes('/api/chat/health')) {
+			return
+		}
 		errors.push(text)
 	})
 	return errors

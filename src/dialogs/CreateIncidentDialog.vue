@@ -24,33 +24,33 @@
 			</NcNoteCard>
 
 			<NcTextArea
-				:value.sync="form.description"
+				v-model="form.description"
 				:label="t('hermiq', 'Description')"
 				:placeholder="t('hermiq', 'What happened?')"
 				required
 				resize="vertical" />
 
 			<NcTextArea
-				:value.sync="form.impact"
+				v-model="form.impact"
 				:label="t('hermiq', 'Impact')"
 				:placeholder="t('hermiq', 'Who or what was affected, and how severely?')"
 				required
 				resize="vertical" />
 
 			<NcTextArea
-				:value.sync="form.actionsTaken"
+				v-model="form.actionsTaken"
 				:label="t('hermiq', 'Actions taken')"
 				:placeholder="t('hermiq', 'What remedial action was taken?')"
 				required
 				resize="vertical" />
 
 			<NcTextField
-				:value.sync="form.linkedAgentId"
+				v-model="form.linkedAgentId"
 				:label="t('hermiq', 'Linked agent UUID (optional)')"
 				placeholder="00000000-0000-0000-0000-000000000000" />
 
 			<NcTextField
-				:value.sync="linkedRunIdsText"
+				v-model="linkedRunIdsText"
 				:label="t('hermiq', 'Linked run IDs (optional, comma-separated)')" />
 		</div>
 

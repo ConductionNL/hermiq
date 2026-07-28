@@ -30,6 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\AgentVersionService;
+use OCA\Hermiq\Service\SkillVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\FlowAgentRunService;
@@ -161,6 +162,7 @@ class FlowAgentRunServiceTest extends TestCase
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
             agentVersionService: $this->agentVersionService,
+            skillVersionService: $this->createMock(SkillVersionService::class),
         );
 
     }//end setUp()
@@ -169,7 +171,7 @@ class FlowAgentRunServiceTest extends TestCase
      * Build the triggering ObjectEntity.
      *
      * @param array<string,mixed> $data         The object's data.
-     * @param string               $organisation The organisation identifier.
+     * @param string              $organisation The organisation identifier.
      *
      * @return ObjectEntity
      */
@@ -407,6 +409,7 @@ class FlowAgentRunServiceTest extends TestCase
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
             agentVersionService: $this->agentVersionService,
+            skillVersionService: $this->createMock(SkillVersionService::class),
         );
 
         $ran = $this->service->run($this->payload());
@@ -444,6 +447,7 @@ class FlowAgentRunServiceTest extends TestCase
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
             agentVersionService: $this->agentVersionService,
+            skillVersionService: $this->createMock(SkillVersionService::class),
         );
 
         $ran = $this->service->run($this->payload(['requiresApproval' => true]), true);
@@ -485,6 +489,7 @@ class FlowAgentRunServiceTest extends TestCase
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
             agentVersionService: $this->agentVersionService,
+            skillVersionService: $this->createMock(SkillVersionService::class),
         );
 
         $ran = $this->service->run($this->payload());

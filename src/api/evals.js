@@ -21,9 +21,17 @@ const EVALS_BASE = '/apps/hermiq/api/evals'
  * Run an EvalDataset against an Agent. The run is fully governed (kill-switch,
  * budget, model policy) and non-delivering — no case result is sent to Talk.
  *
+ * With `options.baseline === true` (skill-evals) the run executes as a PAIRED
+ * baseline: the with-half exposes the agent's installed skills plus the
+ * dataset's linked skills, the without-half(s) detach them per the agent's
+ * evalBaselineMode (joint: one shared half at ~2x cost; per-skill: one half
+ * per linked skill at (N+1)x cost) — every half counts toward the same
+ * budgets. Requires a dataset with non-empty skillRefs (400 otherwise) and
+ * ownership of dataset + agent + every linked skill (404 otherwise).
+ *
  * @param {string} datasetId The EvalDataset object UUID.
  * @param {string} agentId The target Agent UUID.
- * @param {object} [options] Optional { agentVersionId, regressionThresholdPercent }.
+ * @param {object} [options] Optional { agentVersionId, regressionThresholdPercent, baseline }.
  * @return {Promise<object>} { evalRunId, status, passRate, regressionGateResult, previousPassRate }.
  */
 export async function runEval(datasetId, agentId, options = {}) {
@@ -31,6 +39,7 @@ export async function runEval(datasetId, agentId, options = {}) {
 		agentId,
 		...(options.agentVersionId ? { agentVersionId: options.agentVersionId } : {}),
 		...(options.regressionThresholdPercent != null ? { regressionThresholdPercent: options.regressionThresholdPercent } : {}),
+		...(options.baseline === true ? { baseline: true } : {}),
 	})
 	return response.data
 }

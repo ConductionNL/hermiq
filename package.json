@@ -12,6 +12,7 @@
     "watch": "NODE_ENV=development webpack --config webpack.config.js --progress --watch",
     "lint": "eslint src",
     "lint-fix": "npm run lint -- --fix",
+    "test:l10n": "node tests/l10n/check-l10n.js",
     "stylelint": "stylelint src/**/*.vue src/**/*.scss src/**/*.css",
     "stylelint-fix": "stylelint src/**/*.vue src/**/*.scss src/**/*.css --fix",
     "check:manifest": "node tests/validate-manifest.js",
@@ -28,7 +29,7 @@
   "dependencies": {
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.5",
-    "@conduction/nextcloud-vue": "^2.0.5",
+    "@conduction/nextcloud-vue": "^2.0.7",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.5.2",
     "@nextcloud/dialogs": "^6.0.0",

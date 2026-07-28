@@ -14,6 +14,13 @@
  * agentId blindly. It loads BOTH the EvalDataset and the target Agent WITH RBAC on and
  * refuses (404) unless the requesting user owns each — a non-owner can neither run nor
  * confirm the existence of another tenant's dataset or agent (mirrors RunNowController).
+ * skill-evals widens the guard for `baseline: true`: the caller must ALSO own EVERY skill
+ * referenced by the dataset's `skillRefs` (the paired run writes l5 evidence onto those
+ * skills); any missing/invisible/non-owned linked skill is the same indistinguishable 404.
+ * Ownership is decided by `SeedCustodyService::actsAsOwner()`: the stored owner passes,
+ * and an instance ADMIN passes for system-seeded (`__system__`) objects only — without
+ * that, the seeded example dataset/agent/skills would 404 for EVERYONE forever (repair
+ * steps stamp no human owner). A human-owned object is never opened to admins here.
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -27,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-evals/tasks.md#task-7-evalruncontroller--route
+ * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-7-evalruncontroller-route
  */
 
 declare(strict_types=1);
@@ -38,6 +45,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\EvalRunService;
 use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
 use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -53,7 +61,7 @@ use Throwable;
 /**
  * Owner-scoped "run this EvalDataset against this Agent" endpoint.
  *
- * @spec openspec/changes/agent-evals/tasks.md#task-7-evalruncontroller--route
+ * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-7-evalruncontroller-route
  */
 class EvalRunController extends Controller
 {
@@ -73,14 +81,25 @@ class EvalRunController extends Controller
     private const DATASET_SCHEMA = 'evaldataset';
 
     /**
+     * OpenRegister schema slug for Skill objects (widened baseline owner guard;
+     * namespaced to avoid a cross-app slug collision).
+     *
+     * @var string
+     */
+    private const SKILL_SCHEMA = 'agentskill';
+
+    /**
      * Constructor.
      *
-     * @param IRequest        $request        The request object.
-     * @param ObjectService   $objectService  OpenRegister object read (dataset ownership check).
-     * @param AgentMapper     $agentMapper    Resolves + ownership-checks the target Agent.
-     * @param IUserSession    $userSession    Resolves the requesting user for the owner guard.
-     * @param EvalRunService  $evalRunService Executes the gated, scored eval run.
-     * @param LoggerInterface $logger         PSR-3 logger.
+     * @param IRequest           $request        The request object.
+     * @param ObjectService      $objectService  OpenRegister object read (dataset ownership check).
+     * @param AgentMapper        $agentMapper    Resolves + ownership-checks the target Agent.
+     * @param IUserSession       $userSession    Resolves the requesting user for the owner guard.
+     * @param EvalRunService     $evalRunService Executes the gated, scored eval run.
+     * @param SeedCustodyService $seedCustody    Owner-or-seed-custodian check (an instance
+     *                                           admin acts as owner of `__system__`-seeded
+     *                                           objects only).
+     * @param LoggerInterface    $logger         PSR-3 logger.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
@@ -91,6 +110,7 @@ class EvalRunController extends Controller
         private readonly AgentMapper $agentMapper,
         private readonly IUserSession $userSession,
         private readonly EvalRunService $evalRunService,
+        private readonly SeedCustodyService $seedCustody,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
@@ -106,7 +126,8 @@ class EvalRunController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md#requirement-run-trigger-endpoint-is-owner-guarded-idor
+     * @spec openspec/specs/agent-evals/spec.md#requirement-run-trigger-endpoint-is-owner-guarded-idor
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-paired-trigger-owner-guard-covers-dataset-agent-and-every-linked-skill
      */
     public function run(string $datasetId): JSONResponse
     {
@@ -128,6 +149,27 @@ class EvalRunController extends Controller
             return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
         }
 
+        // Skill-evals: optional paired-baseline mode. Default false — the existing
+        // agent-scoped behaviour is byte-identical for every pre-existing caller.
+        $baseline = filter_var($this->request->getParam('baseline', false), FILTER_VALIDATE_BOOLEAN);
+        if ($baseline === true) {
+            $skillRefs = $this->linkedSkillRefs(dataset: $dataset);
+            if ($skillRefs === []) {
+                return new JSONResponse(
+                    ['error' => 'Baseline mode requires a dataset with linked skills'],
+                    Http::STATUS_BAD_REQUEST
+                );
+            }
+
+            // Widened owner guard: the paired run writes l5 evidence onto every
+            // linked skill, so the caller must own each — any missing, invisible,
+            // or non-owned skill is 404, never 403 (no existence oracle for any
+            // of the three object kinds).
+            if ($this->ownsEverySkill(skillRefs: $skillRefs, uid: $user->getUID()) === false) {
+                return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+            }
+        }
+
         $agentVersionId = $this->request->getParam('agentVersionId', null);
         if ($agentVersionId !== null) {
             $agentVersionId = (string) $agentVersionId;
@@ -144,8 +186,11 @@ class EvalRunController extends Controller
                 dataset: $dataset,
                 agent: $agent,
                 agentVersionId: $agentVersionId,
-                regressionThresholdOverride: $thresholdOverride
+                regressionThresholdOverride: $thresholdOverride,
+                baseline: $baseline
             );
+        } catch (\InvalidArgumentException $e) {
+            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
         } catch (ModelPolicyViolationException $e) {
             return new JSONResponse(['error' => $e->getMessage()], 422);
         } catch (ProviderUnavailableException $e) {
@@ -163,8 +208,11 @@ class EvalRunController extends Controller
     }//end run()
 
     /**
-     * Load the dataset only if the given user owns it (IDOR guard). Fetches WITH
-     * RBAC enabled and additionally asserts owner identity, so neither a
+     * Load the dataset only if the given user may act as its owner (IDOR guard).
+     * Fetches WITH RBAC enabled and additionally asserts ownership via
+     * `SeedCustodyService::actsAsOwner()` — the stored owner passes, and an
+     * instance admin passes for a `__system__`-seeded dataset only (seed
+     * custodianship; a human-owned dataset stays closed to admins). Neither a
      * cross-tenant object nor another user's owned dataset is ever returned or run.
      *
      * @param string $datasetId The EvalDataset object UUID.
@@ -184,7 +232,7 @@ class EvalRunController extends Controller
             return null;
         }
 
-        if ((string) ($dataset->getOwner() ?? '') !== $uid) {
+        if ($this->seedCustody->actsAsOwner(owner: $dataset->getOwner(), uid: $uid) === false) {
             return null;
         }
 
@@ -193,8 +241,9 @@ class EvalRunController extends Controller
     }//end loadOwnedDataset()
 
     /**
-     * Load the target agent only if the given user owns it (IDOR guard), mirroring
-     * `loadOwnedDataset()`.
+     * Load the target agent only if the given user may act as its owner (IDOR
+     * guard), mirroring `loadOwnedDataset()` — including the seed-custodian rule
+     * for `__system__`-seeded agents.
      *
      * @param string $agentId The Agent UUID.
      * @param string $uid     The requesting user's UID.
@@ -213,11 +262,72 @@ class EvalRunController extends Controller
             return null;
         }
 
-        if ((string) ($agent->getOwner() ?? '') !== $uid) {
+        if ($this->seedCustody->actsAsOwner(owner: $agent->getOwner(), uid: $uid) === false) {
             return null;
         }
 
         return $agent;
 
     }//end loadOwnedAgent()
+
+    /**
+     * The dataset's linked skill uuids (`skillRefs`), filtered to non-empty strings.
+     *
+     * @param ObjectEntity $dataset The (already owner-guarded) EvalDataset.
+     *
+     * @return array<int, string> The linked skill uuids (deduplicated, reindexed).
+     */
+    private function linkedSkillRefs(ObjectEntity $dataset): array
+    {
+        $refs = ($dataset->getObject()['skillRefs'] ?? []);
+        if (is_array($refs) === false) {
+            return [];
+        }
+
+        $ids = array_filter($refs, static fn ($ref): bool => is_string($ref) === true && $ref !== '');
+
+        return array_values(array_unique($ids));
+
+    }//end linkedSkillRefs()
+
+    /**
+     * Whether the given user may act as owner of EVERY referenced skill (widened
+     * baseline IDOR guard). Fetches WITH RBAC enabled and additionally asserts
+     * ownership via `SeedCustodyService::actsAsOwner()` (seed custodianship
+     * included, so an admin can baseline-run the seeded example set) — a missing,
+     * cross-tenant, or merely-visible-but-not-owned skill all fail identically,
+     * so the caller learns nothing about any single skill.
+     *
+     * @param array<int, string> $skillRefs The linked skill uuids.
+     * @param string             $uid       The requesting user's UID.
+     *
+     * @return bool True only when every referenced skill resolves and $uid acts as its owner.
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-paired-trigger-owner-guard-covers-dataset-agent-and-every-linked-skill
+     */
+    private function ownsEverySkill(array $skillRefs, string $uid): bool
+    {
+        foreach ($skillRefs as $skillId) {
+            try {
+                $skill = $this->objectService->find(
+                    id: $skillId,
+                    register: self::REGISTER_SLUG,
+                    schema: self::SKILL_SCHEMA
+                );
+            } catch (Throwable $e) {
+                return false;
+            }
+
+            if (($skill instanceof ObjectEntity) === false) {
+                return false;
+            }
+
+            if ($this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $uid) === false) {
+                return false;
+            }
+        }
+
+        return true;
+
+    }//end ownsEverySkill()
 }//end class

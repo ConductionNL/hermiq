@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\SkillMarketplaceController;
 use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\FederatedStoreService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -115,7 +115,7 @@ class SkillMarketplaceControllerTest extends TestCase
      * @param IUserSession              $session      The user session.
      * @param IRequest|null             $request      An optional request mock (defaults to no params).
      * @param SkillService|null         $skillService An optional SkillService mock (hermiq-github-store).
-     * @param FederatedStoreService|null $store       An optional federated store adapter mock.
+     * @param GitHubTemplatePushService|null $pushService An optional push-service mock (hermiq-github-store).
      *
      * @return SkillMarketplaceController
      */
@@ -125,7 +125,7 @@ class SkillMarketplaceControllerTest extends TestCase
         IUserSession $session,
         ?IRequest $request=null,
         ?SkillService $skillService=null,
-        ?FederatedStoreService $store=null
+        ?GitHubTemplatePushService $pushService=null
     ): SkillMarketplaceController {
         return new SkillMarketplaceController(
             ($request ?? $this->request()),
@@ -134,7 +134,7 @@ class SkillMarketplaceControllerTest extends TestCase
             $session,
             $this->createMock(LoggerInterface::class),
             ($skillService ?? $this->createMock(SkillService::class)),
-            ($store ?? $this->createMock(FederatedStoreService::class))
+            ($pushService ?? $this->createMock(GitHubTemplatePushService::class))
         );
 
     }//end controller()
@@ -521,8 +521,8 @@ class SkillMarketplaceControllerTest extends TestCase
         $skillService = $this->createMock(SkillService::class);
         $skillService->method('exportSkill')->willReturn(null);
 
-        $store = $this->createMock(FederatedStoreService::class);
-        $store->expects($this->never())->method('publish');
+        $pushService = $this->createMock(GitHubTemplatePushService::class);
+        $pushService->expects($this->never())->method('push');
 
         $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
         $response = $this->controller(
@@ -531,7 +531,7 @@ class SkillMarketplaceControllerTest extends TestCase
             $this->session('admin'),
             $request,
             $skillService,
-            $store
+            $pushService
         )->githubPublish('skill-1');
 
         $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
@@ -552,9 +552,9 @@ name: Demo skill
 ---
 Body.');
 
-        $store = $this->createMock(FederatedStoreService::class);
-        $store->method('isBrokerAvailable')->willReturn(false);
-        $store->expects($this->never())->method('publish');
+        $pushService = $this->createMock(GitHubTemplatePushService::class);
+        $pushService->method('isBrokerAvailable')->willReturn(false);
+        $pushService->expects($this->never())->method('push');
 
         $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
         $response = $this->controller(
@@ -563,7 +563,7 @@ Body.');
             $this->session('admin'),
             $request,
             $skillService,
-            $store
+            $pushService
         )->githubPublish('skill-1');
 
         $this->assertSame(Http::STATUS_SERVICE_UNAVAILABLE, $response->getStatus());
@@ -587,12 +587,20 @@ Body.');
             ->method('stampGithubPublish')
             ->with('skill-1', 'acme', 'demo-skill', $this->isType('string'));
 
-        $store = $this->createMock(FederatedStoreService::class);
-        $store->method('isBrokerAvailable')->willReturn(true);
-        $store->expects($this->once())
-            ->method('publish')
-            ->with(FederatedStoreService::KIND_SKILL, 'skill-1', 'acme', 'demo-skill', 'cred-uuid')
-            ->willReturn(['repoUrl' => 'https://github.com/acme/demo-skill', 'commitSha' => 'abc123', 'status' => 201]);
+        $pushService = $this->createMock(GitHubTemplatePushService::class);
+        $pushService->method('isBrokerAvailable')->willReturn(true);
+        $pushService->expects($this->once())
+            ->method('push')
+            ->with(
+                $this->anything(),
+                'acme',
+                'demo-skill',
+                'private',
+                'cred-uuid',
+                'admin',
+                GitHubTemplatePushService::KIND_SKILL
+            )
+            ->willReturn(['repoUrl' => 'https://github.com/acme/demo-skill', 'commitSha' => 'abc123']);
 
         $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
         $response = $this->controller(
@@ -601,7 +609,7 @@ Body.');
             $this->session('admin'),
             $request,
             $skillService,
-            $store
+            $pushService
         )->githubPublish('skill-1');
 
         $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
@@ -623,9 +631,9 @@ name: Demo skill
 Body.');
         $skillService->expects($this->never())->method('stampGithubPublish');
 
-        $store = $this->createMock(FederatedStoreService::class);
-        $store->method('isBrokerAvailable')->willReturn(true);
-        $store->method('publish')->willThrowException(new RuntimeException('Repository acme/demo-skill already exists'));
+        $pushService = $this->createMock(GitHubTemplatePushService::class);
+        $pushService->method('isBrokerAvailable')->willReturn(true);
+        $pushService->method('push')->willThrowException(new RuntimeException('Repository acme/demo-skill already exists'));
 
         $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill', 'credentialId' => 'cred-uuid']);
         $response = $this->controller(
@@ -634,7 +642,7 @@ Body.');
             $this->session('admin'),
             $request,
             $skillService,
-            $store
+            $pushService
         )->githubPublish('skill-1');
 
         $this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());

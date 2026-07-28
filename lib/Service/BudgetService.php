@@ -37,7 +37,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
  */
 
 declare(strict_types=1);
@@ -66,7 +66,7 @@ use Throwable;
  *   computation, gate check, warning delivery, CRUD, estimate) intentionally kept in one
  *   service rather than split, mirroring TenantOpsService's single-surface shape.
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+ * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
  */
 class BudgetService
 {
@@ -105,6 +105,17 @@ class BudgetService
      * @var string
      */
     private const EVALRUN_SCHEMA = 'evalrun';
+
+    /**
+     * The OpenRegister schema slug for skill consolidation drafts
+     * (skill-self-improvement): a consolidation pass's LLM usage is recorded as an
+     * `action='run'` AuditTrail entry on the draft, so draft UUIDs join the same
+     * scope union eval runs did — one usage-aggregation code path, no separate
+     * spend meter.
+     *
+     * @var string
+     */
+    private const SKILLDRAFT_SCHEMA = 'agentskilldraft';
 
     /**
      * The audit action written per run by ScheduleService/FlowAgentRunService.
@@ -164,7 +175,7 @@ class BudgetService
      *
      * @return bool True when at least one matching, enabled budget has reached its cap.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
      */
     public function isBlocked(string $organisation, ?string $agentId=null): bool
     {
@@ -200,7 +211,7 @@ class BudgetService
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
      */
     public function checkAndDeliverWarnings(string $organisation, ?string $agentId=null): void
     {
@@ -241,7 +252,7 @@ class BudgetService
      * @return string|null The organisation owner uid to notify, or null when no
      *                      warning is due (below threshold, or already warned this period).
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
      */
     public function recordWarningIfDue(ObjectEntity $budget): ?string
     {
@@ -298,7 +309,7 @@ class BudgetService
      *   across the token AND (optional) EUR dimensions; splitting would duplicate the
      *   period-window/usage computation.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
      */
     public function status(ObjectEntity $budget): array
     {
@@ -388,7 +399,7 @@ class BudgetService
      *
      * @return array<string, mixed> The estimate payload (design.md shape).
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-2-budgetservice-status-hard-cap-check-soft-threshold-warn-estimate
      */
     public function estimateNextRun(string $agentId): array
     {
@@ -441,7 +452,7 @@ class BudgetService
      *
      * @return array<int, array<string, mixed>> The shaped budget list.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
      */
     public function listForCaller(string $organisation=''): array
     {
@@ -477,7 +488,7 @@ class BudgetService
      *
      * @return array<string, mixed> The status payload, or a "not configured" default.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
      */
     public function statusForScope(string $organisation, ?string $agentId=null): array
     {
@@ -514,7 +525,7 @@ class BudgetService
      *
      * @return ObjectEntity|null The budget, or null when not found.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
      */
     public function findById(string $budgetId): ?ObjectEntity
     {
@@ -542,7 +553,7 @@ class BudgetService
      *
      * @throws InvalidArgumentException When the payload fails cross-field validation.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
      */
     public function create(array $payload, string $organisation): array
     {
@@ -593,7 +604,7 @@ class BudgetService
      * @throws RuntimeException        When the budget cannot be found.
      * @throws InvalidArgumentException When the merged payload fails validation.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
      */
     public function update(string $budgetId, array $payload): array
     {
@@ -637,7 +648,7 @@ class BudgetService
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
      */
     public function delete(string $budgetId): void
     {
@@ -658,7 +669,7 @@ class BudgetService
      *
      * @return array<string, mixed> The shaped payload.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
      */
     public function shape(ObjectEntity $budget): array
     {
@@ -892,7 +903,17 @@ class BudgetService
             agentId: $agentId
         );
 
-        return array_merge($uuids, $evalRunUuids);
+        // Skill-self-improvement: consolidation drafts join the union so the
+        // consolidation LLM pass's `action='run'` usage rolls into the SAME budget
+        // total (the agent-evals precedent). Additive: no drafts ⇒ unchanged set.
+        $draftUuids = $this->loadInScopeUuidsForSchema(
+            schema: self::SKILLDRAFT_SCHEMA,
+            scope: $scope,
+            organisation: $organisation,
+            agentId: $agentId
+        );
+
+        return array_merge($uuids, $evalRunUuids, $draftUuids);
 
     }//end loadScheduleUuidsForScope()
 

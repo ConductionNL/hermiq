@@ -44,8 +44,10 @@ use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\Conversation;
 use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Cron\SkillLearningsCaptureJob;
 use OCA\OpenRegister\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IUserManager;
@@ -78,7 +80,7 @@ use Throwable;
  *   gate call site instead of inheriting it for free from dispatch().
  *
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
- * @spec openspec/changes/run-reliability/design.md
+ * @spec openspec/changes/archive/2026-07-12-run-reliability/design.md
  */
 class ScheduleService
 {
@@ -194,6 +196,18 @@ class ScheduleService
     private string $lastRunId = '';
 
     /**
+     * The skill uuids actually exposed to the last run's context by the
+     * run-loop skill-exposure seam (skill-evals: `ContextAssembler::
+     * assembleSkillsForRun()` — active skills of the effective set, override
+     * else stored installs). Recorded on EVERY run's audit entry as
+     * `skillsUsed` (skill-learnings consumes it later); empty on the legacy
+     * (flag-off) ChatService path, which exposes no skills. Reset per run.
+     *
+     * @var array<int, string>
+     */
+    private array $lastRunSkillsUsed = [];
+
+    /**
      * Constructor.
      *
      * @param ObjectService          $objectService          OpenRegister object read/write (single write-path).
@@ -221,11 +235,20 @@ class ScheduleService
      * @param AgentVersionService    $agentVersionService    Resolves the executing agent's current version
      *                                                       identifier, pinned onto the run-audit context
      *                                                       (agent-versioning).
+     * @param SkillVersionService    $skillVersionService    Resolves the exposed skills' version
+     *                                                       identifiers, pinned onto the run-audit
+     *                                                       context (skill-self-improvement) — never
+     *                                                       fatal to the run.
      * @param DelegationContext      $delegationContext      Request-scoped delegation call-stack
      *                                                       (sub-agent-delegation): pushed/popped around
      *                                                       every Engine-path turn so a mid-turn
      *                                                       `hermiq.delegateAgent` call sees this run's
      *                                                       true depth/ancestry/fan-out/anchor.
+     * @param IJobList               $jobList                Enqueues the post-run learnings capture
+     *                                                       QueuedJob AFTER the run's audit entry is
+     *                                                       written (skill-learnings) — try/catch
+     *                                                       wrapped; capture never sits on the run's
+     *                                                       critical path.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
      *   a distinct injected collaborator, not a logic-bearing argument list.
@@ -248,7 +271,9 @@ class ScheduleService
         private readonly BudgetService $budgetService,
         private readonly GuardrailPolicyService $guardrailPolicyService,
         private readonly AgentVersionService $agentVersionService,
+        private readonly SkillVersionService $skillVersionService,
         private readonly DelegationContext $delegationContext,
+        private readonly IJobList $jobList,
     ) {
     }//end __construct()
 
@@ -261,8 +286,8 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-1
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-7
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     public function run(): void
     {
@@ -304,7 +329,7 @@ class ScheduleService
      *
      * @return array<int, string> The engaged organisation identifiers.
      *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-1
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
      */
     private function loadEngagedOrganisations(): array
     {
@@ -358,7 +383,7 @@ class ScheduleService
      *
      * @return bool True when the organisation's kill-switch is engaged.
      *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-1
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
      */
     public function isOrganisationEngaged(string $organisation): bool
     {
@@ -397,7 +422,7 @@ class ScheduleService
      *
      * @return int The number of schedules actually paused (flipped from enabled to disabled).
      *
-     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
      */
     public function pauseForUser(string $uid): int
     {
@@ -480,7 +505,7 @@ class ScheduleService
      *
      * @return string|null The raw actingUser value, or null when unset/unresolvable.
      *
-     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
      */
     private function rawAgentActingUser(string $agentId, array &$cache): ?string
     {
@@ -532,7 +557,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
      */
     private function flagAgentForReassignment(string $agentId): void
     {
@@ -580,7 +605,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-lifecycle-governance/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
+     * @spec openspec/specs/agent-lifecycle-governance/spec.md#requirement-automatic-offboarding-pause-on-nextcloud-user-deletion-or-disable
      */
     private function writeOffboardingAudit(ObjectEntity $schedule, string $uid): void
     {
@@ -644,8 +669,8 @@ class ScheduleService
      *   authorisation input (normal run vs. an already-approved occurrence), not a
      *   responsibility split — both modes share the identical dispatch path.
      *
-     * @spec openspec/changes/agent-management-ui/tasks.md#task-1-1
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-4-2
+     * @spec openspec/changes/agent-management-ui/tasks.md#1-backend-thin-run-now-endpoint
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#4-approve-deny-endpoints-reviewer-admin-guarded
      */
     public function runNow(ObjectEntity $schedule, bool $bypassApprovalGate=false): void
     {
@@ -681,8 +706,8 @@ class ScheduleService
      *
      * @return array<int, ObjectEntity> The due, enabled schedule objects.
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-1
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
      */
     private function findDueSchedules(DateTimeImmutable $now): array
     {
@@ -754,9 +779,9 @@ class ScheduleService
      *   authorisation input (normal run vs. an already-approved occurrence), not a
      *   responsibility split — both modes share the identical dispatch path.
      *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-2
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-1
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
      */
     private function dispatch(
         ObjectEntity $schedule,
@@ -773,11 +798,15 @@ class ScheduleService
         // to writeRunAudit(): without this, a gate-skipped schedule's audit entry could leak
         // a PREVIOUS schedule's lastRunAsUser/lastRunUsage/lastRunSteps from earlier in the
         // same tick. A skip never runs an agent, so all three reflect "nothing ran" (owner,
-        // empty usage, empty step timeline).
-        $this->lastRunAsUser = $owner;
-        $this->lastRunUsage  = [];
-        $this->lastRunSteps  = [];
-        $this->lastRunId     = '';
+        // empty usage, empty step timeline). skill-learnings: lastRunSkillsUsed joins the
+        // reset (pre-existing gap since skill-evals) — a gate-skipped entry must never leak
+        // a previous run's exposed skill set, or capture could be enqueued for a run that
+        // never happened.
+        $this->lastRunAsUser     = $owner;
+        $this->lastRunUsage      = [];
+        $this->lastRunSteps      = [];
+        $this->lastRunId         = '';
+        $this->lastRunSkillsUsed = [];
 
         // GATE 1 — KILL-SWITCH (highest priority; halts even an authorised approval-run).
         if ($organisation !== '' && in_array($organisation, $engagedOrganisations, true) === true) {
@@ -846,7 +875,7 @@ class ScheduleService
      * @return string|null One of `skipped_killswitch`|`skipped_budget`|`awaiting_approval`
      *                      when a gate blocks the run, or null when every gate passes.
      *
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-respect-existing-governance-gates-without-mutating-schedule-state
      */
     private function evaluateGates(ObjectEntity $schedule): ?string
     {
@@ -885,8 +914,8 @@ class ScheduleService
      *
      * @throws EngineRequiredException When `hermiq.engine.enabled` is off.
      *
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
      */
     public function dryRunNow(ObjectEntity $schedule): array
     {
@@ -967,7 +996,7 @@ class ScheduleService
      * @throws RuntimeException        When the original run's prompt was never persisted
      *                                 (a run recorded before this change shipped).
      *
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
      */
     public function replayRun(ObjectEntity $schedule, string $runId, array $originalTrace): array
     {
@@ -1063,7 +1092,7 @@ class ScheduleService
      *
      * @return array{toolSequenceMatches:bool,toolCalls:array<int,array{seq:int,original:?string,replay:?string,match:bool}>,outputChanged:bool}
      *
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
      */
     private function diffTrace(array $originalSteps, array $replaySteps, string $originalSummary, string $replaySummary): array
     {
@@ -1105,7 +1134,7 @@ class ScheduleService
      *
      * @return array<int,string> The tool names, in timeline order.
      *
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-runs-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-replay-re-executes-a-run-s-exact-recorded-prompt-as-a-dry-run-and-diffs-the-outcome
      */
     private function toolStepNames(array $steps): array
     {
@@ -1137,9 +1166,9 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-1
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-3-2
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#3-dispatcher-kill-switch-scheduleservice
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
      */
     private function recordGateSkip(ObjectEntity $schedule, array $data, string $owner, DateTimeImmutable $now, string $status): void
     {
@@ -1169,7 +1198,7 @@ class ScheduleService
      *
      * @return int The 1-based attempt number.
      *
-     * @spec openspec/changes/run-reliability/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-lettercircuit-breaker-outcomes-mvp
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-letter-circuit-breaker-outcomes-mvp
      */
     private function currentAttemptNumber(array $data): int
     {
@@ -1204,12 +1233,12 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-3
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-4
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-6
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
      */
     private function runDue(ObjectEntity $schedule, DateTimeImmutable $now): void
     {
@@ -1315,8 +1344,8 @@ class ScheduleService
      *
      * @return array{data:array<string,mixed>, attemptNumber:int, deferDisable:bool, limitReached:bool, retryEnabled:bool}
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
      */
     private function beginOccurrence(ObjectEntity $schedule, array $data, DateTimeImmutable $now): array
     {
@@ -1343,7 +1372,7 @@ class ScheduleService
      *
      * @return array{data:array<string,mixed>, attemptNumber:int, deferDisable:bool, limitReached:bool, retryEnabled:bool}
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
      */
     private function beginRetryAttempt(array $data, bool $retryEnabled, array $retryState): array
     {
@@ -1378,7 +1407,7 @@ class ScheduleService
      *
      * @return array{data:array<string,mixed>, attemptNumber:int, deferDisable:bool, limitReached:bool, retryEnabled:bool}
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
      */
     private function beginFreshOccurrence(ObjectEntity $schedule, array $data, DateTimeImmutable $now, bool $retryEnabled): array
     {
@@ -1426,7 +1455,7 @@ class ScheduleService
      *
      * @return array<string,mixed> The finalised schedule payload.
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
      */
     private function applySuccessOutcome(array $data, DeliveryResult $delivery, bool $deferDisable): array
     {
@@ -1458,9 +1487,9 @@ class ScheduleService
      *
      * @return array<string,mixed> The finalised schedule payload.
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
      */
     private function applyFailureOutcome(
         ObjectEntity $schedule,
@@ -1498,7 +1527,7 @@ class ScheduleService
      *
      * @return array<string,mixed> The schedule payload with a pending retryState.
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
      */
     private function scheduleRetry(array $data, int $attemptNumber, DateTimeImmutable $now, Throwable $error): array
     {
@@ -1529,8 +1558,8 @@ class ScheduleService
      *
      * @return array<string,mixed> The schedule payload marked dead_letter (or paused_circuit_breaker).
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-consecutive-dead-letter-circuit-breaker-auto-pauses-a-schedule-mvp
      */
     private function markDeadLetter(ObjectEntity $schedule, array $data, bool $deferDisable, Throwable $error): array
     {
@@ -1592,10 +1621,10 @@ class ScheduleService
      * @return string|null The newly-written entry's UUID, or null when the write failed
      *                      (never fatal — see below).
      *
-     * @spec openspec/changes/run-audit-log/tasks.md#task-2-2
-     * @spec openspec/changes/run-audit-log/tasks.md#task-2-3
-     * @spec openspec/changes/run-reliability/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-lettercircuit-breaker-outcomes-mvp
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+     * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
+     * @spec openspec/changes/run-audit-log/tasks.md#2-per-run-audit-write
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-run-history-surfaces-retry-attempts-and-dead-letter-circuit-breaker-outcomes-mvp
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     private function writeRunAudit(
         ObjectEntity $schedule,
@@ -1637,6 +1666,15 @@ class ScheduleService
                 // step (only ever true on the in-app Engine path; never fabricated).
                 'steps'              => $this->lastRunSteps,
                 'toolStepsAvailable' => $this->stepsIncludeToolCall(steps: $this->lastRunSteps),
+                // Skill-evals: the skill uuids the run-loop seam actually exposed to
+                // this run's context — persisted for EVERY run (not just evals) so
+                // skill-learnings can later attribute run outcomes to skills.
+                'skillsUsed'         => $this->lastRunSkillsUsed,
+                // Skill-self-improvement: pin each exposed skill's version as of run
+                // start (AuditTrail entry UUID) so any run traces to the exact skill
+                // content that shaped it. Never fatal — a failed lookup just omits
+                // that skill's pin (the run itself is unaffected).
+                'skillVersions'      => $this->skillVersionService->pinsFor(skillUuids: $this->lastRunSkillsUsed),
                 // Agent-versioning: the version of the agent config that actually ran
                 // this occurrence, captured at write time (null when unresolvable —
                 // never fatal to the run).
@@ -1659,6 +1697,15 @@ class ScheduleService
                 context: $context
             );
 
+            // Skill-learnings: AFTER the run record is written, enqueue the post-run
+            // capture job for a REAL run that actually exposed skills. Never for a
+            // dry-run/replay preview (no learnings from a preview), never for a
+            // gate-skip or legacy-path run (both have an empty skillsUsed), and never
+            // fatal — the enqueue helper is try/catch wrapped.
+            if ($dryRun === false && $this->lastRunSkillsUsed !== [] && $this->lastRunId !== '') {
+                $this->enqueueLearningsCapture(schedule: $schedule, agentId: $agentId);
+            }
+
             return (string) ($entry->getUuid() ?? '');
         } catch (Throwable $e) {
             $this->logger->warning(
@@ -1676,6 +1723,50 @@ class ScheduleService
     }//end writeRunAudit()
 
     /**
+     * Enqueue the post-run learnings capture QueuedJob for the just-audited run
+     * (skill-learnings): `IJobList::add()` with the run's identity, schedule/agent
+     * scope, and the `skillsUsed` recorded by the injection seam — capture executes
+     * in a later background-job pass, never inline in the run.
+     *
+     * Non-fatal by hard contract: an enqueue failure is logged and swallowed — it can
+     * never fail, delay, or alter the run or its recorded outcome.
+     *
+     * @param ObjectEntity $schedule The schedule the run belongs to.
+     * @param string       $agentId  The run's agent uuid.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
+     * @spec openspec/specs/skill-learnings/spec.md#requirement-the-engine-records-which-skills-were-exercised-in-a-run
+     */
+    private function enqueueLearningsCapture(ObjectEntity $schedule, string $agentId): void
+    {
+        try {
+            $this->jobList->add(
+                SkillLearningsCaptureJob::class,
+                [
+                    'runId'        => $this->lastRunId,
+                    'scheduleUuid' => (string) $schedule->getUuid(),
+                    'agentId'      => $agentId,
+                    'skillIds'     => $this->lastRunSkillsUsed,
+                    'organisation' => (string) ($schedule->getOrganisation() ?? ''),
+                ]
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                sprintf(
+                    'Hermiq could not enqueue learnings capture for run %s (schedule %s): %s',
+                    $this->lastRunId,
+                    (string) $schedule->getUuid(),
+                    $e->getMessage()
+                ),
+                ['exception' => $e]
+            );
+        }//end try
+
+    }//end enqueueLearningsCapture()
+
+    /**
      * Whether a step timeline includes any `tool`-type step.
      *
      * Run-trace-observability: `toolStepsAvailable` lets a reader distinguish "no
@@ -1688,7 +1779,7 @@ class ScheduleService
      *
      * @return bool True when at least one step has `type === 'tool'`.
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
      */
     private function stepsIncludeToolCall(array $steps): bool
     {
@@ -1722,7 +1813,7 @@ class ScheduleService
      *
      * @return array<int, array<string, mixed>> The coarse steps, oldest leg first, `seq` 0..n-1.
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
      */
     private function buildCoarseStepsFromTimings(array $timings, DateTimeImmutable $anchorEnd): array
     {
@@ -1778,7 +1869,7 @@ class ScheduleService
      * @return int|null The duration in milliseconds, or null when absent/malformed
      *                  (never fabricated — proposal Risk 1).
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
      */
     private function parseTimingSeconds(mixed $value): ?int
     {
@@ -1804,7 +1895,7 @@ class ScheduleService
      *
      * @return DateTimeImmutable|null The next run (UTC), or null for one-shots.
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-2
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function computeNextRun(string $kind, array $data, string $owner, DateTimeImmutable $now): ?DateTimeImmutable
     {
@@ -1858,60 +1949,69 @@ class ScheduleService
      * scheduled runs use"). `$owner` is the schedule owner for a scheduled run, or
      * the agent's own `owner` (acting user) for a flow-triggered run.
      *
-     * @param string            $owner        The uid to impersonate for this run.
-     * @param string            $agentId      The bound agent UUID.
-     * @param string            $prompt       The prompt to run.
-     * @param string            $organisation The run's organisation (schedule/agent/flow-subject
-     *                                        organisation — '' resolves the org-less instance
-     *                                        default), used ONLY to resolve the effective
-     *                                        GuardrailPolicy (agent-guardrails): the input
-     *                                        filter on the legacy ChatService branch (the one
-     *                                        path Engine::processMessage() never sees), and the
-     *                                        defense-in-depth output filter applied to BOTH
-     *                                        branches' result before it reaches this method's
-     *                                        single return point.
-     * @param bool              $dryRun       Whether this run is a dry-run preview
-     *                                        (run-replay-and-dry-run):
-     *                                        side-effecting tool calls are
-     *                                        neutralised instead of actually
-     *                                        invoked. Requires the in-app Engine
-     *                                        path (`hermiq.engine.enabled=true`)
-     *                                        — throws `EngineRequiredException`
-     *                                        otherwise, since dry-run's entire
-     *                                        mechanism depends on
-     *                                        `FacadeToolInvoker`, which only
-     *                                        exists on that path. False (every
-     *                                        pre-existing caller) is byte-for-byte
-     *                                        unchanged behavior.
-     * @param bool              $forceOwner   Sub-agent-delegation: when true, skip
-     *                                        `resolveActingUser()` entirely and
-     *                                        impersonate `$owner` verbatim, even
-     *                                        when the target Agent has its own
-     *                                        `actingUser` set — the ONLY way a
-     *                                        delegated sub-run's attribution
-     *                                        cannot be laundered from the parent's
-     *                                        already-resolved identity to a
-     *                                        different one. `DelegationService` is
-     *                                        the ONLY caller that ever passes
-     *                                        `true`; every pre-existing caller
-     *                                        (scheduled tick, Run-now,
-     *                                        `FlowAgentRunService`,
-     *                                        `WebhookAgentRunService`) omits it
-     *                                        and is byte-for-byte unaffected.
-     * @param ObjectEntity|null $anchor       Sub-agent-delegation: the object this run's
-     *                                        (and any of ITS OWN delegated sub-runs')
-     *                                        `AuditTrail` entry rolls up to for
-     *                                        `BudgetService`'s existing usage
-     *                                        aggregation — the schedule for a
-     *                                        scheduled run, the triggering object for a
-     *                                        flow-triggered run, the Agent object for a
-     *                                        webhook-triggered run, or null (every
-     *                                        pre-existing caller before this change)
-     *                                        when delegation is not in play. Threaded
-     *                                        onto the `DelegationContext` frame
-     *                                        `runAgentViaEngine()` pushes, so a NESTED
-     *                                        delegate call inherits the SAME anchor
-     *                                        however deep the tree goes.
+     * @param string            $owner            The uid to impersonate for this run.
+     * @param string            $agentId          The bound agent UUID.
+     * @param string            $prompt           The prompt to run.
+     * @param string            $organisation     The run's organisation (schedule/agent/flow-subject
+     *                                            organisation — '' resolves the org-less instance
+     *                                            default), used ONLY to resolve the effective
+     *                                            GuardrailPolicy (agent-guardrails): the input
+     *                                            filter on the legacy ChatService branch (the one
+     *                                            path Engine::processMessage() never sees), and the
+     *                                            defense-in-depth output filter applied to BOTH
+     *                                            branches' result before it reaches this method's
+     *                                            single return point.
+     * @param bool              $dryRun           Whether this run is a dry-run preview
+     *                                            (run-replay-and-dry-run):
+     *                                            side-effecting tool calls are
+     *                                            neutralised instead of actually
+     *                                            invoked. Requires the in-app Engine
+     *                                            path (`hermiq.engine.enabled=true`)
+     *                                            — throws `EngineRequiredException`
+     *                                            otherwise, since dry-run's entire
+     *                                            mechanism depends on
+     *                                            `FacadeToolInvoker`, which only
+     *                                            exists on that path. False (every
+     *                                            pre-existing caller) is byte-for-byte
+     *                                            unchanged behavior.
+     * @param bool              $forceOwner       Sub-agent-delegation: when true, skip
+     *                                            `resolveActingUser()` entirely and
+     *                                            impersonate `$owner` verbatim, even
+     *                                            when the target Agent has its own
+     *                                            `actingUser` set — the ONLY way a
+     *                                            delegated sub-run's attribution
+     *                                            cannot be laundered from the parent's
+     *                                            already-resolved identity to a
+     *                                            different one. `DelegationService` is
+     *                                            the ONLY caller that ever passes
+     *                                            `true`; every pre-existing caller
+     *                                            (scheduled tick, Run-now,
+     *                                            `FlowAgentRunService`,
+     *                                            `WebhookAgentRunService`) omits it
+     *                                            and is byte-for-byte unaffected.
+     * @param ObjectEntity|null $anchor           Sub-agent-delegation: the object this run's
+     *                                            (and any of ITS OWN delegated sub-runs')
+     *                                            `AuditTrail` entry rolls up to for
+     *                                            `BudgetService`'s existing usage
+     *                                            aggregation — the schedule for a
+     *                                            scheduled run, the triggering object for a
+     *                                            flow-triggered run, the Agent object for a
+     *                                            webhook-triggered run, or null (every
+     *                                            pre-existing caller before this change)
+     *                                            when delegation is not in play. Threaded
+     *                                            onto the `DelegationContext` frame
+     *                                            `runAgentViaEngine()` pushes, so a NESTED
+     *                                            delegate call inherits the SAME anchor
+     *                                            however deep the tree goes.
+     * @param array|null        $skillSetOverride Per-run effective-skill-set override
+     *                                            (skill uuids) for the run-loop
+     *                                            skill-exposure seam (skill-evals): a
+     *                                            paired eval half varies exactly this
+     *                                            set, IN MEMORY ONLY — the agent's
+     *                                            stored `skillInstalls` and the skills'
+     *                                            `installedOn` are never written. Null
+     *                                            (every non-eval caller) exposes the
+     *                                            agent's stored installs.
      *
      * @return string The agent's response text (already output-filtered).
      *
@@ -1923,13 +2023,13 @@ class ScheduleService
      *                                    the Engine branch throws this internally,
      *                                    inside `runAgentViaEngine()`/`Engine::processMessage()`).
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-4
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-1
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-2-2
-     * @spec openspec/changes/agent-guardrails/tasks.md#task-4-wire-inputoutput-filters-into-scheduleservicerunagentasowner
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
-     * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parents-acting-user-attribution
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+     * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+     * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+     * @spec openspec/changes/flow-agent-listener/tasks.md#2-flowagentrunservice-governed-dispatch
+     * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
+     * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parent-s-acting-user-attribution
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)  Sub-agent-delegation's `forceOwner`
      *   branch pushed this over the threshold; the method is still one linear
@@ -1951,7 +2051,8 @@ class ScheduleService
         string $organisation='',
         bool $dryRun=false,
         bool $forceOwner=false,
-        ?ObjectEntity $anchor=null
+        ?ObjectEntity $anchor=null,
+        ?array $skillSetOverride=null
     ): string {
         // Run-replay-and-dry-run: dry-run's tool-call interception depends entirely
         // on the in-app Engine/FacadeToolInvoker path — fail fast, clearly, and
@@ -1961,11 +2062,12 @@ class ScheduleService
         }
 
         // Reset per-run usage/steps so a failed run never records the previous run's
-        // tokens or step timeline.
-        $this->lastRunUsage  = [];
-        $this->lastRunSteps  = [];
-        $this->lastRunAsUser = $owner;
-        $this->lastRunId     = '';
+        // tokens, step timeline, or exposed skill set.
+        $this->lastRunUsage      = [];
+        $this->lastRunSteps      = [];
+        $this->lastRunAsUser     = $owner;
+        $this->lastRunId         = '';
+        $this->lastRunSkillsUsed = [];
 
         // Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this run.
         $guardrailPolicy = $this->guardrailPolicyService->effectivePolicyFor(organisation: $organisation);
@@ -2003,7 +2105,14 @@ class ScheduleService
             // too (defense-in-depth at the delivery/persistence trust boundary,
             // design.md Decision 7) — idempotent on already-filtered text.
             if ($this->isEngineEnabled() === true) {
-                $output = $this->runAgentViaEngine(owner: $impersonateAs, agentId: $agentId, prompt: $prompt, dryRun: $dryRun, anchor: $anchor);
+                $output = $this->runAgentViaEngine(
+                    owner: $impersonateAs,
+                    agentId: $agentId,
+                    prompt: $prompt,
+                    dryRun: $dryRun,
+                    anchor: $anchor,
+                    skillSetOverride: $skillSetOverride
+                );
                 return $this->applyOutputGuardrail(policy: $guardrailPolicy, output: $output);
             }
 
@@ -2077,7 +2186,7 @@ class ScheduleService
      *
      * @return string
      *
-     * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
+     * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
      */
     public function getLastRunId(): string
     {
@@ -2096,13 +2205,32 @@ class ScheduleService
      *
      * @return array<string,mixed>
      *
-     * @spec openspec/changes/agent-evals/tasks.md#task-2-scheduleservice-run-usagerun-steps-getters
+     * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-2-scheduleservice-run-usage-run-steps-getters
      */
     public function getLastRunUsage(): array
     {
         return $this->lastRunUsage;
 
     }//end getLastRunUsage()
+
+    /**
+     * The just-completed `runAgentAsOwner()` call's own exposed skill set
+     * (skill-evals run-loop seam) — the uuids `ContextAssembler::
+     * assembleSkillsForRun()` actually injected into the run context, exposed
+     * so `EvalRunService` can record which skills each half of a paired run
+     * saw without duplicating capture logic. Empty on the legacy (flag-off)
+     * ChatService path, which exposes no skills, or when no run has completed
+     * yet on this instance.
+     *
+     * @return array<int,string>
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function getLastRunSkillsUsed(): array
+    {
+        return $this->lastRunSkillsUsed;
+
+    }//end getLastRunSkillsUsed()
 
     /**
      * The just-completed `runAgentAsOwner()` call's own captured step timeline
@@ -2114,7 +2242,7 @@ class ScheduleService
      *
      * @return array<int,array<string,mixed>>
      *
-     * @spec openspec/changes/agent-evals/tasks.md#task-2-scheduleservice-run-usagerun-steps-getters
+     * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-2-scheduleservice-run-usage-run-steps-getters
      */
     public function getLastRunSteps(): array
     {
@@ -2135,7 +2263,7 @@ class ScheduleService
      *
      * @return string The filtered (possibly placeholder) output.
      *
-     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
+     * @spec openspec/specs/agent-guardrails/spec.md#requirement-output-is-filtered-before-persistence-and-before-delivery
      */
     private function applyOutputGuardrail(array $policy, string $output): string
     {
@@ -2162,7 +2290,7 @@ class ScheduleService
      *
      * @return bool
      *
-     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+     * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
      */
     private function guardrailActed(array $filter, string $originalText): bool
     {
@@ -2188,7 +2316,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+     * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
      */
     private function appendGuardrailStep(string $name, array $filter): void
     {
@@ -2217,7 +2345,7 @@ class ScheduleService
      *
      * @return bool True when the in-app Engine must be used.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
      */
     private function isEngineEnabled(): bool
     {
@@ -2242,7 +2370,7 @@ class ScheduleService
      *
      * @return string The resolved run-as user id.
      *
-     * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-1
+     * @spec openspec/changes/agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
      */
     private function resolveActingUser(string $agentId, string $fallbackOwner): string
     {
@@ -2299,40 +2427,51 @@ class ScheduleService
      * usage shape must survive). Callers hold the impersonation (schedule owner,
      * or the Agent's `actingUser` when set/valid — agent-capability-profile).
      *
-     * @param string            $owner   The identity to run as (schedule owner, or the
-     *                                   resolved `actingUser` — see
-     *                                   resolveActingUser()).
-     * @param string            $agentId The bound agent UUID (hermiq register `agent` object).
-     * @param string            $prompt  The prompt to run.
-     * @param bool              $dryRun  Whether this turn is a dry-run preview
-     *                                   (run-replay-and-dry-run): threaded
-     *                                   onto `Engine::processMessage()` so a
-     *                                   side-effecting tool call is
-     *                                   neutralised, and the scratch
-     *                                   `Conversation`/`Message` objects
-     *                                   created below are deleted once the
-     *                                   turn completes (success or failure)
-     *                                   — a preview leaves no persisted
-     *                                   transcript behind. False (every
-     *                                   pre-existing caller) is byte-for-byte
-     *                                   unchanged behavior.
-     * @param ObjectEntity|null $anchor  Sub-agent-delegation: the budget-rollup anchor
-     *                                   object passed straight through from
-     *                                   `runAgentAsOwner()` — pushed verbatim onto
-     *                                   the `DelegationContext` frame below, never
-     *                                   re-derived here.
+     * @param string            $owner            The identity to run as (schedule owner, or the
+     *                                            resolved `actingUser` — see
+     *                                            resolveActingUser()).
+     * @param string            $agentId          The bound agent UUID (hermiq register `agent` object).
+     * @param string            $prompt           The prompt to run.
+     * @param bool              $dryRun           Whether this turn is a dry-run preview
+     *                                            (run-replay-and-dry-run): threaded
+     *                                            onto `Engine::processMessage()` so a
+     *                                            side-effecting tool call is
+     *                                            neutralised, and the scratch
+     *                                            `Conversation`/`Message` objects
+     *                                            created below are deleted once the
+     *                                            turn completes (success or failure)
+     *                                            — a preview leaves no persisted
+     *                                            transcript behind. False (every
+     *                                            pre-existing caller) is byte-for-byte
+     *                                            unchanged behavior.
+     * @param ObjectEntity|null $anchor           Sub-agent-delegation: the budget-rollup anchor
+     *                                            object passed straight through from
+     *                                            `runAgentAsOwner()` — pushed verbatim onto
+     *                                            the `DelegationContext` frame below, never
+     *                                            re-derived here.
+     * @param array|null        $skillSetOverride Per-run effective-skill-set override
+     *                                            (skill uuids, skill-evals) passed straight
+     *                                            through to `Engine::processMessage()`;
+     *                                            null (every non-eval caller) exposes the
+     *                                            agent's stored installs.
      *
      * @return string The agent's response text.
      *
      * @throws RuntimeException When the agent cannot be resolved in the hermiq register.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-6-2
-     * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-3
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
-     * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
+     * @spec openspec/changes/agent-engine-port/tasks.md#6-feature-flag-the-engine-and-pivot-scheduleservice
+     * @spec openspec/changes/agent-capability-profile/tasks.md#3-scheduleservice-actinguser-impersonation
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
      */
-    private function runAgentViaEngine(string $owner, string $agentId, string $prompt, bool $dryRun=false, ?ObjectEntity $anchor=null): string
-    {
+    private function runAgentViaEngine(
+        string $owner,
+        string $agentId,
+        string $prompt,
+        bool $dryRun=false,
+        ?ObjectEntity $anchor=null,
+        ?array $skillSetOverride=null
+    ): string {
         $agent = $this->objectService->find(
             id: $agentId,
             register: self::REGISTER_SLUG,
@@ -2383,7 +2522,8 @@ class ScheduleService
                 userId: $owner,
                 userMessage: $prompt,
                 trace: $trace,
-                dryRun: $dryRun
+                dryRun: $dryRun,
+                skillSetOverride: $skillSetOverride
             );
 
             // Capture the LLM token/latency usage identically to the flag-off path, so
@@ -2395,6 +2535,16 @@ class ScheduleService
             $usage = ($result['usage'] ?? []);
             if (is_array($usage) === true) {
                 $this->lastRunUsage = $usage;
+            }
+
+            // Skill-evals: which skill uuids the seam actually exposed to this run's
+            // context — recorded on the run's audit entry for ALL runs (skillsUsed).
+            // @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
+            $skillsUsed = ($result['skillsUsed'] ?? []);
+            if (is_array($skillsUsed) === true) {
+                $this->lastRunSkillsUsed = array_values(
+                    array_filter($skillsUsed, static fn ($uuid): bool => is_string($uuid) === true && $uuid !== '')
+                );
             }
 
             // Prefer the collector's own record (this call owns it end-to-end); fall
@@ -2439,7 +2589,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     * @spec openspec/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
      */
     private function deleteScratchConversation(string $conversationUuid): void
     {
@@ -2495,7 +2645,7 @@ class ScheduleService
      *
      * @return string The generated UUID v4.
      *
-     * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
+     * @spec openspec/specs/sub-agent-delegation/spec.md#requirement-delegation-is-traceable-as-one-auditable-tree
      */
     private function generateRunId(): string
     {
@@ -2521,7 +2671,7 @@ class ScheduleService
      *
      * @return DeliveryResult The delivery outcome (warning ⇒ lastDeliveryError).
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-3-1
+     * @spec openspec/changes/talk-delivery/tasks.md#3-wire-into-the-dispatcher
      */
     private function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult
     {
@@ -2547,8 +2697,8 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
-     * @spec openspec/changes/delivery-channels/specs/run-audit-log/spec.md#requirement-the-delivery-trace-step-reflects-the-channel-actually-used-mvp
+     * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-3-scheduleservice-captures-steps-and-includes-them-in-the-run-audit-write
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-the-delivery-trace-step-reflects-the-channel-actually-used-mvp
      */
     private function appendDeliveryStep(DateTimeImmutable $startedAt, DeliveryResult $delivery): void
     {
@@ -2582,7 +2732,7 @@ class ScheduleService
      *
      * @return string The trace step's display name.
      *
-     * @spec openspec/changes/delivery-channels/specs/run-audit-log/spec.md#requirement-the-delivery-trace-step-reflects-the-channel-actually-used-mvp
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-the-delivery-trace-step-reflects-the-channel-actually-used-mvp
      */
     private function deliveryStepName(string $channel): string
     {
@@ -2609,7 +2759,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     private function safeDeliverFailureAlert(ObjectEntity $schedule, string $reason): void
     {
@@ -2632,7 +2782,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     private function safeDeliverCircuitBreakerAlert(ObjectEntity $schedule): void
     {
@@ -2665,7 +2815,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-7
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function recordFailure(ObjectEntity $schedule, Throwable $error): void
     {
@@ -2718,7 +2868,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-3
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function persist(ObjectEntity $schedule, array $data): void
     {
@@ -2748,8 +2898,8 @@ class ScheduleService
      *
      * @return array<string,mixed> The sanitised payload.
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-3
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-6
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function sanitizeForSave(array $data): array
     {
@@ -2772,7 +2922,7 @@ class ScheduleService
      *
      * @return array<string,mixed> The payload with normalised date-time fields.
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-3
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function normaliseDates(array $data): array
     {
@@ -2812,7 +2962,7 @@ class ScheduleService
      *
      * @return array<string,mixed> The payload with a schema-valid `repeat`.
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-6
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function sanitizeRepeat(array $data): array
     {
@@ -2861,7 +3011,7 @@ class ScheduleService
      *
      * @return array<string,mixed> The payload with a schema-valid `retryState`.
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
      */
     private function sanitizeRetryState(array $data): array
     {
@@ -2898,7 +3048,7 @@ class ScheduleService
      *
      * @return array{attempt:int, nextAttemptAt:string}|null The normalised state, or null.
      *
-     * @spec openspec/changes/run-reliability/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
+     * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
      */
     private function normaliseRetryState(mixed $raw): ?array
     {
@@ -2952,7 +3102,7 @@ class ScheduleService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-6
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function deleteSchedule(ObjectEntity $schedule): void
     {
@@ -2976,7 +3126,7 @@ class ScheduleService
      *
      * @return DateTimeZone The resolved timezone.
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-2
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function resolveTimezone(string $owner): DateTimeZone
     {
@@ -3004,7 +3154,7 @@ class ScheduleService
      *
      * @return array{times:int, completed:int}
      *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-3-6
+     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#3-scheduleservice-dispatch-logic
      */
     private function normaliseRepeat(mixed $repeat): array
     {

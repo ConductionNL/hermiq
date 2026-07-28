@@ -32,6 +32,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Flow;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Db\RegisterMapper;
+use OCA\OpenRegister\Db\SchemaMapper;
 use OCA\OpenRegister\Service\Flow\IFlowResolver;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
@@ -53,11 +55,15 @@ class HermiqFlowResolver implements IFlowResolver
     /**
      * Constructor.
      *
-     * @param ObjectService   $objectService Loads and lists agentflow objects.
-     * @param LoggerInterface $logger        The logger.
+     * @param ObjectService   $objectService  Loads and lists agentflow objects.
+     * @param RegisterMapper  $registerMapper Resolves hermiq's register by slug.
+     * @param SchemaMapper    $schemaMapper   Resolves the agentflow schema by id.
+     * @param LoggerInterface $logger         The logger.
      */
     public function __construct(
         private readonly ObjectService $objectService,
+        private readonly RegisterMapper $registerMapper,
+        private readonly SchemaMapper $schemaMapper,
         private readonly LoggerInterface $logger
     ) {
 
@@ -88,6 +94,17 @@ class HermiqFlowResolver implements IFlowResolver
         }
 
         if (($object instanceof ObjectEntity) === false) {
+            return null;
+        }
+
+        // The `register`/`schema` arguments above do NOT scope the lookup: an id
+        // that is a uuid resolves cross-table, so `find()` happily returns an
+        // object from somebody else's register. Without this check hermiq claims
+        // EVERY flow on the instance — including OpenRegister's own store — and
+        // because the registry takes the first non-null answer, the owning app's
+        // document is never consulted and any field hermiq does not copy here
+        // (executionMode, and anything added later) is silently dropped.
+        if ($this->belongsToHermiq(object: $object) === false) {
             return null;
         }
 
@@ -159,7 +176,7 @@ class HermiqFlowResolver implements IFlowResolver
     {
         try {
             $flows = $this->objectService->findAll(
-                config: ['register' => self::REGISTER, 'schema' => self::SCHEMA],
+                config: ['filters' => ['register' => self::REGISTER, 'schema' => self::SCHEMA]],
                 _rbac: false,
                 _multitenancy: false
             );
@@ -202,4 +219,54 @@ class HermiqFlowResolver implements IFlowResolver
         return $ids;
 
     }//end flowsForTrigger()
+
+    /**
+     * Whether an object actually lives in hermiq's flow store.
+     *
+     * `ObjectService::find()` takes `register` and `schema` but does not scope by
+     * them when the id is a uuid — it resolves cross-table and returns whatever
+     * carries that uuid. So the arguments read like a filter and behave like a
+     * hint, and a resolver that trusts them claims flows it does not own. Since
+     * `FlowResolverRegistry` takes the FIRST non-null answer, over-claiming does
+     * not merely return the wrong document, it prevents the owning app's
+     * resolver from ever being asked.
+     *
+     * The comparison is slug-to-id: an object carries register/schema IDs, while
+     * this class names them by slug. A store that cannot be resolved (hermiq not
+     * installed, register removed) yields false — declining is always safe,
+     * because another resolver may own the flow, whereas claiming wrongly is not.
+     *
+     * @param ObjectEntity $object The object to check.
+     *
+     * @return boolean Whether it belongs to hermiq's flow store.
+     *
+     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+     */
+    private function belongsToHermiq(ObjectEntity $object): bool
+    {
+        try {
+            $register = $this->registerMapper->find(self::REGISTER);
+        } catch (Throwable $e) {
+            return false;
+        }
+
+        if ((string) $object->getRegister() !== (string) $register->getId()) {
+            return false;
+        }
+
+        foreach ((array) $register->getSchemas() as $schemaId) {
+            try {
+                $schema = $this->schemaMapper->find($schemaId);
+            } catch (Throwable $e) {
+                continue;
+            }
+
+            if ($schema->getSlug() === self::SCHEMA) {
+                return ((string) $object->getSchema() === (string) $schema->getId());
+            }
+        }
+
+        return false;
+
+    }//end belongsToHermiq()
 }//end class
