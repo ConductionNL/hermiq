@@ -163,13 +163,33 @@ class TalkBridge
      */
     public function postToRoom(string $roomToken, string $message): bool
     {
+        return ($this->postToRoomReturningId(roomToken: $roomToken, message: $message) !== null);
+
+    }//end postToRoom()
+
+    /**
+     * Post a message into a room as the bot and return its message id.
+     *
+     * The id is what makes a message referenceable later — an approval request
+     * has to be resolvable from a reaction on it, which needs the id spreed
+     * assigned. Callers that do not care use `postToRoom()`.
+     *
+     * @param string $roomToken The Talk room token.
+     * @param string $message   The message body (markdown).
+     *
+     * @return string|null The posted message's id, or null when it could not be posted.
+     *
+     * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+     */
+    public function postToRoomReturningId(string $roomToken, string $message): ?string
+    {
         if ($this->isAvailable() === false || $roomToken === '' || trim($message) === '') {
-            return false;
+            return null;
         }
 
         try {
-            $room = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
-            $this->container->get(self::TALK_CHAT_MANAGER)->sendMessage(
+            $room    = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
+            $comment = $this->container->get(self::TALK_CHAT_MANAGER)->sendMessage(
                 $room,
                 null,
                 self::ACTOR_BOTS,
@@ -177,7 +197,8 @@ class TalkBridge
                 $message,
                 new DateTime()
             );
-            return true;
+
+            return (string) $comment->getId();
         } catch (Throwable $e) {
             $this->logger->warning(
                 message: '[TalkBridge] Could not post the agent answer into the room',
@@ -188,10 +209,10 @@ class TalkBridge
                     'error'     => $e->getMessage(),
                 ]
             );
-            return false;
+            return null;
         }//end try
 
-    }//end postToRoom()
+    }//end postToRoomReturningId()
 
     /**
      * Whether the given room is a one-to-one conversation.

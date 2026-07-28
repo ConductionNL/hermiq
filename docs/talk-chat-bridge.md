@@ -99,3 +99,29 @@ Setting `talkEnabled` to false on the agent has the same effect for that agent.
 
 Nothing changes. Talk is an optional runtime dependency: Hermiq boots, runs agents and delivers
 output exactly as before, and the Talk-specific settings simply have no effect.
+
+## Approving from Talk
+
+When a run needs a person's approval and its agent is bound to a conversation, Hermiq posts the
+request into that conversation as the bot. The reviewer resolves it with a reaction:
+
+- **👍 approves** — the run is released.
+- **👎 denies** — the run does not execute.
+- Any other emoji does nothing. An emoji is a lossy signal and this is a governance decision, so
+  an unrecognised one is ignored rather than guessed at.
+
+**Only the reviewer's reaction counts.** A reaction is visible to everyone in the room and anyone
+can add one, so Hermiq checks the reacting user against the approval's reviewer — the named person,
+or a member of the named group — using the same rule the approvals inbox uses. A reaction from
+anyone else is ignored.
+
+**A decision cannot be undone.** Removing your 👍 does not take it back; the run has already been
+released. Hermiq says so in the conversation rather than staying silent, because silence would
+read as "it worked".
+
+The approvals inbox remains available and authoritative — the reaction is a shortcut for the
+common case, not a replacement. Which surface was used is recorded on the approval, so an audit
+reader can tell a one-tap approval from one made with the full context in front of them.
+
+If Talk is absent, or the agent has no bound conversation, approvals behave exactly as before:
+notification plus the inbox.

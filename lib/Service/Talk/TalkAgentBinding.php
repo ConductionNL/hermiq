@@ -208,6 +208,38 @@ class TalkAgentBinding
     }//end roomAgentMap()
 
     /**
+     * The room bound to a given agent, if any.
+     *
+     * The reverse of `roomAgentMap()`. Used when something needs to reach an
+     * agent's room without already knowing the token — posting an approval
+     * request where the reviewer can react to it, for instance.
+     *
+     * More than one room may name the same agent; the first is returned, which
+     * is deterministic for a map read back in insertion order.
+     *
+     * @param string $agentId The agent uuid.
+     *
+     * @return string|null The room token, or null when no room is bound to it.
+     *
+     * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+     */
+    public function roomForAgent(string $agentId): ?string
+    {
+        if ($agentId === '') {
+            return null;
+        }
+
+        foreach ($this->roomAgentMap() as $token => $bound) {
+            if ($bound === $agentId) {
+                return $token;
+            }
+        }
+
+        return null;
+
+    }//end roomForAgent()
+
+    /**
      * Bind a room to an agent.
      *
      * @param string $roomToken The Talk room token.

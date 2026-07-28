@@ -51,6 +51,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use DateTime;
+use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\Http\Client\IClientService;
@@ -217,6 +218,9 @@ class DeliveryService
      * @param TalkRoomBinding              $talkRoomBinding              Binds the run's conversation to the Talk room it
      *                                                                   was delivered into, so the report can be replied to
      *                                                                   (talk-chat-bridge).
+     * @param TalkApprovalNotifier         $talkApprovalNotifier         Posts an approval request into the agent's
+     *                                                                   bound room as the bot, so it can be decided
+     *                                                                   by a reaction (talk-approval-reactions).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct always-present Nextcloud/Hermiq collaborator, not a logic-bearing list.
@@ -234,6 +238,7 @@ class DeliveryService
         private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService,
         private readonly LoggerInterface $logger,
         private readonly TalkRoomBinding $talkRoomBinding,
+        private readonly TalkApprovalNotifier $talkApprovalNotifier,
     ) {
     }//end __construct()
 
@@ -330,6 +335,11 @@ class DeliveryService
     public function deliverApprovalRequest(ObjectEntity $schedule, ObjectEntity $approval, array $reviewerUids): DeliveryResult
     {
         $scheduleName = (string) ($schedule->getObject()['name'] ?? '');
+
+        // Bonus surface: post into the agent's bound Talk room as the bot so
+        // the reviewer can decide with a reaction. Best-effort — the
+        // notification below is the guaranteed delivery.
+        $this->talkApprovalNotifier->postRequest(approval: $approval, displayName: $scheduleName);
 
         return $this->notifyApprovalReviewers(
             approvalUuid: (string) $approval->getUuid(),

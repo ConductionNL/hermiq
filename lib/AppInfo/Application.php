@@ -32,6 +32,7 @@ use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
+use OCA\Hermiq\Listener\TalkApprovalReactionListener;
 use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
@@ -190,6 +191,16 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(
             event: 'OCA\\Talk\\Events\\BotInvokeEvent',
             listener: TalkBotInvokeListener::class
+        );
+
+        // Approvals decided by reaction (talk-approval-reactions): spreed
+        // invokes bots on reactions with the SAME BotInvokeEvent, so this is a
+        // second listener on the same event — each ignores the invocation types
+        // that are not its own. Registered unconditionally and by event name for
+        // the same reason as the message listener above.
+        $context->registerEventListener(
+            event: 'OCA\\Talk\\Events\\BotInvokeEvent',
+            listener: TalkApprovalReactionListener::class
         );
 
         // Renders Hermiq's Nextcloud notifications (talk-delivery): the notification

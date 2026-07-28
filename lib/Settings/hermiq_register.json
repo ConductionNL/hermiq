@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud. v0.20.0 — talk-chat-bridge-schema: Conversation gains the OPTIONAL top-level talkRoomToken (the Talk room a conversation is bound to, declared top-level rather than inside metadata so the bridge can resolve an inbound room token by filter query) and the OPTIONAL participants roster (user ids permitted to take a turn beyond the implicit userId owner); Message gains the OPTIONAL authorId and authorDisplayName, set on role=user turns only and captured at send time. All four are optional, none is added to any required list, and no conditional blocks are introduced, so every existing Conversation and Message stays valid and the shape is inert until the talk-chat-bridge code change ships. Supersedes v0.19.3 on development (skill-maturity wave + Algoritmekader title re-authoring). Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
-        "version": "0.20.0"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.21.0 — talk-approval-reactions-schema: Approval gains the OPTIONAL top-level talkMessageId (the Talk message carrying an approval request; top-level so the reaction handler can resolve BY it), talkRoomToken, and the derived decidedVia ('inbox' or 'reaction'). All optional, none required, no conditionals, so every existing Approval stays valid and the shape is inert until the talk-approval-reactions code change ships. Previously v0.20.0 — talk-chat-bridge-schema: Conversation gains the OPTIONAL top-level talkRoomToken (the Talk room a conversation is bound to, declared top-level rather than inside metadata so the bridge can resolve an inbound room token by filter query) and the OPTIONAL participants roster (user ids permitted to take a turn beyond the implicit userId owner); Message gains the OPTIONAL authorId and authorDisplayName, set on role=user turns only and captured at send time. All four are optional, none is added to any required list, and no conditional blocks are introduced, so every existing Conversation and Message stays valid and the shape is inert until the talk-chat-bridge code change ships. Supersedes v0.19.3 on development (skill-maturity wave + Algoritmekader title re-authoring). Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
+        "version": "0.21.0"
     },
     "x-openregister": {
         "type": "application",
@@ -384,6 +384,21 @@
                         "type": "string",
                         "title": "Reason",
                         "description": "Optional decision reason (typically supplied on denial)."
+                    },
+                    "talkMessageId": {
+                        "type": "string",
+                        "title": "Talk message",
+                        "description": "Id of the Nextcloud Talk message carrying this approval request. Declared top-level (not nested) because the reaction handler resolves an approval BY this value, and OpenRegister's dot-path filters on nested JSON match nothing. Empty or unset means the request was never posted to Talk and cannot be decided from there."
+                    },
+                    "talkRoomToken": {
+                        "type": "string",
+                        "title": "Talk room token",
+                        "description": "The Nextcloud Talk room this approval request was posted into, so a decision taken by reaction can be confirmed in the same place. Written alongside talkMessageId by the notifier."
+                    },
+                    "decidedVia": {
+                        "type": "string",
+                        "title": "Decided via",
+                        "description": "How the decision arrived: 'inbox' (the Hermiq approvals inbox) or 'reaction' (a 👍/👎 on the Talk message). Derived — written by the decision path, never by a user — so an audit reader can distinguish a one-click approval from a considered one. Deliberately not an enum, so a future decision surface can record itself without a schema change."
                     },
                     "draftId": {
                         "type": "string",
