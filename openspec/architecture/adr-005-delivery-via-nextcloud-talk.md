@@ -30,11 +30,34 @@ email; conversation history lives in OpenRegister (ADR-003).
 - One adapter to build and test for the MVP.
 
 **Negative / trade-offs:**
-- **Hard dependency on Talk (spreed)**, which is not installed on the current dev instance
-  (only `opentalk` video). Operators must install Talk and enable its external-bot framework;
-  otherwise Hermiq falls back to Notifications (higher-friction, no threaded conversation).
+- **Soft dependency on Talk (spreed).** Talk is optional at runtime: Hermiq probes it via
+  `IBroker::hasBackend()` and resolves spreed classes lazily, so it boots and delivers (via
+  Notifications) without Talk. Where Talk is absent the experience is higher-friction and has no
+  conversational thread.
 - No out-of-the-box reach to external chat platforms; users who want Telegram/Slack must bridge
   via OpenConnector or a future adapter — an explicit non-goal for now.
+
+## Status of the two-way channel
+
+This ADR justified choosing Talk partly because it offers "a real two-way channel" and a reply
+path. Only the outbound half shipped: `talk-delivery` posts run output to a room, Note-to-self or
+a notification, and a delivered report could not be answered.
+
+The inbound half is specified by `talk-chat-bridge`, which registers Hermiq as an in-process Talk
+bot (`nextcloudapp://`), turns room messages into agent turns, and binds a delivered-to room to the
+conversation that produced the output — so a reply continues that session. Because Talk bot
+messages are server-side, this also makes agents reachable from Talk's mobile apps with no
+client-side work, which was implicit in the original decision but never stated.
+
+Two corrections to the record, verified against the current dev instance:
+
+- Talk **is** installed here (spreed 24.0.1). The claim above that only `opentalk` video was
+  present described the instance in July 2026 and is no longer true.
+- No **external**-bot framework is required. spreed's `nextcloudapp://` bot URL scheme dispatches
+  `BotInvokeEvent` in-process, so the bridge needs no reachable callback URL, no shared secret and
+  no outbound network access.
+
+The decision itself is unchanged; only its consequences are now more favourable than recorded.
 
 ## Alternatives Considered
 

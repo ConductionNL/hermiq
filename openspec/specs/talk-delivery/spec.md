@@ -1,12 +1,15 @@
 # Talk Delivery Specification
 
-**Status**: active (shipped to `main` v0.1.10; Talk room → note-to-self → notification fallback, live-verified)
-**Standards**: Nextcloud Talk (spreed) OCS API, Nextcloud Notifications
+**Status**: in-progress (delivery shipped to `main` v0.1.10 — Talk room → note-to-self → notification fallback, live-verified; `talk-chat-bridge` now adds the room binding that makes a delivered report repliable)
+**Standards**: Nextcloud Talk (spreed) OCS API + bot API, Nextcloud Notifications
 **Feature tier**: MVP
 
 **OpenSpec changes:**
 - `openspec/changes/talk-delivery-schema/` — `deliverTarget` + `lastDeliveryError` Schedule fields (kind: config) — **done**
 - `openspec/changes/talk-delivery/` — the delivery service + dispatcher wiring (kind: code, depends_on talk-delivery-schema)
+- `openspec/changes/talk-chat-bridge/` — delivery records `talkRoomToken` on the conversation it delivered for, so a reply in that room continues that session (kind: code, depends_on talk-chat-bridge-schema)
+
+**Related features:** `talk-chat-bridge` (the inbound half), `talk-shared-sessions`, `talk-room-grouping`
 
 ## Purpose
 

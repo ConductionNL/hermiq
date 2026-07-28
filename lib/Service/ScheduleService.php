@@ -199,6 +199,18 @@ class ScheduleService
     private string $lastRunId = '';
 
     /**
+     * The conversation UUID the last engine-path run produced.
+     *
+     * Handed to `DeliveryService::deliver()` so that a run whose output lands
+     * in a Talk room gets that room bound to THIS conversation — which is what
+     * makes a delivered report repliable instead of a dead end
+     * (talk-chat-bridge). Empty for the flag-off path and for dry runs.
+     *
+     * @var string
+     */
+    private string $lastRunConversationUuid = '';
+
+    /**
      * The skill uuids actually exposed to the last run's context by the
      * run-loop skill-exposure seam (skill-evals: `ContextAssembler::
      * assembleSkillsForRun()` — active skills of the effective set, override
@@ -2510,6 +2522,13 @@ class ScheduleService
             schema: self::CONVERSATION_SCHEMA
         );
 
+        // Remember which conversation this run produced so a Talk-room delivery
+        // can bind it and become repliable. A dry run's scratch conversation is
+        // deleted at the end of the run, so it is deliberately never bound.
+        // A dry run's scratch conversation is deleted at the end of the run, so
+        // it is deliberately never bound to a room.
+        $this->lastRunConversationUuid = $this->bindableConversationUuid(conversation: $conversation, dryRun: $dryRun);
+
         // Run-trace-observability: the in-app Engine path is the ONLY path Hermiq
         // instruments fine-grained tool-call steps on (agent-engine-port ownership
         // boundary) — thread a fresh collector through the SAME call chain
@@ -2689,13 +2708,39 @@ class ScheduleService
      */
     private function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult
     {
+        $conversationUuid = null;
+        if ($this->lastRunConversationUuid !== '') {
+            $conversationUuid = $this->lastRunConversationUuid;
+        }
+
         return $this->deliveryService->deliver(
             channel: $channel,
             output: $output,
-            schedule: $schedule
+            schedule: $schedule,
+            conversationUuid: $conversationUuid
         );
 
     }//end deliver()
+
+    /**
+     * The conversation uuid a Talk-room delivery may bind to, or empty.
+     *
+     * @param ObjectEntity $conversation The conversation this run produced.
+     * @param bool         $dryRun       Whether this run is a dry-run preview.
+     *
+     * @return string The uuid, or '' when the conversation must not be bound.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-delivery/spec.md#requirement-talk-delivery-binds-the-delivered-for-conversation-to-the-room
+     */
+    private function bindableConversationUuid(ObjectEntity $conversation, bool $dryRun): string
+    {
+        if ($dryRun === true) {
+            return '';
+        }
+
+        return (string) $conversation->getUuid();
+
+    }//end bindableConversationUuid()
 
     /**
      * Append a `delivery` step onto `$this->lastRunSteps` (run-trace-observability),
