@@ -199,6 +199,18 @@ class ScheduleService
     private string $lastRunId = '';
 
     /**
+     * The conversation UUID the last engine-path run produced.
+     *
+     * Handed to `DeliveryService::deliver()` so that a run whose output lands
+     * in a Talk room gets that room bound to THIS conversation — which is what
+     * makes a delivered report repliable instead of a dead end
+     * (talk-chat-bridge). Empty for the flag-off path and for dry runs.
+     *
+     * @var string
+     */
+    private string $lastRunConversationUuid = '';
+
+    /**
      * The skill uuids actually exposed to the last run's context by the
      * run-loop skill-exposure seam (skill-evals: `ContextAssembler::
      * assembleSkillsForRun()` — active skills of the effective set, override
@@ -2510,6 +2522,14 @@ class ScheduleService
             schema: self::CONVERSATION_SCHEMA
         );
 
+        // Remember which conversation this run produced so a Talk-room delivery
+        // can bind it and become repliable. A dry run's scratch conversation is
+        // deleted at the end of the run, so it is deliberately never bound.
+        $this->lastRunConversationUuid = '';
+        if ($dryRun === false) {
+            $this->lastRunConversationUuid = (string) $conversation->getUuid();
+        }
+
         // Run-trace-observability: the in-app Engine path is the ONLY path Hermiq
         // instruments fine-grained tool-call steps on (agent-engine-port ownership
         // boundary) — thread a fresh collector through the SAME call chain
@@ -2689,10 +2709,16 @@ class ScheduleService
      */
     private function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult
     {
+        $conversationUuid = null;
+        if ($this->lastRunConversationUuid !== '') {
+            $conversationUuid = $this->lastRunConversationUuid;
+        }
+
         return $this->deliveryService->deliver(
             channel: $channel,
             output: $output,
-            schedule: $schedule
+            schedule: $schedule,
+            conversationUuid: $conversationUuid
         );
 
     }//end deliver()

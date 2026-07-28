@@ -81,6 +81,8 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
+            <step>OCA\Hermiq\Repair\InstallTalkBot</step>
         </install>
         <post-migration>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
@@ -107,6 +109,11 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
             <step>OCA\Hermiq\Repair\MigrateAgentData</step>
             <step>OCA\Hermiq\Repair\RemoveLegacyLlmKeys</step>
+            <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
+            <!-- Registers the in-process Talk bot. A no-op when Talk is absent,
+                 and activates nothing on its own: a Talk moderator must still
+                 enable it per conversation AND the agent must be Talk-enabled. -->
+            <step>OCA\Hermiq\Repair\InstallTalkBot</step>
         </post-migration>
     </repair-steps>
 

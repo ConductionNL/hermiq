@@ -61,6 +61,7 @@ namespace OCA\Hermiq\Service\Engine;
 use Exception;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
+use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Cron\ConversationTitleJob;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\BackgroundJob\IJobList;
@@ -148,6 +149,11 @@ class Engine
      *                                                              simply means no title is queued —
      *                                                              the reply is unaffected, which is
      *                                                              the point of deferring it.
+     * @param ConversationParticipation     $participation          The owner-or-listed-participant
+     *                                                              guard (talk-shared-sessions).
+     *                                                              Defaulted so every existing
+     *                                                              caller constructs unchanged; the
+     *                                                              class is dependency-free.
      *
      * @return void
      *
@@ -165,7 +171,8 @@ class Engine
         private readonly ContextAssembler $contextAssembler,
         private readonly LoggerInterface $logger,
         private readonly ?GuardrailPolicyService $guardrailPolicyService=null,
-        private readonly ?IJobList $jobList=null
+        private readonly ?IJobList $jobList=null,
+        private readonly ConversationParticipation $participation=new ConversationParticipation()
     ) {
     }//end __construct()
 
@@ -175,45 +182,55 @@ class Engine
      * Main orchestration method that coordinates all handlers. See the class
      * docblock for the binding signature/return-shape contract.
      *
-     * @param string                  $conversationId   Conversation object UUID.
-     * @param string                  $userId           User id (must own the conversation).
-     * @param string                  $userMessage      User message text.
-     * @param array                   $selectedViews    View filters for multitenancy (optional).
-     * @param array                   $selectedTools    Tool registry ids to use (optional).
-     * @param array                   $ragSettings      RAG configuration overrides (optional).
-     * @param array                   $context          AI Chat Companion context snapshot the
-     *                                                  frontend sent. Persisted on the
-     *                                                  user-authored Message when non-empty.
-     * @param StreamYieldChannel|null $channel          Streaming channel forwarded to the response
-     *                                                  handler so SSE consumers can interleave
-     *                                                  `token`/`tool_call`/`tool_result` frames as
-     *                                                  the LLM yields. Null for blocking callers.
-     * @param RunTraceCollector|null  $trace            Optional run-trace collector
-     *                                                  (run-trace-observability);
-     *                                                  when supplied,
-     *                                                  context/history/llm/tool
-     *                                                  steps are timed into it and
-     *                                                  returned as the envelope's
-     *                                                  `steps` key. Null for
-     *                                                  callers that do not need a
-     *                                                  step timeline (zero behavior
-     *                                                  change).
-     * @param bool                    $dryRun           Whether this turn is a dry-run preview
-     *                                                  (run-replay-and-dry-run); threaded
-     *                                                  onto
-     *                                                  `ResponseGenerationHandler::generateResponse()`
-     *                                                  so a side-effecting tool call is
-     *                                                  neutralised instead of actually
-     *                                                  invoked. False (every pre-existing
-     *                                                  caller) is byte-for-byte unchanged
-     *                                                  behavior.
-     * @param array|null              $skillSetOverride Per-run effective-skill-set override
-     *                                                  (skill uuids) for the run-loop
-     *                                                  skill-exposure seam (skill-evals):
-     *                                                  a paired eval half varies exactly
-     *                                                  this set. Null (every non-eval
-     *                                                  caller) exposes the agent's stored
-     *                                                  `skillInstalls`.
+     * @param string                  $conversationId    Conversation object UUID.
+     * @param string                  $userId            User id (must own the conversation).
+     * @param string                  $userMessage       User message text.
+     * @param array                   $selectedViews     View filters for multitenancy (optional).
+     * @param array                   $selectedTools     Tool registry ids to use (optional).
+     * @param array                   $ragSettings       RAG configuration overrides (optional).
+     * @param array                   $context           AI Chat Companion context snapshot the
+     *                                                   frontend sent. Persisted on the
+     *                                                   user-authored Message when non-empty.
+     * @param StreamYieldChannel|null $channel           Streaming channel forwarded to the response
+     *                                                   handler so SSE consumers can interleave
+     *                                                   `token`/`tool_call`/`tool_result` frames as
+     *                                                   the LLM yields. Null for blocking callers.
+     * @param RunTraceCollector|null  $trace             Optional run-trace collector
+     *                                                   (run-trace-observability);
+     *                                                   when supplied,
+     *                                                   context/history/llm/tool
+     *                                                   steps are timed into it and
+     *                                                   returned as the envelope's
+     *                                                   `steps` key. Null for
+     *                                                   callers that do not need a
+     *                                                   step timeline (zero behavior
+     *                                                   change).
+     * @param bool                    $dryRun            Whether this turn is a dry-run preview
+     *                                                   (run-replay-and-dry-run); threaded
+     *                                                   onto
+     *                                                   `ResponseGenerationHandler::generateResponse()`
+     *                                                   so a side-effecting tool call is
+     *                                                   neutralised instead of actually
+     *                                                   invoked. False (every pre-existing
+     *                                                   caller) is byte-for-byte unchanged
+     *                                                   behavior.
+     * @param array|null              $skillSetOverride  Per-run effective-skill-set override
+     *                                                   (skill uuids) for the run-loop
+     *                                                   skill-exposure seam (skill-evals): a
+     *                                                   paired eval half varies exactly this
+     *                                                   set. Null (every non-eval caller)
+     *                                                   exposes the agent's stored
+     *                                                   `skillInstalls`.
+     * @param string|null             $authorId          Uid of the human who produced this turn,
+     *                                                   persisted on the user-authored Message
+     *                                                   so a shared session records who spoke
+     *                                                   (talk-shared-sessions). Null for
+     *                                                   single-speaker callers — byte-for-byte
+     *                                                   unchanged behavior.
+     * @param string|null             $authorDisplayName That human's display name AT SEND TIME,
+     *                                                   captured deliberately and never re-resolved
+     *                                                   so a transcript stays legible after a
+     *                                                   rename or a deleted account (ADR-004).
      *
      * @return array The result envelope.
      *
@@ -251,7 +268,9 @@ class Engine
         ?StreamYieldChannel $channel=null,
         ?RunTraceCollector $trace=null,
         bool $dryRun=false,
-        ?array $skillSetOverride=null
+        ?array $skillSetOverride=null,
+        ?string $authorId=null,
+        ?string $authorDisplayName=null
     ): array {
         $this->logger->info(
             message: '[Engine] Processing message',
@@ -276,7 +295,11 @@ class Engine
             }
 
             $conversationData = $conversation->getObject();
-            if (($conversationData['userId'] ?? null) !== $userId) {
+            // Owner-or-listed-participant (talk-shared-sessions). This guard is
+            // NOT redundant with ChatController's: the Talk bridge reaches the
+            // engine from a background job without passing through the
+            // controller, so this is the only check on that path.
+            if ($this->participation->mayTakeTurn(conversationData: $conversationData, userId: $userId) === false) {
                 throw new Exception('Access denied to conversation');
             }
 
@@ -359,13 +382,18 @@ class Engine
 
             $userMessage = (string) $inputFilter['text'];
 
-            // Store user message with the CnAiContext snapshot.
+            // Store user message with the CnAiContext snapshot. Authorship is
+            // threaded through to this single writer rather than persisted by
+            // the caller, so a shared session records who spoke without any
+            // path double-storing the turn (talk-shared-sessions).
             $this->historyHandler->storeMessage(
                 conversationId: $conversationId,
                 role: 'user',
                 content: $userMessage,
                 sources: null,
-                context: $cnAiContext
+                context: $cnAiContext,
+                authorId: $authorId,
+                authorDisplayName: $authorDisplayName
             );
 
             // Check if conversation needs summarization.

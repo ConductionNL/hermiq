@@ -32,6 +32,7 @@ use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
+use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
@@ -171,6 +172,24 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(
             event: UserChangedEvent::class,
             listener: UserLifecycleListener::class
+        );
+
+        // Inbound Talk chat bridge (talk-chat-bridge): spreed dispatches
+        // BotInvokeEvent IN-PROCESS for bots registered with the
+        // `nextcloudapp://` URL scheme, so this is a plain listener rather than
+        // a webhook endpoint — nothing is exposed to the network.
+        //
+        // Registered UNCONDITIONALLY and by event NAME, deliberately. Guarding
+        // it with `class_exists('OCA\Talk\...')` is the obvious-looking move and
+        // is wrong: at register() time a sibling app may not be loaded yet, so
+        // the check can return false on a perfectly healthy instance and
+        // silently disable the whole feature with nothing in the logs.
+        // Registration is cheap and listener resolution is lazy, so the guard
+        // would buy nothing and cost the feature. Talk availability is checked
+        // at INVOKE time instead, inside the listener (TalkBridge::isAvailable()).
+        $context->registerEventListener(
+            event: 'OCA\\Talk\\Events\\BotInvokeEvent',
+            listener: TalkBotInvokeListener::class
         );
 
         // Renders Hermiq's Nextcloud notifications (talk-delivery): the notification

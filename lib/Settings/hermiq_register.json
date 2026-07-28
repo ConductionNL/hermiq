@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud. v0.19.2 — merge of the skill-maturity wave and development. Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
-        "version": "0.19.3"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.20.0 — talk-chat-bridge-schema: Conversation gains the OPTIONAL top-level talkRoomToken (the Talk room a conversation is bound to, declared top-level rather than inside metadata so the bridge can resolve an inbound room token by filter query) and the OPTIONAL participants roster (user ids permitted to take a turn beyond the implicit userId owner); Message gains the OPTIONAL authorId and authorDisplayName, set on role=user turns only and captured at send time. All four are optional, none is added to any required list, and no conditional blocks are introduced, so every existing Conversation and Message stays valid and the shape is inert until the talk-chat-bridge code change ships. Supersedes v0.19.3 on development (skill-maturity wave + Algoritmekader title re-authoring). Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
+        "version": "0.20.0"
     },
     "x-openregister": {
         "type": "application",
@@ -2107,6 +2107,12 @@
                         "default": false,
                         "title": "Requires approval",
                         "description": "When true, this agent cannot be reached as a sub-agent-delegation target — a delegation attempt is refused outright (delegation_requires_approval) rather than creating a pending Approval, since a delegate call has no synchronous pause/resume mechanism. The agent remains runnable via its own schedule or flow trigger, which enforce the full pending/approved/denied gate (mirrors Schedule.requiresApproval's EU AI Act Art. 14 semantics, applied here at the agent level for delegation targets)."
+                    },
+                    "talkEnabled": {
+                        "type": "boolean",
+                        "default": false,
+                        "title": "Reachable from Talk",
+                        "description": "When true, this agent may be conversed with from a Nextcloud Talk room in which the Hermiq bot is enabled. Defaults to false, and is only half of the requirement: a Talk moderator must ALSO enable the bot in the room, so neither switch alone activates the bridge and installing the feature changes no behaviour until an operator opts in deliberately."
                     }
                 }
             },
@@ -2147,6 +2153,20 @@
                         "type": "object",
                         "title": "Metadata",
                         "description": "Additional JSON metadata such as a summary, token count, or message count."
+                    },
+                    "talkRoomToken": {
+                        "type": "string",
+                        "title": "Talk room token",
+                        "description": "The Nextcloud Talk room this conversation is bound to, written by the delivery layer when it posts a run's output to a room and by the Talk bridge when a room's first message opens a session. Declared top-level (not inside metadata) because the bridge resolves an inbound room token to a conversation by filter query. Empty or unset means the conversation has no Talk binding and is web-UI only."
+                    },
+                    "participants": {
+                        "type": "array",
+                        "default": [],
+                        "title": "Participants",
+                        "description": "User ids permitted to take a turn in this conversation in addition to the owner. The userId owner is implicitly a participant and need not be listed, so an empty or unset roster means owner-only.",
+                        "items": {
+                            "type": "string"
+                        }
                     }
                 }
             },
@@ -2230,6 +2250,16 @@
                         "type": "object",
                         "title": "Context",
                         "description": "AI Chat Companion context snapshot captured when the message was sent (appId, pageKind, objectUuid, registerSlug, schemaSlug, route, capturedAt), preserved verbatim as free-form JSON."
+                    },
+                    "authorId": {
+                        "type": "string",
+                        "title": "Author",
+                        "description": "User id of the human who produced this turn. Set on role=user messages; left unset for system, assistant and tool turns, which have no human author."
+                    },
+                    "authorDisplayName": {
+                        "type": "string",
+                        "title": "Author display name",
+                        "description": "The author's display name as it read at send time, captured deliberately and never re-resolved on read, so a transcript stays legible after a rename or a deleted account. Set alongside authorId on role=user messages only."
                     }
                 }
             },
