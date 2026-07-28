@@ -170,7 +170,8 @@ class TenantOpsServiceTest extends TestCase
                 mixed $register=null,
                 mixed $schema=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $_render=true
             ): ?ObjectEntity {
                 foreach (($this->bySchema[(string) $schema] ?? []) as $object) {
                     if ($object->getUuid() === $id) {
@@ -187,7 +188,10 @@ class TenantOpsServiceTest extends TestCase
                 mixed $schema=null,
                 ?string $uuid=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $silent=false,
+                ?array $uploadedFiles=null,
+                ?\OCP\IUser $currentUser=null
             ): ObjectEntity {
                 $this->saved[] = ['object' => $object, 'register' => $register, 'schema' => $schema, 'uuid' => $uuid];
 
