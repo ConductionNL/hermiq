@@ -24,6 +24,9 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
 	testDir: './tests/e2e',
+	// Log in once (NC34-safe form selectors + status.php health poll) and share
+	// the session with every spec via use.storageState below.
+	globalSetup: './tests/e2e/global-setup.ts',
 	// Nextcloud login + first SPA bundle load on a dev instance comfortably exceeds the
 	// 30s default; 90s gives the login → navigate → assert flow real headroom.
 	timeout: 120_000,
@@ -39,6 +42,9 @@ export default defineConfig({
 
 	use: {
 		baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080',
+		// Authenticated session persisted by tests/e2e/global-setup.ts — specs
+		// start logged in as admin without per-spec form logins.
+		storageState: './tests/e2e/.auth/admin.json',
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		navigationTimeout: 90_000,

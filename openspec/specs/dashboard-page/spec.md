@@ -43,6 +43,8 @@ The system MUST expose a catch-all route that also returns the dashboard SPA so 
 
 #### Scenario: Deep link to an in-app route
 
+@e2e tests/e2e/spec-coverage/manifest-pages.spec.ts
+
 - GIVEN a user opens `/apps/app-template/items/abc-123` directly (e.g. from an external link)
 - WHEN the request reaches `DashboardController::catchAll()`
 - THEN the system MUST return the same `TemplateResponse` as `page()`

@@ -54,8 +54,7 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
 use OCA\Hermiq\Service\AgentTemplateService;
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
-use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\FederatedStoreService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -100,14 +99,13 @@ class AgentTemplateController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest                     $request            The request object.
-     * @param AgentTemplateService         $templateService    The template read/write/gallery path.
-     * @param ActionAuthService            $actionAuth         The ADR-023 action-authorization service.
-     * @param IUserSession                 $userSession        Resolves the requesting user.
-     * @param OrganisationMapper           $organisationMapper OpenRegister organisation lookup (instantiate's org resolution).
-     * @param LoggerInterface              $logger             PSR-3 logger.
-     * @param GitHubTemplateCatalogService $catalogService     GitHub search/fetch (agent-template-github-store).
-     * @param GitHubTemplatePushService    $pushService        GitHub publish (agent-template-github-store).
+     * @param IRequest              $request            The request object.
+     * @param AgentTemplateService  $templateService    The template read/write/gallery path.
+     * @param ActionAuthService     $actionAuth         The ADR-023 action-authorization service.
+     * @param IUserSession          $userSession        Resolves the requesting user.
+     * @param OrganisationMapper    $organisationMapper OpenRegister organisation lookup (instantiate's org resolution).
+     * @param LoggerInterface       $logger             PSR-3 logger.
+     * @param FederatedStoreService $store              The federated store adapter (search/install/publish).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
@@ -119,8 +117,7 @@ class AgentTemplateController extends Controller
         private readonly IUserSession $userSession,
         private readonly OrganisationMapper $organisationMapper,
         private readonly LoggerInterface $logger,
-        private readonly GitHubTemplateCatalogService $catalogService,
-        private readonly GitHubTemplatePushService $pushService,
+        private readonly FederatedStoreService $store,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -502,36 +499,13 @@ class AgentTemplateController extends Controller
             $query = null;
         }
 
-        try {
-            $result = $this->catalogService->search(
-                query: $query,
-                actingUserId: $user->getUID(),
-                credentialId: $this->credentialParam()
-            );
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq agent-template github search failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(
-                [
-                    'outcome'                   => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE,
-                    'cards'                     => [],
-                    'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
-                    'brokerUsed'                => false,
-                    'rateLimited'               => false,
-                ],
-                Http::STATUS_OK
-            );
-        }
-
-        return new JSONResponse(
-            [
-                'outcome'                   => $result['outcome'],
-                'cards'                     => $result['cards'],
-                'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
-                'brokerUsed'                => $result['brokerUsed'],
-                'rateLimited'               => $result['rateLimited'],
-            ],
-            Http::STATUS_OK
+        $result = $this->store->search(
+            kind: FederatedStoreService::KIND_AGENT_TEMPLATE,
+            query: $query,
+            credentialId: $this->credentialParam()
         );
+
+        return new JSONResponse($result, Http::STATUS_OK);
 
     }//end githubSearch()
 
@@ -574,19 +548,17 @@ class AgentTemplateController extends Controller
         }
 
         try {
-            $package = $this->catalogService->fetchTemplateFile(
+            $result = $this->store->install(
+                kind: FederatedStoreService::KIND_AGENT_TEMPLATE,
                 owner: $owner,
                 repo: $repo,
-                ref: $ref,
-                actingUserId: $user->getUID(),
                 credentialId: $this->credentialParam()
             );
-            if ($package === null) {
-                return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
+            if ($result === null) {
+                return new JSONResponse(['error' => FederatedStoreService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
             }
 
-            $template = $this->templateService->importPackage(package: $package, source: 'hub', createdBy: $user->getUID());
-            return new JSONResponse($this->shape(object: $template), Http::STATUS_CREATED);
+            return new JSONResponse($result, Http::STATUS_CREATED);
         } catch (Throwable $e) {
             $this->logger->error('Hermiq agent-template github install failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Install failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
@@ -626,15 +598,10 @@ class AgentTemplateController extends Controller
 
         $owner        = (string) ($this->request->getParam('owner') ?? '');
         $repo         = (string) ($this->request->getParam('repo') ?? '');
-        $visibility   = (string) ($this->request->getParam('visibility') ?? 'private');
         $credentialId = (string) ($this->request->getParam('credentialId') ?? '');
 
         if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
             return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
-        }
-
-        if (in_array($visibility, ['public', 'private'], true) === false) {
-            $visibility = 'private';
         }
 
         if ($credentialId === '') {
@@ -643,24 +610,24 @@ class AgentTemplateController extends Controller
 
         // Tenant-scoped read: a template outside the caller's organisation's visibility
         // is 404, identical to show()/update()'s existing behaviour (never a 403 that
-        // would confirm existence).
+        // would confirm existence). The package itself is re-serialised by the shared
+        // engine's type; this call is the visibility gate.
         $package = $this->templateService->exportTemplate(templateId: $id);
         if ($package === null) {
             return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
         }
 
-        if ($this->pushService->isBrokerAvailable() === false) {
+        if ($this->store->isBrokerAvailable() === false) {
             return new JSONResponse(['error' => 'The GitHub credential broker is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
         }
 
         try {
-            $result = $this->pushService->push(
-                package: $package,
+            $result = $this->store->publish(
+                kind: FederatedStoreService::KIND_AGENT_TEMPLATE,
+                uuid: $id,
                 owner: $owner,
                 repo: $repo,
-                visibility: $visibility,
-                credentialId: $credentialId,
-                actingUserId: $user->getUID()
+                credentialId: $credentialId
             );
         } catch (RuntimeException $e) {
             $this->logger->warning('Hermiq agent-template github publish refused: '.$e->getMessage());

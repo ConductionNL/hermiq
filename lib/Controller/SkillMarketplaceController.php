@@ -55,7 +55,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
-use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\FederatedStoreService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -88,13 +88,13 @@ class SkillMarketplaceController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest                  $request            The request object.
-     * @param SkillMarketplaceService   $marketplaceService The marketplace service.
-     * @param ActionAuthService         $actionAuth         The ADR-023 action-authorization service.
-     * @param IUserSession              $userSession        Resolves the requesting user.
-     * @param LoggerInterface           $logger             PSR-3 logger.
-     * @param SkillService              $skillService       Export + provenance stamp (hermiq-github-store).
-     * @param GitHubTemplatePushService $pushService        GitHub publish (hermiq-github-store).
+     * @param IRequest                $request            The request object.
+     * @param SkillMarketplaceService $marketplaceService The marketplace service.
+     * @param ActionAuthService       $actionAuth         The ADR-023 action-authorization service.
+     * @param IUserSession            $userSession        Resolves the requesting user.
+     * @param LoggerInterface         $logger             PSR-3 logger.
+     * @param SkillService            $skillService       Export + provenance stamp (hermiq-github-store).
+     * @param FederatedStoreService   $store              The federated store adapter (publish via the shared engine).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
@@ -108,7 +108,7 @@ class SkillMarketplaceController extends Controller
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
         private readonly SkillService $skillService,
-        private readonly GitHubTemplatePushService $pushService,
+        private readonly FederatedStoreService $store,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -293,15 +293,10 @@ class SkillMarketplaceController extends Controller
 
         $owner        = (string) ($this->request->getParam('owner') ?? '');
         $repo         = (string) ($this->request->getParam('repo') ?? '');
-        $visibility   = (string) ($this->request->getParam('visibility') ?? 'private');
         $credentialId = (string) ($this->request->getParam('credentialId') ?? '');
 
         if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
             return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
-        }
-
-        if (in_array($visibility, ['public', 'private'], true) === false) {
-            $visibility = 'private';
         }
 
         if ($credentialId === '') {
@@ -310,25 +305,24 @@ class SkillMarketplaceController extends Controller
 
         // Tenant-scoped read: a skill outside the caller's organisation's visibility
         // is 404, identical to export()'s existing behaviour (never a 403 that would
-        // confirm existence) — mirrors AgentTemplateController::publishGithub().
+        // confirm existence) — mirrors AgentTemplateController::publishGithub(). The
+        // package is re-serialised by the shared engine's type; this is the gate.
         $package = $this->skillService->exportSkill(skillId: $id);
         if ($package === null) {
             return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
         }
 
-        if ($this->pushService->isBrokerAvailable() === false) {
+        if ($this->store->isBrokerAvailable() === false) {
             return new JSONResponse(['error' => 'The GitHub credential broker is not available'], Http::STATUS_SERVICE_UNAVAILABLE);
         }
 
         try {
-            $result = $this->pushService->push(
-                package: $package,
+            $result = $this->store->publish(
+                kind: FederatedStoreService::KIND_SKILL,
+                uuid: $id,
                 owner: $owner,
                 repo: $repo,
-                visibility: $visibility,
-                credentialId: $credentialId,
-                actingUserId: $user->getUID(),
-                kind: GitHubTemplatePushService::KIND_SKILL
+                credentialId: $credentialId
             );
         } catch (RuntimeException $e) {
             $this->logger->warning('Hermiq skill github publish refused: '.$e->getMessage());

@@ -460,7 +460,19 @@
         "name: my-skill, description: …, version: 0.1.0": "name: mijn-skill, description: …, version: 0.1.0",
         "reference.md": "reference.md",
         "Save as skill": "Opslaan als skill",
-        "Skill saved for review. Approve it in the Skills catalog before it can be used.": "Skill opgeslagen ter beoordeling. Keur deze goed in de Skills-catalogus voordat hij gebruikt kan worden."
+        "Skill saved for review. Approve it in the Skills catalog before it can be used.": "Skill opgeslagen ter beoordeling. Keur deze goed in de Skills-catalogus voordat hij gebruikt kan worden.",
+        "Purpose": "Doel",
+        "Legal basis": "Wettelijke grondslag",
+        "Impact assessments": "Impacttoetsen",
+        "Type": "Soort",
+        "Reference": "Referentie",
+        "Data sources": "Databronnen",
+        "Human oversight": "Menselijke tussenkomst",
+        "Responsible party": "Verantwoordelijke",
+        "Organisation": "Organisatie",
+        "Publication category": "Publicatiecategorie",
+        "No object context is available. This object's schema shares no fields with the agent, so its answers are not grounded in this object.": "Er is geen objectcontext beschikbaar. Het schema van dit object deelt geen velden met de agent, dus de antwoorden zijn niet gebaseerd op dit object.",
+        "Not grounded in this object — no object context was shared.": "Niet gebaseerd op dit object — er is geen objectcontext gedeeld."
     },
     "plurals": ""
 }

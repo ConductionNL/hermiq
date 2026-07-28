@@ -28,6 +28,7 @@ namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\GraphRunRequestedListener;
+use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
@@ -39,6 +40,7 @@ use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
+use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
 use OCP\AppFramework\Bootstrap\IBootstrap;
@@ -107,6 +109,56 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(event: ObjectCreatedEvent::class, listener: GraphRunRequestedListener::class);
         $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: GraphRunRequestedListener::class);
         $context->registerEventListener(event: ObjectDeletedEvent::class, listener: GraphRunRequestedListener::class);
+
+        // Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
+        // contributes the agent step as a flow node, and a resolver so OR's engine
+        // and worker can load and run hermiq's agentflows. This makes hermiq a
+        // consumer of the fleet's one flow engine; its own GraphExecutor becomes
+        // redundant. Guarded on the classes existing so an instance whose
+        // OpenRegister predates the flow engine still boots.
+        if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class) === true) {
+            $context->registerEventListener(
+                \OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class,
+                \OCA\Hermiq\Flow\HermiqFlowNodeListener::class
+            );
+            $context->registerEventListener(
+                \OCA\OpenRegister\Service\Flow\RegisterFlowResolversEvent::class,
+                \OCA\Hermiq\Flow\HermiqFlowResolverListener::class
+            );
+        }
+
+        // Agent render leaf (agent-object-leaf, ADR-019 + ADR-066): contribute the
+        // `hermiq-agent` leaf to OpenRegister's cross-app leaf catalogue via the
+        // sibling-app leaf-registration hook (RegisterLeafProvidersEvent). This makes
+        // an Agent tab/widget discoverable on any OpenRegister object in any OpenBuild
+        // app. Guarded on the event class existing so an instance whose OpenRegister
+        // predates the leaf hook still boots. The matching JS registration
+        // (registerIntegration under the SAME id) ships in the always-loaded
+        // `hermiq-agent-leaf` bundle added below.
+        if (class_exists(RegisterLeafProvidersEvent::class) === true) {
+            $context->registerEventListener(
+                RegisterLeafProvidersEvent::class,
+                RegisterAgentLeafListener::class
+            );
+
+            // Load the leaf's render-registration bundle on EVERY Nextcloud page so
+            // `registerIntegration('hermiq-agent', …)` runs wherever an OpenBuild app
+            // renders the OpenRegister integration registry — not only on Hermiq's own
+            // pages. The load-order-safe registry shim queues the call when OR's bundle
+            // has not loaded yet and replays it on install (ADR-019 cross-bundle trap).
+            \OCP\Util::addInitScript(self::APP_ID, self::APP_ID.'-agent-leaf');
+        }
+
+        // Federated configuration sharing: contribute hermiq's skill type to
+        // OpenRegister's shareable-config engine (agent templates ride the schema
+        // marker instead). Guarded on the event class existing so an instance whose
+        // OpenRegister predates the engine still boots.
+        if (class_exists(\OCA\OpenRegister\Service\Config\RegisterShareableConfigTypesEvent::class) === true) {
+            $context->registerEventListener(
+                \OCA\OpenRegister\Service\Config\RegisterShareableConfigTypesEvent::class,
+                \OCA\Hermiq\Listener\ShareableConfigTypeListener::class
+            );
+        }
 
         // Offboarding (agent-lifecycle-governance): a Nextcloud user being deleted
         // or disabled auto-pauses their schedules (ScheduleService::pauseForUser())

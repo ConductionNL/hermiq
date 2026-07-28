@@ -12,7 +12,7 @@
     <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
 
 **Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
-    <version>0.1.90</version>
+    <version>0.1.95</version>
     <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
@@ -70,6 +70,14 @@
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
             <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
+            <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
+                 flow first means an operator enabling it finds the agent already
+                 there. Both are idempotent by name, so the order only affects a
+                 first install. -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
         </install>
         <post-migration>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
@@ -83,6 +91,14 @@
             <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
             <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
             <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
+            <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
+                 flow first means an operator enabling it finds the agent already
+                 there. Both are idempotent by name, so the order only affects a
+                 first install. -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
             <step>OCA\Hermiq\Repair\MigrateAgentData</step>
             <step>OCA\Hermiq\Repair\RemoveLegacyLlmKeys</step>
         </post-migration>

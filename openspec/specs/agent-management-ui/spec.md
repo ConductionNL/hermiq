@@ -18,6 +18,9 @@ the agents themselves live in OpenRegister.
 The system MUST list the agents the user may see, showing name, model, whether a schedule is attached, and last-run status.
 
 #### Scenario: Open the agent catalog
+
+@e2e tests/e2e/spec-coverage/agents-approvals.spec.ts
+
 - GIVEN a user with access to several agents
 - WHEN they open Hermiq
 - THEN the system MUST show those agents (scoped by Nextcloud group/RBAC) with their schedule and last-run status

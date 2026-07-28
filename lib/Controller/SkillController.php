@@ -40,7 +40,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
+use OCA\Hermiq\Service\FederatedStoreService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -78,12 +78,12 @@ class SkillController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest                     $request            The request object.
-     * @param SkillService                 $skillService       The skill read/write path.
-     * @param IUserSession                 $userSession        Resolves the requesting user.
-     * @param LoggerInterface              $logger             PSR-3 logger.
-     * @param GitHubTemplateCatalogService $catalogService     GitHub search/fetch (hermiq-github-store).
-     * @param SkillMarketplaceService      $marketplaceService Quarantine install path (hermiq-github-store).
+     * @param IRequest                $request            The request object.
+     * @param SkillService            $skillService       The skill read/write path.
+     * @param IUserSession            $userSession        Resolves the requesting user.
+     * @param LoggerInterface         $logger             PSR-3 logger.
+     * @param FederatedStoreService   $store              The federated store adapter (search/install via the shared engine).
+     * @param SkillMarketplaceService $marketplaceService Quarantine install path (hermiq-github-store).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
@@ -95,7 +95,7 @@ class SkillController extends Controller
         private readonly SkillService $skillService,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
-        private readonly GitHubTemplateCatalogService $catalogService,
+        private readonly FederatedStoreService $store,
         private readonly SkillMarketplaceService $marketplaceService,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
@@ -295,37 +295,13 @@ class SkillController extends Controller
             $query = null;
         }
 
-        try {
-            $result = $this->catalogService->search(
-                query: $query,
-                actingUserId: $user->getUID(),
-                credentialId: $this->credentialParam(),
-                kind: GitHubTemplateCatalogService::KIND_SKILL
-            );
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq skill github search failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(
-                [
-                    'outcome'                   => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE,
-                    'cards'                     => [],
-                    'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
-                    'brokerUsed'                => false,
-                    'rateLimited'               => false,
-                ],
-                Http::STATUS_OK
-            );
-        }
-
-        return new JSONResponse(
-            [
-                'outcome'                   => $result['outcome'],
-                'cards'                     => $result['cards'],
-                'brokerCredentialAvailable' => $this->catalogService->isBrokerAvailable(),
-                'brokerUsed'                => $result['brokerUsed'],
-                'rateLimited'               => $result['rateLimited'],
-            ],
-            Http::STATUS_OK
+        $result = $this->store->search(
+            kind: FederatedStoreService::KIND_SKILL,
+            query: $query,
+            credentialId: $this->credentialParam()
         );
+
+        return new JSONResponse($result, Http::STATUS_OK);
 
     }//end githubSearch()
 
@@ -367,20 +343,17 @@ class SkillController extends Controller
         }
 
         try {
-            $package = $this->catalogService->fetchPackageFile(
-                kind: GitHubTemplateCatalogService::KIND_SKILL,
+            $result = $this->store->install(
+                kind: FederatedStoreService::KIND_SKILL,
                 owner: $owner,
                 repo: $repo,
-                ref: $ref,
-                actingUserId: $user->getUID(),
                 credentialId: $this->credentialParam()
             );
-            if ($package === null) {
-                return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
+            if ($result === null) {
+                return new JSONResponse(['error' => FederatedStoreService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
             }
 
-            $skill = $this->marketplaceService->installFromSource(package: $package, source: 'hub', createdBy: $user->getUID());
-            return new JSONResponse($this->shape(object: $skill), Http::STATUS_CREATED);
+            return new JSONResponse($result, Http::STATUS_CREATED);
         } catch (Throwable $e) {
             $this->logger->error('Hermiq skill github install failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(['error' => 'Install failed'], Http::STATUS_INTERNAL_SERVER_ERROR);

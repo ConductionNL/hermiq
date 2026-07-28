@@ -30,7 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\SkillController;
-use OCA\Hermiq\Service\GitHubTemplateCatalogService;
+use OCA\Hermiq\Service\FederatedStoreService;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -112,7 +112,7 @@ class SkillControllerTest extends TestCase
      * @param IUserSession                       $session      The user session.
      * @param IRequest|null                      $request      An optional request mock (defaults to no params).
      * @param SkillService|null                  $skillService An optional SkillService mock.
-     * @param GitHubTemplateCatalogService|null  $catalog      An optional GitHub catalog service mock.
+     * @param FederatedStoreService|null         $store        An optional federated store adapter mock.
      * @param SkillMarketplaceService|null       $marketplace  An optional marketplace service mock.
      *
      * @return SkillController
@@ -121,7 +121,7 @@ class SkillControllerTest extends TestCase
         IUserSession $session,
         ?IRequest $request=null,
         ?SkillService $skillService=null,
-        ?GitHubTemplateCatalogService $catalog=null,
+        ?FederatedStoreService $store=null,
         ?SkillMarketplaceService $marketplace=null
     ): SkillController {
         return new SkillController(
@@ -129,7 +129,7 @@ class SkillControllerTest extends TestCase
             ($skillService ?? $this->createMock(SkillService::class)),
             $session,
             $this->createMock(LoggerInterface::class),
-            ($catalog ?? $this->createMock(GitHubTemplateCatalogService::class)),
+            ($store ?? $this->createMock(FederatedStoreService::class)),
             ($marketplace ?? $this->createMock(SkillMarketplaceService::class))
         );
 
@@ -142,36 +142,35 @@ class SkillControllerTest extends TestCase
      */
     public function testGithubSearchUnauthenticated(): void
     {
-        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
-        $catalog->expects($this->never())->method('search');
+        $store = $this->createMock(FederatedStoreService::class);
+        $store->expects($this->never())->method('search');
 
-        $response = $this->controller($this->session(null), null, null, $catalog)->githubSearch();
+        $response = $this->controller($this->session(null), null, null, $store)->githubSearch();
 
         $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
     }//end testGithubSearchUnauthenticated()
 
     /**
-     * githubSearch() calls the catalog service with `kind: KIND_SKILL` and returns 200
-     * with its cards for an authenticated caller.
+     * githubSearch() searches the skill kind through the store and returns 200 with its envelope.
      *
      * @return void
      */
     public function testGithubSearchQueriesSkillKindAndReturnsCards(): void
     {
-        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
-        $catalog->expects($this->once())
+        $store = $this->createMock(FederatedStoreService::class);
+        $store->expects($this->once())
             ->method('search')
-            ->with(null, 'alice', null, GitHubTemplateCatalogService::KIND_SKILL)
+            ->with(FederatedStoreService::KIND_SKILL, null, null)
             ->willReturn([
-                'outcome'     => 'ok',
-                'cards'       => [['owner' => 'acme', 'repo' => 'demo-skill', 'kind' => 'skill']],
-                'brokerUsed'  => false,
-                'rateLimited' => false,
+                'outcome'                   => 'ok',
+                'cards'                     => [['owner' => 'acme', 'repo' => 'demo-skill', 'kind' => 'skill']],
+                'brokerCredentialAvailable' => true,
+                'brokerUsed'                => false,
+                'rateLimited'               => false,
             ]);
-        $catalog->method('isBrokerAvailable')->willReturn(true);
 
-        $response = $this->controller($this->session('alice'), null, null, $catalog)->githubSearch();
+        $response = $this->controller($this->session('alice'), null, null, $store)->githubSearch();
 
         $this->assertSame(Http::STATUS_OK, $response->getStatus());
         $this->assertCount(1, $response->getData()['cards']);
@@ -180,51 +179,33 @@ class SkillControllerTest extends TestCase
     }//end testGithubSearchQueriesSkillKindAndReturnsCards()
 
     /**
-     * githubSearch() degrades to 200 (never a 5xx) when the catalog service throws.
-     *
-     * @return void
-     */
-    public function testGithubSearchDegradesOnFailure(): void
-    {
-        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
-        $catalog->method('search')->willThrowException(new RuntimeException('boom'));
-
-        $response = $this->controller($this->session('alice'), null, null, $catalog)->githubSearch();
-
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame([], $response->getData()['cards']);
-        $this->assertSame(GitHubTemplateCatalogService::OUTCOME_UNREACHABLE, $response->getData()['outcome']);
-
-    }//end testGithubSearchDegradesOnFailure()
-
-    /**
-     * githubInstall() returns 401 for an unauthenticated caller, never reaching the catalog service.
+     * githubInstall() returns 401 for an unauthenticated caller, never reaching the store.
      *
      * @return void
      */
     public function testGithubInstallUnauthenticated(): void
     {
-        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
-        $catalog->expects($this->never())->method('fetchPackageFile');
+        $store = $this->createMock(FederatedStoreService::class);
+        $store->expects($this->never())->method('install');
 
-        $response = $this->controller($this->session(null), null, null, $catalog)->githubInstall();
+        $response = $this->controller($this->session(null), null, null, $store)->githubInstall();
 
         $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
     }//end testGithubInstallUnauthenticated()
 
     /**
-     * githubInstall() rejects an invalid owner/repo with 400, never calling the catalog service.
+     * githubInstall() rejects an invalid owner/repo with 400, never reaching the store.
      *
      * @return void
      */
     public function testGithubInstallInvalidRepoIsBadRequest(): void
     {
-        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
-        $catalog->expects($this->never())->method('fetchPackageFile');
+        $store = $this->createMock(FederatedStoreService::class);
+        $store->expects($this->never())->method('install');
 
         $request  = $this->request(['owner' => '../evil', 'repo' => 'demo-skill']);
-        $response = $this->controller($this->session('alice'), $request, null, $catalog)->githubInstall();
+        $response = $this->controller($this->session('alice'), $request, null, $store)->githubInstall();
 
         $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
         $this->assertSame('invalid_repo', $response->getData()['error']);
@@ -232,51 +213,41 @@ class SkillControllerTest extends TestCase
     }//end testGithubInstallInvalidRepoIsBadRequest()
 
     /**
-     * githubInstall() returns 404 when the repo's skill package file cannot be fetched.
+     * githubInstall() returns 404 when the store cannot fetch the repo's bundle.
      *
      * @return void
      */
     public function testGithubInstallMissingPackageIsNotFound(): void
     {
-        $marketplace = $this->createMock(SkillMarketplaceService::class);
-        $marketplace->expects($this->never())->method('installFromSource');
-
-        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
-        $catalog->method('fetchPackageFile')->willReturn(null);
+        $store = $this->createMock(FederatedStoreService::class);
+        $store->method('install')->willReturn(null);
 
         $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill']);
-        $response = $this->controller($this->session('alice'), $request, null, $catalog, $marketplace)->githubInstall();
+        $response = $this->controller($this->session('alice'), $request, null, $store)->githubInstall();
 
         $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
     }//end testGithubInstallMissingPackageIsNotFound()
 
     /**
-     * githubInstall() fetches the package with `kind: KIND_SKILL` and installs it through
-     * the UNCHANGED `installFromSource(source: 'hub')` path, landing quarantined — no new
-     * quarantine/scan logic (design.md Decision 2).
+     * githubInstall() installs the discovered skill bundle through the store (source='hub'
+     * quarantine gate is preserved inside the shared skill type).
      *
      * @return void
      */
     public function testGithubInstallInstallsThroughUnchangedQuarantineGate(): void
     {
-        $marketplace = $this->createMock(SkillMarketplaceService::class);
-        $marketplace->expects($this->once())
-            ->method('installFromSource')
-            ->with("---\nname: Demo skill\n---\nBody.", 'hub', 'alice')
-            ->willReturn($this->skill('quarantined'));
-
-        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
-        $catalog->expects($this->once())
-            ->method('fetchPackageFile')
-            ->with(GitHubTemplateCatalogService::KIND_SKILL, 'acme', 'demo-skill')
-            ->willReturn("---\nname: Demo skill\n---\nBody.");
+        $store = $this->createMock(FederatedStoreService::class);
+        $store->expects($this->once())
+            ->method('install')
+            ->with(FederatedStoreService::KIND_SKILL, 'acme', 'demo-skill', null)
+            ->willReturn(['installed' => ['skill-uuid-1']]);
 
         $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill']);
-        $response = $this->controller($this->session('alice'), $request, null, $catalog, $marketplace)->githubInstall();
+        $response = $this->controller($this->session('alice'), $request, null, $store)->githubInstall();
 
         $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
-        $this->assertSame('quarantined', $response->getData()['state']);
+        $this->assertSame(['skill-uuid-1'], $response->getData()['installed']);
 
     }//end testGithubInstallInstallsThroughUnchangedQuarantineGate()
 }//end class

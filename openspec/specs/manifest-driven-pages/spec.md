@@ -12,6 +12,8 @@ reserved empty grid cells (ADR-062).
 
 #### Scenario: Visiting an agent's detail route renders the grid
 
+@e2e tests/e2e/spec-coverage/agents-approvals.spec.ts
+
 - GIVEN an authenticated user with access to an agent
 - WHEN they navigate to `/agents/:id`
 - THEN `CnPageRenderer` dispatches to `CnDetailPage` with `config.register:"hermiq"` and
@@ -20,6 +22,8 @@ reserved empty grid cells (ADR-062).
   `gridHeight` with no widget left without a `gridHeight` sized to its content
 
 #### Scenario: A missing or inaccessible agent still shows a graceful empty state
+
+@e2e tests/e2e/spec-coverage/agents-approvals.spec.ts
 
 - GIVEN an agent id that does not exist or is not visible to the caller
 - WHEN the page loads
