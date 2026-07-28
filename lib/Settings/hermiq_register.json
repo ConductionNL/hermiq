@@ -3,7 +3,7 @@
     "info": {
         "title": "Hermiq Register",
         "description": "Schedule autonomous AI agents in Nextcloud. v0.19.2 — merge of the skill-maturity wave and development. Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
-        "version": "0.19.2"
+        "version": "0.19.3"
     },
     "x-openregister": {
         "type": "application",
@@ -48,7 +48,7 @@
                         "title": "Agent",
                         "description": "UUID of the OpenRegister Agent this schedule runs (reference to the Agent entity owned by OpenRegister)",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "kind": {
                         "type": "string",
@@ -300,7 +300,7 @@
                         "title": "Schedule",
                         "description": "UUID of the Schedule whose run is gated. Present only when sourceType=schedule.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Schedule",
+                        "$ref": "schedule",
                         "x-relation-filter": {
                             "agentId": "@object.agentId"
                         }
@@ -342,7 +342,7 @@
                         "title": "Agent",
                         "description": "UUID of the agent the gated run/invocation would act as. OMITTED (not empty) for sourceType=skill-draft — a draft approval gates a skill version, not an agent run — which is why this property is not in `required`.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "prompt": {
                         "type": "string",
@@ -454,7 +454,7 @@
                         "title": "Agent",
                         "description": "UUID of the agent this webhook triggers. One AgentWebhook per agent.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "secretHash": {
                         "type": "string",
@@ -924,7 +924,7 @@
                         "title": "Agent",
                         "description": "UUID of the budgeted agent. Required when scope=agent; empty for scope=organisation.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "period": {
                         "type": "string",
@@ -996,7 +996,7 @@
                         "title": "Agent",
                         "description": "UUID of the agent this memory belongs to.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "entries": {
                         "type": "array",
@@ -1067,7 +1067,7 @@
                         "title": "Agent",
                         "description": "UUID of the agent maintaining this profile.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "subjectUid": {
                         "type": "string",
@@ -1143,7 +1143,7 @@
                         "title": "Agent",
                         "description": "UUID of the agent in this session.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "title": {
                         "type": "string",
@@ -1185,7 +1185,7 @@
                         "title": "Session",
                         "description": "UUID of the parent Session.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Session",
+                        "$ref": "agentsession",
                         "x-relation-filter": {
                             "agentId": "@object.agentId"
                         }
@@ -1195,7 +1195,7 @@
                         "format": "uuid",
                         "title": "Agent",
                         "description": "UUID of the agent (denormalised copy of the parent Session's agentId, kept for recall-filter performance — not the canonical source; Session.agentId is authoritative).",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "role": {
                         "type": "string",
@@ -1336,7 +1336,7 @@
                         "items": {
                             "type": "string",
                             "format": "uuid",
-                            "$ref": "Agent"
+                            "$ref": "agent"
                         }
                     },
                     "scanReport": {
@@ -1680,7 +1680,7 @@
                         "title": "Skill",
                         "description": "UUID of the Skill this draft proposes a new version of.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Skill"
+                        "$ref": "agentskill"
                     },
                     "baseVersionId": {
                         "type": "string",
@@ -2050,7 +2050,7 @@
                         "items": {
                             "type": "string",
                             "format": "uuid",
-                            "$ref": "Skill"
+                            "$ref": "agentskill"
                         }
                     },
                     "evalBaselineMode": {
@@ -2071,7 +2071,7 @@
                         "items": {
                             "type": "string",
                             "format": "uuid",
-                            "$ref": "Context"
+                            "$ref": "context"
                         }
                     },
                     "reassignmentFlag": {
@@ -2099,7 +2099,7 @@
                         "items": {
                             "type": "string",
                             "format": "uuid",
-                            "$ref": "Agent"
+                            "$ref": "agent"
                         }
                     },
                     "requiresApproval": {
@@ -2141,7 +2141,7 @@
                         "title": "Agent",
                         "description": "UUID of the Agent object this conversation runs against.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "metadata": {
                         "type": "object",
@@ -2172,7 +2172,7 @@
                         "title": "Conversation",
                         "description": "UUID of the Conversation object this message belongs to.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Conversation"
+                        "$ref": "conversation"
                     },
                     "role": {
                         "type": "string",
@@ -2258,7 +2258,7 @@
                         "title": "Message",
                         "description": "UUID of the Message this feedback rates.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Message",
+                        "$ref": "message",
                         "x-relation-filter": {
                             "conversationId": "@object.conversationId"
                         }
@@ -2269,7 +2269,7 @@
                         "title": "Conversation",
                         "description": "UUID of the Conversation the rated message belongs to.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Conversation"
+                        "$ref": "conversation"
                     },
                     "agentId": {
                         "type": "string",
@@ -2277,7 +2277,7 @@
                         "title": "Agent",
                         "description": "UUID of the Agent that produced the rated message.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "userId": {
                         "type": "string",
@@ -2477,7 +2477,7 @@
                         "title": "Linked agent",
                         "description": "UUID of the Agent this incident concerns, if any.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "linkedRunIds": {
                         "type": "array",
@@ -2567,7 +2567,7 @@
                         "type": "string",
                         "title": "Framework",
                         "description": "Slug of the ControlFramework this control belongs to.",
-                        "$ref": "ControlFramework"
+                        "$ref": "agentcontrolframework"
                     },
                     "controlId": {
                         "type": "string",
@@ -2857,7 +2857,7 @@
                                     "format": "uuid",
                                     "title": "Skill",
                                     "description": "UUID of the suggested Skill, if known.",
-                                    "$ref": "Skill"
+                                    "$ref": "agentskill"
                                 },
                                 "name": {
                                     "type": "string",
@@ -3112,7 +3112,7 @@
                         "items": {
                             "type": "string",
                             "format": "uuid",
-                            "$ref": "Skill"
+                            "$ref": "agentskill"
                         }
                     }
                 }
@@ -3139,7 +3139,7 @@
                         "title": "Dataset",
                         "description": "UUID of the EvalDataset this run executed.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "EvalDataset"
+                        "$ref": "evaldataset"
                     },
                     "agentId": {
                         "type": "string",
@@ -3147,7 +3147,7 @@
                         "title": "Agent",
                         "description": "UUID of the Agent this run executed the dataset's cases against.",
                         "example": "00000000-0000-0000-0000-000000000000",
-                        "$ref": "Agent"
+                        "$ref": "agent"
                     },
                     "agentVersionId": {
                         "type": "string",
@@ -3353,7 +3353,7 @@
                                     "title": "Skill",
                                     "description": "UUID of the linked skill this entry measures.",
                                     "example": "00000000-0000-0000-0000-000000000000",
-                                    "$ref": "Skill"
+                                    "$ref": "agentskill"
                                 },
                                 "passRateWith": {
                                     "type": "number",
@@ -3480,7 +3480,7 @@
                         "type": "string",
                         "format": "uuid",
                         "title": "Agent flow",
-                        "$ref": "AgentFlow"
+                        "$ref": "agentflow"
                     },
                     "correlationId": {
                         "type": "string",
