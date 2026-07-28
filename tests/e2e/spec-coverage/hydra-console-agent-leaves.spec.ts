@@ -68,7 +68,10 @@ async function objectsNamed(
 	name: string,
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any[]> {
-	const res = await req.get(`${OR_API}/objects/hermiq/${schema}?limit=100`, { headers: jsonHeaders(token) })
+	// `_limit`, underscore-prefixed: OpenRegister control params require the
+	// prefix — a bare `limit` is treated as a PROPERTY filter and silently
+	// matches nothing (the API even says so in its `@self.hint`).
+	const res = await req.get(`${OR_API}/objects/hermiq/${schema}?_limit=100`, { headers: jsonHeaders(token) })
 	expect(res.ok(), `listing hermiq/${schema} must succeed`).toBeTruthy()
 	const body = await res.json()
 	const rows = Array.isArray(body) ? body : (body.results ?? body.data ?? [])
@@ -218,7 +221,7 @@ test.describe('hydra-console-agent-leaves', () => {
 			+ 'hydra-register-data-plane in the hydra repository. Not a pass.',
 		)
 
-		await page.goto(`/apps/openbuild/hydra-console`, { waitUntil: 'domcontentloaded' })
+		await page.goto('/apps/openbuild/hydra-console', { waitUntil: 'domcontentloaded' })
 
 		const tab = page.locator('[data-testid="cn-agent-chat-tab"]')
 		test.skip(
