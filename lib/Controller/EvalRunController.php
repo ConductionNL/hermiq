@@ -43,8 +43,6 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\EvalRunService;
-use OCA\Hermiq\Service\Llm\ModelPolicyViolationException;
-use OCA\Hermiq\Service\Llm\ProviderUnavailableException;
 use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
@@ -62,6 +60,10 @@ use Throwable;
  * Owner-scoped "run this EvalDataset against this Agent" endpoint.
  *
  * @spec openspec/changes/archive/2026-07-14-agent-evals/tasks.md#task-7-evalruncontroller-route
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One injected collaborator per seam
+ *   (object service, agent mapper, eval-run service, seed custody, user session,
+ *   logger) plus the OpenRegister entity and HTTP response types the guard uses.
  */
 class EvalRunController extends Controller
 {
@@ -128,6 +130,12 @@ class EvalRunController extends Controller
      *
      * @spec openspec/specs/agent-evals/spec.md#requirement-run-trigger-endpoint-is-owner-guarded-idor
      * @spec openspec/specs/agent-evals/spec.md#requirement-the-paired-trigger-owner-guard-covers-dataset-agent-and-every-linked-skill
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Spec'd IDOR guards (dataset, agent,
+     *   every linked skill in baseline mode) plus optional-param parsing each add a
+     *   branch on one linear run path.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+     *   early-return guards multiply paths without nested logic.
      */
     public function run(string $datasetId): JSONResponse
     {
@@ -191,10 +199,10 @@ class EvalRunController extends Controller
             );
         } catch (\InvalidArgumentException $e) {
             return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_BAD_REQUEST);
-        } catch (ModelPolicyViolationException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 422);
-        } catch (ProviderUnavailableException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], 503);
+            // NOTE: no ModelPolicyViolationException / ProviderUnavailableException
+            // catches here — EvalRunService::run() swallows per-case engine failures
+            // (each failed case is recorded as a failed case, never rethrown), so
+            // those exceptions cannot escape it (phpstan dead-catch).
         } catch (Throwable $e) {
             $this->logger->error('Hermiq eval run failed: '.$e->getMessage(), ['exception' => $e]);
             return new JSONResponse(

@@ -305,15 +305,19 @@ export default {
 			const input = policy.inputFilters || {}
 			const output = policy.outputFilters || {}
 			const toolPolicy = Array.isArray(policy.toolPolicy) ? policy.toolPolicy : []
-			const parts = [
-				`${this.t('hermiq', 'Input')}: ${this.t('hermiq', 'PII')} ${input.piiAction || 'off'}, ${this.t('hermiq', 'prompt injection')} ${input.promptInjectionAction || 'off'}`,
-				`${this.t('hermiq', 'Output')}: ${this.t('hermiq', 'PII')} ${output.piiAction || 'off'}`,
-			]
+			const piiLabel = this.t('hermiq', 'PII')
+			const inputPii = input.piiAction || 'off'
+			const inputInjection = input.promptInjectionAction || 'off'
+			const outputPii = output.piiAction || 'off'
+			const inputSummary = this.t('hermiq', 'Input') + ': ' + piiLabel + ' ' + inputPii
+				+ ', ' + this.t('hermiq', 'prompt injection') + ' ' + inputInjection
+			const outputSummary = this.t('hermiq', 'Output') + ': ' + piiLabel + ' ' + outputPii
+			const parts = [inputSummary, outputSummary]
 			if (toolPolicy.length > 0) {
-				parts.push(`${toolPolicy.length} ${this.t('hermiq', 'tool rules')}`)
+				parts.push(toolPolicy.length + ' ' + this.t('hermiq', 'tool rules'))
 			}
 			if (policy.enabled === false) {
-				return `${this.t('hermiq', 'Disabled')} — ${parts.join(' · ')}`
+				return this.t('hermiq', 'Disabled') + ' — ' + parts.join(' · ')
 			}
 			return parts.join(' · ')
 		},

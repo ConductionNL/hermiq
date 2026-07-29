@@ -92,7 +92,8 @@ class DelegationServiceTest extends TestCase
                 mixed $register=null,
                 mixed $schema=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $_render=true
             ): ?ObjectEntity {
                 return ($this->agentsById[(string) $id] ?? null);
             }//end find()

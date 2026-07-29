@@ -100,7 +100,10 @@ class EvalRunServiceTest extends TestCase
                 mixed $schema=null,
                 ?string $uuid=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $silent=false,
+                ?array $uploadedFiles=null,
+                ?\OCP\IUser $currentUser=null
             ): ObjectEntity {
                 $entity = new ObjectEntity();
                 $entity->setUuid('eval-run-uuid');
@@ -121,10 +124,14 @@ class EvalRunServiceTest extends TestCase
      */
     private function agent(string $owner='alice', string $organisation='org-a'): Agent
     {
-        $agent = $this->createMock(Agent::class);
-        $agent->method('getUuid')->willReturn('agent-uuid');
-        $agent->method('getOwner')->willReturn($owner);
-        $agent->method('getOrganisation')->willReturn($organisation);
+        // A real entity, not a mock: the real OpenRegister Agent resolves
+        // getUuid()/getOwner()/getOrganisation() via Entity MAGIC accessors,
+        // which PHPUnit mocks cannot configure when the real class is loaded
+        // (CI runs inside a full server tree with OpenRegister installed).
+        $agent = new Agent();
+        $agent->setUuid('agent-uuid');
+        $agent->setOwner($owner);
+        $agent->setOrganisation($organisation);
         return $agent;
 
     }//end agent()

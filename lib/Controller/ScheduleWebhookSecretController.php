@@ -50,6 +50,10 @@ use Throwable;
  * Owner-scoped webhook-secret lifecycle endpoints for one schedule.
  *
  * @spec openspec/changes/delivery-channels/tasks.md#task-3-schedulewebhooksecretcontroller-owner-guarded-crud
+ *
+ * @SuppressWarnings(PHPMD.LongVariable) The promoted constructor property
+ *   `$scheduleWebhookSecretService` mirrors its collaborator class name
+ *   (ScheduleWebhookSecretService) — the length IS the clarity.
  */
 class ScheduleWebhookSecretController extends Controller
 {

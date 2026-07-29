@@ -16,7 +16,10 @@
   @spec openspec/specs/skill-maturity/spec.md#requirement-the-catalog-ui-surfaces-maturity-dots-a-detail-scorecard-and-a-qualify-action
 -->
 <template>
-	<NcModal @close="$emit('close')">
+	<!-- size="large" like the other content-heavy modals (SkillFormModal,
+	     SkillDraftEditModal): the seven-row scorecard table's Reasons column
+	     clips at the default modal width. -->
+	<NcModal size="large" @close="$emit('close')">
 		<div class="skill-scorecard-modal">
 			<h3 class="skill-scorecard-modal__title">
 				{{ t('hermiq', 'Maturity scorecard') }}
@@ -185,6 +188,11 @@ export default {
 	margin: 0;
 	padding-inline-start: 18px;
 	color: var(--color-text-maxcontrast);
+}
+
+/* Long canonical reason keys must wrap inside the column, never clip. */
+.skill-scorecard-modal__reasons li {
+	overflow-wrap: anywhere;
 }
 
 .skill-scorecard-modal__footer {

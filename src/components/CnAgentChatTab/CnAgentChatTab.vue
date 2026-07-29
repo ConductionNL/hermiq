@@ -76,7 +76,9 @@
 				</NcButton>
 			</form>
 
-			<NcNoteCard v-if="error" type="error">{{ error }}</NcNoteCard>
+			<NcNoteCard v-if="error" type="error">
+				{{ error }}
+			</NcNoteCard>
 		</div>
 	</div>
 </template>

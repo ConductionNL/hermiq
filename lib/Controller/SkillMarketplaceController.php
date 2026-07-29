@@ -73,6 +73,10 @@ use Throwable;
  * Tenant-scoped skills-marketplace endpoints (install-from-source / approve / publish).
  *
  * @spec openspec/changes/archive/2026-07-12-fix-skill-marketplace-action-auth/tasks.md#2-controller
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One injected collaborator per seam
+ *   (marketplace service, action auth, skill service, GitHub push, user session,
+ *   logger) plus the HTTP response/exception types every endpoint returns.
  */
 class SkillMarketplaceController extends Controller
 {
@@ -277,6 +281,12 @@ class SkillMarketplaceController extends Controller
      * @NoCSRFRequired
      *
      * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential spec-mandated guards
+     *   (auth, action auth, repo pattern, visibility, credential, tenant-scoped 404,
+     *   broker availability) each add a branch on one linear publish path.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+     *   early-return guards multiply paths without nested logic.
      */
     public function githubPublish(string $id): JSONResponse
     {

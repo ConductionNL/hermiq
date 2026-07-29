@@ -58,6 +58,10 @@ use Throwable;
  * Qualify + attest-L4 endpoints for the skill maturity model.
  *
  * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One injected collaborator per seam
+ *   (skill service, maturity service, action auth, seed custody, user session,
+ *   logger) plus the HTTP response/exception types every endpoint returns.
  */
 class SkillMaturityController extends Controller
 {

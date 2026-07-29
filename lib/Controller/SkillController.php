@@ -362,6 +362,10 @@ class SkillController extends Controller
      * @NoCSRFRequired
      *
      * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential input-validation guards
+     *   (auth, owner/repo/ref patterns, fetch outcome) each add a branch; the flow
+     *   itself is a straight guard-then-delegate path.
      */
     public function githubInstall(): JSONResponse
     {

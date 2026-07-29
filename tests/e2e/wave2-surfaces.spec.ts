@@ -86,17 +86,16 @@ test.describe('hermiq regression: wave-2 surfaces', () => {
 		// data-testid-page-id instead of the removed bespoke testid.
 		await expect(page.locator('[data-testid-page-id="EvalDatasets"]')).toBeVisible({ timeout: 10_000 })
 
-		// Create a dataset with one substring case and assert it persists + re-renders.
-		// Scope to the dialog and use exact labels — the modal has several textboxes
-		// (Name / Prompt / Expected substring) whose accessible names would otherwise
-		// collide under a loose getByRole match.
+		// Create a dataset and assert it persists + re-renders. The page is a
+		// generic type:"index" manifest page now, so the affordance is the
+		// generic "Add Eval dataset" CTA opening the schema-driven
+		// "Create Eval dataset" dialog (cases are authored on the detail page,
+		// not in the create dialog).
 		const uniqueName = `E2E dataset ${Date.now()}`
-		await page.getByRole('button', { name: 'New dataset' }).click()
-		const dialog = page.getByRole('dialog', { name: 'Create dataset' })
-		await dialog.getByLabel('Name', { exact: true }).fill(uniqueName)
-		await dialog.getByLabel('Prompt', { exact: true }).fill('Say hello politely')
-		await dialog.getByLabel('Expected substring', { exact: true }).fill('hello')
-		await dialog.getByRole('button', { name: 'Save' }).click()
+		await page.getByRole('button', { name: 'Add Eval dataset' }).click()
+		const dialog = page.getByRole('dialog', { name: 'Create Eval dataset' })
+		await dialog.getByRole('textbox', { name: /^Name/ }).fill(uniqueName)
+		await dialog.getByRole('button', { name: 'Create' }).click()
 
 		// On success the modal emits close; wait for it to detach (the OR write can take a
 		// while on a loaded instance) before asserting the saved dataset re-renders as a
@@ -129,15 +128,19 @@ test.describe('hermiq regression: wave-2 surfaces', () => {
 
 		await page.goto('/apps/hermiq/compliance', { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
-		await expect(page.locator('[data-testid="compliance-heading"]')).toBeVisible({ timeout: 10_000 })
+		// manifest-driven-pages: Compliance converted from the bespoke
+		// ComplianceDashboard (data-testid="compliance-heading", per-framework
+		// sections with a computed Status column) to a generic type:"index"
+		// controls table + the compliance-operations widget. The computed
+		// control-status logic is covered by PHPUnit per the spec's own
+		// `@e2e exclude` (ComplianceService::computeControlStatus) — the
+		// browser contract asserted here is the CURRENT one: seeded control
+		// rows render with their framework, and the operations widget is live.
+		await expect(page.locator('[data-testid-page-id="Compliance"]')).toBeVisible({ timeout: 10_000 })
 
-		// The three seeded frameworks render as sections with control tables — not an empty
-		// shell. A control's Status cell must show one of the computed states.
-		await expect(page.getByRole('heading', { name: 'EU AI Act' })).toBeVisible()
-		await expect(page.getByRole('heading', { name: 'ISO/IEC 42001' })).toBeVisible()
-		await expect(page.getByRole('heading', { name: 'NIST AI RMF' })).toBeVisible()
-		await expect(page.getByRole('cell', { name: 'Record-keeping' })).toBeVisible()
-		await expect(page.getByText(/Satisfied|Unevidenced|Partial/).first()).toBeVisible()
+		await expect(page.getByRole('cell', { name: 'Record-keeping' }).first()).toBeVisible()
+		await expect(page.getByRole('cell', { name: 'eu-ai-act' }).first()).toBeVisible()
+		await expect(page.getByRole('heading', { name: 'EU AI Act audit export' })).toBeVisible()
 
 		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
 	})

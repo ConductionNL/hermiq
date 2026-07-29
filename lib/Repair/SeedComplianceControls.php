@@ -205,6 +205,10 @@ class SeedComplianceControls implements IRepairStep
      * NIST AI RMF, each mapped to exactly one of the six evidenceSource seams.
      *
      * @return array<int, array<string, mixed>> The seed objects.
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) One literal seed row per spec'd
+     *   compliance control (design.md Seed Data) — the length tracks the control
+     *   catalogue, there is no logic to split.
      */
     private function seedControls(): array
     {

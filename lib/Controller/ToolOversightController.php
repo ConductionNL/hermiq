@@ -59,6 +59,13 @@ use Throwable;
  * Tool-catalog / tool-grants / tool-invocations endpoints.
  *
  * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-5-tooloversightcontroller-routes-catalog-grants-invocations
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   One injected collaborator per seam
+ *   (object service, tool registry, grant resolver, audit mapper, app config, user
+ *   session, group manager, logger) plus the OR entity and HTTP response types.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small guard-and-shape
+ *   endpoint methods (catalog, grants, invocations, export) — a governance read/write
+ *   surface, not one tangled algorithm.
  */
 class ToolOversightController extends Controller
 {
@@ -142,6 +149,13 @@ class ToolOversightController extends Controller
      * @NoCSRFRequired
      *
      * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#api-design
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Access guards plus per-descriptor
+     *   shaping (id fallback, write classification, grant annotation) each add a
+     *   branch on one linear catalog-build path.
+     * @SuppressWarnings(PHPMD.StaticAccess)         ToolGrantResolver::isWriteOrDestructive()
+     *   is a pure static classification predicate — the same one the engine's tool
+     *   loop uses, called statically by design.
      */
     public function toolCatalog(string $agentId): JSONResponse
     {
@@ -227,6 +241,12 @@ class ToolOversightController extends Controller
      * @NoAdminRequired
      *
      * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#put-api-agents-agentid-tool-grants
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, 404,
+     *   owner-only IDOR check, grants-shape validation, per-entry string filter)
+     *   each add a branch on one linear write path.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+     *   early-return guards multiply paths without nested logic.
      */
     public function updateToolGrants(string $agentId): JSONResponse
     {
@@ -609,18 +629,18 @@ class ToolOversightController extends Controller
                 continue;
             }
 
-            $created = $log->getCreated();
-            $at      = null;
+            $created    = $log->getCreated();
+            $occurredAt = null;
             if ($created !== null) {
-                $at = $created->format('c');
+                $occurredAt = $created->format('c');
             }
 
-            if ($this->withinRange(at: $at, from: $from, to: $to) === false) {
+            if ($this->withinRange(occurredAt: $occurredAt, from: $from, to: $to) === false) {
                 continue;
             }
 
             $rows[] = [
-                'at'            => $at,
+                'at'            => $occurredAt,
                 'toolId'        => $log->getToolId(),
                 'actingUser'    => $user,
                 // The audit entry never carries raw argument values
@@ -687,20 +707,20 @@ class ToolOversightController extends Controller
                 continue;
             }
 
-            $created = $log->getCreated();
-            $at      = null;
+            $created    = $log->getCreated();
+            $occurredAt = null;
             if ($created !== null) {
-                $at = $created->format('c');
+                $occurredAt = $created->format('c');
             }
 
-            if ($this->withinRange(at: $at, from: $from, to: $to) === false) {
+            if ($this->withinRange(occurredAt: $occurredAt, from: $from, to: $to) === false) {
                 continue;
             }
 
             $context = ($log->getChanged() ?? []);
 
             $rows[] = [
-                'at'            => $at,
+                'at'            => $occurredAt,
                 'toolId'        => null,
                 'actingUser'    => $log->getUser(),
                 'paramsDigest'  => null,
@@ -719,23 +739,23 @@ class ToolOversightController extends Controller
      * Whether a row's timestamp falls within an optional `[from, to]` window
      * (string comparison — both are ISO 8601, sortable lexically).
      *
-     * @param string|null $at   The row's timestamp, or null.
-     * @param string|null $from Optional lower bound (inclusive).
-     * @param string|null $to   Optional upper bound (inclusive).
+     * @param string|null $occurredAt The row's timestamp, or null.
+     * @param string|null $from       Optional lower bound (inclusive).
+     * @param string|null $to         Optional upper bound (inclusive).
      *
      * @return bool
      */
-    private function withinRange(?string $at, ?string $from, ?string $to): bool
+    private function withinRange(?string $occurredAt, ?string $from, ?string $to): bool
     {
-        if ($at === null) {
+        if ($occurredAt === null) {
             return ($from === null && $to === null);
         }
 
-        if ($from !== null && $at < $from) {
+        if ($from !== null && $occurredAt < $from) {
             return false;
         }
 
-        if ($to !== null && $at > $to) {
+        if ($to !== null && $occurredAt > $to) {
             return false;
         }
 

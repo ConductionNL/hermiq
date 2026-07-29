@@ -70,11 +70,17 @@ use Throwable;
 /**
  * Tenant-scoped agent-template-gallery endpoints.
  *
- * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+ * @SuppressWarnings(PHPMD.ExcessiveParameterList)   Constructor DI: each parameter is a
  *   distinct injected collaborator, not a logic-bearing argument list.
- * @SuppressWarnings(PHPMD.TooManyPublicMethods)   A CRUD + gallery controller mirroring
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     A CRUD + gallery controller mirroring
  *   SkillController's (index/export/install) + SkillMarketplaceController's
  *   (installFromSource/approve) combined route surface, one method per HTTP endpoint.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   One injected collaborator per seam
+ *   (template service, action auth, org mapper, GitHub catalog + push) plus the HTTP
+ *   response/exception types every endpoint returns.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small per-endpoint
+ *   guard-and-delegate methods across the full CRUD + gallery + GitHub route surface,
+ *   not one tangled algorithm.
  *
  * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
  */
@@ -523,6 +529,10 @@ class AgentTemplateController extends Controller
      *
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential input-validation guards
+     *   (auth, owner/repo/ref patterns, fetch outcome) each add a branch; the flow
+     *   itself is a straight guard-then-delegate path.
      */
     public function githubInstall(): JSONResponse
     {
@@ -588,6 +598,12 @@ class AgentTemplateController extends Controller
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-record-github-publish-provenance-without-leaking-it-into-packages
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-scope-publish-to-templates-the-caller-can-already-see
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential spec-mandated guards
+     *   (auth, repo pattern, visibility, credential, tenant-scoped 404, broker
+     *   availability) each add a branch on one linear publish path.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+     *   early-return guards multiply paths without nested logic.
      */
     public function publishGithub(string $id): JSONResponse
     {

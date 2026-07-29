@@ -94,6 +94,12 @@ use Throwable;
  * mapping). Keeping them here is deliberate: they belong to the provider branch this
  * class already owns, and each stays individually trivial. See
  * `openspec/changes/cli-runner-text-turn-dispatch/design.md` — "The dispatch seam".
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     The public surface is the per-provider
+ * driver/generation entry points the Engine calls — one per provider transport, not an
+ * unfocused API.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Each provider's driver-build and
+ * direct-HTTP branch lives here in full (see ExcessiveClassComplexity above); the length
+ * is the sum of those individually simple branches.
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
  */
@@ -255,6 +261,10 @@ class ProviderFactory
      *
      * @return void
      *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct injected collaborator (several nullable/defaulted for backward-compatible
+     *   test call sites), not a logic-bearing argument list.
+     *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
      * @spec openspec/changes/llm-cli-runner-exapp/specs/llm-cli-runner-exapp/spec.md#requirement-optional-cli-execution-mode-routes-turns-through-the-runner-exapp
@@ -338,38 +348,33 @@ class ProviderFactory
             );
         }
 
-        if ($chatProvider === 'ollama') {
-            $driver = $this->createOllamaDriver(
+        $driver = match ($chatProvider) {
+            'ollama' => $this->createOllamaDriver(
                 ollamaConfig: $llmConfig['ollamaConfig'] ?? [],
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature,
                 agentMaxTokens: $agentMaxTokens
-            );
-        } else if ($chatProvider === 'openai') {
-            $driver = $this->createOpenAiDriver(
+            ),
+            'openai' => $this->createOpenAiDriver(
                 openaiConfig: $llmConfig['openaiConfig'] ?? [],
                 agentModel: $agentModel,
                 agentTemperature: $agentTemperature,
                 credentialOverride: $this->resolveCredentialOverride(provider: 'openai', organisation: $organisation),
                 agentMaxTokens: $agentMaxTokens
-            );
-        } else if ($chatProvider === 'fireworks') {
-            $driver = $this->createFireworksDriver(
+            ),
+            'fireworks' => $this->createFireworksDriver(
                 fireworksConfig: $llmConfig['fireworksConfig'] ?? [],
                 agentModel: $agentModel,
                 credentialOverride: $this->resolveCredentialOverride(provider: 'fireworks', organisation: $organisation)
-            );
-        } else if ($chatProvider === 'anthropic') {
-            $driver = $this->createAnthropicDriver(
+            ),
+            'anthropic' => $this->createAnthropicDriver(
                 anthropicConfig: $llmConfig['anthropicConfig'] ?? [],
                 agentModel: $agentModel,
                 agentMaxTokens: $agentMaxTokens
-            );
-        } else if ($chatProvider === 'nextcloud') {
-            $driver = $this->createNextcloudDriver();
-        } else {
-            throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}");
-        }//end if
+            ),
+            'nextcloud' => $this->createNextcloudDriver(),
+            default => throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}"),
+        };//end match
 
         // Tenant-model-policy: the single enforcement chokepoint. Runs AFTER the
         // agent override is applied (createOllamaDriver()/createOpenAiDriver()/
@@ -1195,6 +1200,10 @@ class ProviderFactory
      * @throws ProviderUnavailableException When the scope cannot be verified, the credential is
      *                                      organisation-scope, or no token can be resolved (503).
      *
+     * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
+     *   of the optional OpenRegister broker (guarded by class_exists above) so this class
+     *   stays constructible when the broker is absent.
+     *
      * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
      */
     private function resolveCliToken(string $credentialId, ?string $uid): string
@@ -1522,6 +1531,10 @@ class ProviderFactory
      * an API to call. `PublicFunctions` is the supported seam.
      *
      * @return object AppAPI's `PublicFunctions`.
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
+     *   of the optional AppAPI interface so Hermiq still boots and serves `http` on an
+     *   instance without AppAPI installed.
      *
      * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-turn-is-dispatched-over-appapi-with-an-explicit-timeout-and-every-failure-is-surfaced
      */
@@ -2036,6 +2049,10 @@ class ProviderFactory
      *
      * @throws ProviderUnavailableException When the OpenAI API key is not configured.
      *
+     * @SuppressWarnings(PHPMD.StaticAccess) BrokerHttpClient::isAvailable() is that class's
+     *   own static feature-detection seam for the optional OpenRegister broker — checked
+     *   here so the driver fails loud (503) instead of at request time.
+     *
      * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
      */
     private function createOpenAiDriver(
@@ -2127,6 +2144,10 @@ class ProviderFactory
      *
      * @throws ProviderUnavailableException When the Fireworks API key is not configured.
      *
+     * @SuppressWarnings(PHPMD.StaticAccess) BrokerHttpClient::isAvailable() is that class's
+     *   own static feature-detection seam for the optional OpenRegister broker — checked
+     *   here so the driver fails loud (503) instead of at request time.
+     *
      * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
      */
     private function createFireworksDriver(array $fireworksConfig, ?string $agentModel, ?string $credentialOverride=null): ChatDriver
@@ -2190,6 +2211,10 @@ class ProviderFactory
      * @throws ProviderUnavailableException When the credential is missing (503) or the
      *                                      OpenRegister credential broker is unavailable (503),
      *                                      mirroring createOpenAiDriver().
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) BrokerHttpClient::isAvailable() is that class's
+     *   own static feature-detection seam for the optional OpenRegister broker — checked
+     *   here so the driver fails loud (503) instead of at request time.
      *
      * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
      */

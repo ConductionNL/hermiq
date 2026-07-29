@@ -51,6 +51,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use DateTime;
+use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
+use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
@@ -78,6 +80,15 @@ use Throwable;
  *   than splitting by channel, which would duplicate the shared fallback-chain/
  *   redaction/never-throws plumbing across multiple classes for no behavioural
  *   benefit.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same single-owner trade-off: every
+ *   delivery/alert channel lives here to share the fallback-chain plumbing.
+ * @SuppressWarnings(PHPMD.TooManyMethods)           One small deliver/alert method per
+ *   channel-and-event pair by design (see ExcessiveClassComplexity rationale).
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     Each caller (schedule runner, approval
+ *   gate, budget guard, dead-letter, circuit breaker) gets its own public entry point.
+ * @SuppressWarnings(PHPMD.LongVariable)             `$scheduleWebhookSecretService` is a
+ *   promoted constructor collaborator named after its class
+ *   (ScheduleWebhookSecretService) — shortening it would obscure which service is injected.
  *
  * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
  * @spec openspec/changes/archive/2026-07-13-delivery-channels/design.md
@@ -204,6 +215,15 @@ class DeliveryService
      * @param RedactionService             $redactionService             Redacts output before it crosses the instance boundary (email/webhook only).
      * @param ScheduleWebhookSecretService $scheduleWebhookSecretService Retrieves a schedule's outbound webhook signing secret (delivery-channels).
      * @param LoggerInterface              $logger                       PSR-3 logger for delivery warnings.
+     * @param TalkRoomBinding              $talkRoomBinding              Binds the run's conversation to the Talk room it
+     *                                                                   was delivered into, so the report can be replied to
+     *                                                                   (talk-chat-bridge).
+     * @param TalkApprovalNotifier         $talkApprovalNotifier         Posts an approval request into the agent's
+     *                                                                   bound room as the bot, so it can be decided
+     *                                                                   by a reaction (talk-approval-reactions).
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct always-present Nextcloud/Hermiq collaborator, not a logic-bearing list.
      */
     public function __construct(
         private readonly INotificationManager $notificationManager,
@@ -217,8 +237,21 @@ class DeliveryService
         private readonly RedactionService $redactionService,
         private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService,
         private readonly LoggerInterface $logger,
+        private readonly TalkRoomBinding $talkRoomBinding,
+        private readonly TalkApprovalNotifier $talkApprovalNotifier,
     ) {
     }//end __construct()
+
+    /**
+     * The conversation this delivery's run produced, when the caller knows it.
+     *
+     * Set by `deliver()` for the duration of one delivery so `deliverTalk()`
+     * can bind that conversation to the room it posts into. Deliberately NOT a
+     * constructor dependency: it is per-delivery state, not configuration.
+     *
+     * @var string|null
+     */
+    private ?string $boundConversationUuid = null;
 
     /**
      * Deliver a run's output for one schedule.
@@ -226,9 +259,14 @@ class DeliveryService
      * Never throws for a delivery problem: the outcome (including any warning to
      * persist as lastDeliveryError) is returned as a DeliveryResult.
      *
-     * @param string       $channel  Delivery channel: talk|notification|email|webhook|none.
-     * @param string       $output   The agent output to deliver.
-     * @param ObjectEntity $schedule The schedule the output belongs to.
+     * @param string       $channel          Delivery channel: talk|notification|email|webhook|none.
+     * @param string       $output           The agent output to deliver.
+     * @param ObjectEntity $schedule         The schedule the output belongs to.
+     * @param string|null  $conversationUuid The conversation this run produced. When supplied AND
+     *                                       the output reaches a Talk room, that conversation is
+     *                                       bound to the room so a reply there continues this
+     *                                       session (talk-chat-bridge). Null leaves the binding a
+     *                                       no-op — every pre-existing caller is unchanged.
      *
      * @return DeliveryResult The delivery outcome.
      *
@@ -236,8 +274,14 @@ class DeliveryService
      * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
      * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
      */
-    public function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult
+    public function deliver(string $channel, string $output, ObjectEntity $schedule, ?string $conversationUuid=null): DeliveryResult
     {
+        // Per-delivery state: which conversation this run produced, so a Talk
+        // room delivery can bind it and become repliable. Null for every caller
+        // that does not know (and for every non-Talk channel), which leaves the
+        // binding step a no-op.
+        $this->boundConversationUuid = $conversationUuid;
+
         // None / empty channel, or silent/empty output → deliberate no-op.
         if ($channel === '' || $channel === 'none' || trim($output) === '') {
             return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: null);
@@ -291,6 +335,11 @@ class DeliveryService
     public function deliverApprovalRequest(ObjectEntity $schedule, ObjectEntity $approval, array $reviewerUids): DeliveryResult
     {
         $scheduleName = (string) ($schedule->getObject()['name'] ?? '');
+
+        // Bonus surface: post into the agent's bound Talk room as the bot so
+        // the reviewer can decide with a reaction. Best-effort — the
+        // notification below is the guaranteed delivery.
+        $this->talkApprovalNotifier->postRequest(approval: $approval, displayName: $scheduleName);
 
         return $this->notifyApprovalReviewers(
             approvalUuid: (string) $approval->getUuid(),
@@ -850,6 +899,18 @@ class DeliveryService
         if ($target !== '') {
             $posted = $this->tryPostToTargetRoom(token: $target, owner: $owner, output: $output);
             if ($posted === null) {
+                // The report reached a room, so bind the conversation this run
+                // produced to that room — a reply there then continues THIS
+                // session instead of dead-ending (talk-chat-bridge). Strictly
+                // best-effort: bindByUuid() swallows its own failures, so a
+                // binding problem can never fail a delivery or a run.
+                if ($this->boundConversationUuid !== null) {
+                    $this->talkRoomBinding->bindByUuid(
+                        conversationUuid: $this->boundConversationUuid,
+                        roomToken: $target
+                    );
+                }
+
                 return new DeliveryResult(delivered: true, channel: 'talk', fellBack: false, warning: null);
             }
 

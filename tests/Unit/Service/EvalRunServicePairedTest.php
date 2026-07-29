@@ -140,7 +140,8 @@ class RecordingObjectService extends ObjectService
         mixed $register=null,
         mixed $schema=null,
         bool $_rbac=true,
-        bool $_multitenancy=true
+        bool $_multitenancy=true,
+        bool $_render=true
     ): ?ObjectEntity {
         return ($this->objects[(string) $id] ?? null);
 
@@ -166,7 +167,10 @@ class RecordingObjectService extends ObjectService
         mixed $schema=null,
         ?string $uuid=null,
         bool $_rbac=true,
-        bool $_multitenancy=true
+        bool $_multitenancy=true,
+        bool $silent=false,
+        ?array $uploadedFiles=null,
+        ?\OCP\IUser $currentUser=null
     ): ObjectEntity {
         $payload       = (is_array($object) === true) ? $object : $object->getObject();
         $this->saves[] = [
@@ -218,10 +222,14 @@ class EvalRunServicePairedTest extends TestCase
      */
     private function agent(): Agent
     {
-        $agent = $this->createMock(Agent::class);
-        $agent->method('getUuid')->willReturn('agent-uuid');
-        $agent->method('getOwner')->willReturn('alice');
-        $agent->method('getOrganisation')->willReturn('org-a');
+        // A real entity, not a mock: the real OpenRegister Agent resolves
+        // getUuid()/getOwner()/getOrganisation() via Entity MAGIC accessors,
+        // which PHPUnit mocks cannot configure when the real class is loaded
+        // (CI runs inside a full server tree with OpenRegister installed).
+        $agent = new Agent();
+        $agent->setUuid('agent-uuid');
+        $agent->setOwner('alice');
+        $agent->setOrganisation('org-a');
         return $agent;
 
     }//end agent()

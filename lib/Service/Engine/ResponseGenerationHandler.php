@@ -140,6 +140,8 @@ class ResponseGenerationHandler
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Each parameter is a distinct, independently
      * optional input to prompt assembly (agent-context-system adds one more to an already-wide,
      * long-established list) — grouping them would obscure, not simplify, the call site.
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
+     * is a cross-cutting mode threaded through the engine as a flag by design.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
@@ -326,9 +328,9 @@ class ResponseGenerationHandler
                 // derive from `$functions['name']`, so they match. Executor is null when
                 // there are no tools → callAnthropicChat runs text-only (the fail-safe:
                 // never advertise a tool Hermiq cannot run).
-                $anthropicToolExecutor = null;
+                $toolExecutor = null;
                 if (empty($functions) === false) {
-                    $anthropicFunctionInfos = $this->toolLoop->buildFunctionInfos(
+                    $functionInfos = $this->toolLoop->buildFunctionInfos(
                         functions: $functions,
                         channel: $channel,
                         trace: $trace,
@@ -338,11 +340,11 @@ class ResponseGenerationHandler
                     );
 
                     $anthropicFnByName = [];
-                    foreach ($anthropicFunctionInfos as $anthropicFunctionInfo) {
-                        $anthropicFnByName[$anthropicFunctionInfo->name] = $anthropicFunctionInfo;
+                    foreach ($functionInfos as $functionInfo) {
+                        $anthropicFnByName[$functionInfo->name] = $functionInfo;
                     }
 
-                    $anthropicToolExecutor = static function (string $toolName, array $toolInput) use ($anthropicFnByName): string {
+                    $toolExecutor = static function (string $toolName, array $toolInput) use ($anthropicFnByName): string {
                         $functionInfo = ($anthropicFnByName[$toolName] ?? null);
                         if ($functionInfo === null) {
                             return (string) json_encode(['error' => "Unknown tool: {$toolName}"]);
@@ -367,7 +369,7 @@ class ResponseGenerationHandler
                     messageHistory: $messageHistory,
                     authMode: (string) $driver->authMode,
                     functions: $functions,
-                    toolExecutor: $anthropicToolExecutor,
+                    toolExecutor: $toolExecutor,
                     executionMode: $driver->executionMode,
                     agentId: $cliAgentId,
                     maxTokens: $driver->maxTokens

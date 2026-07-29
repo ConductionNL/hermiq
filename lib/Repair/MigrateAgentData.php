@@ -69,6 +69,13 @@ use Throwable;
  * Copy OR's legacy agent-engine tables into hermiq-register objects (flag-gated, idempotent).
  *
  * @spec openspec/changes/agent-data-migration/tasks.md#1-build-the-repair-step
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   A one-shot data migration touches
+ *   both worlds by design: the legacy DB layer (IDBConnection), OR's object layer,
+ *   user resolution and the repair-step framework types.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of one small mapper per
+ *   migrated legacy table (agents, versions, runs, schedules) plus idempotency
+ *   guards — the complexity tracks the legacy catalogue, not one algorithm.
  */
 class MigrateAgentData implements IRepairStep
 {

@@ -32,6 +32,9 @@ export const TEST_PREFIX = `${TEST_FAMILY}${Date.now()}`
 /** OpenRegister objects API root (index.php-prefixed so it works with pretty-URLs off). */
 export const OR_API = '/index.php/apps/openregister/api'
 
+const NC_USER = process.env.NC_USER || 'admin'
+const NC_PASS = process.env.NC_PASS || 'admin'
+
 /**
  * Harvest the live CSRF request-token from a loaded hermiq page.
  *
@@ -39,10 +42,26 @@ export const OR_API = '/index.php/apps/openregister/api'
  * `OC.requestToken` is the canonical token. Read it from the running app so
  * it always matches the storageState cookie jar Playwright restored.
  *
+ * Logs in first when the session is not already authenticated (merged from
+ * development): relying on globalSetup alone let specs run unauthenticated and
+ * fail as "no data" rather than "not logged in".
+ *
  * @param page A page in the authenticated context (will navigate to /apps/hermiq).
  * @return The request-token string.
  */
 export async function harvestToken(page: Page): Promise<string> {
+	await page.goto('/login', { waitUntil: 'domcontentloaded' })
+
+	const userField = page.locator('#user')
+	if (await userField.count() > 0) {
+		await userField.fill(NC_USER)
+		await page.locator('#password').fill(NC_PASS)
+		await page.locator('button[type="submit"], input[type="submit"]').first().click()
+		// Nextcloud holds persistent long-poll connections, so 'networkidle'
+		// never fires; the login field detaching is the "logged in" signal.
+		await page.locator('#user').waitFor({ state: 'hidden', timeout: 30_000 })
+	}
+
 	await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 	const token = await page.evaluate(
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -54,9 +73,20 @@ export async function harvestToken(page: Page): Promise<string> {
 	return token
 }
 
-/** Standard JSON headers carrying the CSRF token for a write request. */
+/**
+ * Standard JSON headers carrying the CSRF token for a write request.
+ *
+ * The union of both branches' header sets: `Content-Type` for the seeding
+ * helpers' JSON bodies, `OCS-APIRequest`/`Accept` for the OCS-style routes
+ * development's spec calls.
+ */
 export function jsonHeaders(token: string): Record<string, string> {
-	return { requesttoken: token, 'Content-Type': 'application/json' }
+	return {
+		requesttoken: token,
+		'Content-Type': 'application/json',
+		'OCS-APIRequest': 'true',
+		Accept: 'application/json',
+	}
 }
 
 /**

@@ -81,6 +81,9 @@ use LLPhant\Chat\FunctionInfo\Parameter;
  *   tested method; the total tracks the number of governance concerns, not tangled logic.
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Same cause: each collaborator is one
  *   of those concerns, injected rather than reached for.
+ * @SuppressWarnings(PHPMD.LongVariable)             `$guardrailPolicyService` is a promoted
+ *   constructor collaborator named after its class (GuardrailPolicyService) — shortening
+ *   it would obscure which service is injected.
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
  */
@@ -371,8 +374,8 @@ class ToolLoop
             return $functions;
         }
 
-        $searchToolsDescriptors = $this->toolRegistryFacade->listTools(toolWhitelist: [self::SEARCH_TOOLS_ID]);
-        if ($searchToolsDescriptors === []) {
+        $searchDescriptors = $this->toolRegistryFacade->listTools(toolWhitelist: [self::SEARCH_TOOLS_ID]);
+        if ($searchDescriptors === []) {
             // The meta-tool itself is not registered/reachable (e.g. not
             // granted) — fail open to the full set rather than leaving the
             // agent with zero callable tools.
@@ -389,7 +392,7 @@ class ToolLoop
             ]
         );
 
-        return [$searchToolsDescriptors[0]];
+        return [$searchDescriptors[0]];
 
     }//end applyDisclosure()
 
@@ -435,6 +438,10 @@ class ToolLoop
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity) Ported descriptor-to-FunctionInfo
      * conversion kept structurally intact from the OR original for parity reviewability.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same ported conversion: the per-descriptor
+     * shape guards (name, properties, required) are independent, multiplying paths.
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag)  Dry-run preview (run-replay-and-dry-run)
+     * is a cross-cutting mode threaded through the engine as a flag by design.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1

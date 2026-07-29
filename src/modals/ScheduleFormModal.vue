@@ -76,15 +76,15 @@
 
 			<NcTextField
 				v-if="form.kind === 'interval'"
-				type="number"
 				v-model="form.intervalMinutes"
+				type="number"
 				:label="t('hermiq', 'Interval (minutes)')"
 				placeholder="1440" />
 
 			<NcTextField
 				v-if="form.kind === 'once'"
-				type="datetime-local"
 				v-model="form.runAt"
+				type="datetime-local"
 				:label="t('hermiq', 'Run at')" />
 
 			<NcTextArea
@@ -131,8 +131,8 @@
 			</template>
 
 			<NcTextField
-				type="number"
 				v-model="form.repeatTimes"
+				type="number"
 				:label="t('hermiq', 'Repeat times (empty = forever)')"
 				placeholder="" />
 
@@ -169,21 +169,21 @@
 
 			<template v-if="form.retryEnabled">
 				<NcTextField
-					type="number"
 					v-model="form.retryMaxAttempts"
+					type="number"
 					:label="t('hermiq', 'Retry max attempts')"
 					min="1"
 					max="10" />
 
 				<NcTextField
-					type="number"
 					v-model="form.retryBackoffBaseSeconds"
+					type="number"
 					:label="t('hermiq', 'Retry backoff base (seconds)')"
 					min="1" />
 
 				<NcTextField
-					type="number"
 					v-model="form.circuitBreakerThreshold"
+					type="number"
 					:label="t('hermiq', 'Circuit breaker threshold')"
 					min="1" />
 			</template>

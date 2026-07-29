@@ -32,6 +32,8 @@ use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
+use OCA\Hermiq\Listener\TalkApprovalReactionListener;
+use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
@@ -52,6 +54,10 @@ use OCP\User\Events\UserDeletedEvent;
  * Main application class for the Hermiq Nextcloud app.
  *
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Bootstrap class wires every listener,
+ * notifier, tool provider and TaskProcessing provider the app ships — one reference per
+ * registered integration point, no behavioural coupling.
  */
 class Application extends App implements IBootstrap
 {
@@ -75,6 +81,11 @@ class Application extends App implements IBootstrap
      * @return void
      *
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Linear registration list — one block per
+     * integration point, each with the comment explaining WHY it is registered; splitting it
+     * would scatter the bootstrap story.
+     * @SuppressWarnings(PHPMD.StaticAccess)          \OCP\Util::addInitScript is the Nextcloud
+     * asset API — there is no injectable equivalent in a bootstrap register() hook.
      *
      * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2
      */
@@ -173,6 +184,34 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(
             event: UserChangedEvent::class,
             listener: UserLifecycleListener::class
+        );
+
+        // Inbound Talk chat bridge (talk-chat-bridge): spreed dispatches
+        // BotInvokeEvent IN-PROCESS for bots registered with the
+        // `nextcloudapp://` URL scheme, so this is a plain listener rather than
+        // a webhook endpoint — nothing is exposed to the network.
+        //
+        // Registered UNCONDITIONALLY and by event NAME, deliberately. Guarding
+        // it with `class_exists('OCA\Talk\...')` is the obvious-looking move and
+        // is wrong: at register() time a sibling app may not be loaded yet, so
+        // the check can return false on a perfectly healthy instance and
+        // silently disable the whole feature with nothing in the logs.
+        // Registration is cheap and listener resolution is lazy, so the guard
+        // would buy nothing and cost the feature. Talk availability is checked
+        // at INVOKE time instead, inside the listener (TalkBridge::isAvailable()).
+        $context->registerEventListener(
+            event: 'OCA\\Talk\\Events\\BotInvokeEvent',
+            listener: TalkBotInvokeListener::class
+        );
+
+        // Approvals decided by reaction (talk-approval-reactions): spreed
+        // invokes bots on reactions with the SAME BotInvokeEvent, so this is a
+        // second listener on the same event — each ignores the invocation types
+        // that are not its own. Registered unconditionally and by event name for
+        // the same reason as the message listener above.
+        $context->registerEventListener(
+            event: 'OCA\\Talk\\Events\\BotInvokeEvent',
+            listener: TalkApprovalReactionListener::class
         );
 
         // Renders Hermiq's Nextcloud notifications (talk-delivery): the notification
