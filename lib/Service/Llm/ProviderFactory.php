@@ -2235,10 +2235,10 @@ class ProviderFactory
             );
         }
 
-        $model = ($anthropicConfig['chatModel'] ?? 'claude-opus-4-8');
-        if (empty($agentModel) === false) {
-            $model = $agentModel;
-        }
+        $model = $this->resolveAnthropicModel(
+            configuredModel: ($anthropicConfig['chatModel'] ?? 'claude-opus-4-8'),
+            agentModel: $agentModel
+        );
 
         $authMode = ($anthropicConfig['authMode'] ?? 'api_key');
         if ($authMode !== 'oauth') {
@@ -2272,6 +2272,57 @@ class ProviderFactory
         );
 
     }//end createAnthropicDriver()
+
+    /**
+     * Resolve the model for an Anthropic turn, ignoring foreign agent overrides.
+     *
+     * 🔴 An agent's `model` is provider-agnostic free text — most agents on an
+     * instance carry an Ollama tag such as `qwen3.5-optimized:latest`. Applying
+     * that override unconditionally handed it straight to the runner, which ran
+     * `claude -p --model qwen3.5-optimized:latest` and exited 1; the caller saw
+     * only "the runner returned an error while executing the turn" (measured
+     * 2026-07-29 — every governed turn on an Ollama-tagged agent failed this way,
+     * while ungoverned title-generation calls on `claude-opus-4-8` succeeded).
+     *
+     * A foreign override is dropped in favour of the provider's configured model
+     * and said out loud: falling back keeps chat working for agents authored
+     * against a different provider, whereas honouring the override can only ever
+     * produce an opaque exit 1.
+     *
+     * @param string      $configuredModel The provider's configured `chatModel`.
+     * @param string|null $agentModel      The agent-level override, when set.
+     *
+     * @return string The model id to send to Anthropic.
+     *
+     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+     */
+    private function resolveAnthropicModel(string $configuredModel, ?string $agentModel): string
+    {
+        if (empty($agentModel) === true) {
+            return $configuredModel;
+        }
+
+        // Anthropic model ids are all `claude-*`; anything else belongs to
+        // another provider and cannot be served here.
+        if (str_starts_with($agentModel, 'claude-') === true) {
+            return $agentModel;
+        }
+
+        $this->logger->warning(
+            message: '[ProviderFactory] Ignoring the agent\'s model override for an Anthropic turn: it is not '
+                .'an Anthropic model id. Using the provider\'s configured chatModel instead — set the agent\'s '
+                .'model to a claude-* id to control it.',
+            context: [
+                'file'            => __FILE__,
+                'line'            => __LINE__,
+                'agentModel'      => $agentModel,
+                'configuredModel' => $configuredModel,
+            ]
+        );
+
+        return $configuredModel;
+
+    }//end resolveAnthropicModel()
 
     /**
      * The calling user's UID, when there is a session.
