@@ -98,7 +98,6 @@ use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Mcp\AbstractToolHandler;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
@@ -123,9 +122,23 @@ use Throwable;
  *   (agent-memory-tools added three) — each handler stays independently simple and
  *   testable; the total tracks the catalogue size, not incidental complexity.
  *
+ * 🔴 Implements IMcpToolProvider DIRECTLY. This class used to also extend
+ * `OCA\OpenRegister\Mcp\AbstractToolHandler`, which OpenRegister has since
+ * removed — leaving a parent that could not be autoloaded. Every request then
+ * failed to resolve this provider ("[Application] Resolve failed … Class
+ * OCA\OpenRegister\Mcp\AbstractToolHandler not found"), so hermiq contributed
+ * ZERO tools to the catalogue: agent tool grants resolved to nothing and
+ * scheduled runs died with "This agent's tool grants resolve to no tools".
+ *
+ * The inheritance was vestigial — no `parent::` call anywhere — and all three
+ * interface methods (getAppId/getTools/invokeTool) are implemented here. Do
+ * not reintroduce a base class from OpenRegister without checking it still
+ * exists there: a missing parent fails at autoload, not at compile, so the
+ * damage shows up as an empty tool catalogue rather than a fatal.
+ *
  * @spec openspec/changes/nc-native-tools/tasks.md#1-ncnativetoolprovider
  */
-class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
+class HermiqToolProvider implements IMcpToolProvider
 {
 
     /**
