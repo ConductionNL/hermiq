@@ -53,7 +53,7 @@
 			</p>
 
 			<NcTextField
-				:value.sync="form.name"
+				v-model="form.name"
 				:label="t('hermiq', 'Name')"
 				:placeholder="t('hermiq', 'Daily briefing')"
 				required />
@@ -70,25 +70,25 @@
 
 			<NcTextField
 				v-if="form.kind === 'cron'"
-				:value.sync="form.cronExpr"
+				v-model="form.cronExpr"
 				:label="t('hermiq', 'Cron expression')"
 				placeholder="0 8 * * *" />
 
 			<NcTextField
 				v-if="form.kind === 'interval'"
+				v-model="form.intervalMinutes"
 				type="number"
-				:value.sync="form.intervalMinutes"
 				:label="t('hermiq', 'Interval (minutes)')"
 				placeholder="1440" />
 
 			<NcTextField
 				v-if="form.kind === 'once'"
+				v-model="form.runAt"
 				type="datetime-local"
-				:value.sync="form.runAt"
 				:label="t('hermiq', 'Run at')" />
 
 			<NcTextArea
-				:value.sync="form.prompt"
+				v-model="form.prompt"
 				:label="t('hermiq', 'Prompt')"
 				:placeholder="t('hermiq', 'Task text passed to the agent run')"
 				resize="vertical" />
@@ -105,20 +105,20 @@
 
 			<NcTextField
 				v-if="form.deliver === 'talk'"
-				:value.sync="form.deliverTarget"
+				v-model="form.deliverTarget"
 				:label="t('hermiq', 'Talk room token')"
 				:placeholder="t('hermiq', 'Leave empty for Note-to-self')" />
 
 			<NcTextField
 				v-if="form.deliver === 'email'"
-				:value.sync="form.deliverTarget"
+				v-model="form.deliverTarget"
 				type="email"
 				:label="t('hermiq', 'Email recipient')"
 				:placeholder="t('hermiq', 'Leave empty to use your own account email')" />
 
 			<template v-if="form.deliver === 'webhook'">
 				<NcTextField
-					:value.sync="form.deliverTarget"
+					v-model="form.deliverTarget"
 					:label="t('hermiq', 'Webhook URL')"
 					placeholder="https://example.com/hook" />
 
@@ -131,16 +131,16 @@
 			</template>
 
 			<NcTextField
+				v-model="form.repeatTimes"
 				type="number"
-				:value.sync="form.repeatTimes"
 				:label="t('hermiq', 'Repeat times (empty = forever)')"
 				placeholder="" />
 
-			<NcCheckboxRadioSwitch :checked.sync="form.enabled" type="switch">
+			<NcCheckboxRadioSwitch v-model="form.enabled" type="switch">
 				{{ t('hermiq', 'Enabled') }}
 			</NcCheckboxRadioSwitch>
 
-			<NcCheckboxRadioSwitch :checked.sync="form.requiresApproval" type="switch">
+			<NcCheckboxRadioSwitch v-model="form.requiresApproval" type="switch">
 				{{ t('hermiq', 'Requires approval') }}
 			</NcCheckboxRadioSwitch>
 
@@ -156,34 +156,34 @@
 				</div>
 
 				<NcTextField
-					:value.sync="form.reviewer"
+					v-model="form.reviewer"
 					:label="form.reviewerType === 'group' ? t('hermiq', 'Reviewer group id') : t('hermiq', 'Reviewer user id')"
 					:placeholder="t('hermiq', 'Leave empty to use the schedule owner')" />
 			</template>
 
 			<!-- Retry policy (run-reliability): opt-in bounded retry with exponential
 			     backoff + a circuit breaker. Off by default (backward compatible). -->
-			<NcCheckboxRadioSwitch :checked.sync="form.retryEnabled" type="switch">
+			<NcCheckboxRadioSwitch v-model="form.retryEnabled" type="switch">
 				{{ t('hermiq', 'Retry on failure') }}
 			</NcCheckboxRadioSwitch>
 
 			<template v-if="form.retryEnabled">
 				<NcTextField
+					v-model="form.retryMaxAttempts"
 					type="number"
-					:value.sync="form.retryMaxAttempts"
 					:label="t('hermiq', 'Retry max attempts')"
 					min="1"
 					max="10" />
 
 				<NcTextField
+					v-model="form.retryBackoffBaseSeconds"
 					type="number"
-					:value.sync="form.retryBackoffBaseSeconds"
 					:label="t('hermiq', 'Retry backoff base (seconds)')"
 					min="1" />
 
 				<NcTextField
+					v-model="form.circuitBreakerThreshold"
 					type="number"
-					:value.sync="form.circuitBreakerThreshold"
 					:label="t('hermiq', 'Circuit breaker threshold')"
 					min="1" />
 			</template>

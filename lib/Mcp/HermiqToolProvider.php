@@ -98,7 +98,6 @@ use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\OpenRegister\Db\ObjectEntity;
-use OCA\OpenRegister\Mcp\AbstractToolHandler;
 use OCA\OpenRegister\Mcp\IMcpToolProvider;
 use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
@@ -106,7 +105,6 @@ use OCP\Contacts\IManager as IContactsManager;
 use OCP\Files\IRootFolder;
 use OCP\Files\File;
 use OCP\Files\Folder;
-use OCP\IGroupManager;
 use OCP\IUserSession;
 use OCP\Mail\IMailer;
 use Psr\Container\ContainerInterface;
@@ -123,9 +121,23 @@ use Throwable;
  *   (agent-memory-tools added three) — each handler stays independently simple and
  *   testable; the total tracks the catalogue size, not incidental complexity.
  *
+ * 🔴 Implements IMcpToolProvider DIRECTLY. This class used to also extend
+ * `OCA\OpenRegister\Mcp\AbstractToolHandler`, which OpenRegister has since
+ * removed — leaving a parent that could not be autoloaded. Every request then
+ * failed to resolve this provider ("[Application] Resolve failed … Class
+ * OCA\OpenRegister\Mcp\AbstractToolHandler not found"), so hermiq contributed
+ * ZERO tools to the catalogue: agent tool grants resolved to nothing and
+ * scheduled runs died with "This agent's tool grants resolve to no tools".
+ *
+ * The inheritance was vestigial — no `parent::` call anywhere — and all three
+ * interface methods (getAppId/getTools/invokeTool) are implemented here. Do
+ * not reintroduce a base class from OpenRegister without checking it still
+ * exists there: a missing parent fails at autoload, not at compile, so the
+ * damage shows up as an empty tool catalogue rather than a fatal.
+ *
  * @spec openspec/changes/nc-native-tools/tasks.md#1-ncnativetoolprovider
  */
-class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
+class HermiqToolProvider implements IMcpToolProvider
 {
 
     /**
@@ -411,7 +423,6 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
      * Constructor.
      *
      * @param IUserSession               $userSession       The current user session (auth + scoping).
-     * @param IGroupManager              $groupManager      Group manager (AbstractToolHandler helpers).
      * @param IRootFolder                $rootFolder        Files root (scoped per user).
      * @param IContactsManager           $contactsManager   Contacts search (acting user's books).
      * @param ICalendarManager           $calendarManager   Calendar query (acting user's calendars).
@@ -444,8 +455,13 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of ten distinct capabilities.
      */
     public function __construct(
-        IUserSession $userSession,
-        IGroupManager $groupManager,
+        // Promoted like every other dependency. These two were previously plain
+        // params assigned onto properties DECLARED BY the removed
+        // `AbstractToolHandler` base — with the base gone they silently became
+        // PHP dynamic properties (deprecated in 8.2), which works at runtime and
+        // is why a live tool call still succeeded, but phpstan/psalm correctly
+        // flagged the reads and writes as undefined.
+        private readonly IUserSession $userSession,
         private readonly IRootFolder $rootFolder,
         private readonly IContactsManager $contactsManager,
         private readonly ICalendarManager $calendarManager,
@@ -459,8 +475,6 @@ class HermiqToolProvider extends AbstractToolHandler implements IMcpToolProvider
         private readonly DelegationService $delegationService,
         private readonly LoggerInterface $logger,
     ) {
-        $this->userSession  = $userSession;
-        $this->groupManager = $groupManager;
     }//end __construct()
 
     /**

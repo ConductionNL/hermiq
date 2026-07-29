@@ -75,6 +75,11 @@ class RegisterAgentLeafListenerTest extends TestCase
         $this->assertTrue($descriptor->hasKind(LeafDescriptor::KIND_AGENT_RUNNER));
         $this->assertContains('detail-page', $descriptor->getSurfaces());
 
+        // Vue 3 leaf under a Vue 2.7 host renders via the JS `mount`/`unmount`
+        // hand-off, so the server descriptor declares renderMode 'mount' to match
+        // the JS registration under the shared id (openregister#2127, gate-24).
+        $this->assertSame(LeafDescriptor::RENDER_MODE_MOUNT, $descriptor->getRenderMode());
+
         // Render-only: no data provider.
         $this->assertNull($leaves[0]['provider']);
     }//end testRegistersHermiqAgentLeaf()

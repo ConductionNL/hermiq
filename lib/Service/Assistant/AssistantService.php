@@ -53,6 +53,9 @@ use Psr\Log\LoggerInterface;
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Composes the same handler set
  * Engine::processMessage() does, minus the two RAG-specific handlers this
  * surface deliberately skips (design.md Decision 2).
+ * @SuppressWarnings(PHPMD.LongVariable)           `$guardrailPolicyService` is a promoted
+ * constructor collaborator named after its class (GuardrailPolicyService) —
+ * shortening it would obscure which service is injected.
  */
 class AssistantService
 {

@@ -36,8 +36,8 @@
 				<NcCheckboxRadioSwitch
 					v-for="view in availableViews"
 					:key="view.uuid"
-					:checked="value.views.includes(view.uuid)"
-					@update:checked="toggle('views', view.uuid)">
+					:model-value="value.views.includes(view.uuid)"
+					@update:modelValue="toggle('views', view.uuid)">
 					{{ view.name }}
 				</NcCheckboxRadioSwitch>
 			</section>
@@ -51,8 +51,8 @@
 				<NcCheckboxRadioSwitch
 					v-for="tool in availableTools"
 					:key="tool.uuid"
-					:checked="value.tools.includes(tool.uuid)"
-					@update:checked="toggle('tools', tool.uuid)">
+					:model-value="value.tools.includes(tool.uuid)"
+					@update:modelValue="toggle('tools', tool.uuid)">
 					{{ tool.name }}
 				</NcCheckboxRadioSwitch>
 			</section>
@@ -64,27 +64,27 @@
 					{{ t('hermiq', 'Configure which data is searched for context and how many sources are retrieved') }}
 				</p>
 				<NcCheckboxRadioSwitch
-					:checked="value.includeObjects"
-					@update:checked="set('includeObjects', $event)">
+					:model-value="value.includeObjects"
+					@update:modelValue="set('includeObjects', $event)">
 					{{ t('hermiq', 'Search in objects') }}
 				</NcCheckboxRadioSwitch>
 				<NcCheckboxRadioSwitch
-					:checked="value.includeFiles"
-					@update:checked="set('includeFiles', $event)">
+					:model-value="value.includeFiles"
+					@update:modelValue="set('includeFiles', $event)">
 					{{ t('hermiq', 'Search in files') }}
 				</NcCheckboxRadioSwitch>
 
 				<div class="chat-settings__row">
 					<NcTextField
-						:value="String(value.numSourcesObjects)"
+						:model-value="String(value.numSourcesObjects)"
 						type="number"
 						:label="t('hermiq', 'Object sources')"
-						@update:value="setNumber('numSourcesObjects', $event)" />
+						@update:modelValue="setNumber('numSourcesObjects', $event)" />
 					<NcTextField
-						:value="String(value.numSourcesFiles)"
+						:model-value="String(value.numSourcesFiles)"
 						type="number"
 						:label="t('hermiq', 'File sources')"
-						@update:value="setNumber('numSourcesFiles', $event)" />
+						@update:modelValue="setNumber('numSourcesFiles', $event)" />
 				</div>
 				<p class="chat-settings__hint">
 					{{ t('hermiq', 'Fewer sources answer faster and more focused; more sources give broader context but slower responses. 5 is a good balance.') }}

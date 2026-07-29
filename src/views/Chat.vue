@@ -45,22 +45,22 @@
 				<div class="chat-page__tabs">
 					<NcCheckboxRadioSwitch
 						:button-variant="true"
-						:checked="showArchive ? 'archive' : 'active'"
+						:model-value="showArchive ? 'archive' : 'active'"
 						value="active"
 						name="chat_list_tab"
 						type="radio"
 						button-variant-grouped="horizontal"
-						@update:checked="setArchiveTab(false)">
+						@update:modelValue="setArchiveTab(false)">
 						{{ t('hermiq', 'Active') }}
 					</NcCheckboxRadioSwitch>
 					<NcCheckboxRadioSwitch
 						:button-variant="true"
-						:checked="showArchive ? 'archive' : 'active'"
+						:model-value="showArchive ? 'archive' : 'active'"
 						value="archive"
 						name="chat_list_tab"
 						type="radio"
 						button-variant-grouped="horizontal"
-						@update:checked="setArchiveTab(true)">
+						@update:modelValue="setArchiveTab(true)">
 						{{ t('hermiq', 'Archive') }}
 					</NcCheckboxRadioSwitch>
 				</div>

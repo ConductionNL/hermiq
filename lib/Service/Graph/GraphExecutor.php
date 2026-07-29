@@ -374,9 +374,6 @@ class GraphExecutor
         }
 
         $data = $fresh->getObject();
-        if (is_array($data) === false) {
-            $data = [];
-        }
 
         foreach ($updates as $k => $v) {
             $data[$k] = $v;
@@ -653,9 +650,6 @@ class GraphExecutor
     private function buildState(ObjectEntity $object): array
     {
         $data = $object->getObject();
-        if (is_array($data) === false) {
-            $data = [];
-        }
 
         $data['@id']           = $object->getUuid();
         $data['@uuid']         = $object->getUuid();

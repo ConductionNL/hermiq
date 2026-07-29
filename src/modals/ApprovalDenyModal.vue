@@ -32,7 +32,7 @@
 			</NcNoteCard>
 
 			<NcTextArea
-				:value.sync="reason"
+				v-model="reason"
 				:label="t('hermiq', 'Reason (optional)')"
 				:placeholder="t('hermiq', 'Why is this run being denied?')"
 				resize="vertical" />

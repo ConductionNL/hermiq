@@ -121,7 +121,7 @@ class SkillMarketplaceService
      *
      * @return ObjectEntity The quarantined Skill object.
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-2-1
+     * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
      */
     public function installFromSource(string $package, string $source, string $createdBy): ObjectEntity
     {
@@ -175,7 +175,7 @@ class SkillMarketplaceService
      * reviewer decision (explicit dangerous-verdict override), part of the public
      * seam the controller exposes — not an SRP smell.
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-2-2
+     * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
      */
     public function approveQuarantined(string $skillId, bool $force=false): ?ObjectEntity
     {
@@ -216,7 +216,7 @@ class SkillMarketplaceService
      *
      * @return array<string, int> Summary counts { scanned, staled, archived }.
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-2-3
+     * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
      */
     public function curate(): array
     {
@@ -270,7 +270,7 @@ class SkillMarketplaceService
      *
      * @return array<string, mixed> The publish result or a structured error.
      *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-2-4
+     * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
      */
     public function publishToHub(string $skillId, string $hubId): array
     {
@@ -279,8 +279,10 @@ class SkillMarketplaceService
             return ['error' => ['code' => 'not_found', 'message' => 'Skill not found.']];
         }
 
-        // Serialise via the catalog serializer (agentskills.io) before any outbound call.
-        $package = $this->skillSerializer->toPackage(skill: $skill->getObject());
+        // Serialise via the ONE export selection (skills-marketplace delta): the
+        // OpenConnector secondary route applies the SAME `learning-candidates.md`
+        // strip as GitHub publish — unvetted observations never leave the instance.
+        $package = ($this->skillService->exportSkill(skillId: $skillId) ?? '');
 
         try {
             // Route outbound through OpenConnector's CallService — never a direct HTTP client.

@@ -42,6 +42,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
+ * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  */
 
 declare(strict_types=1);
@@ -73,6 +74,28 @@ class RegisterAgentLeafListener implements IEventListener
      * @var string
      */
     public const LEAF_ID = 'hermiq-agent';
+
+    /**
+     * The render surfaces this leaf targets — the SAME set, in the same order, as
+     * `src/integration-leaf.js` declares to `registerIntegration()`.
+     *
+     * Every member is drawn from OpenRegister's authoritative
+     * `LeafDescriptor::VALID_SURFACES` vocabulary (`user-dashboard`,
+     * `app-dashboard`, `detail-page`, `single-entity`). The dashboard surfaces are
+     * included because this leaf contributes a `widget` with a default grid size and
+     * consuming apps place that widget on dashboards; excluding them made the leaf's
+     * own widget unplaceable on the very surfaces it was built for.
+     *
+     * @var array<int, string>
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-both-registration-halves-declare-the-same-explicit-surface-set
+     */
+    public const SURFACES = [
+        'user-dashboard',
+        'app-dashboard',
+        'detail-page',
+        'single-entity',
+    ];
 
     /**
      * Constructor.
@@ -112,11 +135,23 @@ class RegisterAgentLeafListener implements IEventListener
                 ],
                 requiredApp: Application::APP_ID,
                 group: 'workflow',
-                surfaces: [
-                    'detail-page',
-                    'single-entity',
-                ],
+                // Declared EXPLICITLY and identically on both halves of the
+                // registration (hydra-console-agent-leaves). The JS half shipped a
+                // dashboard-sized `widget` (CnAgentRunsWidget, defaultSize 4x4)
+                // while declaring no `surfaces` key at all, and this half said the
+                // leaf was not dashboard-placeable — so a dashboard-first consuming
+                // app could not place a widget the leaf was already advertising.
+                // Every member is drawn from LeafDescriptor::VALID_SURFACES; the
+                // list is written out rather than derived so the cross-layer parity
+                // gate (gate-24) has two explicit sets to compare, since declaring
+                // by omission is what let the two drift apart unnoticed.
+                surfaces: self::SURFACES,
                 referenceType: self::LEAF_ID,
+                // Vue 3 leaf under a Vue 2.7 host: the JS registration renders via a
+                // `mount`/`unmount` DOM hand-off (openregister#2127, ADR-066), so the
+                // server descriptor MUST declare the SAME render mode under the shared
+                // id for cross-layer parity (gate-24 integration-parity).
+                renderMode: LeafDescriptor::RENDER_MODE_MOUNT,
             );
 
             // Render-only leaf: no IntegrationProvider (null). The chat reads via

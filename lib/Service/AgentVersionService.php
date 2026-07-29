@@ -306,10 +306,14 @@ class AgentVersionService
      */
     private function fetchVersionEntries(string $agentUuid): array
     {
+        // NOTE: AuditTrailMapper::findAll() string-casts every filter value — an
+        // ARRAY value becomes the literal string "Array" and matches ZERO rows
+        // (green-but-dead). Its multi-value contract is a comma-separated STRING
+        // ("create,update"), which it explodes into an IN() itself.
         $logs = $this->auditTrailMapper->findAll(
             filters: [
                 'object_uuid' => $agentUuid,
-                'action'      => self::VERSION_ACTIONS,
+                'action'      => implode(',', self::VERSION_ACTIONS),
             ]
         );
 

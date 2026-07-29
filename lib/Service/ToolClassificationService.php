@@ -80,6 +80,10 @@ class ToolClassificationService
      * @return bool True when the tool must be neutralised in a dry-run.
      *
      * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) ToolGrantResolver::isWriteOrDestructive()
+     *   is a deliberately stateless pure classifier — both classifications must share
+     *   the ONE verb/hint rule set, so it is called statically, not injected.
      */
     public function isSideEffecting(string $id, ?array $descriptor=null): bool
     {

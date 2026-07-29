@@ -29,7 +29,7 @@ export const AGENT_CONTEXT_KEYWORD = 'x-openregister-agent-context'
  * unexpected yields an empty allowlist (fail-closed).
  *
  * @param {*} spec The raw `x-openregister-agent-context` value.
- * @return {Object<string, object>} Property name → caps map.
+ * @return {{[key: string]: object}} Property name → caps map.
  */
 function normaliseAllowlist(spec) {
 	const allowlist = {}

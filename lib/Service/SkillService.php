@@ -67,13 +67,15 @@ class SkillService
     /**
      * Constructor.
      *
-     * @param ObjectService   $objectService   OpenRegister object read/write (single write-path).
-     * @param SkillSerializer $skillSerializer The agentskills.io (de)serialiser.
-     * @param LoggerInterface $logger          Logger (best-effort agent-side sync warnings).
+     * @param ObjectService        $objectService   OpenRegister object read/write (single write-path).
+     * @param SkillSerializer      $skillSerializer The agentskills.io (de)serialiser.
+     * @param SkillMaturityService $maturityService Computed-maturity write guard (skill-maturity).
+     * @param LoggerInterface      $logger          Logger (best-effort agent-side sync warnings).
      */
     public function __construct(
         private readonly ObjectService $objectService,
         private readonly SkillSerializer $skillSerializer,
+        private readonly SkillMaturityService $maturityService,
         private readonly LoggerInterface $logger,
     ) {
     }//end __construct()
@@ -86,7 +88,7 @@ class SkillService
      *
      * @return ObjectEntity The persisted Skill object.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
      */
     public function importSkill(string $package, string $createdBy): ObjectEntity
     {
@@ -121,7 +123,7 @@ class SkillService
      *
      * @return string|null The package string, or null when the skill is not found.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
      */
     public function exportSkill(string $skillId): ?string
     {
@@ -130,9 +132,95 @@ class SkillService
             return null;
         }
 
-        return $this->skillSerializer->toPackage(skill: $skill->getObject());
+        return $this->skillSerializer->toPackage(skill: $this->applyPublishFileSelection(data: $skill->getObject()));
 
     }//end exportSkill()
+
+    /**
+     * The publish-time FILE SELECTION (skill-self-improvement / skills-marketplace
+     * delta): the exported/committed package ships `files['learnings.md']` (a skill's
+     * vetted experience travels with it — ADR-068 §3) but STRIPS
+     * `files['learning-candidates.md']` — unvetted observations never leave the
+     * instance. This is selection, not serialization: `SkillSerializer`'s
+     * byte-for-byte round-trip of the files it does emit is untouched. Both publish
+     * routes (GitHub primary AND the OpenConnector `publishToHub` secondary) export
+     * through this one selection.
+     *
+     * @param string $skillId The Skill UUID.
+     *
+     * @return array<int, array{name: string, content: string}>|null The selected
+     *         files, or null when the skill is not found (tenant-scoped, 404 shape).
+     *
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    public function publishFileSelection(string $skillId): ?array
+    {
+        $skill = $this->getSkill(skillId: $skillId);
+        if ($skill === null) {
+            return null;
+        }
+
+        $selected = $this->applyPublishFileSelection(data: $skill->getObject());
+        $files    = ($selected['files'] ?? []);
+        if (is_array($files) === false) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($files as $file) {
+            if (is_array($file) === false) {
+                continue;
+            }
+
+            $name = (string) ($file['name'] ?? '');
+            if ($name === '') {
+                continue;
+            }
+
+            $out[] = [
+                'name'    => $name,
+                'content' => (string) ($file['content'] ?? ''),
+            ];
+        }
+
+        return $out;
+
+    }//end publishFileSelection()
+
+    /**
+     * Apply the export file selection to a skill payload: drop
+     * `learning-candidates.md`, keep everything else (including `learnings.md`)
+     * byte-identical. Never touches the stored object.
+     *
+     * @param array<string, mixed> $data The skill payload.
+     *
+     * @return array<string, mixed> The payload with the selection applied.
+     *
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    private function applyPublishFileSelection(array $data): array
+    {
+        $files = ($data['files'] ?? []);
+        if (is_array($files) === false) {
+            return $data;
+        }
+
+        $data['files'] = array_values(
+                array_filter(
+            $files,
+            static function ($file): bool {
+                if (is_array($file) === false) {
+                    return false;
+                }
+
+                return (string) ($file['name'] ?? '') !== SkillLearningsCaptureService::CANDIDATES_FILE;
+            }
+        )
+                );
+
+        return $data;
+
+    }//end applyPublishFileSelection()
 
     /**
      * Stamp GitHub publish provenance onto a Skill — `githubOwner`/`githubRepo`/
@@ -149,7 +237,7 @@ class SkillService
      *
      * @return ObjectEntity|null The updated Skill, or null when not found.
      *
-     * @spec openspec/changes/hermiq-github-store/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
      */
     public function stampGithubPublish(string $skillId, string $owner, string $repo, string $publishedAt): ?ObjectEntity
     {
@@ -173,11 +261,52 @@ class SkillService
     }//end stampGithubPublish()
 
     /**
+     * Update a Skill from a client-supplied payload — the skill "merge" write path
+     * (skill-maturity): the incoming payload is guarded by
+     * `SkillMaturityService::preserveComputedFields()`, so client-supplied
+     * `maturityLevel` and `levelEvidence.l1`–`l4` + `l6` are silently overwritten by
+     * the STORED values (only qualify/attest write l1–l4; only the skill-learnings
+     * capture/promotion subsystem writes l6), while `targetLevel` and every
+     * ordinary field stay freely editable. Runs in the caller's session context, so
+     * OpenRegister's native RBAC still authorizes the write itself.
+     *
+     * @param string               $skillId The Skill UUID.
+     * @param array<string, mixed> $data    The client-supplied skill payload.
+     *
+     * @return ObjectEntity|null The updated Skill, or null when not found.
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+     */
+    public function updateSkill(string $skillId, array $data): ?ObjectEntity
+    {
+        $skill = $this->getSkill(skillId: $skillId);
+        if ($skill === null) {
+            return null;
+        }
+
+        $guarded = $this->maturityService->preserveComputedFields(
+            incoming: $data,
+            stored: $skill->getObject()
+        );
+
+        // Strip read-path envelope keys a client payload may echo back.
+        unset($guarded['id'], $guarded['uuid'], $guarded['@self']);
+
+        return $this->objectService->saveObject(
+            object: $guarded,
+            register: self::REGISTER_SLUG,
+            schema: self::SKILL_SCHEMA,
+            uuid: (string) $skill->getUuid()
+        );
+
+    }//end updateSkill()
+
+    /**
      * List the skills visible in the caller's tenant.
      *
      * @return array<int, ObjectEntity> The Skill objects.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
      */
     public function listSkills(): array
     {
@@ -204,7 +333,7 @@ class SkillService
      *
      * @return ObjectEntity|null The Skill object, or null.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
      */
     public function getSkill(string $skillId): ?ObjectEntity
     {
@@ -228,8 +357,8 @@ class SkillService
      *
      * @return ObjectEntity|null The updated Skill object, or null when not found.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-3-2
-     * @spec openspec/changes/agent-capability-profile/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+     * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
      */
     public function installOnAgent(string $skillId, string $agentId): ?ObjectEntity
     {
@@ -274,7 +403,7 @@ class SkillService
      *
      * @return void
      *
-     * @spec openspec/changes/agent-capability-profile/tasks.md#task-4-1
+     * @spec openspec/changes/agent-capability-profile/tasks.md#4-skillservice-bidirectional-install-join
      */
     private function syncAgentSkillInstalls(string $agentId, string $skillId): void
     {
