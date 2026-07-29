@@ -338,4 +338,156 @@ class ContextAssemblerTest extends TestCase
         $this->assertStringContainsString('Context: B', $combined);
 
     }//end testAssembleForAgentConcatenatesAndNoOps()
+
+    /**
+     * A Skill ObjectEntity with the given payload.
+     *
+     * @param string               $uuid    The skill uuid.
+     * @param array<string, mixed> $payload The object data.
+     *
+     * @return ObjectEntity
+     */
+    private function skill(string $uuid, array $payload): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid($uuid);
+        $entity->setObject($payload);
+        return $entity;
+
+    }//end skill()
+
+    /**
+     * An ObjectService mock serving the given skills by uuid.
+     *
+     * @param array<string, ObjectEntity> $skills Skills by uuid.
+     *
+     * @return ObjectService
+     */
+    private function skillObjectService(array $skills): ObjectService
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturnCallback(
+            static fn (string $id): ?ObjectEntity => ($skills[$id] ?? null)
+        );
+        return $objectService;
+
+    }//end skillObjectService()
+
+    /**
+     * The run-loop seam (skill-evals): with NO override, the agent's stored
+     * skillInstalls are resolved and each active skill's name/description/body is
+     * injected; the exposed uuids come back as skillsUsed.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function testAssembleSkillsExposesStoredInstallsWhenNoOverride(): void
+    {
+        $assembler = new ContextAssembler(
+            $this->skillObjectService([
+                'sk-1' => $this->skill('sk-1', ['name' => 'woo-triage', 'description' => 'Triage WOO requests', 'body' => 'Always compute the deadline.', 'state' => 'active']),
+            ]),
+            $this->createMock(IRootFolder::class),
+            new NullLogger()
+        );
+
+        $bundle = $assembler->assembleSkillsForRun(agent: $this->agent(['skillInstalls' => ['sk-1']]));
+
+        $this->assertSame(['sk-1'], $bundle['skillsUsed']);
+        $this->assertStringContainsString('Skill: woo-triage', $bundle['text']);
+        $this->assertStringContainsString('Triage WOO requests', $bundle['text']);
+        $this->assertStringContainsString('Always compute the deadline.', $bundle['text']);
+
+    }//end testAssembleSkillsExposesStoredInstallsWhenNoOverride()
+
+    /**
+     * A per-run override REPLACES the stored installs entirely (the paired-eval
+     * detachment seam): stored installs are not read when an override is given,
+     * and an empty override exposes nothing.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-baseline-detachment-is-per-run-and-in-memory-only
+     */
+    public function testOverrideReplacesStoredInstalls(): void
+    {
+        $assembler = new ContextAssembler(
+            $this->skillObjectService([
+                'sk-installed' => $this->skill('sk-installed', ['name' => 'installed', 'body' => 'I', 'state' => 'active']),
+                'sk-linked'    => $this->skill('sk-linked', ['name' => 'linked', 'body' => 'L', 'state' => 'active']),
+            ]),
+            $this->createMock(IRootFolder::class),
+            new NullLogger()
+        );
+
+        $agent = $this->agent(['skillInstalls' => ['sk-installed']]);
+
+        // Override wins: only the linked skill is exposed.
+        $bundle = $assembler->assembleSkillsForRun(agent: $agent, skillSetOverride: ['sk-linked']);
+        $this->assertSame(['sk-linked'], $bundle['skillsUsed']);
+        $this->assertStringNotContainsString('Skill: installed', $bundle['text']);
+
+        // Empty override: the without-half of an agent whose every install is
+        // linked — nothing is exposed despite the stored install.
+        $empty = $assembler->assembleSkillsForRun(agent: $agent, skillSetOverride: []);
+        $this->assertSame([], $empty['skillsUsed']);
+        $this->assertSame('', $empty['text']);
+
+    }//end testOverrideReplacesStoredInstalls()
+
+    /**
+     * Non-active skills are NEVER exposed — quarantined content cannot reach a run
+     * context via an install or an override (marketplace approval gate) — and an
+     * unresolvable uuid is skipped, never fatal.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function testNonActiveAndMissingSkillsAreNeverExposed(): void
+    {
+        $assembler = new ContextAssembler(
+            $this->skillObjectService([
+                'sk-active'      => $this->skill('sk-active', ['name' => 'good', 'body' => 'G', 'state' => 'active']),
+                'sk-quarantined' => $this->skill('sk-quarantined', ['name' => 'evil', 'body' => 'INJECT', 'state' => 'quarantined']),
+                'sk-stale'       => $this->skill('sk-stale', ['name' => 'old', 'body' => 'O', 'state' => 'stale']),
+            ]),
+            $this->createMock(IRootFolder::class),
+            new NullLogger()
+        );
+
+        $bundle = $assembler->assembleSkillsForRun(
+            agent: null,
+            skillSetOverride: ['sk-active', 'sk-quarantined', 'sk-stale', 'sk-missing']
+        );
+
+        $this->assertSame(['sk-active'], $bundle['skillsUsed']);
+        $this->assertStringContainsString('Skill: good', $bundle['text']);
+        $this->assertStringNotContainsString('INJECT', $bundle['text']);
+        $this->assertStringNotContainsString('Skill: old', $bundle['text']);
+
+    }//end testNonActiveAndMissingSkillsAreNeverExposed()
+
+    /**
+     * No agent and no override is a clean no-op (the common skill-less run).
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function testNoAgentNoOverrideIsANoOp(): void
+    {
+        $assembler = new ContextAssembler(
+            $this->skillObjectService([]),
+            $this->createMock(IRootFolder::class),
+            new NullLogger()
+        );
+
+        $bundle = $assembler->assembleSkillsForRun(agent: null);
+
+        $this->assertSame('', $bundle['text']);
+        $this->assertSame([], $bundle['skillsUsed']);
+
+    }//end testNoAgentNoOverrideIsANoOp()
 }//end class

@@ -44,7 +44,7 @@
 				<!-- OpenAI -->
 				<template v-if="providerValue === 'openai'">
 					<NcTextField
-						:value.sync="form.openaiConfig.chatModel"
+						v-model="form.openaiConfig.chatModel"
 						:label="t('hermiq', 'Model')"
 						:placeholder="'gpt-4o-mini'" />
 					<!--
@@ -66,11 +66,11 @@
 				<!-- Ollama -->
 				<template v-else-if="providerValue === 'ollama'">
 					<NcTextField
-						:value.sync="form.ollamaConfig.url"
+						v-model="form.ollamaConfig.url"
 						:label="t('hermiq', 'Ollama URL')"
 						:placeholder="'http://localhost:11434'" />
 					<NcTextField
-						:value.sync="form.ollamaConfig.chatModel"
+						v-model="form.ollamaConfig.chatModel"
 						:label="t('hermiq', 'Model')"
 						:placeholder="'llama3'" />
 				</template>
@@ -78,11 +78,11 @@
 				<!-- Fireworks -->
 				<template v-else-if="providerValue === 'fireworks'">
 					<NcTextField
-						:value.sync="form.fireworksConfig.baseUrl"
+						v-model="form.fireworksConfig.baseUrl"
 						:label="t('hermiq', 'Base URL')"
 						:placeholder="'https://api.fireworks.ai/inference/v1'" />
 					<NcTextField
-						:value.sync="form.fireworksConfig.chatModel"
+						v-model="form.fireworksConfig.chatModel"
 						:label="t('hermiq', 'Model')"
 						:placeholder="'accounts/fireworks/models/llama-v3p1-8b-instruct'" />
 					<NcSelect v-model="fireworksCredential"
@@ -99,7 +99,7 @@
 				<!-- Anthropic (Claude / Claude Max) -->
 				<template v-else-if="providerValue === 'anthropic'">
 					<NcTextField
-						:value.sync="form.anthropicConfig.chatModel"
+						v-model="form.anthropicConfig.chatModel"
 						:label="t('hermiq', 'Model')"
 						:placeholder="'claude-opus-4-8'" />
 					<p class="llm-provider-modal__hint">

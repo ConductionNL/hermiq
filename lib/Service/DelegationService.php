@@ -64,6 +64,9 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each
  *   parameter is a distinct injected collaborator, not a logic-bearing
  *   argument list.
+ * @SuppressWarnings(PHPMD.LongVariable)           `$tenantModelPolicyService` is a promoted
+ *   constructor collaborator named after its class (TenantModelPolicyService) —
+ *   shortening it would obscure which service is injected.
  *
  * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
  */

@@ -122,6 +122,11 @@ class MessageHistoryHandler
             ]
         );
 
+        // A conversation is "shared" when its human turns come from more than
+        // one author. Only then is speaker labelling added — a single-speaker
+        // session keeps byte-identical prompts to before talk-shared-sessions.
+        $isMultiSpeaker = $this->hasMultipleHumanAuthors(messages: $messages);
+
         $history = [];
         foreach ($messages as $message) {
             $data    = $message->getObject();
@@ -153,6 +158,10 @@ class MessageHistoryHandler
                 continue;
             }
 
+            if ($role === 'user' && $isMultiSpeaker === true) {
+                $content = $this->labelWithAuthor(content: $content, data: $data);
+            }
+
             $history[] = match ($role) {
                 'user'      => LLPhantMessage::user($content),
                 'assistant' => LLPhantMessage::assistant($content),
@@ -174,25 +183,129 @@ class MessageHistoryHandler
     }//end buildMessageHistory()
 
     /**
+     * Attach authorship to a message payload, for human turns only.
+     *
+     * Authorship is a property of HUMAN turns. The schema cannot bind these
+     * fields to `role` — the OpenRegister importer rejects conditional blocks —
+     * so the constraint is upheld here, at the single writer.
+     *
+     * @param array       $payload           The message payload being built.
+     * @param string      $role              The message role.
+     * @param string|null $authorId          The human author's uid, if any.
+     * @param string|null $authorDisplayName The author's display name at send time.
+     *
+     * @return array The payload, with authorship attached where applicable.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
+     */
+    private function withAuthorship(array $payload, string $role, ?string $authorId, ?string $authorDisplayName): array
+    {
+        if ($role !== 'user') {
+            return $payload;
+        }
+
+        if ($authorId !== null && $authorId !== '') {
+            $payload['authorId'] = $authorId;
+        }
+
+        if ($authorDisplayName !== null && $authorDisplayName !== '') {
+            $payload['authorDisplayName'] = $authorDisplayName;
+        }
+
+        return $payload;
+
+    }//end withAuthorship()
+
+    /**
+     * Whether the given messages carry human turns from more than one author.
+     *
+     * Used to decide if speaker labelling is warranted: in the overwhelmingly
+     * common single-speaker session it is not, and the prompt stays exactly as
+     * it was before talk-shared-sessions.
+     *
+     * @param ObjectEntity[] $messages The conversation's recent messages.
+     *
+     * @return bool True when two or more distinct human authors are present.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
+     */
+    private function hasMultipleHumanAuthors(array $messages): bool
+    {
+        $authors = [];
+        foreach ($messages as $message) {
+            $data = $message->getObject();
+            if (($data['role'] ?? null) !== 'user') {
+                continue;
+            }
+
+            $authorId = ($data['authorId'] ?? null);
+            if (is_string($authorId) === true && $authorId !== '' && in_array($authorId, $authors, true) === false) {
+                $authors[] = $authorId;
+                if (count($authors) > 1) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+
+    }//end hasMultipleHumanAuthors()
+
+    /**
+     * Prefix a human turn with its author so the model can attribute it.
+     *
+     * Uses the display name CAPTURED AT SEND TIME, never re-resolved, so a
+     * transcript reads as it did then (ADR-004). Falls back to the uid when no
+     * display name was captured, and leaves the content untouched when neither
+     * is present.
+     *
+     * @param string $content The message content.
+     * @param array  $data    The message object payload.
+     *
+     * @return string The content, attributed where possible.
+     *
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-the-model-can-tell-speakers-apart
+     */
+    private function labelWithAuthor(string $content, array $data): string
+    {
+        $label = ($data['authorDisplayName'] ?? null);
+        if (is_string($label) === false || $label === '') {
+            $label = ($data['authorId'] ?? null);
+        }
+
+        if (is_string($label) === false || $label === '') {
+            return $content;
+        }
+
+        return $label.': '.$content;
+
+    }//end labelWithAuthor()
+
+    /**
      * Store a message as a `Message` OR object.
      *
-     * @param string     $conversationId Conversation UUID.
-     * @param string     $role           Message role (system|user|assistant|tool).
-     * @param string     $content        Message content.
-     * @param array|null $sources        Optional RAG sources.
-     * @param array|null $context        Optional AI Chat Companion context snapshot.
+     * @param string      $conversationId    Conversation UUID.
+     * @param string      $role              Message role (system|user|assistant|tool).
+     * @param string      $content           Message content.
+     * @param array|null  $sources           Optional RAG sources.
+     * @param array|null  $context           Optional AI Chat Companion context snapshot.
+     * @param string|null $authorId          Uid of the human who produced this turn — `role=user` only.
+     * @param string|null $authorDisplayName That human's display name AT SEND TIME (talk-shared-sessions).
      *
      * @return ObjectEntity The persisted Message object.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-each-human-turn-records-its-author
      */
     public function storeMessage(
         string $conversationId,
         string $role,
         string $content,
         ?array $sources=null,
-        ?array $context=null
+        ?array $context=null,
+        ?string $authorId=null,
+        ?string $authorDisplayName=null
     ): ObjectEntity {
         $payload = [
             'conversationId' => $conversationId,
@@ -207,6 +320,13 @@ class MessageHistoryHandler
         if ($context !== null && empty($context) === false) {
             $payload['context'] = $context;
         }
+
+        $payload = $this->withAuthorship(
+            payload: $payload,
+            role: $role,
+            authorId: $authorId,
+            authorDisplayName: $authorDisplayName
+        );
 
         $stored = $this->objectService->saveObject(
             object: $this->sanitizeForSave(data: $payload),

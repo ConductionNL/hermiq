@@ -115,8 +115,10 @@ class SeedBudgetsTest extends TestCase
         $orgMapper = $this->createMock(OrganisationMapper::class);
         $orgs      = array_map(
             function (string $uuid) {
-                $org = $this->createMock(Organisation::class);
-                $org->method('getUuid')->willReturn($uuid);
+                // Real entity, not a mock: the real Organisation resolves
+                // getUuid() via Entity magic, unmockable under a server tree.
+                $org = new Organisation();
+                $org->setUuid($uuid);
                 return $org;
             },
             $orgUuids

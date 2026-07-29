@@ -43,9 +43,9 @@
 					:key="version.id"
 					class="agent-version-history-dialog__row">
 					<NcCheckboxRadioSwitch
-						:checked="isSelected(version.id)"
+						:model-value="isSelected(version.id)"
 						:aria-label="t('hermiq', 'Select version from {date} to compare', { date: formatDate(version.timestamp) })"
-						@update:checked="toggleSelected(version.id)">
+						@update:modelValue="toggleSelected(version.id)">
 						<span class="agent-version-history-dialog__meta">
 							<span class="agent-version-history-dialog__date">{{ formatDate(version.timestamp) }}</span>
 							<span class="agent-version-history-dialog__user">{{ version.user || t('hermiq', 'Unknown user') }}</span>

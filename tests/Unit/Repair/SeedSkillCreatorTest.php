@@ -28,6 +28,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
 use OCA\Hermiq\Repair\SeedSkillCreator;
+use OCA\Hermiq\Service\SeedFreshnessService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
@@ -92,7 +93,10 @@ class SeedSkillCreatorTest extends TestCase
                 mixed $schema=null,
                 ?string $uuid=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $silent=false,
+                ?array $uploadedFiles=null,
+                ?\OCP\IUser $currentUser=null
             ): ObjectEntity {
                 $payload = is_array($object) ? $object : $object->getObject();
                 $this->saved[] = ['schema' => (string) $schema, 'object' => $payload];
@@ -159,6 +163,7 @@ class SeedSkillCreatorTest extends TestCase
         $step = new SeedSkillCreator(
             container: $this->container(objectService: $objectService),
             logger: $this->createMock(LoggerInterface::class),
+            freshness: new SeedFreshnessService(),
         );
 
         $step->run(output: $this->createMock(IOutput::class));
@@ -169,6 +174,9 @@ class SeedSkillCreatorTest extends TestCase
         $this->assertSame('agentskill', $objectService->saved[0]['schema']);
         $this->assertSame('skill-creator', $seeded['name']);
         $this->assertSame('active', $seeded['state']);
+        // Seed freshness: creation stamps lastActivityAt so the Curator's staleness
+        // clock starts at seed time (a missing value reads as "older than everything").
+        $this->assertNotSame('', (string) ($seeded['lastActivityAt'] ?? ''));
         $this->assertSame('local', $seeded['source']);
         $this->assertSame('', $seeded['createdBy']);
         $this->assertSame([], $seeded['installedOn']);
@@ -181,8 +189,8 @@ class SeedSkillCreatorTest extends TestCase
     }//end testFreshInstallSeedsSkillCreator()
 
     /**
-     * A re-run does not duplicate an already-seeded skill-creator (matched by name) and
-     * preserves an admin's edit to it.
+     * A re-run does not duplicate a HUMAN-owned skill-creator (matched by name) and
+     * never touches it — a human-created skill's lifecycle belongs to its owner.
      *
      * @return void
      *
@@ -194,12 +202,14 @@ class SeedSkillCreatorTest extends TestCase
             'existing-1',
             ['name' => 'skill-creator', 'body' => 'An admin edited this body.', 'state' => 'active', 'source' => 'local']
         );
+        $edited->setOwner('alice');
 
         $objectService = $this->objectService(['agentskill' => [$edited]]);
 
         $step = new SeedSkillCreator(
             container: $this->container(objectService: $objectService),
             logger: $this->createMock(LoggerInterface::class),
+            freshness: new SeedFreshnessService(),
         );
 
         $step->run(output: $this->createMock(IOutput::class));
@@ -207,6 +217,81 @@ class SeedSkillCreatorTest extends TestCase
         $this->assertCount(0, $objectService->saved);
 
     }//end testReRunIsIdempotentAndPreservesEdits()
+
+    /**
+     * A re-run refreshes a stale `__system__`-owned seed back to active with a fresh
+     * `lastActivityAt` — content untouched — so the Curator's age-staleness never
+     * empties the seed catalog on a longer-lived instance.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+     */
+    public function testReRunRefreshesStaleSystemSeedBackToActive(): void
+    {
+        $stale = $this->object(
+            'existing-1',
+            [
+                'name'           => 'skill-creator',
+                'body'           => 'Seeded body.',
+                'state'          => 'stale',
+                'source'         => 'local',
+                'lastActivityAt' => '2025-01-01 00:00:00',
+                'staleSince'     => '2025-06-01 00:00:00',
+            ]
+        );
+        $stale->setOwner('__system__');
+
+        $objectService = $this->objectService(['agentskill' => [$stale]]);
+
+        $step = new SeedSkillCreator(
+            container: $this->container(objectService: $objectService),
+            logger: $this->createMock(LoggerInterface::class),
+            freshness: new SeedFreshnessService(),
+        );
+
+        $step->run(output: $this->createMock(IOutput::class));
+
+        $this->assertCount(1, $objectService->saved);
+
+        $saved = $objectService->saved[0]['object'];
+        $this->assertSame('active', $saved['state']);
+        $this->assertSame('Seeded body.', $saved['body']);
+        $this->assertArrayNotHasKey('staleSince', $saved);
+        $this->assertNotSame('2025-01-01 00:00:00', (string) ($saved['lastActivityAt'] ?? ''));
+        $this->assertNotSame('', (string) ($saved['lastActivityAt'] ?? ''));
+
+    }//end testReRunRefreshesStaleSystemSeedBackToActive()
+
+    /**
+     * A re-run NEVER touches an archived `__system__` seed — archiving is a curator
+     * decision and it wins over seed freshness.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+     */
+    public function testReRunNeverTouchesArchivedSeed(): void
+    {
+        $archived = $this->object(
+            'existing-1',
+            ['name' => 'skill-creator', 'state' => 'archived', 'source' => 'local', 'archivedAt' => '2025-06-01 00:00:00']
+        );
+        $archived->setOwner('__system__');
+
+        $objectService = $this->objectService(['agentskill' => [$archived]]);
+
+        $step = new SeedSkillCreator(
+            container: $this->container(objectService: $objectService),
+            logger: $this->createMock(LoggerInterface::class),
+            freshness: new SeedFreshnessService(),
+        );
+
+        $step->run(output: $this->createMock(IOutput::class));
+
+        $this->assertCount(0, $objectService->saved);
+
+    }//end testReRunNeverTouchesArchivedSeed()
 
     /**
      * The step no-ops gracefully (never throws) when OpenRegister is not available.
@@ -218,7 +303,11 @@ class SeedSkillCreatorTest extends TestCase
         $container = $this->createMock(ContainerInterface::class);
         $container->method('get')->willThrowException(new RuntimeException('OpenRegister not installed'));
 
-        $step = new SeedSkillCreator(container: $container, logger: $this->createMock(LoggerInterface::class));
+        $step = new SeedSkillCreator(
+            container: $container,
+            logger: $this->createMock(LoggerInterface::class),
+            freshness: new SeedFreshnessService(),
+        );
 
         $output = $this->createMock(IOutput::class);
         $output->expects($this->once())->method('warning');

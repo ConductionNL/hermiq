@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+ * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use RuntimeException;
 /**
  * Signals that an agent's tool grants were configured but matched nothing.
  *
- * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+ * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
  */
 class ToolGrantResolutionException extends RuntimeException
 {
@@ -83,6 +83,8 @@ class ToolGrantResolutionException extends RuntimeException
      * The unresolved grant entries, for structured logging and API bodies.
      *
      * @return array<int, string> The grants that matched no tool.
+     *
+     * @spec exclude Trivial exception-payload accessor; no behavioural spec.
      */
     public function getGrants(): array
     {

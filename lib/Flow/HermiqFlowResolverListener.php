@@ -30,6 +30,8 @@ use OCP\EventDispatcher\IEventListener;
  * Registers the agentflow resolver when OpenRegister collects resolvers.
  *
  * @template-implements IEventListener<RegisterFlowResolversEvent>
+ *
+ * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 class HermiqFlowResolverListener implements IEventListener
 {

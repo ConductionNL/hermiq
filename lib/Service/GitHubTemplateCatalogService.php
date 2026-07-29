@@ -58,6 +58,10 @@ use Throwable;
 /**
  * Fixed-host, SSRF-safe GitHub catalogue source with optional broker upgrade.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) One class owns the whole
+ *   catalogue read-path (search, card build, package fetch, brokered vs anonymous
+ *   GET, caching) so the SSRF-safe fixed-host invariant stays in a single place.
+ *
  * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
 class GitHubTemplateCatalogService
@@ -242,6 +246,10 @@ class GitHubTemplateCatalogService
      * @param string      $kind         The discovery kind (`KIND_AGENT_TEMPLATE`|`KIND_SKILL`).
      *
      * @return array{outcome:string,cards:array<int,array<string,mixed>>,brokerUsed:bool,rateLimited:bool}
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Cache hit, rate-limit/unreachable
+     *   degradation and card filtering are the spec's own outcome branches, kept in
+     *   one linear search path.
      *
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
      * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
@@ -581,6 +589,10 @@ class GitHubTemplateCatalogService
      *
      * @return array{ok:bool,status:int,body:string,rateLimited:bool,brokerUsed:bool}|null Null when the broker
      *         denies the call (caller falls back to anonymous).
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
+     *   of the optional OpenRegister broker so this class stays constructible when the
+     *   broker is absent (feature-detected via class_exists).
      */
     private function brokerGet(string $path, string $credentialId, ?string $actingUserId): ?array
     {

@@ -117,7 +117,9 @@ class SeedModelPolicies implements IRepairStep
         $organisation = $this->firstOrganisation(organisationMapper: $organisationMapper);
         if ($organisation === '') {
             $output->info('No OpenRegister organisation exists yet — sample org model-policy seed deferred.');
-        } else {
+        }
+
+        if ($organisation !== '') {
             $seeded += $this->seedIfMissing(
                 policyService: $policyService,
                 output: $output,

@@ -41,7 +41,7 @@
 
 			<NcTextField
 				v-if="form.scope === 'agent'"
-				:value.sync="form.agentId"
+				v-model="form.agentId"
 				:label="t('hermiq', 'Agent UUID')"
 				:disabled="isEdit"
 				:placeholder="t('hermiq', 'The agent this budget guards')"
@@ -59,12 +59,12 @@
 
 			<div class="budget-form__row">
 				<NcTextField
-					:value.sync="form.tokenLimit"
+					v-model="form.tokenLimit"
 					type="number"
 					:label="t('hermiq', 'Token limit')"
 					placeholder="2000000" />
 				<NcTextField
-					:value.sync="form.eurLimit"
+					v-model="form.eurLimit"
 					type="number"
 					:label="t('hermiq', 'EUR limit (needs an instance-wide rate)')"
 					placeholder="" />
@@ -74,12 +74,12 @@
 			</p>
 
 			<NcTextField
-				:value.sync="form.softThresholdPercent"
+				v-model="form.softThresholdPercent"
 				type="number"
 				:label="t('hermiq', 'Soft-threshold warning (%)')"
 				placeholder="80" />
 
-			<NcCheckboxRadioSwitch :checked.sync="form.enabled" type="switch">
+			<NcCheckboxRadioSwitch v-model="form.enabled" type="switch">
 				{{ t('hermiq', 'Enabled') }}
 			</NcCheckboxRadioSwitch>
 		</div>

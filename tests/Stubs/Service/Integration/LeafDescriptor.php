@@ -48,6 +48,15 @@ final class LeafDescriptor
         'single-entity',
     ];
 
+    public const RENDER_MODE_COMPONENT = 'component';
+
+    public const RENDER_MODE_MOUNT = 'mount';
+
+    public const VALID_RENDER_MODES = [
+        self::RENDER_MODE_COMPONENT,
+        self::RENDER_MODE_MOUNT,
+    ];
+
     /**
      * Constructor — same parameter order as the real descriptor.
      *
@@ -60,6 +69,13 @@ final class LeafDescriptor
      * @param array<int,string> $surfaces           Render surfaces.
      * @param string|null       $referenceType      Optional reference-type marker.
      * @param string|null       $requiresPermission Optional permission gate.
+     * @param string            $renderMode         `component` (SFC under the host's Vue runtime) or
+     *                                              `mount` (a mount/unmount DOM hand-off that crosses a
+     *                                              Vue major). Mirrors the real descriptor, which gained
+     *                                              this parameter in openregister#2127 / ADR-066 — without
+     *                                              it the listener's own registration throws and the leaf
+     *                                              silently disappears, which is exactly the failure mode
+     *                                              the leaf tests exist to catch.
      */
     public function __construct(
         private string $id,
@@ -71,8 +87,19 @@ final class LeafDescriptor
         private array $surfaces=[],
         private ?string $referenceType=null,
         private ?string $requiresPermission=null,
+        private string $renderMode=self::RENDER_MODE_COMPONENT,
     ) {
     }//end __construct()
+
+    /**
+     * How a render-surface leaf renders.
+     *
+     * @return string One of VALID_RENDER_MODES.
+     */
+    public function getRenderMode(): string
+    {
+        return $this->renderMode;
+    }//end getRenderMode()
 
     /**
      * @return string
@@ -169,6 +196,7 @@ final class LeafDescriptor
             'group'       => $this->group,
             'surfaces'    => $this->surfaces,
             'kinds'       => $this->kinds,
+            'renderMode'  => $this->renderMode,
         ];
     }//end toArray()
 }//end class

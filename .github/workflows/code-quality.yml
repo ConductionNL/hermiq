@@ -22,5 +22,11 @@ jobs:
       enable-eslint: true
       enable-phpunit: true
       enable-newman: true
-      additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"main"}]'
+      # hermiq's development branch co-develops with OpenRegister's development
+      # branch (the fleet ships dev->beta->main together): ObjectService's
+      # deleteObject(register:, schema:) / find(_render:) / saveObject(silent:,
+      # uploadedFiles:, currentUser:) surface that hermiq calls does not exist on
+      # OR main yet, so testing this branch against OR main fails on version
+      # skew, not on hermiq bugs.
+      additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"development"}]'
       enable-sbom: true

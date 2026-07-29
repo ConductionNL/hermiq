@@ -37,7 +37,7 @@ use OCP\Notification\UnknownNotificationException;
 /**
  * Parses Hermiq notifications into localised, rendered form.
  *
- * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+ * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
  */
 class Notifier implements INotifier
 {
@@ -64,6 +64,8 @@ class Notifier implements INotifier
         'budget_soft_threshold',
         'run_dead_letter',
         'schedule_paused_circuit_breaker',
+        'skill_published_behind',
+        'skill_rollback_suggested',
     ];
 
     /**
@@ -83,7 +85,7 @@ class Notifier implements INotifier
      *
      * @return string
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+     * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
      */
     public function getID(): string
     {
@@ -96,7 +98,7 @@ class Notifier implements INotifier
      *
      * @return string
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+     * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
      */
     public function getName(): string
     {
@@ -114,8 +116,8 @@ class Notifier implements INotifier
      *
      * @throws UnknownNotificationException When the notification is not a Hermiq one.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     public function prepare(INotification $notification, string $languageCode): INotification
     {
@@ -178,6 +180,14 @@ class Notifier implements INotifier
             return $this->circuitBreakerPausedText(name: $name, l: $l);
         }
 
+        if ($subjectKey === 'skill_published_behind') {
+            return $this->skillPublishedBehindText(name: $name, l: $l);
+        }
+
+        if ($subjectKey === 'skill_rollback_suggested') {
+            return $this->skillRollbackSuggestedText(name: $name, l: $l);
+        }
+
         return $this->runCompleteText(name: $name, l: $l);
 
     }//end resolveSubjectAndMessage()
@@ -191,7 +201,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-2-1
+     * @spec openspec/changes/talk-delivery/tasks.md#2-notifier-registration
      */
     private function runCompleteText(string $name, IL10N $l): array
     {
@@ -212,7 +222,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
      */
     private function approvalRequestedText(string $name, IL10N $l): array
     {
@@ -236,7 +246,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
      */
     private function budgetSoftThresholdText(array $subjectRaw, IL10N $l): array
     {
@@ -259,7 +269,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     private function runDeadLetterText(string $name, IL10N $l): array
     {
@@ -281,7 +291,7 @@ class Notifier implements INotifier
      *
      * @return array{0:string,1:string} The [subject, message] pair.
      *
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     private function circuitBreakerPausedText(string $name, IL10N $l): array
     {
@@ -293,4 +303,53 @@ class Notifier implements INotifier
         return [$subject, $l->t('It was disabled after repeated failures. Review it and re-enable when ready.')];
 
     }//end circuitBreakerPausedText()
+
+    /**
+     * The `skill_published_behind` wording (skill-self-improvement): an accepted
+     * skill version postdates the GitHub publish — an explicit, never-automatic
+     * republish is available.
+     *
+     * @param string $name The skill's display name, when known.
+     * @param IL10N  $l    The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+     */
+    private function skillPublishedBehindText(string $name, IL10N $l): array
+    {
+        $subject = $l->t('A published skill is behind its accepted version');
+        if ($name !== '') {
+            $subject = $l->t('Published copy of “%s” is behind', [$name]);
+        }
+
+        $message = $l->t('A newer version was accepted locally. Republish it to GitHub when you are ready — nothing is pushed automatically.');
+
+        return [$subject, $message];
+
+    }//end skillPublishedBehindText()
+
+    /**
+     * The `skill_rollback_suggested` wording (skill-self-improvement): the next eval
+     * run after an accepted draft regressed — an advisory rollback suggestion.
+     *
+     * @param string $name The skill's display name, when known.
+     * @param IL10N  $l    The recipient-language localisation.
+     *
+     * @return array{0:string,1:string} The [subject, message] pair.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-post-acceptance-regression-surfaces-a-rollback-suggestion
+     */
+    private function skillRollbackSuggestedText(string $name, IL10N $l): array
+    {
+        $subject = $l->t('A skill may need a rollback');
+        if ($name !== '') {
+            $subject = $l->t('“%s” regressed after its last accepted version', [$name]);
+        }
+
+        $message = $l->t('The first eval run after acceptance failed the regression gate. Review the versions and roll back if you agree.');
+
+        return [$subject, $message];
+
+    }//end skillRollbackSuggestedText()
 }//end class

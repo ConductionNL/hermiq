@@ -1,11 +1,12 @@
 # Nextcloud-Native Tools Specification
 
-**Status**: active (providers registered + IDOR-guarded; agent-invocation BLOCKED on OR#269)
+**Status**: in-progress (was: active — providers registered + IDOR-guarded; agent-invocation BLOCKED on OR#269; new change in flight)
 
 **Feature tier**: V1
 
 **OpenSpec changes:**
 - `openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/` — adds a `hermiq.searchTools` meta-tool through this same `IMcpToolProvider` mechanism for progressive disclosure over the ADR-063 derived catalog (kind: code) — **DONE** (the provider now exposes seven `hermiq.*` tools; `searchTools` enumerates through the normal registration path but is short-circuited Hermiq-internally at invoke time, never reaching this provider's `invokeTool()`)
+- `openspec/changes/hydra-console-agent-leaves/` — MODIFIED delta: the "Remote systems route through OpenConnector" requirement is scoped so the `webSearch`/`webFetch` exception is explicitly read-only, and outbound *commands* (e.g. forge label writes) are named as OpenConnector-backed flow/endpoint territory — the delta's entire effect is that no bespoke forge code is written (kind: code) — **in-progress**
 - `nc-native-tools` — DONE (Hermiq surface): `NcNativeToolProvider` implementing `IMcpToolProvider` with six `hermiq.*` tools (listFiles, readFile, searchContacts, listCalendarEvents, sendMail, listDeckBoards), each IDOR-guarded (scoped to the acting user), registered under the `hermiq` MCP alias; `invokeTool` never throws. **BLOCKED (OR#269):** an OpenRegister agent turn cannot yet invoke a tool (Ollama tool-calling 400) — the LLM-selects-and-calls path is documented as blocked, not verified end-to-end. Verified: registration + enumeration in OR's tool registry + direct invocation (unit).
 
 ## Purpose
