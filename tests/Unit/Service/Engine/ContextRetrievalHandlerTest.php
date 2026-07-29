@@ -280,7 +280,15 @@ class ContextRetrievalHandlerTest extends TestCase
         );
 
         $handler = new ContextRetrievalHandler($objectService, new NullLogger());
-        $context = $handler->retrieveContext(query: 'rendered', agent: null);
+        // No agent, but the caller supplies the scope — `resolveViewFilters()`
+        // falls back to `selectedViews` when the agent has none, so retrieval is
+        // still in scope and the gate does not skip it. This test is about
+        // ObjectEntity unwrapping, not about searching unscoped.
+        $context = $handler->retrieveContext(
+            query: 'rendered',
+            agent: null,
+            selectedViews: ['view-uuid-1']
+        );
 
         $this->assertCount(1, $context['sources']);
         $this->assertSame('uuid-9', $context['sources'][0]['id']);
