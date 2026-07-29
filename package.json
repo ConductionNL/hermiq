@@ -29,7 +29,7 @@
   "dependencies": {
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.5",
-    "@conduction/nextcloud-vue": "^2.1.0-vue3.5",
+    "@conduction/nextcloud-vue": "2.1.0-vue3.5",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.5.2",
     "@nextcloud/dialogs": "^6.0.0",
@@ -41,7 +41,7 @@
     "babel-loader": "^10.1.1",
     "dexie": "^4.4.4",
     "dompurify": "^3.4.11",
-    "gridstack": "^12.6.0",
+    "gridstack": "^12.0.0",
     "marked": "^15.0.12",
     "node-polyfill-webpack-plugin": "^4.0.0",
     "pinia": "^2.1.7",
