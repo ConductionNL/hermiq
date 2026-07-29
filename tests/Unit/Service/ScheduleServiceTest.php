@@ -30,6 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\AgentVersionService;
+use OCA\Hermiq\Service\SkillVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\DeliveryResult;
@@ -49,6 +50,7 @@ use OCA\OpenRegister\Db\ConversationMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ChatService;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use OCP\IAppConfig;
 use OCP\IConfig;
 use OCP\IUser;
@@ -219,7 +221,7 @@ class ScheduleServiceTest extends TestCase
         $this->chatService        = $this->createMock(ChatService::class);
         $this->userSession        = $this->createMock(IUserSession::class);
         $this->userManager        = $this->createMock(IUserManager::class);
-        $this->config             = $this->createMock(IConfig::class);
+        $this->config = $this->createMock(IConfig::class);
 
         // setRegister/setSchema are chainable — return the service itself.
         $this->objectService->method('setRegister')->willReturnSelf();
@@ -344,7 +346,9 @@ class ScheduleServiceTest extends TestCase
             budgetService: $this->budgetService,
             guardrailPolicyService: $this->guardrailPolicyService,
             agentVersionService: $this->agentVersionService,
+            skillVersionService: $this->createMock(SkillVersionService::class),
             delegationContext: $this->delegationContext,
+            jobList: $this->createMock(IJobList::class),
         );
 
     }//end makeService()
@@ -353,8 +357,8 @@ class ScheduleServiceTest extends TestCase
      * Build a schedule ObjectEntity with the given payload.
      *
      * @param array<string,mixed> $payload The schedule object body.
-     * @param string             $uuid    The object UUID.
-     * @param string             $owner   The owner UID.
+     * @param string              $uuid    The object UUID.
+     * @param string              $owner   The owner UID.
      *
      * @return ObjectEntity
      */
@@ -528,7 +532,7 @@ class ScheduleServiceTest extends TestCase
      */
     public function testPerScheduleErrorIsolation(): void
     {
-        $bad = $this->schedule(
+        $bad  = $this->schedule(
             [
                 'kind'    => 'once',
                 'runAt'   => '2000-01-01T00:00:00+00:00',
@@ -772,7 +776,7 @@ class ScheduleServiceTest extends TestCase
                     'nextRun must be ISO-8601 (with T) before save.'
                 );
             }
-        }
+        }//end foreach
 
     }//end testDateFieldsAreIsoNormalisedBeforeSave()
 
@@ -2049,8 +2053,8 @@ class ScheduleServiceTest extends TestCase
      * `DeliveryResult` reports as actually used, not a single hard-coded
      * "Talk delivery" literal — `type` stays `delivery` in every case.
      *
-     * @param string $channel       The channel DeliveryResult reports as used.
-     * @param string $expectedName  The expected trace step `name`.
+     * @param string $channel      The channel DeliveryResult reports as used.
+     * @param string $expectedName The expected trace step `name`.
      *
      * @return void
      *
@@ -2916,7 +2920,7 @@ class ScheduleServiceTest extends TestCase
         $this->objectService->method('saveObject')->willReturnCallback(
             function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$saved): ObjectEntity {
                 $saved[] = ['object' => $object, 'schema' => (string) $schema];
-                $entity = new ObjectEntity();
+                $entity  = new ObjectEntity();
                 $entity->setUuid($uuid ?? 'x');
                 $entity->setObject($object);
                 return $entity;
@@ -2933,6 +2937,7 @@ class ScheduleServiceTest extends TestCase
             if ($call['schema'] === 'schedule') {
                 $scheduleSave = $call['object'];
             }
+
             if ($call['schema'] === 'agent') {
                 $agentSave = $call['object'];
             }
@@ -2975,7 +2980,7 @@ class ScheduleServiceTest extends TestCase
         $this->objectService->method('saveObject')->willReturnCallback(
             function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$saved): ObjectEntity {
                 $saved[] = ['object' => $object, 'schema' => (string) $schema];
-                $entity = new ObjectEntity();
+                $entity  = new ObjectEntity();
                 $entity->setUuid($uuid ?? 'x');
                 $entity->setObject($object);
                 return $entity;
@@ -3042,7 +3047,7 @@ class ScheduleServiceTest extends TestCase
         $this->objectService->method('saveObject')->willReturnCallback(
             function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$saved): ObjectEntity {
                 $saved[] = ['object' => $object, 'schema' => (string) $schema];
-                $entity = new ObjectEntity();
+                $entity  = new ObjectEntity();
                 $entity->setUuid($uuid ?? 'x');
                 $entity->setObject($object);
                 return $entity;
@@ -3091,7 +3096,7 @@ class ScheduleServiceTest extends TestCase
         $this->objectService->method('saveObject')->willReturnCallback(
             function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$saved): ObjectEntity {
                 $saved[] = ['object' => $object, 'schema' => (string) $schema];
-                $entity = new ObjectEntity();
+                $entity  = new ObjectEntity();
                 $entity->setUuid($uuid ?? 'x');
                 $entity->setObject($object);
                 return $entity;
@@ -3129,13 +3134,13 @@ class ScheduleServiceTest extends TestCase
         return $this->schedule(
             array_merge(
                 [
-                    'kind'     => 'once',
-                    'agentId'  => 'agent-uuid',
-                    'prompt'   => 'current schedule prompt',
-                    'deliver'  => 'none',
-                    'enabled'  => true,
-                    'nextRun'  => '2020-01-01T00:00:00+00:00',
-                    'repeat'   => ['times' => 1, 'completed' => 0],
+                    'kind'    => 'once',
+                    'agentId' => 'agent-uuid',
+                    'prompt'  => 'current schedule prompt',
+                    'deliver' => 'none',
+                    'enabled' => true,
+                    'nextRun' => '2020-01-01T00:00:00+00:00',
+                    'repeat'  => ['times' => 1, 'completed' => 0],
                 ],
                 $overrides
             ),
@@ -3149,11 +3154,11 @@ class ScheduleServiceTest extends TestCase
      * the in-app Engine mock returns a canned envelope, saveObject captures
      * every write by schema) shared by the run-replay-and-dry-run tests below.
      *
-     * @param array<string,mixed>            $engineResult  The Engine::processMessage() return envelope.
-     * @param array<int, ObjectEntity>       $findAllReturn What `ObjectService::findAll()` returns
-     *                                                      (kill-switch load + dry-run message
-     *                                                      cleanup lookup) — defaults to none engaged,
-     *                                                      no messages.
+     * @param array<string,mixed>      $engineResult  The Engine::processMessage() return envelope.
+     * @param array<int, ObjectEntity> $findAllReturn What `ObjectService::findAll()` returns
+     *                                                (kill-switch load + dry-run message
+     *                                                cleanup lookup) — defaults to none
+     *                                                engaged, no messages.
      *
      * @return array<int, array<string,mixed>> A reference array `$saved` populated by every
      *                                          `saveObject()` call (`['object' => ..., 'schema' => ...]`).

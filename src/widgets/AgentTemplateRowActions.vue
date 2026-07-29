@@ -96,10 +96,10 @@
 				<NcNoteCard v-if="publishError" type="error">
 					{{ publishError }}
 				</NcNoteCard>
-				<NcTextField :value.sync="publishForm.owner"
+				<NcTextField v-model="publishForm.owner"
 					:label="t('hermiq', 'Owner')"
 					:placeholder="t('hermiq', 'e.g. acme-council')" />
-				<NcTextField :value.sync="publishForm.repo"
+				<NcTextField v-model="publishForm.repo"
 					:label="t('hermiq', 'Repository name')"
 					:placeholder="t('hermiq', 'e.g. morning-briefing-template')" />
 				<NcSelect v-model="publishVisibility"

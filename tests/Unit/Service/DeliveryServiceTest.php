@@ -41,6 +41,8 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 use OCA\Hermiq\Service\DeliveryService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ScheduleWebhookSecretService;
+use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
+use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\Talk\Chat\ChatManager;
 use OCA\Talk\Exceptions\RoomNotFoundException;
@@ -180,6 +182,20 @@ class DeliveryServiceTest extends TestCase
     private ScheduleWebhookSecretService $scheduleWebhookSecretService;
 
     /**
+     * Mock room↔conversation binding (talk-chat-bridge).
+     *
+     * @var TalkRoomBinding&MockObject
+     */
+    private TalkRoomBinding $talkRoomBinding;
+
+    /**
+     * Mock Talk approval notifier (talk-approval-reactions).
+     *
+     * @var TalkApprovalNotifier&MockObject
+     */
+    private TalkApprovalNotifier $talkApprovalNotifier;
+
+    /**
      * Real RedactionService (cheap, pure — no need to mock it).
      *
      * @var RedactionService
@@ -210,6 +226,8 @@ class DeliveryServiceTest extends TestCase
         $this->mailer                       = $this->createMock(IMailer::class);
         $this->clientService                = $this->createMock(IClientService::class);
         $this->scheduleWebhookSecretService = $this->createMock(ScheduleWebhookSecretService::class);
+        $this->talkRoomBinding             = $this->createMock(TalkRoomBinding::class);
+        $this->talkApprovalNotifier        = $this->createMock(TalkApprovalNotifier::class);
         $this->redactionService              = new RedactionService(config: $this->stubbedRedactionConfig());
         $this->services            = [];
 
@@ -241,6 +259,14 @@ class DeliveryServiceTest extends TestCase
             redactionService: $this->redactionService,
             scheduleWebhookSecretService: $this->scheduleWebhookSecretService,
             logger: $this->createMock(LoggerInterface::class),
+            // talk-chat-bridge: delivery records the room it posted into on the
+            // conversation the run produced, so the report can be replied to.
+            // Mocked here — these tests assert delivery, not binding; the
+            // binding's own behaviour is covered by TalkRoomBindingTest.
+            talkRoomBinding: $this->talkRoomBinding,
+            // talk-approval-reactions: a bonus surface; these tests assert delivery,
+            // and the notifier's own behaviour is covered by its listener tests.
+            talkApprovalNotifier: $this->talkApprovalNotifier,
         );
 
     }//end setUp()

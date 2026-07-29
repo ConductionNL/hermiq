@@ -34,6 +34,9 @@ module.exports = defineConfig([{
 		// Allow unused i18n functions (t, n) — imported for future translation wiring
 		'no-unused-vars': ['error', { varsIgnorePattern: '^(t|n)$', argsIgnorePattern: '^_' }],
 		'jsdoc/require-jsdoc': 'off',
+		// @spec is the Conduction OpenSpec traceability tag (gate-16); it is a
+		// deliberate, org-wide custom JSDoc tag, not a typo.
+		'jsdoc/check-tag-names': ['warn', { definedTags: ['spec'] }],
 		'vue/first-attribute-linebreak': 'off',
 		'@typescript-eslint/no-explicit-any': 'off',
 		'n/no-missing-import': 'off',
@@ -45,6 +48,12 @@ module.exports = defineConfig([{
 		'import/default': 'off', // disable default import checking to avoid parser requirement
 		'import/no-named-as-default': 'off', // disable named-as-default checking to avoid parser requirement
 		'import/no-named-as-default-member': 'off', // disable named-as-default-member checking to avoid parser requirement
+		// Hermiq is a Vue 3 app: keying `<template v-for>` is the documented
+		// Vue 3 pattern. `vue/no-v-for-template-key` is the Vue 2 rule (the
+		// @nextcloud shareable config targets Vue 2.7); the Vue 3 counterpart
+		// `vue/no-v-for-template-key-on-child` guards the actual mistake.
+		'vue/no-v-for-template-key': 'off',
+		'vue/no-v-for-template-key-on-child': 'error',
 	},
 }, {
 	// Node-side CLI tools (build / validate scripts) legitimately use

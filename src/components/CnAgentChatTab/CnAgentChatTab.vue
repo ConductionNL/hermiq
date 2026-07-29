@@ -59,7 +59,7 @@
 
 			<form class="cn-agent-chat-tab__composer" @submit.prevent="send">
 				<NcTextArea
-					:value.sync="draft"
+					v-model="draft"
 					:label="t('hermiq', 'Message')"
 					:disabled="sending"
 					resize="vertical"
@@ -76,7 +76,9 @@
 				</NcButton>
 			</form>
 
-			<NcNoteCard v-if="error" type="error">{{ error }}</NcNoteCard>
+			<NcNoteCard v-if="error" type="error">
+				{{ error }}
+			</NcNoteCard>
 		</div>
 	</div>
 </template>

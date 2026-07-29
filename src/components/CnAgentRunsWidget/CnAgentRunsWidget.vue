@@ -42,7 +42,9 @@
 			</NcButton>
 		</div>
 
-		<NcNoteCard v-if="notice" :type="noticeType">{{ notice }}</NcNoteCard>
+		<NcNoteCard v-if="notice" :type="noticeType">
+			{{ notice }}
+		</NcNoteCard>
 
 		<div class="cn-agent-runs-widget__history">
 			<h4>{{ t('hermiq', 'Run history') }}</h4>

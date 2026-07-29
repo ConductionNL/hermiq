@@ -58,8 +58,10 @@ class SeedModelPoliciesTest extends TestCase
         $orgMapper = $this->createMock(originalClassName: OrganisationMapper::class);
         $orgs      = array_map(
             callback: function (string $uuid) {
-                $org = $this->createMock(originalClassName: Organisation::class);
-                $org->method('getUuid')->willReturn($uuid);
+                // Real entity, not a mock: the real Organisation resolves
+                // getUuid() via Entity magic, unmockable under a server tree.
+                $org = new Organisation();
+                $org->setUuid($uuid);
                 return $org;
             },
             array: $orgUuids

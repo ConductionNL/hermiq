@@ -43,7 +43,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
- * @spec openspec/changes/delivery-channels/design.md
+ * @spec openspec/changes/archive/2026-07-13-delivery-channels/design.md
  */
 
 declare(strict_types=1);
@@ -51,6 +51,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use DateTime;
+use OCA\Hermiq\Service\Talk\TalkApprovalNotifier;
+use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\Http\Client\IClientService;
 use OCP\IConfig;
@@ -78,9 +80,18 @@ use Throwable;
  *   than splitting by channel, which would duplicate the shared fallback-chain/
  *   redaction/never-throws plumbing across multiple classes for no behavioural
  *   benefit.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same single-owner trade-off: every
+ *   delivery/alert channel lives here to share the fallback-chain plumbing.
+ * @SuppressWarnings(PHPMD.TooManyMethods)           One small deliver/alert method per
+ *   channel-and-event pair by design (see ExcessiveClassComplexity rationale).
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     Each caller (schedule runner, approval
+ *   gate, budget guard, dead-letter, circuit breaker) gets its own public entry point.
+ * @SuppressWarnings(PHPMD.LongVariable)             `$scheduleWebhookSecretService` is a
+ *   promoted constructor collaborator named after its class
+ *   (ScheduleWebhookSecretService) — shortening it would obscure which service is injected.
  *
  * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
- * @spec openspec/changes/delivery-channels/design.md
+ * @spec openspec/changes/archive/2026-07-13-delivery-channels/design.md
  */
 class DeliveryService
 {
@@ -204,6 +215,15 @@ class DeliveryService
      * @param RedactionService             $redactionService             Redacts output before it crosses the instance boundary (email/webhook only).
      * @param ScheduleWebhookSecretService $scheduleWebhookSecretService Retrieves a schedule's outbound webhook signing secret (delivery-channels).
      * @param LoggerInterface              $logger                       PSR-3 logger for delivery warnings.
+     * @param TalkRoomBinding              $talkRoomBinding              Binds the run's conversation to the Talk room it
+     *                                                                   was delivered into, so the report can be replied to
+     *                                                                   (talk-chat-bridge).
+     * @param TalkApprovalNotifier         $talkApprovalNotifier         Posts an approval request into the agent's
+     *                                                                   bound room as the bot, so it can be decided
+     *                                                                   by a reaction (talk-approval-reactions).
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct always-present Nextcloud/Hermiq collaborator, not a logic-bearing list.
      */
     public function __construct(
         private readonly INotificationManager $notificationManager,
@@ -217,8 +237,21 @@ class DeliveryService
         private readonly RedactionService $redactionService,
         private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService,
         private readonly LoggerInterface $logger,
+        private readonly TalkRoomBinding $talkRoomBinding,
+        private readonly TalkApprovalNotifier $talkApprovalNotifier,
     ) {
     }//end __construct()
+
+    /**
+     * The conversation this delivery's run produced, when the caller knows it.
+     *
+     * Set by `deliver()` for the duration of one delivery so `deliverTalk()`
+     * can bind that conversation to the room it posts into. Deliberately NOT a
+     * constructor dependency: it is per-delivery state, not configuration.
+     *
+     * @var string|null
+     */
+    private ?string $boundConversationUuid = null;
 
     /**
      * Deliver a run's output for one schedule.
@@ -226,18 +259,29 @@ class DeliveryService
      * Never throws for a delivery problem: the outcome (including any warning to
      * persist as lastDeliveryError) is returned as a DeliveryResult.
      *
-     * @param string       $channel  Delivery channel: talk|notification|email|webhook|none.
-     * @param string       $output   The agent output to deliver.
-     * @param ObjectEntity $schedule The schedule the output belongs to.
+     * @param string       $channel          Delivery channel: talk|notification|email|webhook|none.
+     * @param string       $output           The agent output to deliver.
+     * @param ObjectEntity $schedule         The schedule the output belongs to.
+     * @param string|null  $conversationUuid The conversation this run produced. When supplied AND
+     *                                       the output reaches a Talk room, that conversation is
+     *                                       bound to the room so a reply there continues this
+     *                                       session (talk-chat-bridge). Null leaves the binding a
+     *                                       no-op — every pre-existing caller is unchanged.
      *
      * @return DeliveryResult The delivery outcome.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-1
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
      */
-    public function deliver(string $channel, string $output, ObjectEntity $schedule): DeliveryResult
+    public function deliver(string $channel, string $output, ObjectEntity $schedule, ?string $conversationUuid=null): DeliveryResult
     {
+        // Per-delivery state: which conversation this run produced, so a Talk
+        // room delivery can bind it and become repliable. Null for every caller
+        // that does not know (and for every non-Talk channel), which leaves the
+        // binding step a no-op.
+        $this->boundConversationUuid = $conversationUuid;
+
         // None / empty channel, or silent/empty output → deliberate no-op.
         if ($channel === '' || $channel === 'none' || trim($output) === '') {
             return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: null);
@@ -286,11 +330,16 @@ class DeliveryService
      *
      * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
      *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
      */
     public function deliverApprovalRequest(ObjectEntity $schedule, ObjectEntity $approval, array $reviewerUids): DeliveryResult
     {
         $scheduleName = (string) ($schedule->getObject()['name'] ?? '');
+
+        // Bonus surface: post into the agent's bound Talk room as the bot so
+        // the reviewer can decide with a reaction. Best-effort — the
+        // notification below is the guaranteed delivery.
+        $this->talkApprovalNotifier->postRequest(approval: $approval, displayName: $scheduleName);
 
         return $this->notifyApprovalReviewers(
             approvalUuid: (string) $approval->getUuid(),
@@ -313,7 +362,7 @@ class DeliveryService
      *
      * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
      *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-3-2
+     * @spec openspec/changes/flow-agent-listener/tasks.md#3-approvalservice-generalisation-sourcetype-flow
      */
     public function deliverApprovalRequestForFlowRun(ObjectEntity $approval, array $reviewerUids): DeliveryResult
     {
@@ -347,7 +396,7 @@ class DeliveryService
      *
      * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
      *
-     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-6-deliveryservice-webhook-approval-notification-shared-reviewer-notify-helper
+     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-6-deliveryservice-webhook-approval-notification-shared-reviewer-notify-helper
      */
     public function deliverApprovalRequestForWebhookRun(ObjectEntity $approval, array $reviewerUids): DeliveryResult
     {
@@ -367,6 +416,124 @@ class DeliveryService
         );
 
     }//end deliverApprovalRequestForWebhookRun()
+
+    /**
+     * Notify a skill consolidation draft's resolved reviewer(s) that an approval is
+     * pending (skill-self-improvement, Art. 14) — the `sourceType: "skill-draft"`
+     * counterpart to the ensure-approval deliveries above. The display name is the
+     * skill's name (the human anchor of the review); the approval deep link leads to
+     * the inbox, whose payload carries the SkillDetail deep link with the full diff.
+     * NEVER throws for a delivery problem.
+     *
+     * @param ObjectEntity      $approval     The pending approval to link to.
+     * @param array<int,string> $reviewerUids The resolved reviewer user ids.
+     * @param string            $skillName    The skill's display name.
+     *
+     * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+     */
+    public function deliverApprovalRequestForSkillDraft(
+        ObjectEntity $approval,
+        array $reviewerUids,
+        string $skillName
+    ): DeliveryResult {
+        $data = $approval->getObject();
+
+        return $this->notifyApprovalReviewers(
+            approvalUuid: (string) $approval->getUuid(),
+            displayName: $skillName,
+            reviewerUids: $reviewerUids,
+            messageParams: ['draftId' => (string) ($data['draftId'] ?? '')]
+        );
+
+    }//end deliverApprovalRequestForSkillDraft()
+
+    /**
+     * Notify a skill's publisher that its published GitHub copy is now BEHIND the
+     * locally accepted version (skill-self-improvement republish signal). Raised once
+     * per newly-behind transition by the draft apply step — never on every pass, and
+     * never accompanied by any automatic GitHub call. NEVER throws.
+     *
+     * @param string $skillUuid    The skill UUID (deep link target).
+     * @param string $skillName    The skill's display name.
+     * @param string $recipientUid The publisher to notify.
+     *
+     * @return DeliveryResult The notification outcome.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+     */
+    public function deliverSkillPublishedBehind(string $skillUuid, string $skillName, string $recipientUid): DeliveryResult
+    {
+        if ($recipientUid === '') {
+            return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: 'No publisher to notify.');
+        }
+
+        try {
+            $notification = $this->notificationManager->createNotification();
+            $notification->setApp('hermiq')
+                ->setUser($recipientUid)
+                ->setDateTime(new DateTime())
+                ->setObject('skill', $skillUuid)
+                ->setSubject('skill_published_behind', ['name' => $skillName])
+                ->setMessage('skill_published_behind_summary', [])
+                ->setLink($this->buildSkillLink(uuid: $skillUuid));
+            $this->notificationManager->notify($notification);
+
+            return new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null);
+        } catch (Throwable $e) {
+            return new DeliveryResult(
+                delivered: false,
+                channel: 'none',
+                fellBack: false,
+                warning: sprintf('notify %s failed: %s', $recipientUid, $e->getMessage())
+            );
+        }
+
+    }//end deliverSkillPublishedBehind()
+
+    /**
+     * Notify the accepting reviewer that the NEXT eval run after their acceptance
+     * regressed — the advisory "roll back to previous version?" suggestion
+     * (skill-self-improvement regression watch). Advisory only: no rollback happens
+     * without an explicit request on SkillDetail. NEVER throws.
+     *
+     * @param string $skillUuid    The skill UUID (deep link target).
+     * @param string $skillName    The skill's display name.
+     * @param string $recipientUid The accepting reviewer to notify.
+     *
+     * @return DeliveryResult The notification outcome.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-post-acceptance-regression-surfaces-a-rollback-suggestion
+     */
+    public function deliverSkillRollbackSuggestion(string $skillUuid, string $skillName, string $recipientUid): DeliveryResult
+    {
+        if ($recipientUid === '') {
+            return new DeliveryResult(delivered: false, channel: 'none', fellBack: false, warning: 'No reviewer to notify.');
+        }
+
+        try {
+            $notification = $this->notificationManager->createNotification();
+            $notification->setApp('hermiq')
+                ->setUser($recipientUid)
+                ->setDateTime(new DateTime())
+                ->setObject('skill', $skillUuid)
+                ->setSubject('skill_rollback_suggested', ['name' => $skillName])
+                ->setMessage('skill_rollback_suggested_summary', [])
+                ->setLink($this->buildSkillLink(uuid: $skillUuid));
+            $this->notificationManager->notify($notification);
+
+            return new DeliveryResult(delivered: true, channel: 'notification', fellBack: false, warning: null);
+        } catch (Throwable $e) {
+            return new DeliveryResult(
+                delivered: false,
+                channel: 'none',
+                fellBack: false,
+                warning: sprintf('notify %s failed: %s', $recipientUid, $e->getMessage())
+            );
+        }
+
+    }//end deliverSkillRollbackSuggestion()
 
     /**
      * Shared reviewer-notification loop behind `deliverApprovalRequest()`,
@@ -389,7 +556,7 @@ class DeliveryService
      *
      * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
      *
-     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-6-deliveryservice-webhook-approval-notification-shared-reviewer-notify-helper
+     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-6-deliveryservice-webhook-approval-notification-shared-reviewer-notify-helper
      */
     private function notifyApprovalReviewers(
         string $approvalUuid,
@@ -454,7 +621,7 @@ class DeliveryService
      *
      * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
      *
-     * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+     * @spec openspec/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
      */
     public function deliverApprovalRequestForToolInvocation(ObjectEntity $approval, array $reviewerUids): DeliveryResult
     {
@@ -519,7 +686,7 @@ class DeliveryService
      *
      * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
      */
     public function deliverBudgetWarning(ObjectEntity $budget, array $recipientUids): DeliveryResult
     {
@@ -591,7 +758,7 @@ class DeliveryService
      *
      * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
      *
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     public function deliverFailureAlert(ObjectEntity $schedule, string $reason): DeliveryResult
     {
@@ -646,7 +813,7 @@ class DeliveryService
      *
      * @return DeliveryResult The notification outcome (warning ⇒ degraded delivery).
      *
-     * @spec openspec/changes/run-reliability/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-a-failure-alert-to-the-schedule-owner-mvp
      */
     public function deliverCircuitBreakerAlert(ObjectEntity $schedule): DeliveryResult
     {
@@ -700,8 +867,8 @@ class DeliveryService
      *
      * @return DeliveryResult The Talk delivery outcome.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-5
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function deliverTalk(ObjectEntity $schedule, string $output): DeliveryResult
     {
@@ -732,6 +899,18 @@ class DeliveryService
         if ($target !== '') {
             $posted = $this->tryPostToTargetRoom(token: $target, owner: $owner, output: $output);
             if ($posted === null) {
+                // The report reached a room, so bind the conversation this run
+                // produced to that room — a reply there then continues THIS
+                // session instead of dead-ending (talk-chat-bridge). Strictly
+                // best-effort: bindByUuid() swallows its own failures, so a
+                // binding problem can never fail a delivery or a run.
+                if ($this->boundConversationUuid !== null) {
+                    $this->talkRoomBinding->bindByUuid(
+                        conversationUuid: $this->boundConversationUuid,
+                        roomToken: $target
+                    );
+                }
+
                 return new DeliveryResult(delivered: true, channel: 'talk', fellBack: false, warning: null);
             }
 
@@ -775,7 +954,7 @@ class DeliveryService
      *
      * @return string|null Null on success, or a reason string when the room is unusable.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function tryPostToTargetRoom(string $token, string $owner, string $output): ?string
     {
@@ -798,7 +977,7 @@ class DeliveryService
      *
      * @return string|null Null on success, or a reason string on failure.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function tryPostToNoteToSelf(string $owner, string $output): ?string
     {
@@ -823,7 +1002,7 @@ class DeliveryService
      *
      * @return void
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function postToRoom(object $room, ?object $participant, string $owner, string $output): void
     {
@@ -851,7 +1030,7 @@ class DeliveryService
      *
      * @return DeliveryResult The notification delivery outcome.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-3
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function deliverNotification(ObjectEntity $schedule, string $output, bool $fellBack, ?string $reason=null): DeliveryResult
     {
@@ -896,7 +1075,7 @@ class DeliveryService
      *
      * @return DeliveryResult The email delivery outcome.
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
      */
     private function deliverEmail(ObjectEntity $schedule, string $output): DeliveryResult
     {
@@ -947,7 +1126,7 @@ class DeliveryService
      *
      * @return string The owner's email address, or '' when unresolvable.
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-email-mvp
      */
     private function resolveOwnerEmail(string $owner): string
     {
@@ -976,9 +1155,9 @@ class DeliveryService
      *
      * @return DeliveryResult The webhook delivery outcome.
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
      */
     private function deliverWebhook(ObjectEntity $schedule, string $output): DeliveryResult
     {
@@ -1035,7 +1214,7 @@ class DeliveryService
      *
      * @return string '' on a successful (2xx) response, or a reason string on failure.
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-deliver-run-output-via-a-signed-outbound-webhook-mvp
      */
     private function tryPostWebhook(string $url, string $body, string $secret): string
     {
@@ -1079,7 +1258,7 @@ class DeliveryService
      *
      * @return array<string, mixed> The envelope (pre-size-cap).
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
      */
     private function buildWebhookEnvelope(ObjectEntity $schedule, string $agentId, string $output): array
     {
@@ -1106,7 +1285,7 @@ class DeliveryService
      *
      * @return string The final, size-capped JSON body — the exact bytes to sign and send.
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-payload-is-size-capped-before-it-is-signed-and-sent-mvp
      */
     private function capWebhookPayload(array $envelope): string
     {
@@ -1140,7 +1319,7 @@ class DeliveryService
      *
      * @return int The clamped value.
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
      */
     private function clampInt(mixed $value, int $min, int $max): int
     {
@@ -1159,7 +1338,7 @@ class DeliveryService
      *
      * @return void
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-webhook-delivery-retries-with-bounded-exponential-backoff-mvp
      */
     protected function sleep(int $seconds): void
     {
@@ -1176,7 +1355,7 @@ class DeliveryService
      *
      * @return \OCA\Talk\Manager The spreed room manager.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function talkManager(): object
     {
@@ -1189,7 +1368,7 @@ class DeliveryService
      *
      * @return \OCA\Talk\Service\ParticipantService The spreed participant service.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function talkParticipantService(): object
     {
@@ -1202,7 +1381,7 @@ class DeliveryService
      *
      * @return \OCA\Talk\Service\NoteToSelfService The spreed Note-to-self service.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function talkNoteToSelfService(): object
     {
@@ -1215,7 +1394,7 @@ class DeliveryService
      *
      * @return \OCA\Talk\Chat\ChatManager The spreed chat manager.
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function talkChatManager(): object
     {
@@ -1293,7 +1472,7 @@ class DeliveryService
      *
      * @return bool
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-1-4
+     * @spec openspec/changes/talk-delivery/tasks.md#1-deliveryservice-core
      */
     private function isTalkAvailable(): bool
     {
@@ -1321,7 +1500,7 @@ class DeliveryService
      *
      * @return string The absolute URL.
      *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-2-2
+     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#2-dispatcher-approval-gate-scheduleservice
      */
     private function buildApprovalLink(string $uuid): string
     {
@@ -1330,13 +1509,29 @@ class DeliveryService
     }//end buildApprovalLink()
 
     /**
+     * Build an absolute deep link to a skill's SkillDetail page for a notification
+     * (skill-self-improvement: behind-badge + rollback-suggestion notifications).
+     *
+     * @param string $uuid The skill UUID.
+     *
+     * @return string The absolute URL.
+     *
+     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+     */
+    private function buildSkillLink(string $uuid): string
+    {
+        return $this->urlGenerator->getAbsoluteURL('/index.php/apps/hermiq/skills/'.$uuid);
+
+    }//end buildSkillLink()
+
+    /**
      * Build an absolute deep link to the tenant-ops budgets surface for a notification.
      *
      * @param string $uuid The budget UUID.
      *
      * @return string The absolute URL.
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-3-wire-the-budget-gate-into-the-dispatch-path-soft-threshold-delivery
      */
     private function buildBudgetLink(string $uuid): string
     {
@@ -1353,7 +1548,7 @@ class DeliveryService
      *
      * @return void
      *
-     * @spec openspec/changes/talk-delivery/tasks.md#task-3-2
+     * @spec openspec/changes/talk-delivery/tasks.md#3-wire-into-the-dispatcher
      */
     private function logWarning(?string $warning, string $uuid, string $channel): void
     {

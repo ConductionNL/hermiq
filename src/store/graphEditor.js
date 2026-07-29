@@ -52,13 +52,22 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 	}),
 
 	getters: {
-		/** @return {Array<object>} Canvas nodes. */
+		/**
+		 * @param {object} state The graph-editor store state.
+		 * @return {Array<object>} Canvas nodes.
+		 */
 		nodes: (state) => state.graph.nodes || [],
 
-		/** @return {Array<object>} Canvas edges. */
+		/**
+		 * @param {object} state The graph-editor store state.
+		 * @return {Array<object>} Canvas edges.
+		 */
 		edges: (state) => state.graph.edges || [],
 
-		/** @return {object|null} The selected node. */
+		/**
+		 * @param {object} state The graph-editor store state.
+		 * @return {object|null} The selected node.
+		 */
 		selectedNode: (state) => {
 			if (state.selectedNodeId === null) {
 				return null
@@ -71,6 +80,7 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 		 * Node id => short outcome from the last run's trace, so a run is
 		 * legible on the canvas itself.
 		 *
+		 * @param {object} state The graph-editor store state.
 		 * @return {object} Node id => outcome.
 		 */
 		traceByNode: (state) => {
@@ -88,6 +98,7 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 		 * Node id => that node's trace entry from the last run, so an edge can
 		 * offer "what came out of here". Only nodes that actually ran appear.
 		 *
+		 * @param {object} state The graph-editor store state.
 		 * @return {object} Node id => trace entry.
 		 */
 		resultByNode: (state) => {
@@ -105,6 +116,7 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 		 * Agents as dropdown options. The id is what the node stores; the
 		 * label is what an author recognises.
 		 *
+		 * @param {object} state The graph-editor store state.
 		 * @return {Array<object>} `{id, label, maxTokens}` per agent.
 		 */
 		agentOptions: (state) => state.agents.map((agent) => ({
@@ -113,7 +125,10 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 			maxTokens: agent.maxTokens ?? null,
 		})).filter((option) => option.id),
 
-		/** @return {object} The definition posted to the executor. */
+		/**
+		 * @param {object} state The graph-editor store state.
+		 * @return {object} The definition posted to the executor.
+		 */
 		graphForRun: (state) => ({
 			name: state.graph.name,
 			nodes: state.graph.nodes || [],
@@ -236,6 +251,9 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 		 * Persist a node's new position.
 		 *
 		 * @param {object} payload `{id, x, y}`.
+		 * @param {string} payload.id The node id to move.
+		 * @param {number} payload.x New x-coordinate in canvas space.
+		 * @param {number} payload.y New y-coordinate in canvas space.
 		 * @return {void}
 		 */
 		moveNode({ id, x, y }) {
@@ -253,6 +271,8 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 		 * Connect two nodes (no duplicates, no self-edges).
 		 *
 		 * @param {object} payload `{source, target}`.
+		 * @param {string} payload.source The edge's source node id.
+		 * @param {string} payload.target The edge's target node id.
 		 * @return {void}
 		 */
 		connect({ source, target }) {

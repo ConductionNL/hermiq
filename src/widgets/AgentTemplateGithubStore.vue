@@ -39,17 +39,17 @@
 		</h3>
 
 		<div class="agent-template-github-store__search">
-			<NcTextField :value.sync="query"
+			<NcTextField v-model="query"
 				:label="t('hermiq', 'Search GitHub for agent templates or skills')"
 				:placeholder="t('hermiq', 'Search by name or keyword…')"
-				@update:value="onQueryChange" />
+				@update:modelValue="onQueryChange" />
 			<NcSelect v-model="kindFilter"
 				:options="kindOptions"
 				:input-label="t('hermiq', 'Kind')"
 				:clearable="false"
 				label="label"
 				track-by="value"
-				@input="doSearch" />
+				@update:modelValue="doSearch" />
 			<NcSelect v-if="githubCredentials.length > 0"
 				v-model="selectedCredential"
 				:options="githubCredentials"
@@ -57,7 +57,7 @@
 				:loading="loadingCredentials"
 				:placeholder="t('hermiq', 'Anonymous (no credential)')"
 				label="label"
-				@input="doSearch" />
+				@update:modelValue="doSearch" />
 		</div>
 
 		<NcNoteCard v-if="rateLimitHintVisible" type="warning">

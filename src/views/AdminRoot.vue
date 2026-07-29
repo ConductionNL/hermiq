@@ -85,6 +85,12 @@
 		</NcSettingsSection>
 
 		<NcSettingsSection
+			:name="t('hermiq', 'Talk chat bridge')"
+			:description="t('hermiq', 'Let people converse with an agent from a Nextcloud Talk conversation, including the Talk mobile apps. A conversation only becomes active when a Talk moderator enables the Hermiq bot in it AND an opted-in agent is bound to it here.')">
+			<TalkBridgeSettings />
+		</NcSettingsSection>
+
+		<NcSettingsSection
 			:name="t('hermiq', 'Organisation credentials')"
 			:description="t('hermiq', 'Manage organisation-wide broker credentials (e.g. GitHub) that any allowed Nextcloud app may use on behalf of your organisation. The secret is stored in Doriath — Nextcloud’s native credential vault — never in Hermiq itself.')">
 			<CnCredentials
@@ -103,6 +109,7 @@ import Cog from 'vue-material-design-icons/Cog.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
+import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import { getLlmSettings } from '../api/llm.js'
 import { getWebResearchSettings } from '../api/webResearch.js'
 import manifest from '../manifest.json'
@@ -128,6 +135,7 @@ export default {
 		LlmProviderModal,
 		NcButton,
 		NcSettingsSection,
+		TalkBridgeSettings,
 		WebResearchSettingsModal,
 	},
 

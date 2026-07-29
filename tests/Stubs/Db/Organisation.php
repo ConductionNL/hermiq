@@ -78,4 +78,40 @@ class Organisation
     {
         return $this->owner;
     }//end getOwner()
+
+    /**
+     * Set the organisation UUID (mirrors the real Entity's magic setter).
+     *
+     * @param string|null $uuid The UUID.
+     *
+     * @return void
+     */
+    public function setUuid(?string $uuid): void
+    {
+        $this->uuid = $uuid;
+    }//end setUuid()
+
+    /**
+     * Set the organisation display name (mirrors the real Entity's magic setter).
+     *
+     * @param string|null $name The name.
+     *
+     * @return void
+     */
+    public function setName(?string $name): void
+    {
+        $this->name = $name;
+    }//end setName()
+
+    /**
+     * Set the owning user id (mirrors the real Entity's magic setter).
+     *
+     * @param string|null $owner The owner uid.
+     *
+     * @return void
+     */
+    public function setOwner(?string $owner): void
+    {
+        $this->owner = $owner;
+    }//end setOwner()
 }//end class

@@ -53,7 +53,7 @@
 			<!-- Add a fact -->
 			<section class="agent-memory-panel__add">
 				<NcTextField
-					:value.sync="newEntry"
+					v-model="newEntry"
 					:label="t('hermiq', 'Add a fact the agent should remember')"
 					:disabled="busy"
 					@keydown.enter="addFact" />
