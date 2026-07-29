@@ -457,8 +457,14 @@ class HermiqToolProvider implements IMcpToolProvider
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of ten distinct capabilities.
      */
     public function __construct(
-        IUserSession $userSession,
-        IGroupManager $groupManager,
+        // Promoted like every other dependency. These two were previously plain
+        // params assigned onto properties DECLARED BY the removed
+        // `AbstractToolHandler` base — with the base gone they silently became
+        // PHP dynamic properties (deprecated in 8.2), which works at runtime and
+        // is why a live tool call still succeeded, but phpstan/psalm correctly
+        // flagged the reads and writes as undefined.
+        private readonly IUserSession $userSession,
+        private readonly IGroupManager $groupManager,
         private readonly IRootFolder $rootFolder,
         private readonly IContactsManager $contactsManager,
         private readonly ICalendarManager $calendarManager,
@@ -472,8 +478,6 @@ class HermiqToolProvider implements IMcpToolProvider
         private readonly DelegationService $delegationService,
         private readonly LoggerInterface $logger,
     ) {
-        $this->userSession  = $userSession;
-        $this->groupManager = $groupManager;
     }//end __construct()
 
     /**
