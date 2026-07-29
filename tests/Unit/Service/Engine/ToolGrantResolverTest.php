@@ -43,7 +43,6 @@ use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
 use OCP\Files\IRootFolder;
-use OCP\IGroupManager;
 use OCP\IUserSession;
 use OCP\Mail\IMailer;
 use PHPUnit\Framework\TestCase;
@@ -339,7 +338,6 @@ class ToolGrantResolverTest extends TestCase
     {
         $provider = new HermiqToolProvider(
             $this->createMock(IUserSession::class),
-            $this->createMock(IGroupManager::class),
             $this->createMock(IRootFolder::class),
             $this->createMock(IContactsManager::class),
             $this->createMock(ICalendarManager::class),

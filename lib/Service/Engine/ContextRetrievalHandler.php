@@ -133,10 +133,8 @@ class ContextRetrievalHandler
         $totalSources = max($numSourcesFiles, $numSourcesObjects);
 
         // Resolve view filters from the agent's views and the caller's selection.
-        // NOTE (ported verbatim): the original computed these but did not yet apply
-        // them to the search ("TODO: Apply view filters here when view filtering is
-        // implemented"); the resolution logic is preserved so the eventual wiring
-        // is a one-line change, and the count is logged below.
+        // These are now APPLIED (they were computed-and-discarded before, which is
+        // what made every turn an instance-wide scan — see searchKeywordOnly()).
         $viewFilters = $this->resolveViewFilters(
             agentViews: ($agentData['views'] ?? []),
             selectedViews: $selectedViews
@@ -164,7 +162,11 @@ class ContextRetrievalHandler
                 );
             }
 
-            $results = $this->searchKeywordOnly(query: $query, limit: $fetchLimit);
+            $results = $this->searchScoped(
+                query: $query,
+                limit: $fetchLimit,
+                viewFilters: $viewFilters
+            );
 
             // Filter and build context - track file and object counts separately.
             $fileSourceCount   = 0;
@@ -308,16 +310,74 @@ class ContextRetrievalHandler
     }//end resolveViewFilters()
 
     /**
+     * Run the keyword search only when the agent has declared a data scope.
+     *
+     * 🔴 GATE. An unscoped keyword search is not a feature — it is the accident
+     * left behind when the resolved view filters were computed and discarded.
+     * Ungated it fans out across every register and schema on the instance:
+     * measured 2026-07-29 at 71s to answer "Say OK", with OpenRegister bailing
+     * to `Cross-schema property superset exceeds the column budget; using
+     * metadata-only` and then failing 24 count queries. The rows it returned
+     * were metadata-only stubs (`{"id":"…"}`, similarity 1) that went on to
+     * pollute the prompt, so the fan-out cost 71s to make answers *worse*.
+     *
+     * No resolved views means the agent has declared no scope, so there is
+     * nothing legitimate to retrieve — retrieval is skipped and said out loud.
+     *
+     * @param string        $query       Query text.
+     * @param int           $limit       Result limit.
+     * @param array<string> $viewFilters Resolved view UUIDs; empty disables retrieval.
+     *
+     * @return array Search rows, or an empty list when out of scope.
+     *
+     * @psalm-return list<array<string, mixed>>
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+     */
+    private function searchScoped(string $query, int $limit, array $viewFilters): array
+    {
+        if (empty($viewFilters) === true) {
+            $this->logger->info(
+                message: '[ContextRetrievalHandler] object retrieval skipped: the agent resolved to no views, '
+                    .'and an unscoped search would fan out across every register on the instance. Configure '
+                    .'the agent\'s views to enable RAG.',
+                context: [
+                    'file' => __FILE__,
+                    'line' => __LINE__,
+                ]
+            );
+
+            return [];
+        }
+
+        return $this->searchKeywordOnly(query: $query, limit: $limit, views: $viewFilters);
+
+    }//end searchScoped()
+
+    /**
      * Keyword search against OpenRegister's public paginated search.
      *
      * Ported from the original's `searchKeywordOnly()` — the one retrieval mode
      * that already ran on a public surface (`ObjectService::searchObjectsPaginated`,
      * `_search` full-text term). `_register`/`_schema` are explicitly nulled so a
      * previous caller's ambient register/schema context on the shared ObjectService
-     * instance cannot silently scope RAG retrieval down to one schema.
+     * instance cannot silently scope RAG retrieval down to one schema. That
+     * explicit nulling is deliberate and MUST stay: it blocks *ambient* leakage.
+     * Scope is instead declared on purpose, via `$views`.
      *
-     * @param string $query Query text.
-     * @param int    $limit Result limit.
+     * 🔴 `$views` is load-bearing for latency, not just correctness. Without it
+     * this search fans out across EVERY register and schema on the instance —
+     * measured 2026-07-29 at 71s over 2,728 magic tables to answer "Say OK",
+     * with OpenRegister bailing out to `Cross-schema property superset exceeds
+     * the column budget; using metadata-only` and then failing 24 count queries.
+     * The caller must not reach this method with an empty view set; see the
+     * gate in `retrieveContext()`.
+     *
+     * @param string        $query Query text.
+     * @param int           $limit Result limit.
+     * @param array<string> $views View UUIDs scoping the search. Non-empty by
+     *                             contract — `ObjectService` applies them via
+     *                             `applyViewsToQuery()`.
      *
      * @return array Search results in the standardized entity shape. Kept wide
      *               (`list<array<string, mixed>>`) deliberately: the consuming
@@ -330,7 +390,7 @@ class ContextRetrievalHandler
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
      */
-    private function searchKeywordOnly(string $query, int $limit): array
+    private function searchKeywordOnly(string $query, int $limit, array $views): array
     {
         $results = $this->objectService->searchObjectsPaginated(
             query: [
@@ -338,7 +398,8 @@ class ContextRetrievalHandler
                 '_limit'    => $limit,
                 '_register' => null,
                 '_schema'   => null,
-            ]
+            ],
+            views: $views
         );
 
         $transformed = [];
