@@ -51,10 +51,39 @@ class ContextRetrievalHandlerTest extends TestCase
     {
         $entity = new ObjectEntity();
         $entity->setUuid('agent-uuid');
-        $entity->setObject(array_merge(['name' => 'RAG agent'], $ragFields));
+        // A default view scope, because retrieval is GATED on one: an agent that
+        // resolves to no views declares no data scope, and searching every
+        // register on the instance is the bug that gate exists to prevent (see
+        // ContextRetrievalHandler::searchScoped). Tests that want the gate
+        // itself pass `views => []` explicitly.
+        $entity->setObject(array_merge(['name' => 'RAG agent', 'views' => ['view-uuid-1']], $ragFields));
         return $entity;
 
     }//end agent()
+
+    /**
+     * An agent with no resolved views retrieves nothing — the search is never
+     * issued, rather than fanning out across every register on the instance.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-3
+     */
+    public function testNoViewsSkipsRetrievalEntirely(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->expects($this->never())->method('searchObjectsPaginated');
+
+        $handler = new ContextRetrievalHandler($objectService, new NullLogger());
+        $context = $handler->retrieveContext(
+            query: 'leave policy',
+            agent: $this->agent(['ragSearchMode' => 'keyword', 'views' => []])
+        );
+
+        $this->assertSame([], $context['sources']);
+        $this->assertSame('', $context['text']);
+
+    }//end testNoViewsSkipsRetrievalEntirely()
 
     /**
      * Keyword mode issues a `_search` query with explicit `_register`/`_schema`
@@ -251,7 +280,15 @@ class ContextRetrievalHandlerTest extends TestCase
         );
 
         $handler = new ContextRetrievalHandler($objectService, new NullLogger());
-        $context = $handler->retrieveContext(query: 'rendered', agent: null);
+        // No agent, but the caller supplies the scope — `resolveViewFilters()`
+        // falls back to `selectedViews` when the agent has none, so retrieval is
+        // still in scope and the gate does not skip it. This test is about
+        // ObjectEntity unwrapping, not about searching unscoped.
+        $context = $handler->retrieveContext(
+            query: 'rendered',
+            agent: null,
+            selectedViews: ['view-uuid-1']
+        );
 
         $this->assertCount(1, $context['sources']);
         $this->assertSame('uuid-9', $context['sources'][0]['id']);

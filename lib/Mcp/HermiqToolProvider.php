@@ -105,7 +105,6 @@ use OCP\Contacts\IManager as IContactsManager;
 use OCP\Files\IRootFolder;
 use OCP\Files\File;
 use OCP\Files\Folder;
-use OCP\IGroupManager;
 use OCP\IUserSession;
 use OCP\Mail\IMailer;
 use Psr\Container\ContainerInterface;
@@ -424,7 +423,6 @@ class HermiqToolProvider implements IMcpToolProvider
      * Constructor.
      *
      * @param IUserSession               $userSession       The current user session (auth + scoping).
-     * @param IGroupManager              $groupManager      Group manager (AbstractToolHandler helpers).
      * @param IRootFolder                $rootFolder        Files root (scoped per user).
      * @param IContactsManager           $contactsManager   Contacts search (acting user's books).
      * @param ICalendarManager           $calendarManager   Calendar query (acting user's calendars).
@@ -464,7 +462,6 @@ class HermiqToolProvider implements IMcpToolProvider
         // is why a live tool call still succeeded, but phpstan/psalm correctly
         // flagged the reads and writes as undefined.
         private readonly IUserSession $userSession,
-        private readonly IGroupManager $groupManager,
         private readonly IRootFolder $rootFolder,
         private readonly IContactsManager $contactsManager,
         private readonly ICalendarManager $calendarManager,
