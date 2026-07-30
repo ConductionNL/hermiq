@@ -36,11 +36,21 @@ jobs:
       # `#implements unknown interface OCA\OpenRegister\#` pattern cannot suppress
       # it and only a matching OR ref makes the build correct.
       additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"development"}]'
-      # The regression guards in tests/e2e only guard anything if they RUN. They
-      # were skipped on every PR (the shared workflow's playwright job is
-      # `if: inputs.enable-playwright`, which defaults false), so a library
-      # regression that kills a row click — exactly what happened when a rebuild
-      # picked up a nextcloud-vue without `config.rowRoute` support — reached a
-      # green PR untouched.
-      enable-playwright: true
+      # enable-playwright stays OFF, and that is a finding rather than an
+      # oversight. Turning it on (2026-07-30) proved the job itself works — it
+      # builds the frontend, enables the app, and runs — but the suite is NOT
+      # CI-green: 43 of 64 specs failed across 11 spec files, and the first
+      # failing assertion is the app shell itself, not anything app-specific.
+      #
+      # Two things have to change before this can be flipped:
+      #   1. The playwright job checks out `nextcloud-test-refs[0]`, which is
+      #      stable31 here, while hermiq's frontend is developed and verified
+      #      against NC 34. Every UI spec fails on the shell; the API-only ones
+      #      pass, which is exactly the 21/43 split observed.
+      #   2. The remaining specs need triage for seed/fixture assumptions that
+      #      hold on a dev instance and not on a fresh one.
+      #
+      # Until then the guards in tests/e2e are run by hand
+      # (`npx playwright test --project=chromium`) — which is how the row-click
+      # and graph-editor regressions in this branch were caught.
       enable-sbom: true
