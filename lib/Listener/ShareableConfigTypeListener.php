@@ -38,6 +38,11 @@ use Throwable;
  * Registers hermiq's skill shareable-config type.
  *
  * @template-implements IEventListener<RegisterShareableConfigTypesEvent>
+ *
+ * @spec exclude Contributes to OpenRegister's federated-config engine, whose
+ * canonical spec has its single home in openregister (federated-config-sharing)
+ * and is not yet archived into openspec/specs/ there. Hermiq adopts that spec
+ * rather than forking a local copy.
  */
 class ShareableConfigTypeListener implements IEventListener
 {
@@ -60,6 +65,10 @@ class ShareableConfigTypeListener implements IEventListener
      * @param Event $event The dispatched event.
      *
      * @return void
+     *
+     * @spec exclude Contributes to OpenRegister's federated-config engine; the
+     * canonical spec has its single home in openregister
+     * (federated-config-sharing).
      */
     public function handle(Event $event): void
     {

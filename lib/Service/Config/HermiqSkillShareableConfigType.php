@@ -3,7 +3,7 @@
 /**
  * Agent skills as a shareable configuration type.
  *
- * hermiq's skills are agentskills.io packages — a `---` fenced markdown frontmatter
+ * Hermiq's skills are agentskills.io packages — a `---` fenced markdown frontmatter
  * block plus a body — not plain OpenRegister object fields. So a skill cannot ride
  * the generic object marker (which would emit its fields as JSON and break
  * interop with the agentskills.io ecosystem and hermiq's own quarantine install).
@@ -44,6 +44,13 @@ use Throwable;
 
 /**
  * Shares and installs hermiq agent skills through the federated-config engine.
+ *
+ * @spec exclude Implements OpenRegister's IShareableConfigType contract, whose
+ * canonical spec has its one home in openregister (federated-config-sharing) and
+ * is not yet archived into openspec/specs/ there. Per the fleet rule that a spec
+ * has a single canonical home which other apps adopt rather than copy, hermiq
+ * must not fork a local spec for this contract; the tag becomes a real @spec
+ * pointer once OpenRegister archives it.
  */
 class HermiqSkillShareableConfigType implements IShareableConfigType
 {
@@ -62,6 +69,9 @@ class HermiqSkillShareableConfigType implements IShareableConfigType
      * The type id.
      *
      * @return string The id.
+     *
+     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+     * spec has its single home in openregister (federated-config-sharing).
      */
     public function getId(): string
     {
@@ -73,6 +83,9 @@ class HermiqSkillShareableConfigType implements IShareableConfigType
      * The display name.
      *
      * @return string The name.
+     *
+     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+     * spec has its single home in openregister (federated-config-sharing).
      */
     public function getDisplayName(): string
     {
@@ -85,6 +98,9 @@ class HermiqSkillShareableConfigType implements IShareableConfigType
      * published skill repos stay discoverable after the cutover.
      *
      * @return string The topic.
+     *
+     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+     * spec has its single home in openregister (federated-config-sharing).
      */
     public function getTopic(): string
     {
@@ -101,6 +117,9 @@ class HermiqSkillShareableConfigType implements IShareableConfigType
      * @param array $selection `{skillIds?: [...]}`.
      *
      * @return array `{type, version, skills: [{name, package}]}`.
+     *
+     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+     * spec has its single home in openregister (federated-config-sharing).
      */
     public function serialise(array $selection): array
     {
@@ -109,17 +128,7 @@ class HermiqSkillShareableConfigType implements IShareableConfigType
 
         $wanted = array_map('strval', (array) ($selection['skillIds'] ?? []));
 
-        $skills = [];
-        if ($wanted !== []) {
-            foreach ($wanted as $id) {
-                $skill = $skillService->getSkill(skillId: $id);
-                if ($skill !== null) {
-                    $skills[] = $skill;
-                }
-            }
-        } else {
-            $skills = $skillService->listSkills();
-        }
+        $skills = $this->selectSkills(skillService: $skillService, wanted: $wanted);
 
         $out = [];
         foreach ($skills as $skill) {
@@ -143,11 +152,45 @@ class HermiqSkillShareableConfigType implements IShareableConfigType
     }//end serialise()
 
     /**
+     * Resolve which skills a selection refers to.
+     *
+     * An empty selection means "share everything". A non-empty one is resolved id
+     * by id, and an id that no longer resolves is skipped rather than failing the
+     * whole bundle for one stale reference — a share is a best-effort snapshot of
+     * what currently exists, not a transaction over the caller's list.
+     *
+     * @param SkillService $skillService The skill service.
+     * @param array        $wanted       The requested skill ids, possibly empty.
+     *
+     * @return array The resolved skills.
+     */
+    private function selectSkills(SkillService $skillService, array $wanted): array
+    {
+        if ($wanted === []) {
+            return $skillService->listSkills();
+        }
+
+        $skills = [];
+        foreach ($wanted as $id) {
+            $skill = $skillService->getSkill(skillId: $id);
+            if ($skill !== null) {
+                $skills[] = $skill;
+            }
+        }
+
+        return $skills;
+
+    }//end selectSkills()
+
+    /**
      * Install a skill bundle into this instance (into quarantine, never active).
      *
      * @param array $bundle A bundle produced by this type.
      *
      * @return array `{installed: [uuid, ...]}`.
+     *
+     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+     * spec has its single home in openregister (federated-config-sharing).
      */
     public function deserialise(array $bundle): array
     {
