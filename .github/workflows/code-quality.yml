@@ -22,5 +22,14 @@ jobs:
       enable-eslint: true
       enable-phpunit: true
       enable-newman: true
-      additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"main"}]'
+      # `development`, not `main`. Hermiq's development branch is analysed against
+      # the OpenRegister branch it actually targets: interfaces Hermiq implements
+      # (IShareableConfigType, IFlowNode, IFlowResolver) land on OR development
+      # first, and an implemented-but-unresolvable interface is a NON-ignorable
+      # PHPStan error — phpstan.neon's `#implements unknown interface
+      # OCA\OpenRegister\#` pattern cannot suppress it, because reflection fails
+      # before ignoreErrors applies. Pinning `main` therefore fails the build for
+      # code that is correct against its real dependency. Matches the convention
+      # already used by opencatalogi, openconnector and pipelinq.
+      additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"development"}]'
       enable-sbom: true
