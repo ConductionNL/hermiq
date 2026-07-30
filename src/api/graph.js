@@ -39,3 +39,25 @@ export async function runGraph(graph, subjectUuid, subjectRegister, subjectSchem
 
 	return response.data
 }
+
+/**
+ * The node types the FLOW ENGINE can actually execute.
+ *
+ * OpenRegister's engine is the fleet's one flow engine (ADR-065) and it owns the
+ * node vocabulary: every app that contributes a node registers it there, so the
+ * catalogue is the only authoritative list. The builder used to hard-code five
+ * type keys of its own, none of which existed in the catalogue — so its labels
+ * fell back to raw type strings, its config panes never matched a node, and a
+ * node dropped from its palette carried a type the engine had never heard of.
+ *
+ * Entries are `{ id, displayName, description, icon }`. There is deliberately no
+ * config schema in there yet, which is why per-type config panes are still
+ * hand-written rather than rendered from the catalogue.
+ *
+ * @return {Promise<Array<object>>} The catalogue entries (empty on failure).
+ */
+export async function getNodeCatalog() {
+	const response = await axios.get(generateUrl('/apps/openregister/api/flow/node-catalog'))
+
+	return response.data?.results || []
+}

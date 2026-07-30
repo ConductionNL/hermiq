@@ -36,4 +36,11 @@ jobs:
       # `#implements unknown interface OCA\OpenRegister\#` pattern cannot suppress
       # it and only a matching OR ref makes the build correct.
       additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"development"}]'
+      # The regression guards in tests/e2e only guard anything if they RUN. They
+      # were skipped on every PR (the shared workflow's playwright job is
+      # `if: inputs.enable-playwright`, which defaults false), so a library
+      # regression that kills a row click — exactly what happened when a rebuild
+      # picked up a nextcloud-vue without `config.rowRoute` support — reached a
+      # green PR untouched.
+      enable-playwright: true
       enable-sbom: true

@@ -330,4 +330,91 @@ test.describe('hermiq regression: dashboard + agents', () => {
         await expect(page).toHaveURL(/\/apps\/hermiq\/graphs\/[^/]+$/, { timeout: 20_000 })
 		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible()
 	})
+
+	/**
+	 * The builder speaks the ENGINE's node vocabulary, and only that.
+	 *
+	 * It used to carry five hard-coded type keys of its own — `agent-step`,
+	 * `router`, `condition`, … — none of which exist in OpenRegister's node
+	 * catalogue (ADR-065 owns the vocabulary). Three things followed, all of them
+	 * silent: labels fell back to the raw type string, so a node read
+	 * `HERMIQ.AGENT-STEP`; every config pane's `v-if` missed, so no node could be
+	 * edited even when it carried real config; and a node dropped from the palette
+	 * got a type the engine had never heard of, which renders fine and cannot run.
+	 */
+	test('labels nodes from the engine catalogue and can edit every node (graph-editor-vocabulary)', async ({ page }) => {
+		const errors = collectConsoleErrors(page)
+
+		await login(page)
+		await page.goto('/apps/hermiq/graphs', { waitUntil: 'domcontentloaded' })
+		await dismissOnboarding(page)
+
+		const index = page.locator('[data-testid-page-id="GraphIndex"]')
+		await expect(index).toBeVisible({ timeout: 20_000 })
+		await clickPastOverlays(page, index.locator('tbody tr').first().locator('td').nth(1))
+		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible({ timeout: 20_000 })
+
+		// The catalogue is the source of truth for what an ENGINE node is called.
+		const catalogue = await page.request.get('/apps/openregister/api/flow/node-catalog')
+		expect(catalogue.ok()).toBeTruthy()
+		const byId = new Map<string, string>(
+			((await catalogue.json()).results || []).map((n: { id: string, displayName: string }) => [n.id, n.displayName]),
+		)
+
+		const nodes = page.locator('.cn-graph-canvas__node')
+		await expect(nodes.first()).toBeVisible({ timeout: 20_000 })
+
+		// Every stored node type must BE an engine type, and must render as that
+		// type's catalogue name. Both halves matter: the first catches a graph
+		// carrying a type the engine cannot run, the second catches the
+		// fallback-to-raw-id symptom.
+		const graph = await page.request.get(`/apps/openregister/api/objects/hermiq/agentflow/${page.url().split('/').pop()}`)
+		expect(graph.ok()).toBeTruthy()
+		const types = ((await graph.json()).nodes || []).map((n: { type: string }) => n.type)
+
+		const labels = await page.locator('.graph-builder__node-type').allInnerTexts()
+		expect(labels.length).toBe(types.length)
+		labels.forEach((label, index) => {
+			const type = types[index]
+			const catalogued = byId.get(type)
+			expect(catalogued, `node ${index} has type "${type}", which the engine cannot run`).toBeDefined()
+			expect(label.trim().toUpperCase(), `node ${index} (${type}) did not use its catalogue name`)
+				.toBe(String(catalogued).toUpperCase())
+		})
+
+		// ONE card per node: the canvas wrapper draws it, the slot fills it. A
+		// bordered slot inside a bordered wrapper is the nested-chrome defect.
+		const innerChrome = await page.locator('.graph-builder__node').first().evaluate((el) => {
+			const style = getComputedStyle(el)
+			return { border: style.borderTopWidth, background: style.backgroundColor }
+		})
+		expect(innerChrome.border).toBe('0px')
+		expect(innerChrome.background).toBe('rgba(0, 0, 0, 0)')
+
+		// Every node is editable: a typed pane where one exists, raw config
+		// otherwise — never a pane with nothing in it.
+		// By testid, not by position: three elements carry `graph-sidebar__pane`
+		// and the first belongs to an inactive sidebar tab.
+		const pane = page.getByTestId('graph-node-pane')
+		const count = await nodes.count()
+		for (let i = 0; i < count; i++) {
+			// Through the helper: the onboarding overlay re-mounts on its own
+			// schedule, and a node click it steals reads as "the pane never
+			// appeared" rather than as an overlay problem.
+			await clickPastOverlays(page, nodes.nth(i))
+			await expect(pane).toBeVisible({ timeout: 10_000 })
+			// A typed pane (only hermiq.agent-step has one) or the raw editor —
+			// never a pane with nothing in it, which is what every node showed
+			// while the type keys did not match.
+			const typed = await pane.getByLabel('Prompt').count()
+			const raw = await pane.locator('textarea').count()
+			expect(typed + raw, `node ${i} (${types[i]}) offers nothing to edit`).toBeGreaterThan(0)
+		}
+
+		// The palette offers what the ENGINE can run, so a dropped node is runnable.
+		const palette = await page.locator('.graph-sidebar__palette-item').allInnerTexts()
+		expect(palette.length).toBe(byId.size)
+
+		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
+	})
 })

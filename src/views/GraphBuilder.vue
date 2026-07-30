@@ -45,10 +45,10 @@
 				</g>
 			</template>
 
-			<template #node="{ node, selected }">
+			<template #node="{ node }">
 				<div
 					class="graph-builder__node"
-					:class="[`graph-builder__node--${node.type}`, { 'graph-builder__node--selected': selected }]">
+					:class="`graph-builder__node--${typeSlug(node.type)}`">
 					<span class="graph-builder__node-type">{{ typeLabel(node.type) }}</span>
 					<span class="graph-builder__node-label">{{ nodeLabel(node) }}</span>
 					<span v-if="editor.traceByNode[node.id]" class="graph-builder__node-badge">
@@ -152,13 +152,7 @@ export default {
 			// has to know where a card ends to stop the arrowhead short of it.
 			nodeWidth: 200,
 			nodeHeight: 80,
-			nodeTypes: [
-				{ key: 'trigger', label: this.t('hermiq', 'Trigger') },
-				{ key: 'agent-step', label: this.t('hermiq', 'Agent step') },
-				{ key: 'object-write', label: this.t('hermiq', 'Object write') },
-				{ key: 'condition', label: this.t('hermiq', 'Condition') },
-				{ key: 'router', label: this.t('hermiq', 'Router') },
-			],
+
 		}
 	},
 
@@ -383,8 +377,29 @@ export default {
 		 * @return {string} The label.
 		 */
 		typeLabel(type) {
-			const match = this.nodeTypes.find((candidate) => candidate.key === type)
-			return match ? match.label : (type || '—')
+			const entry = (this.editor.nodeCatalog || []).find((candidate) => candidate.id === type)
+			if (entry) {
+				return entry.displayName || entry.id
+			}
+
+			// No local name table: a type the catalogue cannot explain is shown as
+			// its raw id rather than guessed at from a list that may not match the
+			// engine. See GraphSidebar.paletteTypes.
+			return type || '—'
+		},
+
+		/**
+		 * A node type turned into a usable CSS class suffix.
+		 *
+		 * Engine ids are namespaced (`hermiq.agent-step`), and a dot in the middle
+		 * of a class name is a compound selector rather than a name — so the
+		 * per-type accent silently matched nothing for every catalogue type.
+		 *
+		 * @param {string} type The node type.
+		 * @return {string} The slug.
+		 */
+		typeSlug(type) {
+			return String(type || '').replace(/[^a-zA-Z0-9]+/g, '-')
 		},
 
 		/**
@@ -483,6 +498,12 @@ export default {
 	border-radius: 0;
 }
 
+/* NO border, background or radius here: CnGraphCanvas already draws the node's
+   card on the wrapper it positions (and its own --selected state on it), so
+   drawing one here too put a card inside a card — the same nested-chrome defect
+   as a widget drawing its own card inside a dashboard tile. The type accent is
+   an INSET shadow rather than a border for the same reason a table-row accent
+   is: a border would add a second frame and take layout width from the body. */
 .graph-builder__node {
 	display: flex;
 	flex-direction: column;
@@ -490,18 +511,15 @@ export default {
 	gap: 2px;
 	width: 100%;
 	height: 100%;
-	padding: 8px 10px;
-	border: 2px solid var(--color-border);
-	border-inline-start-width: 6px;
+	padding: 8px 10px 8px 14px;
+	box-shadow: inset 6px 0 0 0 var(--color-border);
 	border-radius: var(--border-radius-large, 8px);
-	background-color: var(--color-main-background);
 	box-sizing: border-box;
 	overflow: hidden;
 }
 
-.graph-builder__node--selected {
-	border-color: var(--color-primary-element);
-}
+/* Selection is the wrapper's: CnGraphCanvas sets --selected on the element it
+   positions, so restating it here would be a second, competing highlight. */
 
 .graph-builder__node-type {
 	font-size: 11px;
@@ -527,23 +545,32 @@ export default {
 }
 
 /* Type accents — NC variables only (ADR-010). */
-.graph-builder__node--trigger {
-	border-inline-start-color: var(--color-warning, #c28900);
+/* Type accents, keyed on the SLUGGED engine id: a dot in the middle of a class
+   name is a compound selector rather than a name, so an unslugged
+   `hermiq.agent-step` matched nothing at all. Only engine ids appear here —
+   the builder no longer has a vocabulary of its own. */
+.graph-builder__node--hermiq-agent-step {
+	box-shadow: inset 6px 0 0 0 var(--color-primary-element);
 }
 
-.graph-builder__node--agent-step {
-	border-inline-start-color: var(--color-primary-element);
+.graph-builder__node--openregister-object-write,
+.graph-builder__node--openregister-set-fields {
+	box-shadow: inset 6px 0 0 0 var(--color-success, #46ba61);
 }
 
-.graph-builder__node--object-write {
-	border-inline-start-color: var(--color-success, #46ba61);
+.graph-builder__node--openregister-filter,
+.graph-builder__node--openregister-wait {
+	box-shadow: inset 6px 0 0 0 var(--color-warning, #c28900);
 }
 
-.graph-builder__node--condition {
-	border-inline-start-color: var(--color-warning, #c28900);
+.graph-builder__node--openregister-route,
+.graph-builder__node--openregister-switch,
+.graph-builder__node--openregister-merge,
+.graph-builder__node--openregister-loop {
+	box-shadow: inset 6px 0 0 0 var(--color-info, #4271b6);
 }
 
-.graph-builder__node--router {
-	border-inline-start-color: var(--color-info, #4271b6);
+.graph-builder__node--openregister-stop {
+	box-shadow: inset 6px 0 0 0 var(--color-error, #e9322d);
 }
 </style>
