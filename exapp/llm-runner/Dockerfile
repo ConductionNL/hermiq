@@ -22,11 +22,60 @@ FROM node:22-bookworm
 #   allowlist, then drops to the non-root user. The default CMD does NOT use
 #   them and runs entirely unprivileged.
 # - ca-certificates: TLS trust for the provider API hosts.
+# - jq: required by hydra's gate runner (run-hydra-gates.sh) — see the PHP
+#   toolchain block below for why this image now carries a stage toolchain.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates \
         iptables \
         gosu \
+        jq \
     && rm -rf /var/lib/apt/lists/*
+
+# --- PHP toolchain for agent-run pipeline stages -------------------------------
+# hydra's flows-first port (hydra openspec/changes/hydra-flows-first-port,
+# decisions D5/D6) makes EVERY pipeline stage a `hermiq.agent-step` instead of a
+# hydra-owned container. That only works if the agent's workload can run the
+# quality gates, and `run-hydra-gates.sh` shells out to `composer check:strict`
+# (PHPCS, PHPMD, Psalm, PHPStan) for PHP targets.
+#
+# Measured 2026-07-30, this image had claude/git/node/npm/python3/iptables/gosu
+# and was missing exactly php, composer and jq — so the Python `check_*.py`
+# gates would have run and every PHP gate would have failed. That gap was the
+# whole distance between the port's design and its gates.
+#
+# PHP 8.3, NOT bookworm's default 8.2. The Conduction fleet's composer.json
+# requires "php": "^8.3"; on 8.2 `composer install` aborts on the platform check
+# and no gate can pass. Mirrors images/builder/Dockerfile in hydra deliberately:
+# a stage that runs here must behave the same as one that ran in hydra's own
+# container, and a version skew between the two would show up as gates that pass
+# in one place and fail in the other.
+#
+# The extension set matches hydra's builder for the same parity reason. The
+# postgresql SERVER packages are not copied — those exist there for the prebuilt
+# Nextcloud test environment, which an agent-step does not carry.
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://packages.sury.org/php/apt.gpg -o /etc/apt/keyrings/sury-php.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/sury-php.gpg] https://packages.sury.org/php bookworm main" \
+        > /etc/apt/sources.list.d/sury-php.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        php8.3-cli \
+        php8.3-xml \
+        php8.3-mbstring \
+        php8.3-curl \
+        php8.3-zip \
+        php8.3-intl \
+        php8.3-bcmath \
+        php8.3-sqlite3 \
+        php8.3-pgsql \
+        php8.3-gd \
+    && rm -rf /var/lib/apt/lists/* \
+    && php -v | head -1
+
+# --- Composer -----------------------------------------------------------------
+RUN curl -sS https://getcomposer.org/installer \
+    | php -- --install-dir=/usr/local/bin --filename=composer \
+    && composer --version
 
 # --- Vendor LLM CLIs ----------------------------------------------------------
 # @anthropic-ai/claude-code is the supported distribution path for the `claude`
