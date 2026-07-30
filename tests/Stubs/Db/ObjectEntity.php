@@ -233,4 +233,62 @@ class ObjectEntity
     {
         $this->updated = $updated;
     }//end setUpdated()
+
+    /**
+     * The register id the object lives in.
+     *
+     * @var string|int|null
+     */
+    private string | int | null $register = null;
+
+    /**
+     * The schema id the object lives in.
+     *
+     * @var string|int|null
+     */
+    private string | int | null $schema = null;
+
+    /**
+     * Get the register id.
+     *
+     * @return string|int|null
+     */
+    public function getRegister(): string | int | null
+    {
+        return $this->register;
+    }//end getRegister()
+
+    /**
+     * Set the register id.
+     *
+     * @param string|int|null $register The register id.
+     *
+     * @return void
+     */
+    public function setRegister(string | int | null $register): void
+    {
+        $this->register = $register;
+    }//end setRegister()
+
+    /**
+     * Get the schema id.
+     *
+     * @return string|int|null
+     */
+    public function getSchema(): string | int | null
+    {
+        return $this->schema;
+    }//end getSchema()
+
+    /**
+     * Set the schema id.
+     *
+     * @param string|int|null $schema The schema id.
+     *
+     * @return void
+     */
+    public function setSchema(string | int | null $schema): void
+    {
+        $this->schema = $schema;
+    }//end setSchema()
 }//end class

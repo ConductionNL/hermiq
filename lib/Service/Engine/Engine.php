@@ -50,8 +50,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+ * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+ * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
  */
 
 declare(strict_types=1);
@@ -61,8 +61,10 @@ namespace OCA\Hermiq\Service\Engine;
 use Exception;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
-use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\Hermiq\Service\Talk\ConversationParticipation;
+use OCA\Hermiq\Cron\ConversationTitleJob;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\BackgroundJob\IJobList;
 use Psr\Log\LoggerInterface;
 
 /**
@@ -83,9 +85,12 @@ use Psr\Log\LoggerInterface;
  * @category Service
  * @package  OCA\Hermiq\Service\Engine
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+ * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
  *
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Facade orchestrates the handler set by design.
+ * @SuppressWarnings(PHPMD.LongVariable)           `$guardrailPolicyService` is a promoted
+ *   constructor collaborator named after its class (GuardrailPolicyService) —
+ *   shortening it would obscure which service is injected.
  */
 class Engine
 {
@@ -113,13 +118,6 @@ class Engine
     private const CONVERSATION_SCHEMA = 'conversation';
 
     /**
-     * Schema slug for message objects.
-     *
-     * @var string
-     */
-    private const MESSAGE_SCHEMA = 'message';
-
-    /**
      * Constructor.
      *
      * @param ObjectService                 $objectService          OpenRegister object read/write.
@@ -142,12 +140,30 @@ class Engine
      *                                                              configured" — fail-open,
      *                                                              design.md Decision 1); real DI
      *                                                              always provides it.
+     * @param IJobList|null                 $jobList                Queues the conversation-title job
+     *                                                              so naming never sits on the reply's
+     *                                                              critical path
+     *                                                              (session-context-performance).
+     *                                                              Nullable/defaulted for the same
+     *                                                              backward-compat reason; a null list
+     *                                                              simply means no title is queued —
+     *                                                              the reply is unaffected, which is
+     *                                                              the point of deferring it.
+     * @param ConversationParticipation     $participation          The owner-or-listed-participant
+     *                                                              guard (talk-shared-sessions).
+     *                                                              Defaulted so every existing
+     *                                                              caller constructs unchanged; the
+     *                                                              class is dependency-free.
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     * @spec openspec/changes/agent-context-system/tasks.md#task-3-1
-     * @spec openspec/changes/agent-guardrails/tasks.md#task-3-wire-inputoutput-filters-into-engineprocessmessage
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+     * @spec openspec/changes/agent-context-system/tasks.md#3-engine-wiring
+     * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-3-wire-input-output-filters-into-engine-processmessage
+     * @spec openspec/specs/agent-engine-port/spec.md
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct collaborator, not a logic-bearing argument list.
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -157,7 +173,9 @@ class Engine
         private readonly MessageHistoryHandler $historyHandler,
         private readonly ContextAssembler $contextAssembler,
         private readonly LoggerInterface $logger,
-        private readonly ?GuardrailPolicyService $guardrailPolicyService=null
+        private readonly ?GuardrailPolicyService $guardrailPolicyService=null,
+        private readonly ?IJobList $jobList=null,
+        private readonly ConversationParticipation $participation=new ConversationParticipation()
     ) {
     }//end __construct()
 
@@ -167,32 +185,55 @@ class Engine
      * Main orchestration method that coordinates all handlers. See the class
      * docblock for the binding signature/return-shape contract.
      *
-     * @param string                  $conversationId Conversation object UUID.
-     * @param string                  $userId         User id (must own the conversation).
-     * @param string                  $userMessage    User message text.
-     * @param array                   $selectedViews  View filters for multitenancy (optional).
-     * @param array                   $selectedTools  Tool registry ids to use (optional).
-     * @param array                   $ragSettings    RAG configuration overrides (optional).
-     * @param array                   $context        AI Chat Companion context snapshot the
-     *                                                frontend sent. Persisted on the
-     *                                                user-authored Message when non-empty.
-     * @param StreamYieldChannel|null $channel        Streaming channel forwarded to the response
-     *                                                handler so SSE consumers can interleave
-     *                                                `token`/`tool_call`/`tool_result` frames as
-     *                                                the LLM yields. Null for blocking callers.
-     * @param RunTraceCollector|null  $trace          Optional run-trace collector
-     *                                                (run-trace-observability); when supplied,
-     *                                                context/history/llm/tool steps are timed
-     *                                                into it and returned as the envelope's
-     *                                                `steps` key. Null for callers that do not
-     *                                                need a step timeline (zero behavior change).
-     * @param bool                    $dryRun         Whether this turn is a dry-run preview
-     *                                                (run-replay-and-dry-run); threaded onto
-     *                                                `ResponseGenerationHandler::generateResponse()`
-     *                                                so a side-effecting tool call is
-     *                                                neutralised instead of actually invoked.
-     *                                                False (every pre-existing caller) is
-     *                                                byte-for-byte unchanged behavior.
+     * @param string                  $conversationId    Conversation object UUID.
+     * @param string                  $userId            User id (must own the conversation).
+     * @param string                  $userMessage       User message text.
+     * @param array                   $selectedViews     View filters for multitenancy (optional).
+     * @param array                   $selectedTools     Tool registry ids to use (optional).
+     * @param array                   $ragSettings       RAG configuration overrides (optional).
+     * @param array                   $context           AI Chat Companion context snapshot the
+     *                                                   frontend sent. Persisted on the
+     *                                                   user-authored Message when non-empty.
+     * @param StreamYieldChannel|null $channel           Streaming channel forwarded to the response
+     *                                                   handler so SSE consumers can interleave
+     *                                                   `token`/`tool_call`/`tool_result` frames as
+     *                                                   the LLM yields. Null for blocking callers.
+     * @param RunTraceCollector|null  $trace             Optional run-trace collector
+     *                                                   (run-trace-observability);
+     *                                                   when supplied,
+     *                                                   context/history/llm/tool
+     *                                                   steps are timed into it and
+     *                                                   returned as the envelope's
+     *                                                   `steps` key. Null for
+     *                                                   callers that do not need a
+     *                                                   step timeline (zero behavior
+     *                                                   change).
+     * @param bool                    $dryRun            Whether this turn is a dry-run preview
+     *                                                   (run-replay-and-dry-run); threaded
+     *                                                   onto
+     *                                                   `ResponseGenerationHandler::generateResponse()`
+     *                                                   so a side-effecting tool call is
+     *                                                   neutralised instead of actually
+     *                                                   invoked. False (every pre-existing
+     *                                                   caller) is byte-for-byte unchanged
+     *                                                   behavior.
+     * @param array|null              $skillSetOverride  Per-run effective-skill-set override
+     *                                                   (skill uuids) for the run-loop
+     *                                                   skill-exposure seam (skill-evals): a
+     *                                                   paired eval half varies exactly this
+     *                                                   set. Null (every non-eval caller)
+     *                                                   exposes the agent's stored
+     *                                                   `skillInstalls`.
+     * @param string|null             $authorId          Uid of the human who produced this turn,
+     *                                                   persisted on the user-authored Message
+     *                                                   so a shared session records who spoke
+     *                                                   (talk-shared-sessions). Null for
+     *                                                   single-speaker callers — byte-for-byte
+     *                                                   unchanged behavior.
+     * @param string|null             $authorDisplayName That human's display name AT SEND TIME,
+     *                                                   captured deliberately and never re-resolved
+     *                                                   so a transcript stays legible after a
+     *                                                   rename or a deleted account (ADR-004).
      *
      * @return array The result envelope.
      *
@@ -201,7 +242,8 @@ class Engine
      *
      * @psalm-return array{message: string, messageId: string, sources: list<array>,
      *     timings: array{context: string, history: string, llm: string, total: string},
-     *     usage: array<string, int|float>, steps: array<int, array<string, mixed>>}
+     *     usage: array<string, int|float>, steps: array<int, array<string, mixed>>,
+     *     skillsUsed: array<int, string>}
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity)   Chat processing involves multiple handler coordination steps
      * @SuppressWarnings(PHPMD.NPathComplexity)        Many optional paths for agent, title generation, and timing
@@ -209,11 +251,14 @@ class Engine
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Each parameter is a distinct, independently
      *   optional input (run-trace-observability adds one more to an already-wide, long-established
      *   list) — grouping them would obscure, not simplify, the call site.
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag)    Dry-run preview (run-replay-and-dry-run)
+     *   is a cross-cutting mode threaded through the engine as a flag by design.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
-     * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
+     * @spec openspec/changes/archive/2026-07-12-run-trace-observability/tasks.md#task-2-thread-the-collector-through-engine-toolloop-facadetoolinvoker
+     * @spec openspec/changes/archive/2026-07-13-run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
      */
     public function processMessage(
         string $conversationId,
@@ -225,7 +270,10 @@ class Engine
         array $context=[],
         ?StreamYieldChannel $channel=null,
         ?RunTraceCollector $trace=null,
-        bool $dryRun=false
+        bool $dryRun=false,
+        ?array $skillSetOverride=null,
+        ?string $authorId=null,
+        ?string $authorDisplayName=null
     ): array {
         $this->logger->info(
             message: '[Engine] Processing message',
@@ -250,7 +298,11 @@ class Engine
             }
 
             $conversationData = $conversation->getObject();
-            if (($conversationData['userId'] ?? null) !== $userId) {
+            // Owner-or-listed-participant (talk-shared-sessions). This guard is
+            // NOT redundant with ChatController's: the Talk bridge reaches the
+            // engine from a background job without passing through the
+            // controller, so this is the only check on that path.
+            if ($this->participation->mayTakeTurn(conversationData: $conversationData, userId: $userId) === false) {
                 throw new Exception('Access denied to conversation');
             }
 
@@ -277,9 +329,24 @@ class Engine
             // after Agent.prompt). '' when the agent has none — no-op for most agents.
             $contextPreamble = $this->contextAssembler->assembleForAgent(agent: $agent, actingUserId: $userId);
 
+            // Run-loop skill-exposure seam (skill-evals): inject the effective skill
+            // set's content — a per-run override (a paired eval half), else the
+            // agent's stored skillInstalls — into the same system-prompt preamble,
+            // active skills only. '' + [] for the common no-skills agent (no-op).
+            // Defensive shape reads mirror the usage/steps handling: a test double
+            // (or future assembler swap) returning a partial bundle degrades to the
+            // no-skills case instead of warning.
+            $skillBundle = $this->contextAssembler->assembleSkillsForRun(agent: $agent, skillSetOverride: $skillSetOverride);
+            $skillText   = (string) ($skillBundle['text'] ?? '');
+            $skillsUsed  = ($skillBundle['skillsUsed'] ?? []);
+
+            if ($skillText !== '') {
+                $contextPreamble = ltrim($contextPreamble."\n\n".$skillText, "\n");
+            }
+
             // Agent-guardrails: resolve the effective GuardrailPolicy ONCE for this
             // turn (organisation comes from the conversation, exactly like
-            // maybeGenerateTitle()'s tenant-model-policy read) and apply the input
+            // ConversationTitleWriter's tenant-model-policy read) and apply the input
             // filter BEFORE the user Message is persisted and BEFORE the LLM is ever
             // called. A `block` match (PII/secret or prompt-injection) throws here —
             // no user/assistant Message is stored for this attempt (spec: "no LLM
@@ -318,53 +385,18 @@ class Engine
 
             $userMessage = (string) $inputFilter['text'];
 
-            // Agent-guardrails (hermiq-guardrail-preamble-filter): the assembled context
-            // preamble is model input too — ADR-024 Rule 3 — so it gets the SAME input
-            // filter, in its OWN filterInput() call. Two calls, never one concatenated:
-            // concatenating would destroy attribution ("did the USER try to jailbreak
-            // this agent, or does an attached document merely contain the phrase?" demand
-            // opposite responses from an operator) and would mangle the boundary between
-            // them. Runs before storeMessage() so a refused turn persists nothing,
-            // whichever boundary refused it.
-            if ($contextPreamble !== '') {
-                $preambleFilter = $this->guardrailPolicyService?->filterInput(
-                    policy: $guardrailPolicy,
-                    text: $contextPreamble
-                ) ?? ['text' => $contextPreamble, 'blocked' => false, 'reason' => null];
-
-                // Same "only an ACTION is recorded" contract as the user-message filter
-                // above: a fully-open policy inserts no step, so an organisation without
-                // a GuardrailPolicy keeps an IDENTICAL trace timeline.
-                if ($this->guardrailActed(filter: $preambleFilter, originalText: $contextPreamble) === true) {
-                    $preambleOutcome = 'redacted';
-                    if ($preambleFilter['blocked'] === true) {
-                        $preambleOutcome = 'blocked';
-                    }
-
-                    $preambleToken = $trace?->startStep(type: 'guardrail', name: 'Context preamble filter');
-                    if ($preambleToken !== null) {
-                        $trace?->endStep(token: $preambleToken, outcome: $preambleOutcome);
-                    }
-                }
-
-                if ($preambleFilter['blocked'] === true) {
-                    throw new GuardrailBlockedException(
-                        reason: $this->contextReasonFor(reason: $preambleFilter['reason'])
-                    );
-                }
-
-                // The model only ever sees the masked text — same contract as the user
-                // message.
-                $contextPreamble = (string) $preambleFilter['text'];
-            }
-
-            // Store user message with the CnAiContext snapshot.
+            // Store user message with the CnAiContext snapshot. Authorship is
+            // threaded through to this single writer rather than persisted by
+            // the caller, so a shared session records who spoke without any
+            // path double-storing the turn (talk-shared-sessions).
             $this->historyHandler->storeMessage(
                 conversationId: $conversationId,
                 role: 'user',
                 content: $userMessage,
                 sources: null,
-                context: $cnAiContext
+                context: $cnAiContext,
+                authorId: $authorId,
+                authorDisplayName: $authorDisplayName
             );
 
             // Check if conversation needs summarization.
@@ -460,21 +492,26 @@ class Engine
                 sources: $context['sources']
             );
 
-            // Generate a title if this is the first exchange.
-            $this->maybeGenerateTitle(
-                conversation: $conversation,
+            // Name the conversation OFF this path. Naming is a second LLM round trip —
+            // on the `cli` transport a second `claude` process, ~20s of a ~65s wall — and
+            // nothing below depends on the title, so the user should not wait for it.
+            // ConversationTitleWriter re-reads the conversation and re-checks whether it
+            // still wants a title, so the decision stays correct even though it is made
+            // later.
+            $this->queueTitleGeneration(
                 conversationId: $conversationId,
-                userMessage: $userMessage
+                userMessage: $userMessage,
+                userId: $userId
             );
 
             $totalTime = ($contextTime + $historyTime + $llmTime);
 
             return [
-                'message'   => $aiResponse,
+                'message'    => $aiResponse,
                 // Surface the persisted assistant message id for SSE consumers.
-                'messageId' => (string) ($assistantStored->getUuid() ?? ''),
-                'sources'   => $context['sources'],
-                'timings'   => [
+                'messageId'  => (string) ($assistantStored->getUuid() ?? ''),
+                'sources'    => $context['sources'],
+                'timings'    => [
                     'context' => round($contextTime, 2).'s',
                     'history' => round($historyTime, 3).'s',
                     'llm'     => round($llmTime, 2).'s',
@@ -483,10 +520,15 @@ class Engine
                 // Per-run LLM token/latency usage for run-cost recording
                 // (run-analytics / ScheduleService::lastRunUsage) — load-bearing,
                 // see class docblock.
-                'usage'     => $this->responseHandler->lastUsage,
+                'usage'      => $this->responseHandler->lastUsage,
                 // Run-trace-observability: the collector's full ordered step
                 // timeline, empty when no collector was supplied.
-                'steps'     => $trace?->toArray() ?? [],
+                'steps'      => $trace?->toArray() ?? [],
+                // Skill-evals: the skill uuids actually exposed to this run's
+                // context (active skills of the effective set) — captured by
+                // ScheduleService as lastRunSkillsUsed and recorded on the run's
+                // audit entry for ALL runs (skill-learnings consumes it later).
+                'skillsUsed' => $skillsUsed,
             ];
         } catch (Exception $e) {
             $this->logger->error(
@@ -510,7 +552,7 @@ class Engine
      *
      * @return string Generated title.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
      */
     public function generateConversationTitle(string $firstMessage): string
     {
@@ -529,7 +571,7 @@ class Engine
      *
      * @return string Unique title.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#1-port-the-chat-engine
      */
     public function ensureUniqueTitle(string $baseTitle, string $userId, string $agentId): string
     {
@@ -542,75 +584,51 @@ class Engine
     }//end ensureUniqueTitle()
 
     /**
-     * Generate and persist a conversation title when this is the first exchange
-     * (message count <= 2 and the current title is unset or a "New Conversation"
-     * placeholder).
+     * Queue the conversation-title generation instead of running it inline.
      *
-     * The persisted-count probe fetches at most 3 Message objects — enough to
-     * decide `count <= 2` — instead of a full count query (the ported original
-     * used `MessageMapper::countByConversation()`; ObjectService's `count()`
-     * needs ambient register/schema context, and a limit-3 fetch is equivalent
-     * for a boolean threshold this small).
+     * Naming a conversation costs a second LLM round trip — on the `cli` transport a
+     * whole second `claude` process. It used to run synchronously right after the
+     * reply was stored, so the user waited ~20s of a ~65s wall for a string they had
+     * not asked for and were not yet reading.
      *
-     * NOTE (save-side gotcha, load-bearing): the payload is routed through
-     * `sanitizeForSave()` and the `$conversation` entity is NOT re-read after
-     * `saveObject()` — the returned in-memory entity is stale by contract.
+     * Only the enqueue happens here. Whether the conversation actually wants a title
+     * is decided by ConversationTitleWriter at write time, against a fresh read —
+     * which is strictly more correct than deciding it here: by the time the job runs
+     * the user may have titled the conversation themselves, and a snapshot taken now
+     * would happily overwrite them.
      *
-     * @param ObjectEntity $conversation   The Conversation object (pre-save state).
-     * @param string       $conversationId The conversation UUID.
-     * @param string       $userMessage    The user message to derive a title from.
+     * A null `$jobList` (test callers constructed before this parameter existed)
+     * simply means no title is queued. That is a safe default precisely because the
+     * title is not on the reply's path.
+     *
+     * @param string $conversationId The conversation UUID.
+     * @param string $userMessage    The user message to name the conversation from.
+     * @param string $userId         The conversation owner, carried into the job so it can
+     *                               run as them. A job has no session, and naming needs an
+     *                               identity twice over: the credential broker will not
+     *                               resolve a provider credential for an anonymous
+     *                               principal, and OpenRegister RBAC refuses the write.
      *
      * @return void
+     *
+     * @spec openspec/specs/agent-engine-port/spec.md
      */
-    private function maybeGenerateTitle(
-        ObjectEntity $conversation,
-        string $conversationId,
-        string $userMessage
-    ): void {
-        $recentMessages = $this->objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::MESSAGE_SCHEMA)
-            ->findAll(
-                config: [
-                    'filters' => ['conversationId' => $conversationId],
-                    'limit'   => 3,
-                ]
-            );
-        $messageCount   = count($recentMessages);
-
-        $conversationData    = $conversation->getObject();
-        $currentTitle        = $conversationData['title'] ?? null;
-        $isNewConversation   = ($currentTitle === null || strpos($currentTitle, 'New Conversation') === 0);
-        $shouldGenerateTitle = ($messageCount <= 2 && $isNewConversation === true);
-
-        if ($shouldGenerateTitle === false) {
+    private function queueTitleGeneration(string $conversationId, string $userMessage, string $userId): void
+    {
+        if ($this->jobList === null) {
             return;
         }
 
-        // Tenant-model-policy: the conversation already carries its organisation
-        // (ObjectEntity metadata) — no new lookup needed to enforce the effective
-        // policy on this background title-generation call too.
-        $organisation = (string) ($conversation->getOrganisation() ?? '');
-        $title        = $this->conversationHandler->generateConversationTitle(firstMessage: $userMessage, organisation: $organisation);
-        $agentId      = $conversationData['agentId'] ?? null;
-        if (is_string($agentId) === true && $agentId !== '') {
-            $title = $this->conversationHandler->ensureUniqueTitle(
-                baseTitle: $title,
-                userId: (string) ($conversationData['userId'] ?? ''),
-                agentId: $agentId
-            );
-        }
-
-        $conversationData['title'] = $title;
-
-        $this->objectService->saveObject(
-            object: $this->sanitizeForSave(data: $conversationData),
-            register: self::REGISTER_SLUG,
-            schema: self::CONVERSATION_SCHEMA,
-            uuid: $conversationId
+        $this->jobList->add(
+            ConversationTitleJob::class,
+            [
+                'conversationId' => $conversationId,
+                'userMessage'    => $userMessage,
+                'userId'         => $userId,
+            ]
         );
 
-    }//end maybeGenerateTitle()
+    }//end queueTitleGeneration()
 
     /**
      * Resolve the effective GuardrailPolicy for an organisation, or the
@@ -622,7 +640,7 @@ class Engine
      *
      * @return array<string,mixed> The effective policy.
      *
-     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
+     * @spec openspec/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
      */
     private function resolveGuardrailPolicy(string $organisation): array
     {
@@ -652,7 +670,7 @@ class Engine
      *
      * @return bool
      *
-     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
+     * @spec openspec/specs/agent-guardrails/spec.md#requirement-every-guardrail-action-is-visible-in-run-history
      */
     private function guardrailActed(array $filter, string $originalText): bool
     {
@@ -663,30 +681,4 @@ class Engine
         return ((string) $filter['text']) !== $originalText;
 
     }//end guardrailActed()
-
-    /**
-     * Suffix a guardrail reason code so it names the BOUNDARY that matched, not just
-     * what matched. "The user tried to jailbreak this agent" and "an attached document
-     * contains the phrase" demand opposite responses from an operator
-     * (hermiq-guardrail-preamble-filter design.md Decision 3). Suffixing — rather than a
-     * hand-written code per case — preserves BOTH facts the operator needs (WHAT matched,
-     * and WHERE it came from) and stays correct if `GuardrailPolicyService` ever grows a
-     * third reason code, where a `match` would silently fall through to a wrong or null
-     * reason.
-     *
-     * @param string|null $reason The filter's reason code (`prompt_injection`|`sensitive_content`).
-     *
-     * @return string The `_in_context`-suffixed code, e.g. `prompt_injection_in_context`.
-     *
-     * @spec openspec/changes/hermiq-guardrail-preamble-filter/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
-     */
-    private function contextReasonFor(?string $reason): string
-    {
-        if ($reason === null || $reason === '') {
-            return 'context_blocked';
-        }
-
-        return $reason.'_in_context';
-
-    }//end contextReasonFor()
 }//end class

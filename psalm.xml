@@ -67,6 +67,7 @@
                 <referencedClass name="OCA\OpenRegister\Db\ObjectEntity"/>
                 <referencedClass name="OCA\OpenRegister\Db\RegisterMapper"/>
                 <referencedClass name="OCA\OpenRegister\Db\SchemaMapper"/>
+                <referencedClass name="OCA\OpenRegister\Db\AuditTrailMapper"/>
                 <referencedClass name="OCA\OpenRegister\Event\DeepLinkRegistrationEvent"/>
                 <referencedClass name="OCA\OpenRegister\Event\ObjectCreatingEvent"/>
                 <referencedClass name="OCA\OpenRegister\Event\ObjectCreatedEvent"/>
@@ -136,5 +137,10 @@
     </issueHandlers>
     <extraFiles>
         <directory name="vendor/nextcloud/ocp" />
+        <!-- Declaration-only stubs for OpenRegister/Talk contracts (soft runtime
+             dependencies). Scanned, never analysed, never autoloaded at runtime;
+             the real classes win whenever OpenRegister is enabled. Same
+             "share the contract" pattern as nldesign (2e0eab2). -->
+        <directory name="tests/Stubs" />
     </extraFiles>
 </psalm>

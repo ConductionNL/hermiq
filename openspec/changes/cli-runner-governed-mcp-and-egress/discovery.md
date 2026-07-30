@@ -119,6 +119,39 @@ still enforces the owner and `allowedApps` guards.
   runs **text-only** when tools are present without an executor
   (`lib/Service/Llm/ProviderFactory.php:624-635`). The `cli` path must raise instead.
 
+### 7. VERIFIED (Task 1, 2026-07-16): the CLI's http-MCP client works — and is a strict schema validator
+
+Task 1 required verifying the `type:"http"` MCP transport BEFORE building against it. Done, against the real
+CLI (`claude` 2.1.204), not a stub:
+
+```
+claude mcp add --transport http openregister \
+  http://localhost:8080/index.php/apps/openregister/api/mcp \
+  --header "Authorization: Basic <base64 admin:admin>" --header "OCS-APIRequest: true"
+claude mcp list
+```
+
+- **`type:"http"` MCP works.** The CLI connected to a live Nextcloud MCP endpoint.
+- **Custom `headers` ARE forwarded.** The endpoint requires `Authorization` + `OCS-APIRequest`; it returned
+  200 and issued an `Mcp-Session-Id`, which only happens if both headers arrived. So the design's
+  `headers: {Authorization: "Bearer <run-token>"}` is sound — the run token can ride the MCP config.
+- 🔥 **The CLI's MCP client is a STRICT JSON-Schema validator.** First attempt:
+  `! Connected · tools fetch failed — Invalid input: expected record, received array (at
+  tools.14.inputSchema.properties) (+2 more)`. It connected and authenticated, then rejected the **entire**
+  `tools/list` because argument-less tools serialised `inputSchema.properties` as `[]` (PHP `json_encode` of
+  an empty array) instead of `{}`. **One no-parameter tool breaks every tool the server exposes.** Fixed
+  centrally in OpenRegister (`McpToolsService::listTools()` → `stdClass`, openregister#456); `claude mcp list`
+  then reported **`✔ Connected`**.
+  **Consequence for this change:** Hermiq's `McpRunController` MUST emit `inputSchema.properties` as an object
+  for every tool — the same `json_encode([])` trap fixed for the Anthropic provider in hermiq#93. This is now
+  an explicit acceptance criterion, not a hope.
+- ⚠️ **NOT verified: whether MCP traffic honours `HTTPS_PROXY`.** Not exercised. Task 8 must confirm before
+  relying on it; until then the Hermiq origins default to a `NO_PROXY` bypass (which also avoids the
+  circularity of the proxy asking Hermiq for permission to reach Hermiq).
+
+Nothing here contradicts the design — the transport, the header-borne token, and the governed-endpoint shape
+all hold. The one correction is a hard requirement on our own JSON serialisation.
+
 ## Next Steps
 
 Proceed to specs for this change (chain link 3). Scaffold the two predecessors —

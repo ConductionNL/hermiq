@@ -50,6 +50,9 @@ use Throwable;
  *
  * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
  *   distinct injected collaborator, not a logic-bearing argument list.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One injected collaborator per seam
+ *   (budget service, user session, group manager, org mapper, logger) plus the HTTP
+ *   response/exception types every endpoint returns.
  *
  * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
  */

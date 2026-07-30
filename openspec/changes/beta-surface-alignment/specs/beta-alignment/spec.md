@@ -17,9 +17,9 @@ identical to their `lang="en"` counterpart.
 - **THEN** neither Dutch field MUST be an exact copy of its English counterpart
 
 ### Requirement: A public product page MUST exist at conduction.nl/apps/hermiq in both locales
+Both locale pages MUST exist and describe the same canonical feature list:
 `conduction-website/src/pages/apps/hermiq.mdx` (English) and
-`conduction-website/i18n/nl/docusaurus-plugin-content-pages/apps/hermiq.mdx` (Dutch)
-MUST both exist and describe the same canonical feature list.
+`conduction-website/i18n/nl/docusaurus-plugin-content-pages/apps/hermiq.mdx` (Dutch).
 
 #### Scenario: A visitor requests the Hermiq product page in English
 - **GIVEN** `conduction-website/src/pages/apps/hermiq.mdx`

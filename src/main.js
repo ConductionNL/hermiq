@@ -5,15 +5,15 @@
 // (the CnIconPicker MDI catalogue, the toast-ui markdown editor) triggers
 // lazy-chunk loading from the wrong path.
 import './publicPath.js'
-import Vue from 'vue'
-import VueRouter from 'vue-router'
-import { PiniaVuePlugin } from 'pinia'
+import { createApp } from 'vue'
+import { createRouter, createWebHistory } from 'vue-router'
 import { translate as t, translatePlural as n, loadTranslations, register } from '@nextcloud/l10n'
 import enTranslations from '../l10n/en.json'
 import { generateUrl } from '@nextcloud/router'
 import {
 	CnPageRenderer,
 	defaultPageTypes,
+	registerBuiltinDashboardWidgets,
 	registerIcons,
 	registerTranslations,
 } from '@conduction/nextcloud-vue'
@@ -25,6 +25,7 @@ import customComponents from './customComponents.js'
 // Both props coexist during the v1 → v2 transition.
 // Once fully migrated to v2, remove the customComponents import and prop.
 import registry from './registry.js'
+import appIcons from './icons.js'
 
 // Library CSS — must be explicit import (webpack tree-shakes side-effect imports from aliased packages)
 import '@conduction/nextcloud-vue/css/index.css'
@@ -32,12 +33,21 @@ import '@conduction/nextcloud-vue/css/index.css'
 // Global (unscoped) app styles
 import './assets/app.css'
 
-Vue.mixin({ methods: { t, n } })
-Vue.use(PiniaVuePlugin)
-Vue.use(VueRouter)
+// Vue 3 (ADR-066): global t/n install via app.config.globalProperties after
+// createApp (below); pinia + router install via app.use. @vue/compat has been
+// REMOVED — hermiq's source carries no Vue-2 constructs, and the compat runtime
+// breaks the published (pre-compiled Vue-3) @conduction/nextcloud-vue dist.
 
 // Register library-side icon set + lib translations once at bootstrap.
-registerIcons()
+registerIcons(appIcons)
+// Populate the shared dashboard widget catalog. The library's widgets
+// self-register as an import side effect, but webpack drops a bare side-effect
+// import from a package whose exports it can tree-shake — so without this
+// explicit no-op call EVERY registry widget type (stat, gauge, chart,
+// flow-runs, …) resolves to nothing and its tile renders "Widget not
+// available". Silent: no console error, and a custom widget in the same grid
+// still renders, so the dashboard looks half-built rather than mis-wired.
+registerBuiltinDashboardWidgets()
 try {
 	registerTranslations()
 } catch (e) {
@@ -97,13 +107,13 @@ function routesFromManifest(manifest) {
 		props: page.route.includes(':'),
 	}))
 	// Catch-all: redirect unknown paths to the first page (the dashboard).
-	routes.push({ path: '*', redirect: '/' })
+	// vue-router 4 replaces the `*` wildcard with a named param matcher.
+	routes.push({ path: '/:pathMatch(.*)*', redirect: '/' })
 	return routes
 }
 
-const router = new VueRouter({
-	mode: 'history',
-	base: generateUrl('/apps/hermiq'),
+const router = createRouter({
+	history: createWebHistory(generateUrl('/apps/hermiq')),
 	routes: routesFromManifest(bundledManifest),
 })
 
@@ -123,16 +133,15 @@ const customComponentsProp = { ...customComponents }
 // customComponents prop can be removed.
 const registryProp = { ...registry }
 
-// eslint-disable-next-line no-new
-new Vue({
-	pinia,
-	router,
-	render: (h) => h(App, {
-		props: {
-			manifest: bundledManifest,
-			customComponents: customComponentsProp,
-			pageTypes: pageTypesProp,
-			registry: registryProp,
-		},
-	}),
-}).$mount('#content')
+const app = createApp(App, {
+	manifest: bundledManifest,
+	customComponents: customComponentsProp,
+	pageTypes: pageTypesProp,
+	registry: registryProp,
+})
+// Vue 3: global helpers replace Vue.mixin({ methods: { t, n } }).
+app.config.globalProperties.t = t
+app.config.globalProperties.n = n
+app.use(pinia)
+app.use(router)
+app.mount('#content')

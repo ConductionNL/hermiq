@@ -18,16 +18,16 @@
 			class="talk-delivery__select"
 			:input-label="t('hermiq', 'Default delivery room')"
 			:options="options"
-			:value="selected"
+			:model-value="selected"
 			:loading="loading"
 			:clearable="false"
 			label="name"
 			:placeholder="t('hermiq', 'Search your rooms…')"
-			@input="onSelect" />
+			@update:modelValue="onSelect" />
 		<div class="talk-delivery__new">
 			<NcTextField
+				v-model="newName"
 				class="talk-delivery__new-name"
-				:value.sync="newName"
 				:label="t('hermiq', 'Create a new room')"
 				:placeholder="t('hermiq', 'e.g. Hermiq')" />
 			<NcButton

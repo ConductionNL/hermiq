@@ -56,9 +56,12 @@ use Throwable;
  * Computes compliance-control status from live governance data and assembles the
  * dashboard, auditor's-pack export, and per-agent AI factsheet.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) Coordinates the five existing
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Coordinates the five existing
  *   evidence-seam services, mirroring TenantOpsService's own multi-seam coordinator
  *   shape — each evidence branch is independently simple.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Same coordinator shape: each control
+ *   framework/evidence seam contributes its own small status branch; the sum crosses the
+ *   class-wide threshold without any single method being complex.
  *
  * @spec openspec/changes/compliance-control-packs/tasks.md#task-3-complianceservice-computed-evidence-mapping
  */
@@ -660,6 +663,9 @@ class ComplianceService
      * @param ObjectEntity $approval The approval object.
      *
      * @return array<string, mixed>
+     *
+     * @SuppressWarnings(PHPMD.UnusedPrivateMethod) Invoked via the `[$this, 'shapeApprovalForFactsheet']`
+     *   array-callable in `factsheet()` — PHPMD cannot see array-callable references.
      */
     private function shapeApprovalForFactsheet(ObjectEntity $approval): array
     {
@@ -680,6 +686,9 @@ class ComplianceService
      * @param ObjectEntity $incident The incident object.
      *
      * @return array<string, mixed>
+     *
+     * @SuppressWarnings(PHPMD.UnusedPrivateMethod) Invoked via the `[$this, 'shapeIncidentForFactsheet']`
+     *   array-callable in `factsheet()` — PHPMD cannot see array-callable references.
      */
     private function shapeIncidentForFactsheet(ObjectEntity $incident): array
     {

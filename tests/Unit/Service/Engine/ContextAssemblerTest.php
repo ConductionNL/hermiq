@@ -297,122 +297,6 @@ class ContextAssemblerTest extends TestCase
     }//end testNoExtraSaveWhenFlagUnchanged()
 
     /**
-     * A valid `documents` entry renders as a titled section (its `name`) alongside
-     * files/object-queries, and a malformed entry (missing `body`) is skipped without
-     * aborting the rest of the assembly (hermiq-context-documents).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-contextassembler-renders-documents-into-the-budgeted-preamble
-     */
-    public function testDocumentsRenderAndMalformedEntryIsSkipped(): void
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('find')->willReturn(
-            $this->context(
-                [
-                    'name'      => 'Project reference',
-                    'documents' => [
-                        ['name' => 'design.md', 'body' => "# Design\nSome design content.", 'format' => 'markdown'],
-                        ['name' => 'incomplete'],
-                        // Missing `body` — must be skipped, not fatal.
-                        'not-an-object',
-                        // Non-array entry — must be skipped, not fatal.
-                    ],
-                    'files'      => [['path' => 'notes.md']],
-                    'charBudget' => 8000,
-                ]
-            )
-        );
-
-        $rootFolder = $this->rootFolderWithFiles(['notes.md' => 'Some reference text.']);
-
-        $assembler = new ContextAssembler($objectService, $rootFolder, new NullLogger());
-        $result    = $assembler->assemble(contextId: 'ctx-uuid', actingUserId: 'alice');
-
-        $this->assertStringContainsString('Context: Project reference', $result['text']);
-        $this->assertStringContainsString('Source: design.md', $result['text']);
-        $this->assertStringContainsString('Some design content.', $result['text']);
-        $this->assertStringNotContainsString('incomplete', $result['text']);
-        $this->assertStringContainsString('Some reference text.', $result['text']);
-        $this->assertFalse($result['needsConsolidation']);
-
-    }//end testDocumentsRenderAndMalformedEntryIsSkipped()
-
-    /**
-     * A Context with no `documents` value (absent) assembles exactly as it did before
-     * this change — files/object-queries only, no extra section.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-contextassembler-renders-documents-into-the-budgeted-preamble
-     */
-    public function testNoDocumentsAssemblesIdenticallyToPreChange(): void
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('find')->willReturn(
-            $this->context(
-                [
-                    'name'       => 'No documents',
-                    'files'      => [['path' => 'notes.md']],
-                    'charBudget' => 8000,
-                ]
-            )
-        );
-
-        $rootFolder = $this->rootFolderWithFiles(['notes.md' => 'Some reference text.']);
-
-        $assembler = new ContextAssembler($objectService, $rootFolder, new NullLogger());
-        $result    = $assembler->assemble(contextId: 'ctx-uuid', actingUserId: 'alice');
-
-        $this->assertSame("Context: No documents\nSource: notes.md\nSome reference text.", $result['text']);
-        $this->assertFalse($result['needsConsolidation']);
-
-    }//end testNoDocumentsAssemblesIdenticallyToPreChange()
-
-    /**
-     * A `documents` body pushing the assembled bundle over `charBudget` flags
-     * `needsConsolidation` inside the EXISTING budget contract — no new/separate budget,
-     * and the text is never truncated.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-documents-share-the-existing-budget-contract
-     */
-    public function testDocumentPushesBundleOverExistingBudget(): void
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('find')->willReturn(
-            $this->context(
-                [
-                    'name'       => 'Big document bundle',
-                    'documents'  => [
-                        ['name' => 'design.md', 'body' => 'This document body is way more than five characters.'],
-                    ],
-                    'charBudget' => 5,
-                ]
-            )
-        );
-
-        $saved = [];
-        $objectService->method('saveObject')->willReturnCallback(
-            function (array $object) use (&$saved): ObjectEntity {
-                $saved[] = $object;
-                return new ObjectEntity();
-            }
-        );
-
-        $assembler = new ContextAssembler($objectService, $this->createMock(IRootFolder::class), new NullLogger());
-        $result    = $assembler->assemble(contextId: 'ctx-uuid', actingUserId: 'alice');
-
-        $this->assertTrue($result['needsConsolidation']);
-        $this->assertStringContainsString('This document body is way more than five characters.', $result['text'], 'The text must never be truncated.');
-        $this->assertCount(1, $saved, 'The flag flip must be persisted.');
-        $this->assertTrue($saved[0]['needsConsolidation']);
-
-    }//end testDocumentPushesBundleOverExistingBudget()
-
-    /**
      * assembleForAgent concatenates every referenced Context and returns '' for a null
      * agent or an agent with no contextRefs.
      *
@@ -454,4 +338,156 @@ class ContextAssemblerTest extends TestCase
         $this->assertStringContainsString('Context: B', $combined);
 
     }//end testAssembleForAgentConcatenatesAndNoOps()
+
+    /**
+     * A Skill ObjectEntity with the given payload.
+     *
+     * @param string               $uuid    The skill uuid.
+     * @param array<string, mixed> $payload The object data.
+     *
+     * @return ObjectEntity
+     */
+    private function skill(string $uuid, array $payload): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid($uuid);
+        $entity->setObject($payload);
+        return $entity;
+
+    }//end skill()
+
+    /**
+     * An ObjectService mock serving the given skills by uuid.
+     *
+     * @param array<string, ObjectEntity> $skills Skills by uuid.
+     *
+     * @return ObjectService
+     */
+    private function skillObjectService(array $skills): ObjectService
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturnCallback(
+            static fn (string $id): ?ObjectEntity => ($skills[$id] ?? null)
+        );
+        return $objectService;
+
+    }//end skillObjectService()
+
+    /**
+     * The run-loop seam (skill-evals): with NO override, the agent's stored
+     * skillInstalls are resolved and each active skill's name/description/body is
+     * injected; the exposed uuids come back as skillsUsed.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function testAssembleSkillsExposesStoredInstallsWhenNoOverride(): void
+    {
+        $assembler = new ContextAssembler(
+            $this->skillObjectService([
+                'sk-1' => $this->skill('sk-1', ['name' => 'woo-triage', 'description' => 'Triage WOO requests', 'body' => 'Always compute the deadline.', 'state' => 'active']),
+            ]),
+            $this->createMock(IRootFolder::class),
+            new NullLogger()
+        );
+
+        $bundle = $assembler->assembleSkillsForRun(agent: $this->agent(['skillInstalls' => ['sk-1']]));
+
+        $this->assertSame(['sk-1'], $bundle['skillsUsed']);
+        $this->assertStringContainsString('Skill: woo-triage', $bundle['text']);
+        $this->assertStringContainsString('Triage WOO requests', $bundle['text']);
+        $this->assertStringContainsString('Always compute the deadline.', $bundle['text']);
+
+    }//end testAssembleSkillsExposesStoredInstallsWhenNoOverride()
+
+    /**
+     * A per-run override REPLACES the stored installs entirely (the paired-eval
+     * detachment seam): stored installs are not read when an override is given,
+     * and an empty override exposes nothing.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-baseline-detachment-is-per-run-and-in-memory-only
+     */
+    public function testOverrideReplacesStoredInstalls(): void
+    {
+        $assembler = new ContextAssembler(
+            $this->skillObjectService([
+                'sk-installed' => $this->skill('sk-installed', ['name' => 'installed', 'body' => 'I', 'state' => 'active']),
+                'sk-linked'    => $this->skill('sk-linked', ['name' => 'linked', 'body' => 'L', 'state' => 'active']),
+            ]),
+            $this->createMock(IRootFolder::class),
+            new NullLogger()
+        );
+
+        $agent = $this->agent(['skillInstalls' => ['sk-installed']]);
+
+        // Override wins: only the linked skill is exposed.
+        $bundle = $assembler->assembleSkillsForRun(agent: $agent, skillSetOverride: ['sk-linked']);
+        $this->assertSame(['sk-linked'], $bundle['skillsUsed']);
+        $this->assertStringNotContainsString('Skill: installed', $bundle['text']);
+
+        // Empty override: the without-half of an agent whose every install is
+        // linked — nothing is exposed despite the stored install.
+        $empty = $assembler->assembleSkillsForRun(agent: $agent, skillSetOverride: []);
+        $this->assertSame([], $empty['skillsUsed']);
+        $this->assertSame('', $empty['text']);
+
+    }//end testOverrideReplacesStoredInstalls()
+
+    /**
+     * Non-active skills are NEVER exposed — quarantined content cannot reach a run
+     * context via an install or an override (marketplace approval gate) — and an
+     * unresolvable uuid is skipped, never fatal.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function testNonActiveAndMissingSkillsAreNeverExposed(): void
+    {
+        $assembler = new ContextAssembler(
+            $this->skillObjectService([
+                'sk-active'      => $this->skill('sk-active', ['name' => 'good', 'body' => 'G', 'state' => 'active']),
+                'sk-quarantined' => $this->skill('sk-quarantined', ['name' => 'evil', 'body' => 'INJECT', 'state' => 'quarantined']),
+                'sk-stale'       => $this->skill('sk-stale', ['name' => 'old', 'body' => 'O', 'state' => 'stale']),
+            ]),
+            $this->createMock(IRootFolder::class),
+            new NullLogger()
+        );
+
+        $bundle = $assembler->assembleSkillsForRun(
+            agent: null,
+            skillSetOverride: ['sk-active', 'sk-quarantined', 'sk-stale', 'sk-missing']
+        );
+
+        $this->assertSame(['sk-active'], $bundle['skillsUsed']);
+        $this->assertStringContainsString('Skill: good', $bundle['text']);
+        $this->assertStringNotContainsString('INJECT', $bundle['text']);
+        $this->assertStringNotContainsString('Skill: old', $bundle['text']);
+
+    }//end testNonActiveAndMissingSkillsAreNeverExposed()
+
+    /**
+     * No agent and no override is a clean no-op (the common skill-less run).
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-evals/spec.md#requirement-the-engine-run-loop-exposes-the-effective-skill-set-to-a-run
+     */
+    public function testNoAgentNoOverrideIsANoOp(): void
+    {
+        $assembler = new ContextAssembler(
+            $this->skillObjectService([]),
+            $this->createMock(IRootFolder::class),
+            new NullLogger()
+        );
+
+        $bundle = $assembler->assembleSkillsForRun(agent: null);
+
+        $this->assertSame('', $bundle['text']);
+        $this->assertSame([], $bundle['skillsUsed']);
+
+    }//end testNoAgentNoOverrideIsANoOp()
 }//end class

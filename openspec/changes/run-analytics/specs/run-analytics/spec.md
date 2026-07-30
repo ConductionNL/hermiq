@@ -28,9 +28,9 @@ in their organisation, and MUST NOT show data belonging to a different organisat
   schedules' run entries are aggregated)
 
 ### Requirement: Cost/token/tool-usage surfaced honestly
-Where Hermiq's run entry does not record LLM cost, token, or tool-usage data, the system
-MUST surface those metrics as unavailable (awaiting OpenRegister run-cost recording) rather
-than presenting fabricated values.
+The system MUST surface LLM cost, token, and tool-usage metrics as unavailable
+(awaiting OpenRegister run-cost recording) wherever Hermiq's run entry does not
+record them, rather than presenting fabricated values.
 
 #### Scenario: The analytics view renders without OR cost data
 - **WHEN** the analytics view renders and OR has not recorded per-run token/cost/tool data

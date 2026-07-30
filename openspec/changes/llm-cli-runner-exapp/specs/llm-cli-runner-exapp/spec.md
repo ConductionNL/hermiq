@@ -8,15 +8,16 @@ An optional, hardened Nextcloud ExApp sidecar that runs vendor LLM CLIs (`claude
 
 ### Requirement: Optional CLI execution mode routes turns through the runner ExApp
 
-@e2e exclude ExApp sidecar transport — covered by PHPUnit (driver) + the ExApp's own container tests
+Each Hermiq chat provider that supports a vendor CLI (`anthropic`, `openai`, `grok`) MUST accept an `executionMode` of `http` (default — the existing `BrokerHttpClient` path) or `cli`. In `cli` mode, `ProviderFactory` MUST dispatch the fully-assembled turn (system prompt + message history) to the `hermiq-llm-runner` ExApp's `POST /run` endpoint and map the CLI's structured output back into the `ChatDriver` response and the six-event SSE envelope. `cli` mode MUST fail with a clear `ProviderUnavailableException` (503) when the ExApp is not installed/enabled.
 
-Each Hermiq chat provider that supports a vendor CLI (`anthropic`, `openai`, `grok`) MUST accept an `executionMode` of `http` (default — the existing `BrokerHttpClient` path) or `cli`. In `cli` mode, `ProviderFactory` MUST dispatch the fully-assembled turn (system prompt + message history + tool schema) to the `hermiq-llm-runner` ExApp's `POST /run` endpoint and map the CLI's structured output back into the `ChatDriver` response and the six-event SSE envelope. `cli` mode MUST fail with a clear `ProviderUnavailableException` (503) when the ExApp is not installed/enabled.
+**Corrected 2026-07-16** — this requirement originally said the dispatched turn carries a **tool schema**. It cannot: `claude -p` accepts no tool schema (`--tools` selects from the CLI's BUILT-IN set; `--allowedTools`/`--disallowedTools` only filter names). Verified against the real CLI. Custom tools reach a vendor CLI **only via MCP**, which is why tool-carrying `cli` turns are served by the governed MCP endpoint in `cli-runner-governed-mcp-and-egress`, not by a `tools` field on this payload.
 
 #### Scenario: default execution mode is http
 
 - **GIVEN** an `anthropic` provider with no `executionMode` set
 - **WHEN** the driver is resolved
 - **THEN** it uses the `BrokerHttpClient` HTTP path (no dependency on the ExApp)
+@e2e exclude ExApp sidecar transport — covered by PHPUnit (driver) + the ExApp's own container tests
 
 #### Scenario: cli mode dispatches to the runner
 
@@ -32,7 +33,9 @@ Each Hermiq chat provider that supports a vendor CLI (`anthropic`, `openai`, `gr
 
 ### Requirement: The runner is hardened — no general internet, no file/host access
 
-The `hermiq-llm-runner` container MUST run **non-root**; MUST restrict network egress to the configured LLM provider API hosts only (e.g. `api.anthropic.com`, `api.openai.com`, the Grok API host) with **no general internet access**; and MUST NOT mount Nextcloud user data or the host filesystem. It MUST accept only the turn payload Hermiq sends and return only the model completion — it MUST NOT read OpenRegister objects, the user's files, or any host path. Its `/run` endpoint MUST require the AppAPI shared secret so only Hermiq can call it.
+The `hermiq-llm-runner` container MUST run **non-root**; MUST restrict network egress to the configured LLM provider API hosts (e.g. `api.anthropic.com`, `api.openai.com`, the Grok API host) **plus exactly the token-gated Hermiq origins that serve governed tools and governed egress**, with **no general internet access**; and MUST NOT mount Nextcloud user data or the host filesystem. It MUST NOT read OpenRegister objects, the user's files, or any host path directly — any tool it invokes goes through Hermiq's governed MCP endpoint, where the per-agent grant, guardrails, approval gate and redaction apply. Its `/run` endpoint MUST require the AppAPI shared secret so only Hermiq can call it.
+
+**Corrected 2026-07-16** — this requirement originally said the container reaches **no Nextcloud host at all**. That is narrowed to exactly the token-gated Hermiq origins introduced by `cli-runner-governed-mcp-and-egress`: without a reachable Hermiq origin the CLI can have no governed tools. All other hardening (non-root, no mounts, no general internet, env-only credentials) is unchanged, and the container still reaches nothing else.
 
 #### Scenario: egress is allowlisted to provider hosts
 

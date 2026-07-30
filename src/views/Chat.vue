@@ -45,22 +45,22 @@
 				<div class="chat-page__tabs">
 					<NcCheckboxRadioSwitch
 						:button-variant="true"
-						:checked="showArchive ? 'archive' : 'active'"
+						:model-value="showArchive ? 'archive' : 'active'"
 						value="active"
 						name="chat_list_tab"
 						type="radio"
 						button-variant-grouped="horizontal"
-						@update:checked="setArchiveTab(false)">
+						@update:modelValue="setArchiveTab(false)">
 						{{ t('hermiq', 'Active') }}
 					</NcCheckboxRadioSwitch>
 					<NcCheckboxRadioSwitch
 						:button-variant="true"
-						:checked="showArchive ? 'archive' : 'active'"
+						:model-value="showArchive ? 'archive' : 'active'"
 						value="archive"
 						name="chat_list_tab"
 						type="radio"
 						button-variant-grouped="horizontal"
-						@update:checked="setArchiveTab(true)">
+						@update:modelValue="setArchiveTab(true)">
 						{{ t('hermiq', 'Archive') }}
 					</NcCheckboxRadioSwitch>
 				</div>
@@ -254,7 +254,7 @@
 									class="chat-page__feedback-input"
 									rows="2"
 									:placeholder="t('hermiq', 'Optionally add details to your feedback…')"
-									@input="$set(message, 'feedbackComment', $event.target.value)" />
+									@input="message.feedbackComment = $event.target.value" />
 								<NcButton
 									type="secondary"
 									:disabled="!message.feedbackComment || !message.feedbackComment.trim()"
@@ -894,8 +894,8 @@ export default {
 		 */
 		async sendFeedback(message, type) {
 			const cleared = message.feedback === type
-			this.$set(message, 'feedback', cleared ? null : type)
-			this.$set(message, 'showFeedbackInput', !cleared)
+			message.feedback = cleared ? null : type
+			message.showFeedbackInput = !cleared
 			if (cleared) {
 				return
 			}
@@ -904,8 +904,8 @@ export default {
 				showSuccess(this.t('hermiq', 'Feedback recorded'))
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not record feedback.'))
-				this.$set(message, 'feedback', null)
-				this.$set(message, 'showFeedbackInput', false)
+				message.feedback = null
+				message.showFeedbackInput = false
 			}
 		},
 
@@ -924,7 +924,7 @@ export default {
 					type: message.feedback,
 					comment: message.feedbackComment.trim(),
 				})
-				this.$set(message, 'showFeedbackInput', false)
+				message.showFeedbackInput = false
 				showSuccess(this.t('hermiq', 'Thanks for the additional feedback!'))
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not save the feedback comment.'))

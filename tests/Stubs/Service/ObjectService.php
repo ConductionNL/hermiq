@@ -79,6 +79,7 @@ class ObjectService
      * @param mixed       $schema        Schema context.
      * @param bool        $_rbac         Whether RBAC applies.
      * @param bool        $_multitenancy Whether multi-tenancy applies.
+     * @param bool        $_render       Whether to render the object (mirrors the real service).
      *
      * @return ObjectEntity|null
      */
@@ -89,7 +90,8 @@ class ObjectService
         mixed $register=null,
         mixed $schema=null,
         bool $_rbac=true,
-        bool $_multitenancy=true
+        bool $_multitenancy=true,
+        bool $_render=true
     ): ?ObjectEntity {
         return null;
     }//end find()
@@ -104,6 +106,9 @@ class ObjectService
      * @param string|null        $uuid          Target UUID.
      * @param bool               $_rbac         Whether RBAC applies.
      * @param bool               $_multitenancy Whether multi-tenancy applies.
+     * @param bool               $silent        Whether to skip event dispatch (mirrors the real service).
+     * @param array|null         $uploadedFiles Uploaded files to attach (mirrors the real service).
+     * @param \OCP\IUser|null    $currentUser   Acting user override (mirrors the real service).
      *
      * @return ObjectEntity
      */
@@ -114,7 +119,10 @@ class ObjectService
         mixed $schema=null,
         ?string $uuid=null,
         bool $_rbac=true,
-        bool $_multitenancy=true
+        bool $_multitenancy=true,
+        bool $silent=false,
+        ?array $uploadedFiles=null,
+        ?\OCP\IUser $currentUser=null
     ): ObjectEntity {
         return new ObjectEntity();
     }//end saveObject()

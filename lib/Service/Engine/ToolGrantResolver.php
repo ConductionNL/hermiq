@@ -19,6 +19,27 @@
  * - `[]` (empty `Agent.tools`) — unchanged "all discovered tools allowed", EXCEPT
  *   default-deny still strips every id `isWriteOrDestructive()` resolves to
  *   write/destructive (see below) from the result.
+ * - `{app}.{tool}?arg=value&other=in:a,b,c` — an ARGUMENT-SCOPED grant
+ *   (hydra-console-agent-leaves): the exact id BEFORE the `?`, narrowed by one or
+ *   more constraints on the arguments the tool is invoked with. `key=value` PINS
+ *   an argument to one literal; `key=in:a,b,c` declares a CLOSED value set. The
+ *   grant resolves to the SAME catalog id as the bare exact-id form — no second
+ *   catalog entry is invented and no descriptor is rewritten — and the constraints
+ *   are carried to `FacadeToolInvoker`, the single dispatch chokepoint, where they
+ *   are enforced BEFORE the facade call. This is what makes a single multi-target
+ *   tool (one that picks its target from an argument, e.g. OpenRegister's
+ *   `openregister.runFlow` selecting a flow by `flowId`) grantable as ONE specific
+ *   capability instead of as its whole target space. An UNCONSTRAINED exact-id
+ *   grant for such a tool stays legal and means EVERY target. Narrowing never
+ *   downgrades classification: a write/destructive tool stays write/destructive
+ *   for default-deny, dry-run and approval purposes, because classification reads
+ *   the BASE id and its descriptor and never looks at the constraints.
+ *
+ * The argument-scoped form is strictly ADDITIVE: a grant string containing no `?`
+ * is split, expanded and classified byte-for-byte as before, so every stored
+ * `Agent.tools` value keeps its current meaning and no migration is required
+ * (ADR-035 Decision 4 froze the `string[]` shape, so the constraint rides INSIDE
+ * the string rather than beside it).
  *
  * **Classification precedence** (`isWriteOrDestructive()`), most-authoritative first:
  *
@@ -70,6 +91,7 @@
  * @spec openspec/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools
  * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
  * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
+ * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools
  */
 
 declare(strict_types=1);
@@ -80,10 +102,32 @@ namespace OCA\Hermiq\Service\Engine;
  * Expands `Agent.tools` grant strings against the derived catalog and applies
  * default-deny to write/destructive-classified tools.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The complexity is the grant GRAMMAR:
+ *   five grant forms, a three-step classification precedence, and the argument-constraint
+ *   parse/check. Each is a small, single-purpose, independently-tested method, and the
+ *   grammar has exactly one home on purpose — splitting it would leave two places that
+ *   interpret a grant string, which is how a resolver and an enforcer drift apart.
+ *
  * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-1
  */
 class ToolGrantResolver
 {
+
+    /**
+     * The grant entry meaning "this agent is INTENTIONALLY tool-less".
+     *
+     * An empty `Agent.tools` already means the opposite ("all discovered tools,
+     * default-denied"), so there is no way to spell "no tools" by omission — this
+     * sentinel is it. Recognising it explicitly is what lets a deliberate
+     * no-tools agent be told apart from an agent whose grants resolve to zero by
+     * ACCIDENT (a typo, or an id from a stale catalog). Both end up with an empty
+     * function list; only the second is a defect, and `resolvesToNothing()` is how
+     * callers tell them apart instead of silently treating a broken agent as a
+     * chat-only one.
+     *
+     * @var string
+     */
+    public const NO_TOOLS_SENTINEL = '__none__';
 
     /**
      * The ADR-063 read-verb vocabulary (`McpAnnotationValidator::VERBS` subset).
@@ -98,6 +142,46 @@ class ToolGrantResolver
      * @var array<int, string>
      */
     public const WRITE_VERBS = ['create', 'update', 'delete'];
+
+    /**
+     * Opens the argument-constraint list on an argument-scoped grant
+     * (`{toolId}?arg=value`). Query-string form was chosen over a JSON blob
+     * because `Agent.tools` is a `string[]` an operator edits in a plain form
+     * field, and over a bare `#` fragment because the two constraint kinds must
+     * be distinguishable at a glance in a diff (design.md "Grant syntax").
+     *
+     * @var string
+     */
+    public const CONSTRAINT_OPENER = '?';
+
+    /**
+     * Separates one argument constraint from the next.
+     *
+     * @var string
+     */
+    public const CONSTRAINT_SEPARATOR = '&';
+
+    /**
+     * Marks a constraint value as a CLOSED SET rather than a pinned literal:
+     * `label=in:a,b,c`.
+     *
+     * @var string
+     */
+    public const CONSTRAINT_SET_PREFIX = 'in:';
+
+    /**
+     * Constraint mode: the argument must equal one literal value exactly.
+     *
+     * @var string
+     */
+    public const CONSTRAINT_MODE_PIN = 'pin';
+
+    /**
+     * Constraint mode: the argument must be a member of a closed value set.
+     *
+     * @var string
+     */
+    public const CONSTRAINT_MODE_SET = 'set';
 
     /**
      * Resolve `Agent.tools` grants into a concrete tool id whitelist.
@@ -138,6 +222,366 @@ class ToolGrantResolver
     }//end resolve()
 
     /**
+     * Whether these grants say "no tools" ON PURPOSE — i.e. every entry is the
+     * `__none__` sentinel.
+     *
+     * @param array<int, string> $grants Raw `Agent.tools` entries.
+     *
+     * @return bool True when the agent is deliberately tool-less.
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     */
+    public function isExplicitNoTools(array $grants): bool
+    {
+        $clean = $this->sanitizeGrants(grants: $grants);
+        if ($clean === []) {
+            // An empty grant list means "all discovered tools" — the opposite.
+            return false;
+        }
+
+        foreach ($clean as $grant) {
+            if ($grant !== self::NO_TOOLS_SENTINEL) {
+                return false;
+            }
+        }
+
+        return true;
+
+    }//end isExplicitNoTools()
+
+    /**
+     * Whether a grant set asked for tools but produced NONE — the misconfiguration
+     * an agent cannot detect for itself.
+     *
+     * True only when the agent named at least one grant, did not use the
+     * `__none__` sentinel, and resolution still came back empty. That combination
+     * is never a legitimate state: every id was unknown to the catalog (a typo, a
+     * renamed tool, an id from a UI offering a different id space), so the agent
+     * silently loses every capability it was configured with. `[]` grants ("all,
+     * default-denied") and `['__none__']` ("none, deliberately") are both
+     * legitimate and return false.
+     *
+     * @param array<int, string> $grants        Raw `Agent.tools` entries.
+     * @param array<int, mixed>  $resolvedTools The functions resolution actually produced.
+     *
+     * @return bool True when the grants are broken and the caller must not degrade silently.
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     */
+    public function resolvesToNothing(array $grants, array $resolvedTools): bool
+    {
+        if ($resolvedTools !== []) {
+            return false;
+        }
+
+        if ($this->sanitizeGrants(grants: $grants) === []) {
+            return false;
+        }
+
+        return ($this->isExplicitNoTools(grants: $grants) === false);
+
+    }//end resolvesToNothing()
+
+    /**
+     * The BASE tool ids a grant list names, with any argument constraints stripped.
+     *
+     * `ToolLoop` passes a plain (non-wildcard, non-empty) whitelist straight to
+     * `ToolRegistryFacade::listTools()`, which matches on catalog ids — so an
+     * argument-scoped grant string must be reduced to its underlying id first, or
+     * it would match nothing and the agent would silently lose the capability. The
+     * constraints themselves travel separately, via `argumentConstraints()`, to the
+     * dispatch chokepoint that can actually see the arguments.
+     *
+     * A grant with no `?` is returned verbatim, so this is a no-op for every
+     * pre-existing grant form.
+     *
+     * @param array<int, string> $grants Raw `Agent.tools` entries.
+     *
+     * @return array<int, string> The same grants with constraints stripped, de-duplicated,
+     *                            original order preserved.
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-an-argument-scoped-grant-resolves-to-the-underlying-tool
+     */
+    public function baseToolIds(array $grants): array
+    {
+        $ids = [];
+        foreach ($this->sanitizeGrants(grants: $grants) as $grant) {
+            [$base]     = $this->splitGrant(grant: $grant);
+            $ids[$base] = true;
+        }
+
+        return array_values(array_keys($ids));
+
+    }//end baseToolIds()
+
+    /**
+     * The argument constraints a grant list declares, keyed by the tool id they
+     * narrow.
+     *
+     * Each tool id maps to a LIST of alternative constraint sets — one per grant
+     * entry naming that id. An invocation conforms when it satisfies AT LEAST ONE
+     * of them, which is what keeps a multi-constraint grant's arguments PAIRED:
+     * `runFlow?flowId=A&label=x` plus `runFlow?flowId=B&label=y` permits (A,x) and
+     * (B,y) but NOT (A,y). Merging the constraints per argument instead would have
+     * silently widened the grant, which is the exact failure this whole form exists
+     * to prevent.
+     *
+     * A BARE exact-id grant for the same tool contributes an EMPTY constraint set,
+     * which trivially conforms — an unconstrained grant for a multi-target tool is
+     * legal and means every target, so it must not be narrowed by a sibling grant.
+     *
+     * Only ids that at least one grant constrains appear in the result; a tool no
+     * grant mentions is absent, and `violationFor()` then imposes nothing.
+     *
+     * @param array<int, string> $grants Raw `Agent.tools` entries.
+     *
+     * @return array<string, array<int, array<string, array{mode:string, values:array<int,string>}>>>
+     *         Tool id => list of alternative constraint sets.
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-argument-constraints-on-a-grant-are-enforced-at-invocation
+     */
+    public function argumentConstraints(array $grants): array
+    {
+        $constrained = [];
+        $sets        = [];
+
+        foreach ($this->sanitizeGrants(grants: $grants) as $grant) {
+            [$base, $query] = $this->splitGrant(grant: $grant);
+            if ($this->isWildcardGrant(grant: $base) === true) {
+                // A wildcard cannot be argument-scoped: the constraints would have
+                // to apply to ids only the catalog knows. `expandGrant()` drops
+                // such a grant entirely (fail closed), so record nothing here.
+                continue;
+            }
+
+            $parsed = [];
+            if ($query !== null) {
+                $parsed = $this->parseConstraints(query: $query);
+                $constrained[$base] = true;
+            }
+
+            $sets[$base][] = $parsed;
+        }
+
+        $out = [];
+        foreach ($sets as $id => $alternatives) {
+            if (isset($constrained[$id]) === false) {
+                continue;
+            }
+
+            $out[$id] = $alternatives;
+        }
+
+        return $out;
+
+    }//end argumentConstraints()
+
+    /**
+     * Check an invocation's arguments against a tool's alternative constraint sets.
+     *
+     * PURE — it decides, it does not refuse: the refusal, its structured error and
+     * its audit line belong to `FacadeToolInvoker`, the one dispatch chokepoint.
+     * The grammar lives here because the grammar is this class's job; the
+     * enforcement lives there because that is where the arguments exist.
+     *
+     * @param array<int, array<string, array>> $constraintSets The alternative constraint sets for this
+     *                                                         tool, from `argumentConstraints()`; each is
+     *                                                         an `argument => {mode, values}` map.
+     * @param array<string, mixed>             $arguments      The decoded tool-call arguments.
+     *
+     * @return array{argument:string, mode:string, values:array<int,string>}|null The first violated
+     *         constraint (of the first alternative), or null when the call conforms — including
+     *         when no constraint set was declared at all.
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-a-pinned-argument-that-differs-is-refused-before-dispatch
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-a-value-outside-a-closed-set-is-refused
+     */
+    public static function violationFor(array $constraintSets, array $arguments): ?array
+    {
+        if ($constraintSets === []) {
+            return null;
+        }
+
+        $firstViolation = null;
+        foreach ($constraintSets as $set) {
+            $violation = self::violationForSet(set: $set, arguments: $arguments);
+            if ($violation === null) {
+                // This alternative is satisfied — the call is permitted.
+                return null;
+            }
+
+            if ($firstViolation === null) {
+                $firstViolation = $violation;
+            }
+        }
+
+        return $firstViolation;
+
+    }//end violationFor()
+
+    /**
+     * The first constraint in ONE set that `$arguments` does not satisfy.
+     *
+     * An argument the set does not mention is left to the tool's own validation. An
+     * argument the set DOES mention but the call omits is a violation, not a pass:
+     * a pin that can be skipped by leaving the argument out is not a pin.
+     *
+     * @param array<string, array{mode:string, values:array<int,string>}> $set       One constraint set.
+     * @param array<string, mixed>                                        $arguments The call's arguments.
+     *
+     * @return array{argument:string, mode:string, values:array<int,string>}|null
+     */
+    private static function violationForSet(array $set, array $arguments): ?array
+    {
+        foreach ($set as $argument => $constraint) {
+            $values = $constraint['values'];
+
+            if (array_key_exists($argument, $arguments) === false) {
+                return ['argument' => $argument, 'mode' => $constraint['mode'], 'values' => $values];
+            }
+
+            $value = $arguments[$argument];
+            if (is_scalar($value) === false && $value !== null) {
+                // A structured value cannot satisfy a scalar constraint — fail closed
+                // rather than stringify it into an accidental match.
+                return ['argument' => $argument, 'mode' => $constraint['mode'], 'values' => $values];
+            }
+
+            if (in_array(self::scalarToString(value: $value), $values, true) === false) {
+                return ['argument' => $argument, 'mode' => $constraint['mode'], 'values' => $values];
+            }
+        }
+
+        return null;
+
+    }//end violationForSet()
+
+    /**
+     * Render a scalar argument value as the string a constraint compares against.
+     *
+     * Booleans become `true`/`false` rather than `1`/``, so a grant can pin a
+     * boolean argument readably and an unset-looking empty string can never
+     * accidentally satisfy a `false` pin.
+     *
+     * @param mixed $value The scalar (or null) argument value.
+     *
+     * @return string
+     */
+    private static function scalarToString(mixed $value): string
+    {
+        if (is_bool($value) === true) {
+            if ($value === true) {
+                return 'true';
+            }
+
+            return 'false';
+        }
+
+        if ($value === null) {
+            return '';
+        }
+
+        return (string) $value;
+
+    }//end scalarToString()
+
+    /**
+     * Split a grant into its base id and its raw constraint query, if any.
+     *
+     * Splits on the FIRST `?` only, so a constraint value may itself contain one.
+     *
+     * @param string $grant The grant entry.
+     *
+     * @return array{0:string, 1:string|null} `[baseId, query|null]`.
+     */
+    private function splitGrant(string $grant): array
+    {
+        $position = strpos($grant, self::CONSTRAINT_OPENER);
+        if ($position === false) {
+            return [$grant, null];
+        }
+
+        $base  = substr($grant, 0, $position);
+        $query = substr($grant, ($position + 1));
+        if ($query === '') {
+            // `id?` with nothing after it declares no constraint — identical to the
+            // bare exact-id grant rather than a grant that can never be satisfied.
+            return [$base, null];
+        }
+
+        return [$base, $query];
+
+    }//end splitGrant()
+
+    /**
+     * Parse a grant's raw constraint query into an `argument => constraint` map.
+     *
+     * `key=value` pins; `key=in:a,b,c` declares a closed set. Keys and values are
+     * percent-decoded, so a value containing `&` or `,` can be expressed. An entry
+     * with no `=`, or an empty key, is DROPPED — a constraint nobody can satisfy
+     * would silently disable the grant, and a constraint nobody can violate would
+     * silently widen it; dropping the malformed entry leaves the well-formed ones
+     * enforced.
+     *
+     * @param string $query The raw constraint query (everything after the `?`).
+     *
+     * @return array<string, array{mode:string, values:array<int,string>}>
+     */
+    private function parseConstraints(string $query): array
+    {
+        $constraints = [];
+        foreach (explode(self::CONSTRAINT_SEPARATOR, $query) as $pair) {
+            if (str_contains($pair, '=') === false) {
+                continue;
+            }
+
+            [$rawKey, $rawValue] = explode('=', $pair, 2);
+
+            $key = rawurldecode(trim($rawKey));
+            if ($key === '') {
+                continue;
+            }
+
+            $constraints[$key] = $this->parseConstraintValue(rawValue: $rawValue);
+        }
+
+        return $constraints;
+
+    }//end parseConstraints()
+
+    /**
+     * Parse one constraint's right-hand side into its mode and permitted values.
+     *
+     * @param string $rawValue The raw (still percent-encoded) value.
+     *
+     * @return array{mode:string, values:array<int,string>}
+     */
+    private function parseConstraintValue(string $rawValue): array
+    {
+        if (str_starts_with($rawValue, self::CONSTRAINT_SET_PREFIX) === false) {
+            return [
+                'mode'   => self::CONSTRAINT_MODE_PIN,
+                'values' => [rawurldecode($rawValue)],
+            ];
+        }
+
+        $members = explode(',', substr($rawValue, strlen(self::CONSTRAINT_SET_PREFIX)));
+
+        $values = [];
+        foreach ($members as $member) {
+            $decoded = rawurldecode($member);
+            if ($decoded === '' || in_array($decoded, $values, true) === true) {
+                continue;
+            }
+
+            $values[] = $decoded;
+        }
+
+        return ['mode' => self::CONSTRAINT_MODE_SET, 'values' => $values];
+
+    }//end parseConstraintValue()
+
+    /**
      * Whether any grant entry uses the `{app}.{schema}.*` (or `.*:write`) wildcard
      * form — used by `ToolLoop` to decide whether the full catalog must be fetched
      * to expand grants (an exact-id-only whitelist never needs it).
@@ -151,7 +595,8 @@ class ToolGrantResolver
     public function hasWildcardGrant(array $grants): bool
     {
         foreach ($this->sanitizeGrants(grants: $grants) as $grant) {
-            if ($this->isWildcardGrant(grant: $grant) === true) {
+            [$base] = $this->splitGrant(grant: $grant);
+            if ($this->isWildcardGrant(grant: $base) === true) {
                 return true;
             }
         }
@@ -242,13 +687,29 @@ class ToolGrantResolver
     /**
      * Expand one grant entry into zero or more concrete catalog ids.
      *
+     * An argument-scoped grant contributes its BASE id only — the constraints
+     * narrow the ARGUMENTS of that same catalog entry and are enforced at
+     * invocation, so resolution must not invent a second entry for the narrowed
+     * form. A constrained WILDCARD is refused (resolves to nothing): the
+     * constraints would have to apply to ids only the catalog knows, and silently
+     * granting the wildcard unconstrained would widen exactly what the author was
+     * trying to narrow.
+     *
      * @param string             $grant      The grant entry.
      * @param array<int, string> $catalogIds Every id the catalog currently exposes.
      *
      * @return array<int, string>
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-an-argument-scoped-grant-resolves-to-the-underlying-tool
      */
     private function expandGrant(string $grant, array $catalogIds): array
     {
+        [$grant, $query] = $this->splitGrant(grant: $grant);
+
+        if ($query !== null && $this->isWildcardGrant(grant: $grant) === true) {
+            return [];
+        }
+
         if (preg_match('/^(.+)\.\*:write$/', $grant, $matches) === 1) {
             return $this->schemaVerbIds(
                 prefix: $matches[1],

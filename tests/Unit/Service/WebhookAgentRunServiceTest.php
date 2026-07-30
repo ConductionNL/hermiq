@@ -35,6 +35,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\AgentVersionService;
+use OCA\Hermiq\Service\SkillVersionService;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\Hermiq\Service\RedactionService;
@@ -165,6 +166,7 @@ class WebhookAgentRunServiceTest extends TestCase
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
             agentVersionService: $this->agentVersionService,
+            skillVersionService: $this->createMock(SkillVersionService::class),
         );
 
     }//end setUp()
@@ -304,6 +306,7 @@ class WebhookAgentRunServiceTest extends TestCase
             approvalService: $this->approvalService,
             budgetService: $this->budgetService,
             agentVersionService: $this->agentVersionService,
+            skillVersionService: $this->createMock(SkillVersionService::class),
         );
 
         $ran = $this->service->run($this->context(['requiresApproval' => true]), true);
@@ -334,11 +337,13 @@ class WebhookAgentRunServiceTest extends TestCase
         $this->approvalService->expects($this->once())
             ->method('ensurePendingApprovalForWebhookRun')
             ->with(
-                $this->callback(function (array $context) {
-                    // The persisted context's payload must be REDACTED (not the raw secret).
-                    $encoded = json_encode($context['payload']);
-                    return str_contains((string) $encoded, 'sk-abcdefghijklmnopqrst') === false;
-                }),
+                $this->callback(
+                        function (array $context) {
+                            // The persisted context's payload must be REDACTED (not the raw secret).
+                            $encoded = json_encode($context['payload']);
+                            return str_contains((string) $encoded, 'sk-abcdefghijklmnopqrst') === false;
+                        }
+                        ),
                 'dave'
             );
 

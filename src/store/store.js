@@ -61,6 +61,20 @@ export const useEvalRunStore = createObjectStore('evalrun', {
 })
 
 /**
+ * Canonical OpenRegister object store for the 'agentflow' schema
+ * (agent-graph-builder): the authored graph definition — {nodes, edges, trigger,
+ * triggerSchema, enabled, limits} — that GraphExecutor walks. The definition IS
+ * an OR object (same pattern as OpenRegister's x-openregister-flows), so the
+ * flow builder reads and writes it through the generic object path; only the
+ * "run this graph now" ACTION is a bespoke Hermiq endpoint (/api/graph/run),
+ * because OpenRegister has no notion of executing an agent graph.
+ */
+export const useAgentFlowStore = createObjectStore('agentflow', {
+	register: 'hermiq',
+	schema: 'agentflow',
+})
+
+/**
  * Canonical OpenRegister object store for the 'agentskill' schema
  * (hermiq-skill-markdown-authoring). A Skill's CREATE goes through the
  * dedicated `SkillController`/`SkillService` import path (`src/api/skills.js`,
@@ -73,20 +87,6 @@ export const useEvalRunStore = createObjectStore('evalrun', {
 export const useSkillStore = createObjectStore('agentskill', {
 	register: 'hermiq',
 	schema: 'agentskill',
-})
-
-/**
- * Canonical OpenRegister object store for the 'context' schema
- * (hermiq-context-documents). A Context has no package/import format —
- * `documents` is authored inline — so BOTH create and edit persist through
- * this generic OpenRegister object write path (`ContextFormModal`), unlike
- * `agentskill` above which only uses its store for edit.
- *
- * @spec openspec/changes/hermiq-context-documents/specs/context-documents/spec.md#requirement-a-context-editor-authors-documents-with-a-markdown-editor-per-entry
- */
-export const useContextStore = createObjectStore('context', {
-	register: 'hermiq',
-	schema: 'context',
 })
 
 export { useSettingsStore }

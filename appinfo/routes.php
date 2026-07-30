@@ -35,6 +35,9 @@ return [
         // Admin web-research backend configuration (web-research-tool): the pluggable
         // search endpoint/provider shape, the web.fetch allowlist/denylist, and the
         // egress-governance caps (insecure-HTTP opt-in, size cap, timeout).
+        // @spec openspec/changes/talk-chat-bridge/tasks.md#7-opt-in-and-admin-visibility
+        ['name' => 'Settings\TalkBridgeSettings#get',       'url' => '/api/settings/talk-bridge',      'verb' => 'GET'],
+        ['name' => 'Settings\TalkBridgeSettings#bindRoom',  'url' => '/api/settings/talk-bridge/room', 'verb' => 'PUT'],
         ['name' => 'Settings\WebResearchSettings#get',    'url' => '/api/settings/web-research', 'verb' => 'GET'],
         ['name' => 'Settings\WebResearchSettings#update', 'url' => '/api/settings/web-research', 'verb' => 'PATCH'],
 
@@ -64,6 +67,21 @@ return [
         // Dry-run — owner-scoped preview run with side-effecting tools neutralised
         // (run-replay-and-dry-run).
         ['name' => 'runNow#dryRun', 'url' => '/api/schedules/{scheduleId}/dry-run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
+
+        // Agent graph — manual/test run of an authored graph against a subject object
+        // (the primary trigger is a Nextcloud event via GraphRunRequestedListener).
+        ['name' => 'graph#run', 'url' => '/api/graph/run', 'verb' => 'POST'],
+
+        // Run-on-object — user-initiated, OBJECT-permission-scoped run of an agent
+        // against a single OpenRegister object (agent-object-leaf). #[NoAdminRequired];
+        // authorized by the object's own permissions in the caller's RBAC scope
+        // (fail-closed 404), dispatches the governed AgentRunRequestedEvent recipe.
+        [
+            'name'         => 'agentRun#runOnObject',
+            'url'          => '/api/agents/{id}/run-on-object',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
 
         // Replay — owner-scoped re-run of a past run's recorded prompt as a dry-run,
         // with a step-by-step diff against the original (run-replay-and-dry-run).
@@ -296,6 +314,10 @@ return [
         // the literal 'github' path segment must never fall into the {id} matcher.
         ['name' => 'skill#githubSearch',  'url' => '/api/skills/github/search', 'verb' => 'GET'],
         ['name' => 'skill#githubInstall', 'url' => '/api/skills/github/install', 'verb' => 'POST'],
+        // Skill update — the edit-form merge path (skill-maturity): applies the
+        // computed-maturity write guard server-side (client-supplied maturityLevel /
+        // levelEvidence.l1–l4 are ignored, stored values carried forward).
+        ['name' => 'skill#update', 'url' => '/api/skills/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'skill#install', 'url' => '/api/skills/{id}/install', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
         [
             'name'         => 'skill#uninstall',
@@ -303,6 +325,41 @@ return [
             'verb'         => 'DELETE',
             'requirements' => ['id' => '[^/]+', 'agentId' => '[^/]+'],
         ],
+
+        // Skill maturity (skill-maturity): owner-guarded qualify (recompute + scorecard)
+        // and the action-gated human L4 attestation (skill.attest-maturity, ADR-023).
+        // Standard-CSRF POSTs; literal suffixes after {id} never collide with the
+        // install/export routes above.
+        ['name' => 'skillMaturity#qualify', 'url' => '/api/skills/{id}/qualify', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        [
+            'name'         => 'skillMaturity#attestL4',
+            'url'          => '/api/skills/{id}/attest-l4',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+
+        // Skill self-improvement (skill-self-improvement): consolidation drafts —
+        // manual propose (owner-guarded, gated like the job), the SkillDetail draft
+        // list, edit-then-accept content update, and the accept/reject decisions
+        // (skill.review-draft, ADR-023) that transition the linked Approval.
+        [
+            'name'         => 'skillDraft#propose',
+            'url'          => '/api/skills/{id}/propose-improvement',
+            'verb'         => 'POST',
+            'requirements' => ['id' => '[^/]+'],
+        ],
+        ['name' => 'skillDraft#index', 'url' => '/api/skills/{id}/drafts', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillDraft#content', 'url' => '/api/skill-drafts/{id}/content', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillDraft#accept', 'url' => '/api/skill-drafts/{id}/accept', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillDraft#reject', 'url' => '/api/skill-drafts/{id}/reject', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        // Skill versioning (skill-self-improvement): AuditTrail-backed history,
+        // content-plane diff, rollback-as-new-version (owner-guarded, 404 never 403),
+        // and the explicit one-click republish (skill.publish-hub, own provenance
+        // repo only, never automatic).
+        ['name' => 'skillVersion#index', 'url' => '/api/skills/{id}/versions', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillVersion#diff', 'url' => '/api/skills/{id}/versions/diff', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillVersion#rollback', 'url' => '/api/skills/{id}/rollback', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
+        ['name' => 'skillVersion#republish', 'url' => '/api/skills/{id}/republish', 'verb' => 'POST', 'requirements' => ['id' => '[^/]+']],
 
         // Skills marketplace (skills-marketplace): quarantine install-from-source, review-approve, hub publish.
         ['name' => 'skillMarketplace#installFromSource', 'url' => '/api/skills/install-from-source', 'verb' => 'POST'],
@@ -469,6 +526,16 @@ return [
         // Course recommendations (ai-course-recommendations): self-scoped, ranked,
         // deterministic next-best-course list (EU AI Act Annex III §3, advisory only).
         ['name' => 'courseRecommendation#index', 'url' => '/api/recommendations', 'verb' => 'GET'],
+
+        // Governed CLI MCP transport (cli-runner-governed-mcp-and-egress). Both routes
+        // are machine-to-machine, token-gated (RunTokenService), #[PublicPage] +
+        // #[NoCSRFRequired] — the caller is the CLI's MCP client / the egress proxy,
+        // neither of which holds a Nextcloud session; the per-run bearer token IS the
+        // authorization (ADR-005 semantic-auth — see each controller's docblock).
+        // Endpoint 1 — the governed MCP server (initialize/tools/list/tools/call).
+        ['name' => 'mcpRun#handle', 'url' => '/api/mcp/run', 'verb' => 'POST'],
+        // Endpoint 2 — the governed egress Policy Decision Point (per-CONNECT allow/deny).
+        ['name' => 'egressAuthorize#authorize', 'url' => '/api/egress/authorize', 'verb' => 'POST'],
 
         // SPA catch-all — same controller as the index route; must use a distinct route name
         // (duplicate names replace the earlier route in Symfony, which breaks GET /).

@@ -138,12 +138,12 @@
 					</p>
 					<div v-else class="tenant-ops__policy-edit">
 						<NcTextArea
-							:value.sync="policyDraft.allowedText"
+							v-model="policyDraft.allowedText"
 							:label="t('hermiq', 'Allowed providers and models')"
 							:placeholder="t('hermiq', 'One per line: provider or provider: model1, model2')"
 							resize="vertical" />
 						<NcTextField
-							:value.sync="policyDraft.defaultModel"
+							v-model="policyDraft.defaultModel"
 							:label="t('hermiq', 'Default model (optional)')"
 							placeholder="qwen2.5" />
 						<div class="tenant-ops__card-actions">
@@ -192,7 +192,7 @@
 							</NcButton>
 							<template v-if="row.reassignmentFlag">
 								<NcTextField
-									:value.sync="reassignDrafts[row.uuid]"
+									v-model="reassignDrafts[row.uuid]"
 									class="tenant-ops__reassign-input"
 									:input-label="t('hermiq', 'New acting user id')"
 									:placeholder="t('hermiq', 'New acting user id')" />
@@ -599,7 +599,7 @@ export default {
 				this.reviewAgents = Array.isArray(data.agents) ? data.agents : []
 				this.reviewAgents.forEach((agent) => {
 					if (!(agent.uuid in this.reassignDrafts)) {
-						this.$set(this.reassignDrafts, agent.uuid, '')
+						this.reassignDrafts[agent.uuid] = ''
 					}
 				})
 			} catch (e) {
@@ -643,7 +643,7 @@ export default {
 			try {
 				await reassignAgent(row.uuid, target)
 				showSuccess(this.t('hermiq', 'Agent reassigned.'))
-				this.$set(this.reassignDrafts, row.uuid, '')
+				this.reassignDrafts[row.uuid] = ''
 				await this.loadAccessReview()
 			} catch (e) {
 				showError(e?.response?.data?.error || this.t('hermiq', 'Could not reassign the agent.'))

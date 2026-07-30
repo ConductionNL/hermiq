@@ -1,8 +1,3 @@
----
-draft: true
-description: Internal engineering note — fleet template policy, not hermiq user documentation.
----
-
 # Canonical files policy
 
 This template is the **source of truth** for shared configuration across every

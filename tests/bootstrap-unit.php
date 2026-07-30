@@ -12,6 +12,23 @@ if (is_dir(__DIR__ . '/../vendor/nextcloud/ocp/OCP')) {
     $autoloader->addPsr4('NCU\\', __DIR__ . '/../vendor/nextcloud/ocp/NCU/');
 }
 
+// Register the cross-app stub namespaces at TEST TIME only (openregister#2036 /
+// hermiq#21). These mappings MUST NOT live in composer.json `autoload-dev`: a plain
+// `composer install` bakes autoload-dev into the generated classmap, and in the dev
+// topology the app checkout IS the served app (Application.php requires
+// vendor/autoload.php), so the stubs would shadow the REAL OpenRegister/Talk classes
+// on every request instance-wide → 500s everywhere. Loading here is lazy, so the stub
+// is only ever resolved when the real class is absent (standalone CI).
+$autoloader->addPsr4('OCA\\OpenRegister\\', __DIR__ . '/Stubs/');
+$autoloader->addPsr4('OCA\\Talk\\', __DIR__ . '/Stubs/Talk/');
+
+// OCP\Files\IRootFolder extends the private OC\Hooks\Emitter interface, absent from the
+// nextcloud/ocp stubs. Register it lazily so standalone runs can mock IRootFolder; the
+// real interface ships with the Nextcloud server. (Formerly an autoload-dev classmap.)
+if (interface_exists(\OC\Hooks\Emitter::class) === false) {
+    $autoloader->addClassMap(['OC\\Hooks\\Emitter' => __DIR__ . '/Stubs/OC/Hooks/Emitter.php']);
+}
+
 // Bootstrap Nextcloud when a full server environment is available. The include
 // is wrapped in a try/catch so unit tests still run in standalone mode (e.g. a
 // bare CI container without an installed Nextcloud).

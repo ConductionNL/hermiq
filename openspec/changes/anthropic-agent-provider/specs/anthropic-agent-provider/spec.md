@@ -8,8 +8,6 @@ Add Anthropic Claude as a first-class Hermiq chat provider, supporting both an A
 
 ### Requirement: Anthropic is a selectable chat provider
 
-@e2e exclude Provider config + LLPhant/HTTP adapter — covered by PHPUnit
-
 `anthropic` MUST be a valid `chatProvider` value alongside `openai`, `ollama`, `fireworks`, and `nextcloud`. The `llm` app-config MUST carry an `anthropicConfig` sub-block with `credentialId` (broker credential reference), `chatModel` (string; free-text, with current Claude model IDs offered as suggestions), and `authMode` (`api_key` | `oauth`). Saving `chatProvider: "anthropic"` with a non-empty `credentialId` MUST make `ChatHealthController::health()` return 200.
 
 #### Scenario: anthropic accepted as chatProvider
@@ -17,12 +15,14 @@ Add Anthropic Claude as a first-class Hermiq chat provider, supporting both an A
 - **GIVEN** an operator sets `chatProvider` to `anthropic` with a valid `anthropicConfig.credentialId`
 - **WHEN** the `llm` config is saved and `/api/chat/health` is probed
 - **THEN** the save is accepted and health returns 200 `{status:"ok"}`
+@e2e exclude Provider config + LLPhant/HTTP adapter — covered by PHPUnit
 
 #### Scenario: anthropic rejected without a credential
 
 - **GIVEN** `chatProvider: "anthropic"` with an empty `anthropicConfig.credentialId`
 - **WHEN** the driver is resolved
 - **THEN** a `ProviderUnavailableException` (503) is raised naming the missing credential — no request is sent
+@e2e exclude Provider config + LLPhant/HTTP adapter — covered by PHPUnit
 
 ### Requirement: Both API-key and Claude Max OAuth auth modes are supported
 

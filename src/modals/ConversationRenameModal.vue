@@ -25,7 +25,7 @@
 			</NcNoteCard>
 
 			<NcTextField
-				:value.sync="title"
+				v-model="title"
 				:label="t('hermiq', 'Conversation title')"
 				:placeholder="t('hermiq', 'New conversation')" />
 

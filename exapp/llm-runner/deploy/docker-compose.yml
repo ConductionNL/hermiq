@@ -1,30 +1,35 @@
-# hermiq-llm-runner — hardened deployment
+# hermiq-llm-runner — hardened deployment (governed egress).
 #
-# Demonstrates the two enforceable egress-hardening options. Pick ONE.
+# THIS IS A MIGRATION. Earlier revisions offered two interchangeable options and
+# recommended Option A (an in-container iptables jail with a STATIC host
+# allowlist). The governed posture below replaces it and is now the REQUIRED
+# one. Operators running Option A must migrate; see egress-allowlist.md.
+#
+# Why the change: the iptables jail carried its own copy of the allowlist. That
+# is a SECOND policy — it drifts from the one the agent's `webFetch` tool obeys,
+# and it cannot express "may THIS run reach that host?" because iptables has no
+# idea what a run is. Here the container gets NO default route at all, and the
+# only way out is a proxy that asks Hermiq's PDP about every single connection.
+# `WebResearchEgressGuard` stays the one policy source for both layers.
+#
+# The two layers are complementary, not redundant:
+#   - the per-agent MCP grant governs what the AGENT is authorized to do;
+#   - this network backstop governs what the CONTAINER can reach — including
+#     traffic the agent never asked for (a CLI auto-update check, a built-in web
+#     fetch a future flag fails to disable, a compromised dependency).
 #
 # SPDX-License-Identifier: EUPL-1.2
 # Copyright 2026 Conduction B.V.
 
 services:
   # -------------------------------------------------------------------------
-  # Option A (recommended): in-container iptables egress jail.
-  # Starts root via egress-entrypoint.sh, installs the provider allowlist, then
-  # drops to the non-root `node` user. Needs NET_ADMIN. No general internet.
+  # The runner. No NET_ADMIN, no root, no default route.
   # -------------------------------------------------------------------------
   hermiq-llm-runner:
     image: ghcr.io/conductionnl/hermiq-llm-runner:latest
-    entrypoint: ["/app/deploy/egress-entrypoint.sh"]
-    # The image sets `USER node`, but the egress-jail entrypoint MUST start as
-    # root to install the iptables allowlist; it then drops to the non-root
-    # `node` user via gosu before exec'ing the server. Without this override the
-    # container starts unprivileged and the jail fails with
-    # `iptables ... Permission denied (you must be root)`.
-    user: root
-    cap_add:
-      # NET_ADMIN + NET_RAW: iptables (nftables backend) needs both to install
-      # and load the allowlist ruleset.
-      - NET_ADMIN
-      - NET_RAW
+    # The image's own unprivileged CMD — no entrypoint override and no
+    # capabilities: with no route to the internet there is no jail to install,
+    # so the container needs no privilege to enforce one.
     cap_drop:
       - ALL
     read_only: true
@@ -32,40 +37,59 @@ services:
       - /tmp
       - /app/scratch
     security_opt:
-      # gosu DROPS privileges to `node`, which is permitted under
-      # no-new-privileges (dropping is not gaining). Validated live: the jail
-      # installs as root, then PID 1 runs as the non-root `node` user.
       - no-new-privileges:true
     environment:
       APP_ID: hermiq-llm-runner
       APP_SECRET: ${APP_SECRET:?set APP_SECRET to the value Nextcloud minted at registration}
       RUNNER_PORT: "9000"
-      RUNNER_ALLOWED_HOSTS: "api.anthropic.com api.openai.com api.x.ai"
+      # The proxy's authority. The runner builds a PER-RUN URL from this plus the
+      # run token Hermiq sends with the turn, and puts it in the CLI's
+      # environment — never argv. Without this the runner injects no proxy env
+      # and, on this network, the CLI simply has no way out.
+      EGRESS_PROXY_AUTHORITY: "egress-proxy:3128"
     # NO volumes: the runner mounts no Nextcloud user data and no host paths.
+    networks:
+      # `jailed` ONLY. Docker installs no default gateway on an internal
+      # network, so there is no route to the internet to leak through — the
+      # proxy is reachable by name and nothing else is reachable at all.
+      - jailed
     ports:
       - "127.0.0.1:9000:9000"
+    depends_on:
+      - egress-proxy
     restart: unless-stopped
 
   # -------------------------------------------------------------------------
-  # Option B: network-layer enforcement (no NET_ADMIN needed).
-  # Put the runner on an `internal: true` network so Docker installs no default
-  # route to the internet, and reach the providers only through an explicit
-  # egress proxy you allowlist (Squid, tinyproxy, or a cloud egress firewall).
-  # Uncomment and adapt; keep the default unprivileged CMD (drop the entrypoint
-  # + cap_add above).
+  # The governed egress proxy (PEP). The ONLY component on both networks, and
+  # therefore the only path from the runner to anywhere.
   # -------------------------------------------------------------------------
-  # hermiq-llm-runner-proxied:
-  #   image: ghcr.io/conductionnl/hermiq-llm-runner:latest
-  #   read_only: true
-  #   tmpfs: [/tmp, /app/scratch]
-  #   security_opt: [no-new-privileges:true]
-  #   cap_drop: [ALL]
-  #   environment:
-  #     APP_SECRET: ${APP_SECRET:?}
-  #     HTTPS_PROXY: http://egress-proxy:3128   # proxy allowlists provider hosts
-  #     NO_PROXY: 127.0.0.1,localhost
-  #   networks: [jailed]
-  #
-  # networks:
-  #   jailed:
-  #     internal: true   # no gateway → no general internet; only the proxy egresses
+  egress-proxy:
+    build: ./egress-proxy
+    image: ghcr.io/conductionnl/hermiq-egress-proxy:latest
+    cap_drop:
+      - ALL
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PROXY_PORT: "3128"
+      # Hermiq's PDP. Must be the CONTAINER-reachable origin (the AppAPI
+      # daemon's nextcloud_url), NOT the browser URL — `linkToRouteAbsolute()`
+      # returns the latter, and inside a container `localhost` is the container.
+      EGRESS_PDP_URL: ${EGRESS_PDP_URL:?set to e.g. http://nextcloud/apps/hermiq/api/egress/authorize}
+      # A slow PDP DENIES. This bounds how long a caller waits to be told "no".
+      EGRESS_PDP_TIMEOUT_MS: "5000"
+    networks:
+      # Both sides: `jailed` to accept the runner's CONNECTs, `egress` to reach
+      # the PDP and the allowed provider hosts. This dual attachment is the
+      # entire reason the runner cannot reach the internet directly.
+      - jailed
+      - egress
+    restart: unless-stopped
+
+networks:
+  jailed:
+    # internal: true ⇒ Docker installs NO gateway. This single line is what makes
+    # the proxy the only route out; everything else here is defence in depth.
+    internal: true
+  egress: {}

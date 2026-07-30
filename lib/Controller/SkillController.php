@@ -32,7 +32,7 @@
  * @link https://conduction.nl
  *
  * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
- * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
  */
 
 declare(strict_types=1);
@@ -88,7 +88,7 @@ class SkillController extends Controller
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function __construct(
         IRequest $request,
@@ -109,7 +109,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function index(): JSONResponse
     {
@@ -135,7 +135,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function import(): JSONResponse
     {
@@ -169,7 +169,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function export(string $id): JSONResponse
     {
@@ -192,6 +192,50 @@ class SkillController extends Controller
     }//end export()
 
     /**
+     * Update a Skill from the edit form's merge payload (skill-maturity). The service
+     * applies the computed-maturity write guard: client-supplied `maturityLevel` /
+     * `levelEvidence.l1`–`l4` are ignored and stored values carried forward, while
+     * `targetLevel` and ordinary fields stay editable. RBAC-scoped in the caller's
+     * session (a skill outside the caller's scope 404s).
+     *
+     * @param string $id The Skill UUID.
+     *
+     * @return JSONResponse The updated skill, or an error status.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+     */
+    public function update(string $id): JSONResponse
+    {
+        if ($this->userSession->getUser() === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $params = $this->request->getParams();
+        $data   = [];
+        foreach ($params as $key => $value) {
+            if (is_string($key) === true && $key !== 'id' && $key !== '_route') {
+                $data[$key] = $value;
+            }
+        }
+
+        try {
+            $skill = $this->skillService->updateSkill(skillId: $id, data: $data);
+            if ($skill === null) {
+                return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+            }
+
+            return new JSONResponse($this->shape(object: $skill));
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq skill update failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'Update failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }
+
+    }//end update()
+
+    /**
      * Install a Skill onto an agent (records the agent on installedOn).
      *
      * @param string $id The Skill UUID.
@@ -201,7 +245,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-4-1
+     * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
      */
     public function install(string $id): JSONResponse
     {
@@ -281,7 +325,7 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
      */
     public function githubSearch(): JSONResponse
     {
@@ -341,7 +385,11 @@ class SkillController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+     *
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential input-validation guards
+     *   (auth, owner/repo/ref patterns, fetch outcome) each add a branch; the flow
+     *   itself is a straight guard-then-delegate path.
      */
     public function githubInstall(): JSONResponse
     {

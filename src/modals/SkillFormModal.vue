@@ -53,10 +53,10 @@
   ever affects the CREATE branch; an edit's save target is always the
   existing generic-object PUT regardless of `saveTarget`.
 
-  @spec openspec/changes/hermiq-skill-markdown-authoring/specs/skills-catalog/spec.md#requirement-a-dedicated-markdown-authoring-form-replaces-the-generic-skill-createedit-dialog
-  @spec openspec/changes/hermiq-skill-markdown-authoring/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
-  @spec openspec/changes/hermiq-skill-markdown-authoring/specs/skills-catalog/spec.md#requirement-a-pasted-agentskillsio-package-is-split-into-frontmatter-and-body
-  @spec openspec/changes/hermiq-skill-conversational-authoring/specs/skills-catalog/spec.md#requirement-a-chat-assistant-message-can-be-saved-as-a-reviewable-skill
+  @spec openspec/specs/skills-catalog/spec.md#requirement-a-dedicated-markdown-authoring-form-replaces-the-generic-skill-create-edit-dialog
+  @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
+  @spec openspec/specs/skills-catalog/spec.md#requirement-a-pasted-agentskills-io-package-is-split-into-frontmatter-and-body
+  @spec openspec/specs/skills-catalog/spec.md#requirement-a-chat-assistant-message-can-be-saved-as-a-reviewable-skill
 -->
 <template>
 	<NcModal
@@ -83,7 +83,7 @@
 					{{ pasteError }}
 				</NcNoteCard>
 				<NcTextArea
-					:value.sync="pasteText"
+					v-model="pasteText"
 					:label="t('hermiq', 'Package (starts with a --- frontmatter fence)')"
 					:placeholder="t('hermiq', 'Paste the whole package, starting with the --- fence')"
 					resize="vertical" />
@@ -99,18 +99,18 @@
 			</div>
 
 			<NcTextField
-				:value.sync="form.name"
+				v-model="form.name"
 				:label="t('hermiq', 'Name')"
 				:placeholder="t('hermiq', 'my-skill')"
 				required />
 
 			<NcTextField
-				:value.sync="form.description"
+				v-model="form.description"
 				:label="t('hermiq', 'Description')"
 				:placeholder="t('hermiq', 'What does this skill teach an agent to do?')" />
 
 			<NcTextArea
-				:value.sync="form.frontmatter"
+				v-model="form.frontmatter"
 				:label="t('hermiq', 'Frontmatter (YAML)')"
 				:placeholder="t('hermiq', 'name: my-skill, description: …, version: 0.1.0')"
 				resize="vertical" />
@@ -134,10 +134,10 @@
 			<div v-for="(file, index) in files" :key="index" class="skill-form__file">
 				<div class="skill-form__file-head">
 					<NcTextField
-						:value="file.name"
+						:model-value="file.name"
 						:label="t('hermiq', 'File name')"
 						:placeholder="t('hermiq', 'reference.md')"
-						@update:value="renameFile(index, $event)" />
+						@update:modelValue="renameFile(index, $event)" />
 					<NcButton
 						type="tertiary"
 						:aria-label="t('hermiq', 'Remove file')"
@@ -152,14 +152,14 @@
 					@input="file.content = $event" />
 				<NcTextArea
 					v-else
-					:value.sync="file.content"
+					v-model="file.content"
 					:label="t('hermiq', 'File content')"
 					resize="vertical" />
 			</div>
 
 			<div class="skill-form__add-file">
 				<NcTextField
-					:value.sync="newFileName"
+					v-model="newFileName"
 					:label="t('hermiq', 'New file name')"
 					:placeholder="t('hermiq', 'reference.md')" />
 				<NcButton type="secondary" :disabled="!newFileName.trim()" @click="addFile">
@@ -188,8 +188,7 @@
 <script>
 import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcTextArea, NcTextField } from '@nextcloud/vue'
 import { CnMarkdownEditor } from '@conduction/nextcloud-vue'
-import { importSkill, installFromSource } from '../api/skills.js'
-import { useSkillStore } from '../store/store.js'
+import { importSkill, installFromSource, updateSkill } from '../api/skills.js'
 
 export default {
 	name: 'SkillFormModal',
@@ -325,11 +324,6 @@ export default {
 				this.resetForm()
 			}
 		},
-	},
-
-	created() {
-		this.store = useSkillStore()
-		this.store.registerObjectType('agentskill', 'agentskill', 'hermiq')
 	},
 
 	methods: {
@@ -554,6 +548,7 @@ export default {
 		 * (`saveTarget`), with a follow-up PUT to land any authored `files`
 		 * (both create endpoints always persist `files: []`).
 		 *
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 * @return {Promise<void>}
 		 */
 		async save() {
@@ -567,9 +562,12 @@ export default {
 				let saved
 
 				if (this.effectiveSkill && this.effectiveSkill.id) {
-					saved = await this.store.saveObject('agentskill', this.buildEditPayload())
+					// skill-maturity: EDIT goes through the guarded hermiq merge path
+					// (PUT /api/skills/{id}) so the server silently preserves the
+					// computed maturity fields; targetLevel stays freely editable.
+					saved = await updateSkill(this.effectiveSkill.id, this.buildEditPayload())
 					if (saved === null) {
-						this.error = this.store.errors?.agentskill?.message || this.t('hermiq', 'Could not save skill')
+						this.error = this.t('hermiq', 'Could not save skill')
 						return
 					}
 				} else {
@@ -579,7 +577,9 @@ export default {
 						: await importSkill(pkg)
 
 					if (this.files.length > 0) {
-						const withFiles = await this.store.saveObject('agentskill', {
+						// skill-maturity: the follow-up files write uses the same
+						// guarded merge path as an edit save.
+						const withFiles = await updateSkill(saved.uuid || saved.id, {
 							...saved,
 							files: this.files.map((file) => ({ name: file.name, content: file.content })),
 						})

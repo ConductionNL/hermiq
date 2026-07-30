@@ -35,9 +35,11 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\ChatStreamController;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
+use OCA\Hermiq\Service\Engine\ToolGrantResolutionException;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IDBConnection;
+use OCP\IL10N;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -220,13 +222,22 @@ class ChatStreamControllerTest extends TestCase
      */
     private function makeController(string $body=''): TestableChatStreamController
     {
+        // IL10N: pass the format string through with its arguments interpolated,
+        // exactly as the real translator does for an untranslated locale — so a
+        // test can assert the MESSAGE a user reads, not a mock placeholder.
+        $l10n = $this->createMock(IL10N::class);
+        $l10n->method('t')->willReturnCallback(
+            static fn (string $text, array $parameters=[]): string => vsprintf($text, $parameters)
+        );
+
         $controller = new TestableChatStreamController(
             $this->createMock(IRequest::class),
             $this->engine,
             $this->objectService,
             $this->userSession,
             $this->createMock(IDBConnection::class),
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            $l10n
         );
         $controller->requestBody = $body;
         return $controller;
@@ -430,6 +441,48 @@ class ChatStreamControllerTest extends TestCase
         $this->assertStringNotContainsString('sk-SECRET', json_encode($controller->capturedEvents));
 
     }//end testFailedTurnEmitsSingleTerminalErrorNotFinal()
+
+    /**
+     * The ONE exception whose message is not masked: unresolved tool grants.
+     *
+     * It is safe by construction (it carries the agent's own grant ids, which its
+     * owner already reads in the grant editor) and it is the only person who can
+     * fix the misconfiguration — so masking it behind "an internal error occurred"
+     * would leave the fail-loud loud in the log but mute to its only audience.
+     * The ids are named, the message is translated, and the code is distinct so a
+     * client can react to it.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     */
+    public function testUnresolvedToolGrantsErrorIsSurfacedToTheUserNotMasked(): void
+    {
+        $this->authenticate('alice');
+        $this->objectService->method('find')->willReturnCallback(
+            function (): ObjectEntity {
+                $conversation = new ObjectEntity();
+                $conversation->setUuid('conv-1');
+                $conversation->setObject(['userId' => 'alice', 'agentId' => 'agent-1']);
+                return $conversation;
+            }
+        );
+        $this->engine->method('processMessage')->willThrowException(
+            new ToolGrantResolutionException(['openregister.schemas'])
+        );
+
+        $controller = $this->makeController('{"message":"hi","conversationUuid":"conv-1"}');
+        $this->runStream($controller);
+
+        $errors = $this->frames($controller, 'error');
+        $this->assertCount(1, $errors);
+        $this->assertSame('tool_grants_unresolved', $errors[0]['payload']['code']);
+        $this->assertStringContainsString('openregister.schemas', $errors[0]['payload']['message']);
+        $this->assertStringNotContainsString('An internal error occurred.', $errors[0]['payload']['message']);
+        // The remedy is named, so the reader knows what to do with the finding.
+        $this->assertStringContainsString('__none__', $errors[0]['payload']['message']);
+
+    }//end testUnresolvedToolGrantsErrorIsSurfacedToTheUserNotMasked()
 
     /**
      * Channel-driven tool activity: every `tool_call` is followed by its

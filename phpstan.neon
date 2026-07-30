@@ -17,6 +17,14 @@ parameters:
         - lib/Resources/template
     scanDirectories:
         - vendor/nextcloud/ocp
+        # Declaration-only stubs for OpenRegister/Talk contracts (soft runtime
+        # dependencies, resolved only when those apps are installed). Scanned —
+        # never analysed, never autoloaded at runtime (PSR-4 maps only
+        # OCA\Hermiq\ -> lib/); the real classes win whenever OpenRegister is
+        # enabled. Same "share the contract" pattern as nldesign (2e0eab2):
+        # phpstan refuses to ignoreErrors the "implements unknown interface"
+        # category, so the contract must be resolvable.
+        - tests/Stubs
     reportUnmatchedIgnoredErrors: false
     ignoreErrors:
         # Nextcloud server internals (\OC, OC_App, OC\) not stubbed in nextcloud/ocp
@@ -40,6 +48,11 @@ parameters:
         - '#has invalid return type OCA\\OpenRegister\\#'
         - '#has invalid type OCA\\OpenRegister\\#'
         - '#implements unknown interface OCA\\OpenRegister\\#'
+        # An OpenRegister *RequestedEvent (e.g. AgentRunRequestedEvent) dispatched via
+        # IEventDispatcher::dispatchTyped(): the real event extends OCP\EventDispatcher\Event,
+        # but the class is not resolvable in static analysis (OR is not a composer require),
+        # so phpstan cannot verify the subtype. Same root cause as the OR ignores above.
+        - '#dispatchTyped\(\) expects OCP\\EventDispatcher\\Event, OCA\\OpenRegister\\Event\\[a-zA-Z]+ given#'
         # Nextcloud Talk (spreed) — optional runtime dependency, resolved lazily; not in static analysis
         - '#unknown class OCA\\Talk\\#'
         - '#OCA\\Talk\\[a-zA-Z\\]+.*not found#'

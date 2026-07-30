@@ -38,10 +38,10 @@
 
 		<div class="kill-switch__row">
 			<NcCheckboxRadioSwitch
-				:checked="engaged"
+				:model-value="engaged"
 				:disabled="loading || saving"
 				type="switch"
-				@update:checked="onToggle">
+				@update:modelValue="onToggle">
 				{{ engaged ? t('hermiq', 'All runs halted for this organisation') : t('hermiq', 'Halt all runs for this organisation') }}
 			</NcCheckboxRadioSwitch>
 			<NcLoadingIcon v-if="loading || saving" :size="20" />

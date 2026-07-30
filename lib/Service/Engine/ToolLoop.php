@@ -28,6 +28,14 @@
  * meta-tool is returned and the full resolved set is registered on
  * `ToolSearchService` for deferred loading (design.md §"Progressive disclosure").
  *
+ * hydra-console-agent-leaves threads two more per-run facts onto the invoker it
+ * builds, both derived here because this is where the agent record is in scope:
+ * the ARGUMENT CONSTRAINTS an argument-scoped grant declares
+ * (`ToolGrantResolver::argumentConstraints()`), and the OWNING Nextcloud UID a
+ * flow-queueing tool must be attributable to. Neither changes which descriptors
+ * are offered — a narrowed grant resolves to the SAME catalog id — so the
+ * disclosure and default-deny behaviour above is untouched.
+ *
  * SPDX-FileCopyrightText: 2026 Conduction B.V.
  * SPDX-License-Identifier: EUPL-1.2
  *
@@ -57,6 +65,7 @@ use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
+use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
 use LLPhant\Chat\FunctionInfo\FunctionInfo;
 use LLPhant\Chat\FunctionInfo\Parameter;
@@ -64,6 +73,17 @@ use LLPhant\Chat\FunctionInfo\Parameter;
 /**
  * Resolves an agent's allowed tool functions from the OR tool-registry facade
  * and converts them into LLPhant FunctionInfo objects.
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) This class is the turn-assembly seam:
+ *   grant resolution, default-deny, progressive disclosure, guardrail-policy resolution,
+ *   argument-constraint parsing and owner resolution all have to happen at the ONE point
+ *   where the agent record and the catalog are both in scope. Each is a small, separately
+ *   tested method; the total tracks the number of governance concerns, not tangled logic.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   Same cause: each collaborator is one
+ *   of those concerns, injected rather than reached for.
+ * @SuppressWarnings(PHPMD.LongVariable)             `$guardrailPolicyService` is a promoted
+ *   constructor collaborator named after its class (GuardrailPolicyService) — shortening
+ *   it would obscure which service is injected.
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
  */
@@ -116,6 +136,15 @@ class ToolLoop
      *                                                            behavior change (only consulted when a
      *                                                            caller actually passes `dryRun: true`); real
      *                                                            DI always provides it.
+     * @param IUserSession|null           $userSession            Resolves the ACTING Nextcloud user, which is
+     *                                                            the most authoritative owner an agent-queued
+     *                                                            flow run can be attributed to
+     *                                                            (hydra-console-agent-leaves). Nullable/
+     *                                                            optional so existing test callers see zero
+     *                                                            behavior change; with no session the owner
+     *                                                            falls back to the agent record's own acting
+     *                                                            user, and with neither a flow-queueing tool
+     *                                                            is REFUSED rather than run unattributed.
      *
      * @return void
      *
@@ -136,7 +165,8 @@ class ToolLoop
         private readonly ApprovalService $approvalService,
         private readonly IAppConfig $appConfig,
         private readonly ?GuardrailPolicyService $guardrailPolicyService=null,
-        private readonly ?RedactionService $redactionService=null
+        private readonly ?RedactionService $redactionService=null,
+        private readonly ?IUserSession $userSession=null
     ) {
     }//end __construct()
 
@@ -203,6 +233,23 @@ class ToolLoop
 
         $functions = $this->resolveFunctions(whitelist: $whitelist);
 
+        // An agent that WAS granted tools but resolved to none is broken, not
+        // tool-less: downstream both look like an empty function list, so the run
+        // would continue text-only and every layer would report success while the
+        // agent silently lost every capability it was configured with. Raise it
+        // here, the last point where both facts are still known.
+        if ($this->grantResolver->resolvesToNothing(grants: $whitelist, resolvedTools: $functions) === true) {
+            $this->logger->error(
+                message: '[ToolLoop] Agent tool grants resolved to no tools',
+                context: [
+                    'file'   => __FILE__,
+                    'line'   => __LINE__,
+                    'grants' => $whitelist,
+                ]
+            );
+            throw new ToolGrantResolutionException(grants: $whitelist);
+        }
+
         $this->logger->debug(
             message: '[ToolLoop] Resolved agent tool functions',
             context: [
@@ -240,7 +287,16 @@ class ToolLoop
         $needsCatalog = ($whitelist === [] || $this->grantResolver->hasWildcardGrant(grants: $whitelist) === true);
 
         if ($needsCatalog === false) {
-            return $this->toolRegistryFacade->listTools(toolWhitelist: $whitelist);
+            // Hydra-console-agent-leaves: the facade matches on CATALOG ids, so an
+            // argument-scoped grant must be reduced to its underlying id before it
+            // gets here — otherwise the narrowed grant would match nothing and the
+            // agent would silently lose the capability it was configured with. A
+            // grant carrying no constraints is returned verbatim, so this is a
+            // no-op for every pre-existing whitelist. Still exactly one facade
+            // call, unchanged.
+            return $this->toolRegistryFacade->listTools(
+                toolWhitelist: $this->grantResolver->baseToolIds(grants: $whitelist)
+            );
         }
 
         $catalog     = $this->toolRegistryFacade->listTools(toolWhitelist: []);
@@ -251,6 +307,16 @@ class ToolLoop
             // "empty whitelist" path — post-filter the already-fetched catalog
             // rather than re-querying the facade with a concrete id list.
             return $this->filterDescriptorsByIds(descriptors: $catalog, allowedIds: $resolvedIds);
+        }
+
+        if ($resolvedIds === []) {
+            // The grants expanded to NOTHING. Never hand that to the facade: an
+            // empty whitelist there means "all tools allowed", so a grant that
+            // matched nothing would silently escalate into a grant of the entire
+            // catalog, destructive tools included — the exact inverse of the
+            // failure this method's caller guards against. Return the honest
+            // empty set and let listAgentFunctions() raise on it.
+            return [];
         }
 
         return $this->toolRegistryFacade->listTools(toolWhitelist: $resolvedIds);
@@ -308,8 +374,8 @@ class ToolLoop
             return $functions;
         }
 
-        $searchToolsDescriptors = $this->toolRegistryFacade->listTools(toolWhitelist: [self::SEARCH_TOOLS_ID]);
-        if ($searchToolsDescriptors === []) {
+        $searchDescriptors = $this->toolRegistryFacade->listTools(toolWhitelist: [self::SEARCH_TOOLS_ID]);
+        if ($searchDescriptors === []) {
             // The meta-tool itself is not registered/reachable (e.g. not
             // granted) — fail open to the full set rather than leaving the
             // agent with zero callable tools.
@@ -326,7 +392,7 @@ class ToolLoop
             ]
         );
 
-        return [$searchToolsDescriptors[0]];
+        return [$searchDescriptors[0]];
 
     }//end applyDisclosure()
 
@@ -372,6 +438,10 @@ class ToolLoop
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity) Ported descriptor-to-FunctionInfo
      * conversion kept structurally intact from the OR original for parity reviewability.
+     * @SuppressWarnings(PHPMD.NPathComplexity)      Same ported conversion: the per-descriptor
+     * shape guards (name, properties, required) are independent, multiplying paths.
+     * @SuppressWarnings(PHPMD.BooleanArgumentFlag)  Dry-run preview (run-replay-and-dry-run)
+     * is a cross-cutting mode threaded through the engine as a flag by design.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
      * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
@@ -416,7 +486,9 @@ class ToolLoop
             toolPolicy: $this->resolveToolPolicy(organisation: $organisation),
             dryRun: $dryRun,
             descriptorsByName: $descriptorsByName,
-            redactionService: $this->redactionService
+            redactionService: $this->redactionService,
+            argumentConstraints: $this->grantResolver->argumentConstraints(grants: $this->agentGrants(agent: $agent)),
+            ownerUid: $this->resolveOwnerUid(agent: $agent)
         );
         $functionInfoObjects = [];
 
@@ -471,6 +543,81 @@ class ToolLoop
     }//end buildFunctionInfos()
 
     /**
+     * The raw `Agent.tools` grant strings for an agent, or `[]` when there is no
+     * agent (agent-less chat) or the field is not a list.
+     *
+     * Read straight off the agent record rather than off the already-resolved
+     * descriptor list, because resolution deliberately DISCARDS the constraints —
+     * an argument-scoped grant resolves to the underlying catalog id, so the
+     * narrowing exists only in the grant string.
+     *
+     * @param ObjectEntity|null $agent The acting agent, or null.
+     *
+     * @return array<int, string> The raw grants.
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-argument-constraints-on-a-grant-are-enforced-at-invocation
+     */
+    private function agentGrants(?ObjectEntity $agent): array
+    {
+        if ($agent === null) {
+            return [];
+        }
+
+        $grants = ($agent->getObject()['tools'] ?? []);
+        if (is_array($grants) === false) {
+            return [];
+        }
+
+        return $grants;
+
+    }//end agentGrants()
+
+    /**
+     * The owning Nextcloud UID this run acts as, or null when none can be resolved.
+     *
+     * Order, most authoritative first: the ACTING session user (a person made this
+     * request), then the agent record's own `actingUser` (a scheduled or
+     * flow-triggered run declares who it runs as), then the agent object's owner.
+     * Nothing is defaulted: when all three are empty the result is null and
+     * `FacadeToolInvoker` REFUSES a flow-queueing tool rather than queueing an
+     * unattributed run, because a flow's terminal step may command an external
+     * system and "who told it to do that" has to be answerable from the record.
+     *
+     * @param ObjectEntity|null $agent The acting agent, or null.
+     *
+     * @return string|null The owning UID, or null when unresolvable.
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-a-flow-invoked-as-an-agent-tool-is-attributed-to-an-owning-uid
+     */
+    private function resolveOwnerUid(?ObjectEntity $agent): ?string
+    {
+        $sessionUser = $this->userSession?->getUser();
+        if ($sessionUser !== null && trim($sessionUser->getUID()) !== '') {
+            return trim($sessionUser->getUID());
+        }
+
+        if ($agent === null) {
+            return null;
+        }
+
+        $data = $agent->getObject();
+        foreach (['actingUser', 'user'] as $field) {
+            $candidate = trim((string) ($data[$field] ?? ''));
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        $owner = trim((string) $agent->getOwner());
+        if ($owner !== '') {
+            return $owner;
+        }
+
+        return null;
+
+    }//end resolveOwnerUid()
+
+    /**
      * Expand bare (dot-less) tool ids with the legacy `openregister.` prefix so
      * agent records from older schema eras keep matching registry ids.
      *
@@ -487,6 +634,15 @@ class ToolLoop
             }
 
             $expanded[] = $id;
+
+            // The no-tools sentinel is a marker, not a legacy bare tool id —
+            // expanding it to `openregister.__none__` would leave a grant list
+            // that no longer reads as "deliberately tool-less", and the
+            // resolves-to-nothing guard would then reject a perfectly valid agent.
+            if ($id === ToolGrantResolver::NO_TOOLS_SENTINEL) {
+                continue;
+            }
+
             if (str_contains($id, '.') === false) {
                 $expanded[] = 'openregister.'.$id;
             }

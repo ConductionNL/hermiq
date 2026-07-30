@@ -29,15 +29,53 @@ const DEFAULT_TIMEOUT_MS = Number(process.env.RUNNER_TIMEOUT_MS || '120000');
 const MAX_OUTPUT_BYTES = Number(process.env.RUNNER_MAX_OUTPUT_BYTES || String(8 * 1024 * 1024));
 
 // Non-credential env var NAMES the runner forwards from its own environment to
-// the CLI child. This is how the network-layer egress-proxy option (see
-// deploy/docker-compose.yml Option B) reaches the CLI — the proxy config lives
-// in the runner's env, not in the per-call credentialEnv. Values here carry NO
-// secrets. Defaults cover the standard proxy vars; extend via env.
+// the CLI child. Values here carry NO secrets. Defaults cover the standard proxy
+// vars; extend via env.
 const DEFAULT_PASSTHROUGH_ENV = 'HTTPS_PROXY,HTTP_PROXY,NO_PROXY,https_proxy,http_proxy,no_proxy';
 const PASSTHROUGH_ENV = (process.env.RUNNER_PASSTHROUGH_ENV || DEFAULT_PASSTHROUGH_ENV)
     .split(',')
     .map((s) => s.trim())
     .filter((s) => s !== '');
+
+// The governed egress proxy's base authority (`host:port`), e.g. `egress-proxy:3128`.
+// When set, the runner builds a PER-RUN proxy URL carrying the run token, so the
+// proxy can ask Hermiq's PDP "may THIS run reach that host?" rather than applying a
+// static allowlist of its own. Unset ⇒ no proxy URL is injected and the standard
+// passthrough vars (if any) apply unchanged — the Option A iptables jail.
+const EGRESS_PROXY_AUTHORITY = (process.env.EGRESS_PROXY_AUTHORITY || '').trim();
+
+/**
+ * Build the per-run proxy env for the CLI child.
+ *
+ * The run token goes in the URL's userinfo (`http://run:<token>@host:port`) because
+ * that is the one channel every HTTP client already forwards to a proxy as
+ * `Proxy-Authorization`, with no client-side support needed. It lives in the child's
+ * ENVIRONMENT only — never on argv (the process table is world-readable) and never
+ * in a log line.
+ *
+ * Returns an empty object when either half is missing: without a proxy authority
+ * there is nothing to point at, and without a token the proxy would deny anyway.
+ *
+ * @param {string} runToken The per-run token minted by Hermiq.
+ * @returns {object} Env map to merge into the child's environment.
+ */
+function buildEgressProxyEnv(runToken) {
+    if (EGRESS_PROXY_AUTHORITY === '' || typeof runToken !== 'string' || runToken === '') {
+        return {};
+    }
+
+    const url = `http://run:${encodeURIComponent(runToken)}@${EGRESS_PROXY_AUTHORITY}`;
+
+    // Both cases: some tools read the lowercase names, some the uppercase.
+    // NO_PROXY is deliberately NOT set — an exemption list here would be a second
+    // policy, and a hole in the only route out.
+    return {
+        HTTPS_PROXY: url,
+        https_proxy: url,
+        HTTP_PROXY: url,
+        http_proxy: url,
+    };
+}
 
 /**
  * Build the single prompt string handed to a print-mode CLI from the assembled
@@ -100,6 +138,38 @@ function selectCredentialEnv(provider, credentialEnv) {
 }
 
 /**
+ * Assert the governed-MCP lockdown flags are present on the assembled argv before
+ * the CLI is spawned. A governed turn (one carrying an mcpConfig) MUST include
+ * `--tools ""` and `--strict-mcp-config`, or the boundary is gone — the runner
+ * refuses to spawn rather than run an ungoverned CLI with a live token in its
+ * config file (cli-runner-governed-mcp-and-egress). Throws with the missing flag.
+ *
+ * @param {Array<string>} args The assembled CLI argv.
+ * @returns {void}
+ */
+function assertGovernedArgs(args) {
+    // The built-ins must be denied, so the model can only act through Hermiq's
+    // governed MCP tools. NOTE: this deliberately asserts `--disallowedTools` and
+    // NOT `--tools ""` — `--tools` excludes MCP tools as well, which would leave a
+    // governed turn with no tools at all (verified against the real CLI).
+    const disallowedIdx = args.indexOf('--disallowedTools');
+    if (disallowedIdx === -1 || !args[disallowedIdx + 1]) {
+        throw new Error('refusing to spawn: governed turn is missing `--disallowedTools <builtins>`');
+    }
+    // Belt-and-braces: a regression back to `--tools` would silently strip the MCP
+    // tools this turn depends on, so refuse it outright rather than run tool-less.
+    if (args.includes('--tools')) {
+        throw new Error('refusing to spawn: `--tools` excludes MCP tools; use `--disallowedTools`');
+    }
+    if (!args.includes('--strict-mcp-config')) {
+        throw new Error('refusing to spawn: governed turn is missing `--strict-mcp-config`');
+    }
+    if (!args.includes('--mcp-config')) {
+        throw new Error('refusing to spawn: governed turn is missing `--mcp-config`');
+    }
+}
+
+/**
  * Run one LLM turn through the given provider's CLI.
  *
  * @param {object} args Arguments.
@@ -107,15 +177,46 @@ function selectCredentialEnv(provider, credentialEnv) {
  * @param {string} args.model Model id (may be empty).
  * @param {Array<object>} args.messages Assembled message history.
  * @param {object} args.credentialEnv Credential env map (allowlisted keys only).
+ * @param {object} [args.mcpConfig] Governed MCP server config ({mcpServers:{...}}). When
+ *        present the turn is GOVERNED: the config (which carries the per-run bearer token)
+ *        is written to a 0600 file in the scratch dir, its path is passed via
+ *        `--mcp-config`, and the CLI is locked down with `--tools "" --strict-mcp-config`.
+ *        Never placed inline on argv. Absent ⇒ the unchanged text-only turn.
+ * @param {string} [args.runToken] The per-run token. Used to build the CLI's proxy env
+ *        so the governed egress proxy can identify the run to Hermiq's PDP. Sent on
+ *        every turn, governed or not — the proxy is the container's only route out.
  * @returns {Promise<{text: string, toolCalls: Array, usage: object}>} Result.
  */
-function run({ provider, model, messages, credentialEnv }) {
+function run({ provider, model, messages, credentialEnv, mcpConfig, runToken }) {
     return new Promise((resolve, reject) => {
         const prompt = buildPrompt(messages);
-        const args = provider.args(model);
 
         // Throwaway scratch dir — the only filesystem the child is pointed at.
         const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-runner-'));
+
+        // Governed turn: write the MCP config (with its live bearer token) to a 0600
+        // file — never an inline argv string, which would put the token on the process
+        // table. It is removed with the scratch dir by cleanup() in every exit path.
+        let mcpConfigPath = null;
+        if (mcpConfig && typeof mcpConfig === 'object') {
+            mcpConfigPath = path.join(scratch, 'mcp.json');
+            fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig), { mode: 0o600 });
+            fs.chmodSync(mcpConfigPath, 0o600);
+        }
+
+        const args = provider.args(model, { mcpConfigPath });
+
+        // A governed turn MUST carry the lockdown flags, or the boundary is gone —
+        // refuse to spawn rather than run an ungoverned CLI holding a live token.
+        if (mcpConfigPath !== null) {
+            try {
+                assertGovernedArgs(args);
+            } catch (err) {
+                cleanup(scratch);
+                reject(err);
+                return;
+            }
+        }
 
         // Minimal, sanitised env: keep PATH/HOME so the binary resolves, add the
         // provider credential(s), and NOTHING the caller supplied beyond that.
@@ -131,10 +232,24 @@ function run({ provider, model, messages, credentialEnv }) {
                 childEnv[name] = process.env[name];
             }
         }
+        // The per-run proxy URL is assigned AFTER the passthrough, so a stray static
+        // HTTPS_PROXY in the container's own env can never shadow the run-scoped one —
+        // that would send the CLI out through a proxy with no run identity, which the
+        // PDP denies, and it would read as "the provider is down".
+        Object.assign(childEnv, buildEgressProxyEnv(runToken));
         Object.assign(childEnv, selectCredentialEnv(provider, credentialEnv));
 
         let child;
         try {
+            if (process.env.RUNNER_DEBUG_ARGV === '1') {
+                // eslint-disable-next-line no-console
+                console.log(`[hermiq-llm-runner] DEBUG argv: ${provider.bin} ${JSON.stringify(args)}`);
+                if (mcpConfigPath !== null) {
+                    const raw = fs.readFileSync(mcpConfigPath, 'utf8');
+                    // Redact the bearer token before logging.
+                    console.log(`[hermiq-llm-runner] DEBUG mcp.json: ${raw.replace(/Bearer [^"]+/g, 'Bearer <redacted>')}`);
+                }
+            }
             child = spawn(provider.bin, args, {
                 cwd: scratch,
                 env: childEnv,
@@ -179,6 +294,11 @@ function run({ provider, model, messages, credentialEnv }) {
         child.on('close', (code) => {
             settled = true;
             clearTimeout(timer);
+            if (process.env.RUNNER_DEBUG_ARGV === '1') {
+                const err = redact(stderr.toString('utf8')).trim();
+                // eslint-disable-next-line no-console
+                console.log(`[hermiq-llm-runner] DEBUG exit=${code} stderr=${err.slice(0, 900) || '(empty)'}`);
+            }
             cleanup(scratch);
             if (overflow) {
                 reject(new Error('CLI output exceeded the maximum size'));
@@ -231,4 +351,4 @@ function cleanup(dir) {
     }
 }
 
-module.exports = { run, buildPrompt, selectCredentialEnv, redact };
+module.exports = { run, buildPrompt, selectCredentialEnv, redact, assertGovernedArgs, buildEgressProxyEnv };

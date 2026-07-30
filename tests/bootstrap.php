@@ -6,7 +6,25 @@ declare(strict_types=1);
 define('PHPUNIT_RUN', 1);
 
 // Include Composer's autoloader.
-require_once __DIR__ . '/../vendor/autoload.php';
+$autoloader = require __DIR__ . '/../vendor/autoload.php';
+
+// Register the cross-app stub namespaces at TEST TIME only (openregister#2036 /
+// hermiq#21). These mappings MUST NOT live in composer.json `autoload-dev`: a plain
+// `composer install` bakes autoload-dev into the generated classmap, and in the dev
+// topology the app checkout IS the served app (Application.php requires
+// vendor/autoload.php), so the stubs would shadow the REAL OpenRegister/Talk classes
+// on every request instance-wide → 500s everywhere. Loading here is lazy, so ordering
+// versus any live server class is irrelevant — the stub is only ever resolved when the
+// real class is absent (standalone CI).
+$autoloader->addPsr4('OCA\\OpenRegister\\', __DIR__ . '/Stubs/');
+$autoloader->addPsr4('OCA\\Talk\\', __DIR__ . '/Stubs/Talk/');
+
+// OCP\Files\IRootFolder extends the private OC\Hooks\Emitter interface, absent from the
+// nextcloud/ocp stubs. Register it lazily so standalone runs can mock IRootFolder; the
+// real interface ships with the Nextcloud server. (Formerly an autoload-dev classmap.)
+if (interface_exists(\OC\Hooks\Emitter::class) === false) {
+    $autoloader->addClassMap(['OC\\Hooks\\Emitter' => __DIR__ . '/Stubs/OC/Hooks/Emitter.php']);
+}
 
 // Register the nextcloud/ocp stubs for OCP\* — but ONLY here, in the test entry
 // point, and only when no live Nextcloud already supplies them.
