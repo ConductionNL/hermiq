@@ -253,8 +253,14 @@ class AgentRunControllerTest extends TestCase
         $agent->setUuid('agent-1');
         $this->agentMapper->method('findByUuid')->willReturn($agent);
 
-        $schema = new Schema();
-        $schema->setConfiguration(['x-openregister-agent-context' => ['title']]);
+        // Mock the DECLARED getConfiguration() accessor instead of round-tripping
+        // through setConfiguration(): the real OpenRegister Schema validates set
+        // keys against its ANNOTATION_VOCABULARY and current OR releases silently
+        // DROP `x-openregister-agent-context` there (upstream gap, reported to
+        // openregister) — the controller contract under test only needs the
+        // configuration READ to contain the allowlist.
+        $schema = $this->createMock(Schema::class);
+        $schema->method('getConfiguration')->willReturn(['x-openregister-agent-context' => ['title']]);
         $this->schemaMapper->method('find')->willReturn($schema);
 
         $response = $this->controller()->runOnObject('agent-1');

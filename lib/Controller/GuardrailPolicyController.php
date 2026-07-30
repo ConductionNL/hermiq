@@ -60,6 +60,9 @@ use Throwable;
  *
  * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
  *   a distinct injected collaborator, not a logic-bearing argument list.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One injected collaborator per seam
+ *   (policy service, user session, group manager, org mapper, logger) plus the HTTP
+ *   response/exception types every endpoint returns.
  *
  * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-guardrail-policy-administration-is-authorization-guarded
  */

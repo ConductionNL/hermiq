@@ -99,6 +99,54 @@ class SkillSerializerTest extends TestCase
     }//end testPackageWithoutFrontmatterIsAllBody()
 
     /**
+     * skill-maturity regression: the exported agentskills.io package is byte-identical
+     * with and without the maturity metadata (`maturityLevel`, `targetLevel`,
+     * `levelEvidence`) — qualifying/attesting a skill never changes its export, and no
+     * maturity field ever leaks into the package.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-agentskillsio-export-is-byte-identical-regardless-of-maturity
+     */
+    public function testMaturityFieldsNeverEnterTheExportedPackage(): void
+    {
+        $serializer = new SkillSerializer();
+
+        $bare = [
+            'frontmatter' => "name: tender-summary\ndescription: Summarise a tender publication — use when the user pastes a TED notice.\nversion: 0.1.0",
+            'body'        => "# Tender Summary\n\n1. Extract essentials.\n",
+        ];
+
+        $qualified = array_merge(
+            $bare,
+            [
+                'maturityLevel' => 4,
+                'targetLevel'   => 5,
+                'levelEvidence' => [
+                    'l1' => [
+                        'passed'    => true,
+                        'checkedAt' => '2026-07-01T00:00:00+00:00',
+                    ],
+                    'l4' => [
+                        'attestedBy' => 'admin',
+                        'attestedAt' => '2026-01-15T09:00:00+00:00',
+                        'note'       => 'seeded',
+                    ],
+                ],
+            ]
+        );
+
+        $before = $serializer->toPackage(skill: $bare);
+        $after  = $serializer->toPackage(skill: $qualified);
+
+        $this->assertSame($before, $after);
+        $this->assertStringNotContainsString('maturityLevel', $after);
+        $this->assertStringNotContainsString('targetLevel', $after);
+        $this->assertStringNotContainsString('levelEvidence', $after);
+
+    }//end testMaturityFieldsNeverEnterTheExportedPackage()
+
+    /**
      * A CRLF package normalises to LF and still round-trips its content.
      *
      * @return void

@@ -81,9 +81,12 @@ use stdClass;
  * The token-gated, per-run governed MCP server: `initialize`, `tools/list`,
  * `tools/call`, all under Hermiq's existing governance.
  *
- * @SuppressWarnings(PHPMD.CouplingBetweenObjects) A JSON-RPC dispatcher over the
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   A JSON-RPC dispatcher over the
  *   existing engine collaborators — the coupling tracks the governance surfaces
  *   the http tool loop already threads, reused here rather than reimplemented.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small JSON-RPC
+ *   method handlers (initialize, tools/list, tools/call) plus their per-branch
+ *   governance guards — a dispatch surface, not one tangled algorithm.
  *
  * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
  */
@@ -125,6 +128,9 @@ class McpRunController extends Controller
      * @param IUserManager       $userManager        Resolves the token's user to an `IUser`.
      * @param IUserSession       $userSession        Impersonates that user for RBAC on dispatch.
      * @param LoggerInterface    $logger             PSR-3 logger (never receives a token value).
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+     *   distinct injected collaborator, not a logic-bearing argument list.
      */
     public function __construct(
         IRequest $request,
@@ -528,16 +534,14 @@ class McpRunController extends Controller
     {
         if (array_key_exists('properties', $schema) === true) {
             $properties = $schema['properties'];
-            if (is_array($properties) === false || $properties === []) {
-                // Empty (or non-array) properties MUST be an object, not `[]`.
-                $schema['properties'] = new stdClass();
-            } else {
+            // Empty (or non-array) properties MUST be an object, not `[]`.
+            $schema['properties'] = new stdClass();
+            if (is_array($properties) === true && $properties !== []) {
                 $normalised = [];
                 foreach ($properties as $propName => $propSchema) {
+                    $normalised[$propName] = $propSchema;
                     if (is_array($propSchema) === true) {
                         $normalised[$propName] = $this->normaliseSchemaProperties(schema: $propSchema);
-                    } else {
-                        $normalised[$propName] = $propSchema;
                     }
                 }
 

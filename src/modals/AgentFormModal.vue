@@ -46,14 +46,18 @@
 				{{ error }}
 			</NcNoteCard>
 
+			<!-- Vue 3 / @nextcloud/vue 9: v-model (modelValue) — the old Vue-2
+			     `:value.sync` modifier is silently IGNORED by the Vue 3 compiler,
+			     leaving a one-way binding: typing never reached form.name and the
+			     Save button stayed disabled forever. -->
 			<NcTextField
-				:value.sync="form.name"
+				v-model="form.name"
 				:label="t('hermiq', 'Name')"
 				:placeholder="t('hermiq', 'Morning briefing')"
 				required />
 
 			<NcTextField
-				:value.sync="form.description"
+				v-model="form.description"
 				:label="t('hermiq', 'Description')"
 				:placeholder="t('hermiq', 'What does this agent do?')" />
 
@@ -95,24 +99,24 @@
 			</div>
 			<NcTextField
 				v-else
-				:value.sync="form.model"
+				v-model="form.model"
 				:label="t('hermiq', 'Model')"
 				:placeholder="t('hermiq', 'qwen2.5')" />
 
 			<NcTextArea
-				:value.sync="form.prompt"
+				v-model="form.prompt"
 				:label="t('hermiq', 'System prompt')"
 				:placeholder="t('hermiq', 'You are a helpful assistant…')"
 				resize="vertical" />
 
 			<div class="agent-form__row">
 				<NcTextField
-					:value.sync="form.temperature"
+					v-model="form.temperature"
 					type="number"
 					:label="t('hermiq', 'Temperature (0–2)')"
 					:placeholder="'0.7'" />
 				<NcTextField
-					:value.sync="form.maxTokens"
+					v-model="form.maxTokens"
 					type="number"
 					:label="t('hermiq', 'Max tokens per response')"
 					:placeholder="'2048'" />
@@ -155,28 +159,24 @@
 			</div>
 
 			<div class="agent-form__field">
-				<NcCheckboxRadioSwitch
-					:checked="form.enableRag"
-					@update:checked="form.enableRag = $event">
+				<!-- v9 NcCheckboxRadioSwitch is modelValue-based; the old
+				     :checked/@update:checked pair no longer round-trips. -->
+				<NcCheckboxRadioSwitch v-model="form.enableRag">
 					{{ t('hermiq', 'Ground responses in your data (RAG)') }}
 				</NcCheckboxRadioSwitch>
 			</div>
 
 			<template v-if="form.enableRag">
 				<div class="agent-form__row">
-					<NcCheckboxRadioSwitch
-						:checked="form.searchObjects"
-						@update:checked="form.searchObjects = $event">
+					<NcCheckboxRadioSwitch v-model="form.searchObjects">
 						{{ t('hermiq', 'Search in objects') }}
 					</NcCheckboxRadioSwitch>
-					<NcCheckboxRadioSwitch
-						:checked="form.searchFiles"
-						@update:checked="form.searchFiles = $event">
+					<NcCheckboxRadioSwitch v-model="form.searchFiles">
 						{{ t('hermiq', 'Search in files') }}
 					</NcCheckboxRadioSwitch>
 				</div>
 				<NcTextField
-					:value.sync="form.ragNumSources"
+					v-model="form.ragNumSources"
 					type="number"
 					:label="t('hermiq', 'Number of RAG sources')"
 					:placeholder="'5'" />

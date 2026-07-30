@@ -66,6 +66,10 @@ use RuntimeException;
  * policy for an organisation (own policy → instance default → fully-open
  * fallback).
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) One class owns the whole guardrail
+ *   surface (policy CRUD, resolution chain, input/output filtering, tool-risk checks)
+ *   so the policy-application invariants stay in a single place.
+ *
  * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-per-organisation-guardrail-policy-with-a-fully-open-fallback
  */
 class GuardrailPolicyService

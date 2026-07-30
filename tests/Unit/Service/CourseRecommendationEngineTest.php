@@ -119,7 +119,10 @@ class CourseRecommendationEngineTest extends TestCase
                 mixed $schema=null,
                 ?string $uuid=null,
                 bool $_rbac=true,
-                bool $_multitenancy=true
+                bool $_multitenancy=true,
+                bool $silent=false,
+                ?array $uploadedFiles=null,
+                ?\OCP\IUser $currentUser=null
             ): ObjectEntity {
                 $payload         = is_array($object) ? $object : $object->getObject();
                 $this->saved[]   = $payload;
@@ -269,8 +272,10 @@ class CourseRecommendationEngineTest extends TestCase
      */
     private function organisation(string $uuid): Organisation
     {
-        $org = $this->createMock(Organisation::class);
-        $org->method('getUuid')->willReturn($uuid);
+        // Real entity, not a mock: the real Organisation resolves getUuid()
+        // via Entity magic, unmockable under a server tree.
+        $org = new Organisation();
+        $org->setUuid($uuid);
         return $org;
 
     }//end organisation()

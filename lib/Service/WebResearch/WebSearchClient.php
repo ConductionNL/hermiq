@@ -251,6 +251,11 @@ class WebSearchClient
      * @param string|null $actingUserId The acting user id (sessionless-caller path).
      *
      * @return string The raw response body.
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) The broker is OpenRegister's optional
+     *   cross-app service, resolved by class-name string via `Server::get()` only
+     *   after a `class_exists()` probe — constructor injection would hard-couple
+     *   Hermiq to an OpenRegister version that ships it.
      */
     private function requestViaBroker(string $url, string $credentialId, ?string $actingUserId): string
     {

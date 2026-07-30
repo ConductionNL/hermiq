@@ -43,6 +43,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
+use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
@@ -110,12 +111,15 @@ class ChatController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest        $request       The request object.
-     * @param Engine          $engine        In-app agent engine facade (ported ChatService).
-     * @param ObjectService   $objectService OpenRegister object read/write (single write-path).
-     * @param IUserSession    $userSession   Resolves the requesting user.
-     * @param IL10N           $l10n          Localization service for translations.
-     * @param LoggerInterface $logger        PSR-3 logger.
+     * @param IRequest                  $request       The request object.
+     * @param Engine                    $engine        In-app agent engine facade (ported ChatService).
+     * @param ObjectService             $objectService OpenRegister object read/write (single write-path).
+     * @param IUserSession              $userSession   Resolves the requesting user.
+     * @param IL10N                     $l10n          Localization service for translations.
+     * @param LoggerInterface           $logger        PSR-3 logger.
+     * @param ConversationParticipation $participation Owner-or-listed-participant guard
+     *                                                 (talk-shared-sessions). Defaulted so every
+     *                                                 existing caller constructs unchanged.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
      */
@@ -126,6 +130,7 @@ class ChatController extends Controller
         private readonly IUserSession $userSession,
         private readonly IL10N $l10n,
         private readonly LoggerInterface $logger,
+        private readonly ConversationParticipation $participation=new ConversationParticipation(),
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -306,7 +311,7 @@ class ChatController extends Controller
 
             // Get conversation and verify ownership (gate-7 ownership guard).
             $conversation = $this->findConversation(uuid: $conversationId);
-            if (($conversation->getObject()['userId'] ?? null) !== $userId) {
+            if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $userId) === false) {
                 return new JSONResponse(
                     data: [
                         'error'   => $this->l10n->t('Access denied'),
@@ -389,7 +394,7 @@ class ChatController extends Controller
 
             // Get conversation and verify ownership (gate-7 ownership guard).
             $conversation = $this->findConversation(uuid: $conversationId);
-            if (($conversation->getObject()['userId'] ?? null) !== $userId) {
+            if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $userId) === false) {
                 return new JSONResponse(
                     data: [
                         'error'   => $this->l10n->t('Access denied'),
@@ -483,7 +488,7 @@ class ChatController extends Controller
 
             // Get conversation by UUID and verify ownership (gate-7 ownership guard).
             $conversation = $this->findConversation(uuid: $conversationUuid);
-            if (($conversation->getObject()['userId'] ?? null) !== $userId) {
+            if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $userId) === false) {
                 return new JSONResponse(
                     data: [
                         'error'   => $this->l10n->t('Access denied'),
@@ -809,7 +814,11 @@ class ChatController extends Controller
     }//end createNewConversation()
 
     /**
-     * Verify that the current user owns the conversation.
+     * Verify that the current user may take a turn in the conversation.
+     *
+     * Owner-or-listed-participant since talk-shared-sessions: the `userId`
+     * owner is implicitly permitted, and an empty roster therefore means
+     * owner-only — the behaviour every conversation had before.
      *
      * @param ObjectEntity $conversation The conversation to check.
      * @param string       $userId       Current user id.
@@ -819,10 +828,11 @@ class ChatController extends Controller
      * @throws Exception If the user does not have access (code 403).
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
      */
     private function verifyConversationAccess(ObjectEntity $conversation, string $userId): void
     {
-        if (($conversation->getObject()['userId'] ?? null) !== $userId) {
+        if ($this->participation->mayTakeTurn(conversationData: $conversation->getObject(), userId: $userId) === false) {
             throw new Exception('You do not have access to this conversation', 403);
         }
     }//end verifyConversationAccess()

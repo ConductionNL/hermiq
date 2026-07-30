@@ -24,6 +24,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\SkillMaturityService;
 use OCA\Hermiq\Service\SkillSerializer;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -38,12 +39,11 @@ use Psr\Log\NullLogger;
  */
 class SkillServiceTest extends TestCase
 {
-
     /**
      * A Skill ObjectEntity with the given payload.
      *
      * @param array<string, mixed> $payload The object data.
-     * @param string                $uuid    The object uuid.
+     * @param string               $uuid    The object uuid.
      *
      * @return ObjectEntity
      */
@@ -60,7 +60,7 @@ class SkillServiceTest extends TestCase
      * An Agent ObjectEntity with the given payload.
      *
      * @param array<string, mixed>|null $payload The object data (null = agent not found).
-     * @param string                     $uuid    The object uuid.
+     * @param string                    $uuid    The object uuid.
      *
      * @return ObjectEntity|null
      */
@@ -116,7 +116,7 @@ class SkillServiceTest extends TestCase
             }
         );
 
-        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new SkillMaturityService($objectService), new NullLogger());
         $service->installOnAgent(skillId: 'skill-uuid', agentId: 'agent-uuid');
 
         $this->assertCount(2, $saved, 'Both the skill and the agent must be saved.');
@@ -161,7 +161,7 @@ class SkillServiceTest extends TestCase
             }
         );
 
-        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new SkillMaturityService($objectService), new NullLogger());
         $service->installOnAgent(skillId: 'skill-uuid', agentId: 'agent-uuid');
 
         $this->assertSame(0, $agentSaveCount, 'Already-synced skillInstalls must not trigger a redundant save.');
@@ -196,7 +196,7 @@ class SkillServiceTest extends TestCase
             }
         );
 
-        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new SkillMaturityService($objectService), new NullLogger());
         $result  = $service->installOnAgent(skillId: 'skill-uuid', agentId: 'ghost-agent');
 
         $this->assertNotNull($result, 'The skill-side install must still succeed.');
@@ -216,7 +216,7 @@ class SkillServiceTest extends TestCase
         $objectService->method('find')->willReturn(null);
         $objectService->expects($this->never())->method('saveObject');
 
-        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new SkillMaturityService($objectService), new NullLogger());
         $result  = $service->installOnAgent(skillId: 'ghost-skill', agentId: 'agent-uuid');
 
         $this->assertNull($result);
@@ -262,7 +262,7 @@ class SkillServiceTest extends TestCase
             }
         );
 
-        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new SkillMaturityService($objectService), new NullLogger());
         $service->uninstallFromAgent(skillId: 'skill-uuid', agentId: 'agent-uuid');
 
         $this->assertCount(2, $saved, 'Both the skill and the agent must be saved.');
@@ -307,7 +307,7 @@ class SkillServiceTest extends TestCase
             }
         );
 
-        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new SkillMaturityService($objectService), new NullLogger());
         $result  = $service->uninstallFromAgent(skillId: 'skill-uuid', agentId: 'agent-uuid');
 
         $this->assertNotNull($result, 'The skill-side detach still succeeds.');
@@ -328,10 +328,140 @@ class SkillServiceTest extends TestCase
         $objectService->method('find')->willReturn(null);
         $objectService->expects($this->never())->method('saveObject');
 
-        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new NullLogger());
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new SkillMaturityService($objectService), new NullLogger());
         $result  = $service->uninstallFromAgent(skillId: 'ghost-skill', agentId: 'agent-uuid');
 
         $this->assertNull($result);
 
     }//end testUninstallFromAgentReturnsNullForMissingSkill()
+
+    /**
+     * updateSkill() applies the computed-maturity write guard (skill-maturity): a
+     * hand-set maturityLevel 7 and a forged l4 never survive the merge path, while
+     * targetLevel and ordinary fields persist.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+     */
+    public function testUpdateSkillIgnoresClientSuppliedComputedMaturity(): void
+    {
+        $skill = $this->skill(
+            [
+                'name'          => 'a-skill',
+                'body'          => 'stored body',
+                'maturityLevel' => 2,
+                'targetLevel'   => 2,
+                'levelEvidence' => [
+                    'l1' => [
+                        'passed'    => true,
+                        'checkedAt' => '2026-07-01T00:00:00+00:00',
+                    ],
+                ],
+            ]
+        );
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($skill);
+
+        $saved = [];
+        $objectService->method('saveObject')->willReturnCallback(
+            function (array $object, ?array $extend=null, mixed $register=null, mixed $schema=null, mixed $uuid=null) use (&$saved): ObjectEntity {
+                $saved  = $object;
+                $entity = new ObjectEntity();
+                $entity->setUuid((string) $uuid);
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $service = new SkillService($objectService, $this->createMock(SkillSerializer::class), new SkillMaturityService($objectService), new NullLogger());
+        $result  = $service->updateSkill(
+            skillId: 'skill-uuid',
+            data: [
+                'name'          => 'a-skill',
+                'body'          => 'edited body',
+                'maturityLevel' => 7,
+                'targetLevel'   => 4,
+                'levelEvidence' => [
+                    'l4' => [
+                        'attestedBy' => 'attacker',
+                        'attestedAt' => '2026-07-01T00:00:00+00:00',
+                    ],
+                ],
+            ]
+        );
+
+        $this->assertNotNull($result);
+        $this->assertSame(2, $saved['maturityLevel'], 'The stored maturityLevel must win.');
+        $this->assertArrayNotHasKey('l4', $saved['levelEvidence'], 'A forged attestation must be dropped.');
+        $this->assertSame(
+            '2026-07-01T00:00:00+00:00',
+            $saved['levelEvidence']['l1']['checkedAt'],
+            'Stored computed evidence must be carried forward.'
+        );
+        $this->assertSame(4, $saved['targetLevel'], 'Curator intent stays freely editable.');
+        $this->assertSame('edited body', $saved['body'], 'Ordinary fields stay editable.');
+
+    }//end testUpdateSkillIgnoresClientSuppliedComputedMaturity()
+
+    /**
+     * The publish-time file selection ships `learnings.md` and STRIPS
+     * `learning-candidates.md` — the ONE selection both publish routes (GitHub
+     * primary and the OpenConnector secondary via `exportSkill()`) use; the
+     * serializer's byte-for-byte fidelity is untouched because the strip is file
+     * SELECTION, not serialization.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+     */
+    public function testPublishFileSelectionStripsCandidatesAndKeepsLearnings(): void
+    {
+        $skill = new ObjectEntity();
+        $skill->setUuid('skill-uuid');
+        $skill->setObject(
+            [
+                'name'        => 'tender-summary',
+                'frontmatter' => "name: tender-summary\ndescription: Summarise a tender publication.",
+                'body'        => "# Tender Summary\nBody line.",
+                'files'       => [
+                    [
+                        'name'    => 'references/exemption-grounds.md',
+                        'content' => 'reference content',
+                    ],
+                    [
+                        'name'    => 'learnings.md',
+                        'content' => '# Learnings',
+                    ],
+                    [
+                        'name'    => 'learning-candidates.md',
+                        'content' => '- [2026-07-20] {domain} unvetted observation <!-- runs: 00000000-0000-0000-0000-000000000000 -->',
+                    ],
+                ],
+            ]
+        );
+
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($skill);
+
+        $serializer = new SkillSerializer();
+        $service    = new SkillService($objectService, $serializer, new SkillMaturityService($objectService), new NullLogger());
+
+        $selection = $service->publishFileSelection(skillId: 'skill-uuid');
+        $names     = array_column($selection, 'name');
+
+        $this->assertContains('learnings.md', $names, 'A skill\'s vetted experience travels with it (ADR-068 §3).');
+        $this->assertContains('references/exemption-grounds.md', $names);
+        $this->assertNotContains('learning-candidates.md', $names, 'Unvetted observations never leave the instance.');
+
+        // Fidelity: the exported package's frontmatter/body round-trip byte-for-byte
+        // — the selection changed WHICH files ship, never how content serializes.
+        $package = $service->exportSkill(skillId: 'skill-uuid');
+        $parsed  = $serializer->fromPackage(package: (string) $package);
+        $this->assertSame($skill->getObject()['frontmatter'], $parsed['frontmatter']);
+        $this->assertSame($skill->getObject()['body'], $parsed['body']);
+        $this->assertStringNotContainsString('unvetted observation', (string) $package);
+
+    }//end testPublishFileSelectionStripsCandidatesAndKeepsLearnings()
 }//end class

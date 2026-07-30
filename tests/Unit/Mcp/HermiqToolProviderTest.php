@@ -52,7 +52,6 @@ use OCP\App\IAppManager;
 use OCP\Calendar\IManager as ICalendarManager;
 use OCP\Contacts\IManager as IContactsManager;
 use OCP\Files\IRootFolder;
-use OCP\IGroupManager;
 use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Mail\IMailer;
@@ -100,7 +99,6 @@ class HermiqToolProviderTest extends TestCase
 
         return new HermiqToolProvider(
             $session,
-            $this->createMock(IGroupManager::class),
             $this->createMock(IRootFolder::class),
             $this->createMock(IContactsManager::class),
             $this->createMock(ICalendarManager::class),
