@@ -62,6 +62,13 @@ class TalkTurnHandOffTest extends TestCase
     ];
 
     /**
+     * Core's triggerable-provider interface — the name the dispatcher matches on.
+     *
+     * @var string
+     */
+    private const TRIGGERABLE_PROVIDER = 'OCP\\TaskProcessing\\ITriggerableProvider';
+
+    /**
      * Build a dispatcher whose TaskProcessing manager offers the given providers.
      *
      * @param array|null $providers Providers to advertise, or null for no manager at all.
@@ -86,37 +93,31 @@ class TalkTurnHandOffTest extends TestCase
     }//end makeDispatcher()
 
     /**
-     * A triggerable provider, declared by name because `ITriggerableProvider`
-     * is absent from the pinned OCP — the same reason the dispatcher checks it
-     * with `is_a()` on a string rather than importing it.
+     * A triggerable provider that expects to be nudged exactly once.
      *
-     * @return object The fake provider, exposing `trigger()`.
+     * 🔴 Must be a MOCK, not an anonymous class implementing the interface.
+     * `ITriggerableProvider` is absent from the pinned OCP but PRESENT on a real
+     * Nextcloud — and there it extends `IProvider`, so a hand-written double
+     * that declares only `trigger()` is missing 12 abstract methods and fatals
+     * at class-declaration time. That fatal cannot happen where the interface is
+     * absent, so the test passed locally and killed the whole CI suite. Mocking
+     * the name satisfies whatever shape the interface actually has.
+     *
+     * Referenced by name for the same reason the dispatcher uses `is_a()` on a
+     * string rather than importing it.
+     *
+     * @return object The mock provider.
      */
     private function makeTriggerableProvider(): object
     {
-        if (interface_exists('OCP\\TaskProcessing\\ITriggerableProvider') === false) {
+        if (interface_exists(self::TRIGGERABLE_PROVIDER) === false) {
             eval('namespace OCP\\TaskProcessing; interface ITriggerableProvider { public function trigger(): void; }');
         }
 
-        return new class implements \OCP\TaskProcessing\ITriggerableProvider {
+        $provider = $this->createMock(originalClassName: self::TRIGGERABLE_PROVIDER);
+        $provider->expects($this->once())->method('trigger');
 
-            /**
-             * Whether the runner was nudged.
-             *
-             * @var bool
-             */
-            public bool $triggered = false;
-
-            /**
-             * Nudge the runner.
-             *
-             * @return void
-             */
-            public function trigger(): void
-            {
-                $this->triggered = true;
-            }
-        };
+        return $provider;
 
     }//end makeTriggerableProvider()
 
@@ -180,8 +181,9 @@ class TalkTurnHandOffTest extends TestCase
             roomToken: self::TURN['roomToken']
         );
 
+        // That the runner was nudged is asserted by the mock's `once()`
+        // expectation in makeTriggerableProvider().
         $this->assertSame('triggered', $path);
-        $this->assertTrue($provider->triggered, 'The triggerable runner was never nudged.');
 
         // Same job, same argument as the queued hand-off — one route, not two.
         $this->assertCount(1, $enqueued);
