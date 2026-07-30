@@ -1,0 +1,26 @@
+# Hermiq
+
+> Schedule autonomous AI agents in Nextcloud.
+
+Hermiq is an open-source app for the Nextcloud workspace, built on the @conduction/docusaurus-preset documentation framework. Hermiq brings autonomous AI agents to Nextcloud: define an agent, give it tools, and run it on a schedule — all inside your own Nextcloud. Agents, their memory and skills are stored as OpenRegister objects, so every run is governed, auditable and multi-tenant. Released under EUPL-1.2 and maintained by Conduction since 2026.
+
+## Docs
+
+- [Tutorials](https://hermiq.conduction.nl/tutorials): step-by-step walkthroughs for first-time users.
+- [Features](https://hermiq.conduction.nl/Features): what the app does, organised by capability.
+- [Use cases](https://hermiq.conduction.nl/UseCases): real customer scenarios the app solves.
+- [Integrations](https://hermiq.conduction.nl/Integrations): which external systems and standards the app talks to.
+- [Technical](https://hermiq.conduction.nl/Technical): architecture, data model, security posture, deployment notes.
+- [User guide](https://hermiq.conduction.nl/user-guide): end-user documentation.
+- [API](https://hermiq.conduction.nl/api): OpenAPI reference (when the app ships an HTTP API).
+
+## Optional
+
+- [Install](https://hermiq.conduction.nl/installation): how to install from the Nextcloud app store.
+- [Repository](https://codeberg.org/Conduction/hermiq): source code and issue tracker.
+- [App page on conduction.nl](https://www.conduction.nl/apps/hermiq): product positioning, pricing, support paths.
+
+## Contact
+
+- Email: info@conduction.nl
+- Codeberg: https://codeberg.org/Conduction
