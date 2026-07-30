@@ -28,5 +28,12 @@ jobs:
       # uploadedFiles:, currentUser:) surface that hermiq calls does not exist on
       # OR main yet, so testing this branch against OR main fails on version
       # skew, not on hermiq bugs.
+      #
+      # The same skew is unrecoverable for interfaces hermiq *implements*
+      # (IShareableConfigType, IFlowNode, IFlowResolver): an implemented-but-
+      # unresolvable interface is a NON-ignorable PHPStan error — reflection fails
+      # before ignoreErrors applies, so phpstan.neon's existing
+      # `#implements unknown interface OCA\OpenRegister\#` pattern cannot suppress
+      # it and only a matching OR ref makes the build correct.
       additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"development"}]'
       enable-sbom: true
