@@ -69,6 +69,17 @@ function collectConsoleErrors(page: Page): string[] {
 		if (/favicon|manifest\.json|the server responded with a status of 404/i.test(text)) {
 			return
 		}
+		// Only hermiq's own failures may fail a hermiq test — Nextcloud hosts
+		// every installed app's widgets, so a shared instance logs errors from
+		// apps this suite knows nothing about. See the fuller note in
+		// dashboard-and-agents.spec.ts. Errors with no attributable script are
+		// kept, so raw console.error from application code still counts.
+		const source = `${msg.location()?.url || ''} ${text}`
+		const foreignApp = source.match(/\/custom_apps\/([^/]+)\//)?.[1]
+			|| source.match(/\/apps\/([^/]+)\/js\//)?.[1]
+		if (foreignApp !== undefined && foreignApp !== 'hermiq') {
+			return
+		}
 		errors.push(text)
 	})
 	return errors

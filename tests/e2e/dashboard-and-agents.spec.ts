@@ -77,6 +77,25 @@ function collectConsoleErrors(page: Page): string[] {
 		if ((msg.location()?.url || '').includes('/api/chat/health')) {
 			return
 		}
+		// 🔴 Only hermiq's own failures may fail a hermiq regression test.
+		//
+		// Nextcloud's Dashboard hosts every installed app's widgets, so a shared
+		// instance reliably logs errors from apps this suite knows nothing about
+		// (`opencatalogi-catalogiWidget`, `pipelinq-myLeadsWidget`, … each
+		// "TypeError: Failed to fetch" when their own backend is unreachable).
+		// Counting those made the assertion a report on the whole instance: it
+		// passed or failed on whether somebody else's app happened to be healthy,
+		// and it would go red for a hermiq change that is entirely correct.
+		//
+		// Attribute by the emitting script instead. Errors with no location (raw
+		// `console.error` from application code, e.g. a Vue warning) are kept —
+		// dropping them would silently gut what this test exists to catch.
+		const source = `${msg.location()?.url || ''} ${text}`
+		const foreignApp = source.match(/\/custom_apps\/([^/]+)\//)?.[1]
+			|| source.match(/\/apps\/([^/]+)\/js\//)?.[1]
+		if (foreignApp !== undefined && foreignApp !== 'hermiq') {
+			return
+		}
 		errors.push(text)
 	})
 	return errors
