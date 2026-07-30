@@ -13,6 +13,7 @@ import { generateUrl } from '@nextcloud/router'
 import {
 	CnPageRenderer,
 	defaultPageTypes,
+	registerBuiltinDashboardWidgets,
 	registerIcons,
 	registerTranslations,
 } from '@conduction/nextcloud-vue'
@@ -38,6 +39,14 @@ import './assets/app.css'
 
 // Register library-side icon set + lib translations once at bootstrap.
 registerIcons()
+// Populate the shared dashboard widget catalog. The library's widgets
+// self-register as an import side effect, but webpack drops a bare side-effect
+// import from a package whose exports it can tree-shake — so without this
+// explicit no-op call EVERY registry widget type (stat, gauge, chart,
+// flow-runs, …) resolves to nothing and its tile renders "Widget not
+// available". Silent: no console error, and a custom widget in the same grid
+// still renders, so the dashboard looks half-built rather than mis-wired.
+registerBuiltinDashboardWidgets()
 try {
 	registerTranslations()
 } catch (e) {

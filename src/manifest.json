@@ -1,6 +1,6 @@
 {
 	"$schema": "https://codeberg.org/Conduction/nextcloud-vue/raw/branch/main/src/schemas/app-manifest-v2.schema.json",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"dependencies": [
 		"openregister"
 	],
@@ -579,58 +579,175 @@
 			"type": "dashboard",
 			"title": "Dashboard",
 			"config": {
+				"description": "Run metrics across your agents — success rate, latency and token usage.",
 				"widgets": [
 					{
-						"id": "analytics-kpis",
-						"type": "custom",
-						"title": "Analytics"
+						"id": "kpi-total-runs",
+						"type": "stat",
+						"title": "Total runs",
+						"content": {
+							"label": "Total runs",
+							"caption": "recorded",
+							"icon": "Timeline",
+							"format": { "style": "decimal", "decimals": 0 },
+							"endpointSource": { "url": "/apps/hermiq/api/analytics" },
+							"valueField": "totalRuns"
+						}
 					},
 					{
-						"id": "quota-usage",
-						"type": "custom",
-						"title": "Quota usage"
+						"id": "kpi-success-rate",
+						"type": "stat",
+						"title": "Success rate",
+						"content": {
+							"label": "Success rate",
+							"caption": "completed",
+							"icon": "CheckCircleOutline",
+							"format": { "style": "decimal", "decimals": 0, "suffix": "%" },
+							"endpointSource": { "url": "/apps/hermiq/api/analytics" },
+							"valueField": "successRate",
+							"variantWhen": [
+								{ "op": "gte", "value": 90, "variant": "success" },
+								{ "op": "lt", "value": 60, "variant": "warning" }
+							]
+						}
+					},
+					{
+						"id": "kpi-avg-latency",
+						"type": "stat",
+						"title": "Avg latency",
+						"content": {
+							"label": "Avg latency",
+							"caption": "per run",
+							"icon": "Gauge",
+							"format": { "style": "decimal", "decimals": 1, "suffix": " s" },
+							"endpointSource": { "url": "/apps/hermiq/api/analytics" },
+							"valueField": "latency.avgSeconds"
+						}
+					},
+					{
+						"id": "kpi-tokens",
+						"type": "stat",
+						"title": "Tokens",
+						"content": {
+							"label": "Tokens",
+							"icon": "ChartBar",
+							"format": { "style": "decimal", "decimals": 0 },
+							"endpointSource": { "url": "/apps/hermiq/api/analytics" },
+							"valueField": "tokens.total"
+						}
+					},
+					{
+						"id": "running-flows",
+						"type": "flow-runs",
+						"title": "Running flows",
+						"content": {
+							"limit": 6,
+							"pollSeconds": 15,
+							"rowRoute": "GraphDetail",
+							"emptyText": "No flows are running"
+						}
 					},
 					{
 						"id": "analytics-breakdown",
 						"type": "custom",
 						"title": "Breakdown"
+					},
+					{
+						"id": "quota-schedules",
+						"type": "custom",
+						"title": "Schedules quota",
+						"content": { "metric": "schedules" }
+					},
+					{
+						"id": "quota-agents",
+						"type": "custom",
+						"title": "Agents quota",
+						"content": { "metric": "agents" }
 					}
 				],
 				"layout": [
 					{
 						"id": "1",
-						"widgetId": "analytics-kpis",
+						"widgetId": "kpi-total-runs",
 						"gridX": 0,
 						"gridY": 0,
-						"gridWidth": 12,
-						"gridHeight": 3,
+						"gridWidth": 3,
+						"gridHeight": 2,
 						"showTitle": false
 					},
 					{
 						"id": "2",
-						"widgetId": "quota-usage",
-						"gridX": 0,
-						"gridY": 3,
-						"gridWidth": 12,
-						"gridHeight": 3,
+						"widgetId": "kpi-success-rate",
+						"gridX": 3,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 2,
 						"showTitle": false
 					},
 					{
 						"id": "3",
+						"widgetId": "kpi-avg-latency",
+						"gridX": 6,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "4",
+						"widgetId": "kpi-tokens",
+						"gridX": 9,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "5",
+						"widgetId": "running-flows",
+						"gridX": 0,
+						"gridY": 2,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "6",
 						"widgetId": "analytics-breakdown",
+						"borderless": false,
+						"gridX": 6,
+						"gridY": 2,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": false
+					},
+					{
+						"id": "7",
+						"widgetId": "quota-schedules",
+						"borderless": false,
 						"gridX": 0,
 						"gridY": 6,
-						"gridWidth": 12,
-						"gridHeight": 4,
+						"gridWidth": 3,
+						"gridHeight": 2,
+						"showTitle": false
+					},
+					{
+						"id": "8",
+						"widgetId": "quota-agents",
+						"borderless": false,
+						"gridX": 3,
+						"gridY": 6,
+						"gridWidth": 3,
+						"gridHeight": 2,
 						"showTitle": false
 					}
 				]
 			},
-			"_note": "Single dashboard (/analytics merged in and dropped). Custom widgets MUST be declared as config.widgets type:'custom' + config.layout + a TOP-LEVEL slots map ('widget-<id>' -> registry key) — the decidesk pattern. A top-level widgets[] instead makes CnPageRenderer mount a bare CnWidgetGrid and skip CnDashboardPage, so no page header renders and nothing carries the 56px nav-toggle clearance.",
+			"_note": "Single dashboard (/analytics merged in and dropped). Custom widgets MUST be declared as config.widgets type:'custom' + config.layout + a TOP-LEVEL slots map ('widget-<id>' -> registry key) — the decidesk pattern. A top-level widgets[] instead makes CnPageRenderer mount a bare CnWidgetGrid and skip CnDashboardPage, so no page header renders and nothing carries the 56px nav-toggle clearance. Each KPI is its OWN type:'stat' tile (procest Dashboard shape) rather than one custom widget drawing four cards inside a card — a dashboard tile is already a card, so a widget that draws its own is a well inside a well. The four stat tiles read the SAME /api/analytics endpoint and useEndpointSource dedupes them to ONE request per render pass. The two quota tiles share the 'quota-stat' registry widget and differ only by content.metric; they stay custom because the tile is capability-gated (can_manage_killswitch) and shows count-against-limit. 'running-flows' is the shared nc-vue flow-runs widget over OpenRegister's one flow engine — no hermiq code behind it.",
 			"slots": {
-				"widget-analytics-kpis": "analytics-kpis",
-				"widget-quota-usage": "quota-usage",
-				"widget-analytics-breakdown": "analytics-breakdown"
+				"widget-analytics-breakdown": "analytics-breakdown",
+				"widget-quota-schedules": "quota-stat",
+				"widget-quota-agents": "quota-stat"
 			}
 		},
 		{

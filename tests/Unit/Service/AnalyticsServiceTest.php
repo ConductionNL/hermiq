@@ -130,6 +130,8 @@ class AnalyticsServiceTest extends TestCase
         $this->assertSame(250, $m['latency']['avgMs']);
         $this->assertSame(100, $m['latency']['minMs']);
         $this->assertSame(400, $m['latency']['maxMs']);
+        // The seconds figure the Dashboard's declarative latency tile renders.
+        $this->assertSame(0.3, $m['latency']['avgSeconds']);
 
         $perAgent = [];
         foreach ($m['perAgent'] as $row) {
@@ -141,8 +143,11 @@ class AnalyticsServiceTest extends TestCase
         $this->assertSame(1, $perAgent['agentB']['runs']);
         $this->assertArrayNotHasKey('agentX', $perAgent);
 
-        // No run entry carried usage in this fixture → tokens unavailable (not fabricated).
+        // No run entry carried usage in this fixture → tokens unavailable (not
+        // fabricated). The total is NULL rather than 0 so a consumer that reads
+        // it without checking `available` cannot print a confident "0 tokens".
         $this->assertFalse($m['tokens']['available']);
+        $this->assertNull($m['tokens']['total']);
 
     }//end testAggregatesAndScopesToCallersSchedules()
 
@@ -187,6 +192,7 @@ class AnalyticsServiceTest extends TestCase
         $this->assertSame(0, $m['totalRuns']);
         $this->assertSame(0.0, $m['successRate']);
         $this->assertNull($m['latency']['avgMs']);
+        $this->assertNull($m['latency']['avgSeconds']);
 
     }//end testNoSchedulesYieldsZeroMetrics()
 

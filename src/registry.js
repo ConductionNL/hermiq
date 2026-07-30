@@ -37,9 +37,8 @@
 //
 // See: https://codeberg.org/Conduction/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 
-import AnalyticsKpiWidget from './widgets/AnalyticsKpiWidget.vue'
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
-import QuotaUsageWidget from './widgets/QuotaUsageWidget.vue'
+import QuotaStatWidget from './widgets/QuotaStatWidget.vue'
 import EmailField from './formFields/EmailField.vue'
 import Chat from './views/Chat.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
@@ -231,21 +230,6 @@ export default {
 	},
 
 	/**
-	 * Run-analytics KPIs (total runs, success rate, avg latency, tokens) — a
-	 * dashboard widget over the computed /api/analytics endpoint.
-	 */
-	'analytics-kpis': {
-		kind: 'widget',
-		component: AnalyticsKpiWidget,
-		defaultSize: { w: 12, h: 1 },
-		minSize: { w: 4, h: 1 },
-		maxSize: { w: 12, h: 2 },
-		allowedSlots: ['body'],
-		propsSchema: { type: 'object', properties: {} },
-		_note: 'KPI values come from the computed /api/analytics endpoint (success rate, cost, latency aggregates), not from an OR object collection — stats-block can only bind object queries, so a custom fetch widget is required (ADR-049).',
-	},
-
-	/**
 	 * Run-analytics detail — status breakdown + per-agent table — as a dashboard
 	 * widget over the computed /api/analytics endpoint.
 	 */
@@ -264,7 +248,7 @@ export default {
 	 * Tenant ops — EU AI Act audit export + org-level operational sections
 	 * (multi-tenant-ops). Standard nav page, capability-gated to org owners/admins.
 	 * Per-org quota usage moved to the Dashboard (dashboard-org-widgets) — see
-	 * "quota-usage" below.
+	 * "quota-stat" below.
 	 */
 	TenantOps: {
 		kind: 'page',
@@ -296,19 +280,26 @@ export default {
 	},
 
 	/**
-	 * Quota usage — the caller's organisation Schedules and Agents-in-use quota
-	 * (count vs. configured limit, at-limit warning) as a Dashboard widget
-	 * (dashboard-org-widgets), relocated off TenantOps.vue.
+	 * Quota usage — ONE organisation quota tile, `content.metric` choosing
+	 * Schedules or Agents-in-use (dashboard-org-widgets, relocated off
+	 * TenantOps.vue). The Dashboard places it twice; both placements resolve
+	 * here, and each tile fills a dashboard card instead of drawing its own
+	 * cards inside one (the well-in-a-well the predecessor produced).
 	 */
-	'quota-usage': {
+	'quota-stat': {
 		kind: 'widget',
-		component: QuotaUsageWidget,
-		defaultSize: { w: 12, h: 1 },
-		minSize: { w: 4, h: 1 },
-		maxSize: { w: 12, h: 2 },
+		component: QuotaStatWidget,
+		defaultSize: { w: 3, h: 2 },
+		minSize: { w: 2, h: 1 },
+		maxSize: { w: 6, h: 2 },
 		allowedSlots: ['body'],
-		propsSchema: { type: 'object', properties: {} },
-		_note: 'The quota\'s atLimit is derived by TenantOpsService::quotaStatus() from a configured limit compared against a derived (distinct-agentId) count, not a plain OR object-count aggregate — stats-block can only bind a dataSource to an object-count query, so a custom fetch widget is required (ADR-049), mirroring analytics-kpis/analytics-breakdown.',
+		propsSchema: {
+			type: 'object',
+			properties: {
+				metric: { type: 'string', enum: ['schedules', 'agents'] },
+			},
+		},
+		_note: 'The quota\'s atLimit is derived by TenantOpsService::quotaStatus() from a configured limit compared against a derived (distinct-agentId) count, not a plain OR object-count aggregate — stats-block can only bind a dataSource to an object-count query, so a custom fetch widget is required (ADR-049), mirroring analytics-breakdown. It also stays custom rather than becoming a declarative `type:"stat"` tile because the tile is capability-gated on can_manage_killswitch (loadState) and shows count-against-limit, neither of which a declarative KPI expresses.',
 	},
 
 	// -------------------------------------------------------------------------
@@ -321,10 +312,14 @@ export default {
 
 	/**
 	 * Agent-scoped run KPIs (total runs, success rate, avg latency, tokens) —
-	 * reuses AnalyticsKpiWidget's /api/analytics endpoint, scoped to this
-	 * agent's id instead of tenant-wide. Not a stats-block — the analytics
-	 * endpoint is a computed aggregate, not an OR object-count query (same
-	 * ADR-049 rationale as analytics-kpis above).
+	 * the /api/analytics endpoint scoped to this agent's id instead of
+	 * tenant-wide. Not a stats-block: the analytics endpoint is a computed
+	 * aggregate, not an OR object-count query (ADR-049).
+	 *
+	 * Still ONE widget holding four values, unlike the Dashboard's four
+	 * `type:"stat"` tiles — a detail page's widget grid is the frame here, and
+	 * splitting an agent's KPIs across four cards on a record page would push
+	 * the rest of the agent below the fold.
 	 */
 	'agent-kpis': {
 		kind: 'widget',
@@ -334,7 +329,7 @@ export default {
 		maxSize: { w: 12, h: 3 },
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
-		_note: 'KPI values come from the computed /api/analytics endpoint (agent-scoped), not from an OR object collection — stats-block can only bind object queries, so a custom fetch widget is required (ADR-049), mirroring analytics-kpis.',
+		_note: 'KPI values come from the computed /api/analytics endpoint (agent-scoped), not from an OR object collection — stats-block can only bind object queries, so a custom fetch widget is required (ADR-049).',
 	},
 
 	/**
