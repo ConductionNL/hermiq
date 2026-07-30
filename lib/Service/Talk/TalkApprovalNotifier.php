@@ -106,7 +106,7 @@ class TalkApprovalNotifier
             }
 
             return $this->approvalBinding->bind(
-                approvalUuid: (string) $approval->getUuid(),
+                approval: $approval,
                 roomToken: $roomToken,
                 messageId: $messageId
             );

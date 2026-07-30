@@ -28,9 +28,9 @@ Depends on `talk-chat-bridge` (the bot, its availability probe and its posting p
 
 ## 5. Verify live
 
-- [ ] 5.1 **NOT LIVE-VERIFIED.** Live: raise a gated run, assert the approval records the room token and message id of the posted request.
-- [ ] 5.2 **NOT LIVE-VERIFIED.** Live: as the reviewer react 👍 → approved with `decidedVia=reaction`; separately 👎 → denied.
-- [ ] 5.3 **NOT LIVE-VERIFIED.** Live: as a NON-reviewer react 👍 → the approval stays pending and no decision is recorded. This is the security case and is the one that most needs to be seen working.
+- [x] 5.1 Live: raise a gated run, assert the approval records the room token and message id of the posted request. **Verified 2026-07-30** — approval `0505e53f` recorded `talkRoomToken=wh6exgao`, `talkMessageId=285`. Found and fixed a defect on the way: see §Live verification below.
+- [x] 5.2 Live: as the reviewer react 👍 → approved with `decidedVia=reaction`; separately 👎 → denied. **Verified 2026-07-30** — 👍 → `approved`/`decidedBy=admin`/`decidedVia=reaction` + "✅ Approved" in the room; 👎 on a second gated run → `denied`/`decidedVia=reaction` + "🚫 Denied". Un-reacting afterwards left the decision standing and posted the "not a toggle" reply.
+- [x] 5.3 Live: as a NON-reviewer react 👍 → the approval stays pending and no decision is recorded. **Verified 2026-07-30** — `hermiq-outsider`'s 👍 on the request message left the approval `pending` with no `decidedBy`/`decidedVia`, and the rejection was observed IN THE LOG (`[TalkApprovalReactionListener] Reaction from a non-reviewer ignored`), proving the reaction reached the authorization check rather than never being delivered.
 
 ## 6. Documentation
 
@@ -54,17 +54,36 @@ Depends on `talk-chat-bridge` (the bot, its availability probe and its posting p
 - Do not use sed/awk/scripts to modify code — use the Edit tool.
 - The authorization check in §3 is the reason this change can be safe. Treat a shortcut there as a defect, not a simplification.
 
-## Status (2026-07-28)
+## Live verification (2026-07-30, NC 34 + spreed 24.0.1)
 
-Implemented and unit-covered end to end, including the security case: a non-reviewer's reaction
-reaches neither `approve()` nor `deny()` and records no provenance
-(`TalkApprovalReactionListenerTest::testNonReviewerReactionIsIgnored`). The spreed reaction
-contract was verified against 24.0.1 source (`BotService::afterReactionAdded/Removed` dispatch the
-same `BotInvokeEvent` with `type: 'Like'`/`'Undo'`, the reacted-to message in `object.object.id`
-and the emoji in `content`).
+All of §5 is now verified against the real instance, in room `wh6exgao` bound to a
+`requiresApproval` schedule with `reviewer=admin`, using `hermiq-outsider` as the non-reviewer.
 
-**The §5 live checks were NOT run.** They need a genuinely gated run (an agent or schedule with
-`requiresApproval`) plus two users so the non-reviewer case can be exercised against a real
-reaction, and that fixture was not built in this pass. §5.3 is the one that matters most: the
-authorization check is what makes this feature safe rather than a way to bypass the approval gate,
-and it deserves to be seen working, not only asserted.
+**The live run found two defects that every unit test had passed over. Both were total —
+the reaction feature had never worked once.**
+
+1. **The reaction payload was misread, so no reaction could ever decide anything.** The earlier
+   status above asserted the spreed contract as "the reacted-to message in `object.object.id` and
+   the emoji in `content`". That is not one shape — it is one field taken from each of two. A
+   `Like` IS the envelope (`object.id` = message, top-level `content` = emoji); an `Undo` wraps the
+   undone Like, so BOTH move one level deeper. Reading `content` from the top and the id from
+   `object.object` therefore matched NEITHER type: a 👍 had no message id, an un-react had no
+   emoji, and both returned null before reaching the authorization check. The unit fixture encoded
+   the same hybrid, so the two bugs cancelled out and the suite stayed green while the feature was
+   inert. `readDecision()` now normalises to the Like envelope first; the fixture mirrors
+   `BotService::afterReactionAdded/Removed` exactly.
+
+2. **`bind()` re-read the approval it had just been handed, and lost it silently.** A just-created
+   approval is not reliably findable from inside the request that created it, so the fetch missed
+   and the method returned false through a branch that logged NOTHING. The request was posted to
+   Talk with no record of which message carried it, and every reaction on that message then
+   resolved to no approval. This is why it was intermittent: the first gated run bound fine, the
+   second posted message 296 and recorded neither room nor message id. `bind()` now takes the
+   `ObjectEntity` the caller already holds — no read that can fail — and refuses loudly.
+
+Both fixes were confirmed by outcome, not by inspection: after them a fresh gated run bound inline
+(`room=wh6exgao, msg=297`), 👎 denied it via reaction, and un-reacting posted the "not a toggle"
+reply — a message that was previously unreachable, since the `Undo` branch could never be entered.
+
+The lesson worth carrying: a mock that accepts a payload the server never sends certifies a path
+that cannot run. Assert the shape the producer actually emits.

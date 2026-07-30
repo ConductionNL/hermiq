@@ -79,31 +79,42 @@ class TalkApprovalBinding
      * Best-effort by contract: the inbox remains the authoritative surface, so
      * a failure to record MUST NOT prevent the approval from being raised.
      *
-     * @param string $approvalUuid The approval to bind.
-     * @param string $roomToken    The room the request was posted into.
-     * @param string $messageId    The id of the posted message.
+     * 🔴 Takes the approval the caller already holds rather than re-reading it
+     * by uuid. It used to re-fetch, and a just-created approval is not reliably
+     * findable from inside the same request that created it — so the fetch
+     * missed, the method returned false through a branch that logged NOTHING,
+     * and the request was posted to Talk with no record of which message
+     * carried it. Every reaction on that message then resolved to no approval
+     * and was silently discarded. The entity in hand is both fresher and
+     * unmissable; a read that can fail is not worth reintroducing here.
+     *
+     * @param ObjectEntity $approval  The approval to bind.
+     * @param string       $roomToken The room the request was posted into.
+     * @param string       $messageId The id of the posted message.
      *
      * @return bool True when the binding was persisted.
      *
      * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
      */
-    public function bind(string $approvalUuid, string $roomToken, string $messageId): bool
+    public function bind(ObjectEntity $approval, string $roomToken, string $messageId): bool
     {
+        $approvalUuid = (string) $approval->getUuid();
+
         if ($approvalUuid === '' || $roomToken === '' || $messageId === '') {
+            $this->logger->warning(
+                message: '[TalkApprovalBinding] Refusing to bind an approval on incomplete inputs; reactions on this message cannot decide it',
+                context: [
+                    'file'      => __FILE__,
+                    'line'      => __LINE__,
+                    'approval'  => $approvalUuid,
+                    'roomToken' => $roomToken,
+                    'messageId' => $messageId,
+                ]
+            );
             return false;
         }
 
         try {
-            $approval = $this->objectService->find(
-                id: $approvalUuid,
-                register: self::REGISTER_SLUG,
-                schema: self::APPROVAL_SCHEMA
-            );
-
-            if (($approval instanceof ObjectEntity) === false) {
-                return false;
-            }
-
             // The saveObject call is PUT-semantic — carry every field forward.
             $data = $approval->getObject();
             $data['talkRoomToken'] = $roomToken;
