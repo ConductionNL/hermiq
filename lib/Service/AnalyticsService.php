@@ -186,14 +186,11 @@ class AnalyticsService
             'statusBreakdown' => $statusBreakdown,
             'latency'         => $this->latency(durations: $durations),
             'perAgent'        => array_values($perAgent),
-            // LLM token usage from OpenRegister's ChatService (run-cost recording). When no
-            // run recorded usage yet, availability is false rather than a fabricated zero.
-            'tokens'          => [
-                'available'  => $tokensRecorded,
-                'prompt'     => $promptTokens,
-                'completion' => $completionTokens,
-                'total'      => ($promptTokens + $completionTokens),
-            ],
+            'tokens'          => $this->tokens(
+                recorded: $tokensRecorded,
+                prompt: $promptTokens,
+                completion: $completionTokens
+            ),
         ];
 
     }//end computeAnalytics()
@@ -251,22 +248,73 @@ class AnalyticsService
     }//end rate()
 
     /**
-     * Latency summary (avg/min/max ms) over the collected durations.
+     * LLM token usage from OpenRegister's ChatService (run-cost recording).
+     *
+     * When no run recorded usage yet, availability is false rather than a
+     * fabricated zero — and `total` is NULL, not 0. A consumer that renders the
+     * total without also reading `available` — which is exactly what a
+     * declarative KPI tile does — would otherwise print a confident "0 tokens"
+     * for "nobody recorded any usage". Null renders as an em-dash, which is the
+     * truth. `prompt` / `completion` stay numeric: they are only ever read
+     * behind an `available` check.
+     *
+     * @param boolean $recorded   Whether any run reported usage.
+     * @param integer $prompt     Prompt tokens summed across the runs.
+     * @param integer $completion Completion tokens summed across the runs.
+     *
+     * @return array<string, mixed> The tokens block.
+     *
+     * @spec openspec/changes/run-analytics/tasks.md#task-1-3
+     */
+    private function tokens(bool $recorded, int $prompt, int $completion): array
+    {
+        $total = null;
+        if ($recorded === true) {
+            $total = ($prompt + $completion);
+        }
+
+        return [
+            'available'  => $recorded,
+            'prompt'     => $prompt,
+            'completion' => $completion,
+            'total'      => $total,
+        ];
+
+    }//end tokens()
+
+    /**
+     * Latency summary (avg/min/max ms, plus the average in seconds) over the
+     * collected durations.
+     *
+     * `avgSeconds` exists because the Dashboard's latency KPI is a declarative
+     * `type:"stat"` tile: a tile formats and suffixes ONE number, it cannot
+     * switch units at a threshold the way the hand-written widget did (ms below
+     * a second, seconds above). Agent runs are seconds-scale work, so seconds
+     * is the honest single unit — and `avgMs` stays for callers that want the
+     * raw figure.
      *
      * @param array<int, int> $durations The per-run durations in ms.
      *
-     * @return array<string, int|null> The latency summary.
+     * @return array<string, int|float|null> The latency summary.
      */
     private function latency(array $durations): array
     {
         if ($durations === []) {
-            return ['avgMs' => null, 'minMs' => null, 'maxMs' => null];
+            return [
+                'avgMs'      => null,
+                'avgSeconds' => null,
+                'minMs'      => null,
+                'maxMs'      => null,
+            ];
         }
 
+        $avgMs = (int) round(array_sum($durations) / count($durations));
+
         return [
-            'avgMs' => (int) round(array_sum($durations) / count($durations)),
-            'minMs' => min($durations),
-            'maxMs' => max($durations),
+            'avgMs'      => $avgMs,
+            'avgSeconds' => round(($avgMs / 1000), 1),
+            'minMs'      => min($durations),
+            'maxMs'      => max($durations),
         ];
 
     }//end latency()
