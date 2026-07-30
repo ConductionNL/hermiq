@@ -8,63 +8,63 @@
 		{
 			"id": "Chat",
 			"label": "Chat",
-			"icon": "icon-comment",
+			"icon": "CommentOutline",
 			"route": "Chat",
 			"order": 8
 		},
 		{
 			"id": "AgentCatalog",
 			"label": "Agents",
-			"icon": "icon-category-integration",
+			"icon": "Connection",
 			"route": "AgentCatalog",
 			"order": 10
 		},
 		{
 			"id": "ApprovalInbox",
 			"label": "Approvals",
-			"icon": "icon-checkmark",
+			"icon": "Check",
 			"route": "ApprovalInbox",
 			"order": 15
 		},
 		{
 			"id": "Store",
 			"label": "Store",
-			"icon": "icon-category-integration",
+			"icon": "StoreOutline",
 			"route": "Store",
 			"order": 11
 		},
 		{
 			"id": "AgentMemory",
 			"label": "Memory",
-			"icon": "icon-category-monitoring",
+			"icon": "ChartLine",
 			"route": "AgentMemory",
 			"order": 17
 		},
 		{
 			"id": "AgentSessions",
 			"label": "Sessions",
-			"icon": "icon-comment",
+			"icon": "CommentOutline",
 			"route": "AgentSessions",
 			"order": 18
 		},
 		{
 			"id": "SkillsCatalog",
 			"label": "Skills",
-			"icon": "icon-category-customization",
+			"icon": "Tune",
 			"route": "SkillsCatalog",
 			"order": 18
 		},
 		{
 			"id": "Dashboard",
 			"label": "Dashboard",
-			"icon": "icon-category-dashboard",
+			"icon": "ViewDashboardOutline",
 			"route": "Dashboard",
 			"order": 5
 		},
 		{
 			"id": "Documentation",
 			"label": "Documentation",
-			"icon": "icon-info",
+			"icon": "BookOpenVariantOutline",
 			"href": "https://www.conduction.nl/academy",
 			"section": "footer",
 			"order": 90
@@ -72,7 +72,7 @@
 		{
 			"id": "FeaturesRoadmapMenu",
 			"label": "Features & roadmap",
-			"icon": "icon-toggle",
+			"icon": "MapMarkerPath",
 			"route": "FeaturesRoadmap",
 			"section": "footer",
 			"order": 100
@@ -80,28 +80,28 @@
 		{
 			"id": "TenantOps",
 			"label": "Tenant ops",
-			"icon": "icon-category-security",
+			"icon": "ShieldOutline",
 			"route": "TenantOps",
 			"order": 20
 		},
 		{
 			"id": "EvalDatasets",
 			"label": "Evaluations",
-			"icon": "icon-category-monitoring",
+			"icon": "ChartLine",
 			"route": "EvalDatasets",
 			"order": 101
 		},
 		{
 			"id": "McpTools",
 			"label": "MCP tools",
-			"icon": "icon-category-integration",
+			"icon": "Connection",
 			"route": "McpTools",
 			"order": 21
 		},
 		{
 			"id": "GuardrailPolicy",
 			"label": "Guardrail policy",
-			"icon": "icon-category-security",
+			"icon": "ShieldOutline",
 			"route": "GuardrailPolicy",
 			"section": "settings",
 			"order": 10
@@ -109,7 +109,7 @@
 		{
 			"id": "AlgorithmRegister",
 			"label": "Algorithm register",
-			"icon": "icon-category-office",
+			"icon": "OfficeBuilding",
 			"route": "AlgorithmRegister",
 			"section": "settings",
 			"order": 20
@@ -117,7 +117,7 @@
 		{
 			"id": "Compliance",
 			"label": "Compliance",
-			"icon": "icon-checkmark",
+			"icon": "Check",
 			"route": "Compliance",
 			"section": "settings",
 			"order": 30
@@ -125,7 +125,7 @@
 		{
 			"id": "GraphIndex",
 			"label": "Graphs",
-			"icon": "icon-category-workflow",
+			"icon": "Sitemap",
 			"route": "GraphIndex",
 			"order": 16
 		}
@@ -187,7 +187,7 @@
 						"id": "agent-core",
 						"type": "data",
 						"title": "Configuration",
-						"icon": "Cog",
+						"icon": "CogOutline",
 						"content": {
 							"columns": 2,
 							"include": [

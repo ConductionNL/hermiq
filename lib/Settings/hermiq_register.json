@@ -992,7 +992,7 @@
             },
             "Memory": {
                 "slug": "memory",
-                "icon": "BrainOutline",
+                "icon": "Brain",
                 "version": "0.2.0",
                 "title": "Agent memory",
                 "description": "An agent's long-term memory (the MEMORY.md port): durable facts stored as JSON entries with a character budget. Exceeding the budget flags needsConsolidation — a nudge to summarise, never a silent truncation.",
@@ -2836,7 +2836,7 @@
             },
             "AgentTemplate": {
                 "slug": "agenttemplate",
-                "icon": "PackageVariantOutline",
+                "icon": "PackageVariant",
                 "version": "0.3.0",
                 "title": "Agent template",
                 "configuration": {
