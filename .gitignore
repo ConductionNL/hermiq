@@ -24,6 +24,12 @@
 # Parity harness raw observation dumps (agent-engine-port task 7.1)
 /tests/parity/out/
 
+# Playwright e2e — persisted login session (global-setup.ts) + run artefacts.
+# .auth/ holds a real authenticated cookie jar; it must never be committed.
+/tests/e2e/.auth/
+/tests/e2e/playwright-report/
+/tests/e2e/test-results/
+
 # Quality reports
 /quality-reports/
 quality-baseline.json

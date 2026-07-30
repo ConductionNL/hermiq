@@ -402,6 +402,18 @@ import SkillFormModal from '../modals/SkillFormModal.vue'
 export default {
 	name: 'Chat',
 
+	// nc-vue's floating AI companion self-gates on the injected `cnAiContext`
+	// holder: it hides itself when `pageKind === 'chat'`. Its own doc comment
+	// promises it "hides on chat pages", but nothing declares the page kind for
+	// a hand-written view — nc-vue only sets it from CnIndexPage — so on hermiq's
+	// own chat page the companion stayed mounted and its bottom-right FAB sat
+	// directly over the composer's Send button, swallowing the click. Declaring
+	// the page kind here is the contract's intended opt-out, and it also stops
+	// hermiq offering an "Open AI chat" shortcut on top of the chat itself.
+	inject: {
+		cnAiContext: { default: null },
+	},
+
 	components: {
 		AccountCircle,
 		AgentSelector,
@@ -548,10 +560,21 @@ export default {
 	},
 
 	created() {
+		if (this.cnAiContext) {
+			this.cnAiContext.pageKind = 'chat'
+		}
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
 		this.loadConversations()
 		this.loadAgents()
+	},
+
+	beforeUnmount() {
+		// The holder is shared across routes, so leaving it on 'chat' would
+		// suppress the companion on every page visited after the chat.
+		if (this.cnAiContext) {
+			this.cnAiContext.pageKind = 'custom'
+		}
 	},
 
 	methods: {
