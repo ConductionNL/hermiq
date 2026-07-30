@@ -1,8 +1,14 @@
 # ADR-005: Agent output is delivered through Nextcloud Talk, not a multi-platform gateway
 
-**Status**: proposed
+**Status**: accepted
 
 **Date**: 2026-07-03
+
+**Accepted**: 2026-07-30 — the decision is now carried by shipped, live-verified behaviour:
+`talk-chat-bridge` (in-process bot, shared sessions, room-bound delivery) and
+`talk-approval-reactions` (a reviewer decides a gated run with 👍/👎) are both archived
+against their specs, and each was exercised end-to-end against a real spreed instance
+rather than only under test doubles.
 
 ## Context
 

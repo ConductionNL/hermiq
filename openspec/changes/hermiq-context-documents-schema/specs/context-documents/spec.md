@@ -21,8 +21,8 @@ code change.
 
 ### Requirement: Context schema declares an inline documents source kind
 
-The `Context` schema (slug `context`, in `lib/Settings/hermiq_register.json`)
-MUST declare a `documents` property of `type: array` with `default: []`, whose
+The `Context` schema (slug `context`, in `lib/Settings/hermiq_register.json`) MUST
+declare a `documents` property of `type: array` with `default: []`, whose
 items are objects with the fields `name`, `body`, `format`, and `description`.
 `body` MUST hold inline Markdown authored directly on the Context object.
 `format` MUST default to `"markdown"`. The property MUST NOT be added to the
