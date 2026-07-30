@@ -15,12 +15,15 @@
 				<Sitemap :size="20" />
 			</template>
 
-			<div class="graph-sidebar__palette">
+			<p v-if="paletteTypes.length === 0" class="graph-sidebar__hint">
+				{{ t('hermiq', 'Could not read the flow engine’s node types. Reload to try again — the palette is deliberately empty rather than offering types the engine cannot run.') }}
+			</p>
+			<div v-else class="graph-sidebar__palette">
 				<button
-					v-for="type in nodeTypes"
+					v-for="type in paletteTypes"
 					:key="type.key"
 					class="graph-sidebar__palette-item"
-					:class="`graph-sidebar__palette-item--${type.key}`"
+					:class="`graph-sidebar__palette-item--${typeSlug(type.key)}`"
 					:title="type.hint"
 					draggable="true"
 					@dragstart="editor.paletteDragType = type.key"
@@ -36,30 +39,15 @@
 
 			<hr class="graph-sidebar__rule">
 
-			<div v-if="editor.selectedNode" class="graph-sidebar__pane">
+			<div v-if="editor.selectedNode" class="graph-sidebar__pane" data-testid="graph-node-pane">
 				<p class="graph-sidebar__hint">
 					{{ typeLabel(editor.selectedNode.type) }}
 				</p>
 
-				<!-- Trigger: what starts this graph. Register first, then schema —
-				     the same cascade used elsewhere in the fleet. -->
-				<template v-if="editor.selectedNode.type === 'trigger'">
-					<CnRegisterSchemaSelect
-						:register="editor.selectedNode.config.triggerRegister || ''"
-						:schema="editor.selectedNode.config.triggerSchema || ''"
-						@update:register="editor.setNodeConfig('triggerRegister', $event)"
-						@update:schema="editor.setNodeConfig('triggerSchema', $event)" />
-					<NcSelect
-						:model-value="editor.selectedNode.config.event || 'object.updated'"
-						:options="triggers"
-						:input-label="t('hermiq', 'On event')"
-						@update:model-value="editor.setNodeConfig('event', $event)" />
-					<p class="graph-sidebar__hint">
-						{{ t('hermiq', 'A trigger node is the graph’s entry point; its wiring is what the event listener matches on.') }}
-					</p>
-				</template>
-
-				<template v-else-if="editor.selectedNode.type === 'agent-step'">
+				<!-- The one typed pane, and the only one verified against the
+				     engine: HermiqAgentNode reads exactly agentId / prompt /
+				     output / expectJson. -->
+				<template v-if="editor.selectedNode.type === 'hermiq.agent-step'">
 					<NcSelect
 						:model-value="selectedAgent"
 						:options="editor.agentOptions"
@@ -68,17 +56,17 @@
 						:placeholder="t('hermiq', 'Pick an agent')"
 						@update:model-value="editor.setNodeConfig('agentId', $event ? $event.id : '')" />
 					<NcTextArea
-						:model-value="editor.selectedNode.config.prompt || ''"
+						:model-value="selectedConfig.prompt || ''"
 						:label="t('hermiq', 'Prompt')"
 						:placeholder="t('hermiq', 'Supports {{state}} placeholders')"
 						@update:model-value="editor.setNodeConfig('prompt', $event)" />
 					<NcTextField
-						:model-value="editor.selectedNode.config.output || ''"
+						:model-value="selectedConfig.output || ''"
 						:label="t('hermiq', 'Store answer as')"
 						:placeholder="t('hermiq', 'result')"
 						@update:model-value="editor.setNodeConfig('output', $event)" />
 					<NcCheckboxRadioSwitch
-						:model-value="editor.selectedNode.config.expectJson === true"
+						:model-value="selectedConfig.expectJson === true"
 						type="switch"
 						@update:model-value="editor.setNodeConfig('expectJson', $event)">
 						{{ t('hermiq', 'Answer must be JSON') }}
@@ -88,42 +76,28 @@
 					</p>
 				</template>
 
-				<!-- Object write targets a register/schema too, so it gets the
-				     same cascade rather than a free-text field. -->
-				<template v-else-if="editor.selectedNode.type === 'object-write'">
-					<NcTextField
-						:model-value="editor.selectedNode.config.field || ''"
-						:label="t('hermiq', 'Field')"
-						:placeholder="t('hermiq', 'Property to write on the subject object')"
-						@update:model-value="editor.setNodeConfig('field', $event)" />
-					<NcTextField
-						:model-value="editor.selectedNode.config.value || ''"
-						:label="t('hermiq', 'Value')"
-						:placeholder="t('hermiq', 'Supports {{state}} placeholders')"
-						@update:model-value="editor.setNodeConfig('value', $event)" />
-				</template>
-
-				<template v-else-if="editor.selectedNode.type === 'condition'">
-					<NcTextField
-						:model-value="editor.selectedNode.config.left || ''"
-						:label="t('hermiq', 'Left (state key)')"
-						@update:model-value="editor.setNodeConfig('left', $event)" />
-					<NcSelect
-						:model-value="editor.selectedNode.config.operator || 'equals'"
-						:options="operators"
-						:input-label="t('hermiq', 'Operator')"
-						@update:model-value="editor.setNodeConfig('operator', $event)" />
-					<NcTextField
-						:model-value="editor.selectedNode.config.right || ''"
-						:label="t('hermiq', 'Right (value)')"
-						@update:model-value="editor.setNodeConfig('right', $event)" />
-				</template>
-
-				<template v-else-if="editor.selectedNode.type === 'router'">
-					<NcTextField
-						:model-value="editor.selectedNode.config.on || ''"
-						:label="t('hermiq', 'Route on (state key)')"
-						@update:model-value="editor.setNodeConfig('on', $event)" />
+				<!-- Everything else — the eight engine node types with no typed
+				     pane, plus any node an app contributes later — is edited as
+				     raw config. Deliberately raw rather than typed-and-wrong: the
+				     engine's keys differ per node (route takes `rules`/`default`,
+				     filter takes `condition`, object-write takes eight), and a
+				     pane that edited invented keys would look like it worked while
+				     the engine ignored every value. The catalogue carries no
+				     config schema yet; when it does, these become declarative. -->
+				<template v-else>
+					<p class="graph-sidebar__hint">
+						{{ t('hermiq', 'This node type has no guided form yet — edit its configuration directly. Keys must match what the node reads.') }}
+					</p>
+					<NcTextArea
+						:model-value="rawConfig"
+						:label="t('hermiq', 'Configuration (JSON)')"
+						:error="rawConfigError !== ''"
+						:helper-text="rawConfigError"
+						rows="10"
+						@update:model-value="onRawConfig" />
+					<p v-if="nodeDescription" class="graph-sidebar__hint">
+						{{ nodeDescription }}
+					</p>
 				</template>
 
 				<NcButton type="error" @click="editor.removeNode(editor.selectedNode.id)">
@@ -270,19 +244,80 @@ export default {
 	data() {
 		return {
 			activeTab: 'nodes',
-			operators: ['equals', 'notEquals', 'contains', 'empty', 'notEmpty'],
+			// Raw-config editing is a DRAFT: the textarea holds whatever is typed
+			// (including a half-finished object) and only valid JSON reaches the
+			// node, so a stray keystroke cannot wipe a node's configuration.
+			rawConfigDraft: null,
+			rawConfigError: '',
 			triggers: ['object.created', 'object.updated', 'object.deleted'],
-			nodeTypes: [
-				{ key: 'trigger', label: this.t('hermiq', 'Trigger'), hint: this.t('hermiq', 'Start the graph on an object create/update/delete event') },
-				{ key: 'agent-step', label: this.t('hermiq', 'Agent step'), hint: this.t('hermiq', 'Run an agent turn and put its answer on the state') },
-				{ key: 'object-write', label: this.t('hermiq', 'Object write'), hint: this.t('hermiq', 'Write a field back onto the subject object') },
-				{ key: 'condition', label: this.t('hermiq', 'Condition'), hint: this.t('hermiq', 'Halt the graph unless the guard holds') },
-				{ key: 'router', label: this.t('hermiq', 'Router'), hint: this.t('hermiq', 'Follow the outgoing edge matching a state value') },
-			],
 		}
 	},
 
 	computed: {
+		/**
+		 * The palette: the engine's node catalogue, and nothing else.
+		 *
+		 * The catalogue is authoritative (ADR-065): a node dropped from it carries
+		 * a type OpenRegister's engine can execute. There is deliberately NO
+		 * hard-coded fallback — the builder used to keep its own list of five type
+		 * keys, none of which the engine knows, so every node created from it was
+		 * unrunnable. An empty palette says the catalogue could not be read; a
+		 * fallback palette would hide it behind types that quietly do not work.
+		 *
+		 * @return {Array<{key: string, label: string, hint: string}>} Palette entries.
+		 */
+		paletteTypes() {
+			return (this.editor.nodeCatalog || []).map((entry) => ({
+				key: entry.id,
+				label: entry.displayName || entry.id,
+				hint: entry.description || '',
+			}))
+		},
+
+		/**
+		 * The selected node's config, always an object.
+		 *
+		 * A node is NOT obliged to carry a `config` key: one created from the
+		 * palette before it was seeded, or imported, may have none. Reading
+		 * `selectedNode.config.prompt` off such a node throws during render and
+		 * takes the whole sidebar with it — palette included — which looks exactly
+		 * like "the sidebar does not work". The panes only stopped hitting this
+		 * because their type keys never matched a node in the first place.
+		 *
+		 * @return {object} The config, or an empty object.
+		 */
+		selectedConfig() {
+			return this.editor.selectedNode?.config || {}
+		},
+
+		/**
+		 * The selected node's config as editable JSON.
+		 *
+		 * Returns the DRAFT while one is being typed, so an in-progress edit is
+		 * not reformatted under the cursor on every keystroke.
+		 *
+		 * @return {string} Pretty-printed JSON.
+		 */
+		rawConfig() {
+			if (this.rawConfigDraft !== null) {
+				return this.rawConfigDraft
+			}
+
+			return JSON.stringify(this.selectedConfig, null, 2)
+		},
+
+		/**
+		 * What the engine says this node type does, when the catalogue knows it.
+		 *
+		 * @return {string} The description, or ''.
+		 */
+		nodeDescription() {
+			const type = this.editor.selectedNode?.type
+			const entry = (this.editor.nodeCatalog || []).find((candidate) => candidate.id === type)
+
+			return entry?.description || ''
+		},
+
 		/** @return {string} Sidebar subtitle: what this graph reacts to. */
 		subname() {
 			if (!this.editor.graph.triggerSchema) {
@@ -324,7 +359,18 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * Follow the selection: show the Nodes tab, and drop any raw-config draft.
+		 *
+		 * Dropping the draft matters — without it the textarea would keep showing
+		 * the PREVIOUS node's configuration, and the next valid keystroke would
+		 * write it onto the newly-selected node.
+		 *
+		 * @param {string|null} id The newly selected node id.
+		 */
 		'editor.selectedNodeId'(id) {
+			this.rawConfigDraft = null
+			this.rawConfigError = ''
 			if (id !== null) {
 				this.activeTab = 'nodes'
 			}
@@ -339,8 +385,59 @@ export default {
 		 * @return {string} The label.
 		 */
 		typeLabel(type) {
-			const match = this.nodeTypes.find((candidate) => candidate.key === type)
-			return match ? match.label : (type || '—')
+			const entry = (this.editor.nodeCatalog || []).find((candidate) => candidate.id === type)
+			if (entry) {
+				return entry.displayName || entry.id
+			}
+
+			// No local name table: a type the catalogue cannot explain is shown as
+			// its raw id, which is the truth, rather than a guess from a list that
+			// may not match the engine.
+			return type || '—'
+		},
+
+		/**
+		 * A node type turned into a usable CSS class suffix.
+		 *
+		 * Engine ids are namespaced (`hermiq.agent-step`), and a dot in the middle
+		 * of a class name is a compound selector, not a name — so the per-type
+		 * accent silently matched nothing for every catalogue type.
+		 *
+		 * @param {string} type The node type.
+		 * @return {string} The slug.
+		 */
+		typeSlug(type) {
+			return String(type || '').replace(/[^a-zA-Z0-9]+/g, '-')
+		},
+
+		/**
+		 * Accept raw-config edits, keeping invalid JSON out of the node.
+		 *
+		 * The draft is always kept so typing is uninterrupted; the node is only
+		 * written when the text parses to an object. Anything else leaves the
+		 * stored config alone and reports why.
+		 *
+		 * @param {string} value The textarea contents.
+		 * @return {void}
+		 */
+		onRawConfig(value) {
+			this.rawConfigDraft = value
+
+			let parsed = null
+			try {
+				parsed = JSON.parse(value)
+			} catch (e) {
+				this.rawConfigError = this.t('hermiq', 'Not valid JSON — the node keeps its previous configuration.')
+				return
+			}
+
+			if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed) === true) {
+				this.rawConfigError = this.t('hermiq', 'Configuration must be a JSON object.')
+				return
+			}
+
+			this.rawConfigError = ''
+			this.editor.setNodeConfigAll(parsed)
 		},
 
 		/**

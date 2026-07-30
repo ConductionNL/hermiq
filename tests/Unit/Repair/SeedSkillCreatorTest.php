@@ -96,7 +96,12 @@ class SeedSkillCreatorTest extends TestCase
                 bool $_multitenancy=true,
                 bool $silent=false,
                 ?array $uploadedFiles=null,
-                ?\OCP\IUser $currentUser=null
+                ?\OCP\IUser $currentUser=null,
+                // openregister#2211 (insert-only saves) added this. A double that
+                // drifts from the real signature is a FATAL, not a failed
+                // assertion: PHP refuses to declare the class and the whole
+                // suite dies before it runs.
+                bool $failIfExists=false
             ): ObjectEntity {
                 $payload = is_array($object) ? $object : $object->getObject();
                 $this->saved[] = ['schema' => (string) $schema, 'object' => $payload];
