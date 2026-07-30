@@ -961,6 +961,19 @@
 					}
 				],
 				"rowRoute": "GraphDetail",
+				"actions": [
+					{
+						"id": "edit-graph",
+						"label": "Edit",
+						"icon": "Pencil",
+						"type": "open-page",
+						"target": "GraphDetail"
+					}
+				],
+				"actionToggles": {
+					"showViewAction": false,
+					"showEditAction": false
+				},
 				"headerActions": [
 					{
 						"id": "new-graph",
@@ -970,7 +983,7 @@
 						"target": "/graphs/new"
 					}
 				],
-				"_note": "Agent graphs are plain OpenRegister objects, so the browse/search surface is a standard type:index — no bespoke list code. Authoring happens on GraphDetail, which is type:custom because a direct-manipulation canvas is not expressible as a widget grid.",
+				"_note": "Agent graphs are plain OpenRegister objects, so the browse/search surface is a standard type:index — no bespoke list code. Authoring happens on GraphDetail, which is type:custom because a direct-manipulation canvas is not expressible as a widget grid. ONE row action, Edit, opening that canvas: the built-in View and Edit were both dropped because they were redundant with each other and NEITHER did what a graph needs \u2014 View only navigated (the same thing a row click does) and Edit opened the field form, which cannot touch nodes or edges. It is type:open-page, NOT type:navigate: navigate pushes its target verbatim, while open-page pushes {name, params:{id}} and so carries the clicked row. config.rowRoute drives the row-click path to the same page.",
 				"showAdd": false,
 				"inlineActionCount": 2
 			}

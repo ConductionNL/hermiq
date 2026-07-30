@@ -89,12 +89,62 @@ function collectConsoleErrors(page: Page): string[] {
  * @param page The Playwright page.
  */
 async function dismissOnboarding(page: Page): Promise<void> {
-	await page.keyboard.press('Escape').catch(() => {})
+	const modal = page.locator('[data-testid="cn-modal"]')
+	// Both overlays are driven by an ASYNC status fetch, so they can appear AFTER
+	// the first paint: dismissing once and moving on left the setup wizard's
+	// backdrop over the page, and a click on a table row then failed with
+	// "subtree intercepts pointer events" rather than anything about the row.
+	// Poll until nothing is left to dismiss.
+	for (let attempt = 0; attempt < 6; attempt++) {
+		if (await modal.isVisible().catch(() => false) === false) {
+			// One more beat, in case it is still on its way in.
+			await page.waitForTimeout(600)
+			if (await modal.isVisible().catch(() => false) === false) {
+				break
+			}
+		}
+		await modal.first().getByRole('button', { name: 'Close' }).click({ timeout: 2_000 }).catch(() => {})
+		await page.keyboard.press('Escape').catch(() => {})
+		await page.waitForTimeout(700)
+	}
+
+	// The walkthrough is a popover, not a modal — it has its own Close.
 	const closers = page.getByRole('button', { name: 'Close' })
-	const count = await closers.count()
-	for (let i = 0; i < count; i++) {
+	for (let i = 0, count = await closers.count(); i < count; i++) {
 		await closers.nth(i).click({ timeout: 2_000 }).catch(() => {})
 	}
+
+	// Deliberately NOT asserted gone here: the setup wizard is re-opened by an
+	// async status fetch (`completed` is derived from `setup_llm_tested`, which is
+	// unset on any instance where nobody has tested an LLM endpoint — including a
+	// fresh CI one). It can therefore come BACK after a successful dismissal, so
+	// an interaction that must land uses clickPastOverlays() instead of trusting
+	// a one-shot dismissal.
+}
+
+/**
+ * Click something that an async overlay keeps stealing pointer events from.
+ *
+ * Dismiss-then-click in a loop: the setup wizard re-mounts whenever its status
+ * fetch resolves, so a dismissal followed by a click is a race the click loses
+ * with "subtree intercepts pointer events" — an error that says nothing about
+ * the element under test.
+ *
+ * @param page   The Playwright page.
+ * @param target The element to click.
+ */
+async function clickPastOverlays(page: Page, target: ReturnType<Page['locator']>): Promise<void> {
+	let lastError: unknown = null
+	for (let attempt = 0; attempt < 5; attempt++) {
+		await dismissOnboarding(page)
+		try {
+			await target.click({ timeout: 5_000 })
+			return
+		} catch (error) {
+			lastError = error
+		}
+	}
+	throw lastError
 }
 
 test.describe('hermiq regression: dashboard + agents', () => {
@@ -241,11 +291,43 @@ test.describe('hermiq regression: dashboard + agents', () => {
 
 		const firstNameCell = index.locator('tbody tr').first().locator('td').nth(1)
 		await expect(firstNameCell).toBeVisible()
-		await firstNameCell.click()
+		await clickPastOverlays(page, firstNameCell)
 
 		// The builder is a custom page at /graphs/:id — assert the URL carries an
 		// id and the custom page mounted.
 		await expect(page).toHaveURL(/\/apps\/hermiq\/graphs\/[^/]+$/, { timeout: 20_000 })
+		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible()
+	})
+
+	/**
+	 * ONE row action, Edit, and it opens the canvas.
+	 *
+	 * The index used to offer BOTH built-ins, which were redundant with each
+	 * other and neither did what a graph needs: View only navigated (exactly what
+	 * a row click does) and Edit opened the field form, which cannot touch nodes
+	 * or edges. Both are off now, replaced by a `type: "open-page"` action —
+	 * `navigate` would not do, because it pushes its target verbatim while
+	 * `open-page` pushes `{name, params:{id}}` and so carries the clicked row.
+	 */
+	test('offers exactly one row action, Edit, which opens the graph builder', async ({ page }) => {
+		await login(page)
+		await page.goto('/apps/hermiq/graphs', { waitUntil: 'domcontentloaded' })
+		await dismissOnboarding(page)
+
+		const index = page.locator('[data-testid-page-id="GraphIndex"]')
+		await expect(index).toBeVisible({ timeout: 20_000 })
+
+		const firstRow = index.locator('tbody tr').first()
+		await clickPastOverlays(page, firstRow.getByRole('button', { name: 'Actions' }))
+
+		// Edit is present; the redundant View is gone.
+		const menu = page.locator('.v-popper__popper--shown, [role="menu"]').last()
+		await expect(menu.getByText('Edit', { exact: true })).toBeVisible({ timeout: 10_000 })
+		await expect(menu.getByText('View', { exact: true })).toHaveCount(0)
+
+		await menu.getByText('Edit', { exact: true }).click()
+
+        await expect(page).toHaveURL(/\/apps\/hermiq\/graphs\/[^/]+$/, { timeout: 20_000 })
 		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible()
 	})
 })
