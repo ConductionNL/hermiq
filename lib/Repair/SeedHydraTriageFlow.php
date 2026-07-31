@@ -21,7 +21,7 @@
  *
  * The `gate` is not decoration, and what it guards has narrowed. A FAILED turn no
  * longer reaches it at all: `HermiqAgentNode::execute()` lets the failure
- * propagate, so the step's `onError` policy ends the run (hermiq#436 — it used to
+ * propagate, so the step's `onError` policy ends the run (hermiq#89 — it used to
  * catch every `Throwable` and set the answer to an empty string, which made a
  * failed LLM turn indistinguishable from a silent one right here). What the gate
  * still guards is the case that is not a failure: a turn that succeeded and

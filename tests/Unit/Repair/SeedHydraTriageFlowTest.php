@@ -9,7 +9,7 @@
  * Hermiq-authored HTTP step), and the branch cannot reach the command step on an
  * empty triage result.
  *
- * Since hermiq#436 a FAILED turn ends the run through the step's `onError` policy
+ * Since hermiq#89 a FAILED turn ends the run through the step's `onError` policy
  * instead of arriving here as an empty string, so the branch no longer stands
  * between a failed LLM call and a pipeline command. It still stands between a
  * SUCCESSFUL turn that proposed nothing and that command, which is the case the
