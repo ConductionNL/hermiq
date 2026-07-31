@@ -81,6 +81,33 @@ async function dismissOnboarding(page: Page): Promise<void> {
 }
 
 /**
+ * Click a target, dismissing the onboarding overlays between attempts.
+ *
+ * The setup wizard re-mounts on its own async status fetch, so it can land back
+ * over the page AFTER `dismissOnboarding` already cleared it once. Its backdrop
+ * then swallows the click and Playwright reports "subtree intercepts pointer
+ * events" against the element under it — which reads as a problem with the
+ * element rather than with the overlay. (Escape does not close
+ * `cn-wizard-dialog`, so dismissal has to go through its Close button.)
+ *
+ * @param page The Playwright page.
+ * @param target The locator to click.
+ */
+async function clickPastOverlays(page: Page, target: ReturnType<Page['locator']>): Promise<void> {
+	let lastError: unknown = null
+	for (let attempt = 0; attempt < 5; attempt++) {
+		await dismissOnboarding(page)
+		try {
+			await target.click({ timeout: 5_000 })
+			return
+		} catch (error) {
+			lastError = error
+		}
+	}
+	throw lastError
+}
+
+/**
  * Resolve an agent uuid to open the detail page for, preferring the agent with the
  * MOST populated fields.
  *
@@ -225,7 +252,7 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 		const tenantOps = nav.getByRole('link', { name: 'Tenant ops' })
 		await expect(tenantOps).toBeHidden()
 
-		await nav.getByTestId('cn-nav-settings').getByRole('button').click()
+		await clickPastOverlays(page, nav.getByTestId('cn-nav-settings').getByRole('button'))
 		await expect(tenantOps).toBeVisible({ timeout: 10_000 })
 
 		// An MDI name the app never registered renders NOTHING — no fallback
@@ -279,7 +306,7 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 			conversations.first(),
 			'no conversation rows rendered — the avatar assertions below would be vacuous',
 		).toBeVisible({ timeout: 30_000 })
-		await conversations.first().click()
+		await clickPastOverlays(page, conversations.first())
 		await page.waitForTimeout(3_000)
 
 		const avatars = await page.evaluate(() => {
