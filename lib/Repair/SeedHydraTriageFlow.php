@@ -19,11 +19,14 @@
  *      ├── a proposed label ─────▶ [command]  the command step
  *      └── otherwise ────────────▶ [no-result] stop, nothing proposed
  *
- * The `gate` is not decoration. `HermiqAgentNode::execute()` catches every
- * `Throwable` and sets the answer to an EMPTY STRING, so at the node boundary a
- * failed LLM turn is indistinguishable from a silent one. Without an explicit
- * branch on "no result", a failed turn would fall straight through to a step that
- * commands a build pipeline. The branch is what makes that impossible.
+ * The `gate` is not decoration, and what it guards has narrowed. A FAILED turn no
+ * longer reaches it at all: `HermiqAgentNode::execute()` lets the failure
+ * propagate, so the step's `onError` policy ends the run (hermiq#436 — it used to
+ * catch every `Throwable` and set the answer to an empty string, which made a
+ * failed LLM turn indistinguishable from a silent one right here). What the gate
+ * still guards is the case that is not a failure: a turn that succeeded and
+ * proposed nothing. Without it that would fall through to a step that commands a
+ * build pipeline.
  *
  * The `command` node is `openregister.stop` TODAY and that is not a placeholder
  * standing in for missing work — it is the specified behaviour while the
