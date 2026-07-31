@@ -454,7 +454,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-silently-violates-the-callers-model-policy
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-silently-violates-the-caller-s-model-policy
      */
     public function instantiate(string $id): JSONResponse
     {
