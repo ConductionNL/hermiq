@@ -533,23 +533,29 @@ class SkillController extends Controller
 
         $payloads = [];
         $outcomes = [];
-        foreach ($skillIds as $skillId) {
-            $skill = $this->skillService->getSkill(skillId: (string) $skillId);
-            if ($skill === null) {
-                $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'not_found'];
-                continue;
-            }
 
-            $object          = $skill->getObject();
-            $object['files'] = ($this->skillService->publishFileSelection(skillId: (string) $skillId) ?? []);
+        try {
+            foreach ($skillIds as $skillId) {
+                $skill = $this->skillService->getSkill(skillId: (string) $skillId);
+                if ($skill === null) {
+                    $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'not_found'];
+                    continue;
+                }
 
-            $payloads[] = $object;
-            $outcomes[] = [
-                'name'    => (string) ($object['name'] ?? ''),
-                'files'   => count($object['files']),
-                'outcome' => 'published',
-            ];
-        }//end foreach
+                $object          = $skill->getObject();
+                $object['files'] = ($this->skillService->publishFileSelection(skillId: (string) $skillId) ?? []);
+
+                $payloads[] = $object;
+                $outcomes[] = [
+                    'name'    => (string) ($object['name'] ?? ''),
+                    'files'   => count($object['files']),
+                    'outcome' => 'published',
+                ];
+            }//end foreach
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq bundle publish: collecting skills failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'collect_failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+        }//end try
 
         if ($payloads === []) {
             return new JSONResponse(['error' => 'no_publishable_skills', 'skills' => $outcomes], Http::STATUS_BAD_REQUEST);
@@ -640,7 +646,13 @@ class SkillController extends Controller
             return new JSONResponse(['error' => 'not_a_bundle'], Http::STATUS_NOT_FOUND);
         }
 
-        $parsed   = $this->bundleSerializer->fromBundle(files: $bundle['files']);
+        try {
+            $parsed = $this->bundleSerializer->fromBundle(files: $bundle['files']);
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq bundle install: parse failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'not_a_bundle'], Http::STATUS_NOT_FOUND);
+        }
+
         $outcomes = [];
         $counts   = ['installed' => 0, 'skipped' => 0, 'failed' => 0];
 
