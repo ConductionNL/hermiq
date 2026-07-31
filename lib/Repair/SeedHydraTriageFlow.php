@@ -240,8 +240,9 @@ class SeedHydraTriageFlow implements IRepairStep
             'limits'          => ['maxNodes' => 20, 'maxIterations' => 20],
             'notes'           => 'Seeded by hermiq (hydra-console-agent-leaves). Before enabling: set `owner` to '
                 .'your own Nextcloud UID — a trigger fires with no acting user, and an ownerless run must not '
-                .'dispatch. When the OpenConnector-backed command node exists, change the `command` node\'s '
-                .'`type` to it; until then the branch stops with the proposed label recorded and writes nothing.',
+                .'dispatch. When a command step exists, change the `command-stop` EDGE\'s `type` to it; until '
+                .'then the branch stops with the proposed label recorded and writes nothing. Note the work '
+                .'lives on the edges — a `type` on a node is never read by the engine.',
         ];
 
     }//end flowObject()
@@ -254,17 +255,49 @@ class SeedHydraTriageFlow implements IRepairStep
     private function nodes(): array
     {
         return [
+            ['id' => 'finding', 'position' => ['x' => 0, 'y' => 0]],
+            ['id' => 'triaged', 'position' => ['x' => 260, 'y' => 0]],
+            ['id' => 'command', 'position' => ['x' => 520, 'y' => -80]],
+            ['id' => 'no-result', 'position' => ['x' => 520, 'y' => 80]],
+            ['id' => 'done', 'position' => ['x' => 780, 'y' => 0]],
+        ];
+
+    }//end nodes()
+
+    /**
+     * The flow's edges — and the flow's WORK.
+     *
+     * 🔑 In OpenRegister's engine the executable unit is the EDGE. `FlowEngine::stepFor()`
+     * resolves a transition to the matching entry in `edges[]`, and
+     * `RegistryStepDispatcher::dispatch()` reads `type` and `config` off THAT edge. A node
+     * is a Petri-net PLACE and carries no behaviour: a `type` on it is never read.
+     *
+     * This seed used to put every `type`/`config` on `nodes[]`, which made the whole flow
+     * inert — a step with no `type` passes its items through untouched, so the graph
+     * imported cleanly, walked all three edges and reported `completed` having called no
+     * agent and taken no branch. Silently: no error, no warning, no log line. Measured on a
+     * live instance 2026-07-31 both ways, node form versus edge form, on the same graph.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function edges(): array
+    {
+        return [
             [
-                'id'       => 'triage',
-                'type'     => 'hermiq.agent-step',
-                'position' => ['x' => 0, 'y' => 0],
-                'config'   => [
-                    // Resolved by NAME at enable time by the operator, or by the
-                    // agent seed's own uuid once both objects exist. Left as the
-                    // seeded agent's name so the two seeds stay independent: a
-                    // repair step that hard-depends on another seed's uuid breaks
-                    // whenever either is re-seeded.
-                    'agentId'    => SeedHydraTriageAgent::AGENT_NAME,
+                'id'     => 'triage',
+                'from'   => 'finding',
+                'to'     => 'triaged',
+                'type'   => 'hermiq.agent-step',
+                'config' => [
+                    // ⚠️ A UUID, not a name. `AgentMapper::findByUuid()` matches the
+                    // `uuid` COLUMN, so the seeded agent's NAME — which this carried —
+                    // resolves to nothing at all. Since hermiq#89 that fails the step
+                    // loudly instead of being swallowed into an empty answer, but a seed
+                    // that can never resolve is still a seed that never runs. It is
+                    // filled in at seed time from the agent seed, and left EMPTY when
+                    // that lookup fails, because an empty agent is refused at both
+                    // validate and execute time — which is the honest outcome.
+                    'agentId'    => $this->triageAgentUuid(),
                     'output'     => self::TRIAGE_OUTPUT_KEY,
                     'expectJson' => true,
                     'prompt'     => 'Triage this pipeline finding and reply as JSON with two keys: '
@@ -274,21 +307,26 @@ class SeedHydraTriageFlow implements IRepairStep
                 ],
             ],
             [
-                'id'       => 'gate',
-                'type'     => 'openregister.route',
-                'position' => ['x' => 260, 'y' => 0],
-                'config'   => [
+                'id'     => 'gate',
+                'from'   => 'triaged',
+                // Both branch places must be reachable FROM THIS EDGE:
+                // `FlowEngine::advanceItems()` only distributes items to the places on
+                // the firing transition's own `to` list, so an output naming anything
+                // else drops every item routed to it, silently.
+                'to'     => ['command', 'no-result'],
+                'type'   => 'openregister.route',
+                'config' => [
                     // The router tags each item with the OUTPUT it selected, and the
                     // engine delivers an item only to the place matching its tag —
-                    // so an output name IS a target node id.
+                    // so an output name IS a target place id.
                     'rules'   => [
                         [
                             'output'    => 'command',
                             // Truthy only when the agent actually proposed a label.
-                            // A failed turn yields '' at the node boundary, so
-                            // `json.triage.label` is absent and this is false —
-                            // the one condition standing between a failed LLM call
-                            // and a pipeline command.
+                            // A turn that FAILS no longer arrives here at all (hermiq#89
+                            // fails the step, and its onError policy ends the run); what
+                            // this still guards is a turn that succeeded and proposed
+                            // nothing, which must not reach a pipeline command.
                             'condition' => ['!!' => ['var' => 'json.'.self::TRIAGE_OUTPUT_KEY.'.label']],
                         ],
                     ],
@@ -296,46 +334,78 @@ class SeedHydraTriageFlow implements IRepairStep
                 ],
             ],
             [
-                'id'       => 'command',
-                // Built-in stop node while the OpenConnector-backed command node
-                // does not exist — see the class docblock. Swapping this `type` is
-                // the whole change needed when that upstream half ships.
-                'type'     => 'openregister.stop',
-                'position' => ['x' => 520, 'y' => -80],
-                'config'   => [
+                'id'     => 'command-stop',
+                'from'   => 'command',
+                'to'     => 'done',
+                // Built-in stop while the OpenConnector-backed command step is not
+                // wired up — see the class docblock. Swapping this `type` is the whole
+                // change needed when that upstream half ships.
+                'type'   => 'openregister.stop',
+                'config' => [
                     'error'   => false,
-                    'message' => 'A label was proposed and recorded. No forge write was attempted: the '
-                        .'OpenConnector-backed command node is not installed on this instance.',
+                    'message' => 'A label was proposed and recorded. No forge write was attempted: this flow '
+                        .'has no command step wired up yet.',
                 ],
             ],
             [
-                'id'       => 'no-result',
-                'type'     => 'openregister.stop',
-                'position' => ['x' => 520, 'y' => 80],
-                'config'   => [
+                'id'     => 'no-result-stop',
+                'from'   => 'no-result',
+                'to'     => 'done',
+                'type'   => 'openregister.stop',
+                'config' => [
                     'error'   => false,
-                    'message' => 'The agent step produced no triage result — the flow stops before the '
-                        .'command step.',
+                    'message' => 'The agent proposed no label — the flow stops before the command step.',
                 ],
             ],
         ];
 
-    }//end nodes()
+    }//end edges()
 
     /**
-     * The flow's edges.
+     * The seeded triage agent's uuid, or an empty string when it cannot be resolved.
      *
-     * @return array<int, array<string, mixed>>
+     * The two seeds stay independent by NAME rather than by a hard-coded uuid — a repair
+     * step that pins another seed's uuid breaks whenever either is re-seeded. So the name
+     * is resolved to a uuid here, at seed time, once.
+     *
+     * Returning '' when the agent is absent is deliberate. An agent step with no agent is
+     * refused at both validate and execute time, so the flow announces the missing half
+     * instead of carrying an identifier that silently resolves to nothing.
+     *
+     * @return string The uuid, or ''.
      */
-    private function edges(): array
+    private function triageAgentUuid(): string
     {
-        return [
-            ['id' => 'triage-gate', 'source' => 'triage', 'target' => 'gate'],
-            ['id' => 'gate-command', 'source' => 'gate', 'target' => 'command'],
-            ['id' => 'gate-no-result', 'source' => 'gate', 'target' => 'no-result'],
-        ];
+        try {
+            $objectService = $this->container->get(ObjectService::class);
+            $agents        = $objectService
+                ->setRegister(self::REGISTER_SLUG)
+                ->setSchema(SeedHydraTriageAgent::AGENT_SCHEMA)
+                ->findAll(
+                    config: ['filters' => ['name' => SeedHydraTriageAgent::AGENT_NAME], 'limit' => 5],
+                    _rbac: false,
+                    _multitenancy: false
+                );
 
-    }//end edges()
+            foreach ($agents as $agent) {
+                if (($agent instanceof ObjectEntity) === false) {
+                    continue;
+                }
+
+                $uuid = trim((string) $agent->getUuid());
+                if ($uuid !== '') {
+                    return $uuid;
+                }
+            }
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                '[hermiq] Could not resolve the Hydra Triage agent uuid for the flow seed: '.$e->getMessage()
+            );
+        }//end try
+
+        return '';
+
+    }//end triageAgentUuid()
 
     /**
      * Whether an agentflow with the seeded name already exists (system context, no RBAC).
