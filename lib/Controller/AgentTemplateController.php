@@ -41,7 +41,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
+ * @spec openspec/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
  * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
  */
 
@@ -83,7 +83,7 @@ use Throwable;
  *   guard-and-delegate methods across the full CRUD + gallery + GitHub route surface,
  *   not one tangled algorithm.
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
+ * @spec openspec/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
  */
 class AgentTemplateController extends Controller
 {
@@ -139,7 +139,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function index(): JSONResponse
     {
@@ -167,7 +167,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function show(string $id): JSONResponse
     {
@@ -197,7 +197,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function create(): JSONResponse
     {
@@ -226,7 +226,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function update(string $id): JSONResponse
     {
@@ -258,7 +258,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function destroy(string $id): JSONResponse
     {
@@ -286,7 +286,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function export(string $agentId): JSONResponse
     {
@@ -318,7 +318,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function exportPackage(string $id): JSONResponse
     {
@@ -349,7 +349,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
      */
     public function import(): JSONResponse
     {
@@ -388,8 +388,8 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
      */
     public function approve(string $id): JSONResponse
     {
@@ -454,7 +454,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-silently-violates-the-callers-model-policy
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-silently-violates-the-callers-model-policy
      */
     public function instantiate(string $id): JSONResponse
     {
