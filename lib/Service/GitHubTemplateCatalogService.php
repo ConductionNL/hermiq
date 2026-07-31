@@ -114,6 +114,24 @@ class GitHubTemplateCatalogService
     ];
 
     /**
+     * Maximum auxiliary blobs fetched for one install (skill-package-multifile).
+     *
+     * Sized above the largest real skill observed in the hydra set (`create-pr`,
+     * 63 files) with headroom, while still bounding a hostile repository's ability
+     * to turn one install into an unbounded fan-out of contents-API calls.
+     *
+     * @var int
+     */
+    private const MAX_AUX_FILES = 128;
+
+    /**
+     * Maximum total auxiliary bytes fetched for one install.
+     *
+     * @var int
+     */
+    private const MAX_AUX_BYTES = 4194304;
+
+    /**
      * The credential-broker service FQCN (resolved lazily; may be absent).
      *
      * @var string
@@ -396,6 +414,111 @@ class GitHubTemplateCatalogService
             credentialId: $credentialId
         );
     }//end fetchPackageFile()
+
+    /**
+     * Fetch a published skill repo's AUXILIARY files — every blob in the repo tree
+     * except the package file itself (skill-package-multifile).
+     *
+     * `publish()` commits auxiliary files as sibling blobs at their own (possibly
+     * nested) paths, but `fetchPackageFile()` only ever retrieved the single package
+     * file. Installing from GitHub therefore reconstructed a bare SKILL.md and
+     * silently dropped every `references/`, `examples/` and `learnings.md` entry — a
+     * lossy round trip through the very path the app-repo store depends on.
+     *
+     * Bounded on purpose: at most MAX_AUX_FILES blobs and MAX_AUX_BYTES total, so a
+     * hostile or accidentally enormous repository cannot turn one install into an
+     * unbounded fan-out of API calls. Truncation is logged rather than silent.
+     *
+     * @param string      $kind         The publish kind (KIND_SKILL|KIND_AGENT_TEMPLATE).
+     * @param string      $owner        Repo owner.
+     * @param string      $repo         Repo name.
+     * @param string|null $ref          Optional git ref.
+     * @param string|null $actingUserId The session UID (broker identity), or null.
+     * @param string|null $credentialId Optional allowed `github` credential.
+     *
+     * @return array<int, array{name: string, content: string}> The auxiliary files.
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+     */
+    public function fetchAuxFiles(
+        string $kind,
+        string $owner,
+        string $repo,
+        ?string $ref,
+        ?string $actingUserId,
+        ?string $credentialId=null
+    ): array {
+        if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
+            return [];
+        }
+
+        $treeRef = ($ref ?? '');
+        if ($treeRef === '') {
+            $treeRef = 'HEAD';
+        }
+
+        $apiPath = '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo)
+            .'/git/trees/'.rawurlencode($treeRef).'?recursive=1';
+
+        $result = $this->get(path: $apiPath, actingUserId: $actingUserId, credentialId: $credentialId);
+        if ($result['ok'] === false) {
+            return [];
+        }
+
+        $decoded = json_decode($result['body'], true);
+        if (is_array($decoded) === false || is_array($decoded['tree'] ?? null) === false) {
+            return [];
+        }
+
+        $packageFile = $this->packageFileFor(kind: $kind);
+        $files       = [];
+        $bytes       = 0;
+        $skipped     = 0;
+
+        foreach ($decoded['tree'] as $entry) {
+            if (is_array($entry) === false || (string) ($entry['type'] ?? '') !== 'blob') {
+                continue;
+            }
+
+            $path = (string) ($entry['path'] ?? '');
+            if ($path === '' || $path === $packageFile) {
+                continue;
+            }
+
+            if (count($files) >= self::MAX_AUX_FILES || $bytes >= self::MAX_AUX_BYTES) {
+                $skipped++;
+                continue;
+            }
+
+            $contents = $this->fetchFileContents(
+                owner: $owner,
+                repo: $repo,
+                path: $path,
+                ref: $ref,
+                actingUserId: $actingUserId,
+                credentialId: $credentialId
+            );
+            if ($contents === null) {
+                continue;
+            }
+
+            $bytes  += strlen($contents);
+            $files[] = [
+                'name'    => $path,
+                'content' => $contents,
+            ];
+        }//end foreach
+
+        if ($skipped > 0) {
+            $this->logger->warning(
+                'Hermiq skill install: auxiliary file set truncated — '.$skipped.' blob(s) skipped.',
+                ['owner' => $owner, 'repo' => $repo, 'limit' => self::MAX_AUX_FILES]
+            );
+        }
+
+        return $files;
+
+    }//end fetchAuxFiles()
 
     /**
      * Build a card from a search hit's package file (non-installable when the

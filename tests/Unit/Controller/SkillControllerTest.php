@@ -279,4 +279,56 @@ class SkillControllerTest extends TestCase
         $this->assertSame('quarantined', $response->getData()['state']);
 
     }//end testGithubInstallInstallsThroughUnchangedQuarantineGate()
+
+    /**
+     * skill-package-multifile: githubInstall() fetches the repo's AUXILIARY files and
+     * hands them to installFromSource().
+     *
+     * Deliberately captures the argument rather than using `->with(...)`: PHPUnit
+     * permits FEWER constraints than actual arguments, so a `with()` listing only the
+     * first three parameters passes whether or not auxFiles is supplied — which is
+     * exactly how this path stayed silently lossy. Asserting on the captured value is
+     * the only form that actually pins the behaviour.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+     */
+    public function testGithubInstallCarriesAuxiliaryFiles(): void
+    {
+        $aux = [
+            ['name' => 'references/local-checks.md', 'content' => "1. composer check:strict\n"],
+            ['name' => 'learnings.md', 'content' => "- a vetted learning\n"],
+        ];
+
+        $capturedAux = null;
+        $marketplace = $this->createMock(SkillMarketplaceService::class);
+        $marketplace->expects($this->once())
+            ->method('installFromSource')
+            ->willReturnCallback(
+                function (string $package, string $source, string $createdBy, array $auxFiles=[]) use (&$capturedAux): ObjectEntity {
+                    $capturedAux = $auxFiles;
+                    return $this->skill('quarantined');
+                }
+            );
+
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('fetchPackageFile')->willReturn("---\nname: Demo skill\n---\nBody.");
+        $catalog->expects($this->once())
+            ->method('fetchAuxFiles')
+            ->with(GitHubTemplateCatalogService::KIND_SKILL, 'acme', 'demo-skill')
+            ->willReturn($aux);
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill']);
+        $response = $this->controller($this->session('alice'), $request, null, $catalog, $marketplace)->githubInstall();
+
+        $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+        $this->assertSame(
+            $aux,
+            $capturedAux,
+            'githubInstall() MUST forward the repo auxiliary files — otherwise a published '
+            .'multi-file skill re-installs as a bare SKILL.md while reporting success.'
+        );
+
+    }//end testGithubInstallCarriesAuxiliaryFiles()
 }//end class

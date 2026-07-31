@@ -427,7 +427,25 @@ class SkillController extends Controller
                 return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
             }
 
-            $skill = $this->marketplaceService->installFromSource(package: $package, source: 'hub', createdBy: $user->getUID());
+            // Skill-package-multifile: a published skill repo carries its auxiliary
+            // files as sibling blobs. Fetching only the package file reconstructed a
+            // bare SKILL.md and silently dropped every references/ and learnings.md
+            // entry — install must mirror what publish emitted.
+            $auxFiles = $this->catalogService->fetchAuxFiles(
+                kind: GitHubTemplateCatalogService::KIND_SKILL,
+                owner: $owner,
+                repo: $repo,
+                ref: $ref,
+                actingUserId: $user->getUID(),
+                credentialId: $this->credentialParam()
+            );
+
+            $skill = $this->marketplaceService->installFromSource(
+                package: $package,
+                source: 'hub',
+                createdBy: $user->getUID(),
+                auxFiles: $auxFiles
+            );
             return new JSONResponse($this->shape(object: $skill), Http::STATUS_CREATED);
         } catch (Throwable $e) {
             $this->logger->error('Hermiq skill github install failed: '.$e->getMessage(), ['exception' => $e]);
