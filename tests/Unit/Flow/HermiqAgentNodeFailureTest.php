@@ -151,6 +151,27 @@ class HermiqAgentNodeFailureTest extends TestCase
 
 
     /**
+     * A step naming no agent fails rather than passing the items straight through.
+     *
+     * `validateConfig()` rejects this, but only when a flow is SAVED. A flow that
+     * arrives by import or seed reaches `execute()` unvalidated, and the old
+     * pass-through left the output key absent — which a router reads as a default
+     * branch rather than as a step that never ran.
+     *
+     * @return void
+     */
+    public function testAStepWithNoAgentFailsRatherThanPassingItemsThrough(): void
+    {
+        $node = $this->nodeAnswering('never reached');
+
+        $this->expectException(UnexpectedValueException::class);
+
+        $node->execute($this->oneItem(), ['output' => 'stage'], []);
+
+    }//end testAStepWithNoAgentFailsRatherThanPassingItemsThrough()
+
+
+    /**
      * The success path is unchanged: fenced JSON is unwrapped and decoded onto the item.
      *
      * The guard tests above are only meaningful next to this one — a node that

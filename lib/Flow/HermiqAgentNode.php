@@ -184,9 +184,16 @@ class HermiqAgentNode implements IFlowNode
      */
     public function execute(array $items, array $config, array $context): array
     {
+        // Third shape of the same defect: a step that did not run must not
+        // report success. `validateConfig()` already rejects a nameless agent,
+        // but it only runs when a flow is SAVED — a flow imported or seeded
+        // through another path reaches `execute()` unvalidated, and returning
+        // the items unchanged makes the step a silent pass-through. The output
+        // key is then absent, so a downstream router takes its default branch
+        // exactly as though the agent had answered.
         $agentId = trim((string) ($config['agentId'] ?? ($config['agent'] ?? '')));
         if ($agentId === '') {
-            return $items;
+            throw new UnexpectedValueException($this->l10n->t('An agent step needs an agent.'));
         }
 
         $outKey = (string) ($config['output'] ?? 'result');
