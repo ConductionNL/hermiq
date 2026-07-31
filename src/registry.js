@@ -43,7 +43,6 @@ import EmailField from './formFields/EmailField.vue'
 import Chat from './views/Chat.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
-import AgentSessions from './views/AgentSessions.vue'
 import GraphBuilder from './views/GraphBuilder.vue'
 import GraphSidebar from './views/GraphSidebar.vue'
 import TenantOps from './views/TenantOps.vue'
@@ -218,15 +217,6 @@ export default {
 	AgentMemory: {
 		kind: 'page',
 		component: AgentMemory,
-	},
-
-	/**
-	 * Agent sessions — a selected agent's recorded conversation sessions plus a
-	 * turn-search (recall) box. Split out from Memory so chats are their own thing.
-	 */
-	AgentSessions: {
-		kind: 'page',
-		component: AgentSessions,
 	},
 
 	/**

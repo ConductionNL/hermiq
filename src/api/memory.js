@@ -2,9 +2,14 @@
 // Copyright (C) 2026 Conduction B.V.
 //
 // Plain (non-Pinia) API helper for the agent-memory surface. These are thin Hermiq
-// controllers (MemoryController) that manage an agent's Memory / UserProfile / Session /
-// SessionTurn objects tenant-scoped through OpenRegister — not the generic
-// createObjectStore object path — so we hit the resources directly.
+// controllers (MemoryController) that manage an agent's Memory / UserProfile objects
+// tenant-scoped through OpenRegister — not the generic createObjectStore object path —
+// so we hit the resources directly.
+//
+// The Session / SessionTurn readers (listSessions, recall) went with the Sessions page:
+// nothing else called them, so they were exports pointing at endpoints no UI reaches.
+// MemoryController::sessions() and ::recall() and their routes are still there — see
+// the note in the change that dropped the page.
 //
 // Deliberately stateless functions (no defineStore) — the hard rule is "no custom Pinia
 // stores". axios from @nextcloud/axios adds the CSRF requesttoken. Mirrors
@@ -69,17 +74,6 @@ export async function consolidateMemory(agentId, entries = null) {
 }
 
 /**
- * List an agent's Sessions (tenant-scoped).
- *
- * @param {string} agentId The agent UUID.
- * @return {Promise<Array<object>>} The Session objects.
- */
-export async function listSessions(agentId) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/sessions`))
-	return toList(response.data)
-}
-
-/**
  * List an agent's UserProfiles (tenant-scoped).
  *
  * @param {string} agentId The agent UUID.
@@ -87,17 +81,5 @@ export async function listSessions(agentId) {
  */
 export async function listUserProfiles(agentId) {
 	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/user-profiles`))
-	return toList(response.data)
-}
-
-/**
- * Recall an agent's SessionTurns matching a query (tenant-scoped OR search).
- *
- * @param {string} agentId The agent UUID.
- * @param {string} q The recall query.
- * @return {Promise<Array<object>>} The matching SessionTurn objects.
- */
-export async function recall(agentId, q) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/recall`), { params: { q } })
 	return toList(response.data)
 }
