@@ -34,134 +34,141 @@
 		<p v-else-if="runs.length === 0" class="agent-run-history-widget__empty-hint">
 			{{ t('hermiq', 'No runs yet.') }}
 		</p>
-		<table v-else class="agent-run-history-widget__table">
-			<thead>
-				<tr>
-					<th scope="col">
-						{{ t('hermiq', 'Status') }}
-					</th>
-					<th scope="col">
-						{{ t('hermiq', 'Started') }}
-					</th>
-					<th scope="col">
-						{{ t('hermiq', 'Duration') }}
-					</th>
-					<th scope="col">
-						{{ t('hermiq', 'Attempt') }}
-					</th>
-					<th scope="col">
-						{{ t('hermiq', 'Agent version') }}
-					</th>
-					<th scope="col">
-						<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
-					</th>
-				</tr>
-			</thead>
-			<tbody>
-				<template v-for="run in runs" :key="run.id">
+		<!--
+			Run history grows with every run, and a row expands inline to show its
+			trace — so it scrolls inside the widget rather than growing past its
+			grid cell and over the widgets below (ADR-062).
+		-->
+		<div v-else class="agent-run-history-widget__table-wrap">
+			<table class="agent-run-history-widget__table">
+				<thead>
 					<tr>
-						<td>
-							<span :class="['agent-run-history-widget__badge', statusBadgeClass(run.status)]">
-								{{ statusLabel(run.status) }}
-							</span>
-						</td>
-						<td>{{ formatDate(run.startedAt || run.created) }}</td>
-						<td>{{ durationLabel(run.durationMs) }}</td>
-						<td>{{ run.attempt || '—' }}</td>
-						<td>{{ shortVersionLabel(run.agentVersion) }}</td>
-						<td class="agent-run-history-widget__row-actions">
-							<NcButton
-								type="tertiary"
-								:aria-label="t('hermiq', 'View this run\'s step timeline')"
-								@click="toggleRunTrace(run)">
-								{{ expandedRunId === run.id ? t('hermiq', 'Hide details') : t('hermiq', 'Details') }}
-							</NcButton>
-							<NcButton
-								v-if="run.status === 'dead_letter'"
-								type="tertiary"
-								:disabled="running"
-								:aria-label="t('hermiq', 'Re-run this dead-lettered schedule')"
-								@click="reRun">
-								{{ t('hermiq', 'Re-run') }}
-							</NcButton>
-							<NcButton
-								type="tertiary"
-								:disabled="replayingRunId === run.id"
-								:aria-label="t('hermiq', 'Replay this run as a dry run and compare')"
-								@click="replay(run)">
-								<template #icon>
-									<NcLoadingIcon v-if="replayingRunId === run.id" :size="20" />
-									<Replay v-else :size="20" />
-								</template>
-								{{ t('hermiq', 'Replay') }}
-							</NcButton>
-						</td>
+						<th scope="col">
+							{{ t('hermiq', 'Status') }}
+						</th>
+						<th scope="col">
+							{{ t('hermiq', 'Started') }}
+						</th>
+						<th scope="col">
+							{{ t('hermiq', 'Duration') }}
+						</th>
+						<th scope="col">
+							{{ t('hermiq', 'Attempt') }}
+						</th>
+						<th scope="col">
+							{{ t('hermiq', 'Agent version') }}
+						</th>
+						<th scope="col">
+							<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
+						</th>
 					</tr>
-					<tr v-if="expandedRunId === run.id">
-						<td colspan="6" class="agent-run-history-widget__trace-cell">
-							<NcLoadingIcon v-if="traceLoading" :size="24" />
-							<NcNoteCard v-else-if="traceError" type="warning">
-								{{ t('hermiq', "Could not load this run's trace.") }}
-							</NcNoteCard>
-							<div v-else-if="runTraces[run.id]" class="agent-run-history-widget__trace">
-								<p v-if="runTraces[run.id].toolStepsAvailable === false" class="agent-run-history-widget__trace-hint">
-									{{ t('hermiq', "Tool-level detail is unavailable for this run's execution path.") }}
+				</thead>
+				<tbody>
+					<template v-for="run in runs" :key="run.id">
+						<tr>
+							<td>
+								<span :class="['agent-run-history-widget__badge', statusBadgeClass(run.status)]">
+									{{ statusLabel(run.status) }}
+								</span>
+							</td>
+							<td>{{ formatDate(run.startedAt || run.created) }}</td>
+							<td>{{ durationLabel(run.durationMs) }}</td>
+							<td>{{ run.attempt || '—' }}</td>
+							<td>{{ shortVersionLabel(run.agentVersion) }}</td>
+							<td class="agent-run-history-widget__row-actions">
+								<NcButton
+									type="tertiary"
+									:aria-label="t('hermiq', 'View this run\'s step timeline')"
+									@click="toggleRunTrace(run)">
+									{{ expandedRunId === run.id ? t('hermiq', 'Hide details') : t('hermiq', 'Details') }}
+								</NcButton>
+								<NcButton
+									v-if="run.status === 'dead_letter'"
+									type="tertiary"
+									:disabled="running"
+									:aria-label="t('hermiq', 'Re-run this dead-lettered schedule')"
+									@click="reRun">
+									{{ t('hermiq', 'Re-run') }}
+								</NcButton>
+								<NcButton
+									type="tertiary"
+									:disabled="replayingRunId === run.id"
+									:aria-label="t('hermiq', 'Replay this run as a dry run and compare')"
+									@click="replay(run)">
+									<template #icon>
+										<NcLoadingIcon v-if="replayingRunId === run.id" :size="20" />
+										<Replay v-else :size="20" />
+									</template>
+									{{ t('hermiq', 'Replay') }}
+								</NcButton>
+							</td>
+						</tr>
+						<tr v-if="expandedRunId === run.id">
+							<td colspan="6" class="agent-run-history-widget__trace-cell">
+								<NcLoadingIcon v-if="traceLoading" :size="24" />
+								<NcNoteCard v-else-if="traceError" type="warning">
+									{{ t('hermiq', "Could not load this run's trace.") }}
+								</NcNoteCard>
+								<div v-else-if="runTraces[run.id]" class="agent-run-history-widget__trace">
+									<p v-if="runTraces[run.id].toolStepsAvailable === false" class="agent-run-history-widget__trace-hint">
+										{{ t('hermiq', "Tool-level detail is unavailable for this run's execution path.") }}
+									</p>
+									<p v-if="!runTraces[run.id].steps || runTraces[run.id].steps.length === 0" class="agent-run-history-widget__empty-hint">
+										{{ t('hermiq', 'No step detail recorded for this run.') }}
+									</p>
+									<ol v-else class="agent-run-history-widget__trace-steps">
+										<li v-for="step in runTraces[run.id].steps" :key="step.seq" class="agent-run-history-widget__trace-step">
+											<span class="agent-run-history-widget__trace-step-type">{{ stepTypeLabel(step.type) }}</span>
+											<span class="agent-run-history-widget__trace-step-name">{{ step.name }}</span>
+											<span class="agent-run-history-widget__trace-step-duration">{{ stepDurationLabel(step.durationMs) }}</span>
+											<span :class="['agent-run-history-widget__badge', step.outcome === 'error' ? 'agent-run-history-widget__badge--error' : 'agent-run-history-widget__badge--ok']">
+												{{ step.outcome }}
+											</span>
+										</li>
+									</ol>
+									<NcButton type="tertiary" @click="downloadTrace(run)">
+										{{ t('hermiq', 'Download trace (JSON)') }}
+									</NcButton>
+								</div>
+							</td>
+						</tr>
+						<tr v-if="replayResultRunId === run.id">
+							<td colspan="6" class="agent-run-history-widget__trace-cell">
+								<div class="agent-run-history-widget__replay-head">
+									<strong>{{ t('hermiq', 'Replay preview') }}</strong>
+									<NcButton type="tertiary" @click="replayResultRunId = null; replayResult = null">
+										{{ t('hermiq', 'Dismiss') }}
+									</NcButton>
+								</div>
+								<NcNoteCard type="info">
+									{{ t('hermiq', 'Nothing was changed — side-effecting tools were reported, not executed.') }}
+								</NcNoteCard>
+								<p v-if="replayResult && replayResult.diff" class="agent-run-history-widget__empty-hint">
+									{{ replayResult.diff.changed
+										? t('hermiq', 'The replay produced a DIFFERENT outcome than the original run.')
+										: t('hermiq', 'The replay produced the same outcome as the original run.') }}
 								</p>
-								<p v-if="!runTraces[run.id].steps || runTraces[run.id].steps.length === 0" class="agent-run-history-widget__empty-hint">
-									{{ t('hermiq', 'No step detail recorded for this run.') }}
-								</p>
-								<ol v-else class="agent-run-history-widget__trace-steps">
-									<li v-for="step in runTraces[run.id].steps" :key="step.seq" class="agent-run-history-widget__trace-step">
+								<ol v-if="replaySteps.length > 0" class="agent-run-history-widget__trace-steps">
+									<li v-for="step in replaySteps" :key="step.seq" class="agent-run-history-widget__trace-step">
 										<span class="agent-run-history-widget__trace-step-type">{{ stepTypeLabel(step.type) }}</span>
 										<span class="agent-run-history-widget__trace-step-name">{{ step.name }}</span>
-										<span class="agent-run-history-widget__trace-step-duration">{{ stepDurationLabel(step.durationMs) }}</span>
-										<span :class="['agent-run-history-widget__badge', step.outcome === 'error' ? 'agent-run-history-widget__badge--error' : 'agent-run-history-widget__badge--ok']">
-											{{ step.outcome }}
+										<span
+											:class="['agent-run-history-widget__badge', step.outcome === 'would-have-called'
+												? 'agent-run-history-widget__badge--warn'
+												: (step.outcome === 'error' ? 'agent-run-history-widget__badge--error' : 'agent-run-history-widget__badge--ok')]">
+											{{ step.outcome === 'would-have-called' ? t('hermiq', 'would have called') : step.outcome }}
 										</span>
 									</li>
 								</ol>
-								<NcButton type="tertiary" @click="downloadTrace(run)">
-									{{ t('hermiq', 'Download trace (JSON)') }}
-								</NcButton>
-							</div>
-						</td>
-					</tr>
-					<tr v-if="replayResultRunId === run.id">
-						<td colspan="6" class="agent-run-history-widget__trace-cell">
-							<div class="agent-run-history-widget__replay-head">
-								<strong>{{ t('hermiq', 'Replay preview') }}</strong>
-								<NcButton type="tertiary" @click="replayResultRunId = null; replayResult = null">
-									{{ t('hermiq', 'Dismiss') }}
-								</NcButton>
-							</div>
-							<NcNoteCard type="info">
-								{{ t('hermiq', 'Nothing was changed — side-effecting tools were reported, not executed.') }}
-							</NcNoteCard>
-							<p v-if="replayResult && replayResult.diff" class="agent-run-history-widget__empty-hint">
-								{{ replayResult.diff.changed
-									? t('hermiq', 'The replay produced a DIFFERENT outcome than the original run.')
-									: t('hermiq', 'The replay produced the same outcome as the original run.') }}
-							</p>
-							<ol v-if="replaySteps.length > 0" class="agent-run-history-widget__trace-steps">
-								<li v-for="step in replaySteps" :key="step.seq" class="agent-run-history-widget__trace-step">
-									<span class="agent-run-history-widget__trace-step-type">{{ stepTypeLabel(step.type) }}</span>
-									<span class="agent-run-history-widget__trace-step-name">{{ step.name }}</span>
-									<span
-										:class="['agent-run-history-widget__badge', step.outcome === 'would-have-called'
-											? 'agent-run-history-widget__badge--warn'
-											: (step.outcome === 'error' ? 'agent-run-history-widget__badge--error' : 'agent-run-history-widget__badge--ok')]">
-										{{ step.outcome === 'would-have-called' ? t('hermiq', 'would have called') : step.outcome }}
-									</span>
-								</li>
-							</ol>
-							<p v-else class="agent-run-history-widget__empty-hint">
-								{{ t('hermiq', 'No step detail recorded for this preview.') }}
-							</p>
-						</td>
-					</tr>
-				</template>
-			</tbody>
-		</table>
+								<p v-else class="agent-run-history-widget__empty-hint">
+									{{ t('hermiq', 'No step detail recorded for this preview.') }}
+								</p>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+		</div>
 	</div>
 </template>
 
@@ -503,9 +510,24 @@ export default {
 	margin: 4px 0;
 }
 
+.agent-run-history-widget__table-wrap {
+	max-height: 300px;
+	overflow-y: auto;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large, 8px);
+}
+
 .agent-run-history-widget__table {
 	width: 100%;
 	border-collapse: collapse;
+}
+
+/* Sticky header — the column meaning must survive scrolling the rows. */
+.agent-run-history-widget__table thead th {
+	position: sticky;
+	inset-block-start: 0;
+	z-index: 1;
+	background-color: var(--color-main-background);
 }
 
 .agent-run-history-widget__table th,

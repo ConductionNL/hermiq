@@ -68,51 +68,60 @@
 				</template>
 			</NcEmptyContent>
 
-			<table v-else class="tool-oversight__table">
-				<thead>
-					<tr>
-						<th scope="col">
-							{{ t('hermiq', 'When') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Tool') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Acting identity') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Arguments (digest)') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Result') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Data touched') }}
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr v-for="(row, index) in data.rows" :key="`${row.at}-${index}`">
-						<td>{{ formatDate(row.at) }}</td>
-						<td>
-							<span v-if="row.toolId" class="tool-oversight__id">{{ row.toolId }}</span>
-							<span v-else class="tool-oversight__unavailable">{{ t('hermiq', 'not recorded') }}</span>
-						</td>
-						<td>{{ row.actingUser || '—' }}</td>
-						<td>
-							<code v-if="row.paramsDigest" class="tool-oversight__digest">{{ shortDigest(row.paramsDigest) }}</code>
-							<span v-else class="tool-oversight__unavailable">{{ t('hermiq', 'not recorded') }}</span>
-						</td>
-						<td>
-							<span :class="resultClass(row)">{{ resultLabel(row) }}</span>
-						</td>
-						<td>
-							<span v-if="row.dataTouched && row.dataTouched.length">{{ row.dataTouched.join(', ') }}</span>
-							<span v-else>—</span>
-						</td>
-					</tr>
-				</tbody>
-			</table>
+			<!--
+				An audit trail grows without bound, so its height cannot be a
+				function of any gridHeight: a busy agent's rows pushed this widget
+				past its cell and over the widgets below it. Same treatment as the
+				grant catalogue in ToolGrantEditor — bounded scroll region, sticky
+				header, all rows still present.
+			-->
+			<div v-else class="tool-oversight__table-wrap">
+				<table class="tool-oversight__table">
+					<thead>
+						<tr>
+							<th scope="col">
+								{{ t('hermiq', 'When') }}
+							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Tool') }}
+							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Acting identity') }}
+							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Arguments (digest)') }}
+							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Result') }}
+							</th>
+							<th scope="col">
+								{{ t('hermiq', 'Data touched') }}
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr v-for="(row, index) in data.rows" :key="`${row.at}-${index}`">
+							<td>{{ formatDate(row.at) }}</td>
+							<td>
+								<span v-if="row.toolId" class="tool-oversight__id">{{ row.toolId }}</span>
+								<span v-else class="tool-oversight__unavailable">{{ t('hermiq', 'not recorded') }}</span>
+							</td>
+							<td>{{ row.actingUser || '—' }}</td>
+							<td>
+								<code v-if="row.paramsDigest" class="tool-oversight__digest">{{ shortDigest(row.paramsDigest) }}</code>
+								<span v-else class="tool-oversight__unavailable">{{ t('hermiq', 'not recorded') }}</span>
+							</td>
+							<td>
+								<span :class="resultClass(row)">{{ resultLabel(row) }}</span>
+							</td>
+							<td>
+								<span v-if="row.dataTouched && row.dataTouched.length">{{ row.dataTouched.join(', ') }}</span>
+								<span v-else>—</span>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
 		</template>
 	</section>
 </template>
@@ -299,6 +308,15 @@ export default {
 	padding: 24px;
 }
 
+/* The audit trail is unbounded — it scrolls inside the widget (ADR-062). */
+.tool-oversight__table-wrap {
+	/* Paired with ToolGrantEditor's 300px cap — see the note there. */
+	max-height: 260px;
+	overflow-y: auto;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large, 8px);
+}
+
 .tool-oversight__table {
 	width: 100%;
 	border-collapse: collapse;
@@ -310,6 +328,14 @@ export default {
 	padding: 8px;
 	border-block-end: 1px solid var(--color-border);
 	vertical-align: top;
+}
+
+/* Sticky header — the column meaning must survive scrolling the rows. */
+.tool-oversight__table thead th {
+	position: sticky;
+	inset-block-start: 0;
+	z-index: 1;
+	background-color: var(--color-main-background);
 }
 
 .tool-oversight__id,

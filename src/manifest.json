@@ -1,6 +1,6 @@
 {
 	"$schema": "https://codeberg.org/Conduction/nextcloud-vue/raw/branch/main/src/schemas/app-manifest-v2.schema.json",
-	"version": "0.5.0",
+	"version": "0.6.0",
 	"dependencies": [
 		"openregister"
 	],
@@ -8,14 +8,14 @@
 		{
 			"id": "Chat",
 			"label": "Chat",
-			"icon": "CommentOutline",
+			"icon": "Creation",
 			"route": "Chat",
 			"order": 8
 		},
 		{
 			"id": "AgentCatalog",
 			"label": "Agents",
-			"icon": "Connection",
+			"icon": "RobotOutline",
 			"route": "AgentCatalog",
 			"order": 10
 		},
@@ -36,7 +36,7 @@
 		{
 			"id": "AgentMemory",
 			"label": "Memory",
-			"icon": "ChartLine",
+			"icon": "Brain",
 			"route": "AgentMemory",
 			"order": 17
 		},
@@ -75,7 +75,8 @@
 			"label": "Tenant ops",
 			"icon": "ShieldOutline",
 			"route": "TenantOps",
-			"order": 20
+			"section": "settings",
+			"order": 40
 		},
 		{
 			"id": "EvalDatasets",
@@ -174,7 +175,7 @@
 			"config": {
 				"register": "hermiq",
 				"schema": "agent",
-				"_note": "manifest-driven-pages: converted from one opaque type:custom AgentDetail.vue (1570 lines) to a type:detail widget grid (ADR-062: every widget fills its gridHeight exactly, no inner scrollbars, no reserved voids). Six of seven content widgets stay type:custom — Hermiq's AI-governance interactions (dry-run/replay, run-trace observability, tool-catalogue editing, webhook lifecycle) are inherently bespoke, unlike procest/pipelinq's plain-data domain objects (design.md Decision 3). tools is excluded from the data widget and edited only via the Edit-agent header action's existing NcSelect-over-live-catalogue editor (design.md Decision 1). Header actions use config.headerActions: verified at HEAD that CnDetailPage renders config.headerActions via CnActionButtons, while the schema's top-level page.actions[] typed-action array is not yet wired into CnDetailPage's render path — this change follows HEAD over the original REQ-008 wording (flagged for the reviewer). AgentFormModal/AgentVersionHistoryDialog/AgentFactsheetDialog self-resolve the current agent id (and, for version history, the owner-only rollback gate) from the route when opened via open-modal, since open-modal action props are static JSON, not resolved against @objectId at HEAD.",
+				"_note": "manifest-driven-pages: converted from one opaque type:custom AgentDetail.vue (1570 lines) to a type:detail widget grid (ADR-062: every widget fills its gridHeight exactly, no inner scrollbars, no reserved voids). Six of seven content widgets stay type:custom — Hermiq's AI-governance interactions (dry-run/replay, run-trace observability, tool-catalogue editing, webhook lifecycle) are inherently bespoke, unlike procest/pipelinq's plain-data domain objects (design.md Decision 3). tools is excluded from the data widget and edited only via the Edit-agent header action's existing NcSelect-over-live-catalogue editor (design.md Decision 1). Header actions use config.headerActions: verified at HEAD that CnDetailPage renders config.headerActions via CnActionButtons, while the schema's top-level page.actions[] typed-action array is not yet wired into CnDetailPage's render path — this change follows HEAD over the original REQ-008 wording (flagged for the reviewer). agent-detail-redesign (2026-07-31): the page was overflowing its own grid — the four KPIs were one custom widget crammed into gridHeight 2, so its cards spilled into Skills, while agent-core/skills/run-history reserved 3-10x the height their content used. The KPIs are now four type:stat tiles across the top, agent-scoped by params.agentId = @objectId (the endpoint engine resolves that token on a detail page), which is the SAME four numbers with each one sized to a tile. Every gridHeight below was set from the widget's rendered content height measured in a browser at 12 columns (80px/row), verified against BOTH a 1-field agent and a 23-field one, and re-measured until no widget's scrollHeight exceeded its cell. Four widgets could not be sized at all until their content was bounded, because their content is a variable-length list and no fixed gridHeight can hold one: the instance-wide tool catalogue (~100 rows = 6,600px here), the invocation audit trail, the run history, and the memory entries. Each now scrolls inside its own region with a sticky header (ToolGrantEditor also gained a filter — 100 unfiltered rows behind a scrollbar is not a way to find one tool). ADR-062's 'a widget fills its gridHeight exactly' can only be honoured by an unbounded list if the list scrolls internally. agent-core is the one deliberate exception to measured sizing: it is sized for the 9 fields it DECLARES (5 rows at columns:2, 61px/row measured, + 93px chrome = 398px -> h5) rather than the 154px it currently renders, because it currently renders only 'name' — hermiq's agent schema (36 properties) and openbuild's agent schema (6 properties) share the slug 'agent', GET /api/schemas/agent resolves to openbuild's, and 'name' is their only common property. That is an OpenRegister slug-resolution bug (no register-scoped lookup exists: ?register= is ignored and the nested route 404s), not a layout one, so the cell is sized for the correct content instead of baking the bug into the geometry. AgentFormModal/AgentVersionHistoryDialog/AgentFactsheetDialog self-resolve the current agent id (and, for version history, the owner-only rollback gate) from the route when opened via open-modal, since open-modal action props are static JSON, not resolved against @objectId at HEAD.",
 				"widgets": [
 					{
 						"id": "agent-core",
@@ -182,6 +183,8 @@
 						"title": "Configuration",
 						"icon": "CogOutline",
 						"content": {
+							"_note": "content.title, not just the widget's top-level title: `data` is an ownsTitle widget type, so CnDetailPage's widgetDisplayTitle deliberately returns content.title for it and ignores the chrome title (otherwise a seeded title permanently shadows a user's edit and can never be changed). With the title only at the top level this card rendered the generic default header 'Data' instead of 'Configuration'.",
+							"title": "Configuration",
 							"columns": 2,
 							"include": [
 								"name",
@@ -197,11 +200,71 @@
 						}
 					},
 					{
-						"id": "agent-kpis",
-						"type": "custom",
-						"title": "Run KPIs",
-						"icon": "ChartLine",
-						"_note": "Agent-scoped run totals from the computed /api/analytics endpoint (success rate, latency, tokens) — not an OR object-count query, so stats-block cannot bind it (ADR-049). Resolved via page.slots.widget-agent-kpis -> agent-kpis."
+						"id": "agent-kpi-total-runs",
+						"type": "stat",
+						"title": "Total runs",
+						"content": {
+							"label": "Total runs",
+							"caption": "recorded",
+							"icon": "Timeline",
+							"format": { "style": "decimal", "decimals": 0 },
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"params": { "agentId": "@objectId" }
+							},
+							"valueField": "totalRuns"
+						}
+					},
+					{
+						"id": "agent-kpi-success-rate",
+						"type": "stat",
+						"title": "Success rate",
+						"content": {
+							"label": "Success rate",
+							"caption": "completed",
+							"icon": "CheckCircleOutline",
+							"format": { "style": "decimal", "decimals": 0, "suffix": "%" },
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"params": { "agentId": "@objectId" }
+							},
+							"valueField": "successRate",
+							"variantWhen": [
+								{ "op": "gte", "value": 90, "variant": "success" },
+								{ "op": "lt", "value": 60, "variant": "warning" }
+							]
+						}
+					},
+					{
+						"id": "agent-kpi-avg-latency",
+						"type": "stat",
+						"title": "Avg latency",
+						"content": {
+							"label": "Avg latency",
+							"caption": "per run",
+							"icon": "Gauge",
+							"format": { "style": "decimal", "decimals": 1, "suffix": " s" },
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"params": { "agentId": "@objectId" }
+							},
+							"valueField": "latency.avgSeconds"
+						}
+					},
+					{
+						"id": "agent-kpi-tokens",
+						"type": "stat",
+						"title": "Tokens",
+						"content": {
+							"label": "Tokens",
+							"icon": "ChartBar",
+							"format": { "style": "decimal", "decimals": 0 },
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"params": { "agentId": "@objectId" }
+							},
+							"valueField": "tokens.total"
+						}
 					},
 					{
 						"id": "agent-skills",
@@ -249,67 +312,102 @@
 				"layout": [
 					{
 						"id": "1",
-						"widgetId": "agent-core",
+						"widgetId": "agent-kpi-total-runs",
 						"gridX": 0,
 						"gridY": 0,
-						"gridWidth": 8,
-						"gridHeight": 5
+						"gridWidth": 3,
+						"gridHeight": 2,
+						"showTitle": false
 					},
 					{
 						"id": "2",
-						"widgetId": "agent-kpis",
-						"gridX": 8,
+						"widgetId": "agent-kpi-success-rate",
+						"gridX": 3,
 						"gridY": 0,
-						"gridWidth": 4,
-						"gridHeight": 2
+						"gridWidth": 3,
+						"gridHeight": 2,
+						"showTitle": false
 					},
 					{
 						"id": "3",
-						"widgetId": "agent-skills",
-						"gridX": 8,
-						"gridY": 2,
-						"gridWidth": 4,
-						"gridHeight": 3
+						"widgetId": "agent-kpi-avg-latency",
+						"gridX": 6,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 2,
+						"showTitle": false
 					},
 					{
 						"id": "4",
-						"widgetId": "agent-tool-governance",
-						"gridX": 0,
-						"gridY": 5,
-						"gridWidth": 12,
-						"gridHeight": 6
+						"widgetId": "agent-kpi-tokens",
+						"gridX": 9,
+						"gridY": 0,
+						"gridWidth": 3,
+						"gridHeight": 2,
+						"showTitle": false
 					},
 					{
 						"id": "5",
-						"widgetId": "agent-run-operations",
+						"widgetId": "agent-core",
 						"gridX": 0,
-						"gridY": 11,
-						"gridWidth": 6,
-						"gridHeight": 7
+						"gridY": 2,
+						"gridWidth": 7,
+						"gridHeight": 5,
+						"showTitle": true
 					},
 					{
 						"id": "6",
-						"widgetId": "agent-memory",
-						"gridX": 6,
-						"gridY": 11,
-						"gridWidth": 6,
-						"gridHeight": 7
+						"widgetId": "agent-skills",
+						"gridX": 7,
+						"gridY": 2,
+						"gridWidth": 5,
+						"gridHeight": 5,
+						"showTitle": true
 					},
 					{
 						"id": "7",
-						"widgetId": "agent-run-history",
+						"widgetId": "agent-run-operations",
 						"gridX": 0,
-						"gridY": 18,
-						"gridWidth": 12,
-						"gridHeight": 6
+						"gridY": 7,
+						"gridWidth": 6,
+						"gridHeight": 7,
+						"showTitle": true
 					},
 					{
 						"id": "8",
-						"widgetId": "agent-eval-baseline",
-						"gridX": 0,
-						"gridY": 24,
+						"widgetId": "agent-memory",
+						"gridX": 6,
+						"gridY": 7,
 						"gridWidth": 6,
-						"gridHeight": 3
+						"gridHeight": 7,
+						"showTitle": true
+					},
+					{
+						"id": "9",
+						"widgetId": "agent-tool-governance",
+						"gridX": 0,
+						"gridY": 14,
+						"gridWidth": 12,
+						"gridHeight": 14,
+						"showTitle": true
+					},
+					{
+						"id": "10",
+						"widgetId": "agent-run-history",
+						"gridX": 0,
+						"gridY": 28,
+						"gridWidth": 8,
+						"gridHeight": 5,
+						"showTitle": true
+					},
+					{
+						"id": "11",
+						"widgetId": "agent-eval-baseline",
+						"gridX": 8,
+						"gridY": 28,
+						"gridWidth": 4,
+						"gridHeight": 5,
+						"showTitle": true
 					}
 				],
 				"headerActions": [
@@ -349,7 +447,6 @@
 				}
 			},
 			"slots": {
-				"widget-agent-kpis": "agent-kpis",
 				"widget-agent-skills": "agent-skills",
 				"widget-agent-tool-governance": "agent-tool-governance",
 				"widget-agent-run-operations": "agent-run-operations",
