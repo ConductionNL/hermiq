@@ -1,6 +1,6 @@
 {
 	"$schema": "https://codeberg.org/Conduction/nextcloud-vue/raw/branch/main/src/schemas/app-manifest-v2.schema.json",
-	"version": "0.4.0",
+	"version": "0.5.0",
 	"dependencies": [
 		"openregister"
 	],
@@ -39,13 +39,6 @@
 			"icon": "ChartLine",
 			"route": "AgentMemory",
 			"order": 17
-		},
-		{
-			"id": "AgentSessions",
-			"label": "Sessions",
-			"icon": "CommentOutline",
-			"route": "AgentSessions",
-			"order": 18
 		},
 		{
 			"id": "SkillsCatalog",
@@ -380,14 +373,6 @@
 			"component": "AgentMemory",
 			"title": "Memory",
 			"_note": "Custom page: agent memory combines the createObjectStore agent collection (picker) with tenant-scoped Memory/Session objects, a char-budget bar, the consolidation nudge + manual consolidate, and OR-search recall — not expressible via the built-in index/detail page types. Standard nav page — not a dashboard."
-		},
-		{
-			"id": "AgentSessions",
-			"route": "/sessions",
-			"type": "custom",
-			"component": "AgentSessions",
-			"title": "Sessions",
-			"_note": "Custom page: conversation sessions are the OpenRegister agents resource (picker) plus tenant-scoped Session/SessionTurn objects served agent-scoped (/agents/{id}/sessions, /recall), not the generic objects/{register}/{schema} path, so the built-in index page type cannot express it. Split from Memory so chats are their own surface."
 		},
 		{
 			"id": "SkillsCatalog",

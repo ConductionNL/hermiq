@@ -46,7 +46,7 @@ tools, human approval gate, run analytics, AI-feature governance, multi-tenant o
 | Agents (catalog + detail, prompt/model/tools/skills) | `AgentCatalog`, `AgentDetail` | `AgentsController` |
 | Scheduling, delivered to Nextcloud Talk (or notification fallback) | schedule attached from `AgentDetail`; `Cron/ScheduleTask` | `ScheduleService`, `DeliveryService` (`OCP\Talk\IBroker` probe, graceful no-Talk fallback) |
 | Chat (live streaming thread) | `Chat` | `ChatController`, `ChatStreamController`, `ChatHealthController`, `Service/Llm/ChatDriver` |
-| Sessions (conversation history) | `AgentSessions` | `ConversationController` |
+| ~~Sessions (conversation history)~~ — surface DROPPED; conversation history lives on `Chat` | — | `ConversationController` |
 | Memory (consolidating, char-budget) | `AgentMemory` | `MemoryController` |
 | Skills marketplace (agentskills.io import/export, install-onto-agent) | `SkillsCatalog` | `SkillController`, `SkillMarketplaceController`, `SkillMarketplaceService`, `SkillSerializer`, `Cron/SkillCuratorTask` |
 | MCP tools catalogue | `McpTools` | facade-backed `/api/agents/tools` |
