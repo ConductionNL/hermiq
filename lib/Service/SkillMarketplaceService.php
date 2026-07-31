@@ -125,7 +125,7 @@ class SkillMarketplaceService
      * @return ObjectEntity The quarantined Skill object.
      *
      * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
-     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine--security-scan-on-install
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
      */
     public function installFromSource(
         string $package,
@@ -443,7 +443,7 @@ class SkillMarketplaceService
      *
      * @return array<string, mixed> The scan report { severity, safe, findings, scannedAt, … }.
      *
-     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine--security-scan-on-install
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
      */
     private function scanContent(string $body, mixed $frontmatter, array $files=[]): array
     {

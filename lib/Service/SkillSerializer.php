@@ -86,7 +86,7 @@ class SkillSerializer
      *
      * @return string The agentskills.io package string.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-2-1
+     * @spec openspec/changes/skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
      */
     public function toPackage(array $skill): string
     {
@@ -109,7 +109,7 @@ class SkillSerializer
      *
      * @return array<string, string> The parsed { frontmatter, body, name, description }.
      *
-     * @spec openspec/changes/skills-catalog/tasks.md#task-2-1
+     * @spec openspec/changes/skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
      */
     public function fromPackage(string $package): array
     {

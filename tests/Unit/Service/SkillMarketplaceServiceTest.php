@@ -226,7 +226,7 @@ class SkillMarketplaceServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine--security-scan-on-install
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
      */
     public function testAuxFileContentIsScanned(): void
     {
