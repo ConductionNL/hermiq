@@ -47,6 +47,7 @@ use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -534,28 +535,41 @@ class SkillController extends Controller
         $payloads = [];
         $outcomes = [];
 
-        try {
-            foreach ($skillIds as $skillId) {
+        foreach ($skillIds as $skillId) {
+            // Per-skill, deliberately: SkillService::getSkill() delegates to
+            // ObjectService::find(), which THROWS DoesNotExistException for a
+            // missing id rather than returning null despite its ?ObjectEntity
+            // return type. Catching per skill means one bad id is reported as
+            // `not_found` for that entry instead of failing the whole publish.
+            try {
                 $skill = $this->skillService->getSkill(skillId: (string) $skillId);
-                if ($skill === null) {
-                    $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'not_found'];
-                    continue;
-                }
+            } catch (DoesNotExistException $e) {
+                $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'not_found'];
+                continue;
+            } catch (Throwable $e) {
+                $this->logger->error(
+                    'Hermiq bundle publish: resolving skill "'.((string) $skillId).'" failed: '.$e->getMessage(),
+                    ['exception' => $e]
+                );
+                $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'failed'];
+                continue;
+            }//end try
 
-                $object          = $skill->getObject();
-                $object['files'] = ($this->skillService->publishFileSelection(skillId: (string) $skillId) ?? []);
+            if ($skill === null) {
+                $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'not_found'];
+                continue;
+            }
 
-                $payloads[] = $object;
-                $outcomes[] = [
-                    'name'    => (string) ($object['name'] ?? ''),
-                    'files'   => count($object['files']),
-                    'outcome' => 'published',
-                ];
-            }//end foreach
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq bundle publish: collecting skills failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'collect_failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }//end try
+            $object          = $skill->getObject();
+            $object['files'] = ($this->skillService->publishFileSelection(skillId: (string) $skillId) ?? []);
+
+            $payloads[] = $object;
+            $outcomes[] = [
+                'name'    => (string) ($object['name'] ?? ''),
+                'files'   => count($object['files']),
+                'outcome' => 'published',
+            ];
+        }//end foreach
 
         if ($payloads === []) {
             return new JSONResponse(['error' => 'no_publishable_skills', 'skills' => $outcomes], Http::STATUS_BAD_REQUEST);
@@ -675,6 +689,16 @@ class SkillController extends Controller
                     'severity' => (string) (($object['scanReport'] ?? [])['severity'] ?? ''),
                 ];
                 $counts['installed']++;
+            } catch (DoesNotExistException $e) {
+                // OpenRegister re-throws this from the write path when the hermiq
+                // register/schema cannot be resolved. Recorded per skill so one
+                // failure never aborts the remaining installs.
+                $this->logger->error(
+                    'Hermiq bundle install: skill "'.$name.'" could not be persisted: '.$e->getMessage(),
+                    ['exception' => $e]
+                );
+                $outcomes[] = ['name' => $name, 'outcome' => 'failed'];
+                $counts['failed']++;
             } catch (Throwable $e) {
                 $this->logger->error(
                     'Hermiq bundle install: skill "'.$name.'" failed: '.$e->getMessage(),
