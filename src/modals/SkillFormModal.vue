@@ -37,12 +37,19 @@
     write untouched.
 
   `files` (auxiliary agentskills.io files, each `{ name, content }`) round-trip
-  through BOTH paths: `importSkill()`/`installFromSource()` always persist
-  `files: []` server-side (they only ever accept a `package` string), so when
-  the user has authored files in CREATE mode, a follow-up PUT via the same
-  generic object path EDIT already uses lands them immediately after —
-  still no new endpoint, since that PUT route already exists and is already
-  exercised by every other schema's own form modal.
+  through BOTH paths. Historically `importSkill()`/`installFromSource()` always
+  persisted `files: []` server-side because they only accepted a `package`
+  string, so CREATE mode authored files were landed by a follow-up PUT via the
+  same generic object path EDIT already uses — no new endpoint, since that PUT
+  route already exists and is exercised by every other schema's form modal.
+
+  As of `skill-package-multifile` the server-side limitation is gone: both
+  install paths take an optional `auxFiles` argument and persist it. This modal
+  deliberately still uses the follow-up PUT, because `importSkill(text)` here
+  sends only the pasted package — the user authors files in the form AFTER the
+  paste, so there is nothing to send at import time. The PUT is the correct
+  seam for that ordering, not a workaround for a server gap that no longer
+  exists.
 
   hermiq-skill-conversational-authoring extends this modal with two OPTIONAL
   props, both inert unless explicitly set by a caller: `initialBody` (pre-fill
