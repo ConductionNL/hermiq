@@ -29,6 +29,7 @@ import Cog from 'vue-material-design-icons/Cog.vue'
 import CogOutline from 'vue-material-design-icons/CogOutline.vue'
 import CommentOutline from 'vue-material-design-icons/CommentOutline.vue'
 import CompassOutline from 'vue-material-design-icons/CompassOutline.vue'
+import Creation from 'vue-material-design-icons/Creation.vue'
 import Connection from 'vue-material-design-icons/Connection.vue'
 import DatabaseOutline from 'vue-material-design-icons/DatabaseOutline.vue'
 import Eye from 'vue-material-design-icons/Eye.vue'
@@ -86,6 +87,7 @@ export default {
 	CogOutline,
 	CommentOutline,
 	CompassOutline,
+	Creation,
 	Connection,
 	DatabaseOutline,
 	Eye,
