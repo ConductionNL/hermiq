@@ -140,6 +140,15 @@ class SkillMarketplaceController extends Controller
             return new JSONResponse(['error' => 'A non-empty package is required'], Http::STATUS_BAD_REQUEST);
         }
 
+        // Skill-package-multifile: auxiliary files are OPTIONAL — omitting them reproduces
+        // the pre-change contract byte-for-byte. A non-array is a client error; an
+        // individual entry with an unsafe path is dropped by the serialiser rather than
+        // failing the request, so one bad path cannot deny a legitimate install.
+        $auxFiles = $this->request->getParam('files', []);
+        if (is_array($auxFiles) === false) {
+            return new JSONResponse(['error' => 'files must be an array'], Http::STATUS_BAD_REQUEST);
+        }
+
         // Hermiq-skill-conversational-authoring: 'local' is the honest provenance for a
         // skill authored inside this instance (the chat "Save as skill" seam) — an
         // already-valid `source` enum value, no schema change. installFromSource() still
@@ -149,7 +158,12 @@ class SkillMarketplaceController extends Controller
         }
 
         try {
-            $skill = $this->marketplaceService->installFromSource(package: $package, source: $source, createdBy: $user->getUID());
+            $skill = $this->marketplaceService->installFromSource(
+                package: $package,
+                source: $source,
+                createdBy: $user->getUID(),
+                auxFiles: $auxFiles
+            );
             return new JSONResponse($this->shape(object: $skill));
         } catch (Throwable $e) {
             $this->logger->error('Hermiq install-from-source failed: '.$e->getMessage(), ['exception' => $e]);

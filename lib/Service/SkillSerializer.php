@@ -27,10 +27,13 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use Psr\Log\LoggerInterface;
+
 /**
  * Lossless agentskills.io package (de)serialiser for Skill objects.
  *
  * @spec openspec/changes/skills-catalog/tasks.md#2-skillserializer-lossless-round-trip
+ * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
  */
 class SkillSerializer
 {
@@ -41,6 +44,37 @@ class SkillSerializer
      * @var string
      */
     private const FENCE = '---';
+
+    /**
+     * The directory-form entry holding the frontmatter + body.
+     *
+     * @var string
+     */
+    public const SKILL_FILE = 'SKILL.md';
+
+    /**
+     * Maximum length of an auxiliary file path, mirroring
+     * GitHubTemplatePushService::isSafeRepoPath()'s bound so a package that
+     * published cleanly also installs cleanly.
+     *
+     * @var int
+     */
+    private const MAX_PATH_LENGTH = 200;
+
+    /**
+     * Constructor.
+     *
+     * The logger is optional so the existing dependency-free construction used by
+     * the CI stub environment and by `new SkillSerializer()` in tests keeps working;
+     * rejected auxiliary paths are simply not logged when it is absent.
+     *
+     * @param LoggerInterface|null $logger PSR logger for rejected-path diagnostics.
+     *
+     * @return void
+     */
+    public function __construct(private readonly ?LoggerInterface $logger=null)
+    {
+    }//end __construct()
 
     /**
      * Serialise a Skill into an agentskills.io package string.
@@ -102,6 +136,191 @@ class SkillSerializer
         ];
 
     }//end fromPackage()
+
+    /**
+     * Serialise a Skill into DIRECTORY form: a `path => contents` map carrying
+     * `SKILL.md` plus one entry per auxiliary file at its own (possibly nested)
+     * relative path.
+     *
+     * The `SKILL.md` entry is produced by {@see toPackage()}, so the byte-for-byte
+     * frontmatter guarantee is inherited rather than reimplemented. Auxiliary
+     * entries with an unsafe path are dropped (never rewritten to a safe form) so a
+     * crafted name fails visibly instead of silently relocating.
+     *
+     * The map shape deliberately matches GitHubTemplatePushService's tree entries
+     * and OpenBuild's AppRepoSerializer::serialize() return shape, so a skill can be
+     * embedded in a larger repo tree without a further translation layer.
+     *
+     * @param array<string, mixed> $skill The skill data (`frontmatter`, `body`, `files`).
+     *
+     * @return array<string, string> The `path => contents` map, `SKILL.md` first.
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+     */
+    public function toPackageFiles(array $skill): array
+    {
+        $out = [self::SKILL_FILE => $this->toPackage(skill: $skill)];
+
+        $files = ($skill['files'] ?? []);
+        if (is_array($files) === false) {
+            return $out;
+        }
+
+        foreach ($files as $file) {
+            if (is_array($file) === false) {
+                continue;
+            }
+
+            $name = (string) ($file['name'] ?? '');
+            if ($name === self::SKILL_FILE || $this->isSafeAuxPath(path: $name) === false) {
+                $this->rejectPath(path: $name, direction: 'serialise');
+                continue;
+            }
+
+            $out[$name] = (string) ($file['content'] ?? '');
+        }
+
+        return $out;
+
+    }//end toPackageFiles()
+
+    /**
+     * Parse a DIRECTORY-form package into skill fields, including `files`.
+     *
+     * `SKILL.md` is delegated verbatim to {@see fromPackage()}; every other entry
+     * becomes a `files[]` element after path validation. A package whose auxiliary
+     * entries are all unsafe still yields its body and frontmatter with an empty
+     * `files` — a bad auxiliary path must not deny installation of a valid skill.
+     *
+     * @param array<string, string> $files The `path => contents` map.
+     *
+     * @return array<string, mixed> The parsed { frontmatter, body, name, description, files }.
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+     */
+    public function fromPackageFiles(array $files): array
+    {
+        $parsed          = $this->fromPackage(package: (string) ($files[self::SKILL_FILE] ?? ''));
+        $parsed['files'] = [];
+
+        foreach ($files as $path => $contents) {
+            $name = (string) $path;
+            if ($name === self::SKILL_FILE) {
+                continue;
+            }
+
+            if ($this->isSafeAuxPath(path: $name) === false) {
+                $this->rejectPath(path: $name, direction: 'install');
+                continue;
+            }
+
+            $parsed['files'][] = [
+                'name'    => $name,
+                'content' => (string) $contents,
+            ];
+        }
+
+        return $parsed;
+
+    }//end fromPackageFiles()
+
+    /**
+     * Normalise the wire form the install route speaks — a `package` string plus a
+     * list of `{name, content}` entries — into the `path => contents` directory map
+     * {@see fromPackageFiles()} consumes.
+     *
+     * Kept here rather than in each caller so both install paths (SkillService and
+     * SkillMarketplaceService) share one normalisation point and cannot drift.
+     * Path safety is NOT applied here — it belongs to fromPackageFiles(), so that a
+     * rejected path is rejected exactly once, in one place.
+     *
+     * @param string $package  The SKILL.md contents.
+     * @param array  $auxFiles The auxiliary entries, each expected to be
+     *                         `{name, content}`. Deliberately typed loosely: this
+     *                         value arrives straight off an HTTP request, so the
+     *                         shape is asserted at runtime, not assumed.
+     *
+     * @return array<string, string> The `path => contents` map.
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+     */
+    public function toDirectoryMap(string $package, array $auxFiles=[]): array
+    {
+        $map = [self::SKILL_FILE => $package];
+
+        foreach ($auxFiles as $file) {
+            if (is_array($file) === false) {
+                continue;
+            }
+
+            $name = (string) ($file['name'] ?? '');
+            if ($name === '' || $name === self::SKILL_FILE) {
+                continue;
+            }
+
+            $map[$name] = (string) ($file['content'] ?? '');
+        }
+
+        return $map;
+
+    }//end toDirectoryMap()
+
+    /**
+     * Whether an auxiliary path is safe to accept.
+     *
+     * Mirrors GitHubTemplatePushService::isSafeRepoPath(): no absolute path, no
+     * backslash, no empty/`.`/`..` segment, bounded length. These paths are stored
+     * as `files[].name` strings and never resolved against the filesystem here, but
+     * a downstream consumer (the app-repo install path) does materialise them —
+     * so this is defence in depth, validated at the point of entry.
+     *
+     * @param string $path The candidate auxiliary path.
+     *
+     * @return bool True when the path is safe to persist.
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+     */
+    public function isSafeAuxPath(string $path): bool
+    {
+        if ($path === '' || strlen($path) > self::MAX_PATH_LENGTH) {
+            return false;
+        }
+
+        if (str_starts_with($path, '/') === true || str_contains($path, '\\') === true) {
+            return false;
+        }
+
+        foreach (explode('/', $path) as $segment) {
+            if ($segment === '' || $segment === '.' || $segment === '..') {
+                return false;
+            }
+        }
+
+        return true;
+
+    }//end isSafeAuxPath()
+
+    /**
+     * Record a rejected auxiliary path. The path is logged so a dropped entry is
+     * traceable rather than silent; the content is never logged.
+     *
+     * @param string $path      The rejected path.
+     * @param string $direction Either `serialise` or `install`.
+     *
+     * @return void
+     */
+    private function rejectPath(string $path, string $direction): void
+    {
+        if ($this->logger === null) {
+            return;
+        }
+
+        $this->logger->warning(
+            'Hermiq skill package: rejected unsafe auxiliary path on '.$direction.'.',
+            ['path' => $path]
+        );
+
+    }//end rejectPath()
 
     /**
      * Extract a scalar `field: value` from a raw frontmatter block.

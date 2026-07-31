@@ -85,14 +85,20 @@ class SkillService
      *
      * @param string $package   The agentskills.io package string.
      * @param string $createdBy The importing user id.
+     * @param array  $auxFiles  Auxiliary `{name, content}` files travelling with the
+     *                          package. Unsafe paths are dropped by the serialiser
+     *                          rather than failing the import.
      *
      * @return ObjectEntity The persisted Skill object.
      *
      * @spec openspec/changes/skills-catalog/tasks.md#3-skillservice
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
      */
-    public function importSkill(string $package, string $createdBy): ObjectEntity
+    public function importSkill(string $package, string $createdBy, array $auxFiles=[]): ObjectEntity
     {
-        $parsed = $this->skillSerializer->fromPackage(package: $package);
+        $parsed = $this->skillSerializer->fromPackageFiles(
+            files: $this->skillSerializer->toDirectoryMap(package: $package, auxFiles: $auxFiles)
+        );
 
         $name = $parsed['name'];
         if ($name === '') {
@@ -105,7 +111,7 @@ class SkillService
                 'description' => $parsed['description'],
                 'frontmatter' => $parsed['frontmatter'],
                 'body'        => $parsed['body'],
-                'files'       => [],
+                'files'       => $parsed['files'],
                 'state'       => 'active',
                 'createdBy'   => $createdBy,
                 'installedOn' => [],
