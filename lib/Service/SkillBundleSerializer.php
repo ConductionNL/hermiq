@@ -249,21 +249,6 @@ class SkillBundleSerializer
     }//end packageOf()
 
     /**
-     * Whether a repository tree looks like a bundle at all.
-     *
-     * @param array<string, string> $files The repository tree.
-     *
-     * @return bool True when a parseable manifest is present.
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-     */
-    public function isBundle(array $files): bool
-    {
-        return ($this->readManifest(files: $files) !== null);
-
-    }//end isBundle()
-
-    /**
      * Read + validate the manifest, returning the declared skill names.
      *
      * @param array<string, string> $files The repository tree.

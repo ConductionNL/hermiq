@@ -230,17 +230,20 @@ class SkillBundleSerializerTest extends TestCase
     {
         $serializer = $this->serializer();
 
+        // Non-bundle: parses to nothing, so the caller reports "not a bundle"
+        // rather than installing a partial set.
         $noManifest = ['skills/demo/SKILL.md' => "---\nname: demo\n---\nb"];
-        $this->assertFalse($serializer->isBundle(files: $noManifest));
         $this->assertSame([], $serializer->fromBundle(files: $noManifest));
 
+        // A future major version REFUSES rather than half-parsing — a bundle that
+        // partly reads is worse than one that declines, because the caller would
+        // believe an incomplete skill set was complete.
         $future = [
             SkillBundleSerializer::MANIFEST_FILE => json_encode(
                 ['formatVersion' => '9.0', 'skills' => [['name' => 'demo']]]
             ),
             'skills/demo/SKILL.md' => "---\nname: demo\n---\nb",
         ];
-        $this->assertFalse($serializer->isBundle(files: $future));
         $this->assertSame([], $serializer->fromBundle(files: $future));
 
     }//end testNonBundleAndUnsupportedVersionRefuse()
