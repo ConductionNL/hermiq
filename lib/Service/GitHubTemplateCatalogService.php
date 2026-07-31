@@ -132,6 +132,28 @@ class GitHubTemplateCatalogService
     private const MAX_AUX_BYTES = 4194304;
 
     /**
+     * The bundle manifest at a bundle repository's root (skill-bundle-publish).
+     * Its presence is what makes a repository a bundle.
+     *
+     * @var string
+     */
+    public const BUNDLE_MANIFEST_FILE = 'hermiq-skills.json';
+
+    /**
+     * The directory bundled skills live under.
+     *
+     * @var string
+     */
+    public const BUNDLE_SKILLS_PREFIX = 'skills/';
+
+    /**
+     * Maximum total bytes fetched for one bundle install (design.md §Security 3).
+     *
+     * @var int
+     */
+    private const MAX_BUNDLE_BYTES = 16777216;
+
+    /**
      * The credential-broker service FQCN (resolved lazily; may be absent).
      *
      * @var string
@@ -519,6 +541,118 @@ class GitHubTemplateCatalogService
         return $files;
 
     }//end fetchAuxFiles()
+
+    /**
+     * Fetch a BUNDLE repository as a `path => contents` map (skill-bundle-publish).
+     *
+     * A bundle is identified by `hermiq-skills.json` at the repo root. Its ABSENCE
+     * is a definitive "not a bundle" (null), never a best-effort parse — a repo
+     * that half-reads as a bundle is worse than one that refuses, because the
+     * caller would install a partial skill set believing it complete.
+     *
+     * Only the manifest and blobs under `skills/` are fetched; anything else in
+     * the repository is ignored, so a bundle can live alongside other content.
+     * Bounded by MAX_BUNDLE_BYTES with truncation reported rather than silent.
+     *
+     * @param string      $owner        Repo owner.
+     * @param string      $repo         Repo name.
+     * @param string|null $ref          Optional git ref.
+     * @param string|null $actingUserId The session UID (broker identity), or null.
+     * @param string|null $credentialId Optional allowed `github` credential.
+     *
+     * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
+     *         or null when the repo is not a bundle / unreachable.
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function fetchBundle(
+        string $owner,
+        string $repo,
+        ?string $ref,
+        ?string $actingUserId,
+        ?string $credentialId=null
+    ): ?array {
+        if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
+            return null;
+        }
+
+        $manifest = $this->fetchFileContents(
+            owner: $owner,
+            repo: $repo,
+            path: self::BUNDLE_MANIFEST_FILE,
+            ref: $ref,
+            actingUserId: $actingUserId,
+            credentialId: $credentialId
+        );
+        if ($manifest === null) {
+            return null;
+        }
+
+        $treeRef = ($ref ?? '');
+        if ($treeRef === '') {
+            $treeRef = 'HEAD';
+        }
+
+        $result = $this->get(
+            path: '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo)
+                .'/git/trees/'.rawurlencode($treeRef).'?recursive=1',
+            actingUserId: $actingUserId,
+            credentialId: $credentialId
+        );
+        if ($result['ok'] === false) {
+            return null;
+        }
+
+        $decoded = json_decode($result['body'], true);
+        if (is_array($decoded) === false || is_array($decoded['tree'] ?? null) === false) {
+            return null;
+        }
+
+        $files     = [self::BUNDLE_MANIFEST_FILE => $manifest];
+        $bytes     = strlen($manifest);
+        $truncated = false;
+
+        foreach ($decoded['tree'] as $entry) {
+            if (is_array($entry) === false || (string) ($entry['type'] ?? '') !== 'blob') {
+                continue;
+            }
+
+            $path = (string) ($entry['path'] ?? '');
+            if ($path === '' || str_starts_with($path, self::BUNDLE_SKILLS_PREFIX) === false) {
+                continue;
+            }
+
+            if ($bytes >= self::MAX_BUNDLE_BYTES) {
+                $truncated = true;
+                continue;
+            }
+
+            $contents = $this->fetchFileContents(
+                owner: $owner,
+                repo: $repo,
+                path: $path,
+                ref: $ref,
+                actingUserId: $actingUserId,
+                credentialId: $credentialId
+            );
+            if ($contents === null) {
+                continue;
+            }
+
+            $bytes       += strlen($contents);
+            $files[$path] = $contents;
+        }//end foreach
+
+        if ($truncated === true) {
+            $this->logger->warning(
+                'Hermiq bundle fetch: truncated at the byte bound — the installed set is INCOMPLETE.',
+                ['owner' => $owner, 'repo' => $repo, 'limitBytes' => self::MAX_BUNDLE_BYTES]
+            );
+        }
+
+        return ['files' => $files, 'truncated' => $truncated];
+
+    }//end fetchBundle()
 
     /**
      * Build a card from a search hit's package file (non-installable when the

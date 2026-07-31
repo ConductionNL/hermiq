@@ -314,6 +314,12 @@ return [
         // the literal 'github' path segment must never fall into the {id} matcher.
         ['name' => 'skill#githubSearch',  'url' => '/api/skills/github/search', 'verb' => 'GET'],
         ['name' => 'skill#githubInstall', 'url' => '/api/skills/github/install', 'verb' => 'POST'],
+
+        // Skill BUNDLES (skill-bundle-publish): many skills in ONE repository, so a
+        // skill set ships as a single artefact. Registered alongside the
+        // single-skill GitHub store routes above, which are unchanged.
+        ['name' => 'skill#bundlePublish', 'url' => '/api/skills/bundle/publish', 'verb' => 'POST'],
+        ['name' => 'skill#bundleInstall', 'url' => '/api/skills/bundle/install', 'verb' => 'POST'],
         // Skill update — the edit-form merge path (skill-maturity): applies the
         // computed-maturity write guard server-side (client-supplied maturityLevel /
         // levelEvidence.l1–l4 are ignored, stored values carried forward).
