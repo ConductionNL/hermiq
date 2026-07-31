@@ -7,10 +7,13 @@
  * seeded document back and assert the two properties that make it safe: every node
  * type is a built-in engine node or Hermiq's own agent step (never a
  * Hermiq-authored HTTP step), and the branch cannot reach the command step on an
- * empty triage result. `HermiqAgentNode::execute()` swallows a failed turn to an
- * EMPTY STRING, so that branch is the only thing between a failed LLM call and a
- * pipeline command; a test that did not pin it would let a refactor remove it
- * silently.
+ * empty triage result.
+ *
+ * Since hermiq#89 a FAILED turn ends the run through the step's `onError` policy
+ * instead of arriving here as an empty string, so the branch no longer stands
+ * between a failed LLM call and a pipeline command. It still stands between a
+ * SUCCESSFUL turn that proposed nothing and that command, which is the case the
+ * second test pins; a refactor removing it would still be a real regression.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Repair
@@ -127,9 +130,9 @@ class SeedHydraTriageFlowTest extends TestCase
      * The router's ONLY rule routes to the command step, and it fires only when the
      * agent actually proposed a label; everything else falls to the no-result stop.
      *
-     * A failed turn yields an empty string at the node boundary, so
-     * `json.triage.label` is absent and the rule is false — which is the whole
-     * point of the branch.
+     * A turn that succeeds but proposes nothing leaves `json.triage.label` empty,
+     * so the rule is false — which is the whole point of the branch. (A turn that
+     * FAILS no longer arrives here at all; see the class docblock.)
      *
      * @return void
      *
