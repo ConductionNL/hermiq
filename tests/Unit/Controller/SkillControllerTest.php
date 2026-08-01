@@ -32,6 +32,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 use OCA\Hermiq\Controller\SkillController;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SkillBundleInstaller;
 use OCA\Hermiq\Service\SkillBundleSerializer;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillSerializer;
@@ -130,17 +131,30 @@ class SkillControllerTest extends TestCase
         ?SkillBundleSerializer $bundle=null,
         ?GitHubTemplatePushService $push=null
     ): SkillController {
+        $catalog     = ($catalog ?? $this->createMock(GitHubTemplateCatalogService::class));
+        $marketplace = ($marketplace ?? $this->createMock(SkillMarketplaceService::class));
+        // A REAL bundle serialiser: its whole job is composing with
+        // SkillSerializer, which a mock would hide.
+        $bundle = ($bundle ?? new SkillBundleSerializer(new SkillSerializer()));
+
         return new SkillController(
             ($request ?? $this->request()),
             ($skillService ?? $this->createMock(SkillService::class)),
             $session,
             $this->createMock(LoggerInterface::class),
-            ($catalog ?? $this->createMock(GitHubTemplateCatalogService::class)),
-            ($marketplace ?? $this->createMock(SkillMarketplaceService::class)),
-            // A REAL bundle serialiser: its whole job is composing with
-            // SkillSerializer, which a mock would hide.
-            ($bundle ?? new SkillBundleSerializer(new SkillSerializer())),
-            ($push ?? $this->createMock(GitHubTemplatePushService::class))
+            $catalog,
+            $marketplace,
+            $bundle,
+            ($push ?? $this->createMock(GitHubTemplatePushService::class)),
+            // A REAL installer over the SAME collaborators. Mocking it here would
+            // silently gut every bundle-install count assertion in this file — the
+            // per-skill install path is precisely what they exist to check.
+            new SkillBundleInstaller(
+                $catalog,
+                $bundle,
+                $marketplace,
+                $this->createMock(LoggerInterface::class)
+            )
         );
 
     }//end controller()
