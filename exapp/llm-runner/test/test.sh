@@ -283,6 +283,19 @@ else
 fi
 
 # =============================================================================
+# (i) The /stage ROUTE — every field the body carries reaches the workload
+#
+# (h) tests the FUNCTION. `toolRepo` was added to the caller and to runStage(),
+# both were tested, and it still did not work: the route destructures a fixed
+# list of fields and nobody added it there. No test crossed that line.
+# =============================================================================
+if node --test "${ROOT}/test/stage.route.test.js" > "${WORK}/stageroute.log" 2>&1; then
+    pass "(i) stage-route tests (no field is dropped at the HTTP boundary)"
+else
+    fail "(i) stage-route tests failed"; cat "${WORK}/stageroute.log" || true
+fi
+
+# =============================================================================
 
 # =============================================================================
 echo

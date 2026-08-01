@@ -175,14 +175,53 @@ async function handleStage(req, res, rawBody) {
         return;
     }
 
-    const { repo, ref, command, forgeToken, forgeUser, timeoutMs, env } = payload;
+    // ⚠️ This destructuring is a FILTER, and it silently dropped `toolRepo` for
+    // an entire release: the field was added to the caller and to `runStage()`,
+    // both were tested, and neither test crossed this line — the unit tests call
+    // `runStage()` directly and the PHP tests mock the transport. A parameter
+    // that exists on both sides of a boundary and not IN it fails with the
+    // symptom of a missing FILE (`spawn scripts/... ENOENT`), which points at
+    // the clone rather than at the route.
+    //
+    // Kept explicit rather than spreading `payload` into `runStage()`: the
+    // request body is untrusted, and an allowlist of fields is the reason a
+    // caller cannot reach arguments this endpoint never meant to expose. The
+    // cost is exactly this failure mode, so the route test below crosses the
+    // boundary for every field.
+    const {
+        repo,
+        ref,
+        command,
+        toolRepo,
+        toolRef,
+        forgeToken,
+        forgeUser,
+        timeoutMs,
+        env,
+    } = payload;
 
     // The repo and ref are safe to log — they are how an operator finds this run
     // again. The token is not, and is never touched here.
-    log('info', `/stage repo=${repo} ref=${ref} command=${Array.isArray(command) ? command[0] : '(none)'}`);
+    // The tool repo is logged too, because its absence is what a dropped field
+    // looks like from the outside and the log is the first place anyone looks.
+    log(
+        'info',
+        `/stage repo=${repo} ref=${ref} tool=${toolRepo || '(none)'} `
+        + `command=${Array.isArray(command) ? command[0] : '(none)'}`
+    );
 
     try {
-        const result = await runStage({ repo, ref, command, forgeToken, forgeUser, timeoutMs, env });
+        const result = await runStage({
+            repo,
+            ref,
+            command,
+            toolRepo,
+            toolRef,
+            forgeToken,
+            forgeUser,
+            timeoutMs,
+            env,
+        });
         log('info', `/stage finished exit=${result.exitCode}`);
         sendJson(res, 200, result);
     } catch (err) {
@@ -293,4 +332,9 @@ if (require.main === module) {
     });
 }
 
-module.exports = { server };
+// `handleStage` is exported for the ROUTE test. It is the one seam where a
+// field can exist on both sides of the boundary and not in it — which is
+// exactly what happened to `toolRepo` — and a test that cannot reach the
+// handler can only assert the function behind it, which is where the bug
+// already wasn't.
+module.exports = { server, handleStage };
