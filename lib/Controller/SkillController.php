@@ -42,6 +42,7 @@ namespace OCA\Hermiq\Controller;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SkillBundleInstaller;
 use OCA\Hermiq\Service\SkillBundleSerializer;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
@@ -101,6 +102,7 @@ class SkillController extends Controller
      * @param SkillMarketplaceService      $marketplaceService Quarantine install path (hermiq-github-store).
      * @param SkillBundleSerializer        $bundleSerializer   Bundle tree (de)serialiser (skill-bundle-publish).
      * @param GitHubTemplatePushService    $pushService        Bundle publish (skill-bundle-publish).
+     * @param SkillBundleInstaller         $bundleInstaller    Bundle install, shared with OpenBuild (apply-v2-channels).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
@@ -116,6 +118,7 @@ class SkillController extends Controller
         private readonly SkillMarketplaceService $marketplaceService,
         private readonly SkillBundleSerializer $bundleSerializer,
         private readonly GitHubTemplatePushService $pushService,
+        private readonly SkillBundleInstaller $bundleInstaller,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -806,11 +809,12 @@ class SkillController extends Controller
     /**
      * Install every parsed bundle entry through the UNCHANGED per-skill path.
      *
-     * Extracted from bundleInstall() so the route method stays a guard-then-delegate
-     * shape. One `installFromSource()` call per skill is the point, not an
-     * implementation detail: quarantine and per-skill content scanning are inherited
-     * rather than re-proved, and a per-skill catch means one failure never aborts
-     * the remaining installs.
+     * Delegates to SkillBundleInstaller so that this HTTP route and OpenBuild's
+     * cross-app caller run the SAME implementation. The install logic used to live
+     * here as a private method, which made being an HTTP request the only way to
+     * install a bundle — and would have forced OpenBuild to reimplement skill
+     * installation, splitting frontmatter fidelity and the ADR-068 aux-file rules
+     * across two copies.
      *
      * @param array<int, array<string, mixed>> $parsed    The parsed bundle entries.
      * @param string                           $createdBy The installing user id.
@@ -821,49 +825,7 @@ class SkillController extends Controller
      */
     private function installBundleSkills(array $parsed, string $createdBy): array
     {
-        $outcomes = [];
-        $counts   = ['installed' => 0, 'skipped' => 0, 'failed' => 0];
-
-        foreach ($parsed as $skill) {
-            $name = (string) ($skill['bundleName'] ?? ($skill['name'] ?? ''));
-
-            try {
-                $installed = $this->marketplaceService->installFromSource(
-                    package: $this->bundleSerializer->packageOf(skill: $skill),
-                    source: 'hub',
-                    createdBy: $createdBy,
-                    auxFiles: ($skill['files'] ?? [])
-                );
-
-                $object     = $installed->getObject();
-                $outcomes[] = [
-                    'name'     => $name,
-                    'outcome'  => 'installed',
-                    'state'    => (string) ($object['state'] ?? ''),
-                    'severity' => (string) (($object['scanReport'] ?? [])['severity'] ?? ''),
-                ];
-                $counts['installed']++;
-            } catch (DoesNotExistException $e) {
-                // OpenRegister re-throws this from the write path when the hermiq
-                // register/schema cannot be resolved. Recorded per skill so one
-                // failure never aborts the remaining installs.
-                $this->logger->error(
-                    'Hermiq bundle install: skill "'.$name.'" could not be persisted: '.$e->getMessage(),
-                    ['exception' => $e]
-                );
-                $outcomes[] = ['name' => $name, 'outcome' => 'failed'];
-                $counts['failed']++;
-            } catch (Throwable $e) {
-                $this->logger->error(
-                    'Hermiq bundle install: skill "'.$name.'" failed: '.$e->getMessage(),
-                    ['exception' => $e]
-                );
-                $outcomes[] = ['name' => $name, 'outcome' => 'failed'];
-                $counts['failed']++;
-            }//end try
-        }//end foreach
-
-        return ['outcomes' => $outcomes, 'counts' => $counts];
+        return $this->bundleInstaller->installParsed(parsed: $parsed, createdBy: $createdBy);
 
     }//end installBundleSkills()
 }//end class
