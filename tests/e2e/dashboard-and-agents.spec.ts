@@ -65,12 +65,62 @@ function collectConsoleErrors(page: Page): string[] {
  * @param page The Playwright page.
  */
 async function dismissOnboarding(page: Page): Promise<void> {
-	await page.keyboard.press('Escape').catch(() => {})
+	const modal = page.locator('[data-testid="cn-modal"]')
+	// Both overlays are driven by an ASYNC status fetch, so they can appear AFTER
+	// the first paint: dismissing once and moving on left the setup wizard's
+	// backdrop over the page, and a click on a table row then failed with
+	// "subtree intercepts pointer events" rather than anything about the row.
+	// Poll until nothing is left to dismiss.
+	for (let attempt = 0; attempt < 6; attempt++) {
+		if (await modal.isVisible().catch(() => false) === false) {
+			// One more beat, in case it is still on its way in.
+			await page.waitForTimeout(600)
+			if (await modal.isVisible().catch(() => false) === false) {
+				break
+			}
+		}
+		await modal.first().getByRole('button', { name: 'Close' }).click({ timeout: 2_000 }).catch(() => {})
+		await page.keyboard.press('Escape').catch(() => {})
+		await page.waitForTimeout(700)
+	}
+
+	// The walkthrough is a popover, not a modal — it has its own Close.
 	const closers = page.getByRole('button', { name: 'Close' })
-	const count = await closers.count()
-	for (let i = 0; i < count; i++) {
+	for (let i = 0, count = await closers.count(); i < count; i++) {
 		await closers.nth(i).click({ timeout: 2_000 }).catch(() => {})
 	}
+
+	// Deliberately NOT asserted gone here: the setup wizard is re-opened by an
+	// async status fetch (`completed` is derived from `setup_llm_tested`, which is
+	// unset on any instance where nobody has tested an LLM endpoint — including a
+	// fresh CI one). It can therefore come BACK after a successful dismissal, so
+	// an interaction that must land uses clickPastOverlays() instead of trusting
+	// a one-shot dismissal.
+}
+
+/**
+ * Click something that an async overlay keeps stealing pointer events from.
+ *
+ * Dismiss-then-click in a loop: the setup wizard re-mounts whenever its status
+ * fetch resolves, so a dismissal followed by a click is a race the click loses
+ * with "subtree intercepts pointer events" — an error that says nothing about
+ * the element under test.
+ *
+ * @param page   The Playwright page.
+ * @param target The element to click.
+ */
+async function clickPastOverlays(page: Page, target: ReturnType<Page['locator']>): Promise<void> {
+	let lastError: unknown = null
+	for (let attempt = 0; attempt < 5; attempt++) {
+		await dismissOnboarding(page)
+		try {
+			await target.click({ timeout: 5_000 })
+			return
+		} catch (error) {
+			lastError = error
+		}
+	}
+	throw lastError
 }
 
 test.describe('hermiq regression: dashboard + agents', () => {
@@ -215,11 +265,128 @@ test.describe('hermiq regression: dashboard + agents', () => {
 
 		const firstNameCell = index.locator('tbody tr').first().locator('td').nth(1)
 		await expect(firstNameCell).toBeVisible()
-		await firstNameCell.click()
+		await clickPastOverlays(page, firstNameCell)
 
 		// The builder is a custom page at /graphs/:id — assert the URL carries an
 		// id and the custom page mounted.
 		await expect(page).toHaveURL(/\/apps\/hermiq\/graphs\/[^/]+$/, { timeout: 20_000 })
 		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible()
+	})
+
+	/**
+	 * ONE row action, Edit, and it opens the canvas.
+	 *
+	 * The index used to offer BOTH built-ins, which were redundant with each
+	 * other and neither did what a graph needs: View only navigated (exactly what
+	 * a row click does) and Edit opened the field form, which cannot touch nodes
+	 * or edges. Both are off now, replaced by a `type: "open-page"` action —
+	 * `navigate` would not do, because it pushes its target verbatim while
+	 * `open-page` pushes `{name, params:{id}}` and so carries the clicked row.
+	 */
+	test('offers exactly one row action, Edit, which opens the graph builder', async ({ page }) => {
+		await page.goto('/apps/hermiq/graphs', { waitUntil: 'domcontentloaded' })
+		await dismissOnboarding(page)
+
+		const index = page.locator('[data-testid-page-id="GraphIndex"]')
+		await expect(index).toBeVisible({ timeout: 20_000 })
+
+		const firstRow = index.locator('tbody tr').first()
+		await clickPastOverlays(page, firstRow.getByRole('button', { name: 'Actions' }))
+
+		// Edit is present; the redundant View is gone.
+		const menu = page.locator('.v-popper__popper--shown, [role="menu"]').last()
+		await expect(menu.getByText('Edit', { exact: true })).toBeVisible({ timeout: 10_000 })
+		await expect(menu.getByText('View', { exact: true })).toHaveCount(0)
+
+		await menu.getByText('Edit', { exact: true }).click()
+
+        await expect(page).toHaveURL(/\/apps\/hermiq\/graphs\/[^/]+$/, { timeout: 20_000 })
+		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible()
+	})
+
+	/**
+	 * The builder speaks the ENGINE's node vocabulary, and only that.
+	 *
+	 * It used to carry five hard-coded type keys of its own — `agent-step`,
+	 * `router`, `condition`, … — none of which exist in OpenRegister's node
+	 * catalogue (ADR-065 owns the vocabulary). Three things followed, all of them
+	 * silent: labels fell back to the raw type string, so a node read
+	 * `HERMIQ.AGENT-STEP`; every config pane's `v-if` missed, so no node could be
+	 * edited even when it carried real config; and a node dropped from the palette
+	 * got a type the engine had never heard of, which renders fine and cannot run.
+	 */
+	test('labels nodes from the engine catalogue and can edit every node (graph-editor-vocabulary)', async ({ page }) => {
+		const errors = collectConsoleErrors(page)
+
+		await page.goto('/apps/hermiq/graphs', { waitUntil: 'domcontentloaded' })
+		await dismissOnboarding(page)
+
+		const index = page.locator('[data-testid-page-id="GraphIndex"]')
+		await expect(index).toBeVisible({ timeout: 20_000 })
+		await clickPastOverlays(page, index.locator('tbody tr').first().locator('td').nth(1))
+		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible({ timeout: 20_000 })
+
+		// The catalogue is the source of truth for what an ENGINE node is called.
+		const catalogue = await page.request.get('/apps/openregister/api/flow/node-catalog')
+		expect(catalogue.ok()).toBeTruthy()
+		const byId = new Map<string, string>(
+			((await catalogue.json()).results || []).map((n: { id: string, displayName: string }) => [n.id, n.displayName]),
+		)
+
+		const nodes = page.locator('.cn-graph-canvas__node')
+		await expect(nodes.first()).toBeVisible({ timeout: 20_000 })
+
+		// Every stored node type must BE an engine type, and must render as that
+		// type's catalogue name. Both halves matter: the first catches a graph
+		// carrying a type the engine cannot run, the second catches the
+		// fallback-to-raw-id symptom.
+		const graph = await page.request.get(`/apps/openregister/api/objects/hermiq/agentflow/${page.url().split('/').pop()}`)
+		expect(graph.ok()).toBeTruthy()
+		const types = ((await graph.json()).nodes || []).map((n: { type: string }) => n.type)
+
+		const labels = await page.locator('.graph-builder__node-type').allInnerTexts()
+		expect(labels.length).toBe(types.length)
+		labels.forEach((label, index) => {
+			const type = types[index]
+			const catalogued = byId.get(type)
+			expect(catalogued, `node ${index} has type "${type}", which the engine cannot run`).toBeDefined()
+			expect(label.trim().toUpperCase(), `node ${index} (${type}) did not use its catalogue name`)
+				.toBe(String(catalogued).toUpperCase())
+		})
+
+		// ONE card per node: the canvas wrapper draws it, the slot fills it. A
+		// bordered slot inside a bordered wrapper is the nested-chrome defect.
+		const innerChrome = await page.locator('.graph-builder__node').first().evaluate((el) => {
+			const style = getComputedStyle(el)
+			return { border: style.borderTopWidth, background: style.backgroundColor }
+		})
+		expect(innerChrome.border).toBe('0px')
+		expect(innerChrome.background).toBe('rgba(0, 0, 0, 0)')
+
+		// Every node is editable: a typed pane where one exists, raw config
+		// otherwise — never a pane with nothing in it.
+		// By testid, not by position: three elements carry `graph-sidebar__pane`
+		// and the first belongs to an inactive sidebar tab.
+		const pane = page.getByTestId('graph-node-pane')
+		const count = await nodes.count()
+		for (let i = 0; i < count; i++) {
+			// Through the helper: the onboarding overlay re-mounts on its own
+			// schedule, and a node click it steals reads as "the pane never
+			// appeared" rather than as an overlay problem.
+			await clickPastOverlays(page, nodes.nth(i))
+			await expect(pane).toBeVisible({ timeout: 10_000 })
+			// A typed pane (only hermiq.agent-step has one) or the raw editor —
+			// never a pane with nothing in it, which is what every node showed
+			// while the type keys did not match.
+			const typed = await pane.getByLabel('Prompt').count()
+			const raw = await pane.locator('textarea').count()
+			expect(typed + raw, `node ${i} (${types[i]}) offers nothing to edit`).toBeGreaterThan(0)
+		}
+
+		// The palette offers what the ENGINE can run, so a dropped node is runnable.
+		const palette = await page.locator('.graph-sidebar__palette-item').allInnerTexts()
+		expect(palette.length).toBe(byId.size)
+
+		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
 	})
 })

@@ -3,7 +3,7 @@
 /**
  * Agent skills as a shareable configuration type.
  *
- * hermiq's skills are agentskills.io packages — a `---` fenced markdown frontmatter
+ * Hermiq's skills are agentskills.io packages — a `---` fenced markdown frontmatter
  * block plus a body — not plain OpenRegister object fields. So a skill cannot ride
  * the generic object marker (which would emit its fields as JSON and break
  * interop with the agentskills.io ecosystem and hermiq's own quarantine install).

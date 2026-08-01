@@ -80,17 +80,17 @@ class TalkApprovalReactionListenerTest extends TestCase
     {
         parent::setUp();
 
-        $this->bridge    = $this->createMock(TalkBridge::class);
-        $this->binding   = $this->createMock(TalkApprovalBinding::class);
-        $this->approvals = $this->createMock(ApprovalService::class);
+        $this->bridge    = $this->createMock(originalClassName: TalkBridge::class);
+        $this->binding   = $this->createMock(originalClassName: TalkApprovalBinding::class);
+        $this->approvals = $this->createMock(originalClassName: ApprovalService::class);
 
         $this->bridge->method('isAvailable')->willReturn(true);
 
         $this->listener = new TalkApprovalReactionListener(
-            $this->bridge,
-            $this->binding,
-            $this->approvals,
-            $this->createMock(LoggerInterface::class)
+            bridge: $this->bridge,
+            approvalBinding: $this->binding,
+            approvalService: $this->approvals,
+            logger: $this->createMock(originalClassName: LoggerInterface::class)
         );
 
     }//end setUp()
@@ -98,7 +98,7 @@ class TalkApprovalReactionListenerTest extends TestCase
     /**
      * Build a fake spreed reaction invocation.
      *
-     * spreed is optional and absent from the unit environment, so the event is
+     * Spreed is optional and absent from the unit environment, so the event is
      * modelled as an anonymous class carrying the surface the listener uses.
      *
      * @param string $emoji     The reaction emoji.
@@ -117,7 +117,6 @@ class TalkApprovalReactionListenerTest extends TestCase
         string $botUrl=TalkBridge::BOT_URL
     ): Event {
         return new class($emoji, $actorId, $type, $messageId, $botUrl) extends Event {
-
             /**
              * Constructor.
              *
@@ -134,7 +133,7 @@ class TalkApprovalReactionListenerTest extends TestCase
                 private readonly string $messageId,
                 private readonly string $botUrl
             ) {
-            }
+            }//end __construct()
 
             /**
              * The invoking bot's URL.
@@ -144,23 +143,55 @@ class TalkApprovalReactionListenerTest extends TestCase
             public function getBotUrl(): string
             {
                 return $this->botUrl;
-            }
+
+            }//end getBotUrl()
 
             /**
-             * The reaction invocation payload.
+             * The reaction invocation payload, in the shape spreed really sends.
+             *
+             * 🔴 This fixture used to be a hybrid that spreed emits for NEITHER
+             * type: top-level `content` (the `Like` shape) combined with a
+             * nested `object.object.id` (the `Undo` shape). The listener read
+             * one field from each, so the two bugs cancelled out here and the
+             * suite stayed green while every real 👍/👎 in Talk was a silent
+             * no-op. Mirror `BotService::afterReactionAdded()` /
+             * `afterReactionRemoved()` exactly — a payload the server never
+             * sends can only certify a path that can never run.
              *
              * @return array The payload.
              */
             public function getMessage(): array
             {
+                $note    = ['type' => 'Note', 'id' => $this->messageId, 'name' => 'message'];
+                $reactor = ['type' => 'Person', 'id' => $this->actorId, 'name' => 'A'];
+                $room    = ['type' => 'Collection', 'id' => 'room1'];
+
+                // `Undo` wraps the undone Like — note AND emoji move one level
+                // deeper, and the nested actor is the message's author.
+                if ($this->type === 'Undo') {
+                    return [
+                        'type'   => 'Undo',
+                        'actor'  => $reactor,
+                        'object' => [
+                            'type'    => 'Like',
+                            'actor'   => ['type' => 'Person', 'id' => 'users/author', 'name' => 'Author'],
+                            'object'  => $note,
+                            'target'  => $room,
+                            'content' => $this->emoji,
+                        ],
+                        'target' => $room,
+                    ];
+                }
+
                 return [
                     'type'    => $this->type,
-                    'actor'   => ['type' => 'Person', 'id' => $this->actorId, 'name' => 'A'],
-                    'object'  => ['type' => 'Note', 'object' => ['id' => $this->messageId]],
-                    'target'  => ['type' => 'Collection', 'id' => 'room1'],
+                    'actor'   => $reactor,
+                    'object'  => $note,
+                    'target'  => $room,
                     'content' => $this->emoji,
                 ];
-            }
+
+            }//end getMessage()
         };
 
     }//end makeReaction()

@@ -43,13 +43,11 @@ import EmailField from './formFields/EmailField.vue'
 import Chat from './views/Chat.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
-import AgentSessions from './views/AgentSessions.vue'
 import GraphBuilder from './views/GraphBuilder.vue'
 import GraphSidebar from './views/GraphSidebar.vue'
 import TenantOps from './views/TenantOps.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
 // the agent-memory wrapper (AgentMemoryPanel.vue itself stays unchanged).
-import AgentKpiWidget from './widgets/AgentKpiWidget.vue'
 import AgentSkillsWidget from './widgets/AgentSkillsWidget.vue'
 import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
 import AgentRunOperationsWidget from './widgets/AgentRunOperationsWidget.vue'
@@ -221,15 +219,6 @@ export default {
 	},
 
 	/**
-	 * Agent sessions — a selected agent's recorded conversation sessions plus a
-	 * turn-search (recall) box. Split out from Memory so chats are their own thing.
-	 */
-	AgentSessions: {
-		kind: 'page',
-		component: AgentSessions,
-	},
-
-	/**
 	 * Run-analytics detail — status breakdown + per-agent table — as a dashboard
 	 * widget over the computed /api/analytics endpoint.
 	 */
@@ -309,28 +298,6 @@ export default {
 	// agent id from `$route.params.id` since that scoped slot only forwards
 	// `{ item, widget }`, not the loaded object.
 	// -------------------------------------------------------------------------
-
-	/**
-	 * Agent-scoped run KPIs (total runs, success rate, avg latency, tokens) —
-	 * the /api/analytics endpoint scoped to this agent's id instead of
-	 * tenant-wide. Not a stats-block: the analytics endpoint is a computed
-	 * aggregate, not an OR object-count query (ADR-049).
-	 *
-	 * Still ONE widget holding four values, unlike the Dashboard's four
-	 * `type:"stat"` tiles — a detail page's widget grid is the frame here, and
-	 * splitting an agent's KPIs across four cards on a record page would push
-	 * the rest of the agent below the fold.
-	 */
-	'agent-kpis': {
-		kind: 'widget',
-		component: AgentKpiWidget,
-		defaultSize: { w: 6, h: 2 },
-		minSize: { w: 4, h: 2 },
-		maxSize: { w: 12, h: 3 },
-		allowedSlots: ['body'],
-		propsSchema: { type: 'object', properties: {} },
-		_note: 'KPI values come from the computed /api/analytics endpoint (agent-scoped), not from an OR object collection — stats-block can only bind object queries, so a custom fetch widget is required (ADR-049).',
-	},
 
 	/**
 	 * Skills attach/detach — the agent's skillInstalls array against the

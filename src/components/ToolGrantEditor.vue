@@ -90,77 +90,112 @@
 				</template>
 			</NcEmptyContent>
 
-			<table v-else class="tool-grants__table">
-				<thead>
-					<tr>
-						<th scope="col">
-							{{ t('hermiq', 'Tool') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Scope') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Status') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Granted by') }}
-						</th>
-						<th scope="col">
-							{{ t('hermiq', 'Action') }}
-						</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr v-for="tool in catalog.tools" :key="tool.id">
-						<td>
-							<span class="tool-grants__id">{{ tool.id }}</span>
-							<span v-if="tool.description" class="tool-grants__desc">{{ tool.description }}</span>
-						</td>
-						<td>
-							<span :class="scopeBadgeClass(tool)">{{ scopeLabel(tool) }}</span>
-						</td>
-						<td>
-							<span v-if="tool.granted" class="tool-grants__badge tool-grants__badge--granted">
-								{{ t('hermiq', 'Granted') }}
-							</span>
-							<span
-								v-else-if="tool.requiresExplicitGrant"
-								class="tool-grants__badge tool-grants__badge--explicit">
-								{{ t('hermiq', 'Requires explicit grant') }}
-							</span>
-							<span v-else class="tool-grants__badge tool-grants__badge--denied">
-								{{ t('hermiq', 'Not granted') }}
-							</span>
-						</td>
-						<td>{{ tool.grantedBy || '—' }}</td>
-						<td>
-							<NcButton
-								v-if="!tool.granted"
-								type="tertiary"
-								:disabled="!canEdit || saving"
-								@click="grantExact(tool)">
-								{{ t('hermiq', 'Grant') }}
-							</NcButton>
-							<NcButton
-								v-else-if="isExactlyGranted(tool)"
-								type="tertiary"
-								:disabled="!canEdit || saving"
-								@click="revokeExact(tool)">
-								{{ t('hermiq', 'Revoke') }}
-							</NcButton>
-							<span v-else class="tool-grants__via-wildcard">
-								{{ t('hermiq', 'via wildcard') }}
-							</span>
-						</td>
-					</tr>
-				</tbody>
-			</table>
+			<template v-else>
+				<!--
+					The catalogue is instance-wide, so it grows with every app that
+					exposes MCP tools — this instance already resolves ~100 tools,
+					which rendered as a 6,600px table that spilled straight out of
+					the widget's grid cell and over everything below it. The rows
+					stay in the DOM (they're the same content); they're just bounded
+					by a scroll region with a sticky header, and filterable, because
+					100 unfiltered rows behind a scrollbar is not a way to find one
+					tool.
+				-->
+				<div class="tool-grants__filter">
+					<NcTextField
+						v-model="filter"
+						class="tool-grants__filter-input"
+						:label="t('hermiq', 'Filter tools')" />
+					<span class="tool-grants__count">
+						{{ n('hermiq', '%n tool', '%n tools', visibleTools.length) }}
+						<template v-if="filter !== ''">
+							{{ t('hermiq', 'of {total}', { total: catalog.tools.length }) }}
+						</template>
+					</span>
+				</div>
+
+				<NcEmptyContent
+					v-if="!visibleTools.length"
+					:name="t('hermiq', 'No tool matches this filter')">
+					<template #icon>
+						<ToolboxOutline :size="20" />
+					</template>
+				</NcEmptyContent>
+
+				<div v-else class="tool-grants__table-wrap">
+					<table class="tool-grants__table">
+						<thead>
+							<tr>
+								<th scope="col">
+									{{ t('hermiq', 'Tool') }}
+								</th>
+								<th scope="col">
+									{{ t('hermiq', 'Scope') }}
+								</th>
+								<th scope="col">
+									{{ t('hermiq', 'Status') }}
+								</th>
+								<th scope="col">
+									{{ t('hermiq', 'Granted by') }}
+								</th>
+								<th scope="col">
+									{{ t('hermiq', 'Action') }}
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="tool in visibleTools" :key="tool.id">
+								<td>
+									<span class="tool-grants__id">{{ tool.id }}</span>
+									<span v-if="tool.description" class="tool-grants__desc">{{ tool.description }}</span>
+								</td>
+								<td>
+									<span :class="scopeBadgeClass(tool)">{{ scopeLabel(tool) }}</span>
+								</td>
+								<td>
+									<span v-if="tool.granted" class="tool-grants__badge tool-grants__badge--granted">
+										{{ t('hermiq', 'Granted') }}
+									</span>
+									<span
+										v-else-if="tool.requiresExplicitGrant"
+										class="tool-grants__badge tool-grants__badge--explicit">
+										{{ t('hermiq', 'Requires explicit grant') }}
+									</span>
+									<span v-else class="tool-grants__badge tool-grants__badge--denied">
+										{{ t('hermiq', 'Not granted') }}
+									</span>
+								</td>
+								<td>{{ tool.grantedBy || '—' }}</td>
+								<td>
+									<NcButton
+										v-if="!tool.granted"
+										type="tertiary"
+										:disabled="!canEdit || saving"
+										@click="grantExact(tool)">
+										{{ t('hermiq', 'Grant') }}
+									</NcButton>
+									<NcButton
+										v-else-if="isExactlyGranted(tool)"
+										type="tertiary"
+										:disabled="!canEdit || saving"
+										@click="revokeExact(tool)">
+										{{ t('hermiq', 'Revoke') }}
+									</NcButton>
+									<span v-else class="tool-grants__via-wildcard">
+										{{ t('hermiq', 'via wildcard') }}
+									</span>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</template>
 		</template>
 	</section>
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import ToolboxOutline from 'vue-material-design-icons/ToolboxOutline.vue'
@@ -176,6 +211,7 @@ export default {
 		NcLoadingIcon,
 		NcNoteCard,
 		NcSelect,
+		NcTextField,
 		ToolboxOutline,
 	},
 
@@ -202,10 +238,30 @@ export default {
 			loading: true,
 			saving: false,
 			error: '',
+			filter: '',
 		}
 	},
 
 	computed: {
+		/**
+		 * The catalogue rows matching the filter, which matches on tool id and
+		 * description so both `openregister.agent.*` and "create a new page"
+		 * find their tool.
+		 *
+		 * @return {Array<object>} The tools to render.
+		 */
+		visibleTools() {
+			const tools = this.catalog?.tools ?? []
+			const needle = this.filter.trim().toLowerCase()
+			if (needle === '') {
+				return tools
+			}
+			return tools.filter((tool) =>
+				tool.id.toLowerCase().includes(needle)
+				|| (tool.description || '').toLowerCase().includes(needle),
+			)
+		},
+
 		/**
 		 * Whether the draft grant list differs from the last-saved one.
 		 *
@@ -417,6 +473,42 @@ export default {
 	padding: 24px;
 }
 
+.tool-grants__filter {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	margin-block: 12px;
+	max-width: 640px;
+}
+
+.tool-grants__filter-input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.tool-grants__count {
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
+}
+
+/*
+ * The catalogue is instance-wide and unbounded (~100 rows here), so it must
+ * scroll inside the widget rather than push the page's grid apart.
+ */
+.tool-grants__table-wrap {
+	/*
+	 * 300px, not more: this section shares its grid cell with the invocation
+	 * audit table, whose own bounded region has to fit alongside it. Both caps
+	 * plus the surrounding chrome are what make the cell's gridHeight (14)
+	 * hold in the WORST case — a populated audit trail — instead of only when
+	 * the trail happens to be empty.
+	 */
+	max-height: 300px;
+	overflow-y: auto;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large, 8px);
+}
+
 .tool-grants__table {
 	width: 100%;
 	border-collapse: collapse;
@@ -428,6 +520,14 @@ export default {
 	padding: 8px;
 	border-block-end: 1px solid var(--color-border);
 	vertical-align: top;
+}
+
+/* Sticky header — the column meaning must survive scrolling the rows. */
+.tool-grants__table thead th {
+	position: sticky;
+	inset-block-start: 0;
+	z-index: 1;
+	background-color: var(--color-main-background);
 }
 
 .tool-grants__id {

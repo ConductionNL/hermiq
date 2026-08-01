@@ -15,7 +15,7 @@
 
 import { defineStore } from 'pinia'
 import { useAgentFlowStore, useAgentStore } from './store.js'
-import { runGraph } from '../api/graph.js'
+import { getNodeCatalog, runGraph } from '../api/graph.js'
 
 /**
  * A blank graph definition.
@@ -44,6 +44,11 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 		agents: [],
 		selectedNodeId: null,
 		paletteDragType: null,
+		// The node types the engine can execute, from OpenRegister's catalogue
+		// (ADR-065 owns the vocabulary). Empty until loadNodeCatalog resolves;
+		// the palette falls back to the legacy list so the editor is never
+		// empty-handed.
+		nodeCatalog: [],
 		lastTrace: [],
 		loading: false,
 		saving: false,
@@ -159,6 +164,7 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 			}
 
 			this.loadAgents()
+			this.loadNodeCatalog()
 			this.open(id)
 		},
 
@@ -170,6 +176,25 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 		 *
 		 * @return {Promise<void>}
 		 */
+		/**
+		 * Load the engine's node vocabulary.
+		 *
+		 * Kept off the critical path like loadAgents: the canvas is usable while
+		 * this resolves, and a failure costs the real labels and the full palette
+		 * rather than the editor.
+		 *
+		 * @return {Promise<void>}
+		 */
+		async loadNodeCatalog() {
+			try {
+				this.nodeCatalog = await getNodeCatalog()
+			} catch (e) {
+				// A failure costs the real labels and the full palette, not the
+				// editor: both fall back to the legacy list.
+				this.nodeCatalog = []
+			}
+		},
+
 		async loadAgents() {
 			try {
 				const agentStore = useAgentStore()
@@ -308,6 +333,32 @@ export const useGraphEditorStore = defineStore('graphEditor', {
 		 * @param {*}      value The value.
 		 * @return {void}
 		 */
+		/**
+		 * Replace the selected node's whole config.
+		 *
+		 * The raw-config editor needs this: it edits the object as a document, so
+		 * a per-key setter could never REMOVE a key, and a node type whose keys
+		 * the builder does not know would accumulate stale ones.
+		 *
+		 * @param {object} config The new config object.
+		 *
+		 * @return {void}
+		 */
+		setNodeConfigAll(config) {
+			if (this.selectedNodeId === null) {
+				return
+			}
+
+			this.graph.nodes = this.nodes.map((node) => {
+				if (node.id !== this.selectedNodeId) {
+					return node
+				}
+
+				return { ...node, config: { ...config } }
+			})
+			this.dirty = true
+		},
+
 		setNodeConfig(key, value) {
 			if (this.selectedNodeId === null) {
 				return

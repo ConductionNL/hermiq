@@ -175,9 +175,28 @@ class TalkApprovalReactionListener implements IEventListener
      */
     private function readDecision(array $payload): ?array
     {
-        $emoji     = trim((string) ($payload['content'] ?? ''));
-        $messageId = (string) ($payload['object']['object']['id'] ?? '');
-        $reactor   = $this->bareUid(actorId: (string) ($payload['actor']['id'] ?? ''));
+        $undo = ((string) ($payload['type'] ?? '') === 'Undo');
+
+        // 🔴 The two invocation types carry the SAME Like envelope at different
+        // depths: a `Like` IS the envelope, while an `Undo` wraps the undone
+        // Like in its `object`. Normalising to the envelope first is what makes
+        // the two reads below correct for both.
+        //
+        // Reading `content` from the top level and the note id from
+        // `object.object` — one field per shape — meant NEITHER type ever
+        // produced a decision: a 👍 had no message id, an un-react had no
+        // emoji, and both returned null. The whole reaction path was inert
+        // while its unit tests passed on a payload no spreed version sends.
+        $like = $payload;
+        if ($undo === true) {
+            $like = ($payload['object'] ?? []);
+        }
+
+        $emoji     = trim((string) ($like['content'] ?? ''));
+        $messageId = (string) ($like['object']['id'] ?? '');
+        // The reactor is the top-level actor in both shapes — the nested Like's
+        // actor is the message's author, not the person reacting to it.
+        $reactor = $this->bareUid(actorId: (string) ($payload['actor']['id'] ?? ''));
 
         if ($messageId === '' || $reactor === '') {
             return null;
@@ -191,7 +210,7 @@ class TalkApprovalReactionListener implements IEventListener
             'messageId' => $messageId,
             'reactor'   => $reactor,
             'emoji'     => $emoji,
-            'undo'      => ((string) ($payload['type'] ?? '') === 'Undo'),
+            'undo'      => $undo,
         ];
 
     }//end readDecision()

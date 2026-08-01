@@ -170,7 +170,12 @@ class RecordingObjectService extends ObjectService
         bool $_multitenancy=true,
         bool $silent=false,
         ?array $uploadedFiles=null,
-        ?\OCP\IUser $currentUser=null
+        ?\OCP\IUser $currentUser=null,
+        // Added by openregister#2211 (insert-only saves). A double that does not
+        // track the real signature is a FATAL, not a failed assertion: PHP
+        // refuses to declare the class, so every test in the suite dies before
+        // it runs — which is what took all six PHPUnit matrix jobs down.
+        bool $failIfExists=false
     ): ObjectEntity {
         $payload       = (is_array($object) === true) ? $object : $object->getObject();
         $this->saves[] = [

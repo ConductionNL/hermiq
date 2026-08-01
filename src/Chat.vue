@@ -86,7 +86,6 @@
 					:class="{ 'chat-page__row--active': isActive(conversation) }">
 					<div
 						class="chat-page__row-main"
-						data-testid="chat-conversation-row"
 						role="button"
 						tabindex="0"
 						@click="selectConversation(conversation)"

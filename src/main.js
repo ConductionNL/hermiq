@@ -25,6 +25,7 @@ import customComponents from './customComponents.js'
 // Both props coexist during the v1 → v2 transition.
 // Once fully migrated to v2, remove the customComponents import and prop.
 import registry from './registry.js'
+import appIcons from './icons.js'
 
 // Library CSS — must be explicit import (webpack tree-shakes side-effect imports from aliased packages)
 import '@conduction/nextcloud-vue/css/index.css'
@@ -38,7 +39,7 @@ import './assets/app.css'
 // breaks the published (pre-compiled Vue-3) @conduction/nextcloud-vue dist.
 
 // Register library-side icon set + lib translations once at bootstrap.
-registerIcons()
+registerIcons(appIcons)
 // Populate the shared dashboard widget catalog. The library's widgets
 // self-register as an import side effect, but webpack drops a bare side-effect
 // import from a package whose exports it can tree-shake — so without this

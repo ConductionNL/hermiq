@@ -1117,7 +1117,15 @@
         "The Hermiq bot is not registered with Talk. It is normally registered automatically when the app is installed or upgraded.": "The Hermiq bot is not registered with Talk. It is normally registered automatically when the app is installed or upgraded.",
         "The Hermiq bot is registered. It answers only in conversations where a moderator has enabled it AND an opted-in agent is bound below.": "The Hermiq bot is registered. It answers only in conversations where a moderator has enabled it AND an opted-in agent is bound below.",
         "Unavailable — this version of Talk does not support conversation tags.": "Unavailable — this version of Talk does not support conversation tags.",
-        "Unbind": "Unbind"
+        "Unbind": "Unbind",
+        "Configuration (JSON)": "Configuration (JSON)",
+        "Configuration must be a JSON object.": "Configuration must be a JSON object.",
+        "Could not read the flow engine’s node types. Reload to try again — the palette is deliberately empty rather than offering types the engine cannot run.": "Could not read the flow engine’s node types. Reload to try again — the palette is deliberately empty rather than offering types the engine cannot run.",
+        "Not valid JSON — the node keeps its previous configuration.": "Not valid JSON — the node keeps its previous configuration.",
+        "This node type has no guided form yet — edit its configuration directly. Keys must match what the node reads.": "This node type has no guided form yet — edit its configuration directly. Keys must match what the node reads.",
+        "Filter tools": "Filter tools",
+        "No tool matches this filter": "No tool matches this filter",
+        "of {total}": "of {total}"
     },
     "plurals": ""
 }
