@@ -245,16 +245,31 @@ async function extractToolArchive({ base64, scratch, env, deadline }) {
  * @returns {object} A map of path to contents, or null where absent.
  */
 function readCollected({ paths, workdir }) {
-    if (Array.isArray(paths) === false || paths.length === 0) {
+    const isList = Array.isArray(paths);
+    const isMap  = (paths !== null && typeof paths === 'object' && isList === false);
+    if ((isList === false && isMap === false) || (isList === true && paths.length === 0)) {
         return {};
     }
 
     const root = path.resolve(workdir);
     const out = {};
 
-    for (const requested of paths) {
-        const name = String(requested);
-        const resolved = path.resolve(root, name);
+    // An ARRAY keys each file by its own path; an OBJECT keys it by an ALIAS.
+    //
+    // The alias form exists because a flow addresses data with a dotted path,
+    // and a file path is not one: `files.reviews/latest.json.code_review` is
+    // unresolvable — the key contains both dots and slashes, so every traversal
+    // splits it in the wrong places. Collecting a file a flow then cannot reach
+    // is the whole feature failing quietly at the last step.
+    //
+    // So `collect: {findings: "reviews/latest.json"}` yields `files.findings`,
+    // which a flow can walk.
+    const entries = (Array.isArray(paths) === true)
+        ? paths.map((p) => [String(p), String(p)])
+        : Object.entries(paths).map(([alias, p]) => [String(alias), String(p)]);
+
+    for (const [name, requested] of entries) {
+        const resolved = path.resolve(root, requested);
 
         // `startsWith(root + sep)` and not `startsWith(root)`: the latter admits
         // a sibling directory whose name merely begins with the same characters.
@@ -278,7 +293,7 @@ function readCollected({ paths, workdir }) {
             // handling exists to avoid. The consumer can then see what it
             // actually got.
             out[name] = raw;
-            if (name.endsWith('.json') === true) {
+            if (requested.endsWith('.json') === true) {
                 try {
                     out[name] = JSON.parse(raw);
                 } catch (err) {
