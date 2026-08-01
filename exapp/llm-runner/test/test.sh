@@ -257,6 +257,15 @@ else
 fi
 
 # =============================================================================
+# (h) Stage workload: the command allowlist, remote-only refs, scratch cleanup
+# =============================================================================
+if node --test "${ROOT}/test/stage.test.js" > "${WORK}/stage.log" 2>&1; then
+    pass "(h) stage-workload tests (allowlist before clone, remote-only ref, cleanup)"
+else
+    fail "(h) stage-workload tests failed"; cat "${WORK}/stage.log" || true
+fi
+
+# =============================================================================
 
 # =============================================================================
 echo

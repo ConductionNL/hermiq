@@ -2,7 +2,7 @@
  * hermiq-llm-runner ExApp — HTTP entrypoint.
  *
  * A tiny, dependency-free Node HTTP service exposing a single work route,
- * `POST /run`, plus the AppAPI lifecycle stubs (`/heartbeat`). It is the LLM
+ * `POST /run`, `POST /stage`, plus the AppAPI lifecycle stubs (`/heartbeat`). It is the LLM
  * transport half of the `llm-cli-runner-exapp` change: Hermiq POSTs a fully
  * assembled turn, the runner shells out to the matching vendor CLI in
  * non-interactive mode with the credential injected via env only, and returns
@@ -26,6 +26,7 @@ const http = require('http');
 const auth = require('./auth');
 const { getProvider } = require('./providers');
 const { run } = require('./runner');
+const { runStage } = require('./stage');
 
 const HOST = process.env.RUNNER_HOST || '0.0.0.0';
 const PORT = Number(process.env.RUNNER_PORT || process.env.APP_PORT || '9000');
@@ -140,6 +141,61 @@ async function handleRun(req, res, rawBody) {
 }
 
 /**
+ * Handle `POST /stage` — one piece of work that needs a FILESYSTEM.
+ *
+ * The counterpart to `/run`. That endpoint executes an LLM turn; this clones a
+ * ref and runs a command over it, which is what hydra's builder, reviewer and
+ * security stages actually are: analysis over a checked-out tree.
+ *
+ * It returns the command's EXIT CODE and its output rather than a verdict.
+ * hydra's gate runner uses its exit code as a failure COUNT and prints a
+ * summary line only once every gate has been reached — so "did it pass" is a
+ * question about the output, and only the caller knows which line answers it.
+ * Deciding that here would bake one consumer's convention into the transport.
+ *
+ * @param {http.IncomingMessage} req The request.
+ * @param {http.ServerResponse} res The response.
+ * @param {Buffer} rawBody The raw request body.
+ * @returns {Promise<void>}
+ */
+async function handleStage(req, res, rawBody) {
+    // AUTH first, before parsing and long before anything is cloned.
+    const verdict = auth.verify(lowerHeaders(req.headers), rawBody);
+    if (!verdict.ok) {
+        log('warn', `/stage rejected: ${verdict.reason}`);
+        sendJson(res, verdict.status, { error: 'unauthorised' });
+        return;
+    }
+
+    let payload;
+    try {
+        payload = JSON.parse(rawBody.toString('utf8') || '{}');
+    } catch (e) {
+        sendJson(res, 400, { error: 'invalid JSON body' });
+        return;
+    }
+
+    const { repo, ref, command, forgeToken, forgeUser, timeoutMs, env } = payload;
+
+    // The repo and ref are safe to log — they are how an operator finds this run
+    // again. The token is not, and is never touched here.
+    log('info', `/stage repo=${repo} ref=${ref} command=${Array.isArray(command) ? command[0] : '(none)'}`);
+
+    try {
+        const result = await runStage({ repo, ref, command, forgeToken, forgeUser, timeoutMs, env });
+        log('info', `/stage finished exit=${result.exitCode}`);
+        sendJson(res, 200, result);
+    } catch (err) {
+        // 502: the stage was dispatched and could not be carried out. It is NOT
+        // a 400 — the request was well formed — and not a 200 with a failure
+        // field, because a caller reading only the status must not mistake
+        // "could not run" for "ran and failed".
+        log('warn', `/stage failed: ${err.message}`);
+        sendJson(res, 502, { error: err.message });
+    }
+}
+
+/**
  * Lower-case all header names for case-insensitive lookups.
  *
  * @param {object} headers Raw headers.
@@ -195,6 +251,18 @@ const server = http.createServer((req, res) => {
     if (req.method === 'PUT' && req.url.split('?')[0] === '/enabled') {
         readBody(req)
             .then((rawBody) => handleEnabled(req, res, rawBody))
+            .catch((err) => {
+                log('warn', `request error: ${err.message}`);
+                if (!res.headersSent) {
+                    sendJson(res, 413, { error: err.message });
+                }
+            });
+        return;
+    }
+
+    if (req.method === 'POST' && req.url === '/stage') {
+        readBody(req)
+            .then((rawBody) => handleStage(req, res, rawBody))
             .catch((err) => {
                 log('warn', `request error: ${err.message}`);
                 if (!res.headersSent) {
