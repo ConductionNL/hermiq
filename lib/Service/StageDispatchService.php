@@ -424,21 +424,32 @@ class StageDispatchService
             $token = Server::get(BrokerHttpClient::BROKER_CLASS)
                 ->resolveInjectable($credentialId, BrokerHttpClient::APP_ID, $uid);
         } catch (Throwable $e) {
-            // The broker's denial reasons name the guard that refused, which is
-            // the single most useful thing an operator can be told here — and
-            // none of them contain the secret.
+            // NOT fatal, for the same reason a null is not: an INJECTED token is
+            // an optimisation for a private TARGET, and most targets this
+            // pipeline gates are public. The private half — the tool tree —
+            // already arrived as an archive the broker fetched server-side.
+            //
+            // Found by running the assembled sequencer: the broker answered
+            // `Request not permitted` here and the whole tick died at
+            // `run-stage`, having already claimed a slot and taken a lock, over
+            // a token the run did not need. Refusing a stage that has
+            // everything it needs is the worse failure.
+            //
+            // The reason is logged in full — the broker's denials name the guard
+            // that refused, which is the most useful thing an operator can be
+            // told, and none of them contain the secret. A genuinely private
+            // target then fails at the CLONE, with git's own words.
             $this->logger->warning(
-                '[StageDispatchService] the broker refused the forge credential',
+                '[StageDispatchService] the broker would not inject a forge token; the clone will be '
+                .'unauthenticated',
                 [
                     'credentialId' => $credentialId,
                     'reason'       => $e->getMessage(),
                 ]
             );
 
-            throw new RuntimeException(
-                'The credential broker refused the forge credential for this workload: '.$e->getMessage()
-            );
-        }
+            return null;
+        }//end try
 
         if (is_string($token) === false || $token === '') {
             // NOT an error. `resolveInjectable()` returns null for a credential
