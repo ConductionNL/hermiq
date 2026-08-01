@@ -670,10 +670,41 @@ class GitHubTemplatePushService
      */
     private function setTopics(string $owner, string $repo, string $credentialId, ?string $actingUserId, string $kind): void
     {
+        $base  = '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo).'/topics';
+        $topic = $this->topicFor(kind: $kind);
+
+        // GitHub's PUT /topics REPLACES the whole list. On a fresh repo that is
+        // fine, but publishBundle() is create-or-UPDATE: publishing a skill bundle
+        // into an existing app repository would drop that repo's own discovery
+        // topic, making it invisible to the catalogue that published it. Merge
+        // instead — observed on buildiq-hydra, where the bundle push replaced
+        // `openbuild-app` with `hermiq-skill-bundle`.
+        $names = [$topic];
+
+        $existing = $this->brokerCall(
+            method: 'GET',
+            path: $base,
+            body: null,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId,
+            failQuietly: true
+        );
+
+        if (is_array($existing) === true && is_array($existing['names'] ?? null) === true) {
+            foreach ($existing['names'] as $name) {
+                $name = (string) $name;
+                if ($name !== '' && in_array($name, $names, true) === false) {
+                    $names[] = $name;
+                }
+            }
+        }
+
+        sort($names);
+
         $this->brokerCall(
             method: 'PUT',
-            path: '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo).'/topics',
-            body: ['names' => [$this->topicFor(kind: $kind)]],
+            path: $base,
+            body: ['names' => $names],
             credentialId: $credentialId,
             actingUserId: $actingUserId,
             failQuietly: true
