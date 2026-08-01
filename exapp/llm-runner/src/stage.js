@@ -102,6 +102,27 @@ function writeAskpass(scratch) {
 }
 
 /**
+ * The tail of a child's output, for an error message.
+ *
+ * git puts the reason on its LAST lines and progress on everything before, so
+ * the tail is the informative end. Bounded because this travels into a flow
+ * run's failure text.
+ *
+ * @param {string} output The collected output.
+ * @param {number} [lines] How many trailing lines to keep.
+ * @returns {string} A single-line excerpt.
+ */
+function lastLines(output, lines = 3) {
+    return String(output || '')
+        .split('\n')
+        .map((line) => line.replace(/\r.*$/, '').trim())
+        .filter((line) => line !== '')
+        .slice(-lines)
+        .join(' | ')
+        .slice(0, 400);
+}
+
+/**
  * Whether a command is one this runner will execute.
  *
  * @param {Array<string>} argv The command and its arguments.
@@ -250,7 +271,14 @@ async function runStage({ repo, ref, command, forgeToken, forgeUser, timeoutMs, 
         );
 
         if (clone.code !== 0) {
-            throw new Error(`clone failed (exit ${clone.code})`);
+            // Carry git's OWN words. `clone failed (exit 128)` names the one
+            // thing the caller already knows and withholds the only thing that
+            // identifies the cause — a missing credential, a blocked host and a
+            // bad ref all exit 128 and are indistinguishable without this.
+            //
+            // Bounded, and the token is never in this output: it reaches git
+            // through GIT_ASKPASS, so git echoes a username at most.
+            throw new Error(`clone failed (exit ${clone.code}): ${lastLines(clone.output)}`);
         }
 
         // A branch name that exists only on the remote does NOT resolve for
@@ -276,7 +304,10 @@ async function runStage({ repo, ref, command, forgeToken, forgeUser, timeoutMs, 
         }
 
         if (checkout.code !== 0) {
-            throw new Error(`checkout of "${ref}" failed (exit ${checkout.code}) — tried "${ref}" and "origin/${ref}"`);
+            throw new Error(
+                `checkout of "${ref}" failed (exit ${checkout.code}) — tried "${ref}" and `
+                + `"origin/${ref}": ${lastLines(checkout.output)}`
+            );
         }
 
         const [bin, ...rest] = command;
