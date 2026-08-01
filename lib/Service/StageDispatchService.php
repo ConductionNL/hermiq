@@ -162,15 +162,72 @@ class StageDispatchService
             if ($toolRef !== '') {
                 $params['toolRef'] = $toolRef;
             }
-        }
+
+            // A PRIVATE tool tree cannot be cloned by the ExApp: the brokered
+            // forge credential is a host-locked proxy credential, so
+            // `resolveInjectable()` returns null for it BY DESIGN and no token
+            // can be handed over. The broker can still FETCH, though, and
+            // `GET /repos/*/tarball/*` is already covered by its existing
+            // `GET /repos/*` rule — so the archive is pulled server-side and
+            // only the BYTES cross into the container.
+            //
+            // The usual objection to a tarball is that it carries no git
+            // history, so `--scope-to-diff` diffs against nothing and reports
+            // zero failures. That objection is about the TARGET and does not
+            // apply here: the tool tree is scripts. The target is cloned
+            // normally with its full history and needs no credential, because
+            // the repositories being gated are public. Splitting the two is
+            // what makes the credential question go away instead of trading it
+            // off.
+            if ($credentialId !== '') {
+                $archiveRef = 'HEAD';
+                if ($toolRef !== '') {
+                    $archiveRef = $toolRef;
+                }
+
+                $tarball = $this->fetchToolArchive(
+                    credentialId: $credentialId,
+                    uid: $uid,
+                    repo: $toolRepo,
+                    ref: $archiveRef
+                );
+
+                if ($tarball !== null) {
+                    $params['toolTarball'] = $tarball;
+                    // The ExApp prefers the archive, but leaving `toolRepo` in
+                    // place keeps the log line meaningful about WHICH tree this
+                    // is, which is otherwise unrecoverable from a blob.
+                    unset($params['toolRef']);
+                }
+            }//end if
+        }//end if
 
         if ($credentialId !== '') {
-            // The token reaches the runner in the payload and the runner puts it
-            // in the child ENVIRONMENT behind `GIT_ASKPASS` — never on argv,
-            // never in a file that outlives the run.
-            $params['forgeToken'] = $this->resolveForgeToken(credentialId: $credentialId, uid: $uid);
-            $params['forgeUser']  = 'x-access-token';
-        }
+            // An INJECTABLE token, if this credential is one. Most are not: the
+            // brokered forge credential is a host-locked proxy credential, and
+            // `resolveInjectable()` returns null for it BY DESIGN — its secret
+            // never leaving OpenRegister is the property that makes the proxy
+            // path worth having.
+            //
+            // A null is therefore a ROUTING signal, not a denial, and it must
+            // NOT fail the stage. Most targets this pipeline gates are public
+            // and need no token at all; the tool tree, which is the private
+            // half, already arrived as an archive fetched server-side. Failing
+            // here would refuse a stage that has everything it needs.
+            //
+            // When a target really is private and no token could be injected,
+            // the clone fails with git's own words — which is a far better
+            // diagnostic than a credential error raised before anything was
+            // attempted.
+            $token = $this->resolveForgeToken(credentialId: $credentialId, uid: $uid);
+            if ($token !== null) {
+                // The token reaches the runner in the payload and the runner
+                // puts it in the child ENVIRONMENT behind `GIT_ASKPASS` — never
+                // on argv, never in a file that outlives the run.
+                $params['forgeToken'] = $token;
+                $params['forgeUser']  = 'x-access-token';
+            }
+        }//end if
 
         $result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
             self::RUNNER_EXAPP_ID,
@@ -218,6 +275,77 @@ class StageDispatchService
     }//end dispatch()
 
     /**
+     * Fetch a tool tree as a base64 archive through the broker.
+     *
+     * This is the answer to "how does a PRIVATE tool tree reach the ExApp
+     * without its credential". It does not: the broker calls the forge
+     * server-side and hands back bytes, so the secret never leaves
+     * OpenRegister — which is the property that made the proxy credential worth
+     * having in the first place.
+     *
+     * Returns null rather than throwing when the archive cannot be had, because
+     * the caller still has `toolRepo` to fall back on: a PUBLIC tool tree clones
+     * perfectly well without any of this, and failing the stage over an
+     * optimisation that was not needed would be worse than not attempting it.
+     * A private tool tree then fails at the clone, with git's own reason.
+     *
+     * @param string      $credentialId The broker credential.
+     * @param string|null $uid          The acting user.
+     * @param string      $repo         The tool repository URL.
+     * @param string      $ref          The ref to archive.
+     *
+     * @return string|null Base64 `.tar.gz`, or null when it could not be fetched.
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
+     */
+    private function fetchToolArchive(string $credentialId, ?string $uid, string $repo, string $ref): ?string
+    {
+        if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
+            return null;
+        }
+
+        // `https://github.com/owner/name(.git)` -> `owner/name`.
+        $path = trim((string) parse_url($repo, PHP_URL_PATH), '/');
+        $path = preg_replace('/\.git$/', '', $path);
+        if ($path === null || $path === '' || substr_count($path, '/') !== 1) {
+            return null;
+        }
+
+        try {
+            $response = Server::get(BrokerHttpClient::BROKER_CLASS)->request(
+                $credentialId,
+                BrokerHttpClient::APP_ID,
+                'GET',
+                '/repos/'.$path.'/tarball/'.$ref,
+                [],
+                null,
+                $uid
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                '[StageDispatchService] the tool archive could not be fetched through the broker',
+                ['reason' => $e->getMessage()]
+            );
+
+            return null;
+        }
+
+        $status = (int) ($response['status'] ?? 0);
+        $body   = (string) ($response['body'] ?? '');
+        if ($status < 200 || $status > 299 || $body === '') {
+            $this->logger->warning(
+                '[StageDispatchService] the forge did not return a tool archive',
+                ['status' => $status]
+            );
+
+            return null;
+        }
+
+        return base64_encode($body);
+
+    }//end fetchToolArchive()
+
+    /**
      * Resolve the forge token for the clone through OpenRegister's broker.
      *
      * ⚠️ This only works for an `inject_only` credential. A HOST-LOCKED PROXY
@@ -231,13 +359,14 @@ class StageDispatchService
      * @param string      $credentialId The broker credential UUID.
      * @param string|null $uid          The acting user's UID.
      *
-     * @return string The resolved token. Never logged.
+     * @return string|null The resolved token, or null when this credential is not injectable —
+     *                     a routing signal meaning "use the broker instead", not a denial. Never logged.
      *
      * @throws RuntimeException When the broker is absent or refuses.
      *
      * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
      */
-    private function resolveForgeToken(string $credentialId, ?string $uid): string
+    private function resolveForgeToken(string $credentialId, ?string $uid): ?string
     {
         if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
             throw new RuntimeException(
@@ -267,7 +396,18 @@ class StageDispatchService
         }
 
         if (is_string($token) === false || $token === '') {
-            throw new RuntimeException('The credential broker resolved no forge token for this workload.');
+            // NOT an error. `resolveInjectable()` returns null for a credential
+            // it will not inject — a host-locked proxy credential, which the
+            // brokered forge credential is — and that is a routing signal
+            // meaning "use the broker instead", not a refusal. The caller
+            // proceeds without a token; a public clone needs none, and a
+            // private one fails with git's own reason.
+            $this->logger->debug(
+                '[StageDispatchService] the credential is not injectable; the clone will be unauthenticated',
+                ['credentialId' => $credentialId]
+            );
+
+            return null;
         }
 
         return $token;
