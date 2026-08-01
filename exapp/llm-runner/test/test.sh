@@ -215,6 +215,23 @@ else
     pass "(d) egress-entrypoint.sh has no wildcard ACCEPT rule"
 fi
 
+# ⚠️ EVERY assertion above reads the SCRIPT. None of them runs it, and for nine
+# months none of them would have noticed that it CANNOT run: the image sets
+# `USER node`, so the jail died on its first iptables call with a raw
+# "Permission denied (you must be root)" and the container exited. A green
+# suite said nothing about whether the container it hardens was hardened.
+#
+# These two assert the PRECONDITION CHECKS that turn that into a legible
+# failure. They are still static — a real proof needs a container, and the one
+# that was run by hand is recorded in the change — but they pin the guards so
+# the fix cannot be silently dropped.
+grep -q 'id -u' "${ENTRY}" && grep -q 'Refusing to start UNFENCED' "${ENTRY}" \
+    && pass "(d) egress-entrypoint.sh refuses to start unfenced when not root" \
+    || fail "(d) egress-entrypoint.sh would start unfenced when not root"
+grep -q 'user 0:0' "${ENTRY}" \
+    && pass "(d) egress-entrypoint.sh documents the --user 0:0 requirement" \
+    || fail "(d) egress-entrypoint.sh omits the --user 0:0 requirement"
+
 # =============================================================================
 # (e) AppAPI lifecycle: PUT /enabled must authenticate and return NO error key.
 #     AppAPI reads response.error to decide enable success; the generic 404
