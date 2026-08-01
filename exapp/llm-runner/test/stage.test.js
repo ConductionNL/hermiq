@@ -481,3 +481,54 @@ test('collect is absent by default, so nothing is read back unasked', async () =
         fs.rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('a collected .json file is PARSED, so a flow can address into it', async () => {
+    const { remote, root } = makeRemote();
+    const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'stage-json-'));
+
+    try {
+        // Commit a reviewer-shaped findings file, the thing this exists for.
+        const work = path.join(staging, 'w');
+        const env = {
+            ...process.env,
+            GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@e.invalid',
+            GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@e.invalid',
+        };
+        execFileSync('git', ['clone', '--quiet', remote, work]);
+        execFileSync('git', ['checkout', '--quiet', 'development'], { cwd: work, env });
+        fs.mkdirSync(path.join(work, 'reviews'), { recursive: true });
+        fs.writeFileSync(
+            path.join(work, 'reviews', 'latest.json'),
+            JSON.stringify({ code_review: { findings: [
+                { title: 'unchecked return', severity: 'WARNING', status: 'open' },
+                { title: 'naming', severity: 'SUGGESTION', status: 'open' },
+            ] } })
+        );
+        fs.writeFileSync(path.join(work, 'broken.json'), '{not valid json');
+        execFileSync('git', ['add', '-A'], { cwd: work, env });
+        execFileSync('git', ['commit', '--quiet', '-m', 'findings'], { cwd: work, env });
+        execFileSync('git', ['push', '--quiet', remote, 'development'], { cwd: work, env });
+
+        const result = await runStage({
+            repo: remote,
+            ref: 'development',
+            command: ['./probe.sh'],
+            collect: ['reviews/latest.json', 'broken.json'],
+            timeoutMs: 120000,
+        });
+
+        // Addressable structure, not a string — this is the whole point.
+        const findings = result.files['reviews/latest.json'].code_review.findings;
+        assert.strictEqual(findings.length, 2);
+        assert.strictEqual(findings[0].title, 'unchecked return');
+
+        // Malformed JSON stays TEXT, not null: the file exists and has
+        // contents, and reporting "absent" for "present but malformed" is the
+        // conflation the null handling exists to avoid.
+        assert.strictEqual(typeof result.files['broken.json'], 'string');
+        assert.match(result.files['broken.json'], /not valid json/);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+        fs.rmSync(staging, { recursive: true, force: true });
+    }
+});

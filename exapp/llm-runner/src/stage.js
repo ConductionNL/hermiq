@@ -263,7 +263,28 @@ function readCollected({ paths, workdir }) {
         }
 
         try {
-            out[name] = fs.readFileSync(resolved, 'utf8').slice(0, MAX_OUTPUT_BYTES);
+            const raw = fs.readFileSync(resolved, 'utf8').slice(0, MAX_OUTPUT_BYTES);
+
+            // A `.json` file is PARSED, because the consumer is a flow and a
+            // flow cannot address into a string. hydra's reviewer writes
+            // `{code_review: {findings: [...]}}`; handing that back as text
+            // means the one thing anybody wants to do with it — iterate the
+            // findings and file an issue each — is impossible without a node
+            // that parses JSON, which does not exist.
+            //
+            // Unparseable JSON stays TEXT rather than becoming null: the file
+            // was found and has contents, and reporting "absent" for "present
+            // but malformed" is the same conflation this function's null
+            // handling exists to avoid. The consumer can then see what it
+            // actually got.
+            out[name] = raw;
+            if (name.endsWith('.json') === true) {
+                try {
+                    out[name] = JSON.parse(raw);
+                } catch (err) {
+                    // Intentionally keeps the text. See above.
+                }
+            }
         } catch (err) {
             out[name] = null;
         }
