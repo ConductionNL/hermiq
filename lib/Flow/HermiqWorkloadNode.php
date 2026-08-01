@@ -217,11 +217,22 @@ class HermiqWorkloadNode implements IFlowNode
             );
         }
 
-        $credentialId = trim((string) ($config['credentialId'] ?? ''));
-
         $out = [];
         foreach ($items as $index => $item) {
             $json = (array) ($item['json'] ?? []);
+
+            // RENDERED, like every other configured value, and rendered PER ITEM
+            // because a fan-out may carry a different credential per repository.
+            //
+            // This was the one field the first version left un-rendered, and the
+            // failure was invisible: the literal string `{{forgeCredential}}`
+            // went to the broker as a credential id, the broker could not find
+            // it, and its `catch (Throwable) { $credential = null; }` reported
+            // `credential not found` — which reads as a missing credential
+            // rather than an unrendered placeholder. It took a logging fix in
+            // OpenRegister (openregister#2245) to see the id it was actually
+            // given.
+            $credentialId = trim($this->render(template: (string) ($config['credentialId'] ?? ''), json: $json));
 
             $result = $this->stages->dispatch(
                 repo: $this->render(template: (string) $config['repo'], json: $json),
