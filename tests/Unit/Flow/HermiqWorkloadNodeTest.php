@@ -439,6 +439,32 @@ class HermiqWorkloadNodeTest extends TestCase
     }//end testNoToolTreeMeansTheCommandComesFromTheTarget()
 
     /**
+     * The credential id is RENDERED like every other configured value.
+     *
+     * It was the one field left un-rendered, and the failure was invisible: the
+     * literal `{{forgeCredential}}` went to the broker as a credential id, the
+     * broker could not find it, and reported `credential not found` — which
+     * reads as a missing credential rather than an unrendered placeholder.
+     *
+     * @return void
+     */
+    public function testTheCredentialIdIsRendered(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $node->execute(
+            [['json' => ['forgeCredential' => '35327e7a-cafe-4a21-8ffe-6195d52f9579']]],
+            ($this->config() + ['owner' => 'ruben', 'credentialId' => '{{forgeCredential}}']),
+            []
+        );
+
+        // Positional: repo, ref, command, uid, credentialId, ...
+        $this->assertSame('35327e7a-cafe-4a21-8ffe-6195d52f9579', $this->lastCall[4]);
+        $this->assertStringNotContainsString('{{', (string) $this->lastCall[4]);
+
+    }//end testTheCredentialIdIsRendered()
+
+    /**
      * The node identifies itself as the workload step.
      *
      * @return void
