@@ -505,18 +505,30 @@ class GitHubTemplatePushService
                 continue;
             }
 
-            $blob = $this->postJson(
+            $blob    = $this->postJson(
                 path: $base.'/git/blobs',
                 body: ['content' => base64_encode((string) $contents), 'encoding' => 'base64'],
                 credentialId: $credentialId,
                 actingUserId: $actingUserId
             );
+            $blobSha = (string) ($blob['sha'] ?? '');
+
+            // A blob whose sha did not come back MUST NOT reach the tree. GitHub
+            // rejects the WHOLE create-tree request with a 422 for one bad entry,
+            // so a single silently-empty sha discards every other blob uploaded in
+            // this run — hundreds of successful uploads lost to an error message
+            // that names no file. Failing here names the path instead.
+            if ($blobSha === '') {
+                throw new RuntimeException(
+                    'GitHub bundle publish: blob upload returned no sha for "'.$path.'".'
+                );
+            }
 
             $treeEntries[] = [
                 'path' => $path,
                 'mode' => '100644',
                 'type' => 'blob',
-                'sha'  => (string) ($blob['sha'] ?? ''),
+                'sha'  => $blobSha,
             ];
         }//end foreach
 
