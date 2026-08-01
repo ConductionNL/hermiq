@@ -49,6 +49,10 @@ use RuntimeException;
 /**
  * GitHub delivery target for a published AgentTemplate package. Broker-only.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same rationale as the complexity
+ *   suppression below: the token-never-here invariant holds only because every
+ *   GitHub call goes through this one broker seam, so splitting the publish path
+ *   across classes would weaken the guarantee it exists to hold.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) One class owns the whole broker-only
  *   publish path (repo create, topics, git-data commit chain, scrubbed logging) so the
  *   token-never-here invariant stays in a single place.

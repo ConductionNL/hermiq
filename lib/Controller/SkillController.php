@@ -58,6 +58,18 @@ use Throwable;
 /**
  * Tenant-scoped skills catalog endpoints.
  *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     One public method per registered
+ *   route. The count tracks the skills API surface (catalog CRUD, GitHub store
+ *   search/install, bundle publish/install); collapsing routes into fewer methods
+ *   to satisfy the metric would hide the surface rather than reduce it.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small
+ *   guard-then-delegate route methods — every branch is an input-validation guard
+ *   returning a shaped error, not domain logic. The domain work lives in
+ *   SkillService / SkillMarketplaceService / SkillBundleSerializer.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   One injected collaborator per
+ *   seam (catalog, marketplace, bundle serialiser, push service) plus the response
+ *   and exception types the routes return.
+ *
  * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
  */
 class SkillController extends Controller
@@ -532,44 +544,9 @@ class SkillController extends Controller
             return new JSONResponse(['error' => 'invalid_visibility'], Http::STATUS_BAD_REQUEST);
         }
 
-        $payloads = [];
-        $outcomes = [];
-
-        foreach ($skillIds as $skillId) {
-            // Per-skill, deliberately: SkillService::getSkill() delegates to
-            // ObjectService::find(), which THROWS DoesNotExistException for a
-            // missing id rather than returning null despite its ?ObjectEntity
-            // return type. Catching per skill means one bad id is reported as
-            // `not_found` for that entry instead of failing the whole publish.
-            try {
-                $skill = $this->skillService->getSkill(skillId: (string) $skillId);
-            } catch (DoesNotExistException $e) {
-                $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'not_found'];
-                continue;
-            } catch (Throwable $e) {
-                $this->logger->error(
-                    'Hermiq bundle publish: resolving skill "'.((string) $skillId).'" failed: '.$e->getMessage(),
-                    ['exception' => $e]
-                );
-                $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'failed'];
-                continue;
-            }//end try
-
-            if ($skill === null) {
-                $outcomes[] = ['name' => (string) $skillId, 'outcome' => 'not_found'];
-                continue;
-            }
-
-            $object          = $skill->getObject();
-            $object['files'] = ($this->skillService->publishFileSelection(skillId: (string) $skillId) ?? []);
-
-            $payloads[] = $object;
-            $outcomes[] = [
-                'name'    => (string) ($object['name'] ?? ''),
-                'files'   => count($object['files']),
-                'outcome' => 'published',
-            ];
-        }//end foreach
+        $collected = $this->collectPublishablePayloads(skillIds: $skillIds);
+        $payloads  = $collected['payloads'];
+        $outcomes  = $collected['outcomes'];
 
         if ($payloads === []) {
             return new JSONResponse(['error' => 'no_publishable_skills', 'skills' => $outcomes], Http::STATUS_BAD_REQUEST);
@@ -635,12 +612,9 @@ class SkillController extends Controller
             $ref = $refRaw;
         }
 
-        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-            return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
-        }
-
-        if ($ref !== null && preg_match(self::REF_PATTERN, $ref) !== 1) {
-            return new JSONResponse(['error' => 'invalid_ref'], Http::STATUS_BAD_REQUEST);
+        $invalid = $this->rejectBadCoordinates(owner: $owner, repo: $repo, ref: $ref);
+        if ($invalid !== null) {
+            return $invalid;
         }
 
         try {
@@ -667,6 +641,130 @@ class SkillController extends Controller
             return new JSONResponse(['error' => 'not_a_bundle'], Http::STATUS_NOT_FOUND);
         }
 
+        $result = $this->installBundleSkills(parsed: $parsed, createdBy: $user->getUID());
+
+        return new JSONResponse(
+            [
+                'installed' => $result['counts']['installed'],
+                'skipped'   => $result['counts']['skipped'],
+                'failed'    => $result['counts']['failed'],
+                'truncated' => $bundle['truncated'],
+                'skills'    => $result['outcomes'],
+            ],
+            Http::STATUS_OK
+        );
+
+    }//end bundleInstall()
+
+    /**
+     * Reject invalid repo coordinates BEFORE any outbound GitHub call.
+     *
+     * Shared by the bundle routes so the owner/repo/ref patterns are enforced in
+     * one place — three copies of a security-relevant guard is three places for it
+     * to drift.
+     *
+     * @param string      $owner The repo owner.
+     * @param string      $repo  The repo name.
+     * @param string|null $ref   The optional git ref.
+     *
+     * @return JSONResponse|null A 400 when the coordinates are unusable, else null.
+     *
+     * @spec openspec/changes/skill-bundle-publish/contract.md
+     */
+    private function rejectBadCoordinates(string $owner, string $repo, ?string $ref): ?JSONResponse
+    {
+        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+            return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+        }
+
+        if ($ref !== null && preg_match(self::REF_PATTERN, $ref) !== 1) {
+            return new JSONResponse(['error' => 'invalid_ref'], Http::STATUS_BAD_REQUEST);
+        }
+
+        return null;
+
+    }//end rejectBadCoordinates()
+
+    /**
+     * Resolve the requested skill ids into publishable payloads.
+     *
+     * Each skill's files go through `SkillService::publishFileSelection()` — the one
+     * publish-time selection that strips `learning-candidates.md` — so unvetted
+     * observations never leave the instance by way of a bundle any more than they
+     * do by way of a single publish.
+     *
+     * Per-skill error handling is deliberate: `SkillService::getSkill()` delegates
+     * to `ObjectService::find()`, which THROWS `DoesNotExistException` for a missing
+     * id rather than returning null despite its `?ObjectEntity` return type. Caught
+     * per skill, one bad id is reported as `not_found` for that entry instead of
+     * failing the whole publish.
+     *
+     * @param array<int, mixed> $skillIds The requested skill ids.
+     *
+     * @return array{payloads:array<int,array<string,mixed>>,outcomes:array<int,array<string,mixed>>}
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    private function collectPublishablePayloads(array $skillIds): array
+    {
+        $payloads = [];
+        $outcomes = [];
+
+        foreach ($skillIds as $skillId) {
+            $id = (string) $skillId;
+
+            try {
+                $skill = $this->skillService->getSkill(skillId: $id);
+            } catch (DoesNotExistException $e) {
+                $outcomes[] = ['name' => $id, 'outcome' => 'not_found'];
+                continue;
+            } catch (Throwable $e) {
+                $this->logger->error(
+                    'Hermiq bundle publish: resolving skill "'.$id.'" failed: '.$e->getMessage(),
+                    ['exception' => $e]
+                );
+                $outcomes[] = ['name' => $id, 'outcome' => 'failed'];
+                continue;
+            }//end try
+
+            if ($skill === null) {
+                $outcomes[] = ['name' => $id, 'outcome' => 'not_found'];
+                continue;
+            }
+
+            $object          = $skill->getObject();
+            $object['files'] = ($this->skillService->publishFileSelection(skillId: $id) ?? []);
+
+            $payloads[] = $object;
+            $outcomes[] = [
+                'name'    => (string) ($object['name'] ?? ''),
+                'files'   => count($object['files']),
+                'outcome' => 'published',
+            ];
+        }//end foreach
+
+        return ['payloads' => $payloads, 'outcomes' => $outcomes];
+
+    }//end collectPublishablePayloads()
+
+    /**
+     * Install every parsed bundle entry through the UNCHANGED per-skill path.
+     *
+     * Extracted from bundleInstall() so the route method stays a guard-then-delegate
+     * shape. One `installFromSource()` call per skill is the point, not an
+     * implementation detail: quarantine and per-skill content scanning are inherited
+     * rather than re-proved, and a per-skill catch means one failure never aborts
+     * the remaining installs.
+     *
+     * @param array<int, array<string, mixed>> $parsed    The parsed bundle entries.
+     * @param string                           $createdBy The installing user id.
+     *
+     * @return array{outcomes:array<int,array<string,mixed>>,counts:array<string,int>}
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+     */
+    private function installBundleSkills(array $parsed, string $createdBy): array
+    {
         $outcomes = [];
         $counts   = ['installed' => 0, 'skipped' => 0, 'failed' => 0];
 
@@ -677,7 +775,7 @@ class SkillController extends Controller
                 $installed = $this->marketplaceService->installFromSource(
                     package: $this->bundleSerializer->packageOf(skill: $skill),
                     source: 'hub',
-                    createdBy: $user->getUID(),
+                    createdBy: $createdBy,
                     auxFiles: ($skill['files'] ?? [])
                 );
 
@@ -709,16 +807,7 @@ class SkillController extends Controller
             }//end try
         }//end foreach
 
-        return new JSONResponse(
-            [
-                'installed' => $counts['installed'],
-                'skipped'   => $counts['skipped'],
-                'failed'    => $counts['failed'],
-                'truncated' => $bundle['truncated'],
-                'skills'    => $outcomes,
-            ],
-            Http::STATUS_OK
-        );
+        return ['outcomes' => $outcomes, 'counts' => $counts];
 
-    }//end bundleInstall()
+    }//end installBundleSkills()
 }//end class

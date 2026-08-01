@@ -188,27 +188,7 @@ class SkillBundleSerializer
                 continue;
             }
 
-            $prefix = self::SKILLS_PREFIX.$name.'/';
-            $own    = [];
-            foreach ($files as $path => $contents) {
-                $path = (string) $path;
-                if (str_starts_with($path, $prefix) === false) {
-                    continue;
-                }
-
-                $relative = substr($path, strlen($prefix));
-                // Defence in depth: the prefix matched, but the remainder must still
-                // be a safe relative path in its own right. Delegated to the SAME
-                // check the single-skill install uses.
-                if ($relative !== SkillSerializer::SKILL_FILE
-                    && $this->skillSerializer->isSafeAuxPath(path: $relative) === false
-                ) {
-                    $this->reject(what: $path, why: 'entry escapes its own skills/<name>/ prefix');
-                    continue;
-                }
-
-                $own[$relative] = (string) $contents;
-            }//end foreach
+            $own = $this->entriesFor(name: $name, files: $files);
 
             if (isset($own[SkillSerializer::SKILL_FILE]) === false) {
                 $this->reject(what: $name, why: 'declared in the manifest but has no '.SkillSerializer::SKILL_FILE);
@@ -228,6 +208,48 @@ class SkillBundleSerializer
         return $skills;
 
     }//end fromBundle()
+
+    /**
+     * Collect one bundled skill's own entries, stripped of its `skills/<name>/`
+     * prefix and re-validated.
+     *
+     * Defence in depth: the prefix matching alone is not enough — the remainder
+     * must be a safe relative path in its own right, checked by the SAME
+     * `isSafeAuxPath()` the single-skill install uses. An entry that escapes its
+     * own prefix is dropped and logged, never rewritten to a safe form.
+     *
+     * @param string                $name  The validated bundled skill name.
+     * @param array<string, string> $files The whole bundle tree.
+     *
+     * @return array<string, string> The skill's own `relative path => contents` map.
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+     */
+    private function entriesFor(string $name, array $files): array
+    {
+        $prefix = self::SKILLS_PREFIX.$name.'/';
+        $own    = [];
+
+        foreach ($files as $path => $contents) {
+            $path = (string) $path;
+            if (str_starts_with($path, $prefix) === false) {
+                continue;
+            }
+
+            $relative = substr($path, strlen($prefix));
+            if ($relative !== SkillSerializer::SKILL_FILE
+                && $this->skillSerializer->isSafeAuxPath(path: $relative) === false
+            ) {
+                $this->reject(what: $path, why: 'entry escapes its own skills/<name>/ prefix');
+                continue;
+            }
+
+            $own[$relative] = (string) $contents;
+        }//end foreach
+
+        return $own;
+
+    }//end entriesFor()
 
     /**
      * Rebuild the single-skill package string for a parsed bundle entry.
