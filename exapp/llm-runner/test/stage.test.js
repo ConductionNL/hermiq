@@ -532,3 +532,63 @@ test('a collected .json file is PARSED, so a flow can address into it', async ()
         fs.rmSync(staging, { recursive: true, force: true });
     }
 });
+
+test('collect accepts ALIASES, because a file path is not a dotted path', async () => {
+    const { remote, root } = makeRemote();
+    const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'stage-alias-'));
+
+    try {
+        const work = path.join(staging, 'w');
+        const env = {
+            ...process.env,
+            GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@e.invalid',
+            GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@e.invalid',
+        };
+        execFileSync('git', ['clone', '--quiet', remote, work]);
+        execFileSync('git', ['checkout', '--quiet', 'development'], { cwd: work, env });
+        fs.mkdirSync(path.join(work, 'reviews'), { recursive: true });
+        fs.writeFileSync(
+            path.join(work, 'reviews', 'latest.json'),
+            JSON.stringify({ code_review: { findings: [{ title: 'x' }] } })
+        );
+        execFileSync('git', ['add', '-A'], { cwd: work, env });
+        execFileSync('git', ['commit', '--quiet', '-m', 'r'], { cwd: work, env });
+        execFileSync('git', ['push', '--quiet', remote, 'development'], { cwd: work, env });
+
+        const result = await runStage({
+            repo: remote,
+            ref: 'development',
+            command: ['./probe.sh'],
+            // `files["reviews/latest.json"]` cannot be reached by any dotted
+            // path — the key holds both dots and slashes, so every traversal
+            // splits it in the wrong places. The alias is what makes the
+            // collected file addressable at all.
+            collect: { findings: 'reviews/latest.json' },
+            timeoutMs: 120000,
+        });
+
+        assert.ok('findings' in result.files);
+        assert.strictEqual(result.files.findings.code_review.findings[0].title, 'x');
+        // Parsing keys off the PATH, not the alias — the alias has no extension.
+        assert.strictEqual(typeof result.files.findings, 'object');
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+        fs.rmSync(staging, { recursive: true, force: true });
+    }
+});
+
+test('an aliased path still cannot escape the clone', async () => {
+    const { remote, root } = makeRemote();
+
+    try {
+        await assert.rejects(
+            () => runStage({
+                repo: remote, ref: 'development', command: ['./probe.sh'],
+                collect: { sneaky: '../../etc/passwd' }, timeoutMs: 120000,
+            }),
+            /collect path escapes the clone/
+        );
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
