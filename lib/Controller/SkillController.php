@@ -553,8 +553,15 @@ class SkillController extends Controller
         }
 
         try {
+            // `$dropped` is read back below and folded into the per-skill outcomes.
+            // Reporting `published` for a skill the serialiser discarded is how the
+            // first real bundle claimed 94 while shipping 64 — the response must be
+            // built from what was SERIALISED, not from what was requested.
+            $dropped = [];
+            $tree    = $this->bundleSerializer->toBundle(skills: $payloads, dropped: $dropped);
+
             $result = $this->pushService->publishBundle(
-                files: $this->bundleSerializer->toBundle(skills: $payloads),
+                files: $tree,
                 owner: $owner,
                 repo: $repo,
                 visibility: $visibility,
@@ -566,12 +573,17 @@ class SkillController extends Controller
             return new JSONResponse(['error' => 'publish_failed'], Http::STATUS_BAD_GATEWAY);
         }
 
+        $reconciled = $this->reconcileOutcomes(outcomes: $outcomes, dropped: $dropped);
+
         return new JSONResponse(
             [
                 'repoUrl'   => $result['repoUrl'],
                 'commitSha' => $result['commitSha'],
                 'created'   => $result['created'],
-                'skills'    => $outcomes,
+                'published' => $reconciled['published'],
+                'dropped'   => count($dropped),
+                'truncated' => ($dropped !== []),
+                'skills'    => $reconciled['outcomes'],
             ],
             Http::STATUS_OK
         );
@@ -746,6 +758,50 @@ class SkillController extends Controller
         return ['payloads' => $payloads, 'outcomes' => $outcomes];
 
     }//end collectPublishablePayloads()
+
+    /**
+     * Reconcile the per-skill outcomes against what the serialiser actually
+     * bundled, so the response describes the ARTEFACT rather than the request.
+     *
+     * A skill the serialiser discarded is re-marked `dropped` with its reason, and
+     * only skills that reached the tree count as published. Without this the API
+     * reports success for content it never shipped — observed on the first real
+     * bundle, where 94 skills were requested, 64 were bundled, and all 94 came back
+     * as `published`.
+     *
+     * @param array<int, array<string, mixed>> $outcomes The per-skill outcomes built from the request.
+     * @param array<int, array<string, mixed>> $dropped  The serialiser's dropped list.
+     *
+     * @return array{outcomes:array<int,array<string,mixed>>,published:int}
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    private function reconcileOutcomes(array $outcomes, array $dropped): array
+    {
+        $byName = [];
+        foreach ($dropped as $entry) {
+            $byName[(string) ($entry['name'] ?? '')] = (string) ($entry['reason'] ?? 'dropped');
+        }
+
+        $published = 0;
+        $out       = [];
+        foreach ($outcomes as $outcome) {
+            $name = (string) ($outcome['name'] ?? '');
+            if (isset($byName[$name]) === true) {
+                $outcome['outcome'] = 'dropped';
+                $outcome['reason']  = $byName[$name];
+            }
+
+            if (($outcome['outcome'] ?? '') === 'published') {
+                $published++;
+            }
+
+            $out[] = $outcome;
+        }
+
+        return ['outcomes' => $out, 'published' => $published];
+
+    }//end reconcileOutcomes()
 
     /**
      * Install every parsed bundle entry through the UNCHANGED per-skill path.
