@@ -393,6 +393,52 @@ class HermiqWorkloadNodeTest extends TestCase
     }//end testNoCredentialMeansNoCredentialAttribution()
 
     /**
+     * The tool tree is forwarded, with its placeholders rendered.
+     *
+     * hydra's gate runner takes the tree it gates as an argument and resolves
+     * its own helpers out of its OWN checkout, so gating an app needs hydra's
+     * scripts and the app's tree at once. Without this the only workable
+     * arrangement is every app vendoring 3,599 lines of gate runner.
+     *
+     * @return void
+     */
+    public function testTheToolTreeIsForwarded(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $node->execute(
+            [['json' => ['tool' => 'https://github.com/ConductionNL/hydra']]],
+            ($this->config() + ['owner' => 'ruben', 'toolRepo' => '{{tool}}', 'toolRef' => 'development']),
+            []
+        );
+
+        // Positional order of dispatch(): repo, ref, command, uid, credentialId,
+        // timeoutMs, toolRepo, toolRef.
+        $this->assertSame('https://github.com/ConductionNL/hydra', $this->lastCall[6]);
+        $this->assertSame('development', $this->lastCall[7]);
+
+    }//end testTheToolTreeIsForwarded()
+
+    /**
+     * With no tool tree configured, empty strings are forwarded, not nulls.
+     *
+     * The dispatcher treats '' as "the command lives in the target", which is
+     * the ordinary case and must stay the default.
+     *
+     * @return void
+     */
+    public function testNoToolTreeMeansTheCommandComesFromTheTarget(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
+
+        $this->assertSame('', $this->lastCall[6]);
+        $this->assertSame('', $this->lastCall[7]);
+
+    }//end testNoToolTreeMeansTheCommandComesFromTheTarget()
+
+    /**
      * The node identifies itself as the workload step.
      *
      * @return void

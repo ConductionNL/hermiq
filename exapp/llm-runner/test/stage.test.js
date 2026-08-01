@@ -33,7 +33,7 @@
 
 // Set BEFORE the require: the allowlist is read at module load, which is itself
 // deliberate — it cannot be widened at call time by anything the caller sends.
-process.env.RUNNER_STAGE_COMMANDS = 'scripts/run-hydra-gates.sh,./probe.sh';
+process.env.RUNNER_STAGE_COMMANDS = 'scripts/run-hydra-gates.sh,./probe.sh,scripts/probe.sh';
 
 const test = require('node:test');
 const assert = require('node:assert');
@@ -250,6 +250,119 @@ test('the forge token reaches git through GIT_ASKPASS and never through argv', a
 
         assert.match(result.output, /ASKPASS=\/.*askpass\.sh/);
         assert.match(result.output, /TOKEN=tok-should-not-appear-on-argv/);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
+/**
+ * Build a second bare repo that carries a TOOL: a script which reports the
+ * directory it was invoked over rather than the one it lives in.
+ *
+ * That distinction is the whole point of a tool tree — hydra's gate runner
+ * resolves its helpers out of its OWN checkout while gating a different one —
+ * so the fixture has to be able to tell the two apart or the test proves
+ * nothing.
+ *
+ * @returns {{remote: string, root: string}} The bare repo path and its temp root.
+ */
+function makeToolRemote() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'stage-tool-'));
+    const work = path.join(root, 'work');
+    const remote = path.join(root, 'remote.git');
+    const env = {
+        ...process.env,
+        GIT_AUTHOR_NAME: 'test', GIT_AUTHOR_EMAIL: 't@example.invalid',
+        GIT_COMMITTER_NAME: 'test', GIT_COMMITTER_EMAIL: 't@example.invalid',
+    };
+
+    fs.mkdirSync(work);
+    execFileSync('git', ['init', '--quiet'], { cwd: work, env });
+    execFileSync('git', ['checkout', '--quiet', '-b', 'main'], { cwd: work, env });
+    fs.mkdirSync(path.join(work, 'scripts'));
+    fs.mkdirSync(path.join(work, 'scripts', 'lib'));
+    // A helper beside the tool, resolved relative to the SCRIPT's own location —
+    // exactly how run-hydra-gates.sh finds its 20 python helpers.
+    fs.writeFileSync(path.join(work, 'scripts', 'lib', 'helper.sh'), 'echo HELPER-FOUND\n');
+    fs.writeFileSync(
+        path.join(work, 'scripts', 'probe.sh'),
+        '#!/bin/sh\n'
+        + 'DIR="$(cd "$(dirname "$0")" && pwd)"\n'
+        + '. "${DIR}/lib/helper.sh"\n'
+        + 'echo "TARGET=$(cat marker.txt 2>/dev/null || echo none)"\n'
+        + 'exit 5\n',
+        { mode: 0o755 }
+    );
+    execFileSync('git', ['add', '-A'], { cwd: work, env });
+    execFileSync('git', ['commit', '--quiet', '-m', 'tool'], { cwd: work, env });
+    execFileSync('git', ['clone', '--quiet', '--bare', work, remote]);
+
+    return { remote, root };
+}
+
+test('a tool tree supplies the command while the TARGET is the working directory', async () => {
+    // The allowlist is read at module load and CANNOT be widened at call time —
+    // an earlier version of this test tried to re-require the module with a
+    // wider `RUNNER_STAGE_COMMANDS` and was correctly refused. That property is
+    // the whole control, so the fixture command is declared at the top of this
+    // file with the others instead.
+    const target = makeRemote();
+    const tool = makeToolRemote();
+
+    try {
+        const result = await runStage({
+            repo: target.remote,
+            ref: 'development',
+            toolRepo: tool.remote,
+            command: ['scripts/probe.sh'],
+            timeoutMs: 120000,
+        });
+
+        // The helper resolved beside the TOOL — so the command ran out of the
+        // tool checkout, not the target.
+        assert.match(result.output, /HELPER-FOUND/);
+        // And `marker.txt` is the TARGET's file, read from the working
+        // directory — so the command gated the target.
+        assert.match(result.output, /TARGET=ON-DEVELOPMENT/);
+        // The exit code still comes back verbatim through both clones.
+        assert.strictEqual(result.exitCode, 5);
+    } finally {
+        fs.rmSync(target.root, { recursive: true, force: true });
+        fs.rmSync(tool.root, { recursive: true, force: true });
+    }
+});
+
+test('a tool tree that cannot be cloned names ITSELF in the failure', async () => {
+    const target = makeRemote();
+
+    try {
+        await assert.rejects(
+            () => runStage({
+                repo: target.remote,
+                ref: 'development',
+                toolRepo: path.join(target.root, 'no-such-tool.git'),
+                command: ['./probe.sh'],
+                timeoutMs: 120000,
+            }),
+            // Not just "clone failed": with two clones an unlabelled failure
+            // sends the operator to the wrong repository.
+            /tool repo clone failed/
+        );
+    } finally {
+        fs.rmSync(target.root, { recursive: true, force: true });
+    }
+});
+
+test('with no tool tree the command still comes from the target', async () => {
+    const { remote, root } = makeRemote();
+
+    try {
+        const result = await runStage({
+            repo: remote, ref: 'development', command: ['./probe.sh'], timeoutMs: 120000,
+        });
+
+        assert.match(result.output, /ON-DEVELOPMENT/);
+        assert.strictEqual(result.exitCode, 7);
     } finally {
         fs.rmSync(root, { recursive: true, force: true });
     }
