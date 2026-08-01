@@ -133,7 +133,7 @@ class HermiqWorkloadNodeTest extends TestCase
     {
         $node = $this->nodeReturning(['exitCode' => 18, 'output' => '18 gate(s) failed', 'ref' => 'abc123']);
 
-        $out = $node->execute([['json' => []]], $this->config(), []);
+        $out = $node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
 
         // 18, not an exception and not a boolean: hydra reads this number.
         $this->assertSame(18, $out[0]['json']['stage']['exitCode']);
@@ -154,8 +154,13 @@ class HermiqWorkloadNodeTest extends TestCase
     {
         $node = $this->nodeFailingWith(new RuntimeException('the ExApp is not running'));
 
+        // The owner is REQUIRED here, and not incidentally: `UnexpectedValueException`
+        // extends `RuntimeException` in PHP, so an unattributed config would make
+        // this test pass on the attribution refusal WITHOUT ever reaching the
+        // dispatcher — green for the opposite of the reason it claims.
         $this->expectException(RuntimeException::class);
-        $node->execute([['json' => []]], $this->config(), []);
+        $this->expectExceptionMessage('the ExApp is not running');
+        $node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
 
     }//end testADispatchFailurePropagates()
 
@@ -242,6 +247,7 @@ class HermiqWorkloadNodeTest extends TestCase
                 'repo'    => '{{issue.repo}}',
                 'ref'     => '{{issue.branch}}',
                 'command' => ['scripts/run-hydra-gates.sh', '--base', '{{base}}'],
+                'owner'   => 'ruben',
             ],
             []
         );
@@ -261,7 +267,7 @@ class HermiqWorkloadNodeTest extends TestCase
     {
         $node = $this->nodeReturning(['exitCode' => 0, 'output' => 'ok', 'ref' => 'r']);
 
-        $out = $node->execute([['json' => []]], ($this->config() + ['output' => 'gates']), []);
+        $out = $node->execute([['json' => []]], ($this->config() + ['output' => 'gates', 'owner' => 'ruben']), []);
 
         $this->assertArrayHasKey('gates', $out[0]['json']);
         $this->assertArrayNotHasKey('stage', $out[0]['json']);
@@ -280,7 +286,7 @@ class HermiqWorkloadNodeTest extends TestCase
     {
         $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-        $out = $node->execute([['json' => ['n' => 1]], ['json' => ['n' => 2]]], $this->config(), []);
+        $out = $node->execute([['json' => ['n' => 1]], ['json' => ['n' => 2]]], ($this->config() + ['owner' => 'ruben']), []);
 
         $this->assertCount(2, $out);
         $this->assertSame(0, $out[0]['pairedItem']['item']);
@@ -288,6 +294,103 @@ class HermiqWorkloadNodeTest extends TestCase
         $this->assertSame(2, $out[1]['json']['n']);
 
     }//end testEveryItemIsRunAndPaired()
+
+    /**
+     * A stage that cannot be attributed is REFUSED, before anything is dispatched.
+     *
+     * hydra's record answers "who ran this, on whose credential" out of
+     * `cycles[].owner` and `stages[].credential_owner`. A stage that cannot say
+     * costs the record that answer permanently — the run is durable, the
+     * missing attribution is not recoverable afterwards. It is also the shape a
+     * credential misuse takes: a subscription serves its owner and never a
+     * pool, so "no owner" is exactly the state in which none may be selected.
+     *
+     * @return void
+     */
+    public function testAnUnattributableStageIsRefused(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $this->expectException(UnexpectedValueException::class);
+        // No `owner` in the config AND no `triggeredBy` in the run context.
+        $node->execute([['json' => []]], $this->config(), []);
+
+    }//end testAnUnattributableStageIsRefused()
+
+    /**
+     * A blank owner is not an owner.
+     *
+     * @return void
+     */
+    public function testAWhitespaceOwnerIsRefused(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $this->expectException(UnexpectedValueException::class);
+        $node->execute([['json' => []]], ($this->config() + ['owner' => '   ']), ['triggeredBy' => '']);
+
+    }//end testAWhitespaceOwnerIsRefused()
+
+    /**
+     * The run's owner attributes the stage when the step names none.
+     *
+     * @return void
+     */
+    public function testTheRunOwnerAttributesTheStage(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $out = $node->execute([['json' => []]], $this->config(), ['triggeredBy' => 'ruben']);
+
+        $this->assertSame('ruben', $out[0]['json']['stage']['owner']);
+
+    }//end testTheRunOwnerAttributesTheStage()
+
+    /**
+     * Attribution rides ON the result, so a fan-out cannot lose it.
+     *
+     * An owner a composer has to correlate from run metadata is an owner that
+     * goes missing the first time a flow fans out over several repositories.
+     *
+     * @return void
+     */
+    public function testAttributionTravelsWithEachItemsResult(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $out = $node->execute(
+            [['json' => ['n' => 1]], ['json' => ['n' => 2]]],
+            ($this->config() + ['owner' => 'ruben', 'credentialId' => 'cred-uuid-1']),
+            []
+        );
+
+        foreach ($out as $item) {
+            $this->assertSame('ruben', $item['json']['stage']['owner']);
+            $this->assertSame('ruben', $item['json']['stage']['credential_owner']);
+            $this->assertSame('cred-uuid-1', $item['json']['stage']['credential_name']);
+        }
+
+    }//end testAttributionTravelsWithEachItemsResult()
+
+    /**
+     * With no credential, the credential fields are NULL rather than the owner.
+     *
+     * A public clone uses no credential at all, and recording one anyway would
+     * put a fact in the durable record that never happened.
+     *
+     * @return void
+     */
+    public function testNoCredentialMeansNoCredentialAttribution(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $out = $node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
+
+        $this->assertSame('ruben', $out[0]['json']['stage']['owner']);
+        $this->assertNull($out[0]['json']['stage']['credential_owner']);
+        $this->assertNull($out[0]['json']['stage']['credential_name']);
+
+    }//end testNoCredentialMeansNoCredentialAttribution()
 
     /**
      * The node identifies itself as the workload step.
