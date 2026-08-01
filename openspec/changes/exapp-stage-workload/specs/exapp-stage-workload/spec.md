@@ -119,3 +119,46 @@ ran", and both would otherwise look like a clean tick.
 - **GIVEN** a runner answering with an error object or non-JSON
 - **WHEN** the dispatcher maps it
 - **THEN** the step fails rather than reporting exit code 0
+
+### Requirement: A workload step is attributable or it does not run
+
+The step SHALL determine an owner from its own `owner` config or the run's
+triggering user, and SHALL REFUSE to dispatch when neither yields one. The
+result SHALL carry `owner`, and — only when a credential was used —
+`credential_owner` and `credential_name`; with no credential both SHALL be null
+rather than defaulted to the owner.
+
+Attribution SHALL travel on the result itself rather than beside it, so that a
+step fanned out over several repositories attributes each one.
+
+Two reasons, and the second is the security one. hydra's durable record answers
+"who ran this, on whose credential" out of `cycles[].owner` and
+`stages[].credential_owner`; a stage that cannot say costs the record that
+answer permanently, because the run is durable and the missing attribution is
+not recoverable afterwards. And an unattributed stage is the shape a credential
+misuse takes — a subscription serves its owner and never a pool, so "no owner"
+is precisely the state in which none may be selected.
+
+#### Scenario: An unattributable stage is refused before dispatch
+
+- **GIVEN** a step naming no owner, and a run recording none
+- **WHEN** the step executes
+- **THEN** it is refused, and nothing is dispatched
+
+#### Scenario: The run's owner attributes the stage
+
+- **GIVEN** a step naming no owner and a run triggered by a user
+- **WHEN** the step completes
+- **THEN** the result carries that user as its owner
+
+#### Scenario: A public clone records no credential attribution
+
+- **GIVEN** a step configured with no credential
+- **WHEN** the step completes
+- **THEN** `credential_owner` and `credential_name` are null
+
+#### Scenario: A fan-out attributes every item
+
+- **GIVEN** a step running over several items
+- **WHEN** it completes
+- **THEN** every item's result carries the attribution

@@ -198,12 +198,26 @@ class HermiqWorkloadNode implements IFlowNode
         $this->assertConfigured(config: $config);
 
         $outKey = (string) ($config['output'] ?? 'stage');
-        $uid    = (string) ($config['owner'] ?? ($context['triggeredBy'] ?? ''));
+        $owner  = trim((string) ($config['owner'] ?? ($context['triggeredBy'] ?? '')));
 
-        $owner = null;
-        if ($uid !== '') {
-            $owner = $uid;
+        // ATTRIBUTION IS MANDATORY, and refusing here is the point rather than a
+        // side effect. hydra's record answers "who ran this, on whose
+        // credential" out of `cycles[].owner` and `stages[].credential_owner`,
+        // and a stage that cannot say costs the record that answer FOREVER —
+        // the run is durable, the missing attribution is not recoverable later.
+        //
+        // An unattributed stage is also the shape a credential misuse takes: a
+        // Claude subscription serves its owner and never a pool, so "no owner"
+        // is precisely the state in which no credential may be selected. hydra's
+        // shell said this with `_owner_candidate_indices`; the flow path says it
+        // here, once, before anything is dispatched.
+        if ($owner === '') {
+            throw new UnexpectedValueException(
+                $this->l10n->t('A workload step must be attributable: it names no owner and the run records none.')
+            );
         }
+
+        $credentialId = trim((string) ($config['credentialId'] ?? ''));
 
         $out = [];
         foreach ($items as $index => $item) {
@@ -217,9 +231,29 @@ class HermiqWorkloadNode implements IFlowNode
                     array_values((array) $config['command'])
                 ),
                 uid: $owner,
-                credentialId: (string) ($config['credentialId'] ?? ''),
+                credentialId: $credentialId,
                 timeoutMs: (int) ($config['timeoutMs'] ?? 0)
             );
+
+            // The attribution travels WITH the result, not beside it. hydra's
+            // record composer reads one object per stage, and an owner it has
+            // to correlate from run metadata is an owner that goes missing the
+            // first time a flow fans out over several repositories.
+            //
+            // `credential_owner` is the run owner deliberately: the broker only
+            // resolves a credential FOR its owner, so the identity that
+            // successfully used it is the identity it belongs to. Recording
+            // anything else would be recording an assumption.
+            $credentialOwner = null;
+            $credentialName  = null;
+            if ($credentialId !== '') {
+                $credentialOwner = $owner;
+                $credentialName  = $credentialId;
+            }
+
+            $result['owner']            = $owner;
+            $result['credential_owner'] = $credentialOwner;
+            $result['credential_name']  = $credentialName;
 
             $json[$outKey] = $result;
 
