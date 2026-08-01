@@ -38,15 +38,21 @@ class HermiqFlowNodeListener implements IEventListener
     /**
      * Constructor.
      *
-     * @param HermiqAgentNode $agentNode The agent step node.
+     * @param HermiqAgentNode    $agentNode    The agent step node.
+     * @param HermiqWorkloadNode $workloadNode The workload step node.
      */
-    public function __construct(private readonly HermiqAgentNode $agentNode)
-    {
+    public function __construct(
+        private readonly HermiqAgentNode $agentNode,
+        private readonly HermiqWorkloadNode $workloadNode
+    ) {
 
     }//end __construct()
 
     /**
-     * Contribute the agent node.
+     * Contribute hermiq's nodes.
+     *
+     * Two, and they are the two things a flow cannot do for itself: run a model
+     * turn, and run a command over a checked-out tree.
      *
      * @param Event $event The dispatched event.
      *
@@ -61,6 +67,7 @@ class HermiqFlowNodeListener implements IEventListener
         }
 
         $event->registerNode(node: $this->agentNode);
+        $event->registerNode(node: $this->workloadNode);
 
     }//end handle()
 }//end class
