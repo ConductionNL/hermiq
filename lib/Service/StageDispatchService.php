@@ -150,6 +150,92 @@ class StageDispatchService
             $ceiling = $timeoutMs;
         }
 
+        $params = $this->buildParams(
+            repo: $repo,
+            ref: $ref,
+            command: $command,
+            uid: $uid,
+            credentialId: $credentialId,
+            ceiling: $ceiling,
+            toolRepo: $toolRepo,
+            toolRef: $toolRef
+        );
+
+        $result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
+            self::RUNNER_EXAPP_ID,
+            self::RUNNER_ROUTE,
+            $uid,
+            'POST',
+            $params,
+            ['timeout' => (intdiv($ceiling, 1000) + self::TRANSPORT_SLACK_SECONDS)]
+        );
+
+        // Check 1 — the never-throws failure channel. MUST precede any body read.
+        if (is_array($result) === true) {
+            $this->logger->warning(
+                '[StageDispatchService] stage dispatch failed at the AppAPI transport',
+                ['reason' => (string) ($result['error'] ?? 'unknown')]
+            );
+
+            throw new RuntimeException(
+                'The workload could not reach the "'.self::RUNNER_EXAPP_ID.'" ExApp. '
+                .'Check that the ExApp is running.'
+            );
+        }
+
+        // Check 2 — `http_errors => false`, so a 4xx/5xx is an ordinary response.
+        // The runner answers 502 when it could not carry the stage out, which is
+        // exactly the distinction this method exists to preserve: a stage that
+        // RAN and failed comes back 200 with a non-zero exit code.
+        $status = $result->getStatusCode();
+        if ($status < 200 || $status > 299) {
+            $reason = $this->reasonFrom(body: (string) $result->getBody());
+            $this->logger->warning(
+                '[StageDispatchService] the runner refused or could not run the stage',
+                [
+                    'status' => $status,
+                    'reason' => $reason,
+                ]
+            );
+
+            throw new RuntimeException('The workload could not be run: '.$reason);
+        }
+
+        // Check 3 — only now is the body a stage result.
+        return $this->mapResult(body: (string) $result->getBody());
+
+    }//end dispatch()
+
+    /**
+     * Assemble the `/stage` payload.
+     *
+     * Extracted from `dispatch()` because building the payload and interpreting
+     * the response are two different jobs, and keeping them in one method put it
+     * past the complexity gate — deservedly. The tool-tree and credential
+     * branches all belong to "what do we send"; the three load-bearing checks
+     * after the call all belong to "what came back".
+     *
+     * @param string      $repo         Clone URL of the tree the command runs OVER.
+     * @param string      $ref          The ref to check out.
+     * @param array       $command      The command and its arguments.
+     * @param string|null $uid          The acting user's UID.
+     * @param string      $credentialId Broker credential, or '' for a public repo.
+     * @param int         $ceiling      Stage timeout in milliseconds.
+     * @param string      $toolRepo     Tool tree URL, or ''.
+     * @param string      $toolRef      Tool tree ref, or ''.
+     *
+     * @return array The request payload.
+     */
+    private function buildParams(
+        string $repo,
+        string $ref,
+        array $command,
+        ?string $uid,
+        string $credentialId,
+        int $ceiling,
+        string $toolRepo,
+        string $toolRef
+    ): array {
         $params = [
             'repo'      => $repo,
             'ref'       => $ref,
@@ -229,50 +315,9 @@ class StageDispatchService
             }
         }//end if
 
-        $result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
-            self::RUNNER_EXAPP_ID,
-            self::RUNNER_ROUTE,
-            $uid,
-            'POST',
-            $params,
-            ['timeout' => (intdiv($ceiling, 1000) + self::TRANSPORT_SLACK_SECONDS)]
-        );
+        return $params;
 
-        // Check 1 — the never-throws failure channel. MUST precede any body read.
-        if (is_array($result) === true) {
-            $this->logger->warning(
-                '[StageDispatchService] stage dispatch failed at the AppAPI transport',
-                ['reason' => (string) ($result['error'] ?? 'unknown')]
-            );
-
-            throw new RuntimeException(
-                'The workload could not reach the "'.self::RUNNER_EXAPP_ID.'" ExApp. '
-                .'Check that the ExApp is running.'
-            );
-        }
-
-        // Check 2 — `http_errors => false`, so a 4xx/5xx is an ordinary response.
-        // The runner answers 502 when it could not carry the stage out, which is
-        // exactly the distinction this method exists to preserve: a stage that
-        // RAN and failed comes back 200 with a non-zero exit code.
-        $status = $result->getStatusCode();
-        if ($status < 200 || $status > 299) {
-            $reason = $this->reasonFrom(body: (string) $result->getBody());
-            $this->logger->warning(
-                '[StageDispatchService] the runner refused or could not run the stage',
-                [
-                    'status' => $status,
-                    'reason' => $reason,
-                ]
-            );
-
-            throw new RuntimeException('The workload could not be run: '.$reason);
-        }
-
-        // Check 3 — only now is the body a stage result.
-        return $this->mapResult(body: (string) $result->getBody());
-
-    }//end dispatch()
+    }//end buildParams()
 
     /**
      * Fetch a tool tree as a base64 archive through the broker.
