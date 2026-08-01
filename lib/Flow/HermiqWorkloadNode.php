@@ -232,7 +232,15 @@ class HermiqWorkloadNode implements IFlowNode
                 ),
                 uid: $owner,
                 credentialId: $credentialId,
-                timeoutMs: (int) ($config['timeoutMs'] ?? 0)
+                timeoutMs: (int) ($config['timeoutMs'] ?? 0),
+                // The tool tree, when the command does not live in the tree it
+                // runs over. hydra's gate runner is that case: it takes the app
+                // to gate as an argument and finds its own helpers beside
+                // itself, so gating an app needs hydra's scripts AND the app's
+                // tree. The alternative is every app vendoring 3,599 lines of
+                // gate runner, which would drift the day after it was copied.
+                toolRepo: $this->render(template: (string) ($config['toolRepo'] ?? ''), json: $json),
+                toolRef: $this->render(template: (string) ($config['toolRef'] ?? ''), json: $json)
             );
 
             // The attribution travels WITH the result, not beside it. hydra's

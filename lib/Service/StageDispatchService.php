@@ -112,12 +112,18 @@ class StageDispatchService
      *      load-bearing order — array, then status, then shape. Any other order
      *      reads an error string as a stage result.
      *
-     * @param string      $repo         Clone URL.
+     * @param string      $repo         Clone URL of the tree the command runs OVER.
      * @param string      $ref          The ref to check out.
      * @param array       $command      The command and its arguments.
      * @param string|null $uid          The acting user's UID.
      * @param string      $credentialId Broker credential for the clone, or '' for a public repo.
      * @param int         $timeoutMs    Ceiling for the stage; 0 for the default.
+     * @param string      $toolRepo     Clone URL of the tree the COMMAND comes from, when it is
+     *                                  not the target. hydra's gate runner is the case this
+     *                                  exists for: it takes the tree it gates as an argument and
+     *                                  resolves its own helpers out of its own checkout, so
+     *                                  gating an app needs both trees at once.
+     * @param string      $toolRef      Ref for the tool tree; its default branch when empty.
      *
      * @return array{exitCode: int, output: string, ref: string} The stage result.
      *
@@ -135,7 +141,9 @@ class StageDispatchService
         array $command,
         ?string $uid=null,
         string $credentialId='',
-        int $timeoutMs=0
+        int $timeoutMs=0,
+        string $toolRepo='',
+        string $toolRef=''
     ): array {
         $ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
         if ($timeoutMs > 0) {
@@ -148,6 +156,13 @@ class StageDispatchService
             'command'   => array_values($command),
             'timeoutMs' => $ceiling,
         ];
+
+        if ($toolRepo !== '') {
+            $params['toolRepo'] = $toolRepo;
+            if ($toolRef !== '') {
+                $params['toolRef'] = $toolRef;
+            }
+        }
 
         if ($credentialId !== '') {
             // The token reaches the runner in the payload and the runner puts it

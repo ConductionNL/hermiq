@@ -123,6 +123,72 @@ function lastLines(output, lines = 3) {
 }
 
 /**
+ * Clone a repository at a ref into a directory.
+ *
+ * Shared by the target tree and the tool tree so both get the same treatment —
+ * notably the remote-only-ref fallback, which is the kind of thing that gets
+ * fixed in one caller and not the other.
+ *
+ * @param {object} args `{url, ref, into, scratch, env, deadline, label}`.
+ * @returns {Promise<void>} Resolves when the tree is checked out.
+ */
+async function cloneAt({ url, ref, into, scratch, env, deadline, label }) {
+    // NOT a shallow clone. The gates diff against a base, and with no history
+    // `--scope-to-diff` sees an empty change set and reports zero failures —
+    // indistinguishable from a clean run. Depth is the one economy not worth
+    // making.
+    const clone = await spawnCollect('git', ['clone', '--no-tags', url, into], {
+        cwd: scratch,
+        env,
+        timeoutMs: deadline,
+    });
+
+    if (clone.code !== 0) {
+        // Carry git's OWN words. `clone failed (exit 128)` names the one thing
+        // the caller already knows and withholds the only thing that identifies
+        // the cause — a missing credential, a blocked host and a bad ref all
+        // exit 128 and are indistinguishable without this.
+        //
+        // Bounded, and the token is never in this output: it reaches git
+        // through GIT_ASKPASS, so git echoes a username at most.
+        throw new Error(`${label} clone failed (exit ${clone.code}): ${lastLines(clone.output)}`);
+    }
+
+    if (ref === 'HEAD') {
+        return;
+    }
+
+    // A branch name that exists only on the remote does NOT resolve for
+    // `--detach`: after a clone, `development` is `origin/development` and only
+    // the default branch has a local head. Measured — the first version of this
+    // failed `checkout --detach development` on a repo whose default branch is
+    // `main`, with an error that read exactly like a bad ref.
+    //
+    // A sha or tag resolves directly, so try the ref as given first and fall
+    // back to the remote-tracking name rather than assuming either.
+    let checkout = await spawnCollect('git', ['checkout', '--detach', ref], {
+        cwd: into,
+        env,
+        timeoutMs: deadline,
+    });
+
+    if (checkout.code !== 0) {
+        checkout = await spawnCollect('git', ['checkout', '--detach', `origin/${ref}`], {
+            cwd: into,
+            env,
+            timeoutMs: deadline,
+        });
+    }
+
+    if (checkout.code !== 0) {
+        throw new Error(
+            `${label} checkout of "${ref}" failed (exit ${checkout.code}) — tried "${ref}" `
+            + `and "origin/${ref}": ${lastLines(checkout.output)}`
+        );
+    }
+}
+
+/**
  * Whether a command is one this runner will execute.
  *
  * @param {Array<string>} argv The command and its arguments.
@@ -201,16 +267,20 @@ function spawnCollect(bin, args, { cwd, env, timeoutMs }) {
  * convention into the transport.
  *
  * @param {object} args Stage arguments.
- * @param {string} args.repo Clone URL, e.g. `https://github.com/owner/name`.
+ * @param {string} args.repo Clone URL of the tree the command runs OVER.
  * @param {string} args.ref The ref to check out.
- * @param {Array<string>} args.command The command and arguments, relative to the clone.
- * @param {string} [args.forgeToken] Token for the clone. Reaches git via GIT_ASKPASS only.
+ * @param {Array<string>} args.command The command and arguments.
+ * @param {string} [args.toolRepo] Clone URL of the tree the COMMAND comes from, when it is
+ *                                 not the target — hydra's gate runner is the case this
+ *                                 exists for. Omit and the command comes from the target.
+ * @param {string} [args.toolRef] Ref for the tool tree; its default branch when omitted.
+ * @param {string} [args.forgeToken] Token for the clones. Reaches git via GIT_ASKPASS only.
  * @param {string} [args.forgeUser] Username half of the clone URL. Not a secret.
  * @param {number} [args.timeoutMs] Overall ceiling.
  * @param {object} [args.env] Extra non-secret env for the command.
  * @returns {Promise<{exitCode: number, output: string, ref: string}>} The result.
  */
-async function runStage({ repo, ref, command, forgeToken, forgeUser, timeoutMs, env }) {
+async function runStage({ repo, ref, command, toolRepo, toolRef, forgeToken, forgeUser, timeoutMs, env }) {
     if (typeof repo !== 'string' || repo === '') {
         throw new Error('a stage needs a repo');
     }
@@ -256,62 +326,66 @@ async function runStage({ repo, ref, command, forgeToken, forgeUser, timeoutMs, 
             childEnv.GIT_ASKPASS = writeAskpass(scratch);
         }
 
-        // A shallow clone would be faster and is WRONG here: the gates diff
-        // against a base, and with no history `--scope-to-diff` sees an empty
-        // change set and reports zero failures — indistinguishable from a clean
-        // run. Depth is the one economy not worth making.
         const cloneUrl = (typeof forgeUser === 'string' && forgeUser !== '')
             ? repo.replace('://', `://${forgeUser}@`)
             : repo;
 
-        const clone = await spawnCollect(
-            'git',
-            ['clone', '--no-tags', cloneUrl, workdir],
-            { cwd: scratch, env: childEnv, timeoutMs: deadline }
-        );
+        await cloneAt({
+            url: cloneUrl,
+            ref,
+            into: workdir,
+            scratch,
+            env: childEnv,
+            deadline,
+            label: 'repo',
+        });
 
-        if (clone.code !== 0) {
-            // Carry git's OWN words. `clone failed (exit 128)` names the one
-            // thing the caller already knows and withholds the only thing that
-            // identifies the cause — a missing credential, a blocked host and a
-            // bad ref all exit 128 and are indistinguishable without this.
-            //
-            // Bounded, and the token is never in this output: it reaches git
-            // through GIT_ASKPASS, so git echoes a username at most.
-            throw new Error(`clone failed (exit ${clone.code}): ${lastLines(clone.output)}`);
-        }
-
-        // A branch name that exists only on the remote does NOT resolve for
-        // `--detach`: after a clone, `development` is `origin/development` and
-        // only the default branch has a local head. Measured — the first
-        // version of this failed `checkout --detach development` on a repo
-        // whose default branch is `main`.
+        // THE TOOL TREE — why a stage may need TWO clones.
         //
-        // A sha or tag resolves directly, so try the ref as given first and
-        // fall back to the remote-tracking name rather than assuming either.
-        let checkout = await spawnCollect(
-            'git',
-            ['checkout', '--detach', ref],
-            { cwd: workdir, env: childEnv, timeoutMs: deadline }
-        );
+        // hydra's gate runner takes the tree it gates as an argument and
+        // resolves its own 20 python helpers relative to `BASH_SOURCE`, i.e.
+        // out of hydra's `scripts/lib`. So gating an app needs hydra's scripts
+        // AND the app's tree at once, and a stage that clones one repo and runs
+        // a command from inside it can express only half of that.
+        //
+        // Measured against `run-hydra-gates.sh`: `APP_DIR` defaults to `pwd`,
+        // so cloning the tool tree separately and running its command with the
+        // TARGET as the working directory gates the target with the tool's
+        // helpers — no argument juggling, and the default does the right thing.
+        //
+        // Without this the only workable arrangement is every target repo
+        // vendoring a copy of the gate runner, which is 3,599 lines duplicated
+        // per app and guaranteed to drift.
+        let commandRoot = workdir;
+        if (typeof toolRepo === 'string' && toolRepo !== '') {
+            commandRoot = path.join(scratch, 'tool');
+            const toolUrl = (typeof forgeUser === 'string' && forgeUser !== '')
+                ? toolRepo.replace('://', `://${forgeUser}@`)
+                : toolRepo;
 
-        if (checkout.code !== 0) {
-            checkout = await spawnCollect(
-                'git',
-                ['checkout', '--detach', `origin/${ref}`],
-                { cwd: workdir, env: childEnv, timeoutMs: deadline }
-            );
-        }
-
-        if (checkout.code !== 0) {
-            throw new Error(
-                `checkout of "${ref}" failed (exit ${checkout.code}) — tried "${ref}" and `
-                + `"origin/${ref}": ${lastLines(checkout.output)}`
-            );
+            await cloneAt({
+                url: toolUrl,
+                ref: (typeof toolRef === 'string' && toolRef !== '' ? toolRef : 'HEAD'),
+                into: commandRoot,
+                scratch,
+                env: childEnv,
+                deadline,
+                label: 'tool repo',
+            });
         }
 
         const [bin, ...rest] = command;
-        const result = await spawnCollect(bin, rest, { cwd: workdir, env: childEnv, timeoutMs: deadline });
+
+        // The command is resolved inside the TOOL tree when there is one, and
+        // runs with the TARGET as its working directory. A bare name (`sh`)
+        // stays a PATH lookup — only a repo-relative path is rebased, which is
+        // what the allowlist admits anyway.
+        const executable = (bin.includes('/') === true ? path.join(commandRoot, bin) : bin);
+        const result = await spawnCollect(executable, rest, {
+            cwd: workdir,
+            env: childEnv,
+            timeoutMs: deadline,
+        });
 
         return { exitCode: result.code, output: result.output, ref };
     } finally {
