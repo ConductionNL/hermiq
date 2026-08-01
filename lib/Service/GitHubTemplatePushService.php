@@ -497,40 +497,12 @@ class GitHubTemplatePushService
         );
         $baseTreeSha = (string) ($baseCommit['tree']['sha'] ?? '');
 
-        $treeEntries = [];
-        foreach ($files as $path => $contents) {
-            $path = (string) $path;
-            if ($path === '' || $this->isSafeRepoPath(path: $path) === false) {
-                $this->logger->warning('Hermiq bundle publish: skipped unsafe path.', ['path' => $path]);
-                continue;
-            }
-
-            $blob    = $this->postJson(
-                path: $base.'/git/blobs',
-                body: ['content' => base64_encode((string) $contents), 'encoding' => 'base64'],
-                credentialId: $credentialId,
-                actingUserId: $actingUserId
-            );
-            $blobSha = (string) ($blob['sha'] ?? '');
-
-            // A blob whose sha did not come back MUST NOT reach the tree. GitHub
-            // rejects the WHOLE create-tree request with a 422 for one bad entry,
-            // so a single silently-empty sha discards every other blob uploaded in
-            // this run — hundreds of successful uploads lost to an error message
-            // that names no file. Failing here names the path instead.
-            if ($blobSha === '') {
-                throw new RuntimeException(
-                    'GitHub bundle publish: blob upload returned no sha for "'.$path.'".'
-                );
-            }
-
-            $treeEntries[] = [
-                'path' => $path,
-                'mode' => '100644',
-                'type' => 'blob',
-                'sha'  => $blobSha,
-            ];
-        }//end foreach
+        $treeEntries = $this->uploadBlobs(
+            base: $base,
+            files: $files,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
 
         if ($treeEntries === []) {
             throw new RuntimeException('GitHub bundle publish: no publishable entries after path validation.');
@@ -572,6 +544,60 @@ class GitHubTemplatePushService
         return $commitSha;
 
     }//end commitTree()
+
+    /**
+     * Upload every file as a blob and return the resulting tree entries.
+     *
+     * @param string               $base         The `/repos/{owner}/{repo}` API base.
+     * @param array<string,string> $files        The `path => contents` map.
+     * @param string               $credentialId Broker credential UUID.
+     * @param string|null          $actingUserId Credential owner.
+     *
+     * @return array<int,array<string,string>> The tree entries.
+     *
+     * @throws RuntimeException When a blob upload returns no sha.
+     */
+    private function uploadBlobs(string $base, array $files, string $credentialId, ?string $actingUserId): array
+    {
+        $treeEntries = [];
+
+        foreach ($files as $path => $contents) {
+            $path = (string) $path;
+            if ($path === '' || $this->isSafeRepoPath(path: $path) === false) {
+                $this->logger->warning('Hermiq bundle publish: skipped unsafe path.', ['path' => $path]);
+                continue;
+            }
+
+            $blob    = $this->postJson(
+                path: $base.'/git/blobs',
+                body: ['content' => base64_encode((string) $contents), 'encoding' => 'base64'],
+                credentialId: $credentialId,
+                actingUserId: $actingUserId
+            );
+            $blobSha = (string) ($blob['sha'] ?? '');
+
+            // A blob whose sha did not come back MUST NOT reach the tree. GitHub
+            // rejects the WHOLE create-tree request with a 422 for one bad entry,
+            // so a single silently-empty sha discards every other blob uploaded in
+            // this run — hundreds of successful uploads lost to an error message
+            // that names no file. Failing here names the path instead.
+            if ($blobSha === '') {
+                throw new RuntimeException(
+                    'GitHub bundle publish: blob upload returned no sha for "'.$path.'".'
+                );
+            }
+
+            $treeEntries[] = [
+                'path' => $path,
+                'mode' => '100644',
+                'type' => 'blob',
+                'sha'  => $blobSha,
+            ];
+        }//end foreach
+
+        return $treeEntries;
+
+    }//end uploadBlobs()
 
     /**
      * Fail fast when the target repository already exists.
