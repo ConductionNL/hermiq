@@ -118,14 +118,24 @@ class SkillMarketplaceService
      * @param string $package   The agentskills.io package.
      * @param string $source    The source (`org`|`hub`).
      * @param string $createdBy The installing user id.
+     * @param array  $auxFiles  Auxiliary `{name, content}` files travelling with the
+     *                          package. Their content is part of the scanned material;
+     *                          unsafe paths are dropped rather than failing the install.
      *
      * @return ObjectEntity The quarantined Skill object.
      *
      * @spec openspec/changes/skills-marketplace/tasks.md#2-skillmarketplaceservice
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
      */
-    public function installFromSource(string $package, string $source, string $createdBy): ObjectEntity
-    {
-        $parsed = $this->skillSerializer->fromPackage(package: $package);
+    public function installFromSource(
+        string $package,
+        string $source,
+        string $createdBy,
+        array $auxFiles=[]
+    ): ObjectEntity {
+        $parsed = $this->skillSerializer->fromPackageFiles(
+            files: $this->skillSerializer->toDirectoryMap(package: $package, auxFiles: $auxFiles)
+        );
 
         $name = $parsed['name'];
         if ($name === '') {
@@ -135,7 +145,16 @@ class SkillMarketplaceService
         // Heuristically scan the skill body + frontmatter for dangerous patterns before it is
         // ever stored as trusted content. The verdict is recorded; a 'dangerous' verdict is
         // surfaced in the quarantine reason and later blocks one-click approval.
-        $scan   = $this->scanContent(body: (string) $parsed['body'], frontmatter: $parsed['frontmatter']);
+        //
+        // Auxiliary files are scanned as part of the SAME material: a body that says "follow
+        // the checklist in references/steps.md" turns that file's content into agent
+        // instructions, so scanning only the body would let a dangerous payload evade this
+        // gate by moving into an auxiliary file.
+        $scan   = $this->scanContent(
+            body: (string) $parsed['body'],
+            frontmatter: $parsed['frontmatter'],
+            files: $parsed['files']
+        );
         $reason = $this->quarantineReasonFor(source: $source, scan: $scan);
 
         return $this->objectService->saveObject(
@@ -144,7 +163,7 @@ class SkillMarketplaceService
                 'description'      => $parsed['description'],
                 'frontmatter'      => $parsed['frontmatter'],
                 'body'             => $parsed['body'],
-                'files'            => [],
+                'files'            => $parsed['files'],
                 'state'            => 'quarantined',
                 'source'           => $source,
                 'quarantineReason' => $reason,
@@ -411,12 +430,22 @@ class SkillMarketplaceService
      * decoded array elsewhere; a string is scanned inline with the body, an array is folded in
      * as structured metadata.
      *
+     * Auxiliary files are scanned as part of the same material (skill-package-multifile).
+     * An auxiliary file referenced by the body becomes agent instruction material, so
+     * excluding it would let a dangerous payload bypass this gate simply by moving out
+     * of `body` and into `references/`.
+     *
      * @param string $body        The skill body (markdown/instructions).
      * @param mixed  $frontmatter The skill frontmatter (raw YAML string or decoded array).
+     * @param array  $files       Accepted auxiliary `{name, content}` files. Typed
+     *                            loosely because the shape originates from request
+     *                            input and is asserted at runtime.
      *
      * @return array<string, mixed> The scan report { severity, safe, findings, scannedAt, … }.
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-quarantine-security-scan-on-install
      */
-    private function scanContent(string $body, mixed $frontmatter): array
+    private function scanContent(string $body, mixed $frontmatter, array $files=[]): array
     {
         $content  = $body;
         $metadata = [];
@@ -424,6 +453,14 @@ class SkillMarketplaceService
             $metadata = $frontmatter;
         } else if (is_string($frontmatter) === true && $frontmatter !== '') {
             $content .= "\n".$frontmatter;
+        }
+
+        foreach ($files as $file) {
+            if (is_array($file) === false) {
+                continue;
+            }
+
+            $content .= "\n".((string) ($file['content'] ?? ''));
         }
 
         $report = $this->contentScanService->scan(content: $content, metadata: $metadata);

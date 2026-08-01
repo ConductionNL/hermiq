@@ -40,8 +40,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
- * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
 
 declare(strict_types=1);
@@ -58,11 +58,15 @@ use Throwable;
 /**
  * Fixed-host, SSRF-safe GitHub catalogue source with optional broker upgrade.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same rationale as the complexity
+ *   suppression below: the SSRF-safe fixed-host invariant is only meaningful if
+ *   every outbound call lives behind it, so splitting the read-path across classes
+ *   would weaken the guarantee it exists to hold.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) One class owns the whole
  *   catalogue read-path (search, card build, package fetch, brokered vs anonymous
  *   GET, caching) so the SSRF-safe fixed-host invariant stays in a single place.
  *
- * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
  */
 class GitHubTemplateCatalogService
 {
@@ -112,6 +116,54 @@ class GitHubTemplateCatalogService
         self::KIND_AGENT_TEMPLATE => 'hermiq-agent-template.json',
         self::KIND_SKILL          => 'hermiq-skill.md',
     ];
+
+    /**
+     * Maximum auxiliary blobs fetched for one install (skill-package-multifile).
+     *
+     * Sized above the largest real skill observed in the hydra set (`create-pr`,
+     * 63 files) with headroom, while still bounding a hostile repository's ability
+     * to turn one install into an unbounded fan-out of contents-API calls.
+     *
+     * @var int
+     */
+    private const MAX_AUX_FILES = 128;
+
+    /**
+     * Maximum total auxiliary bytes fetched for one install.
+     *
+     * @var int
+     */
+    private const MAX_AUX_BYTES = 4194304;
+
+    /**
+     * The bundle manifest at a bundle repository's root (skill-bundle-publish).
+     * Its presence is what makes a repository a bundle.
+     *
+     * @var string
+     */
+    public const BUNDLE_MANIFEST_FILE = 'hermiq-skills.json';
+
+    /**
+     * The directory bundled skills live under.
+     *
+     * @var string
+     */
+    public const BUNDLE_SKILLS_PREFIX = 'skills/';
+
+    /**
+     * Maximum total bytes fetched for one bundle install (design.md §Security 3).
+     *
+     * @var int
+     */
+    private const MAX_BUNDLE_BYTES = 16777216;
+
+    /**
+     * Maximum blobs fetched under `skills/` for one bundle install — 64 skills
+     * (SkillBundleSerializer::MAX_SKILLS) times a generous per-skill file count.
+     *
+     * @var int
+     */
+    private const MAX_SKILLS_BLOBS = 4096;
 
     /**
      * The credential-broker service FQCN (resolved lazily; may be absent).
@@ -222,7 +274,7 @@ class GitHubTemplateCatalogService
      *
      * @return bool
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
      */
     public function isBrokerAvailable(): bool
     {
@@ -251,9 +303,9 @@ class GitHubTemplateCatalogService
      *   degradation and card filtering are the spec's own outcome branches, kept in
      *   one linear search path.
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
-     * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
      */
     public function search(?string $query, ?string $actingUserId, ?string $credentialId=null, string $kind=self::KIND_AGENT_TEMPLATE): array
     {
@@ -333,8 +385,8 @@ class GitHubTemplateCatalogService
      *
      * @return string|null The raw package JSON string, or null when missing/unreadable/invalid.
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
      */
     public function fetchTemplateFile(
         string $owner,
@@ -371,9 +423,9 @@ class GitHubTemplateCatalogService
      *
      * @return string|null The raw package string, or null when missing/unreadable/invalid.
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
-     * @spec openspec/changes/hermiq-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-skill-through-the-skill-quarantine-gate
      */
     public function fetchPackageFile(
         string $kind,
@@ -396,6 +448,297 @@ class GitHubTemplateCatalogService
             credentialId: $credentialId
         );
     }//end fetchPackageFile()
+
+    /**
+     * Fetch a published skill repo's AUXILIARY files — every blob in the repo tree
+     * except the package file itself (skill-package-multifile).
+     *
+     * `publish()` commits auxiliary files as sibling blobs at their own (possibly
+     * nested) paths, but `fetchPackageFile()` only ever retrieved the single package
+     * file. Installing from GitHub therefore reconstructed a bare SKILL.md and
+     * silently dropped every `references/`, `examples/` and `learnings.md` entry — a
+     * lossy round trip through the very path the app-repo store depends on.
+     *
+     * Bounded on purpose: at most MAX_AUX_FILES blobs and MAX_AUX_BYTES total, so a
+     * hostile or accidentally enormous repository cannot turn one install into an
+     * unbounded fan-out of API calls. Truncation is logged rather than silent.
+     *
+     * @param string      $kind         The publish kind (KIND_SKILL|KIND_AGENT_TEMPLATE).
+     * @param string      $owner        Repo owner.
+     * @param string      $repo         Repo name.
+     * @param string|null $ref          Optional git ref.
+     * @param string|null $actingUserId The session UID (broker identity), or null.
+     * @param string|null $credentialId Optional allowed `github` credential.
+     *
+     * @return array<int, array{name: string, content: string}> The auxiliary files.
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+     */
+    public function fetchAuxFiles(
+        string $kind,
+        string $owner,
+        string $repo,
+        ?string $ref,
+        ?string $actingUserId,
+        ?string $credentialId=null
+    ): array {
+        $packageFile = $this->packageFileFor(kind: $kind);
+
+        $collected = $this->collectTreeBlobs(
+            owner: $owner,
+            repo: $repo,
+            ref: $ref,
+            actingUserId: $actingUserId,
+            credentialId: $credentialId,
+            accept: static function (string $path) use ($packageFile): bool {
+                return ($path !== $packageFile);
+            },
+            maxFiles: self::MAX_AUX_FILES,
+            maxBytes: self::MAX_AUX_BYTES
+        );
+
+        if ($collected['truncated'] === true) {
+            $this->logger->warning(
+                'Hermiq skill install: auxiliary file set truncated — the installed skill is INCOMPLETE.',
+                ['owner' => $owner, 'repo' => $repo, 'limit' => self::MAX_AUX_FILES]
+            );
+        }
+
+        $files = [];
+        foreach ($collected['files'] as $path => $contents) {
+            $files[] = [
+                'name'    => $path,
+                'content' => $contents,
+            ];
+        }
+
+        return $files;
+
+    }//end fetchAuxFiles()
+
+    /**
+     * Walk a repository tree ONCE and fetch the blobs an `accept` predicate keeps.
+     *
+     * Extracted because fetchAuxFiles() and fetchBundle() were the same tree-walk
+     * with different filters. Two copies of the bounds, the blob loop and the
+     * truncation accounting is two places for those to drift apart — and the
+     * bounds are a resource-amplification guard, so drift there matters.
+     *
+     * @param string      $owner        Repo owner.
+     * @param string      $repo         Repo name.
+     * @param string|null $ref          Optional git ref.
+     * @param string|null $actingUserId The session UID (broker identity), or null.
+     * @param string|null $credentialId Optional allowed `github` credential.
+     * @param callable    $accept       Predicate deciding whether a blob path is wanted.
+     * @param int         $maxFiles     Maximum blobs to fetch.
+     * @param int         $maxBytes     Maximum total bytes to fetch.
+     *
+     * @return array{files:array<string,string>,truncated:bool} The collected blobs.
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Repo coordinates + broker identity
+     *   + the two bounds; each is a distinct input, not a logic-bearing argument list.
+     */
+    private function collectTreeBlobs(
+        string $owner,
+        string $repo,
+        ?string $ref,
+        ?string $actingUserId,
+        ?string $credentialId,
+        callable $accept,
+        int $maxFiles,
+        int $maxBytes
+    ): array {
+        $empty = ['files' => [], 'truncated' => false];
+
+        $tree = $this->fetchTree(
+            owner: $owner,
+            repo: $repo,
+            ref: $ref,
+            actingUserId: $actingUserId,
+            credentialId: $credentialId
+        );
+        if ($tree === null) {
+            return $empty;
+        }
+
+        $files     = [];
+        $bytes     = 0;
+        $truncated = false;
+
+        foreach ($tree as $entry) {
+            $path = $this->blobPathOf(entry: $entry);
+            if ($path === null || $accept($path) === false) {
+                continue;
+            }
+
+            if (count($files) >= $maxFiles || $bytes >= $maxBytes) {
+                $truncated = true;
+                continue;
+            }
+
+            $contents = $this->fetchFileContents(
+                owner: $owner,
+                repo: $repo,
+                path: $path,
+                ref: $ref,
+                actingUserId: $actingUserId,
+                credentialId: $credentialId
+            );
+            if ($contents === null) {
+                continue;
+            }
+
+            $bytes       += strlen($contents);
+            $files[$path] = $contents;
+        }//end foreach
+
+        return ['files' => $files, 'truncated' => $truncated];
+
+    }//end collectTreeBlobs()
+
+    /**
+     * Fetch a repository's recursive git tree.
+     *
+     * @param string      $owner        Repo owner.
+     * @param string      $repo         Repo name.
+     * @param string|null $ref          Optional git ref.
+     * @param string|null $actingUserId The session UID, or null.
+     * @param string|null $credentialId Optional allowed `github` credential.
+     *
+     * @return array<int,mixed>|null The tree entries, or null when unreachable.
+     */
+    private function fetchTree(
+        string $owner,
+        string $repo,
+        ?string $ref,
+        ?string $actingUserId,
+        ?string $credentialId
+    ): ?array {
+        if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
+            return null;
+        }
+
+        $treeRef = ($ref ?? '');
+        if ($treeRef === '') {
+            $treeRef = 'HEAD';
+        }
+
+        $result = $this->get(
+            path: '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo)
+                .'/git/trees/'.rawurlencode($treeRef).'?recursive=1',
+            actingUserId: $actingUserId,
+            credentialId: $credentialId
+        );
+        if ($result['ok'] === false) {
+            return null;
+        }
+
+        $decoded = json_decode($result['body'], true);
+        if (is_array($decoded) === false || is_array($decoded['tree'] ?? null) === false) {
+            return null;
+        }
+
+        return $decoded['tree'];
+
+    }//end fetchTree()
+
+    /**
+     * The path of a tree entry when it is a usable blob, else null.
+     *
+     * @param mixed $entry A raw git-tree entry.
+     *
+     * @return string|null The blob path, or null when the entry is not a blob.
+     */
+    private function blobPathOf(mixed $entry): ?string
+    {
+        if (is_array($entry) === false || (string) ($entry['type'] ?? '') !== 'blob') {
+            return null;
+        }
+
+        $path = (string) ($entry['path'] ?? '');
+        if ($path === '') {
+            return null;
+        }
+
+        return $path;
+
+    }//end blobPathOf()
+
+    /**
+     * Fetch a BUNDLE repository as a `path => contents` map (skill-bundle-publish).
+     *
+     * A bundle is identified by `hermiq-skills.json` at the repo root. Its ABSENCE
+     * is a definitive "not a bundle" (null), never a best-effort parse — a repo
+     * that half-reads as a bundle is worse than one that refuses, because the
+     * caller would install a partial skill set believing it complete.
+     *
+     * Only the manifest and blobs under `skills/` are fetched; anything else in
+     * the repository is ignored, so a bundle can live alongside other content.
+     * Bounded by MAX_BUNDLE_BYTES with truncation reported rather than silent.
+     *
+     * @param string      $owner        Repo owner.
+     * @param string      $repo         Repo name.
+     * @param string|null $ref          Optional git ref.
+     * @param string|null $actingUserId The session UID (broker identity), or null.
+     * @param string|null $credentialId Optional allowed `github` credential.
+     *
+     * @return array{files:array<string,string>,truncated:bool}|null The bundle tree,
+     *         or null when the repo is not a bundle / unreachable.
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function fetchBundle(
+        string $owner,
+        string $repo,
+        ?string $ref,
+        ?string $actingUserId,
+        ?string $credentialId=null
+    ): ?array {
+        if ($this->validRepo(owner: $owner, repo: $repo, ref: $ref) === false) {
+            return null;
+        }
+
+        $manifest = $this->fetchFileContents(
+            owner: $owner,
+            repo: $repo,
+            path: self::BUNDLE_MANIFEST_FILE,
+            ref: $ref,
+            actingUserId: $actingUserId,
+            credentialId: $credentialId
+        );
+        if ($manifest === null) {
+            return null;
+        }
+
+        // Only blobs under `skills/` are wanted; anything else in the repository is
+        // ignored, so a bundle can live alongside unrelated content. The manifest's
+        // own bytes count against the bound because it is part of what was fetched.
+        $collected = $this->collectTreeBlobs(
+            owner: $owner,
+            repo: $repo,
+            ref: $ref,
+            actingUserId: $actingUserId,
+            credentialId: $credentialId,
+            accept: static function (string $path): bool {
+                return str_starts_with($path, self::BUNDLE_SKILLS_PREFIX);
+            },
+            maxFiles: self::MAX_SKILLS_BLOBS,
+            maxBytes: (self::MAX_BUNDLE_BYTES - strlen($manifest))
+        );
+
+        if ($collected['truncated'] === true) {
+            $this->logger->warning(
+                'Hermiq bundle fetch: truncated at the bound — the installed set is INCOMPLETE.',
+                ['owner' => $owner, 'repo' => $repo, 'limitBytes' => self::MAX_BUNDLE_BYTES]
+            );
+        }
+
+        return [
+            'files'     => array_merge([self::BUNDLE_MANIFEST_FILE => $manifest], $collected['files']),
+            'truncated' => $collected['truncated'],
+        ];
+
+    }//end fetchBundle()
 
     /**
      * Build a card from a search hit's package file (non-installable when the
@@ -670,7 +1013,7 @@ class GitHubTemplateCatalogService
      *
      * @return bool
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
      */
     public function validRepo(string $owner, string $repo, ?string $ref): bool
     {

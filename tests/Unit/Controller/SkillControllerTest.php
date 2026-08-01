@@ -31,7 +31,10 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\SkillController;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SkillBundleSerializer;
 use OCA\Hermiq\Service\SkillMarketplaceService;
+use OCA\Hermiq\Service\SkillSerializer;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;
@@ -52,15 +55,16 @@ class SkillControllerTest extends TestCase
     /**
      * A Skill ObjectEntity in the given state.
      *
-     * @param string $state The skill lifecycle state.
+     * @param string               $state    The skill lifecycle state.
+     * @param array<string, mixed> $overrides Payload fields to override/add.
      *
      * @return ObjectEntity
      */
-    private function skill(string $state='quarantined'): ObjectEntity
+    private function skill(string $state='quarantined', array $overrides=[]): ObjectEntity
     {
         $entity = new ObjectEntity();
         $entity->setUuid('skill-1');
-        $entity->setObject(['name' => 'Example skill', 'state' => $state]);
+        $entity->setObject(array_merge(['name' => 'Example skill', 'state' => $state], $overrides));
         return $entity;
 
     }//end skill()
@@ -122,7 +126,9 @@ class SkillControllerTest extends TestCase
         ?IRequest $request=null,
         ?SkillService $skillService=null,
         ?GitHubTemplateCatalogService $catalog=null,
-        ?SkillMarketplaceService $marketplace=null
+        ?SkillMarketplaceService $marketplace=null,
+        ?SkillBundleSerializer $bundle=null,
+        ?GitHubTemplatePushService $push=null
     ): SkillController {
         return new SkillController(
             ($request ?? $this->request()),
@@ -130,7 +136,11 @@ class SkillControllerTest extends TestCase
             $session,
             $this->createMock(LoggerInterface::class),
             ($catalog ?? $this->createMock(GitHubTemplateCatalogService::class)),
-            ($marketplace ?? $this->createMock(SkillMarketplaceService::class))
+            ($marketplace ?? $this->createMock(SkillMarketplaceService::class)),
+            // A REAL bundle serialiser: its whole job is composing with
+            // SkillSerializer, which a mock would hide.
+            ($bundle ?? new SkillBundleSerializer(new SkillSerializer())),
+            ($push ?? $this->createMock(GitHubTemplatePushService::class))
         );
 
     }//end controller()
@@ -279,4 +289,244 @@ class SkillControllerTest extends TestCase
         $this->assertSame('quarantined', $response->getData()['state']);
 
     }//end testGithubInstallInstallsThroughUnchangedQuarantineGate()
+
+    /**
+     * skill-package-multifile: githubInstall() fetches the repo's AUXILIARY files and
+     * hands them to installFromSource().
+     *
+     * Deliberately captures the argument rather than using `->with(...)`: PHPUnit
+     * permits FEWER constraints than actual arguments, so a `with()` listing only the
+     * first three parameters passes whether or not auxFiles is supplied — which is
+     * exactly how this path stayed silently lossy. Asserting on the captured value is
+     * the only form that actually pins the behaviour.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+     */
+    public function testGithubInstallCarriesAuxiliaryFiles(): void
+    {
+        $aux = [
+            ['name' => 'references/local-checks.md', 'content' => "1. composer check:strict\n"],
+            ['name' => 'learnings.md', 'content' => "- a vetted learning\n"],
+        ];
+
+        $capturedAux = null;
+        $marketplace = $this->createMock(SkillMarketplaceService::class);
+        $marketplace->expects($this->once())
+            ->method('installFromSource')
+            ->willReturnCallback(
+                function (string $package, string $source, string $createdBy, array $auxFiles=[]) use (&$capturedAux): ObjectEntity {
+                    $capturedAux = $auxFiles;
+                    return $this->skill('quarantined');
+                }
+            );
+
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('fetchPackageFile')->willReturn("---\nname: Demo skill\n---\nBody.");
+        $catalog->expects($this->once())
+            ->method('fetchAuxFiles')
+            ->with(GitHubTemplateCatalogService::KIND_SKILL, 'acme', 'demo-skill')
+            ->willReturn($aux);
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'demo-skill']);
+        $response = $this->controller($this->session('alice'), $request, null, $catalog, $marketplace)->githubInstall();
+
+        $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+        $this->assertSame(
+            $aux,
+            $capturedAux,
+            'githubInstall() MUST forward the repo auxiliary files — otherwise a published '
+            .'multi-file skill re-installs as a bare SKILL.md while reporting success.'
+        );
+
+    }//end testGithubInstallCarriesAuxiliaryFiles()
+
+    /**
+     * A bundle tree built from two skills, one of which carries auxiliary files.
+     *
+     * @return array<string, string> The bundle tree.
+     */
+    private function bundleTree(): array
+    {
+        return (new SkillBundleSerializer(new SkillSerializer()))->toBundle(
+            skills: [
+                [
+                    'name'        => 'alpha-skill',
+                    'frontmatter' => 'name: alpha-skill',
+                    'body'        => "alpha body\n",
+                    'files'       => [['name' => 'references/a.md', 'content' => "aux a\n"]],
+                ],
+                [
+                    'name'        => 'beta-skill',
+                    'frontmatter' => 'name: beta-skill',
+                    'body'        => "beta body\n",
+                    'files'       => [],
+                ],
+            ]
+        );
+
+    }//end bundleTree()
+
+    /**
+     * bundleInstall() installs EVERY skill in the bundle through the unchanged
+     * quarantine gate, one installFromSource() call per skill.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+     */
+    public function testBundleInstallQuarantinesEverySkill(): void
+    {
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('fetchBundle')->willReturn(['files' => $this->bundleTree(), 'truncated' => false]);
+
+        $seen        = [];
+        $marketplace = $this->createMock(SkillMarketplaceService::class);
+        $marketplace->method('installFromSource')->willReturnCallback(
+            function (string $package, string $source, string $createdBy, array $auxFiles=[]) use (&$seen) {
+                $seen[] = ['package' => $package, 'aux' => count($auxFiles)];
+                return $this->skill('quarantined');
+            }
+        );
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'bundle-repo']);
+        $response = $this->controller($this->session('alice'), $request, null, $catalog, $marketplace)->bundleInstall();
+        $data     = $response->getData();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame(2, $data['installed']);
+        $this->assertSame(0, $data['failed']);
+        $this->assertFalse($data['truncated']);
+        $this->assertCount(2, $seen, 'One installFromSource() call per skill — quarantine is inherited, not bypassed.');
+        $this->assertSame(1, $seen[0]['aux'], 'The multi-file skill keeps its auxiliary file through the bundle.');
+        $this->assertSame(0, $seen[1]['aux']);
+
+        foreach ($data['skills'] as $entry) {
+            $this->assertSame('quarantined', $entry['state']);
+        }
+
+    }//end testBundleInstallQuarantinesEverySkill()
+
+    /**
+     * One failing skill does not abort the bundle, and the failure is REPORTED
+     * rather than folded into a blanket error — installing one of two is a
+     * materially different result from installing none.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+     */
+    public function testBundleInstallReportsPartialFailure(): void
+    {
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('fetchBundle')->willReturn(['files' => $this->bundleTree(), 'truncated' => false]);
+
+        $calls       = 0;
+        $marketplace = $this->createMock(SkillMarketplaceService::class);
+        $marketplace->method('installFromSource')->willReturnCallback(
+            function () use (&$calls) {
+                $calls++;
+                if ($calls === 1) {
+                    throw new RuntimeException('scan backend unavailable');
+                }
+
+                return $this->skill('quarantined');
+            }
+        );
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'bundle-repo']);
+        $response = $this->controller($this->session('alice'), $request, null, $catalog, $marketplace)->bundleInstall();
+        $data     = $response->getData();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus(), 'A partial failure is 200 + counts, never a blanket 500.');
+        $this->assertSame(1, $data['installed']);
+        $this->assertSame(1, $data['failed']);
+        $this->assertSame('failed', $data['skills'][0]['outcome']);
+        $this->assertSame('installed', $data['skills'][1]['outcome']);
+
+    }//end testBundleInstallReportsPartialFailure()
+
+    /**
+     * A repository without the bundle manifest is a 404, never a mis-parsed
+     * single skill.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function testBundleInstallRejectsNonBundle(): void
+    {
+        $catalog = $this->createMock(GitHubTemplateCatalogService::class);
+        $catalog->method('fetchBundle')->willReturn(null);
+
+        $marketplace = $this->createMock(SkillMarketplaceService::class);
+        $marketplace->expects($this->never())->method('installFromSource');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'plain-repo']);
+        $response = $this->controller($this->session('alice'), $request, null, $catalog, $marketplace)->bundleInstall();
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+        $this->assertSame('not_a_bundle', $response->getData()['error']);
+
+    }//end testBundleInstallRejectsNonBundle()
+
+    /**
+     * bundlePublish() rejects an empty skill set before any GitHub call.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/contract.md
+     */
+    public function testBundlePublishRejectsEmptySkillIds(): void
+    {
+        $push = $this->createMock(GitHubTemplatePushService::class);
+        $push->expects($this->never())->method('publishBundle');
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'bundle-repo', 'skillIds' => []]);
+        $response = $this->controller($this->session('alice'), $request, null, null, null, null, $push)->bundlePublish();
+
+        $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+
+    }//end testBundlePublishRejectsEmptySkillIds()
+
+    /**
+     * bundlePublish() applies the publish-time file selection, so
+     * `learning-candidates.md` never leaves the instance inside a bundle.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function testBundlePublishAppliesTheLearningCandidatesStrip(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('getSkill')->willReturn(
+            $this->skill('active', ['name' => 'tender-summary', 'frontmatter' => 'name: tender-summary', 'body' => "b\n"])
+        );
+        // The selection is the ONE place the strip happens; the controller must use it.
+        $skillService->method('publishFileSelection')->willReturn(
+            [['name' => 'learnings.md', 'content' => "vetted\n"]]
+        );
+
+        $captured = null;
+        $push     = $this->createMock(GitHubTemplatePushService::class);
+        $push->method('publishBundle')->willReturnCallback(
+            function (array $files) use (&$captured): array {
+                $captured = $files;
+                return ['repoUrl' => 'https://github.com/acme/bundle-repo', 'commitSha' => 'deadbeef', 'created' => true];
+            }
+        );
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'bundle-repo', 'skillIds' => ['s1']]);
+        $response = $this->controller($this->session('alice'), $request, $skillService, null, null, null, $push)->bundlePublish();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertTrue($response->getData()['created']);
+
+        $paths = array_keys($captured ?? []);
+        $this->assertContains('skills/tender-summary/learnings.md', $paths);
+        $this->assertNotContains('skills/tender-summary/learning-candidates.md', $paths);
+
+    }//end testBundlePublishAppliesTheLearningCandidatesStrip()
 }//end class

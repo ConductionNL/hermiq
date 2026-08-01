@@ -41,8 +41,8 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
- * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
+ * @spec openspec/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
+ * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
  */
 
 declare(strict_types=1);
@@ -83,7 +83,7 @@ use Throwable;
  *   guard-and-delegate methods across the full CRUD + gallery + GitHub route surface,
  *   not one tangled algorithm.
  *
- * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
+ * @spec openspec/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
  */
 class AgentTemplateController extends Controller
 {
@@ -139,7 +139,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function index(): JSONResponse
     {
@@ -167,7 +167,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function show(string $id): JSONResponse
     {
@@ -197,7 +197,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function create(): JSONResponse
     {
@@ -226,7 +226,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function update(string $id): JSONResponse
     {
@@ -258,7 +258,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function destroy(string $id): JSONResponse
     {
@@ -286,7 +286,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function export(string $agentId): JSONResponse
     {
@@ -318,7 +318,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function exportPackage(string $id): JSONResponse
     {
@@ -349,7 +349,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
      */
     public function import(): JSONResponse
     {
@@ -388,8 +388,8 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-overriding-a-dangerous-scan-verdict-requires-a-stricter-action
      */
     public function approve(string $id): JSONResponse
     {
@@ -454,7 +454,7 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-gallery/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-silently-violates-the-callers-model-policy
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-instantiating-a-template-never-silently-violates-the-caller-s-model-policy
      */
     public function instantiate(string $id): JSONResponse
     {
@@ -493,8 +493,8 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-degrade-gracefully-when-github-is-rate-limited-or-unreachable
      */
     public function githubSearch(): JSONResponse
     {
@@ -553,8 +553,8 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-install-a-discovered-template-through-the-existing-quarantine-gate
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential input-validation guards
      *   (auth, owner/repo/ref patterns, fetch outcome) each add a branch; the flow
@@ -621,11 +621,11 @@ class AgentTemplateController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-record-github-publish-provenance-without-leaking-it-into-packages
-     * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-scope-publish-to-templates-the-caller-can-already-see
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-refuse-to-overwrite-an-existing-github-repository
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-record-github-publish-provenance-without-leaking-it-into-packages
+     * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-scope-publish-to-templates-the-caller-can-already-see
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential spec-mandated guards
      *   (auth, repo pattern, visibility, credential, tenant-scoped 404, broker

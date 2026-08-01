@@ -41,10 +41,13 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
+use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SkillBundleSerializer;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
@@ -54,6 +57,18 @@ use Throwable;
 
 /**
  * Tenant-scoped skills catalog endpoints.
+ *
+ * @SuppressWarnings(PHPMD.TooManyPublicMethods)     One public method per registered
+ *   route. The count tracks the skills API surface (catalog CRUD, GitHub store
+ *   search/install, bundle publish/install); collapsing routes into fewer methods
+ *   to satisfy the metric would hide the surface rather than reduce it.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small
+ *   guard-then-delegate route methods — every branch is an input-validation guard
+ *   returning a shaped error, not domain logic. The domain work lives in
+ *   SkillService / SkillMarketplaceService / SkillBundleSerializer.
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   One injected collaborator per
+ *   seam (catalog, marketplace, bundle serialiser, push service) plus the response
+ *   and exception types the routes return.
  *
  * @spec openspec/changes/skills-catalog/tasks.md#4-controller-routes
  */
@@ -84,6 +99,8 @@ class SkillController extends Controller
      * @param LoggerInterface              $logger             PSR-3 logger.
      * @param GitHubTemplateCatalogService $catalogService     GitHub search/fetch (hermiq-github-store).
      * @param SkillMarketplaceService      $marketplaceService Quarantine install path (hermiq-github-store).
+     * @param SkillBundleSerializer        $bundleSerializer   Bundle tree (de)serialiser (skill-bundle-publish).
+     * @param GitHubTemplatePushService    $pushService        Bundle publish (skill-bundle-publish).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
@@ -97,6 +114,8 @@ class SkillController extends Controller
         private readonly LoggerInterface $logger,
         private readonly GitHubTemplateCatalogService $catalogService,
         private readonly SkillMarketplaceService $marketplaceService,
+        private readonly SkillBundleSerializer $bundleSerializer,
+        private readonly GitHubTemplatePushService $pushService,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -427,7 +446,25 @@ class SkillController extends Controller
                 return new JSONResponse(['error' => GitHubTemplateCatalogService::OUTCOME_UNREACHABLE], Http::STATUS_NOT_FOUND);
             }
 
-            $skill = $this->marketplaceService->installFromSource(package: $package, source: 'hub', createdBy: $user->getUID());
+            // Skill-package-multifile: a published skill repo carries its auxiliary
+            // files as sibling blobs. Fetching only the package file reconstructed a
+            // bare SKILL.md and silently dropped every references/ and learnings.md
+            // entry — install must mirror what publish emitted.
+            $auxFiles = $this->catalogService->fetchAuxFiles(
+                kind: GitHubTemplateCatalogService::KIND_SKILL,
+                owner: $owner,
+                repo: $repo,
+                ref: $ref,
+                actingUserId: $user->getUID(),
+                credentialId: $this->credentialParam()
+            );
+
+            $skill = $this->marketplaceService->installFromSource(
+                package: $package,
+                source: 'hub',
+                createdBy: $user->getUID(),
+                auxFiles: $auxFiles
+            );
             return new JSONResponse($this->shape(object: $skill), Http::STATUS_CREATED);
         } catch (Throwable $e) {
             $this->logger->error('Hermiq skill github install failed: '.$e->getMessage(), ['exception' => $e]);
@@ -468,4 +505,309 @@ class SkillController extends Controller
         return $data;
 
     }//end shape()
+
+    /**
+     * Publish a SET of skills to one bundle repository (skill-bundle-publish).
+     *
+     * Each skill's files go through `SkillService::publishFileSelection()`, the one
+     * publish-time selection that strips `learning-candidates.md` — inherited, not
+     * re-implemented, so unvetted observations never leave the instance by way of a
+     * bundle any more than they do by way of a single publish.
+     *
+     * @return JSONResponse 200 with repoUrl/commitSha/created + per-skill outcomes.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function bundlePublish(): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $owner = (string) ($this->request->getParam('owner') ?? '');
+        $repo  = (string) ($this->request->getParam('repo') ?? '');
+        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+            return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+        }
+
+        $skillIds = $this->request->getParam('skillIds');
+        if (is_array($skillIds) === false || $skillIds === []) {
+            return new JSONResponse(['error' => 'skillIds must be a non-empty array'], Http::STATUS_BAD_REQUEST);
+        }
+
+        $visibility = (string) ($this->request->getParam('visibility') ?? 'private');
+        if (in_array($visibility, ['public', 'private'], true) === false) {
+            return new JSONResponse(['error' => 'invalid_visibility'], Http::STATUS_BAD_REQUEST);
+        }
+
+        $collected = $this->collectPublishablePayloads(skillIds: $skillIds);
+        $payloads  = $collected['payloads'];
+        $outcomes  = $collected['outcomes'];
+
+        if ($payloads === []) {
+            return new JSONResponse(['error' => 'no_publishable_skills', 'skills' => $outcomes], Http::STATUS_BAD_REQUEST);
+        }
+
+        try {
+            $result = $this->pushService->publishBundle(
+                files: $this->bundleSerializer->toBundle(skills: $payloads),
+                owner: $owner,
+                repo: $repo,
+                visibility: $visibility,
+                credentialId: (string) ($this->credentialParam() ?? ''),
+                actingUserId: $user->getUID()
+            );
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq skill bundle publish failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'publish_failed'], Http::STATUS_BAD_GATEWAY);
+        }
+
+        return new JSONResponse(
+            [
+                'repoUrl'   => $result['repoUrl'],
+                'commitSha' => $result['commitSha'],
+                'created'   => $result['created'],
+                'skills'    => $outcomes,
+            ],
+            Http::STATUS_OK
+        );
+
+    }//end bundlePublish()
+
+    /**
+     * Install every skill from a bundle repository (skill-bundle-publish).
+     *
+     * Fans out to the UNCHANGED `installFromSource()` — one call per skill — so
+     * quarantine and per-skill content scanning are INHERITED rather than re-proved.
+     * A bundle is a delivery mechanism, never a trust assertion: installing N skills
+     * yields N quarantined skills a reviewer must still clear individually.
+     *
+     * A partial failure is a 200 carrying a non-zero `failed` count, not a blanket
+     * 500 — installing 93 of 94 skills is a materially different result from
+     * installing none, and collapsing both into "error" would hide which is which.
+     *
+     * @return JSONResponse 200 with per-skill outcomes; 400/401/404 on failure.
+     *
+     * @NoAdminRequired
+     * @NoCSRFRequired
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+     */
+    public function bundleInstall(): JSONResponse
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        $owner  = (string) ($this->request->getParam('owner') ?? '');
+        $repo   = (string) ($this->request->getParam('repo') ?? '');
+        $refRaw = $this->request->getParam('ref');
+        $ref    = null;
+        if (is_string($refRaw) === true && $refRaw !== '') {
+            $ref = $refRaw;
+        }
+
+        $invalid = $this->rejectBadCoordinates(owner: $owner, repo: $repo, ref: $ref);
+        if ($invalid !== null) {
+            return $invalid;
+        }
+
+        try {
+            $bundle = $this->catalogService->fetchBundle(
+                owner: $owner,
+                repo: $repo,
+                ref: $ref,
+                actingUserId: $user->getUID(),
+                credentialId: $this->credentialParam()
+            );
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq skill bundle fetch failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'fetch_failed'], Http::STATUS_BAD_GATEWAY);
+        }
+
+        if ($bundle === null) {
+            return new JSONResponse(['error' => 'not_a_bundle'], Http::STATUS_NOT_FOUND);
+        }
+
+        try {
+            $parsed = $this->bundleSerializer->fromBundle(files: $bundle['files']);
+        } catch (Throwable $e) {
+            $this->logger->error('Hermiq bundle install: parse failed: '.$e->getMessage(), ['exception' => $e]);
+            return new JSONResponse(['error' => 'not_a_bundle'], Http::STATUS_NOT_FOUND);
+        }
+
+        $result = $this->installBundleSkills(parsed: $parsed, createdBy: $user->getUID());
+
+        return new JSONResponse(
+            [
+                'installed' => $result['counts']['installed'],
+                'skipped'   => $result['counts']['skipped'],
+                'failed'    => $result['counts']['failed'],
+                'truncated' => $bundle['truncated'],
+                'skills'    => $result['outcomes'],
+            ],
+            Http::STATUS_OK
+        );
+
+    }//end bundleInstall()
+
+    /**
+     * Reject invalid repo coordinates BEFORE any outbound GitHub call.
+     *
+     * Shared by the bundle routes so the owner/repo/ref patterns are enforced in
+     * one place — three copies of a security-relevant guard is three places for it
+     * to drift.
+     *
+     * @param string      $owner The repo owner.
+     * @param string      $repo  The repo name.
+     * @param string|null $ref   The optional git ref.
+     *
+     * @return JSONResponse|null A 400 when the coordinates are unusable, else null.
+     *
+     * @spec openspec/changes/skill-bundle-publish/contract.md
+     */
+    private function rejectBadCoordinates(string $owner, string $repo, ?string $ref): ?JSONResponse
+    {
+        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+            return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+        }
+
+        if ($ref !== null && preg_match(self::REF_PATTERN, $ref) !== 1) {
+            return new JSONResponse(['error' => 'invalid_ref'], Http::STATUS_BAD_REQUEST);
+        }
+
+        return null;
+
+    }//end rejectBadCoordinates()
+
+    /**
+     * Resolve the requested skill ids into publishable payloads.
+     *
+     * Each skill's files go through `SkillService::publishFileSelection()` — the one
+     * publish-time selection that strips `learning-candidates.md` — so unvetted
+     * observations never leave the instance by way of a bundle any more than they
+     * do by way of a single publish.
+     *
+     * Per-skill error handling is deliberate: `SkillService::getSkill()` delegates
+     * to `ObjectService::find()`, which THROWS `DoesNotExistException` for a missing
+     * id rather than returning null despite its `?ObjectEntity` return type. Caught
+     * per skill, one bad id is reported as `not_found` for that entry instead of
+     * failing the whole publish.
+     *
+     * @param array<int, mixed> $skillIds The requested skill ids.
+     *
+     * @return array{payloads:array<int,array<string,mixed>>,outcomes:array<int,array<string,mixed>>}
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    private function collectPublishablePayloads(array $skillIds): array
+    {
+        $payloads = [];
+        $outcomes = [];
+
+        foreach ($skillIds as $skillId) {
+            $id = (string) $skillId;
+
+            try {
+                $skill = $this->skillService->getSkill(skillId: $id);
+            } catch (DoesNotExistException $e) {
+                $outcomes[] = ['name' => $id, 'outcome' => 'not_found'];
+                continue;
+            } catch (Throwable $e) {
+                $this->logger->error(
+                    'Hermiq bundle publish: resolving skill "'.$id.'" failed: '.$e->getMessage(),
+                    ['exception' => $e]
+                );
+                $outcomes[] = ['name' => $id, 'outcome' => 'failed'];
+                continue;
+            }//end try
+
+            if ($skill === null) {
+                $outcomes[] = ['name' => $id, 'outcome' => 'not_found'];
+                continue;
+            }
+
+            $object          = $skill->getObject();
+            $object['files'] = ($this->skillService->publishFileSelection(skillId: $id) ?? []);
+
+            $payloads[] = $object;
+            $outcomes[] = [
+                'name'    => (string) ($object['name'] ?? ''),
+                'files'   => count($object['files']),
+                'outcome' => 'published',
+            ];
+        }//end foreach
+
+        return ['payloads' => $payloads, 'outcomes' => $outcomes];
+
+    }//end collectPublishablePayloads()
+
+    /**
+     * Install every parsed bundle entry through the UNCHANGED per-skill path.
+     *
+     * Extracted from bundleInstall() so the route method stays a guard-then-delegate
+     * shape. One `installFromSource()` call per skill is the point, not an
+     * implementation detail: quarantine and per-skill content scanning are inherited
+     * rather than re-proved, and a per-skill catch means one failure never aborts
+     * the remaining installs.
+     *
+     * @param array<int, array<string, mixed>> $parsed    The parsed bundle entries.
+     * @param string                           $createdBy The installing user id.
+     *
+     * @return array{outcomes:array<int,array<string,mixed>>,counts:array<string,int>}
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
+     */
+    private function installBundleSkills(array $parsed, string $createdBy): array
+    {
+        $outcomes = [];
+        $counts   = ['installed' => 0, 'skipped' => 0, 'failed' => 0];
+
+        foreach ($parsed as $skill) {
+            $name = (string) ($skill['bundleName'] ?? ($skill['name'] ?? ''));
+
+            try {
+                $installed = $this->marketplaceService->installFromSource(
+                    package: $this->bundleSerializer->packageOf(skill: $skill),
+                    source: 'hub',
+                    createdBy: $createdBy,
+                    auxFiles: ($skill['files'] ?? [])
+                );
+
+                $object     = $installed->getObject();
+                $outcomes[] = [
+                    'name'     => $name,
+                    'outcome'  => 'installed',
+                    'state'    => (string) ($object['state'] ?? ''),
+                    'severity' => (string) (($object['scanReport'] ?? [])['severity'] ?? ''),
+                ];
+                $counts['installed']++;
+            } catch (DoesNotExistException $e) {
+                // OpenRegister re-throws this from the write path when the hermiq
+                // register/schema cannot be resolved. Recorded per skill so one
+                // failure never aborts the remaining installs.
+                $this->logger->error(
+                    'Hermiq bundle install: skill "'.$name.'" could not be persisted: '.$e->getMessage(),
+                    ['exception' => $e]
+                );
+                $outcomes[] = ['name' => $name, 'outcome' => 'failed'];
+                $counts['failed']++;
+            } catch (Throwable $e) {
+                $this->logger->error(
+                    'Hermiq bundle install: skill "'.$name.'" failed: '.$e->getMessage(),
+                    ['exception' => $e]
+                );
+                $outcomes[] = ['name' => $name, 'outcome' => 'failed'];
+                $counts['failed']++;
+            }//end try
+        }//end foreach
+
+        return ['outcomes' => $outcomes, 'counts' => $counts];
+
+    }//end installBundleSkills()
 }//end class
