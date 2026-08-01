@@ -189,6 +189,47 @@ async function cloneAt({ url, ref, into, scratch, env, deadline, label }) {
 }
 
 /**
+ * Extract a base64 tool archive and return the directory to resolve commands in.
+ *
+ * A forge tarball wraps everything in a single `owner-repo-sha/` directory, so
+ * `--strip-components=1` is what makes `scripts/run-hydra-gates.sh` mean the
+ * same thing whether the tool arrived as an archive or a clone. Without it every
+ * caller would have to know the sha, which is exactly the coupling the stage
+ * exists to remove.
+ *
+ * @param {object} args `{base64, scratch, env, deadline}`.
+ * @returns {Promise<string>} The extracted tool root.
+ */
+async function extractToolArchive({ base64, scratch, env, deadline }) {
+    const root = path.join(scratch, 'tool');
+    const archive = path.join(scratch, 'tool.tar.gz');
+
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(archive, Buffer.from(base64, 'base64'), { mode: 0o600 });
+
+    const extracted = await spawnCollect(
+        'tar',
+        ['-xzf', archive, '-C', root, '--strip-components=1'],
+        { cwd: scratch, env, timeoutMs: deadline }
+    );
+
+    // The archive is removed whether or not extraction worked. It is the
+    // largest thing in the scratch tree and there is no reason to keep it once
+    // its contents are on disk.
+    try {
+        fs.rmSync(archive, { force: true });
+    } catch (err) {
+        // Non-fatal: the whole scratch tree is removed on the way out anyway.
+    }
+
+    if (extracted.code !== 0) {
+        throw new Error(`tool archive could not be extracted (exit ${extracted.code}): ${lastLines(extracted.output)}`);
+    }
+
+    return root;
+}
+
+/**
  * Whether a command is one this runner will execute.
  *
  * @param {Array<string>} argv The command and its arguments.
@@ -274,13 +315,28 @@ function spawnCollect(bin, args, { cwd, env, timeoutMs }) {
  *                                 not the target — hydra's gate runner is the case this
  *                                 exists for. Omit and the command comes from the target.
  * @param {string} [args.toolRef] Ref for the tool tree; its default branch when omitted.
+ * @param {string} [args.toolTarball] The tool tree as a base64 `.tar.gz`, for a PRIVATE tool
+ *                                    tree whose credential must not leave OpenRegister. The
+ *                                    broker fetches it server-side; only bytes arrive here.
+ *                                    Takes precedence over `toolRepo`.
  * @param {string} [args.forgeToken] Token for the clones. Reaches git via GIT_ASKPASS only.
  * @param {string} [args.forgeUser] Username half of the clone URL. Not a secret.
  * @param {number} [args.timeoutMs] Overall ceiling.
  * @param {object} [args.env] Extra non-secret env for the command.
  * @returns {Promise<{exitCode: number, output: string, ref: string}>} The result.
  */
-async function runStage({ repo, ref, command, toolRepo, toolRef, forgeToken, forgeUser, timeoutMs, env }) {
+async function runStage({
+    repo,
+    ref,
+    command,
+    toolRepo,
+    toolRef,
+    toolTarball,
+    forgeToken,
+    forgeUser,
+    timeoutMs,
+    env,
+}) {
     if (typeof repo !== 'string' || repo === '') {
         throw new Error('a stage needs a repo');
     }
@@ -357,7 +413,32 @@ async function runStage({ repo, ref, command, toolRepo, toolRef, forgeToken, for
         // vendoring a copy of the gate runner, which is 3,599 lines duplicated
         // per app and guaranteed to drift.
         let commandRoot = workdir;
-        if (typeof toolRepo === 'string' && toolRepo !== '') {
+
+        // THE TOOL TREE AS AN ARCHIVE — how a PRIVATE tool tree gets here
+        // without its credential ever leaving OpenRegister.
+        //
+        // The broker holds a host-locked proxy credential: `resolveInjectable()`
+        // returns null for it by design, so no token can be handed to this
+        // container for `git clone`. But the broker CAN fetch, and
+        // `GET /repos/*/tarball/*` is already covered by its existing
+        // `GET /repos/*` rule — so OpenRegister fetches the archive server-side
+        // and passes the BYTES.
+        //
+        // The objection to a tarball is that it has no git history, so
+        // `--scope-to-diff` would diff against nothing and report zero failures.
+        // That objection is about the TARGET, and it does not apply here: the
+        // tool tree is scripts. The target is cloned normally, with its full
+        // history, and needs no credential because the repositories being gated
+        // are public. Splitting the two is what makes the credential question
+        // go away rather than get traded off.
+        if (typeof toolTarball === 'string' && toolTarball !== '') {
+            commandRoot = await extractToolArchive({
+                base64: toolTarball,
+                scratch,
+                env: childEnv,
+                deadline,
+            });
+        } else if (typeof toolRepo === 'string' && toolRepo !== '') {
             commandRoot = path.join(scratch, 'tool');
             const toolUrl = (typeof forgeUser === 'string' && forgeUser !== '')
                 ? toolRepo.replace('://', `://${forgeUser}@`)

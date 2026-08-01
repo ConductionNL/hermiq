@@ -367,3 +367,58 @@ test('with no tool tree the command still comes from the target', async () => {
         fs.rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('a base64 tool ARCHIVE supplies the command, with the forge wrapper stripped', async () => {
+    const target = makeRemote();
+    const tool = makeToolRemote();
+    const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'stage-tar-'));
+
+    try {
+        // Build the archive the way a forge does: everything under ONE
+        // `owner-repo-sha/` directory. A fixture without that wrapper would pass
+        // against code that forgets --strip-components=1.
+        const checkout = path.join(staging, 'ConductionNL-tool-abc1234');
+        execFileSync('git', ['clone', '--quiet', tool.remote, checkout]);
+        fs.rmSync(path.join(checkout, '.git'), { recursive: true, force: true });
+        const tarball = path.join(staging, 'tool.tar.gz');
+        execFileSync('tar', ['-czf', tarball, '-C', staging, 'ConductionNL-tool-abc1234']);
+
+        const result = await runStage({
+            repo: target.remote,
+            ref: 'development',
+            toolTarball: fs.readFileSync(tarball).toString('base64'),
+            command: ['scripts/probe.sh'],
+            timeoutMs: 120000,
+        });
+
+        // Helper resolved beside the TOOL — so the archive was extracted and the
+        // forge's wrapper directory stripped.
+        assert.match(result.output, /HELPER-FOUND/);
+        // Marker read from the TARGET's working directory.
+        assert.match(result.output, /TARGET=ON-DEVELOPMENT/);
+        assert.strictEqual(result.exitCode, 5);
+    } finally {
+        fs.rmSync(target.root, { recursive: true, force: true });
+        fs.rmSync(tool.root, { recursive: true, force: true });
+        fs.rmSync(staging, { recursive: true, force: true });
+    }
+});
+
+test('a corrupt tool archive fails loudly rather than running the wrong command', async () => {
+    const { remote, root } = makeRemote();
+
+    try {
+        await assert.rejects(
+            () => runStage({
+                repo: remote,
+                ref: 'development',
+                toolTarball: Buffer.from('not a tarball').toString('base64'),
+                command: ['./probe.sh'],
+                timeoutMs: 120000,
+            }),
+            /tool archive could not be extracted/
+        );
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});

@@ -33,6 +33,15 @@ const PORT = Number(process.env.RUNNER_PORT || process.env.APP_PORT || '9000');
 const MAX_BODY_BYTES = Number(process.env.RUNNER_MAX_BODY_BYTES || String(4 * 1024 * 1024));
 
 /**
+ * Body cap for `/stage`, which may carry a tool tree as a base64 archive.
+ *
+ * @type {number}
+ */
+const MAX_STAGE_BODY_BYTES = Number(
+    process.env.RUNNER_MAX_STAGE_BODY_BYTES || String(96 * 1024 * 1024)
+);
+
+/**
  * Emit a terse, credential-free log line.
  *
  * @param {string} level Log level.
@@ -61,16 +70,24 @@ function sendJson(res, status, body) {
 /**
  * Collect the raw request body up to a hard size cap.
  *
+ * The cap is per-route rather than global. A turn is text and 4 MB is already
+ * generous; a stage may carry a TOOL TREE as a base64 archive, and hydra's is
+ * 5.8 MB before encoding — so one shared limit either starves the stage or
+ * hands `/run` a much larger amplification surface than it needs. Both routes
+ * authenticate first, so this bounds a caller that is already trusted, not an
+ * anonymous one.
+ *
  * @param {http.IncomingMessage} req The request.
+ * @param {number} [limit] Byte cap; the default body cap when omitted.
  * @returns {Promise<Buffer>} The raw body.
  */
-function readBody(req) {
+function readBody(req, limit = MAX_BODY_BYTES) {
     return new Promise((resolve, reject) => {
         const chunks = [];
         let size = 0;
         req.on('data', (chunk) => {
             size += chunk.length;
-            if (size > MAX_BODY_BYTES) {
+            if (size > limit) {
                 reject(new Error('request body too large'));
                 req.destroy();
                 return;
@@ -194,6 +211,7 @@ async function handleStage(req, res, rawBody) {
         command,
         toolRepo,
         toolRef,
+        toolTarball,
         forgeToken,
         forgeUser,
         timeoutMs,
@@ -206,7 +224,8 @@ async function handleStage(req, res, rawBody) {
     // looks like from the outside and the log is the first place anyone looks.
     log(
         'info',
-        `/stage repo=${repo} ref=${ref} tool=${toolRepo || '(none)'} `
+        `/stage repo=${repo} ref=${ref} `
+        + `tool=${toolRepo || (toolTarball ? `archive(${toolTarball.length}b)` : '(none)')} `
         + `command=${Array.isArray(command) ? command[0] : '(none)'}`
     );
 
@@ -217,6 +236,7 @@ async function handleStage(req, res, rawBody) {
             command,
             toolRepo,
             toolRef,
+            toolTarball,
             forgeToken,
             forgeUser,
             timeoutMs,
@@ -300,7 +320,7 @@ const server = http.createServer((req, res) => {
     }
 
     if (req.method === 'POST' && req.url === '/stage') {
-        readBody(req)
+        readBody(req, MAX_STAGE_BODY_BYTES)
             .then((rawBody) => handleStage(req, res, rawBody))
             .catch((err) => {
                 log('warn', `request error: ${err.message}`);
