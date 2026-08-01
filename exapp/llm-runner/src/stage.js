@@ -230,6 +230,49 @@ async function extractToolArchive({ base64, scratch, env, deadline }) {
 }
 
 /**
+ * Read back files the command produced, before the scratch tree is removed.
+ *
+ * Each path is resolved INSIDE the clone and refused if it escapes — a caller
+ * able to name `../../etc/passwd` would turn a stage result into an arbitrary
+ * file read, and the caller here is authored flow config.
+ *
+ * A missing file is recorded as null rather than omitted. "The reviewer wrote no
+ * findings" and "the key is absent because something went wrong" are different
+ * facts, and a consumer that cannot tell them apart will read the second as the
+ * first — which is the failure this whole endpoint keeps being bitten by.
+ *
+ * @param {object} args `{paths, workdir}`.
+ * @returns {object} A map of path to contents, or null where absent.
+ */
+function readCollected({ paths, workdir }) {
+    if (Array.isArray(paths) === false || paths.length === 0) {
+        return {};
+    }
+
+    const root = path.resolve(workdir);
+    const out = {};
+
+    for (const requested of paths) {
+        const name = String(requested);
+        const resolved = path.resolve(root, name);
+
+        // `startsWith(root + sep)` and not `startsWith(root)`: the latter admits
+        // a sibling directory whose name merely begins with the same characters.
+        if (resolved.startsWith(root + path.sep) === false) {
+            throw new Error(`collect path escapes the clone: ${name}`);
+        }
+
+        try {
+            out[name] = fs.readFileSync(resolved, 'utf8').slice(0, MAX_OUTPUT_BYTES);
+        } catch (err) {
+            out[name] = null;
+        }
+    }
+
+    return out;
+}
+
+/**
  * Whether a command is one this runner will execute.
  *
  * @param {Array<string>} argv The command and its arguments.
@@ -315,6 +358,9 @@ function spawnCollect(bin, args, { cwd, env, timeoutMs }) {
  *                                 not the target — hydra's gate runner is the case this
  *                                 exists for. Omit and the command comes from the target.
  * @param {string} [args.toolRef] Ref for the tool tree; its default branch when omitted.
+ * @param {Array<string>} [args.collect] Paths inside the clone to read back after the command,
+ *                                       returned as `files`. The scratch tree is deleted on the
+ *                                       way out, so anything the command wrote is otherwise lost.
  * @param {string} [args.toolTarball] The tool tree as a base64 `.tar.gz`, for a PRIVATE tool
  *                                    tree whose credential must not leave OpenRegister. The
  *                                    broker fetches it server-side; only bytes arrive here.
@@ -332,6 +378,7 @@ async function runStage({
     toolRepo,
     toolRef,
     toolTarball,
+    collect,
     forgeToken,
     forgeUser,
     timeoutMs,
@@ -468,7 +515,24 @@ async function runStage({
             timeoutMs: deadline,
         });
 
-        return { exitCode: result.code, output: result.output, ref };
+        // FILES THE COMMAND PRODUCED, read back before the scratch tree goes.
+        //
+        // This is the half of "the workload has a filesystem, the flow does
+        // not" that was missing. hydra's reviewer writes its findings to a JSON
+        // file and `create_finding_issues` reads them back — but that file lives
+        // in the clone, which is deleted moments later, so a flow could never
+        // see it. Without this the pipeline can RUN a review and still have no
+        // way to act on what it found.
+        //
+        // Paths are resolved inside the clone and refused if they escape it: a
+        // caller that could name `../../etc/passwd` would turn a stage result
+        // into an arbitrary file read.
+        return {
+            exitCode: result.code,
+            output: result.output,
+            ref,
+            files: readCollected({ paths: collect, workdir }),
+        };
     } finally {
         // The token lives in the child env and the askpass helper lives in the
         // scratch dir; removing the tree is what stops the second outliving the
