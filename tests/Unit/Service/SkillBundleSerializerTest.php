@@ -269,10 +269,74 @@ class SkillBundleSerializerTest extends TestCase
             ];
         }
 
-        $bundle   = $serializer->toBundle(skills: $skills);
+        $dropped  = [];
+        $bundle   = $serializer->toBundle(skills: $skills, dropped: $dropped);
         $manifest = json_decode($bundle[SkillBundleSerializer::MANIFEST_FILE], true);
 
         $this->assertCount(SkillBundleSerializer::MAX_SKILLS, $manifest['skills']);
 
+        // The cap must REPORT what it discarded. Silently capping is how the first
+        // real bundle shipped 64 of hydra's 94 skills while the API reported all 94
+        // as published — and the artefact was internally consistent, so nothing in
+        // the repository revealed the loss.
+        $this->assertCount(5, $dropped, 'Every skill beyond the cap must be reported as dropped.');
+        $this->assertSame('cap_reached', $dropped[0]['reason']);
+
     }//end testSkillCapIsEnforced()
+
+    /**
+     * A bundle within the cap drops nothing — the counter must not cry wolf.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function testNothingIsDroppedWithinTheCap(): void
+    {
+        $serializer = $this->serializer();
+
+        // 94 = hydra's real skill count, the set that exposed the 64 cap.
+        $skills = [];
+        for ($i = 0; $i < 94; $i++) {
+            $skills[] = [
+                'name'        => 'skill-'.$i,
+                'frontmatter' => 'name: skill-'.$i,
+                'body'        => "b\n",
+                'files'       => [],
+            ];
+        }
+
+        $dropped  = [];
+        $bundle   = $serializer->toBundle(skills: $skills, dropped: $dropped);
+        $manifest = json_decode($bundle[SkillBundleSerializer::MANIFEST_FILE], true);
+
+        $this->assertCount(94, $manifest['skills'], "hydra's 94-skill set must bundle whole.");
+        $this->assertSame([], $dropped);
+
+    }//end testNothingIsDroppedWithinTheCap()
+
+    /**
+     * An unusable skill name is reported as dropped, not merely skipped.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+     */
+    public function testInvalidNameIsReportedAsDropped(): void
+    {
+        $serializer = $this->serializer();
+
+        $dropped = [];
+        $serializer->toBundle(
+            skills: [
+                ['name' => '../../etc', 'frontmatter' => 'name: x', 'body' => "b\n", 'files' => []],
+                ['name' => 'good-skill', 'frontmatter' => 'name: good-skill', 'body' => "b\n", 'files' => []],
+            ],
+            dropped: $dropped
+        );
+
+        $this->assertCount(1, $dropped);
+        $this->assertSame('invalid_name', $dropped[0]['reason']);
+
+    }//end testInvalidNameIsReportedAsDropped()
 }//end class

@@ -73,9 +73,15 @@ class SkillBundleSerializer
     /**
      * Maximum skills in one bundle (design.md §Security 3 — fan-out bound).
      *
+     * Sized at 512 rather than 64 after the first real bundle: hydra's set is 94
+     * skills, so a 64 cap silently discarded 30 of them. The bound exists to stop
+     * a runaway export, not to constrain a legitimate skill set — and 64 was
+     * picked before any real set had been measured. It is still a hard cap:
+     * anything beyond it is reported as dropped, never silently omitted.
+     *
      * @var int
      */
-    public const MAX_SKILLS = 64;
+    public const MAX_SKILLS = 512;
 
     /**
      * A valid bundled skill directory name: kebab-case, no path syntax at all.
@@ -103,32 +109,43 @@ class SkillBundleSerializer
     /**
      * Build a bundle tree from a set of skills.
      *
-     * @param array $skills The skill payloads (each needs `name`, `frontmatter`,
-     *                      `body` and optionally `files`). Typed loosely because
-     *                      callers hand through OpenRegister object payloads.
+     * @param array      $skills  The skill payloads (each needs `name`, `frontmatter`,
+     *                            `body` and optionally `files`). Typed loosely because
+     *                            callers hand through OpenRegister object payloads.
+     * @param array|null $dropped OUT: every skill this call did NOT bundle, as
+     *                            `{name, reason}`. A caller that reports success
+     *                            without reading this is publishing an incomplete
+     *                            artefact and saying otherwise — which is exactly
+     *                            what happened on the first real bundle, where a
+     *                            64-skill cap silently discarded 30 of hydra's 94
+     *                            while the API reported all 94 as published.
      *
      * @return array<string, string> The `path => contents` bundle tree.
      *
      * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
      */
-    public function toBundle(array $skills): array
+    public function toBundle(array $skills, ?array &$dropped=null): array
     {
         $tree    = [];
         $entries = [];
+        $dropped = [];
 
         foreach ($skills as $skill) {
             if (is_array($skill) === false) {
                 continue;
             }
 
-            $name = $this->normaliseName(name: (string) ($skill['name'] ?? ''));
+            $rawName = (string) ($skill['name'] ?? '');
+            $name    = $this->normaliseName(name: $rawName);
             if ($name === null) {
-                $this->reject(what: (string) ($skill['name'] ?? ''), why: 'not a valid bundled skill name');
+                $this->reject(what: $rawName, why: 'not a valid bundled skill name');
+                $dropped[] = ['name' => $rawName, 'reason' => 'invalid_name'];
                 continue;
             }
 
             if (count($entries) >= self::MAX_SKILLS) {
                 $this->reject(what: $name, why: 'bundle skill cap of '.self::MAX_SKILLS.' reached');
+                $dropped[] = ['name' => $name, 'reason' => 'cap_reached'];
                 continue;
             }
 

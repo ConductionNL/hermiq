@@ -529,4 +529,61 @@ class SkillControllerTest extends TestCase
         $this->assertNotContains('skills/tender-summary/learning-candidates.md', $paths);
 
     }//end testBundlePublishAppliesTheLearningCandidatesStrip()
+
+    /**
+     * A skill the serialiser DROPPED must never be reported as published.
+     *
+     * The defect this pins, observed on the first real bundle: 94 skills were sent,
+     * the serialiser capped at 64, and the API reported all 94 as
+     * `outcome: "published"`. The artefact was internally consistent — manifest and
+     * tree both listed 64 — so nothing in the repository revealed the loss. Only
+     * comparing against what was requested exposed it.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function testDroppedSkillsAreNotReportedAsPublished(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('getSkill')->willReturnCallback(
+            function (string $skillId): ObjectEntity {
+                return $this->skill('active', ['name' => $skillId, 'frontmatter' => 'name: '.$skillId, 'body' => "b\n"]);
+            }
+        );
+        $skillService->method('publishFileSelection')->willReturn([]);
+
+        // A serialiser that keeps the first and drops the second.
+        $bundle = $this->createMock(SkillBundleSerializer::class);
+        $bundle->method('toBundle')->willReturnCallback(
+            function (array $skills, ?array &$dropped=null): array {
+                $dropped = [['name' => 'beta-skill', 'reason' => 'cap_reached']];
+                return ['hermiq-skills.json' => '{}', 'skills/alpha-skill/SKILL.md' => 'x'];
+            }
+        );
+
+        $push = $this->createMock(GitHubTemplatePushService::class);
+        $push->method('publishBundle')->willReturn(
+            ['repoUrl' => 'https://github.com/acme/b', 'commitSha' => 'deadbeef', 'created' => true]
+        );
+
+        $request  = $this->request(['owner' => 'acme', 'repo' => 'bundle-repo', 'skillIds' => ['alpha-skill', 'beta-skill']]);
+        $response = $this->controller($this->session('alice'), $request, $skillService, null, null, $bundle, $push)->bundlePublish();
+        $data     = $response->getData();
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+        $this->assertSame(1, $data['published'], 'Only the skill that reached the tree counts as published.');
+        $this->assertSame(1, $data['dropped']);
+        $this->assertTrue($data['truncated']);
+
+        $byName = [];
+        foreach ($data['skills'] as $entry) {
+            $byName[$entry['name']] = $entry;
+        }
+
+        $this->assertSame('published', $byName['alpha-skill']['outcome']);
+        $this->assertSame('dropped', $byName['beta-skill']['outcome'], 'A dropped skill MUST NOT read as published.');
+        $this->assertSame('cap_reached', $byName['beta-skill']['reason']);
+
+    }//end testDroppedSkillsAreNotReportedAsPublished()
 }//end class
