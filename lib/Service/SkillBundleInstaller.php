@@ -43,6 +43,7 @@ namespace OCA\Hermiq\Service;
 
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -79,9 +80,9 @@ class SkillBundleInstaller
      * @param string|null $actingUserId The acting user (broker identity + owner).
      * @param string|null $credentialId Optional broker credential UUID.
      *
-     * @return array{installed:int,skipped:int,failed:int,truncated:int,skills:array<int,array<string,mixed>>}
+     * @return array{installed:int,skipped:int,failed:int,truncated:bool,skills:array<int,array<string,mixed>>}
      *
-     * @throws \RuntimeException When the repository does not carry a bundle.
+     * @throws RuntimeException When the repository does not carry a bundle.
      *
      * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
      */
@@ -101,7 +102,7 @@ class SkillBundleInstaller
         );
 
         if ($bundle === null) {
-            throw new \RuntimeException('Hermiq bundle install: "'.$owner.'/'.$repo.'" does not carry a skill bundle.');
+            throw new RuntimeException('Hermiq bundle install: "'.$owner.'/'.$repo.'" does not carry a skill bundle.');
         }
 
         $parsed = $this->bundleSerializer->fromBundle(files: $bundle['files']);
@@ -111,7 +112,11 @@ class SkillBundleInstaller
             'installed' => $result['counts']['installed'],
             'skipped'   => $result['counts']['skipped'],
             'failed'    => $result['counts']['failed'],
-            'truncated' => (int) ($bundle['truncated'] ?? 0),
+            // A FLAG, not a count — fetchBundle knows truncation happened but not
+            // how many blobs it did not read. Passed through as the bool it is,
+            // exactly as the HTTP route already reported it; coercing it to 1
+            // would claim a precise "one skill dropped" that nobody measured.
+            'truncated' => $bundle['truncated'],
             'skills'    => $result['outcomes'],
         ];
 
