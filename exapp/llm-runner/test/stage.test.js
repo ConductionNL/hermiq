@@ -422,3 +422,62 @@ test('a corrupt tool archive fails loudly rather than running the wrong command'
         fs.rmSync(root, { recursive: true, force: true });
     }
 });
+
+test('collect reads files the command produced, before the scratch tree goes', async () => {
+    const { remote, root } = makeRemote();
+
+    try {
+        const result = await runStage({
+            repo: remote,
+            ref: 'development',
+            command: ['./probe.sh'],
+            // `marker.txt` is committed; `nope.json` is not. Both are asked for.
+            collect: ['marker.txt', 'nope.json'],
+            timeoutMs: 120000,
+        });
+
+        assert.match(result.files['marker.txt'], /ON-DEVELOPMENT/);
+        // NULL, not absent. "The reviewer wrote no findings" and "the key is
+        // missing because something went wrong" are different facts, and a
+        // consumer that cannot tell them apart reads the second as the first.
+        assert.strictEqual(result.files['nope.json'], null);
+        assert.ok('nope.json' in result.files);
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('collect REFUSES a path that escapes the clone', async () => {
+    const { remote, root } = makeRemote();
+
+    try {
+        await assert.rejects(
+            () => runStage({
+                repo: remote,
+                ref: 'development',
+                command: ['./probe.sh'],
+                collect: ['../../etc/passwd'],
+                timeoutMs: 120000,
+            }),
+            // A caller able to name any path would turn a stage result into an
+            // arbitrary file read, and the caller here is authored flow config.
+            /collect path escapes the clone/
+        );
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('collect is absent by default, so nothing is read back unasked', async () => {
+    const { remote, root } = makeRemote();
+
+    try {
+        const result = await runStage({
+            repo: remote, ref: 'development', command: ['./probe.sh'], timeoutMs: 120000,
+        });
+
+        assert.deepStrictEqual(result.files, {});
+    } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+    }
+});
