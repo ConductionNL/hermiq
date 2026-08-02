@@ -40,7 +40,7 @@ use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * @covers \OCA\Hermiq\Service\Talk\TalkSessionRoom::createForSession
+ * @covers \OCA\Hermiq\Service\Talk\TalkSessionRoom
  */
 class TalkSessionRoomOptInTest extends TestCase
 {

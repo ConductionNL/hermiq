@@ -34,7 +34,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 /**
- * @covers \OCA\Hermiq\Service\Talk\TalkRoomBinding::syncParticipants
+ * @covers \OCA\Hermiq\Service\Talk\TalkRoomBinding
  */
 class TalkRoomBindingSyncTest extends TestCase
 {
