@@ -270,17 +270,29 @@ class TalkApprovalReactionListener implements IEventListener
     private function applyDecision(ObjectEntity $approval, string $reactor, string $emoji, string $roomToken): void
     {
         $uuid = (string) $approval->getUuid();
+        // Confirm under the same agent that asked, so the exchange reads as one
+        // conversation with one agent rather than two different speakers.
+        $agentId = (string) (($approval->getObject())['agentId'] ?? '');
+        $agentId = ($agentId === '') ? null : $agentId;
 
         if ($emoji === self::APPROVE) {
             $this->approvalService->approve(approval: $approval, deciderUid: $reactor);
             $this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
-            $this->bridge->postToRoom(roomToken: $roomToken, message: '✅ Approved — the run has been released.');
+            $this->bridge->postToRoom(
+                roomToken: $roomToken,
+                message: '✅ Approved — the run has been released.',
+                agentId: $agentId
+            );
             return;
         }
 
         $this->approvalService->deny(approval: $approval, deciderUid: $reactor, reason: 'Denied by reaction in Talk');
         $this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
-        $this->bridge->postToRoom(roomToken: $roomToken, message: '🚫 Denied — the run will not execute.');
+        $this->bridge->postToRoom(
+            roomToken: $roomToken,
+            message: '🚫 Denied — the run will not execute.',
+            agentId: $agentId
+        );
 
     }//end applyDecision()
 

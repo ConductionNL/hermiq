@@ -243,10 +243,49 @@ class TalkSessionRoom
                     'error' => $e->getMessage(),
                 ]
             );
-            return $conversation;
+
+            // 🔴 Re-read rather than returning the copy we came in with.
+            //
+            // The write and the OBJECT-EVENT DISPATCH that follows it share this
+            // try block, and the dispatch runs other apps' listeners. One of
+            // those throwing means the row was already written — observed live,
+            // where an unrelated app's listener raised on its own field and
+            // this method reported failure for a save that had succeeded. The
+            // caller would then hand the client a session with no room while
+            // the stored session had one, and nothing would ever reconcile them.
+            return $this->reread(conversation: $conversation);
         }//end try
 
     }//end attachToSession()
+
+    /**
+     * Re-read a session, falling back to the copy in hand.
+     *
+     * @param ObjectEntity $conversation The session as last known.
+     *
+     * @return ObjectEntity The stored session, or the copy when it cannot be read.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+     */
+    private function reread(ObjectEntity $conversation): ObjectEntity
+    {
+        try {
+            $fresh = $this->objectService->find(
+                id: (string) $conversation->getUuid(),
+                register: self::REGISTER_SLUG,
+                schema: self::CONVERSATION_SCHEMA
+            );
+
+            if ($fresh instanceof ObjectEntity) {
+                return $fresh;
+            }
+        } catch (Throwable $e) {
+            // Fall through — the copy in hand is still a usable session.
+        }
+
+        return $conversation;
+
+    }//end reread()
 
     /**
      * Rename the session's room, but only if the session OWNS it.
