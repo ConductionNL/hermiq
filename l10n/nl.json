@@ -1142,7 +1142,17 @@
         "The Hermiq bot is not registered with Talk. It is normally registered automatically when the app is installed or upgraded.": "De Hermiq-bot is niet geregistreerd bij Talk. Normaal gebeurt dat automatisch bij installatie of bijwerken van de app.",
         "The Hermiq bot is registered. It answers only in conversations where a moderator has enabled it AND an opted-in agent is bound below.": "De Hermiq-bot is geregistreerd. Hij antwoordt alleen in gesprekken waar een moderator hem heeft ingeschakeld én hieronder een agent aan is gekoppeld die daarvoor is aangezet.",
         "Unavailable — this version of Talk does not support conversation tags.": "Niet beschikbaar — deze versie van Talk ondersteunt geen gesprekslabels.",
-        "Unbind": "Ontkoppelen"
+        "Unbind": "Ontkoppelen",
+        "of {total}": "van {total}",
+        "Authored here — not installed from a bundle": "Hier geschreven — niet geïnstalleerd vanuit een bundel",
+        "Last updated from source": "Laatst bijgewerkt vanuit bron",
+        "Learnings last accepted": "Leerpunten laatst geaccepteerd",
+        "Local learnings are ahead of the source": "Lokale leerpunten lopen voor op de bron",
+        "Provenance error": "Fout bij herkomst",
+        "Quarantined — awaiting review": "In quarantaine — wacht op beoordeling",
+        "This skill has learnings accepted here since it was last updated from its source. Updating keeps them — the incoming learnings file is not applied.": "Deze vaardigheid heeft hier leerpunten die zijn geaccepteerd nadat de vaardigheid voor het laatst is bijgewerkt vanuit de bron. Bijwerken behoudt ze — het binnenkomende leerpuntenbestand wordt niet toegepast.",
+        "This skill is quarantined and is not available to agents until it is approved.": "Deze vaardigheid staat in quarantaine en is niet beschikbaar voor agents totdat deze is goedgekeurd.",
+        "Unknown": "Onbekend"
     },
     "plurals": ""
 }
