@@ -143,6 +143,11 @@ test.describe('skill provenance (skill-install-idempotency)', () => {
 
 	// @e2e skills-marketplace::the-learnings-notice-appears-only-when-learnings-are-ahead-of-the-source
 	test('the learnings notice appears only when local learnings are ahead', async ({ page }) => {
+		// Four round-trips against the instance (baseline load, PATCH, reload,
+		// restore) rather than the single load the other two tests make, so this one
+		// needs headroom the default per-test budget does not give it.
+		test.setTimeout(300_000)
+
 		const skills = await fetchSkills(page)
 		const target = skills.find(
 			(s) => typeof s.sourceUpdatedAt === 'string' && (s.sourceUpdatedAt as string) !== '',
