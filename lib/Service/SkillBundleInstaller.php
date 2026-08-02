@@ -59,6 +59,7 @@ class SkillBundleInstaller
      * @param GitHubTemplateCatalogService $catalogService     Bundle fetch.
      * @param SkillBundleSerializer        $bundleSerializer   Bundle parse.
      * @param SkillMarketplaceService      $marketplaceService Per-skill install.
+     * @param SkillIdentityResolver        $identityResolver   Canonical skill identity.
      * @param LoggerInterface              $logger             PSR logger.
      *
      * @return void
@@ -67,6 +68,7 @@ class SkillBundleInstaller
         private readonly GitHubTemplateCatalogService $catalogService,
         private readonly SkillBundleSerializer $bundleSerializer,
         private readonly SkillMarketplaceService $marketplaceService,
+        private readonly SkillIdentityResolver $identityResolver,
         private readonly LoggerInterface $logger,
     ) {
     }//end __construct()
@@ -80,7 +82,7 @@ class SkillBundleInstaller
      * @param string|null $actingUserId The acting user (broker identity + owner).
      * @param string|null $credentialId Optional broker credential UUID.
      *
-     * @return array{installed:int,skipped:int,failed:int,truncated:bool,skills:array<int,array<string,mixed>>}
+     * @return array{installed:int,updated:int,unchanged:int,skipped:int,failed:int,truncated:bool,skills:array<int,array<string,mixed>>}
      *
      * @throws RuntimeException When the repository does not carry a bundle.
      *
@@ -106,10 +108,17 @@ class SkillBundleInstaller
         }
 
         $parsed = $this->bundleSerializer->fromBundle(files: $bundle['files']);
-        $result = $this->installParsed(parsed: $parsed, createdBy: (string) $actingUserId);
+        $result = $this->installParsed(
+            parsed: $parsed,
+            createdBy: (string) $actingUserId,
+            owner: $owner,
+            repo: $repo
+        );
 
         return [
             'installed' => $result['counts']['installed'],
+            'updated'   => $result['counts']['updated'],
+            'unchanged' => $result['counts']['unchanged'],
             'skipped'   => $result['counts']['skipped'],
             'failed'    => $result['counts']['failed'],
             // A FLAG, not a count — fetchBundle knows truncation happened but not
@@ -130,35 +139,61 @@ class SkillBundleInstaller
      *
      * @param array<int,array<string,mixed>> $parsed    The parsed bundle skills.
      * @param string                         $createdBy The owning user id.
+     * @param string                         $owner     Repo owner, for skill identity.
+     * @param string                         $repo      Repo name, for skill identity.
      *
      * @return array{outcomes:array<int,array<string,mixed>>,counts:array<string,int>}
      *
      * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
      */
-    public function installParsed(array $parsed, string $createdBy): array
+    public function installParsed(array $parsed, string $createdBy, string $owner='', string $repo=''): array
     {
         $outcomes = [];
-        $counts   = ['installed' => 0, 'skipped' => 0, 'failed' => 0];
+        $counts   = ['installed' => 0, 'updated' => 0, 'unchanged' => 0, 'skipped' => 0, 'failed' => 0];
 
         foreach ($parsed as $skill) {
             $name = (string) ($skill['bundleName'] ?? ($skill['name'] ?? ''));
+
+            // The canonical identity of this skill. Without it installFromSource
+            // cannot tell a re-install from a new skill and duplicates it.
+            $sourceUrl = $this->identityResolver->canonicalUrl(
+                owner: $owner,
+                repo: $repo,
+                bundleName: $name
+            );
+
+            $outcome = null;
 
             try {
                 $installed = $this->marketplaceService->installFromSource(
                     package: $this->bundleSerializer->packageOf(skill: $skill),
                     source: 'hub',
                     createdBy: $createdBy,
-                    auxFiles: ($skill['files'] ?? [])
+                    auxFiles: ($skill['files'] ?? []),
+                    sourceUrl: $sourceUrl,
+                    outcome: $outcome
                 );
 
                 $object     = $installed->getObject();
+                $verdict    = (string) ($outcome['outcome'] ?? 'installed');
                 $outcomes[] = [
-                    'name'     => $name,
-                    'outcome'  => 'installed',
-                    'state'    => (string) ($object['state'] ?? ''),
-                    'severity' => (string) (($object['scanReport'] ?? [])['severity'] ?? ''),
+                    'name'          => $name,
+                    'outcome'       => $verdict,
+                    'state'         => (string) ($object['state'] ?? ''),
+                    'severity'      => (string) (($object['scanReport'] ?? [])['severity'] ?? ''),
+                    'learningsKept' => (bool) ($outcome['learningsKept'] ?? false),
+                    'matchedBy'     => (string) ($outcome['matchedBy'] ?? ''),
+                    'sourceUrl'     => (string) ($outcome['sourceUrl'] ?? ''),
                 ];
-                $counts['installed']++;
+
+                // An unrecognised verdict counts as an install rather than being
+                // dropped: a count that silently loses an item is the defect this
+                // whole change exists to remove.
+                if (array_key_exists($verdict, $counts) === false) {
+                    $verdict = 'installed';
+                }
+
+                $counts[$verdict]++;
             } catch (DoesNotExistException $e) {
                 // OpenRegister re-throws this from the write path when the hermiq
                 // register/schema cannot be resolved. Recorded per skill so one

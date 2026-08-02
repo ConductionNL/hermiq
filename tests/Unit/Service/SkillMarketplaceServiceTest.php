@@ -26,7 +26,9 @@ namespace OCA\Hermiq\Tests\Unit\Service;
 
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillSerializer;
+use OCA\Hermiq\Service\SkillIdentityResolver;
 use OCA\Hermiq\Service\SkillService;
+use OCA\Hermiq\Service\SkillUpsertPolicy;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ContentScanService;
 use OCA\OpenRegister\Service\ObjectService;
@@ -148,6 +150,8 @@ class SkillMarketplaceServiceTest extends TestCase
             $this->createMock(SkillService::class),
             $serializer,
             $this->scanner(),
+            new SkillIdentityResolver(),
+            new SkillUpsertPolicy(),
             $this->appConfig(90, 180),
             $this->createMock(ContainerInterface::class),
             $this->createMock(LoggerInterface::class)
@@ -202,6 +206,8 @@ class SkillMarketplaceServiceTest extends TestCase
             $this->createMock(SkillService::class),
             $serializer,
             $this->scanner(ContentScanService::SEVERITY_DANGEROUS),
+            new SkillIdentityResolver(),
+            new SkillUpsertPolicy(),
             $this->appConfig(90, 180),
             $this->createMock(ContainerInterface::class),
             $this->createMock(LoggerInterface::class)
@@ -278,6 +284,8 @@ class SkillMarketplaceServiceTest extends TestCase
             $this->createMock(SkillService::class),
             $serializer,
             $scanner,
+            new SkillIdentityResolver(),
+            new SkillUpsertPolicy(),
             $this->appConfig(90, 180),
             $this->createMock(ContainerInterface::class),
             $this->createMock(LoggerInterface::class)
@@ -330,6 +338,8 @@ class SkillMarketplaceServiceTest extends TestCase
             $this->createMock(SkillService::class),
             new SkillSerializer(),
             $this->scanner(),
+            new SkillIdentityResolver(),
+            new SkillUpsertPolicy(),
             $this->appConfig(90, 180),
             $this->createMock(ContainerInterface::class),
             $this->createMock(LoggerInterface::class)
@@ -375,6 +385,8 @@ class SkillMarketplaceServiceTest extends TestCase
             $skillService,
             $this->createMock(SkillSerializer::class),
             $this->scanner(),
+            new SkillIdentityResolver(),
+            new SkillUpsertPolicy(),
             $this->appConfig(90, 180),
             $this->createMock(ContainerInterface::class),
             $this->createMock(LoggerInterface::class)
@@ -415,6 +427,8 @@ class SkillMarketplaceServiceTest extends TestCase
             $skillService,
             $this->createMock(SkillSerializer::class),
             $this->scanner(ContentScanService::SEVERITY_DANGEROUS),
+            new SkillIdentityResolver(),
+            new SkillUpsertPolicy(),
             $this->appConfig(90, 180),
             $this->createMock(ContainerInterface::class),
             $this->createMock(LoggerInterface::class)
@@ -463,6 +477,8 @@ class SkillMarketplaceServiceTest extends TestCase
             $this->createMock(SkillService::class),
             $this->createMock(SkillSerializer::class),
             $this->scanner(),
+            new SkillIdentityResolver(),
+            new SkillUpsertPolicy(),
             $this->appConfig(staleDays: 0, archiveDays: 0),
             $this->createMock(ContainerInterface::class),
             $this->createMock(LoggerInterface::class)
@@ -506,6 +522,8 @@ class SkillMarketplaceServiceTest extends TestCase
             $skillService,
             $serializer,
             $this->scanner(),
+            new SkillIdentityResolver(),
+            new SkillUpsertPolicy(),
             $this->appConfig(90, 180),
             $container,
             $this->createMock(LoggerInterface::class)

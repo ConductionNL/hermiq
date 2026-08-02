@@ -656,11 +656,18 @@ class SkillController extends Controller
             return new JSONResponse(['error' => 'not_a_bundle'], Http::STATUS_NOT_FOUND);
         }
 
-        $result = $this->installBundleSkills(parsed: $parsed, createdBy: $user->getUID());
+        $result = $this->installBundleSkills(
+            parsed: $parsed,
+            createdBy: $user->getUID(),
+            owner: $owner,
+            repo: $repo
+        );
 
         return new JSONResponse(
             [
                 'installed' => $result['counts']['installed'],
+                'updated'   => $result['counts']['updated'],
+                'unchanged' => $result['counts']['unchanged'],
                 'skipped'   => $result['counts']['skipped'],
                 'failed'    => $result['counts']['failed'],
                 'truncated' => $bundle['truncated'],
@@ -818,14 +825,21 @@ class SkillController extends Controller
      *
      * @param array<int, array<string, mixed>> $parsed    The parsed bundle entries.
      * @param string                           $createdBy The installing user id.
+     * @param string                           $owner     Repo owner, for skill identity.
+     * @param string                           $repo      Repo name, for skill identity.
      *
      * @return array{outcomes:array<int,array<string,mixed>>,counts:array<string,int>}
      *
      * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-bundle-installs-as-many-individually-quarantined-skills
      */
-    private function installBundleSkills(array $parsed, string $createdBy): array
+    private function installBundleSkills(array $parsed, string $createdBy, string $owner='', string $repo=''): array
     {
-        return $this->bundleInstaller->installParsed(parsed: $parsed, createdBy: $createdBy);
+        return $this->bundleInstaller->installParsed(
+            parsed: $parsed,
+            createdBy: $createdBy,
+            owner: $owner,
+            repo: $repo
+        );
 
     }//end installBundleSkills()
 }//end class

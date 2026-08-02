@@ -91,13 +91,15 @@ class SkillMarketplaceService
     /**
      * Constructor.
      *
-     * @param ObjectService      $objectService      OpenRegister object read/write (single write-path).
-     * @param SkillService       $skillService       Catalog service (get-by-uuid).
-     * @param SkillSerializer    $skillSerializer    agentskills.io (de)serialiser.
-     * @param ContentScanService $contentScanService OpenRegister heuristic content scanner.
-     * @param IAppConfig         $appConfig          App config (curator thresholds).
-     * @param ContainerInterface $container          Lazy OpenConnector CallService resolution.
-     * @param LoggerInterface    $logger             PSR-3 logger.
+     * @param ObjectService         $objectService      OpenRegister object read/write (single write-path).
+     * @param SkillService          $skillService       Catalog service (get-by-uuid).
+     * @param SkillSerializer       $skillSerializer    agentskills.io (de)serialiser.
+     * @param ContentScanService    $contentScanService OpenRegister heuristic content scanner.
+     * @param SkillIdentityResolver $identityResolver   Canonical identity + match (skill-install-idempotency).
+     * @param SkillUpsertPolicy     $upsertPolicy       What an update may overwrite (skill-install-idempotency).
+     * @param IAppConfig            $appConfig          App config (curator thresholds).
+     * @param ContainerInterface    $container          Lazy OpenConnector CallService resolution.
+     * @param LoggerInterface       $logger             PSR-3 logger.
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Distinct collaborators.
      */
@@ -106,6 +108,8 @@ class SkillMarketplaceService
         private readonly SkillService $skillService,
         private readonly SkillSerializer $skillSerializer,
         private readonly ContentScanService $contentScanService,
+        private readonly SkillIdentityResolver $identityResolver,
+        private readonly SkillUpsertPolicy $upsertPolicy,
         private readonly IAppConfig $appConfig,
         private readonly ContainerInterface $container,
         private readonly LoggerInterface $logger,
@@ -115,12 +119,19 @@ class SkillMarketplaceService
     /**
      * Install a skill from an external source into QUARANTINE (never auto-active).
      *
-     * @param string $package   The agentskills.io package.
-     * @param string $source    The source (`org`|`hub`).
-     * @param string $createdBy The installing user id.
-     * @param array  $auxFiles  Auxiliary `{name, content}` files travelling with the
-     *                          package. Their content is part of the scanned material;
-     *                          unsafe paths are dropped rather than failing the install.
+     * @param string     $package   The agentskills.io package.
+     * @param string     $source    The source (`org`|`hub`).
+     * @param string     $createdBy The installing user id.
+     * @param array      $auxFiles  Auxiliary `{name, content}` files travelling with the
+     *                              package. Their content is part of the scanned
+     *                              material; unsafe paths are dropped rather than
+     *                              failing the install.
+     * @param string     $sourceUrl The canonical identity url this skill was fetched from.
+     *                              Empty for a hand-uploaded package, which stays a plain
+     *                              install because identity cannot be established.
+     * @param array|null $outcome   Out-param: how this resolved (`installed`/`updated`/
+     *                              `unchanged`, whether local learnings were kept, and
+     *                              how an existing skill was matched).
      *
      * @return ObjectEntity The quarantined Skill object.
      *
@@ -131,7 +142,9 @@ class SkillMarketplaceService
         string $package,
         string $source,
         string $createdBy,
-        array $auxFiles=[]
+        array $auxFiles=[],
+        string $sourceUrl='',
+        ?array &$outcome=null
     ): ObjectEntity {
         $parsed = $this->skillSerializer->fromPackageFiles(
             files: $this->skillSerializer->toDirectoryMap(package: $package, auxFiles: $auxFiles)
@@ -156,27 +169,152 @@ class SkillMarketplaceService
             files: $parsed['files']
         );
         $reason = $this->quarantineReasonFor(source: $source, scan: $scan);
+        $now    = $this->now();
+
+        // Identity-aware UPDATE when this skill is already here. Without it every
+        // install created a new object, so re-installing an app duplicated every
+        // skill it ships — already visible on the shared instance as an approved
+        // skill with a quarantined shadow competing with it.
+        $existing = $this->resolveExisting(sourceUrl: $sourceUrl, name: $name, outcome: $outcome);
+        if ($existing !== null) {
+            return $this->updateExisting(
+                existing: $existing,
+                incoming: [
+                    'description' => $parsed['description'],
+                    'frontmatter' => $parsed['frontmatter'],
+                    'body'        => $parsed['body'],
+                    'files'       => $parsed['files'],
+                ],
+                scan: $scan,
+                sourceUrl: $sourceUrl,
+                now: $now,
+                outcome: $outcome
+            );
+        }
+
+        $object = [
+            'name'             => $name,
+            'description'      => $parsed['description'],
+            'frontmatter'      => $parsed['frontmatter'],
+            'body'             => $parsed['body'],
+            'files'            => $parsed['files'],
+            'state'            => 'quarantined',
+            'source'           => $source,
+            'quarantineReason' => $reason,
+            'scanReport'       => $scan,
+            'lastActivityAt'   => $now,
+            'createdBy'        => $createdBy,
+            'installedOn'      => [],
+        ];
+
+        if ($sourceUrl !== '') {
+            $object['sourceUrl']       = $sourceUrl;
+            $object['sourceUpdatedAt'] = $now;
+        }
+
+        $outcome = ['outcome' => 'installed', 'learningsKept' => false, 'sourceUrl' => $sourceUrl];
 
         return $this->objectService->saveObject(
-            object: [
-                'name'             => $name,
-                'description'      => $parsed['description'],
-                'frontmatter'      => $parsed['frontmatter'],
-                'body'             => $parsed['body'],
-                'files'            => $parsed['files'],
-                'state'            => 'quarantined',
-                'source'           => $source,
-                'quarantineReason' => $reason,
-                'scanReport'       => $scan,
-                'lastActivityAt'   => $this->now(),
-                'createdBy'        => $createdBy,
-                'installedOn'      => [],
-            ],
+            object: $object,
             register: self::REGISTER_SLUG,
             schema: self::SKILL_SCHEMA
         );
 
     }//end installFromSource()
+
+    /**
+     * Find the skill an incoming bundle entry already corresponds to.
+     *
+     * @param string                   $sourceUrl The incoming canonical url.
+     * @param string                   $name      The incoming skill name.
+     * @param array<string,mixed>|null $outcome   Out-param: records how it matched.
+     *
+     * @return ObjectEntity|null The existing skill, or null when this is new.
+     *
+     * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-installing-a-skill-that-is-already-present-updates-it
+     */
+    private function resolveExisting(string $sourceUrl, string $name, ?array &$outcome): ?ObjectEntity
+    {
+        if ($sourceUrl === '') {
+            // No coordinates (a hand-uploaded package): identity cannot be
+            // established, so this stays a plain install rather than guessing.
+            return null;
+        }
+
+        $existing = [];
+        $byId     = [];
+        foreach ($this->loadSkills() as $object) {
+            $data       = (array) $object->getObject();
+            $data['id'] = $object->getUuid();
+            $existing[] = $data;
+            $byId[(string) $data['id']] = $object;
+        }
+
+        $resolved = $this->identityResolver->resolve(sourceUrl: $sourceUrl, name: $name, existing: $existing);
+        if ($resolved['match'] === null) {
+            return null;
+        }
+
+        $outcome = ['matchedBy' => $resolved['matchedBy']];
+
+        return ($byId[(string) ($resolved['match']['id'] ?? '')] ?? null);
+
+    }//end resolveExisting()
+
+    /**
+     * Update an existing skill from bundle content.
+     *
+     * @param ObjectEntity             $existing  The stored skill.
+     * @param array<string,mixed>      $incoming  The bundle content.
+     * @param array<string,mixed>      $scan      The fresh content-scan verdict.
+     * @param string                   $sourceUrl The canonical identity url.
+     * @param string                   $now       This sync's timestamp.
+     * @param array<string,mixed>|null $outcome   Out-param: the per-skill outcome.
+     *
+     * @return ObjectEntity The saved skill.
+     *
+     * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-curated-state-survives-an-update
+     */
+    private function updateExisting(
+        ObjectEntity $existing,
+        array $incoming,
+        array $scan,
+        string $sourceUrl,
+        string $now,
+        ?array &$outcome
+    ): ObjectEntity {
+        $merged = $this->upsertPolicy->merge(
+            existing: (array) $existing->getObject(),
+            incoming: $incoming,
+            sourceUrl: $sourceUrl,
+            now: $now
+        );
+
+        $payload = $merged['payload'];
+        // The scan is re-run on the content actually stored, so a report never
+        // describes material the skill no longer carries.
+        $payload['scanReport'] = $scan;
+
+        $verdict = 'unchanged';
+        if ($merged['changed'] === true) {
+            $verdict = 'updated';
+        }
+
+        $outcome = [
+            'outcome'       => $verdict,
+            'learningsKept' => $merged['learningsKept'],
+            'sourceUrl'     => $sourceUrl,
+            'matchedBy'     => ($outcome['matchedBy'] ?? ''),
+        ];
+
+        return $this->objectService->saveObject(
+            object: $payload,
+            register: self::REGISTER_SLUG,
+            schema: self::SKILL_SCHEMA,
+            uuid: $existing->getUuid()
+        );
+
+    }//end updateExisting()
 
     /**
      * The review gate: transition a quarantined skill to active.
