@@ -81,6 +81,13 @@ class ObjectEntity
     private array $object = [];
 
     /**
+     * Soft-delete metadata; null while the object is live.
+     *
+     * @var array<string,mixed>|null
+     */
+    private ?array $deleted = null;
+
+    /**
      * Get the numeric object id.
      *
      * @return int|null
@@ -189,6 +196,35 @@ class ObjectEntity
     {
         $this->object = ($object ?? []);
     }//end setObject()
+
+    /**
+     * Get the soft-delete marker.
+     *
+     * 🔴 Null means "live". OpenRegister's API delete is a SOFT delete: it
+     * writes this marker and dispatches an UPDATE, not ObjectDeletedEvent —
+     * only the hard `MagicMapper::delete()` dispatches that. A listener that
+     * treats an update as "still active" will therefore keep acting on objects
+     * the user has thrown away, so this accessor is what makes trashing
+     * observable at all.
+     *
+     * @return array<string,mixed>|null The delete metadata, or null when live.
+     */
+    public function getDeleted(): ?array
+    {
+        return $this->deleted;
+    }//end getDeleted()
+
+    /**
+     * Set the soft-delete marker.
+     *
+     * @param array<string,mixed>|null $deleted The delete metadata.
+     *
+     * @return void
+     */
+    public function setDeleted(?array $deleted): void
+    {
+        $this->deleted = $deleted;
+    }//end setDeleted()
 
     /**
      * Get the creation timestamp.
