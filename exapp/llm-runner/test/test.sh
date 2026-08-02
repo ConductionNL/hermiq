@@ -332,6 +332,27 @@ else
 fi
 
 # =============================================================================
+# (l) The DEPLOYED posture — and the one flag whose default breaks everything
+#
+# ⚠️ Static, like (d) was, and for the same reason honest about it: a compose
+# file is not a container. What it pins is `exec` on the scratch tmpfs. Docker
+# defaults a tmpfs to NOEXEC, and the scratch tree is executed from twice — git
+# runs the GIT_ASKPASS helper written into it, and the stage's command child is
+# a script in the cloned tree. Measured on one image varying only the mount
+# options: noexec gives `cannot exec '.../askpass.sh': Permission denied` and an
+# EACCES command child; exec gives a credential that reaches the forge.
+#
+# So the posture as first shipped (`tmpfs: [- /tmp]`) satisfied every
+# `docker inspect` assertion and could neither authenticate nor run a gate
+# suite. Mutation-checked: restore the bare form and case 3 goes red.
+# =============================================================================
+if node --test "${ROOT}/test/deploy.posture.test.js" > "${WORK}/posture.log" 2>&1; then
+    pass "(l) deploy-posture tests (cap_drop, read-only root, exec scratch, no route out)"
+else
+    fail "(l) deploy-posture tests failed"; cat "${WORK}/posture.log" || true
+fi
+
+# =============================================================================
 
 # =============================================================================
 echo
