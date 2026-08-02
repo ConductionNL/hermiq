@@ -33,6 +33,7 @@ use OCA\Hermiq\Controller\SkillController;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SkillBundleInstaller;
+use OCA\Hermiq\Service\SkillIdentityResolver;
 use OCA\Hermiq\Service\SkillBundleSerializer;
 use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillSerializer;
@@ -153,6 +154,7 @@ class SkillControllerTest extends TestCase
                 $catalog,
                 $bundle,
                 $marketplace,
+                new SkillIdentityResolver(),
                 $this->createMock(LoggerInterface::class)
             )
         );

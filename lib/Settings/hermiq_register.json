@@ -1428,6 +1428,17 @@
                         "title": "Published at",
                         "description": "When this skill was last published to GitHub. Provenance only — never round-tripped through the exported package."
                     },
+                    "sourceUrl": {
+                        "type": "string",
+                        "title": "Source URL",
+                        "description": "Canonical location this skill was installed FROM, as https://<host>/<owner>/<repo>/skills/<bundleName>. This is the skill's identity for re-install: a matching URL means the same skill and is updated in place rather than duplicated. Deliberately carries NO git ref — a branch is not identity, and pinning one would make the same skill on two branches two different skills. Known mirror hosts are normalised to one canonical host before storing, so a skill installed from a mirror and from its origin is one object."
+                    },
+                    "sourceUpdatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Source updated at",
+                        "description": "When this skill was last refreshed FROM its sourceUrl. Deliberately NOT publishedAt: that records publication TO a remote and is empty forever on an instance that only installs, so any 'has anything changed since we last synced?' check built on it would silently always answer no. Compared against lastAcceptedVersionAt to decide whether local learnings would be lost by an update."
+                    },
                     "lastAcceptedVersionAt": {
                         "type": "string",
                         "format": "date-time",
