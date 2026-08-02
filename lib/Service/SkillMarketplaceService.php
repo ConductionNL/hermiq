@@ -241,9 +241,26 @@ class SkillMarketplaceService
             return null;
         }
 
+        // Scoped to what the CALLER may see — RBAC and multitenancy ON.
+        //
+        // Deliberately NOT loadSkills(): that is the Curator's system-wide loader
+        // (`_rbac: false, _multitenancy: false`) and is documented as lifecycle-only,
+        // never crossing tenants WITH DATA. Matching identity against it would cross
+        // tenants to make a decision — leaking the existence of another tenant's
+        // skill, and then failing at write time with a permission error because the
+        // caller cannot update what it was silently matched against.
+        $objects = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::SKILL_SCHEMA)
+            ->findAll(config: ['limit' => 1000]);
+
         $existing = [];
         $byId     = [];
-        foreach ($this->loadSkills() as $object) {
+        foreach ($objects as $object) {
+            if ($object instanceof ObjectEntity === false) {
+                continue;
+            }
+
             $data       = (array) $object->getObject();
             $data['id'] = $object->getUuid();
             $existing[] = $data;
