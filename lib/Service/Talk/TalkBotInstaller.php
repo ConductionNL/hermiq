@@ -39,6 +39,7 @@ namespace OCA\Hermiq\Service\Talk;
 use OCP\EventDispatcher\IEventDispatcher;
 use OCP\IAppConfig;
 use OCP\Security\ISecureRandom;
+use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
@@ -75,6 +76,34 @@ class TalkBotInstaller
     private const UNINSTALL_EVENT = 'OCA\\Talk\\Events\\BotUninstallEvent';
 
     /**
+     * Spreed's BotServerMapper — read-only, to resolve a bot row by URL.
+     *
+     * @var string
+     */
+    private const BOT_SERVER_MAPPER = 'OCA\\Talk\\Model\\BotServerMapper';
+
+    /**
+     * Spreed's BotConversationMapper — writes the per-room enablement row.
+     *
+     * @var string
+     */
+    private const BOT_CONVERSATION_MAPPER = 'OCA\\Talk\\Model\\BotConversationMapper';
+
+    /**
+     * Spreed's BotConversation entity.
+     *
+     * @var string
+     */
+    private const BOT_CONVERSATION = 'OCA\\Talk\\Model\\BotConversation';
+
+    /**
+     * Spreed's Bot::STATE_ENABLED.
+     *
+     * @var int
+     */
+    private const BOT_STATE_ENABLED = 1;
+
+    /**
      * Feature bits: in-process invocation, may post, may react.
      *
      * FEATURE_EVENT (4) is what makes spreed dispatch BotInvokeEvent at all;
@@ -89,6 +118,7 @@ class TalkBotInstaller
     /**
      * Constructor.
      *
+     * @param ContainerInterface $container  Resolves spreed mappers lazily.
      * @param IEventDispatcher $dispatcher   Dispatches spreed's lifecycle events.
      * @param IAppConfig       $appConfig    Stores the generated bot secret.
      * @param ISecureRandom    $secureRandom Generates the bot secret.
@@ -96,6 +126,7 @@ class TalkBotInstaller
      * @param LoggerInterface  $logger       PSR-3 logger.
      */
     public function __construct(
+        private readonly ContainerInterface $container,
         private readonly IEventDispatcher $dispatcher,
         private readonly IAppConfig $appConfig,
         private readonly ISecureRandom $secureRandom,
@@ -326,6 +357,77 @@ class TalkBotInstaller
         }//end try
 
     }//end uninstallForAgent()
+
+    /**
+     * Enable an agent's bot IN one room.
+     *
+     * 🔴 spreed's opt-in is two-sided and installing is only half of it. A bot
+     * that exists on the instance but is not enabled in a room is never invoked
+     * for that room's messages — the agent would sit in its own session room
+     * and answer nothing, with no error anywhere to say why.
+     *
+     * There is no event for this half: `BotEnabledEvent` only NOTIFIES an
+     * already-enabled bot (spreed's own controller inserts the row first, then
+     * dispatches). So the row is written through `BotConversationMapper`, which
+     * is what that controller does, and the event is dispatched afterwards in
+     * the same order so anything listening sees a consistent state.
+     *
+     * Idempotent: a bot already enabled in the room is left alone, matching the
+     * controller's own behaviour.
+     *
+     * @param string $agentId   The agent whose bot to enable.
+     * @param string $roomToken The room to enable it in.
+     *
+     * @return bool True when the bot is enabled in the room.
+     *
+     * @psalm-suppress UndefinedClass See install(): spreed is optional and absent from analysis.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) See installForAgent().
+     */
+    public function enableInRoom(string $agentId, string $roomToken): bool
+    {
+        if ($agentId === '' || $roomToken === '' || $this->bridge->isAvailable() === false) {
+            return false;
+        }
+
+        try {
+            $botMapper          = $this->container->get(self::BOT_SERVER_MAPPER);
+            $conversationMapper = $this->container->get(self::BOT_CONVERSATION_MAPPER);
+
+            $bot   = $botMapper->findByUrl(TalkBridge::botUrlFor(agentId: $agentId));
+            $botId = (int) $bot->getId();
+
+            foreach ($conversationMapper->findForToken($roomToken) as $enabled) {
+                if ((int) $enabled->getBotId() === $botId) {
+                    return true;
+                }
+            }
+
+            $conversationClass = self::BOT_CONVERSATION;
+            $row               = new $conversationClass();
+            $row->setBotId($botId);
+            $row->setToken($roomToken);
+            $row->setState(self::BOT_STATE_ENABLED);
+            $conversationMapper->insert($row);
+
+            return true;
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                message: '[TalkBotInstaller] Could not enable the agent bot in the room',
+                context: [
+                    'file'      => __FILE__,
+                    'line'      => __LINE__,
+                    'agentId'   => $agentId,
+                    'roomToken' => $roomToken,
+                    'error'     => $e->getMessage(),
+                ]
+            );
+            return false;
+        }//end try
+
+    }//end enableInRoom()
 
     /**
      * The per-agent bot secret: unique to the agent, stable for its lifetime.
