@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud. v0.21.0 — talk-approval-reactions-schema: Approval gains the OPTIONAL top-level talkMessageId (the Talk message carrying an approval request; top-level so the reaction handler can resolve BY it), talkRoomToken, and the derived decidedVia ('inbox' or 'reaction'). All optional, none required, no conditionals, so every existing Approval stays valid and the shape is inert until the talk-approval-reactions code change ships. Previously v0.20.0 — talk-chat-bridge-schema: Conversation gains the OPTIONAL top-level talkRoomToken (the Talk room a conversation is bound to, declared top-level rather than inside metadata so the bridge can resolve an inbound room token by filter query) and the OPTIONAL participants roster (user ids permitted to take a turn beyond the implicit userId owner); Message gains the OPTIONAL authorId and authorDisplayName, set on role=user turns only and captured at send time. All four are optional, none is added to any required list, and no conditional blocks are introduced, so every existing Conversation and Message stays valid and the shape is inert until the talk-chat-bridge code change ships. Supersedes v0.19.3 on development (skill-maturity wave + Algoritmekader title re-authoring). Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
-        "version": "0.21.0"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.22.0 — agentflow-cron: AgentFlow gains the OPTIONAL cron property. A flow could already declare trigger 'schedule', but there was no property for the expression that says WHEN, so the value was silently dropped on save and the flow was scheduled for never — hydra-sequencer, hydra-dispatch and hydra-lock-reaper were all in that state. Optional, not required, no conditionals, so every existing AgentFlow stays valid. Previously v0.21.0 — talk-approval-reactions-schema: Approval gains the OPTIONAL top-level talkMessageId (the Talk message carrying an approval request; top-level so the reaction handler can resolve BY it), talkRoomToken, and the derived decidedVia ('inbox' or 'reaction'). All optional, none required, no conditionals, so every existing Approval stays valid and the shape is inert until the talk-approval-reactions code change ships. Previously v0.20.0 — talk-chat-bridge-schema: Conversation gains the OPTIONAL top-level talkRoomToken (the Talk room a conversation is bound to, declared top-level rather than inside metadata so the bridge can resolve an inbound room token by filter query) and the OPTIONAL participants roster (user ids permitted to take a turn beyond the implicit userId owner); Message gains the OPTIONAL authorId and authorDisplayName, set on role=user turns only and captured at send time. All four are optional, none is added to any required list, and no conditional blocks are introduced, so every existing Conversation and Message stays valid and the shape is inert until the talk-chat-bridge code change ships. Supersedes v0.19.3 on development (skill-maturity wave + Algoritmekader title re-authoring). Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
+        "version": "0.22.0"
     },
     "x-openregister": {
         "type": "application",
@@ -3450,9 +3450,9 @@
             "AgentFlow": {
                 "slug": "agentflow",
                 "icon": "Sitemap",
-                "version": "0.1.2",
+                "version": "0.1.3",
                 "title": "Agent flow",
-                "description": "An authored agent graph: nodes/edges triggered by a Nextcloud event, walked by OpenRegister's flow engine (ADR-065). Reuses the nc-vue CnFlowCanvas for authoring. v0.1.2 adds triggerRegister (already read by HermiqFlowResolver but undeclared, so it was silently dropped on save) and owner (the NC UID a trigger-fired run is attributed to).",
+                "description": "An authored agent graph: nodes/edges triggered by a Nextcloud event or a cron schedule, walked by OpenRegister's flow engine (ADR-065). Reuses the nc-vue CnFlowCanvas for authoring. v0.1.3 adds cron — a flow could already declare trigger 'schedule', but the expression that says WHEN had no property to live in, so every cron value was silently dropped on save and the flow was scheduled for never. Previously v0.1.2 added triggerRegister (already read by HermiqFlowResolver but undeclared, so it was silently dropped on save) and owner (the NC UID a trigger-fired run is attributed to).",
                 "type": "object",
                 "required": [
                     "name"
@@ -3464,7 +3464,8 @@
                 "properties": {
                     "name": {
                         "type": "string",
-                        "title": "Name"
+                        "title": "Name",
+                        "description": "What this flow is called — how it is listed and how a run refers to it."
                     },
                     "triggerRegister": {
                         "type": "string",
@@ -3484,12 +3485,18 @@
                     "trigger": {
                         "type": "string",
                         "title": "Trigger",
-                        "description": "Event-catalog trigger id (object.created/updated/deleted).",
+                        "description": "Event-catalog trigger id (object.created/updated/deleted), manual for a flow run only on request, or schedule to run it on the cron below.",
                         "default": "object.updated"
+                    },
+                    "cron": {
+                        "type": "string",
+                        "title": "Cron schedule",
+                        "description": "For a schedule trigger: the cron expression that decides when the flow runs (e.g. \"*/5 * * * *\" = every five minutes, \"0 9 * * 1\" = 09:00 every Monday). Ignored for other triggers. Without this property a flow could declare trigger 'schedule' and the value saying WHEN was dropped on save, so the flow was scheduled for never."
                     },
                     "enabled": {
                         "type": "boolean",
                         "title": "Enabled",
+                        "description": "Whether this flow may run. A disabled flow is never started by a trigger or by the schedule, however due it is.",
                         "default": true
                     },
                     "nodes": {
@@ -3518,11 +3525,13 @@
                     },
                     "description": {
                         "type": "string",
-                        "title": "Description"
+                        "title": "Description",
+                        "description": "What this flow does, in a sentence — shown wherever the flow is listed."
                     },
                     "notes": {
                         "type": "string",
-                        "title": "Notes"
+                        "title": "Notes",
+                        "description": "Free-form working notes for whoever maintains the flow. Not read by the engine."
                     }
                 }
             },
