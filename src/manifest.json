@@ -207,10 +207,15 @@
 							"label": "Total runs",
 							"caption": "recorded",
 							"icon": "Timeline",
-							"format": { "style": "decimal", "decimals": 0 },
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
 							"endpointSource": {
 								"url": "/apps/hermiq/api/analytics",
-								"params": { "agentId": "@objectId" }
+								"params": {
+									"agentId": "@objectId"
+								}
 							},
 							"valueField": "totalRuns"
 						}
@@ -223,15 +228,29 @@
 							"label": "Success rate",
 							"caption": "completed",
 							"icon": "CheckCircleOutline",
-							"format": { "style": "decimal", "decimals": 0, "suffix": "%" },
+							"format": {
+								"style": "decimal",
+								"decimals": 0,
+								"suffix": "%"
+							},
 							"endpointSource": {
 								"url": "/apps/hermiq/api/analytics",
-								"params": { "agentId": "@objectId" }
+								"params": {
+									"agentId": "@objectId"
+								}
 							},
 							"valueField": "successRate",
 							"variantWhen": [
-								{ "op": "gte", "value": 90, "variant": "success" },
-								{ "op": "lt", "value": 60, "variant": "warning" }
+								{
+									"op": "gte",
+									"value": 90,
+									"variant": "success"
+								},
+								{
+									"op": "lt",
+									"value": 60,
+									"variant": "warning"
+								}
 							]
 						}
 					},
@@ -243,10 +262,16 @@
 							"label": "Avg latency",
 							"caption": "per run",
 							"icon": "Gauge",
-							"format": { "style": "decimal", "decimals": 1, "suffix": " s" },
+							"format": {
+								"style": "decimal",
+								"decimals": 1,
+								"suffix": " s"
+							},
 							"endpointSource": {
 								"url": "/apps/hermiq/api/analytics",
-								"params": { "agentId": "@objectId" }
+								"params": {
+									"agentId": "@objectId"
+								}
 							},
 							"valueField": "latency.avgSeconds"
 						}
@@ -258,10 +283,15 @@
 						"content": {
 							"label": "Tokens",
 							"icon": "ChartBar",
-							"format": { "style": "decimal", "decimals": 0 },
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
 							"endpointSource": {
 								"url": "/apps/hermiq/api/analytics",
-								"params": { "agentId": "@objectId" }
+								"params": {
+									"agentId": "@objectId"
+								}
 							},
 							"valueField": "tokens.total"
 						}
@@ -521,6 +551,13 @@
 				"_note": "skill-maturity (mirrors EvalDatasetDetail): the durable maturity scorecard home — per-level pass/fail + reasons + evidence timestamps, the owner-guarded Qualify action and the action-gated Attest-L4 form live in the one custom skill-maturity-scorecard widget; qualify/attest are bespoke SkillMaturityController endpoints, not OR object CRUD. skill-evals adds the skill-eval-evidence card (l5 pass rate + mode-labelled delta + trend + Run paired eval). skill-learnings adds the read-only skill-learnings card (rendered learnings.md + l6 activity strip; no edit affordance — no new write channel).",
 				"widgets": [
 					{
+						"id": "skill-provenance",
+						"type": "custom",
+						"title": "Origin & review status",
+						"icon": "ShieldCheckOutline",
+						"_note": "skill-install-idempotency: where the skill came from, when it was last refreshed from there, why it is quarantined, and whether local learnings are ahead of the source. Resolved via page.slots.widget-skill-provenance -> skill-provenance."
+					},
+					{
 						"id": "skill-maturity-scorecard",
 						"type": "custom",
 						"title": "Maturity scorecard",
@@ -558,10 +595,18 @@
 				],
 				"layout": [
 					{
+						"id": "provenance",
+						"widgetId": "skill-provenance",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 4
+					},
+					{
 						"id": "1",
 						"widgetId": "skill-maturity-scorecard",
 						"gridX": 0,
-						"gridY": 0,
+						"gridY": 4,
 						"gridWidth": 12,
 						"gridHeight": 6
 					},
@@ -569,7 +614,7 @@
 						"id": "2",
 						"widgetId": "skill-eval-evidence",
 						"gridX": 0,
-						"gridY": 6,
+						"gridY": 10,
 						"gridWidth": 12,
 						"gridHeight": 5
 					},
@@ -577,7 +622,7 @@
 						"id": "3",
 						"widgetId": "skill-learnings",
 						"gridX": 0,
-						"gridY": 11,
+						"gridY": 15,
 						"gridWidth": 12,
 						"gridHeight": 6
 					},
@@ -585,7 +630,7 @@
 						"id": "4",
 						"widgetId": "skill-draft-review",
 						"gridX": 0,
-						"gridY": 17,
+						"gridY": 21,
 						"gridWidth": 12,
 						"gridHeight": 7
 					},
@@ -593,7 +638,7 @@
 						"id": "5",
 						"widgetId": "skill-version-history",
 						"gridX": 0,
-						"gridY": 24,
+						"gridY": 28,
 						"gridWidth": 12,
 						"gridHeight": 6
 					}
@@ -607,7 +652,8 @@
 				"widget-skill-eval-evidence": "skill-eval-evidence",
 				"widget-skill-learnings": "skill-learnings",
 				"widget-skill-draft-review": "skill-draft-review",
-				"widget-skill-version-history": "skill-version-history"
+				"widget-skill-version-history": "skill-version-history",
+				"widget-skill-provenance": "skill-provenance"
 			}
 		},
 		{
@@ -671,8 +717,13 @@
 							"label": "Total runs",
 							"caption": "recorded",
 							"icon": "Timeline",
-							"format": { "style": "decimal", "decimals": 0 },
-							"endpointSource": { "url": "/apps/hermiq/api/analytics" },
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics"
+							},
 							"valueField": "totalRuns"
 						}
 					},
@@ -684,12 +735,26 @@
 							"label": "Success rate",
 							"caption": "completed",
 							"icon": "CheckCircleOutline",
-							"format": { "style": "decimal", "decimals": 0, "suffix": "%" },
-							"endpointSource": { "url": "/apps/hermiq/api/analytics" },
+							"format": {
+								"style": "decimal",
+								"decimals": 0,
+								"suffix": "%"
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics"
+							},
 							"valueField": "successRate",
 							"variantWhen": [
-								{ "op": "gte", "value": 90, "variant": "success" },
-								{ "op": "lt", "value": 60, "variant": "warning" }
+								{
+									"op": "gte",
+									"value": 90,
+									"variant": "success"
+								},
+								{
+									"op": "lt",
+									"value": 60,
+									"variant": "warning"
+								}
 							]
 						}
 					},
@@ -701,8 +766,14 @@
 							"label": "Avg latency",
 							"caption": "per run",
 							"icon": "Gauge",
-							"format": { "style": "decimal", "decimals": 1, "suffix": " s" },
-							"endpointSource": { "url": "/apps/hermiq/api/analytics" },
+							"format": {
+								"style": "decimal",
+								"decimals": 1,
+								"suffix": " s"
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics"
+							},
 							"valueField": "latency.avgSeconds"
 						}
 					},
@@ -713,8 +784,13 @@
 						"content": {
 							"label": "Tokens",
 							"icon": "ChartBar",
-							"format": { "style": "decimal", "decimals": 0 },
-							"endpointSource": { "url": "/apps/hermiq/api/analytics" },
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics"
+							},
 							"valueField": "tokens.total"
 						}
 					},
@@ -738,13 +814,17 @@
 						"id": "quota-schedules",
 						"type": "custom",
 						"title": "Schedules quota",
-						"content": { "metric": "schedules" }
+						"content": {
+							"metric": "schedules"
+						}
 					},
 					{
 						"id": "quota-agents",
 						"type": "custom",
 						"title": "Agents quota",
-						"content": { "metric": "agents" }
+						"content": {
+							"metric": "agents"
+						}
 					}
 				],
 				"layout": [
@@ -1065,7 +1145,7 @@
 						"target": "/graphs/new"
 					}
 				],
-				"_note": "Agent graphs are plain OpenRegister objects, so the browse/search surface is a standard type:index — no bespoke list code. Authoring happens on GraphDetail, which is type:custom because a direct-manipulation canvas is not expressible as a widget grid. ONE row action, Edit, opening that canvas: the built-in View and Edit were both dropped because they were redundant with each other and NEITHER did what a graph needs \u2014 View only navigated (the same thing a row click does) and Edit opened the field form, which cannot touch nodes or edges. It is type:open-page, NOT type:navigate: navigate pushes its target verbatim, while open-page pushes {name, params:{id}} and so carries the clicked row. config.rowRoute drives the row-click path to the same page.",
+				"_note": "Agent graphs are plain OpenRegister objects, so the browse/search surface is a standard type:index — no bespoke list code. Authoring happens on GraphDetail, which is type:custom because a direct-manipulation canvas is not expressible as a widget grid. ONE row action, Edit, opening that canvas: the built-in View and Edit were both dropped because they were redundant with each other and NEITHER did what a graph needs — View only navigated (the same thing a row click does) and Edit opened the field form, which cannot touch nodes or edges. It is type:open-page, NOT type:navigate: navigate pushes its target verbatim, while open-page pushes {name, params:{id}} and so carries the clicked row. config.rowRoute drives the row-click path to the same page.",
 				"showAdd": false,
 				"inlineActionCount": 2
 			}
