@@ -219,3 +219,72 @@ export async function cleanupFamily(req: APIRequestContext, token: string, schem
 		}
 	}
 }
+
+/**
+ * Dismiss whatever first-run overlay is sitting over the page.
+ *
+ * 🔴 Hoisted here because three specs each carried their own copy, and an
+ * overlay rule that drifts between copies is worse than no rule: the wizard
+ * below does NOT hide what is underneath, so a spec with a stale copy still
+ * passes every visibility assertion and fails only on a click, reported as a
+ * mysterious timeout on a control the DOM says is perfectly visible.
+ *
+ * Two distinct overlays, and neither is optional:
+ *
+ * - the onboarding tour, which has a "Close tour" button;
+ * - the first-run "Set up this app" wizard (`cn-wizard-dialog`), which renders
+ *   on any instance where hermiq's LLM endpoint was never configured. It does
+ *   NOT close on Escape — verified live, the modal is still visible afterwards
+ *   — so it must be cancelled by its own button.
+ *
+ * @param page The Playwright page.
+ */
+export async function dismissTour(page: Page): Promise<void> {
+	const close = page.getByRole('button', { name: 'Close tour' })
+	if (await close.count() > 0) {
+		await close.first().click().catch(() => undefined)
+	}
+
+	const wizard = page.locator('[data-testid-modal="cn-wizard-dialog"]')
+	if (await wizard.count() > 0 && await wizard.first().isVisible().catch(() => false)) {
+		await wizard.first().getByRole('button', { name: 'Cancel' }).click().catch(() => undefined)
+		await wizard.first().waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => undefined)
+	}
+}
+
+/**
+ * Collect console errors raised by hermiq's OWN bundle.
+ *
+ * Nextcloud's Dashboard hosts every installed app's widgets, so on a shared
+ * instance the page reliably logs errors from apps a hermiq spec knows nothing
+ * about. Counting those turns an assertion about hermiq into a report on the
+ * whole instance. Errors with no attributable script are KEPT — those are raw
+ * console.error from application code, which is what these assertions exist to
+ * catch.
+ *
+ * @param page The Playwright page.
+ * @return A live array that accumulates error message strings.
+ */
+export function collectHermiqConsoleErrors(page: Page): string[] {
+	const errors: string[] = []
+	page.on('console', (msg) => {
+		if (msg.type() !== 'error') {
+			return
+		}
+		const text = msg.text()
+		if (/favicon|manifest\.json|the server responded with a status of 404|user_status|Failed to load resource/i.test(text)) {
+			return
+		}
+		if ((msg.location()?.url || '').includes('/api/chat/health')) {
+			return
+		}
+		const source = `${msg.location()?.url || ''} ${text}`
+		const foreignApp = source.match(/\/custom_apps\/([^/]+)\//)?.[1]
+			|| source.match(/\/apps\/([^/]+)\/js\//)?.[1]
+		if (foreignApp !== undefined && foreignApp !== 'hermiq') {
+			return
+		}
+		errors.push(text)
+	})
+	return errors
+}

@@ -29,6 +29,7 @@ use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkAgentBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
@@ -103,6 +104,13 @@ class TalkBotInvokeListenerTest extends TestCase
         $this->dispatcher   = $this->createMock(TalkTurnDispatcher::class);
         $this->grouping     = $this->createMock(TalkRoomGrouping::class);
 
+        // The roster sync returns the session it was handed when nothing moved.
+        // A bare double returns null instead, which would silently abort every
+        // turn below and make these tests assert nothing about the behaviour
+        // they name — the same shape that once let the whole reaction path pass
+        // its suite while being inert in production.
+        $this->roomBinding->method('syncParticipants')->willReturnArgument(0);
+
         $this->listener = new TalkBotInvokeListener(
             $this->bridge,
             $this->roomBinding,
@@ -110,6 +118,7 @@ class TalkBotInvokeListenerTest extends TestCase
             $this->dispatcher,
             $this->grouping,
             new ConversationParticipation(),
+            new TalkMentionMatcher(),
             $this->createMock(LoggerInterface::class)
         );
 

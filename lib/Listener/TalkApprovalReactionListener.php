@@ -270,17 +270,34 @@ class TalkApprovalReactionListener implements IEventListener
     private function applyDecision(ObjectEntity $approval, string $reactor, string $emoji, string $roomToken): void
     {
         $uuid = (string) $approval->getUuid();
+        // Confirm under the same agent that asked, so the exchange reads as one
+        // conversation with one agent rather than two different speakers.
+        $agentId = (string) (($approval->getObject())['agentId'] ?? '');
+        if ($agentId === '') {
+            // No agent on the approval — fall back to the shared bot rather
+            // than skipping the confirmation, which is the reviewer's only
+            // feedback that their reaction landed.
+            $agentId = null;
+        }
 
         if ($emoji === self::APPROVE) {
             $this->approvalService->approve(approval: $approval, deciderUid: $reactor);
             $this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
-            $this->bridge->postToRoom(roomToken: $roomToken, message: '✅ Approved — the run has been released.');
+            $this->bridge->postToRoom(
+                roomToken: $roomToken,
+                message: '✅ Approved — the run has been released.',
+                agentId: $agentId
+            );
             return;
         }
 
         $this->approvalService->deny(approval: $approval, deciderUid: $reactor, reason: 'Denied by reaction in Talk');
         $this->approvalBinding->recordDecidedVia(approvalUuid: $uuid, via: 'reaction');
-        $this->bridge->postToRoom(roomToken: $roomToken, message: '🚫 Denied — the run will not execute.');
+        $this->bridge->postToRoom(
+            roomToken: $roomToken,
+            message: '🚫 Denied — the run will not execute.',
+            agentId: $agentId
+        );
 
     }//end applyDecision()
 
@@ -295,10 +312,23 @@ class TalkApprovalReactionListener implements IEventListener
      * @return array|null The reaction payload, or null.
      *
      * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-the-reaction-path-is-inert-without-talk
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) See TalkBotInvokeListener::readPayload():
+     * the URL predicate is static so the real rule stays in the path under test.
+     * On THIS listener that matters most — the guard fronts the approval
+     * decision, and its unit tests once passed against a payload shape spreed
+     * never sends while the feature was completely inert in production.
      */
     private function readPayload(Event $event): ?array
     {
-        if (method_exists($event, 'getBotUrl') === false || $event->getBotUrl() !== TalkBridge::BOT_URL) {
+        // 🔴 Loosened from an exact match on one constant to "is this ANY Hermiq
+        // bot", because after per-agent bots there is no single URL to compare
+        // against. What must NOT loosen with it is anything downstream: the
+        // approval is still resolved by the message id recorded when it was
+        // posted, and the reviewer check below is untouched. A URL from another
+        // app, or the bare prefix with no agent, still yields null and no action
+        // — `agentIdFromBotUrl()` is deliberately strict for exactly this reason.
+        if (method_exists($event, 'getBotUrl') === false || TalkBridge::isHermiqBotUrl((string) $event->getBotUrl()) === false) {
             return null;
         }
 

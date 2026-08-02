@@ -286,6 +286,61 @@ class TalkAgentBinding
     }//end isTalkEnabled()
 
     /**
+     * An agent's display name, or an empty string when it cannot be read.
+     *
+     * This is the name Talk shows on the agent's own bot, and therefore the
+     * name a user types to address it. Returns '' rather than throwing: the
+     * only caller is the mention matcher, where "no name" must degrade to "not
+     * addressed by name", never to a failed turn.
+     *
+     * @param string $agentId The agent uuid.
+     *
+     * @return string The agent's name, or ''.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+     */
+
+    /**
+     * Whether an agent has opted into Talk.
+     *
+     * 🔴 The opt-in is TWO-SIDED and this is the agent's half. Without it a
+     * session for an agent that never opted in still gets a room created —
+     * and that room is useless by construction, because a Talk-disabled agent
+     * has no bot to enable in it. Caught by e2e, not by unit tests: every unit
+     * fixture and every live probe used an opted-in agent.
+     *
+     * Defaults to FALSE for an agent that cannot be read, matching
+     * isTalkEnabled(): the bridge stays inert unless deliberately enabled.
+     *
+     * @param string $agentId The agent uuid.
+     *
+     * @return bool True when the agent is Talk-enabled.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+     */
+    public function isAgentTalkEnabled(string $agentId): bool
+    {
+        $agent = $this->loadAgent(agentId: $agentId);
+        if (($agent instanceof ObjectEntity) === false) {
+            return false;
+        }
+
+        return $this->isTalkEnabled(agent: $agent);
+
+    }//end isAgentTalkEnabled()
+
+    public function agentName(string $agentId): string
+    {
+        $agent = $this->loadAgent(agentId: $agentId);
+        if (($agent instanceof ObjectEntity) === false) {
+            return '';
+        }
+
+        return (string) (($agent->getObject())['name'] ?? '');
+
+    }//end agentName()
+
+    /**
      * Load an agent object by uuid.
      *
      * @param string $agentId The agent uuid.

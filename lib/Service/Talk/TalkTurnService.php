@@ -35,6 +35,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Talk;
 
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\IUserManager;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
@@ -61,6 +62,7 @@ class TalkTurnService
     public function __construct(
         private readonly Engine $engine,
         private readonly TalkBridge $bridge,
+        private readonly TalkRoomBinding $roomBinding,
         private readonly IUserManager $userManager,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
@@ -121,7 +123,15 @@ class TalkTurnService
                 );
             }
 
-            return $this->bridge->postToRoom(roomToken: $roomToken, message: $answer);
+            // Post under the AGENT's own bot identity, not the shared one.
+            // Without this the answer renders as the bare actor id
+            // (`bot-<hash>-bot`) or as "Hermiq (Bot)" for every agent alike —
+            // which is the whole problem per-agent bots exist to solve.
+            return $this->bridge->postToRoom(
+                roomToken: $roomToken,
+                message: $answer,
+                agentId: $this->agentForRoom(roomToken: $roomToken)
+            );
         } catch (Throwable $e) {
             $this->logger->error(
                 message: '[TalkTurnService] Talk-originated agent turn failed',
@@ -190,4 +200,33 @@ class TalkTurnService
         return $displayName;
 
     }//end displayNameOf()
+
+    /**
+     * The agent bound to a room, for posting under its own bot identity.
+     *
+     * Read from the bound session rather than the room→agent config map: a
+     * session room is created with its agent already recorded on the session,
+     * and the map is only populated for rooms somebody bound by hand.
+     *
+     * Null degrades to the shared bot, which is the pre-change rendering — a
+     * missing agent must not cost the answer.
+     *
+     * @param string $roomToken The Talk room token.
+     *
+     * @return string|null The agent uuid, or null.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+     */
+    private function agentForRoom(string $roomToken): ?string
+    {
+        $conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);
+        if (($conversation instanceof ObjectEntity) === false) {
+            return null;
+        }
+
+        $agentId = (string) (($conversation->getObject())['agentId'] ?? '');
+
+        return ($agentId === '') ? null : $agentId;
+
+    }//end agentForRoom()
 }//end class
