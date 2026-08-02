@@ -110,6 +110,7 @@ class TalkSessionRoom
      * @param ObjectService      $objectService Records the room back onto the session.
      * @param TalkBridge         $bridge      Talk availability probe.
      * @param TalkBotInstaller   $installer   Enables the agent's bot in the room.
+     * @param TalkAgentBinding   $agentBinding Checks the agent opted into Talk.
      * @param TalkRoomGrouping   $grouping    Files the room under each participant's Hermiq tag.
      * @param LoggerInterface    $logger      PSR-3 logger.
      */
@@ -119,6 +120,7 @@ class TalkSessionRoom
         private readonly ObjectService $objectService,
         private readonly TalkBridge $bridge,
         private readonly TalkBotInstaller $installer,
+        private readonly TalkAgentBinding $agentBinding,
         private readonly TalkRoomGrouping $grouping,
         private readonly LoggerInterface $logger,
     ) {
@@ -138,6 +140,15 @@ class TalkSessionRoom
     public function createForSession(string $title, string $ownerUid, string $agentId): ?string
     {
         if ($this->bridge->isAvailable() === false || $ownerUid === '' || $agentId === '') {
+            return null;
+        }
+
+        // 🔴 The agent's half of the two-sided opt-in. Without this a session
+        // for an agent that never opted into Talk still gets a room — and that
+        // room is useless by construction, because a Talk-disabled agent has no
+        // bot to enable in it. Found by e2e; every unit fixture and every live
+        // probe had used an opted-in agent, so nothing else could have caught it.
+        if ($this->agentBinding->isAgentTalkEnabled(agentId: $agentId) === false) {
             return null;
         }
 
