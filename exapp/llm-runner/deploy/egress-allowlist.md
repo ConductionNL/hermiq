@@ -112,7 +112,27 @@ After the change, six consecutive clones of a public repository through the
 proxy: 6/6 OK, 855–1123 ms. (The iptables jail it replaces gave 2-in-3 failures
 at ~135 s each.)
 
-### Two things an operator must get right, or every stage is denied
+### Four things an operator must get right, or every stage is denied
+
+**0. An EMPTY allowlist is not a closed door — it is an open one.**
+`WebResearchEgressGuard::rejectionForAllowDenyLists()` only applies the list when
+it is non-empty (`if ($allowlist !== [] && ...)`), so an instance that has never
+configured `fetchAllowlist` allows **every** resolvable public host. Measured
+2026-08-02 against a live PDP with no allowlist set: `github.com`,
+`api.github.com`, `codeload.github.com`, `objects.githubusercontent.com`,
+`raw.githubusercontent.com` and `codeberg.org` all returned `allowed: true` —
+and so would anything else, because the only refusal in that run was
+`evil.example.com` failing **DNS resolution**, not policy.
+
+That matters more than it looks: `allowed: true` for the forge is **not**
+evidence that the forge is allowlisted. Verify the fence with a host that
+resolves and should be refused (`gitlab.com`), never with one that does not
+resolve. Set the list explicitly before relying on it.
+
+⚠️ The list is a single **global** app setting shared with the agent's
+`web.fetch` tool. "Allow the forge host only" therefore also restricts every
+agent's web research on that instance; there is currently no way to express a
+narrower allowlist for the CONNECT proxy alone.
 
 **1. The allowlist is EXACT hostnames — no wildcards, no subdomains.**
 `WebResearchEgressGuard::matchesHostList()` is case-insensitive string equality.
@@ -135,6 +155,48 @@ Nextcloud recommends — every flow-dispatched stage would be denied egress, and
 the symptom is a `git clone` failure, not a policy error. **Configure
 `memcache.distributed` (Redis/Memcached) before putting the sidecar behind the
 proxy.**
+
+⚠️ `ICacheFactory::isAvailable()` returns **true** in the fallback case, so
+nothing in the instance reports that the distributed store is missing. The only
+reliable check is to read the class back:
+`createDistributed()` handing you `OC\Memcache\APCu` is the fault.
+
+**3. The scratch tmpfs must be mounted `exec`. Docker's default is `noexec`.**
+The scratch tree is executed from twice — git runs the `GIT_ASKPASS` helper
+written into it, and the stage's command child is a script in the cloned tree.
+Measured on one image with only the mount options varying:
+
+| `/tmp` options | `GIT_ASKPASS` | command child |
+|---|---|---|
+| `rw,nosuid,nodev,noexec` (Docker default) | `fatal: cannot exec '…/askpass.sh': Permission denied` → `could not read Username …: terminal prompts disabled` | `EACCES` |
+| `rw,exec,nosuid,nodev,size=2g` | credential reaches the forge | runs |
+
+So the hardened posture as first shipped dropped the credential on the floor and
+could not run a gate suite at all, while every `docker inspect` assertion about
+it still passed. The default 64 M size is also too small for a repository clone.
+
+### The live container is not the compose container
+
+`docker inspect` on the *compose* stack proves nothing about a sidecar deployed
+another way. An ExApp registered through AppAPI's `manual_install` deploy
+daemon — which is how the shared dev instance runs it — carries only
+`appid`/`port`/`secret` in `oc_ex_apps`; **AppAPI does not own the container
+lifecycle**, and a plain `docker run` gives you `CapDrop=[]`, a writable root and
+whatever network the operator picked.
+
+Measured 2026-08-02, the live `hermiq-llm-runner` had exactly that. `cap_drop`,
+`read_only`, tmpfs and network attachment are all **create-time** flags, so there
+is no `docker update` remedy: the container must be **recreated**. Because the
+daemon is `manual_install`, recreation is safe — keep the name, the port
+(`RUNNER_PORT`, `oc_ex_apps.port`), the `APP_SECRET` and a network the Nextcloud
+container can resolve, and AppAPI keeps dispatching to it unchanged.
+
+Assert the result on the RUNNING container, and from inside it:
+
+```
+docker inspect <name> --format '{{json .HostConfig.CapDrop}} {{.HostConfig.ReadonlyRootfs}}'
+docker exec <name> sh -c 'grep ^CapEff /proc/1/status; touch /nope; touch /tmp/ok && echo tmp-writable'
+```
 
 ### Known limitation: CONNECT is host-granular
 
