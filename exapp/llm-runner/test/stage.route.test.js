@@ -98,6 +98,19 @@ test('every field the body carries reaches the workload', async () => {
         toolRef: 'main',
         command: ['scripts/run-hydra-gates.sh', '--scope-to-diff'],
         timeoutMs: 1000,
+        // The two fields that decide whether a stage may WRITE and whether it
+        // has an identity to get out with. A route that dropped `push` would
+        // silently downgrade a builder to a read-only gating stage, which looks
+        // like a stage that simply found nothing to do; a route that dropped
+        // `runToken` would leave the clone with no per-run identity and the
+        // governed proxy would deny it `no_run_token`.
+        runToken: 'run-token-not-a-secret-in-this-test',
+        push: {
+            branch: 'feature/493/x',
+            issue: 493,
+            scope: ['lib'],
+            allowedRepo: 'https://example.test/target',
+        },
     }));
 
     // Auth runs FIRST, before the body is parsed and long before anything is
@@ -129,6 +142,17 @@ test('every field the body carries reaches the workload', async () => {
     assert.strictEqual(got.toolRepo, 'https://example.test/tool', 'toolRepo was dropped by the route');
     assert.strictEqual(got.toolRef, 'main', 'toolRef was dropped by the route');
     assert.deepStrictEqual(got.command, ['scripts/run-hydra-gates.sh', '--scope-to-diff']);
+    assert.strictEqual(got.runToken, 'run-token-not-a-secret-in-this-test', 'runToken was dropped by the route');
+    assert.deepStrictEqual(
+        got.push,
+        {
+            branch: 'feature/493/x',
+            issue: 493,
+            scope: ['lib'],
+            allowedRepo: 'https://example.test/target',
+        },
+        'push was dropped or reshaped by the route'
+    );
 });
 
 test('the route forwards exactly the fields the workload accepts, and no more', () => {

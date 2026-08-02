@@ -46,8 +46,70 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const { assertPushAllowed, PushRefused } = require('./pushGuard');
+
 const DEFAULT_STAGE_TIMEOUT_MS = Number(process.env.RUNNER_STAGE_TIMEOUT_MS || String(30 * 60 * 1000));
 const MAX_OUTPUT_BYTES = Number(process.env.RUNNER_MAX_OUTPUT_BYTES || String(8 * 1024 * 1024));
+
+/**
+ * The governed egress proxy's authority (`host:port`), e.g. `egress-proxy:3128`.
+ *
+ * Mirrors `runner.js`. A stage reaches the network for exactly the same reason a
+ * turn does and must be governed the same way — see {@link buildEgressProxyEnv}.
+ *
+ * @type {string}
+ */
+const EGRESS_PROXY_AUTHORITY = (process.env.EGRESS_PROXY_AUTHORITY || '').trim();
+
+/**
+ * Identity used for the commit a push phase creates.
+ *
+ * A commit with no author fails `git commit`, and a commit authored as whoever
+ * the container happens to be is unattributable. Overridable so a deployment can
+ * name the persona rather than the transport.
+ *
+ * @type {{name: string, email: string}}
+ */
+const STAGE_COMMITTER = {
+    name: process.env.RUNNER_STAGE_COMMIT_NAME || 'hermiq stage',
+    email: process.env.RUNNER_STAGE_COMMIT_EMAIL || 'noreply@conduction.nl',
+};
+
+/**
+ * Build the PER-RUN proxy environment for a stage's git operations.
+ *
+ * ⚠️ This closes a real asymmetry. `runner.js` has built a per-run proxy URL for
+ * LLM turns since the governed-egress change, but the stage path only ever
+ * PASSED THROUGH whatever `HTTPS_PROXY` the container's own environment carried.
+ * Under the governed posture that is not a smaller fence, it is no route at all:
+ * the proxy takes the run token from `Proxy-Authorization` and denies a
+ * token-less CONNECT with `no_run_token` before it ever asks the PDP. So a stage
+ * behind the proxy could not clone anything, and the failure surfaced as a plain
+ * `git clone` error rather than as a policy refusal.
+ *
+ * Returns an empty object when either half is missing, so an ungoverned
+ * deployment keeps its existing behaviour (the container env is still carried
+ * through by the caller) instead of losing its route.
+ *
+ * @param {string} runToken The per-run token minted by Hermiq.
+ * @returns {object} Proxy env vars, or `{}` when there is nothing to point at.
+ */
+function buildEgressProxyEnv(runToken) {
+    if (EGRESS_PROXY_AUTHORITY === '' || typeof runToken !== 'string' || runToken === '') {
+        return {};
+    }
+
+    // Basic-auth userinfo is how every HTTP client and git itself forward proxy
+    // credentials, and it keeps the token off argv.
+    const url = `http://run:${encodeURIComponent(runToken)}@${EGRESS_PROXY_AUTHORITY}`;
+
+    return {
+        HTTPS_PROXY: url,
+        https_proxy: url,
+        HTTP_PROXY: url,
+        http_proxy: url,
+    };
+}
 
 /**
  * Commands a stage is allowed to run.
@@ -377,6 +439,159 @@ function spawnCollect(bin, args, { cwd, env, timeoutMs }) {
 }
 
 /**
+ * The repository-relative paths a stage changed, INCLUDING untracked files.
+ *
+ * `git diff --name-only` alone is the wrong question: a builder that adds a new
+ * file leaves it untracked, so a diff-only read of the change set reports
+ * nothing and the gate below waves through a change it never saw. That is the
+ * exact shape of "a fence only ever observed not-blocking" — it would pass every
+ * test written against modified files and let a brand-new
+ * `.github/workflows/pwn.yml` straight past.
+ *
+ * `git status --porcelain=v1 -z --untracked-files=all` answers it in one call:
+ * every tracked modification and every untracked file, NUL-separated so a path
+ * containing a newline or a quote cannot forge a record boundary.
+ *
+ * @param {object} args `{workdir, env, deadline}`.
+ * @returns {Promise<Array<string>>} Changed paths, repository-relative.
+ */
+async function changedFiles({ workdir, env, deadline }) {
+    const status = await spawnCollect(
+        'git',
+        ['status', '--porcelain=v1', '-z', '--untracked-files=all'],
+        { cwd: workdir, env, timeoutMs: deadline }
+    );
+
+    if (status.code !== 0) {
+        // Fail CLOSED: an unreadable change set must never be treated as an
+        // empty one. An empty change set passes every rule in pushGuard.
+        throw new PushRefused(
+            'diff_unreadable',
+            `push refused: the change set could not be read (git status exit ${status.code}): `
+            + `${lastLines(status.output)}`
+        );
+    }
+
+    const files = [];
+    for (const record of status.output.split('\0')) {
+        if (record === '') {
+            continue;
+        }
+
+        // `XY <path>` — two status columns, a space, then the path. A rename is
+        // `R  <new>\0<old>`, so the record following an `R`/`C` is a bare path
+        // with no status columns; it is picked up by the length guard below and
+        // recorded too, which is what we want (both halves of a rename are
+        // changes).
+        if (record.length > 3 && /^[ MADRCU?!]{2} /.test(record) === true) {
+            files.push(record.slice(3));
+            continue;
+        }
+
+        files.push(record);
+    }
+
+    return files;
+}
+
+/**
+ * Commit the working tree and push it to a validated branch.
+ *
+ * THE CREDENTIAL IS USED HERE AND NOWHERE ELSE. The command child ran without
+ * `GIT_FORGE_TOKEN` and without `GIT_ASKPASS` (see `runStage()`), so this is the
+ * only place a push can happen at all — which is what makes the assertions above
+ * it fences rather than suggestions.
+ *
+ * The refspec is built here from the VALIDATED branch name, never taken from the
+ * caller as a string. `git push origin <refspec>` with a caller-supplied refspec
+ * would let `feature/1/x:refs/heads/main` clear a branch check that only looked
+ * at the left-hand side.
+ *
+ * @param {object} args Push arguments.
+ * @returns {Promise<{pushed: boolean, branch: string, commit: string, files: Array<string>}>} Outcome.
+ */
+async function performPush({ workdir, push, repo, env, deadline }) {
+    const branch = String(push.branch || '');
+    const files = await changedFiles({ workdir, env, deadline });
+
+    // EVERY fence, before anything touches the network. A refusal here throws a
+    // PushRefused, which `runStage()` surfaces as a stage failure — never as a
+    // stage that "completed" without pushing, which a caller would read as
+    // success.
+    assertPushAllowed({
+        pushUrl: repo,
+        allowedUrl: push.allowedRepo || repo,
+        branch,
+        issue: push.issue,
+        files,
+        scope: push.scope,
+    });
+
+    if (files.length === 0) {
+        // Nothing to push is NOT a failure — a builder that found the work
+        // already done is a legitimate outcome — but it must be reported as
+        // what it is rather than as a push that happened.
+        return { pushed: false, branch, commit: '', files: [] };
+    }
+
+    const message = String(push.message || `chore: stage changes for issue ${push.issue}`);
+
+    // `--all -- .` from the repository root: the command's own cwd is the clone,
+    // but a pathspec-less `add` run from a subdirectory would miss siblings.
+    const add = await spawnCollect('git', ['add', '--all', '--', '.'], {
+        cwd: workdir,
+        env,
+        timeoutMs: deadline,
+    });
+    if (add.code !== 0) {
+        throw new PushRefused('commit_failed', `git add failed (exit ${add.code}): ${lastLines(add.output)}`);
+    }
+
+    // Identity via `-c`, not `git config`: it configures nothing that outlives
+    // the scratch tree. `--no-verify` because hooks in the clone are repository
+    // content — i.e. hostile input — and running them would execute code the
+    // change set just brought in.
+    const commit = await spawnCollect(
+        'git',
+        [
+            '-c', `user.name=${STAGE_COMMITTER.name}`,
+            '-c', `user.email=${STAGE_COMMITTER.email}`,
+            'commit', '--no-verify', '-m', message,
+        ],
+        { cwd: workdir, env, timeoutMs: deadline }
+    );
+    if (commit.code !== 0) {
+        throw new PushRefused('commit_failed', `git commit failed (exit ${commit.code}): ${lastLines(commit.output)}`);
+    }
+
+    // The refspec is BUILT from the validated branch, never taken as a string.
+    // `origin` is the clone URL the credential was minted for; naming it here
+    // rather than re-splicing a URL keeps the destination the one that was
+    // checked.
+    const pushed = await spawnCollect(
+        'git',
+        ['push', '--no-verify', 'origin', `HEAD:refs/heads/${branch}`],
+        { cwd: workdir, env, timeoutMs: deadline }
+    );
+    if (pushed.code !== 0) {
+        throw new PushRefused('push_rejected', `git push failed (exit ${pushed.code}): ${lastLines(pushed.output)}`);
+    }
+
+    const rev = await spawnCollect('git', ['rev-parse', 'HEAD'], {
+        cwd: workdir,
+        env,
+        timeoutMs: deadline,
+    });
+
+    return {
+        pushed: true,
+        branch,
+        commit: rev.code === 0 ? rev.output.trim().split('\n').pop() : '',
+        files,
+    };
+}
+
+/**
  * Run one stage: clone a ref, execute a command over it, return the result.
  *
  * The result carries the command's EXIT CODE and its full output rather than a
@@ -405,6 +620,15 @@ function spawnCollect(bin, args, { cwd, env, timeoutMs }) {
  * @param {string} [args.forgeUser] Username half of the clone URL. Not a secret.
  * @param {number} [args.timeoutMs] Overall ceiling.
  * @param {object} [args.env] Extra non-secret env for the command.
+ * @param {string} [args.runToken] The per-run token minted by Hermiq. Used to build the
+ *                                 PER-RUN proxy URL so the governed egress proxy can ask
+ *                                 the PDP "may THIS run reach that host?". Without it a
+ *                                 stage behind the proxy is denied `no_run_token`.
+ * @param {object} [args.push] Declares that this stage may WRITE. `{branch, issue, scope,
+ *                             allowedRepo, message}`. Its presence changes the security
+ *                             posture of the whole stage: the command runs WITHOUT the
+ *                             credential, and the runner performs the push itself after
+ *                             every fence in `pushGuard` has passed.
  * @returns {Promise<{exitCode: number, output: string, ref: string}>} The result.
  */
 async function runStage({
@@ -419,6 +643,8 @@ async function runStage({
     forgeUser,
     timeoutMs,
     env,
+    runToken,
+    push,
 }) {
     if (typeof repo !== 'string' || repo === '') {
         throw new Error('a stage needs a repo');
@@ -459,6 +685,14 @@ async function runStage({
                 childEnv[name] = process.env[name];
             }
         }
+
+        // The PER-RUN proxy URL is assigned AFTER the passthrough, so a static
+        // `HTTPS_PROXY` in the container's own environment can never shadow the
+        // run-scoped one. Sending a stage out through a proxy with no run
+        // identity is precisely what the PDP refuses (`no_run_token`), and
+        // silently preferring the identity-less URL would turn a governed
+        // deployment into an ungoverned one.
+        Object.assign(childEnv, buildEgressProxyEnv(runToken));
 
         if (typeof forgeToken === 'string' && forgeToken !== '') {
             childEnv.GIT_FORGE_TOKEN = forgeToken;
@@ -540,6 +774,33 @@ async function runStage({
 
         const [bin, ...rest] = command;
 
+        // ────────────────────────────────────────────────────────────────────
+        // THE COMMAND DOES NOT GET THE CREDENTIAL WHEN THIS STAGE MAY PUSH.
+        //
+        // This is the single line that makes every rule in `pushGuard` a fence
+        // rather than a suggestion. A builder stage runs a model with a shell in
+        // a writable tree; if that child's environment carried `GIT_FORGE_TOKEN`
+        // and `GIT_ASKPASS`, the model could run `git push` itself and no
+        // runner-side check could observe it, let alone refuse it. The gates
+        // would be decoration around a hole, and — worse — they would pass every
+        // test, because a test drives the guard functions directly.
+        //
+        // So the credential is used for the CLONE (above) and for the PUSH
+        // (below), both performed by the runner, and is withheld from the one
+        // process that reads hostile input.
+        //
+        // Withheld only when a push is declared, deliberately: a read-only
+        // gating stage has needed the token in its command env since the
+        // workload plane shipped, and silently removing it would break the
+        // running pipeline to harden a path that pipeline does not take.
+        // ────────────────────────────────────────────────────────────────────
+        const wantsPush = (push !== null && typeof push === 'object');
+        const commandEnv = { ...childEnv };
+        if (wantsPush === true) {
+            delete commandEnv.GIT_FORGE_TOKEN;
+            delete commandEnv.GIT_ASKPASS;
+        }
+
         // The command is resolved inside the TOOL tree when there is one, and
         // runs with the TARGET as its working directory. A bare name (`sh`)
         // stays a PATH lookup — only a repo-relative path is rebased, which is
@@ -547,9 +808,27 @@ async function runStage({
         const executable = (bin.includes('/') === true ? path.join(commandRoot, bin) : bin);
         const result = await spawnCollect(executable, rest, {
             cwd: workdir,
-            env: childEnv,
+            env: commandEnv,
             timeoutMs: deadline,
         });
+
+        // THE PUSH PHASE — after the command, before the scratch tree goes.
+        //
+        // A refusal THROWS. It must not come back as a 200 carrying
+        // `pushed: false`, because a caller that reads only the status would
+        // record a refused push as a completed stage — the exact conflation
+        // (`ran and failed` vs `could not run`) the rest of this file is
+        // written to avoid.
+        let pushResult = null;
+        if (wantsPush === true) {
+            pushResult = await performPush({
+                workdir,
+                push,
+                repo,
+                env: childEnv,
+                deadline,
+            });
+        }
 
         // FILES THE COMMAND PRODUCED, read back before the scratch tree goes.
         //
@@ -568,6 +847,10 @@ async function runStage({
             output: result.output,
             ref,
             files: readCollected({ paths: collect, workdir }),
+            // Absent (not `false`, not `{}`) when no push was asked for, so a
+            // consumer can tell "this stage does not push" from "this stage
+            // pushed nothing".
+            ...(pushResult === null ? {} : { push: pushResult }),
         };
     } finally {
         // The token lives in the child env and the askpass helper lives in the
@@ -577,4 +860,10 @@ async function runStage({
     }
 }
 
-module.exports = { runStage, isAllowedCommand, ALLOWED_COMMANDS };
+module.exports = {
+    runStage,
+    isAllowedCommand,
+    ALLOWED_COMMANDS,
+    buildEgressProxyEnv,
+    changedFiles,
+};
