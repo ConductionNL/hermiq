@@ -112,3 +112,34 @@ stamped. Without it the learnings comparison has no clock and would never fire t
 - **WHEN** a skill is updated from its bundle
 - **THEN** its `sourceUpdatedAt` reflects that update
 - **AND** its `lastAcceptedVersionAt` is unchanged
+
+### Requirement: A person can see why a skill needs review and where it came from
+
+Everything this change decides — that a skill was re-quarantined, why, where it was
+installed from, when it was last refreshed, and whether local learnings are ahead of
+the source — SHALL be visible on the skill's detail page.
+
+Before this, all of it was reported ONLY in the install API response, which is
+nowhere a person looks. A warning that never reaches a person is not a warning.
+
+The learnings notice SHALL render only when `lastAcceptedVersionAt` postdates
+`sourceUpdatedAt`, the same condition under which an update preserves the local
+file, so a skill nobody has taught anything never shows it.
+
+The surface SHALL be read-only: it reports state and never changes it. Approval
+stays with the existing quarantine review gate.
+
+#### Scenario: A quarantined skill shows its state and the reason
+- **WHEN** a skill that was re-quarantined by a content change is opened
+- **THEN** its detail page shows that it is awaiting review
+- **AND** shows the recorded quarantine reason
+
+#### Scenario: An installed skill shows where it came from and when it was refreshed
+- **WHEN** a skill installed from a bundle is opened
+- **THEN** its detail page shows the canonical source URL it was installed from
+- **AND** shows when it was last updated from that source
+
+#### Scenario: The learnings notice appears only when learnings are ahead of the source
+- **WHEN** a skill whose `lastAcceptedVersionAt` postdates its `sourceUpdatedAt` is opened
+- **THEN** its detail page warns that local learnings are ahead of the source
+- **AND** a skill whose learnings are NOT ahead shows no such warning
