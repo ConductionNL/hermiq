@@ -34,7 +34,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/skill-bundle-publish/specs/skill-bundle-publish/spec.md
+ * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md
  */
 
 declare(strict_types=1);

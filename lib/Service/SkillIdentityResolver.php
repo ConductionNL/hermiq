@@ -127,6 +127,8 @@ class SkillIdentityResolver
      * @param string $host The host as fetched from.
      *
      * @return string The canonical host.
+     *
+     * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-the-same-skill-from-a-mirror-is-the-same-skill
      */
     public function canonicalHost(string $host): string
     {
@@ -192,6 +194,8 @@ class SkillIdentityResolver
      * @param string $url The stored URL.
      *
      * @return string The comparable form, or '' when unusable.
+     *
+     * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-the-same-skill-from-a-mirror-is-the-same-skill
      */
     public function normaliseUrl(string $url): string
     {
@@ -219,6 +223,8 @@ class SkillIdentityResolver
      * @param string $name The skill name.
      *
      * @return string The normalised name, or '' when unusable.
+     *
+     * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-installing-a-skill-that-is-already-present-updates-it
      */
     public function normaliseName(string $name): string
     {
