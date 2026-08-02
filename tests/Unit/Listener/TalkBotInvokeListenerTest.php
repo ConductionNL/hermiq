@@ -29,6 +29,7 @@ use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkAgentBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
@@ -110,6 +111,7 @@ class TalkBotInvokeListenerTest extends TestCase
             $this->dispatcher,
             $this->grouping,
             new ConversationParticipation(),
+            new TalkMentionMatcher(),
             $this->createMock(LoggerInterface::class)
         );
 

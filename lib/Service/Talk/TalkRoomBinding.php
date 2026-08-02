@@ -63,6 +63,22 @@ class TalkRoomBinding
     private const CONVERSATION_SCHEMA = 'conversation';
 
     /**
+     * `talkRoomOrigin` for a room Hermiq created for a session.
+     *
+     * @var string
+     */
+    public const ORIGIN_CREATED = 'created';
+
+    /**
+     * `talkRoomOrigin` for a room Hermiq was invited into or delivered a report
+     * into. Also the meaning of an ABSENT value, which is why nothing needed
+     * backfilling when the property was introduced.
+     *
+     * @var string
+     */
+    public const ORIGIN_BOUND = 'bound';
+
+    /**
      * Constructor.
      *
      * @param ObjectService   $objectService OpenRegister object read/write.
@@ -127,6 +143,38 @@ class TalkRoomBinding
         }//end try
 
     }//end findByRoomToken()
+
+    /**
+     * Whether Hermiq created this room for a session, rather than being invited into it.
+     *
+     * 🔴 Read from stored data, never inferred from the room's current shape.
+     * The value decides whether the agent answers messages it was not addressed
+     * in, so a heuristic ("the room has just the owner and one bot") would
+     * silently flip that the moment somebody invites a second person.
+     *
+     * Absent, unreadable, or no bound conversation all mean `bound` — the
+     * pre-change behaviour, which keeps the mention gate ON. Failing closed
+     * matters here: the wrong default would make an agent start answering every
+     * message in somebody else's team room.
+     *
+     * @param string $roomToken The Talk room token.
+     *
+     * @return bool True when Hermiq created the room.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+     */
+    public function isCreatedRoom(string $roomToken): bool
+    {
+        $conversation = $this->findByRoomToken(roomToken: $roomToken);
+        if (($conversation instanceof ObjectEntity) === false) {
+            return false;
+        }
+
+        $data = $conversation->getObject();
+
+        return ((string) ($data['talkRoomOrigin'] ?? '') === self::ORIGIN_CREATED);
+
+    }//end isCreatedRoom()
 
     /**
      * Record the room binding on an existing conversation.
