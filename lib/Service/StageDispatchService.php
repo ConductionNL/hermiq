@@ -119,32 +119,52 @@ class StageDispatchService
      *      load-bearing order — array, then status, then shape. Any other order
      *      reads an error string as a stage result.
      *
-     * @param string      $repo         Clone URL of the tree the command runs OVER.
-     * @param string      $ref          The ref to check out.
-     * @param array       $command      The command and its arguments.
-     * @param string|null $uid          The acting user's UID.
-     * @param string      $credentialId Broker credential for the clone, or '' for a public repo.
-     * @param int         $timeoutMs    Ceiling for the stage; 0 for the default.
-     * @param string      $toolRepo     Clone URL of the tree the COMMAND comes from, when it is
-     *                                  not the target. hydra's gate runner is the case this
-     *                                  exists for: it takes the tree it gates as an argument and
-     *                                  resolves its own helpers out of its own checkout, so
-     *                                  gating an app needs both trees at once.
-     * @param string      $toolRef      Ref for the tool tree; its default branch when empty.
-     * @param array       $push         Declares that this stage may WRITE:
-     *                                  `{branch, issue, scope, allowedRepo, message}`. Empty
-     *                                  leaves the stage read-only. Its presence changes the
-     *                                  runner's posture — the command child loses the forge
-     *                                  credential and the runner performs the push itself,
-     *                                  behind the branch/repository/diff fences.
+     * @param string      $repo             Clone URL of the tree the command runs OVER.
+     * @param string      $ref              The ref to check out.
+     * @param array       $command          The command and its arguments.
+     * @param string|null $uid              The acting user's UID.
+     * @param string      $credentialId     Broker credential for the clone, or '' for a public repo.
+     * @param int         $timeoutMs        Ceiling for the stage; 0 for the default.
+     * @param string      $toolRepo         Clone URL of the tree the COMMAND comes from, when it is
+     *                                      not the target. hydra's gate runner is the case this
+     *                                      exists for: it takes the tree it gates as an argument
+     *                                      and resolves its own helpers out of its own checkout, so
+     *                                      gating an app needs both trees at once.
+     * @param string      $toolRef          Ref for the tool tree; its default branch when empty.
+     * @param array       $push             Declares that this stage may WRITE:
+     *                                      `{branch, issue, scope,
+     *                                      allowedRepo, message}`. Empty
+     *                                      leaves the stage read-only. Its
+     *                                      presence changes the runner's
+     *                                      posture — the command child loses
+     *                                      the forge credential and the runner
+     *                                      performs the push itself, behind
+     *                                      the branch/repository/diff fences.
+     * @param string      $pushCredentialId The INJECTABLE credential, when it is not the same
+     *                                      one the broker uses server-side. `$credentialId` is spent
+     *                                      on `request()` calls the broker makes itself — the tool
+     *                                      tarball — which only a host-locked PROXY credential can
+     *                                      serve, and `resolveInjectable()` refuses that shape by
+     *                                      design. git speaks the pack protocol, so a push needs the
+     *                                      token IN the container, i.e. an `inject_only` credential.
+     *                                      The two are mutually exclusive, so a stage that fetches a
+     *                                      private tool tree AND pushes needs both. Empty falls back
+     *                                      to `$credentialId`.
      *
      * @return array{exitCode: int, output: string, ref: string} The stage result.
      *
      * @throws RuntimeException When the stage could not be run.
      *
-     * @SuppressWarnings(PHPMD.StaticAccess) OCP\Server::get is deliberate lazy resolution
+     * @SuppressWarnings(PHPMD.StaticAccess)           OCP\Server::get is deliberate lazy resolution
      *   of AppAPI and the optional OpenRegister broker, so this class stays constructible
      *   when either is absent.
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) The tenth parameter takes this one
+     *   over the threshold, and the remedy the rule implies — bundling some of them into
+     *   an array — is the exact shape in which a field has already been silently dropped
+     *   at this boundary: `toolRepo` existed on both sides and not IN it for a whole
+     *   release, and the symptom was a missing FILE. Typed parameters make that a fatal
+     *   at the call site; an untyped bag makes a misspelt key a no-op. The rule is right
+     *   in general and wrong for a transport seam with this file's measured history.
      *
      * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md#requirement-a-command-that-ran-and-failed-is-data-not-a-step-failure
      */
@@ -157,7 +177,8 @@ class StageDispatchService
         int $timeoutMs=0,
         string $toolRepo='',
         string $toolRef='',
-        array $push=[]
+        array $push=[],
+        string $pushCredentialId=''
     ): array {
         $ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
         if ($timeoutMs > 0) {
@@ -173,7 +194,8 @@ class StageDispatchService
             ceiling: $ceiling,
             toolRepo: $toolRepo,
             toolRef: $toolRef,
-            push: $push
+            push: $push,
+            pushCredentialId: $pushCredentialId
         );
 
         $result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
@@ -346,17 +368,21 @@ class StageDispatchService
      * from the response-mapping seams, and both of which are exactly the kind of
      * field that has been silently dropped at a boundary here before.
      *
-     * @param string      $repo         Clone URL of the tree the command runs OVER.
-     * @param string      $ref          The ref to check out.
-     * @param array       $command      The command and its arguments.
-     * @param string|null $uid          The acting user's UID.
-     * @param string      $credentialId Broker credential, or '' for a public repo.
-     * @param int         $ceiling      Stage timeout in milliseconds.
-     * @param string      $toolRepo     Tool tree URL, or ''.
-     * @param string      $toolRef      Tool tree ref, or ''.
-     * @param array       $push         Push declaration, or [] for a read-only stage.
+     * @param string      $repo             Clone URL of the tree the command runs OVER.
+     * @param string      $ref              The ref to check out.
+     * @param array       $command          The command and its arguments.
+     * @param string|null $uid              The acting user's UID.
+     * @param string      $credentialId     Broker credential, or '' for a public repo.
+     * @param int         $ceiling          Stage timeout in milliseconds.
+     * @param string      $toolRepo         Tool tree URL, or ''.
+     * @param string      $toolRef          Tool tree ref, or ''.
+     * @param array       $push             Push declaration, or [] for a read-only stage.
+     * @param string      $pushCredentialId The injectable credential, or '' to reuse $credentialId.
      *
      * @return array The request payload.
+     *
+     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()`; see the reason
+     *   stated there. This method is the boundary in question.
      */
     protected function buildParams(
         string $repo,
@@ -367,7 +393,8 @@ class StageDispatchService
         int $ceiling,
         string $toolRepo,
         string $toolRef,
-        array $push=[]
+        array $push=[],
+        string $pushCredentialId=''
     ): array {
         $params = [
             'repo'      => $repo,
@@ -394,7 +421,21 @@ class StageDispatchService
             toolRef: $toolRef
         );
 
-        if ($credentialId !== '') {
+        // WHICH credential is asked to INJECT. Not necessarily the one above:
+        // `withToolTree()` has just spent `$credentialId` on a broker-side
+        // `request()`, which only a host-locked PROXY credential can serve —
+        // and `resolveInjectable()` refuses that shape by design. So a stage
+        // that fetches a private tool tree AND pushes needs a second,
+        // `inject_only` credential, and this is where it is chosen.
+        //
+        // Falling back to `$credentialId` keeps every stage that shipped before
+        // this parameter existed on exactly the path it was on.
+        $injectCredentialId = $credentialId;
+        if ($pushCredentialId !== '') {
+            $injectCredentialId = $pushCredentialId;
+        }
+
+        if ($injectCredentialId !== '') {
             // An INJECTABLE token, if this credential is one. Most are not: the
             // brokered forge credential is a host-locked proxy credential, and
             // `resolveInjectable()` returns null for it BY DESIGN — its secret
@@ -411,7 +452,7 @@ class StageDispatchService
             // the clone fails with git's own words — which is a far better
             // diagnostic than a credential error raised before anything was
             // attempted.
-            $token = $this->resolveForgeToken(credentialId: $credentialId, uid: $uid);
+            $token = $this->resolveForgeToken(credentialId: $injectCredentialId, uid: $uid);
             if ($token !== null) {
                 // The token reaches the runner in the payload and the runner
                 // puts it in the child ENVIRONMENT behind `GIT_ASKPASS` — never
@@ -440,6 +481,12 @@ class StageDispatchService
      * optimisation that was not needed would be worse than not attempting it.
      * A private tool tree then fails at the clone, with git's own reason.
      *
+     * `protected` for the same reason `mapResult()` and `buildParams()` are:
+     * WHICH credential is spent here rather than on the injection is a decision
+     * with no other observable seam, and a test that cannot reach it can only
+     * assert that some broker call happened — which is true whichever id was
+     * passed.
+     *
      * @param string      $credentialId The broker credential.
      * @param string|null $uid          The acting user.
      * @param string      $repo         The tool repository URL.
@@ -449,7 +496,7 @@ class StageDispatchService
      *
      * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
      */
-    private function fetchToolArchive(string $credentialId, ?string $uid, string $repo, string $ref): ?string
+    protected function fetchToolArchive(string $credentialId, ?string $uid, string $repo, string $ref): ?string
     {
         if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
             return null;
@@ -507,6 +554,12 @@ class StageDispatchService
      * because the alternative is a credential posture decision and it belongs
      * to the operator, not to this method.
      *
+     * `protected` so a test can observe WHICH credential was asked to inject.
+     * With `pushCredentialId` in play that is the whole decision, and it is
+     * invisible from every other seam: both ids reach the broker, and a test
+     * that cannot tell them apart cannot tell the fixed code from the code that
+     * passed one id to both calls.
+     *
      * @param string      $credentialId The broker credential UUID.
      * @param string|null $uid          The acting user's UID.
      *
@@ -517,7 +570,7 @@ class StageDispatchService
      *
      * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
      */
-    private function resolveForgeToken(string $credentialId, ?string $uid): ?string
+    protected function resolveForgeToken(string $credentialId, ?string $uid): ?string
     {
         if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
             throw new RuntimeException(
@@ -606,6 +659,17 @@ class StageDispatchService
      * result means the runner answered something this does not understand,
      * and handing that on as `exitCode: 0` would read downstream as a PASS.
      *
+     * ⚠️ THIS METHOD IS AN ALLOWLIST, so a key the runner returns and this does
+     * not name is a key no flow can ever see. `push` is carried for exactly that
+     * reason: without it a flow could declare a push, the runner could perform
+     * it, and the run record would say only `exitCode: 0` — leaving "it pushed"
+     * and "it found nothing to push" indistinguishable, which is the conflation
+     * every other seam in this file is written to avoid.
+     *
+     * The key is ABSENT rather than `null` when the stage declared no push, so a
+     * consumer can tell "this stage does not write" from "this stage wrote
+     * nothing".
+     *
      * @param string $body The response body.
      *
      * @return array{exitCode: int, output: string, ref: string} The stage result.
@@ -619,11 +683,22 @@ class StageDispatchService
             throw new RuntimeException('The runner answered with something that is not a stage result.');
         }
 
-        return [
+        $result = [
             'exitCode' => (int) $decoded['exitCode'],
             'output'   => (string) ($decoded['output'] ?? ''),
             'ref'      => (string) ($decoded['ref'] ?? ''),
         ];
+
+        if (is_array(($decoded['push'] ?? null)) === true) {
+            $result['push'] = [
+                'pushed' => (bool) ($decoded['push']['pushed'] ?? false),
+                'branch' => (string) ($decoded['push']['branch'] ?? ''),
+                'commit' => (string) ($decoded['push']['commit'] ?? ''),
+                'files'  => array_values((array) ($decoded['push']['files'] ?? [])),
+            ];
+        }
+
+        return $result;
 
     }//end mapResult()
 }//end class

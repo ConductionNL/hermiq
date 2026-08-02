@@ -86,21 +86,70 @@ class ExposedStageDispatchService extends StageDispatchService
         string $ref,
         array $command,
         int $ceiling,
-        array $push=[]
+        array $push=[],
+        string $credentialId='',
+        string $toolRepo='',
+        string $pushCredentialId=''
     ): array {
         return $this->buildParams(
             repo: $repo,
             ref: $ref,
             command: $command,
             uid: 'admin',
-            credentialId: '',
+            credentialId: $credentialId,
             ceiling: $ceiling,
-            toolRepo: '',
+            toolRepo: $toolRepo,
             toolRef: '',
-            push: $push
+            push: $push,
+            pushCredentialId: $pushCredentialId
         );
 
     }//end buildParamsPublic()
+
+    /**
+     * The credential id each broker call was made with, in order of use.
+     *
+     * @var array<string, string>
+     */
+    public array $brokerCalls = [];
+
+    /**
+     * Record which credential the TOOL ARCHIVE was fetched with.
+     *
+     * Stubbed rather than mocked: the real method reaches `OCP\Server::get()`,
+     * which is not available in a unit test, so the choice is between a seam
+     * here and not testing the decision at all.
+     *
+     * @param string      $credentialId The broker credential.
+     * @param string|null $uid          The acting user.
+     * @param string      $repo         The tool repository.
+     * @param string      $ref          The ref.
+     *
+     * @return string|null Always null — this test is about the id, not the bytes.
+     */
+    protected function fetchToolArchive(string $credentialId, ?string $uid, string $repo, string $ref): ?string
+    {
+        $this->brokerCalls['fetch'] = $credentialId;
+
+        return null;
+
+    }//end fetchToolArchive()
+
+    /**
+     * Record which credential was asked to INJECT.
+     *
+     * @param string      $credentialId The broker credential.
+     * @param string|null $uid          The acting user.
+     *
+     * @return string|null A recognisable stand-in for a resolved token.
+     */
+    protected function resolveForgeToken(string $credentialId, ?string $uid): ?string
+    {
+        $this->brokerCalls['inject'] = $credentialId;
+
+        return 'resolved-token';
+
+    }//end resolveForgeToken()
 }//end class
 
 /**
@@ -326,5 +375,107 @@ class StageDispatchServiceTest extends TestCase
         $this->assertSame($push, $params['push']);
 
     }//end testADeclaredPushIsForwardedVerbatim()
+
+    /**
+     * The two credentials go to the two different broker calls.
+     *
+     * THE ASSERTION THIS FILE EXISTS FOR, now that a stage can write. The tool
+     * tarball is fetched by the broker SERVER-SIDE, which only a host-locked
+     * proxy credential can do — and `resolveInjectable()` refuses that exact
+     * shape by design. A push needs the opposite: the token inside the
+     * container, i.e. `inject_only`. So one id cannot serve both calls, and code
+     * that passes one to both is not a smaller version of this feature, it is a
+     * stage that either cannot fetch its tools or cannot push.
+     *
+     * Both ids reach the broker either way, so nothing about the payload
+     * distinguishes the fixed code from the collapsed code. Only the id each
+     * CALL was made with does.
+     *
+     * @return void
+     */
+    public function testTheBrokerCredentialAndThePushCredentialAreNotTheSameCall(): void
+    {
+        $this->service->buildParamsPublic(
+            'https://github.com/ConductionNL/openregister',
+            'development',
+            ['scripts/run-hydra-gates.sh'],
+            60000,
+            ['branch' => 'feature/493/x', 'issue' => 493],
+            '35327e7a-cafe-4a21-8ffe-6195d52f9579',
+            'https://github.com/ConductionNL/hydra',
+            '55003b23-6262-495e-b0ab-2e221ba5e17c'
+        );
+
+        $this->assertSame('35327e7a-cafe-4a21-8ffe-6195d52f9579', $this->service->brokerCalls['fetch']);
+        $this->assertSame('55003b23-6262-495e-b0ab-2e221ba5e17c', $this->service->brokerCalls['inject']);
+
+    }//end testTheBrokerCredentialAndThePushCredentialAreNotTheSameCall()
+
+    /**
+     * With no push credential the broker credential still does the injecting.
+     *
+     * The fallback is what keeps every read-only stage that shipped before this
+     * parameter on the path it was already on. A new parameter that changes
+     * behaviour when it is absent is a breaking change wearing an optional
+     * argument's clothes.
+     *
+     * @return void
+     */
+    public function testWithoutAPushCredentialTheBrokerCredentialStillInjects(): void
+    {
+        $this->service->buildParamsPublic(
+            'https://github.com/ConductionNL/openregister',
+            'development',
+            ['scripts/run-hydra-gates.sh'],
+            60000,
+            [],
+            '35327e7a-cafe-4a21-8ffe-6195d52f9579'
+        );
+
+        $this->assertSame('35327e7a-cafe-4a21-8ffe-6195d52f9579', $this->service->brokerCalls['inject']);
+
+    }//end testWithoutAPushCredentialTheBrokerCredentialStillInjects()
+
+    /**
+     * The push OUTCOME survives the response boundary.
+     *
+     * `mapResult()` is an allowlist, so a key the runner returns and it does not
+     * name is a key no flow can ever see. Without this the runner could push and
+     * the run would record only `exitCode: 0` — leaving "it pushed" and "it
+     * found nothing to push" indistinguishable, which is the conflation the rest
+     * of this class is written to prevent.
+     *
+     * @return void
+     */
+    public function testThePushOutcomeIsCarriedBackToTheFlow(): void
+    {
+        $result = $this->service->mapResultPublic(
+            '{"exitCode":0,"output":"ok","ref":"r",'
+            .'"push":{"pushed":true,"branch":"feature/493/x","commit":"deadbeef","files":["lib/A.php"]}}'
+        );
+
+        $this->assertTrue($result['push']['pushed']);
+        $this->assertSame('feature/493/x', $result['push']['branch']);
+        $this->assertSame('deadbeef', $result['push']['commit']);
+        $this->assertSame(['lib/A.php'], $result['push']['files']);
+
+    }//end testThePushOutcomeIsCarriedBackToTheFlow()
+
+    /**
+     * A read-only stage's result carries NO push key at all.
+     *
+     * Absent rather than `false`, so a consumer can tell "this stage does not
+     * write" from "this stage wrote nothing".
+     *
+     * @return void
+     */
+    public function testAReadOnlyStageResultHasNoPushKey(): void
+    {
+        $this->assertArrayNotHasKey(
+            'push',
+            $this->service->mapResultPublic('{"exitCode":0,"output":"ok","ref":"r"}')
+        );
+
+    }//end testAReadOnlyStageResultHasNoPushKey()
 
 }//end class
