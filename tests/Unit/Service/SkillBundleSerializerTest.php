@@ -50,6 +50,103 @@ class SkillBundleSerializerTest extends TestCase
     }//end serializer()
 
     /**
+     * A namespaced name reaches the bundle instead of being dropped.
+     *
+     * `intelligence:update` follows the `/namespace:command` convention, and the
+     * colon only ever mattered to a DIRECTORY name — the skill keeps calling
+     * itself whatever its frontmatter says, and fromBundle() records the folder
+     * separately as bundleName. Dropping the whole skill over it lost real work.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function testANamespacedNameIsFoldedIntoASafeDirectoryRatherThanDropped(): void
+    {
+        $dropped = null;
+        $bundle  = $this->serializer()->toBundle(
+            skills: [
+                [
+                    'name'        => 'intelligence:update',
+                    'frontmatter' => 'name: intelligence:update',
+                    'body'        => "Pull the latest data.\n",
+                    'files'       => [],
+                ],
+            ],
+            dropped: $dropped
+        );
+
+        self::assertSame([], (array) $dropped, 'a colon must not cost the whole skill');
+        self::assertArrayHasKey('skills/intelligence-update/SKILL.md', $bundle);
+        // The skill keeps its own name; only the folder was made safe.
+        self::assertStringContainsString('intelligence:update', $bundle['skills/intelligence-update/SKILL.md']);
+
+    }//end testANamespacedNameIsFoldedIntoASafeDirectoryRatherThanDropped()
+
+
+    /**
+     * Traversal characters cannot survive into a path.
+     *
+     * The original code rejected these outright; sanitising must keep the SAME
+     * guarantee rather than trade it for convenience.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function testTraversalCharactersCannotReachAPath(): void
+    {
+        $dropped = null;
+        $bundle  = $this->serializer()->toBundle(
+            skills: [
+                [
+                    'name'        => '../../etc/passwd',
+                    'frontmatter' => 'name: evil',
+                    'body'        => "x\n",
+                    'files'       => [],
+                ],
+            ],
+            dropped: $dropped
+        );
+
+        // A path is not a name: rejected outright rather than laundered into a
+        // tidy `etc` folder, which would accept a hostile value under a clean name.
+        self::assertCount(1, (array) $dropped);
+        self::assertSame('invalid_name', ((array) $dropped)[0]['reason']);
+
+        foreach (array_keys($bundle) as $path) {
+            self::assertStringNotContainsString('..', (string) $path);
+        }
+
+    }//end testTraversalCharactersCannotReachAPath()
+
+
+    /**
+     * Two names folding onto one directory is reported, never silently merged.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function testACollidingDirectoryNameIsReportedNotOverwritten(): void
+    {
+        $dropped = null;
+        $bundle  = $this->serializer()->toBundle(
+            skills: [
+                ['name' => 'intelligence:update', 'frontmatter' => 'name: a', 'body' => "a\n", 'files' => []],
+                ['name' => 'intelligence-update', 'frontmatter' => 'name: b', 'body' => "b\n", 'files' => []],
+            ],
+            dropped: $dropped
+        );
+
+        self::assertCount(1, (array) $dropped);
+        self::assertSame('duplicate_directory_name', ((array) $dropped)[0]['reason']);
+        self::assertStringContainsString('a', $bundle['skills/intelligence-update/SKILL.md']);
+
+    }//end testACollidingDirectoryNameIsReportedNotOverwritten()
+
+
+    /**
      * Three skills, one multi-file, round-trip through the bundle byte-identically.
      *
      * @return void

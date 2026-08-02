@@ -126,9 +126,10 @@ class SkillBundleSerializer
      */
     public function toBundle(array $skills, ?array &$dropped=null): array
     {
-        $tree    = [];
-        $entries = [];
-        $dropped = [];
+        $tree      = [];
+        $entries   = [];
+        $dropped   = [];
+        $usedNames = [];
 
         foreach ($skills as $skill) {
             if (is_array($skill) === false) {
@@ -148,6 +149,17 @@ class SkillBundleSerializer
                 $dropped[] = ['name' => $name, 'reason' => 'cap_reached'];
                 continue;
             }
+
+            // Sanitising a name to a safe directory can map two different skills
+            // onto one folder. Writing both would silently overwrite the first —
+            // a dropped skill wearing a successful publish. Reported instead.
+            if (isset($usedNames[$name]) === true) {
+                $this->reject(what: $rawName, why: 'directory name "'.$name.'" already taken in this bundle');
+                $dropped[] = ['name' => $rawName, 'reason' => 'duplicate_directory_name'];
+                continue;
+            }
+
+            $usedNames[$name] = true;
 
             $files = $this->skillSerializer->toPackageFiles(skill: $skill);
             foreach ($files as $path => $contents) {
@@ -341,20 +353,52 @@ class SkillBundleSerializer
     }//end majorOf()
 
     /**
-     * Validate a bundled skill directory name.
+     * Derive a bundled skill's DIRECTORY name from its name.
      *
-     * Rejects anything that is not plain kebab-case — which means `..`, `/`, `\`
-     * and absolute paths can never reach a path concatenation, because they never
-     * match in the first place. Rejection is total: no sanitising, no coercion.
+     * The directory name and the skill's own name are separate things: the skill
+     * keeps whatever it calls itself in its frontmatter, and `fromBundle()` records
+     * the directory separately as `bundleName`. Only the directory has to be
+     * filesystem-safe.
+     *
+     * Every character outside `[a-z0-9-]` is therefore replaced with `-` rather
+     * than the whole skill being rejected. Total rejection was chosen originally so
+     * that `..`, `/`, `\` and absolute paths could never reach a path
+     * concatenation — that guarantee is PRESERVED HERE BY CONSTRUCTION and is in
+     * fact stronger: those characters cannot survive the allowlist, and the result
+     * is still validated against NAME_PATTERN before it is returned, so a value
+     * that does not match can never escape this method.
+     *
+     * The change matters because rejection was silently costing real skills. A
+     * skill legitimately named `intelligence:update` — the `/namespace:command`
+     * convention — was dropped from the bundle entirely for a character that only
+     * ever mattered to a directory name. Losing a skill is a far worse outcome
+     * than renaming its folder.
      *
      * @param string $name The candidate name.
      *
-     * @return string|null The validated name, or null when unusable.
+     * @return string|null The directory name, or null when nothing usable remains.
      */
     private function normaliseName(string $name): ?string
     {
         $candidate = strtolower(trim($name));
-        $candidate = str_replace(' ', '-', $candidate);
+
+        // A PATH is never a name. Anything carrying a separator or a traversal
+        // sequence is rejected outright, exactly as before — laundering
+        // `../../etc/passwd` into a tidy `etc` would accept a hostile value under
+        // a clean-looking folder, which is worse than refusing it. Only genuinely
+        // punctuated names (`intelligence:update`) reach the sanitiser below.
+        if (str_contains($candidate, '/') === true
+            || str_contains($candidate, '\\') === true
+            || str_contains($candidate, '..') === true
+        ) {
+            return null;
+        }
+
+        // Allowlist, not denylist: anything not explicitly safe becomes a dash,
+        // so no separator character can survive into a path even if one slips
+        // past the check above.
+        $candidate = preg_replace('/[^a-z0-9]+/', '-', $candidate);
+        $candidate = trim((string) $candidate, '-');
 
         if ($candidate === '' || preg_match(self::NAME_PATTERN, $candidate) !== 1) {
             return null;
