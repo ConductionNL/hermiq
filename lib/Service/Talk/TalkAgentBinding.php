@@ -299,6 +299,7 @@ class TalkAgentBinding
      *
      * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
      */
+
     /**
      * Whether an agent has opted into Talk.
      *

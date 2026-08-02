@@ -289,6 +289,7 @@ class TalkRoomBinding
      *
      * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
      */
+
     /**
      * Bring a bound session's roster up to date with the room's membership.
      *

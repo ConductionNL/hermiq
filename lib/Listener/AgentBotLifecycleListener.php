@@ -85,10 +85,10 @@ class AgentBotLifecycleListener implements IEventListener
     /**
      * Constructor.
      *
-     * @param TalkBotInstaller $installer    Installs/renames/removes the per-agent bot.
-     * @param SchemaMapper     $schemaMapper Resolves the object's schema slug.
+     * @param TalkBotInstaller $installer      Installs/renames/removes the per-agent bot.
+     * @param SchemaMapper     $schemaMapper   Resolves the object's schema slug.
      * @param RegisterMapper   $registerMapper Resolves the object's register slug.
-     * @param LoggerInterface  $logger       PSR-3 logger.
+     * @param LoggerInterface  $logger         PSR-3 logger.
      */
     public function __construct(
         private readonly TalkBotInstaller $installer,

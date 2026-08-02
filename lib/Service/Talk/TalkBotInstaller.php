@@ -118,12 +118,12 @@ class TalkBotInstaller
     /**
      * Constructor.
      *
-     * @param ContainerInterface $container  Resolves spreed mappers lazily.
-     * @param IEventDispatcher $dispatcher   Dispatches spreed's lifecycle events.
-     * @param IAppConfig       $appConfig    Stores the generated bot secret.
-     * @param ISecureRandom    $secureRandom Generates the bot secret.
-     * @param TalkBridge       $bridge       Talk availability probe.
-     * @param LoggerInterface  $logger       PSR-3 logger.
+     * @param ContainerInterface $container    Resolves spreed mappers lazily.
+     * @param IEventDispatcher   $dispatcher   Dispatches spreed's lifecycle events.
+     * @param IAppConfig         $appConfig    Stores the generated bot secret.
+     * @param ISecureRandom      $secureRandom Generates the bot secret.
+     * @param TalkBridge         $bridge       Talk availability probe.
+     * @param LoggerInterface    $logger       PSR-3 logger.
      */
     public function __construct(
         private readonly ContainerInterface $container,
@@ -406,7 +406,7 @@ class TalkBotInstaller
             }
 
             $conversationClass = self::BOT_CONVERSATION;
-            $row               = new $conversationClass();
+            $row = new $conversationClass();
             $row->setBotId($botId);
             $row->setToken($roomToken);
             $row->setState(self::BOT_STATE_ENABLED);

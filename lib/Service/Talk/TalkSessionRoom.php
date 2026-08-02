@@ -105,14 +105,14 @@ class TalkSessionRoom
     /**
      * Constructor.
      *
-     * @param ContainerInterface $container   Resolves spreed services lazily.
-     * @param IUserManager       $userManager Resolves the owner for room creation.
+     * @param ContainerInterface $container     Resolves spreed services lazily.
+     * @param IUserManager       $userManager   Resolves the owner for room creation.
      * @param ObjectService      $objectService Records the room back onto the session.
-     * @param TalkBridge         $bridge      Talk availability probe.
-     * @param TalkBotInstaller   $installer   Enables the agent's bot in the room.
-     * @param TalkAgentBinding   $agentBinding Checks the agent opted into Talk.
-     * @param TalkRoomGrouping   $grouping    Files the room under each participant's Hermiq tag.
-     * @param LoggerInterface    $logger      PSR-3 logger.
+     * @param TalkBridge         $bridge        Talk availability probe.
+     * @param TalkBotInstaller   $installer     Enables the agent's bot in the room.
+     * @param TalkAgentBinding   $agentBinding  Checks the agent opted into Talk.
+     * @param TalkRoomGrouping   $grouping      Files the room under each participant's Hermiq tag.
+     * @param LoggerInterface    $logger        PSR-3 logger.
      */
     public function __construct(
         private readonly ContainerInterface $container,
@@ -234,7 +234,7 @@ class TalkSessionRoom
                 return $conversation;
             }
 
-            $payload                   = $conversation->getObject();
+            $payload = $conversation->getObject();
             $payload['talkRoomToken']  = $token;
             $payload['talkRoomOrigin'] = TalkRoomBinding::ORIGIN_CREATED;
 

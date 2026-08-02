@@ -200,6 +200,7 @@ class TalkTurnService
         return $displayName;
 
     }//end displayNameOf()
+
     /**
      * The agent bound to a room, for posting under its own bot identity.
      *
@@ -228,5 +229,4 @@ class TalkTurnService
         return ($agentId === '') ? null : $agentId;
 
     }//end agentForRoom()
-
 }//end class

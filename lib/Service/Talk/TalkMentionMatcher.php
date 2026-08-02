@@ -46,7 +46,6 @@ namespace OCA\Hermiq\Service\Talk;
  */
 class TalkMentionMatcher
 {
-
     /**
      * Whether the text addresses any of the given names.
      *

@@ -273,7 +273,12 @@ class TalkApprovalReactionListener implements IEventListener
         // Confirm under the same agent that asked, so the exchange reads as one
         // conversation with one agent rather than two different speakers.
         $agentId = (string) (($approval->getObject())['agentId'] ?? '');
-        $agentId = ($agentId === '') ? null : $agentId;
+        if ($agentId === '') {
+            // No agent on the approval — fall back to the shared bot rather
+            // than skipping the confirmation, which is the reviewer's only
+            // feedback that their reaction landed.
+            $agentId = null;
+        }
 
         if ($emoji === self::APPROVE) {
             $this->approvalService->approve(approval: $approval, deciderUid: $reactor);

@@ -69,7 +69,7 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Route-for-route port of OR's
  * ConversationController (8 endpoints incl. the archive/restore lifecycle);
  * splitting would break the structural-parity review against the OR original.
- * @SuppressWarnings(PHPMD.ExcessiveClassLength) Same reason, and the class sat
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same reason, and the class sat
  * just under the 1000-line threshold before talk-agent-sessions pushed it over.
  * Everything that could honestly leave did leave: creating the session's room,
  * recording it, and deciding whether a rename may touch it all live in

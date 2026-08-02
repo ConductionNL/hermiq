@@ -74,14 +74,14 @@ class TalkBotInvokeListener implements IEventListener
     /**
      * Constructor.
      *
-     * @param TalkBridge                $bridge        Talk availability, room type and room I/O.
-     * @param TalkRoomBinding           $roomBinding   Resolves/creates the bound conversation.
-     * @param TalkAgentBinding          $agentBinding  Resolves the room's opted-in agent.
-     * @param TalkTurnDispatcher        $dispatcher    Hands the turn off out of request.
-     * @param TalkRoomGrouping          $grouping      Files a newly bound room under each participant's tag.
-     * @param ConversationParticipation $participation Owner-or-participant guard.
+     * @param TalkBridge                $bridge         Talk availability, room type and room I/O.
+     * @param TalkRoomBinding           $roomBinding    Resolves/creates the bound conversation.
+     * @param TalkAgentBinding          $agentBinding   Resolves the room's opted-in agent.
+     * @param TalkTurnDispatcher        $dispatcher     Hands the turn off out of request.
+     * @param TalkRoomGrouping          $grouping       Files a newly bound room under each participant's tag.
+     * @param ConversationParticipation $participation  Owner-or-participant guard.
      * @param TalkMentionMatcher        $mentionMatcher Decides whether a message addresses the agent by name.
-     * @param LoggerInterface           $logger        PSR-3 logger.
+     * @param LoggerInterface           $logger         PSR-3 logger.
      */
     public function __construct(
         private readonly TalkBridge $bridge,
@@ -344,7 +344,7 @@ class TalkBotInvokeListener implements IEventListener
                 conversation: $conversation,
                 participants: $this->bridge->roomUserIds(roomToken: $roomToken)
             );
-        }
+        }//end if
 
         $conversation = $this->roomBinding->createBound(
             roomToken: $roomToken,
@@ -513,7 +513,7 @@ class TalkBotInvokeListener implements IEventListener
 
     }//end isAddressed()
 
-    /**
+    /*
      * Whether Hermiq created this room for a session.
      *
      * Absent or unreadable means "bound", which is the pre-change behaviour and
