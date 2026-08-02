@@ -104,7 +104,16 @@ class ExposedStageDispatchService extends StageDispatchService
 }//end class
 
 /**
+ * `@uses RunTokenService` because the dispatcher is given a REAL one over a stub
+ * cache rather than a mock. `beStrictAboutCoverageMetadata="true"` fails any test
+ * that executes an undeclared class, and this is that declaration — not a
+ * loosening. The real service is deliberate: a mock returning a fixed string
+ * asserts that the call happens and nothing about what is made, and what is made
+ * is exactly where the TTL bug lived (the turn's 150 s against a 30-minute stage).
+ *
  * @covers \OCA\Hermiq\Service\StageDispatchService
+ *
+ * @uses \OCA\Hermiq\Service\Llm\RunTokenService
  */
 class StageDispatchServiceTest extends TestCase
 {
