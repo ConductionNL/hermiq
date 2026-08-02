@@ -126,6 +126,32 @@ APP_SECRET=<from-registration> docker compose -f exapp/llm-runner/deploy/docker-
 The runner is **optional** — instances that don't install it keep Hermiq's
 default `http` (broker) provider path unchanged.
 
+### Restart policy — required after an AppAPI deploy
+
+`deploy/docker-compose.yml` declares `restart: always` for both services, so a
+compose deployment needs nothing further.
+
+**AppAPI deployments do.** The ExApp manifest (`appinfo/info.xml`) can declare
+registry, image and tag and nothing else — there is no restart-policy element,
+and the container is created by AppAPI's deploy daemon, which lives in the
+`app_api` app. A container that arrives that way gets Docker's default,
+`RestartPolicy: no`.
+
+That is not hypothetical. On 2026-08-02 the live `hermiq-llm-runner` had
+`RestartPolicy: no` and had been sitting `Exited(255)` for 13 hours. It is the
+host for every `hermiq.workload-step`, so the pipeline's whole execution plane
+was down — and down **silently**, because a step whose host is gone does not
+fail loudly, it just never runs.
+
+```bash
+# Idempotent; verifies the result rather than trusting `docker update`.
+exapp/llm-runner/deploy/ensure-restart-policy.sh
+
+# Assert-only, for a health check or a gate: non-zero when the runner would
+# not survive a reboot.
+CHECK_ONLY=1 exapp/llm-runner/deploy/ensure-restart-policy.sh
+```
+
 ## Test
 
 No real provider tokens or network egress are needed — the CLIs are stubbed:
@@ -153,6 +179,7 @@ exapp/llm-runner/
 │   └── runner.js           # spawn CLI with credential env only; scratch dir
 ├── deploy/
 │   ├── docker-compose.yml  # hardened deployment (iptables jail | proxy network)
+│   ├── ensure-restart-policy.sh # AppAPI deploys cannot declare one; this does
 │   ├── egress-entrypoint.sh# optional in-container egress jail (root→gosu node)
 │   └── egress-allowlist.md # the allowlist + how the deployer enforces it
 └── test/
