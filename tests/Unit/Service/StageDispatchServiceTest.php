@@ -104,12 +104,19 @@ class ExposedStageDispatchService extends StageDispatchService
 }//end class
 
 /**
- * `@uses RunTokenService` because the dispatcher is given a REAL one over a stub
- * cache rather than a mock. `beStrictAboutCoverageMetadata="true"` fails any test
- * that executes an undeclared class, and this is that declaration — not a
- * loosening. The real service is deliberate: a mock returning a fixed string
- * asserts that the call happens and nothing about what is made, and what is made
- * is exactly where the TTL bug lived (the turn's 150 s against a 30-minute stage).
+ * The dispatcher is given a REAL RunTokenService over a stub cache rather than a
+ * mock, so it must be declared below or `beStrictAboutCoverageMetadata="true"`
+ * fails every test in this file for executing an undeclared class. That
+ * declaration is bookkeeping, not a loosening.
+ *
+ * The real service is deliberate: a mock returning a fixed string asserts that
+ * the call happens and nothing about what is made, and what is made is exactly
+ * where the TTL bug lived — the turn's 150 seconds against a 30-minute stage.
+ *
+ * ⚠️ Do not write the declaration's tag name inside prose, backticks or not.
+ * PHPUnit parses it as a real annotation wherever it appears in the block, and a
+ * trailing backtick makes it "invalid" — which fails all twelve tests here with
+ * a message that names none of them.
  *
  * @covers \OCA\Hermiq\Service\StageDispatchService
  *
