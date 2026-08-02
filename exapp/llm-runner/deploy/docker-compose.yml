@@ -57,7 +57,14 @@ services:
       - "127.0.0.1:9000:9000"
     depends_on:
       - egress-proxy
-    restart: unless-stopped
+    # `always`, not `unless-stopped`. This container is the execution plane for
+    # every `hermiq.workload-step`: when it is down the whole pipeline is down,
+    # and it is down SILENTLY — the steps do not fail loudly, they simply never
+    # run. Measured 2026-08-02: the runner sat Exited(255) for 13 hours with
+    # nothing noticing. `unless-stopped` would not restart it after an operator
+    # (or a script) had stopped it once, which is exactly the state nobody is
+    # watching for. The `nextcloud` container it serves uses `always` too.
+    restart: always
 
   # -------------------------------------------------------------------------
   # The governed egress proxy (PEP). The ONLY component on both networks, and
@@ -85,7 +92,11 @@ services:
       # entire reason the runner cannot reach the internet directly.
       - jailed
       - egress
-    restart: unless-stopped
+    # `always` for the same reason, and one more: the proxy is the runner's ONLY
+    # route out (`jailed` is internal, so there is no gateway). A runner that
+    # came back while the proxy stayed down would be alive, healthy, and unable
+    # to reach a single provider — the most confusing failure of the two.
+    restart: always
 
 networks:
   jailed:
