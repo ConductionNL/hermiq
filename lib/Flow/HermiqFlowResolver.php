@@ -35,6 +35,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\RegisterMapper;
 use OCA\OpenRegister\Db\SchemaMapper;
 use OCA\OpenRegister\Service\Flow\IFlowResolver;
+use OCA\OpenRegister\Service\Flow\IScheduledFlowSource;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -44,7 +45,7 @@ use Throwable;
  *
  * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
-class HermiqFlowResolver implements IFlowResolver
+class HermiqFlowResolver implements IFlowResolver, IScheduledFlowSource
 {
 
     /**
@@ -225,6 +226,83 @@ class HermiqFlowResolver implements IFlowResolver
         return $ids;
 
     }//end flowsForTrigger()
+
+    /**
+     * The agentflows that declare a schedule.
+     *
+     * OpenRegister's scheduler used to enumerate ONE hard-coded store — the
+     * `flow_register`/`flow_schema` pair — and never asked the resolvers. Every
+     * other trigger already went through them, so hermiq's event-triggered
+     * agentflows fired normally while a hermiq agentflow with
+     * `trigger: schedule` was simply invisible: no error, no run, nothing. The
+     * instance had recorded ZERO runs with trigger `schedule` across 52,478
+     * runs. `hydra-sequencer`, `hydra-dispatch` and `hydra-lock-reaper` were all
+     * in that state — the sequencer being the pipeline's heartbeat.
+     *
+     * This is the answer to the enumeration the scheduler now performs. It
+     * reports candidates only: `enabled` is reported honestly rather than
+     * filtered away, and OpenRegister decides what may run. That keeps "a
+     * disabled flow never runs" a property of the scheduler rather than
+     * something each contributing app has to get right — which matters here,
+     * because every hydra agentflow currently ships `enabled: false` on purpose.
+     *
+     * @return array<int, array{id: string, enabled: bool, trigger: string, cron: string, owner: string|null}>
+     *         The candidate flows.
+     *
+     * @spec openspec/changes/hermiq-schedule-source/specs/or-flow-consumer/spec.md
+     */
+    public function scheduledFlows(): array
+    {
+        try {
+            $flows = $this->objectService->findAll(
+                config: ['filters' => ['register' => self::REGISTER, 'schema' => self::SCHEMA]],
+                _rbac: false,
+                _multitenancy: false
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                message: '[HermiqFlowResolver] Could not list agentflows for the schedule: '.$e->getMessage(),
+                context: ['file' => __FILE__, 'line' => __LINE__]
+            );
+            return [];
+        }
+
+        $candidates = [];
+        foreach ($flows as $flow) {
+            if (($flow instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $data = $flow->getObject();
+            if ((string) ($data['trigger'] ?? '') !== 'schedule') {
+                continue;
+            }
+
+            // A scheduled run has no session, so the owner has to come off the
+            // flow. The object's own owner is the authoritative one; the
+            // `owner` field is the fallback a seeded flow carries.
+            $owner = trim((string) ($flow->getOwner() ?? ''));
+            if ($owner === '') {
+                $owner = trim((string) ($data['owner'] ?? ''));
+            }
+
+            $ownerId = null;
+            if ($owner !== '') {
+                $ownerId = $owner;
+            }
+
+            $candidates[] = [
+                'id'      => (string) $flow->getUuid(),
+                'enabled' => (($data['enabled'] ?? false) === true),
+                'trigger' => 'schedule',
+                'cron'    => (string) ($data['cron'] ?? ''),
+                'owner'   => $ownerId,
+            ];
+        }//end foreach
+
+        return $candidates;
+
+    }//end scheduledFlows()
 
     /**
      * Whether an object actually lives in hermiq's flow store.
