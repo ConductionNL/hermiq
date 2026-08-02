@@ -289,6 +289,77 @@ class TalkRoomBinding
      *
      * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
      */
+    /**
+     * Bring a bound session's roster up to date with the room's membership.
+     *
+     * 🔴 This is what lets somebody INVITED to a session room afterwards take a
+     * turn. Authorization reads the STORED roster and deliberately never live
+     * room membership (talk-shared-sessions), so without this a late joiner is
+     * a room member who is not on the list, and their first message is refused.
+     *
+     * Additive within the room's membership: the owner is implicit and stays
+     * off the list, bots are excluded, and a user who has LEFT the room drops
+     * off the roster by the same path — which is the point, since the roster is
+     * the permission.
+     *
+     * Returns the session unchanged when nothing moved, so the common case
+     * costs a comparison rather than a write. Never throws: a sync failure must
+     * not cost the turn that triggered it.
+     *
+     * @param ObjectEntity $conversation The bound session.
+     * @param array        $participants Current room member uids.
+     *
+     * @return ObjectEntity The session, with its roster updated when it changed.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-room-participants-become-session-participants
+     */
+    public function syncParticipants(ObjectEntity $conversation, array $participants): ObjectEntity
+    {
+        try {
+            $payload = $conversation->getObject();
+            $owner   = (string) ($payload['userId'] ?? '');
+
+            $roster = [];
+            foreach ($participants as $participant) {
+                if (is_string($participant) === true && $participant !== '' && $participant !== $owner) {
+                    $roster[] = $participant;
+                }
+            }
+
+            $roster  = array_values(array_unique($roster));
+            $current = array_values((array) ($payload['participants'] ?? []));
+            sort($roster);
+            sort($current);
+
+            if ($roster === $current) {
+                return $conversation;
+            }
+
+            // saveObject is PUT-semantic: carry the whole payload forward, or
+            // the fields not mentioned here are deleted.
+            $payload['participants'] = $roster;
+
+            return $this->objectService->saveObject(
+                object: $payload,
+                register: self::REGISTER_SLUG,
+                schema: self::CONVERSATION_SCHEMA,
+                uuid: (string) $conversation->getUuid()
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                message: '[TalkRoomBinding] Could not sync the session roster (the turn is unaffected)',
+                context: [
+                    'file'         => __FILE__,
+                    'line'         => __LINE__,
+                    'conversation' => (string) $conversation->getUuid(),
+                    'error'        => $e->getMessage(),
+                ]
+            );
+            return $conversation;
+        }//end try
+
+    }//end syncParticipants()
+
     public function createBound(string $roomToken, string $agentId, string $ownerUid, array $participants=[]): ?ObjectEntity
     {
         try {

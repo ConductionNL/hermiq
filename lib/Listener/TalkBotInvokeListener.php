@@ -324,7 +324,26 @@ class TalkBotInvokeListener implements IEventListener
     {
         $conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);
         if ($conversation !== null) {
-            return $conversation;
+            // A late joiner needs their own Hermiq tag too — tags are PER USER
+            // (the row carries a user_id and the room joins through the
+            // attendee), so filing the room once at bind time only ever filed
+            // it for whoever was in it then. groupRoom() is additive and
+            // idempotent, so re-filing on a turn costs nothing and is the only
+            // hook that sees somebody who joined afterwards.
+            $this->grouping->groupRoom(roomToken: $roomToken);
+
+            // 🔴 Sync the roster BEFORE the participation check, not after.
+            //
+            // Authorization reads the STORED roster, never live room membership
+            // (talk-shared-sessions is explicit about that). So somebody invited
+            // to the room after it was bound is a room member who is not yet on
+            // the roster — and their very first message would be refused. The
+            // check that runs a moment later is exactly the thing this has to
+            // beat, which is why it lives here and not beside the bind below.
+            return $this->roomBinding->syncParticipants(
+                conversation: $conversation,
+                participants: $this->bridge->roomUserIds(roomToken: $roomToken)
+            );
         }
 
         $conversation = $this->roomBinding->createBound(

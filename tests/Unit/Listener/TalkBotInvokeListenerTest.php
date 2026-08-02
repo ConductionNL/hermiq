@@ -104,6 +104,13 @@ class TalkBotInvokeListenerTest extends TestCase
         $this->dispatcher   = $this->createMock(TalkTurnDispatcher::class);
         $this->grouping     = $this->createMock(TalkRoomGrouping::class);
 
+        // The roster sync returns the session it was handed when nothing moved.
+        // A bare double returns null instead, which would silently abort every
+        // turn below and make these tests assert nothing about the behaviour
+        // they name — the same shape that once let the whole reaction path pass
+        // its suite while being inert in production.
+        $this->roomBinding->method('syncParticipants')->willReturnArgument(0);
+
         $this->listener = new TalkBotInvokeListener(
             $this->bridge,
             $this->roomBinding,
