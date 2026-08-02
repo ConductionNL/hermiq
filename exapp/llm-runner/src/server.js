@@ -217,17 +217,25 @@ async function handleStage(req, res, rawBody) {
         forgeUser,
         timeoutMs,
         env,
+        runToken,
+        push,
     } = payload;
 
     // The repo and ref are safe to log — they are how an operator finds this run
     // again. The token is not, and is never touched here.
     // The tool repo is logged too, because its absence is what a dropped field
     // looks like from the outside and the log is the first place anyone looks.
+    //
+    // The push INTENT is logged (branch and issue are not secrets) because
+    // "this stage was allowed to write" is the single most important fact about
+    // a run when reconstructing one afterwards, and its absence from the log is
+    // indistinguishable from a stage that could not write at all.
     log(
         'info',
         `/stage repo=${repo} ref=${ref} `
         + `tool=${toolRepo || (toolTarball ? `archive(${toolTarball.length}b)` : '(none)')} `
-        + `command=${Array.isArray(command) ? command[0] : '(none)'}`
+        + `command=${Array.isArray(command) ? command[0] : '(none)'} `
+        + `push=${push && typeof push === 'object' ? `${push.branch} (issue ${push.issue})` : '(none)'}`
     );
 
     try {
@@ -243,16 +251,32 @@ async function handleStage(req, res, rawBody) {
             forgeUser,
             timeoutMs,
             env,
+            runToken,
+            push,
         });
-        log('info', `/stage finished exit=${result.exitCode}`);
+        log(
+            'info',
+            `/stage finished exit=${result.exitCode}`
+            + (result.push ? ` pushed=${result.push.pushed} branch=${result.push.branch}` : '')
+        );
         sendJson(res, 200, result);
     } catch (err) {
         // 502: the stage was dispatched and could not be carried out. It is NOT
         // a 400 — the request was well formed — and not a 200 with a failure
         // field, because a caller reading only the status must not mistake
         // "could not run" for "ran and failed".
-        log('warn', `/stage failed: ${err.message}`);
-        sendJson(res, 502, { error: err.message });
+        //
+        // A REFUSED PUSH lands here too, and deliberately so: a fence that
+        // returned 200 with `pushed: false` would be recorded by every caller
+        // that reads only the status as a stage that completed. `code` is
+        // carried out so a consumer can route on the refusal without matching
+        // prose — the assertion that stops testing anything the day somebody
+        // rewords a message.
+        log('warn', `/stage failed${err.code ? ` (${err.code})` : ''}: ${err.message}`);
+        sendJson(res, 502, {
+            error: err.message,
+            ...(err.code ? { code: err.code } : {}),
+        });
     }
 }
 

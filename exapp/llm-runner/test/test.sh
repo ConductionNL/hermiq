@@ -296,6 +296,42 @@ else
 fi
 
 # =============================================================================
+# (j) The push fences, as functions
+# =============================================================================
+if node --test "${ROOT}/test/pushGuard.test.js" > "${WORK}/pushguard.log" 2>&1; then
+    pass "(j) push-guard tests (branch/repo allowlist, diff gate, fail-closed)"
+else
+    fail "(j) push-guard tests failed"; cat "${WORK}/pushguard.log" || true
+fi
+
+# =============================================================================
+# (k) The push fences, WIRED — against a real git remote that demands a credential
+#
+# ⚠️ (j) proves the fence functions refuse. It proves NOTHING about whether
+# `runStage()` calls them, and that is the distinction this repository has
+# already paid for twice — `toolRepo` existed on both sides of the HTTP boundary
+# and not in it, and the iptables jail was asserted only by grepping its own
+# source while being unable to start.
+#
+# So (k) asserts at the DESTINATION: a refused push is proved by the bare
+# repository still pointing at the same commit. Its remote demands HTTP Basic
+# auth, because with a credential-free `file://` remote the central claim — the
+# command child cannot push, having no credential — passes either way.
+#
+# Each control was mutation-checked when it was written: removing the
+# `assertPushAllowed()` call turns exactly the four fence tests red (and the
+# push to `main` then SUCCEEDS); leaving the credential in the command child
+# turns the two credential tests red (and the injected push then succeeds);
+# reading the change set with `git diff` instead of `git status --untracked`
+# lets a brand-new `.github/workflows/pwn.yml` straight through.
+# =============================================================================
+if node --test "${ROOT}/test/stage.push.test.js" > "${WORK}/stagepush.log" 2>&1; then
+    pass "(k) stage-push tests (fences wired, asserted at the remote, credential withheld)"
+else
+    fail "(k) stage-push tests failed"; cat "${WORK}/stagepush.log" || true
+fi
+
+# =============================================================================
 
 # =============================================================================
 echo

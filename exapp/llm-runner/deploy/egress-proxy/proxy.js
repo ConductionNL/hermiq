@@ -201,13 +201,66 @@ server.on('connect', async (req, clientSocket, head) => {
         clientSocket.destroy();
     };
 
+    /**
+     * Answer 407 with a Basic challenge, and open nothing.
+     *
+     * ⚠️ THIS IS WHY GIT COULD NOT GET OUT, AND IT WAS INVISIBLE.
+     *
+     * `HTTPS_PROXY=http://run:<token>@proxy:3128` does NOT make every client
+     * present the credential. curl's CLI defaults to Basic and sends it
+     * PREEMPTIVELY; git sets libcurl's proxy auth to `CURLAUTH_ANY`, which waits
+     * for a 407 challenge before sending anything. Answering 403 to an
+     * unauthenticated CONNECT means git never learns there is a credential to
+     * offer, so it never offers the one it already holds.
+     *
+     * Measured 2026-08-02 inside the jailed container, same proxy, same URL:
+     *
+     *   curl --proxy http://run:tok@proxy:3128 https://github.com/
+     *       => Proxy-Authorization sent  => 200 Connection Established
+     *   git  HTTPS_PROXY=http://run:tok@proxy:3128 ls-remote https://github.com/…
+     *       => NO Proxy-Authorization    => 403, `no_run_token`, every time
+     *
+     * The proxy's own test suite could not see it: its client sets the header
+     * explicitly, so it exercised the authenticated path exclusively. A control
+     * that blocks the one workload it exists to govern is the jail's failure
+     * repeated in a different layer.
+     *
+     * A 407 opens no tunnel and is still a refusal, so default-deny is intact.
+     * It is used ONLY when no credential was presented at all — a token that IS
+     * presented and refused by policy stays a 403, because retrying it cannot
+     * help and challenging for it again would loop.
+     *
+     * @param {string} code Refusal code, for the log and the header.
+     * @returns {void}
+     */
+    const challenge = (code) => {
+        // eslint-disable-next-line no-console
+        console.log(`[hermiq-egress-proxy] CHALLENGE ${req.url} (${code})`);
+        clientSocket.write(
+            'HTTP/1.1 407 Proxy Authentication Required\r\n'
+            + 'Proxy-Authenticate: Basic realm="hermiq-egress"\r\n'
+            + `X-Egress-Deny-Code: ${code}\r\n`
+            + 'Content-Length: 0\r\n'
+            + 'Connection: close\r\n\r\n'
+        );
+        clientSocket.destroy();
+    };
+
     const target = parseTarget(req.url);
     if (target === null) {
         refuse('bad_target', 'malformed CONNECT target');
         return;
     }
 
-    const verdict = await askPdp(target.host, target.port, tokenFromProxyAuth(req.headers));
+    const token = tokenFromProxyAuth(req.headers);
+    if (token === '') {
+        // No credential offered. Ask for one instead of refusing outright — see
+        // `challenge()`. The PDP is NOT consulted: there is no run to ask about.
+        challenge('no_run_token');
+        return;
+    }
+
+    const verdict = await askPdp(target.host, target.port, token);
     if (verdict.allowed !== true) {
         refuse(verdict.code, verdict.message);
         return;

@@ -74,11 +74,67 @@ each is covered by an explicit test in `test/egress.proxy.test.js`:
 | PDP returns 5xx/4xx | DENY | `pdp_rejected` |
 | PDP answer isn't JSON | DENY | `pdp_unparseable` |
 | `allowed` truthy but not `true` (e.g. `"yes"`) | DENY | `denied` |
-| No run token presented | DENY — PDP not even consulted | `no_run_token` |
+| No run token presented | **407 challenge** — no tunnel, PDP not consulted | `no_run_token` |
 | `EGRESS_PDP_URL` unset | proxy refuses to **start** | — |
 
 That last row matters: a proxy with no policy that still forwards traffic is an
 open relay, so it exits at boot rather than run without a PDP.
+
+### Why the no-token answer is a 407 and not a 403
+
+⚠️ **It was a 403, and that made the proxy unusable by `git` — invisibly.**
+
+`HTTPS_PROXY=http://run:<token>@egress-proxy:3128` does not make every client
+present the credential:
+
+- **curl's CLI** defaults to Basic and sends `Proxy-Authorization` *preemptively*.
+- **git** sets libcurl's proxy auth to `CURLAUTH_ANY`, which waits for a **407
+  challenge** before sending anything.
+
+So a flat 403 told git there was nothing to offer, and it never offered the token
+it already held. Measured 2026-08-02 inside the jailed container, same proxy,
+same URL:
+
+```
+curl --proxy http://run:tok@egress-proxy:3128 https://github.com/
+    => Proxy-Authorization sent   => 200 Connection Established
+git  HTTPS_PROXY=http://run:tok@egress-proxy:3128 ls-remote https://github.com/…
+    => no Proxy-Authorization     => 403 no_run_token, every time
+```
+
+The proxy now answers `407 Proxy Authentication Required` with
+`Proxy-Authenticate: Basic realm="hermiq-egress"` when **no** credential is
+presented, and keeps the 403 for a credential that IS presented and refused by
+policy — retrying that cannot help, and challenging again would loop. A 407
+opens no tunnel, so default-deny is unchanged.
+
+After the change, six consecutive clones of a public repository through the
+proxy: 6/6 OK, 855–1123 ms. (The iptables jail it replaces gave 2-in-3 failures
+at ~135 s each.)
+
+### Two things an operator must get right, or every stage is denied
+
+**1. The allowlist is EXACT hostnames — no wildcards, no subdomains.**
+`WebResearchEgressGuard::matchesHostList()` is case-insensitive string equality.
+Measured through the proxy: with `github.com` allowlisted, `api.github.com` is
+**denied** (`not_allowlisted`). Allow every host the workload actually touches —
+`github.com` for a clone or push, and `codeload.github.com` too if anything
+fetches a tarball.
+
+**2. The run-token store must be shared with the process that answers the PDP.**
+`RunTokenService` keeps tokens in `ICacheFactory::createDistributed()`. With no
+`memcache.distributed` configured this falls back to the local cache — APCu on a
+default install — which is **per process pool**. A token minted in a CLI process
+(cron-mode background jobs, `occ`) is then invalid at the web PDP.
+
+Measured on a live instance: a token minted via CLI and POSTed within the same
+second to `/apps/hermiq/api/egress/authorize` came back **401 `invalid_token`**.
+
+So on an instance running background jobs in `cron` mode — which is what
+Nextcloud recommends — every flow-dispatched stage would be denied egress, and
+the symptom is a `git clone` failure, not a policy error. **Configure
+`memcache.distributed` (Redis/Memcached) before putting the sidecar behind the
+proxy.**
 
 ### Known limitation: CONNECT is host-granular
 

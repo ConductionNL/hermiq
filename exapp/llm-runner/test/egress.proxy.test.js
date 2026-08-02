@@ -8,7 +8,11 @@
  *   - a verdict of `allowed: true` is the ONLY thing that opens a tunnel;
  *   - an unreachable / erroring / timing-out / unparseable PDP DENIES
  *     (fail-closed — an egress proxy that fails open is not a control);
- *   - a CONNECT with no run token is denied without even asking the PDP;
+ *   - a CONNECT with no run token opens nothing and never reaches the PDP — it is
+ *     answered with a 407 CHALLENGE rather than a flat 403, because a client
+ *     using `CURLAUTH_ANY` (which is what git does) waits for that challenge
+ *     before sending the credential it already holds, and a 403 told it there
+ *     was nothing to send;
  *   - the run token is forwarded to the PDP as a bearer token, and the PDP is
  *     asked about the EXACT host:port requested;
  *   - a non-allowlisted host is denied at the network layer even though the CLI
@@ -92,7 +96,7 @@ function listen(mod) {
  * @param {number} port Proxy port.
  * @param {string} target `host:port` to CONNECT to.
  * @param {string|null} token Run token, or null to omit Proxy-Authorization.
- * @returns {Promise<{status: number, denyCode: string}>} The proxy's answer.
+ * @returns {Promise<{status: number, denyCode: string, headers: object}>} The answer.
  */
 function connectThrough(port, target, token) {
     return new Promise((resolve, reject) => {
@@ -103,13 +107,18 @@ function connectThrough(port, target, token) {
         const req = http.request({ port, host: '127.0.0.1', method: 'CONNECT', path: target, headers });
         req.on('connect', (res, socket) => {
             socket.destroy();
-            resolve({ status: res.statusCode, denyCode: res.headers['x-egress-deny-code'] || '' });
+            resolve({
+                status: res.statusCode,
+                denyCode: res.headers['x-egress-deny-code'] || '',
+                headers: res.headers,
+            });
         });
         // A refused CONNECT arrives as a plain response, not a 'connect' event.
         req.on('response', (res) => {
             const denyCode = res.headers['x-egress-deny-code'] || '';
+            const { headers } = res;
             res.resume();
-            resolve({ status: res.statusCode, denyCode });
+            resolve({ status: res.statusCode, denyCode, headers });
         });
         req.on('error', reject);
         req.end();
@@ -235,7 +244,25 @@ test('a TRUTHY-but-not-true allowed value denies (only a literal true permits)',
     pdp.close();
 });
 
-test('a CONNECT with no run token is denied without consulting the PDP', async () => {
+test('a CONNECT with no run token is CHALLENGED, opens nothing, and never reaches the PDP', async () => {
+    // ⚠️ THIS ANSWER USED TO BE A 403, AND THAT IS WHY GIT COULD NOT GET OUT.
+    //
+    // `HTTPS_PROXY=http://run:<token>@proxy:3128` does not make every client
+    // present the credential. curl's CLI defaults to Basic and sends it
+    // preemptively; git sets libcurl's proxy auth to `CURLAUTH_ANY`, which waits
+    // for a 407 challenge first. A 403 tells it there is nothing to offer, so it
+    // never offers the token it already holds — and every clone through the
+    // governed proxy failed `no_run_token`, forever.
+    //
+    // Measured 2026-08-02 in the jailed container, same proxy, same URL: curl
+    // sent `Proxy-Authorization` and got 200; git sent none and got 403.
+    //
+    // This suite could not have caught it: `connectThrough()` sets the header
+    // itself, so every case here exercised the authenticated path. The test
+    // below is the one that crosses that line.
+    //
+    // 407 opens no tunnel, so default-deny is intact — it is a refusal that
+    // names how to proceed rather than one that ends the conversation.
     const pdp = await startFakePdp((req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ allowed: true }));
@@ -243,12 +270,46 @@ test('a CONNECT with no run token is denied without consulting the PDP', async (
     const proxy = await listen(loadProxy({ EGRESS_PDP_URL: pdp.url }));
 
     const out = await connectThrough(proxy.port, 'api.anthropic.com:443', null);
-    assert.strictEqual(out.status, 403);
+    assert.strictEqual(out.status, 407, 'an unauthenticated CONNECT must be challenged, not dismissed');
+    assert.strictEqual(
+        out.headers['proxy-authenticate'],
+        'Basic realm="hermiq-egress"',
+        'without a Proxy-Authenticate header a CURLAUTH_ANY client never sends its credential'
+    );
     assert.strictEqual(out.denyCode, 'no_run_token');
     assert.strictEqual(pdp.calls.length, 0, 'an anonymous CONNECT must not even reach the PDP');
 
     proxy.close();
     pdp.close();
+});
+
+test('a client that waits for the challenge gets through on the retry', async () => {
+    // The positive half. Asserting the 407 alone would certify a proxy that
+    // challenges and then refuses the answer — which is indistinguishable from
+    // the bug it replaces. So this drives the ACTUAL two-step exchange a
+    // CURLAUTH_ANY client performs: CONNECT, take the challenge, CONNECT again
+    // with the credential.
+    const upstream = net.createServer((s) => s.end());
+    await new Promise((r) => upstream.listen(0, '127.0.0.1', r));
+
+    const pdp = await startFakePdp((req, res) => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ allowed: true }));
+    });
+    const proxy = await listen(loadProxy({ EGRESS_PDP_URL: pdp.url }));
+    const target = `127.0.0.1:${upstream.address().port}`;
+
+    const first = await connectThrough(proxy.port, target, null);
+    assert.strictEqual(first.status, 407, 'step 1: challenged');
+    assert.strictEqual(pdp.calls.length, 0, 'step 1 asks the PDP nothing');
+
+    const second = await connectThrough(proxy.port, target, 'tok-123');
+    assert.strictEqual(second.status, 200, 'step 2: the tunnel opens');
+    assert.strictEqual(pdp.calls.length, 1, 'step 2 is the one the PDP decides');
+
+    proxy.close();
+    pdp.close();
+    upstream.close();
 });
 
 test('the run token is forwarded as a bearer token and the EXACT host:port is asked about', async () => {
