@@ -1125,7 +1125,16 @@
         "This node type has no guided form yet — edit its configuration directly. Keys must match what the node reads.": "This node type has no guided form yet — edit its configuration directly. Keys must match what the node reads.",
         "Filter tools": "Filter tools",
         "No tool matches this filter": "No tool matches this filter",
-        "of {total}": "of {total}"
+        "of {total}": "of {total}",
+        "Authored here — not installed from a bundle": "Authored here — not installed from a bundle",
+        "Last updated from source": "Last updated from source",
+        "Learnings last accepted": "Learnings last accepted",
+        "Local learnings are ahead of the source": "Local learnings are ahead of the source",
+        "Provenance error": "Provenance error",
+        "Quarantined — awaiting review": "Quarantined — awaiting review",
+        "This skill has learnings accepted here since it was last updated from its source. Updating keeps them — the incoming learnings file is not applied.": "This skill has learnings accepted here since it was last updated from its source. Updating keeps them — the incoming learnings file is not applied.",
+        "This skill is quarantined and is not available to agents until it is approved.": "This skill is quarantined and is not available to agents until it is approved.",
+        "Unknown": "Unknown"
     },
     "plurals": ""
 }
