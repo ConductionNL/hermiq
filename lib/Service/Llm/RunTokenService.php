@@ -131,17 +131,35 @@ class RunTokenService
      * conversationId)` and store it with the run TTL. The returned string is the
      * ONLY place the plaintext token exists — it is never logged.
      *
-     * @param string $runId          The run's unique id (opaque; binds the token to one run).
-     * @param string $agentId        The acting agent's UUID (resolves the granted tool set).
-     * @param string $userId         The acting user's UID (resolves RBAC on tool dispatch).
-     * @param string $conversationId The conversation UUID, when one exists (audit binding only).
+     * @param string   $runId          The run's unique id (opaque; binds the token to one run).
+     * @param string   $agentId        The acting agent's UUID (resolves the granted tool set).
+     * @param string   $userId         The acting user's UID (resolves RBAC on tool dispatch).
+     * @param string   $conversationId The conversation UUID, when one exists (audit binding only).
+     * @param int|null $ttlSeconds     Override the default TTL. Used ONLY by the workload plane.
+     *
+     *                                 The default is the LLM turn's timeout plus slack — 150
+     *                                 seconds — which is right for a turn and wrong for a stage
+     *                                 by two orders of magnitude: a stage's ceiling is 30
+     *                                 minutes. A stage token minted at the default expires while
+     *                                 the workload is still running, so the clone at the start
+     *                                 succeeds and the push at the end is denied `invalid_token`
+     *                                 — a failure that looks like a forge problem and is not.
+     *
+     *                                 The caller passes its OWN ceiling, so the token still dies
+     *                                 with the work it belongs to and never becomes a long-lived
+     *                                 credential. Null keeps the turn default.
      *
      * @return string The plaintext bearer token.
      *
      * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
      */
-    public function mint(string $runId, string $agentId, string $userId, string $conversationId=''): string
-    {
+    public function mint(
+        string $runId,
+        string $agentId,
+        string $userId,
+        string $conversationId='',
+        ?int $ttlSeconds=null
+    ): string {
         $token = $this->secureRandom->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
 
         $record = [
@@ -160,7 +178,12 @@ class RunTokenService
             throw new RuntimeException('Could not encode the run-token record.');
         }
 
-        $this->cache->set(key: $this->digest(token: $token), value: $encoded, ttl: $this->ttlSeconds());
+        $ttl = $this->ttlSeconds();
+        if ($ttlSeconds !== null && $ttlSeconds > 0) {
+            $ttl = $ttlSeconds;
+        }
+
+        $this->cache->set(key: $this->digest(token: $token), value: $encoded, ttl: $ttl);
 
         return $token;
 

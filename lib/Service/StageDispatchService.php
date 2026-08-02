@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\Service\Llm\BrokerHttpClient;
+use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCP\Server;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -85,10 +86,16 @@ class StageDispatchService
     /**
      * Constructor.
      *
-     * @param LoggerInterface $logger For operator-facing diagnostics.
+     * @param LoggerInterface  $logger          For operator-facing diagnostics.
+     * @param RunTokenService  $runTokenService Mints the per-run token the governed egress
+     *                                          proxy needs. Without one the sidecar has no
+     *                                          identity to present and the PDP refuses every
+     *                                          CONNECT before it evaluates any policy.
      */
-    public function __construct(private readonly LoggerInterface $logger)
-    {
+    public function __construct(
+        private readonly LoggerInterface $logger,
+        private readonly RunTokenService $runTokenService
+    ) {
 
     }//end __construct()
 
@@ -124,6 +131,12 @@ class StageDispatchService
      *                                  resolves its own helpers out of its own checkout, so
      *                                  gating an app needs both trees at once.
      * @param string      $toolRef      Ref for the tool tree; its default branch when empty.
+     * @param array       $push         Declares that this stage may WRITE:
+     *                                  `{branch, issue, scope, allowedRepo, message}`. Empty
+     *                                  leaves the stage read-only. Its presence changes the
+     *                                  runner's posture — the command child loses the forge
+     *                                  credential and the runner performs the push itself,
+     *                                  behind the branch/repository/diff fences.
      *
      * @return array{exitCode: int, output: string, ref: string} The stage result.
      *
@@ -143,7 +156,8 @@ class StageDispatchService
         string $credentialId='',
         int $timeoutMs=0,
         string $toolRepo='',
-        string $toolRef=''
+        string $toolRef='',
+        array $push=[]
     ): array {
         $ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
         if ($timeoutMs > 0) {
@@ -158,7 +172,8 @@ class StageDispatchService
             credentialId: $credentialId,
             ceiling: $ceiling,
             toolRepo: $toolRepo,
-            toolRef: $toolRef
+            toolRef: $toolRef,
+            push: $push
         );
 
         $result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
@@ -223,10 +238,17 @@ class StageDispatchService
      * @param int         $ceiling      Stage timeout in milliseconds.
      * @param string      $toolRepo     Tool tree URL, or ''.
      * @param string      $toolRef      Tool tree ref, or ''.
+     * @param array       $push         Push declaration, or [] for a read-only stage.
      *
      * @return array The request payload.
      */
-    private function buildParams(
+    // `protected`, matching `mapResult()` and `reasonFrom()` below and for the
+    // same stated reason: a shape check nothing exercises is a shape check that
+    // silently stops holding. This method decides whether a stage carries an
+    // egress identity and whether it may write — neither of which is visible
+    // from the response-mapping seams, and both of which are exactly the kind of
+    // field that has been silently dropped at a boundary here before.
+    protected function buildParams(
         string $repo,
         string $ref,
         array $command,
@@ -234,14 +256,50 @@ class StageDispatchService
         string $credentialId,
         int $ceiling,
         string $toolRepo,
-        string $toolRef
+        string $toolRef,
+        array $push=[]
     ): array {
         $params = [
             'repo'      => $repo,
             'ref'       => $ref,
             'command'   => array_values($command),
             'timeoutMs' => $ceiling,
+            // THE PER-RUN EGRESS IDENTITY.
+            //
+            // `/run` has built a per-run proxy URL since governed egress
+            // shipped; `/stage` never did, and behind the CONNECT proxy that is
+            // not a smaller fence but no route at all — the PDP refuses a
+            // token-less CONNECT with `no_run_token` before it evaluates any
+            // policy, and the symptom is a `git clone` failure that points at
+            // the forge.
+            //
+            // The TTL is the stage's OWN ceiling, not the LLM turn's 150
+            // seconds. A stage runs for up to thirty minutes, so a turn-length
+            // token expires mid-workload: the clone at the start succeeds and
+            // the push at the end is denied `invalid_token`.
+            //
+            // ⚠️ The token lives in `ICacheFactory::createDistributed()`. With
+            // no `memcache.distributed` configured that falls back to APCu,
+            // which is PER PROCESS POOL — so a stage dispatched from a
+            // cron-mode background job mints into the CLI pool while the PDP
+            // reads the web pool, and every CONNECT is refused. Measured on a
+            // live instance: 401 `invalid_token` within the same second.
+            'runToken'  => $this->runTokenService->mint(
+                runId: 'stage-'.bin2hex(random_bytes(8)),
+                agentId: '',
+                userId: (string) $uid,
+                conversationId: '',
+                ttlSeconds: (intdiv($ceiling, 1000) + self::TRANSPORT_SLACK_SECONDS)
+            ),
         ];
+
+        // A stage that may WRITE says so, and saying so is what makes the
+        // runner withhold the credential from the command child and perform the
+        // push itself behind its own fences. An absent `push` leaves the stage
+        // exactly as read-only as it has always been.
+        if ($push !== []) {
+            $params['push'] = $push;
+        }
 
         if ($toolRepo !== '') {
             $params['toolRepo'] = $toolRepo;

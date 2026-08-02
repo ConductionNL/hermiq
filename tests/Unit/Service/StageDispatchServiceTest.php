@@ -26,7 +26,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\Llm\RunTokenService;
 use OCA\Hermiq\Service\StageDispatchService;
+use OCP\ICache;
+use OCP\ICacheFactory;
+use OCP\Security\ISecureRandom;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use RuntimeException;
@@ -60,6 +64,43 @@ class ExposedStageDispatchService extends StageDispatchService
         return $this->reasonFrom(body: $body);
 
     }//end reasonFromPublic()
+
+    /**
+     * Expose the payload builder.
+     *
+     * `buildParams()` is where the run token and the push declaration are put
+     * into the request, and neither is visible from `mapResult()`. A field that
+     * exists on both sides of a boundary and not IN it is the failure this
+     * codebase has already paid for once (`toolRepo`).
+     *
+     * @param string $repo         Target repository.
+     * @param string $ref          Ref.
+     * @param array  $command      Command argv.
+     * @param int    $ceiling      Stage ceiling in ms.
+     * @param array  $push         Push declaration, or [].
+     *
+     * @return array The payload.
+     */
+    public function buildParamsPublic(
+        string $repo,
+        string $ref,
+        array $command,
+        int $ceiling,
+        array $push=[]
+    ): array {
+        return $this->buildParams(
+            repo: $repo,
+            ref: $ref,
+            command: $command,
+            uid: 'admin',
+            credentialId: '',
+            ceiling: $ceiling,
+            toolRepo: '',
+            toolRef: '',
+            push: $push
+        );
+
+    }//end buildParamsPublic()
 }//end class
 
 /**
@@ -82,7 +123,24 @@ class StageDispatchServiceTest extends TestCase
      */
     protected function setUp(): void
     {
-        $this->service = new ExposedStageDispatchService(new NullLogger());
+        // A REAL RunTokenService over a stub cache, not a mock of it.
+        //
+        // The payload builder mints a token on every dispatch, and the reason it
+        // does is that a stage behind the governed proxy has no route out
+        // without one. A mock returning a fixed string would assert that the
+        // call is made and nothing about the thing being made, which is where
+        // the TTL bug lives: the turn default is 150 seconds and a stage runs
+        // for thirty minutes.
+        $cacheFactory = $this->createMock(ICacheFactory::class);
+        $cacheFactory->method('createDistributed')->willReturn($this->createMock(ICache::class));
+
+        $secureRandom = $this->createMock(ISecureRandom::class);
+        $secureRandom->method('generate')->willReturn('stub-run-token-for-the-mapping-tests');
+
+        $this->service = new ExposedStageDispatchService(
+            new NullLogger(),
+            new RunTokenService($cacheFactory, $secureRandom)
+        );
 
     }//end setUp()
 
@@ -178,4 +236,79 @@ class StageDispatchServiceTest extends TestCase
         $this->assertSame('the runner gave no reason', $this->service->reasonFromPublic('{"error":"  "}'));
 
     }//end testAReasonlessBodyFallsBack()
+
+    /**
+     * Every stage carries a per-run egress identity.
+     *
+     * `/run` has built a per-run proxy URL since governed egress shipped;
+     * `/stage` never did. Behind the CONNECT proxy that is not a smaller fence
+     * but no route at all — the PDP refuses a token-less CONNECT with
+     * `no_run_token` before it evaluates any policy, and the symptom is a
+     * `git clone` failure that points at the forge rather than at policy.
+     *
+     * @return void
+     */
+    public function testEveryStageCarriesARunToken(): void
+    {
+        $params = $this->service->buildParamsPublic(
+            'https://github.com/ConductionNL/hydra',
+            'development',
+            ['scripts/run-hydra-gates.sh'],
+            60000
+        );
+
+        $this->assertArrayHasKey('runToken', $params, 'a stage without a run token cannot get out');
+        $this->assertNotSame('', $params['runToken']);
+
+    }//end testEveryStageCarriesARunToken()
+
+    /**
+     * A stage that declares no push sends no push.
+     *
+     * The default posture is read-only, and it must be the ABSENCE of the key
+     * rather than an empty one: the runner treats any object as "this stage may
+     * write", which withholds the credential from the command child and changes
+     * how the whole stage behaves.
+     *
+     * @return void
+     */
+    public function testAStageWithoutAPushDeclarationSendsNone(): void
+    {
+        $params = $this->service->buildParamsPublic(
+            'https://github.com/ConductionNL/hydra',
+            'development',
+            ['scripts/run-hydra-gates.sh'],
+            60000
+        );
+
+        $this->assertArrayNotHasKey('push', $params);
+
+    }//end testAStageWithoutAPushDeclarationSendsNone()
+
+    /**
+     * A declared push reaches the runner intact.
+     *
+     * @return void
+     */
+    public function testADeclaredPushIsForwardedVerbatim(): void
+    {
+        $push = [
+            'branch'      => 'feature/493/x',
+            'issue'       => 493,
+            'scope'       => ['lib'],
+            'allowedRepo' => 'https://github.com/ConductionNL/hydra',
+        ];
+
+        $params = $this->service->buildParamsPublic(
+            'https://github.com/ConductionNL/hydra',
+            'development',
+            ['scripts/run-hydra-gates.sh'],
+            60000,
+            $push
+        );
+
+        $this->assertSame($push, $params['push']);
+
+    }//end testADeclaredPushIsForwardedVerbatim()
+
 }//end class
