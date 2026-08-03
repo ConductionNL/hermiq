@@ -38,6 +38,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use PHPUnit\Framework\TestCase;
 
@@ -351,14 +352,25 @@ class FacadeToolInvokerWaiverTest extends TestCase
     }//end testAWaiverOnOneToolDoesNotCoverAnother()
 
     /**
-     * An `Approval`-shaped stub with a uuid the invoker can read.
+     * An `Approval`-shaped entity with a uuid the invoker can read.
      *
-     * @return \OCA\OpenRegister\Db\ObjectEntity
+     * 🔴 A REAL `ObjectEntity`, not a mock, and that distinction is the whole
+     * comment. `getUuid()` on Nextcloud's `Entity` is a MAGIC `__call` getter —
+     * it does not exist as a declared method — so `createMock(...)->method('getUuid')`
+     * raises `MethodCannotBeConfiguredException` against the real class. It
+     * succeeded locally only because the container run mounts a vendor stub
+     * whose `ObjectEntity` declares real getters, and failed on all six CI
+     * matrix legs where OpenRegister is checked out for real.
+     *
+     * Constructing the entity and setting the field sidesteps the question
+     * entirely and works against either.
+     *
+     * @return ObjectEntity
      */
-    private function approvalStub(): \OCA\OpenRegister\Db\ObjectEntity
+    private function approvalStub(): ObjectEntity
     {
-        $approval = $this->createMock(\OCA\OpenRegister\Db\ObjectEntity::class);
-        $approval->method('getUuid')->willReturn('00000000-0000-0000-0000-0000000000ff');
+        $approval = new ObjectEntity();
+        $approval->setUuid('00000000-0000-0000-0000-0000000000ff');
 
         return $approval;
     }//end approvalStub()
