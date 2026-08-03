@@ -21,7 +21,8 @@
     "check:registry": "node tests/registry.spec.js",
     "check:agent-context": "node tests/agent-context.spec.js",
     "check:json-strict": "node tests/validate-json-strict.js",
-    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context"
+    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "browserslist": [
     "extends @nextcloud/browserslist-config"
