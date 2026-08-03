@@ -30,19 +30,8 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { cleanupFamily, harvestToken, resolveRegisterSchema, seedAgent, TEST_PREFIX } from './_fixtures'
+import { TEST_PREFIX, cleanupFamily, dismissTour, harvestToken, resolveRegisterSchema, seedAgent } from './_fixtures'
 
-/**
- * Close the first-run onboarding tour dialog if it is showing.
- *
- * @param page The Playwright page.
- */
-async function dismissTour(page: Page): Promise<void> {
-	const close = page.getByRole('button', { name: 'Close tour' })
-	if (await close.count() > 0) {
-		await close.first().click()
-	}
-}
 
 /*
  * PARKED (all four tests below) — requires nc-vue selector hooks present only

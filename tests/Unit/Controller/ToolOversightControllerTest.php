@@ -375,6 +375,169 @@ class ToolOversightControllerTest extends TestCase
     }//end testUpdateToolGrantsRefusesNonOwner()
 
     /**
+     * 🔴 A non-owner may not persist a grant list carrying a waiver, and the
+     * refusal is the SAME refusal as for any other grant edit.
+     *
+     * This looks like a duplicate of the test above and is not. The one above
+     * proves the guard exists; this one proves the guard is reached on the path
+     * that matters most, because a waiver is the single most valuable thing an
+     * attacker could add to somebody else's agent — it removes the human who
+     * would otherwise notice. If a future refactor moved waiver handling ahead
+     * of the owner check (to "validate the syntax first", say), the test above
+     * would still pass.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-non-owner-is-refused-on-hermiqs-tool-grants-endpoint
+     */
+    public function testUpdateToolGrantsRefusesANonOwnerAddingAWaiver(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => ['a.b.search']], 'carol'));
+        $this->objectService->expects($this->never())->method('saveObject');
+        $this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+
+        $this->request->method('getParam')->with('grants')
+            ->willReturn(['hermiq.sendMail'.ToolGrantResolver::WAIVER_FRAGMENT]);
+
+        $response = $this->controller()->updateToolGrants('agent-1');
+
+        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+
+    }//end testUpdateToolGrantsRefusesANonOwnerAddingAWaiver()
+
+    /**
+     * 🔴 Adding a waiver writes a DISTINCT audit event naming what was added.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-adding-a-waiver-writes-a-distinct-audit-event
+     */
+    public function testAddingAWaiverWritesADistinctAuditEvent(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => ['hermiq.sendMail']], 'alice'));
+        $this->request->method('getParam')->with('grants')
+            ->willReturn(['hermiq.sendMail'.ToolGrantResolver::WAIVER_FRAGMENT]);
+        $this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+
+        $captured = [];
+        $this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
+            ->willReturnCallback(
+                function (ObjectEntity $object, string $action, array $context) use (&$captured) {
+                    $captured = ['action' => $action, 'context' => $context];
+                    return new AuditTrail();
+                }
+            );
+
+        $this->controller()->updateToolGrants('agent-1');
+
+        $this->assertSame(ToolOversightController::WAIVER_AUDIT_ACTION, $captured['action']);
+        $this->assertSame(['hermiq.sendMail'.ToolGrantResolver::WAIVER_FRAGMENT], $captured['context']['added']);
+        $this->assertSame([], $captured['context']['removed']);
+        $this->assertSame('alice', $captured['context']['actor']);
+
+    }//end testAddingAWaiverWritesADistinctAuditEvent()
+
+    /**
+     * 🔴 Removing a waiver is audited too.
+     *
+     * Re-enabling approval is the SAFE direction, so it is tempting to log only
+     * the dangerous one. But a trail that never records the removal cannot show
+     * that a waiver was temporary, and "approval was off for two hours during
+     * the incident" is precisely what an auditor needs to establish.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-removing-a-waiver-writes-a-distinct-audit-event
+     */
+    public function testRemovingAWaiverWritesADistinctAuditEvent(): void
+    {
+        $this->objectService->method('find')->willReturn(
+            $this->agent(['tools' => ['hermiq.sendMail'.ToolGrantResolver::WAIVER_FRAGMENT]], 'alice')
+        );
+        $this->request->method('getParam')->with('grants')->willReturn(['hermiq.sendMail']);
+        $this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+
+        $captured = [];
+        $this->auditTrailMapper->expects($this->once())->method('createAuditTrailEntry')
+            ->willReturnCallback(
+                function (ObjectEntity $object, string $action, array $context) use (&$captured) {
+                    $captured = ['action' => $action, 'context' => $context];
+                    return new AuditTrail();
+                }
+            );
+
+        $this->controller()->updateToolGrants('agent-1');
+
+        $this->assertSame(ToolOversightController::WAIVER_AUDIT_ACTION, $captured['action']);
+        $this->assertSame(['hermiq.sendMail'.ToolGrantResolver::WAIVER_FRAGMENT], $captured['context']['removed']);
+        $this->assertSame([], $captured['context']['added']);
+
+    }//end testRemovingAWaiverWritesADistinctAuditEvent()
+
+    /**
+     * 🔴 THE CONTROL: an ordinary grant change writes NO waiver event.
+     *
+     * Without this, both tests above would pass on an implementation that fired
+     * the audit on every single grant update — which would make the event
+     * useless for the question it exists to answer, while looking thoroughly
+     * covered.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-an-ordinary-grant-change-is-not-reported-as-a-waiver-event
+     */
+    public function testAnOrdinaryGrantChangeWritesNoWaiverEvent(): void
+    {
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => ['pipelinq.lead.search']], 'alice'));
+        $this->request->method('getParam')->with('grants')
+            ->willReturn(['pipelinq.lead.search', 'pipelinq.lead.get']);
+        $this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+
+        $this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+
+        $response = $this->controller()->updateToolGrants('agent-1');
+
+        $this->assertSame(200, $response->getStatus(), 'The grant change itself must still succeed.');
+
+    }//end testAnOrdinaryGrantChangeWritesNoWaiverEvent()
+
+    /**
+     * An unchanged waiver set is not an event either — re-saving the same list
+     * must not manufacture a trail of edits nobody made.
+     *
+     * @return void
+     */
+    public function testAnUnchangedWaiverSetWritesNoEvent(): void
+    {
+        $grants = ['hermiq.sendMail'.ToolGrantResolver::WAIVER_FRAGMENT, 'pipelinq.lead.search'];
+
+        $this->objectService->method('find')->willReturn($this->agent(['tools' => $grants], 'alice'));
+        $this->request->method('getParam')->with('grants')->willReturn(array_reverse($grants));
+        $this->objectService->method('saveObject')->willReturnCallback($this->savingEntity());
+
+        $this->auditTrailMapper->expects($this->never())->method('createAuditTrailEntry');
+
+        $this->controller()->updateToolGrants('agent-1');
+
+    }//end testAnUnchangedWaiverSetWritesNoEvent()
+
+    /**
+     * A `saveObject` stub returning an entity carrying the written payload.
+     *
+     * @return callable
+     */
+    private function savingEntity(): callable
+    {
+        return static function (array $object): ObjectEntity {
+            $entity = new ObjectEntity();
+            $entity->setUuid('agent-1');
+            $entity->setObject($object);
+            return $entity;
+        };
+
+    }//end savingEntity()
+
+    /**
      * toolInvocations (rich source) lists this agent's correlated-owner MCP
      * invocation rows, newest first, and NEVER a row belonging to a different
      * agent/tenant's owner.

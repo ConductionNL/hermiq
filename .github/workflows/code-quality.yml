@@ -7,6 +7,48 @@ on:
     branches: [main, master, development, beta]
   workflow_dispatch:
 
+concurrency:
+  group: quality-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+# Permissions for the called quality pipeline. A reusable workflow can never
+# hold MORE than its caller grants, so this block is a CEILING, not a request:
+# any job in ConductionNL/.github's quality.yml that declares a permission
+# missing here makes the whole run fail at STARTUP — GitHub validates the
+# called workflow's DECLARED job permissions statically, even for jobs that
+# are disabled via enable-* inputs.
+#
+# 🔴 That failure mode is why this comment is long. A startup failure produces
+# ZERO jobs, so `gh pr checks` lists nothing for Code Quality at all and the PR
+# reads as green — a dead gate and a passing gate are indistinguishable from the
+# outside.
+#
+# This block previously said `contents: read`, described as "least privilege"
+# (#129, merged 2026-08-03T11:11). It silently disabled hermiq's ENTIRE quality
+# pipeline — phpcs, PHPUnit, psalm, phpstan, eslint, the lot — on every branch
+# including development. Measured, not inferred: code-quality runs on
+# development went from 29 jobs (30804165038, 10:05) to 0 jobs (30808564347 and
+# 30808575238, 11:11, both `startup_failure`) across that merge, and nothing
+# went red to say so.
+#
+# `contents: write` and `actions: write` are required because jobs in the
+# shared pipeline DECLARE them:
+#   - `update-baseline`    — writes the coverage baseline
+#   - `features-extract`   — writes features.json
+#   - `journeydoc-capture` — writes captured journey docs (also `actions: write`)
+# `issues: write` + `pull-requests: write` are required by the Quality Report
+# job's sticky PR comment — without them it 403s.
+#
+# Before narrowing any line here, disable the jobs that need it FIRST, and then
+# confirm the run still PRODUCES JOBS — not merely that it stopped failing.
+# `gh api repos/ConductionNL/hermiq/actions/runs/<id>/jobs --jq '.total_count'`
+# must be non-zero.
+permissions:
+  contents: write
+  actions: write
+  issues: write
+  pull-requests: write
+
 jobs:
   quality:
     uses: ConductionNL/.github/.github/workflows/quality.yml@main

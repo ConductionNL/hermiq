@@ -71,6 +71,21 @@ class TalkBridge
     public const BOT_NAME = 'Hermiq';
 
     /**
+     * URL prefix for a PER-AGENT bot: `nextcloudapp://hermiq-<agentId>`.
+     *
+     * 🔴 The bot record is the ONLY carrier of the name Talk displays.
+     * `ChatManager::sendMessage()` takes no display-name parameter, and
+     * `MessageParser` derives the shown name by stripping the actor prefix,
+     * treating the remainder as a `url_hash` and looking the bot record up
+     * scoped to the conversation. So "post as this agent" is expressible only
+     * as "post as a DIFFERENT BOT", which is why one shared bot could never
+     * render anything but "Hermiq (Bot)" for every agent alike.
+     *
+     * @var string
+     */
+    public const BOT_URL_PREFIX = 'nextcloudapp://hermiq-';
+
+    /**
      * Spreed's bot actor type (Attendee::ACTOR_BOTS).
      *
      * @var string
@@ -137,15 +152,93 @@ class TalkBridge
      * as `ACTOR_BOT_PREFIX . urlHash` (`BotController::sendMessage`), so this
      * is deterministic and needs no database read.
      *
+     * @param string|null $agentId The agent whose bot identity to use; null yields the shared bot.
+     *
      * @return string The bot actor id.
      *
      * @spec openspec/changes/talk-chat-bridge/contract.md
      */
-    public function botActorId(): string
+    public function botActorId(?string $agentId=null): string
     {
-        return self::ACTOR_BOT_PREFIX.sha1(self::BOT_URL);
+        if ($agentId === null || trim($agentId) === '') {
+            return self::ACTOR_BOT_PREFIX.sha1(self::BOT_URL);
+        }
+
+        return self::ACTOR_BOT_PREFIX.sha1(self::botUrlFor(agentId: $agentId));
 
     }//end botActorId()
+
+    /**
+     * The bot URL that carries a given agent's identity in Talk.
+     *
+     * @param string $agentId The agent's uuid.
+     *
+     * @return string The per-agent bot URL.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+     */
+    public static function botUrlFor(string $agentId): string
+    {
+        return self::BOT_URL_PREFIX.$agentId;
+
+    }//end botUrlFor()
+
+    /**
+     * Whether a bot URL belongs to Hermiq at all.
+     *
+     * Both listeners guard on this instead of comparing against one constant,
+     * because after per-agent bots there is no single URL to compare to.
+     *
+     * 🔴 STATIC on purpose. This is a pure function of the URL, and it is the
+     * guard standing in front of the approval path. As an instance method it
+     * became mockable, and a bare test double answers `false` — so every
+     * listener test would have needed a blanket `willReturn(true)` stub, which
+     * in turn defeats the one test that proves a FOREIGN bot is rejected.
+     * Static keeps the real rule in the path under test, with no shape for a
+     * double to get wrong.
+     *
+     * @param string $url The invoking bot's URL.
+     *
+     * @return bool True when Hermiq owns this bot.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+     */
+    public static function isHermiqBotUrl(string $url): bool
+    {
+        return ($url === self::BOT_URL || self::agentIdFromBotUrl(url: $url) !== null);
+
+    }//end isHermiqBotUrl()
+
+    /**
+     * The agent id carried by a per-agent bot URL, or null.
+     *
+     * 🔴 Deliberately strict. The guard this feeds replaced an exact-match on a
+     * single constant, and the approval path behind it decides governance
+     * actions — so "looks roughly like ours" is not good enough. Anything that
+     * is not exactly `nextcloudapp://hermiq-<non-empty>` yields null and the
+     * caller does nothing. In particular the legacy shared `nextcloudapp://hermiq`
+     * carries NO agent and must not be mistaken for the agent `''`.
+     *
+     * @param string $url The invoking bot's URL.
+     *
+     * @return string|null The agent uuid, or null when this is not a per-agent Hermiq bot.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+     */
+    public static function agentIdFromBotUrl(string $url): ?string
+    {
+        if (str_starts_with($url, self::BOT_URL_PREFIX) === false) {
+            return null;
+        }
+
+        $agentId = substr($url, strlen(self::BOT_URL_PREFIX));
+        if (trim($agentId) === '') {
+            return null;
+        }
+
+        return $agentId;
+
+    }//end agentIdFromBotUrl()
 
     /**
      * Post a message into a room as the Hermiq bot.
@@ -154,16 +247,17 @@ class TalkBridge
      * disabled or uninstalled while a turn was queued, is a terminal and
      * NON-RETRYABLE outcome — it must never fail the run.
      *
-     * @param string $roomToken The Talk room token.
-     * @param string $message   The message body (markdown).
+     * @param string      $roomToken The Talk room token.
+     * @param string      $message   The message body (markdown).
+     * @param string|null $agentId   Post under this agent's bot identity; null uses the shared bot.
      *
      * @return bool True when the message was posted.
      *
      * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
      */
-    public function postToRoom(string $roomToken, string $message): bool
+    public function postToRoom(string $roomToken, string $message, ?string $agentId=null): bool
     {
-        return ($this->postToRoomReturningId(roomToken: $roomToken, message: $message) !== null);
+        return ($this->postToRoomReturningId(roomToken: $roomToken, message: $message, agentId: $agentId) !== null);
 
     }//end postToRoom()
 
@@ -174,14 +268,15 @@ class TalkBridge
      * has to be resolvable from a reaction on it, which needs the id spreed
      * assigned. Callers that do not care use `postToRoom()`.
      *
-     * @param string $roomToken The Talk room token.
-     * @param string $message   The message body (markdown).
+     * @param string      $roomToken The Talk room token.
+     * @param string      $message   The message body (markdown).
+     * @param string|null $agentId   Post under this agent's bot identity; null uses the shared bot.
      *
      * @return string|null The posted message's id, or null when it could not be posted.
      *
      * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
      */
-    public function postToRoomReturningId(string $roomToken, string $message): ?string
+    public function postToRoomReturningId(string $roomToken, string $message, ?string $agentId=null): ?string
     {
         if ($this->isAvailable() === false || $roomToken === '' || trim($message) === '') {
             return null;
@@ -193,7 +288,7 @@ class TalkBridge
                 $room,
                 null,
                 self::ACTOR_BOTS,
-                $this->botActorId(),
+                $this->botActorId(agentId: $agentId),
                 $message,
                 new DateTime()
             );

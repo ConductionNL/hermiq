@@ -3,9 +3,8 @@
 /**
  * Hermiq Seed Hydra Triage Flow Repair Step.
  *
- * Seeds the automated triage loop as DATA: one `agentflow` object in the `hermiq`
- * register, resolved by the existing `HermiqFlowResolver` and walked by
- * OpenRegister's flow engine (ADR-065). It is deliberately NOT a Hermiq service, a
+ * Seeds the automated triage loop as DATA: one row in OpenRegister's native flow
+ * store, walked by OpenRegister's flow engine (ADR-065). It is deliberately NOT a Hermiq service, a
  * controller path or a background job — the whole point of the flows-first pivot is
  * that porting an orchestrator's loop creates no code, only flows, so an operator
  * can retune the loop without a Hermiq release.

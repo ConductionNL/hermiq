@@ -13,6 +13,8 @@ jobs:
   l10n:
     name: l10n coverage (en.json)
     runs-on: ubuntu-latest
+    # Observed fleet-wide: median 0.1 min, max 1.1 min (n=193). Deliberately loose.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

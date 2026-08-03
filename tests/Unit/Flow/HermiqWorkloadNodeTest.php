@@ -465,6 +465,167 @@ class HermiqWorkloadNodeTest extends TestCase
     }//end testTheCredentialIdIsRendered()
 
     /**
+     * A stage with no `push` key forwards NO push declaration.
+     *
+     * The default matters more than the feature: the runner reads the presence
+     * of `push` as "this stage may write", so a node that forwarded `['branch'
+     * => '', ...]` for every read-only stage would turn the whole existing
+     * pipeline into writing stages, and every one of them would then be refused
+     * by `pushGuard` for having no issue. Read-only has to stay the default all
+     * the way down to the wire.
+     *
+     * @return void
+     */
+    public function testAStageWithoutAPushDeclarationStaysReadOnly(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
+
+        // Positional: repo, ref, command, uid, credentialId, timeoutMs, toolRepo, toolRef, push, pushCredentialId.
+        $this->assertSame([], $this->lastCall[8]);
+        $this->assertSame('', $this->lastCall[9]);
+
+    }//end testAStageWithoutAPushDeclarationStaysReadOnly()
+
+    /**
+     * The push declaration is forwarded with every placeholder rendered.
+     *
+     * `branch` and `issue` together ARE the allowlist `pushGuard` enforces, and
+     * both are per-item: a fan-out over issues writes a different branch each
+     * time. An unrendered `feature/{{issueNumber}}/x` would be refused by the
+     * runner as "outside the allowlist" — a refusal that reads like a scope
+     * violation rather than a templating bug, which is exactly how the
+     * un-rendered `credentialId` hid for a release.
+     *
+     * @return void
+     */
+    public function testThePushDeclarationIsForwardedAndRendered(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $node->execute(
+            [['json' => ['issueNumber' => '493', 'slug' => 'builder-write-access']]],
+            (
+                $this->config() + [
+                    'owner' => 'ruben',
+                    'push'  => [
+                        'branch'      => 'feature/{{issueNumber}}/{{slug}}',
+                        'issue'       => '{{issueNumber}}',
+                        'allowedRepo' => 'https://github.com/ConductionNL/hydra',
+                        'scope'       => ['lib/{{slug}}', 'docs'],
+                        'message'     => 'fix: issue {{issueNumber}}',
+                    ],
+                ]
+            ),
+            []
+        );
+
+        $push = $this->lastCall[8];
+
+        $this->assertSame('feature/493/builder-write-access', $push['branch']);
+        $this->assertSame('493', $push['issue']);
+        $this->assertSame(['lib/builder-write-access', 'docs'], $push['scope']);
+        $this->assertSame('fix: issue 493', $push['message']);
+        $this->assertStringNotContainsString('{{', json_encode($push));
+
+    }//end testThePushDeclarationIsForwardedAndRendered()
+
+    /**
+     * The push credential is forwarded SEPARATELY from the broker credential.
+     *
+     * One id cannot serve both jobs: `credentialId` is spent on the broker's own
+     * server-side `request()` for the tool tarball, which needs a host-locked
+     * proxy credential — the exact shape `resolveInjectable()` refuses. A push
+     * needs the token inside the container, i.e. `inject_only`. Collapsing them
+     * would make a stage that fetches a private tool tree and pushes
+     * inexpressible, and the symptom would be a clone that silently ran
+     * unauthenticated.
+     *
+     * @return void
+     */
+    public function testThePushCredentialIsSeparateFromTheBrokerCredential(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $node->execute(
+            [['json' => ['pushCred' => '55003b23-6262-495e-b0ab-2e221ba5e17c']]],
+            (
+                $this->config() + [
+                    'owner'            => 'ruben',
+                    'credentialId'     => '35327e7a-cafe-4a21-8ffe-6195d52f9579',
+                    'pushCredentialId' => '{{pushCred}}',
+                    'push'             => ['branch' => 'feature/1/x', 'issue' => '1'],
+                ]
+            ),
+            []
+        );
+
+        $this->assertSame('35327e7a-cafe-4a21-8ffe-6195d52f9579', $this->lastCall[4]);
+        $this->assertSame('55003b23-6262-495e-b0ab-2e221ba5e17c', $this->lastCall[9]);
+        $this->assertNotSame($this->lastCall[4], $this->lastCall[9]);
+
+    }//end testThePushCredentialIsSeparateFromTheBrokerCredential()
+
+    /**
+     * A push declaring no issue is refused at SAVE time.
+     *
+     * `pushGuard` builds its allowlist pattern out of the issue number and fails
+     * closed without one, so such a flow cannot push at all — it would fail half
+     * an hour into a stage with a message about an allowlist. Refusing it while
+     * the author is still looking at it is the whole point of validateConfig().
+     *
+     * @return void
+     */
+    public function testAPushWithoutAnIssueIsRefusedAtSaveTime(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $this->expectException(UnexpectedValueException::class);
+
+        $node->validateConfig($this->config() + ['push' => ['branch' => 'feature/1/x']]);
+
+    }//end testAPushWithoutAnIssueIsRefusedAtSaveTime()
+
+    /**
+     * A push declaring no branch is refused at SAVE time.
+     *
+     * @return void
+     */
+    public function testAPushWithoutABranchIsRefusedAtSaveTime(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $this->expectException(UnexpectedValueException::class);
+
+        $node->validateConfig($this->config() + ['push' => ['issue' => '493']]);
+
+    }//end testAPushWithoutABranchIsRefusedAtSaveTime()
+
+    /**
+     * The same refusal holds through `execute()`, not only through the editor.
+     *
+     * A flow that arrived by import or seeding never passes `validateConfig()`,
+     * and this node already learned that lesson once: an unvalidated step used
+     * to become a silent pass-through whose output key was simply absent.
+     *
+     * @return void
+     */
+    public function testAnUnfencedPushIsRefusedOnExecuteToo(): void
+    {
+        $node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+        $this->expectException(UnexpectedValueException::class);
+
+        $node->execute(
+            [['json' => []]],
+            ($this->config() + ['owner' => 'ruben', 'push' => ['branch' => 'feature/1/x']]),
+            []
+        );
+
+    }//end testAnUnfencedPushIsRefusedOnExecuteToo()
+
+    /**
      * The node identifies itself as the workload step.
      *
      * @return void

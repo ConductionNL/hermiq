@@ -488,7 +488,8 @@ class ToolLoop
             descriptorsByName: $descriptorsByName,
             redactionService: $this->redactionService,
             argumentConstraints: $this->grantResolver->argumentConstraints(grants: $this->agentGrants(agent: $agent)),
-            ownerUid: $this->resolveOwnerUid(agent: $agent)
+            ownerUid: $this->resolveOwnerUid(agent: $agent),
+            waivedConstraintSets: $this->grantResolver->waivedConstraintSets(grants: $this->agentGrants(agent: $agent))
         );
         $functionInfoObjects = [];
 

@@ -38,6 +38,7 @@ namespace OCA\Hermiq\Listener;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
 use OCA\Hermiq\Service\Talk\TalkAgentBinding;
 use OCA\Hermiq\Service\Talk\TalkBridge;
+use OCA\Hermiq\Service\Talk\TalkMentionMatcher;
 use OCA\Hermiq\Service\Talk\TalkRoomBinding;
 use OCA\Hermiq\Service\Talk\TalkRoomGrouping;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
@@ -73,13 +74,14 @@ class TalkBotInvokeListener implements IEventListener
     /**
      * Constructor.
      *
-     * @param TalkBridge                $bridge        Talk availability, room type and room I/O.
-     * @param TalkRoomBinding           $roomBinding   Resolves/creates the bound conversation.
-     * @param TalkAgentBinding          $agentBinding  Resolves the room's opted-in agent.
-     * @param TalkTurnDispatcher        $dispatcher    Hands the turn off out of request.
-     * @param TalkRoomGrouping          $grouping      Files a newly bound room under each participant's tag.
-     * @param ConversationParticipation $participation Owner-or-participant guard.
-     * @param LoggerInterface           $logger        PSR-3 logger.
+     * @param TalkBridge                $bridge         Talk availability, room type and room I/O.
+     * @param TalkRoomBinding           $roomBinding    Resolves/creates the bound conversation.
+     * @param TalkAgentBinding          $agentBinding   Resolves the room's opted-in agent.
+     * @param TalkTurnDispatcher        $dispatcher     Hands the turn off out of request.
+     * @param TalkRoomGrouping          $grouping       Files a newly bound room under each participant's tag.
+     * @param ConversationParticipation $participation  Owner-or-participant guard.
+     * @param TalkMentionMatcher        $mentionMatcher Decides whether a message addresses the agent by name.
+     * @param LoggerInterface           $logger         PSR-3 logger.
      */
     public function __construct(
         private readonly TalkBridge $bridge,
@@ -88,6 +90,7 @@ class TalkBotInvokeListener implements IEventListener
         private readonly TalkTurnDispatcher $dispatcher,
         private readonly TalkRoomGrouping $grouping,
         private readonly ConversationParticipation $participation,
+        private readonly TalkMentionMatcher $mentionMatcher,
         private readonly LoggerInterface $logger,
     ) {
     }//end __construct()
@@ -150,7 +153,7 @@ class TalkBotInvokeListener implements IEventListener
             return;
         }
 
-        if ($this->isAddressed(payload: $payload, roomToken: $turn['roomToken']) === false) {
+        if ($this->isAddressed(payload: $payload, roomToken: $turn['roomToken'], agentId: $agentId) === false) {
             return;
         }
 
@@ -241,10 +244,20 @@ class TalkBotInvokeListener implements IEventListener
      * @return array|null The actionable payload, or null.
      *
      * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-listener-registration-is-unconditional-and-availability-is-probed-at-invoke-time
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) TalkBridge::isHermiqBotUrl() is static
+     * DELIBERATELY: it is a pure function of the URL and it guards the approval
+     * path. As an instance method it was mockable, and a bare double answers
+     * false — which forced a blanket stub in every listener test and thereby
+     * disabled the one test proving a foreign bot is rejected. Injecting it to
+     * satisfy this rule would reintroduce exactly that hole.
      */
     private function readPayload(Event $event): ?array
     {
-        if (method_exists($event, 'getBotUrl') === false || $event->getBotUrl() !== TalkBridge::BOT_URL) {
+        // Any Hermiq bot, not one constant — see the note in
+        // TalkApprovalReactionListener::readPayload() on why the predicate is
+        // strict about what counts as ours.
+        if (method_exists($event, 'getBotUrl') === false || TalkBridge::isHermiqBotUrl((string) $event->getBotUrl()) === false) {
             return null;
         }
 
@@ -311,8 +324,27 @@ class TalkBotInvokeListener implements IEventListener
     {
         $conversation = $this->roomBinding->findByRoomToken(roomToken: $roomToken);
         if ($conversation !== null) {
-            return $conversation;
-        }
+            // A late joiner needs their own Hermiq tag too — tags are PER USER
+            // (the row carries a user_id and the room joins through the
+            // attendee), so filing the room once at bind time only ever filed
+            // it for whoever was in it then. groupRoom() is additive and
+            // idempotent, so re-filing on a turn costs nothing and is the only
+            // hook that sees somebody who joined afterwards.
+            $this->grouping->groupRoom(roomToken: $roomToken);
+
+            // 🔴 Sync the roster BEFORE the participation check, not after.
+            //
+            // Authorization reads the STORED roster, never live room membership
+            // (talk-shared-sessions is explicit about that). So somebody invited
+            // to the room after it was bound is a room member who is not yet on
+            // the roster — and their very first message would be refused. The
+            // check that runs a moment later is exactly the thing this has to
+            // beat, which is why it lives here and not beside the bind below.
+            return $this->roomBinding->syncParticipants(
+                conversation: $conversation,
+                participants: $this->bridge->roomUserIds(roomToken: $roomToken)
+            );
+        }//end if
 
         $conversation = $this->roomBinding->createBound(
             roomToken: $roomToken,
@@ -411,52 +443,73 @@ class TalkBotInvokeListener implements IEventListener
     /**
      * Whether the agent is being addressed by this message.
      *
-     * One-to-one room with the bot: every message is a turn. Group room: only
-     * an `@`-mention or a reply to one of the agent's own messages, so the
-     * agent does not answer every message in a busy team room — and team rooms
-     * are exactly where reports get delivered.
+     * 🔴 The room's ORIGIN decides the rule, not the room's type.
+     *
+     * A room Hermiq created for a session exists for no other purpose, so every
+     * human message in it is a turn — requiring a mention there made users
+     * `@`-address an agent in its own dedicated room, which reads as broken.
+     *
+     * A room Hermiq was merely invited into belongs to somebody else, and the
+     * mention gate stays exactly as it was: team rooms are where scheduled
+     * reports get delivered, and an agent that answered every message there
+     * would be the reason nobody keeps it in the room. One-to-one and
+     * reply-to-the-agent both survive inside that gate.
+     *
+     * The origin is READ from stored data, never inferred from the room's
+     * current shape — inferring it (say, "owner plus one bot") would silently
+     * flip this behaviour the moment somebody invites a second person.
      *
      * @param array  $payload   The invocation payload.
      * @param string $roomToken The Talk room token.
+     * @param string $agentId   The agent bound to this room, whose name is the mention target.
      *
      * @return bool True when the agent should take the turn.
      *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-room-it-did-not-create
      */
-    private function isAddressed(array $payload, string $roomToken): bool
+    private function isAddressed(array $payload, string $roomToken, string $agentId): bool
     {
+        if ($this->roomBinding->isCreatedRoom(roomToken: $roomToken) === true) {
+            return true;
+        }
+
         if ($this->bridge->isOneToOne(roomToken: $roomToken) === true) {
             return true;
+        }
+
+        // The mention target is the AGENT's name now, not the single word
+        // "Hermiq" — that is what a per-agent bot renders as, and what a user
+        // sees to type. Fall back to the shared bot name so a room bound before
+        // this change keeps working.
+        $targets   = [TalkBridge::BOT_NAME];
+        $agentName = $this->agentBinding->agentName(agentId: $agentId);
+        if ($agentName !== '') {
+            array_unshift($targets, $agentName);
         }
 
         // Match on the DECODED text, not the raw envelope: the raw JSON also
         // contains the mention parameters, so matching it would fire on
         // messages that merely quote the bot's name.
         $content = $this->plainText(raw: (string) ($payload['object']['content'] ?? ''));
-        if (stripos($content, '@'.TalkBridge::BOT_NAME) !== false) {
+        if ($this->mentionMatcher->matchesAny(content: $content, names: $targets) === true) {
             return true;
         }
 
-        // A rendered mention arrives as a parameter of type `call`/`user`/`guest`
-        // rather than literal text, so check those too.
         $parameters = ($payload['object']['parameters'] ?? []);
-        if (is_array($parameters) === true) {
-            foreach ($parameters as $parameter) {
-                if (is_array($parameter) === false) {
-                    continue;
-                }
-
-                $name = (string) ($parameter['name'] ?? '');
-                if (strcasecmp($name, TalkBridge::BOT_NAME) === 0) {
-                    return true;
-                }
-            }
+        if (is_array($parameters) === true
+            && $this->mentionMatcher->matchesParameters(parameters: $parameters, names: $targets) === true
+        ) {
+            return true;
         }
 
         // A reply to one of the agent's own messages continues the exchange.
+        // Both actor ids are accepted so a room bound before per-agent bots,
+        // whose history is signed by the shared bot, still continues.
         $parentActor = (string) ($payload['object']['inReplyTo']['actor']['id'] ?? '');
 
-        return ($parentActor !== '' && $parentActor === $this->bridge->botActorId());
+        return ($parentActor !== ''
+            && ($parentActor === $this->bridge->botActorId(agentId: $agentId)
+                || $parentActor === $this->bridge->botActorId()));
 
     }//end isAddressed()
 }//end class

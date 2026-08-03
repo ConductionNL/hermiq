@@ -26,6 +26,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ConversationController;
+use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -100,11 +101,19 @@ class ConversationControllerTest extends TestCase
      */
     private function controller(): ConversationController
     {
+        // TalkSessionRoom is mocked, not exercised: a bare double returns the
+        // session unchanged from attachToSession(), which is exactly the
+        // no-Talk path these CRUD assertions are written against. The room
+        // behaviour itself is proven live, against a real spreed.
+        $sessionRoom = $this->createMock(TalkSessionRoom::class);
+        $sessionRoom->method('attachToSession')->willReturnArgument(0);
+
         return new ConversationController(
             $this->request,
             $this->engine,
             $this->objectService,
             $this->userSession,
+            $sessionRoom,
             $this->createMock(LoggerInterface::class)
         );
 

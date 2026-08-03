@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\AppInfo;
 
+use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
@@ -38,6 +39,9 @@ use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
+use OCA\OpenRegister\Event\ObjectCreatedEvent;
+use OCA\OpenRegister\Event\ObjectDeletedEvent;
+use OCA\OpenRegister\Event\ObjectUpdatedEvent;
 use OCA\OpenRegister\Event\RegisterLeafProvidersEvent;
 use OCP\AppFramework\App;
 use OCP\AppFramework\Bootstrap\IBootContext;
@@ -114,6 +118,17 @@ class Application extends App implements IBootstrap
         // from the catalogue its own builder offered, so a graph authored from
         // the palette silently executed nothing. Flows now live in OpenRegister's
         // one store and OpenRegister's own trigger path queues them.
+
+        // Each Talk-enabled agent carries its own Talk bot, because the bot
+        // record is the ONLY carrier of the name Talk displays (talk-agent-sessions).
+        // Hooked on the object lifecycle rather than a controller: agents are
+        // written straight through OpenRegister's API (ADR-022), so this is the
+        // only place that sees every write, including ones made from OR's own UI.
+        $context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);
+        $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentBotLifecycleListener::class);
+        $context->registerEventListener(event: ObjectDeletedEvent::class, listener: AgentBotLifecycleListener::class);
+
+
         // Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
         // contributes the agent step as a flow NODE, and nothing else. Flows now
         // live in OpenRegister's one native store, so there is no hermiq flow

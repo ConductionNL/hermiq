@@ -31,9 +31,9 @@ exactly and the fallback is never needed twice for the same skill.
 
 ### Requirement: The same skill from a mirror is the same skill
 
-Repositories are mirrored across hosts. Before `sourceUrl` is compared or stored,
-known mirror hosts SHALL be normalised to a single canonical host, so that a skill
-installed from a mirror and from the origin resolves to one object.
+Known mirror hosts SHALL be normalised to a single canonical host before `sourceUrl`
+is compared or stored, so that a skill installed from a mirror and one installed
+from the origin resolve to one object. Repositories are mirrored across hosts.
 
 #### Scenario: A mirrored origin resolves to the canonical one
 - **WHEN** a skill previously installed from `https://github.com/OWNER/REPO/skills/example`
@@ -77,9 +77,9 @@ under a decision made about different content.
 
 ### Requirement: Local learnings are never overwritten by an update
 
-A skill accumulates local learnings in `learnings.md` (ADR-068 §3). When learnings
-have been accepted locally since the last sync from source, an incoming
-`learnings.md` SHALL NOT replace the local one. Every other part of the update
+An incoming `learnings.md` SHALL NOT replace the local one when learnings have been
+accepted locally since the last sync from source — a skill accumulates local
+learnings in `learnings.md` (ADR-068 §3). Every other part of the update
 SHALL still apply, and the outcome SHALL report that the local learnings were kept.
 
 The condition SHALL require BOTH that `lastAcceptedVersionAt` postdates
@@ -115,9 +115,9 @@ stamped. Without it the learnings comparison has no clock and would never fire t
 
 ### Requirement: A person can see why a skill needs review and where it came from
 
-Everything this change decides — that a skill was re-quarantined, why, where it was
-installed from, when it was last refreshed, and whether local learnings are ahead of
-the source — SHALL be visible on the skill's detail page.
+The skill's detail page SHALL show everything this change decides: that a skill was
+re-quarantined, why, where it was installed from, when it was last refreshed, and
+whether local learnings are ahead of the source.
 
 Before this, all of it was reported ONLY in the install API response, which is
 nowhere a person looks. A warning that never reaches a person is not a warning.

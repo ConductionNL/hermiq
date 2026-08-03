@@ -28,35 +28,8 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { cleanupFamily, harvestToken, jsonHeaders, resolveRegisterSchema, seedAgent, TEST_PREFIX } from './_fixtures'
+import { TEST_PREFIX, cleanupFamily, dismissTour, harvestToken, jsonHeaders, resolveRegisterSchema, seedAgent } from './_fixtures'
 
-/**
- * Close the first-run onboarding tour dialog if it is showing.
- *
- * @param page The Playwright page.
- */
-async function dismissTour(page: Page): Promise<void> {
-	const close = page.getByRole('button', { name: 'Close tour' })
-	if (await close.count() > 0) {
-		await close.first().click()
-	}
-
-	// The onboarding tour is not the only thing that can sit over the page. On an
-	// instance where hermiq's LLM endpoint has never been configured, a first-run
-	// setup wizard ("Set up this app") renders as a `cn-wizard-dialog` modal.
-	//
-	// 🔴 Two things make it worth handling explicitly rather than with a generic
-	// waitFor: it does NOT close on Escape (verified live — the modal is still
-	// visible afterwards), and it does not hide what is underneath, so every
-	// element assertion still passes while only *clicks* fail with "subtree
-	// intercepts pointer events". A test that skips this reads as a mysterious
-	// click timeout on a control the DOM says is perfectly visible.
-	const wizard = page.locator('[data-testid-modal="cn-wizard-dialog"]')
-	if (await wizard.count() > 0 && await wizard.first().isVisible().catch(() => false)) {
-		await wizard.first().getByRole('button', { name: 'Cancel' }).click().catch(() => undefined)
-		await wizard.first().waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => undefined)
-	}
-}
 
 /**
  * Collect app-level console errors, filtering known benign noise.
