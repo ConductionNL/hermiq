@@ -30,6 +30,24 @@
  * container on and no cluster credential to create a Job with — the ExApp is
  * what they already have.
  *
+ * WHAT `push` ADDS, AND WHY IT IS A SECOND KEY RATHER THAN A FLAG
+ * --------------------------------------------------------------
+ * A stage was read-only for its whole life: clone, run, report. `push` makes it
+ * a WRITING stage, and its presence — not its contents — is the switch. The
+ * runner reads it and withholds `GIT_FORGE_TOKEN`/`GIT_ASKPASS` from the command
+ * child, then performs the push itself once `pushGuard` has cleared the
+ * repository, the branch and the change set.
+ *
+ * That withholding is the load-bearing part. A stage that may write runs a model
+ * with a shell in a writable tree; if the child held the credential it could run
+ * `git push` itself and no runner-side rule could observe it, let alone refuse
+ * it — the fences would be decoration around a hole, and they would pass every
+ * unit test, because a test drives the guard functions directly.
+ *
+ * `pushCredentialId` is separate from `credentialId` for a reason that is not
+ * tidiness: see the comment at its use site. One credential cannot be both the
+ * broker's host-locked proxy and an injectable token.
+ *
  * SPDX-License-Identifier: EUPL-1.2
  * Copyright (C) 2026 Conduction B.V.
  *
@@ -219,73 +237,159 @@ class HermiqWorkloadNode implements IFlowNode
 
         $out = [];
         foreach ($items as $index => $item) {
-            $json = (array) ($item['json'] ?? []);
-
-            // RENDERED, like every other configured value, and rendered PER ITEM
-            // because a fan-out may carry a different credential per repository.
-            //
-            // This was the one field the first version left un-rendered, and the
-            // failure was invisible: the literal string `{{forgeCredential}}`
-            // went to the broker as a credential id, the broker could not find
-            // it, and its `catch (Throwable) { $credential = null; }` reported
-            // `credential not found` — which reads as a missing credential
-            // rather than an unrendered placeholder. It took a logging fix in
-            // OpenRegister (openregister#2245) to see the id it was actually
-            // given.
-            $credentialId = trim($this->render(template: (string) ($config['credentialId'] ?? ''), json: $json));
-
-            $result = $this->stages->dispatch(
-                repo: $this->render(template: (string) $config['repo'], json: $json),
-                ref: $this->render(template: (string) $config['ref'], json: $json),
-                command: array_map(
-                    fn (string $argument): string => $this->render(template: $argument, json: $json),
-                    array_values((array) $config['command'])
-                ),
-                uid: $owner,
-                credentialId: $credentialId,
-                timeoutMs: (int) ($config['timeoutMs'] ?? 0),
-                // The tool tree, when the command does not live in the tree it
-                // runs over. hydra's gate runner is that case: it takes the app
-                // to gate as an argument and finds its own helpers beside
-                // itself, so gating an app needs hydra's scripts AND the app's
-                // tree. The alternative is every app vendoring 3,599 lines of
-                // gate runner, which would drift the day after it was copied.
-                toolRepo: $this->render(template: (string) ($config['toolRepo'] ?? ''), json: $json),
-                toolRef: $this->render(template: (string) ($config['toolRef'] ?? ''), json: $json)
-            );
-
-            // The attribution travels WITH the result, not beside it. hydra's
-            // record composer reads one object per stage, and an owner it has
-            // to correlate from run metadata is an owner that goes missing the
-            // first time a flow fans out over several repositories.
-            //
-            // `credential_owner` is the run owner deliberately: the broker only
-            // resolves a credential FOR its owner, so the identity that
-            // successfully used it is the identity it belongs to. Recording
-            // anything else would be recording an assumption.
-            $credentialOwner = null;
-            $credentialName  = null;
-            if ($credentialId !== '') {
-                $credentialOwner = $owner;
-                $credentialName  = $credentialId;
-            }
-
-            $result['owner']            = $owner;
-            $result['credential_owner'] = $credentialOwner;
-            $result['credential_name']  = $credentialName;
-
-            $json[$outKey] = $result;
+            $json          = (array) ($item['json'] ?? []);
+            $json[$outKey] = $this->dispatchFor(config: $config, json: $json, owner: $owner);
 
             $out[] = [
                 'json'       => $json,
                 'binary'     => (array) ($item['binary'] ?? []),
                 'pairedItem' => ['item' => $index],
             ];
-        }//end foreach
+        }
 
         return $out;
 
     }//end execute()
+
+    /**
+     * Turn ONE item into one stage call, and attribute the result.
+     *
+     * Split out of `execute()` so the loop states what it does — one stage per
+     * item, attributed — while the rendering and credential decisions, which are
+     * where every defect in this node has been, sit together and can be read in
+     * one piece.
+     *
+     * @param array  $config The step configuration.
+     * @param array  $json   The item's record.
+     * @param string $owner  The resolved run owner.
+     *
+     * @return array The stage result, with attribution added.
+     *
+     * @throws Throwable When the workload could not be run.
+     */
+    private function dispatchFor(array $config, array $json, string $owner): array
+    {
+        // RENDERED, like every other configured value, and rendered PER ITEM
+        // because a fan-out may carry a different credential per repository.
+        //
+        // This was the one field the first version left un-rendered, and the
+        // failure was invisible: the literal string `{{forgeCredential}}` went
+        // to the broker as a credential id, the broker could not find it, and
+        // its `catch (Throwable) { $credential = null; }` reported `credential
+        // not found` — which reads as a missing credential rather than an
+        // unrendered placeholder. It took a logging fix in OpenRegister
+        // (openregister#2245) to see the id it was actually given.
+        $credentialId = trim($this->render(template: (string) ($config['credentialId'] ?? ''), json: $json));
+
+        // THE SECOND CREDENTIAL, and why one could never have done both jobs.
+        //
+        // `credentialId` is spent on the broker's SERVER-SIDE calls — the tool
+        // tree arrives as `GET /repos/*/tarball/*` performed inside
+        // OpenRegister. That only works for a host-locked PROXY credential,
+        // whose whole point is that `resolveInjectable()` refuses it and its
+        // secret never crosses into the container.
+        //
+        // A push needs the opposite: git speaks the smart-HTTP pack protocol,
+        // so there is no single call to proxy and the token has to BE in the
+        // container. That is an `inject_only` credential, which the broker will
+        // hand over and will not proxy.
+        //
+        // The two postures are mutually exclusive by construction, so a single
+        // `credentialId` cannot express a stage that both fetches a private tool
+        // tree and pushes. Hence a second key.
+        //
+        // ⚠️ It authenticates the CLONE as well as the push — a private target
+        // needs a token before the command ever runs. The name says `push`
+        // because declaring one is what makes the stage a writing stage; it is
+        // not a claim that the token is used only at the end.
+        //
+        // Absent, it falls back to `credentialId`, so every read-only stage that
+        // shipped before this behaves exactly as it did.
+        $pushCredentialId = trim($this->render(template: (string) ($config['pushCredentialId'] ?? ''), json: $json));
+
+        $result = $this->stages->dispatch(
+            repo: $this->render(template: (string) $config['repo'], json: $json),
+            ref: $this->render(template: (string) $config['ref'], json: $json),
+            command: array_map(
+                fn (string $argument): string => $this->render(template: $argument, json: $json),
+                array_values((array) $config['command'])
+            ),
+            uid: $owner,
+            credentialId: $credentialId,
+            timeoutMs: (int) ($config['timeoutMs'] ?? 0),
+            // The tool tree, when the command does not live in the tree it runs
+            // over. hydra's gate runner is that case: it takes the app to gate
+            // as an argument and finds its own helpers beside itself, so gating
+            // an app needs hydra's scripts AND the app's tree. The alternative
+            // is every app vendoring 3,599 lines of gate runner, which would
+            // drift the day after it was copied.
+            toolRepo: $this->render(template: (string) ($config['toolRepo'] ?? ''), json: $json),
+            toolRef: $this->render(template: (string) ($config['toolRef'] ?? ''), json: $json),
+            // THE WRITE DECLARATION. Its PRESENCE is the switch: the runner
+            // withholds the forge credential from the command child and
+            // performs the push itself, behind `pushGuard`. A stage that omits
+            // it is exactly as read-only as every stage that shipped before this
+            // key existed.
+            push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
+            pushCredentialId: $pushCredentialId
+        );
+
+        return $this->attribute(
+            result: $result,
+            owner: $owner,
+            credentialId: $credentialId,
+            pushCredentialId: $pushCredentialId
+        );
+
+    }//end dispatchFor()
+
+    /**
+     * Record who ran a stage and on whose credential, ON the result.
+     *
+     * The attribution travels WITH the result, not beside it. hydra's record
+     * composer reads one object per stage, and an owner it has to correlate from
+     * run metadata is an owner that goes missing the first time a flow fans out
+     * over several repositories.
+     *
+     * `credential_owner` is the run owner deliberately: the broker only resolves
+     * a credential FOR its owner, so the identity that successfully used it is
+     * the identity it belongs to. Recording anything else would be recording an
+     * assumption.
+     *
+     * ⚠️ THE PUSH CREDENTIAL COUNTS. A stage that names only `pushCredentialId`
+     * uses a credential for both its clone and its push, and recording
+     * `credential_name: null` for it would put the WRITING stages — the ones
+     * attribution exists for — in the unattributed bucket. The name records
+     * which id was used, not which config key held it.
+     *
+     * @param array  $result           The stage result.
+     * @param string $owner            The resolved run owner.
+     * @param string $credentialId     The broker credential, or ''.
+     * @param string $pushCredentialId The injectable credential, or ''.
+     *
+     * @return array The result, with attribution added.
+     */
+    private function attribute(array $result, string $owner, string $credentialId, string $pushCredentialId): array
+    {
+        $usedCredential = $credentialId;
+        if ($pushCredentialId !== '') {
+            $usedCredential = $pushCredentialId;
+        }
+
+        $credentialOwner = null;
+        $credentialName  = null;
+        if ($usedCredential !== '') {
+            $credentialOwner = $owner;
+            $credentialName  = $usedCredential;
+        }
+
+        $result['owner']            = $owner;
+        $result['credential_owner'] = $credentialOwner;
+        $result['credential_name']  = $credentialName;
+
+        return $result;
+
+    }//end attribute()
 
     /**
      * Assert the three fields a workload cannot run without.
@@ -320,7 +424,112 @@ class HermiqWorkloadNode implements IFlowNode
             );
         }
 
+        $this->assertPushConfigured(config: $config);
+
     }//end assertConfigured()
+
+    /**
+     * Assert a `push` declaration the runner can actually fence.
+     *
+     * Checked HERE, at save time, rather than left to the runner, because the
+     * runner's refusal arrives as a failed flow run half an hour into a stage —
+     * and, worse, the two fields being checked are the two that define the
+     * fence. `pushGuard` builds its allowlist pattern out of the issue number:
+     * with no issue it fails closed and refuses everything, so a flow missing it
+     * is not a flow with a wider fence, it is a flow that can never push. An
+     * author gets told at the moment they can still fix it.
+     *
+     * `scope` is deliberately NOT required. An absent scope disables the scope
+     * rule only — the forbidden prefixes and the dependency-manifest rule still
+     * apply — and requiring it here would make the common case (a change whose
+     * scope is the whole repository) inexpressible.
+     *
+     * @param array $config The step configuration.
+     *
+     * @return void
+     *
+     * @throws UnexpectedValueException When the push declaration cannot be fenced.
+     */
+    private function assertPushConfigured(array $config): void
+    {
+        $push = ($config['push'] ?? null);
+        if ($push === null || $push === []) {
+            return;
+        }
+
+        if (is_array($push) === false) {
+            throw new UnexpectedValueException(
+                $this->l10n->t('A workload step\'s "push" must be an object naming a branch and an issue.')
+            );
+        }
+
+        if (trim((string) ($push['branch'] ?? '')) === '') {
+            throw new UnexpectedValueException(
+                $this->l10n->t('A workload step that pushes must name the branch to push to.')
+            );
+        }
+
+        // Empty rather than non-numeric: the value is usually a `{{placeholder}}`
+        // at save time and only becomes a number per item. Refusing a template
+        // here would make the only real usage unauthorable.
+        if (trim((string) ($push['issue'] ?? '')) === '') {
+            throw new UnexpectedValueException(
+                $this->l10n->t(
+                    'A workload step that pushes must name the issue it answers — the push allowlist is built from it.'
+                )
+            );
+        }
+
+        if (isset($push['scope']) === true && is_array($push['scope']) === false) {
+            throw new UnexpectedValueException(
+                $this->l10n->t('A workload step\'s push "scope" must be a list of path prefixes.')
+            );
+        }
+
+    }//end assertPushConfigured()
+
+    /**
+     * Render the push declaration's placeholders against one item.
+     *
+     * Every value a flow author writes is a template, and the push declaration
+     * is the one place where that matters most: `branch` and `issue` together
+     * ARE the allowlist `pushGuard` enforces, and both are derived per item —
+     * a fan-out over issues writes a different branch each time.
+     *
+     * A LIST is rendered element-wise (`scope` is a list of path prefixes); a
+     * nested object is refused by omission rather than walked, because the
+     * runner's contract is flat and quietly passing a shape it ignores is the
+     * dead-config failure this repository keeps meeting.
+     *
+     * @param mixed $push The configured push declaration.
+     * @param array $json The item's record.
+     *
+     * @return array The rendered declaration, or [] when there is none.
+     */
+    private function renderPush(mixed $push, array $json): array
+    {
+        if (is_array($push) === false || $push === []) {
+            return [];
+        }
+
+        $out = [];
+        foreach ($push as $key => $value) {
+            if (is_array($value) === true) {
+                $out[$key] = array_values(
+                    array_map(
+                        fn (mixed $entry): string => $this->render(template: (string) $entry, json: $json),
+                        array_filter($value, static fn (mixed $entry): bool => is_array($entry) === false)
+                    )
+                );
+                continue;
+            }
+
+            $out[$key] = $this->render(template: (string) $value, json: $json);
+        }
+
+        return $out;
+
+    }//end renderPush()
 
     /**
      * Substitute `{{dotted.path}}` placeholders from the item's json.

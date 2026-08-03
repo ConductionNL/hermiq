@@ -7,11 +7,11 @@
  * (agent-object-leaf): `POST /api/agents/{id}/run-on-object`. It is the per-object
  * affordance the agent render leaf's widget POSTs to — the one entry point that
  * lets a user click "run agent" from any OpenRegister object detail page, which no
- * existing trigger (declarative flow, admin-only GraphController::run, schedule,
+ * existing trigger (a flow the engine runs, a schedule,
  * webhook) provides.
  *
  * AUTHORIZATION (ADR-005 / hydra-gate-no-admin-idor). Unlike
- * `GraphController::run` — admin-gated because it executes an arbitrary
+ * a manual flow run — guarded because it executes an arbitrary
  * caller-supplied graph — this endpoint names an EXISTING agent and an EXISTING
  * object and is authorized against the OBJECT's own OpenRegister permissions in
  * the CALLER's RBAC scope (`_rbac: true`). A caller who cannot read the object
@@ -158,7 +158,7 @@ class AgentRunController extends Controller
 
         // OBJECT-SCOPED AUTHORIZATION: resolve in the CALLER's RBAC scope. A caller
         // who cannot read the object gets a 404 — fail-closed and indistinguishable
-        // from nonexistent (per-object IDOR guard; NOT GraphController::run's admin gate).
+        // from nonexistent (per-object IDOR guard).
         $object = $this->resolveReadableObject(register: $register, schema: $schema, objectId: $objectId);
         if ($object === null) {
             return new JSONResponse(

@@ -39,7 +39,7 @@
  * remote WRITE cannot use the read exception). When the OpenConnector half ships,
  * an operator swaps that one node's `type` on the object; no release is needed.
  *
- * Idempotent by the seeded `name`, written through OpenRegister's `ObjectService`
+ * Idempotent by the seeded `name`, written into OpenRegister's native flow store
  * in system context, following the `SeedAgentTemplates` / `SeedSkillCreator`
  * precedent exactly (lazy container resolution because OpenRegister may not be
  * installed yet; a re-run neither duplicates the flow nor overwrites an operator's
@@ -72,7 +72,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Repair;
 
+use DateTime;
+
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Db\Flow;
+use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -81,7 +85,7 @@ use Psr\Log\LoggerInterface;
 use Throwable;
 
 /**
- * Seed the "Hydra Triage" agentflow via ObjectService (idempotent, by name).
+ * Seed the "Hydra Triage" flow into the native flow store (idempotent, by name).
  *
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
  */
@@ -143,7 +147,7 @@ class SeedHydraTriageFlow implements IRepairStep
     /**
      * Constructor.
      *
-     * @param ContainerInterface $container Server container for lazy ObjectService resolution
+     * @param ContainerInterface $container Server container for lazy FlowMapper/ObjectService resolution
      *                                      (OpenRegister may not be installed yet).
      * @param LoggerInterface    $logger    PSR-3 logger.
      */
@@ -180,7 +184,7 @@ class SeedHydraTriageFlow implements IRepairStep
     public function run(IOutput $output): void
     {
         try {
-            $objectService = $this->container->get(ObjectService::class);
+            $mapper = $this->container->get(FlowMapper::class);
         } catch (Throwable $e) {
             $output->warning('OpenRegister not available — skipping Hydra Triage flow seed.');
             $this->logger->warning('[hermiq] Hydra Triage flow seed skipped: '.$e->getMessage());
@@ -188,18 +192,37 @@ class SeedHydraTriageFlow implements IRepairStep
         }
 
         try {
-            if ($this->flowExists(objectService: $objectService) === true) {
+            if ($this->flowExists(mapper: $mapper) === true) {
                 $output->info('Hydra Triage flow already present — skipped.');
                 return;
             }
 
-            $objectService->saveObject(
-                object: $this->flowObject(),
-                register: self::REGISTER_SLUG,
-                schema: self::FLOW_SCHEMA,
-                _rbac: false,
-                _multitenancy: false
-            );
+            $data = $this->flowObject();
+
+            $flow = new Flow();
+            $flow->setUuid($this->newUuid());
+            $flow->setApp(Application::APP_ID);
+            $flow->setName(self::FLOW_NAME);
+            $flow->setDescription((string) ($data['description'] ?? ''));
+            $flow->setTrigger((string) ($data['trigger'] ?? ''));
+            $flow->setTriggerRegister(($data['triggerRegister'] ?? null));
+            $flow->setTriggerSchema(($data['triggerSchema'] ?? null));
+            $flow->setCron(($data['cron'] ?? null));
+            $flow->setNodes((array) ($data['nodes'] ?? []));
+            $flow->setEdges((array) ($data['edges'] ?? []));
+            $flow->setLimits((array) ($data['limits'] ?? []));
+            $flow->setCreated(new DateTime());
+            $flow->setUpdated(new DateTime());
+
+            // Seeded DISABLED and OWNERLESS, deliberately. A repair step runs with
+            // no user session, so there is no identity to attribute the flow to,
+            // and a flow with no owner cannot dispatch. Seeding it enabled would
+            // mean picking an owner for a graph that runs agents — a privilege
+            // decision nobody made. Enabling it is a human act that supplies one.
+            $flow->setEnabled(false);
+            $flow->setOwner(null);
+
+            $mapper->insert($flow);
             $output->info('Hydra Triage flow seeded (disabled — enable it to supply its owner).');
         } catch (Throwable $e) {
             $output->warning('Could not seed the Hydra Triage flow: '.$e->getMessage());
@@ -410,27 +433,14 @@ class SeedHydraTriageFlow implements IRepairStep
     /**
      * Whether an agentflow with the seeded name already exists (system context, no RBAC).
      *
-     * @param ObjectService $objectService The OpenRegister object service.
+     * @param FlowMapper $mapper The flow store.
      *
      * @return bool True when a matching object exists.
      */
-    private function flowExists(ObjectService $objectService): bool
+    private function flowExists(FlowMapper $mapper): bool
     {
-        $objects = $objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::FLOW_SCHEMA)
-            ->findAll(
-                config: ['filters' => ['name' => self::FLOW_NAME], 'limit' => 50],
-                _rbac: false,
-                _multitenancy: false
-            );
-
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
-            }
-
-            if ((string) ($object->getObject()['name'] ?? '') === self::FLOW_NAME) {
+        foreach ($mapper->findAllFlows(app: Application::APP_ID, limit: 500) as $flow) {
+            if ($flow->getName() === self::FLOW_NAME) {
                 return true;
             }
         }
@@ -438,4 +448,19 @@ class SeedHydraTriageFlow implements IRepairStep
         return false;
 
     }//end flowExists()
+
+    /**
+     * Mint a v4 uuid for the seeded flow.
+     *
+     * @return string The uuid.
+     */
+    private function newUuid(): string
+    {
+        $data    = random_bytes(16);
+        $data[6] = chr((ord($data[6]) & 0x0f) | 0x40);
+        $data[8] = chr((ord($data[8]) & 0x3f) | 0x80);
+
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+
+    }//end newUuid()
 }//end class

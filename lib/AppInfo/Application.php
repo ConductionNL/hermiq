@@ -27,11 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
-use OCA\Hermiq\Listener\GraphRunRequestedListener;
 use OCA\Hermiq\Listener\RegisterAgentLeafListener;
-use OCA\OpenRegister\Event\ObjectCreatedEvent;
-use OCA\OpenRegister\Event\ObjectUpdatedEvent;
-use OCA\OpenRegister\Event\ObjectDeletedEvent;
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
 use OCA\Hermiq\Listener\TalkBotInvokeListener;
 use OCA\Hermiq\Listener\UserLifecycleListener;
@@ -112,29 +108,23 @@ class Application extends App implements IBootstrap
             listener: AgentRunRequestedListener::class
         );
 
-        // Agent-graph ingress: OpenRegister object lifecycle events drive authored
-        // `agentflow` graphs (GraphRunRequestedListener discovers graphs whose
-        // triggerSchema + trigger match, and runs each via GraphExecutor). The
-        // discovery is a no-op until an agentflow schema/graph exists, so this is
-        // safe on an instance without any graphs.
-        $context->registerEventListener(event: ObjectCreatedEvent::class, listener: GraphRunRequestedListener::class);
-        $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: GraphRunRequestedListener::class);
-        $context->registerEventListener(event: ObjectDeletedEvent::class, listener: GraphRunRequestedListener::class);
-
+        // Agent-graph ingress is GONE. hermiq used to listen to OpenRegister's
+        // object lifecycle itself and walk matching `agentflow` graphs through
+        // its own executor — a second engine, whose node vocabulary had drifted
+        // from the catalogue its own builder offered, so a graph authored from
+        // the palette silently executed nothing. Flows now live in OpenRegister's
+        // one store and OpenRegister's own trigger path queues them.
         // Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
-        // contributes the agent step as a flow node, and a resolver so OR's engine
-        // and worker can load and run hermiq's agentflows. This makes hermiq a
-        // consumer of the fleet's one flow engine; its own GraphExecutor becomes
-        // redundant. Guarded on the classes existing so an instance whose
-        // OpenRegister predates the flow engine still boots.
+        // contributes the agent step as a flow NODE, and nothing else. Flows now
+        // live in OpenRegister's one native store, so there is no hermiq flow
+        // resolver, no hermiq flow store and no hermiq executor — node
+        // contribution is the whole of the integration surface. Guarded on the
+        // class existing so an instance whose OpenRegister predates the flow
+        // engine still boots.
         if (class_exists(\OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class) === true) {
             $context->registerEventListener(
                 \OCA\OpenRegister\Service\Flow\RegisterFlowNodesEvent::class,
                 \OCA\Hermiq\Flow\HermiqFlowNodeListener::class
-            );
-            $context->registerEventListener(
-                \OCA\OpenRegister\Service\Flow\RegisterFlowResolversEvent::class,
-                \OCA\Hermiq\Flow\HermiqFlowResolverListener::class
             );
         }
 
