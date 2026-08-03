@@ -15,8 +15,8 @@ fix is verified live. These tasks land it in the repo and prove it in CI.
   - GIVEN `scope` WHEN considered THEN it is NOT used: it is a single key covering every action and would close reads for invited users too
   - GIVEN the register WHEN it changes THEN `info.version` is bumped and the changelog line appended to `info.description`
   - GIVEN the import WHEN it runs THEN it uses `force: true`, and the block is read back FROM THE LIVE SCHEMA — a version bump alone is not evidence
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Prove the fix four ways, live
 
@@ -28,8 +28,8 @@ fix is verified live. These tasks land it in the repo and prove it in CI.
   - Owner UPDATE still succeeds — the row that catches "fixed it by denying everybody"
   - The stored grants after a refused attack are byte-identical to what the owner left
   - Record the observed codes in the proposal; a green unit suite is not evidence for an authorization boundary that lives in another app's permission handler
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Regression test the boundary
 
@@ -39,5 +39,5 @@ fix is verified live. These tasks land it in the repo and prove it in CI.
   - GIVEN the register file WHEN parsed THEN a test asserts the Agent block grants `read` and omits every write action, so a later "tidy-up" that adds `"update":["authenticated"]` fails loudly
   - GIVEN the assertion WHEN written THEN it names the omission as intentional, or the next reader will read a missing key as an oversight and complete it
   - Cross-user API checks stay in the live verification: the browser session model cannot express "a second user PUTs an object it does not own" without fighting the harness
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test

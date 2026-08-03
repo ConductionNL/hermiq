@@ -79,6 +79,9 @@ export async function harvestToken(page: Page): Promise<string> {
  * The union of both branches' header sets: `Content-Type` for the seeding
  * helpers' JSON bodies, `OCS-APIRequest`/`Accept` for the OCS-style routes
  * development's spec calls.
+ *
+ * @param token The CSRF request-token.
+ * @return The header map for an authenticated JSON write.
  */
 export function jsonHeaders(token: string): Record<string, string> {
 	return {
@@ -287,4 +290,64 @@ export function collectHermiqConsoleErrors(page: Page): string[] {
 		errors.push(text)
 	})
 	return errors
+}
+
+/** A throwaway second user, for tests that must prove a NON-owner is refused. */
+export interface SecondUser {
+	uid: string
+	password: string
+}
+
+/**
+ * Create a throwaway second Nextcloud user via the provisioning API.
+ *
+ * 🔴 Needed because "the owner can do X" and "only the owner can do X" are
+ * different claims, and a suite authenticated solely as the owner can only ever
+ * establish the first. A guard is only demonstrated by someone being stopped.
+ *
+ * ⚠️ Nextcloud enforces a 10-character minimum password and REJECTS shorter ones
+ * without a useful error — a short password surfaces later as an inexplicable
+ * 401 on the second user's very first request, which reads like a broken test
+ * rather than a rejected create.
+ *
+ * @param req      The Playwright request context (admin-authenticated).
+ * @param token    The CSRF request-token.
+ * @param suffix   Distinguishes multiple second users within one run.
+ * @return The created user's credentials.
+ */
+export async function createSecondUser(
+	req: APIRequestContext,
+	token: string,
+	suffix = 'other',
+): Promise<SecondUser> {
+	const uid = `${TEST_PREFIX}-${suffix}`
+	const password = 'CHANGE_ME_e2e_pw_0000'
+
+	const res = await req.post('/ocs/v1.php/cloud/users', {
+		headers: { ...jsonHeaders(token), 'OCS-APIRequest': 'true' },
+		data: { userid: uid, password },
+	})
+
+	// 102 = "user already exists" on a re-run; either is usable.
+	expect(
+		[200, 400].includes(res.status()),
+		`Provisioning a second user must succeed or report already-exists, got ${res.status()}`,
+	).toBeTruthy()
+
+	return { uid, password }
+}
+
+/**
+ * Delete a throwaway second user (best-effort).
+ *
+ * @param req   The Playwright request context (admin-authenticated).
+ * @param token The CSRF request-token.
+ * @param uid   The user id to remove.
+ * @return The HTTP status (0 on transport failure).
+ */
+export async function deleteSecondUser(req: APIRequestContext, token: string, uid: string): Promise<number> {
+	const res = await req.delete(`/ocs/v1.php/cloud/users/${uid}`, {
+		headers: { ...jsonHeaders(token), 'OCS-APIRequest': 'true' },
+	}).catch(() => null)
+	return res ? res.status() : 0
 }
