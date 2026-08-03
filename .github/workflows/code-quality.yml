@@ -56,7 +56,17 @@ jobs:
       app-name: hermiq
       php-version: "8.3"
       php-test-versions: '["8.3", "8.4"]'
-      nextcloud-test-refs: '["stable31", "stable32", "stable33"]'
+      # 🔴 ORDER IS LOAD-BEARING, not cosmetic. The PHPUnit matrix runs all three
+      # refs whatever the order, but four jobs read `nextcloud-test-refs[0]` as
+      # THEIR ONLY ref: playwright, newman, journeydoc-capture, and the coverage
+      # baseline leg. With `stable31` first, every browser test ran against a
+      # Nextcloud three majors behind the one hermiq's frontend targets, and the
+      # first thing that failed was the app shell — which is why 43 of 64 specs
+      # failed in the 2026-07-30 trial and the job was left switched off.
+      #
+      # Newest-first costs nothing (the matrix is unchanged) and points every
+      # single-ref job at the version closest to production.
+      nextcloud-test-refs: '["stable33", "stable32", "stable31"]'
       enable-psalm: true
       enable-phpstan: true
       enable-phpmetrics: true
@@ -78,21 +88,25 @@ jobs:
       # `#implements unknown interface OCA\OpenRegister\#` pattern cannot suppress
       # it and only a matching OR ref makes the build correct.
       additional-apps: '[{"repo":"ConductionNL/openregister","app":"openregister","ref":"development"}]'
-      # enable-playwright stays OFF, and that is a finding rather than an
-      # oversight. Turning it on (2026-07-30) proved the job itself works — it
-      # builds the frontend, enables the app, and runs — but the suite is NOT
-      # CI-green: 43 of 64 specs failed across 11 spec files, and the first
-      # failing assertion is the app shell itself, not anything app-specific.
+      # enable-playwright is ON, scoped to `tests/e2e/spec-coverage`.
       #
-      # Two things have to change before this can be flipped:
-      #   1. The playwright job checks out `nextcloud-test-refs[0]`, which is
-      #      stable31 here, while hermiq's frontend is developed and verified
-      #      against NC 34. Every UI spec fails on the shell; the API-only ones
-      #      pass, which is exactly the 21/43 split observed.
-      #   2. The remaining specs need triage for seed/fixture assumptions that
-      #      hold on a dev instance and not on a fresh one.
+      # Blocker 1 of the 2026-07-30 trial is fixed above: that trial ran against
+      # `stable31` because the job reads `nextcloud-test-refs[0]`, so 43 of 64
+      # specs failed on the app SHELL rather than on anything app-specific
+      # (the 21 that passed were the API-only ones). Newest-first now points it
+      # at `stable33`.
       #
-      # Until then the guards in tests/e2e are run by hand
-      # (`npx playwright test --project=chromium`) — which is how the row-click
-      # and graph-editor regressions in this branch were caught.
+      # Blocker 2 — seed/fixture assumptions that hold on a dev instance and not
+      # on a fresh one — is why the path is SCOPED rather than the whole
+      # `tests/e2e` tree. `spec-coverage/` is the suite built to run anywhere:
+      # every entity is seeded through the API under `TEST_PREFIX`, torn down in
+      # `afterAll`, and the shared helpers live in one hoisted `_fixtures.ts`.
+      # The older top-level specs assume a populated dev instance and are still
+      # run by hand.
+      #
+      # 🔑 A scoped gate that runs beats a complete gate that is switched off —
+      # but only if the scope is stated. It is stated here, and widening it is
+      # the follow-up, not a silent assumption that e2e now covers everything.
+      enable-playwright: true
+      playwright-test-path: "tests/e2e/spec-coverage"
       enable-sbom: true
