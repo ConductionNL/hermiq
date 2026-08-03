@@ -1,3 +1,16 @@
+---
+title: Tool grants
+sidebar_position: 12
+description: The complete grant model for Hermiq agents — every grant form, the reach axis that measures blast radius independently of the CRUD verb, the default-deny rule, when the human-approval gate fires, and exactly what the #noapproval waiver gives up.
+keywords:
+  - Hermiq
+  - Tool grants
+  - Reach
+  - Approval gate
+  - Governance
+  - ADR-063
+---
+
 # Tool grants
 
 What an agent may do is decided by one field: `Agent.tools`, a list of grant
