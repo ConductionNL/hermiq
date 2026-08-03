@@ -7,7 +7,7 @@
  * than the owner of a sixth one (ADR-022, ADR-065). hermiq keeps the one thing
  * only it can do — run an agent turn — and contributes it as a node type;
  * OpenRegister's engine walks the graph, handles branching, joins, waits, run
- * persistence and the trace. hermiq's own GraphExecutor becomes redundant.
+ * persistence and the trace. hermiq's own graph executor is gone.
  *
  * The turn itself is unchanged: the proven `ScheduleService::runAgentAsOwner()`,
  * the same call the old executor made. Only the surface around it moves — from

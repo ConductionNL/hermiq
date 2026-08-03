@@ -68,9 +68,6 @@ return [
         // (run-replay-and-dry-run).
         ['name' => 'runNow#dryRun', 'url' => '/api/schedules/{scheduleId}/dry-run', 'verb' => 'POST', 'requirements' => ['scheduleId' => '[^/]+']],
 
-        // Agent graph — manual/test run of an authored graph against a subject object
-        // (the primary trigger is a Nextcloud event via GraphRunRequestedListener).
-        ['name' => 'graph#run', 'url' => '/api/graph/run', 'verb' => 'POST'],
 
         // Run-on-object — user-initiated, OBJECT-permission-scoped run of an agent
         // against a single OpenRegister object (agent-object-leaf). #[NoAdminRequired];
