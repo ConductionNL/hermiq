@@ -30,7 +30,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { TEST_PREFIX, cleanupFamily, dismissTour, harvestToken, jsonHeaders, resolveRegisterSchema, seedAgent } from './_fixtures'
 
-
 /**
  * Collect app-level console errors, filtering known benign noise.
  *

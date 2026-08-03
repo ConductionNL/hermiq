@@ -35,6 +35,7 @@ import { test, expect, request as playwrightRequest, type APIRequestContext } fr
 import {
 	OR_API,
 	TEST_PREFIX,
+	assertSecondUserAuthenticates,
 	cleanupFamily,
 	createSecondUser,
 	deleteSecondUser,
@@ -147,7 +148,11 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 			`/index.php/apps/hermiq/api/agents/${agentId}/tool-grants`,
 			{ headers: jsonHeaders(token), data: { grants: [waived, 'hermiq.listFiles'] } },
 		)
-		expect(put.status(), 'The owner may write grants').toBe(200)
+		// Carry the BODY into the failure message. A bare status number turns a
+		// server-side exception into a guessing game — this run cost a full CI
+		// cycle to learn only that it was "500".
+		const putBody = await put.text().catch(() => '<unreadable>')
+		expect(put.status(), `The owner may write grants (body: ${putBody.slice(0, 300)})`).toBe(200)
 
 		// Read back through a DIFFERENT endpoint than the one that wrote it: the
 		// PUT response echoes what it just saved, so asserting on that alone
@@ -172,6 +177,11 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 	test('a non-owner is refused on BOTH grant write paths', async ({ page }) => {
 		expect(secondCtx, 'The second-user context must exist').not.toBeNull()
 		const ctx = secondCtx as APIRequestContext
+
+		// 🔴 Prove the second user can authenticate BEFORE asserting anything
+		// refuses them. Otherwise "refused" and "cannot log in at all" are the
+		// same observation, and the guard under test is never reached.
+		await assertSecondUserAuthenticates(ctx, (second as SecondUser).uid)
 
 		const attack = ['hermiq.sendMail', 'hermiq.webFetch']
 
