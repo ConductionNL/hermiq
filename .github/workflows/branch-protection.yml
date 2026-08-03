@@ -4,7 +4,8 @@ on:
   pull_request:
     branches: [main, beta]
 
+permissions: {}
+
 jobs:
-  check:
+  branch-protection:
     uses: ConductionNL/.github/.github/workflows/branch-protection.yml@main
-    secrets: inherit
