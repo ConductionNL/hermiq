@@ -94,6 +94,7 @@ namespace OCA\Hermiq\Mcp;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
+use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
@@ -155,6 +156,8 @@ class HermiqToolProvider implements IMcpToolProvider
     private const TOOL_DESCRIPTORS = [
         [
             'id'              => Application::APP_ID.'.listFiles',
+            // The acting user's own files — nothing they could not already list.
+            'reach'           => ToolReachResolver::REACH_USER,
             'name'            => 'List files',
             'description'     => 'List the files and folders in the acting user\'s Nextcloud folder at an optional path.',
             'inputSchema'     => [
@@ -169,6 +172,7 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.readFile',
+            'reach'           => ToolReachResolver::REACH_USER,
             'name'            => 'Read file',
             'description'     => 'Read the text content of a file in the acting user\'s Nextcloud folder (size-capped).',
             'inputSchema'     => [
@@ -183,6 +187,13 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.searchContacts',
+            // 🔴 `user`, NOT `instance`, even though the system addressbook
+            // surfaces other users' cards. Reach measures blast radius of EFFECT
+            // and DISCLOSURE, not the provenance of bytes read — a lookup here
+            // changes nothing and tells nobody. This is the rule that keeps the
+            // entire OpenRegister read catalogue out of the gate; classify it
+            // `instance` and every empty-`tools` agent loses its reads.
+            'reach'           => ToolReachResolver::REACH_USER,
             'name'            => 'Search contacts',
             'description'     => 'Search the acting user\'s address books by name or email.',
             'inputSchema'     => [
@@ -197,6 +208,7 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.listCalendarEvents',
+            'reach'           => ToolReachResolver::REACH_USER,
             'name'            => 'List calendar events',
             'description'     => 'List upcoming events from the acting user\'s calendars within the next N days.',
             'inputSchema'     => [
@@ -211,6 +223,11 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.sendMail',
+            // 🔴 The tool this whole axis exists for. Its `scope` is `create`,
+            // which reads as harmless — "makes a thing" — while the effect is
+            // irreversible and lands in a third party's inbox. `external` is the
+            // honest label; scope alone was actively misleading here.
+            'reach'           => ToolReachResolver::REACH_EXTERNAL,
             'name'            => 'Send email',
             'description'     => 'Send an email from the acting user to a recipient.',
             'inputSchema'     => [
@@ -232,6 +249,7 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.listDeckBoards',
+            'reach'           => ToolReachResolver::REACH_USER,
             'name'            => 'List Deck boards',
             'description'     => 'List the acting user\'s Deck boards (requires the Deck app).',
             'inputSchema'     => [
@@ -246,6 +264,8 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.searchTools',
+            // Reads the agent's own catalogue; touches nothing outside itself.
+            'reach'           => ToolReachResolver::REACH_SELF,
             'name'            => 'Search tools',
             'description'     => 'Search this agent\'s available tool catalogue by keyword when the full list was not '
                 .'shown (progressive disclosure); returns matching tool descriptors you can then call directly.',
@@ -263,6 +283,7 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.recommendCourses',
+            'reach'           => ToolReachResolver::REACH_USER,
             'name'            => 'Recommend courses',
             'description'     => 'Get the acting learner\'s current ranked, explained next-best-course recommendations '
                 .'(ai-course-recommendations). Advisory only, self-scoped to the caller; ranking is a deterministic '
@@ -285,6 +306,7 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.rememberMemory',
+            'reach'           => ToolReachResolver::REACH_SELF,
             'name'            => 'Remember a fact',
             'description'     => 'Append a durable fact to your own memory (scope: agent) or to what you know about the '
                 .'person you are talking with (scope: user), so you can recall it in a future turn or session.',
@@ -310,6 +332,7 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.recallMemory',
+            'reach'           => ToolReachResolver::REACH_SELF,
             'name'            => 'Recall memory',
             'description'     => 'Search your own remembered facts, what you know about the acting user, and past '
                 .'conversation turns for a query — so you can decide what is relevant to this turn instead of '
@@ -331,6 +354,10 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.forgetMemory',
+            // `delete` scope but `self` reach — reversible and private to the
+            // agent. It stays gated regardless, because gating is a UNION:
+            // reach only ever ADDS tools to the gate, it never removes one.
+            'reach'           => ToolReachResolver::REACH_SELF,
             'name'            => 'Forget a fact',
             'description'     => 'Retract one previously-remembered fact you no longer believe, by its entry id (from a '
                 .'prior rememberMemory or recallMemory result). This is a soft delete — the fact stops being recalled '
@@ -352,6 +379,9 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.webSearch',
+            // Egress. `scope: read` made this look inert; the query itself leaves
+            // the instance, so the model's wording reaches a third party.
+            'reach'           => ToolReachResolver::REACH_EXTERNAL,
             'name'            => 'Web search',
             'description'     => 'Search the open web via the admin-configured search backend and return ranked '
                 .'title/url/snippet results. Reports itself unavailable (never a fabricated result) if no backend '
@@ -369,6 +399,9 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.webFetch',
+            // Fetches a CALLER-SUPPLIED url — the model chooses where the
+            // request goes, which is egress under model control.
+            'reach'           => ToolReachResolver::REACH_EXTERNAL,
             'name'            => 'Web fetch',
             'description'     => 'Fetch a URL via HTTP GET and return extracted readable text (text/html, '
                 .'text/plain, or text/markdown only; size-capped; delimited as untrusted external content). '
@@ -388,6 +421,11 @@ class HermiqToolProvider implements IMcpToolProvider
         ],
         [
             'id'              => Application::APP_ID.'.delegateAgent',
+            // `instance` as its OWN reach — but a delegation composes: the
+            // effective reach of a delegated run is the MAX of this and the
+            // delegate's, so handing work to an agent that can send mail is an
+            // external act. A delegation cannot launder reach.
+            'reach'           => ToolReachResolver::REACH_INSTANCE,
             'name'            => 'Delegate to another agent',
             'description'     => 'Delegate a bounded sub-task to another agent explicitly named on your delegation '
                 .'allowlist, in the same organisation. Runs the target agent in a fresh, isolated conversation and '

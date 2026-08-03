@@ -336,7 +336,7 @@ class TalkRoomBinding
                 return $conversation;
             }
 
-            // saveObject is PUT-semantic: carry the whole payload forward, or
+            // SaveObject is PUT-semantic: carry the whole payload forward, or
             // the fields not mentioned here are deleted.
             $payload['participants'] = $roster;
 
@@ -361,6 +361,27 @@ class TalkRoomBinding
 
     }//end syncParticipants()
 
+    /**
+     * Create the conversation object bound to a room Hermiq just created.
+     *
+     * The binding records `origin: created`, which is what later tells
+     * `isAddressed()` to answer freely in this room rather than waiting to be
+     * mentioned. That origin is STORED here, never inferred later from the
+     * room's shape — inferring it would silently flip the agent's behaviour the
+     * moment somebody invited a second participant.
+     *
+     * The owner is excluded from the participant roster: they are the room's
+     * owner, not one of the people invited into it.
+     *
+     * @param string             $roomToken    The Talk room token.
+     * @param string             $agentId      The agent bound to this room.
+     * @param string             $ownerUid     The session owner's uid.
+     * @param array<int, string> $participants Additional invited uids.
+     *
+     * @return ObjectEntity|null The stored conversation, or null when it could not be written.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+     */
     public function createBound(string $roomToken, string $agentId, string $ownerUid, array $participants=[]): ?ObjectEntity
     {
         try {

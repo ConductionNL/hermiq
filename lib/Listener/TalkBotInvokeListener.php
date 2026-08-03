@@ -512,18 +512,4 @@ class TalkBotInvokeListener implements IEventListener
                 || $parentActor === $this->bridge->botActorId()));
 
     }//end isAddressed()
-
-    /*
-     * Whether Hermiq created this room for a session.
-     *
-     * Absent or unreadable means "bound", which is the pre-change behaviour and
-     * the safe default: it keeps the mention gate on rather than turning a
-     * quiet agent into one that answers everything in somebody's team room.
-     *
-     * @param string $roomToken The Talk room token.
-     *
-     * @return bool True when Hermiq created the room.
-     *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
-     */
 }//end class
