@@ -4,13 +4,22 @@
  * Unit tests for the seeded triage agentflow (hydra-console-agent-leaves).
  *
  * The flow IS the deliverable here — it is data, not code — so these tests read the
- * seeded document back and assert the two properties that make it safe: every node
- * type is a built-in engine node or Hermiq's own agent step (never a
- * Hermiq-authored HTTP step), and the branch cannot reach the command step on an
- * empty triage result. `HermiqAgentNode::execute()` swallows a failed turn to an
- * EMPTY STRING, so that branch is the only thing between a failed LLM call and a
- * pipeline command; a test that did not pin it would let a refactor remove it
- * silently.
+ * seeded document back and assert the properties that make it safe: every step type
+ * is a built-in engine node or Hermiq's own agent step (never a Hermiq-authored HTTP
+ * step), and the branch cannot reach the command step on an empty triage result.
+ *
+ * ⚠️ EVERY ASSERTION HERE USED TO READ `nodes[]`, AND THAT IS WHY THEY ALL PASSED
+ * WHILE THE FLOW DID NOTHING. In OpenRegister's engine the executable unit is the
+ * EDGE: `FlowEngine::stepFor()` resolves a transition to the matching entry in
+ * `edges[]` and `RegistryStepDispatcher::dispatch()` reads `type`/`config` off that
+ * edge. A node is a Petri-net place. A suite that inspects node types is checking
+ * decoration, so `testNoNodeCarriesExecutableConfig()` is now the load-bearing one.
+ *
+ * Since hermiq#89 a FAILED turn ends the run through the step's `onError` policy
+ * instead of arriving at the gate as an empty string, so the branch no longer stands
+ * between a failed LLM call and a pipeline command. It still stands between a
+ * SUCCESSFUL turn that proposed nothing and that command, which is what
+ * `testAnEmptyTriageResultCannotReachTheCommandStep()` pins.
  *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Repair
@@ -28,7 +37,6 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
-use OCA\Hermiq\Repair\SeedHydraTriageAgent;
 use OCA\Hermiq\Repair\SeedHydraTriageFlow;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -43,22 +51,23 @@ class SeedHydraTriageFlowTest extends TestCase
 {
 
     /**
-     * The node types this flow is permitted to contain: built-in OpenRegister
+     * The step types this flow is permitted to contain: built-in OpenRegister
      * engine nodes, plus Hermiq's own agent step. Anything else — in particular an
      * HTTP step authored in Hermiq — is a spec violation.
      *
      * @var array<int, string>
      */
-    private const PERMITTED_NODE_TYPES = [
+    private const PERMITTED_STEP_TYPES = [
         'hermiq.agent-step',
         'openregister.route',
         'openregister.stop',
     ];
 
+
     /**
      * Build the repair step (its container is never reached by `flowObject()`).
      *
-     * @return SeedHydraTriageFlow
+     * @return SeedHydraTriageFlow The step under test.
      */
     private function step(): SeedHydraTriageFlow
     {
@@ -68,6 +77,24 @@ class SeedHydraTriageFlowTest extends TestCase
         );
 
     }//end step()
+
+
+    /**
+     * The flow's edges, keyed by id.
+     *
+     * @return array<string, array> The edges.
+     */
+    private function edges(): array
+    {
+        $edges = [];
+        foreach ($this->step()->flowObject()['edges'] as $edge) {
+            $edges[$edge['id']] = $edge;
+        }
+
+        return $edges;
+
+    }//end edges()
+
 
     /**
      * The flow declares its trigger the way `HermiqFlowResolver::flowsForTrigger()`
@@ -88,6 +115,7 @@ class SeedHydraTriageFlowTest extends TestCase
 
     }//end testTheFlowDeclaresItsTrigger()
 
+
     /**
      * The flow ships DISABLED and unowned: a trigger fires with no acting user, so
      * enabling it is the deliberate human act that supplies the owner an
@@ -107,29 +135,63 @@ class SeedHydraTriageFlowTest extends TestCase
 
     }//end testTheFlowShipsDisabledAndUnowned()
 
+
     /**
-     * Every node is a built-in engine node or `hermiq.agent-step` — none opens an
-     * HTTP client from Hermiq code.
+     * No node carries `type` or `config` — the engine never reads either.
+     *
+     * This is the assertion the old suite lacked, and its absence is why every
+     * other test passed against a flow that imported cleanly, walked all three
+     * edges as pass-throughs and reported `completed` without ever calling an
+     * agent. A `type` on a node is not merely redundant; it is the whole
+     * behaviour of the flow, put somewhere nothing looks.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
+     */
+    public function testNoNodeCarriesExecutableConfig(): void
+    {
+        foreach ($this->step()->flowObject()['nodes'] as $node) {
+            $this->assertArrayNotHasKey('type', $node, "Node '{$node['id']}' carries a type the engine never reads.");
+            $this->assertArrayNotHasKey('config', $node, "Node '{$node['id']}' carries config the engine never reads.");
+        }
+
+    }//end testNoNodeCarriesExecutableConfig()
+
+
+    /**
+     * Every step is a built-in engine node or `hermiq.agent-step` — none opens an
+     * HTTP client from Hermiq code. And at least one edge does work, so the flow
+     * is not a graph of pure pass-throughs.
      *
      * @return void
      *
      * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-flow-contains-no-hermiq-authored-http-step
      */
-    public function testEveryNodeIsBuiltInOrTheAgentStep(): void
+    public function testEveryStepIsBuiltInOrTheAgentStep(): void
     {
-        foreach ($this->step()->flowObject()['nodes'] as $node) {
-            $this->assertContains($node['type'], self::PERMITTED_NODE_TYPES);
+        $typed = 0;
+        foreach ($this->edges() as $edge) {
+            if (isset($edge['type']) === false) {
+                continue;
+            }
+
+            $typed++;
+            $this->assertContains($edge['type'], self::PERMITTED_STEP_TYPES);
         }
 
-    }//end testEveryNodeIsBuiltInOrTheAgentStep()
+        $this->assertGreaterThan(0, $typed, 'No edge carries a type — the flow would do nothing.');
+
+    }//end testEveryStepIsBuiltInOrTheAgentStep()
+
 
     /**
      * The router's ONLY rule routes to the command step, and it fires only when the
      * agent actually proposed a label; everything else falls to the no-result stop.
      *
-     * A failed turn yields an empty string at the node boundary, so
-     * `json.triage.label` is absent and the rule is false — which is the whole
-     * point of the branch.
+     * A turn that succeeds but proposes nothing leaves `json.triage.label` empty,
+     * so the rule is false — which is the whole point of the branch. (A turn that
+     * FAILS no longer arrives here at all; see the class docblock.)
      *
      * @return void
      *
@@ -137,12 +199,8 @@ class SeedHydraTriageFlowTest extends TestCase
      */
     public function testAnEmptyTriageResultCannotReachTheCommandStep(): void
     {
-        $nodes = [];
-        foreach ($this->step()->flowObject()['nodes'] as $node) {
-            $nodes[$node['id']] = $node;
-        }
+        $gate = $this->edges()['gate'];
 
-        $gate = $nodes['gate'];
         $this->assertSame('openregister.route', $gate['type']);
         $this->assertSame('no-result', $gate['config']['default']);
         $this->assertCount(1, $gate['config']['rules']);
@@ -153,82 +211,91 @@ class SeedHydraTriageFlowTest extends TestCase
 
     }//end testAnEmptyTriageResultCannotReachTheCommandStep()
 
+
     /**
-     * With the OpenConnector-backed command node absent — the state today — the
-     * command branch STOPS with the proposed label already recorded on the run's
-     * items, and never degrades into writing anything.
+     * With no command step wired up — the state today — the command branch STOPS
+     * with the proposed label already recorded on the run's items, and never
+     * degrades into writing anything.
      *
      * @return void
      *
      * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-command-node-being-unavailable-does-not-fail-open
      */
-    public function testTheCommandBranchStopsWhileTheCommandNodeIsAbsent(): void
+    public function testTheCommandBranchStopsWhileNoCommandStepIsWiredUp(): void
     {
-        $nodes = [];
-        foreach ($this->step()->flowObject()['nodes'] as $node) {
-            $nodes[$node['id']] = $node;
-        }
+        $command = $this->edges()['command-stop'];
 
-        $this->assertSame('openregister.stop', $nodes['command']['type']);
-        $this->assertFalse($nodes['command']['config']['error']);
-        $this->assertStringContainsString('No forge write was attempted', $nodes['command']['config']['message']);
+        $this->assertSame('openregister.stop', $command['type']);
+        $this->assertFalse($command['config']['error']);
+        $this->assertStringContainsString('No forge write was attempted', $command['config']['message']);
 
-    }//end testTheCommandBranchStopsWhileTheCommandNodeIsAbsent()
+    }//end testTheCommandBranchStopsWhileNoCommandStepIsWiredUp()
+
 
     /**
-     * Router outputs must equal TARGET NODE IDS: the engine delivers an item only
-     * to the place matching the tag the router put on it, so an output naming a
-     * node that no edge reaches would silently drop every item.
+     * Every endpoint names a declared node, and every router output is a place the
+     * ROUTING EDGE ITSELF reaches.
+     *
+     * The second half is the sharp one. `FlowEngine::advanceItems()` distributes
+     * items only to the places on the firing transition's own `to` list, so an
+     * output naming a node that this edge does not reach silently drops every item
+     * routed to it — the place is simply never marked and the branch never fires.
      *
      * @return void
      *
      * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
      */
-    public function testEveryEdgeAndRouterOutputNamesAKnownNode(): void
+    public function testEveryEndpointAndRouterOutputNamesAReachablePlace(): void
     {
-        $flow  = $this->step()->flowObject();
-        $ids   = array_column($flow['nodes'], 'id');
-        $gate  = null;
-
-        foreach ($flow['nodes'] as $node) {
-            if ($node['id'] === 'gate') {
-                $gate = $node;
-            }
-        }
+        $flow = $this->step()->flowObject();
+        $ids  = array_column($flow['nodes'], 'id');
 
         foreach ($flow['edges'] as $edge) {
-            $this->assertContains($edge['source'], $ids);
-            $this->assertContains($edge['target'], $ids);
+            foreach (array_merge((array) $edge['from'], (array) $edge['to']) as $endpoint) {
+                $this->assertContains($endpoint, $ids);
+            }
         }
 
-        $this->assertContains($gate['config']['default'], $ids);
+        $gate    = $this->edges()['gate'];
+        $targets = (array) $gate['to'];
+
+        $this->assertContains($gate['config']['default'], $targets);
         foreach ($gate['config']['rules'] as $rule) {
-            $this->assertContains($rule['output'], $ids);
+            $this->assertContains($rule['output'], $targets);
         }
 
-    }//end testEveryEdgeAndRouterOutputNamesAKnownNode()
+    }//end testEveryEndpointAndRouterOutputNamesAReachablePlace()
+
 
     /**
-     * The agent step names the seeded agent and asks for JSON, so the branch has a
-     * field to read rather than prose to guess at.
+     * The agent step asks for JSON, so the branch has a field to read rather than
+     * prose to guess at — and it names its agent by UUID or not at all.
+     *
+     * `AgentMapper::findByUuid()` matches the `uuid` COLUMN, so the seeded agent's
+     * NAME — which this flow used to carry — resolves to nothing. An empty string
+     * is the honest fallback when the agent cannot be found at seed time: it is
+     * refused at both validate and execute time, where a name is not.
      *
      * @return void
      *
      * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
      */
-    public function testTheAgentStepNamesTheSeededAgentAndExpectsJson(): void
+    public function testTheAgentStepExpectsJsonAndNamesItsAgentByUuidOrNotAtAll(): void
     {
-        $triage = null;
-        foreach ($this->step()->flowObject()['nodes'] as $node) {
-            if ($node['type'] === 'hermiq.agent-step') {
-                $triage = $node;
-            }
-        }
+        $triage = $this->edges()['triage'];
 
-        $this->assertNotNull($triage);
-        $this->assertSame(SeedHydraTriageAgent::AGENT_NAME, $triage['config']['agentId']);
+        $this->assertSame('hermiq.agent-step', $triage['type']);
         $this->assertTrue($triage['config']['expectJson']);
         $this->assertSame(SeedHydraTriageFlow::TRIAGE_OUTPUT_KEY, $triage['config']['output']);
 
-    }//end testTheAgentStepNamesTheSeededAgentAndExpectsJson()
+        $agentId = $triage['config']['agentId'];
+        if ($agentId !== '') {
+            $this->assertMatchesRegularExpression(
+                '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
+                $agentId,
+                'An agent step must name its agent by uuid; a display name never resolves.'
+            );
+        }
+
+    }//end testTheAgentStepExpectsJsonAndNamesItsAgentByUuidOrNotAtAll()
 }//end class

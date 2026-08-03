@@ -62,10 +62,20 @@ class ToolClassificationService
      * Whether a tool id is side-effecting (and must therefore be neutralised,
      * never invoked for real, during a dry-run).
      *
-     * An empty/malformed id, or any id `ToolGrantResolver::isWriteOrDestructive()`
-     * cannot positively classify as read (no hint, not a `{app}.{schema}.{verb}`
-     * id with a read verb), is treated as side-effecting — the fail-safe-closed
-     * default the spec requires.
+     * An empty/malformed id, or any id `ToolGrantResolver::requiresGrant()`
+     * cannot positively classify as a low-reach read (no hint, not a
+     * `{app}.{schema}.{verb}` id with a read verb, or a reach of `instance` or
+     * higher), is treated as side-effecting — the fail-safe-closed default the
+     * spec requires.
+     *
+     * 🔴 This delegates to the UNION predicate, not to `isWriteOrDestructive()`
+     * alone, because the reach axis exposed a real hole here: `hermiq.webFetch`
+     * declares `scope: read` and `readOnlyHint: true`, so a "preview" would
+     * invoke it FOR REAL and send a model-chosen URL out of the instance. A
+     * preview that egresses has already done the unrecallable part of the thing
+     * it was previewing. The union can only ever neutralise MORE calls than
+     * before, never fewer, so no dry-run that previously skipped a call now
+     * performs one.
      *
      * @param string                   $id         The `{appId}.{toolName}` registry id
      *                                             (the `mcpId`, when resolvable).
@@ -81,9 +91,9 @@ class ToolClassificationService
      *
      * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
      *
-     * @SuppressWarnings(PHPMD.StaticAccess) ToolGrantResolver::isWriteOrDestructive()
+     * @SuppressWarnings(PHPMD.StaticAccess) ToolGrantResolver::requiresGrant()
      *   is a deliberately stateless pure classifier — both classifications must share
-     *   the ONE verb/hint rule set, so it is called statically, not injected.
+     *   the ONE verb/hint/reach rule set, so it is called statically, not injected.
      */
     public function isSideEffecting(string $id, ?array $descriptor=null): bool
     {
@@ -93,7 +103,7 @@ class ToolClassificationService
             return true;
         }
 
-        return ToolGrantResolver::isWriteOrDestructive(id: $id, descriptor: $descriptor);
+        return ToolGrantResolver::requiresGrant(id: $id, descriptor: $descriptor);
 
     }//end isSideEffecting()
 }//end class

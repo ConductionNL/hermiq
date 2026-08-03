@@ -96,9 +96,14 @@ class TalkApprovalNotifier
                 return false;
             }
 
+            // Under the agent's OWN bot: an approval request asks a person to
+            // judge THIS agent's run, so it must be signed by it. Posting as the
+            // shared bot rendered it as a bare `bot-<hash>-bot` actor id in a
+            // room where the shared bot is not enabled — observed live.
             $messageId = $this->bridge->postToRoomReturningId(
                 roomToken: $roomToken,
-                message: $this->requestText(displayName: $displayName)
+                message: $this->requestText(displayName: $displayName),
+                agentId: $agentId
             );
 
             if ($messageId === null) {

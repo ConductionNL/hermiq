@@ -370,10 +370,17 @@ export default {
 	margin: 0 0 8px;
 }
 
+/*
+ * The entry list grows with everything the agent remembers (up to the char
+ * budget, which is thousands of characters), so it scrolls inside the widget
+ * rather than pushing the widget past its grid cell (ADR-062).
+ */
 .agent-memory-panel__entries {
 	list-style: none;
 	margin: 0;
 	padding: 0;
+	max-height: 240px;
+	overflow-y: auto;
 }
 
 .agent-memory-panel__entry {

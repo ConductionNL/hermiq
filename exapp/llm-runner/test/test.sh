@@ -215,6 +215,23 @@ else
     pass "(d) egress-entrypoint.sh has no wildcard ACCEPT rule"
 fi
 
+# ⚠️ EVERY assertion above reads the SCRIPT. None of them runs it, and for nine
+# months none of them would have noticed that it CANNOT run: the image sets
+# `USER node`, so the jail died on its first iptables call with a raw
+# "Permission denied (you must be root)" and the container exited. A green
+# suite said nothing about whether the container it hardens was hardened.
+#
+# These two assert the PRECONDITION CHECKS that turn that into a legible
+# failure. They are still static — a real proof needs a container, and the one
+# that was run by hand is recorded in the change — but they pin the guards so
+# the fix cannot be silently dropped.
+grep -q 'id -u' "${ENTRY}" && grep -q 'Refusing to start UNFENCED' "${ENTRY}" \
+    && pass "(d) egress-entrypoint.sh refuses to start unfenced when not root" \
+    || fail "(d) egress-entrypoint.sh would start unfenced when not root"
+grep -q 'user 0:0' "${ENTRY}" \
+    && pass "(d) egress-entrypoint.sh documents the --user 0:0 requirement" \
+    || fail "(d) egress-entrypoint.sh omits the --user 0:0 requirement"
+
 # =============================================================================
 # (e) AppAPI lifecycle: PUT /enabled must authenticate and return NO error key.
 #     AppAPI reads response.error to decide enable success; the generic 404
@@ -254,6 +271,85 @@ if node --test "${ROOT}/test/egress.proxy.test.js" > "${WORK}/egress.log" 2>&1; 
     pass "(g) governed egress-proxy tests (default-deny, fail-closed, per-run token)"
 else
     fail "(g) governed egress-proxy tests failed"; cat "${WORK}/egress.log" || true
+fi
+
+# =============================================================================
+# (h) Stage workload: the command allowlist, remote-only refs, scratch cleanup
+# =============================================================================
+if node --test "${ROOT}/test/stage.test.js" > "${WORK}/stage.log" 2>&1; then
+    pass "(h) stage-workload tests (allowlist before clone, remote-only ref, cleanup)"
+else
+    fail "(h) stage-workload tests failed"; cat "${WORK}/stage.log" || true
+fi
+
+# =============================================================================
+# (i) The /stage ROUTE — every field the body carries reaches the workload
+#
+# (h) tests the FUNCTION. `toolRepo` was added to the caller and to runStage(),
+# both were tested, and it still did not work: the route destructures a fixed
+# list of fields and nobody added it there. No test crossed that line.
+# =============================================================================
+if node --test "${ROOT}/test/stage.route.test.js" > "${WORK}/stageroute.log" 2>&1; then
+    pass "(i) stage-route tests (no field is dropped at the HTTP boundary)"
+else
+    fail "(i) stage-route tests failed"; cat "${WORK}/stageroute.log" || true
+fi
+
+# =============================================================================
+# (j) The push fences, as functions
+# =============================================================================
+if node --test "${ROOT}/test/pushGuard.test.js" > "${WORK}/pushguard.log" 2>&1; then
+    pass "(j) push-guard tests (branch/repo allowlist, diff gate, fail-closed)"
+else
+    fail "(j) push-guard tests failed"; cat "${WORK}/pushguard.log" || true
+fi
+
+# =============================================================================
+# (k) The push fences, WIRED — against a real git remote that demands a credential
+#
+# ⚠️ (j) proves the fence functions refuse. It proves NOTHING about whether
+# `runStage()` calls them, and that is the distinction this repository has
+# already paid for twice — `toolRepo` existed on both sides of the HTTP boundary
+# and not in it, and the iptables jail was asserted only by grepping its own
+# source while being unable to start.
+#
+# So (k) asserts at the DESTINATION: a refused push is proved by the bare
+# repository still pointing at the same commit. Its remote demands HTTP Basic
+# auth, because with a credential-free `file://` remote the central claim — the
+# command child cannot push, having no credential — passes either way.
+#
+# Each control was mutation-checked when it was written: removing the
+# `assertPushAllowed()` call turns exactly the four fence tests red (and the
+# push to `main` then SUCCEEDS); leaving the credential in the command child
+# turns the two credential tests red (and the injected push then succeeds);
+# reading the change set with `git diff` instead of `git status --untracked`
+# lets a brand-new `.github/workflows/pwn.yml` straight through.
+# =============================================================================
+if node --test "${ROOT}/test/stage.push.test.js" > "${WORK}/stagepush.log" 2>&1; then
+    pass "(k) stage-push tests (fences wired, asserted at the remote, credential withheld)"
+else
+    fail "(k) stage-push tests failed"; cat "${WORK}/stagepush.log" || true
+fi
+
+# =============================================================================
+# (l) The DEPLOYED posture — and the one flag whose default breaks everything
+#
+# ⚠️ Static, like (d) was, and for the same reason honest about it: a compose
+# file is not a container. What it pins is `exec` on the scratch tmpfs. Docker
+# defaults a tmpfs to NOEXEC, and the scratch tree is executed from twice — git
+# runs the GIT_ASKPASS helper written into it, and the stage's command child is
+# a script in the cloned tree. Measured on one image varying only the mount
+# options: noexec gives `cannot exec '.../askpass.sh': Permission denied` and an
+# EACCES command child; exec gives a credential that reaches the forge.
+#
+# So the posture as first shipped (`tmpfs: [- /tmp]`) satisfied every
+# `docker inspect` assertion and could neither authenticate nor run a gate
+# suite. Mutation-checked: restore the bare form and case 3 goes red.
+# =============================================================================
+if node --test "${ROOT}/test/deploy.posture.test.js" > "${WORK}/posture.log" 2>&1; then
+    pass "(l) deploy-posture tests (cap_drop, read-only root, exec scratch, no route out)"
+else
+    fail "(l) deploy-posture tests failed"; cat "${WORK}/posture.log" || true
 fi
 
 # =============================================================================

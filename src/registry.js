@@ -48,7 +48,6 @@ import GraphSidebar from './views/GraphSidebar.vue'
 import TenantOps from './views/TenantOps.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
 // the agent-memory wrapper (AgentMemoryPanel.vue itself stays unchanged).
-import AgentKpiWidget from './widgets/AgentKpiWidget.vue'
 import AgentSkillsWidget from './widgets/AgentSkillsWidget.vue'
 import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
 import AgentRunOperationsWidget from './widgets/AgentRunOperationsWidget.vue'
@@ -75,6 +74,10 @@ import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
 // skill-learnings: the SkillDetail page's read-only Learnings card (rendered
 // learnings.md + l6 activity strip; honest empty state; no edit affordance).
 import SkillLearnings from './widgets/SkillLearnings.vue'
+// skill-install-idempotency: the SkillDetail page's origin + review-status card
+// (where the skill came from, when it was last refreshed, why it is quarantined,
+// and whether local learnings are ahead of the source).
+import SkillProvenance from './widgets/SkillProvenance.vue'
 // skill-self-improvement: the SkillDetail draft review surface (side-by-side
 // diff, provenance, verdicts, Accept/Edit/Reject) and the version history +
 // rollback + republish widget.
@@ -299,28 +302,6 @@ export default {
 	// agent id from `$route.params.id` since that scoped slot only forwards
 	// `{ item, widget }`, not the loaded object.
 	// -------------------------------------------------------------------------
-
-	/**
-	 * Agent-scoped run KPIs (total runs, success rate, avg latency, tokens) —
-	 * the /api/analytics endpoint scoped to this agent's id instead of
-	 * tenant-wide. Not a stats-block: the analytics endpoint is a computed
-	 * aggregate, not an OR object-count query (ADR-049).
-	 *
-	 * Still ONE widget holding four values, unlike the Dashboard's four
-	 * `type:"stat"` tiles — a detail page's widget grid is the frame here, and
-	 * splitting an agent's KPIs across four cards on a record page would push
-	 * the rest of the agent below the fold.
-	 */
-	'agent-kpis': {
-		kind: 'widget',
-		component: AgentKpiWidget,
-		defaultSize: { w: 6, h: 2 },
-		minSize: { w: 4, h: 2 },
-		maxSize: { w: 12, h: 3 },
-		allowedSlots: ['body'],
-		propsSchema: { type: 'object', properties: {} },
-		_note: 'KPI values come from the computed /api/analytics endpoint (agent-scoped), not from an OR object collection — stats-block can only bind object queries, so a custom fetch widget is required (ADR-049).',
-	},
 
 	/**
 	 * Skills attach/detach — the agent's skillInstalls array against the
@@ -562,6 +543,25 @@ export default {
 	 * promotion). Deliberately NO editing surface — a manual editor would be
 	 * a second write channel bypassing the capture pipeline's redaction.
 	 */
+	/**
+	 * Origin + review-status card on SkillDetail (skill-install-idempotency):
+	 * sourceUrl, sourceUpdatedAt, review state and the quarantine reason, plus a
+	 * notice when local learnings postdate the last sync — the condition under
+	 * which an update preserves them. All of this was previously reported ONLY in
+	 * the install API response, i.e. nowhere a person would look.
+	 */
+	'skill-provenance': {
+		// @custom-widget-ratchet exclude joins provenance (sourceUrl/sourceUpdatedAt), review state and a learnings-vs-sync time comparison into one advisory card; no built-in widget compares two timestamps on one object to decide whether to warn, and object-table would render the fields without the comparison that gives them meaning.
+		kind: 'widget',
+		component: SkillProvenance,
+		defaultSize: { w: 12, h: 4 },
+		minSize: { w: 6, h: 3 },
+		maxSize: { w: 12, h: 8 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'Read-only advisory card: reports state/origin and a derived learnings-ahead-of-source comparison (ADR-049 — a conditional warning derived from two timestamps, not a field listing).',
+	},
+
 	'skill-learnings': {
 		// @custom-widget-ratchet exclude renders one files[] entry (learnings.md) as sanitised markdown joined with the levelEvidence.l6 activity strip, read-only by spec — no built-in widget renders a file-map entry as markdown, and adding an editor would open a second write channel bypassing the capture pipeline's redaction.
 		kind: 'widget',

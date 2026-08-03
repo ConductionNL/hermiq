@@ -155,6 +155,20 @@ class ToolGrantResolver
     public const CONSTRAINT_OPENER = '?';
 
     /**
+     * Optional trailing fragment marking a grant entry as approval-waived,
+     * giving the grammar `{toolId}[?{constraints}][#noapproval]`.
+     *
+     * Matched as an EXACT suffix, never a prefix or a substring: `#noapprovalX`
+     * is not a waiver, and stays part of the id — where it matches no catalogue
+     * tool and so grants nothing. A near-miss that silently granted the tool
+     * WITHOUT the waiver would be the wrong failure; a near-miss that silently
+     * granted it WITH one would be much worse.
+     *
+     * @var string
+     */
+    public const WAIVER_FRAGMENT = '#noapproval';
+
+    /**
      * Separates one argument constraint from the next.
      *
      * @var string
@@ -490,12 +504,25 @@ class ToolGrantResolver
      *
      * Splits on the FIRST `?` only, so a constraint value may itself contain one.
      *
+     * 🔴 The `#noapproval` fragment is stripped FIRST, before the `?` split.
+     * Order is the whole correctness argument here: `mail.send?to=in:a,b#noapproval`
+     * split the other way round yields a closed set whose last member is
+     * `b#noapproval` — a constraint that can never be satisfied, silently
+     * disabling the grant the owner thought they had widened. Doing it here, in
+     * the ONE place every caller reaches the `?`, is why `baseToolIds()`,
+     * `argumentConstraints()`, `hasWildcardGrant()` and `expandGrant()` all get
+     * the fragment handled without each remembering to.
+     *
      * @param string $grant The grant entry.
      *
      * @return array{0:string, 1:string|null} `[baseId, query|null]`.
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-a-grant-may-carry-a-noapproval-waiver-fragment-parsed-before-any-other-grant-parsing
      */
     private function splitGrant(string $grant): array
     {
+        [$grant] = self::splitWaiver(grant: $grant);
+
         $position = strpos($grant, self::CONSTRAINT_OPENER);
         if ($position === false) {
             return [$grant, null];
@@ -512,6 +539,109 @@ class ToolGrantResolver
         return [$base, $query];
 
     }//end splitGrant()
+
+    /**
+     * Split a trailing `#noapproval` fragment off a grant entry.
+     *
+     * @param string $grant The raw grant entry.
+     *
+     * @return array{0:string, 1:bool} `[grantWithoutFragment, waived]`.
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-a-grant-may-carry-a-noapproval-waiver-fragment-parsed-before-any-other-grant-parsing
+     */
+    private static function splitWaiver(string $grant): array
+    {
+        if (str_ends_with($grant, self::WAIVER_FRAGMENT) === false) {
+            return [$grant, false];
+        }
+
+        return [substr($grant, 0, (0 - strlen(self::WAIVER_FRAGMENT))), true];
+
+    }//end splitWaiver()
+
+    /**
+     * The constraint sets belonging to WAIVED grant entries only, keyed by tool id.
+     *
+     * Shaped exactly like `argumentConstraints()` so the same pure
+     * `violationFor()` decides conformance against it — but populated only from
+     * entries that carried the fragment, and including the empty set contributed
+     * by a bare `{toolId}#noapproval`.
+     *
+     * 🔴 Waivers are per ENTRY, not per tool. Given `runFlow?flowId=A#noapproval`
+     * alongside `runFlow?flowId=B`, a call with `flowId=B` is granted and
+     * conforming, and is NOT waived — it still meets a human. Collapsing this to
+     * "the tool is waived" would let one narrow waiver silently cover every other
+     * grant for the same tool, which is the widening this whole form exists to
+     * prevent. That is why the alternatives are kept apart here rather than
+     * merged into a per-tool boolean.
+     *
+     * @param array<int, string> $grants Raw `Agent.tools` entries.
+     *
+     * @return array<string, array<int, array<string, array{mode:string, values:array<int,string>}>>>
+     *         Tool id => list of waived alternative constraint sets.
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
+     */
+    public function waivedConstraintSets(array $grants): array
+    {
+        $sets = [];
+        foreach ($this->sanitizeGrants(grants: $grants) as $grant) {
+            [$stripped, $waived] = self::splitWaiver(grant: $grant);
+            if ($waived === false) {
+                continue;
+            }
+
+            [$base, $query] = $this->splitGrant(grant: $stripped);
+            if ($this->isWildcardGrant(grant: $base) === true) {
+                // A waived wildcard would hand the model unattended use of every
+                // id the catalogue happens to contain, including ones added
+                // after the owner wrote the grant. `expandGrant()` already
+                // refuses a CONSTRAINED wildcard for the same reason; a waived
+                // one is the same mistake with a worse blast radius.
+                continue;
+            }
+
+            $parsed = [];
+            if ($query !== null) {
+                $parsed = $this->parseConstraints(query: $query);
+            }
+
+            $sets[$base][] = $parsed;
+        }//end foreach
+
+        return $sets;
+
+    }//end waivedConstraintSets()
+
+    /**
+     * Whether a specific invocation is covered by a waived grant entry.
+     *
+     * 🔴 The absent-tool guard is load-bearing and deliberately first.
+     * `violationFor()` treats an EMPTY list of alternatives as "conforms" —
+     * correct there, because a tool no grant constrains is unconstrained. Read
+     * through this method that same `null` would mean "waived", so a tool with
+     * NO waiver at all would come back waived, and the fragment would stop being
+     * a per-grant opt-in and start being the default. The two questions share a
+     * return value and mean opposite things; this guard is where they separate.
+     *
+     * @param array<string, array<int, array<string, array>>> $waivedSets From `waivedConstraintSets()`.
+     * @param string                                          $toolId     The invoked tool id.
+     * @param array<string, mixed>                            $arguments  The decoded tool-call arguments.
+     *
+     * @return bool True when a waived entry covers this exact invocation.
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-waived-granted-conforming-invocation-runs-without-an-approval
+     */
+    public static function waives(array $waivedSets, string $toolId, array $arguments): bool
+    {
+        $alternatives = ($waivedSets[$toolId] ?? []);
+        if ($alternatives === []) {
+            return false;
+        }
+
+        return (self::violationFor(constraintSets: $alternatives, arguments: $arguments) === null);
+
+    }//end waives()
 
     /**
      * Parse a grant's raw constraint query into an `argument => constraint` map.
@@ -656,6 +786,48 @@ class ToolGrantResolver
     }//end isWriteOrDestructive()
 
     /**
+     * Whether a tool needs an EXPLICIT grant — the union of the CRUD rule and
+     * the reach rule.
+     *
+     * 🔴 A UNION, never a replacement. Reach may only ever ADD tools to the
+     * gated set: a `self` reach must not un-gate something the existing
+     * `scope`/`destructiveHint`/`readOnlyHint` classification already calls
+     * write/destructive. Written as `||` with `isWriteOrDestructive()` FIRST so
+     * that the pre-change verdict is structurally impossible to lose — every
+     * tool gated before this change is still gated after it, whatever its reach.
+     *
+     * What the second clause actually adds, in today's catalogue, is
+     * `hermiq.webSearch` and `hermiq.webFetch`: both declare `scope: read` and
+     * `readOnlyHint: true`, so both pass default-deny and land in any wildcard
+     * grant — while the query, or a model-chosen URL, leaves the instance. Those
+     * two now need naming explicitly, which is the point of the axis.
+     *
+     * @param string                   $id         A tool id (the `mcpId`/dotted form).
+     * @param array<string,mixed>|null $descriptor The catalog descriptor for `$id`, when
+     *                                             available. Null falls through to the
+     *                                             fail-closed rules on BOTH axes.
+     *
+     * @return bool
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver` is a pure classification
+     *   function, for the same reason this method is static — see `isWriteOrDestructive()`.
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
+     */
+    public static function requiresGrant(string $id, ?array $descriptor=null): bool
+    {
+        if (self::isWriteOrDestructive(id: $id, descriptor: $descriptor) === true) {
+            return true;
+        }
+
+        return ToolReachResolver::atLeast(
+            reach: ToolReachResolver::resolve(toolId: $id, descriptor: $descriptor),
+            threshold: ToolReachResolver::REACH_INSTANCE
+        );
+
+    }//end requiresGrant()
+
+    /**
      * Classify a descriptor from its declared hint keys only — `scope` first
      * (closed vocabulary), then `destructiveHint`, then `readOnlyHint`; the
      * first key the descriptor actually sets wins.
@@ -755,20 +927,22 @@ class ToolGrantResolver
     }//end schemaVerbIds()
 
     /**
-     * Strip an id list down to those NOT classified write/destructive, using each
-     * id's own descriptor (hints, when set) — see `isWriteOrDestructive()`.
+     * Strip an id list down to those that need NO explicit grant, using each
+     * id's own descriptor (hints and reach, when set) — see `requiresGrant()`.
      *
      * @param array<int, string>                  $ids             Candidate ids.
      * @param array<string, array<string, mixed>> $descriptorsById Every candidate's descriptor, keyed by id.
      *
      * @return array<int, string>
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
      */
     private function applyDefaultDeny(array $ids, array $descriptorsById): array
     {
         $out = [];
         foreach ($ids as $id) {
             $descriptor = ($descriptorsById[$id] ?? null);
-            if (self::isWriteOrDestructive(id: $id, descriptor: $descriptor) === true) {
+            if (self::requiresGrant(id: $id, descriptor: $descriptor) === true) {
                 continue;
             }
 

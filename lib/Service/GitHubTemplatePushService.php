@@ -49,6 +49,10 @@ use RuntimeException;
 /**
  * GitHub delivery target for a published AgentTemplate package. Broker-only.
  *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same rationale as the complexity
+ *   suppression below: the token-never-here invariant holds only because every
+ *   GitHub call goes through this one broker seam, so splitting the publish path
+ *   across classes would weaken the guarantee it exists to hold.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) One class owns the whole broker-only
  *   publish path (repo create, topics, git-data commit chain, scrubbed logging) so the
  *   token-never-here invariant stays in a single place.
@@ -97,7 +101,19 @@ class GitHubTemplatePushService
     private const DISCOVERY_TOPICS = [
         self::KIND_AGENT_TEMPLATE => 'hermiq-agent-template',
         self::KIND_SKILL          => 'hermiq-skill',
+        self::KIND_SKILL_BUNDLE   => 'hermiq-skill-bundle',
     ];
+
+    /**
+     * The skill-BUNDLE kind (skill-bundle-publish) — many skills in one repo.
+     *
+     * Carries its own discovery topic so the single-skill catalogue never returns
+     * a bundle repo as an installable single skill: a bundle has no
+     * `hermiq-skill.md` at its root and would otherwise parse as an empty skill.
+     *
+     * @var string
+     */
+    public const KIND_SKILL_BUNDLE = 'skill-bundle';
 
     /**
      * Per-kind repo-root file name the committed package is written to (mirrors
@@ -325,6 +341,265 @@ class GitHubTemplatePushService
     }//end pushUpdate()
 
     /**
+     * BUNDLE PUBLISH (skill-bundle-publish): commit a whole `path => contents` tree
+     * to a repository, CREATING it when absent and UPDATING it when present.
+     *
+     * This is the deliberate, narrow second carve-out from "refuse to overwrite an
+     * existing repository". The original refusal protects a single-skill publish
+     * from clobbering an unrelated repo; a bundle repo is by definition re-synced,
+     * so refusing it would make the feature useless. The safeguards that make the
+     * carve-out safe are:
+     *
+     *   - the commit rides `base_tree`, so paths OUTSIDE the bundle's own
+     *     `skills/` + manifest are preserved rather than truncated;
+     *   - the ref is PATCHed forward, never force-pushed;
+     *   - the caller supplies the tree from SkillBundleSerializer, which has
+     *     already validated every name and path.
+     *
+     * @param array<string,string> $files        The `path => contents` tree to commit.
+     * @param string               $owner        Target GitHub owner (user or organisation).
+     * @param string               $repo         Target repository name.
+     * @param string               $visibility   Visibility for a freshly created repo.
+     * @param string               $credentialId Broker credential UUID.
+     * @param string|null          $actingUserId Credential owner.
+     *
+     * @return array{repoUrl:string,commitSha:string,created:bool} The publish outcome.
+     *
+     * @throws RuntimeException On a missing broker, bad coordinates, or API failure.
+     *
+     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+     */
+    public function publishBundle(
+        array $files,
+        string $owner,
+        string $repo,
+        string $visibility,
+        string $credentialId,
+        ?string $actingUserId=null
+    ): array {
+        if ($this->isBrokerAvailable() === false) {
+            // Fail closed — there is deliberately no token-bearing fallback.
+            throw new RuntimeException(
+                'GitHub bundle publish requires the OpenRegister credential broker, which is not available.'
+            );
+        }
+
+        if ($credentialId === '') {
+            throw new RuntimeException('GitHub bundle publish requires a broker credential.');
+        }
+
+        if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+            throw new RuntimeException('GitHub bundle publish requires a valid owner and repository name.');
+        }
+
+        if ($files === []) {
+            throw new RuntimeException('GitHub bundle publish requires a non-empty tree.');
+        }
+
+        // Absent → create; present → update. A broker denial/404 here means absent,
+        // exactly as assertRepoAbsent() treats it.
+        $repoData = $this->brokerCall(
+            method: 'GET',
+            path: '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo),
+            body: null,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId,
+            failQuietly: true
+        );
+
+        $created = false;
+        if ($repoData === null) {
+            $repoData = $this->createRepo(
+                owner: $owner,
+                repo: $repo,
+                visibility: $visibility,
+                credentialId: $credentialId,
+                actingUserId: $actingUserId,
+                kind: self::KIND_SKILL_BUNDLE
+            );
+            $created  = true;
+        }
+
+        $this->setTopics(
+            owner: $owner,
+            repo: $repo,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId,
+            kind: self::KIND_SKILL_BUNDLE
+        );
+
+        $commitSha = $this->commitTree(
+            owner: $owner,
+            repo: $repo,
+            branch: (string) ($repoData['default_branch'] ?? 'main'),
+            files: $files,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
+
+        $this->logger->info(
+            'Hermiq GitHub bundle publish complete',
+            ['owner' => $owner, 'repo' => $repo, 'created' => $created, 'entries' => count($files)]
+        );
+
+        return [
+            'repoUrl'   => (string) ($repoData['html_url'] ?? ('https://github.com/'.$owner.'/'.$repo)),
+            'commitSha' => $commitSha,
+            'created'   => $created,
+        ];
+
+    }//end publishBundle()
+
+    /**
+     * Commit an arbitrary `path => contents` tree in ONE commit.
+     *
+     * The map-based sibling of commitPackage(): same Git-Data sequence (ref → base
+     * commit → blobs → tree → commit → ref update), but the caller supplies the
+     * whole tree rather than a package plus auxiliaries. Kept as a single method
+     * for the same reason commitPackage() is — splitting it would scatter the
+     * commit-chain invariants across helpers.
+     *
+     * @param string               $owner        Repo owner.
+     * @param string               $repo         Repo name.
+     * @param string               $branch       Branch to advance.
+     * @param array<string,string> $files        The tree to commit.
+     * @param string               $credentialId Broker credential UUID.
+     * @param string|null          $actingUserId Credential owner.
+     *
+     * @return string The new commit SHA.
+     *
+     * @throws RuntimeException On API failure.
+     */
+    private function commitTree(
+        string $owner,
+        string $repo,
+        string $branch,
+        array $files,
+        string $credentialId,
+        ?string $actingUserId
+    ): string {
+        $base = '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo);
+
+        $ref           = $this->getJson(
+            path: $base.'/git/refs/heads/'.rawurlencode($branch),
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
+        $baseCommitSha = (string) ($ref['object']['sha'] ?? '');
+        if ($baseCommitSha === '') {
+            throw new RuntimeException('GitHub bundle publish: could not resolve the default branch tip.');
+        }
+
+        $baseCommit  = $this->getJson(
+            path: $base.'/git/commits/'.rawurlencode($baseCommitSha),
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
+        $baseTreeSha = (string) ($baseCommit['tree']['sha'] ?? '');
+
+        $treeEntries = $this->uploadBlobs(
+            base: $base,
+            files: $files,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
+
+        if ($treeEntries === []) {
+            throw new RuntimeException('GitHub bundle publish: no publishable entries after path validation.');
+        }
+
+        // Base_tree preserves every path this bundle does not own — the property
+        // that makes updating an existing repository safe rather than truncating.
+        $tree    = $this->postJson(
+            path: $base.'/git/trees',
+            body: ['base_tree' => $baseTreeSha, 'tree' => $treeEntries],
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
+        $treeSha = (string) ($tree['sha'] ?? '');
+
+        $commit    = $this->postJson(
+            path: $base.'/git/commits',
+            body: [
+                'message' => 'chore: publish agent skill bundle from Hermiq',
+                'tree'    => $treeSha,
+                'parents' => [$baseCommitSha],
+            ],
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
+        $commitSha = (string) ($commit['sha'] ?? '');
+        if ($commitSha === '') {
+            throw new RuntimeException('GitHub bundle publish: commit creation failed.');
+        }
+
+        $this->brokerCall(
+            method: 'PATCH',
+            path: $base.'/git/refs/heads/'.rawurlencode($branch),
+            body: ['sha' => $commitSha],
+            credentialId: $credentialId,
+            actingUserId: $actingUserId
+        );
+
+        return $commitSha;
+
+    }//end commitTree()
+
+    /**
+     * Upload every file as a blob and return the resulting tree entries.
+     *
+     * @param string               $base         The `/repos/{owner}/{repo}` API base.
+     * @param array<string,string> $files        The `path => contents` map.
+     * @param string               $credentialId Broker credential UUID.
+     * @param string|null          $actingUserId Credential owner.
+     *
+     * @return array<int,array<string,string>> The tree entries.
+     *
+     * @throws RuntimeException When a blob upload returns no sha.
+     */
+    private function uploadBlobs(string $base, array $files, string $credentialId, ?string $actingUserId): array
+    {
+        $treeEntries = [];
+
+        foreach ($files as $path => $contents) {
+            $path = (string) $path;
+            if ($path === '' || $this->isSafeRepoPath(path: $path) === false) {
+                $this->logger->warning('Hermiq bundle publish: skipped unsafe path.', ['path' => $path]);
+                continue;
+            }
+
+            $blob    = $this->postJson(
+                path: $base.'/git/blobs',
+                body: ['content' => base64_encode((string) $contents), 'encoding' => 'base64'],
+                credentialId: $credentialId,
+                actingUserId: $actingUserId
+            );
+            $blobSha = (string) ($blob['sha'] ?? '');
+
+            // A blob whose sha did not come back MUST NOT reach the tree. GitHub
+            // rejects the WHOLE create-tree request with a 422 for one bad entry,
+            // so a single silently-empty sha discards every other blob uploaded in
+            // this run — hundreds of successful uploads lost to an error message
+            // that names no file. Failing here names the path instead.
+            if ($blobSha === '') {
+                throw new RuntimeException(
+                    'GitHub bundle publish: blob upload returned no sha for "'.$path.'".'
+                );
+            }
+
+            $treeEntries[] = [
+                'path' => $path,
+                'mode' => '100644',
+                'type' => 'blob',
+                'sha'  => $blobSha,
+            ];
+        }//end foreach
+
+        return $treeEntries;
+
+    }//end uploadBlobs()
+
+    /**
      * Fail fast when the target repository already exists.
      *
      * @param string      $owner        Owner/organisation.
@@ -421,10 +696,41 @@ class GitHubTemplatePushService
      */
     private function setTopics(string $owner, string $repo, string $credentialId, ?string $actingUserId, string $kind): void
     {
+        $base  = '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo).'/topics';
+        $topic = $this->topicFor(kind: $kind);
+
+        // GitHub's PUT /topics REPLACES the whole list. On a fresh repo that is
+        // fine, but publishBundle() is create-or-UPDATE: publishing a skill bundle
+        // into an existing app repository would drop that repo's own discovery
+        // topic, making it invisible to the catalogue that published it. Merge
+        // instead — observed on buildiq-hydra, where the bundle push replaced
+        // `openbuild-app` with `hermiq-skill-bundle`.
+        $names = [$topic];
+
+        $existing = $this->brokerCall(
+            method: 'GET',
+            path: $base,
+            body: null,
+            credentialId: $credentialId,
+            actingUserId: $actingUserId,
+            failQuietly: true
+        );
+
+        if (is_array($existing) === true && is_array($existing['names'] ?? null) === true) {
+            foreach ($existing['names'] as $name) {
+                $name = (string) $name;
+                if ($name !== '' && in_array($name, $names, true) === false) {
+                    $names[] = $name;
+                }
+            }
+        }
+
+        sort($names);
+
         $this->brokerCall(
             method: 'PUT',
-            path: '/repos/'.rawurlencode($owner).'/'.rawurlencode($repo).'/topics',
-            body: ['names' => [$this->topicFor(kind: $kind)]],
+            path: $base,
+            body: ['names' => $names],
             credentialId: $credentialId,
             actingUserId: $actingUserId,
             failQuietly: true

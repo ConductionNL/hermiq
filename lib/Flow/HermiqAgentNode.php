@@ -165,19 +165,35 @@ class HermiqAgentNode implements IFlowNode
      * stored under the configured `output` key (default `result`); with
      * `expectJson` the answer is parsed so a later node can read one field.
      *
+     * A turn that fails, and an `expectJson` answer that is not JSON, both
+     * FAIL THE STEP rather than putting a placeholder on the item. See the
+     * comments at each site: a downstream router cannot tell "the agent
+     * answered nothing" from "the agent never answered", so the node must not
+     * present the second as the first.
+     *
      * @param array $items   The input items.
      * @param array $config  The step configuration.
      * @param array $context Run-level metadata (carries the triggering user).
      *
      * @return array The items, each with the agent's answer added.
      *
+     * @throws Throwable When the agent turn fails; the step's `onError` policy
+     *                   decides what the run then does.
+     *
      * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     public function execute(array $items, array $config, array $context): array
     {
+        // Third shape of the same defect: a step that did not run must not
+        // report success. `validateConfig()` already rejects a nameless agent,
+        // but it only runs when a flow is SAVED — a flow imported or seeded
+        // through another path reaches `execute()` unvalidated, and returning
+        // the items unchanged makes the step a silent pass-through. The output
+        // key is then absent, so a downstream router takes its default branch
+        // exactly as though the agent had answered.
         $agentId = trim((string) ($config['agentId'] ?? ($config['agent'] ?? '')));
         if ($agentId === '') {
-            return $items;
+            throw new UnexpectedValueException($this->l10n->t('An agent step needs an agent.'));
         }
 
         $outKey = (string) ($config['output'] ?? 'result');
@@ -192,22 +208,37 @@ class HermiqAgentNode implements IFlowNode
                 $prompt .= "\n\n".self::JSON_INSTRUCTION;
             }
 
-            $answer = '';
-            try {
-                $answer = $this->scheduleService->runAgentAsOwner(
-                    owner: $owner,
-                    agentId: $agentId,
-                    prompt: $prompt,
-                    organisation: $org,
-                    dryRun: false,
-                    forceOwner: false,
-                    anchor: null
-                );
-            } catch (Throwable $e) {
-                // A failed turn does not lose the item — it carries an empty
-                // answer and the run's error handling (onError) decides the rest.
-                $answer = '';
-            }
+            // A failed turn is NOT caught here. The engine's per-step `onError`
+            // policy is what decides — and it only ever sees failures that
+            // propagate out of `execute()`.
+            //
+            // This used to swallow every Throwable into `$answer = ''` while
+            // its own comment claimed the run's onError handling would decide.
+            // It could not: `FlowEngine::outcomeForFailedStep()` is reached from
+            // the `catch (Throwable)` around the step dispatch, so a swallowed
+            // failure never reached it. The step reported success, the item
+            // carried an empty answer, and a downstream router read '' as
+            // "the agent said nothing" rather than "the agent never ran".
+            //
+            // That is the wrong default for anything the answer gates. hydra's
+            // pipeline is the case in point: a failed applier turn would leave
+            // `json.stage.verdict` empty, the flow would release its slot and
+            // finish clean, and the run would look like a completed tick that
+            // simply had nothing to do.
+            //
+            // Authors who genuinely want the walk to continue past a failed
+            // turn already have the supported way to say so — `onError:
+            // continue` on the step — and saying it there records the choice in
+            // the flow rather than hard-coding it for everyone.
+            $answer = $this->scheduleService->runAgentAsOwner(
+                owner: $owner,
+                agentId: $agentId,
+                prompt: $prompt,
+                organisation: $org,
+                dryRun: false,
+                forceOwner: false,
+                anchor: null
+            );
 
             $json[$outKey] = $this->decode(config: $config, answer: $answer);
 
@@ -260,16 +291,29 @@ class HermiqAgentNode implements IFlowNode
     /**
      * Parse the answer when JSON was asked for; keep the raw text otherwise.
      *
+     * `expectJson` is a declaration by the flow author that a later node will
+     * read FIELDS off this answer. When the answer is not JSON that contract is
+     * broken, so this throws rather than handing back the prose.
+     *
+     * Returning the raw string — what this did before — is the quiet version of
+     * the same failure the swallowed Throwable caused in `execute()`: the step
+     * succeeds, `json.<output>` is a string, every `{{output.field}}` read
+     * resolves to empty, and the router takes its default branch as though the
+     * agent had genuinely decided that. An agent that replies with an apology
+     * instead of a verdict is not a "no" and must not be routed as one.
+     *
      * @param array  $config The step configuration.
      * @param string $answer The agent's answer.
      *
-     * @return mixed The decoded value, or the raw string.
+     * @return mixed The decoded value, or the raw string when no JSON was asked for.
+     *
+     * @throws UnexpectedValueException When `expectJson` is set and the answer is not JSON.
      *
      * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
      */
     private function decode(array $config, string $answer)
     {
-        if (($config['expectJson'] ?? false) !== true || $answer === '') {
+        if (($config['expectJson'] ?? false) !== true) {
             return $answer;
         }
 
@@ -279,8 +323,15 @@ class HermiqAgentNode implements IFlowNode
         }
 
         $decoded = json_decode($text, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return $answer;
+        if (json_last_error() !== JSON_ERROR_NONE || is_array($decoded) === false) {
+            // The excerpt is bounded because an agent answer can be long and
+            // this message travels into the run log and onto the failed run.
+            throw new UnexpectedValueException(
+                $this->l10n->t(
+                    'The agent step asked for JSON and the agent answered with something else: %s',
+                    [mb_substr(preg_replace('/\s+/', ' ', $text) ?? '', 0, 200)]
+                )
+            );
         }
 
         return $decoded;

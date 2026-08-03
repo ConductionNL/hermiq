@@ -86,6 +86,7 @@
 					:class="{ 'chat-page__row--active': isActive(conversation) }">
 					<div
 						class="chat-page__row-main"
+						data-testid="chat-conversation-row"
 						role="button"
 						tabindex="0"
 						@click="selectConversation(conversation)"
@@ -183,7 +184,12 @@
 						class="chat-page__message"
 						:class="`chat-page__message--${message.role}`">
 						<div class="chat-page__avatar">
-							<AccountCircle v-if="message.role === 'user'" :size="30" />
+							<NcAvatar v-if="message.role === 'user'"
+								:user="currentUserId"
+								:display-name="currentUserName"
+								:size="30"
+								:disable-menu="true"
+								:disable-tooltip="true" />
 							<Robot v-else :size="30" />
 						</div>
 						<div class="chat-page__bubble">
@@ -359,12 +365,12 @@
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import { NcAvatar, NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
+import { getCurrentUser } from '@nextcloud/auth'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import AccountCircle from 'vue-material-design-icons/AccountCircle.vue'
 import Archive from 'vue-material-design-icons/Archive.vue'
 import CogOutline from 'vue-material-design-icons/CogOutline.vue'
 import CubeOutline from 'vue-material-design-icons/CubeOutline.vue'
@@ -402,20 +408,7 @@ import SkillFormModal from '../modals/SkillFormModal.vue'
 export default {
 	name: 'Chat',
 
-	// nc-vue's floating AI companion self-gates on the injected `cnAiContext`
-	// holder: it hides itself when `pageKind === 'chat'`. Its own doc comment
-	// promises it "hides on chat pages", but nothing declares the page kind for
-	// a hand-written view — nc-vue only sets it from CnIndexPage — so on hermiq's
-	// own chat page the companion stayed mounted and its bottom-right FAB sat
-	// directly over the composer's Send button, swallowing the click. Declaring
-	// the page kind here is the contract's intended opt-out, and it also stops
-	// hermiq offering an "Open AI chat" shortcut on top of the chat itself.
-	inject: {
-		cnAiContext: { default: null },
-	},
-
 	components: {
-		AccountCircle,
 		AgentSelector,
 		Archive,
 		ChatSettingsModal,
@@ -427,6 +420,7 @@ export default {
 		FileDocument,
 		FileDocumentOutline,
 		MessageText,
+		NcAvatar,
 		NcButton,
 		NcCheckboxRadioSwitch,
 		NcLoadingIcon,
@@ -442,8 +436,25 @@ export default {
 		ThumbUp,
 	},
 
+	// nc-vue's floating AI companion self-gates on the injected `cnAiContext`
+	// holder: it hides itself when `pageKind === 'chat'`. Its own doc comment
+	// promises it "hides on chat pages", but nothing declares the page kind for
+	// a hand-written view — nc-vue only sets it from CnIndexPage — so on hermiq's
+	// own chat page the companion stayed mounted and its bottom-right FAB sat
+	// directly over the composer's Send button, swallowing the click. Declaring
+	// the page kind here is the contract's intended opt-out, and it also stops
+	// hermiq offering an "Open AI chat" shortcut on top of the chat itself.
+	inject: {
+		cnAiContext: { default: null },
+	},
+
 	data() {
 		return {
+			// The signed-in user, for their own turns' avatar. Read once: it cannot
+			// change while the thread is open, and NcAvatar needs the uid to fetch
+			// the real image rather than render an initial.
+			currentUserId: getCurrentUser()?.uid || '',
+			currentUserName: getCurrentUser()?.displayName || '',
 			// Conversation lists
 			conversations: [],
 			archivedConversations: [],

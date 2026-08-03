@@ -32,16 +32,51 @@ const REPO_ROOT = path.resolve(__dirname, '..')
 
 const MANIFEST_PATH = path.join(REPO_ROOT, 'src', 'manifest.json')
 
-const SCHEMA_CANDIDATES = [
-	process.env.APP_MANIFEST_SCHEMA,
-	path.join(REPO_ROOT, 'node_modules', '@conduction', 'nextcloud-vue', 'src', 'schemas', 'app-manifest.schema.json'),
-	path.join(REPO_ROOT, '..', 'nextcloud-vue', 'src', 'schemas', 'app-manifest.schema.json'),
-	'/tmp/worktrees/nextcloud-vue-manifest-v1/src/schemas/app-manifest.schema.json',
-	'/tmp/worktrees/nextcloud-vue-page-type-extensions/src/schemas/app-manifest.schema.json',
-].filter(Boolean)
+// Default schema FILENAME. The manifest's own `$schema` declaration overrides
+// it (see schemaFileName) — this is only the fallback for a manifest that
+// declares nothing.
+const DEFAULT_SCHEMA_FILE = 'app-manifest.schema.json'
 
-function findSchemaPath() {
-	for (const candidate of SCHEMA_CANDIDATES) {
+/**
+ * The schema file name this manifest asks to be validated against, taken from
+ * its own `$schema` URL.
+ *
+ * This validator used to hardcode `app-manifest.schema.json` (v1) while the
+ * manifest has declared `app-manifest-v2.schema.json` for a long time. Every
+ * v2-only key — `setup`, `walkthrough`, per-widget `content`, `icon`, `_note`
+ * comments — is `additionalProperties: false` under v1, so the check reported
+ * 69 errors against a manifest that is in fact CLEAN (0 errors) under the
+ * schema it declares. A permanently-red check is a check nobody reads, so the
+ * geometry regression this run introduced would have landed unnoticed
+ * underneath the noise. Only the basename is taken from the URL: the schema is
+ * always read from the local library copy, never fetched.
+ *
+ * @param {object} manifest The parsed manifest.
+ * @return {string} The schema file's basename.
+ */
+function schemaFileName(manifest) {
+	const declared = typeof manifest.$schema === 'string' ? manifest.$schema : ''
+	const base = declared.split('/').pop() || ''
+	return /^app-manifest(-v\d+)?\.schema\.json$/.test(base) ? base : DEFAULT_SCHEMA_FILE
+}
+
+/**
+ * Candidate paths for a schema file name, nearest checkout first.
+ *
+ * @param {string} file The schema basename.
+ * @return {Array<string>} Absolute candidate paths.
+ */
+function schemaCandidates(file) {
+	return [
+		process.env.APP_MANIFEST_SCHEMA,
+		path.join(REPO_ROOT, 'node_modules', '@conduction', 'nextcloud-vue', 'src', 'schemas', file),
+		path.join(REPO_ROOT, '..', 'nextcloud-vue', 'src', 'schemas', file),
+	].filter(Boolean)
+}
+
+function findSchemaPath(manifest) {
+	const file = schemaFileName(manifest)
+	for (const candidate of schemaCandidates(file)) {
 		try {
 			if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
 				return candidate
@@ -125,6 +160,48 @@ function structuralLint(manifest) {
 	return errors
 }
 
+/**
+ * Lint widget-grid geometry: two layout items on the same page must not claim
+ * the same cell. The JSON schema types every field correctly and says nothing
+ * about how the rectangles relate, so raising one widget's gridHeight without
+ * shifting the rows beneath it silently overlaps them — gridstack then reflows
+ * at runtime and the rendered page no longer matches the manifest. Cheap to
+ * check arithmetically, invisible in review.
+ *
+ * @param {object} manifest The parsed manifest.
+ * @return {Array<string>} One error per overlapping pair.
+ */
+function gridGeometryLint(manifest) {
+	const errors = []
+	for (const page of manifest.pages || []) {
+		const layout = (page.config || {}).layout
+		if (!Array.isArray(layout)) continue
+		const rects = layout
+			.map((item) => ({
+				id: item.widgetId || item.id,
+				x: Number(item.gridX),
+				y: Number(item.gridY),
+				w: Number(item.gridWidth),
+				h: Number(item.gridHeight),
+			}))
+			.filter((r) => [r.x, r.y, r.w, r.h].every(Number.isFinite))
+		for (let a = 0; a < rects.length; a++) {
+			for (let b = a + 1; b < rects.length; b++) {
+				const p = rects[a]
+				const q = rects[b]
+				const overlaps = p.x < q.x + q.w && q.x < p.x + p.w
+					&& p.y < q.y + q.h && q.y < p.y + p.h
+				if (overlaps) {
+					errors.push(`pages[id="${page.id}"].config.layout: "${p.id}" `
+						+ `(x${p.x} y${p.y} w${p.w} h${p.h}) overlaps "${q.id}" `
+						+ `(x${q.x} y${q.y} w${q.w} h${q.h})`)
+				}
+			}
+		}
+	}
+	return errors
+}
+
 function main() {
 	if (!fs.existsSync(MANIFEST_PATH)) {
 		console.error(`[validate-manifest] manifest not found: ${MANIFEST_PATH}`)
@@ -136,7 +213,17 @@ function main() {
 	console.log(`[validate-manifest] manifest.version: ${manifest.version}`)
 	console.log(`[validate-manifest] pages: ${(manifest.pages || []).length}`)
 
-	const schemaPath = findSchemaPath()
+	// Runs on every path — the schema cannot express this, so it must not be
+	// skipped just because Ajv is present and the types all check out.
+	const geometryErrors = gridGeometryLint(manifest)
+	if (geometryErrors.length > 0) {
+		console.error('[validate-manifest] grid geometry: FAIL')
+		for (const err of geometryErrors) console.error(`  - ${err}`)
+		process.exit(1)
+	}
+	console.log('[validate-manifest] grid geometry: PASS (no overlapping widget cells)')
+
+	const schemaPath = findSchemaPath(manifest)
 	if (!schemaPath) {
 		console.warn('[validate-manifest] no schema candidate resolved; falling back to structural lint.')
 		const errors = structuralLint(manifest)

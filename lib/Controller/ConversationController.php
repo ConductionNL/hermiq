@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -50,6 +51,7 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use OCP\IUserSession;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
  * CRUD operations for conversations with per-object ownership guards.
@@ -67,6 +69,12 @@ use Psr\Log\LoggerInterface;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Route-for-route port of OR's
  * ConversationController (8 endpoints incl. the archive/restore lifecycle);
  * splitting would break the structural-parity review against the OR original.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same reason, and the class sat
+ * just under the 1000-line threshold before talk-agent-sessions pushed it over.
+ * Everything that could honestly leave did leave: creating the session's room,
+ * recording it, and deciding whether a rename may touch it all live in
+ * TalkSessionRoom, so this class only calls them. What remains is the ported
+ * endpoint surface itself, which is exactly what must not be split.
  */
 class ConversationController extends Controller
 {
@@ -123,6 +131,7 @@ class ConversationController extends Controller
      * @param Engine          $engine        In-app agent engine facade (unique-title generation).
      * @param ObjectService   $objectService OpenRegister object read/write (single write-path).
      * @param IUserSession    $userSession   Resolves the requesting user.
+     * @param TalkSessionRoom $sessionRoom   Creates and renames the Talk room a session owns.
      * @param LoggerInterface $logger        PSR-3 logger.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
@@ -132,6 +141,7 @@ class ConversationController extends Controller
         private readonly Engine $engine,
         private readonly ObjectService $objectService,
         private readonly IUserSession $userSession,
+        private readonly TalkSessionRoom $sessionRoom,
         private readonly LoggerInterface $logger,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
@@ -366,6 +376,54 @@ class ConversationController extends Controller
     }//end messages()
 
     /**
+     * Resolve the agent a new session is bound to.
+     *
+     * Accepts both `agentId` and `agentUuid`, and warns-and-continues when the
+     * named agent does not exist — mirroring the OpenRegister original this
+     * controller was ported from, where an unknown agent yields an unbound
+     * session rather than a rejected request.
+     *
+     * @param array $data The request parameters.
+     *
+     * @return string|null The agent uuid, or null when unbound.
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     */
+    private function resolveAgentId(array $data): ?string
+    {
+        if (($data['agentId'] ?? null) !== null) {
+            return (string) $data['agentId'];
+        }
+
+        if (($data['agentUuid'] ?? null) === null) {
+            return null;
+        }
+
+        // Look up the agent to confirm it exists; log and continue with null
+        // when absent (mirrors OR's warn-and-continue).
+        $agent = $this->objectService->find(
+            id: (string) $data['agentUuid'],
+            register: self::REGISTER_SLUG,
+            schema: self::AGENT_SCHEMA
+        );
+
+        if ($agent === null) {
+            $this->logger->warning(
+                message: '[ConversationController] Agent UUID not found',
+                context: [
+                    'file'      => __FILE__,
+                    'line'      => __LINE__,
+                    'agentUuid' => $data['agentUuid'],
+                ]
+            );
+            return null;
+        }
+
+        return (string) $agent->getUuid();
+
+    }//end resolveAgentId()
+
+    /**
      * Create a new conversation.
      *
      * Mirrors OR ConversationController::create(); accepts `agentId` or
@@ -390,33 +448,7 @@ class ConversationController extends Controller
             // Get request data.
             $data = $this->request->getParams();
 
-            // Get agent UUID (handle both agentId and agentUuid).
-            $agentId = null;
-            if (($data['agentId'] ?? null) !== null) {
-                $agentId = (string) $data['agentId'];
-            } else if (($data['agentUuid'] ?? null) !== null) {
-                // Look up the agent to confirm it exists; log and continue
-                // with null when absent (mirrors OR's warn-and-continue).
-                $agent = $this->objectService->find(
-                    id: (string) $data['agentUuid'],
-                    register: self::REGISTER_SLUG,
-                    schema: self::AGENT_SCHEMA
-                );
-                if ($agent !== null) {
-                    $agentId = (string) $agent->getUuid();
-                }
-
-                if ($agent === null) {
-                    $this->logger->warning(
-                        message: '[ConversationController] Agent UUID not found',
-                        context: [
-                            'file'      => __FILE__,
-                            'line'      => __LINE__,
-                            'agentUuid' => $data['agentUuid'],
-                        ]
-                    );
-                }
-            }//end if
+            $agentId = $this->resolveAgentId(data: $data);
 
             // Generate unique title if not provided.
             $title = ($data['title'] ?? null);
@@ -441,6 +473,13 @@ class ConversationController extends Controller
                 ),
                 register: self::REGISTER_SLUG,
                 schema: self::CONVERSATION_SCHEMA
+            );
+
+            $conversation = $this->sessionRoom->attachToSession(
+                conversation: $conversation,
+                title: (string) $title,
+                ownerUid: $userId,
+                agentId: (string) $agentId
             );
 
             $this->logger->info(
@@ -528,6 +567,10 @@ class ConversationController extends Controller
                 schema: self::CONVERSATION_SCHEMA,
                 uuid: $uuid
             );
+
+            if (($data['title'] ?? null) !== null) {
+                $this->sessionRoom->renameIfOwned(session: $payload);
+            }
 
             $this->logger->info(
                 message: '[ConversationController] Conversation updated',

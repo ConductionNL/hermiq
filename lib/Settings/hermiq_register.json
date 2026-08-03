@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Schedule autonomous AI agents in Nextcloud. v0.21.0 — talk-approval-reactions-schema: Approval gains the OPTIONAL top-level talkMessageId (the Talk message carrying an approval request; top-level so the reaction handler can resolve BY it), talkRoomToken, and the derived decidedVia ('inbox' or 'reaction'). All optional, none required, no conditionals, so every existing Approval stays valid and the shape is inert until the talk-approval-reactions code change ships. Previously v0.20.0 — talk-chat-bridge-schema: Conversation gains the OPTIONAL top-level talkRoomToken (the Talk room a conversation is bound to, declared top-level rather than inside metadata so the bridge can resolve an inbound room token by filter query) and the OPTIONAL participants roster (user ids permitted to take a turn beyond the implicit userId owner); Message gains the OPTIONAL authorId and authorDisplayName, set on role=user turns only and captured at send time. All four are optional, none is added to any required list, and no conditional blocks are introduced, so every existing Conversation and Message stays valid and the shape is inert until the talk-chat-bridge code change ships. Supersedes v0.19.3 on development (skill-maturity wave + Algoritmekader title re-authoring). Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
-        "version": "0.21.0"
+        "description": "Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which is the pre-existing behaviour, so no existing Conversation is invalidated and nothing needs backfilling. Optional, not required, no conditionals. Previously v0.22.0 — agentflow-cron: AgentFlow gains the OPTIONAL cron property. A flow could already declare trigger 'schedule', but there was no property for the expression that says WHEN, so the value was silently dropped on save and the flow was scheduled for never — hydra-sequencer, hydra-dispatch and hydra-lock-reaper were all in that state. Optional, not required, no conditionals, so every existing AgentFlow stays valid. Previously v0.21.0 — talk-approval-reactions-schema: Approval gains the OPTIONAL top-level talkMessageId (the Talk message carrying an approval request; top-level so the reaction handler can resolve BY it), talkRoomToken, and the derived decidedVia ('inbox' or 'reaction'). All optional, none required, no conditionals, so every existing Approval stays valid and the shape is inert until the talk-approval-reactions code change ships. Previously v0.20.0 — talk-chat-bridge-schema: Conversation gains the OPTIONAL top-level talkRoomToken (the Talk room a conversation is bound to, declared top-level rather than inside metadata so the bridge can resolve an inbound room token by filter query) and the OPTIONAL participants roster (user ids permitted to take a turn beyond the implicit userId owner); Message gains the OPTIONAL authorId and authorDisplayName, set on role=user turns only and captured at send time. All four are optional, none is added to any required list, and no conditional blocks are introduced, so every existing Conversation and Message stays valid and the shape is inert until the talk-chat-bridge code change ships. Supersedes v0.19.3 on development (skill-maturity wave + Algoritmekader title re-authoring). Wave (v0.16.0–v0.19.1): agentskill gains maturityLevel/targetLevel/levelEvidence; EvalDataset gains skillRefs and Agent gains evalBaselineMode (paired evals); levelEvidence.l6 activity fields (skill-learnings); new SkillDraft schema (agentskilldraft, required only skillId, no conditionals) carrying a consolidation draft's proposed content, provenance, pipeline status and gate evidence; Skill gains the OPTIONAL service-written lastAcceptedVersionAt; Approval gains sourceType 'skill-draft' plus the OPTIONAL draftId/skillId/draftPayload decision-evidence fields. Development (v0.15.2): AiFeature (Algoritmekader) property titles re-authored from Dutch to English so manifest-driven UI labels are translatable (Dutch labels live in l10n/nl.json). Nothing added to any existing required list; no existing object becomes invalid.",
+        "version": "0.24.0"
     },
     "x-openregister": {
         "type": "application",
@@ -1428,6 +1428,17 @@
                         "title": "Published at",
                         "description": "When this skill was last published to GitHub. Provenance only — never round-tripped through the exported package."
                     },
+                    "sourceUrl": {
+                        "type": "string",
+                        "title": "Source URL",
+                        "description": "Canonical location this skill was installed FROM, as https://<host>/<owner>/<repo>/skills/<bundleName>. This is the skill's identity for re-install: a matching URL means the same skill and is updated in place rather than duplicated. Deliberately carries NO git ref — a branch is not identity, and pinning one would make the same skill on two branches two different skills. Known mirror hosts are normalised to one canonical host before storing, so a skill installed from a mirror and from its origin is one object."
+                    },
+                    "sourceUpdatedAt": {
+                        "type": "string",
+                        "format": "date-time",
+                        "title": "Source updated at",
+                        "description": "When this skill was last refreshed FROM its sourceUrl. Deliberately NOT publishedAt: that records publication TO a remote and is empty forever on an instance that only installs, so any 'has anything changed since we last synced?' check built on it would silently always answer no. Compared against lastAcceptedVersionAt to decide whether local learnings would be lost by an update."
+                    },
                     "lastAcceptedVersionAt": {
                         "type": "string",
                         "format": "date-time",
@@ -2129,12 +2140,17 @@
                         "title": "Reachable from Talk",
                         "description": "When true, this agent may be conversed with from a Nextcloud Talk room in which the Hermiq bot is enabled. Defaults to false, and is only half of the requirement: a Talk moderator must ALSO enable the bot in the room, so neither switch alone activates the bridge and installing the feature changes no behaviour until an operator opts in deliberately."
                     }
+                },
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 }
             },
             "Conversation": {
                 "slug": "conversation",
                 "icon": "ForumOutline",
-                "version": "0.1.0",
+                "version": "0.2.0",
                 "title": "Conversation",
                 "description": "A chat thread bound to one Agent. Tenant scope and soft-delete/timestamps are inherited from ObjectEntity and not declared here.",
                 "type": "object",
@@ -2182,6 +2198,11 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "talkRoomOrigin": {
+                        "type": "string",
+                        "title": "Talk room origin",
+                        "description": "How this conversation came to have a Talk room. 'created' means Hermiq created the room for this session and the agent treats every human message in it as a turn. 'bound' means Hermiq was invited into, or delivered a report into, a room somebody else owns, and the mention gate applies. Unset is treated as 'bound', which is the pre-existing behaviour, so no backfill is required."
                     }
                 }
             },
@@ -3439,9 +3460,9 @@
             "AgentFlow": {
                 "slug": "agentflow",
                 "icon": "Sitemap",
-                "version": "0.1.2",
+                "version": "0.1.3",
                 "title": "Agent flow",
-                "description": "An authored agent graph: nodes/edges triggered by a Nextcloud event, walked by OpenRegister's flow engine (ADR-065). Reuses the nc-vue CnFlowCanvas for authoring. v0.1.2 adds triggerRegister (already read by HermiqFlowResolver but undeclared, so it was silently dropped on save) and owner (the NC UID a trigger-fired run is attributed to).",
+                "description": "An authored agent graph: nodes/edges triggered by a Nextcloud event or a cron schedule, walked by OpenRegister's flow engine (ADR-065). Reuses the nc-vue CnFlowCanvas for authoring. v0.1.3 adds cron — a flow could already declare trigger 'schedule', but the expression that says WHEN had no property to live in, so every cron value was silently dropped on save and the flow was scheduled for never. Previously v0.1.2 added triggerRegister (already read by HermiqFlowResolver but undeclared, so it was silently dropped on save) and owner (the NC UID a trigger-fired run is attributed to).",
                 "type": "object",
                 "required": [
                     "name"
@@ -3453,7 +3474,8 @@
                 "properties": {
                     "name": {
                         "type": "string",
-                        "title": "Name"
+                        "title": "Name",
+                        "description": "What this flow is called — how it is listed and how a run refers to it."
                     },
                     "triggerRegister": {
                         "type": "string",
@@ -3473,12 +3495,18 @@
                     "trigger": {
                         "type": "string",
                         "title": "Trigger",
-                        "description": "Event-catalog trigger id (object.created/updated/deleted).",
+                        "description": "Event-catalog trigger id (object.created/updated/deleted), manual for a flow run only on request, or schedule to run it on the cron below.",
                         "default": "object.updated"
+                    },
+                    "cron": {
+                        "type": "string",
+                        "title": "Cron schedule",
+                        "description": "For a schedule trigger: the cron expression that decides when the flow runs (e.g. \"*/5 * * * *\" = every five minutes, \"0 9 * * 1\" = 09:00 every Monday). Ignored for other triggers. Without this property a flow could declare trigger 'schedule' and the value saying WHEN was dropped on save, so the flow was scheduled for never."
                     },
                     "enabled": {
                         "type": "boolean",
                         "title": "Enabled",
+                        "description": "Whether this flow may run. A disabled flow is never started by a trigger or by the schedule, however due it is.",
                         "default": true
                     },
                     "nodes": {
@@ -3507,11 +3535,13 @@
                     },
                     "description": {
                         "type": "string",
-                        "title": "Description"
+                        "title": "Description",
+                        "description": "What this flow does, in a sentence — shown wherever the flow is listed."
                     },
                     "notes": {
                         "type": "string",
-                        "title": "Notes"
+                        "title": "Notes",
+                        "description": "Free-form working notes for whoever maintains the flow. Not read by the engine."
                     }
                 }
             },

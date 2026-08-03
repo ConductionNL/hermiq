@@ -36,8 +36,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -69,6 +72,17 @@ use Throwable;
  */
 class ToolOversightController extends Controller
 {
+
+    /**
+     * AuditTrail action recorded when an approval waiver is added or removed.
+     *
+     * Its OWN action, never folded into a general grant-change record: this is
+     * the one grant edit that takes a human out of the loop, and it is a single
+     * fragment away from the un-waived entry in any textual diff.
+     *
+     * @var string
+     */
+    public const WAIVER_AUDIT_ACTION = 'tool-grant-approval-waiver';
 
     /**
      * OpenRegister register slug that holds Hermiq objects.
@@ -149,13 +163,14 @@ class ToolOversightController extends Controller
      * @NoCSRFRequired
      *
      * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#api-design
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity) Access guards plus per-descriptor
      *   shaping (id fallback, write classification, grant annotation) each add a
      *   branch on one linear catalog-build path.
-     * @SuppressWarnings(PHPMD.StaticAccess)         ToolGrantResolver::isWriteOrDestructive()
-     *   is a pure static classification predicate — the same one the engine's tool
-     *   loop uses, called statically by design.
+     * @SuppressWarnings(PHPMD.StaticAccess)         ToolGrantResolver and ToolReachResolver
+     *   are pure static classification predicates — the same ones the engine's tool
+     *   loop uses, called statically by design so the two cannot drift.
      */
     public function toolCatalog(string $agentId): JSONResponse
     {
@@ -186,7 +201,21 @@ class ToolOversightController extends Controller
                     continue;
                 }
 
-                $isWrite = ToolGrantResolver::isWriteOrDestructive(id: $id);
+                // 🔴 The descriptor is threaded through here. It was not before:
+                // this call was id-only, so every 2-segment native id fell to
+                // the fail-closed rule and the oversight UI showed `listFiles`
+                // and `readFile` as WRITE tools — the exact opposite of what
+                // their descriptors declare, and of what the engine's resolver
+                // concluded about the same tools three lines above. An operator
+                // deciding what to grant was reading a classification the
+                // runtime did not share.
+                $hints = null;
+                if (is_array($descriptor) === true) {
+                    $hints = $descriptor;
+                }
+
+                $isWrite = ToolGrantResolver::isWriteOrDestructive(id: $id, descriptor: $hints);
+                $reach   = ToolReachResolver::resolve(toolId: $id, descriptor: $hints);
                 $granted = isset($resolvedSet[$id]);
 
                 $scope = 'read';
@@ -199,10 +228,16 @@ class ToolOversightController extends Controller
                     'name'                  => (string) ($descriptor['name'] ?? $id),
                     'description'           => (string) ($descriptor['description'] ?? ''),
                     'scope'                 => $scope,
+                    'reach'                 => $reach,
                     'destructiveHint'       => $isWrite,
                     'granted'               => $granted,
                     'grantedBy'             => $this->grantedBy(id: $id, grants: $grants, granted: $granted),
-                    'requiresExplicitGrant' => ($isWrite === true && $granted === false),
+                    // The UNION, not `$isWrite` — a read-scoped tool whose reach
+                    // is `instance` or beyond needs naming just as explicitly.
+                    'requiresExplicitGrant' => (
+                        ToolGrantResolver::requiresGrant(id: $id, descriptor: $hints) === true
+                        && $granted === false
+                    ),
                 ];
             }//end foreach
 
@@ -281,6 +316,12 @@ class ToolOversightController extends Controller
             }
         }
 
+        // Read the PREVIOUS waiver set before the write, so the audit can say
+        // which waivers were added and which removed rather than only what the
+        // list now holds. Diffing after the save would compare the new list with
+        // itself and report every change as a no-op.
+        $waiversBefore = $this->waiverEntries(grants: ($agent->getObject()['tools'] ?? []));
+
         try {
             $payload = array_merge($agent->getObject(), ['tools' => $grants]);
             $updated = $this->objectService->saveObject(
@@ -288,6 +329,13 @@ class ToolOversightController extends Controller
                 register: self::REGISTER_SLUG,
                 schema: self::AGENT_SCHEMA,
                 uuid: $agentId
+            );
+
+            $this->auditWaiverChange(
+                agent: $updated,
+                before: $waiversBefore,
+                after: $this->waiverEntries(grants: $grants),
+                actor: $user->getUID()
             );
 
             return new JSONResponse(
@@ -307,6 +355,93 @@ class ToolOversightController extends Controller
         }//end try
 
     }//end updateToolGrants()
+
+    /**
+     * The grant entries in a list that carry a `#noapproval` fragment.
+     *
+     * @param mixed $grants The stored `tools` value — typed loosely because it
+     *                      crosses the OpenRegister object boundary.
+     *
+     * @return array<int, string> The waived entries, verbatim.
+     */
+    private function waiverEntries(mixed $grants): array
+    {
+        if (is_array($grants) === false) {
+            return [];
+        }
+
+        $waived = [];
+        foreach ($grants as $grant) {
+            if (is_string($grant) === true && str_ends_with($grant, ToolGrantResolver::WAIVER_FRAGMENT) === true) {
+                $waived[] = $grant;
+            }
+        }
+
+        return $waived;
+
+    }//end waiverEntries()
+
+    /**
+     * Record adding or removing an approval waiver as its OWN audit event.
+     *
+     * 🔴 Why this is not folded into the ordinary grant-change record. Waiving
+     * approval is the one grant edit that removes a human from the loop, and it
+     * is invisible in a diff of the tool list: `hermiq.sendMail` and
+     * `hermiq.sendMail#noapproval` are one string apart and sort next to each
+     * other. An auditor scanning grant changes for "what did this agent gain"
+     * would read the second as the first. A distinct action name is what makes
+     * the question "when did anyone turn off approval, and who" answerable
+     * without re-parsing every historical grant list.
+     *
+     * Both directions are recorded. Re-enabling approval is the safe change, but
+     * an audit trail that only ever logs the dangerous direction cannot show
+     * that a waiver was temporary — and "it was on for two hours during the
+     * incident" is exactly what an auditor needs to establish.
+     *
+     * An ordinary grant change writes NOTHING here, so the presence of one of
+     * these entries always means a waiver actually moved.
+     *
+     * Never throws: an audit write failing must not turn a successful,
+     * authorised grant update into a 500 the owner cannot act on. The failure is
+     * logged at warning level with the agent it concerns.
+     *
+     * @param ObjectEntity       $agent  The saved agent.
+     * @param array<int, string> $before Waived entries before the write.
+     * @param array<int, string> $after  Waived entries after the write.
+     * @param string             $actor  The acting (owner) UID.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
+     */
+    private function auditWaiverChange(ObjectEntity $agent, array $before, array $after, string $actor): void
+    {
+        $added   = array_values(array_diff($after, $before));
+        $removed = array_values(array_diff($before, $after));
+
+        if ($added === [] && $removed === []) {
+            return;
+        }
+
+        try {
+            $this->auditTrailMapper->createAuditTrailEntry(
+                object: $agent,
+                action: self::WAIVER_AUDIT_ACTION,
+                context: [
+                    'added'   => $added,
+                    'removed' => $removed,
+                    'actor'   => $actor,
+                    'at'      => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+                ]
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Hermiq could not write approval-waiver audit for '.((string) $agent->getUuid()).': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+    }//end auditWaiverChange()
 
     /**
      * The per-agent oversight read (EU AI Act art.12/14): recorded tool

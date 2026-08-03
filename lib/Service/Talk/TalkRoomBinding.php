@@ -63,6 +63,22 @@ class TalkRoomBinding
     private const CONVERSATION_SCHEMA = 'conversation';
 
     /**
+     * `talkRoomOrigin` for a room Hermiq created for a session.
+     *
+     * @var string
+     */
+    public const ORIGIN_CREATED = 'created';
+
+    /**
+     * `talkRoomOrigin` for a room Hermiq was invited into or delivered a report
+     * into. Also the meaning of an ABSENT value, which is why nothing needed
+     * backfilling when the property was introduced.
+     *
+     * @var string
+     */
+    public const ORIGIN_BOUND = 'bound';
+
+    /**
      * Constructor.
      *
      * @param ObjectService   $objectService OpenRegister object read/write.
@@ -127,6 +143,38 @@ class TalkRoomBinding
         }//end try
 
     }//end findByRoomToken()
+
+    /**
+     * Whether Hermiq created this room for a session, rather than being invited into it.
+     *
+     * 🔴 Read from stored data, never inferred from the room's current shape.
+     * The value decides whether the agent answers messages it was not addressed
+     * in, so a heuristic ("the room has just the owner and one bot") would
+     * silently flip that the moment somebody invites a second person.
+     *
+     * Absent, unreadable, or no bound conversation all mean `bound` — the
+     * pre-change behaviour, which keeps the mention gate ON. Failing closed
+     * matters here: the wrong default would make an agent start answering every
+     * message in somebody else's team room.
+     *
+     * @param string $roomToken The Talk room token.
+     *
+     * @return bool True when Hermiq created the room.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
+     */
+    public function isCreatedRoom(string $roomToken): bool
+    {
+        $conversation = $this->findByRoomToken(roomToken: $roomToken);
+        if (($conversation instanceof ObjectEntity) === false) {
+            return false;
+        }
+
+        $data = $conversation->getObject();
+
+        return ((string) ($data['talkRoomOrigin'] ?? '') === self::ORIGIN_CREATED);
+
+    }//end isCreatedRoom()
 
     /**
      * Record the room binding on an existing conversation.
@@ -240,6 +288,99 @@ class TalkRoomBinding
      * @return ObjectEntity|null The created conversation, or null on failure.
      *
      * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+     */
+
+    /**
+     * Bring a bound session's roster up to date with the room's membership.
+     *
+     * 🔴 This is what lets somebody INVITED to a session room afterwards take a
+     * turn. Authorization reads the STORED roster and deliberately never live
+     * room membership (talk-shared-sessions), so without this a late joiner is
+     * a room member who is not on the list, and their first message is refused.
+     *
+     * Additive within the room's membership: the owner is implicit and stays
+     * off the list, bots are excluded, and a user who has LEFT the room drops
+     * off the roster by the same path — which is the point, since the roster is
+     * the permission.
+     *
+     * Returns the session unchanged when nothing moved, so the common case
+     * costs a comparison rather than a write. Never throws: a sync failure must
+     * not cost the turn that triggered it.
+     *
+     * @param ObjectEntity $conversation The bound session.
+     * @param array        $participants Current room member uids.
+     *
+     * @return ObjectEntity The session, with its roster updated when it changed.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-room-participants-become-session-participants
+     */
+    public function syncParticipants(ObjectEntity $conversation, array $participants): ObjectEntity
+    {
+        try {
+            $payload = $conversation->getObject();
+            $owner   = (string) ($payload['userId'] ?? '');
+
+            $roster = [];
+            foreach ($participants as $participant) {
+                if (is_string($participant) === true && $participant !== '' && $participant !== $owner) {
+                    $roster[] = $participant;
+                }
+            }
+
+            $roster  = array_values(array_unique($roster));
+            $current = array_values((array) ($payload['participants'] ?? []));
+            sort($roster);
+            sort($current);
+
+            if ($roster === $current) {
+                return $conversation;
+            }
+
+            // SaveObject is PUT-semantic: carry the whole payload forward, or
+            // the fields not mentioned here are deleted.
+            $payload['participants'] = $roster;
+
+            return $this->objectService->saveObject(
+                object: $payload,
+                register: self::REGISTER_SLUG,
+                schema: self::CONVERSATION_SCHEMA,
+                uuid: (string) $conversation->getUuid()
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                message: '[TalkRoomBinding] Could not sync the session roster (the turn is unaffected)',
+                context: [
+                    'file'         => __FILE__,
+                    'line'         => __LINE__,
+                    'conversation' => (string) $conversation->getUuid(),
+                    'error'        => $e->getMessage(),
+                ]
+            );
+            return $conversation;
+        }//end try
+
+    }//end syncParticipants()
+
+    /**
+     * Create the conversation object bound to a room Hermiq just created.
+     *
+     * The binding records `origin: created`, which is what later tells
+     * `isAddressed()` to answer freely in this room rather than waiting to be
+     * mentioned. That origin is STORED here, never inferred later from the
+     * room's shape — inferring it would silently flip the agent's behaviour the
+     * moment somebody invited a second participant.
+     *
+     * The owner is excluded from the participant roster: they are the room's
+     * owner, not one of the people invited into it.
+     *
+     * @param string             $roomToken    The Talk room token.
+     * @param string             $agentId      The agent bound to this room.
+     * @param string             $ownerUid     The session owner's uid.
+     * @param array<int, string> $participants Additional invited uids.
+     *
+     * @return ObjectEntity|null The stored conversation, or null when it could not be written.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-creating-a-chat-session-creates-and-owns-its-talk-room
      */
     public function createBound(string $roomToken, string $agentId, string $ownerUid, array $participants=[]): ?ObjectEntity
     {

@@ -164,4 +164,168 @@ class SkillSerializerTest extends TestCase
         $this->assertSame("body line\n", $parsed['body']);
 
     }//end testCrlfNormalisesToLf()
+
+    /**
+     * Directory form round-trips frontmatter, body AND auxiliary files.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+     */
+    public function testDirectoryFormRoundTripsAuxiliaryFiles(): void
+    {
+        $serializer = new SkillSerializer();
+
+        $skill = [
+            'frontmatter' => "name: Create PR\ndescription: Open a PR with local checks",
+            'body'        => "Follow the checklist in references/local-checks.md\n",
+            'files'       => [
+                ['name' => 'references/local-checks.md', 'content' => "1. composer check:strict\n"],
+                ['name' => 'learnings.md', 'content' => "- 2026-07-31: CI differs from the container\n"],
+            ],
+        ];
+
+        $package  = $serializer->toPackageFiles(skill: $skill);
+        $reparsed = $serializer->fromPackageFiles(files: $package);
+
+        $this->assertSame($skill['frontmatter'], $reparsed['frontmatter']);
+        $this->assertSame($skill['body'], $reparsed['body']);
+        $this->assertCount(2, $reparsed['files']);
+
+        $byName = array_column($reparsed['files'], 'content', 'name');
+        $this->assertSame("1. composer check:strict\n", $byName['references/local-checks.md']);
+        $this->assertSame("- 2026-07-31: CI differs from the container\n", $byName['learnings.md']);
+
+    }//end testDirectoryFormRoundTripsAuxiliaryFiles()
+
+    /**
+     * A package with only SKILL.md parses to an empty files array — the
+     * back-compatible single-file path.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-a-multi-file-skill-survives-the-install-round-trip-intact
+     */
+    public function testDirectoryFormWithOnlySkillFileYieldsNoAuxFiles(): void
+    {
+        $serializer = new SkillSerializer();
+
+        $parsed = $serializer->fromPackageFiles(
+            files: [SkillSerializer::SKILL_FILE => "---\nname: Solo\n---\njust a body\n"]
+        );
+
+        $this->assertSame('name: Solo', $parsed['frontmatter']);
+        $this->assertSame("just a body\n", $parsed['body']);
+        $this->assertSame([], $parsed['files']);
+
+    }//end testDirectoryFormWithOnlySkillFileYieldsNoAuxFiles()
+
+    /**
+     * Unsafe auxiliary paths are dropped, never sanitised — and a package whose
+     * every auxiliary entry is unsafe still yields its body.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+     */
+    public function testUnsafeAuxiliaryPathsAreRejectedNotSanitised(): void
+    {
+        $serializer = new SkillSerializer();
+
+        $parsed = $serializer->fromPackageFiles(
+            files: [
+                SkillSerializer::SKILL_FILE => "---\nname: Crafted\n---\nbody\n",
+                '../../etc/passwd'          => 'root:x:0:0',
+                '/etc/shadow'               => 'secret',
+                'refs/../../x.md'           => 'escape',
+                'bad\\windows.md'           => 'backslash',
+                './relative.md'             => 'dot segment',
+                ''                          => 'empty name',
+                'references/ok.md'          => "safe\n",
+            ]
+        );
+
+        $names = array_column($parsed['files'], 'name');
+
+        $this->assertSame(['references/ok.md'], $names, 'Only the safe nested path survives.');
+        $this->assertNotContains('etc/passwd', $names);
+        $this->assertSame("body\n", $parsed['body'], 'A bad aux path must not deny the valid body.');
+
+    }//end testUnsafeAuxiliaryPathsAreRejectedNotSanitised()
+
+    /**
+     * Every auxiliary entry unsafe still installs the body with an empty files set.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+     */
+    public function testAllUnsafePathsStillYieldsValidBody(): void
+    {
+        $serializer = new SkillSerializer();
+
+        $parsed = $serializer->fromPackageFiles(
+            files: [
+                SkillSerializer::SKILL_FILE => "---\nname: OnlyBad\n---\nstill valid\n",
+                '../a.md'                   => 'x',
+                '/b.md'                     => 'y',
+            ]
+        );
+
+        $this->assertSame([], $parsed['files']);
+        $this->assertSame("still valid\n", $parsed['body']);
+        $this->assertSame('OnlyBad', $parsed['name']);
+
+    }//end testAllUnsafePathsStillYieldsValidBody()
+
+    /**
+     * Nested paths within bounds are accepted with the separator preserved, and an
+     * over-long path is rejected.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+     */
+    public function testPathSafetyBoundaries(): void
+    {
+        $serializer = new SkillSerializer();
+
+        $this->assertTrue($serializer->isSafeAuxPath(path: 'references/persona.md'));
+        $this->assertTrue($serializer->isSafeAuxPath(path: 'evals/workspace/iteration-1/benchmark.json'));
+        $this->assertTrue($serializer->isSafeAuxPath(path: str_repeat('a', 200)));
+
+        $this->assertFalse($serializer->isSafeAuxPath(path: str_repeat('a', 201)));
+        $this->assertFalse($serializer->isSafeAuxPath(path: ''));
+        $this->assertFalse($serializer->isSafeAuxPath(path: '/abs.md'));
+        $this->assertFalse($serializer->isSafeAuxPath(path: 'a//b.md'));
+        $this->assertFalse($serializer->isSafeAuxPath(path: 'a/../b.md'));
+
+    }//end testPathSafetyBoundaries()
+
+    /**
+     * toPackageFiles drops an auxiliary entry that would collide with SKILL.md, so a
+     * crafted skill cannot overwrite its own frontmatter block through the files set.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/skill-package-multifile/specs/skills-marketplace/spec.md#requirement-auxiliary-file-paths-are-validated-on-install
+     */
+    public function testAuxiliaryEntryCannotOverwriteSkillFile(): void
+    {
+        $serializer = new SkillSerializer();
+
+        $package = $serializer->toPackageFiles(
+            skill: [
+                'frontmatter' => 'name: Real',
+                'body'        => "real body\n",
+                'files'       => [
+                    ['name' => SkillSerializer::SKILL_FILE, 'content' => 'HIJACKED'],
+                ],
+            ]
+        );
+
+        $this->assertStringContainsString('real body', $package[SkillSerializer::SKILL_FILE]);
+        $this->assertStringNotContainsString('HIJACKED', $package[SkillSerializer::SKILL_FILE]);
+
+    }//end testAuxiliaryEntryCannotOverwriteSkillFile()
 }//end class

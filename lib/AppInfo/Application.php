@@ -27,6 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
+use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\GraphRunRequestedListener;
 use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
@@ -120,6 +121,15 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(event: ObjectCreatedEvent::class, listener: GraphRunRequestedListener::class);
         $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: GraphRunRequestedListener::class);
         $context->registerEventListener(event: ObjectDeletedEvent::class, listener: GraphRunRequestedListener::class);
+
+        // Each Talk-enabled agent carries its own Talk bot, because the bot
+        // record is the ONLY carrier of the name Talk displays (talk-agent-sessions).
+        // Hooked on the object lifecycle rather than a controller: agents are
+        // written straight through OpenRegister's API (ADR-022), so this is the
+        // only place that sees every write, including ones made from OR's own UI.
+        $context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);
+        $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentBotLifecycleListener::class);
+        $context->registerEventListener(event: ObjectDeletedEvent::class, listener: AgentBotLifecycleListener::class);
 
         // Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
         // contributes the agent step as a flow node, and a resolver so OR's engine
