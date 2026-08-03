@@ -7,6 +7,38 @@ on:
     branches: [main, master, development, beta]
   workflow_dispatch:
 
+concurrency:
+  group: quality-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+# Permissions for the called quality pipeline. A reusable workflow can never
+# hold MORE than its caller grants, so this block is a CEILING, not a request:
+# any job in ConductionNL/.github's quality.yml that declares a permission
+# missing here makes the whole run fail at STARTUP.
+#
+# 🔴 That failure mode is why this comment is long. A startup failure produces
+# ZERO jobs, so `gh pr checks` lists nothing for Code Quality and the PR reads
+# as green — a dead gate and a passing gate are indistinguishable from the
+# outside. hermiq had NO permissions block at all, and when the shared
+# quality.yml started requiring one (2026-08-03) every Code Quality run on
+# development began aborting at startup with zero jobs, silently.
+#
+# `contents: write` and `actions: write` are needed because three jobs in the
+# shared pipeline COMMIT BACK to the repository rather than only reading it:
+#   - `update-baseline`    — writes the coverage baseline
+#   - `features-extract`   — writes features.json
+#   - `journeydoc-capture` — writes captured journey docs (also `actions: write`)
+# hermiq additionally runs `enable-sbom: true`, which commits the SBOM.
+#
+# Before narrowing any line here, disable the jobs that need it FIRST, and
+# confirm the run still produces jobs — not merely that it stopped failing.
+permissions:
+  contents: write
+  actions: write
+  issues: write
+  pull-requests: write
+
+
 jobs:
   quality:
     uses: ConductionNL/.github/.github/workflows/quality.yml@main
