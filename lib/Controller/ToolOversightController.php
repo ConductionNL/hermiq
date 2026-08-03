@@ -36,6 +36,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Controller;
 
+use DateTimeImmutable;
+use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolReachResolver;
@@ -70,6 +72,17 @@ use Throwable;
  */
 class ToolOversightController extends Controller
 {
+
+    /**
+     * AuditTrail action recorded when an approval waiver is added or removed.
+     *
+     * Its OWN action, never folded into a general grant-change record: this is
+     * the one grant edit that takes a human out of the loop, and it is a single
+     * fragment away from the un-waived entry in any textual diff.
+     *
+     * @var string
+     */
+    public const WAIVER_AUDIT_ACTION = 'tool-grant-approval-waiver';
 
     /**
      * OpenRegister register slug that holds Hermiq objects.
@@ -303,6 +316,12 @@ class ToolOversightController extends Controller
             }
         }
 
+        // Read the PREVIOUS waiver set before the write, so the audit can say
+        // which waivers were added and which removed rather than only what the
+        // list now holds. Diffing after the save would compare the new list with
+        // itself and report every change as a no-op.
+        $waiversBefore = $this->waiverEntries(grants: ($agent->getObject()['tools'] ?? []));
+
         try {
             $payload = array_merge($agent->getObject(), ['tools' => $grants]);
             $updated = $this->objectService->saveObject(
@@ -310,6 +329,13 @@ class ToolOversightController extends Controller
                 register: self::REGISTER_SLUG,
                 schema: self::AGENT_SCHEMA,
                 uuid: $agentId
+            );
+
+            $this->auditWaiverChange(
+                agent: $updated,
+                before: $waiversBefore,
+                after: $this->waiverEntries(grants: $grants),
+                actor: $user->getUID()
             );
 
             return new JSONResponse(
@@ -329,6 +355,93 @@ class ToolOversightController extends Controller
         }//end try
 
     }//end updateToolGrants()
+
+    /**
+     * The grant entries in a list that carry a `#noapproval` fragment.
+     *
+     * @param mixed $grants The stored `tools` value — typed loosely because it
+     *                      crosses the OpenRegister object boundary.
+     *
+     * @return array<int, string> The waived entries, verbatim.
+     */
+    private function waiverEntries(mixed $grants): array
+    {
+        if (is_array($grants) === false) {
+            return [];
+        }
+
+        $waived = [];
+        foreach ($grants as $grant) {
+            if (is_string($grant) === true && str_ends_with($grant, ToolGrantResolver::WAIVER_FRAGMENT) === true) {
+                $waived[] = $grant;
+            }
+        }
+
+        return $waived;
+
+    }//end waiverEntries()
+
+    /**
+     * Record adding or removing an approval waiver as its OWN audit event.
+     *
+     * 🔴 Why this is not folded into the ordinary grant-change record. Waiving
+     * approval is the one grant edit that removes a human from the loop, and it
+     * is invisible in a diff of the tool list: `hermiq.sendMail` and
+     * `hermiq.sendMail#noapproval` are one string apart and sort next to each
+     * other. An auditor scanning grant changes for "what did this agent gain"
+     * would read the second as the first. A distinct action name is what makes
+     * the question "when did anyone turn off approval, and who" answerable
+     * without re-parsing every historical grant list.
+     *
+     * Both directions are recorded. Re-enabling approval is the safe change, but
+     * an audit trail that only ever logs the dangerous direction cannot show
+     * that a waiver was temporary — and "it was on for two hours during the
+     * incident" is exactly what an auditor needs to establish.
+     *
+     * An ordinary grant change writes NOTHING here, so the presence of one of
+     * these entries always means a waiver actually moved.
+     *
+     * Never throws: an audit write failing must not turn a successful,
+     * authorised grant update into a 500 the owner cannot act on. The failure is
+     * logged at warning level with the agent it concerns.
+     *
+     * @param ObjectEntity       $agent  The saved agent.
+     * @param array<int, string> $before Waived entries before the write.
+     * @param array<int, string> $after  Waived entries after the write.
+     * @param string             $actor  The acting (owner) UID.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-waiving-approval-is-recorded-as-a-distinct-audited-event
+     */
+    private function auditWaiverChange(ObjectEntity $agent, array $before, array $after, string $actor): void
+    {
+        $added   = array_values(array_diff($after, $before));
+        $removed = array_values(array_diff($before, $after));
+
+        if ($added === [] && $removed === []) {
+            return;
+        }
+
+        try {
+            $this->auditTrailMapper->createAuditTrailEntry(
+                object: $agent,
+                action: self::WAIVER_AUDIT_ACTION,
+                context: [
+                    'added'   => $added,
+                    'removed' => $removed,
+                    'actor'   => $actor,
+                    'at'      => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c'),
+                ]
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                'Hermiq could not write approval-waiver audit for '.((string) $agent->getUuid()).': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+        }
+
+    }//end auditWaiverChange()
 
     /**
      * The per-agent oversight read (EU AI Act art.12/14): recorded tool

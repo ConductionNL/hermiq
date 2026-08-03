@@ -608,4 +608,230 @@ class ToolGrantResolverTest extends TestCase
         );
 
     }//end testResolvesToNothingIsFalseWhenToolsResolved()
+
+    /**
+     * 🔴 The split-order test, with the exact failure string spelled out.
+     *
+     * Splitting on `?` before stripping `#noapproval` yields a closed set whose
+     * last member is `b@example.com#noapproval` — a value no real argument can
+     * ever equal. The grant would not error; it would silently become
+     * unsatisfiable, so the owner who added a waiver to widen their agent's
+     * autonomy would have narrowed it to nothing instead, and the tool would
+     * fail with `grant_constraint_violated` on a value that is plainly in the
+     * list they wrote.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-waiver-on-an-argument-scoped-grant-does-not-corrupt-the-constraint
+     */
+    public function testAWaiverOnAnArgumentScopedGrantDoesNotCorruptTheConstraint(): void
+    {
+        $resolver = new ToolGrantResolver();
+        $grants   = ['hermiq.sendMail?to=in:a@example.com,b@example.com'.ToolGrantResolver::WAIVER_FRAGMENT];
+
+        $constraints = $resolver->argumentConstraints(grants: $grants);
+
+        $this->assertSame(
+            ['a@example.com', 'b@example.com'],
+            $constraints['hermiq.sendMail'][0]['to']['values'],
+            'The fragment must be stripped BEFORE the ? split, or the last set member absorbs it.'
+        );
+
+        foreach ($constraints['hermiq.sendMail'][0]['to']['values'] as $value) {
+            $this->assertStringNotContainsString('noapproval', $value);
+        }
+
+        // And the base id is clean, so the grant still names a real tool.
+        $this->assertSame(['hermiq.sendMail'], $resolver->baseToolIds(grants: $grants));
+
+    }//end testAWaiverOnAnArgumentScopedGrantDoesNotCorruptTheConstraint()
+
+    /**
+     * A waiver on a bare exact-id grant still resolves to the tool itself.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-waiver-on-a-bare-exact-id-grant-still-resolves-to-the-tool
+     */
+    public function testAWaiverOnABareGrantStillResolvesToTheTool(): void
+    {
+        $resolver = new ToolGrantResolver();
+        $resolved = $resolver->resolve(
+            grants: ['hermiq.sendMail'.ToolGrantResolver::WAIVER_FRAGMENT],
+            catalog: [['name' => 'hermiq_sendMail', 'mcpId' => 'hermiq.sendMail']]
+        );
+
+        $this->assertSame(['hermiq.sendMail'], $resolved);
+        foreach ($resolved as $id) {
+            $this->assertStringNotContainsString('noapproval', $id);
+        }
+
+    }//end testAWaiverOnABareGrantStillResolvesToTheTool()
+
+    /**
+     * 🔴 Every stored grant list must parse byte-for-byte as it did before.
+     *
+     * `Agent.tools` is persisted `string[]`, so a parser change is a change to
+     * the meaning of data already on disk. This drives the pre-existing grant
+     * FORMS through the post-change parser and pins the output, which is the
+     * only way to show the fragment support is additive rather than a migration
+     * nobody wrote.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-an-existing-grant-list-parses-unchanged
+     */
+    public function testAnExistingGrantListParsesUnchanged(): void
+    {
+        $resolver = new ToolGrantResolver();
+        $grants   = [
+            'hermiq.sendMail',
+            'pipelinq.lead.*',
+            'pipelinq.lead.*:write',
+            'openregister.runFlow?flowId=A&label=x',
+            'openregister.runFlow?flowId=B',
+            'hermiq.readFile?path=in:/a,/b',
+            'hermiq.readFile',
+            'hermiq.searchTools?',
+        ];
+
+        $this->assertSame(
+            [
+                'hermiq.sendMail',
+                'pipelinq.lead.*',
+                'pipelinq.lead.*:write',
+                'openregister.runFlow',
+                'hermiq.readFile',
+                'hermiq.searchTools',
+            ],
+            $resolver->baseToolIds(grants: $grants)
+        );
+
+        $constraints = $resolver->argumentConstraints(grants: $grants);
+        $this->assertSame(['openregister.runFlow', 'hermiq.readFile'], array_keys($constraints));
+        $this->assertSame('A', $constraints['openregister.runFlow'][0]['flowId']['values'][0]);
+        $this->assertSame('x', $constraints['openregister.runFlow'][0]['label']['values'][0]);
+        // Two constrained entries for one tool stay SEPARATE alternatives, which
+        // is what keeps (A,x) and (B) from merging into a wider grant.
+        $this->assertSame('B', $constraints['openregister.runFlow'][1]['flowId']['values'][0]);
+        $this->assertArrayNotHasKey('label', $constraints['openregister.runFlow'][1]);
+        $this->assertSame(['/a', '/b'], $constraints['hermiq.readFile'][0]['path']['values']);
+        $this->assertSame([], $constraints['hermiq.readFile'][1], 'A bare sibling grant contributes an empty set.');
+        $this->assertTrue($resolver->hasWildcardGrant(grants: $grants));
+
+        // Nothing in this list is waived — the whole point of "unchanged".
+        $this->assertSame([], $resolver->waivedConstraintSets(grants: $grants));
+
+    }//end testAnExistingGrantListParsesUnchanged()
+
+    /**
+     * 🔴 A near-miss fragment is NOT a waiver.
+     *
+     * `#noapprovals`, `#noapproval-please` and a mid-string occurrence all stay
+     * part of the id. That id then matches no catalogue tool, so the grant
+     * quietly grants nothing — the safe direction. The dangerous reading would
+     * be to treat any `#noapproval`-ish text as intent and hand the model
+     * unattended use of the tool the owner fumbled the syntax for.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-a-grant-may-carry-a-noapproval-waiver-fragment-parsed-before-any-other-grant-parsing
+     */
+    public function testANearMissFragmentIsNotAWaiver(): void
+    {
+        $resolver = new ToolGrantResolver();
+
+        foreach (['hermiq.sendMail#noapprovals', 'hermiq.sendMail#noapproval-please', 'hermiq.send#noapprovalMail'] as $grant) {
+            $this->assertSame(
+                [],
+                $resolver->waivedConstraintSets(grants: [$grant]),
+                $grant.' must NOT be read as a waiver.'
+            );
+        }
+
+        // Case matters too — the vocabulary is closed, not fuzzy.
+        $this->assertSame([], $resolver->waivedConstraintSets(grants: ['hermiq.sendMail#NoApproval']));
+
+    }//end testANearMissFragmentIsNotAWaiver()
+
+    /**
+     * 🔴 A waiver is per ENTRY. One narrow waiver must not cover a sibling grant
+     * for the same tool.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
+     */
+    public function testAWaiverCoversOnlyItsOwnEntryNotEveryGrantForTheTool(): void
+    {
+        $resolver = new ToolGrantResolver();
+        $waived   = $resolver->waivedConstraintSets(
+            grants: [
+                'openregister.runFlow?flowId=A'.ToolGrantResolver::WAIVER_FRAGMENT,
+                'openregister.runFlow?flowId=B',
+            ]
+        );
+
+        $this->assertTrue(
+            ToolGrantResolver::waives($waived, 'openregister.runFlow', ['flowId' => 'A']),
+            'The waived entry covers its own flow.'
+        );
+        $this->assertFalse(
+            ToolGrantResolver::waives($waived, 'openregister.runFlow', ['flowId' => 'B']),
+            'Flow B is granted and conforming, but it was never waived — it still meets a human.'
+        );
+
+    }//end testAWaiverCoversOnlyItsOwnEntryNotEveryGrantForTheTool()
+
+    /**
+     * 🔴 The absent-tool guard: a tool with NO waiver must never come back waived.
+     *
+     * `violationFor()` returns null for an empty alternatives list, meaning
+     * "conforms". Read through `waives()` that same null would mean "waived", so
+     * without the guard EVERY tool would be waived and the fragment would be the
+     * default rather than an opt-in. This is the single most dangerous line in
+     * the waiver path, so it gets its own test.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-waiver-does-not-make-an-ungranted-tool-runnable
+     */
+    public function testAnUnwaivedToolIsNeverReportedAsWaived(): void
+    {
+        $resolver = new ToolGrantResolver();
+        $waived   = $resolver->waivedConstraintSets(grants: ['hermiq.readFile'.ToolGrantResolver::WAIVER_FRAGMENT]);
+
+        $this->assertFalse(
+            ToolGrantResolver::waives($waived, 'hermiq.sendMail', []),
+            'A tool no waiver names must not inherit one.'
+        );
+        $this->assertFalse(
+            ToolGrantResolver::waives([], 'hermiq.sendMail', []),
+            'An empty waiver map must waive nothing at all.'
+        );
+
+        // Positive control: the tool that WAS waived still is, so the two
+        // assertions above are not passing because the whole path is inert.
+        $this->assertTrue(ToolGrantResolver::waives($waived, 'hermiq.readFile', []));
+
+    }//end testAnUnwaivedToolIsNeverReportedAsWaived()
+
+    /**
+     * A waived WILDCARD is refused — it would cover ids added to the catalogue
+     * after the owner wrote the grant.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
+     */
+    public function testAWaivedWildcardIsRefused(): void
+    {
+        $resolver = new ToolGrantResolver();
+
+        $this->assertSame(
+            [],
+            $resolver->waivedConstraintSets(grants: ['pipelinq.lead.*:write'.ToolGrantResolver::WAIVER_FRAGMENT])
+        );
+
+    }//end testAWaivedWildcardIsRefused()
 }//end class
