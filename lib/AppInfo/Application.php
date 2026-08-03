@@ -112,13 +112,6 @@ class Application extends App implements IBootstrap
             listener: AgentRunRequestedListener::class
         );
 
-        // Agent-graph ingress is GONE. hermiq used to listen to OpenRegister's
-        // object lifecycle itself and walk matching `agentflow` graphs through
-        // its own executor — a second engine, whose node vocabulary had drifted
-        // from the catalogue its own builder offered, so a graph authored from
-        // the palette silently executed nothing. Flows now live in OpenRegister's
-        // one store and OpenRegister's own trigger path queues them.
-
         // Each Talk-enabled agent carries its own Talk bot, because the bot
         // record is the ONLY carrier of the name Talk displays (talk-agent-sessions).
         // Hooked on the object lifecycle rather than a controller: agents are
@@ -127,7 +120,6 @@ class Application extends App implements IBootstrap
         $context->registerEventListener(event: ObjectCreatedEvent::class, listener: AgentBotLifecycleListener::class);
         $context->registerEventListener(event: ObjectUpdatedEvent::class, listener: AgentBotLifecycleListener::class);
         $context->registerEventListener(event: ObjectDeletedEvent::class, listener: AgentBotLifecycleListener::class);
-
 
         // Consume OpenRegister's flow engine (ADR-022/ADR-065, hermiq#35): hermiq
         // contributes the agent step as a flow NODE, and nothing else. Flows now

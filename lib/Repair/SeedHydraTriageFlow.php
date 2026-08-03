@@ -72,6 +72,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use DateTime;
+use OCA\Hermiq\AppInfo\Application;
 
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Flow;
