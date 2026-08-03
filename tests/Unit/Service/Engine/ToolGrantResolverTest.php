@@ -199,21 +199,33 @@ class ToolGrantResolverTest extends TestCase
 
     /**
      * An empty `Agent.tools` resolution classifies each id from its OWN
-     * descriptor's hints FIRST — a curated (2-segment) tool with
+     * descriptor's annotations FIRST — a curated (2-segment) tool with
      * `destructiveHint:true` is stripped even though its shape alone would be
-     * unclassifiable, and a curated tool with `readOnlyHint:true` survives even
-     * though it would otherwise fail closed.
+     * unclassifiable, and a curated tool with `readOnlyHint:true` and a low
+     * `reach` survives even though it would otherwise fail closed.
+     *
+     * 🔴 `pipelinq.createLead` carries NO `reach` and is stripped — but it was
+     * already stripped by its `destructiveHint`, so it proves nothing about the
+     * reach axis on its own. `pipelinq.getLeadSummary` is the row that carries
+     * the weight: it needs BOTH annotations to survive, and dropping either one
+     * fails this test.
      *
      * @return void
      *
      * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-hint-less-curated-tool-fails-closed-to-external
      */
     public function testEmptyGrantsClassifiesCuratedToolsFromHints(): void
     {
         $resolver = new ToolGrantResolver();
         $catalog  = [
             ['name' => 'pipelinq_createLead', 'mcpId' => 'pipelinq.createLead', 'destructiveHint' => true],
-            ['name' => 'pipelinq_getLeadSummary', 'mcpId' => 'pipelinq.getLeadSummary', 'readOnlyHint' => true],
+            [
+                'name'         => 'pipelinq_getLeadSummary',
+                'mcpId'        => 'pipelinq.getLeadSummary',
+                'readOnlyHint' => true,
+                'reach'        => 'user',
+            ],
         ];
 
         $resolved = $resolver->resolve(grants: [], catalog: $catalog);
@@ -222,7 +234,7 @@ class ToolGrantResolverTest extends TestCase
             ['pipelinq.getLeadSummary'],
             $resolved,
             'destructiveHint:true must be stripped even though the id is a curated 2-segment id;'
-            .' readOnlyHint:true must survive.'
+            .' readOnlyHint:true + reach:user must survive.'
         );
 
     }//end testEmptyGrantsClassifiesCuratedToolsFromHints()
@@ -359,7 +371,16 @@ class ToolGrantResolverTest extends TestCase
                 'mcpId' => $descriptor['id'],
             ];
 
-            foreach (['readOnlyHint', 'destructiveHint', 'idempotentHint', 'scope'] as $hintKey) {
+            // 🔴 `reach` is in this list because `McpProviderBridge` forwards it
+            // (its `PASSTHROUGH_KEYS`). This fixture must mirror the bridge KEY
+            // FOR KEY: it is the only place in Hermiq's suite that models the
+            // cross-app boundary the real descriptors cross, and the axis fails
+            // CLOSED, so a key missing here does not read as "unannotated" — it
+            // reads as `external` and empties the resolved catalogue. That is
+            // exactly how the gap was found: this fixture, written before the
+            // bridge forwarded `reach`, correctly reported a live app-wide
+            // outage rather than a fixture bug.
+            foreach (['readOnlyHint', 'destructiveHint', 'idempotentHint', 'scope', 'reach'] as $hintKey) {
                 if (array_key_exists($hintKey, $descriptor) === true) {
                     $entry[$hintKey] = $descriptor[$hintKey];
                 }
@@ -383,9 +404,18 @@ class ToolGrantResolverTest extends TestCase
      * (scope:create) and `forgetMemory` (scope:delete) stay stripped like every
      * other write/destructive-annotated tool.
      *
+     * 🔴 `webSearch` and `webFetch` were on this list and are deliberately no
+     * longer (agent-capability-reach). Both declare `scope: read` and
+     * `readOnlyHint: true` — honestly, they read — and both send something out
+     * of the instance: a query the model composed, or a URL the model chose.
+     * The CRUD axis has no way to say that, which is the entire argument for
+     * the reach axis, and this list is the argument's receipt. They remain
+     * available; they now have to be named.
+     *
      * @return void
      *
      * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-an-egress-read-tool-becomes-gated
      */
     public function testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed(): void
     {
@@ -402,8 +432,6 @@ class ToolGrantResolverTest extends TestCase
                 'hermiq.recallMemory',
                 'hermiq.searchContacts',
                 'hermiq.searchTools',
-                'hermiq.webFetch',
-                'hermiq.webSearch',
             ],
             $resolved,
             'Every readOnlyHint:true/scope:read NC-native tool must be granted by the default-allow'
@@ -416,7 +444,47 @@ class ToolGrantResolverTest extends TestCase
         $this->assertNotContains('hermiq.rememberMemory', $resolved, 'rememberMemory (scope:create) must stay default-denied.');
         $this->assertNotContains('hermiq.forgetMemory', $resolved, 'forgetMemory (scope:delete) must stay default-denied.');
 
+        // 🔴 The positive control for the reach axis, stated as the property
+        // rather than as two more absent ids: these two are stripped WHILE still
+        // classifying read on the CRUD axis. If someone reverts the union in
+        // `requiresGrant()`, the list assertion above fails — but so would a
+        // dozen unrelated edits, and the failure would read as "list drifted".
+        // This says why they are absent, so the failure names the cause.
+        foreach (['hermiq.webSearch', 'hermiq.webFetch'] as $egressTool) {
+            $this->assertNotContains(
+                $egressTool,
+                $resolved,
+                $egressTool.' declares scope:read and readOnlyHint:true, and still egresses. It must be '
+                .'stripped by REACH, not by the CRUD rule — if this fails, the reach clause of '
+                .'ToolGrantResolver::requiresGrant() has stopped composing.'
+            );
+            $this->assertFalse(
+                ToolGrantResolver::isWriteOrDestructive(id: $egressTool, descriptor: $this->descriptorFor(id: $egressTool)),
+                $egressTool.' must still classify NON-write on the CRUD axis — if this flips, the two '
+                .'axes have been conflated and the test above no longer proves anything about reach.'
+            );
+        }
+
     }//end testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed()
+
+    /**
+     * The catalogue descriptor for one hermiq tool id, as the bridge shapes it.
+     *
+     * @param string $id The dotted tool id.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function descriptorFor(string $id): ?array
+    {
+        foreach ($this->hermiqCatalog() as $entry) {
+            if (($entry['mcpId'] ?? null) === $id) {
+                return $entry;
+            }
+        }
+
+        return null;
+
+    }//end descriptorFor()
 
     /**
      * A read-wildcard grant for the hermiq "schema" (`hermiq.*`) expands to the

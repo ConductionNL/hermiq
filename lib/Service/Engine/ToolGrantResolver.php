@@ -656,6 +656,48 @@ class ToolGrantResolver
     }//end isWriteOrDestructive()
 
     /**
+     * Whether a tool needs an EXPLICIT grant — the union of the CRUD rule and
+     * the reach rule.
+     *
+     * 🔴 A UNION, never a replacement. Reach may only ever ADD tools to the
+     * gated set: a `self` reach must not un-gate something the existing
+     * `scope`/`destructiveHint`/`readOnlyHint` classification already calls
+     * write/destructive. Written as `||` with `isWriteOrDestructive()` FIRST so
+     * that the pre-change verdict is structurally impossible to lose — every
+     * tool gated before this change is still gated after it, whatever its reach.
+     *
+     * What the second clause actually adds, in today's catalogue, is
+     * `hermiq.webSearch` and `hermiq.webFetch`: both declare `scope: read` and
+     * `readOnlyHint: true`, so both pass default-deny and land in any wildcard
+     * grant — while the query, or a model-chosen URL, leaves the instance. Those
+     * two now need naming explicitly, which is the point of the axis.
+     *
+     * @param string                   $id         A tool id (the `mcpId`/dotted form).
+     * @param array<string,mixed>|null $descriptor The catalog descriptor for `$id`, when
+     *                                             available. Null falls through to the
+     *                                             fail-closed rules on BOTH axes.
+     *
+     * @return bool
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver` is a pure classification
+     *   function, for the same reason this method is static — see `isWriteOrDestructive()`.
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
+     */
+    public static function requiresGrant(string $id, ?array $descriptor=null): bool
+    {
+        if (self::isWriteOrDestructive(id: $id, descriptor: $descriptor) === true) {
+            return true;
+        }
+
+        return ToolReachResolver::atLeast(
+            reach: ToolReachResolver::resolve(toolId: $id, descriptor: $descriptor),
+            threshold: ToolReachResolver::REACH_INSTANCE
+        );
+
+    }//end requiresGrant()
+
+    /**
      * Classify a descriptor from its declared hint keys only — `scope` first
      * (closed vocabulary), then `destructiveHint`, then `readOnlyHint`; the
      * first key the descriptor actually sets wins.
@@ -755,20 +797,22 @@ class ToolGrantResolver
     }//end schemaVerbIds()
 
     /**
-     * Strip an id list down to those NOT classified write/destructive, using each
-     * id's own descriptor (hints, when set) — see `isWriteOrDestructive()`.
+     * Strip an id list down to those that need NO explicit grant, using each
+     * id's own descriptor (hints and reach, when set) — see `requiresGrant()`.
      *
      * @param array<int, string>                  $ids             Candidate ids.
      * @param array<string, array<string, mixed>> $descriptorsById Every candidate's descriptor, keyed by id.
      *
      * @return array<int, string>
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
      */
     private function applyDefaultDeny(array $ids, array $descriptorsById): array
     {
         $out = [];
         foreach ($ids as $id) {
             $descriptor = ($descriptorsById[$id] ?? null);
-            if (self::isWriteOrDestructive(id: $id, descriptor: $descriptor) === true) {
+            if (self::requiresGrant(id: $id, descriptor: $descriptor) === true) {
                 continue;
             }
 

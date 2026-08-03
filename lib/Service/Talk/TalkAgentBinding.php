@@ -329,6 +329,19 @@ class TalkAgentBinding
 
     }//end isAgentTalkEnabled()
 
+    /**
+     * The agent's display name — the string a user types to mention it.
+     *
+     * Returns an empty string when the agent cannot be loaded, so a caller
+     * building a mention-target list adds nothing rather than a blank entry
+     * that would match every message.
+     *
+     * @param string $agentId The agent UUID.
+     *
+     * @return string The agent's name, or '' when unresolvable.
+     *
+     * @spec openspec/changes/talk-agent-sessions/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-room-it-did-not-create
+     */
     public function agentName(string $agentId): string
     {
         $agent = $this->loadAgent(agentId: $agentId);

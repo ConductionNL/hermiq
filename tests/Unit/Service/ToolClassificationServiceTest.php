@@ -86,9 +86,9 @@ class ToolClassificationServiceTest extends TestCase
     }//end testUnclassifiedCuratedIdDefaultsToSideEffecting()
 
     /**
-     * A curated id WITH a descriptor carrying `readOnlyHint: true` classifies
-     * as NOT side-effecting — the declared hint overrides the fail-closed
-     * default for a hint-less/non-3-segment shape.
+     * A curated id WITH a descriptor carrying `readOnlyHint: true` AND a low
+     * `reach` classifies as NOT side-effecting — the declared annotations
+     * override the fail-closed default for a hint-less/non-3-segment shape.
      *
      * @return void
      */
@@ -96,10 +96,53 @@ class ToolClassificationServiceTest extends TestCase
     {
         $classifier = new ToolClassificationService();
         $this->assertFalse(
-            $classifier->isSideEffecting(id: 'pipelinq.searchLeads', descriptor: ['readOnlyHint' => true])
+            $classifier->isSideEffecting(
+                id: 'pipelinq.searchLeads',
+                descriptor: ['readOnlyHint' => true, 'reach' => 'user']
+            )
         );
 
     }//end testReadOnlyHintOverridesCuratedIdDefault()
+
+    /**
+     * 🔴 `readOnlyHint: true` is NOT sufficient on its own any more.
+     *
+     * Side-effect classification is what decides whether a dry-run invokes a
+     * tool for real, and "reads nothing" was never the same question as "does
+     * nothing". An egress read — a query sent to a search provider, a fetch of a
+     * model-chosen URL — has left the instance by the time it returns, and a
+     * preview that has already leaked is not a preview.
+     *
+     * The two cases differ only in `reach`, so a regression here cannot hide
+     * behind an unrelated hint change.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
+     */
+    public function testAnEgressReadIsSideEffectingDespiteItsReadOnlyHint(): void
+    {
+        $classifier = new ToolClassificationService();
+
+        $this->assertTrue(
+            $classifier->isSideEffecting(
+                id: 'hermiq.webFetch',
+                descriptor: ['readOnlyHint' => true, 'scope' => 'read', 'reach' => 'external']
+            ),
+            'An external-reach tool must be neutralised in a dry-run whatever its read hints say.'
+        );
+
+        // An unannotated reach is treated the same way, so forgetting the
+        // annotation cannot be the thing that makes a preview egress.
+        $this->assertTrue(
+            $classifier->isSideEffecting(
+                id: 'hermiq.pingWebhook',
+                descriptor: ['readOnlyHint' => true, 'scope' => 'read']
+            ),
+            'An absent reach must fail closed here exactly as it does at the grant gate.'
+        );
+
+    }//end testAnEgressReadIsSideEffectingDespiteItsReadOnlyHint()
 
     /**
      * A curated id WITH a descriptor carrying `destructiveHint: true`

@@ -44,6 +44,7 @@ namespace OCA\Hermiq\Tests\Unit\Mcp;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
+use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
@@ -213,6 +214,123 @@ class HermiqToolProviderTest extends TestCase
         $this->assertSame(array_keys($expected), array_keys($seen), 'Every expected tool id must be present exactly once.');
 
     }//end testDescriptorsCarryHonestHintsAndScope()
+
+    /**
+     * 🔴 EVERY descriptor MUST declare a `reach`, so a 15th tool cannot ship
+     * without one.
+     *
+     * This test enumerates rather than spot-checks on purpose. `resolve()` fails
+     * closed to `external` for an undeclared reach, which means a forgotten
+     * annotation does NOT crash and does NOT loosen anything — it silently makes
+     * a harmless tool un-callable without approval. That is a usability
+     * regression nobody would trace back to a missing array key, so the
+     * enumeration is the only thing that catches it at the source.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-every-native-descriptor-declares-a-reach
+     */
+    public function testEveryDescriptorDeclaresItsReach(): void
+    {
+        $expected = [
+            'hermiq.listFiles'          => ToolReachResolver::REACH_USER,
+            'hermiq.readFile'           => ToolReachResolver::REACH_USER,
+            'hermiq.searchContacts'     => ToolReachResolver::REACH_USER,
+            'hermiq.listCalendarEvents' => ToolReachResolver::REACH_USER,
+            'hermiq.sendMail'           => ToolReachResolver::REACH_EXTERNAL,
+            'hermiq.listDeckBoards'     => ToolReachResolver::REACH_USER,
+            'hermiq.searchTools'        => ToolReachResolver::REACH_SELF,
+            'hermiq.recommendCourses'   => ToolReachResolver::REACH_USER,
+            'hermiq.rememberMemory'     => ToolReachResolver::REACH_SELF,
+            'hermiq.recallMemory'       => ToolReachResolver::REACH_SELF,
+            'hermiq.forgetMemory'       => ToolReachResolver::REACH_SELF,
+            'hermiq.webSearch'          => ToolReachResolver::REACH_EXTERNAL,
+            'hermiq.webFetch'           => ToolReachResolver::REACH_EXTERNAL,
+            'hermiq.delegateAgent'      => ToolReachResolver::REACH_INSTANCE,
+        ];
+
+        $tools = $this->provider('alice')->getTools();
+
+        foreach ($tools as $tool) {
+            $id = $tool['id'];
+
+            $this->assertArrayHasKey(
+                ToolReachResolver::REACH_KEY,
+                $tool,
+                "{$id} declares no `reach`. Every native descriptor must declare one explicitly: "
+                .'an omitted reach resolves to `external`, which quietly forces the tool behind the '
+                .'approval gate forever. Pick the honest value from the ToolReachResolver constants.'
+            );
+            $this->assertContains(
+                $tool[ToolReachResolver::REACH_KEY],
+                ToolReachResolver::ORDER,
+                "{$id}: reach must come from the closed vocabulary."
+            );
+            $this->assertArrayHasKey($id, $expected, "Unexpected tool id '{$id}' has no reach expectation.");
+            $this->assertSame($expected[$id], $tool[ToolReachResolver::REACH_KEY], "{$id}: reach mismatch.");
+        }
+
+        $this->assertSame(
+            array_keys($expected),
+            array_column($tools, 'id'),
+            'Every expected tool id must be present exactly once, in order.'
+        );
+
+    }//end testEveryDescriptorDeclaresItsReach()
+
+    /**
+     * 🔴 THE POSITIVE CONTROL for the axis itself.
+     *
+     * A `reach` that merely restates `scope` would be a second name for the same
+     * fact, and every gating decision built on it would be the CRUD decision
+     * wearing a hat. The axis earns its existence only if the two disagree in
+     * BOTH directions — same scope splitting across reaches, and one reach
+     * spanning several scopes.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-reach-is-orthogonal-to-scope
+     */
+    public function testReachIsNotARestatementOfScope(): void
+    {
+        $tools = $this->provider('alice')->getTools();
+
+        $byId = [];
+        foreach ($tools as $tool) {
+            $byId[$tool['id']] = $tool;
+        }
+
+        // Same scope, different reach: both `create`, yet one never leaves the
+        // agent and the other lands in a stranger's inbox. This pair is the
+        // whole reason the axis exists.
+        $this->assertSame('create', $byId['hermiq.rememberMemory']['scope']);
+        $this->assertSame('create', $byId['hermiq.sendMail']['scope']);
+        $this->assertNotSame(
+            $byId['hermiq.rememberMemory'][ToolReachResolver::REACH_KEY],
+            $byId['hermiq.sendMail'][ToolReachResolver::REACH_KEY],
+            'rememberMemory and sendMail share a scope and must NOT share a reach.'
+        );
+
+        // Same reach, different scope: `delete` that is reversible and private
+        // sits at the SAME reach as a plain `read`. CRUD severity does not
+        // survive the translation.
+        $this->assertSame('delete', $byId['hermiq.forgetMemory']['scope']);
+        $this->assertSame('read', $byId['hermiq.searchTools']['scope']);
+        $this->assertSame(
+            $byId['hermiq.forgetMemory'][ToolReachResolver::REACH_KEY],
+            $byId['hermiq.searchTools'][ToolReachResolver::REACH_KEY],
+            'A private, reversible delete reaches no further than a read.'
+        );
+
+        // And a `read` scope reaching `external` — the webFetch shape, where the
+        // CRUD verb is the most reassuring thing about the tool.
+        $this->assertSame('read', $byId['hermiq.webFetch']['scope']);
+        $this->assertSame(
+            ToolReachResolver::REACH_EXTERNAL,
+            $byId['hermiq.webFetch'][ToolReachResolver::REACH_KEY]
+        );
+
+    }//end testReachIsNotARestatementOfScope()
 
     /**
      * An unauthenticated caller gets a structured error, never an exception.

@@ -372,12 +372,22 @@ class ToolLoopTest extends TestCase
      * classifiable derived write ids (default-deny) — AND (hermiq-prefer-tool-hints)
      * a hint-less, non-derived id (`hermiq.sendMail`) is now ALSO stripped
      * (fails closed), while a hint-carrying non-derived id (`hermiq.getStatus`,
-     * `readOnlyHint:true`) survives because the hint classifies it as read.
+     * `readOnlyHint:true` + `reach:user`) survives because BOTH axes classify it
+     * as harmless.
+     *
+     * 🔴 The fourth entry, `hermiq.pingWebhook`, is the one that documents the
+     * reach axis: it declares the SAME read hint as `getStatus` and simply omits
+     * `reach`. It is stripped. That is the whole cost of the axis stated in one
+     * row — a curated 2-segment tool that carries read hints but no reach loses
+     * its free pass, because "it only reads" is not an answer to "who finds
+     * out". An app adding a tool of this shape must annotate it; leaving the
+     * annotation off is not neutral, it is a denial.
      *
      * @return void
      *
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-1
      * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-hint-less-curated-tool-fails-closed-to-external
      */
     public function testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall(): void
     {
@@ -385,7 +395,8 @@ class ToolLoopTest extends TestCase
             ['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search'],
             ['name' => 'pipelinq_lead_delete', 'mcpId' => 'pipelinq.lead.delete'],
             ['name' => 'hermiq_sendMail', 'mcpId' => 'hermiq.sendMail'],
-            ['name' => 'hermiq_getStatus', 'mcpId' => 'hermiq.getStatus', 'readOnlyHint' => true],
+            ['name' => 'hermiq_getStatus', 'mcpId' => 'hermiq.getStatus', 'readOnlyHint' => true, 'reach' => 'user'],
+            ['name' => 'hermiq_pingWebhook', 'mcpId' => 'hermiq.pingWebhook', 'readOnlyHint' => true],
         ];
 
         $facade = $this->createMock(ToolRegistryFacade::class);
@@ -400,7 +411,9 @@ class ToolLoopTest extends TestCase
             ['hermiq.getStatus', 'pipelinq.lead.search'],
             $ids,
             'hermiq.sendMail (hint-less, non-derived) must fail closed; hermiq.getStatus'
-            .' (readOnlyHint:true) must survive on its declared hint.'
+            .' (readOnlyHint:true + reach:user) must survive on its declared annotations;'
+            .' hermiq.pingWebhook carries the SAME read hint with NO reach and must be stripped'
+            .' — that difference is the reach axis doing its only job.'
         );
 
     }//end testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall()
@@ -619,8 +632,9 @@ class ToolLoopTest extends TestCase
 
     /**
      * `buildFunctionInfos(..., dryRun: true)` forwards each descriptor's
-     * declared hints to the classifier — a hint-less/2-segment id with
-     * `readOnlyHint: true` in its own descriptor is NOT neutralised.
+     * declared annotations to the classifier — a 2-segment id declaring
+     * `readOnlyHint: true` AND a low `reach` is NOT neutralised, so the preview
+     * shows real data.
      *
      * @return void
      *
@@ -633,6 +647,7 @@ class ToolLoopTest extends TestCase
             'description'  => 'Search leads',
             'mcpId'        => 'pipelinq.searchLeads',
             'readOnlyHint' => true,
+            'reach'        => 'user',
         ];
 
         $facade = $this->createMock(ToolRegistryFacade::class);
@@ -644,4 +659,45 @@ class ToolLoopTest extends TestCase
         $infos[0]->instance->pipelinq_searchLeads(query: 'x');
 
     }//end testBuildFunctionInfosDryRunForwardsDescriptorHints()
+
+    /**
+     * 🔴 A dry-run must NOT really invoke a read tool that egresses.
+     *
+     * `readOnlyHint: true` says the call writes nothing, and the old classifier
+     * stopped there — so a "preview" of a tool that fetches a model-chosen URL
+     * would issue the request for real. Reading is not the side effect; leaving
+     * the instance is, and a preview that has already leaked the query has done
+     * the one part of the operation that cannot be taken back.
+     *
+     * The two descriptors here differ in ONE key from the test above.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
+     */
+    public function testBuildFunctionInfosDryRunNeutralisesAnEgressReadTool(): void
+    {
+        $descriptor = [
+            'name'         => 'hermiq_webFetch',
+            'description'  => 'Fetch a URL',
+            'mcpId'        => 'hermiq.webFetch',
+            'readOnlyHint' => true,
+            'scope'        => 'read',
+            'reach'        => 'external',
+        ];
+
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->expects($this->never())->method('invokeTool');
+
+        $loop  = $this->loop(facade: $facade);
+        $infos = $loop->buildFunctionInfos(functions: [$descriptor], trace: new RunTraceCollector(), dryRun: true);
+
+        $decoded = json_decode($infos[0]->instance->hermiq_webFetch(url: 'https://example.com'), true);
+
+        $this->assertTrue(
+            $decoded['preview'],
+            'A dry-run must neutralise an external-reach tool even when it declares readOnlyHint:true.'
+        );
+
+    }//end testBuildFunctionInfosDryRunNeutralisesAnEgressReadTool()
 }//end class

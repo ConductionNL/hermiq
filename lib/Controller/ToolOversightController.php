@@ -38,6 +38,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -149,13 +150,14 @@ class ToolOversightController extends Controller
      * @NoCSRFRequired
      *
      * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#api-design
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-the-reach-of-every-catalogue-entry-is-readable-through-the-tool-catalogue-api
      *
      * @SuppressWarnings(PHPMD.CyclomaticComplexity) Access guards plus per-descriptor
      *   shaping (id fallback, write classification, grant annotation) each add a
      *   branch on one linear catalog-build path.
-     * @SuppressWarnings(PHPMD.StaticAccess)         ToolGrantResolver::isWriteOrDestructive()
-     *   is a pure static classification predicate — the same one the engine's tool
-     *   loop uses, called statically by design.
+     * @SuppressWarnings(PHPMD.StaticAccess)         ToolGrantResolver and ToolReachResolver
+     *   are pure static classification predicates — the same ones the engine's tool
+     *   loop uses, called statically by design so the two cannot drift.
      */
     public function toolCatalog(string $agentId): JSONResponse
     {
@@ -186,7 +188,21 @@ class ToolOversightController extends Controller
                     continue;
                 }
 
-                $isWrite = ToolGrantResolver::isWriteOrDestructive(id: $id);
+                // 🔴 The descriptor is threaded through here. It was not before:
+                // this call was id-only, so every 2-segment native id fell to
+                // the fail-closed rule and the oversight UI showed `listFiles`
+                // and `readFile` as WRITE tools — the exact opposite of what
+                // their descriptors declare, and of what the engine's resolver
+                // concluded about the same tools three lines above. An operator
+                // deciding what to grant was reading a classification the
+                // runtime did not share.
+                $hints = null;
+                if (is_array($descriptor) === true) {
+                    $hints = $descriptor;
+                }
+
+                $isWrite = ToolGrantResolver::isWriteOrDestructive(id: $id, descriptor: $hints);
+                $reach   = ToolReachResolver::resolve(toolId: $id, descriptor: $hints);
                 $granted = isset($resolvedSet[$id]);
 
                 $scope = 'read';
@@ -199,10 +215,16 @@ class ToolOversightController extends Controller
                     'name'                  => (string) ($descriptor['name'] ?? $id),
                     'description'           => (string) ($descriptor['description'] ?? ''),
                     'scope'                 => $scope,
+                    'reach'                 => $reach,
                     'destructiveHint'       => $isWrite,
                     'granted'               => $granted,
                     'grantedBy'             => $this->grantedBy(id: $id, grants: $grants, granted: $granted),
-                    'requiresExplicitGrant' => ($isWrite === true && $granted === false),
+                    // The UNION, not `$isWrite` — a read-scoped tool whose reach
+                    // is `instance` or beyond needs naming just as explicitly.
+                    'requiresExplicitGrant' => (
+                        ToolGrantResolver::requiresGrant(id: $id, descriptor: $hints) === true
+                        && $granted === false
+                    ),
                 ];
             }//end foreach
 

@@ -929,28 +929,29 @@ class FacadeToolInvoker
      * This check ONLY ever matters for a toolId NOT in `$toolSearchService`'s
      * resolved set — a hallucinated / never-offered call, since a resolved
      * (granted) toolId short-circuits `isGranted()` to `false`-gate regardless
-     * of classification. `ToolSearchService` therefore never has a descriptor to
-     * offer for the ids this check actually classifies, so
-     * `ToolGrantResolver::isWriteOrDestructive()` is called id-only here — it
-     * falls straight to its verb-suffix/fail-closed rules (hermiq-prefer-tool-hints:
-     * a 2-segment id with no descriptor now classifies write/destructive instead
-     * of silently passing, closing the hole where a curated write tool could
-     * never trip this gate). Hint-based classification is applied where it CAN
-     * matter — over the full descriptor-carrying catalog in
-     * `ToolGrantResolver::resolve()`/`applyDefaultDeny()` — before a tool ever
-     * becomes part of an agent's resolved set.
+     * of classification. Any descriptor this turn HAS is nonetheless passed
+     * through: previously this call was id-only, which meant a declared hint and
+     * (now) a declared reach were visible on the default-deny path and invisible
+     * here, so the two call sites could in principle disagree about the same
+     * tool. They must not — a gate that classifies differently from the resolver
+     * that filled the catalogue is a gate with a seam in it. `descriptorFor()`
+     * returns null for exactly the ids this check actually classifies, and
+     * `requiresGrant()` fails closed on both axes when it does (a 2-segment id
+     * with no descriptor classifies write/destructive AND resolves to `external`
+     * reach), so threading the descriptor cannot loosen this path.
      *
      * @param string $name The LLPhant-side function name.
      *
      * @return bool
      *
-     * @SuppressWarnings(PHPMD.StaticAccess) `ToolGrantResolver::isWriteOrDestructive()` is a
+     * @SuppressWarnings(PHPMD.StaticAccess) `ToolGrantResolver::requiresGrant()` is a
      *   PURE classification function over an id and its descriptor. Injecting the resolver
      *   would add a stateless collaborator and would let a caller substitute a more permissive
      *   classifier into a security check — the opposite of what the seam is for.
      *
      * @spec openspec/specs/human-approval-gate/spec.md#requirement-un-granted-destructive-tool-invocation-routes-through-the-approval-gate
      * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
      */
     private function requiresApprovalGate(string $name): bool
     {
@@ -959,13 +960,36 @@ class FacadeToolInvoker
         }
 
         $toolId = $this->resolveToolId(name: $name);
-        if (ToolGrantResolver::isWriteOrDestructive(id: $toolId) === false) {
+        if (ToolGrantResolver::requiresGrant(id: $toolId, descriptor: $this->descriptorFor(name: $name)) === false) {
             return false;
         }
 
         return $this->toolSearchService->isGranted(id: $toolId) === false;
 
     }//end requiresApprovalGate()
+
+    /**
+     * This turn's descriptor for an LLPhant-side function name, when one was
+     * offered to the model.
+     *
+     * Null for a hallucinated or never-offered call — which is the case the
+     * approval gate exists for, and the case every classification here fails
+     * closed on.
+     *
+     * @param string $name The LLPhant-side function name.
+     *
+     * @return array<string,mixed>|null
+     */
+    private function descriptorFor(string $name): ?array
+    {
+        $descriptor = ($this->descriptorsByName[$name] ?? null);
+        if (is_array($descriptor) === false) {
+            return null;
+        }
+
+        return $descriptor;
+
+    }//end descriptorFor()
 
     /**
      * Consult (or create) the tool-invocation `Approval` and either dispatch to
@@ -976,7 +1000,11 @@ class FacadeToolInvoker
      *
      * @return string JSON-encoded outcome for the follow-up LLM turn.
      *
+     * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver::resolve()` is a PURE
+     *   classification function — see `requiresApprovalGate()`.
+     *
      * @spec openspec/changes/agent-tool-governance-and-disclosure/specs/human-approval-gate/spec.md#scenario-an-agent-attempts-an-un-granted-destructive-tool-call
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
      */
     private function handleGatedInvocation(string $name, array $arguments): string
     {
@@ -991,7 +1019,21 @@ class FacadeToolInvoker
             return $this->dispatchToFacade(name: $name, arguments: $arguments);
         }
 
-        $envelope = ['isError' => true, 'error' => 'approval_required', 'toolId' => $toolId];
+        // Name the reach that triggered the gate. A run trace otherwise cannot
+        // tell a reach-triggered refusal from a verb-triggered one, and the two
+        // want opposite remedies: a verb gate says "a human should confirm this
+        // write", a reach gate says "this leaves the instance — grant it by name
+        // or do not". The model reads this too, and "external" is far more
+        // actionable to it than a bare `approval_required`.
+        $envelope = [
+            'isError' => true,
+            'error'   => 'approval_required',
+            'toolId'  => $toolId,
+            'reach'   => ToolReachResolver::resolve(
+                toolId: $toolId,
+                descriptor: $this->descriptorFor(name: $name)
+            ),
+        ];
         if ($decided !== null) {
             $envelope['status']     = 'denied';
             $envelope['approvalId'] = (string) $decided->getUuid();

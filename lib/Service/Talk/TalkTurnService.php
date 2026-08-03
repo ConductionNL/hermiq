@@ -55,6 +55,7 @@ class TalkTurnService
      *
      * @param Engine          $engine      The agent engine.
      * @param TalkBridge      $bridge      Talk availability and room I/O.
+     * @param TalkRoomBinding $roomBinding Resolves the conversation bound to a room.
      * @param IUserManager    $userManager Resolves the speaker and their display name.
      * @param IUserSession    $userSession Impersonates the speaker for the turn.
      * @param LoggerInterface $logger      PSR-3 logger.
@@ -225,8 +226,11 @@ class TalkTurnService
         }
 
         $agentId = (string) (($conversation->getObject())['agentId'] ?? '');
+        if ($agentId === '') {
+            return null;
+        }
 
-        return ($agentId === '') ? null : $agentId;
+        return $agentId;
 
     }//end agentForRoom()
 }//end class
