@@ -32,24 +32,36 @@
  */
 
 import { defineConfig, devices } from '@playwright/test'
+import * as path from 'path'
+
+// 🔴 Every path is resolved from __dirname, never left relative.
+//
+// Playwright does NOT use one base for all of them: `testDir` resolves against
+// the CONFIG FILE's directory, while `storageState`, `globalSetup` and
+// `outputDir` resolve against the CURRENT WORKING DIRECTORY — which in CI is
+// the app root, two levels up from here. A `../.auth/admin.json` that reads
+// correctly from this file therefore resolved to `server/apps/.auth/admin.json`
+// and every one of the 32 tests died in ~6ms on ENOENT before its first
+// assertion. Absolute paths remove the distinction entirely.
+const E2E_ROOT = path.resolve(__dirname, '..')
 
 export default defineConfig({
-	testDir: '.',
-	globalSetup: '../global-setup.ts',
+	testDir: __dirname,
+	globalSetup: path.join(E2E_ROOT, 'global-setup.ts'),
 	timeout: 90_000,
 	expect: { timeout: 15_000 },
 	fullyParallel: false,
 	retries: process.env.CI ? 1 : 0,
 	workers: 1,
 	reporter: [
-		['html', { open: 'never', outputFolder: '../playwright-report' }],
+		['html', { open: 'never', outputFolder: path.join(E2E_ROOT, 'playwright-report') }],
 		['list'],
 	],
-	outputDir: '../test-results',
+	outputDir: path.join(E2E_ROOT, 'test-results'),
 
 	use: {
 		baseURL: process.env.NEXTCLOUD_URL || process.env.BASE_URL || 'http://localhost:8080',
-		storageState: '../.auth/admin.json',
+		storageState: path.join(E2E_ROOT, '.auth', 'admin.json'),
 		trace: 'on-first-retry',
 		screenshot: 'only-on-failure',
 		navigationTimeout: 60_000,
