@@ -126,14 +126,15 @@ changes the ADR-032 kind of this change.
   - `dismissTour` is required before any click: the `cn-wizard-dialog` does NOT close on Escape and does not hide what is underneath, so a stale overlay passes every visibility assertion and fails only on a click
   - `@e2e` annotations in the three spec files must name these tests; every scenario not covered here already carries a reason-bearing `@e2e exclude` (gate-19 is diff-scoped, so added and modified scenarios both count)
 - [x] Implement
-- [ ] Test — **written, lint-clean, NOT yet executed green against a live instance.**
-  The catalogue and waiver assertions were run live in an earlier revision of this
-  spec (the catalogue test correctly FAILED before openregister#2302 was deployed,
-  which is what proved it can fail; the waiver round-trip passed). The NEW
-  non-owner-on-both-paths test has never executed: the shared dev instance was at
-  300–630% CPU with an 8s login, and an e2e run against a saturated instance
-  fabricates defects rather than finding them. Do not tick this from a green run
-  that did not include `a non-owner is refused on BOTH grant write paths`.
+- [x] Test — all three green in CI on a FRESH stable33 instance (hermiq run
+  30866... , job 91859236612): catalogue reach round trip, waiver persistence,
+  and `a non-owner is refused on BOTH grant write paths`. Getting there found
+  five real defects, four of them pre-existing — see the PR for the list. The
+  two most instructive: the non-owner test passed for the WRONG REASON twice
+  (requests running anonymously, then running as admin) and was caught both
+  times by `assertSecondUserAuthenticates`, which exists precisely because
+  "refused" and "cannot authenticate" are the same observation to a status-code
+  assertion.
 
 ## Quality checklist
 
