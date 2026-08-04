@@ -71,26 +71,30 @@ export default defineConfig({
 	projects: [
 		{
 			name: 'chromium',
-			// 🔴 CI runs only the specs PROVEN green on a clean install.
+			// 🔴 The allowlist is GONE — CI runs every spec in this directory.
 			//
-			// Measured, not assumed — run 30865280923 on a fresh stable33
-			// instance: 8 passed / 25 failed across the six spec files, and
-			// every single failure was a UI spec waiting on a manifest-driven
-			// page element (`[data-testid-page-id="AgentCatalog"]`,
-			// `"AgentDetail"`) that never renders there. The OpenRegister
-			// register and schemas DO seed — these same runs create agents
-			// through the API without trouble — so the gap is hermiq's
-			// manifest pages specifically, not its data.
+			// It existed because run 30865280923 reported 6 passed / 27 failed
+			// on a fresh stable33 instance, and the failures were read as "the
+			// manifest pages do not render on a clean install". That diagnosis
+			// was wrong. The failure message names the actual cause: the specs
+			// landed on `/index.php/apps/hermiq/`, not on the route they asked
+			// for. hermiq's router base is `generateUrl('/apps/hermiq')`, which
+			// is `/index.php/apps/hermiq` wherever mod_rewrite is not believed
+			// to work — which is precisely CI's `php -S`. Every hard-coded
+			// pretty deep link was therefore outside the router base, matched
+			// no route, and was redirected to the app root by the SPA
+			// catch-all. 21 of the 27. See `appRoot()` in `_fixtures.ts`.
 			//
-			// That is a real fresh-install defect and it is worth fixing; it is
-			// not worth blocking every PR on while it is open. Widening this
-			// list is the follow-up, and the diagnosis above is the starting
-			// point so the next person does not repeat the bisect.
+			// The other six: 2 read the seeded triage flow from the wrong store
+			// (it lives in OpenRegister's native flow store, not as an
+			// `agentflow` object), 2 needed Talk, which CI does not install and
+			// which now skips by an explicit provisioning-API check, and 2 were
+			// the `$ref must be a non-empty string` write, fixed in #136.
 			//
-			// 🔑 The list is an ALLOWLIST on purpose. An ignore-list silently
-			// re-includes every spec added later, which is how a gate goes from
-			// "green because it passes" to "red because nobody looked".
-			testMatch: ['**/tool-grant-reach.spec.ts'],
+			// 🔑 Scoping by DIRECTORY, not by an allowlist of filenames: a new
+			// spec added under spec-coverage/ is in the gate the day it lands.
+			// An allowlist would have to be remembered, and the one that used to
+			// be here is exactly how six spec files sat outside the gate.
 			use: { ...devices['Desktop Chrome'] },
 		},
 	],

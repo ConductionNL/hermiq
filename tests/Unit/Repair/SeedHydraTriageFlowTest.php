@@ -38,9 +38,13 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Repair;
 
 use OCA\Hermiq\Repair\SeedHydraTriageFlow;
+use OCA\OpenRegister\Db\Flow;
+use OCA\OpenRegister\Db\FlowMapper;
+use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 /**
  * Tests for the seeded triage flow's shape.
@@ -298,4 +302,78 @@ class SeedHydraTriageFlowTest extends TestCase
         }
 
     }//end testTheAgentStepExpectsJsonAndNamesItsAgentByUuidOrNotAtAll()
+
+
+    /**
+     * 🔴 The WRITE path. Every test above this one reads `flowObject()`, which
+     * is a pure array builder — so the whole file could pass with `run()`
+     * throwing on its first line, and it did: `/api/flows?app=hermiq` returned
+     * `{"results":[],"total":0}` on a clean install (hermiq CI run
+     * 30878205902), while the `agent` seed in the same `<install>` block
+     * succeeded. The flow store rewrite (#134) shipped nine hours earlier with
+     * no coverage of its own write.
+     *
+     * A seed's contract is that it WRITES. That is what this asserts.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
+     */
+    public function testRunInsertsTheFlowWhenTheStoreIsEmpty(): void
+    {
+        $mapper = $this->createMock(FlowMapper::class);
+        $mapper->method('findAllFlows')->willReturn([]);
+        $mapper->expects($this->once())->method('insert');
+
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('get')->willReturnCallback(
+            static function (string $id) use ($mapper) {
+                if ($id === FlowMapper::class) {
+                    return $mapper;
+                }
+
+                throw new RuntimeException('not available in this test: '.$id);
+            }
+        );
+
+        $step = new SeedHydraTriageFlow(
+            container: $container,
+            logger: $this->createMock(LoggerInterface::class)
+        );
+
+        $step->run($this->createMock(IOutput::class));
+
+    }//end testRunInsertsTheFlowWhenTheStoreIsEmpty()
+
+
+    /**
+     * 🔑 NEGATIVE CONTROL for the test above: the seed is idempotent by name,
+     * so a store that already holds the flow must NOT be written to. Without
+     * this, `testRunInsertsTheFlowWhenTheStoreIsEmpty()` would also pass if
+     * `run()` inserted unconditionally.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
+     */
+    public function testRunDoesNotInsertWhenTheFlowIsAlreadyPresent(): void
+    {
+        $existing = $this->createMock(Flow::class);
+        $existing->method('__call')->willReturn(SeedHydraTriageFlow::FLOW_NAME);
+
+        $mapper = $this->createMock(FlowMapper::class);
+        $mapper->method('findAllFlows')->willReturn([$existing]);
+        $mapper->expects($this->never())->method('insert');
+
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('get')->willReturn($mapper);
+
+        $step = new SeedHydraTriageFlow(
+            container: $container,
+            logger: $this->createMock(LoggerInterface::class)
+        );
+
+        $step->run($this->createMock(IOutput::class));
+
+    }//end testRunDoesNotInsertWhenTheFlowIsAlreadyPresent()
 }//end class
