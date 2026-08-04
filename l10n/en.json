@@ -1134,7 +1134,8 @@
         "Quarantined — awaiting review": "Quarantined — awaiting review",
         "This skill has learnings accepted here since it was last updated from its source. Updating keeps them — the incoming learnings file is not applied.": "This skill has learnings accepted here since it was last updated from its source. Updating keeps them — the incoming learnings file is not applied.",
         "This skill is quarantined and is not available to agents until it is approved.": "This skill is quarantined and is not available to agents until it is approved.",
-        "Unknown": "Unknown"
+        "Unknown": "Unknown",
+        "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.": "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them."
     },
     "plurals": ""
 }
