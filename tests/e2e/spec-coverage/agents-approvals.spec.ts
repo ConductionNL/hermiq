@@ -29,9 +29,8 @@
  * Seeding: OpenRegister objects API via _fixtures (register 'hermiq').
  */
 
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
 import { TEST_PREFIX, cleanupFamily, dismissTour, harvestToken, resolveRegisterSchema, seedAgent } from './_fixtures'
-
 
 /*
  * PARKED (all four tests below) — requires nc-vue selector hooks present only

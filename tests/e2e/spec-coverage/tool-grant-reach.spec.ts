@@ -35,6 +35,7 @@ import { test, expect, request as playwrightRequest, type APIRequestContext } fr
 import {
 	OR_API,
 	TEST_PREFIX,
+	assertSecondUserAuthenticates,
 	cleanupFamily,
 	createSecondUser,
 	deleteSecondUser,
@@ -71,9 +72,27 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		// A SEPARATE request context authenticated as the second user — not the
 		// admin session with a different header, which would still carry the
 		// owner's cookie and quietly test nothing.
+		// 🔴 `send: 'always'` is required, not optional.
+		//
+		// Playwright withholds Basic credentials until the server answers 401.
+		// Nextcloud's OCS layer answers 200 with an unauthorised code in the
+		// BODY, so the challenge never comes, the credentials are never sent,
+		// and every request runs ANONYMOUSLY. The non-owner test would then have
+		// passed for entirely the wrong reason — "refused" because nobody was
+		// logged in, not because the guard works. `assertSecondUserAuthenticates`
+		// is what caught it (HTTP 200, identity=undefined).
+		// 🔴 `storageState` must be explicitly EMPTIED, not merely omitted.
+		//
+		// `request.newContext()` inherits the config's `use` block, and this
+		// suite sets `use.storageState` to the admin session. Omitting it here
+		// therefore does not mean "no session" — it means "the ADMIN session",
+		// and the whole test silently runs as the very user it is supposed to
+		// be excluding. Round 4 reported `identity="admin"` for a context built
+		// from the second user's credentials; that is what this line fixes.
 		secondCtx = await playwrightRequest.newContext({
-			baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080',
-			httpCredentials: { username: second.uid, password: second.password },
+			baseURL: process.env.NEXTCLOUD_URL || process.env.BASE_URL || 'http://localhost:8080',
+			storageState: { cookies: [], origins: [] },
+			httpCredentials: { username: second.uid, password: second.password, send: 'always' },
 		})
 
 		await page.close()
@@ -147,7 +166,11 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 			`/index.php/apps/hermiq/api/agents/${agentId}/tool-grants`,
 			{ headers: jsonHeaders(token), data: { grants: [waived, 'hermiq.listFiles'] } },
 		)
-		expect(put.status(), 'The owner may write grants').toBe(200)
+		// Carry the BODY into the failure message. A bare status number turns a
+		// server-side exception into a guessing game — this run cost a full CI
+		// cycle to learn only that it was "500".
+		const putBody = await put.text().catch(() => '<unreadable>')
+		expect(put.status(), `The owner may write grants (body: ${putBody.slice(0, 300)})`).toBe(200)
 
 		// Read back through a DIFFERENT endpoint than the one that wrote it: the
 		// PUT response echoes what it just saved, so asserting on that alone
@@ -172,6 +195,11 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 	test('a non-owner is refused on BOTH grant write paths', async ({ page }) => {
 		expect(secondCtx, 'The second-user context must exist').not.toBeNull()
 		const ctx = secondCtx as APIRequestContext
+
+		// 🔴 Prove the second user can authenticate BEFORE asserting anything
+		// refuses them. Otherwise "refused" and "cannot log in at all" are the
+		// same observation, and the guard under test is never reached.
+		await assertSecondUserAuthenticates(ctx, (second as SecondUser).uid)
 
 		const attack = ['hermiq.sendMail', 'hermiq.webFetch']
 

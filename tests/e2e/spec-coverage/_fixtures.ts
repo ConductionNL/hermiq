@@ -323,18 +323,51 @@ export async function createSecondUser(
 	const uid = `${TEST_PREFIX}-${suffix}`
 	const password = 'CHANGE_ME_e2e_pw_0000'
 
-	const res = await req.post('/ocs/v1.php/cloud/users', {
+	const res = await req.post('/ocs/v1.php/cloud/users?format=json', {
 		headers: { ...jsonHeaders(token), 'OCS-APIRequest': 'true' },
 		data: { userid: uid, password },
 	})
 
-	// 102 = "user already exists" on a re-run; either is usable.
+	// 🔴 The HTTP status is NOT the result. OCS v1 answers 200 for failures too
+	// and puts the real outcome in `ocs.meta.statuscode`. Accepting the 200 is
+	// how a user that was never created gets used anyway — every later request
+	// as that identity then fails for an unrelated-looking reason (a 500 from
+	// the auth layer, not the 403 the test was written to see), and the test
+	// reads as a broken guard rather than a broken fixture. This cost a full CI
+	// cycle to work out.
+	const body = await res.json().catch(() => null)
+	const ocsCode = body?.ocs?.meta?.statuscode
 	expect(
-		[200, 400].includes(res.status()),
-		`Provisioning a second user must succeed or report already-exists, got ${res.status()}`,
+		[100, 102].includes(Number(ocsCode)),
+		'Provisioning a second user must report OCS 100 (created) or 102 (exists); '
+		+ `got HTTP ${res.status()} / OCS ${ocsCode} — ${JSON.stringify(body?.ocs?.meta ?? body).slice(0, 200)}`,
 	).toBeTruthy()
 
 	return { uid, password }
+}
+
+/**
+ * Prove a second user's credentials actually authenticate.
+ *
+ * Call this on the context built for them, BEFORE asserting that anything
+ * refuses them. Without it, "refused" and "cannot log in at all" are the same
+ * observation and the guard under test is never reached.
+ *
+ * @param ctx The request context built with the second user's credentials.
+ * @param uid The expected user id.
+ * @return void
+ */
+export async function assertSecondUserAuthenticates(ctx: APIRequestContext, uid: string): Promise<void> {
+	const res = await ctx.get('/ocs/v1.php/cloud/user?format=json', {
+		headers: { 'OCS-APIRequest': 'true', Accept: 'application/json' },
+	})
+	const body = await res.json().catch(() => null)
+	const who = body?.ocs?.data?.id
+	expect(
+		who,
+		'The second user must be able to authenticate before we assert anything is refused for them. '
+		+ `HTTP ${res.status()}, identity=${JSON.stringify(who)}`,
+	).toBe(uid)
 }
 
 /**
