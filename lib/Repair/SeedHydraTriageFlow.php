@@ -78,6 +78,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Flow;
 use OCA\OpenRegister\Db\FlowMapper;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\IAppConfig;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
 use Psr\Container\ContainerInterface;
@@ -86,6 +87,13 @@ use Throwable;
 
 /**
  * Seed the "Hydra Triage" flow into the native flow store (idempotent, by name).
+ *
+ * @SuppressWarnings(PHPMD.CouplingBetweenObjects) The count is the seeded GRAPH's
+ *   vocabulary — Flow, FlowMapper, ObjectService, ObjectEntity and the datetime and
+ *   container types it needs to build one — plus IAppConfig for the seed-outcome
+ *   breadcrumb. Splitting the class would move the same types behind a collaborator
+ *   without removing one, and would put the flow's shape somewhere other than the
+ *   step that owns it.
  *
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
  */
@@ -112,6 +120,23 @@ class SeedHydraTriageFlow implements IRepairStep
      * @var string
      */
     public const FLOW_NAME = 'Hydra Triage';
+
+    /**
+     * App-config key holding how the last seed attempt ended.
+     *
+     * `seeded` | `present` | `unavailable` | `failed`. Readable with
+     * `occ config:app:get hermiq hydra_triage_flow_seed`.
+     *
+     * @var string
+     */
+    public const OUTCOME_KEY = 'hydra_triage_flow_seed';
+
+    /**
+     * App-config key holding the exception class + message when the seed failed.
+     *
+     * @var string
+     */
+    public const OUTCOME_DETAIL_KEY = 'hydra_triage_flow_seed_detail';
 
     /**
      * The register whose objects trigger this flow. Owned by the hydra repo
@@ -150,12 +175,62 @@ class SeedHydraTriageFlow implements IRepairStep
      * @param ContainerInterface $container Server container for lazy FlowMapper/ObjectService resolution
      *                                      (OpenRegister may not be installed yet).
      * @param LoggerInterface    $logger    PSR-3 logger.
+     * @param IAppConfig|null    $appConfig Records how the seed ended, somewhere a 50-line CI log
+     *                                      tail cannot discard. Nullable so every existing
+     *                                      construction site — including the unit tests — is
+     *                                      unchanged; a null simply writes no breadcrumb.
      */
     public function __construct(
         private readonly ContainerInterface $container,
         private readonly LoggerInterface $logger,
+        private readonly ?IAppConfig $appConfig=null,
     ) {
     }//end __construct()
+
+    /**
+     * Record how this seed ended, where something other than a log tail can read it.
+     *
+     * 🔴 Why an app-config breadcrumb and not just a log line.
+     *
+     * This step already logged its failure. It made no difference: the seed has
+     * been silently writing nothing on clean installs (hermiq#140), and two
+     * separate investigations could not name the exception because CI keeps a
+     * 50-line log tail and the install output is thousands of lines earlier.
+     * A diagnosis nobody can retrieve is the same as no diagnosis.
+     *
+     * The outcome is therefore written to app config, which survives the run and
+     * is readable through the settings API — so an e2e (or an operator with
+     * `occ config:app:get`) can ask "what happened during install?" and get the
+     * exception CLASS and message back rather than an absence.
+     *
+     * Never throws: a breadcrumb that could break the install it is describing
+     * would be worse than none.
+     *
+     * @param string $outcome One of `seeded`, `present`, `unavailable`, `failed`.
+     * @param string $detail  Exception class + message when the outcome is a failure.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow
+     */
+    private function recordOutcome(string $outcome, string $detail=''): void
+    {
+        if ($this->appConfig === null) {
+            return;
+        }
+
+        try {
+            $this->appConfig->setValueString(Application::APP_ID, self::OUTCOME_KEY, $outcome);
+            $this->appConfig->setValueString(
+                Application::APP_ID,
+                self::OUTCOME_DETAIL_KEY,
+                mb_substr($detail, 0, 500)
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning('[hermiq] Could not record the flow-seed outcome: '.$e->getMessage());
+        }
+
+    }//end recordOutcome()
 
     /**
      * Repair-step name.
@@ -188,12 +263,14 @@ class SeedHydraTriageFlow implements IRepairStep
         } catch (Throwable $e) {
             $output->warning('OpenRegister not available — skipping Hydra Triage flow seed.');
             $this->logger->warning('[hermiq] Hydra Triage flow seed skipped: '.$e->getMessage());
+            $this->recordOutcome(outcome: 'unavailable', detail: $e::class.': '.$e->getMessage());
             return;
         }
 
         try {
             if ($this->flowExists(mapper: $mapper) === true) {
                 $output->info('Hydra Triage flow already present — skipped.');
+                $this->recordOutcome(outcome: 'present');
                 return;
             }
 
@@ -224,9 +301,18 @@ class SeedHydraTriageFlow implements IRepairStep
 
             $mapper->insert($flow);
             $output->info('Hydra Triage flow seeded (disabled — enable it to supply its owner).');
+            $this->recordOutcome(outcome: 'seeded');
         } catch (Throwable $e) {
             $output->warning('Could not seed the Hydra Triage flow: '.$e->getMessage());
-            $this->logger->error('[hermiq] Hydra Triage flow seed failed: '.$e->getMessage());
+            // The CLASS as well as the message: hermiq#140 has twice been
+            // narrowed to "something in here threw" because the message alone
+            // did not say whether it was a missing table, a constraint, or a
+            // container resolution.
+            $this->logger->error(
+                '[hermiq] Hydra Triage flow seed failed: '.$e::class.': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            $this->recordOutcome(outcome: 'failed', detail: $e::class.': '.$e->getMessage());
         }//end try
 
     }//end run()

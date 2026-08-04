@@ -40,6 +40,7 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 use OCA\Hermiq\Repair\SeedHydraTriageFlow;
 use OCA\OpenRegister\Db\Flow;
 use OCA\OpenRegister\Db\FlowMapper;
+use OCP\IAppConfig;
 use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -376,4 +377,104 @@ class SeedHydraTriageFlowTest extends TestCase
         $step->run($this->createMock(IOutput::class));
 
     }//end testRunDoesNotInsertWhenTheFlowIsAlreadyPresent()
+
+    /**
+     * 🔴 A FAILED seed records the exception class and message where a log tail
+     * cannot discard it.
+     *
+     * This step has been silently writing nothing on clean installs
+     * (hermiq#140). It logged the failure every time — and it made no
+     * difference, because CI keeps a 50-line log tail and the install output is
+     * thousands of lines earlier. Two separate investigations narrowed it only
+     * as far as "something in here threw".
+     *
+     * The breadcrumb is what turns the next occurrence into a diagnosis:
+     * `occ config:app:get hermiq hydra_triage_flow_seed_detail`. The CLASS is
+     * asserted as well as the message, because "missing table", "constraint
+     * violation" and "container resolution" are three different bugs that
+     * produce three similar sentences.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow
+     */
+    public function testAFailedSeedRecordsTheExceptionWhereItCanBeRead(): void
+    {
+        $mapper = $this->createMock(FlowMapper::class);
+        $mapper->method('findAllFlows')->willReturn([]);
+        $mapper->method('insert')->willThrowException(
+            new RuntimeException('an undiagnosable install-time failure')
+        );
+
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('get')->willReturn($mapper);
+
+        $recorded = [];
+        $appConfig = $this->createMock(IAppConfig::class);
+        $appConfig->method('setValueString')->willReturnCallback(
+            function (string $app, string $key, string $value) use (&$recorded): bool {
+                $recorded[$key] = $value;
+                return true;
+            }
+        );
+
+        $step = new SeedHydraTriageFlow(
+            container: $container,
+            logger: $this->createMock(LoggerInterface::class),
+            appConfig: $appConfig
+        );
+
+        // Must NOT throw — a failed seed may not break the install it is part of.
+        $step->run($this->createMock(IOutput::class));
+
+        $this->assertSame('failed', $recorded[SeedHydraTriageFlow::OUTCOME_KEY] ?? null);
+        $this->assertStringContainsString(
+            RuntimeException::class,
+            $recorded[SeedHydraTriageFlow::OUTCOME_DETAIL_KEY] ?? '',
+            'The exception CLASS must be recorded — the message alone has twice failed to identify this bug.'
+        );
+        $this->assertStringContainsString(
+            'an undiagnosable install-time failure',
+            $recorded[SeedHydraTriageFlow::OUTCOME_DETAIL_KEY] ?? ''
+        );
+
+    }//end testAFailedSeedRecordsTheExceptionWhereItCanBeRead()
+
+    /**
+     * 🔴 THE CONTROL. A SUCCESSFUL seed records `seeded`, not `failed`.
+     *
+     * Without this, the test above passes on an implementation that writes
+     * "failed" unconditionally — which would make the breadcrumb worse than
+     * useless, since it would accuse a working install.
+     *
+     * @return void
+     */
+    public function testASuccessfulSeedRecordsSeeded(): void
+    {
+        $mapper = $this->createMock(FlowMapper::class);
+        $mapper->method('findAllFlows')->willReturn([]);
+
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('get')->willReturn($mapper);
+
+        $recorded = [];
+        $appConfig = $this->createMock(IAppConfig::class);
+        $appConfig->method('setValueString')->willReturnCallback(
+            function (string $app, string $key, string $value) use (&$recorded): bool {
+                $recorded[$key] = $value;
+                return true;
+            }
+        );
+
+        $step = new SeedHydraTriageFlow(
+            container: $container,
+            logger: $this->createMock(LoggerInterface::class),
+            appConfig: $appConfig
+        );
+
+        $step->run($this->createMock(IOutput::class));
+
+        $this->assertSame('seeded', $recorded[SeedHydraTriageFlow::OUTCOME_KEY] ?? null);
+
+    }//end testASuccessfulSeedRecordsSeeded()
 }//end class
