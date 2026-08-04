@@ -117,10 +117,10 @@
 			"order": 30
 		},
 		{
-			"id": "GraphIndex",
-			"label": "Graphs",
+			"id": "FlowIndex",
+			"label": "Flows",
 			"icon": "Sitemap",
-			"route": "GraphIndex",
+			"route": "FlowIndex",
 			"order": 16
 		}
 	],
@@ -175,7 +175,7 @@
 			"config": {
 				"register": "hermiq",
 				"schema": "agent",
-				"_note": "manifest-driven-pages: converted from one opaque type:custom AgentDetail.vue (1570 lines) to a type:detail widget grid (ADR-062: every widget fills its gridHeight exactly, no inner scrollbars, no reserved voids). Six of seven content widgets stay type:custom — Hermiq's AI-governance interactions (dry-run/replay, run-trace observability, tool-catalogue editing, webhook lifecycle) are inherently bespoke, unlike procest/pipelinq's plain-data domain objects (design.md Decision 3). tools is excluded from the data widget and edited only via the Edit-agent header action's existing NcSelect-over-live-catalogue editor (design.md Decision 1). Header actions use config.headerActions: verified at HEAD that CnDetailPage renders config.headerActions via CnActionButtons, while the schema's top-level page.actions[] typed-action array is not yet wired into CnDetailPage's render path — this change follows HEAD over the original REQ-008 wording (flagged for the reviewer). agent-detail-redesign (2026-07-31): the page was overflowing its own grid — the four KPIs were one custom widget crammed into gridHeight 2, so its cards spilled into Skills, while agent-core/skills/run-history reserved 3-10x the height their content used. The KPIs are now four type:stat tiles across the top, agent-scoped by params.agentId = @objectId (the endpoint engine resolves that token on a detail page), which is the SAME four numbers with each one sized to a tile. Every gridHeight below was set from the widget's rendered content height measured in a browser at 12 columns (80px/row), verified against BOTH a 1-field agent and a 23-field one, and re-measured until no widget's scrollHeight exceeded its cell. Four widgets could not be sized at all until their content was bounded, because their content is a variable-length list and no fixed gridHeight can hold one: the instance-wide tool catalogue (~100 rows = 6,600px here), the invocation audit trail, the run history, and the memory entries. Each now scrolls inside its own region with a sticky header (ToolGrantEditor also gained a filter — 100 unfiltered rows behind a scrollbar is not a way to find one tool). ADR-062's 'a widget fills its gridHeight exactly' can only be honoured by an unbounded list if the list scrolls internally. agent-core is the one deliberate exception to measured sizing: it is sized for the 9 fields it DECLARES (5 rows at columns:2, 61px/row measured, + 93px chrome = 398px -> h5) rather than the 154px it currently renders, because it currently renders only 'name' — hermiq's agent schema (36 properties) and openbuild's agent schema (6 properties) share the slug 'agent', GET /api/schemas/agent resolves to openbuild's, and 'name' is their only common property. That is an OpenRegister slug-resolution bug (no register-scoped lookup exists: ?register= is ignored and the nested route 404s), not a layout one, so the cell is sized for the correct content instead of baking the bug into the geometry. AgentFormModal/AgentVersionHistoryDialog/AgentFactsheetDialog self-resolve the current agent id (and, for version history, the owner-only rollback gate) from the route when opened via open-modal, since open-modal action props are static JSON, not resolved against @objectId at HEAD.",
+				"_note": "manifest-driven-pages: converted from one opaque type:custom AgentDetail.vue (1570 lines) to a type:detail widget grid (ADR-062: every widget fills its gridHeight exactly, no inner scrollbars, no reserved voids). Six of seven content widgets stay type:custom — Hermiq's AI-governance interactions (dry-run/replay, run-trace observability, tool-catalogue editing, webhook lifecycle) are inherently bespoke, unlike procest/pipelinq's plain-data domain objects (design.md Decision 3). tools is excluded from the data widget and edited only via the Edit-agent header action's existing NcSelect-over-live-catalogue editor (design.md Decision 1). Header actions use config.headerActions: verified at HEAD that CnDetailPage renders config.headerActions via CnActionButtons, while the schema's top-level page.actions[] typed-action array is not yet wired into CnDetailPage's render path — this change follows HEAD over the original REQ-008 wording (flagged for the reviewer). agent-detail-redesign (2026-07-31): the page was overflowing its own grid — the four KPIs were one custom widget crammed into gridHeight 2, so its cards spilled into Skills, while agent-core/skills/run-history reserved 3-10x the height their content used. The KPIs are now four type:stat tiles across the top, agent-scoped by params.agentId = @objectId (the endpoint engine resolves that token on a detail page), which is the SAME four numbers with each one sized to a tile. Every gridHeight below was set from the widget's rendered content height measured in a browser at 12 columns (80px/row), verified against BOTH a 1-field agent and a 23-field one, and re-measured until no widget's scrollHeight exceeded its cell. Four widgets could not be sized at all until their content was bounded, because their content is a variable-length list and no fixed gridHeight can hold one: the instance-wide tool catalogue (~100 rows = 6,600px here), the invocation audit trail, the run history, and the memory entries. Each now scrolls inside its own region with a sticky header (ToolGrantEditor also gained a filter — 100 unfiltered rows behind a scrollbar is not a way to find one tool). ADR-062's 'a widget fills its gridHeight exactly' can only be honoured by an unbounded list if the list scrolls internally. agent-core is the one deliberate exception to measured sizing: it is sized for the 9 fields it DECLARES (5 rows at columns:2, 61px/row measured, + 93px chrome = 398px -> h5) rather than the 154px it currently renders, because it currently renders only 'name' — hermiq's agent schema (36 properties) and openbuild's agent schema (6 properties) share the slug 'agent', GET /api/schemas/agent resolves to openbuild's, and 'name' is their only common property. That is an OpenRegister slug-resolution bug (no register-scoped lookup exists: ?register= is ignored and the nested route 404s), not a layout one, so the cell is sized for the correct content instead of baking the bug into the geometry. AgentFormModal/AgentVersionHistoryDialog/AgentFactsheetDialog self-resolve the current agent id (and, for version history, the owner-only rollback gate) from the route when opened via open-modal, since open-modal action props are static JSON, not resolved against @objectId at HEAD. agent-detail-redesign (2026-08-04): NONE of the geometry above was reaching the screen. Hermiq never shipped gridstack's stylesheet — nc-vue imports it as a side-effect import from an aliased package and webpack tree-shakes those away (the same trap the explicit css/index.css import in src/main.js already worked around, one level up). GridStack >= 11 sets left/top INLINE but takes `position:absolute` on items and `position:relative` on the container from that stylesheet, so every widget on every grid page fell into normal flow: correct widths, no horizontal placement, all 11 cells stacked in one column down the left third of the viewport. Verified in-browser before the fix: gs-x=\"3\" carried `left: calc(3 * var(--gs-column-width))` resolving to 25% while `position` computed to `static`, and all 11 items reported left=371px. procest (gridstack 10, same renderer) positioned correctly, which is what localised it to hermiq. Fixed by an explicit `import 'gridstack/dist/gridstack.min.css'` in src/main.js. THEN the layout was recomposed to procest CaseDetail's shape: an 8-column main column (Configuration, Run operations, Memory) beside a persistent 4-column rail (the four KPI stat tiles stacked, then Skills, then Eval baseline), both closing exactly at row 16, with tool-governance and run-history full-width below. 33 rows -> 28, zero unfilled cells, and zero widgets whose scrollHeight exceeds their cell (re-measured in-browser). tool-governance halved from gridHeight 14 to 8 because its two surfaces are now TABBED inside the widget rather than stacked; its chrome title is off (showTitle:false) and the widget draws its own heading, because with the chrome title on it is a SIBLING of the widget root inside a display:block grid item, so height:100% resolved against the full box and ignored it — a permanent 6px overflow no gridHeight could remove.",
 				"widgets": [
 					{
 						"id": "agent-core",
@@ -341,91 +341,73 @@
 				],
 				"layout": [
 					{
-						"id": "1",
-						"widgetId": "agent-kpi-total-runs",
+						"id": "5",
+						"widgetId": "agent-core",
 						"gridX": 0,
 						"gridY": 0,
-						"gridWidth": 3,
+						"gridWidth": 8,
+						"gridHeight": 5,
+						"showTitle": true
+					},
+					{
+						"id": "1",
+						"widgetId": "agent-kpi-total-runs",
+						"gridX": 8,
+						"gridY": 0,
+						"gridWidth": 4,
 						"gridHeight": 2,
 						"showTitle": false
 					},
 					{
 						"id": "2",
 						"widgetId": "agent-kpi-success-rate",
-						"gridX": 3,
-						"gridY": 0,
-						"gridWidth": 3,
+						"gridX": 8,
+						"gridY": 2,
+						"gridWidth": 4,
 						"gridHeight": 2,
 						"showTitle": false
 					},
 					{
 						"id": "3",
 						"widgetId": "agent-kpi-avg-latency",
-						"gridX": 6,
-						"gridY": 0,
-						"gridWidth": 3,
+						"gridX": 8,
+						"gridY": 4,
+						"gridWidth": 4,
 						"gridHeight": 2,
 						"showTitle": false
 					},
 					{
 						"id": "4",
 						"widgetId": "agent-kpi-tokens",
-						"gridX": 9,
-						"gridY": 0,
-						"gridWidth": 3,
+						"gridX": 8,
+						"gridY": 6,
+						"gridWidth": 4,
 						"gridHeight": 2,
 						"showTitle": false
-					},
-					{
-						"id": "5",
-						"widgetId": "agent-core",
-						"gridX": 0,
-						"gridY": 2,
-						"gridWidth": 7,
-						"gridHeight": 5,
-						"showTitle": true
-					},
-					{
-						"id": "6",
-						"widgetId": "agent-skills",
-						"gridX": 7,
-						"gridY": 2,
-						"gridWidth": 5,
-						"gridHeight": 5,
-						"showTitle": true
 					},
 					{
 						"id": "7",
 						"widgetId": "agent-run-operations",
 						"gridX": 0,
-						"gridY": 7,
-						"gridWidth": 6,
-						"gridHeight": 7,
+						"gridY": 5,
+						"gridWidth": 8,
+						"gridHeight": 6,
+						"showTitle": true
+					},
+					{
+						"id": "6",
+						"widgetId": "agent-skills",
+						"gridX": 8,
+						"gridY": 8,
+						"gridWidth": 4,
+						"gridHeight": 4,
 						"showTitle": true
 					},
 					{
 						"id": "8",
 						"widgetId": "agent-memory",
-						"gridX": 6,
-						"gridY": 7,
-						"gridWidth": 6,
-						"gridHeight": 7,
-						"showTitle": true
-					},
-					{
-						"id": "9",
-						"widgetId": "agent-tool-governance",
 						"gridX": 0,
-						"gridY": 14,
-						"gridWidth": 12,
-						"gridHeight": 14,
-						"showTitle": true
-					},
-					{
-						"id": "10",
-						"widgetId": "agent-run-history",
-						"gridX": 0,
-						"gridY": 28,
+						"gridY": 11,
 						"gridWidth": 8,
 						"gridHeight": 5,
 						"showTitle": true
@@ -434,9 +416,27 @@
 						"id": "11",
 						"widgetId": "agent-eval-baseline",
 						"gridX": 8,
-						"gridY": 28,
+						"gridY": 12,
 						"gridWidth": 4,
-						"gridHeight": 5,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "9",
+						"widgetId": "agent-tool-governance",
+						"gridX": 0,
+						"gridY": 16,
+						"gridWidth": 12,
+						"gridHeight": 8,
+						"showTitle": false
+					},
+					{
+						"id": "10",
+						"widgetId": "agent-run-history",
+						"gridX": 0,
+						"gridY": 24,
+						"gridWidth": 12,
+						"gridHeight": 4,
 						"showTitle": true
 					}
 				],
@@ -708,6 +708,29 @@
 			"title": "Dashboard",
 			"config": {
 				"description": "Run metrics across your agents — success rate, latency and token usage.",
+				"headerActions": [
+					{
+						"id": "new-agent",
+						"type": "open-form",
+						"label": "New agent",
+						"icon": "Plus",
+						"register": "hermiq",
+						"schema": "agent",
+						"onSuccessRoute": "AgentDetail"
+					},
+					{
+						"id": "browse-templates",
+						"label": "Browse templates",
+						"icon": "PackageVariantClosed",
+						"handler": "navigate",
+						"route": "Store"
+					},
+					{
+						"id": "dashboard-refresh",
+						"type": "refresh",
+						"label": "Refresh"
+					}
+				],
 				"widgets": [
 					{
 						"id": "kpi-total-runs",
@@ -717,6 +740,9 @@
 							"label": "Total runs",
 							"caption": "recorded",
 							"icon": "Timeline",
+							"route": {
+								"name": "AgentCatalog"
+							},
 							"format": {
 								"style": "decimal",
 								"decimals": 0
@@ -801,7 +827,7 @@
 						"content": {
 							"limit": 6,
 							"pollSeconds": 15,
-							"rowRoute": "GraphDetail",
+							"rowRoute": "FlowDetail",
 							"emptyText": "No flows are running"
 						}
 					},
@@ -824,6 +850,64 @@
 						"title": "Agents quota",
 						"content": {
 							"metric": "agents"
+						}
+					},
+					{
+						"id": "runs-by-agent",
+						"type": "chart",
+						"title": "Runs by agent",
+						"content": {
+							"chartKind": "bar",
+							"_note": "statusBreakdown is a DYNAMIC-KEYED MAP ({status: count}), which fits neither of the chart's two endpointSource mapping modes (array-of-points or parallel arrays) — it stays on the existing custom 'analytics-breakdown' widget beside this one. perAgent IS an array of points, so it maps declaratively. `name` is enriched server-side in AnalyticsService: the raw aggregate carries only agentId, and a chart labelled with UUIDs is not readable.",
+							"endpointSource": {
+								"url": "/apps/hermiq/api/analytics",
+								"responsePath": "perAgent",
+								"labelsPath": "name",
+								"series": [
+									{
+										"name": "Runs",
+										"path": "runs"
+									},
+									{
+										"name": "Successful",
+										"path": "success"
+									}
+								]
+							},
+							"emptyText": "No runs recorded yet"
+						}
+					},
+					{
+						"id": "recent-agents",
+						"type": "object-table",
+						"title": "Agents",
+						"content": {
+							"source": {
+								"register": "hermiq",
+								"schema": "agent",
+								"order": {
+									"updated": "desc"
+								},
+								"limit": 7
+							},
+							"columns": [
+								{
+									"key": "name",
+									"cellClass": "cn-cell--strong"
+								},
+								{
+									"key": "model",
+									"cellClass": "cn-cell--muted cn-cell--end"
+								}
+							],
+							"rowRoute": "AgentDetail",
+							"viewAllRoute": {
+								"name": "AgentCatalog"
+							},
+							"viewAllLabel": "View all",
+							"hideHeader": true,
+							"borderless": true,
+							"emptyText": "No agents yet"
 						}
 					}
 				],
@@ -865,31 +949,49 @@
 						"showTitle": false
 					},
 					{
-						"id": "5",
-						"widgetId": "running-flows",
-						"gridX": 0,
-						"gridY": 2,
-						"gridWidth": 6,
-						"gridHeight": 4,
-						"showTitle": true
-					},
-					{
 						"id": "6",
 						"widgetId": "analytics-breakdown",
 						"borderless": false,
-						"gridX": 6,
+						"gridX": 0,
 						"gridY": 2,
 						"gridWidth": 6,
 						"gridHeight": 4,
 						"showTitle": false
 					},
 					{
+						"id": "9",
+						"widgetId": "runs-by-agent",
+						"gridX": 6,
+						"gridY": 2,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "5",
+						"widgetId": "running-flows",
+						"gridX": 0,
+						"gridY": 6,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
+						"id": "10",
+						"widgetId": "recent-agents",
+						"gridX": 6,
+						"gridY": 6,
+						"gridWidth": 6,
+						"gridHeight": 4,
+						"showTitle": true
+					},
+					{
 						"id": "7",
 						"widgetId": "quota-schedules",
 						"borderless": false,
 						"gridX": 0,
-						"gridY": 6,
-						"gridWidth": 3,
+						"gridY": 10,
+						"gridWidth": 6,
 						"gridHeight": 2,
 						"showTitle": false
 					},
@@ -897,15 +999,15 @@
 						"id": "8",
 						"widgetId": "quota-agents",
 						"borderless": false,
-						"gridX": 3,
-						"gridY": 6,
-						"gridWidth": 3,
+						"gridX": 6,
+						"gridY": 10,
+						"gridWidth": 6,
 						"gridHeight": 2,
 						"showTitle": false
 					}
 				]
 			},
-			"_note": "Single dashboard (/analytics merged in and dropped). Custom widgets MUST be declared as config.widgets type:'custom' + config.layout + a TOP-LEVEL slots map ('widget-<id>' -> registry key) — the decidesk pattern. A top-level widgets[] instead makes CnPageRenderer mount a bare CnWidgetGrid and skip CnDashboardPage, so no page header renders and nothing carries the 56px nav-toggle clearance. Each KPI is its OWN type:'stat' tile (procest Dashboard shape) rather than one custom widget drawing four cards inside a card — a dashboard tile is already a card, so a widget that draws its own is a well inside a well. The four stat tiles read the SAME /api/analytics endpoint and useEndpointSource dedupes them to ONE request per render pass. The two quota tiles share the 'quota-stat' registry widget and differ only by content.metric; they stay custom because the tile is capability-gated (can_manage_killswitch) and shows count-against-limit. 'running-flows' is the shared nc-vue flow-runs widget over OpenRegister's one flow engine — no hermiq code behind it.",
+			"_note": "Single dashboard (/analytics merged in and dropped). Custom widgets MUST be declared as config.widgets type:'custom' + config.layout + a TOP-LEVEL slots map ('widget-<id>' -> registry key) — the decidesk pattern. A top-level widgets[] instead makes CnPageRenderer mount a bare CnWidgetGrid and skip CnDashboardPage, so no page header renders and nothing carries the 56px nav-toggle clearance. Each KPI is its OWN type:'stat' tile (procest Dashboard shape) rather than one custom widget drawing four cards inside a card — a dashboard tile is already a card, so a widget that draws its own is a well inside a well. The four stat tiles read the SAME /api/analytics endpoint and useEndpointSource dedupes them to ONE request per render pass. The two quota tiles share the 'quota-stat' registry widget and differ only by content.metric; they stay custom because the tile is capability-gated (can_manage_killswitch) and shows count-against-limit. 'running-flows' is the shared nc-vue flow-runs widget over OpenRegister's one flow engine — no hermiq code behind it. dashboard-redesign (2026-08-04): the grid did not close — the bottom row was two gridWidth-3 quota tiles, leaving 6 of 12 columns empty as a visibly ragged edge — and the page carried none of the affordances procest's Dashboard has. Now 12 rows with ZERO unfilled cells: 4 KPI tiles, then analytics-breakdown beside a new 'runs-by-agent' bar chart, then running-flows beside a new 'recent-agents' object-table, then the two quota tiles re-spanned to 6 each. Added config.headerActions (New agent / Browse templates / Refresh) and a drilldown `route` on the total-runs tile, both straight off the procest shape. The chart reads perAgent via endpointSource's array-of-points mode; statusBreakdown CANNOT be charted declaratively (it is a dynamic-keyed map, which fits neither endpointSource mapping mode) and deliberately stays on the existing custom widget beside it. AnalyticsService now enriches perAgent with `name` — the aggregate carried only agentId, and a chart labelled with UUIDs is unreadable; AnalyticsBreakdownWidget prefers that same server-side name over its client-side store lookup, which only ever resolved agents the session had already fetched. This instance has zero runs, so the chart was verified by a positive control: the endpoint was intercepted with a synthetic perAgent payload and the chart rendered 6 bars across 3 name-labelled categories with a Runs/Successful legend.",
 			"slots": {
 				"widget-analytics-breakdown": "analytics-breakdown",
 				"widget-quota-schedules": "quota-stat",
@@ -1093,71 +1195,38 @@
 			"title": "MCP tools"
 		},
 		{
-			"id": "GraphIndex",
-			"route": "/graphs",
-			"type": "index",
-			"title": "Graphs",
-			"config": {
-				"register": "hermiq",
-				"schema": "agentflow",
-				"columns": [
-					{
-						"key": "name",
-						"label": "Name"
-					},
-					{
-						"key": "description",
-						"label": "Description"
-					},
-					{
-						"key": "triggerSchema",
-						"label": "Trigger schema"
-					},
-					{
-						"key": "trigger",
-						"label": "Trigger"
-					},
-					{
-						"key": "enabled",
-						"label": "Enabled"
-					}
-				],
-				"rowRoute": "GraphDetail",
-				"actions": [
-					{
-						"id": "edit-graph",
-						"label": "Edit",
-						"icon": "Pencil",
-						"type": "open-page",
-						"target": "GraphDetail"
-					}
-				],
-				"actionToggles": {
-					"showViewAction": false,
-					"showEditAction": false
-				},
-				"headerActions": [
-					{
-						"id": "new-graph",
-						"label": "New graph",
-						"icon": "Plus",
-						"type": "navigate",
-						"target": "/graphs/new"
-					}
-				],
-				"_note": "Agent graphs are plain OpenRegister objects, so the browse/search surface is a standard type:index — no bespoke list code. Authoring happens on GraphDetail, which is type:custom because a direct-manipulation canvas is not expressible as a widget grid. ONE row action, Edit, opening that canvas: the built-in View and Edit were both dropped because they were redundant with each other and NEITHER did what a graph needs — View only navigated (the same thing a row click does) and Edit opened the field form, which cannot touch nodes or edges. It is type:open-page, NOT type:navigate: navigate pushes its target verbatim, while open-page pushes {name, params:{id}} and so carries the clicked row. config.rowRoute drives the row-click path to the same page.",
-				"showAdd": false,
-				"inlineActionCount": 2
-			}
+			"id": "FlowIndex",
+			"route": "/flows",
+			"type": "custom",
+			"component": "FlowIndex",
+			"title": "Flows",
+			"_note": "Custom page, NOT type:index. A type:index page is an OBJECT index bound to a register+schema, and a flow is not an object: flow-storage/spec.md says a flow definition SHALL NOT be stored as an OpenRegister object, so there is no register/schema pair to point at. This used to declare hermiq/agentflow — a duplicate mirror of the native flow rows — so the list showed objects while the engine ran the native rows, free to drift. FlowIndex.vue still renders CnIndexPage; only the source changed, to OpenRegister's /api/flows?app=hermiq through the same store the canvas uses."
 		},
 		{
-			"id": "GraphDetail",
+			"id": "FlowIndexLegacyRedirect",
+			"route": "/graphs",
+			"type": "custom",
+			"component": "FlowIndex",
+			"title": "Flows",
+			"_note": "Legacy path. Hermiq called flows 'graphs' until hermiq-flow-rename, and those URLs are pasted into Hydra issues, run logs and PR bodies — including the sequencer's. The manifest has no redirect field, so the old path is declared as a second page onto the same component rather than left to 404. Remove once the old links have aged out."
+		},
+		{
+			"id": "FlowDetail",
+			"route": "/flows/:id",
+			"type": "custom",
+			"component": "FlowBuilder",
+			"title": "Flow",
+			"_note": "Custom page: a direct-manipulation canvas over a flow definition (drag to place, drag-to-connect, per-STEP config, run + trace). No built-in page type expresses flow authoring — index/detail/dashboard are all record-shaped. Controls live in the NcAppSidebar so the canvas gets the full width. The definition is OpenRegister's native flow (/api/flows), never a hermiq object: a node is a PLACE and carries no config, an edge is the STEP that runs.",
+			"sidebarComponent": "FlowSidebar"
+		},
+		{
+			"id": "FlowDetailLegacyRedirect",
 			"route": "/graphs/:id",
 			"type": "custom",
-			"component": "GraphBuilder",
-			"title": "Graph",
-			"_note": "Custom page: a direct-manipulation canvas over an agentflow node/edge document (drag to place, drag-to-connect, per-node config, run + trace). No built-in page type expresses graph authoring — index/detail/dashboard are all record-shaped. Controls live in the NcAppSidebar so the canvas gets the full width.",
-			"sidebarComponent": "GraphSidebar"
+			"component": "FlowBuilder",
+			"title": "Flow",
+			"_note": "Legacy path — see FlowIndexLegacyRedirect. Carries the same sidebarComponent as FlowDetail: without it an old link would open the canvas with no controls, which is worse than a 404 because it looks like the editor is broken rather than like the URL is old.",
+			"sidebarComponent": "FlowSidebar"
 		}
 	],
 	"setup": {

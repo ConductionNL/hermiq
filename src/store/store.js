@@ -60,19 +60,19 @@ export const useEvalRunStore = createObjectStore('evalrun', {
 	schema: 'evalrun',
 })
 
-/**
- * Canonical OpenRegister object store for the 'agentflow' schema
- * (agent-graph-builder): the authored graph definition — {nodes, edges, trigger,
- * triggerSchema, enabled, limits} — that GraphExecutor walks. The definition IS
- * an OR object (same pattern as OpenRegister's x-openregister-flows), so the
- * flow builder reads and writes it through the generic object path; only the
- * "run this graph now" ACTION is a bespoke Hermiq endpoint (/api/graph/run),
- * because OpenRegister has no notion of executing an agent graph.
- */
-export const useAgentFlowStore = createObjectStore('agentflow', {
-	register: 'hermiq',
-	schema: 'agentflow',
-})
+// There is deliberately NO `useAgentFlowStore` here.
+//
+// A flow definition is not an OpenRegister object. `flow-storage/spec.md` (of
+// flow-engine-unification) states it outright — "A flow definition SHALL NOT be
+// stored as an OpenRegister object […] No other app SHALL own a flow store, a
+// flow controller, or a flow execution service" — and the engine reads the
+// native `oc_openregister_flows` table, not the objects API.
+//
+// This store used to exist over a `hermiq/agentflow` schema, which made a
+// SECOND copy of every flow: the objects the editor read, and the native rows
+// the engine ran. Nothing kept them in step. The graph editor now goes to
+// `src/api/flows.js` — OpenRegister's own flow endpoints — so what an author
+// sees and what a trigger runs are the same record.
 
 /**
  * Canonical OpenRegister object store for the 'agentskill' schema

@@ -63,6 +63,17 @@ class MigrateAgentDataTest extends TestCase
     private array $infos = [];
 
     /**
+     * Warning lines emitted by the repair step.
+     *
+     * Captured because a SKIPPED record is only visible as a warning: the spec
+     * requires the step to "log the skipped record and continue", so a test that
+     * watches only `info` cannot tell a reported skip from a silent drop.
+     *
+     * @var array<int, string>
+     */
+    private array $warnings = [];
+
+    /**
      * uuids that objectExists() must report as already present (idempotency probe).
      *
      * @var array<int, string>
@@ -85,6 +96,7 @@ class MigrateAgentDataTest extends TestCase
     {
         $this->saved        = [];
         $this->infos        = [];
+        $this->warnings     = [];
         $this->existing     = [];
         $this->impersonated = [];
 
@@ -192,13 +204,24 @@ class MigrateAgentDataTest extends TestCase
     }//end testConversationAgentIdResolvedToUuid()
 
     /**
-     * A dangling FK is nulled, counted in the summary, and the row is still migrated.
+     * A conversation whose agent is gone is reported and skipped, not written.
+     *
+     * `agentId` is REQUIRED on the Conversation schema, so nulling a dangling
+     * reference produces a row that can only fail validation — and it did,
+     * eight times per repair, as "Property 'agentId' should be type 'string'
+     * but is 'null'". An error describing the symptom, from a step that had
+     * already decided to carry on.
+     *
+     * This test previously asserted the opposite ("the row must still be
+     * migrated despite the dangling FK"), which is a behaviour the spec never
+     * required: it asks the step to "log the skipped record and continue",
+     * which is what skipping does. The test was pinning the defect.
      *
      * @return void
      *
      * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#an-unresolvable-foreign-key-is-skipped-not-fatal
      */
-    public function testDanglingForeignKeyIsNulledAndCounted(): void
+    public function testAConversationWithAMissingAgentIsReportedAndSkipped(): void
     {
         $db      = $this->makeDb(
             tables: [
@@ -210,12 +233,53 @@ class MigrateAgentDataTest extends TestCase
 
         $subject->run($this->makeOutput());
 
-        $conv = $this->savedFor(schema: 'conversation');
-        $this->assertCount(1, $conv, 'The row must still be migrated despite the dangling FK.');
-        $this->assertNull($conv[0]['data']['agentId'], 'The dangling agentId must be nulled.');
-        $this->assertStringContainsString('1 dangling', $this->summaryLine(), 'The dangling FK must be counted in the output.');
+        $this->assertCount(
+            0,
+            $this->savedFor(schema: 'conversation'),
+            'A conversation requires an agent, so one referencing a missing agent must not be written.'
+        );
 
-    }//end testDanglingForeignKeyIsNulledAndCounted()
+        $this->assertNotEmpty(
+            array_filter(
+                $this->warnings,
+                static fn (string $line): bool => str_contains($line, 'conv-uuid-42') === true
+            ),
+            'The skipped record must be reported by uuid — a silent drop is not a skip.'
+        );
+
+    }//end testAConversationWithAMissingAgentIsReportedAndSkipped()
+
+    /**
+     * A dangling reference does not stop the rest of the migration.
+     *
+     * This is the requirement the spec actually states — "continue processing
+     * remaining records" — and the one worth defending: a repair step that
+     * abandons the run on one bad row leaves an instance half-migrated.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#an-unresolvable-foreign-key-is-skipped-not-fatal
+     */
+    public function testAMissingAgentDoesNotStopTheRemainingRecords(): void
+    {
+        $db      = $this->makeDb(
+            tables: [
+                'openregister_agents'        => [$this->agentRow(7, 'agent-uuid-7', 'alice')],
+                'openregister_conversations' => [
+                    $this->conversationRow(42, 'conv-uuid-42', 999, 'alice'),
+                    $this->conversationRow(43, 'conv-uuid-43', 7, 'alice'),
+                ],
+            ]
+        );
+        $subject = $this->makeSubject(db: $db, flag: 'true');
+
+        $subject->run($this->makeOutput());
+
+        $conv = $this->savedFor(schema: 'conversation');
+        $this->assertCount(1, $conv, 'The resolvable conversation must still be migrated.');
+        $this->assertSame('conv-uuid-43', $conv[0]['data']['id'] ?? $conv[0]['uuid'] ?? null);
+
+    }//end testAMissingAgentDoesNotStopTheRemainingRecords()
 
     /**
      * A record whose uuid already exists is skipped (idempotent re-run).
@@ -425,6 +489,11 @@ class MigrateAgentDataTest extends TestCase
         $output->method('info')->willReturnCallback(
             function (string $message): void {
                 $this->infos[] = $message;
+            }
+        );
+        $output->method('warning')->willReturnCallback(
+            function (string $message): void {
+                $this->warnings[] = $message;
             }
         );
 

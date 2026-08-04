@@ -17,6 +17,14 @@
  *    `Feedback.{messageId,conversationId,agentId}`) are resolved to the referenced row's
  *    uuid via an id→uuid map built in the same pass; a dangling reference is nulled,
  *    logged, and counted — the row is still migrated (never a fatal error).
+ *
+ *    EXCEPT where the target schema marks the FK REQUIRED. `Conversation.agentId` is
+ *    required — a conversation that runs against no agent is not a conversation — so
+ *    nulling it produces a row that can only ever fail validation. Those rows are
+ *    skipped and reported as unmigratable rather than attempted: the migration used to
+ *    emit "failed to write conversation <uuid>: Property 'agentId' should be type
+ *    'string' but is 'null'" eight times per repair, an error describing the symptom
+ *    from a step that had already decided to carry on.
  *  - Reads OR's tables directly via IDBConnection (they belong to OR and may be absent on
  *    a fresh install): each table is guarded with a table-exists check and skipped
  *    gracefully. This deviates from tasks.md §1.2 (inject OR mappers) on purpose — a raw
@@ -370,6 +378,7 @@ class MigrateAgentData implements IRepairStep
         }
 
         $written = 0;
+        $skipped = 0;
         foreach ($this->readTable(table: $table) as $row) {
             $uuid = $this->rowUuid(row: $row);
             if ($uuid === null) {
@@ -390,6 +399,29 @@ class MigrateAgentData implements IRepairStep
                 label: 'Conversation.agentId',
                 output: $output
             );
+
+            // `agentId` is REQUIRED on the Conversation schema — a conversation
+            // that runs against no agent is not a conversation. resolveFk()
+            // nulls a dangling FK and says "row still migrated", which is right
+            // for an optional reference and impossible for this one: the write
+            // can only ever fail validation.
+            //
+            // It did, eight times per repair, as "failed to write conversation
+            // <uuid>: Property 'agentId' should be type 'string' but is 'null'"
+            // — an error describing the symptom, from a step that had already
+            // decided to continue. Skipping says the true thing: these
+            // conversations reference agents that no longer exist, so there is
+            // nothing to migrate them ONTO.
+            if ($data['agentId'] === null) {
+                $skipped++;
+                $message = sprintf(
+                    'Conversation %s references a missing agent; not migrated (a Conversation requires an agent).',
+                    $uuid
+                );
+                $output->warning('hermiq: '.$message);
+                $this->logger->warning('[hermiq] agent-data-migration: '.$message);
+                continue;
+            }
 
             $this->persist(objectService: $objectService, schema: 'conversation', uuid: $uuid, data: $data, row: $row);
             $written++;

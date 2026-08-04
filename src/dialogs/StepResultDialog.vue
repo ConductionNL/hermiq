@@ -11,7 +11,7 @@
 		@update:open="$emit('close')">
 		<div class="step-result">
 			<NcNoteCard v-if="halted" type="warning">
-				{{ t('hermiq', 'This step halted the graph — nothing after it ran.') }}
+				{{ t('hermiq', 'This step halted the flow — nothing after it ran.') }}
 			</NcNoteCard>
 
 			<NcNoteCard v-if="result.error" type="error">

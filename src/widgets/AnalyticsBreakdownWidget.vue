@@ -58,7 +58,7 @@
 					</thead>
 					<tbody>
 						<tr v-for="row in metrics.perAgent" :key="row.agentId">
-							<td>{{ agentName(row.agentId) }}</td>
+							<td>{{ agentName(row) }}</td>
 							<td>{{ row.runs }}</td>
 							<td>{{ row.success }}</td>
 						</tr>
@@ -143,12 +143,26 @@ export default {
 		},
 
 		/**
-		 * Resolve an agent's display name from its UUID.
+		 * Resolve an agent's display name for one `perAgent` row.
 		 *
-		 * @param {string} agentId The agent UUID.
+		 * Prefers the name the SERVER now sends on the row (AnalyticsService
+		 * enriches `perAgent` with it, so the sibling "Runs by agent" chart can
+		 * label its bars). That is strictly better than the client-side store
+		 * lookup below, which only resolves agents this session happens to have
+		 * loaded — an agent that has since been deleted, or simply is not in the
+		 * fetched page, fell through to a raw UUID in the user's face. The store
+		 * lookup stays as the fallback so the widget keeps working against an
+		 * older server that does not send `name` yet.
+		 *
+		 * @param {object} row The perAgent row ({ agentId, name?, runs, success }).
 		 * @return {string} The agent name, or the UUID.
 		 */
-		agentName(agentId) {
+		agentName(row) {
+			if (row && typeof row.name === 'string' && row.name !== '') {
+				return row.name
+			}
+
+			const agentId = (row && row.agentId) || ''
 			const agent = this.agents.find((a) => (a.uuid || a.id) === agentId)
 			return (agent && agent.name) || agentId || '—'
 		},
