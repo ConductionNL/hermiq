@@ -26,7 +26,9 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\SettingsService;
+use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 
@@ -79,10 +81,20 @@ class SettingsController extends Controller
     /**
      * Update settings with provided data.
      *
+     * Admin-only, declared rather than inherited. The method writes app config
+     * (including the OpenRegister `register` binding that the sibling index()
+     * deliberately strips for non-admins), so it was already admin-gated by
+     * Nextcloud's default for an un-attributed method — but that posture was
+     * implicit, and an implicit one is silently lost the moment anybody adds
+     * #[NoAdminRequired] to make a read work. AuthorizedAdminSetting also
+     * enforces DELEGATED admin authorization for this app's settings section,
+     * so a delegated admin gets exactly the same surface as in the UI.
+     *
      * @return JSONResponse
      *
      * @spec openspec/specs/settings-management/spec.md#REQ-CFG-002
      */
+    #[AuthorizedAdminSetting(AdminSettings::class)]
     public function create(): JSONResponse
     {
         $data   = $this->request->getParams();

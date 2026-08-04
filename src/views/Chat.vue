@@ -1576,4 +1576,21 @@ export default {
 		border-bottom: 1px solid var(--color-border);
 	}
 }
+
+/* WCAG 2.2 AA 2.3.3 (Animation from Interactions).
+   The typing indicator is the one that matters here: it is an INFINITE bounce,
+   and a looping animation is exactly the pattern that triggers vestibular
+   symptoms. It is replaced with a static opacity rather than removed, so the
+   "assistant is typing" state is still conveyed — dropping the animation
+   without a replacement would delete the information along with the motion. */
+@media (prefers-reduced-motion: reduce) {
+	.chat-page__row {
+		transition: none;
+	}
+
+	.chat-page__typing span {
+		animation: none;
+		opacity: 0.7;
+	}
+}
 </style>

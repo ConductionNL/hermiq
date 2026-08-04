@@ -206,7 +206,7 @@
 						"content": {
 							"label": "Total runs",
 							"caption": "recorded",
-							"icon": "Timeline",
+							"icon": "ChartTimelineVariant",
 							"format": {
 								"style": "decimal",
 								"decimals": 0
@@ -300,7 +300,7 @@
 						"id": "agent-skills",
 						"type": "custom",
 						"title": "Skills",
-						"icon": "Package",
+						"icon": "PackageVariantClosed",
 						"_note": "skillInstalls attach/detach against the tenant Skill catalogue — the reverse of an object-list FK-child-collection shape (design.md Decision 3). Resolved via page.slots.widget-agent-skills -> agent-skills."
 					},
 					{
@@ -314,7 +314,7 @@
 						"id": "agent-run-operations",
 						"type": "custom",
 						"title": "Run operations",
-						"icon": "RocketLaunch",
+						"icon": "PlayCircleOutline",
 						"_note": "Schedule attach/edit, Dry run, Run now, cost estimate, budget status and the webhook trigger all read/write the SAME schedule object and share previewResult/runError state — the manifest grid has no cross-widget state channel, so they stay one widget (design.md Decision 3). Resolved via page.slots.widget-agent-run-operations -> agent-run-operations."
 					},
 					{
@@ -575,7 +575,7 @@
 						"id": "skill-learnings",
 						"type": "custom",
 						"title": "Learnings",
-						"icon": "School",
+						"icon": "SchoolOutline",
 						"_note": "skill-learnings: read-only Learnings card — files['learnings.md'] rendered as sanitised markdown + the levelEvidence.l6 activity strip (candidate count, learnings count, last capture/promotion); honest empty state; deliberately NO editing surface. Resolved via page.slots.widget-skill-learnings -> skill-learnings."
 					},
 					{
@@ -739,7 +739,7 @@
 						"content": {
 							"label": "Total runs",
 							"caption": "recorded",
-							"icon": "Timeline",
+							"icon": "ChartTimelineVariant",
 							"route": {
 								"name": "AgentCatalog"
 							},
@@ -1086,7 +1086,7 @@
 						"id": "eval-run-panel",
 						"type": "custom",
 						"title": "Run",
-						"icon": "RocketLaunch",
+						"icon": "PlayCircleOutline",
 						"_note": "Agent-picker + Run (+ paired-baseline toggle with the mode-dependent cost note) + this dataset's run history incl. with/without paired rendering. Resolved via page.slots.widget-eval-run-panel -> eval-run-panel."
 					}
 				],

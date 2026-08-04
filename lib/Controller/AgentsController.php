@@ -259,6 +259,14 @@ class AgentsController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
+     * @no-admin-idor-exempt Creates a NEW object, so there is no caller-supplied
+     * object id to substitute — the IDOR shape this gate detects cannot exist
+     * here. The two fields that would make it exploitable, `owner` and
+     * `organisation`, are in PROTECTED_KEYS and stripped from the request before
+     * save (stripProtectedKeys), then assigned server-side by ObjectService from
+     * the session, so a caller cannot create an agent owned by, or inside the
+     * organisation of, anyone else. New agents default to isPrivate: true.
+     *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
      */
     public function create(): JSONResponse
@@ -524,6 +532,14 @@ class AgentsController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
+     * @no-admin-idor-exempt Read-only aggregate over the caller's OWN scope.
+     * Takes no caller-supplied object id: it returns three COUNTS (total /
+     * active / inactive) and no object content or identifiers. The counts come
+     * from countAgents(), which queries through ObjectService and is therefore
+     * organisation-scoped by OR's multitenancy on the same read path as index(),
+     * so a caller cannot count another organisation's agents by any parameter
+     * this endpoint accepts.
+     *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
      */
     public function stats(): JSONResponse
@@ -565,6 +581,14 @@ class AgentsController extends Controller
      *
      * @NoAdminRequired
      * @NoCSRFRequired
+     *
+     * @no-admin-idor-exempt Read-only instance-wide catalogue. Takes no
+     * caller-supplied object id and reads no per-user or per-organisation data:
+     * it returns the set of tool DESCRIPTORS this instance has installed (name,
+     * title, parameter schema), which is the same list for every caller and
+     * carries no tenant content. Whether a given agent may actually invoke any
+     * of them is a separate decision enforced at call time by the tool-grant
+     * check, not by hiding the catalogue.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
      */
@@ -688,10 +712,29 @@ class AgentsController extends Controller
      */
     private function countAgents(array $filters): int
     {
+        // Booleans MUST be normalised to the literal strings 'true'/'false'.
+        // The filter value reaches OpenRegister's query builder as a bound
+        // parameter, and PHP's string cast of a bool gives '1' for true and the
+        // EMPTY STRING for false — so `['active' => false]` bound '' against a
+        // boolean column and Postgres rejected the whole statement with
+        // SQLSTATE[22P02] "invalid input syntax for type boolean". stats() was
+        // therefore a hard 500 on every call (both the active and the inactive
+        // count go through here), which is why the dashboard's agent counters
+        // showed nothing.
+        $normalised = [];
+        foreach ($filters as $key => $value) {
+            if (is_bool($value) === true) {
+                $normalised[$key] = ($value === true) ? 'true' : 'false';
+                continue;
+            }
+
+            $normalised[$key] = $value;
+        }
+
         $paginated = $this->objectService
             ->setRegister(self::REGISTER_SLUG)
             ->setSchema(self::AGENT_SCHEMA)
-            ->searchObjectsPaginated(query: array_merge($filters, ['_limit' => 1]));
+            ->searchObjectsPaginated(query: array_merge($normalised, ['_limit' => 1]));
 
         return (int) ($paginated['total'] ?? 0);
     }//end countAgents()

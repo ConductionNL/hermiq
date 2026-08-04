@@ -38,9 +38,9 @@
 			<table class="skill-scorecard-modal__table">
 				<thead>
 					<tr>
-						<th>{{ t('hermiq', 'Level') }}</th>
-						<th>{{ t('hermiq', 'Status') }}</th>
-						<th>{{ t('hermiq', 'Reasons') }}</th>
+						<th scope="col">{{ t('hermiq', 'Level') }}</th>
+						<th scope="col">{{ t('hermiq', 'Status') }}</th>
+						<th scope="col">{{ t('hermiq', 'Reasons') }}</th>
 					</tr>
 				</thead>
 				<tbody>

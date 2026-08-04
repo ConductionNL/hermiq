@@ -32,6 +32,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\SettingsService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\DataDisplayResponse;
 use OCP\IRequest;
 use Psr\Log\LoggerInterface;
@@ -76,10 +77,23 @@ class MetricsController extends Controller
     /**
      * Prometheus text exposition. Admin auth per ADR-006.
      *
+     * Deliberately NOT #[PublicPage]. ADR-006 splits the two monitoring
+     * surfaces: `/api/metrics` is admin-authed, `/api/health` is public. The
+     * exposition carries app version and health/queue state, so publishing it
+     * anonymously would be a real leak.
+     *
+     * #[NoCSRFRequired] declares the posture explicitly (NC defaults an
+     * un-attributed method to admin-required, which is correct here, but leaves
+     * the intent undeclared) and is what actually makes the route reachable for
+     * its consumer: a Prometheus scraper is not a browser and carries no CSRF
+     * token. Admin auth still applies — that comes from the ABSENCE of
+     * #[NoAdminRequired], which is not added here.
+     *
      * @return DataDisplayResponse
      *
      * @spec openspec/changes/example-change/tasks.md#task-8
      */
+    #[NoCSRFRequired]
     public function index(): DataDisplayResponse
     {
         try {

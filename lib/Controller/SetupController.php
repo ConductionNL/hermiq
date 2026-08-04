@@ -34,8 +34,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Settings\AdminSettings;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\AuthorizedAdminSetting;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\Http\Client\IClientService;
 use OCP\IAppConfig;
@@ -109,6 +111,17 @@ class SetupController extends Controller
      *
      * @spec exclude First-time-setup status; no behavioural spec.
      *
+     * @no-admin-idor-exempt Availability probe. Takes no caller-supplied object
+     * id and reads no user or organisation data — it reports whether the
+     * instance-wide first-run wizard has been completed, so that a non-admin
+     * loading the app is not shown a setup prompt they cannot action. The
+     * response is a version number and one boolean per step; it exposes no
+     * configuration VALUES (the LLM endpoint and credentials are never in it),
+     * only whether the LLM connection has been tested. Deliberately readable by
+     * every authenticated user because every authenticated user renders the
+     * shell that consumes it; the privileged half of the wizard (saveConfig,
+     * runAction) is admin-gated separately.
+     *
      * @NoAdminRequired
      */
     public function status(): JSONResponse
@@ -135,10 +148,17 @@ class SetupController extends Controller
     /**
      * Persist app-config values from a `config-fields` step (admin-only).
      *
+     * The "(admin-only)" above was previously enforced ONLY by Nextcloud's
+     * default for an un-attributed method — a comment and an implicit default,
+     * with nothing tying them together. This writes app config (the WRITABLE_KEYS
+     * allowlist below is the only other limit on it), so the requirement is now
+     * declared and delegated-admin-aware.
+     *
      * @return JSONResponse `{ success }`.
      *
      * @spec exclude First-time-setup config persistence; no behavioural spec.
      */
+    #[AuthorizedAdminSetting(AdminSettings::class)]
     public function saveConfig(): JSONResponse
     {
         foreach ($this->request->getParams() as $key => $value) {
@@ -165,12 +185,18 @@ class SetupController extends Controller
     /**
      * Run a privileged server-side setup action (admin-only).
      *
+     * "Privileged" is literal: `test-llm` makes the server issue an outbound
+     * HTTP request to a configured endpoint, so an unauthenticated caller would
+     * have a server-side request forgery primitive. It was admin-gated only by
+     * Nextcloud's default for an un-attributed method; that is now declared.
+     *
      * @param string $actionId The action to run (only `test-llm`).
      *
      * @return JSONResponse `{ success, message }`.
      *
      * @spec exclude First-time-setup action dispatch; no behavioural spec.
      */
+    #[AuthorizedAdminSetting(AdminSettings::class)]
     public function runAction(string $actionId): JSONResponse
     {
         if ($actionId === 'test-llm') {
