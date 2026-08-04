@@ -35,6 +35,91 @@ export const OR_API = '/index.php/apps/openregister/api'
 const NC_USER = process.env.NC_USER || 'admin'
 const NC_PASS = process.env.NC_PASS || 'admin'
 
+/** Memoised result of `appRoot()` — one resolution per worker process. */
+let _appRoot: string | null = null
+
+/**
+ * The base path hermiq's Vue router is actually mounted on.
+ *
+ * 🔴 This is NOT a cosmetic URL preference — it decides whether a deep link
+ * lands on the page it names or is swallowed by the SPA catch-all.
+ *
+ * `src/main.js` builds its history with `createWebHistory(generateUrl('/apps/hermiq'))`.
+ * `generateUrl` emits the pretty form (`/apps/hermiq`) only when Nextcloud
+ * believes mod_rewrite is working; otherwise it emits `/index.php/apps/hermiq`.
+ * The apache dev container is the first case, CI's `php -S` front controller
+ * is the SECOND — and a path outside the router base matches no route, so
+ * vue-router falls through to the catch-all and redirects to the app root.
+ *
+ * Measured on run 30865280923 (fresh stable33, php -S): every spec that
+ * hard-coded `/apps/hermiq/...` landed on `/index.php/apps/hermiq/` and
+ * failed on a selector that was never going to be on that page — 21 of the
+ * 27 failures in that run, all of them reported as if the page were broken.
+ *
+ * ⚠️ Probing which URL *serves the SPA shell* does not answer this question:
+ * CI's front-controller router serves the shell on BOTH forms, so the probe
+ * picks the pretty one and is wrong exactly where it matters. The only
+ * authority is the value `generateUrl` returns inside the running page, which
+ * is what this reads.
+ *
+ * @param page Any page in this browser context (need not be authenticated —
+ *             `OC` is defined on the login page too).
+ * @return The router base, without a trailing slash (e.g. `/index.php/apps/hermiq`).
+ */
+export async function appRoot(page: Page): Promise<string> {
+	if (_appRoot !== null) {
+		return _appRoot
+	}
+
+	// `/index.php/...` is reachable under BOTH configurations, so it is the one
+	// safe place to stand while asking which form the app itself generates.
+	await page.goto('/index.php/apps/hermiq/', { waitUntil: 'domcontentloaded' })
+
+	const base = await page.evaluate(() => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const oc = (window as any).OC
+		if (typeof oc?.generateUrl === 'function') {
+			return String(oc.generateUrl('/apps/hermiq'))
+		}
+		// Fallback mirrors core's own generateUrl for the rare page that
+		// exposes OC.config/getRootPath but not the helper.
+		if (oc !== undefined) {
+			const root = typeof oc.getRootPath === 'function' ? oc.getRootPath() : ''
+			const front = oc.config?.modRewriteWorking === true ? '' : '/index.php'
+			return `${root}${front}/apps/hermiq`
+		}
+		return ''
+	})
+
+	expect(base, 'the hermiq router base must be resolvable from OC.generateUrl').not.toEqual('')
+	expect(base, 'the resolved router base must address the hermiq app').toContain('/apps/hermiq')
+
+	_appRoot = base.replace(/\/+$/, '')
+	return _appRoot
+}
+
+/**
+ * Whether a Nextcloud app is installed AND enabled on this instance.
+ *
+ * Used for precondition guards: a spec whose subject needs a companion app
+ * must SKIP naming the missing app, never assert against a half-instance and
+ * report the absence as a defect in the app under test.
+ *
+ * @param req   The Playwright request context (session-scoped).
+ * @param token The CSRF request-token.
+ * @param appId The app id to look for (e.g. `spreed`).
+ * @return True when the provisioning API lists it among the enabled apps.
+ */
+export async function appEnabled(req: APIRequestContext, token: string, appId: string): Promise<boolean> {
+	const res = await req.get('/ocs/v2.php/cloud/apps?filter=enabled&format=json', { headers: jsonHeaders(token) })
+	if (res.ok() === false) {
+		return false
+	}
+	const body = await res.json()
+	const apps: string[] = body?.ocs?.data?.apps ?? []
+	return apps.includes(appId)
+}
+
 /**
  * Harvest the live CSRF request-token from a loaded hermiq page.
  *
@@ -62,7 +147,9 @@ export async function harvestToken(page: Page): Promise<string> {
 		await page.locator('#user').waitFor({ state: 'hidden', timeout: 30_000 })
 	}
 
-	await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
+	// index.php-form: reachable whether or not mod_rewrite is believed to work,
+	// and this only needs a hermiq page to read the token off — not the router.
+	await page.goto('/index.php/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 	const token = await page.evaluate(
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		() => (window as any).OC?.requestToken

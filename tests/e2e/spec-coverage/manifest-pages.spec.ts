@@ -37,6 +37,7 @@
 import { test, expect, type Page, type ConsoleMessage } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
+import { appRoot } from './_fixtures'
 
 /* --------------------------------------------------------------------- *
  *  Manifest loading (+ optional manifest.d fragments)
@@ -86,23 +87,16 @@ const PARAM_PAGES = MANIFEST.pages.filter((p) => p.route.includes(':'))
  *  App root resolution
  * --------------------------------------------------------------------- */
 
-// In Nextcloud installs with `htaccess.RewriteBase => '/'` (the apache dev
-// container default) `generateUrl` returns `/apps/hermiq` and any
-// `/index.php/`-prefixed URL sits outside the router base. In a php -S
-// install (no htaccess processing) the inverse is true. Resolve at runtime.
-const ROOT_CANDIDATES = ['/apps/hermiq', '/index.php/apps/hermiq']
-let _root: string | null = null
-async function rootUrl(page: Page): Promise<string> {
-	if (_root) return _root
-	for (const candidate of ROOT_CANDIDATES) {
-		const res = await page.request.get(`${candidate}/`, { failOnStatusCode: false })
-		if (res.ok() && (await res.text()).includes('hermiq-main.js')) {
-			_root = candidate
-			return candidate
-		}
-	}
-	throw new Error('Neither /apps nor /index.php form serves the hermiq SPA shell')
-}
+// ⚠️ This used to probe which URL form SERVES the SPA shell and take the first
+// that did. That probe answers the wrong question: CI's `php -S` front
+// controller serves the shell on BOTH `/apps/hermiq/` and
+// `/index.php/apps/hermiq/`, so it always chose the pretty form while
+// `generateUrl` — and therefore the router base — was the index.php one. Every
+// deep link then fell outside the base and the catch-all redirected it to the
+// app root. Resolution now comes from `appRoot()` in _fixtures.ts, which reads
+// the value the app itself generates. See that helper's docblock for the
+// measurement.
+const rootUrl = appRoot
 
 /* --------------------------------------------------------------------- *
  *  Console noise filter
@@ -178,17 +172,12 @@ test.describe('manifest pages — schema-driven render', () => {
 	})
 
 	for (const pg of SMOKE_PAGES) {
-		// PARKED — requires nc-vue selector hooks present only in builds after
-		// 2026-07-25 — unpark after the next hermiq deploy.
-		// STATIC evidence: the deployed nc-vue chunk (2026-07-25 22:13) was
-		// built from node_modules/@conduction/nextcloud-vue/dist (the PUBLISHED
-		// dist) rather than the LOCAL_LIB source — the configuration
-		// webpack.config.js records as making "CnAppRoot render nothing at all
-		// — silently, with zero console errors".
-		// NOT yet confirmed live: a read-only probe on 2026-07-27 observed an
-		// empty `.hermiq-root`, but the shared instance later reported
-		// needsDbUpgrade:true, so that observation is unusable as proof.
-		// Re-verify on a healthy instance before concluding an app defect.
+		// 🔑 The redirect-away guard below is this loop's positive control, and
+		// it earned that description: on 2026-08-04 every one of these tests
+		// failed on it, naming `/index.php/apps/hermiq/` as the landing path —
+		// which is how the wrong router base was found. It fails loudly the
+		// moment the base drifts again, so it must never be relaxed into
+		// "the shell mounted somewhere".
 		test(`[${pg.type}] ${pg.id} mounts at ${pg.route}`, async ({ page }) => {
 			const { errors } = attachConsoleSpy(page)
 
