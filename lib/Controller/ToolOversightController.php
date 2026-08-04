@@ -323,7 +323,23 @@ class ToolOversightController extends Controller
         $waiversBefore = $this->waiverEntries(grants: ($agent->getObject()['tools'] ?? []));
 
         try {
+            // 🔴 Strip OpenRegister's own metadata before writing back.
+            //
+            // The whole stored object is carried forward on purpose —
+            // `saveObject()` is PUT-semantic, so any field this endpoint omits
+            // is NULLED, and it must not clear the fields it does not manage.
+            // But `getObject()` also returns OR's `@self` envelope, and feeding
+            // that back makes the schema resolver fail with
+            // `$ref must be a non-empty string` — a 500 on every grant write,
+            // for the owner, on a clean instance.
+            //
+            // It survived this long because the only client that exercised the
+            // path is `AgentFormModal.vue`, which does the same strip in
+            // JavaScript (`delete base['@self']`) before it ever gets here. The
+            // endpoint was relying on its caller to sanitise its input.
             $payload = array_merge($agent->getObject(), ['tools' => $grants]);
+            unset($payload['@self']);
+
             $updated = $this->objectService->saveObject(
                 object: $payload,
                 register: self::REGISTER_SLUG,

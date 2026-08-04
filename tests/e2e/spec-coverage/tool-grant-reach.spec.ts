@@ -72,9 +72,18 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		// A SEPARATE request context authenticated as the second user — not the
 		// admin session with a different header, which would still carry the
 		// owner's cookie and quietly test nothing.
+		// 🔴 `send: 'always'` is required, not optional.
+		//
+		// Playwright withholds Basic credentials until the server answers 401.
+		// Nextcloud's OCS layer answers 200 with an unauthorised code in the
+		// BODY, so the challenge never comes, the credentials are never sent,
+		// and every request runs ANONYMOUSLY. The non-owner test would then have
+		// passed for entirely the wrong reason — "refused" because nobody was
+		// logged in, not because the guard works. `assertSecondUserAuthenticates`
+		// is what caught it (HTTP 200, identity=undefined).
 		secondCtx = await playwrightRequest.newContext({
-			baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080',
-			httpCredentials: { username: second.uid, password: second.password },
+			baseURL: process.env.NEXTCLOUD_URL || process.env.BASE_URL || 'http://localhost:8080',
+			httpCredentials: { username: second.uid, password: second.password, send: 'always' },
 		})
 
 		await page.close()
