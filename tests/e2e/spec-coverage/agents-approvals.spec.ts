@@ -29,42 +29,35 @@
  * Seeding: OpenRegister objects API via _fixtures (register 'hermiq').
  */
 
-import { test, expect, type Page } from '@playwright/test'
-import { TEST_PREFIX, cleanupFamily, dismissTour, harvestToken, resolveRegisterSchema, seedAgent } from './_fixtures'
-
+import { test, expect } from '@playwright/test'
+import { TEST_PREFIX, appRoot, cleanupFamily, dismissTour, harvestToken, resolveRegisterSchema, seedAgent } from './_fixtures'
 
 /*
- * PARKED (all four tests below) — requires nc-vue selector hooks present only
- * in builds after 2026-07-25 — unpark after the next hermiq deploy.
+ * 🔴 Every navigation below goes through `appRoot(page)` rather than a literal
+ * `/apps/hermiq/...`.
  *
- * STATIC evidence (independent of any instance, reproducible by grepping the
- * deployed chunks in js/): `data-testid-page-id` occurs 0 times in BOTH
- * hermiq-main.js and hermiq-shared-nc-vue.js (bundles dated 2026-07-25
- * 22:13), so the page-identity selector these tests use cannot resolve on the
- * deployed build no matter how healthy the instance is. `approval-inbox` DOES
- * occur in hermiq-main.js, but a string in a bundle is not proof it renders.
- * The deployed sourcemap also shows the nc-vue chunk was built from
- * node_modules/@conduction/nextcloud-vue/dist (the PUBLISHED dist), not from
- * the LOCAL_LIB source — the configuration webpack.config.js records as
- * making "CnAppRoot render nothing at all — silently, with zero console
- * errors".
- *
- * NOT yet confirmed live: a read-only probe on 2026-07-27 did observe an
- * empty `.hermiq-root`, but the shared instance later reported
- * needsDbUpgrade:true, so that observation is unusable as proof. Re-verify on
- * a healthy instance before drawing any app-defect conclusion.
+ * hermiq's router base is `generateUrl('/apps/hermiq')`, which is the pretty
+ * form only when Nextcloud believes mod_rewrite works. On CI's `php -S` it is
+ * `/index.php/apps/hermiq`, so a hard-coded pretty deep link is outside the
+ * base, matches no route, and is redirected to the app root by the catch-all —
+ * after which every selector here is missing and the failure reads as "the
+ * page does not render". That is exactly what these four reported on run
+ * 30865280923, and the earlier "PARKED / nc-vue selector hooks missing"
+ * hypothesis this comment used to carry was never confirmed and is not the
+ * cause. See `appRoot()` in _fixtures.ts.
  */
 test.describe('hermiq agents + approvals', () => {
 
 	test('Agents index renders: page identity, resolved route, Add button, rows or empty state', async ({ page }) => {
-		await page.goto('/apps/hermiq/agents', { waitUntil: 'domcontentloaded' })
+		const root = await appRoot(page)
+		await page.goto(`${root}/agents`, { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
 
 		// Page identity: CnPageRenderer's stable testid + we are still ON the
 		// requested route (no silent redirect to the dashboard).
 		const indexPage = page.locator('[data-testid-page-id="AgentCatalog"]')
 		await expect(indexPage).toBeVisible({ timeout: 15_000 })
-		expect(new URL(page.url()).pathname).toContain('/apps/hermiq/agents')
+		expect(new URL(page.url()).pathname).toContain(`${root}/agents`)
 
 		// CnIndexPage renders no heading — assert the Add button instead
 		// (default label "Add {schema.title}" → matches /^Add\b/).
@@ -81,15 +74,17 @@ test.describe('hermiq agents + approvals', () => {
 		await resolveRegisterSchema(page.request, token, 'agent')
 		const agent = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-detail-agent` })
 
+		const root = await appRoot(page)
+
 		try {
-			await page.goto(`/apps/hermiq/agents/${agent.id}`, { waitUntil: 'domcontentloaded' })
+			await page.goto(`${root}/agents/${agent.id}`, { waitUntil: 'domcontentloaded' })
 			await dismissTour(page)
 
 			// The detail page mounts as the AgentDetail manifest page and stays
 			// on the parameterised route.
 			const detailPage = page.locator('[data-testid-page-id="AgentDetail"]')
 			await expect(detailPage).toBeVisible({ timeout: 15_000 })
-			expect(new URL(page.url()).pathname).toContain(`/apps/hermiq/agents/${agent.id}`)
+			expect(new URL(page.url()).pathname).toContain(`${root}/agents/${agent.id}`)
 
 			// The seeded agent's data actually hydrates the grid — its name
 			// must appear somewhere on the page (data widget / header).
@@ -100,7 +95,8 @@ test.describe('hermiq agents + approvals', () => {
 	})
 
 	test('Agent detail for a nonexistent id shows a graceful state, not a crash', async ({ page }) => {
-		await page.goto('/apps/hermiq/agents/00000000-0000-0000-0000-000000000000', { waitUntil: 'domcontentloaded' })
+		const root = await appRoot(page)
+		await page.goto(`${root}/agents/00000000-0000-0000-0000-000000000000`, { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
 
 		// The page must still mount (no unhandled error / blank screen) —
@@ -113,7 +109,8 @@ test.describe('hermiq agents + approvals', () => {
 	})
 
 	test('Approvals inbox renders: heading + table or empty state, no error card', async ({ page }) => {
-		await page.goto('/apps/hermiq/approvals', { waitUntil: 'domcontentloaded' })
+		const root = await appRoot(page)
+		await page.goto(`${root}/approvals`, { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
 
 		// ApprovalInbox is a type:"custom" page with its own h2 heading.

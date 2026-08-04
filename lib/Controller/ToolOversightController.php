@@ -323,7 +323,8 @@ class ToolOversightController extends Controller
         $waiversBefore = $this->waiverEntries(grants: ($agent->getObject()['tools'] ?? []));
 
         try {
-            $payload = array_merge($agent->getObject(), ['tools' => $grants]);
+            $payload = $this->grantWritePayload(agent: $agent, grants: $grants);
+
             $updated = $this->objectService->saveObject(
                 object: $payload,
                 register: self::REGISTER_SLUG,
@@ -331,19 +332,31 @@ class ToolOversightController extends Controller
                 uuid: $agentId
             );
 
-            $this->auditWaiverChange(
-                agent: $updated,
-                before: $waiversBefore,
-                after: $this->waiverEntries(grants: $grants),
-                actor: $user->getUID()
-            );
+            // 🔴 The audit must never be able to fail the write it describes.
+            //
+            // `auditWaiverChange()` already swallows its own write errors, but
+            // that catch is INSIDE the method — it cannot protect the call
+            // itself. `saveObject()`'s return type is not guaranteed across
+            // OpenRegister versions, so passing it into an `ObjectEntity`
+            // parameter can raise a TypeError right here, outside any of that
+            // protection, and the owner then gets a 500 on a grant write that
+            // actually SUCCEEDED. Checking the type first removes the whole
+            // class of failure rather than the one instance of it.
+            if (($updated instanceof ObjectEntity) === true) {
+                $this->auditWaiverChange(
+                    agent: $updated,
+                    before: $waiversBefore,
+                    after: $this->waiverEntries(grants: $grants),
+                    actor: $user->getUID()
+                );
+            }
 
-            return new JSONResponse(
-                [
-                    'agentId' => $agentId,
-                    'tools'   => ($updated->getObject()['tools'] ?? $grants),
-                ]
-            );
+            $savedTools = $grants;
+            if (($updated instanceof ObjectEntity) === true) {
+                $savedTools = ($updated->getObject()['tools'] ?? $grants);
+            }
+
+            return new JSONResponse(['agentId' => $agentId, 'tools' => $savedTools]);
         } catch (DoesNotExistException $e) {
             // ObjectService::saveObject() re-throws DoesNotExistException on a
             // tenant/scope mismatch — translate to 404 (never a raw 500 on the
@@ -355,6 +368,57 @@ class ToolOversightController extends Controller
         }//end try
 
     }//end updateToolGrants()
+
+    /**
+     * Build the object payload for a grant write.
+     *
+     * The whole stored object is carried forward on purpose — `saveObject()` is
+     * PUT-semantic, so any field this endpoint omits is NULLED, and it must not
+     * clear the fields it does not manage. Three kinds of value are dropped
+     * anyway, because OpenRegister refuses them:
+     *
+     * 🔴 `@self` — OR's own metadata envelope. Feeding it back fails the schema
+     * resolver with `$ref must be a non-empty string`, a 500 on every grant
+     * write, for the OWNER, on a clean instance. It survived this long because
+     * the only client exercising the path is `AgentFormModal.vue`, which does
+     * the same strip in JavaScript (`delete base['@self']`) before calling —
+     * the endpoint was relying on its caller to sanitise its input, so the
+     * first caller that did not (an e2e test) broke it immediately.
+     *
+     * 🔴 `null` and `[]` — OR refuses BOTH `{}` and `null` for an object-typed
+     * property and wants the key OMITTED instead. Only reachable on an agent
+     * whose optional object fields were never populated, i.e. a freshly created
+     * one — exactly what a clean instance has and a long-lived dev instance
+     * does not. Omitting is safe under PUT semantics: an absent optional object
+     * and a stored empty one are the same state.
+     *
+     * `tools` is re-asserted AFTER the sweep because it is the one field this
+     * endpoint exists to write, and an intentional EMPTY grant list must
+     * survive — the sweep would otherwise silently drop it.
+     *
+     * @param ObjectEntity       $agent  The stored agent.
+     * @param array<int, string> $grants The grant list to persist.
+     *
+     * @return array<string, mixed> The payload to hand to `saveObject()`.
+     *
+     * @spec openspec/specs/agent-management-ui/spec.md#requirement-only-an-agents-owner-may-change-it
+     */
+    private function grantWritePayload(ObjectEntity $agent, array $grants): array
+    {
+        $payload = $agent->getObject();
+        unset($payload['@self']);
+
+        foreach ($payload as $key => $value) {
+            if ($value === null || $value === []) {
+                unset($payload[$key]);
+            }
+        }
+
+        $payload['tools'] = $grants;
+
+        return $payload;
+
+    }//end grantWritePayload()
 
     /**
      * The grant entries in a list that carry a `#noapproval` fragment.

@@ -30,6 +30,8 @@ import { test, expect } from '@playwright/test'
 import {
 	OR_API,
 	TEST_PREFIX,
+	appEnabled,
+	appRoot,
 	cleanupFamily,
 	dismissTour,
 	harvestToken,
@@ -55,6 +57,17 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 
 	test('a session for a Talk-enabled agent is created owning a room named after it', async ({ page }) => {
 		const token = await harvestToken(page)
+		// 🔴 Precondition, checked against the PROVISIONING API rather than
+		// inferred from a missing room. hermiq's CI installs only openregister
+		// and hermiq, so spreed is genuinely absent there and no room can
+		// exist. Inferring the skip from `talkRoomToken === ''` (which the
+		// rename test below used to do) cannot tell "Talk is not installed"
+		// from "hermiq stopped creating rooms" — the second is the defect this
+		// test exists to catch, so it must still FAIL when Talk IS present.
+		test.skip(
+			(await appEnabled(page.request, token, 'spreed')) === false,
+			'Talk (spreed) is not enabled on this instance — a session cannot own a room',
+		)
 		await resolveRegisterSchema(page.request, token, 'agent')
 
 		const agent = await seedAgent(page.request, token, {
@@ -99,6 +112,10 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 
 	test('renaming the session renames the room it owns', async ({ page }) => {
 		const token = await harvestToken(page)
+		test.skip(
+			(await appEnabled(page.request, token, 'spreed')) === false,
+			'Talk (spreed) is not enabled on this instance — there is no room to rename',
+		)
 		await resolveRegisterSchema(page.request, token, 'agent')
 
 		const agent = await seedAgent(page.request, token, {
@@ -116,7 +133,9 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 			headers: jsonHeaders(token),
 		})).json()
 		const roomToken = String(stored.talkRoomToken ?? '')
-		test.skip(roomToken === '', 'no room was created — Talk is not available on this instance')
+		// Talk IS enabled (guarded above), so an absent room is a hermiq defect,
+		// not a missing precondition — assert instead of skipping.
+		expect(roomToken, 'Talk is enabled, so a Talk-enabled agent must own a room').not.toEqual('')
 
 		// PATCH, not PUT — the route declares PATCH and a PUT answers 405.
 		const renamed = `${TEST_PREFIX} after`
@@ -164,7 +183,8 @@ test.describe('talk-agent-sessions — a session owns its Talk room', () => {
 	})
 
 	test('the hermiq chat surface still renders with the session-room wiring in place', async ({ page }) => {
-		await page.goto('/apps/hermiq/chat', { waitUntil: 'domcontentloaded' })
+		const root = await appRoot(page)
+		await page.goto(`${root}/chat`, { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
 
 		await expect(page.locator('.chat-page')).toBeVisible({ timeout: 15_000 })

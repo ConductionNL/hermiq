@@ -46,6 +46,8 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\DelegationFrame;
+use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -153,6 +155,11 @@ class DelegationService
      *                                                           already-resolved acting uid.
      * @param LoggerInterface          $logger                   PSR-3 logger (fail-open diagnostics, non-fatal
      *                                                           warnings).
+     * @param ToolGrantResolver        $grantResolver            Parses the TARGET agent's grant list so the
+     *                                                           delegation's effective reach can be composed
+     *                                                           from it (agent-capability-reach). Pure and
+     *                                                           stateless, hence the default instance —
+     *                                                           every existing caller is unchanged.
      */
     public function __construct(
         private readonly ObjectService $objectService,
@@ -165,6 +172,7 @@ class DelegationService
         private readonly RedactionService $redactionService,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
+        private readonly ToolGrantResolver $grantResolver=new ToolGrantResolver(),
     ) {
     }//end __construct()
 
@@ -256,14 +264,73 @@ class DelegationService
             );
         }
 
+        // Agent-capability-reach: compute the delegation's EFFECTIVE reach last,
+        // after every refusal above. Placing it here is deliberate — a
+        // computation that ran earlier and returned `self` could not weaken a
+        // refusal, but a future edit that turned it into a decision could, and
+        // the ordering is the only thing that makes that impossible by
+        // construction.
         return $this->runDelegatedTurn(
             targetAgent: $targetAgent,
             task: $task,
             organisation: $callerOrganisation,
-            callerFrame: $callerFrame
+            callerFrame: $callerFrame,
+            effectiveReach: $this->effectiveReachFor(targetData: $targetData)
         );
 
     }//end delegate()
+
+    /**
+     * The effective reach of a delegation: the MAXIMUM of the delegation tool's
+     * own reach and the highest reach among the target agent's grants.
+     *
+     * 🔴 A delegation cannot launder reach. An agent whose own grants are all
+     * `user` does not become harmless by handing the work to an agent that can
+     * send mail — the mail still leaves the building, and the caller still
+     * caused it. Reporting this delegation as an `instance` action because
+     * `hermiq.delegateAgent` is itself `instance` would describe the tool rather
+     * than the act.
+     *
+     * Grants are resolved from their ids alone, with no catalogue descriptor, so
+     * `ToolReachResolver` falls to its inference and fail-closed rules: a
+     * 3-segment derived id infers from its verb, and a 2-segment curated id —
+     * `hermiq.sendMail` — resolves `external`. Failing closed is the right
+     * direction here, because the alternative is under-reporting the reach of a
+     * target whose grants we could not read precisely.
+     *
+     * An EMPTY grant list means "every discovered tool, default-denied", which
+     * after the union rule contains nothing above `user` — so it yields the
+     * delegation tool's own `instance`, not `external`.
+     *
+     * @param array<string, mixed> $targetData The target agent's stored object.
+     *
+     * @return string One of the `ToolReachResolver::ORDER` constants.
+     *
+     * @SuppressWarnings(PHPMD.StaticAccess) `ToolReachResolver` is a pure classification
+     *   function, called statically wherever reach is decided so the answers cannot drift.
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-a-delegation-cannot-launder-reach
+     */
+    private function effectiveReachFor(array $targetData): string
+    {
+        // The delegation tool's own reach is the floor.
+        $reach = ToolReachResolver::REACH_INSTANCE;
+
+        $grants = ($targetData['tools'] ?? []);
+        if (is_array($grants) === false) {
+            return $reach;
+        }
+
+        foreach ($this->grantResolver->baseToolIds(grants: $grants) as $toolId) {
+            $reach = ToolReachResolver::max(
+                $reach,
+                ToolReachResolver::resolve(toolId: $toolId)
+            );
+        }
+
+        return $reach;
+
+    }//end effectiveReachFor()
 
     /**
      * GATE 0 — self-delegation and delegation cycles, checked BEFORE the
@@ -436,15 +503,20 @@ class DelegationService
      * Writes its own `AuditTrail` entry, `runId`/`parentRunId` populated,
      * anchored the same way — never throws.
      *
-     * @param ObjectEntity         $targetAgent  The resolved target Agent object.
-     * @param string               $task         The bounded task/prompt (LLM-supplied).
-     * @param string               $organisation The caller's organisation.
-     * @param DelegationFrame|null $callerFrame  The calling agent's own current frame
-     *                                           (its `runId` becomes this sub-run's
-     *                                           `parentRunId`; its `anchor` is reused
-     *                                           verbatim).
+     * @param ObjectEntity         $targetAgent    The resolved target Agent object.
+     * @param string               $task           The bounded task/prompt (LLM-supplied).
+     * @param string               $organisation   The caller's organisation.
+     * @param DelegationFrame|null $callerFrame    The calling agent's own current frame
+     *                                             (its `runId` becomes this sub-run's
+     *                                             `parentRunId`; its `anchor` is reused
+     *                                             verbatim).
+     * @param string               $effectiveReach The composed reach of this delegation
+     *                                             (`effectiveReachFor()`), carried onto the
+     *                                             result so the calling turn can account for
+     *                                             it. Defaults to the delegation tool's own
+     *                                             `instance` — never lower.
      *
-     * @return array<string, mixed> `{targetAgentId, result}` on success, or a
+     * @return array<string, mixed> `{targetAgentId, result, effectiveReach}` on success, or a
      *                               `delegation_failed` error envelope.
      *
      * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegated-runs-inherit-the-parents-acting-user-attribution
@@ -454,7 +526,8 @@ class DelegationService
         ObjectEntity $targetAgent,
         string $task,
         string $organisation,
-        ?DelegationFrame $callerFrame
+        ?DelegationFrame $callerFrame,
+        string $effectiveReach=ToolReachResolver::REACH_INSTANCE
     ): array {
         $targetAgentId = (string) $targetAgent->getUuid();
 
@@ -504,7 +577,14 @@ class DelegationService
             return $this->refuse(code: 'delegation_failed', message: 'The delegated agent run failed.');
         }
 
-        return ['targetAgentId' => $targetAgentId, 'result' => $result];
+        // The effective reach rides on the RESULT, not only in the audit: the
+        // calling turn is what decides whether to keep going, and it cannot
+        // account for a reach it is never told about.
+        return [
+            'targetAgentId'  => $targetAgentId,
+            'result'         => $result,
+            'effectiveReach' => $effectiveReach,
+        ];
 
     }//end runDelegatedTurn()
 

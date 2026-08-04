@@ -1,6 +1,7 @@
 {
     "translations": {
         "This agent's tool grants resolve to no tools: %1$s. Check the ids against the tool catalog — an agent with no tools on purpose should be granted \"%2$s\" instead.": "De toolrechten van deze agent leveren geen enkele tool op: %1$s. Controleer de id's in de toolcatalogus — een agent die bewust geen tools heeft, hoort \"%2$s\" te krijgen.",
+        "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.": "De agent is opgeslagen, maar de toolrechten zijn niet bijgewerkt. Alleen de eigenaar van de agent mag deze wijzigen.",
         "App Template settings": "App Template instellingen",
         "Configure the app settings": "Configureer de app-instellingen",
         "Configuration": "Configuratie",

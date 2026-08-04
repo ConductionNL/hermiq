@@ -205,6 +205,7 @@ import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, Nc
 import { CnIconPicker } from '@conduction/nextcloud-vue'
 import { listTools } from '../api/agents.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
+import { updateToolGrants } from '../api/toolOversight.js'
 import { useAgentStore } from '../store/store.js'
 
 export default {
@@ -626,6 +627,22 @@ export default {
 		 * (the generic objects path replaces the payload wholesale); `@self`
 		 * metadata is stripped so it is never written back.
 		 *
+		 * 🔴 `tools` is deliberately NOT taken from the form on an EDIT
+		 * (agent-capability-reach Task 6). A grant list is an authorization
+		 * boundary, and this payload goes to the generic OpenRegister objects
+		 * endpoint — the path a reproduced IDOR used to rewrite another user's
+		 * agent grants. Changes to it go through the owner-guarded, audited
+		 * tool-grants endpoint in `save()` instead, which is what makes that
+		 * endpoint the single write path its docblock claims to be.
+		 *
+		 * The STORED list is still carried forward verbatim rather than omitted:
+		 * `saveObject` is PUT-semantic and nulls anything absent, so dropping
+		 * the key would clear every grant the agent has for as long as it takes
+		 * the follow-up call to land — and permanently if that call failed.
+		 *
+		 * On CREATE the selection rides along, because the creator is the owner
+		 * by definition and there is no prior object to escalate against.
+		 *
 		 * @return {object} The agent payload for saveObject().
 		 */
 		buildPayload() {
@@ -640,7 +657,7 @@ export default {
 				provider: this.form.provider,
 				model: this.form.model,
 				prompt: this.form.prompt,
-				tools: (this.form.tools || []).map((tool) => tool.value),
+				tools: this.isEdit() ? (Array.isArray(base.tools) ? base.tools : []) : this.selectedGrants(),
 				delegationAllowlist: (this.form.delegationAllowlist || []).map((option) => option.value),
 				enableRag: this.form.enableRag,
 				searchObjects: this.form.searchObjects,
@@ -668,6 +685,24 @@ export default {
 		},
 
 		/**
+		 * Whether this modal is editing an existing agent (as opposed to creating one).
+		 *
+		 * @return {boolean} True when an agent id is already assigned.
+		 */
+		isEdit() {
+			return !!(this.effectiveAgent && this.effectiveAgent.id)
+		},
+
+		/**
+		 * The grant list the user has selected, as plain strings.
+		 *
+		 * @return {Array<string>} The selected tool grant entries.
+		 */
+		selectedGrants() {
+			return (this.form.tools || []).map((tool) => tool.value)
+		},
+
+		/**
 		 * Persist the agent via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
@@ -680,12 +715,33 @@ export default {
 			this.saving = true
 			this.error = ''
 			try {
+				const wasEdit = this.isEdit()
 				const saved = await this.store.saveObject('agent', this.buildPayload())
 				if (saved === null) {
 					this.error = this.store.errors?.agent?.message
 						|| this.t('hermiq', 'Could not save agent')
 					return
 				}
+
+				// Grants change through the owner-guarded, audited endpoint —
+				// never through the object write above. Only on edit: a create
+				// already carried the selection, and the creator is the owner.
+				if (wasEdit) {
+					const agentId = saved?.['@self']?.id || saved?.id || this.effectiveAgent?.id
+					try {
+						await updateToolGrants(agentId, this.selectedGrants())
+					} catch (grantError) {
+						// The agent itself saved. Say so, rather than letting a
+						// refused grant write read as "nothing was saved" — the
+						// two have very different next steps for the user.
+						this.error = this.t(
+							'hermiq',
+							'The agent was saved, but its tool grants were not updated. Only the agent\'s owner may change them.',
+						)
+						return
+					}
+				}
+
 				this.$emit('saved', saved)
 				this.handleClose()
 			} catch (e) {

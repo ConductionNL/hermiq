@@ -28,8 +28,8 @@ changes the ADR-032 kind of this change.
   - GIVEN any other shape — no descriptor, a 2-segment curated id, a verb outside the closed set, or a `reach` value outside the vocabulary — WHEN resolved THEN `external`. Never `self`, never derived from `scope`
   - Mirror `ToolGrantResolver`'s existing shape: a pure class, static where it takes no state, with the ADR-063 verb vocabulary referenced from the same closed set the grant resolver already uses rather than re-typed
   - Positive control: write one test per resolution branch (declared / inferred-read / inferred-write / fail-closed) and assert they produce DIFFERENT verdicts. A single fail-closed test cannot tell "all branches wired" from "everything falls through to external"
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 2: Declare a reach on all 14 native descriptors
 
@@ -41,8 +41,8 @@ changes the ADR-032 kind of this change.
   - GIVEN `scope`, `readOnlyHint` and `destructiveHint` WHEN this task lands THEN none is removed, renamed or re-valued — `reach` is additive
   - GIVEN a test that enumerates the descriptor table WHEN it runs THEN it asserts EVERY entry has a `reach`, so a 15th tool added later cannot ship without one
   - `searchContacts` is `user` deliberately even though the system addressbook surfaces other users' cards — reading changes nothing and tells nobody. Record that reasoning in the descriptor comment; it is the rule that keeps the whole OpenRegister read catalogue out of the gate
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 3: Union gating — default-deny and the approval gate consult reach
 
@@ -54,8 +54,8 @@ changes the ADR-032 kind of this change.
   - GIVEN a refusal the gate produces WHEN reach fired it THEN the envelope names the resolved reach, so a run trace reads as a reach denial rather than an undifferentiated `approval_required`
   - GIVEN the pre-change unit fixtures WHEN they run after this task THEN every pre-existing verdict is unchanged except `hermiq.webSearch` and `hermiq.webFetch`. Baseline-compare by FAILING TEST NAME, not by count
   - Add the delegation reach rule here: effective reach = max(delegation tool's reach, highest reach among the target's resolved grants). It must not weaken the existing `requiresApproval`-target and kill-switch refusals
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 4: `#noapproval` fragment — split it off FIRST
 
@@ -67,8 +67,8 @@ changes the ADR-032 kind of this change.
   - GIVEN a stored grant list with no fragment WHEN parsed THEN the resolved set AND the parsed argument constraints are byte-identical to the pre-change output. Run the existing grant-form fixtures unchanged as the proof
   - Expose the waiver as its own accessor (e.g. `waivedToolIds()`) alongside `baseToolIds()` / `argumentConstraints()`, so the grammar keeps exactly one home. Do not let a second place interpret a grant string
   - Add a class constant for the fragment opener and the `noapproval` token; `#` is currently documented as deliberately unused (`ToolGrantResolver.php:148-155`) — update that docblock rather than leaving it contradicting the code
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 5: Honour the waiver at the gate — and only there
 
@@ -80,8 +80,8 @@ changes the ADR-032 kind of this change.
   - GIVEN a waiver on an argument-scoped grant WHEN the arguments fall outside the constraint THEN the existing `grant_constraint_violated` refusal fires BEFORE the gate is consulted
   - GIVEN a waived, granted, conforming invocation of a tool the gate would otherwise fire on WHEN it runs THEN it dispatches with NO pending `Approval` created
   - Write the three negative scenarios as tests that would FAIL if the waiver were consulted one step earlier. "It can only narrow" is true in the first implementation and quietly false in the third — the ordering must be asserted, not commented
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 6: Owner-only on every path that persists a grant list, plus the waiver audit event
 
@@ -95,8 +95,8 @@ changes the ADR-032 kind of this change.
   - GIVEN a grant list persisted WHEN a `#noapproval` entry is added or removed THEN a DISTINCT audit event is written via the same OpenRegister audit path as other governance events (ADR-004), carrying acting user, agent, the exact grant entry and add-vs-remove, greppable by one stable action token
   - GIVEN an ordinary grant change with no waiver on either side WHEN it is persisted THEN NO waiver audit event is written
   - The UI string "Only the agent owner can change tool grants" (`ToolGrantEditor.vue:80-82`) is help text and gates nothing. Leave the editor rewrite to `grant-waiver-ui`, but do not let this task close while the sentence is still the only enforcement on the generic path
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 7: `docs/tool-grants.md` — the grant model, written down for the first time
 
@@ -110,8 +110,8 @@ changes the ADR-032 kind of this change.
   - GIVEN the migration note WHEN it is written THEN it names `hermiq.webSearch` and `hermiq.webFetch` explicitly as the two capabilities an existing agent can lose, and gives the one-line grant edit that restores them
   - Docusaurus frontmatter matching `docs/agent-object-leaf.md` (title, sidebar_position, description, keywords); the sidebar is autogenerated so no `sidebars.js` edit is needed
   - Placeholder hygiene — gitleaks scans this: use `user@example.com`, `YOUR_API_KEY_HERE`, `00000000-0000-0000-0000-000000000000`. No realistic-looking secrets or UUIDs
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test
 
 ### Task 8: Playwright e2e under `tests/e2e/spec-coverage/`
 
@@ -125,8 +125,16 @@ changes the ADR-032 kind of this change.
   - Add a second-user helper to `_fixtures.ts` (create a throwaway user via the provisioning API, prefixed with `TEST_FAMILY`, cleaned up in `afterAll`). NC passwords have a 10-character minimum and fail silently below it
   - `dismissTour` is required before any click: the `cn-wizard-dialog` does NOT close on Escape and does not hide what is underneath, so a stale overlay passes every visibility assertion and fails only on a click
   - `@e2e` annotations in the three spec files must name these tests; every scenario not covered here already carries a reason-bearing `@e2e exclude` (gate-19 is diff-scoped, so added and modified scenarios both count)
-- [ ] Implement
-- [ ] Test
+- [x] Implement
+- [x] Test — all three green in CI on a FRESH stable33 instance (hermiq run
+  30866... , job 91859236612): catalogue reach round trip, waiver persistence,
+  and `a non-owner is refused on BOTH grant write paths`. Getting there found
+  five real defects, four of them pre-existing — see the PR for the list. The
+  two most instructive: the non-owner test passed for the WRONG REASON twice
+  (requests running anonymously, then running as admin) and was caught both
+  times by `assertSecondUserAuthenticates`, which exists precisely because
+  "refused" and "cannot authenticate" are the same observation to a status-code
+  assertion.
 
 ## Quality checklist
 

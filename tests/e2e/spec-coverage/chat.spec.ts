@@ -28,8 +28,7 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { TEST_PREFIX, cleanupFamily, dismissTour, harvestToken, jsonHeaders, resolveRegisterSchema, seedAgent } from './_fixtures'
-
+import { TEST_PREFIX, appRoot, cleanupFamily, dismissTour, harvestToken, jsonHeaders, resolveRegisterSchema, seedAgent } from './_fixtures'
 
 /**
  * Collect app-level console errors, filtering known benign noise.
@@ -64,28 +63,21 @@ function collectConsoleErrors(page: Page): string[] {
 }
 
 /*
- * PARKED (both tests below) — requires nc-vue selector hooks present only in
- * builds after 2026-07-25 — unpark after the next hermiq deploy.
- *
- * STATIC evidence: the deployed nc-vue chunk (js/hermiq-shared-nc-vue.js,
- * 2026-07-25 22:13) was built from node_modules/@conduction/nextcloud-vue/dist
- * (the PUBLISHED dist) rather than the LOCAL_LIB source — the configuration
- * webpack.config.js records as making "CnAppRoot render nothing at all —
- * silently, with zero console errors". These tests need real Chat DOM
- * (.chat-page, the composer), so they cannot be re-pointed at some other
- * selector on this build.
- *
- * NOT yet confirmed live: a read-only probe on 2026-07-27 did observe an
- * empty `.hermiq-root`, but the shared instance later reported
- * needsDbUpgrade:true, so that observation is unusable as proof. Re-verify on
- * a healthy instance before drawing any app-defect conclusion.
+ * 🔴 Navigation goes through `appRoot(page)`, never a literal `/apps/hermiq/chat`.
+ * On CI's `php -S` the router base is `/index.php/apps/hermiq`, so the pretty
+ * deep link is outside it and the SPA catch-all redirects to the app root —
+ * `.chat-page` is then genuinely absent because the Chat page was never
+ * mounted. Both tests below failed that way on run 30865280923. The earlier
+ * "PARKED / nc-vue selector hooks" hypothesis recorded here was never
+ * confirmed and is not the cause.
  */
 test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 
 	test('chat page renders: conversation list column + thread empty state, composer absent without a conversation', async ({ page }) => {
 		const errors = collectConsoleErrors(page)
 
-		await page.goto('/apps/hermiq/chat', { waitUntil: 'domcontentloaded' })
+		const root = await appRoot(page)
+		await page.goto(`${root}/chat`, { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
 
 		// The chat shell renders both columns.
@@ -127,9 +119,11 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 		await resolveRegisterSchema(page.request, token, 'agent')
 		const agent = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-chat-agent` })
 
+		const root = await appRoot(page)
+
 		let conversationUuid = ''
 		try {
-			await page.goto('/apps/hermiq/chat', { waitUntil: 'domcontentloaded' })
+			await page.goto(`${root}/chat`, { waitUntil: 'domcontentloaded' })
 			await dismissTour(page)
 			await expect(page.locator('.chat-page')).toBeVisible({ timeout: 15_000 })
 
