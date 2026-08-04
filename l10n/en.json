@@ -1187,6 +1187,7 @@
         "Tool governance sections": "Tool governance sections",
         "Untitled flow": "Untitled flow",
         "Why this flow exists, what it assumes, anything the next person should know.": "Why this flow exists, what it assumes, anything the next person should know.",
+        "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.": "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.",
         "Zoom": "Zoom",
         "Zoom in": "Zoom in",
         "Zoom out": "Zoom out"

@@ -557,6 +557,132 @@ class DelegationServiceTest extends TestCase
     }//end testNoAttributionLaunderingForceOwnerAndCallerIdentityUsed()
 
     /**
+     * 🔴 A delegation cannot launder REACH.
+     *
+     * The caller holds only `user`-reach grants. The target holds
+     * `hermiq.sendMail` — irreversible, externally visible. If the delegation
+     * reported its own `instance` reach, the caller would have obtained an
+     * external effect while every record of the act said "instance", and the
+     * axis would describe the TOOL rather than the ACT.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-delegating-to-an-agent-with-external-grants-is-evaluated-at-external-reach
+     */
+    public function testDelegatingToAnAgentWithExternalGrantsIsEvaluatedAtExternalReach(): void
+    {
+        $caller = $this->agent(
+            'agent-a',
+            'org-x',
+            ['delegationAllowlist' => ['agent-b'], 'tools' => ['openregister.zaak.search']]
+        );
+        $target = $this->agent('agent-b', 'org-x', ['tools' => ['hermiq.sendMail']]);
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->method('runAgentAsOwner')->willReturn('sent');
+        $scheduleService->method('getLastRunId')->willReturn('run-sub-1');
+
+        $context = new DelegationContext();
+        $context->push(runId: 'run-a', agentId: 'agent-a', organisation: 'org-x', anchor: null);
+
+        $service = $this->service(
+            objectService: $this->objectService(['agent-a' => $caller, 'agent-b' => $target]),
+            delegationContext: $context,
+            scheduleService: $scheduleService,
+            currentUser: 'alice',
+        );
+
+        $result = $service->delegate(callerAgentId: 'agent-a', targetAgentId: 'agent-b', task: 'mail them');
+
+        $this->assertSame(
+            'external',
+            $result['effectiveReach'] ?? null,
+            'The target can send mail, so the delegation reaches outside the instance.'
+        );
+        $this->assertNotSame(
+            'instance',
+            $result['effectiveReach'] ?? null,
+            'Reporting the delegation tool\'s own reach would describe the tool, not the act.'
+        );
+
+    }//end testDelegatingToAnAgentWithExternalGrantsIsEvaluatedAtExternalReach()
+
+    /**
+     * 🔴 THE CONTROL. A target with no far-reaching grants stays at the
+     * delegation tool's own `instance` reach.
+     *
+     * Without this, the test above passes on an implementation that hardcodes
+     * `external` — which would be indistinguishable from a working composition
+     * while making every delegation look maximally dangerous.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-a-delegation-cannot-launder-reach
+     */
+    public function testADelegationToALowReachTargetStaysAtInstance(): void
+    {
+        $caller = $this->agent('agent-a', 'org-x', ['delegationAllowlist' => ['agent-b']]);
+        $target = $this->agent('agent-b', 'org-x', ['tools' => ['openregister.zaak.search']]);
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->method('runAgentAsOwner')->willReturn('read it');
+        $scheduleService->method('getLastRunId')->willReturn('run-sub-1');
+
+        $context = new DelegationContext();
+        $context->push(runId: 'run-a', agentId: 'agent-a', organisation: 'org-x', anchor: null);
+
+        $service = $this->service(
+            objectService: $this->objectService(['agent-a' => $caller, 'agent-b' => $target]),
+            delegationContext: $context,
+            scheduleService: $scheduleService,
+            currentUser: 'alice',
+        );
+
+        $result = $service->delegate(callerAgentId: 'agent-a', targetAgentId: 'agent-b', task: 'read it');
+
+        $this->assertSame('instance', $result['effectiveReach'] ?? null);
+
+    }//end testADelegationToALowReachTargetStaysAtInstance()
+
+    /**
+     * The reach computation must NOT rescue a delegation the existing gates
+     * refuse — a `requiresApproval` target is still refused, with no
+     * `effectiveReach` key on the refusal envelope at all.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-existing-delegation-refusals-are-unchanged
+     */
+    public function testReachComputationDoesNotWeakenTheRequiresApprovalRefusal(): void
+    {
+        $caller = $this->agent('agent-a', 'org-x', ['delegationAllowlist' => ['agent-b']]);
+        $target = $this->agent(
+            'agent-b',
+            'org-x',
+            ['requiresApproval' => true, 'tools' => ['hermiq.sendMail']]
+        );
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->expects($this->never())->method('runAgentAsOwner');
+
+        $context = new DelegationContext();
+        $context->push(runId: 'run-a', agentId: 'agent-a', organisation: 'org-x', anchor: null);
+
+        $service = $this->service(
+            objectService: $this->objectService(['agent-a' => $caller, 'agent-b' => $target]),
+            delegationContext: $context,
+            scheduleService: $scheduleService,
+            currentUser: 'alice',
+        );
+
+        $result = $service->delegate(callerAgentId: 'agent-a', targetAgentId: 'agent-b', task: 'mail them');
+
+        $this->assertSame('delegation_requires_approval', $result['error']['code'] ?? null);
+        $this->assertArrayNotHasKey('effectiveReach', $result);
+
+    }//end testReachComputationDoesNotWeakenTheRequiresApprovalRefusal()
+
+    /**
      * The organisation's kill-switch being engaged refuses delegation with
      * `delegation_killswitch`, and the target is never invoked.
      *

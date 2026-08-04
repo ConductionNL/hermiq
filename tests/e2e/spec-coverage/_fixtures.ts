@@ -35,6 +35,91 @@ export const OR_API = '/index.php/apps/openregister/api'
 const NC_USER = process.env.NC_USER || 'admin'
 const NC_PASS = process.env.NC_PASS || 'admin'
 
+/** Memoised result of `appRoot()` — one resolution per worker process. */
+let _appRoot: string | null = null
+
+/**
+ * The base path hermiq's Vue router is actually mounted on.
+ *
+ * 🔴 This is NOT a cosmetic URL preference — it decides whether a deep link
+ * lands on the page it names or is swallowed by the SPA catch-all.
+ *
+ * `src/main.js` builds its history with `createWebHistory(generateUrl('/apps/hermiq'))`.
+ * `generateUrl` emits the pretty form (`/apps/hermiq`) only when Nextcloud
+ * believes mod_rewrite is working; otherwise it emits `/index.php/apps/hermiq`.
+ * The apache dev container is the first case, CI's `php -S` front controller
+ * is the SECOND — and a path outside the router base matches no route, so
+ * vue-router falls through to the catch-all and redirects to the app root.
+ *
+ * Measured on run 30865280923 (fresh stable33, php -S): every spec that
+ * hard-coded `/apps/hermiq/...` landed on `/index.php/apps/hermiq/` and
+ * failed on a selector that was never going to be on that page — 21 of the
+ * 27 failures in that run, all of them reported as if the page were broken.
+ *
+ * ⚠️ Probing which URL *serves the SPA shell* does not answer this question:
+ * CI's front-controller router serves the shell on BOTH forms, so the probe
+ * picks the pretty one and is wrong exactly where it matters. The only
+ * authority is the value `generateUrl` returns inside the running page, which
+ * is what this reads.
+ *
+ * @param page Any page in this browser context (need not be authenticated —
+ *             `OC` is defined on the login page too).
+ * @return The router base, without a trailing slash (e.g. `/index.php/apps/hermiq`).
+ */
+export async function appRoot(page: Page): Promise<string> {
+	if (_appRoot !== null) {
+		return _appRoot
+	}
+
+	// `/index.php/...` is reachable under BOTH configurations, so it is the one
+	// safe place to stand while asking which form the app itself generates.
+	await page.goto('/index.php/apps/hermiq/', { waitUntil: 'domcontentloaded' })
+
+	const base = await page.evaluate(() => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const oc = (window as any).OC
+		if (typeof oc?.generateUrl === 'function') {
+			return String(oc.generateUrl('/apps/hermiq'))
+		}
+		// Fallback mirrors core's own generateUrl for the rare page that
+		// exposes OC.config/getRootPath but not the helper.
+		if (oc !== undefined) {
+			const root = typeof oc.getRootPath === 'function' ? oc.getRootPath() : ''
+			const front = oc.config?.modRewriteWorking === true ? '' : '/index.php'
+			return `${root}${front}/apps/hermiq`
+		}
+		return ''
+	})
+
+	expect(base, 'the hermiq router base must be resolvable from OC.generateUrl').not.toEqual('')
+	expect(base, 'the resolved router base must address the hermiq app').toContain('/apps/hermiq')
+
+	_appRoot = base.replace(/\/+$/, '')
+	return _appRoot
+}
+
+/**
+ * Whether a Nextcloud app is installed AND enabled on this instance.
+ *
+ * Used for precondition guards: a spec whose subject needs a companion app
+ * must SKIP naming the missing app, never assert against a half-instance and
+ * report the absence as a defect in the app under test.
+ *
+ * @param req   The Playwright request context (session-scoped).
+ * @param token The CSRF request-token.
+ * @param appId The app id to look for (e.g. `spreed`).
+ * @return True when the provisioning API lists it among the enabled apps.
+ */
+export async function appEnabled(req: APIRequestContext, token: string, appId: string): Promise<boolean> {
+	const res = await req.get('/ocs/v2.php/cloud/apps?filter=enabled&format=json', { headers: jsonHeaders(token) })
+	if (res.ok() === false) {
+		return false
+	}
+	const body = await res.json()
+	const apps: string[] = body?.ocs?.data?.apps ?? []
+	return apps.includes(appId)
+}
+
 /**
  * Harvest the live CSRF request-token from a loaded hermiq page.
  *
@@ -62,7 +147,9 @@ export async function harvestToken(page: Page): Promise<string> {
 		await page.locator('#user').waitFor({ state: 'hidden', timeout: 30_000 })
 	}
 
-	await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
+	// index.php-form: reachable whether or not mod_rewrite is believed to work,
+	// and this only needs a hermiq page to read the token off — not the router.
+	await page.goto('/index.php/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 	const token = await page.evaluate(
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		() => (window as any).OC?.requestToken
@@ -79,6 +166,9 @@ export async function harvestToken(page: Page): Promise<string> {
  * The union of both branches' header sets: `Content-Type` for the seeding
  * helpers' JSON bodies, `OCS-APIRequest`/`Accept` for the OCS-style routes
  * development's spec calls.
+ *
+ * @param token The CSRF request-token.
+ * @return The header map for an authenticated JSON write.
  */
 export function jsonHeaders(token: string): Record<string, string> {
 	return {
@@ -287,4 +377,97 @@ export function collectHermiqConsoleErrors(page: Page): string[] {
 		errors.push(text)
 	})
 	return errors
+}
+
+/** A throwaway second user, for tests that must prove a NON-owner is refused. */
+export interface SecondUser {
+	uid: string
+	password: string
+}
+
+/**
+ * Create a throwaway second Nextcloud user via the provisioning API.
+ *
+ * 🔴 Needed because "the owner can do X" and "only the owner can do X" are
+ * different claims, and a suite authenticated solely as the owner can only ever
+ * establish the first. A guard is only demonstrated by someone being stopped.
+ *
+ * ⚠️ Nextcloud enforces a 10-character minimum password and REJECTS shorter ones
+ * without a useful error — a short password surfaces later as an inexplicable
+ * 401 on the second user's very first request, which reads like a broken test
+ * rather than a rejected create.
+ *
+ * @param req      The Playwright request context (admin-authenticated).
+ * @param token    The CSRF request-token.
+ * @param suffix   Distinguishes multiple second users within one run.
+ * @return The created user's credentials.
+ */
+export async function createSecondUser(
+	req: APIRequestContext,
+	token: string,
+	suffix = 'other',
+): Promise<SecondUser> {
+	const uid = `${TEST_PREFIX}-${suffix}`
+	const password = 'CHANGE_ME_e2e_pw_0000'
+
+	const res = await req.post('/ocs/v1.php/cloud/users?format=json', {
+		headers: { ...jsonHeaders(token), 'OCS-APIRequest': 'true' },
+		data: { userid: uid, password },
+	})
+
+	// 🔴 The HTTP status is NOT the result. OCS v1 answers 200 for failures too
+	// and puts the real outcome in `ocs.meta.statuscode`. Accepting the 200 is
+	// how a user that was never created gets used anyway — every later request
+	// as that identity then fails for an unrelated-looking reason (a 500 from
+	// the auth layer, not the 403 the test was written to see), and the test
+	// reads as a broken guard rather than a broken fixture. This cost a full CI
+	// cycle to work out.
+	const body = await res.json().catch(() => null)
+	const ocsCode = body?.ocs?.meta?.statuscode
+	expect(
+		[100, 102].includes(Number(ocsCode)),
+		'Provisioning a second user must report OCS 100 (created) or 102 (exists); '
+		+ `got HTTP ${res.status()} / OCS ${ocsCode} — ${JSON.stringify(body?.ocs?.meta ?? body).slice(0, 200)}`,
+	).toBeTruthy()
+
+	return { uid, password }
+}
+
+/**
+ * Prove a second user's credentials actually authenticate.
+ *
+ * Call this on the context built for them, BEFORE asserting that anything
+ * refuses them. Without it, "refused" and "cannot log in at all" are the same
+ * observation and the guard under test is never reached.
+ *
+ * @param ctx The request context built with the second user's credentials.
+ * @param uid The expected user id.
+ * @return void
+ */
+export async function assertSecondUserAuthenticates(ctx: APIRequestContext, uid: string): Promise<void> {
+	const res = await ctx.get('/ocs/v1.php/cloud/user?format=json', {
+		headers: { 'OCS-APIRequest': 'true', Accept: 'application/json' },
+	})
+	const body = await res.json().catch(() => null)
+	const who = body?.ocs?.data?.id
+	expect(
+		who,
+		'The second user must be able to authenticate before we assert anything is refused for them. '
+		+ `HTTP ${res.status()}, identity=${JSON.stringify(who)}`,
+	).toBe(uid)
+}
+
+/**
+ * Delete a throwaway second user (best-effort).
+ *
+ * @param req   The Playwright request context (admin-authenticated).
+ * @param token The CSRF request-token.
+ * @param uid   The user id to remove.
+ * @return The HTTP status (0 on transport failure).
+ */
+export async function deleteSecondUser(req: APIRequestContext, token: string, uid: string): Promise<number> {
+	const res = await req.delete(`/ocs/v1.php/cloud/users/${uid}`, {
+		headers: { ...jsonHeaders(token), 'OCS-APIRequest': 'true' },
+	}).catch(() => null)
+	return res ? res.status() : 0
 }

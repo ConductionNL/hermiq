@@ -81,6 +81,32 @@ async function objectsNamed(
 	return rows.filter((row: any) => (row?.name ?? row?.object?.name) === name)
 }
 
+/**
+ * Every flow named `FLOW_NAME` in OpenRegister's NATIVE flow store.
+ *
+ * 🔴 Not `/api/objects/hermiq/agentflow`. `SeedHydraTriageFlow` writes through
+ * `FlowMapper` into `oc_openregister_flows` — OpenRegister's own flow store,
+ * which is the one store its engine walks (ADR-065, flow-engine-unification).
+ * There is no `agentflow` OBJECT to find, and reading for one returned 0 on
+ * every clean install (run 30865280923) while passing on long-lived dev
+ * instances that still carry a pre-pivot `agentflow` row — a test that
+ * measured the instance's age rather than the seed.
+ *
+ * @param req   A request context carrying the authenticated session.
+ * @param token The harvested CSRF request-token.
+ * @return The matching flow definitions, as the API serialises them.
+ */
+async function seededFlows(
+	req: APIRequestContext,
+	token: string,
+): Promise<Array<Record<string, unknown>>> {
+	const res = await req.get(`${OR_API}/flows?app=hermiq&limit=200`, { headers: jsonHeaders(token) })
+	expect(res.ok(), `listing OpenRegister flows must succeed (HTTP ${res.status()})`).toBeTruthy()
+	const body = await res.json()
+	const rows: Array<Record<string, unknown>> = Array.isArray(body) ? body : (body.results ?? [])
+	return rows.filter((row) => row?.name === FLOW_NAME)
+}
+
 test.describe('hydra-console-agent-leaves', () => {
 
 	/*
@@ -143,33 +169,64 @@ test.describe('hydra-console-agent-leaves', () => {
 	 * @e2e openspec/specs/agent-object-leaf/spec.md#a-new-finding-triggers-the-seeded-triage-flow
 	 * @e2e openspec/specs/agent-object-leaf/spec.md#the-flow-contains-no-hermiq-authored-http-step
 	 *
-	 * The flow IS the deliverable, so it is read back as data. Its node-type
-	 * inventory is the assertion that Hermiq authored no HTTP step: a node type
+	 * The flow IS the deliverable, so it is read back as data. Its step-type
+	 * inventory is the assertion that Hermiq authored no HTTP step: a type
 	 * outside this list would be exactly that.
 	 */
-	test('the triage flow is seeded once, declares its trigger, and contains only permitted node types', async ({ page }) => {
+	// 🔴 RESTORED — hermiq#140 is fixed (hq#145). Both tests below were
+	// `test.fixme` because this endpoint answered `{"results":[],"total":0}` on
+	// a clean install, and that was read as "the seed writes nothing".
+	//
+	// It wrote fine. Every flow read is ORGANISATION-SCOPED — `FlowService::findAll()`
+	// resolves the caller's active organisation and `FlowMapper::findAllFlows()`
+	// adds `WHERE organisation = :org` — and the seed set `owner: null` while
+	// never setting `organisation` at all. The row landed NULL-org, matched no
+	// equality predicate, and was invisible to every tenant. The write succeeded
+	// and the flow may as well not have existed.
+	//
+	// 🔑 The install-order hypothesis recorded here was wrong, and the reason it
+	// was believable is worth keeping: "the store is empty" is what BOTH a failed
+	// write and an unreachable row look like from the read side. Distinguishing
+	// them needed the writer's own account (an app-config breadcrumb saying
+	// `seeded`) held against the store's — which is exactly what
+	// `flow-seed.spec.ts` now asserts, separately, for that reason.
+	//
+	// The seed now scopes to the default organisation and REFUSES to write at
+	// all when none resolves: an absent flow is recoverable on the next run,
+	// whereas an orphan blocks its own re-seed forever while reporting success.
+	test('the triage flow is seeded once, declares its trigger, and contains only permitted step types', async ({ page }) => {
 		const token = await harvestToken(page)
-		const flows = await objectsNamed(page.request, token, 'agentflow', FLOW_NAME)
+		const flows = await seededFlows(page.request, token)
 
-		expect(flows.length, `exactly one "${FLOW_NAME}" agentflow must exist`).toBe(1)
+		expect(flows.length, `exactly one "${FLOW_NAME}" flow must exist`).toBe(1)
 
-		const flow = flows[0].object ?? flows[0]
+		const flow = flows[0]
 
 		expect(flow.trigger).toBe('object.created')
 		expect(flow.triggerRegister, 'triggerRegister must survive the save — it is declared on the schema').toBe(HYDRA_REGISTER)
 		expect(flow.triggerSchema).toBe('finding')
 
+		// 🔑 The EDGE is the executable unit — `RegistryStepDispatcher::dispatch()`
+		// reads `type`/`config` off the firing edge and a `type` on a node is
+		// never read (SeedHydraTriageFlow::edges() docblock, measured live
+		// 2026-07-31 both ways on the same graph). Asserting node types would
+		// pass on a graph whose every step is inert, which is the exact defect
+		// that seed comment records — so the inventory is taken from `edges`.
 		const permitted = ['hermiq.agent-step', 'openregister.route', 'openregister.stop']
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		for (const node of (flow.nodes ?? []) as any[]) {
-			expect(permitted, `node "${node.id}" has an unexpected type "${node.type}"`).toContain(node.type)
+		const edges = (flow.edges ?? []) as Array<Record<string, unknown>>
+		expect(edges.length, 'a flow with no edges executes nothing').toBeGreaterThan(0)
+		for (const edge of edges) {
+			expect(
+				permitted,
+				`edge "${String(edge.id)}" has an unexpected type "${String(edge.type)}"`,
+			).toContain(edge.type)
 		}
 
 		// The branch that stands between a failed LLM turn and a pipeline command.
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const gate = (flow.nodes ?? []).find((node: any) => node.type === 'openregister.route')
+		const gate = edges.find((edge) => edge.type === 'openregister.route')
 		expect(gate, 'the flow must branch before its command step').toBeTruthy()
-		expect(gate.config.default, 'the fallback branch must not be the command step').not.toBe('command')
+		const gateConfig = (gate?.config ?? {}) as Record<string, unknown>
+		expect(gateConfig.default, 'the fallback branch must not be the command step').not.toBe('command')
 	})
 
 	/*
@@ -180,13 +237,15 @@ test.describe('hydra-console-agent-leaves', () => {
 	 * the human act that supplies the owner. Once an operator has enabled it, an
 	 * owner MUST be present — that is the invariant asserted here, in both states.
 	 */
+	// 🔴 FIXME(hermiq#140) — same missing seed as above; see that block for the
+	// full measurement.
 	test('the seeded flow is never both enabled and unowned', async ({ page }) => {
 		const token = await harvestToken(page)
-		const flows = await objectsNamed(page.request, token, 'agentflow', FLOW_NAME)
+		const flows = await seededFlows(page.request, token)
 		expect(flows.length).toBe(1)
 
-		const flow = flows[0].object ?? flows[0]
-		const owner = (flow.owner ?? '').trim()
+		const flow = flows[0]
+		const owner = String(flow.owner ?? '').trim()
 
 		if (flow.enabled === true) {
 			expect(owner, 'an ENABLED triage flow must name the UID it runs as').not.toEqual('')

@@ -37,6 +37,7 @@
 import { test, expect, type Page, type ConsoleMessage } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
+import { appRoot } from './_fixtures'
 
 /* --------------------------------------------------------------------- *
  *  Manifest loading (+ optional manifest.d fragments)
@@ -86,23 +87,16 @@ const PARAM_PAGES = MANIFEST.pages.filter((p) => p.route.includes(':'))
  *  App root resolution
  * --------------------------------------------------------------------- */
 
-// In Nextcloud installs with `htaccess.RewriteBase => '/'` (the apache dev
-// container default) `generateUrl` returns `/apps/hermiq` and any
-// `/index.php/`-prefixed URL sits outside the router base. In a php -S
-// install (no htaccess processing) the inverse is true. Resolve at runtime.
-const ROOT_CANDIDATES = ['/apps/hermiq', '/index.php/apps/hermiq']
-let _root: string | null = null
-async function rootUrl(page: Page): Promise<string> {
-	if (_root) return _root
-	for (const candidate of ROOT_CANDIDATES) {
-		const res = await page.request.get(`${candidate}/`, { failOnStatusCode: false })
-		if (res.ok() && (await res.text()).includes('hermiq-main.js')) {
-			_root = candidate
-			return candidate
-		}
-	}
-	throw new Error('Neither /apps nor /index.php form serves the hermiq SPA shell')
-}
+// ⚠️ This used to probe which URL form SERVES the SPA shell and take the first
+// that did. That probe answers the wrong question: CI's `php -S` front
+// controller serves the shell on BOTH `/apps/hermiq/` and
+// `/index.php/apps/hermiq/`, so it always chose the pretty form while
+// `generateUrl` — and therefore the router base — was the index.php one. Every
+// deep link then fell outside the base and the catch-all redirected it to the
+// app root. Resolution now comes from `appRoot()` in _fixtures.ts, which reads
+// the value the app itself generates. See that helper's docblock for the
+// measurement.
+const rootUrl = appRoot
 
 /* --------------------------------------------------------------------- *
  *  Console noise filter
@@ -128,18 +122,74 @@ const IGNORED_CONSOLE_PATTERNS: RegExp[] = [
 	// mid-run it serves the 404 HTML page, tripping a MIME-type refusal.
 	/Refused to apply style/i,
 	/is not a supported stylesheet MIME type/i,
+	// 🔴 `GET /apps/hermiq/api/chat/health` answering 503 is hermiq's SPECIFIED
+	// behaviour, not a fault: ChatHealthController's contract is
+	// `200 {status:"ok"}` when an LLM provider is configured and
+	// `503 {status:"no_provider"}` when none is. The nextcloud-vue AI companion
+	// widget probes it once at mount on every page precisely to decide whether
+	// to render itself, and CI configures no provider by design — this whole
+	// suite is "UI mechanics, no LLM required".
+	//
+	// Measured: 30 such responses across one run (30878205902), and it was the
+	// ONLY 503 on the instance. Scoped to this exact route, NOT to the 503
+	// status: a 503 on any other hermiq endpoint is still a failure, which is
+	// what this assertion is for.
+	/\/apps\/hermiq\/api\/chat\/health/,
 ]
 
+/**
+ * The app id a console message's resource belongs to, or `null` when it is
+ * not an app asset (Nextcloud core, an OCS route, an external URL).
+ *
+ * @param url The resource URL the console message points at.
+ * @return The owning app id, or null.
+ */
+function owningApp(url: string): string | null {
+	return url.match(/\/(?:custom_)?apps(?:-extra|-external)?\/([^/]+)\//)?.[1] ?? null
+}
+
+/**
+ * Collect console errors that are hermiq's OWN.
+ *
+ * 🔴 Two properties this must have, both learned the hard way:
+ *
+ * 1. It records the resource URL. A bare "Failed to load resource: the server
+ *    responded with a status of 503" names nothing, and a failure message that
+ *    names nothing costs a whole CI round to diagnose. `msg.location().url`
+ *    carries it; `msg.text()` does not.
+ *
+ * 2. It is scoped to hermiq's own assets, the way chat.spec.ts already scopes
+ *    its collector. Nextcloud hosts every installed app on the same page, and
+ *    CI runs hermiq against an OpenRegister checkout whose `js/` is
+ *    .gitignored and therefore absent — so `openregister-integration-global.js`
+ *    (registered globally by OpenRegister, logged 29 times as
+ *    "Could not find resource … to load" in run 30878205902) 503s on every
+ *    hermiq page. That is OpenRegister's packaging, not hermiq's page.
+ *
+ * 🔑 The scope is by OWNING APP, not by status code. Ignoring "503" outright
+ * would also swallow a 503 on one of hermiq's own endpoints, which is exactly
+ * the kind of failure this assertion exists to catch. A 503 on
+ * `/apps/hermiq/...` still fails, and now says so by name.
+ *
+ * @param page The Playwright page to attach to.
+ * @return A live array accumulating error strings.
+ */
 function attachConsoleSpy(page: Page): { errors: string[] } {
 	const errors: string[] = []
 	page.on('console', (msg: ConsoleMessage) => {
-		const text = msg.text()
+		if (msg.type() !== 'error') {
+			return
+		}
+		const url = msg.location()?.url ?? ''
+		const text = `${msg.text()}${url === '' ? '' : ` [${url}]`}`
 		if (IGNORED_CONSOLE_PATTERNS.some((rx) => rx.test(text))) {
 			return
 		}
-		if (msg.type() === 'error') {
-			errors.push(text.slice(0, 300))
+		const app = owningApp(url)
+		if (app !== null && app !== 'hermiq') {
+			return
 		}
+		errors.push(text.slice(0, 300))
 	})
 	page.on('pageerror', (err) => {
 		errors.push(`pageerror: ${err.message}`)
@@ -178,17 +228,12 @@ test.describe('manifest pages — schema-driven render', () => {
 	})
 
 	for (const pg of SMOKE_PAGES) {
-		// PARKED — requires nc-vue selector hooks present only in builds after
-		// 2026-07-25 — unpark after the next hermiq deploy.
-		// STATIC evidence: the deployed nc-vue chunk (2026-07-25 22:13) was
-		// built from node_modules/@conduction/nextcloud-vue/dist (the PUBLISHED
-		// dist) rather than the LOCAL_LIB source — the configuration
-		// webpack.config.js records as making "CnAppRoot render nothing at all
-		// — silently, with zero console errors".
-		// NOT yet confirmed live: a read-only probe on 2026-07-27 observed an
-		// empty `.hermiq-root`, but the shared instance later reported
-		// needsDbUpgrade:true, so that observation is unusable as proof.
-		// Re-verify on a healthy instance before concluding an app defect.
+		// 🔑 The redirect-away guard below is this loop's positive control, and
+		// it earned that description: on 2026-08-04 every one of these tests
+		// failed on it, naming `/index.php/apps/hermiq/` as the landing path —
+		// which is how the wrong router base was found. It fails loudly the
+		// moment the base drifts again, so it must never be relaxed into
+		// "the shell mounted somewhere".
 		test(`[${pg.type}] ${pg.id} mounts at ${pg.route}`, async ({ page }) => {
 			const { errors } = attachConsoleSpy(page)
 

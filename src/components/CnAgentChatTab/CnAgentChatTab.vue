@@ -65,8 +65,8 @@
 					resize="vertical"
 					data-testid="cn-agent-chat-tab-input" />
 				<NcButton
-					type="primary"
-					native-type="submit"
+					variant="primary"
+					type="submit"
 					:disabled="sending || draft.trim() === ''"
 					data-testid="cn-agent-chat-tab-send">
 					<template v-if="sending" #icon>
