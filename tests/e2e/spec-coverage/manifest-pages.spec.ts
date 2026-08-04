@@ -122,18 +122,74 @@ const IGNORED_CONSOLE_PATTERNS: RegExp[] = [
 	// mid-run it serves the 404 HTML page, tripping a MIME-type refusal.
 	/Refused to apply style/i,
 	/is not a supported stylesheet MIME type/i,
+	// 🔴 `GET /apps/hermiq/api/chat/health` answering 503 is hermiq's SPECIFIED
+	// behaviour, not a fault: ChatHealthController's contract is
+	// `200 {status:"ok"}` when an LLM provider is configured and
+	// `503 {status:"no_provider"}` when none is. The nextcloud-vue AI companion
+	// widget probes it once at mount on every page precisely to decide whether
+	// to render itself, and CI configures no provider by design — this whole
+	// suite is "UI mechanics, no LLM required".
+	//
+	// Measured: 30 such responses across one run (30878205902), and it was the
+	// ONLY 503 on the instance. Scoped to this exact route, NOT to the 503
+	// status: a 503 on any other hermiq endpoint is still a failure, which is
+	// what this assertion is for.
+	/\/apps\/hermiq\/api\/chat\/health/,
 ]
 
+/**
+ * The app id a console message's resource belongs to, or `null` when it is
+ * not an app asset (Nextcloud core, an OCS route, an external URL).
+ *
+ * @param url The resource URL the console message points at.
+ * @return The owning app id, or null.
+ */
+function owningApp(url: string): string | null {
+	return url.match(/\/(?:custom_)?apps(?:-extra|-external)?\/([^/]+)\//)?.[1] ?? null
+}
+
+/**
+ * Collect console errors that are hermiq's OWN.
+ *
+ * 🔴 Two properties this must have, both learned the hard way:
+ *
+ * 1. It records the resource URL. A bare "Failed to load resource: the server
+ *    responded with a status of 503" names nothing, and a failure message that
+ *    names nothing costs a whole CI round to diagnose. `msg.location().url`
+ *    carries it; `msg.text()` does not.
+ *
+ * 2. It is scoped to hermiq's own assets, the way chat.spec.ts already scopes
+ *    its collector. Nextcloud hosts every installed app on the same page, and
+ *    CI runs hermiq against an OpenRegister checkout whose `js/` is
+ *    .gitignored and therefore absent — so `openregister-integration-global.js`
+ *    (registered globally by OpenRegister, logged 29 times as
+ *    "Could not find resource … to load" in run 30878205902) 503s on every
+ *    hermiq page. That is OpenRegister's packaging, not hermiq's page.
+ *
+ * 🔑 The scope is by OWNING APP, not by status code. Ignoring "503" outright
+ * would also swallow a 503 on one of hermiq's own endpoints, which is exactly
+ * the kind of failure this assertion exists to catch. A 503 on
+ * `/apps/hermiq/...` still fails, and now says so by name.
+ *
+ * @param page The Playwright page to attach to.
+ * @return A live array accumulating error strings.
+ */
 function attachConsoleSpy(page: Page): { errors: string[] } {
 	const errors: string[] = []
 	page.on('console', (msg: ConsoleMessage) => {
-		const text = msg.text()
+		if (msg.type() !== 'error') {
+			return
+		}
+		const url = msg.location()?.url ?? ''
+		const text = `${msg.text()}${url === '' ? '' : ` [${url}]`}`
 		if (IGNORED_CONSOLE_PATTERNS.some((rx) => rx.test(text))) {
 			return
 		}
-		if (msg.type() === 'error') {
-			errors.push(text.slice(0, 300))
+		const app = owningApp(url)
+		if (app !== null && app !== 'hermiq') {
+			return
 		}
+		errors.push(text.slice(0, 300))
 	})
 	page.on('pageerror', (err) => {
 		errors.push(`pageerror: ${err.message}`)
