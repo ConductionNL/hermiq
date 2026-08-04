@@ -340,6 +340,33 @@ class ToolOversightController extends Controller
             $payload = array_merge($agent->getObject(), ['tools' => $grants]);
             unset($payload['@self']);
 
+            // 🔴 And drop every null / empty-object value.
+            //
+            // OpenRegister refuses BOTH `{}` and `null` for an object-typed
+            // property — the documented remedy is to OMIT the key rather than
+            // send either. Writing them back raises
+            // `$ref must be a non-empty string` from the schema resolver, which
+            // names neither the key nor the schema and so reads like a broken
+            // register rather than a payload the caller built.
+            //
+            // Only reachable on an agent whose optional object fields were
+            // never populated — i.e. a freshly created one, which is exactly
+            // what a clean instance has and a long-lived dev instance does not.
+            // That is why this endpoint looked healthy for months.
+            //
+            // Omitting is safe under PUT semantics here: an absent optional
+            // object and a stored empty one are the same state.
+            foreach ($payload as $key => $value) {
+                if ($value === null || $value === []) {
+                    unset($payload[$key]);
+                }
+            }
+
+            // `tools` is the one key this endpoint exists to write, so it is
+            // re-asserted after the sweep — an intentional empty grant list
+            // must survive, and the sweep above would have removed it.
+            $payload['tools'] = $grants;
+
             $updated = $this->objectService->saveObject(
                 object: $payload,
                 register: self::REGISTER_SLUG,

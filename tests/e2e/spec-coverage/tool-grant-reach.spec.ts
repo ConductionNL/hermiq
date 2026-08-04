@@ -81,8 +81,17 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		// passed for entirely the wrong reason — "refused" because nobody was
 		// logged in, not because the guard works. `assertSecondUserAuthenticates`
 		// is what caught it (HTTP 200, identity=undefined).
+		// 🔴 `storageState` must be explicitly EMPTIED, not merely omitted.
+		//
+		// `request.newContext()` inherits the config's `use` block, and this
+		// suite sets `use.storageState` to the admin session. Omitting it here
+		// therefore does not mean "no session" — it means "the ADMIN session",
+		// and the whole test silently runs as the very user it is supposed to
+		// be excluding. Round 4 reported `identity="admin"` for a context built
+		// from the second user's credentials; that is what this line fixes.
 		secondCtx = await playwrightRequest.newContext({
 			baseURL: process.env.NEXTCLOUD_URL || process.env.BASE_URL || 'http://localhost:8080',
+			storageState: { cookies: [], origins: [] },
 			httpCredentials: { username: second.uid, password: second.password, send: 'always' },
 		})
 

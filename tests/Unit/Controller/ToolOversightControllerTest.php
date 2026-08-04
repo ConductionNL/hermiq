@@ -522,6 +522,61 @@ class ToolOversightControllerTest extends TestCase
     }//end testAnUnchangedWaiverSetWritesNoEvent()
 
     /**
+     * 🔴 The write payload carries no `@self`, no nulls and no empty objects.
+     *
+     * All three make OpenRegister's schema resolver fail with
+     * `$ref must be a non-empty string` — a 500 for the OWNER on a perfectly
+     * valid request. It only reproduces on an agent whose optional object
+     * fields were never populated, i.e. a freshly created one, which is why the
+     * endpoint looked healthy on a long-lived dev instance for months and broke
+     * the moment an e2e ran it on a clean install.
+     *
+     * `tools` is asserted separately BECAUSE it is exempt from the sweep: an
+     * intentional empty grant list must still be written, and a naive
+     * "strip everything empty" would silently drop the one field this endpoint
+     * exists to set.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-only-the-agent-owner-may-persist-a-grant-list-carrying-a-waiver
+     */
+    public function testWritePayloadOmitsMetadataNullsAndEmptyObjects(): void
+    {
+        $stored = [
+            'name'          => 'a',
+            'tools'         => ['x.y.search'],
+            '@self'         => ['id' => 'agent-1', 'owner' => 'alice'],
+            'configuration' => [],
+            'prompt'        => null,
+            'model'         => 'gpt',
+        ];
+
+        $this->objectService->method('find')->willReturn($this->agent($stored, 'alice'));
+        $this->request->method('getParam')->with('grants')->willReturn([]);
+
+        $saved = [];
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (array $object) use (&$saved): ObjectEntity {
+                $saved = $object;
+                $entity = new ObjectEntity();
+                $entity->setUuid('agent-1');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $response = $this->controller()->updateToolGrants('agent-1');
+
+        $this->assertSame(200, $response->getStatus());
+        $this->assertArrayNotHasKey('@self', $saved, 'OR metadata must never be written back.');
+        $this->assertArrayNotHasKey('configuration', $saved, 'An empty object must be OMITTED, not sent as {}.');
+        $this->assertArrayNotHasKey('prompt', $saved, 'A null must be OMITTED, not sent as null.');
+        $this->assertSame('gpt', $saved['model'] ?? null, 'A populated field must still be carried forward.');
+        $this->assertSame([], $saved['tools'] ?? null, 'An intentional EMPTY grant list must survive the sweep.');
+
+    }//end testWritePayloadOmitsMetadataNullsAndEmptyObjects()
+
+    /**
      * A `saveObject` stub returning an entity carrying the written payload.
      *
      * @return callable
