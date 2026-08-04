@@ -34,7 +34,7 @@
 			  This app provides `objectSidebarState`, which makes CnAppRoot defer its
 			  own CnObjectSidebar auto-mount to us — so this slot MUST render it.
 
-			  The graph editor's sidebar is NOT dispatched here: it is declared as
+			  The flow editor's sidebar is NOT dispatched here: it is declared as
 			  `pages[].sidebarComponent` in the manifest and resolved by CnAppRoot
 			  itself (nc-vue #528). This slot only has to handle the object sidebar.
 			-->

@@ -63,6 +63,13 @@ class AnalyticsService
     private const SCHEDULE_SCHEMA = 'schedule';
 
     /**
+     * Agent schema slug — read only to label the `perAgent` aggregate.
+     *
+     * @var string
+     */
+    private const AGENT_SCHEMA = 'agent';
+
+    /**
      * The audit action written per run by ScheduleService.
      *
      * @var string
@@ -108,6 +115,9 @@ class AnalyticsService
         // entries we aggregate are limited to these schedules, so another org's runs can
         // never be counted.
         $scheduleUuidToAgent = $this->loadScheduleUuidToAgent(agentId: $agentId);
+
+        // Display names for the `perAgent` aggregate (see loadAgentNames()).
+        $agentNames = $this->loadAgentNames();
 
         $totalRuns        = 0;
         $successRuns      = 0;
@@ -162,7 +172,8 @@ class AnalyticsService
                 }
 
                 if (isset($perAgent[$runAgent]) === false) {
-                    $perAgent[$runAgent] = ['agentId' => $runAgent, 'runs' => 0, 'success' => 0];
+                    $label = ($agentNames[$runAgent] ?? $runAgent);
+                    $perAgent[$runAgent] = ['agentId' => $runAgent, 'name' => $label, 'runs' => 0, 'success' => 0];
                 }
 
                 $perAgent[$runAgent]['runs']++;
@@ -228,6 +239,44 @@ class AnalyticsService
         return $map;
 
     }//end loadScheduleUuidToAgent()
+
+    /**
+     * Load agent UUID → display name for the caller's tenant.
+     *
+     * Read-only labelling for the `perAgent` aggregate: the run AuditTrail records an
+     * agentId and nothing else, and a bar chart labelled with UUIDs is unreadable. The
+     * lookup is tenant-scoped by the same ObjectService RBAC as every other read here,
+     * so an agent the caller cannot see simply does not appear in the map and its runs
+     * fall back to the id.
+     *
+     * @return array<string, string> Map of agent UUID → name.
+     */
+    private function loadAgentNames(): array
+    {
+        $objects = $this->objectService
+            ->setRegister(self::REGISTER_SLUG)
+            ->setSchema(self::AGENT_SCHEMA)
+            ->findAll(config: ['limit' => 1000]);
+
+        $names = [];
+        foreach ($objects as $object) {
+            if (($object instanceof ObjectEntity) === false) {
+                continue;
+            }
+
+            $data = $object->getObject();
+            $name = trim((string) ($data['name'] ?? ''));
+
+            if ($name === '') {
+                continue;
+            }
+
+            $names[(string) $object->getUuid()] = $name;
+        }
+
+        return $names;
+
+    }//end loadAgentNames()
 
     /**
      * A percentage rate rounded to one decimal (0 when the denominator is 0).

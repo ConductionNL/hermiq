@@ -165,10 +165,15 @@ export default {
 		 * The retention note, straight from the endpoint (never invented client-side —
 		 * retention is inherited from OpenRegister's AuditTrail policy).
 		 *
+		 * `escape: false` because this string is rendered through Vue's `{{ }}` text
+		 * interpolation, which already escapes. Without it the value is escaped TWICE
+		 * and the user reads the raw entity — the endpoint's "OpenRegister's AuditTrail
+		 * policy" rendered literally as "OpenRegister&#39;s AuditTrail policy".
+		 *
 		 * @return {string} The retention label.
 		 */
 		retentionLabel() {
-			return this.t('hermiq', 'Retention: {retention}', { retention: this.data.retention })
+			return this.t('hermiq', 'Retention: {retention}', { retention: this.data.retention }, undefined, { escape: false })
 		},
 	},
 

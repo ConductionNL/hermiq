@@ -5,13 +5,13 @@
 
 <template>
 	<NcDialog
-		:name="t('hermiq', 'Run graph')"
+		:name="t('hermiq', 'Run flow')"
 		:open="true"
 		size="normal"
 		@update:open="$emit('close')">
-		<div class="run-graph-dialog">
+		<div class="run-flow-dialog">
 			<NcNoteCard type="info">
-				{{ t('hermiq', 'The graph walks a concrete object. Name the object it should run against — its state seeds the run, and object-write nodes write back onto it.') }}
+				{{ t('hermiq', 'The flow walks a concrete object. Name the object it should run against — its state seeds the run, and object-write steps write back onto it.') }}
 			</NcNoteCard>
 
 			<CnRegisterSchemaSelect
@@ -62,22 +62,29 @@ import { CnRegisterSchemaSelect } from '@conduction/nextcloud-vue'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import Play from 'vue-material-design-icons/Play.vue'
-import { useGraphEditorStore } from '../store/graphEditor.js'
+import { useFlowEditorStore } from '../store/flowEditor.js'
 
 /**
- * RunGraphDialog — collect the subject object a graph run walks against.
+ * RunFlowDialog — collect the subject object a flow run walks against.
  *
- * GraphExecutor seeds its state from a real OpenRegister object and writes
- * results back onto it, so a run cannot be started from the graph alone. Kept
+ * The engine seeds a run's items from a real OpenRegister object and writes
+ * results back onto it, so a run cannot be started from the flow alone. Kept
  * in its own file per the modal-isolation rule.
  *
  * The run goes through the editor store's `run()` action rather than calling
- * the API helper here: the store is where the resulting trace lands, and the
- * canvas reads that trace to put a result badge on each edge. Executing
- * directly would leave the trace in this dialog and the canvas blank.
+ * the API helper here: the store is where the resulting log lands, and the
+ * canvas reads that log to put a result dot on each step. Executing directly
+ * would leave the log in this dialog and the canvas blank.
+ *
+ * A run is QUEUED, not awaited. `POST /api/flows/{id}/run` returns a FlowRun
+ * whose status is pending — flows execute asynchronously unless the flow says
+ * otherwise (`executionMode`) — so this dialog reports that the run started,
+ * and the store reads it back once for the log. It is also why the run needs a
+ * SAVED flow: the endpoint runs a stored flow by uuid, and there is no
+ * execute-this-unsaved-document endpoint to call instead.
  */
 export default {
-	name: 'RunGraphDialog',
+	name: 'RunFlowDialog',
 
 	components: {
 		NcButton,
@@ -93,15 +100,15 @@ export default {
 	emits: ['close', 'ran'],
 
 	setup() {
-		return { editor: useGraphEditorStore() }
+		return { editor: useFlowEditorStore() }
 	},
 
 	data() {
-		// A graph that declares a trigger already names the register and schema
+		// A flow that declares a trigger already names the register and schema
 		// it fires on, so "test this trigger" starts pre-aimed at those.
 		return {
-			subjectRegister: this.editor.graph.triggerRegister || 'hermiq',
-			subjectSchema: this.editor.graph.triggerSchema || '',
+			subjectRegister: this.editor.flow.triggerRegister || 'hermiq',
+			subjectSchema: this.editor.flow.triggerSchema || '',
 			subjectUuid: '',
 			candidates: [],
 			loadingCandidates: false,
@@ -127,7 +134,7 @@ export default {
 	},
 
 	created() {
-		// Opened from a graph that already declares its trigger wiring: load
+		// Opened from a flow that already declares its trigger wiring: load
 		// candidates straight away so "test this trigger" is one click.
 		if (this.subjectRegister && this.subjectSchema) {
 			this.onSchema(this.subjectSchema)
@@ -149,7 +156,7 @@ export default {
 		},
 
 		/**
-		 * Schema chosen: load a few objects so the graph can be tested against a
+		 * Schema chosen: load a few objects so the flow can be tested against a
 		 * real record without going to look up a UUID.
 		 *
 		 * @param {string} value The schema id.
@@ -194,7 +201,7 @@ export default {
 		},
 
 		/**
-		 * Execute the graph and hand the trace back to the builder.
+		 * Execute the flow and hand the trace back to the builder.
 		 *
 		 * @return {Promise<void>}
 		 */
@@ -209,7 +216,7 @@ export default {
 				})
 				this.$emit('ran', result)
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'The graph run failed.')
+				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'The flow run failed.')
 			} finally {
 				this.running = false
 			}
@@ -219,7 +226,7 @@ export default {
 </script>
 
 <style scoped>
-.run-graph-dialog {
+.run-flow-dialog {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;

@@ -43,8 +43,9 @@ import EmailField from './formFields/EmailField.vue'
 import Chat from './views/Chat.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
-import GraphBuilder from './views/GraphBuilder.vue'
-import GraphSidebar from './views/GraphSidebar.vue'
+import FlowBuilder from './views/FlowBuilder.vue'
+import FlowIndex from './views/FlowIndex.vue'
+import FlowSidebar from './views/FlowSidebar.vue'
 import TenantOps from './views/TenantOps.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
 // the agent-memory wrapper (AgentMemoryPanel.vue itself stays unchanged).
@@ -249,27 +250,38 @@ export default {
 	},
 
 	/**
-	 * Visual editor for the `agentflow` graphs GraphExecutor walks. A custom page
-	 * because it is a canvas over a node/edge document, not a record list — no
-	 * built-in page type (index/detail/dashboard) can express direct-manipulation
-	 * authoring. Browsing/searching graphs is the sibling type:index page; this
-	 * one is reached per-graph from it. Geometry comes from the shared
-	 * CnGraphCanvas; the palette, per-node config and run/trace are hermiq's.
+	 * The list of hermiq's flows. A custom page rather than a `type:index`
+	 * because a `type:index` is an OBJECT index bound to a register+schema, and
+	 * a flow is not an object (`flow-storage/spec.md`) — there is no pair to
+	 * point it at. It still renders CnIndexPage; only the source is different.
 	 */
-	GraphBuilder: {
+	FlowIndex: {
 		kind: 'page',
-		component: GraphBuilder,
+		component: FlowIndex,
 	},
 
 	/**
-	 * The graph editor's controls, resolved via GraphDetail's
-	 * `sidebarComponent` so CnPageRenderer hands it to CnAppRoot's #sidebar
-	 * slot — Nextcloud's real app sidebar, the same place CnObjectSidebar
-	 * renders. Shares state with the canvas through the graph-editor store.
+	 * Visual editor for the flows the engine walks. A custom page because it is
+	 * a canvas over a node/edge document, not a record list — no built-in page
+	 * type (index/detail/dashboard) can express direct-manipulation authoring.
+	 * Browsing/searching flows is the sibling FlowIndex page; this one is
+	 * reached per-flow from it. Geometry comes from the shared canvas in
+	 * nc-vue; the place cards, step routing and run/trace are hermiq's.
 	 */
-	GraphSidebar: {
+	FlowBuilder: {
 		kind: 'page',
-		component: GraphSidebar,
+		component: FlowBuilder,
+	},
+
+	/**
+	 * The flow editor's controls, resolved via FlowDetail's `sidebarComponent`
+	 * so CnPageRenderer hands it to CnAppRoot's #sidebar slot — Nextcloud's
+	 * real app sidebar, the same place CnObjectSidebar renders. Shares state
+	 * with the canvas through the flow-editor store.
+	 */
+	FlowSidebar: {
+		kind: 'page',
+		component: FlowSidebar,
 	},
 
 	/**

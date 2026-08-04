@@ -4,55 +4,87 @@
 -->
 
 <template>
-	<div class="graph-builder">
+	<div class="flow-builder">
 		<CnGraphCanvas
 			:nodes="editor.nodes"
-			:edges="editor.edges"
+			:edges="editor.canvasEdges"
 			:selected-node-id="editor.selectedNodeId"
 			:node-width="nodeWidth"
 			:node-height="nodeHeight"
-			@node-select="editor.selectedNodeId = $event"
-			@canvas-click="editor.selectedNodeId = null"
+			:zoom="zoom"
+			:min-zoom="minZoom"
+			:max-zoom="maxZoom"
+			@update:zoom="zoom = $event"
+			@node-select="editor.selectNode($event)"
+			@canvas-click="editor.clearSelection()"
 			@node-move="editor.moveNode($event)"
 			@connect="editor.connect($event)"
 			@canvas-drop="onCanvasDrop">
 			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
-			     in one direction, which a plain line does not convey. When a run
-			     has produced a result for this hop, a badge sits on the midpoint
-			     and opens that step's output. -->
+			     in one direction, which a plain line does not convey. The STEP
+			     rides on the edge, so its name rides there too — that is where
+			     the behaviour actually lives. When a run has produced a result
+			     for this hop, the label opens that step's output. -->
+			<!-- `edge` here is one drawable LINE; `edge.edge` is the step it came
+			     from. A split draws two lines for one step, so selection always
+			     goes through the step's own id. -->
 			<template #edge="{ edge, from, to }">
-				<g>
+				<g
+					class="flow-builder__step"
+					:class="{
+						'flow-builder__step--selected': edge.edge.id === editor.selectedEdgeId,
+						'flow-builder__step--untyped': !edge.edge.type,
+					}">
 					<path
-						class="graph-builder__edge"
+						class="flow-builder__edge"
 						:d="edgePath(from, to)"
 						fill="none"
-						:marker-end="`url(#${arrowId})`" />
+						:marker-end="`url(#${arrowId})`"
+						@click.stop="editor.selectEdge(edge.edge.id)" />
 
+					<!-- The step's label. A step with no type is called out rather
+					     than left blank: an untyped edge resolves to nothing, so
+					     the run reports COMPLETED having done nothing at all. -->
 					<g
-						v-if="resultFor(edge)"
-						class="graph-builder__edge-badge"
+						class="flow-builder__step-label"
 						:transform="`translate(${edgeMidpoint(from, to).x}, ${edgeMidpoint(from, to).y})`"
 						role="button"
 						tabindex="0"
-						:aria-label="t('hermiq', 'Show this step’s result')"
-						@click.stop="openResult(edge)"
-						@keydown.enter.stop="openResult(edge)">
-						<circle r="11" class="graph-builder__edge-badge-bg" />
-						<text text-anchor="middle" dominant-baseline="central" class="graph-builder__edge-badge-text">
-							{}
+						:aria-label="stepAriaLabel(edge.edge)"
+						@click.stop="onStepClick(edge.edge)"
+						@keydown.enter.stop="onStepClick(edge.edge)">
+						<rect
+							class="flow-builder__step-chip"
+							:width="chipWidth(edge.edge)"
+							:x="-chipWidth(edge.edge) / 2"
+							y="-11"
+							height="22"
+							rx="11" />
+						<text
+							text-anchor="middle"
+							dominant-baseline="central"
+							class="flow-builder__step-text">
+							{{ stepLabel(edge.edge) }}
 						</text>
+						<circle
+							v-if="resultFor(edge.edge)"
+							class="flow-builder__step-result"
+							:class="`flow-builder__step-result--${resultFor(edge.edge).status}`"
+							:cx="(chipWidth(edge.edge) / 2) - 2"
+							cy="-9"
+							r="5" />
 					</g>
 				</g>
 			</template>
 
 			<template #node="{ node }">
 				<div
-					class="graph-builder__node"
-					:class="`graph-builder__node--${typeSlug(node.type)}`">
-					<span class="graph-builder__node-type">{{ typeLabel(node.type) }}</span>
-					<span class="graph-builder__node-label">{{ nodeLabel(node) }}</span>
-					<span v-if="editor.traceByNode[node.id]" class="graph-builder__node-badge">
-						{{ editor.traceByNode[node.id] }}
+					class="flow-builder__node"
+					:class="`flow-builder__node--${roleOf(node.id)}`">
+					<span class="flow-builder__node-role">{{ roleLabel(node.id) }}</span>
+					<span class="flow-builder__node-label">{{ nodeLabel(node) }}</span>
+					<span v-if="editor.markingByNode[node.id]" class="flow-builder__node-badge">
+						{{ t('hermiq', 'Run is here') }}
 					</span>
 				</div>
 			</template>
@@ -60,7 +92,7 @@
 
 		<!-- Arrowhead marker. Defined here (not relying on the canvas's own) so
 		     the colour and size are ours to control. -->
-		<svg class="graph-builder__defs" aria-hidden="true" focusable="false">
+		<svg class="flow-builder__defs" aria-hidden="true" focusable="false">
 			<defs>
 				<marker
 					:id="arrowId"
@@ -70,22 +102,73 @@
 					markerWidth="5"
 					markerHeight="5"
 					orient="auto-start-reverse">
-					<path d="M 0 0 L 10 5 L 0 10 z" class="graph-builder__arrowhead" />
+					<path d="M 0 0 L 10 5 L 0 10 z" class="flow-builder__arrowhead" />
 				</marker>
 			</defs>
 		</svg>
 
+		<!-- Canvas controls. Zoom first: a flow big enough to need a canvas is a
+		     flow you cannot see all of, and the wheel — the canvas's own zoom
+		     gesture — is mouse-only, so buttons are what make it reachable from
+		     the keyboard (WCAG 2.1 AA 2.1.1). The reset is not a nicety either:
+		     zoom has no floor at 1, so without it a canvas zoomed out is
+		     laborious to bring back. -->
+		<div class="flow-builder__controls">
+			<div class="flow-builder__zoom" role="group" :aria-label="t('hermiq', 'Zoom')">
+				<NcButton
+					type="secondary"
+					:disabled="zoom <= minZoom"
+					:aria-label="t('hermiq', 'Zoom out')"
+					@click="zoomBy(-zoomStep)">
+					<template #icon>
+						<Minus :size="20" />
+					</template>
+				</NcButton>
+				<NcButton
+					type="secondary"
+					:aria-label="t('hermiq', 'Reset zoom to 100%')"
+					@click="zoom = 1">
+					{{ zoomPercent }}
+				</NcButton>
+				<NcButton
+					type="secondary"
+					:disabled="zoom >= maxZoom"
+					:aria-label="t('hermiq', 'Zoom in')"
+					@click="zoomBy(zoomStep)">
+					<template #icon>
+						<Plus :size="20" />
+					</template>
+				</NcButton>
+			</div>
+
+			<!-- Re-open control for the sidebar. It lives on the CANVAS because
+			     once the sidebar is closed it has no chrome of its own left to
+			     render a button in — a close with no way back is a one-way
+			     door. -->
+			<NcButton
+				v-if="!editor.sidebarOpen"
+				class="flow-builder__sidebar-toggle"
+				type="secondary"
+				:aria-label="t('hermiq', 'Open the flow sidebar')"
+				@click="editor.sidebarOpen = true">
+				<template #icon>
+					<DockRight :size="20" />
+				</template>
+				{{ t('hermiq', 'Controls') }}
+			</NcButton>
+		</div>
+
 		<NcEmptyContent
 			v-if="editor.nodes.length === 0"
-			class="graph-builder__empty"
+			class="flow-builder__empty"
 			:name="t('hermiq', 'No nodes yet')"
-			:description="t('hermiq', 'Add a node from the sidebar to start building this agent graph.')">
+			:description="t('hermiq', 'Add a node from the sidebar, then drag between two nodes to create a step.')">
 			<template #icon>
 				<Sitemap :size="20" />
 			</template>
 		</NcEmptyContent>
 
-		<RunGraphDialog
+		<RunFlowDialog
 			v-if="editor.showRun"
 			@close="editor.showRun = false"
 			@ran="onRan" />
@@ -99,40 +182,61 @@
 </template>
 
 <script>
-import { NcEmptyContent } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent } from '@nextcloud/vue'
 import { CnGraphCanvas } from '@conduction/nextcloud-vue'
 import { showSuccess } from '@nextcloud/dialogs'
+import DockRight from 'vue-material-design-icons/DockRight.vue'
+import Minus from 'vue-material-design-icons/Minus.vue'
+import Plus from 'vue-material-design-icons/Plus.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
-import RunGraphDialog from '../dialogs/RunGraphDialog.vue'
+import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
-import { useGraphEditorStore } from '../store/graphEditor.js'
+import { useFlowEditorStore } from '../store/flowEditor.js'
 
 /**
- * GraphBuilder — the canvas half of the graph editor.
+ * FlowBuilder — the canvas half of the flow editor.
  *
- * This page is only the graph itself: geometry and interaction (pan, zoom,
- * drag, drag-to-connect) come from the shared CnGraphCanvas, and this component
- * supplies typed node cards, directional edge routing, and per-hop result
- * badges. Every control — palette, node config, graph settings, notes,
- * Save/Run — lives in GraphSidebar, rendered in Nextcloud's real app sidebar
- * via the manifest's `pages[].sidebarComponent`. The two halves share the
- * graph-editor store, since they sit in different parts of the tree.
+ * This page is only the flow itself: geometry and interaction (pan, zoom,
+ * drag, drag-to-connect) come from the shared canvas in nc-vue, and this
+ * component supplies place cards, directional step routing, and per-step
+ * labels. Every control — node list, step config, flow settings, notes,
+ * Save/Run — lives in FlowSidebar, rendered in Nextcloud's real app sidebar via
+ * the manifest's `pages[].sidebarComponent`. The two halves share the
+ * flow-editor store, since they sit in different parts of the tree.
+ *
+ * The shared canvas is still imported as `CnGraphCanvas`: it renames to
+ * `CnFlowCanvas` in `cn-flow-store-and-canvas-rename`, which needs an nc-vue
+ * release before this import can move. That is the last "graph" left here.
+ *
+ * ## What a node is, and what an edge is
+ *
+ * A flow is a Petri net (ADR-065). A NODE is a place: a position, with a name
+ * and nothing else. An EDGE is a transition: it carries the step type and the
+ * config, and it is the thing that runs. So this canvas labels edges with what
+ * they DO and nodes with where they ARE — the inverse of what it used to draw,
+ * which read `edges[].source`/`.target` (a key the stored document does not
+ * have, so no edge was ever drawn) and `nodes[].type` (a key a place must never
+ * have, so every card was blank).
  */
 export default {
-	name: 'GraphBuilder',
+	name: 'FlowBuilder',
 
 	components: {
 		CnGraphCanvas,
+		DockRight,
+		Minus,
+		NcButton,
 		NcEmptyContent,
-		RunGraphDialog,
+		Plus,
+		RunFlowDialog,
 		Sitemap,
 		StepResultDialog,
 	},
 
 	props: {
 		/**
-		 * Graph id from the route (`/graphs/:id`). The literal `new` starts a
-		 * blank graph, so creating and editing share one page.
+		 * Flow id from the route (`/flows/:id`). The literal `new` starts a
+		 * blank flow, so creating and editing share one page.
 		 */
 		id: {
 			type: String,
@@ -141,19 +245,36 @@ export default {
 	},
 
 	setup() {
-		return { editor: useGraphEditorStore() }
+		return { editor: useFlowEditorStore() }
 	},
 
 	data() {
 		return {
-			arrowId: 'graph-builder-arrow',
+			arrowId: 'flow-builder-arrow',
 			resultDialog: null,
 			// Node box size. Shared with the canvas and with edge trimming, which
 			// has to know where a card ends to stop the arrowhead short of it.
 			nodeWidth: 200,
 			nodeHeight: 80,
-
+			// Zoom is OWNED here. CnGraphCanvas takes it as a prop and reports
+			// changes through `update:zoom` — it never mutates it — so a canvas
+			// whose consumer does not bind it is pinned at 1 forever and the
+			// wheel gesture does nothing at all, which is what this page did.
+			zoom: 1,
+			// Matched to the canvas's own defaults and to its wheel increment, so
+			// the buttons and the wheel move in the same steps and hit the same
+			// ends rather than disabling at a limit the wheel can still pass.
+			zoomStep: 0.1,
+			minZoom: 0.3,
+			maxZoom: 2,
 		}
+	},
+
+	computed: {
+		/** @return {string} The current zoom, for the reset button's label. */
+		zoomPercent() {
+			return `${Math.round(this.zoom * 100)}%`
+		},
 	},
 
 	watch: {
@@ -168,7 +289,27 @@ export default {
 
 	methods: {
 		/**
-		 * Drop from the sidebar palette onto the canvas at the drop point.
+		 * Step the zoom, clamped to the same range the canvas enforces.
+		 *
+		 * Rounded to two places because repeated float addition drifts —
+		 * 0.1 added seven times is 0.7000000000000001, and that renders as a
+		 * "70%" button that never quite equals any round number it is compared
+		 * against.
+		 *
+		 * @param {number} delta The change to apply.
+		 * @return {void}
+		 */
+		zoomBy(delta) {
+			const next = Math.min(this.maxZoom, Math.max(this.minZoom, this.zoom + delta))
+			this.zoom = Math.round(next * 100) / 100
+		},
+
+		/**
+		 * Drop from the sidebar onto the canvas at the drop point.
+		 *
+		 * Only a NODE can be dropped: a step has to run between two places, so
+		 * it is created by connecting them, never by dropping one on empty
+		 * canvas where it would have no endpoints.
 		 *
 		 * @param {object} payload `{x, y}` in canvas space.
 		 * @param {number} payload.x Drop x-coordinate in canvas space.
@@ -176,27 +317,152 @@ export default {
 		 * @return {void}
 		 */
 		onCanvasDrop({ x, y }) {
-			if (this.editor.paletteDragType === null) {
-				return
-			}
-
-			this.editor.addNode(this.editor.paletteDragType, x, y)
-			this.editor.paletteDragType = null
+			this.editor.addNode('', x, y)
 		},
 
 		/**
-		 * A completed run's trace is already on the store; close and notify.
+		 * A completed run is already on the store; close and notify.
 		 *
 		 * @return {void}
 		 */
 		onRan() {
 			this.editor.showRun = false
-			showSuccess(this.t('hermiq', 'Graph run finished.'))
+			showSuccess(this.t('hermiq', 'Flow run queued.'))
 		},
 
 		/**
-		 * Midpoint of an edge, where the result badge sits. Taken from the same
-		 * geometry the path uses, so the badge always lands on the line.
+		 * Click a step's label: select it, and open its result when it has one.
+		 *
+		 * @param {object} edge The step.
+		 * @return {void}
+		 */
+		onStepClick(edge) {
+			this.editor.selectEdge(edge.id)
+			const entry = this.resultFor(edge)
+			if (entry) {
+				this.resultDialog = { title: this.stepLabel(edge), result: entry }
+			}
+		},
+
+		/**
+		 * Whether a place starts a run, ends one, or sits between.
+		 *
+		 * Both answers come from the store, which mirrors the engine's own
+		 * inference — so a card marked "start" is a card the engine will really
+		 * start on, not the editor's guess.
+		 *
+		 * @param {string} id The place id.
+		 * @return {string} `'start'`, `'end'` or `'step'`.
+		 */
+		roleOf(id) {
+			if (this.editor.startNodeIds.includes(id)) {
+				return 'start'
+			}
+
+			if (this.editor.endNodeIds.includes(id)) {
+				return 'end'
+			}
+
+			return 'step'
+		},
+
+		/**
+		 * The role, in words.
+		 *
+		 * @param {string} id The place id.
+		 * @return {string} The label.
+		 */
+		roleLabel(id) {
+			const role = this.roleOf(id)
+			if (role === 'start') {
+				return this.t('hermiq', 'Start')
+			}
+
+			if (role === 'end') {
+				return this.t('hermiq', 'End')
+			}
+
+			return this.t('hermiq', 'Step')
+		},
+
+		/**
+		 * A place's label.
+		 *
+		 * Falls back to the id, which is what the engine calls it and what every
+		 * edge references — never to a dash. A place that only has an id is
+		 * completely ordinary (most of the ported hydra flows are written that
+		 * way), so rendering those as "—" blanked whole flows.
+		 *
+		 * @param {object} node The place.
+		 * @return {string} The label.
+		 */
+		nodeLabel(node) {
+			return node.name || node.id
+		},
+
+		/**
+		 * A step's label: what the catalogue calls its type.
+		 *
+		 * @param {object} edge The step.
+		 * @return {string} The label.
+		 */
+		stepLabel(edge) {
+			if (!edge.type) {
+				return this.t('hermiq', 'No step type')
+			}
+
+			const entry = (this.editor.stepCatalog || []).find((candidate) => candidate.id === edge.type)
+
+			// A type the catalogue cannot explain is shown as its raw id rather
+			// than guessed at from a list that may not match the engine.
+			return entry ? (entry.displayName || entry.id) : edge.type
+		},
+
+		/**
+		 * Accessible description of a step.
+		 *
+		 * @param {object} edge The step.
+		 * @return {string} The label.
+		 */
+		stepAriaLabel(edge) {
+			return this.t('hermiq', '{step}, from {from} to {to}', {
+				step: this.stepLabel(edge),
+				from: edge.from.join(', '),
+				to: edge.to.join(', '),
+			})
+		},
+
+		/**
+		 * Chip width for a step label, sized to its text.
+		 *
+		 * Measured from the character count rather than the DOM: an SVG text
+		 * node has no width until it is laid out, so a chip sized after the fact
+		 * flickers on every render.
+		 *
+		 * @param {object} edge The step.
+		 * @return {number} The width in canvas units.
+		 */
+		chipWidth(edge) {
+			return Math.max(56, (this.stepLabel(edge).length * 6.5) + 20)
+		},
+
+		/**
+		 * The last run's entry for this step, or null when it did not run.
+		 *
+		 * @param {object} edge The step.
+		 * @return {object|null} The log entry.
+		 */
+		resultFor(edge) {
+			if (!edge) {
+				return null
+			}
+
+			return this.editor.resultByEdge[this.editor.transitionName(edge)] || null
+		},
+
+		/**
+		 * Midpoint of an edge, where the step label sits. Taken from the same
+		 * geometry the path uses, so the label always lands on the line.
 		 *
 		 * @param {{x: number, y: number}} from Source centre.
 		 * @param {{x: number, y: number}} to   Target centre.
@@ -335,110 +601,12 @@ export default {
 				].join(' '),
 			}
 		},
-
-		/**
-		 * The last run's result for the step an edge leaves from, or null when
-		 * this hop did not run.
-		 *
-		 * @param {object} edge The edge.
-		 * @return {object|null} That step's trace entry.
-		 */
-		resultFor(edge) {
-			if (!edge || !edge.source) {
-				return null
-			}
-
-			return this.editor.resultByNode[edge.source] || null
-		},
-
-		/**
-		 * Show a step's output as JSON.
-		 *
-		 * @param {object} edge The edge whose source produced the result.
-		 * @return {void}
-		 */
-		openResult(edge) {
-			const entry = this.resultFor(edge)
-			if (!entry) {
-				return
-			}
-
-			const node = this.editor.nodes.find((candidate) => candidate.id === edge.source)
-			this.resultDialog = {
-				title: node ? this.typeLabel(node.type) : edge.source,
-				result: entry,
-			}
-		},
-
-		/**
-		 * Human label for a node type.
-		 *
-		 * @param {string} type The node type.
-		 * @return {string} The label.
-		 */
-		typeLabel(type) {
-			const entry = (this.editor.nodeCatalog || []).find((candidate) => candidate.id === type)
-			if (entry) {
-				return entry.displayName || entry.id
-			}
-
-			// No local name table: a type the catalogue cannot explain is shown as
-			// its raw id rather than guessed at from a list that may not match the
-			// engine. See GraphSidebar.paletteTypes.
-			return type || '—'
-		},
-
-		/**
-		 * A node type turned into a usable CSS class suffix.
-		 *
-		 * Engine ids are namespaced (`hermiq.agent-step`), and a dot in the middle
-		 * of a class name is a compound selector rather than a name — so the
-		 * per-type accent silently matched nothing for every catalogue type.
-		 *
-		 * @param {string} type The node type.
-		 * @return {string} The slug.
-		 */
-		typeSlug(type) {
-			return String(type || '').replace(/[^a-zA-Z0-9]+/g, '-')
-		},
-
-		/**
-		 * Short summary of what a node does, shown on the canvas card.
-		 *
-		 * @param {object} node The node.
-		 * @return {string} The label.
-		 */
-		nodeLabel(node) {
-			const config = node.config || {}
-			if (node.type === 'trigger') {
-				const schema = config.triggerSchema || this.t('hermiq', 'any schema')
-				return `${config.event || 'object.updated'} · ${schema}`
-			}
-
-			if (node.type === 'agent-step') {
-				return config.agentId || this.t('hermiq', 'no agent set')
-			}
-
-			if (node.type === 'object-write') {
-				return config.field || this.t('hermiq', 'no field set')
-			}
-
-			if (node.type === 'condition') {
-				return `${config.left || '?'} ${config.operator || 'equals'} ${config.right || '?'}`
-			}
-
-			if (node.type === 'router') {
-				return config.on || this.t('hermiq', 'no state key set')
-			}
-
-			return ''
-		},
 	},
 }
 </script>
 
 <style scoped>
-.graph-builder {
+.flow-builder {
 	position: relative;
 	height: 100%;
 	min-height: 0;
@@ -447,64 +615,172 @@ export default {
 }
 
 /* Marker definitions only — never painted itself. */
-.graph-builder__defs {
+.flow-builder__defs {
 	position: absolute;
 	width: 0;
 	height: 0;
 }
 
-.graph-builder__empty {
+.flow-builder__empty {
 	position: absolute;
 	inset: 0;
 	pointer-events: none;
 }
 
-.graph-builder__edge {
-	stroke: var(--color-border-dark);
-	stroke-width: 2;
+.flow-builder__controls {
+	position: absolute;
+	top: 12px;
+	inset-inline-end: 12px;
+	z-index: 2;
+	display: flex;
+	gap: 8px;
+	align-items: center;
 }
 
-.graph-builder__arrowhead {
+.flow-builder__zoom {
+	display: flex;
+	gap: 4px;
+	padding: 4px;
+	border-radius: var(--border-radius-large, 8px);
+	background-color: var(--color-main-background);
+	box-shadow: 0 1px 4px var(--color-box-shadow, rgba(0, 0, 0, 0.2));
+}
+
+/* ---- Steps (edges) ---------------------------------------------------- */
+
+.flow-builder__edge {
+	stroke: var(--color-border-dark);
+	stroke-width: 2;
+	/* The SVG layer is transparent to clicks; a step opts back in so it can be
+	   selected. Without this the only way to configure a step would be to draw
+	   a new one. */
+	pointer-events: stroke;
+	cursor: pointer;
+}
+
+.flow-builder__arrowhead {
 	fill: var(--color-border-dark);
 }
 
-.graph-builder__edge-badge {
+.flow-builder__step--selected .flow-builder__edge {
+	stroke: var(--color-primary-element);
+	stroke-width: 3;
+}
+
+.flow-builder__step-label {
 	cursor: pointer;
 	pointer-events: all;
 }
 
-.graph-builder__edge-badge-bg {
+.flow-builder__step-chip {
 	fill: var(--color-main-background);
 	stroke: var(--color-border-dark);
 	stroke-width: 2;
 }
 
-.graph-builder__edge-badge:hover .graph-builder__edge-badge-bg {
+.flow-builder__step--selected .flow-builder__step-chip {
 	stroke: var(--color-primary-element);
 }
 
-.graph-builder__edge-badge-text {
+/* An untyped step runs nothing and reports success, so it is called out on the
+   canvas rather than left to look like any other hop. */
+.flow-builder__step--untyped .flow-builder__step-chip {
+	stroke: var(--color-warning, #c28900);
+	stroke-dasharray: 4, 3;
+}
+
+.flow-builder__step-label:hover .flow-builder__step-chip {
+	stroke: var(--color-primary-element);
+}
+
+.flow-builder__step-text {
 	font-size: 11px;
 	font-weight: 600;
 	fill: var(--color-main-text);
 }
 
-/* The canvas gives every node wrapper its own border/background/radius. This
-   card supplies the real chrome (type accent, padding), so neutralise the
-   wrapper's — otherwise every node renders as a box inside a box. */
-:deep(.cn-graph-canvas__node) {
-	border: none;
-	background-color: transparent;
-	border-radius: 0;
+.flow-builder__step-result {
+	fill: var(--color-success, #46ba61);
+	stroke: var(--color-main-background);
+	stroke-width: 2;
 }
 
-/* NO border, background or radius here: CnGraphCanvas already draws the node's
-   card on the wrapper it positions (and its own --selected state on it), so
-   drawing one here too put a card inside a card — the same nested-chrome defect
-   as a widget drawing its own card inside a dashboard tile. The type accent is
-   an INSET shadow rather than a border for the same reason a table-row accent
-   is: a border would add a second frame and take layout width from the body. */
-.graph-builder__node {
+.flow-builder__step-result--failed,
+.flow-builder__step-result--stopped {
+	fill: var(--color-error, #e9322d);
+}
+
+.flow-builder__step-result--suspended {
+	fill: var(--color-warning, #c28900);
+}
+
+/* ---- Places (nodes) --------------------------------------------------- */
+
+/* ONE box — drawn HERE, on the wrapper.
+ *
+ * There are two elements per node and only one of them may carry chrome: the
+ * wrapper CnGraphCanvas positions, and the card body in our slot. The wrapper
+ * wins, because it is also what the canvas puts its own `--selected` state on;
+ * styling the body instead would leave selection highlighting an element that
+ * no longer looked like the card.
+ *
+ * Both failure modes are one line apart and both have shipped:
+ *
+ *   - body draws a frame TOO (its own radius over the wrapper's border) — a
+ *     card inside a card, the nested chrome originally reported;
+ *   - the wrapper's frame is reset away and the body draws none — no card at
+ *     all, just an accent bar and floating text.
+ *
+ * So the frame is declared once, explicitly, on the wrapper. It is restated
+ * rather than left to the canvas's own scoped rule because that rule ties on
+ * specificity with anything written here — `:deep(.cn-graph-canvas__node)`
+ * compiles to `[data-v-builder] .cn-graph-canvas__node`, (0,2,0), exactly
+ * matching `.cn-graph-canvas__node[data-v-canvas]` — so which one won came down
+ * to bundle order. Anchoring on `.flow-builder` settles it at (0,3,0). */
+.flow-builder :deep(.cn-graph-canvas__node) {
+	border: 2px solid var(--color-border);
+	background-color: var(--color-main-background);
+	border-radius: var(--border-radius-large, 8px);
+	/* Clips the body's role accent to the card's curve, so the accent needs no
+	   radius of its own — which is what drew the second frame. */
+	overflow: hidden;
+}
+
+.flow-builder :deep(.cn-graph-canvas__node--selected) {
+	border-color: var(--color-primary-element);
+}
+
+/* The connection handle is the node's OUTPUT PORT, and it is the one piece of
+   node chrome the canvas renders outside our slot — so it is styled from here,
+   selected structurally on what our slot rendered inside the same wrapper.
+   Sized explicitly because Nextcloud's global button rules give every <button>
+   a minimum height: the port is declared 16x16 round in the canvas and measured
+   16x34 on screen, a bar rather than a dot. */
+.flow-builder :deep(.cn-graph-canvas__handle) {
+	width: 16px;
+	height: 16px;
+	min-height: 16px;
+	min-width: 16px;
+	border-radius: 50%;
+}
+
+/* Role, on the port: green where a run begins, red where it ends. The port is a
+   sibling of our slot content, so it cannot be given a class from inside the
+   slot — `:has()` reads the role off the card we DID render. */
+.flow-builder :deep(.cn-graph-canvas__node:has(.flow-builder__node--start) .cn-graph-canvas__handle) {
+	background-color: var(--color-success, #46ba61);
+}
+
+.flow-builder :deep(.cn-graph-canvas__node:has(.flow-builder__node--end) .cn-graph-canvas__handle) {
+	background-color: var(--color-error, #e9322d);
+}
+
+/* No border, background or radius: the wrapper above owns the card, and this
+   fills it. The role accent is an INSET shadow rather than a border for the
+   same reason a table-row accent is — a border would add a second frame and
+   take layout width from the body. It needs no radius of its own because the
+   wrapper clips it. */
+.flow-builder__node {
 	display: flex;
 	flex-direction: column;
 	justify-content: center;
@@ -513,7 +789,6 @@ export default {
 	height: 100%;
 	padding: 8px 10px 8px 14px;
 	box-shadow: inset 6px 0 0 0 var(--color-border);
-	border-radius: var(--border-radius-large, 8px);
 	box-sizing: border-box;
 	overflow: hidden;
 }
@@ -521,56 +796,41 @@ export default {
 /* Selection is the wrapper's: CnGraphCanvas sets --selected on the element it
    positions, so restating it here would be a second, competing highlight. */
 
-.graph-builder__node-type {
+/* Role accents — NC variables only (ADR-010). Keyed on the place's ROLE in the
+   flow, not on a node "type": a place has no type, and the per-type accents
+   this replaced could never match anything for that reason. */
+.flow-builder__node--start {
+	box-shadow: inset 6px 0 0 0 var(--color-success, #46ba61);
+}
+
+.flow-builder__node--end {
+	box-shadow: inset 6px 0 0 0 var(--color-error, #e9322d);
+}
+
+.flow-builder__node--step {
+	box-shadow: inset 6px 0 0 0 var(--color-primary-element);
+}
+
+.flow-builder__node-role {
 	font-size: 11px;
 	text-transform: uppercase;
 	letter-spacing: 0.04em;
 	color: var(--color-text-maxcontrast);
 }
 
-.graph-builder__node-label {
+.flow-builder__node-label {
 	font-weight: 600;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
 
-.graph-builder__node-badge {
+.flow-builder__node-badge {
 	align-self: flex-start;
 	font-size: 11px;
 	padding: 0 6px;
 	border-radius: var(--border-radius-pill, 12px);
-	background-color: var(--color-background-dark);
-	color: var(--color-text-maxcontrast);
-}
-
-/* Type accents — NC variables only (ADR-010). */
-/* Type accents, keyed on the SLUGGED engine id: a dot in the middle of a class
-   name is a compound selector rather than a name, so an unslugged
-   `hermiq.agent-step` matched nothing at all. Only engine ids appear here —
-   the builder no longer has a vocabulary of its own. */
-.graph-builder__node--hermiq-agent-step {
-	box-shadow: inset 6px 0 0 0 var(--color-primary-element);
-}
-
-.graph-builder__node--openregister-object-write,
-.graph-builder__node--openregister-set-fields {
-	box-shadow: inset 6px 0 0 0 var(--color-success, #46ba61);
-}
-
-.graph-builder__node--openregister-filter,
-.graph-builder__node--openregister-wait {
-	box-shadow: inset 6px 0 0 0 var(--color-warning, #c28900);
-}
-
-.graph-builder__node--openregister-route,
-.graph-builder__node--openregister-switch,
-.graph-builder__node--openregister-merge,
-.graph-builder__node--openregister-loop {
-	box-shadow: inset 6px 0 0 0 var(--color-info, #4271b6);
-}
-
-.graph-builder__node--openregister-stop {
-	box-shadow: inset 6px 0 0 0 var(--color-error, #e9322d);
+	background-color: var(--color-primary-element);
+	color: var(--color-primary-element-text);
 }
 </style>

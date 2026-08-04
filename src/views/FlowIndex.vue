@@ -5,20 +5,20 @@
 
 <template>
 	<CnIndexPage
-		:title="t('hermiq', 'Graphs')"
-		:description="t('hermiq', 'Flows owned by Hermiq. A graph is a flow — the same definition the engine runs, stored once in OpenRegister.')"
+		:title="t('hermiq', 'Flows')"
+		:description="t('hermiq', 'Flows owned by Hermiq. A flow is a flow — the same definition the engine runs, stored once in OpenRegister.')"
 		:columns="columns"
-		:objects="editor.graphs"
+		:objects="editor.flows"
 		:loading="editor.loading"
 		:selectable="false"
 		row-click-to-view
 		@row-click="open">
 		<template #header-actions>
-			<NcButton type="primary" @click="$router.push('/graphs/new')">
+			<NcButton type="primary" @click="$router.push('/flows/new')">
 				<template #icon>
 					<Plus :size="20" />
 				</template>
-				{{ t('hermiq', 'New graph') }}
+				{{ t('hermiq', 'New flow') }}
 			</NcButton>
 		</template>
 	</CnIndexPage>
@@ -28,10 +28,10 @@
 import { NcButton } from '@nextcloud/vue'
 import { CnIndexPage } from '@conduction/nextcloud-vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
-import { useGraphEditorStore } from '../store/graphEditor.js'
+import { useFlowEditorStore } from '../store/flowEditor.js'
 
 /**
- * GraphIndex — the list of hermiq's flows.
+ * FlowIndex — the list of hermiq's flows.
  *
  * A custom page rather than a manifest `type:index`, for one reason: a
  * `type:index` page is an OBJECT index, bound to a register and a schema, and a
@@ -48,7 +48,7 @@ import { useGraphEditorStore } from '../store/graphEditor.js'
  * and the canvas can never disagree about what exists.
  */
 export default {
-	name: 'GraphIndex',
+	name: 'FlowIndex',
 
 	components: {
 		CnIndexPage,
@@ -57,7 +57,7 @@ export default {
 	},
 
 	setup() {
-		return { editor: useGraphEditorStore() }
+		return { editor: useFlowEditorStore() }
 	},
 
 	computed: {
@@ -83,14 +83,14 @@ export default {
 
 	created() {
 		// `load` with no routed id: the list needs the collection, and passing
-		// `new` would also reset the editor's canvas to a blank graph, which is
+		// `new` would also reset the editor's canvas to a blank flow, which is
 		// exactly right for a page that is not editing one.
 		this.editor.load('new')
 	},
 
 	methods: {
 		/**
-		 * Open a graph on the canvas.
+		 * Open a flow on the canvas.
 		 *
 		 * @param {object} row The clicked flow.
 		 * @return {void}
@@ -101,7 +101,7 @@ export default {
 				return
 			}
 
-			this.$router.push({ name: 'GraphDetail', params: { id: String(id) } })
+			this.$router.push({ name: 'FlowDetail', params: { id: String(id) } })
 		},
 	},
 }
