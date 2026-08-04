@@ -54,7 +54,8 @@ async function appConfig(
 }
 
 test.describe('hermiq#140: the Hydra Triage flow seeds on a clean install', () => {
-	// 🔴 FIXME(hermiq#140) — ROOT CAUSE FOUND, and it is not what the issue says.
+	// 🔴 hermiq#140 — FIXED. Kept as the regression test, with the history,
+	// because the failure was invisible in both directions.
 	//
 	// The write does NOT fail. Measured on run 30883436861 (fresh stable33):
 	// the breadcrumb this test reads says `seeded`, and the flow store returns
@@ -74,13 +75,16 @@ test.describe('hermiq#140: the Hydra Triage flow seeds on a clean install', () =
 	// 🔑 The two assertions below are split for exactly this reason: checking
 	// only the breadcrumb would have reported this as FIXED.
 	//
-	// NOT fixed here, deliberately. The repair step runs with no user session,
-	// so it has no organisation any more than it has an owner — and choosing
-	// one means deciding whose tenant a seeded flow belongs to. That is a
-	// tenancy decision spanning hermiq and OpenRegister, not a null to fill in;
-	// writing a flow into someone's organisation because it was convenient is
-	// how a seed becomes a data-ownership incident. Escalated for a decision.
-	test.fixme('the install-time flow seed reports success, and the flow exists', async ({ page }) => {
+	// THE FIX: the seed now scopes the flow to the DEFAULT organisation
+	// (`OrganisationService::getDefaultOrganisationUuid()`, falling back to
+	// `ensureDefaultOrganisation()` which self-provisions on an instance fresh
+	// enough to have none). Ownerless remains deliberate — enabling the flow is
+	// the human act that supplies the owner. Org-less was the bug.
+	//
+	// And when no organisation resolves at all, the step now writes NOTHING
+	// rather than an orphan: an absent flow is recoverable on the next run, an
+	// orphan blocks its own re-seed forever while reporting success.
+	test('the install-time flow seed reports success, and the flow exists', async ({ page }) => {
 		const token = await harvestToken(page)
 
 		const outcome = await appConfig(page.request, token, OUTCOME_KEY)

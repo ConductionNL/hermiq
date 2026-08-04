@@ -40,6 +40,7 @@ namespace OCA\Hermiq\Tests\Unit\Repair;
 use OCA\Hermiq\Repair\SeedHydraTriageFlow;
 use OCA\OpenRegister\Db\Flow;
 use OCA\OpenRegister\Db\FlowMapper;
+use OCA\OpenRegister\Service\OrganisationService;
 use OCP\IAppConfig;
 use OCP\Migration\IOutput;
 use PHPUnit\Framework\TestCase;
@@ -82,6 +83,46 @@ class SeedHydraTriageFlowTest extends TestCase
         );
 
     }//end step()
+
+    /**
+     * A container serving both dependencies the seed resolves lazily.
+     *
+     * 🔴 `OrganisationService` is not optional garnish here. Every flow read is
+     * organisation-scoped, so a flow written without one is invisible to every
+     * tenant AND blocks its own re-seed (hermiq#140). The step therefore refuses
+     * to write when no organisation resolves — which means a container that does
+     * not serve `OrganisationService` produces a SKIP, not a seed. Tests that
+     * assert an insert must supply it.
+     *
+     * @param FlowMapper  $mapper  The flow mapper to serve.
+     * @param string|null $orgUuid The default organisation UUID, or null to
+     *                             simulate an instance where none resolves.
+     *
+     * @return ContainerInterface
+     */
+    private function containerWith(FlowMapper $mapper, ?string $orgUuid='org-default-uuid'): ContainerInterface
+    {
+        $organisations = $this->createMock(OrganisationService::class);
+        $organisations->method('getDefaultOrganisationUuid')->willReturn($orgUuid);
+
+        $container = $this->createMock(ContainerInterface::class);
+        $container->method('get')->willReturnCallback(
+            static function (string $id) use ($mapper, $organisations) {
+                if ($id === FlowMapper::class) {
+                    return $mapper;
+                }
+
+                if ($id === OrganisationService::class) {
+                    return $organisations;
+                }
+
+                throw new RuntimeException('not available in this test: '.$id);
+            }
+        );
+
+        return $container;
+
+    }//end containerWith()
 
 
     /**
@@ -326,16 +367,7 @@ class SeedHydraTriageFlowTest extends TestCase
         $mapper->method('findAllFlows')->willReturn([]);
         $mapper->expects($this->once())->method('insert');
 
-        $container = $this->createMock(ContainerInterface::class);
-        $container->method('get')->willReturnCallback(
-            static function (string $id) use ($mapper) {
-                if ($id === FlowMapper::class) {
-                    return $mapper;
-                }
-
-                throw new RuntimeException('not available in this test: '.$id);
-            }
-        );
+        $container = $this->containerWith($mapper);
 
         $step = new SeedHydraTriageFlow(
             container: $container,
@@ -366,8 +398,7 @@ class SeedHydraTriageFlowTest extends TestCase
         $mapper->method('findAllFlows')->willReturn([$existing]);
         $mapper->expects($this->never())->method('insert');
 
-        $container = $this->createMock(ContainerInterface::class);
-        $container->method('get')->willReturn($mapper);
+        $container = $this->containerWith($mapper);
 
         $step = new SeedHydraTriageFlow(
             container: $container,
@@ -406,8 +437,7 @@ class SeedHydraTriageFlowTest extends TestCase
             new RuntimeException('an undiagnosable install-time failure')
         );
 
-        $container = $this->createMock(ContainerInterface::class);
-        $container->method('get')->willReturn($mapper);
+        $container = $this->containerWith($mapper);
 
         $recorded = [];
         $appConfig = $this->createMock(IAppConfig::class);
@@ -454,8 +484,7 @@ class SeedHydraTriageFlowTest extends TestCase
         $mapper = $this->createMock(FlowMapper::class);
         $mapper->method('findAllFlows')->willReturn([]);
 
-        $container = $this->createMock(ContainerInterface::class);
-        $container->method('get')->willReturn($mapper);
+        $container = $this->containerWith($mapper);
 
         $recorded = [];
         $appConfig = $this->createMock(IAppConfig::class);
@@ -477,4 +506,104 @@ class SeedHydraTriageFlowTest extends TestCase
         $this->assertSame('seeded', $recorded[SeedHydraTriageFlow::OUTCOME_KEY] ?? null);
 
     }//end testASuccessfulSeedRecordsSeeded()
+
+    /**
+     * 🔴 The seeded flow carries the DEFAULT ORGANISATION (hermiq#140).
+     *
+     * Every flow read is organisation-scoped: `FlowService::findAll()` resolves
+     * the caller's active organisation and `FlowMapper::findAllFlows()` adds
+     * `WHERE organisation = :org`. A row written with a NULL organisation
+     * therefore matches nothing and is invisible to every tenant — the write
+     * succeeds and the flow may as well not exist, which is exactly how this
+     * shipped silently for weeks.
+     *
+     * Ownerless stays deliberate (enabling supplies the owner). Org-less was
+     * the bug.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
+     */
+    public function testTheSeededFlowCarriesTheDefaultOrganisation(): void
+    {
+        $mapper = $this->createMock(FlowMapper::class);
+        $mapper->method('findAllFlows')->willReturn([]);
+
+        $written = null;
+        $mapper->method('insert')->willReturnCallback(
+            function (Flow $flow) use (&$written): Flow {
+                $written = $flow;
+                return $flow;
+            }
+        );
+
+        $step = new SeedHydraTriageFlow(
+            container: $this->containerWith($mapper, 'org-default-uuid'),
+            logger: $this->createMock(LoggerInterface::class)
+        );
+
+        $step->run($this->createMock(IOutput::class));
+
+        $this->assertNotNull($written, 'the flow must be written');
+        $this->assertSame(
+            'org-default-uuid',
+            $written->getOrganisation(),
+            'Without an organisation the row is invisible to every tenant — every flow read is org-scoped.'
+        );
+        $this->assertNull($written->getOwner(), 'ownerless stays deliberate: enabling supplies the owner');
+        $this->assertFalse($written->getEnabled(), 'the flow still ships disabled');
+
+    }//end testTheSeededFlowCarriesTheDefaultOrganisation()
+
+    /**
+     * 🔴 With NO resolvable organisation the step writes NOTHING.
+     *
+     * This is the load-bearing half. An absent flow is recoverable — the next
+     * install or upgrade seeds it. An org-less orphan is NOT: it is invisible
+     * to every tenant AND the step's own idempotency check reads the mapper
+     * directly, finds it, and concludes "already present", so it blocks its own
+     * re-seed forever while reporting success.
+     *
+     * Refusing to write is therefore strictly better than writing a row nobody
+     * can reach.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow
+     */
+    public function testNoResolvableOrganisationWritesNothingRatherThanAnOrphan(): void
+    {
+        $mapper = $this->createMock(FlowMapper::class);
+        $mapper->method('findAllFlows')->willReturn([]);
+        $mapper->expects($this->never())->method('insert');
+
+        $recorded = [];
+        $appConfig = $this->createMock(IAppConfig::class);
+        $appConfig->method('setValueString')->willReturnCallback(
+            function (string $app, string $key, string $value) use (&$recorded): bool {
+                $recorded[$key] = $value;
+                return true;
+            }
+        );
+
+        $step = new SeedHydraTriageFlow(
+            container: $this->containerWith($mapper, null),
+            logger: $this->createMock(LoggerInterface::class),
+            appConfig: $appConfig
+        );
+
+        $step->run($this->createMock(IOutput::class));
+
+        $this->assertSame(
+            'unavailable',
+            $recorded[SeedHydraTriageFlow::OUTCOME_KEY] ?? null,
+            'The breadcrumb must say the seed was skipped, not that it succeeded.'
+        );
+        $this->assertStringContainsString(
+            'organisation',
+            $recorded[SeedHydraTriageFlow::OUTCOME_DETAIL_KEY] ?? '',
+            'and it must say WHY, so the next reader is not left guessing again'
+        );
+
+    }//end testNoResolvableOrganisationWritesNothingRatherThanAnOrphan()
 }//end class
