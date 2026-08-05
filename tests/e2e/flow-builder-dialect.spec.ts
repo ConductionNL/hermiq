@@ -41,7 +41,7 @@
  *     NEXTCLOUD_URL=http://localhost:8080 \
  *       npx playwright test tests/e2e/flow-builder-dialect.spec.ts --project chromium
  *
- * @spec openspec/changes/hermiq-flow-canvas-ports/specs/hermiq-flow-canvas-ports/spec.md
+ * @spec openspec/specs/flow-canvas/spec.md
  */
 
 import { test, expect, type Page } from '@playwright/test'

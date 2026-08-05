@@ -348,6 +348,8 @@ export default {
 		 * persisting them would let the drawing disagree with the graph.
 		 *
 		 * @return {Array<object>} The nodes with a `ports` array.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodesWithPorts() {
 			return (this.editor.nodes || []).map((node) => ({
@@ -379,6 +381,8 @@ export default {
 		 *
 		 * @param {object} node The node.
 		 * @return {Array<object>} Its ports.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		portsForNode(node) {
 			const ports = []
@@ -432,6 +436,8 @@ export default {
 		 *
 		 * @param {object} node The node.
 		 * @return {boolean} True when it is an exit.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		isExitNode(node) {
 			if (node.exit === true) {
@@ -446,6 +452,8 @@ export default {
 		 *
 		 * @param {object} node The node.
 		 * @return {boolean} True for a loop node.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		isLoopNode(node) {
 			return LOOP_STEP_TYPES.includes(node.type)
@@ -465,6 +473,8 @@ export default {
 		 *
 		 * @param {object} node The node.
 		 * @return {Array<string>} The branch names, in order, deduplicated.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		branchesOf(node) {
 			if (!ROUTER_STEP_TYPES.includes(node.type)) {
@@ -502,6 +512,8 @@ export default {
 		 *
 		 * @param {object} node The node.
 		 * @return {string} The step name.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodeStepLabel(node) {
 			if (!node.type) {
@@ -529,6 +541,8 @@ export default {
 		 *
 		 * @param {object} node The node.
 		 * @return {string} A short summary, or an empty string.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodeConfigSummary(node) {
 			const config = node.config || {}
@@ -607,6 +621,8 @@ export default {
 		 *
 		 * @param {object} edge The step.
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onStepClick(edge) {
 			this.editor.selectEdge(edge.id)
@@ -672,6 +688,8 @@ export default {
 		 *
 		 * @param {object} edge The connection.
 		 * @return {string} The label, or an empty string.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		edgeLabel(edge) {
 			if (!edge) {
@@ -686,6 +704,8 @@ export default {
 		 *
 		 * @param {object} edge The connection.
 		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		stepAriaLabel(edge) {
 			const label = this.edgeLabel(edge)
@@ -708,6 +728,8 @@ export default {
 		 *
 		 * @param {object} edge The connection.
 		 * @return {number} The width in canvas units.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		chipWidth(edge) {
 			return Math.max(56, (this.edgeLabel(edge).length * 6.5) + 20)

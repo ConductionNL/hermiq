@@ -758,6 +758,8 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * had never heard of.
 		 *
 		 * @return {Promise<object|null>} The saved flow, or null on failure.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async save() {
 			this.saving = true

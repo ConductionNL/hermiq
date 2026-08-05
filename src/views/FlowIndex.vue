@@ -69,6 +69,8 @@ export default {
 		 * useful thing to know about one at a glance.
 		 *
 		 * @return {Array<object>} The column definitions.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		columns() {
 			return [
@@ -90,6 +92,8 @@ export default {
 		 * The flows, with the two run columns rendered for display.
 		 *
 		 * @return {Array<object>} The rows.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		rows() {
 			return (this.editor.flows || []).map((flow) => ({
@@ -117,6 +121,8 @@ export default {
 		 *
 		 * @param {object} flow The flow.
 		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		lastRunLabel(flow) {
 			if (!flow.lastRunAt) {
@@ -140,6 +146,8 @@ export default {
 		 *
 		 * @param {object} flow The flow.
 		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		statusLabel(flow) {
 			if (!flow.status) {
