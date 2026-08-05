@@ -143,8 +143,17 @@ class SeedHydraTriageFlowTest extends TestCase
 
 
     /**
-     * The flow declares its trigger the way `HermiqFlowResolver::flowsForTrigger()`
-     * matches it: event plus register plus schema.
+     * The flow declares its trigger the way OpenRegister's engine matches it:
+     * event plus register plus schema.
+     *
+     * The matcher is `OCA\OpenRegister\Service\Flow\FlowLocator::flowsForTrigger()`,
+     * which reads `FlowMapper::findByTrigger($trigger, $register, $schema)` — the
+     * `trigger` / `trigger_register` / `trigger_schema` columns of OpenRegister's
+     * native flow store. It is NOT `HermiqFlowResolver`, which this docblock used
+     * to name: the per-app `IFlowResolver` / `FlowResolverRegistry` layer existed
+     * only because flows were once OpenRegister OBJECTS in a per-app register, and
+     * flow-engine-unification deleted the whole layer along with Hermiq's copy of
+     * it. Hermiq owns no flow resolver, controller or execution service.
      *
      * @return void
      *
