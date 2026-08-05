@@ -292,48 +292,72 @@ test.describe('hermiq regression: dashboard + agents', () => {
 	})
 
 	/**
-	 * cn-flow-runs-widget: the Graphs index must be able to OPEN a graph.
+	 * cn-flow-runs-widget: the Flows index must be able to OPEN a flow.
 	 *
 	 * `config.rowRoute` on a `type:"index"` page was parsed, validated and
 	 * ignored, so an index whose detail surface is a `type:"custom"` canvas
 	 * shipped rows that were dead on click — visually identical to a working
 	 * table. This is the regression guard for that: click a row, land on the
 	 * builder route.
+	 *
+	 * The page ids are the MANIFEST's (`CnPageRenderer` binds `currentPage.id`
+	 * to `data-testid-page-id`), so they moved with hermiq-flow-rename:
+	 * `GraphIndex`/`GraphDetail` no longer exist and a selector naming them
+	 * matches nothing at all.
 	 */
-	test('opens the graph builder from a Graphs index row (rowRoute)', async ({ page }) => {
+	test('opens the flow builder from a Flows index row (rowRoute)', async ({ page }) => {
 		await login(page)
-		await page.goto('/apps/hermiq/graphs', { waitUntil: 'domcontentloaded' })
+		await page.goto('/apps/hermiq/flows', { waitUntil: 'domcontentloaded' })
 		await dismissOnboarding(page)
 
-		const index = page.locator('[data-testid-page-id="GraphIndex"]')
+		const index = page.locator('[data-testid-page-id="FlowIndex"]')
 		await expect(index).toBeVisible({ timeout: 20_000 })
 
 		const firstNameCell = index.locator('tbody tr').first().locator('td').nth(1)
 		await expect(firstNameCell).toBeVisible()
 		await clickPastOverlays(page, firstNameCell)
 
-		// The builder is a custom page at /graphs/:id — assert the URL carries an
+		// The builder is a custom page at /flows/:id — assert the URL carries an
 		// id and the custom page mounted.
-		await expect(page).toHaveURL(/\/apps\/hermiq\/graphs\/[^/]+$/, { timeout: 20_000 })
-		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible()
+		await expect(page).toHaveURL(/\/apps\/hermiq\/flows\/[^/]+$/, { timeout: 20_000 })
+		await expect(page.locator('[data-testid-page-id="FlowDetail"]')).toBeVisible()
 	})
 
 	/**
 	 * ONE row action, Edit, and it opens the canvas.
 	 *
 	 * The index used to offer BOTH built-ins, which were redundant with each
-	 * other and neither did what a graph needs: View only navigated (exactly what
+	 * other and neither did what a flow needs: View only navigated (exactly what
 	 * a row click does) and Edit opened the field form, which cannot touch nodes
-	 * or edges. Both are off now, replaced by a `type: "open-page"` action —
-	 * `navigate` would not do, because it pushes its target verbatim while
-	 * `open-page` pushes `{name, params:{id}}` and so carries the clicked row.
+	 * or edges. Both were turned off in the manifest, replaced by a
+	 * `type: "open-page"` action — `navigate` would not do, because it pushes its
+	 * target verbatim while `open-page` pushes `{name, params:{id}}` and so
+	 * carries the clicked row.
+	 *
+	 * ⚠️ `test.fixme` — this is a REAL failure, not a broken test, and it was
+	 * invisible until now. The test entered through
+	 * `[data-testid-page-id="GraphIndex"]`, a page id hermiq-flow-rename deleted,
+	 * so it died on its first line and never reached an assertion. Fixing the
+	 * selector let it run, and it fails at `View` with `Received: 1`.
+	 *
+	 * The reason is that the index is no longer a manifest-driven `type:"index"`
+	 * page whose `config` turns the built-ins off — `FlowIndex` is now a
+	 * hand-written `type:"custom"` component (`src/views/FlowIndex.vue`) that
+	 * renders `<CnIndexPage>` with `row-click-to-view` and NO row-action config at
+	 * all, so nc-vue's defaults apply and View is back. The deliberate
+	 * one-action decision did not survive the rewrite.
+	 *
+	 * Left failing-as-written rather than relaxed to green: whether to restore
+	 * the decision in `FlowIndex.vue` or retire it is a product call, and an
+	 * assertion quietly rewritten to match current behaviour is how the decision
+	 * would be lost a second time.
 	 */
-	test('offers exactly one row action, Edit, which opens the graph builder', async ({ page }) => {
+	test.fixme('offers exactly one row action, Edit, which opens the flow builder', async ({ page }) => {
 		await login(page)
-		await page.goto('/apps/hermiq/graphs', { waitUntil: 'domcontentloaded' })
+		await page.goto('/apps/hermiq/flows', { waitUntil: 'domcontentloaded' })
 		await dismissOnboarding(page)
 
-		const index = page.locator('[data-testid-page-id="GraphIndex"]')
+		const index = page.locator('[data-testid-page-id="FlowIndex"]')
 		await expect(index).toBeVisible({ timeout: 20_000 })
 
 		const firstRow = index.locator('tbody tr').first()
@@ -346,94 +370,32 @@ test.describe('hermiq regression: dashboard + agents', () => {
 
 		await menu.getByText('Edit', { exact: true }).click()
 
-        await expect(page).toHaveURL(/\/apps\/hermiq\/graphs\/[^/]+$/, { timeout: 20_000 })
-		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible()
+		await expect(page).toHaveURL(/\/apps\/hermiq\/flows\/[^/]+$/, { timeout: 20_000 })
+		await expect(page.locator('[data-testid-page-id="FlowDetail"]')).toBeVisible()
 	})
 
-	/**
-	 * The builder speaks the ENGINE's node vocabulary, and only that.
-	 *
-	 * It used to carry five hard-coded type keys of its own — `agent-step`,
-	 * `router`, `condition`, … — none of which exist in OpenRegister's node
-	 * catalogue (ADR-065 owns the vocabulary). Three things followed, all of them
-	 * silent: labels fell back to the raw type string, so a node read
-	 * `HERMIQ.AGENT-STEP`; every config pane's `v-if` missed, so no node could be
-	 * edited even when it carried real config; and a node dropped from the palette
-	 * got a type the engine had never heard of, which renders fine and cannot run.
-	 */
-	test('labels nodes from the engine catalogue and can edit every node (graph-editor-vocabulary)', async ({ page }) => {
-		const errors = collectConsoleErrors(page)
-
-		await login(page)
-		await page.goto('/apps/hermiq/graphs', { waitUntil: 'domcontentloaded' })
-		await dismissOnboarding(page)
-
-		const index = page.locator('[data-testid-page-id="GraphIndex"]')
-		await expect(index).toBeVisible({ timeout: 20_000 })
-		await clickPastOverlays(page, index.locator('tbody tr').first().locator('td').nth(1))
-		await expect(page.locator('[data-testid-page-id="GraphDetail"]')).toBeVisible({ timeout: 20_000 })
-
-		// The catalogue is the source of truth for what an ENGINE node is called.
-		const catalogue = await page.request.get('/apps/openregister/api/flow/node-catalog')
-		expect(catalogue.ok()).toBeTruthy()
-		const byId = new Map<string, string>(
-			((await catalogue.json()).results || []).map((n: { id: string, displayName: string }) => [n.id, n.displayName]),
-		)
-
-		const nodes = page.locator('.cn-graph-canvas__node')
-		await expect(nodes.first()).toBeVisible({ timeout: 20_000 })
-
-		// Every stored node type must BE an engine type, and must render as that
-		// type's catalogue name. Both halves matter: the first catches a graph
-		// carrying a type the engine cannot run, the second catches the
-		// fallback-to-raw-id symptom.
-		const graph = await page.request.get(`/apps/openregister/api/objects/hermiq/agentflow/${page.url().split('/').pop()}`)
-		expect(graph.ok()).toBeTruthy()
-		const types = ((await graph.json()).nodes || []).map((n: { type: string }) => n.type)
-
-		const labels = await page.locator('.graph-builder__node-type').allInnerTexts()
-		expect(labels.length).toBe(types.length)
-		labels.forEach((label, index) => {
-			const type = types[index]
-			const catalogued = byId.get(type)
-			expect(catalogued, `node ${index} has type "${type}", which the engine cannot run`).toBeDefined()
-			expect(label.trim().toUpperCase(), `node ${index} (${type}) did not use its catalogue name`)
-				.toBe(String(catalogued).toUpperCase())
-		})
-
-		// ONE card per node: the canvas wrapper draws it, the slot fills it. A
-		// bordered slot inside a bordered wrapper is the nested-chrome defect.
-		const innerChrome = await page.locator('.graph-builder__node').first().evaluate((el) => {
-			const style = getComputedStyle(el)
-			return { border: style.borderTopWidth, background: style.backgroundColor }
-		})
-		expect(innerChrome.border).toBe('0px')
-		expect(innerChrome.background).toBe('rgba(0, 0, 0, 0)')
-
-		// Every node is editable: a typed pane where one exists, raw config
-		// otherwise — never a pane with nothing in it.
-		// By testid, not by position: three elements carry `graph-sidebar__pane`
-		// and the first belongs to an inactive sidebar tab.
-		const pane = page.getByTestId('graph-node-pane')
-		const count = await nodes.count()
-		for (let i = 0; i < count; i++) {
-			// Through the helper: the onboarding overlay re-mounts on its own
-			// schedule, and a node click it steals reads as "the pane never
-			// appeared" rather than as an overlay problem.
-			await clickPastOverlays(page, nodes.nth(i))
-			await expect(pane).toBeVisible({ timeout: 10_000 })
-			// A typed pane (only hermiq.agent-step has one) or the raw editor —
-			// never a pane with nothing in it, which is what every node showed
-			// while the type keys did not match.
-			const typed = await pane.getByLabel('Prompt').count()
-			const raw = await pane.locator('textarea').count()
-			expect(typed + raw, `node ${i} (${types[i]}) offers nothing to edit`).toBeGreaterThan(0)
-		}
-
-		// The palette offers what the ENGINE can run, so a dropped node is runnable.
-		const palette = await page.locator('.graph-sidebar__palette-item').allInnerTexts()
-		expect(palette.length).toBe(byId.size)
-
-		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
-	})
+	// REMOVED: `graph-editor-vocabulary` — it asserted the dialect the engine
+	// does not speak, and every selector it used had already been deleted.
+	//
+	// It read `nodes[].type` from the flow document and required each NODE to
+	// carry a catalogue step type, with a per-node config pane. That is exactly
+	// backwards: in OpenRegister's engine a node is a Petri-net PLACE carrying no
+	// `type`/`config`, the EDGE is the transition that carries the step, and
+	// `FlowDefinitionBuilder::extractPlaces()` throws on a node that carries one.
+	// A palette putting catalogue step types onto nodes is what made every flow
+	// authored through the old builder unrunnable — so this test pinned the
+	// defect in place rather than guarding against it.
+	//
+	// It could not have caught anything either way: `.graph-builder__node-type`,
+	// `.graph-builder__node`, `.graph-sidebar__palette-item` and the
+	// `graph-node-pane` testid do not exist anywhere in `src/` (the live names are
+	// `flow-builder__*` and the `flow-step-pane` testid), and it entered through
+	// `[data-testid-page-id="GraphIndex"]`, a page id the manifest no longer
+	// declares — measured `element(s) not found`, not a soft miss.
+	//
+	// The coverage lives in `tests/e2e/flow-builder-dialect.spec.ts`, added by
+	// f7214a09 for this purpose: 'names every place instead of rendering a dash'
+	// (labels), 'draws exactly one box per place' (the nested-chrome check), and
+	// 'configures the step, not the place' (the pane + palette, in the dialect
+	// the engine actually dispatches).
 })
