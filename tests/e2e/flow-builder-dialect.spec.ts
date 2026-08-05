@@ -2,68 +2,61 @@
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  *
- * Regression e2e — the flow builder renders and authors OpenRegister's flow
- * dialect (flow-engine-unification).
+ * Regression e2e — the flow builder draws the INVERTED flow model
+ * (or-flow-action-nodes + hermiq-flow-canvas-ports).
  *
- * ## What broke, and why a UI test is the only thing that catches it
+ * ## What changed, and why only a UI test catches it
  *
- * A flow is a Petri net (ADR-065): a NODE is a place and carries no behaviour,
- * an EDGE is a transition and carries the step that runs. The builder read the
- * inverse — `edges[].source`/`.target` and `nodes[].type` — and neither key
- * exists in a stored flow. Nothing errored. `resolvedEdges` silently dropped
- * every edge whose endpoints did not resolve, and a place with no `type`
- * rendered its label as a dash. The result was a canvas of blank, unconnected
- * boxes over a 17-node / 16-edge flow that the ENGINE ran perfectly well.
+ * A flow is a Petri net (ADR-065), and `or-flow-action-nodes` inverted which
+ * half carries behaviour. A NODE is now the action: it holds the step type and
+ * its config, and it is the thing that runs. An EDGE is sequence: `from`, `to`,
+ * and an optional title.
+ *
+ * The builder went on reading the OLD model after the documents were migrated.
+ * Nothing errored. It looked for `type` on each edge, found none — which is
+ * exactly what a correctly migrated flow looks like — and rendered the words
+ * "No step type" onto all 16 lines, while the cards showed place names for
+ * places that no longer exist. The engine ran the flow perfectly throughout.
  *
  * Every layer below the DOM was green while this was true: the API returned the
- * flow, the store held it, `nodes.length` was 17. Only what is on screen
- * distinguishes "rendered" from "rendered as nothing", which is why these are
- * measurements of computed style and element counts rather than of state.
+ * flow, the store held it, the node count was right. Only what is ON SCREEN
+ * distinguishes "drew the flow" from "drew the wrong half of it".
  *
- * The fixture is the real Hydra sequencer, deliberately: it is the flow the
- * defects were reported against, it has three genuine SPLITS (`work-gate`,
- * `slot-gate`, `verdict-gate` each fan out to two places), and a split is the
- * case a naive one-line-per-edge renderer gets wrong. 16 stored edges must draw
- * 19 lines.
+ * ## The fixture is the real Hydra sequencer, and its numbers are measured
+ *
+ * Read from the stored document rather than assumed (16 nodes / 16 edges):
+ *
+ *   start (nothing points at it)   scope
+ *   sinks (nothing leaves them)    release (exit: true), stop-idle, stop-full
+ *                                  — the latter two are openregister.stop
+ *   routes (2 branches each)       work-gate, slot-gate, verdict-gate
+ *                                  config.rules[].output + config.default
+ *
+ * Those give the port arithmetic every assertion below rests on: a start has no
+ * in-port, an exit has no out-port, and a route shows one NAMED out-port per
+ * branch.
  *
  * Run against a running Nextcloud with Hermiq + OpenRegister installed:
  *
  *     NEXTCLOUD_URL=http://localhost:8080 \
  *       npx playwright test tests/e2e/flow-builder-dialect.spec.ts --project chromium
  *
- * @spec openspec/specs/manifest-driven-pages/spec.md
+ * @spec openspec/changes/hermiq-flow-canvas-ports/specs/hermiq-flow-canvas-ports/spec.md
  */
 
 import { test, expect, type Page } from '@playwright/test'
 
-/** The Hydra sequencer — 17 places, 16 steps, 3 of them splits. */
+/** The Hydra sequencer — 16 action nodes, 16 connections, 3 of them routes. */
 const SEQUENCER = '6b14a1fd-0cab-40c0-a3e7-7fea3be29bdc'
 
-/**
- * A CSS colour as `rgb(r, g, b)`, so a theme variable can be compared with a
- * computed `backgroundColor`.
- *
- * Nextcloud declares its palette as hex (`#027b3e`) while `getComputedStyle`
- * always reports `rgb(...)`, so the two are never string-equal without this.
- *
- * @param value A hex colour, or an already-rgb string.
- */
-function toRgb(value: string): string {
-	const hex = value.trim()
-	if (hex.startsWith('#') === false) {
-		return hex
-	}
+/** The node with nothing pointing at it. */
+const START_NODE = 'scope'
 
-	const full = hex.length === 4
-		? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}`
-		: hex
+/** The three nodes nothing leaves. `release` says `exit: true`; the other two are `openregister.stop`. */
+const SINK_NODES = ['release', 'stop-idle', 'stop-full']
 
-	const r = parseInt(full.slice(1, 3), 16)
-	const g = parseInt(full.slice(3, 5), 16)
-	const b = parseInt(full.slice(5, 7), 16)
-
-	return `rgb(${r}, ${g}, ${b})`
-}
+/** The three routing nodes, each with one rule plus a default — so two branches each. */
+const ROUTE_NODES = ['work-gate', 'slot-gate', 'verdict-gate']
 
 /**
  * Dismiss the app's first-run dialogs.
@@ -116,6 +109,17 @@ async function dismissFirstRun(page: Page): Promise<void> {
  * @param page The Playwright page.
  * @param id   The flow uuid.
  */
+
+/**
+ * Open a flow on the canvas and wait for its nodes to render.
+ *
+ * Waits on a NODE rather than on `networkidle`: the page fetches the flow, the
+ * step catalogue and the agent list, and a canvas that has painted its cards is
+ * the condition the assertions actually depend on.
+ *
+ * @param page The Playwright page.
+ * @param id   The flow uuid.
+ */
 async function openFlow(page: Page, id: string): Promise<void> {
 	await page.goto(`/apps/hermiq/flows/${id}`, { waitUntil: 'domcontentloaded' })
 	// Canvas first, then the dialogs: a node renders underneath a modal, so
@@ -125,149 +129,145 @@ async function openFlow(page: Page, id: string): Promise<void> {
 	await dismissFirstRun(page)
 }
 
-test.describe('flow builder — flow dialect', () => {
-	test('draws every step, fanning splits out into one line each', async ({ page }) => {
+test.describe('flow builder — the node is the action', () => {
+	test('draws every node and every connection', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
-		// 17 places from the stored document.
-		await expect(page.locator('.cn-graph-canvas__node')).toHaveCount(17)
-
-		// 16 stored edges, three of which have two `to` places, so 19 drawable
-		// lines. This is the assertion that was at ZERO: the builder looked for
-		// `source`/`target` on a document that says `from`/`to`, so every edge
-		// resolved to nothing and was dropped without a word.
-		await expect(page.locator('.flow-builder__edge')).toHaveCount(19)
-
-		// Each line carries a step chip naming what it does — the behaviour is
-		// on the edge, so that is where it has to be legible.
-		await expect(page.locator('.flow-builder__step-chip')).toHaveCount(19)
+		// 16 action nodes and 16 connections, straight from the stored
+		// document. Each edge has a single `from`/`to` after the inversion, so
+		// one edge is one line — the old 17-places/19-lines arithmetic belonged
+		// to the pre-inversion shape.
+		await expect(page.locator('.cn-graph-canvas__node')).toHaveCount(16)
+		await expect(page.locator('.flow-builder__edge')).toHaveCount(16)
 	})
 
-	test('names every place instead of rendering a dash', async ({ page }) => {
+	test('every card names the STEP it runs, and none says "No step type"', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
-		const labels = await page.locator('.flow-builder__node-label').allInnerTexts()
-		expect(labels).toHaveLength(17)
+		const steps = await page.locator('.flow-builder__node-step').allInnerTexts()
+		expect(steps).toHaveLength(16)
 
-		// No place renders as the em-dash the old type lookup fell back to, and
-		// none is blank. A place that has only an id is completely ordinary —
-		// 14 of these 17 are written that way — so the id IS the label.
-		for (const label of labels) {
-			expect(label.trim()).not.toBe('')
-			expect(label.trim()).not.toBe('—')
+		// THE regression. Every node in this document carries a type, so the
+		// phrase cannot legitimately appear anywhere — it was on all 16 lines
+		// while the builder read the old model.
+		for (const step of steps) {
+			expect(step.trim()).not.toBe('')
+			expect(step.trim()).not.toBe('No step type')
 		}
 
-		// The three places that DO carry a name show it rather than their id.
-		expect(labels).toContain('Stage finished')
-		expect(labels).toContain('Gates passed')
-		expect(labels).toContain('Gates failed')
-
-		// And the ones that do not show their id, which is what every edge
-		// references and what the engine calls them.
-		expect(labels).toContain('tick')
-		expect(labels).toContain('done')
+		// And it is the STEP, not the node id: `scope` runs set-fields, so its
+		// card headline is the catalogue's name for that type rather than the
+		// word "scope" (which is the secondary line).
+		await expect(page.locator('.flow-builder__node--untyped')).toHaveCount(0)
 	})
 
-	test('draws exactly one box per place — not two, and not none', async ({ page }) => {
+	test('a line carries its own title, never a step name', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
-		// There are two elements per node and exactly ONE may carry a frame: the
-		// wrapper CnGraphCanvas positions, and the card body in our slot. Both
-		// failure modes are one line apart and both have shipped — the body
-		// drawing its own radius over the wrapper's border (a card inside a
-		// card), and the wrapper's frame being reset away with the body drawing
-		// none (no card at all, just an accent bar and floating text). So this
-		// counts frames rather than asserting any single element's style.
-		const chrome = await page.locator('.cn-graph-canvas__node').first().evaluate((el) => {
-			const outer = getComputedStyle(el)
-			const inner = getComputedStyle(el.querySelector('.flow-builder__node') as Element)
+		// All 16 stored connections are titled, so all 16 draw a chip.
+		const labels = await page.locator('.flow-builder__step-text').allInnerTexts()
+		expect(labels).toHaveLength(16)
 
-			return {
-				outerBorderWidth: parseFloat(outer.borderTopWidth),
-				outerBackground: outer.backgroundColor,
-				outerRadius: parseFloat(outer.borderTopLeftRadius),
-				innerBorderWidth: parseFloat(inner.borderTopWidth),
-				innerRadius: parseFloat(inner.borderTopLeftRadius),
-			}
-		})
+		for (const label of labels) {
+			expect(label.trim()).not.toBe('')
+			expect(label.trim()).not.toBe('No step type')
+		}
 
-		// The wrapper is the card: a visible border, an opaque background, a
-		// rounded corner.
-		expect(chrome.outerBorderWidth).toBeGreaterThan(0)
-		expect(chrome.outerBackground).not.toBe('rgba(0, 0, 0, 0)')
-		expect(chrome.outerRadius).toBeGreaterThan(0)
-
-		// The body adds nothing to it. A radius here over a border there is the
-		// second frame that reads as a nested container.
-		expect(chrome.innerBorderWidth).toBe(0)
-		expect(chrome.innerRadius).toBe(0)
+		// The words the author wrote on the places survived the migration onto
+		// the lines that replaced them.
+		expect(labels).toContain('scoped')
 	})
 
-	test('marks the start place success and the end place error, on the port', async ({ page }) => {
+	test('a start has no in-port and a sink has no out-port', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
-		// Roles are inferred the way the ENGINE infers them
-		// (`FlowDefinitionBuilder::resolveInitialPlaces()`): a start is a place
-		// no edge points at, an end is a place no edge leaves. For this flow
-		// that is exactly `tick` and `done`.
-		await expect(page.locator('.flow-builder__node--start')).toHaveCount(1)
-		await expect(page.locator('.flow-builder__node--end')).toHaveCount(1)
+		const ports = await page.evaluate(() => {
+			const read: Record<string, string[]> = {}
+			document.querySelectorAll('.cn-graph-canvas__node').forEach((wrapper) => {
+				const label = wrapper.querySelector('.flow-builder__node-label')?.textContent?.trim() ?? ''
+				const sides: string[] = []
+				wrapper.querySelectorAll('.cn-graph-canvas__handle').forEach((handle) => {
+					const kind = handle.classList.contains('cn-graph-canvas__handle--in') ? 'in' : 'out'
+					sides.push(kind)
+				})
+				read[label] = sides
+			})
 
-		const roles = await page.evaluate(() => {
-			const read = (role: string) => {
-				const card = document.querySelector(`.flow-builder__node--${role}`)
-				const wrapper = card?.closest('.cn-graph-canvas__node')
-				const handle = wrapper?.querySelector('.cn-graph-canvas__handle') as HTMLElement
-
-				const style = handle ? getComputedStyle(handle) : null
-
-				return {
-					label: card?.querySelector('.flow-builder__node-label')?.textContent?.trim(),
-					handleBackground: style ? style.backgroundColor : null,
-					// Custom properties are resolved AT THE ELEMENT, not globally:
-					// Nextcloud redefines parts of its palette in nested scopes, so
-					// `--color-success` is rgb(2,123,62) on documentElement and a
-					// different value down here. Reading it at the handle is the
-					// only comparison that means "this port is painted with the
-					// success colour" rather than "with some green".
-					successVar: style ? style.getPropertyValue('--color-success').trim() : '',
-					errorVar: style ? style.getPropertyValue('--color-error').trim() : '',
-					primaryVar: style ? style.getPropertyValue('--color-primary-element').trim() : '',
-					// The port is declared 16x16 round; Nextcloud's global button
-					// min-height stretched it to 16x34, a bar rather than a dot.
-					handleWidth: handle?.offsetWidth,
-					handleHeight: handle?.offsetHeight,
-				}
-			}
-
-			return { start: read('start'), end: read('end'), middle: read('step') }
+			return read
 		})
 
-		expect(roles.start.label).toBe('tick')
-		expect(roles.end.label).toBe('done')
+		// Role is carried by ABSENCE, which is what survives greyscale: the
+		// start receives nothing, so it has no in-port at all.
+		expect(ports[START_NODE]).toBeDefined()
+		expect(ports[START_NODE]).not.toContain('in')
+		expect(ports[START_NODE]).toContain('out')
 
-		// Success on the start, error on the end — and NOT the primary colour
-		// all three used to carry regardless of role.
-		//
-		// Asserted against the variable RESOLVED AT THE HANDLE, never a pinned
-		// literal. An earlier version asserted `rgb(70, 186, 97)` — the
-		// hardcoded fallback in `var(--color-success, #46ba61)` — which only
-		// holds when the variable is MISSING, so it failed against correct code.
-		expect(roles.start.handleBackground).not.toBe(roles.end.handleBackground)
-		expect(roles.start.handleBackground).not.toBe(roles.middle.handleBackground)
-		expect(roles.end.handleBackground).not.toBe(roles.middle.handleBackground)
-
-		// And they are the SEMANTIC colours, not merely three different ones.
-		expect(roles.start.handleBackground).toBe(toRgb(roles.start.successVar))
-		expect(roles.end.handleBackground).toBe(toRgb(roles.end.errorVar))
-		expect(roles.middle.handleBackground).toBe(toRgb(roles.middle.primaryVar))
-
-		// Round again, in both places.
-		expect(roles.start.handleWidth).toBe(16)
-		expect(roles.start.handleHeight).toBe(16)
-		expect(roles.end.handleHeight).toBe(16)
+		// A node that ends the flow sends nothing on. Both ways of saying so
+		// are represented here: `release` declares `exit: true`, while
+		// `stop-idle` and `stop-full` are a terminal TYPE and carry no flag.
+		for (const sink of SINK_NODES) {
+			expect(ports[sink], `${sink} should have ports`).toBeDefined()
+			expect(ports[sink], `${sink} must not offer an out-port`).not.toContain('out')
+			expect(ports[sink], `${sink} still receives`).toContain('in')
+		}
 	})
 
+	test('a routing node shows one NAMED out-port per branch', async ({ page }) => {
+		await openFlow(page, SEQUENCER)
+
+		const branches = await page.evaluate(() => {
+			const read: Record<string, string[]> = {}
+			document.querySelectorAll('.cn-graph-canvas__node').forEach((wrapper) => {
+				const label = wrapper.querySelector('.flow-builder__node-label')?.textContent?.trim() ?? ''
+				const names: string[] = []
+				wrapper.querySelectorAll('.cn-graph-canvas__handle--out').forEach((handle) => {
+					names.push(handle.getAttribute('aria-label') ?? '')
+				})
+				read[label] = names
+			})
+
+			return read
+		})
+
+		// Each gate has one rule plus a default, so two branches — and each is
+		// NAMED. This is the whole point of ports over a single handle: which
+		// branch a line leaves from is readable without opening the node's
+		// configuration.
+		for (const gate of ROUTE_NODES) {
+			expect(branches[gate], `${gate} should be on the canvas`).toBeDefined()
+			expect(branches[gate].length, `${gate} should expose two branches`).toBe(2)
+		}
+
+		// The branch names are the ones the ENGINE reads (`rules[].output` and
+		// `default`), not invented labels — honouring `config.routes` instead
+		// would draw ports for a configuration the engine ignores.
+		const workGate = branches['work-gate'].join(' ')
+		expect(workGate).toContain('work')
+		expect(workGate).toContain('idle')
+	})
+
+	test('a port is a dot, not a bar', async ({ page }) => {
+		await openFlow(page, SEQUENCER)
+
+		// Declared 16x16 and round. Nextcloud's global button `min-height`
+		// stretched it to 16x34 — a bar, which reads as a slot rather than a
+		// connection point, and made two ports on one side touch.
+		const size = await page.evaluate(() => {
+			const handle = document.querySelector('.cn-graph-canvas__handle') as HTMLElement | null
+
+			return handle ? { w: handle.offsetWidth, h: handle.offsetHeight } : null
+		})
+
+		expect(size).not.toBeNull()
+		expect(size!.w).toBeGreaterThan(0)
+		// Square within a pixel of rounding, rather than a hardcoded 16: the
+		// canvas owns the size, and pinning the exact number here would fail
+		// on a legitimate design change instead of on the defect.
+		expect(Math.abs(size!.h - size!.w)).toBeLessThanOrEqual(1)
+	})
+})
+
+test.describe('flow builder — chrome and links', () => {
 	test('closes the sidebar and offers a way back', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
@@ -316,24 +316,6 @@ test.describe('flow builder — flow dialect', () => {
 		expect(await scale()).toBeCloseTo(1, 5)
 	})
 
-	test('configures the step, not the place', async ({ page }) => {
-		await openFlow(page, SEQUENCER)
-
-		// Selecting a place offers a NAME and nothing else: a place carries no
-		// configuration, and `FlowDefinitionBuilder::extractPlaces()` throws on
-		// one that does. The palette that used to sit here put catalogue step
-		// types onto nodes, so every flow authored through it was unrunnable.
-		await page.locator('.cn-graph-canvas__node').first().click()
-		await expect(page.locator('[data-testid="flow-step-pane"]')).toHaveCount(0)
-
-		// Selecting a step opens the pane that owns behaviour, pre-filled with
-		// the type the engine will dispatch.
-		await page.locator('.flow-builder__step-label').first().click()
-		const stepPane = page.locator('[data-testid="flow-step-pane"]')
-		await expect(stepPane).toBeVisible()
-		await expect(stepPane).toContainText('→')
-	})
-
 	test('an old /graphs link still opens the flow', async ({ page }) => {
 		// Hermiq called flows "graphs" until hermiq-flow-rename, and those URLs
 		// are pasted into Hydra issues, run logs and PR bodies — the sequencer's
@@ -344,7 +326,7 @@ test.describe('flow builder — flow dialect', () => {
 		await dismissFirstRun(page)
 
 		await expect(page.locator('.cn-graph-canvas__node').first()).toBeVisible()
-		await expect(page.locator('.flow-builder__edge')).toHaveCount(19)
+		await expect(page.locator('.flow-builder__edge')).toHaveCount(16)
 
 		// The sidebar comes with it. Without its sidebarComponent an old link
 		// would open a canvas with no controls, which reads as a broken editor

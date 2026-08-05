@@ -6,7 +6,7 @@
 <template>
 	<div class="flow-builder">
 		<CnGraphCanvas
-			:nodes="editor.nodes"
+			:nodes="nodesWithPorts"
 			:edges="editor.canvasEdges"
 			:selected-node-id="editor.selectedNodeId"
 			:node-width="nodeWidth"
@@ -21,19 +21,18 @@
 			@connect="editor.connect($event)"
 			@canvas-drop="onCanvasDrop">
 			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
-			     in one direction, which a plain line does not convey. The STEP
-			     rides on the edge, so its name rides there too — that is where
-			     the behaviour actually lives. When a run has produced a result
-			     for this hop, the label opens that step's output. -->
-			<!-- `edge` here is one drawable LINE; `edge.edge` is the step it came
-			     from. A split draws two lines for one step, so selection always
-			     goes through the step's own id. -->
+			     in one direction, which a plain line does not convey. The line
+			     carries only its own title now — the behaviour moved to the
+			     node — and when a run produced a result for this hop, the label
+			     opens it. -->
+			<!-- `edge` here is one drawable LINE; `edge.edge` is the connection
+			     it came from. A split draws several lines from one node, so
+			     selection always goes through the connection's own id. -->
 			<template #edge="{ edge, from, to }">
 				<g
 					class="flow-builder__step"
 					:class="{
 						'flow-builder__step--selected': edge.edge.id === editor.selectedEdgeId,
-						'flow-builder__step--untyped': !edge.edge.type,
 					}">
 					<path
 						class="flow-builder__edge"
@@ -42,10 +41,15 @@
 						:marker-end="`url(#${arrowId})`"
 						@click.stop="editor.selectEdge(edge.edge.id)" />
 
-					<!-- The step's label. A step with no type is called out rather
-					     than left blank: an untyped edge resolves to nothing, so
-					     the run reports COMPLETED having done nothing at all. -->
+					<!-- The line's own label, and nothing else. Under the old
+					     reading the step rode here and this chip named it; the
+					     step now lives on the node, so a chip here would either
+					     be blank on every edge of a migrated flow (which is
+					     exactly the "No step type" that appeared 16 times) or
+					     duplicate the card. An edge with no title draws no chip
+					     at all rather than an empty one. -->
 					<g
+						v-if="edgeLabel(edge.edge)"
 						class="flow-builder__step-label"
 						:transform="`translate(${edgeMidpoint(from, to).x}, ${edgeMidpoint(from, to).y})`"
 						role="button"
@@ -64,7 +68,7 @@
 							text-anchor="middle"
 							dominant-baseline="central"
 							class="flow-builder__step-text">
-							{{ stepLabel(edge.edge) }}
+							{{ edgeLabel(edge.edge) }}
 						</text>
 						<circle
 							v-if="resultFor(edge.edge)"
@@ -77,12 +81,25 @@
 				</g>
 			</template>
 
+			<!-- The card says what the node DOES; the line says only where it
+			     goes. That is the inversion: the node is the action, so the
+			     step's name is the card's headline rather than a chip on the
+			     line. A node with no step type is called out as a warning
+			     instead of being drawn as an ordinary card — the engine refuses
+			     such a document, and drawing it normally is how it stayed
+			     invisible. -->
 			<template #node="{ node }">
 				<div
 					class="flow-builder__node"
-					:class="`flow-builder__node--${roleOf(node.id)}`">
-					<span class="flow-builder__node-role">{{ roleLabel(node.id) }}</span>
+					:class="{
+						[`flow-builder__node--${roleOf(node.id)}`]: true,
+						'flow-builder__node--untyped': !node.type,
+					}">
+					<span class="flow-builder__node-step">{{ nodeStepLabel(node) }}</span>
 					<span class="flow-builder__node-label">{{ nodeLabel(node) }}</span>
+					<span v-if="nodeConfigSummary(node)" class="flow-builder__node-config">
+						{{ nodeConfigSummary(node) }}
+					</span>
 					<span v-if="editor.markingByNode[node.id]" class="flow-builder__node-badge">
 						{{ t('hermiq', 'Run is here') }}
 					</span>
@@ -178,6 +195,11 @@
 			:title="resultDialog.title"
 			:result="resultDialog.result"
 			@close="resultDialog = null" />
+
+		<DeadEndWarningDialog
+			v-if="editor.deadEnds.length > 0"
+			:node-ids="editor.deadEnds"
+			@close="editor.deadEnds = []" />
 	</div>
 </template>
 
@@ -189,17 +211,46 @@ import DockRight from 'vue-material-design-icons/DockRight.vue'
 import Minus from 'vue-material-design-icons/Minus.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
+import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
 import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
 import { useFlowEditorStore } from '../store/flowEditor.js'
+
+/**
+ * Step types that END a path deliberately.
+ *
+ * The engine's own answer is `IFlowTerminalNode`, resolved through its node
+ * registry, and that is not reachable from the browser: the catalogue endpoint
+ * returns a type's id and display name, not whether it is terminal. Listing
+ * them here keeps the DRAWING in step with the engine for the types that exist
+ * today, and a node can always say so itself with `exit: true` — which is the
+ * answer that does not need this list at all.
+ *
+ * If a contributed terminal type is missing here, the cost is one extra
+ * out-port on its card, not a wrong run: the engine still ends the path.
+ */
+const TERMINAL_STEP_TYPES = ['openregister.stop']
+
+/** Step types that own a body of repeated nodes (IterateNode's `config.body`). */
+const LOOP_STEP_TYPES = ['openregister.iterate', 'openregister.loop']
+
+/**
+ * Step types that send items down a named branch, read from `config.rules[]`.
+ *
+ * The registered id is `openregister.route`, NOT `...router` — the node class
+ * is `RouterNode` and guessing the id from the class name yields a type no flow
+ * uses, which would silently mean no branch ports were ever drawn. Verified
+ * against the stored Hydra sequencer, whose three gates are all `route`.
+ */
+const ROUTER_STEP_TYPES = ['openregister.route']
 
 /**
  * FlowBuilder — the canvas half of the flow editor.
  *
  * This page is only the flow itself: geometry and interaction (pan, zoom,
  * drag, drag-to-connect) come from the shared canvas in nc-vue, and this
- * component supplies place cards, directional step routing, and per-step
- * labels. Every control — node list, step config, flow settings, notes,
+ * component supplies node cards, their connection ports, and directional edge
+ * routing. Every control — node list, step config, flow settings, notes,
  * Save/Run — lives in FlowSidebar, rendered in Nextcloud's real app sidebar via
  * the manifest's `pages[].sidebarComponent`. The two halves share the
  * flow-editor store, since they sit in different parts of the tree.
@@ -210,13 +261,24 @@ import { useFlowEditorStore } from '../store/flowEditor.js'
  *
  * ## What a node is, and what an edge is
  *
- * A flow is a Petri net (ADR-065). A NODE is a place: a position, with a name
- * and nothing else. An EDGE is a transition: it carries the step type and the
- * config, and it is the thing that runs. So this canvas labels edges with what
- * they DO and nodes with where they ARE — the inverse of what it used to draw,
- * which read `edges[].source`/`.target` (a key the stored document does not
- * have, so no edge was ever drawn) and `nodes[].type` (a key a place must never
- * have, so every card was blank).
+ * A flow is a Petri net (ADR-065), and `or-flow-action-nodes` INVERTED which
+ * half of it carries behaviour. A NODE is the action: it holds the step type
+ * and its config, and it is the thing that runs. An EDGE is sequence: `from`,
+ * `to`, and an optional title.
+ *
+ * So the card says what the node DOES and the line says only where it GOES.
+ * This canvas drew the opposite until now, which is why every line on a
+ * migrated flow rendered the words "No step type": the type it was looking for
+ * had moved to the node, and a document where no edge carries one is exactly
+ * what a correctly migrated flow looks like.
+ *
+ * ## Ports
+ *
+ * Role is expressed by the ABSENCE of a port — a start has no in-port, an exit
+ * has no out-port — so which end of the flow you are looking at survives
+ * greyscale and does not depend on telling two hues apart (WCAG 1.4.1). A
+ * routing node exposes one NAMED out-port per branch, which is what makes a
+ * two-way route readable without opening its configuration.
  */
 export default {
 	name: 'FlowBuilder',
@@ -228,6 +290,7 @@ export default {
 		NcButton,
 		NcEmptyContent,
 		Plus,
+		DeadEndWarningDialog,
 		RunFlowDialog,
 		Sitemap,
 		StepResultDialog,
@@ -275,6 +338,23 @@ export default {
 		zoomPercent() {
 			return `${Math.round(this.zoom * 100)}%`
 		},
+
+		/**
+		 * The nodes, each carrying the ports the canvas should draw for it.
+		 *
+		 * Built here rather than in the store because it is a presentation
+		 * concern: the stored document has no `ports` key and must not gain
+		 * one — ports are DERIVED from what the node is and what leaves it, so
+		 * persisting them would let the drawing disagree with the graph.
+		 *
+		 * @return {Array<object>} The nodes with a `ports` array.
+		 */
+		nodesWithPorts() {
+			return (this.editor.nodes || []).map((node) => ({
+				...node,
+				ports: this.portsForNode(node),
+			}))
+		},
 	},
 
 	watch: {
@@ -288,6 +368,198 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * The ports a node exposes, in render order.
+		 *
+		 * Role is expressed by the ABSENCE of a port, not by colour alone: a
+		 * start node has no in-port and an exit node has no out-port, so which
+		 * end of the flow you are looking at survives being printed in
+		 * greyscale or read by someone who cannot distinguish the two hues
+		 * (WCAG 1.4.1 — colour is never the only carrier).
+		 *
+		 * @param {object} node The node.
+		 * @return {Array<object>} Its ports.
+		 */
+		portsForNode(node) {
+			const ports = []
+
+			// Everything that is not a start receives. Drawn on the LEFT, which
+			// is what makes an edge's direction readable without following the
+			// arrowhead: lines land on the left and leave on the right.
+			if (!this.editor.startNodeIds.includes(node.id)) {
+				ports.push({ id: 'in', side: 'left', kind: 'in', label: this.t('hermiq', 'In') })
+			}
+
+			// A loop owns its body (IterateNode's `config.body` is a list of
+			// node ids). Those hang off the TOP as a visible sub-list, kept
+			// clear of the left-to-right run of the main chain — a loop body
+			// drawn inline reads as a detour rather than as a repeat.
+			if (this.isLoopNode(node)) {
+				ports.push({ id: 'body-out', side: 'top', kind: 'out', label: this.t('hermiq', 'Loop body') })
+				ports.push({ id: 'body-in', side: 'top', kind: 'in', label: this.t('hermiq', 'Loop body returns') })
+			}
+
+			const branches = this.branchesOf(node)
+			if (branches.length > 0) {
+				// One origin per branch, each named. This is the whole reason
+				// ports beat a single handle: a two-way route drawn from one
+				// point is only decipherable by opening its configuration.
+				branches.forEach((branch) => {
+					ports.push({
+						id: `out:${branch}`,
+						side: 'right',
+						kind: 'out',
+						label: branch,
+					})
+				})
+
+				return ports
+			}
+
+			// A node that ends the flow deliberately has nothing to send on.
+			// `exit: true` or a terminal type — the same two answers the engine
+			// accepts, OR-ed, so the drawing agrees with what will actually run
+			// (openregister: IFlowTerminalNode).
+			if (!this.isExitNode(node)) {
+				ports.push({ id: 'out', side: 'right', kind: 'out', label: this.t('hermiq', 'Out') })
+			}
+
+			return ports
+		},
+
+		/**
+		 * Whether this node ends its path on purpose.
+		 *
+		 * @param {object} node The node.
+		 * @return {boolean} True when it is an exit.
+		 */
+		isExitNode(node) {
+			if (node.exit === true) {
+				return true
+			}
+
+			return TERMINAL_STEP_TYPES.includes(node.type)
+		},
+
+		/**
+		 * Whether this node is a loop that owns a body.
+		 *
+		 * @param {object} node The node.
+		 * @return {boolean} True for a loop node.
+		 */
+		isLoopNode(node) {
+			return LOOP_STEP_TYPES.includes(node.type)
+		},
+
+		/**
+		 * The branch names a routing node sends items to.
+		 *
+		 * Read from `config.rules[].output` plus `config.default`, which is what
+		 * RouterNode itself reads. Deliberately NOT from `config.routes` — that
+		 * is the single most common way to author the node wrong, and honouring
+		 * it here would draw ports for a configuration the engine ignores,
+		 * making a broken flow look correct.
+		 *
+		 * A switch's conditions live on its EDGES rather than its config, so it
+		 * has no branches to derive here and falls back to one out-port.
+		 *
+		 * @param {object} node The node.
+		 * @return {Array<string>} The branch names, in order, deduplicated.
+		 */
+		branchesOf(node) {
+			if (!ROUTER_STEP_TYPES.includes(node.type)) {
+				return []
+			}
+
+			const rules = ((node.config || {}).rules) || []
+			if (!Array.isArray(rules)) {
+				return []
+			}
+
+			const names = []
+			rules.forEach((rule) => {
+				const output = String(((rule || {}).output) ?? '').trim()
+				if (output !== '' && !names.includes(output)) {
+					names.push(output)
+				}
+			})
+
+			const fallback = String(((node.config || {}).default) ?? '').trim()
+			if (fallback !== '' && !names.includes(fallback)) {
+				names.push(fallback)
+			}
+
+			return names
+		},
+
+		/**
+		 * What this NODE does: the catalogue's name for its step type.
+		 *
+		 * The node is the action (or-flow-action-nodes), so this is the card's
+		 * headline. A node with no type is called out rather than left blank —
+		 * an untyped node is refused by the engine, and rendering it as an
+		 * ordinary card is how it stayed invisible.
+		 *
+		 * @param {object} node The node.
+		 * @return {string} The step name.
+		 */
+		nodeStepLabel(node) {
+			if (!node.type) {
+				return this.t('hermiq', 'No step type')
+			}
+
+			const entry = (this.editor.stepCatalog || []).find((candidate) => candidate.id === node.type)
+
+			// A type the catalogue cannot explain is shown as its raw id rather
+			// than guessed at from a list that may not match the engine.
+			return entry ? (entry.displayName || entry.id) : node.type
+		},
+
+		/**
+		 * The one piece of configuration worth putting on the card.
+		 *
+		 * A card that shows everything is a config editor, and a card that
+		 * shows nothing makes every node of a type look identical. This shows
+		 * the first key the step actually reads, which is what distinguishes
+		 * two `object-read`s from each other at a glance.
+		 *
+		 * Annotation keys (`$comment` and friends) are documentation the engine
+		 * never reads, so they are skipped — putting one on the card would
+		 * describe the flow's prose rather than its behaviour.
+		 *
+		 * @param {object} node The node.
+		 * @return {string} A short summary, or an empty string.
+		 */
+		nodeConfigSummary(node) {
+			const config = node.config || {}
+			const keys = Object.keys(config).filter((key) => key.startsWith('$') === false)
+			if (keys.length === 0) {
+				return ''
+			}
+
+			const key = keys[0]
+			const value = config[key]
+
+			let rendered = ''
+			if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+				rendered = String(value)
+			} else if (Array.isArray(value)) {
+				rendered = this.n('hermiq', '%n entry', '%n entries', value.length)
+			} else if (value && typeof value === 'object') {
+				rendered = Object.keys(value).join(', ')
+			}
+
+			if (rendered.length > 42) {
+				rendered = `${rendered.slice(0, 41)}…`
+			}
+
+			if (rendered === '') {
+				return key
+			}
+
+			return `${key}: ${rendered}`
+		},
+
 		/**
 		 * Step the zoom, clamped to the same range the canvas enforces.
 		 *
@@ -340,7 +612,16 @@ export default {
 			this.editor.selectEdge(edge.id)
 			const entry = this.resultFor(edge)
 			if (entry) {
-				this.resultDialog = { title: this.stepLabel(edge), result: entry }
+				// Titled by the connection, since that is what was clicked. An
+				// unlabelled line falls back to naming its endpoints rather
+				// than opening a dialog with a blank heading.
+				const label = this.edgeLabel(edge)
+				const fallback = this.t('hermiq', '{from} → {to}', {
+					from: edge.from.join(', '),
+					to: edge.to.join(', '),
+				})
+
+				this.resultDialog = { title: (label || fallback), result: entry }
 			}
 		},
 
@@ -367,25 +648,6 @@ export default {
 		},
 
 		/**
-		 * The role, in words.
-		 *
-		 * @param {string} id The place id.
-		 * @return {string} The label.
-		 */
-		roleLabel(id) {
-			const role = this.roleOf(id)
-			if (role === 'start') {
-				return this.t('hermiq', 'Start')
-			}
-
-			if (role === 'end') {
-				return this.t('hermiq', 'End')
-			}
-
-			return this.t('hermiq', 'Step')
-		},
-
-		/**
 		 * A place's label.
 		 *
 		 * Falls back to the id, which is what the engine calls it and what every
@@ -401,35 +663,40 @@ export default {
 		},
 
 		/**
-		 * A step's label: what the catalogue calls its type.
+		 * A connection's own label.
 		 *
-		 * @param {object} edge The step.
-		 * @return {string} The label.
+		 * The place a step used to arrive at became this line's title when the
+		 * document was migrated, so the words authors wrote ("Gates passed",
+		 * "work") survive here. Empty is a legitimate answer — an unlabelled
+		 * connection draws no chip rather than an empty one.
+		 *
+		 * @param {object} edge The connection.
+		 * @return {string} The label, or an empty string.
 		 */
-		stepLabel(edge) {
-			if (!edge.type) {
-				return this.t('hermiq', 'No step type')
+		edgeLabel(edge) {
+			if (!edge) {
+				return ''
 			}
 
-			const entry = (this.editor.stepCatalog || []).find((candidate) => candidate.id === edge.type)
-
-			// A type the catalogue cannot explain is shown as its raw id rather
-			// than guessed at from a list that may not match the engine.
-			return entry ? (entry.displayName || entry.id) : edge.type
+			return String(edge.title || edge.name || '').trim()
 		},
 
 		/**
-		 * Accessible description of a step.
+		 * Accessible description of a connection.
 		 *
-		 * @param {object} edge The step.
+		 * @param {object} edge The connection.
 		 * @return {string} The label.
 		 */
 		stepAriaLabel(edge) {
-			return this.t('hermiq', '{step}, from {from} to {to}', {
-				step: this.stepLabel(edge),
-				from: edge.from.join(', '),
-				to: edge.to.join(', '),
-			})
+			const label = this.edgeLabel(edge)
+			const from = edge.from.join(', ')
+			const to = edge.to.join(', ')
+
+			if (label === '') {
+				return this.t('hermiq', 'Connection from {from} to {to}', { from, to })
+			}
+
+			return this.t('hermiq', '{label}, from {from} to {to}', { label, from, to })
 		},
 
 		/**
@@ -439,11 +706,11 @@ export default {
 		 * node has no width until it is laid out, so a chip sized after the fact
 		 * flickers on every render.
 		 *
-		 * @param {object} edge The step.
+		 * @param {object} edge The connection.
 		 * @return {number} The width in canvas units.
 		 */
 		chipWidth(edge) {
-			return Math.max(56, (this.stepLabel(edge).length * 6.5) + 20)
+			return Math.max(56, (this.edgeLabel(edge).length * 6.5) + 20)
 		},
 
 		/**
@@ -818,11 +1085,47 @@ export default {
 	color: var(--color-text-maxcontrast);
 }
 
-.flow-builder__node-label {
+/* The step is the headline now: it is what the node DOES, and it is what
+   distinguishes two cards at a glance. The node's own name sits under it as
+   the secondary line, because a name is an identifier and a step is a
+   behaviour. */
+.flow-builder__node-step {
 	font-weight: 600;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.flow-builder__node-label {
+	font-size: 11px;
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* One line of the configuration the step actually reads, so two nodes of the
+   same type are told apart without opening either. */
+.flow-builder__node-config {
+	font-size: 11px;
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	font-family: var(--font-face-monospace, monospace);
+}
+
+/* A node with no step type is refused by the engine. Called out with a border
+   AND the word "No step type" in its headline — never colour alone, which
+   would vanish in greyscale or for a viewer who cannot separate the two hues
+   (WCAG 1.4.1). */
+.flow-builder__node--untyped {
+	outline: 2px dashed var(--color-warning, #c28900);
+	outline-offset: -2px;
+}
+
+.flow-builder__node--untyped .flow-builder__node-step {
+	color: var(--color-warning-text, #7a5800);
 }
 
 .flow-builder__node-badge {

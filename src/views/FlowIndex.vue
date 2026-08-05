@@ -8,7 +8,7 @@
 		:title="t('hermiq', 'Flows')"
 		:description="t('hermiq', 'Flows owned by Hermiq. A flow is a flow — the same definition the engine runs, stored once in OpenRegister.')"
 		:columns="columns"
-		:objects="editor.flows"
+		:objects="rows"
 		:loading="editor.loading"
 		:selectable="false"
 		row-click-to-view
@@ -77,7 +77,26 @@ export default {
 				{ key: 'trigger', label: this.t('hermiq', 'Trigger') },
 				{ key: 'cron', label: this.t('hermiq', 'Schedule') },
 				{ key: 'enabled', label: this.t('hermiq', 'Enabled') },
+				// The two questions a list of scheduled flows exists to answer,
+				// and neither could be answered here before: a flow refused for
+				// a dead end produces NO run at all, so "refused" and "nobody
+				// has triggered it" looked identical.
+				{ key: 'lastRunLabel', label: this.t('hermiq', 'Last run') },
+				{ key: 'statusLabel', label: this.t('hermiq', 'Status') },
 			]
+		},
+
+		/**
+		 * The flows, with the two run columns rendered for display.
+		 *
+		 * @return {Array<object>} The rows.
+		 */
+		rows() {
+			return (this.editor.flows || []).map((flow) => ({
+				...flow,
+				lastRunLabel: this.lastRunLabel(flow),
+				statusLabel: this.statusLabel(flow),
+			}))
 		},
 	},
 
@@ -89,6 +108,51 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * When this flow last finished, in words.
+		 *
+		 * "Never" is a real answer and is shown as one. A dash would read as
+		 * "unknown", and the difference matters: a flow that has never run is
+		 * not the same as one whose history was not loaded.
+		 *
+		 * @param {object} flow The flow.
+		 * @return {string} The label.
+		 */
+		lastRunLabel(flow) {
+			if (!flow.lastRunAt) {
+				return this.t('hermiq', 'Never')
+			}
+
+			const when = new Date(flow.lastRunAt).toLocaleString()
+			if (!flow.lastRunStatus) {
+				return when
+			}
+
+			return `${flow.lastRunStatus} — ${when}`
+		},
+
+		/**
+		 * The flow's own verdict, when something has judged it.
+		 *
+		 * Empty for a null status, which means "no verdict" rather than "ok" —
+		 * claiming ok for a flow nothing has looked at is the false green this
+		 * column exists to remove.
+		 *
+		 * @param {object} flow The flow.
+		 * @return {string} The label.
+		 */
+		statusLabel(flow) {
+			if (!flow.status) {
+				return ''
+			}
+
+			if (flow.status === 'error') {
+				return this.t('hermiq', 'Will not run')
+			}
+
+			return this.t('hermiq', 'OK')
+		},
+
 		/**
 		 * Open a flow on the canvas.
 		 *
