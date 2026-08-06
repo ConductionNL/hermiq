@@ -141,6 +141,7 @@ test.describe('flow builder — the node is the action', () => {
 		await expect(page.locator('.flow-builder__edge')).toHaveCount(16)
 	})
 
+	// @e2e flow-canvas::a-migrated-flow-shows-what-each-node-does
 	test('every card names the STEP it runs, and none says "No step type"', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
@@ -161,6 +162,7 @@ test.describe('flow builder — the node is the action', () => {
 		await expect(page.locator('.flow-builder__node--untyped')).toHaveCount(0)
 	})
 
+	// @e2e flow-canvas::the-place-labels-survive-as-line-labels
 	test('a line carries its own title, never a step name', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
@@ -178,6 +180,7 @@ test.describe('flow builder — the node is the action', () => {
 		expect(labels).toContain('scoped')
 	})
 
+	// @e2e flow-canvas::the-ends-of-the-flow-are-identifiable-without-colour
 	test('a start has no in-port and a sink has no out-port', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
@@ -212,6 +215,7 @@ test.describe('flow builder — the node is the action', () => {
 		}
 	})
 
+	// @e2e flow-canvas::a-gate-shows-both-of-its-branches-by-name
 	test('a routing node shows one NAMED out-port per branch', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
