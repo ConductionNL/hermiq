@@ -28,7 +28,6 @@ import ApprovalInbox from './views/ApprovalInbox.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import TenantOps from './views/TenantOps.vue'
 import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
-import AlgorithmRegister from './views/AlgorithmRegister.vue'
 import McpTools from './views/McpTools.vue'
 import ComplianceDashboard from './views/ComplianceDashboard.vue'
 import AgentFormModal from './modals/AgentFormModal.vue'
@@ -38,12 +37,14 @@ import AgentFormModal from './modals/AgentFormModal.vue'
 // (CnMarkdownEditor body, files editor) in place of the generic schema-driven
 // create/edit dialog — the skills analogue of AgentFormModal above.
 import SkillFormModal from './modals/SkillFormModal.vue'
-// Features & Roadmap page — thin wrapper around the lib's
-// CnFeaturesAndRoadmapView (in-product roadmap surface powered by
-// OpenRegister's github-issue-proxy). Shipped wired-up so apps scaffolded
-// from this template inherit the Settings-section "Features & roadmap"
-// entry; change the repo fallback in views/FeaturesRoadmap.vue. See
-// ConductionNL/hydra#251.
+// NOTE — Features & Roadmap is NOT registered here, deliberately. The
+// manifest page `FeaturesRoadmap` is `type: "roadmap"`, a BUILT-IN page type
+// that CnPageRenderer resolves from `defaultPageTypes` (→ the lib's
+// CnFeaturesAndRoadmapPage). Only `type: "custom"` pages are looked up in this
+// map, so an app-local wrapper here would never be mounted. The lib's page
+// reads the very same `features_roadmap_repo` / `_features` / `_disabled`
+// initial-state keys, so there is nothing left for a wrapper to add.
+// See ConductionNL/hydra#251.
 
 export default {
 	// Approval inbox (human-approval-gate-ui change). Custom page: reviewer-scoped
@@ -56,10 +57,6 @@ export default {
 	// Tenant ops (multi-tenant-ops change). Custom page: per-org quota + EU AI Act audit
 	// export over OR objects/AuditTrail, capability-gated to org owners/admins.
 	TenantOps,
-	// Features & Roadmap page (lib's CnFeaturesAndRoadmapView) — wired up
-	// in src/manifest.json (the `FeaturesRoadmap` custom page + the
-	// `FeaturesRoadmapMenu` settings entry).
-	//
 	// inapp-settings-section: the Settings page's `type: "settings"` tabs
 	// are rendered by CnSettingsPage, which resolves {type:"component"}
 	// widgets against THIS map (`cnCustomComponents`), never the v2
@@ -73,14 +70,23 @@ export default {
 	// TenantOps.vue — governance policy administration, not a
 	// per-organisation operational control.
 	GuardrailPolicySettings,
-	// Algorithm register tab (algoritmeregister-publication): the first
-	// dedicated UI for the Algoritmeregister publication capability.
-	AlgorithmRegister,
 	// MCP tools tab — re-homed from the removed top-level `/mcp-tools` nav
 	// page. Unchanged component.
 	McpTools,
-	// Compliance tab — re-homed from the removed top-level `/compliance` nav
-	// page. Unchanged component.
+	// Compliance — RETAINED DELIBERATELY, though currently unreachable.
+	//
+	// manifest-driven-pages converted the `Compliance` page from this bespoke
+	// component to `type: "index"` + the `compliance-operations` widget, so
+	// CnPageRenderer no longer resolves this key (built-in types never consult
+	// this map). It is therefore bundled but never mounted.
+	//
+	// It is NOT deleted because it is the only caller of `getComplianceExport()`
+	// — the compliance auditor's-pack export (`GET /api/compliance/export`,
+	// still a live registered route). `compliance-operations` ships the EU AI
+	// Act audit export, which is a DIFFERENT endpoint; the auditor's pack has no
+	// replacement surface. Deleting this would silently drop a user-facing
+	// capability. Either re-home the export onto `compliance-operations` or
+	// retire the route + this component together — a product decision.
 	ComplianceDashboard,
 	// Agent form (agent-form-slot): resolved by AgentCatalog's top-level
 	// `slots.form-dialog` -> "AgentFormModal", so CnIndexPage's built-in
