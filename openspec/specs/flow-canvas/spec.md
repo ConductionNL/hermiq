@@ -67,7 +67,10 @@ A save MUST succeed and then report the engine's connectivity verdict, taken fro
 
 The dialog MUST state that the save SUCCEEDED before describing the problem: an author who reads "cannot finish" and assumes rejection will redo the work.
 
-#### Scenario: A half-wired flow is stored and explained @e2e exclude needs a save round-trip against a live engine to produce the warning; the verdict itself is covered by OpenRegister's FlowDeadEndTest and the API contract by Newman
+#### Scenario: A half-wired flow is stored and explained
+
+@e2e exclude pure-backend API contract — the warning is produced by OpenRegister's save response, covered by FlowDeadEndTest and by Newman; the browser only renders what that response already decided
+
 - **GIVEN** a flow with a node that has no outgoing edge and does not end the flow
 - **WHEN** the author saves
 - **THEN** the flow MUST be stored
@@ -77,7 +80,10 @@ The dialog MUST state that the save SUCCEEDED before describing the problem: an 
 
 The list MUST show when each flow last finished and its own status. A flow that has never run MUST read "Never" rather than a dash — a dash reads as "unknown", and never-run is a different fact. A flow with no status MUST show nothing, because a null status means "no verdict", not "ok".
 
-#### Scenario: A refused flow is distinguishable from one nobody triggered @e2e exclude requires a flow refused at run time, which needs a scheduled dispatch; the distinguishing fields are covered by OpenRegister's unit tests and Newman
+#### Scenario: A refused flow is distinguishable from one nobody triggered
+
+@e2e exclude pure-backend API contract — the distinguishing fields (status, lastRunAt) are written by the engine on a refused dispatch and covered by OpenRegister's unit tests and Newman
+
 - **GIVEN** a flow refused for a dead end, which therefore has no run at all
 - **WHEN** the list renders
 - **THEN** its status MUST read that it will not run
