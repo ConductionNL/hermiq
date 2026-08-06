@@ -1153,7 +1153,24 @@
         "Quarantined — awaiting review": "In quarantaine — wacht op beoordeling",
         "This skill has learnings accepted here since it was last updated from its source. Updating keeps them — the incoming learnings file is not applied.": "Deze vaardigheid heeft hier leerpunten die zijn geaccepteerd nadat de vaardigheid voor het laatst is bijgewerkt vanuit de bron. Bijwerken behoudt ze — het binnenkomende leerpuntenbestand wordt niet toegepast.",
         "This skill is quarantined and is not available to agents until it is approved.": "Deze vaardigheid staat in quarantaine en is niet beschikbaar voor agents totdat deze is goedgekeurd.",
-        "Unknown": "Onbekend"
+        "Unknown": "Onbekend",
+        "Zoom out": "Uitzoomen",
+        "{label}, from {from} to {to}": "{label}, van {from} naar {to}",
+        "%n entries": "%n items",
+        "%n entry": "%n item",
+        "%n nodes have nowhere to send their work.": "%n knooppunten kunnen hun werk nergens naartoe sturen.",
+        "A run that reaches one of these stops there and is still recorded as completed — so it would look like it worked. Connect the node onward, give it a step that ends the flow, or mark it as an exit if stopping there is deliberate.": "Een uitvoering die hier aankomt stopt en wordt tóch als voltooid vastgelegd — het lijkt dus alsof het gelukt is. Verbind het knooppunt verder, geef het een stap die de flow beëindigt, of markeer het als eindpunt als daar bewust gestopt wordt.",
+        "Connection from {from} to {to}": "Verbinding van {from} naar {to}",
+        "Got it": "Duidelijk",
+        "In": "In",
+        "Loop body": "Lus-inhoud",
+        "Loop body returns": "Lus-inhoud keert terug",
+        "One node has nowhere to send its work.": "Eén knooppunt kan zijn werk nergens naartoe sturen.",
+        "Out": "Uit",
+        "Saved, but this flow cannot finish": "Opgeslagen, maar deze flow kan niet voltooien",
+        "Will not run": "Wordt niet uitgevoerd",
+        "Your changes are saved. This is about what will happen when the flow RUNS.": "Je wijzigingen zijn opgeslagen. Dit gaat over wat er gebeurt als de flow WORDT UITGEVOERD.",
+        "{from} → {to}": "{from} → {to}"
     },
     "plurals": ""
 }

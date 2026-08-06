@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "slug": "flow-canvas",
+    "title": "Flow Canvas",
+    "summary": "Defines how Hermiq's flow editor DRAWS a flow: what a node card says, what a connection says, which ports a node exposes and why, and how the engine's connectivity verdict and run history reach the author.",
+    "status": "stable",
+    "docsUrl": "openspec/specs/flow-canvas/spec.md"
+  }
+]

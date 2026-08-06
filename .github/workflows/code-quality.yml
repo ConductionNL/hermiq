@@ -151,6 +151,12 @@ jobs:
       # 16 gates were dead fleet-wide while every one reported PASS (.github#159),
       # and a default flipped at @main later reached those old runners and made
       # them red on gates they had no subject matter for (.github#173).
+      #
+      # This also removes the hazard the v1.5.0 pin was chasing: the reusable
+      # workflow calls several gate scripts BY PATH inside the package, so any
+      # pin older than those files fails naming the missing paths — a failure
+      # about the pin, not about this repository. Tracking @main cannot desync.
+      #
       # To hold this repo still for a specific reason, set the input explicitly
       # and say why — it is still honoured. To roll back for everyone, revert on
       # ConductionNL/.github main.
