@@ -159,6 +159,10 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		// has no button of its own left to render.
 		sidebarOpen: true,
 		validation: null,
+		// Node ids the last save reported as dead ends. Empty means "the save
+		// said nothing"; it never means "not checked yet" — the array is only
+		// ever written from a save response.
+		deadEnds: [],
 	}),
 
 	getters: {
@@ -754,6 +758,8 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * had never heard of.
 		 *
 		 * @return {Promise<object|null>} The saved flow, or null on failure.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async save() {
 			this.saving = true
@@ -775,6 +781,16 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				// save on it would strand a half-authored flow the author is in
 				// the middle of building.
 				this.validate()
+
+				// The save response carries the connectivity verdict with it, so
+				// the author is told about a dead end at the moment they save
+				// rather than on the next run — which for a scheduled flow could
+				// be hours later, and would present as "it ran and did nothing".
+				// Kept separate from `validation` so dismissing this does not
+				// discard the full report the sidebar shows.
+				this.deadEnds = ((saved && saved.warnings) || [])
+					.filter((warning) => warning.reason === 'node-dead-end')
+					.map((warning) => warning.step)
 
 				return saved
 			} finally {

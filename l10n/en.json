@@ -1190,7 +1190,22 @@
         "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.": "The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.",
         "Zoom": "Zoom",
         "Zoom in": "Zoom in",
-        "Zoom out": "Zoom out"
+        "Zoom out": "Zoom out",
+        "{label}, from {from} to {to}": "{label}, from {from} to {to}",
+        "%n entries": "%n entries",
+        "%n entry": "%n entry",
+        "%n nodes have nowhere to send their work.": "%n nodes have nowhere to send their work.",
+        "A run that reaches one of these stops there and is still recorded as completed — so it would look like it worked. Connect the node onward, give it a step that ends the flow, or mark it as an exit if stopping there is deliberate.": "A run that reaches one of these stops there and is still recorded as completed — so it would look like it worked. Connect the node onward, give it a step that ends the flow, or mark it as an exit if stopping there is deliberate.",
+        "Connection from {from} to {to}": "Connection from {from} to {to}",
+        "Got it": "Got it",
+        "In": "In",
+        "Loop body": "Loop body",
+        "Loop body returns": "Loop body returns",
+        "One node has nowhere to send its work.": "One node has nowhere to send its work.",
+        "Out": "Out",
+        "Saved, but this flow cannot finish": "Saved, but this flow cannot finish",
+        "Will not run": "Will not run",
+        "Your changes are saved. This is about what will happen when the flow RUNS.": "Your changes are saved. This is about what will happen when the flow RUNS."
     },
     "plurals": ""
 }
