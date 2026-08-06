@@ -171,4 +171,11 @@ jobs:
       # reproducible and a later gate change cannot move this repo's verdict
       # without a commit here.
       enable-hydra-gates: true
-      hydra-gates-ref: v1.3.0
+      # v1.3.0 -> v1.5.0. The reusable workflow floats on @main and calls
+      # several gate scripts BY PATH inside the pinned package, so a pin older
+      # than those files cannot run the gates that implement them — the job
+      # fails naming the missing paths, and the failure is about the pin, not
+      # about this repository. v1.5.0 is the first tag containing all four:
+      # axe-run.cjs, check_spec_anchors.py, check_form_labels.py and
+      # check_license_triangle.py (verified against the tag, not assumed).
+      hydra-gates-ref: v1.5.0
