@@ -1170,7 +1170,8 @@
         "Saved, but this flow cannot finish": "Opgeslagen, maar deze flow kan niet voltooien",
         "Will not run": "Wordt niet uitgevoerd",
         "Your changes are saved. This is about what will happen when the flow RUNS.": "Je wijzigingen zijn opgeslagen. Dit gaat over wat er gebeurt als de flow WORDT UITGEVOERD.",
-        "{from} → {to}": "{from} → {to}"
+        "{from} → {to}": "{from} → {to}",
+        "Feedback details": "Feedback-details"
     },
     "plurals": ""
 }
