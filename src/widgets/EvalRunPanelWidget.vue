@@ -72,12 +72,12 @@
 			<table class="eval-run-panel-widget__table">
 				<thead>
 					<tr>
-						<th>{{ t('hermiq', 'When') }}</th>
-						<th>{{ t('hermiq', 'Pass rate') }}</th>
-						<th>{{ t('hermiq', 'Baseline') }}</th>
-						<th>{{ t('hermiq', 'Regression gate') }}</th>
-						<th>{{ t('hermiq', 'Status') }}</th>
-						<th><span class="hidden-visually">{{ t('hermiq', 'Details') }}</span></th>
+						<th scope="col">{{ t('hermiq', 'When') }}</th>
+						<th scope="col">{{ t('hermiq', 'Pass rate') }}</th>
+						<th scope="col">{{ t('hermiq', 'Baseline') }}</th>
+						<th scope="col">{{ t('hermiq', 'Regression gate') }}</th>
+						<th scope="col">{{ t('hermiq', 'Status') }}</th>
+						<th scope="col"><span class="hidden-visually">{{ t('hermiq', 'Details') }}</span></th>
 					</tr>
 				</thead>
 				<tbody>
@@ -115,10 +115,10 @@
 								<table class="eval-run-panel-widget__table eval-run-panel-widget__skill-table">
 									<thead>
 										<tr>
-											<th>{{ t('hermiq', 'Skill') }}</th>
-											<th>{{ t('hermiq', 'With skill') }}</th>
-											<th>{{ t('hermiq', 'Without skill') }}</th>
-											<th>{{ t('hermiq', 'Baseline delta') }}</th>
+											<th scope="col">{{ t('hermiq', 'Skill') }}</th>
+											<th scope="col">{{ t('hermiq', 'With skill') }}</th>
+											<th scope="col">{{ t('hermiq', 'Without skill') }}</th>
+											<th scope="col">{{ t('hermiq', 'Baseline delta') }}</th>
 										</tr>
 									</thead>
 									<tbody>

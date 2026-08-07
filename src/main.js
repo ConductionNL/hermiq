@@ -30,17 +30,13 @@ import appIcons from './icons.js'
 // Library CSS — must be explicit import (webpack tree-shakes side-effect imports from aliased packages)
 import '@conduction/nextcloud-vue/css/index.css'
 
-// GridStack CSS — same tree-shaking trap as the line above, one level deeper.
-// nc-vue's CnDashboardGrid/utils/gridStack.js do `import 'gridstack/dist/gridstack.min.css'`,
-// but that is a side-effect import from the aliased @conduction/nextcloud-vue package, so
-// webpack drops it and the stylesheet never reaches the bundle. GridStack >= 11 sets
-// `left`/`top` INLINE (calc over --gs-column-width) but takes `position: absolute` on the
-// items and `position: relative` on the container from THIS stylesheet. Without it the
-// inline `left` is computed but ignored (items stay `position: static`), so every widget
-// falls into normal flow and the whole 12-column grid renders as one stacked column at
-// x=0 — correct widths, no horizontal placement. Verified in-browser: gs-x="3" had
-// `left: calc(3 * var(--gs-column-width))` resolving to 25% while `position` was `static`.
-import 'gridstack/dist/gridstack.min.css'
+// NOTE: gridstack's stylesheet is deliberately NOT imported here. The library owns it:
+// @conduction/nextcloud-vue's src/css/index.css @imports 'gridstack/dist/gridstack.min.css'
+// so postcss-import inlines it into the sheet the line above already pulls in. An app-level
+// import would duplicate those rules in every consumer and rot when the library changes its
+// internals. NOTE: this requires a @conduction/nextcloud-vue release that CONTAINS that
+// @import — the installed 2.1.0-vue3.9 predates it, so until the bump the rules are supplied
+// by a local patch to node_modules (which `npm ci` reverts).
 
 // Global (unscoped) app styles
 import './assets/app.css'

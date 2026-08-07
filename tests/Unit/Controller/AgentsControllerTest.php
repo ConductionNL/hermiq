@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Tests for the agent-engine-port AgentsController.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
  */
 class AgentsControllerTest extends TestCase
 {
@@ -137,7 +137,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testIndexFiltersByVisibility(): void
     {
@@ -165,7 +165,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testShowGuardsVisibility(): void
     {
@@ -194,7 +194,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testCreateStripsProtectedKeysAndAppliesDefaults(): void
     {
@@ -238,7 +238,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testUpdateIsOwnerOnlyAndStripsTampering(): void
     {
@@ -288,7 +288,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testPatchDelegatesToUpdate(): void
     {
@@ -318,7 +318,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testDestroyIsOwnerOnly(): void
     {
@@ -352,7 +352,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testStatsUsesPaginatedTotals(): void
     {
@@ -362,9 +362,30 @@ class AgentsControllerTest extends TestCase
                     return ['results' => [], 'total' => 10];
                 }
 
-                if ($query['active'] === true) {
+                // The filter arrives as the STRING 'true'/'false', not a bool.
+                // `countAgents()` normalises it on purpose: the value is bound as
+                // a query parameter, and PHP casts `false` to the EMPTY STRING,
+                // which Postgres rejects on a boolean column with SQLSTATE[22P02]
+                // — so stats() was a hard 500 on every call and the dashboard's
+                // agent counters were blank.
+                //
+                // Asserted rather than merely matched, so a regression to passing
+                // raw booleans fails HERE with a readable message instead of
+                // silently falling through to the inactive branch — which is what
+                // it did while this callback still compared against `true`, and
+                // it surfaced as "active 4, inactive 4, total 10", counts that do
+                // not even add up.
+                $this->assertIsString(
+                    $query['active'],
+                    'countAgents() must normalise the active filter to a string; a bool binds as '
+                    ."'' for false and Postgres rejects it (SQLSTATE[22P02])."
+                );
+
+                if ($query['active'] === 'true') {
                     return ['results' => [], 'total' => 6];
                 }
+
+                $this->assertSame('false', $query['active'], 'The only other value may be the string false.');
 
                 return ['results' => [], 'total' => 4];
             }
@@ -390,7 +411,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testToolsReturnsFacadeCatalogue(): void
     {

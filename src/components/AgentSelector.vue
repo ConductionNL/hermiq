@@ -207,4 +207,14 @@ export default {
 	color: var(--color-text-maxcontrast);
 	background: var(--color-background-hover);
 }
+
+/* WCAG 2.2 AA 2.3.3 (Animation from Interactions): honour the OS-level
+   "reduce motion" setting. Users who set it may be doing so for vestibular
+   disorders or motion-triggered migraine, so the transition is removed
+   outright rather than shortened. */
+@media (prefers-reduced-motion: reduce) {
+	.agent-selector__card {
+		transition: none;
+	}
+}
 </style>

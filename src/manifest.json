@@ -157,7 +157,7 @@
 					{
 						"id": "browse-templates",
 						"label": "Browse templates",
-						"icon": "PackageVariantClosed",
+						"icon": "Package",
 						"handler": "navigate",
 						"route": "Store"
 					}
@@ -181,7 +181,7 @@
 						"id": "agent-core",
 						"type": "data",
 						"title": "Configuration",
-						"icon": "CogOutline",
+						"icon": "Cog",
 						"content": {
 							"_note": "content.title, not just the widget's top-level title: `data` is an ownsTitle widget type, so CnDetailPage's widgetDisplayTitle deliberately returns content.title for it and ignores the chrome title (otherwise a seeded title permanently shadows a user's edit and can never be changed). With the title only at the top level this card rendered the generic default header 'Data' instead of 'Configuration'.",
 							"title": "Configuration",
@@ -721,7 +721,7 @@
 					{
 						"id": "browse-templates",
 						"label": "Browse templates",
-						"icon": "PackageVariantClosed",
+						"icon": "Package",
 						"handler": "navigate",
 						"route": "Store"
 					},

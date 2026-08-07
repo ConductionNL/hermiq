@@ -112,3 +112,10 @@ sbom.cdx.json
 bom-php.cdx.json
 bom-npm.cdx.json
 composer.phar
+
+# A stray older copy of src/views/Chat.vue that lived untracked in the working
+# tree. It is NOT the file the app loads (src/registry.js imports
+# ./views/Chat.vue), it lacks the e2e data-testid and the prefers-reduced-motion
+# block the real one has, and its relative imports do not resolve from src/ —
+# which is what broke eslint the moment it was accidentally committed.
+/src/Chat.vue

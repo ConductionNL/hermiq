@@ -19,6 +19,7 @@ import Brain from 'vue-material-design-icons/Brain.vue'
 import CashMultiple from 'vue-material-design-icons/CashMultiple.vue'
 import ChartBar from 'vue-material-design-icons/ChartBar.vue'
 import ChartLine from 'vue-material-design-icons/ChartLine.vue'
+import ChartTimelineVariant from 'vue-material-design-icons/ChartTimelineVariant.vue'
 import ChatOutline from 'vue-material-design-icons/ChatOutline.vue'
 import Check from 'vue-material-design-icons/Check.vue'
 import CheckCircleOutline from 'vue-material-design-icons/CheckCircleOutline.vue'
@@ -47,6 +48,7 @@ import OfficeBuilding from 'vue-material-design-icons/OfficeBuilding.vue'
 import Package from 'vue-material-design-icons/Package.vue'
 import PackageVariant from 'vue-material-design-icons/PackageVariant.vue'
 import PackageVariantClosed from 'vue-material-design-icons/PackageVariantClosed.vue'
+import PlayCircleOutline from 'vue-material-design-icons/PlayCircleOutline.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import PuzzleOutline from 'vue-material-design-icons/PuzzleOutline.vue'
@@ -54,6 +56,7 @@ import RobotOutline from 'vue-material-design-icons/RobotOutline.vue'
 import RocketLaunch from 'vue-material-design-icons/RocketLaunch.vue'
 import ScaleBalance from 'vue-material-design-icons/ScaleBalance.vue'
 import School from 'vue-material-design-icons/School.vue'
+import SchoolOutline from 'vue-material-design-icons/SchoolOutline.vue'
 import ShieldAlertOutline from 'vue-material-design-icons/ShieldAlertOutline.vue'
 import ShieldCheckOutline from 'vue-material-design-icons/ShieldCheckOutline.vue'
 import ShieldOutline from 'vue-material-design-icons/ShieldOutline.vue'
@@ -77,6 +80,7 @@ export default {
 	CashMultiple,
 	ChartBar,
 	ChartLine,
+	ChartTimelineVariant,
 	ChatOutline,
 	Check,
 	CheckCircleOutline,
@@ -105,6 +109,7 @@ export default {
 	Package,
 	PackageVariant,
 	PackageVariantClosed,
+	PlayCircleOutline,
 	Pencil,
 	Plus,
 	PuzzleOutline,
@@ -112,6 +117,7 @@ export default {
 	RocketLaunch,
 	ScaleBalance,
 	School,
+	SchoolOutline,
 	ShieldAlertOutline,
 	ShieldCheckOutline,
 	ShieldOutline,

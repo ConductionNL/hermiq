@@ -60,10 +60,12 @@
 				<table v-else class="talk-bridge-settings__rooms">
 					<thead>
 						<tr>
-							<th>{{ t('hermiq', 'Conversation') }}</th>
-							<th>{{ t('hermiq', 'Agent') }}</th>
-							<th>{{ t('hermiq', 'Status') }}</th>
-							<th />
+							<th scope="col">{{ t('hermiq', 'Conversation') }}</th>
+							<th scope="col">{{ t('hermiq', 'Agent') }}</th>
+							<th scope="col">{{ t('hermiq', 'Status') }}</th>
+							<th scope="col">
+								<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
+							</th>
 						</tr>
 					</thead>
 					<tbody>

@@ -415,4 +415,13 @@ export default {
 	font-size: 12px;
 	white-space: nowrap;
 }
+
+/* WCAG 2.2 AA 2.3.3: honour the OS-level "reduce motion" setting. The bar still
+   changes width — only the animation between widths is dropped, so no
+   information is lost. */
+@media (prefers-reduced-motion: reduce) {
+	.agent-memory-panel__budget-fill {
+		transition: none;
+	}
+}
 </style>

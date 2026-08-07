@@ -51,9 +51,9 @@
 			<table class="skill-maturity-scorecard__table">
 				<thead>
 					<tr>
-						<th>{{ t('hermiq', 'Level') }}</th>
-						<th>{{ t('hermiq', 'Status') }}</th>
-						<th>{{ t('hermiq', 'Details') }}</th>
+						<th scope="col">{{ t('hermiq', 'Level') }}</th>
+						<th scope="col">{{ t('hermiq', 'Status') }}</th>
+						<th scope="col">{{ t('hermiq', 'Details') }}</th>
 					</tr>
 				</thead>
 				<tbody>
