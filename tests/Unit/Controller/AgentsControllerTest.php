@@ -362,9 +362,30 @@ class AgentsControllerTest extends TestCase
                     return ['results' => [], 'total' => 10];
                 }
 
-                if ($query['active'] === true) {
+                // The filter arrives as the STRING 'true'/'false', not a bool.
+                // `countAgents()` normalises it on purpose: the value is bound as
+                // a query parameter, and PHP casts `false` to the EMPTY STRING,
+                // which Postgres rejects on a boolean column with SQLSTATE[22P02]
+                // — so stats() was a hard 500 on every call and the dashboard's
+                // agent counters were blank.
+                //
+                // Asserted rather than merely matched, so a regression to passing
+                // raw booleans fails HERE with a readable message instead of
+                // silently falling through to the inactive branch — which is what
+                // it did while this callback still compared against `true`, and
+                // it surfaced as "active 4, inactive 4, total 10", counts that do
+                // not even add up.
+                $this->assertIsString(
+                    $query['active'],
+                    'countAgents() must normalise the active filter to a string; a bool binds as '
+                    ."'' for false and Postgres rejects it (SQLSTATE[22P02])."
+                );
+
+                if ($query['active'] === 'true') {
                     return ['results' => [], 'total' => 6];
                 }
+
+                $this->assertSame('false', $query['active'], 'The only other value may be the string false.');
 
                 return ['results' => [], 'total' => 4];
             }
