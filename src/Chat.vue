@@ -86,7 +86,6 @@
 					:class="{ 'chat-page__row--active': isActive(conversation) }">
 					<div
 						class="chat-page__row-main"
-						data-testid="chat-conversation-row"
 						role="button"
 						tabindex="0"
 						@click="selectConversation(conversation)"
@@ -255,15 +254,10 @@
 								</NcButton>
 							</div>
 							<div v-if="message.showFeedbackInput" class="chat-page__feedback-comment">
-								<!-- `aria-label`, not the placeholder alone: a placeholder is
-								     not an accessible name. It disappears the moment the user
-								     types, so anyone relying on a screen reader loses the only
-								     description of the field mid-entry (WCAG 3.3.2, 4.1.2). -->
 								<textarea
 									:value="message.feedbackComment"
 									class="chat-page__feedback-input"
 									rows="2"
-									:aria-label="t('hermiq', 'Feedback details')"
 									:placeholder="t('hermiq', 'Optionally add details to your feedback…')"
 									@input="message.feedbackComment = $event.target.value" />
 								<NcButton
@@ -311,14 +305,11 @@
 						{{ sendError }}
 					</NcNoteCard>
 					<div class="chat-page__composer-row">
-						<!-- Same reason as the feedback box: the placeholder is a hint,
-						     not a name, and it is gone as soon as there is a message. -->
 						<textarea
 							ref="messageInput"
 							v-model="currentMessage"
 							class="chat-page__input"
 							rows="1"
-							:aria-label="t('hermiq', 'Message')"
 							:placeholder="t('hermiq', 'Ask a question…')"
 							:disabled="sending"
 							@keydown.enter.exact.prevent="handleSend"
@@ -1582,23 +1573,6 @@ export default {
 		max-height: 40%;
 		border-right: none;
 		border-bottom: 1px solid var(--color-border);
-	}
-}
-
-/* WCAG 2.2 AA 2.3.3 (Animation from Interactions).
-   The typing indicator is the one that matters here: it is an INFINITE bounce,
-   and a looping animation is exactly the pattern that triggers vestibular
-   symptoms. It is replaced with a static opacity rather than removed, so the
-   "assistant is typing" state is still conveyed — dropping the animation
-   without a replacement would delete the information along with the motion. */
-@media (prefers-reduced-motion: reduce) {
-	.chat-page__row {
-		transition: none;
-	}
-
-	.chat-page__typing span {
-		animation: none;
-		opacity: 0.7;
 	}
 }
 </style>

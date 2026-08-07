@@ -28,6 +28,7 @@ use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 /**
  * Tests for SettingsController.
@@ -71,6 +72,12 @@ class SettingsControllerTest extends TestCase
         $this->controller = new SettingsController(
             request: $this->request,
             settingsService: $this->settingsService,
+            // The controller now translates a throwable into a JSON error rather
+            // than letting the framework render a stack trace, and it records
+            // why. A mock is enough here: these tests assert the RESPONSE, and
+            // asserting on log calls would pin the wording rather than the
+            // behaviour.
+            logger: $this->createMock(LoggerInterface::class),
         );
 
     }//end setUp()

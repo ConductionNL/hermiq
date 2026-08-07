@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
  */
 
 declare(strict_types=1);
@@ -40,7 +40,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Tests for the agent-engine-port AgentsController.
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
  */
 class AgentsControllerTest extends TestCase
 {
@@ -137,7 +137,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testIndexFiltersByVisibility(): void
     {
@@ -165,7 +165,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testShowGuardsVisibility(): void
     {
@@ -194,7 +194,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testCreateStripsProtectedKeysAndAppliesDefaults(): void
     {
@@ -238,7 +238,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testUpdateIsOwnerOnlyAndStripsTampering(): void
     {
@@ -288,7 +288,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testPatchDelegatesToUpdate(): void
     {
@@ -318,7 +318,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testDestroyIsOwnerOnly(): void
     {
@@ -352,7 +352,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testStatsUsesPaginatedTotals(): void
     {
@@ -411,7 +411,7 @@ class AgentsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function testToolsReturnsFacadeCatalogue(): void
     {

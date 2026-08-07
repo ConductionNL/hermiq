@@ -157,7 +157,7 @@
 					{
 						"id": "browse-templates",
 						"label": "Browse templates",
-						"icon": "PackageVariantClosed",
+						"icon": "Package",
 						"handler": "navigate",
 						"route": "Store"
 					}
@@ -181,7 +181,7 @@
 						"id": "agent-core",
 						"type": "data",
 						"title": "Configuration",
-						"icon": "CogOutline",
+						"icon": "Cog",
 						"content": {
 							"_note": "content.title, not just the widget's top-level title: `data` is an ownsTitle widget type, so CnDetailPage's widgetDisplayTitle deliberately returns content.title for it and ignores the chrome title (otherwise a seeded title permanently shadows a user's edit and can never be changed). With the title only at the top level this card rendered the generic default header 'Data' instead of 'Configuration'.",
 							"title": "Configuration",
@@ -206,7 +206,7 @@
 						"content": {
 							"label": "Total runs",
 							"caption": "recorded",
-							"icon": "ChartTimelineVariant",
+							"icon": "Timeline",
 							"format": {
 								"style": "decimal",
 								"decimals": 0
@@ -300,7 +300,7 @@
 						"id": "agent-skills",
 						"type": "custom",
 						"title": "Skills",
-						"icon": "PackageVariantClosed",
+						"icon": "Package",
 						"_note": "skillInstalls attach/detach against the tenant Skill catalogue — the reverse of an object-list FK-child-collection shape (design.md Decision 3). Resolved via page.slots.widget-agent-skills -> agent-skills."
 					},
 					{
@@ -314,7 +314,7 @@
 						"id": "agent-run-operations",
 						"type": "custom",
 						"title": "Run operations",
-						"icon": "PlayCircleOutline",
+						"icon": "RocketLaunch",
 						"_note": "Schedule attach/edit, Dry run, Run now, cost estimate, budget status and the webhook trigger all read/write the SAME schedule object and share previewResult/runError state — the manifest grid has no cross-widget state channel, so they stay one widget (design.md Decision 3). Resolved via page.slots.widget-agent-run-operations -> agent-run-operations."
 					},
 					{
@@ -575,7 +575,7 @@
 						"id": "skill-learnings",
 						"type": "custom",
 						"title": "Learnings",
-						"icon": "SchoolOutline",
+						"icon": "School",
 						"_note": "skill-learnings: read-only Learnings card — files['learnings.md'] rendered as sanitised markdown + the levelEvidence.l6 activity strip (candidate count, learnings count, last capture/promotion); honest empty state; deliberately NO editing surface. Resolved via page.slots.widget-skill-learnings -> skill-learnings."
 					},
 					{
@@ -721,7 +721,7 @@
 					{
 						"id": "browse-templates",
 						"label": "Browse templates",
-						"icon": "PackageVariantClosed",
+						"icon": "Package",
 						"handler": "navigate",
 						"route": "Store"
 					},
@@ -739,7 +739,7 @@
 						"content": {
 							"label": "Total runs",
 							"caption": "recorded",
-							"icon": "ChartTimelineVariant",
+							"icon": "Timeline",
 							"route": {
 								"name": "AgentCatalog"
 							},
@@ -1086,7 +1086,7 @@
 						"id": "eval-run-panel",
 						"type": "custom",
 						"title": "Run",
-						"icon": "PlayCircleOutline",
+						"icon": "RocketLaunch",
 						"_note": "Agent-picker + Run (+ paired-baseline toggle with the mode-dependent cost note) + this dataset's run history incl. with/without paired rendering. Resolved via page.slots.widget-eval-run-panel -> eval-run-panel."
 					}
 				],

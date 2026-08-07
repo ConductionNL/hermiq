@@ -31,7 +31,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
  */
 
 declare(strict_types=1);
@@ -58,7 +58,7 @@ use Psr\Log\LoggerInterface;
  * Every `@NoAdminRequired` method that takes an agent uuid guards per-object
  * access/ownership in the method body (gate-7 no-admin-idor).
  *
- * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+ * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
  */
 class AgentsController extends Controller
 {
@@ -98,7 +98,7 @@ class AgentsController extends Controller
      * @param IUserSession       $userSession   Resolves the requesting user.
      * @param LoggerInterface    $logger        PSR-3 logger.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function __construct(
         IRequest $request,
@@ -122,7 +122,7 @@ class AgentsController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function index(): JSONResponse
     {
@@ -199,7 +199,7 @@ class AgentsController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function show(string $id): JSONResponse
     {
@@ -267,7 +267,7 @@ class AgentsController extends Controller
      * the session, so a caller cannot create an agent owned by, or inside the
      * organisation of, anyone else. New agents default to isPrivate: true.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function create(): JSONResponse
     {
@@ -347,7 +347,7 @@ class AgentsController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function update(string $id): JSONResponse
     {
@@ -429,7 +429,7 @@ class AgentsController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function patch(string $id): JSONResponse
     {
@@ -450,7 +450,7 @@ class AgentsController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function destroy(string $id): JSONResponse
     {
@@ -540,7 +540,7 @@ class AgentsController extends Controller
      * so a caller cannot count another organisation's agents by any parameter
      * this endpoint accepts.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function stats(): JSONResponse
     {
@@ -590,7 +590,7 @@ class AgentsController extends Controller
      * of them is a separate decision enforced at call time by the tool-grant
      * check, not by hiding the catalogue.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     public function tools(): JSONResponse
     {
@@ -639,7 +639,7 @@ class AgentsController extends Controller
      *
      * @return bool True when the user may access the agent.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool
     {
@@ -674,7 +674,7 @@ class AgentsController extends Controller
      *
      * @return bool True when the user may modify the agent.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     private function canUserModifyAgent(ObjectEntity $agent, string $userId): bool
     {
@@ -689,7 +689,7 @@ class AgentsController extends Controller
      *
      * @return array<string, mixed> The cleaned payload.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     private function stripProtectedKeys(array $data): array
     {
@@ -708,7 +708,7 @@ class AgentsController extends Controller
      *
      * @return int Agent count.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     private function countAgents(array $filters): int
     {
@@ -747,7 +747,7 @@ class AgentsController extends Controller
      *
      * @return array<string, mixed> Serialized agent.
      *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     * @spec openspec/changes/agent-engine-port/tasks.md#4-mirror-the-routes
      */
     private function serializeAgent(ObjectEntity $agent): array
     {

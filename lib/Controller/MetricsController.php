@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/example-change/tasks.md#task-8
+ * @spec openspec/specs/observability/spec.md#REQ-OBS-001
  *   (Illustrative stub per ADR-006 — every app MUST expose `GET /api/metrics`
  *   as Prometheus text, admin auth. Replace the metric values with real data.)
  */
@@ -64,7 +64,7 @@ class MetricsController extends Controller
      *
      * @return void
      *
-     * @spec openspec/changes/example-change/tasks.md#task-8
+     * @spec openspec/specs/observability/spec.md#REQ-OBS-001
      */
     public function __construct(
         IRequest $request,
@@ -91,7 +91,7 @@ class MetricsController extends Controller
      *
      * @return DataDisplayResponse
      *
-     * @spec openspec/changes/example-change/tasks.md#task-8
+     * @spec openspec/specs/observability/spec.md#REQ-OBS-001
      */
     #[NoCSRFRequired]
     public function index(): DataDisplayResponse
