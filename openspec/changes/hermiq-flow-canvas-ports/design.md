@@ -34,8 +34,15 @@ work that does not set an explicit height inherits this.
 | in | left | the node has at least one possible predecessor — i.e. always except a start node |
 | out | right | the node is not an exit node |
 | branch out | right, stacked | the step type declares branches; one per branch, labelled |
-| loop body-out | bottom | the step type is a loop |
-| loop body-in | bottom | the step type is a loop |
+| loop body-out | top | the step type is a loop |
+| loop body-in | top | the step type is a loop |
+
+**Loop ports sit on the TOP edge, not the bottom** (decided 2026-08-09). The
+proposal said bottom; `CnGraphCanvas` positions ports on `left`, `right` or
+`top` only, and its own rationale is that the nodes a loop repeats read as a
+visible sub-list above the chain rather than as a detour hanging beneath it.
+Following the renderer rather than restating an intent it cannot express.
+
 
 A start node having **no in-port** is what makes it visibly a start; an exit node
 having **no out-port** is what makes it visibly an end. That is stronger than

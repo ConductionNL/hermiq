@@ -70,7 +70,7 @@ shown as unassigned. It SHALL NOT be silently deleted.
 ### Requirement: A loop node has body ports (REQ-FA-006)
 
 A node whose step type is a loop SHALL render a body-out and a body-in port at
-its bottom edge. Nodes chained between them form the loop body.
+its top edge. Nodes chained between them form the loop body.
 
 The stored result SHALL be ordinary edges forming a cycle. No new stored
 structure is introduced.

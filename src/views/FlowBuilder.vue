@@ -33,6 +33,7 @@
 					class="flow-builder__step"
 					:class="{
 						'flow-builder__step--selected': edge.edge.id === editor.selectedEdgeId,
+						'flow-builder__step--unassigned': isUnassigned(edge.edge),
 					}">
 					<path
 						class="flow-builder__edge"
@@ -233,16 +234,6 @@ const TERMINAL_STEP_TYPES = ['openregister.stop']
 
 /** Step types that own a body of repeated nodes (IterateNode's `config.body`). */
 const LOOP_STEP_TYPES = ['openregister.iterate', 'openregister.loop']
-
-/**
- * Step types that send items down a named branch, read from `config.rules[]`.
- *
- * The registered id is `openregister.route`, NOT `...router` — the node class
- * is `RouterNode` and guessing the id from the class name yields a type no flow
- * uses, which would silently mean no branch ports were ever drawn. Verified
- * against the stored Hydra sequencer, whose three gates are all `route`.
- */
-const ROUTER_STEP_TYPES = ['openregister.route']
 
 /**
  * FlowBuilder — the canvas half of the flow editor.
@@ -477,29 +468,10 @@ export default {
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		branchesOf(node) {
-			if (!ROUTER_STEP_TYPES.includes(node.type)) {
-				return []
-			}
-
-			const rules = ((node.config || {}).rules) || []
-			if (!Array.isArray(rules)) {
-				return []
-			}
-
-			const names = []
-			rules.forEach((rule) => {
-				const output = String(((rule || {}).output) ?? '').trim()
-				if (output !== '' && !names.includes(output)) {
-					names.push(output)
-				}
-			})
-
-			const fallback = String(((node.config || {}).default) ?? '').trim()
-			if (fallback !== '' && !names.includes(fallback)) {
-				names.push(fallback)
-			}
-
-			return names
+			// Derived in the STORE, not here. The orphaned-branch check reads the
+			// same list, and two derivations would eventually disagree — marking
+			// an edge unassigned while the port it points at is still drawn.
+			return this.editor.branchesByNode[node.id] || []
 		},
 
 		/**
@@ -696,7 +668,37 @@ export default {
 				return ''
 			}
 
+			// An unassigned line ALWAYS gets a chip, even with no title. It is
+			// the one case where a blank line would hide the problem: the author
+			// changed a routing rule in another panel and this connection quietly
+			// stopped meaning anything.
+			if (this.isUnassigned(edge) === true) {
+				return this.t('hermiq', 'Unassigned: branch “{branch}” no longer exists', {
+					branch: String(edge.fromExit || '').trim(),
+				})
+			}
+
 			return String(edge.title || edge.name || '').trim()
+		},
+
+		/**
+		 * Whether this line leaves a branch its node no longer offers.
+		 *
+		 * The verdict comes from the store, which derives it from the same branch
+		 * list the ports are drawn from — so a line can never be marked
+		 * unassigned while the port it points at is still on screen.
+		 *
+		 * @param {object} edge The connection.
+		 * @return {boolean} True when its branch is gone.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		isUnassigned(edge) {
+			if (!edge || !edge.id) {
+				return false
+			}
+
+			return this.editor.orphanedBranchEdgeIds.includes(edge.id)
 		},
 
 		/**
@@ -974,6 +976,22 @@ export default {
 /* An untyped step runs nothing and reports success, so it is called out on the
    canvas rather than left to look like any other hop. */
 .flow-builder__step--untyped .flow-builder__step-chip {
+	stroke: var(--color-warning, #c28900);
+	stroke-dasharray: 4, 3;
+}
+
+/* A connection whose branch was removed from its routing node. Dashed AND
+   labelled: the line is drawn differently and the chip says what happened in
+   words, so the state survives greyscale and does not depend on telling two
+   line colours apart (WCAG 1.4.1). Never removed automatically — the author
+   drew it, and deleting it because a value changed elsewhere would lose work
+   with no trace. */
+.flow-builder__step--unassigned .flow-builder__edge {
+	stroke: var(--color-warning, #c28900);
+	stroke-dasharray: 6, 4;
+}
+
+.flow-builder__step--unassigned .flow-builder__step-chip {
 	stroke: var(--color-warning, #c28900);
 	stroke-dasharray: 4, 3;
 }

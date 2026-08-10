@@ -1206,7 +1206,8 @@
         "Saved, but this flow cannot finish": "Saved, but this flow cannot finish",
         "Will not run": "Will not run",
         "Your changes are saved. This is about what will happen when the flow RUNS.": "Your changes are saved. This is about what will happen when the flow RUNS.",
-        "Feedback details": "Feedback details"
+        "Feedback details": "Feedback details",
+        "Unassigned: branch “{branch}” no longer exists": "Unassigned: branch “{branch}” no longer exists"
     },
     "plurals": ""
 }
