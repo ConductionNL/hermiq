@@ -223,6 +223,14 @@
 			</template>
 
 			<div class="flow-sidebar__pane">
+				<!--
+					The three verbs together. "Check this flow" used to sit
+					below the validation card, several controls away from Run —
+					which is the one it belongs beside: checking is what you do
+					BEFORE running, and separating them made the check look like
+					a property of the result rather than an alternative to
+					starting one.
+				-->
 				<div class="flow-sidebar__verbs">
 					<NcButton type="primary" :disabled="editor.saving || !editor.flow.name" @click="save">
 						<template #icon>
@@ -237,10 +245,34 @@
 						</template>
 						{{ t('hermiq', 'Run…') }}
 					</NcButton>
+					<NcButton type="secondary" @click="editor.validate()">
+						<template #icon>
+							<CheckDecagram :size="20" />
+						</template>
+						{{ t('hermiq', 'Check') }}
+					</NcButton>
 				</div>
-				<p v-if="editor.dirty" class="flow-sidebar__hint">
-					{{ t('hermiq', 'Unsaved changes') }}
-				</p>
+
+				<!--
+					Unsaved changes as a WARNING, not a hint. It was a line of
+					muted grey among five other muted grey lines, which is where
+					an operator's eye does not go — and the thing it reports is
+					that closing this page loses work.
+				-->
+				<NcNoteCard v-if="editor.dirty" type="warning">
+					{{ t('hermiq', 'Unsaved changes. Save before leaving this page.') }}
+				</NcNoteCard>
+
+				<!-- Auto-sort moves nothing but coordinates. See the layout
+				     function: the node list, connections, types, configurations
+				     and branch targets are identical before and after, which is
+				     what makes this safe to press on a flow that works. -->
+				<NcButton type="tertiary" :disabled="editor.nodes.length === 0" @click="editor.autoSort()">
+					<template #icon>
+						<SortVariant :size="20" />
+					</template>
+					{{ t('hermiq', 'Auto sort') }}
+				</NcButton>
 
 				<!-- The engine's own preflight, not a second opinion: it builds
 				     the same definition the run builds and calls each step's
@@ -250,12 +282,6 @@
 				<NcNoteCard v-if="validationMessage" :type="editor.validation.valid ? 'success' : 'error'">
 					{{ validationMessage }}
 				</NcNoteCard>
-				<NcButton type="tertiary" @click="editor.validate()">
-					<template #icon>
-						<CheckDecagram :size="20" />
-					</template>
-					{{ t('hermiq', 'Check this flow') }}
-				</NcButton>
 
 				<NcTextField
 					:model-value="editor.flow.name"
@@ -341,6 +367,7 @@ import Delete from 'vue-material-design-icons/Delete.vue'
 import History from 'vue-material-design-icons/History.vue'
 import Magnify from 'vue-material-design-icons/Magnify.vue'
 import Refresh from 'vue-material-design-icons/Refresh.vue'
+import SortVariant from 'vue-material-design-icons/SortVariant.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
@@ -378,6 +405,7 @@ export default {
 		History,
 		Magnify,
 		Refresh,
+		SortVariant,
 		Pencil,
 		NcAppSidebar,
 		NcAppSidebarTab,

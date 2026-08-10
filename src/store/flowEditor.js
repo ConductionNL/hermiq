@@ -728,6 +728,97 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		},
 
 		/**
+		 * Lay the graph out so it reads in one direction.
+		 *
+		 * Changes COORDINATES AND NOTHING ELSE. Not one node, connection, type,
+		 * configuration or branch target differs before and after — that is the
+		 * property that makes this safe to press on a flow that works, and it
+		 * is the reason this builds new `{...node, x, y}` objects rather than
+		 * touching anything else on them.
+		 *
+		 * The layout is a longest-path layering: a node sits one column right
+		 * of the furthest-along thing that reaches it, so an edge always points
+		 * forward and the eye can follow the flow without tracing arrowheads.
+		 * Rows within a column are just the order encountered, which is stable
+		 * and good enough — this is a reading aid, not a graph-drawing engine.
+		 *
+		 * Cycles cannot be layered, so the walk is depth-bounded by the node
+		 * count: a flow that loops back still terminates and still gets a
+		 * position for every node. Anything the walk never reaches — an
+		 * unreachable island — is placed in a final column rather than dropped
+		 * or left stacked at the origin, where it would be invisible under
+		 * whatever else sits there.
+		 *
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-auto-sort-arranges-the-drawing-and-never-the-flow
+		 */
+		autoSort() {
+			const nodes = this.nodes
+			if (nodes.length === 0) {
+				return
+			}
+
+			const outgoing = new Map()
+			for (const edge of this.edges) {
+				for (const from of edge.from) {
+					if (outgoing.has(from) === false) {
+						outgoing.set(from, [])
+					}
+					outgoing.get(from).push(...edge.to)
+				}
+			}
+
+			// Column per node: one past the furthest predecessor that reaches
+			// it. Seeded from the entry points the store already derives, so
+			// the drawing agrees with what the engine calls a start.
+			const column = new Map()
+			const seeds = this.startNodeIds.length > 0 ? this.startNodeIds : [nodes[0].id]
+			const queue = seeds.map((id) => ({ id, depth: 0 }))
+			let guard = nodes.length * nodes.length
+
+			while (queue.length > 0 && guard > 0) {
+				guard--
+				const { id, depth } = queue.shift()
+				if (column.has(id) === true && column.get(id) >= depth) {
+					continue
+				}
+
+				column.set(id, depth)
+				for (const next of (outgoing.get(id) || [])) {
+					queue.push({ id: next, depth: depth + 1 })
+				}
+			}
+
+			// Unreachable nodes go one column past everything placed, never at
+			// the origin: stacked there they would sit under the entry points.
+			const furthest = column.size > 0 ? Math.max(...column.values()) : 0
+			for (const node of nodes) {
+				if (column.has(node.id) === false) {
+					column.set(node.id, furthest + 1)
+				}
+			}
+
+			const COLUMN_WIDTH = 260
+			const ROW_HEIGHT = 170
+			const MARGIN = 60
+			const rowsUsed = new Map()
+
+			this.flow.nodes = nodes.map((node) => {
+				const col = column.get(node.id)
+				const row = rowsUsed.get(col) || 0
+				rowsUsed.set(col, row + 1)
+
+				return {
+					...node,
+					x: MARGIN + (col * COLUMN_WIDTH),
+					y: MARGIN + (row * ROW_HEIGHT),
+				}
+			})
+			this.dirty = true
+		},
+
+		/**
 		 * Load this flow's run history.
 		 *
 		 * Never on open. A flow's history is a panel an operator asks for, and
