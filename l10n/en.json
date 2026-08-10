@@ -1,4 +1,7 @@
 {
+        "This flow has no end node, so no path finishes deliberately. Add an End node — it may end in success or in error, but the flow must say where it stops.": "This flow has no end node, so no path finishes deliberately. Add an End node — it may end in success or in error, but the flow must say where it stops.",
+        "This flow has no trigger and no end node. Nothing can start it, and no path finishes deliberately. Add a trigger and an End node.": "This flow has no trigger and no end node. Nothing can start it, and no path finishes deliberately. Add a trigger and an End node.",
+        "This flow has no trigger node, so nothing can ever start it. Add a trigger — an object change, a schedule, or someone running it by hand.": "This flow has no trigger node, so nothing can ever start it. Add a trigger — an object change, a schedule, or someone running it by hand.",
     "translations": {
         "\"Satisfied\" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.": "\"Satisfied\" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.",
         "%n case": "%n case",
@@ -1207,9 +1210,9 @@
         "Check": "Check",
         "Unsaved changes. Save before leaving this page.": "Unsaved changes. Save before leaving this page.",
         "Add to flow": "Add to flow",
-        "start": "start",
+        "end": "end",
         "step": "step",
-        "stop": "stop",
+        "trigger": "trigger",
         "A connection carries sequence and the words a reader needs. What a step DOES is on the node.": "A connection carries sequence and the words a reader needs. What a step DOES is on the node.",
         "Copy": "Copy",
         "Hide on canvas": "Hide on canvas",

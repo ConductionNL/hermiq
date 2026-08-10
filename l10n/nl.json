@@ -1,4 +1,7 @@
 {
+        "This flow has no end node, so no path finishes deliberately. Add an End node — it may end in success or in error, but the flow must say where it stops.": "Deze flow heeft geen eindnode, dus geen enkel pad eindigt bewust. Voeg een End-node toe — die mag eindigen in succes of in een fout, maar de flow moet zeggen waar hij stopt.",
+        "This flow has no trigger and no end node. Nothing can start it, and no path finishes deliberately. Add a trigger and an End node.": "Deze flow heeft geen trigger en geen eindnode. Niets kan hem starten en geen enkel pad eindigt bewust. Voeg een trigger en een End-node toe.",
+        "This flow has no trigger node, so nothing can ever start it. Add a trigger — an object change, a schedule, or someone running it by hand.": "Deze flow heeft geen triggernode, dus niets kan hem ooit starten. Voeg een trigger toe — een objectwijziging, een schema, of iemand die hem handmatig start.",
     "translations": {
         "\"Satisfied\" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.": "\"Voldaan\" betekent dat Hermiq deze control kan onderbouwen met zijn eigen governance-gegevens — het is geen certificering van naleving door een bevoegde auditor.",
         "%n case": "%n case",
@@ -1187,9 +1190,9 @@
         "risk category must be high": "risicocategorie moet hoog zijn",
         "sample": "voorbeeld",
         "sample of {count}": "steekproef van {count}",
-        "start": "start",
+        "end": "eind",
         "step": "stap",
-        "stop": "stop",
+        "trigger": "trigger",
         "tokens": "tokens",
         "tool": "tool",
         "tool rules": "toolregels",

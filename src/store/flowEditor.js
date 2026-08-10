@@ -165,6 +165,31 @@ function normaliseEdge(edge, index) {
 	}
 }
 
+/**
+ * Find a catalogue entry for a node type, following renames.
+ *
+ * A STORED flow may name a type by an id that has since been renamed. The
+ * engine resolves those itself and publishes the old ids as `aliases` on the
+ * catalogue entry, so this follows the engine's map rather than keeping a
+ * second copy of it — a duplicated rename table is only correct until the next
+ * rename.
+ *
+ * @param {Array<object>} catalogue The node catalogue.
+ * @param {string}        type      The type id a node carries.
+ *
+ * @return {object|undefined} The entry, or undefined when nothing matches.
+ */
+function catalogueEntry(catalogue, type) {
+	const id = String(type || '')
+	if (id === '') {
+		return undefined
+	}
+
+	return (catalogue || []).find((candidate) =>
+		candidate.id === id || (candidate.aliases || []).includes(id),
+	)
+}
+
 export const useFlowEditorStore = defineStore('flowEditor', {
 	state: () => ({
 		flow: emptyFlow(),
@@ -381,22 +406,22 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * Read from the catalogue the ENGINE ships, never inferred from the id.
 		 * OpenRegister decides this from the markers a node implements
-		 * (`IFlowStartNode` / `IFlowStopNode`), so a start or stop node
+		 * (`IFlowTriggerNode` / `IFlowEndNode`), so a trigger or end node
 		 * contributed by any app is recognised whatever it is called — which a
-		 * string match on `.trigger-` or `.stop` cannot do.
+		 * string match on `.trigger-` or `.end` cannot do.
 		 *
 		 * Note this is a different question from `startNodeIds`/`endNodeIds`,
 		 * which are about where a node sits in THIS graph. A type can be a
 		 * `step` and still be the first node drawn.
 		 *
 		 * @param {object} state The flow-editor store state.
-		 * @return {Function} `(type: string) => 'start'|'step'|'stop'`.
+		 * @return {Function} `(type: string) => 'trigger'|'step'|'end'`.
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-node-palette-is-a-card-per-type-and-the-card-explains-itself
 		 */
 		roleOfNodeType: (state) => (type) => {
 			const id = String(type || '')
-			const entry = (state.nodeCatalog || []).find((candidate) => candidate.id === id)
+			const entry = catalogueEntry(state.nodeCatalog, id)
 
 			if (entry !== undefined && entry.role) {
 				return entry.role
@@ -407,14 +432,68 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			// than calling everything a step, which would draw a trigger as an
 			// ordinary node.
 			if (id.includes('.trigger-')) {
-				return 'start'
+				return 'trigger'
 			}
 
-			if (id.endsWith('.stop')) {
-				return 'stop'
+			if (id.endsWith('.end') || id.endsWith('.stop')) {
+				return 'end'
 			}
 
 			return 'step'
+		},
+
+		/**
+		 * The catalogue entry a node's type resolves to, renames included.
+		 *
+		 * Exposed so the canvas resolves types the same way the store does —
+		 * two lookups that disagree would draw a stored flow differently from
+		 * the way the sidebar describes it.
+		 *
+		 * @param {object} state The flow-editor store state.
+		 * @return {Function} `(type: string) => object|undefined`.
+		 */
+		catalogueEntryFor: (state) => (type) => catalogueEntry(state.nodeCatalog, type),
+
+		/**
+		 * What this flow is missing to be runnable at all: a trigger, an end.
+		 *
+		 * Decided by node TYPE, never by graph position. "Nothing points at this
+		 * node" and "this node has no outgoing edge" are facts about one
+		 * drawing — reading them as roles calls an unconnected step a trigger,
+		 * which is how a flow that can never fire looks finished.
+		 *
+		 * An end may finish in SUCCESS or in ERROR: `openregister.end` carries
+		 * an `error` flag, and failing is an outcome rather than the absence of
+		 * one, so both count.
+		 *
+		 * Empty flows report nothing — a blank canvas is missing both by
+		 * definition and the author can see that.
+		 *
+		 * @param {object} state The flow-editor store state.
+		 * @return {{trigger: boolean, end: boolean}} Which ends are missing.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-a-flow-must-have-a-trigger-and-an-end
+		 */
+		missingEnds() {
+			const nodes = (this.flow.nodes || [])
+			if (nodes.length === 0) {
+				return { trigger: false, end: false }
+			}
+
+			let hasTrigger = false
+			let hasEnd = false
+			for (const node of nodes) {
+				const role = this.roleOfNodeType(node?.type)
+				if (role === 'trigger') {
+					hasTrigger = true
+				}
+
+				if (role === 'end') {
+					hasEnd = true
+				}
+			}
+
+			return { trigger: !hasTrigger, end: !hasEnd }
 		},
 
 		startNodeIds: (state) => {
@@ -705,7 +784,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodeTypeLabel(type) {
-			const entry = (this.nodeCatalog || []).find((candidate) => candidate.id === type)
+			const entry = catalogueEntry(this.nodeCatalog, type)
 
 			return entry?.displayName || ''
 		},

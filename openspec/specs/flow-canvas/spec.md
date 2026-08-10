@@ -193,8 +193,8 @@ which would read as "it did nothing".
 
 Each palette entry MUST be a card carrying the node's name, the beginning of the
 engine's own description, and the icon of the app that CONTRIBUTED the type in
-front of the name. Cards MUST be colour-coded by role — `start`, `step`, `stop`
-— and the role MUST also be readable without colour.
+front of the name. Cards MUST be colour-coded by role — `trigger`, `step`,
+`end` — and the role MUST also be readable without colour.
 
 The role MUST be read from the `role` OpenRegister ships on every palette entry,
 which it decides from the markers a node implements. The editor MUST NOT infer
@@ -202,13 +202,55 @@ it from the node's id: a convention like `id.includes('.trigger-')` recognises
 OpenRegister's own three and silently badges a start or stop node contributed by
 any other app as a step.
 
-One vocabulary, everywhere. `start` / `step` / `stop` are the words in the node
+One vocabulary, everywhere. `trigger` / `step` / `end` are the words in the node
 ids, in the engine's interfaces, in the palette API and on the badge. The editor
-must not introduce a fourth set — it previously showed "starts"/"ends" over role
-keys `trigger`/`terminal` over ids `trigger-*`/`stop`.
+must not introduce a fourth set — it has previously shown "starts"/"ends" over
+role keys `trigger`/`terminal` over ids `trigger-*`/`stop`.
 
-The list MUST be ordered `start`, then `step`, then `stop`: the order a flow is
+The list MUST be ordered `trigger`, then `step`, then `end`: the order a flow is
 read in, so the list itself teaches the shape of one.
+
+A node on the CANVAS MUST be drawn from its declared role too. Drawing it from
+graph position — "nothing points at this node, so paint it as a start" — colours
+an unconnected step as an entry point, which makes a flow that can never fire
+look finished.
+
+An editor MUST resolve a stored node's type through the `aliases` the palette
+publishes. A flow saved before a node was renamed still names the old id, and
+without the aliases it renders a raw type id where the node's name belongs while
+the engine runs it perfectly well.
+
+### Requirement: A flow MUST have a trigger and an end
+
+The editor MUST show an ERROR banner when a flow carries no trigger node, no end
+node, or neither. Both facts are invisible on the canvas: a flow with no trigger
+sits there fully drawn and never runs, and no run record appears to say why.
+
+An error rather than a warning, because unlike a half-wired graph there is no
+version of a working flow that has no trigger. It MUST NOT block the save — the
+author is mid-build, and refusing would force them to build in an order where
+the document is never incomplete.
+
+When BOTH are missing, ONE message MUST name both. An author told about the
+trigger, who adds it and is then told about the end, has been made to do the
+work twice.
+
+Both MUST be decided by node TYPE, never by graph position, and an end may
+finish in success or in error — both are deliberate ends.
+
+#### Scenario: A flow with no trigger says so
+- **GIVEN** a flow with steps and an end node but no trigger node
+- **WHEN** its Flow tab is opened
+- **THEN** an error banner MUST name the missing trigger
+- **AND** saving MUST still be possible
+- @e2e exclude covered by the canvas's component tests
+
+#### Scenario: An empty flow is not nagged
+- **GIVEN** a flow with no nodes at all
+- **WHEN** its Flow tab is opened
+- **THEN** no missing-ends banner MUST be shown, because a blank canvas is
+  missing both by definition and the author can see that
+- @e2e exclude covered by the canvas's component tests
 
 The provider's icon is not decoration. The catalogue mixes types from
 OpenRegister, openconnector and hermiq, and which app a node comes from decides

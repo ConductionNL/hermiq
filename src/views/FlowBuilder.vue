@@ -159,12 +159,9 @@
 					"Edit node" button for the selected node and that is the
 					accessible path.
 
-					`--trigger` is keyed on the node's TYPE, not on its position
-					in the graph. `roleOf` already calls a node with nothing
-					before it a "start", which a trigger normally is — but that
-					is an inference from topology, and a trigger wired into the
-					middle of a flow would stop looking like one exactly when it
-					most needs to.
+					How a node is DRAWN comes from its type, never from where it
+					sits: a trigger wired into the middle of a flow is still a
+					trigger, and an unconnected step is not one.
 				-->
 				<!--
 					`v-else`, and load-bearing: without it an annotation drew
@@ -177,8 +174,12 @@
 					v-else
 					class="flow-builder__node"
 					:class="{
-						[`flow-builder__node--${roleOf(node.id)}`]: true,
-						'flow-builder__node--trigger': isTrigger(node),
+						// The node's TYPE decides how it is drawn, never its
+						// place in the drawing. This keyed off `roleOf(node.id)`
+						// — nothing points at it, so paint it as a start —
+						// which colours an unconnected step as an entry point
+						// and makes a flow that can never fire look finished.
+						[`flow-builder__node--${editor.roleOfNodeType(node.type)}`]: true,
 						'flow-builder__node--untyped': !node.type,
 						'flow-builder__node--replayed': editor.replayedNodeIds.includes(node.id),
 					}"
@@ -1041,7 +1042,7 @@ export default {
 				return this.t('hermiq', 'No step type')
 			}
 
-			const entry = (this.editor.nodeCatalog || []).find((candidate) => candidate.id === node.type)
+			const entry = this.editor.catalogueEntryFor(node.type)
 
 			// A type the catalogue cannot explain is shown as its raw id rather
 			// than guessed at from a list that may not match the engine.
@@ -1181,37 +1182,6 @@ export default {
 		 * @param {string} id The place id.
 		 * @return {string} `'start'`, `'end'` or `'step'`.
 		 */
-		/**
-		 * Whether this node is an entry point — one of the engine's trigger
-		 * types.
-		 *
-		 * Asked of the ENGINE's catalogue, not of the id's shape. It used to
-		 * match a `.trigger-` prefix, which recognises OpenRegister's own three
-		 * and silently misses a start node any other app contributes under a
-		 * different name — the exact failure the prefix test was written to
-		 * avoid, arrived at from the other side.
-		 *
-		 * @param {object} node The node.
-		 * @return {boolean} Whether a run may begin here.
-		 *
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		isTrigger(node) {
-			return this.editor.roleOfNodeType(node?.type) === 'start'
-		},
-
-		roleOf(id) {
-			if (this.editor.startNodeIds.includes(id)) {
-				return 'start'
-			}
-
-			if (this.editor.endNodeIds.includes(id)) {
-				return 'end'
-			}
-
-			return 'step'
-		},
-
 		/**
 		 * A place's label.
 		 *
@@ -1651,7 +1621,7 @@ export default {
 /* Role, on the port: green where a run begins, red where it ends. The port is a
    sibling of our slot content, so it cannot be given a class from inside the
    slot — `:has()` reads the role off the card we DID render. */
-.flow-builder :deep(.cn-graph-canvas__node:has(.flow-builder__node--start) .cn-graph-canvas__handle) {
+.flow-builder :deep(.cn-graph-canvas__node:has(.flow-builder__node--trigger) .cn-graph-canvas__handle) {
 	background-color: var(--color-success, #46ba61);
 }
 
@@ -1680,10 +1650,12 @@ export default {
 /* Selection is the wrapper's: CnGraphCanvas sets --selected on the element it
    positions, so restating it here would be a second, competing highlight. */
 
-/* Role accents — NC variables only (ADR-010). Keyed on the place's ROLE in the
-   flow, not on a node "type": a place has no type, and the per-type accents
-   this replaced could never match anything for that reason. */
-.flow-builder__node--start {
+/* Role accents — NC variables only (ADR-010). Keyed on the node's declared
+   ROLE, which OpenRegister ships on the catalogue entry, so a trigger or end
+   node contributed by any app is coloured correctly whatever it is called.
+   These used to key off graph POSITION, which painted an unconnected step
+   green as though a run began there. */
+.flow-builder__node--trigger {
 	box-shadow: inset 6px 0 0 0 var(--color-success, #46ba61);
 }
 
@@ -1828,10 +1800,6 @@ export default {
 
 .flow-builder__payload {
 	cursor: pointer;
-}
-
-.flow-builder__node--trigger {
-	box-shadow: inset 6px 0 0 0 var(--color-success, #46ba61);
 }
 
 .flow-builder__node-role {

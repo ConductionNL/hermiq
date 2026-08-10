@@ -260,6 +260,22 @@
 					{{ t('hermiq', 'Unsaved changes. Save before leaving this page.') }}
 				</NcNoteCard>
 
+				<!--
+					A flow needs a way IN and a way OUT, and neither is visible
+					by looking at the canvas: a flow with no trigger sits there
+					fully drawn and never runs, with no run record to say why.
+
+					An ERROR rather than a warning, because unlike a half-wired
+					graph this is never a step on the way to a finished flow —
+					there is no version of a working flow that has no trigger.
+					It does not block the save: the author is mid-build, and
+					refusing would force them to build in an order where the
+					document is never incomplete.
+				-->
+				<NcNoteCard v-if="missingEnds.trigger || missingEnds.end" type="error">
+					{{ missingEndsMessage }}
+				</NcNoteCard>
+
 				<!-- Auto-sort moves nothing but coordinates. See the layout
 				     function: the node list, connections, types, configurations
 				     and branch targets are identical before and after, which is
@@ -492,11 +508,11 @@ export default {
 			// Ties keep the catalogue's own order, which groups by provider.
 			//
 			// The keys are the ENGINE's vocabulary, which is now also the
-			// badge's and the node ids' — start/step/stop. An earlier version
+			// badge's and the node ids' — trigger/step/end. An earlier version
 			// ranked by words that matched none of them, so every lookup missed
 			// and every type tied on the default: the list came back in
 			// catalogue order looking untouched.
-			const rank = { start: 0, step: 1, stop: 2 }
+			const rank = { trigger: 0, step: 1, end: 2 }
 
 			return matched
 				.map((entry, index) => ({ entry, index }))
@@ -522,6 +538,42 @@ export default {
 			}
 
 			return this.t('hermiq', 'No node type matches “{search}”.', { search: this.nodeSearch })
+		},
+
+		/**
+		 * Which ends this flow is missing.
+		 *
+		 * @return {{trigger: boolean, end: boolean}} The missing ends.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-a-flow-must-have-a-trigger-and-an-end
+		 */
+		missingEnds() {
+			return this.editor.missingEnds
+		},
+
+		/**
+		 * The missing-ends banner, naming what to add.
+		 *
+		 * Both are named in ONE message when both are missing: an author told
+		 * about the trigger, who adds it and is then told about the end, has
+		 * been made to do the work twice.
+		 *
+		 * @return {string} The message.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-a-flow-must-have-a-trigger-and-an-end
+		 */
+		missingEndsMessage() {
+			const missing = this.missingEnds
+
+			if (missing.trigger && missing.end) {
+				return this.t('hermiq', 'This flow has no trigger and no end node. Nothing can start it, and no path finishes deliberately. Add a trigger and an End node.')
+			}
+
+			if (missing.trigger) {
+				return this.t('hermiq', 'This flow has no trigger node, so nothing can ever start it. Add a trigger — an object change, a schedule, or someone running it by hand.')
+			}
+
+			return this.t('hermiq', 'This flow has no end node, so no path finishes deliberately. Add an End node — it may end in success or in error, but the flow must say where it stops.')
 		},
 
 		/**
@@ -590,9 +642,10 @@ export default {
 		/**
 		 * A role as a word, for the card.
 		 *
-		 * The badge says the SAME word the engine and the node ids use. It
-		 * used to say "starts"/"ends" over role keys `trigger`/`terminal` over
-		 * ids `trigger-*`/`stop` — three vocabularies for two concepts.
+		 * The badge says the SAME word the engine and the node ids use:
+		 * trigger / step / end. It has been through "starts"/"ends" over role
+		 * keys `trigger`/`terminal` over ids `trigger-*`/`stop` — three
+		 * vocabularies for two concepts — which is what this settles.
 		 *
 		 * @param {string} role The role key.
 		 * @return {string} The label.
@@ -600,12 +653,12 @@ export default {
 		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-node-palette-is-a-card-per-type-and-the-card-explains-itself
 		 */
 		roleWord(role) {
-			if (role === 'start') {
-				return this.t('hermiq', 'start')
+			if (role === 'trigger') {
+				return this.t('hermiq', 'trigger')
 			}
 
-			if (role === 'stop') {
-				return this.t('hermiq', 'stop')
+			if (role === 'end') {
+				return this.t('hermiq', 'end')
 			}
 
 			return this.t('hermiq', 'step')
@@ -787,11 +840,11 @@ export default {
 	cursor: grab;
 }
 
-.flow-sidebar__palette-card--start {
+.flow-sidebar__palette-card--trigger {
 	border-left-color: var(--color-success, #46ba61);
 }
 
-.flow-sidebar__palette-card--stop {
+.flow-sidebar__palette-card--end {
 	border-left-color: var(--color-error, #e9322d);
 }
 
