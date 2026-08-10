@@ -200,17 +200,33 @@
 					:label="t('hermiq', 'Description')"
 					@update:model-value="editor.setFlowField('description', $event)" />
 
-				<CnRegisterSchemaSelect
-					:register="editor.flow.triggerRegister || ''"
-					:schema="editor.flow.triggerSchema || ''"
-					@update:register="editor.setFlowField('triggerRegister', $event)"
-					@update:schema="editor.setFlowField('triggerSchema', $event)" />
+				<!--
+					What starts this flow, and nothing else, in one group.
 
+					`triggerRegister`/`triggerSchema` used to render ABOVE the
+					trigger picker, unconditionally, labelled only "Register"
+					and "Schema" — so two fields that exist solely to say WHICH
+					OBJECTS fire an object trigger read as general flow
+					settings, and appeared even on a schedule or manual flow
+					that has no subject at all. They belong to the trigger, so
+					they follow it and appear only when one is selected.
+				-->
 				<NcSelect
 					:model-value="editor.flow.trigger || ''"
 					:options="triggers"
 					:input-label="t('hermiq', 'Trigger')"
 					@update:model-value="editor.setFlowField('trigger', $event)" />
+
+				<template v-if="triggerIsObjectEvent">
+					<p class="flow-sidebar__hint">
+						{{ t('hermiq', 'Which objects fire this trigger.') }}
+					</p>
+					<CnRegisterSchemaSelect
+						:register="editor.flow.triggerRegister || ''"
+						:schema="editor.flow.triggerSchema || ''"
+						@update:register="editor.setFlowField('triggerRegister', $event)"
+						@update:schema="editor.setFlowField('triggerSchema', $event)" />
+				</template>
 
 				<!-- Only meaningful on a schedule trigger, and shown only then:
 				     a cron field on an event-driven flow reads as a second,
@@ -340,6 +356,22 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * Whether the selected trigger fires on an OBJECT event, and therefore
+		 * has a subject to narrow.
+		 *
+		 * `schedule` and `manual` have no subject: a register/schema pair on
+		 * either is dead configuration that is saved, never read, and reads to
+		 * the next person as though it scoped something.
+		 *
+		 * @return {boolean} Whether to offer the register/schema pair.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		triggerIsObjectEvent() {
+			return String(this.editor.flow.trigger || '').startsWith('object.')
+		},
+
 		/**
 		 * The engine's step catalogue as picker options.
 		 *
