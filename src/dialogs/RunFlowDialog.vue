@@ -10,8 +10,20 @@
 		size="normal"
 		@update:open="$emit('close')">
 		<div class="run-flow-dialog">
+			<!--
+				OPTIONAL, because not every flow walks an object. A flow that
+				syncs an external API or summarises a mailbox begins with
+				nothing and fetches what it needs in its first node — which is
+				what `openregister.trigger-schedule` says out loud, and what the
+				engine has always allowed: `FlowRunService::queue()` takes
+				`array $subject = []`, and the scheduled sweep passes none.
+
+				Demanding one here made the editor stricter than the engine, so
+				a perfectly runnable flow could not be started from its own Run
+				button.
+			-->
 			<NcNoteCard type="info">
-				{{ t('hermiq', 'The flow walks a concrete object. Name the object it should run against — its state seeds the run, and object-write steps write back onto it.') }}
+				{{ t('hermiq', 'Optional: a flow that walks an object can be given one to run against — its state seeds the run and object-write steps write back onto it. A flow that fetches its own work, like a sync or a mailbox summary, needs none.') }}
 			</NcNoteCard>
 
 			<CnRegisterSchemaSelect
@@ -32,9 +44,16 @@
 			<NcTextField
 				:model-value="subjectUuid"
 				:label="t('hermiq', 'Subject object UUID')"
-				:placeholder="t('hermiq', 'Pick above, or paste a UUID')"
-				required
+				:placeholder="t('hermiq', 'Pick above, paste a UUID, or leave empty')"
 				@update:model-value="subjectUuid = $event" />
+
+			<!-- Says which of the two runs is about to happen, so "Run" with an
+			     empty form is a deliberate choice rather than a hope. -->
+			<p class="run-flow-dialog__hint">
+				{{ subjectUuid === ''
+					? t('hermiq', 'Running with no object. The flow must fetch its own work.')
+					: t('hermiq', 'Running against the object above.') }}
+			</p>
 
 			<NcNoteCard v-if="error" type="error">
 				{{ error }}
@@ -123,8 +142,22 @@ export default {
 		 *
 		 * @return {boolean} True when the run can be submitted.
 		 */
+		/**
+		 * A run needs no subject at all — and a PARTIAL one is refused.
+		 *
+		 * Either name an object completely (register, schema and uuid) or name
+		 * none. Half a subject is the case that silently misbehaves: the engine
+		 * would seed the run from nothing while the author believed they had
+		 * pointed it at a record.
+		 *
+		 * @return {boolean} Whether Run may be pressed.
+		 */
 		canRun() {
-			return this.subjectRegister !== '' && this.subjectSchema !== '' && this.subjectUuid !== ''
+			if (this.subjectUuid === '') {
+				return true
+			}
+
+			return this.subjectRegister !== '' && this.subjectSchema !== ''
 		},
 
 		/** @return {object|null} The candidate matching the current uuid. */

@@ -248,6 +248,22 @@
 						</template>
 						{{ t('hermiq', 'Check') }}
 					</NcButton>
+					<!-- Auto-sort moves nothing but coordinates. See the layout
+					     function: the node list, connections, types,
+					     configurations and branch targets are identical before
+					     and after, which is what makes this safe to press on a
+					     flow that works. It sits with the other verbs rather
+					     than adrift between two status cards, where it read as
+					     a remedy for whichever banner happened to be above it. -->
+					<NcButton
+						type="tertiary"
+						:disabled="editor.nodes.length === 0"
+						@click="editor.autoSort()">
+						<template #icon>
+							<SortVariant :size="20" />
+						</template>
+						{{ t('hermiq', 'Auto sort') }}
+					</NcButton>
 				</div>
 
 				<!--
@@ -275,17 +291,6 @@
 				<NcNoteCard v-if="missingEnds.trigger || missingEnds.end" type="error">
 					{{ missingEndsMessage }}
 				</NcNoteCard>
-
-				<!-- Auto-sort moves nothing but coordinates. See the layout
-				     function: the node list, connections, types, configurations
-				     and branch targets are identical before and after, which is
-				     what makes this safe to press on a flow that works. -->
-				<NcButton type="tertiary" :disabled="editor.nodes.length === 0" @click="editor.autoSort()">
-					<template #icon>
-						<SortVariant :size="20" />
-					</template>
-					{{ t('hermiq', 'Auto sort') }}
-				</NcButton>
 
 				<!-- The engine's own preflight, not a second opinion: it builds
 				     the same definition the run builds and calls each step's

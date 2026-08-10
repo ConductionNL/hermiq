@@ -1539,11 +1539,22 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @return {Promise<object>} The run.
 		 */
 		async run(subject) {
-			const queued = await runFlow(this.flow.id, {
-				uuid: subject.uuid,
-				register: subject.register,
-				schema: subject.schema,
-			})
+			// NO subject rather than a subject of empty strings. The engine
+			// takes `array $subject = []` and a scheduled run passes none, so
+			// sending `{uuid: '', register: '', schema: ''}` hands it three
+			// blank fields to interpret where it expects nothing at all — the
+			// two are not the same claim, and only one of them is what the
+			// author meant by leaving the form empty.
+			const named = String(subject?.uuid || '') !== ''
+			const payload = named
+				? {
+					uuid: subject.uuid,
+					register: subject.register,
+					schema: subject.schema,
+				}
+				: {}
+
+			const queued = await runFlow(this.flow.id, payload)
 
 			this.lastRun = queued
 			if (queued?.uuid) {
