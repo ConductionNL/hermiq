@@ -7,8 +7,43 @@ on:
     branches: [main, master, development, beta]
   workflow_dispatch:
 
+# EVERY push run on `development` was being CANCELLED before it created a single
+# job — 6 of the last 6, plus both `workflow_dispatch` runs. This repo therefore
+# had NO verdict of its own at all.
+#
+# The old group was `quality-${{ github.head_ref || github.ref_name }}`.
+# Deduplicating a push against the pull_request run for the SAME head ref is the
+# point of this block and is exactly right for a feature branch: two runs of
+# identical jobs, one wasted.
+#
+# It is wrong for `main` and `development`, because there the push run is NOT a
+# duplicate — it is the only carrier of the push-only jobs (Coverage Baseline
+# Check, SBOM, Features Extract, all gated on `github.event_name == 'push'` or
+# `!= 'pull_request'`). And those two branches always have an open PR whose
+# `head_ref` IS the branch name: the standing "Release: merge development into
+# beta". So `github.head_ref` on that PR run and `github.ref_name` on the push
+# run both render `quality-development`, and `cancel-in-progress` kills whichever
+# started first — in practice the push.
+#
+# MEASURED on 2026-08-10, not inferred. Every `push` run on `development`:
+#
+#   31431907977  cancelled     31425112022  cancelled
+#   31431233009  cancelled     31421348032  cancelled
+#   31428116497  cancelled     …6 of 6, zero jobs created on each
+#
+# and both forced runs died the same way (31424446250, 31420969537), which is
+# why two attempts to measure this repo on demand came back with no gate output.
+#
+# This is the failure mode docudesk fixed preventively and openconnector#1158
+# fixed after it had cancelled 15 of 20 push runs. hermiq is the case where it
+# won every race.
+#
+# The suffix covers `workflow_dispatch` as well as `push`, which docudesk's
+# does not need and this repo does: a forced run on `development` collides with
+# the same standing PR. Feature branches are untouched — `quality-feature/x` for
+# both events, exactly as before — so per-branch dedup still works.
 concurrency:
-  group: quality-${{ github.head_ref || github.ref_name }}
+  group: quality-${{ github.head_ref || github.ref_name }}${{ (github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'development')) && format('-{0}', github.event_name) || '' }}
   cancel-in-progress: true
 
 # Permissions for the called quality pipeline. A reusable workflow can never
