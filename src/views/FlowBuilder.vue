@@ -96,11 +96,19 @@
 					the keyboard (WCAG 2.1 AA 2.1.1), so the Nodes tab carries an
 					"Edit node" button for the selected node and that is the
 					accessible path.
+
+					`--trigger` is keyed on the node's TYPE, not on its position
+					in the graph. `roleOf` already calls a node with nothing
+					before it a "start", which a trigger normally is — but that
+					is an inference from topology, and a trigger wired into the
+					middle of a flow would stop looking like one exactly when it
+					most needs to.
 				-->
 				<div
 					class="flow-builder__node"
 					:class="{
 						[`flow-builder__node--${roleOf(node.id)}`]: true,
+						'flow-builder__node--trigger': isTrigger(node),
 						'flow-builder__node--untyped': !node.type,
 					}"
 					@dblclick.stop="onNodeEdit(node)">
@@ -681,6 +689,23 @@ export default {
 		 * @param {string} id The place id.
 		 * @return {string} `'start'`, `'end'` or `'step'`.
 		 */
+		/**
+		 * Whether this node is an entry point — one of the engine's trigger
+		 * types.
+		 *
+		 * Tested by type prefix rather than against a hard-coded list of the
+		 * three: an app may contribute its own trigger, and a list here would
+		 * silently stop recognising it as one.
+		 *
+		 * @param {object} node The node.
+		 * @return {boolean} Whether it starts the flow.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		isTrigger(node) {
+			return String(node?.type || '').includes('.trigger-')
+		},
+
 		roleOf(id) {
 			if (this.editor.startNodeIds.includes(id)) {
 				return 'start'
@@ -1174,6 +1199,13 @@ export default {
 
 .flow-builder__node--step {
 	box-shadow: inset 6px 0 0 0 var(--color-primary-element);
+}
+
+/* A trigger is green because it is a TRIGGER. Declared after the role accents
+   so it wins over the topology-inferred one: the two normally agree, and where
+   they disagree the node's own type is the truer answer. */
+.flow-builder__node--trigger {
+	box-shadow: inset 6px 0 0 0 var(--color-success, #46ba61);
 }
 
 .flow-builder__node-role {

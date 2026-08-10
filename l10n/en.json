@@ -1210,7 +1210,10 @@
         "Select a node on the canvas to edit it.": "Select a node on the canvas to edit it.",
         "The words on the line, e.g. “approved”": "The words on the line, e.g. “approved”",
         "What this connection means — when the flow takes it.": "What this connection means — when the flow takes it.",
-        "Why this node is here, what it assumes, anything the next person should know.": "Why this node is here, what it assumes, anything the next person should know."
+        "Why this node is here, what it assumes, anything the next person should know.": "Why this node is here, what it assumes, anything the next person should know.",
+        "%n trigger node starts this flow.": "%n trigger node starts this flow.",
+        "%n trigger nodes start this flow.": "%n trigger nodes start this flow.",
+        "Nothing starts this flow yet. Add a trigger node from the Nodes tab.": "Nothing starts this flow yet. Add a trigger node from the Nodes tab."
     },
     "plurals": ""
 }

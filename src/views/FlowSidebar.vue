@@ -196,42 +196,32 @@
 					@update:model-value="editor.setFlowField('description', $event)" />
 
 				<!--
-					What starts this flow, and nothing else, in one group.
+					No trigger fields here.
 
-					`triggerRegister`/`triggerSchema` used to render ABOVE the
-					trigger picker, unconditionally, labelled only "Register"
-					and "Schema" — so two fields that exist solely to say WHICH
-					OBJECTS fire an object trigger read as general flow
-					settings, and appeared even on a schedule or manual flow
-					that has no subject at all. They belong to the trigger, so
-					they follow it and appear only when one is selected.
+					What starts a flow is a NODE on the canvas — the green ones
+					— and there may be several of them. This pane used to carry
+					the trigger, its register/schema subject and its cron
+					expression, which is four fields holding exactly ONE trigger
+					between them: "on a schedule AND when an object changes" had
+					nowhere to go, and the only workaround was to duplicate the
+					flow and keep the copies in step by hand.
+
+					It also put the flow's BEGINNING in a settings pane while
+					everything the flow does was on the graph.
+
+					The flow row's `trigger`/`triggerRegister`/`triggerSchema`/
+					`cron` columns are still authoritative at run time and are
+					NOT edited here any more. They are migrated onto trigger
+					nodes in their own change — a flow whose trigger stops
+					resolving does not fail loudly, it simply never fires again,
+					which is indistinguishable from a flow with nothing to do.
 				-->
-				<NcSelect
-					:model-value="editor.flow.trigger || ''"
-					:options="triggers"
-					:input-label="t('hermiq', 'Trigger')"
-					@update:model-value="editor.setFlowField('trigger', $event)" />
-
-				<template v-if="triggerIsObjectEvent">
-					<p class="flow-sidebar__hint">
-						{{ t('hermiq', 'Which objects fire this trigger.') }}
-					</p>
-					<CnRegisterSchemaSelect
-						:register="editor.flow.triggerRegister || ''"
-						:schema="editor.flow.triggerSchema || ''"
-						@update:register="editor.setFlowField('triggerRegister', $event)"
-						@update:schema="editor.setFlowField('triggerSchema', $event)" />
-				</template>
-
-				<!-- Only meaningful on a schedule trigger, and shown only then:
-				     a cron field on an event-driven flow reads as a second,
-				     competing way to fire it. -->
-				<NcTextField
-					v-if="editor.flow.trigger === 'schedule'"
-					:model-value="editor.flow.cron || ''"
-					:label="t('hermiq', 'Schedule (cron)')"
-					placeholder="*/5 * * * *"
-					@update:model-value="editor.setFlowField('cron', $event)" />
+				<p v-if="triggerNodeCount === 0" class="flow-sidebar__hint">
+					{{ t('hermiq', 'Nothing starts this flow yet. Add a trigger node from the Nodes tab.') }}
+				</p>
+				<p v-else class="flow-sidebar__hint">
+					{{ n('hermiq', '%n trigger node starts this flow.', '%n trigger nodes start this flow.', triggerNodeCount) }}
+				</p>
 
 				<NcSelect
 					:model-value="editor.flow.executionMode || 'async'"
@@ -248,7 +238,7 @@
 
 				<p class="flow-sidebar__hint">
 					{{ n('hermiq', '%n node', '%n nodes', editor.nodes.length) }} ·
-					{{ n('hermiq', '%n step', '%n steps', editor.edges.length) }}
+					{{ n('hermiq', '%n connection', '%n connections', editor.edges.length) }}
 				</p>
 			</div>
 		</NcAppSidebarTab>
@@ -275,7 +265,6 @@
 
 <script>
 import { NcAppSidebar, NcAppSidebarTab, NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
-import { CnRegisterSchemaSelect } from '@conduction/nextcloud-vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ArrowRightBold from 'vue-material-design-icons/ArrowRightBold.vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
@@ -315,7 +304,6 @@ export default {
 	components: {
 		ArrowRightBold,
 		CheckDecagram,
-		CnRegisterSchemaSelect,
 		Cog,
 		ContentSave,
 		Delete,
@@ -344,26 +332,26 @@ export default {
 			activeTab: 'nodes',
 			// Palette filter. Empty means "show the whole catalogue".
 			nodeSearch: '',
-			triggers: ['object.created', 'object.updated', 'object.deleted', 'schedule', 'manual'],
 			executionModes: ['async', 'sync'],
 		}
 	},
 
 	computed: {
+
 		/**
-		 * Whether the selected trigger fires on an OBJECT event, and therefore
-		 * has a subject to narrow.
+		 * How many entry points this flow has.
 		 *
-		 * `schedule` and `manual` have no subject: a register/schema pair on
-		 * either is dead configuration that is saved, never read, and reads to
-		 * the next person as though it scoped something.
+		 * Counted from the nodes, because that is where a trigger now lives.
+		 * Zero is reported plainly rather than left blank: a flow nothing
+		 * starts is not obviously broken — it simply never runs, which looks
+		 * exactly like a flow with nothing to do.
 		 *
-		 * @return {boolean} Whether to offer the register/schema pair.
+		 * @return {number} The trigger-node count.
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
-		triggerIsObjectEvent() {
-			return String(this.editor.flow.trigger || '').startsWith('object.')
+		triggerNodeCount() {
+			return this.editor.nodes.filter((node) => String(node.type || '').includes('.trigger-')).length
 		},
 
 		/**
