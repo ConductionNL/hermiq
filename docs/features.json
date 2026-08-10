@@ -1,5 +1,12 @@
 [
   {
+    "slug": "flow-authoring",
+    "title": "Flow Authoring",
+    "summary": "How hermiq names, stores and authors a flow: that a flow is called a flow, that its definition lives once in OpenRegister, and what the canvas puts on a node card, a connection and its ports.",
+    "status": "stable",
+    "docsUrl": "openspec/specs/flow-authoring/spec.md"
+  },
+  {
     "slug": "flow-canvas",
     "title": "Flow Canvas",
     "summary": "Defines how Hermiq's flow editor DRAWS a flow: what a node card says, what a connection says, which ports a node exposes and why, and how the engine's connectivity verdict and run history reach the author.",

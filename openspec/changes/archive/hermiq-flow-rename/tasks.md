@@ -1,21 +1,21 @@
 # Tasks: hermiq-flow-rename
 
-- [ ] Rename components: `GraphBuilder` → `FlowBuilder`, `GraphSidebar` →
+- [x] Rename components: `GraphBuilder` → `FlowBuilder`, `GraphSidebar` →
       `FlowSidebar`, `GraphIndex` → `FlowIndex`, `RunGraphDialog` →
       `RunFlowDialog`; update `src/registry.js` keys and imports.
-- [ ] Rename the store: `useGraphEditorStore` → `useFlowEditorStore`, `graph` →
+- [x] Rename the store: `useGraphEditorStore` → `useFlowEditorStore`, `graph` →
       `flow`, `graphs` → `flows`, and every call site.
-- [ ] Manifest: page ids `GraphIndex`/`GraphDetail` → `FlowIndex`/`FlowDetail`,
+- [x] Manifest: page ids `GraphIndex`/`GraphDetail` → `FlowIndex`/`FlowDetail`,
       routes `/graphs` → `/flows`, titles "Graphs"/"Graph" → "Flows"/"Flow".
-- [ ] Redirect routes for `/graphs` and `/graphs/:id` — these URLs are pasted
+- [x] Redirect routes for `/graphs` and `/graphs/:id` — these URLs are pasted
       into Hydra issues and run logs.
-- [ ] Rename CSS block prefixes `.graph-builder__*` → `.flow-builder__*` and
+- [x] Rename CSS block prefixes `.graph-builder__*` → `.flow-builder__*` and
       `.graph-sidebar__*` → `.flow-sidebar__*`.
-- [ ] Retranslate every `t('hermiq', …)` string naming a graph; re-extract i18n.
-- [ ] Rename `tests/e2e/graph-builder-flow-dialect.spec.ts` and its selectors IN
+- [x] Retranslate every `t('hermiq', …)` string naming a graph; re-extract i18n.
+- [x] Rename `tests/e2e/graph-builder-flow-dialect.spec.ts` and its selectors IN
       THE SAME COMMIT as the component rename — otherwise a passing suite starts
       finding nothing, which reads as a broken canvas rather than moved selectors.
-- [ ] Grep gate: no route, page id, component name, store symbol or translated
+- [x] Grep gate: no route, page id, component name, store symbol or translated
       string uses "graph" for a flow.
 
 ## Acceptance criteria
