@@ -47,7 +47,7 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\Talk\Chat\ChatManager;
 use OCA\Talk\Exceptions\RoomNotFoundException;
 use OCA\Talk\Manager;
-use OCA\Talk\Model\Participant;
+use OCA\Talk\Participant;
 use OCA\Talk\Room;
 use OCA\Talk\Service\NoteToSelfService;
 use OCA\Talk\Service\ParticipantService;
@@ -363,7 +363,13 @@ class DeliveryServiceTest extends TestCase
     {
         $this->talkBroker->method('hasBackend')->willReturn(true);
 
-        $room    = new Room();
+        // A DOUBLE, not a real Room: `OCA\Talk\Room` is resolved from the
+        // INSTALLED spreed app, whose constructor grew to 33 required
+        // arguments. `new Room()` compiled against whatever Talk shipped the
+        // day this was written and fails the moment Talk changes — a test
+        // asserting hermiq's delivery behaviour must not be pinned to another
+        // app's constructor signature.
+        $room    = $this->createMock(Room::class);
         $manager = $this->createMock(Manager::class);
         $manager->expects($this->once())
             ->method('getRoomForUserByToken')
@@ -371,7 +377,7 @@ class DeliveryServiceTest extends TestCase
             ->willReturn($room);
 
         $participantService = $this->createMock(ParticipantService::class);
-        $participantService->method('getParticipant')->willReturn(new Participant());
+        $participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
 
         $chatManager = $this->createMock(ChatManager::class);
         $chatManager->expects($this->once())->method('sendMessage');
@@ -419,10 +425,10 @@ class DeliveryServiceTest extends TestCase
         $noteToSelf->expects($this->once())
             ->method('ensureNoteToSelfExistsForUser')
             ->with('alice')
-            ->willReturn(new Room());
+            ->willReturn($this->createMock(Room::class));
 
         $participantService = $this->createMock(ParticipantService::class);
-        $participantService->method('getParticipant')->willReturn(new Participant());
+        $participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
 
         $chatManager = $this->createMock(ChatManager::class);
         $chatManager->expects($this->once())->method('sendMessage');
@@ -466,7 +472,7 @@ class DeliveryServiceTest extends TestCase
         $manager->expects($this->once())
             ->method('getRoomForUserByToken')
             ->with('default-room', 'alice')
-            ->willReturn(new Room());
+            ->willReturn($this->createMock(Room::class));
 
         // A stored default must NOT create a room nor fall to Note-to-self.
         $roomService = $this->createMock(RoomService::class);
@@ -475,7 +481,7 @@ class DeliveryServiceTest extends TestCase
         $noteToSelf->expects($this->never())->method('ensureNoteToSelfExistsForUser');
 
         $participantService = $this->createMock(ParticipantService::class);
-        $participantService->method('getParticipant')->willReturn(new Participant());
+        $participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
         $chatManager = $this->createMock(ChatManager::class);
         $chatManager->expects($this->once())->method('sendMessage');
 
@@ -531,12 +537,12 @@ class DeliveryServiceTest extends TestCase
         $manager->expects($this->once())
             ->method('getRoomForUserByToken')
             ->with('new-hermiq-token', 'alice')
-            ->willReturn(new Room());
+            ->willReturn($this->createMock(Room::class));
 
         $noteToSelf = $this->createMock(NoteToSelfService::class);
         $noteToSelf->expects($this->never())->method('ensureNoteToSelfExistsForUser');
         $participantService = $this->createMock(ParticipantService::class);
-        $participantService->method('getParticipant')->willReturn(new Participant());
+        $participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
         $chatManager = $this->createMock(ChatManager::class);
         $chatManager->expects($this->once())->method('sendMessage');
 
@@ -577,10 +583,10 @@ class DeliveryServiceTest extends TestCase
         $noteToSelf = $this->createMock(NoteToSelfService::class);
         $noteToSelf->expects($this->once())
             ->method('ensureNoteToSelfExistsForUser')
-            ->willReturn(new Room());
+            ->willReturn($this->createMock(Room::class));
 
         $participantService = $this->createMock(ParticipantService::class);
-        $participantService->method('getParticipant')->willReturn(new Participant());
+        $participantService->method('getParticipant')->willReturn($this->createMock(Participant::class));
 
         $chatManager = $this->createMock(ChatManager::class);
         $chatManager->expects($this->once())->method('sendMessage');
