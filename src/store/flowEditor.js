@@ -87,9 +87,27 @@ function emptyFlow() {
 		enabled: false,
 		nodes: [],
 		edges: [],
+		annotations: [],
 		limits: {},
 	}
 }
+
+/**
+ * The prefix that marks a canvas element as an ANNOTATION rather than a node.
+ *
+ * Annotations are drawn through the same canvas as nodes, because that is what
+ * positions things in canvas space — but they are NOT nodes in the document,
+ * and the two must never be confused. The canvas's `nodes` prop is a RENDER
+ * list; `flow.nodes` is what the engine builds. An annotation that reached
+ * `flow.nodes` would be lowered to a transition and become something the run
+ * waits on: a comment able to deadlock a flow.
+ *
+ * The id prefix is how `@node-move` and `@node-select` — which the canvas fires
+ * for anything it draws — are routed back to the right half.
+ *
+ * @type {string}
+ */
+export const ANNOTATION_ID_PREFIX = 'annotation:'
 
 /**
  * An edge endpoint as a list of place ids.
@@ -696,6 +714,75 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 
 				return { ...node, name }
 			})
+			this.dirty = true
+		},
+
+		/**
+		 * Pin a new note to the canvas.
+		 *
+		 * @param {number} x Canvas x (optional).
+		 * @param {number} y Canvas y (optional).
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		addAnnotation(x = null, y = null) {
+			const list = this.flow.annotations || []
+			const annotation = {
+				id: `note-${Date.now().toString(36)}-${list.length}`,
+				x: x === null ? 80 : x,
+				y: y === null ? (60 + list.length * 40) : y,
+				text: '',
+			}
+
+			this.flow.annotations = [...list, annotation]
+			this.dirty = true
+		},
+
+		/**
+		 * Edit a note's text.
+		 *
+		 * @param {string} id   The annotation id.
+		 * @param {string} text The new text.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		setAnnotationText(id, text) {
+			this.flow.annotations = (this.flow.annotations || []).map((note) =>
+				(note.id === id ? { ...note, text } : note),
+			)
+			this.dirty = true
+		},
+
+		/**
+		 * Move a note.
+		 *
+		 * @param {object} payload `{id, x, y}`.
+		 * @param {string} payload.id The annotation id.
+		 * @param {number} payload.x  New canvas x.
+		 * @param {number} payload.y  New canvas y.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		moveAnnotation({ id, x, y }) {
+			this.flow.annotations = (this.flow.annotations || []).map((note) =>
+				(note.id === id ? { ...note, x, y } : note),
+			)
+			this.dirty = true
+		},
+
+		/**
+		 * Remove a note.
+		 *
+		 * @param {string} id The annotation id.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		removeAnnotation(id) {
+			this.flow.annotations = (this.flow.annotations || []).filter((note) => note.id !== id)
 			this.dirty = true
 		},
 

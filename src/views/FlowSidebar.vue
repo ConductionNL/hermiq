@@ -242,24 +242,6 @@
 				</p>
 			</div>
 		</NcAppSidebarTab>
-
-		<NcAppSidebarTab id="notes" :name="t('hermiq', 'Notes')" :order="4">
-			<template #icon>
-				<NoteTextOutline :size="20" />
-			</template>
-
-			<div class="flow-sidebar__pane">
-				<NcTextArea
-					:model-value="editor.flow.notes || ''"
-					:label="t('hermiq', 'Notes')"
-					:placeholder="t('hermiq', 'Why this flow exists, what it assumes, anything the next person should know.')"
-					rows="12"
-					@update:model-value="editor.setFlowField('notes', $event)" />
-				<p class="flow-sidebar__hint">
-					{{ t('hermiq', 'Saved with the flow.') }}
-				</p>
-			</div>
-		</NcAppSidebarTab>
 	</NcAppSidebar>
 </template>
 
@@ -272,7 +254,6 @@ import Cog from 'vue-material-design-icons/Cog.vue'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
 import Magnify from 'vue-material-design-icons/Magnify.vue'
-import NoteTextOutline from 'vue-material-design-icons/NoteTextOutline.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
@@ -318,7 +299,6 @@ export default {
 		NcSelect,
 		NcTextArea,
 		NcTextField,
-		NoteTextOutline,
 		Play,
 		Sitemap,
 	},

@@ -1213,7 +1213,12 @@
         "Why this node is here, what it assumes, anything the next person should know.": "Why this node is here, what it assumes, anything the next person should know.",
         "%n trigger node starts this flow.": "%n trigger node starts this flow.",
         "%n trigger nodes start this flow.": "%n trigger nodes start this flow.",
-        "Nothing starts this flow yet. Add a trigger node from the Nodes tab.": "Nothing starts this flow yet. Add a trigger node from the Nodes tab."
+        "Nothing starts this flow yet. Add a trigger node from the Nodes tab.": "Nothing starts this flow yet. Add a trigger node from the Nodes tab.",
+        "Add a note to the canvas": "Add a note to the canvas",
+        "Add note": "Add note",
+        "Note": "Note",
+        "Remove note": "Remove note",
+        "Write a note…": "Write a note…"
     },
     "plurals": ""
 }

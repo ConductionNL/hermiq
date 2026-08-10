@@ -15,9 +15,9 @@
 			:min-zoom="minZoom"
 			:max-zoom="maxZoom"
 			@update:zoom="zoom = $event"
-			@node-select="editor.selectNode($event)"
+			@node-select="onCanvasSelect($event)"
 			@canvas-click="editor.clearSelection()"
-			@node-move="editor.moveNode($event)"
+			@node-move="onCanvasMove($event)"
 			@connect="editor.connect($event)"
 			@canvas-drop="onCanvasDrop">
 			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
@@ -90,6 +90,35 @@
 			     such a document, and drawing it normally is how it stayed
 			     invisible. -->
 			<template #node="{ node }">
+				<!--
+					An annotation: a note pinned to the canvas, belonging to no
+					node and no edge. Drawn through this slot because the canvas
+					is what positions things, never because it is a node — it is
+					stored in `annotations[]` and the engine never sees it.
+
+					Edited in place. A note is one field, and sending an author
+					to a modal to type one line is more chrome than the content.
+				-->
+				<div v-if="node.isAnnotation" class="flow-builder__annotation">
+					<textarea
+						class="flow-builder__annotation-text"
+						:value="node.text"
+						:aria-label="t('hermiq', 'Note')"
+						:placeholder="t('hermiq', 'Write a note…')"
+						@mousedown.stop
+						@input="editor.setAnnotationText(node.id.slice(annotationPrefix.length), $event.target.value)" />
+					<NcButton
+						type="tertiary"
+						class="flow-builder__annotation-remove"
+						:aria-label="t('hermiq', 'Remove note')"
+						@mousedown.stop
+						@click.stop="editor.removeAnnotation(node.id.slice(annotationPrefix.length))">
+						<template #icon>
+							<Close :size="16" />
+						</template>
+					</NcButton>
+				</div>
+
 				<!--
 					Double-click opens the node's editor. It is a shortcut, NOT
 					the only way in: a pointer gesture cannot be performed from
@@ -175,6 +204,19 @@
 				</NcButton>
 			</div>
 
+			<!-- Pinning a note is a CANVAS action — the note lands on the canvas
+			     and its position is the point of it — so the control lives here
+			     rather than in a sidebar tab. -->
+			<NcButton
+				type="secondary"
+				:aria-label="t('hermiq', 'Add a note to the canvas')"
+				@click="editor.addAnnotation()">
+				<template #icon>
+					<NoteTextOutline :size="20" />
+				</template>
+				{{ t('hermiq', 'Add note') }}
+			</NcButton>
+
 			<!-- Re-open control for the sidebar. It lives on the CANVAS because
 			     once the sidebar is closed it has no chrome of its own left to
 			     render a button in — a close with no way back is a one-way
@@ -249,11 +291,13 @@ import DockRight from 'vue-material-design-icons/DockRight.vue'
 import Minus from 'vue-material-design-icons/Minus.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
+import Close from 'vue-material-design-icons/Close.vue'
+import NoteTextOutline from 'vue-material-design-icons/NoteTextOutline.vue'
 import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
 import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
 import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
-import { useFlowEditorStore } from '../store/flowEditor.js'
+import { ANNOTATION_ID_PREFIX, useFlowEditorStore } from '../store/flowEditor.js'
 
 /**
  * Step types that END a path deliberately.
@@ -313,7 +357,9 @@ export default {
 	name: 'FlowBuilder',
 
 	components: {
+		Close,
 		CnGraphCanvas,
+		NoteTextOutline,
 		DockRight,
 		Minus,
 		NcButton,
@@ -365,6 +411,15 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The annotation id prefix, for the template.
+		 *
+		 * @return {string} The prefix.
+		 */
+		annotationPrefix() {
+			return ANNOTATION_ID_PREFIX
+		},
+
 		/** @return {string} The current zoom, for the reset button's label. */
 		zoomPercent() {
 			return `${Math.round(this.zoom * 100)}%`
@@ -383,10 +438,26 @@ export default {
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodesWithPorts() {
-			return (this.editor.nodes || []).map((node) => ({
+			const nodes = (this.editor.nodes || []).map((node) => ({
 				...node,
 				ports: this.portsForNode(node),
 			}))
+
+			// Annotations ride the same render list, because the canvas is what
+			// positions things in canvas space — but they are NOT nodes in the
+			// document and never enter `flow.nodes`. An annotation lowered as a
+			// node would become a transition the run waits on: a comment able
+			// to deadlock a flow.
+			//
+			// No ports: nothing connects to a note.
+			const notes = (this.editor.flow.annotations || []).map((note) => ({
+				...note,
+				id: `${ANNOTATION_ID_PREFIX}${note.id}`,
+				ports: [],
+				isAnnotation: true,
+			}))
+
+			return [...nodes, ...notes]
 		},
 	},
 
@@ -401,6 +472,49 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Route a canvas selection to the node or the annotation it names.
+		 *
+		 * The canvas fires `node-select` for everything it draws, annotations
+		 * included, so without this an annotation id would be handed to
+		 * `selectNode()` and select nothing — leaving the sidebar showing the
+		 * previously selected node while a note appeared highlighted.
+		 *
+		 * @param {string} id The canvas element's id.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		onCanvasSelect(id) {
+			if (String(id).startsWith(ANNOTATION_ID_PREFIX)) {
+				this.editor.clearSelection()
+				return
+			}
+
+			this.editor.selectNode(id)
+		},
+
+		/**
+		 * Route a canvas move to the node or the annotation it names.
+		 *
+		 * @param {object} payload `{id, x, y}` from the canvas.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		onCanvasMove(payload) {
+			const id = String(payload?.id || '')
+			if (id.startsWith(ANNOTATION_ID_PREFIX)) {
+				this.editor.moveAnnotation({
+					...payload,
+					id: id.slice(ANNOTATION_ID_PREFIX.length),
+				})
+				return
+			}
+
+			this.editor.moveNode(payload)
+		},
+
 		/**
 		 * Select a node and open its editor.
 		 *
@@ -1204,6 +1318,33 @@ export default {
 /* A trigger is green because it is a TRIGGER. Declared after the role accents
    so it wins over the topology-inferred one: the two normally agree, and where
    they disagree the node's own type is the truer answer. */
+.flow-builder__annotation {
+	display: flex;
+	gap: 4px;
+	width: 100%;
+	height: 100%;
+	padding: 6px;
+	border-radius: var(--border-radius-large);
+	/* A note is not a card. It reads as paper pinned to the board — warning
+	   yellow is the closest NC variable to a sticky note, and the dashed edge
+	   says "this is not part of the run" without relying on colour alone. */
+	background-color: var(--color-warning, #f0b543);
+	border: 1px dashed var(--color-border-dark);
+}
+
+.flow-builder__annotation-text {
+	flex: 1;
+	border: none;
+	background: transparent;
+	color: var(--color-main-text);
+	resize: none;
+	font-size: 0.9em;
+}
+
+.flow-builder__annotation-remove {
+	flex: 0 0 auto;
+}
+
 .flow-builder__node--trigger {
 	box-shadow: inset 6px 0 0 0 var(--color-success, #46ba61);
 }
