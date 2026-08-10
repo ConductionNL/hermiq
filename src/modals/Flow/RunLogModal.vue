@@ -62,9 +62,9 @@
 								an author's in-progress flow to show them a record
 								they wanted to glance at.
 							-->
-							<div v-if="actionsFor(entry).length > 0" class="run-log__actions">
+							<div v-if="(actions[index] || []).length > 0" class="run-log__actions">
 								<a
-									v-for="action in actionsFor(entry)"
+									v-for="action in actions[index]"
 									:key="action.href"
 									:href="action.href"
 									target="_blank"
@@ -113,6 +113,7 @@
 
 <script>
 import { NcButton, NcModal, NcNoteCard } from '@nextcloud/vue'
+import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { translate as t } from '@nextcloud/l10n'
 import { useFlowEditorStore } from '../../store/flowEditor.js'
@@ -154,6 +155,8 @@ export default {
 			// Which step is folded open. -1 is none: 0 is a valid index, so
 			// `null`-vs-`0` truthiness would open the first step by accident.
 			openStep: -1,
+			// Provider links per step index, fetched from the engine.
+			actions: {},
 		}
 	},
 
@@ -188,6 +191,18 @@ export default {
 		},
 	},
 
+	watch: {
+		/**
+		 * Fetch the provider links whenever a different run is opened.
+		 *
+		 * @return {void}
+		 */
+		log() {
+			this.actions = {}
+			this.loadActions()
+		},
+	},
+
 	methods: {
 		t,
 
@@ -204,30 +219,38 @@ export default {
 		},
 
 		/**
-		 * The links a log entry earns.
+		 * Ask each node for the links its own log entry earns.
 		 *
-		 * Derived at DISPLAY time from what the entry recorded, never read from
-		 * a stored href: a link frozen into a log rots when the target moves,
-		 * and these records are kept for months.
+		 * The ENGINE answers, by asking the node that wrote the entry — so an
+		 * openconnector call offers its source and call log, and hermiq's
+		 * editor needs to know nothing about either. This replaces a hard-coded
+		 * agent-session case that only this app could ever have extended.
 		 *
-		 * Only the agent session is wired here. The general mechanism — an app
-		 * contributing the actions for the nodes it contributes — is specified
-		 * in flow-engine and not yet built, so this stays a single known case
-		 * rather than a half-general registry that would have to be unpicked.
+		 * One request per step, and deliberately: a log is opened rarely, the
+		 * result is small, and batching would need an endpoint shape that the
+		 * per-entry contract does not have. If a long log ever makes this
+		 * noticeable, the fix is a batch endpoint, not a cache that goes stale
+		 * against a provider whose routes moved.
 		 *
-		 * @param {object} entry The log entry.
-		 * @return {Array<{label: string, href: string}>} The actions.
+		 * A failure yields no links rather than an error: this decorates a log
+		 * an operator is already reading.
+		 *
+		 * @return {Promise<void>}
 		 */
-		actionsFor(entry) {
-			const sessionId = entry?.sessionId || entry?.session || null
-			if (entry?.type === 'hermiq.agent-step' && sessionId) {
-				return [{
-					label: this.t('hermiq', 'Open the agent session'),
-					href: generateUrl('/apps/hermiq/chat?session={id}', { id: sessionId }),
-				}]
-			}
-
-			return []
+		async loadActions() {
+			const found = {}
+			await Promise.all(this.log.map(async (entry, index) => {
+				try {
+					const { data } = await axios.post(
+						generateUrl('/apps/openregister/api/flow/log-actions'),
+						{ entry },
+					)
+					found[index] = data?.results || []
+				} catch (e) {
+					found[index] = []
+				}
+			}))
+			this.actions = found
 		},
 	},
 }
