@@ -211,6 +211,34 @@ class ScheduleService
     private string $lastRunConversationUuid = '';
 
     /**
+     * The conversation the LAST `runAgentAsOwner()` produced, if any.
+     *
+     * Read straight after a turn by callers that need to point AT the session
+     * rather than copy it — the flow run log links a step to the conversation
+     * its agent created, so an operator can read the reasoning instead of
+     * having it duplicated into the log.
+     *
+     * Exposed as a getter rather than by widening `runAgentAsOwner()`'s return
+     * or adding an out-parameter: that method has 43 call sites across nine
+     * files and runs inside user impersonation, and none of the other 42 want
+     * this. The field already existed for Talk-room binding; this only reads it.
+     *
+     * Empty for a dry run and for the flag-off legacy path, both of which
+     * deliberately produce no bindable conversation. Empty means "no session to
+     * link", never "the link is missing" — a caller must treat it as absence,
+     * not as an error.
+     *
+     * @return string The conversation uuid, or '' when there is none.
+     *
+     * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+     */
+    public function lastRunConversationUuid(): string
+    {
+        return $this->lastRunConversationUuid;
+
+    }//end lastRunConversationUuid()
+
+    /**
      * The skill uuids actually exposed to the last run's context by the
      * run-loop skill-exposure seam (skill-evals: `ContextAssembler::
      * assembleSkillsForRun()` — active skills of the effective set, override

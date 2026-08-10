@@ -34,6 +34,7 @@ namespace OCA\Hermiq\Flow;
 
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
+use OCA\OpenRegister\Service\Flow\IFlowNodeLogActions;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use OCP\WorkflowEngine\IManager;
@@ -45,7 +46,7 @@ use UnexpectedValueException;
  *
  * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
-class HermiqAgentNode implements IFlowNode
+class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions
 {
 
     /**
@@ -122,6 +123,47 @@ class HermiqAgentNode implements IFlowNode
         return $this->urls->imagePath('hermiq', 'app-dark.svg');
 
     }//end getIcon()
+
+    /**
+     * The link an agent turn earns in the run log: its session.
+     *
+     * The step recorded `sessionId` on the item rather than copying the
+     * conversation, so this resolves that pointer to the chat the operator can
+     * read. A copy would have diverged from the session the moment it gained a
+     * reply.
+     *
+     * The href is a hash fragment on hermiq's own root, because the SPA is a
+     * hash router: `linkToRoute()` on a client-side path would throw and take
+     * out the whole log rather than one link.
+     *
+     * No session recorded means NO link — a dry run and the flag-off legacy
+     * path both produce none. A link to the conversation list instead would be
+     * followed once and then never trusted again.
+     *
+     * @param array<string, mixed> $entry One entry from a run's log.
+     *
+     * @return array<int, array{label: string, href: string}> The links.
+     *
+     * @spec openspec/specs/flow-engine/spec.md#requirement-a-node-type-declares-its-own-form-and-its-own-run-log-actions
+     */
+    public function logActions(array $entry): array
+    {
+        $items   = (array) ($entry['output']['items'] ?? []);
+        $session = trim((string) (($items[0] ?? [])['json']['sessionId'] ?? ''));
+        if ($session === '') {
+            return [];
+        }
+
+        $root = $this->urls->linkToRoute('hermiq.dashboard.page');
+
+        return [
+            [
+                'label' => $this->l10n->t('Open the agent session'),
+                'href'  => rtrim($root, '/').'#/chat/'.rawurlencode($session),
+            ],
+        ];
+
+    }//end logActions()
 
     /**
      * Available in both scopes; the agent turn enforces its own identity.
@@ -241,6 +283,20 @@ class HermiqAgentNode implements IFlowNode
             );
 
             $json[$outKey] = $this->decode(config: $config, answer: $answer);
+
+            // The conversation this turn produced, so the run log can link to
+            // it. A POINTER, never a copy: the session is the record, and a
+            // copy of its messages in the log would diverge from it the moment
+            // the session gains a reply — and would put the whole reasoning
+            // into a record kept for months.
+            //
+            // Empty on a dry run and on the flag-off legacy path, which produce
+            // no bindable conversation. Written only when there is one, so an
+            // absent key means "no session", not "the link failed".
+            $sessionUuid = $this->scheduleService->lastRunConversationUuid();
+            if ($sessionUuid !== '') {
+                $json['sessionId'] = $sessionUuid;
+            }
 
             $out[] = [
                 'json'       => $json,
