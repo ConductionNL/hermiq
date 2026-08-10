@@ -47,6 +47,7 @@ export const ROUTER_STEP_TYPES = ['openregister.route']
  *
  * @param {object} node The node.
  * @return {Array<string>} The branch names.
+ * @spec openspec/specs/flow-canvas/spec.md
  */
 export function branchesOfNode(node) {
 	if (!node || !ROUTER_STEP_TYPES.includes(node.type)) {
@@ -85,6 +86,7 @@ export function branchesOfNode(node) {
  *
  * @param {string} [portId] The port the author connected from.
  * @return {string} The branch name, or an empty string.
+ * @spec openspec/specs/flow-canvas/spec.md
  */
 export function branchOfPort(portId) {
 	const id = String(portId ?? '')
@@ -107,6 +109,7 @@ export function branchOfPort(portId) {
  * @param {Array<object>} nodes The flow's nodes.
  * @param {Array<object>} edges The flow's edges, with `from` normalised to an array.
  * @return {Array<string>} The offending edge ids, in document order.
+ * @spec openspec/specs/flow-canvas/spec.md
  */
 export function orphanedBranchEdgeIds(nodes, edges) {
 	const branches = {}
