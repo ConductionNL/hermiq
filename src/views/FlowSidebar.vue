@@ -42,25 +42,56 @@
 					{{ paletteEmptyText }}
 				</p>
 
-				<div v-else class="flow-sidebar__palette">
-					<button
+				<ul v-else class="flow-sidebar__palette">
+					<li
 						v-for="type in paletteTypes"
 						:key="type.id"
 						class="flow-sidebar__palette-card"
-						:title="type.description"
+						:class="`flow-sidebar__palette-card--${type.role}`"
 						draggable="true"
 						@dragstart="editor.paletteDragType = type.id"
-						@dragend="editor.paletteDragType = null"
-						@click="editor.addNode(type.id)">
-						<span class="flow-sidebar__palette-name">{{ type.label }}</span>
-						<span v-if="type.description" class="flow-sidebar__palette-desc">
+						@dragend="editor.paletteDragType = null">
+						<!--
+							Selecting a card EXPANDS it rather than adding the
+							node: an author is choosing between types, and a
+							choice is made by comparison. Adding is the explicit
+							button below, so a mis-click costs a fold-out and
+							not a node on the canvas.
+						-->
+						<button
+							class="flow-sidebar__palette-head"
+							:aria-expanded="expandedType === type.id ? 'true' : 'false'"
+							@click="expandedType = expandedType === type.id ? '' : type.id">
+							<img
+								v-if="type.icon"
+								:src="type.icon"
+								alt=""
+								class="flow-sidebar__palette-icon">
+							<span class="flow-sidebar__palette-name">{{ type.label }}</span>
+							<!-- The role in WORDS as well as the accent stripe:
+							     a colour-only code is unreadable in greyscale
+							     and to a reader who cannot distinguish the hues
+							     (WCAG 2.1 AA 1.4.1). -->
+							<span class="flow-sidebar__palette-role">{{ roleWord(type.role) }}</span>
+						</button>
+
+						<p
+							class="flow-sidebar__palette-desc"
+							:class="{ 'flow-sidebar__palette-desc--full': expandedType === type.id }">
 							{{ type.description }}
-						</span>
-					</button>
-				</div>
+						</p>
+
+						<div v-if="expandedType === type.id" class="flow-sidebar__palette-actions">
+							<span class="flow-sidebar__palette-provider">{{ type.provider }}</span>
+							<NcButton type="secondary" @click="editor.addNode(type.id)">
+								{{ t('hermiq', 'Add to flow') }}
+							</NcButton>
+						</div>
+					</li>
+				</ul>
 
 				<p class="flow-sidebar__hint">
-					{{ t('hermiq', 'Click to add, or drag onto the canvas.') }}
+					{{ t('hermiq', 'Select a card to read what it does, or drag it onto the canvas.') }}
 				</p>
 
 				<hr class="flow-sidebar__rule">
@@ -429,6 +460,10 @@ export default {
 			activeTab: 'nodes',
 			// Palette filter. Empty means "show the whole catalogue".
 			nodeSearch: '',
+			// Which palette card is folded open. One at a time: the point of
+			// expanding is to read one description, and several open at once
+			// pushes the rest of the list off the pane.
+			expandedType: '',
 			executionModes: ['async', 'sync'],
 		}
 	},
@@ -468,6 +503,16 @@ export default {
 				id: entry.id,
 				label: entry.displayName || entry.id,
 				description: entry.description || '',
+				// The catalogue already ships a per-node icon URL from the
+				// contributing app — better than that app's generic icon,
+				// because it distinguishes "Call a source" from "Run a
+				// synchronization" rather than marking both as openconnector.
+				icon: entry.icon || '',
+				// The provider is the id's namespace. Which app a node came
+				// from decides where it is documented and who to ask when it
+				// misbehaves, and the catalogue mixes three of them.
+				provider: String(entry.id || '').split('.')[0] || '',
+				role: this.roleOfType(entry.id),
 			}))
 
 			if (needle === '') {
@@ -576,6 +621,50 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * A node TYPE's role in a flow: entry point, terminal, or ordinary.
+		 *
+		 * Derived from the type, which is the only thing a palette card can
+		 * know — a card describes a type that is not on any canvas yet, so
+		 * there is no topology to infer a role from.
+		 *
+		 * @param {string} type The node type id.
+		 * @return {string} `'trigger'`, `'terminal'` or `'step'`.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-node-palette-is-a-card-per-type-and-the-card-explains-itself
+		 */
+		roleOfType(type) {
+			const id = String(type || '')
+			if (id.includes('.trigger-')) {
+				return 'trigger'
+			}
+
+			if (id.endsWith('.stop')) {
+				return 'terminal'
+			}
+
+			return 'step'
+		},
+		/**
+		 * A role as a word, for the card.
+		 *
+		 * @param {string} role The role key.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-node-palette-is-a-card-per-type-and-the-card-explains-itself
+		 */
+		roleWord(role) {
+			if (role === 'trigger') {
+				return this.t('hermiq', 'starts')
+			}
+
+			if (role === 'terminal') {
+				return this.t('hermiq', 'ends')
+			}
+
+			return this.t('hermiq', 'step')
+		},
+
 		/**
 		 * When a run happened, in the reader's locale.
 		 *
@@ -728,16 +817,67 @@ export default {
 .flow-sidebar__palette-card {
 	display: flex;
 	flex-direction: column;
-	align-items: flex-start;
 	gap: 2px;
-	width: 100%;
 	padding: 8px 10px;
 	border: 1px solid var(--color-border);
+	/* Role as a left stripe. The WORD is on the card too — a colour-only code
+	   is unreadable in greyscale and to a reader who cannot distinguish the
+	   hues (WCAG 2.1 AA 1.4.1). */
+	border-left-width: 5px;
 	border-radius: var(--border-radius-large);
 	background-color: var(--color-main-background);
-	color: var(--color-main-text);
-	text-align: start;
 	cursor: grab;
+}
+
+.flow-sidebar__palette-card--trigger {
+	border-left-color: var(--color-success, #46ba61);
+}
+
+.flow-sidebar__palette-card--terminal {
+	border-left-color: var(--color-error, #e9322d);
+}
+
+.flow-sidebar__palette-card--step {
+	border-left-color: var(--color-primary-element);
+}
+
+.flow-sidebar__palette-head {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	border: none;
+	background: transparent;
+	color: var(--color-main-text);
+	padding: 0;
+	text-align: start;
+}
+
+.flow-sidebar__palette-icon {
+	width: 16px;
+	height: 16px;
+	flex: 0 0 auto;
+}
+
+.flow-sidebar__palette-role {
+	margin-inline-start: auto;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.8em;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.flow-sidebar__palette-actions {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-top: 6px;
+}
+
+.flow-sidebar__palette-provider {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.8em;
 }
 
 .flow-sidebar__palette-card:hover,
@@ -752,13 +892,17 @@ export default {
 .flow-sidebar__palette-desc {
 	color: var(--color-text-maxcontrast);
 	font-size: 0.85em;
-	/* Two lines, then ellipsis: a description long enough to wrap four times
-	   turns the palette back into the scroll-and-scan the search box exists to
-	   avoid. The full text is on the card's title attribute. */
+	margin: 0;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
 	-webkit-box-orient: vertical;
 	overflow: hidden;
+}
+
+/* Expanded: the whole description, in place. */
+.flow-sidebar__palette-desc--full {
+	-webkit-line-clamp: unset;
+	overflow: visible;
 }
 
 .flow-sidebar__verbs {

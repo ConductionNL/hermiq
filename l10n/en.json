@@ -1208,7 +1208,12 @@
         "{percent}% coverage": "{percent}% coverage",
         "Auto sort": "Auto sort",
         "Check": "Check",
-        "Unsaved changes. Save before leaving this page.": "Unsaved changes. Save before leaving this page."
+        "Unsaved changes. Save before leaving this page.": "Unsaved changes. Save before leaving this page.",
+        "Add to flow": "Add to flow",
+        "ends": "ends",
+        "Select a card to read what it does, or drag it onto the canvas.": "Select a card to read what it does, or drag it onto the canvas.",
+        "starts": "starts",
+        "step": "step"
     },
     "plurals": ""
 }
