@@ -1213,7 +1213,10 @@
         "ends": "ends",
         "Select a card to read what it does, or drag it onto the canvas.": "Select a card to read what it does, or drag it onto the canvas.",
         "starts": "starts",
-        "step": "step"
+        "step": "step",
+        "A connection carries sequence and the words a reader needs. What a step DOES is on the node.": "A connection carries sequence and the words a reader needs. What a step DOES is on the node.",
+        "Copy": "Copy",
+        "Edit connection": "Edit connection"
     },
     "plurals": ""
 }

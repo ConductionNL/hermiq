@@ -194,6 +194,15 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		// those two components cannot pass props to one another — the sidebar
 		// is mounted into Nextcloud's own #sidebar slot.
 		nodeEditOpen: false,
+		// Whether the connection editor is open. The Connection TAB is gone:
+		// a line's fields are three text areas an author opens rarely, and a
+		// permanent tab for them cost a quarter of the sidebar's tab strip
+		// while the thing being edited was selected on the canvas.
+		edgeEditOpen: false,
+		// The open context menu: `{kind: 'node'|'edge', id, x, y}` or null.
+		// Held here because the canvas raises it and the menu is drawn over the
+		// canvas, and because closing it is something several places do.
+		contextMenu: null,
 		// The node type currently being dragged out of the palette, or null.
 		// Read by FlowBuilder's canvas-drop handler to decide what to create at
 		// the drop point — without it a drag lands as a drop with no type and
@@ -724,6 +733,42 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 
 				return { ...node, name }
 			})
+			this.dirty = true
+		},
+
+		/**
+		 * Duplicate a node beside itself.
+		 *
+		 * Copies the TYPE and the CONFIGURATION, and deliberately not the
+		 * connections. A copy that arrived pre-wired would add paths to the
+		 * flow the author never drew — and on a routing node it would duplicate
+		 * branch targets, so two nodes would claim the same exits.
+		 *
+		 * Offset rather than placed on top: a copy at the same coordinates is
+		 * invisible, and the author cannot tell whether the action worked.
+		 *
+		 * @param {string} id The node to copy.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-canvas-offers-per-element-actions-reachable-two-ways
+		 */
+		copyNode(id) {
+			const source = this.nodes.find((node) => node.id === id)
+			if (source === undefined) {
+				return
+			}
+
+			const copy = {
+				...source,
+				id: `${source.type || 'node'}-${Date.now().toString(36)}-${this.nodes.length}`,
+				name: `${source.name || source.id} (copy)`,
+				config: { ...(source.config || {}) },
+				x: (source.x || 0) + 40,
+				y: (source.y || 0) + 40,
+			}
+
+			this.flow.nodes = [...this.nodes, copy]
+			this.selectNode(copy.id)
 			this.dirty = true
 		},
 

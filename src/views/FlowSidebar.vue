@@ -118,61 +118,30 @@
 				<p v-else class="flow-sidebar__hint">
 					{{ t('hermiq', 'Select a node on the canvas to edit it.') }}
 				</p>
+
+				<!--
+					The keyboard route to the connection editor.
+
+					The Connection TAB is gone — its three fields did not earn a
+					quarter of the tab strip — but its editor must still be
+					reachable without a pointer: right-click is the shortcut, and
+					a shortcut cannot be the only way to an action (WCAG 2.1 AA
+					2.1.1). Selecting a line on the canvas is keyboard-operable,
+					so this button completes the path.
+				-->
+				<template v-if="editor.selectedEdge">
+					<hr class="flow-sidebar__rule">
+					<p class="flow-sidebar__hint">
+						{{ t('hermiq', '{from} → {to}', { from: editor.selectedEdge.from.join(', '), to: editor.selectedEdge.to.join(', ') }) }}
+					</p>
+					<NcButton type="secondary" @click="editor.edgeEditOpen = true">
+						<template #icon>
+							<Pencil :size="20" />
+						</template>
+						{{ t('hermiq', 'Edit connection') }}
+					</NcButton>
+				</template>
 			</div>
-		</NcAppSidebarTab>
-
-		<!--
-			The CONNECTION tab: what a line is, and nothing more.
-
-			This pane used to pick a step type and edit its configuration, both
-			written onto the edge. That is the pre-inversion dialect, and it does
-			not merely look wrong — `FlowDefinitionBuilder::assertNotPreInversion()`
-			REFUSES any document in which an edge carries a non-empty `type`, so
-			every flow configured through this pane became unrunnable in whole.
-			Behaviour lives on the node (NodeEditModal); a connection carries
-			only sequence and the words a reader needs.
-		-->
-		<NcAppSidebarTab id="step" :name="t('hermiq', 'Connection')" :order="2">
-			<template #icon>
-				<ArrowRightBold :size="20" />
-			</template>
-
-			<div v-if="editor.selectedEdge" class="flow-sidebar__pane" data-testid="flow-step-pane">
-				<p class="flow-sidebar__hint">
-					{{ t('hermiq', '{from} → {to}', { from: editor.selectedEdge.from.join(', '), to: editor.selectedEdge.to.join(', ') }) }}
-				</p>
-
-				<NcTextField
-					:model-value="editor.selectedEdge.title || ''"
-					:label="t('hermiq', 'Title')"
-					:placeholder="t('hermiq', 'The words on the line, e.g. “approved”')"
-					@update:model-value="editor.setEdgeField('title', $event)" />
-
-				<NcTextArea
-					:model-value="editor.selectedEdge.description || ''"
-					:label="t('hermiq', 'Description')"
-					:placeholder="t('hermiq', 'What this connection means — when the flow takes it.')"
-					rows="3"
-					@update:model-value="editor.setEdgeField('description', $event)" />
-
-				<NcTextArea
-					:model-value="editor.selectedEdge.notes || ''"
-					:label="t('hermiq', 'Notes')"
-					:placeholder="t('hermiq', 'Anything the next person should know about this connection.')"
-					rows="4"
-					@update:model-value="editor.setEdgeField('notes', $event)" />
-
-				<NcButton type="error" @click="editor.removeEdge(editor.selectedEdge.id)">
-					<template #icon>
-						<Delete :size="20" />
-					</template>
-					{{ t('hermiq', 'Remove connection') }}
-				</NcButton>
-			</div>
-
-			<p v-else class="flow-sidebar__hint">
-				{{ t('hermiq', 'Select a connection on the canvas — the line between two nodes — to describe it. What a step DOES is on the node.') }}
-			</p>
 		</NcAppSidebarTab>
 
 		<!--
@@ -184,7 +153,7 @@
 			them scroll past the editor's settings to reach it is the wrong way
 			round.
 		-->
-		<NcAppSidebarTab id="runs" :name="t('hermiq', 'Runs')" :order="3">
+		<NcAppSidebarTab id="runs" :name="t('hermiq', 'Runs')" :order="2">
 			<template #icon>
 				<History :size="20" />
 			</template>
@@ -248,7 +217,7 @@
 		</NcAppSidebarTab>
 
 		<!-- Flow: identity, trigger wiring and the two verbs. -->
-		<NcAppSidebarTab id="flow" :name="t('hermiq', 'Flow')" :order="4">
+		<NcAppSidebarTab id="flow" :name="t('hermiq', 'Flow')" :order="3">
 			<template #icon>
 				<Cog :size="20" />
 			</template>
@@ -388,13 +357,11 @@
 </template>
 
 <script>
-import { NcAppSidebar, NcAppSidebarTab, NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import { NcAppSidebar, NcAppSidebarTab, NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
-import ArrowRightBold from 'vue-material-design-icons/ArrowRightBold.vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
-import Delete from 'vue-material-design-icons/Delete.vue'
 import History from 'vue-material-design-icons/History.vue'
 import Magnify from 'vue-material-design-icons/Magnify.vue'
 import Refresh from 'vue-material-design-icons/Refresh.vue'
@@ -428,11 +395,9 @@ export default {
 	name: 'FlowSidebar',
 
 	components: {
-		ArrowRightBold,
 		CheckDecagram,
 		Cog,
 		ContentSave,
-		Delete,
 		History,
 		Magnify,
 		Refresh,
@@ -445,7 +410,6 @@ export default {
 		NcLoadingIcon,
 		NcNoteCard,
 		NcSelect,
-		NcTextArea,
 		NcTextField,
 		Play,
 		Sitemap,

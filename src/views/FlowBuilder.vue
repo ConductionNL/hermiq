@@ -16,7 +16,7 @@
 			:max-zoom="maxZoom"
 			@update:zoom="zoom = $event"
 			@node-select="onCanvasSelect($event)"
-			@canvas-click="editor.clearSelection()"
+			@canvas-click="editor.contextMenu = null; editor.clearSelection()"
 			@node-move="onCanvasMove($event)"
 			@connect="editor.connect($event)"
 			@canvas-drop="onCanvasDrop">
@@ -40,7 +40,8 @@
 						:d="edgePath(from, to)"
 						fill="none"
 						:marker-end="`url(#${arrowId})`"
-						@click.stop="editor.selectEdge(edge.edge.id)" />
+						@click.stop="editor.selectEdge(edge.edge.id)"
+						@contextmenu.prevent.stop="onEdgeContext(edge.edge, $event)" />
 
 					<!-- The line's own label, and nothing else. Under the old
 					     reading the step rode here and this chip named it; the
@@ -140,7 +141,8 @@
 						'flow-builder__node--trigger': isTrigger(node),
 						'flow-builder__node--untyped': !node.type,
 					}"
-					@dblclick.stop="onNodeEdit(node)">
+					@dblclick.stop="onNodeEdit(node)"
+					@contextmenu.prevent.stop="onNodeContext(node, $event)">
 					<span class="flow-builder__node-step">{{ nodeStepLabel(node) }}</span>
 					<span class="flow-builder__node-label">{{ nodeLabel(node) }}</span>
 					<span v-if="nodeConfigSummary(node)" class="flow-builder__node-config">
@@ -272,9 +274,38 @@
 			:result="resultDialog.result"
 			@close="resultDialog = null" />
 
+		<!--
+			The context menu. A pointer gesture opens it, so every entry it
+			offers is ALSO reachable from the Nodes tab (WCAG 2.1 AA 2.1.1) —
+			this is a shortcut, never the only route.
+
+			Positioned in viewport coordinates because that is where the
+			right-click happened; anchoring it to the canvas would put it
+			somewhere else the moment the canvas is zoomed or panned.
+		-->
+		<div
+			v-if="editor.contextMenu"
+			class="flow-builder__context"
+			:style="{ left: `${editor.contextMenu.x}px`, top: `${editor.contextMenu.y}px` }"
+			role="menu">
+			<button role="menuitem" @click="onContextEdit">
+				{{ t('hermiq', 'Edit') }}
+			</button>
+			<button v-if="editor.contextMenu.kind === 'node'" role="menuitem" @click="onContextCopy">
+				{{ t('hermiq', 'Copy') }}
+			</button>
+			<button role="menuitem" class="flow-builder__context-destructive" @click="onContextDelete">
+				{{ t('hermiq', 'Delete') }}
+			</button>
+		</div>
+
 		<NodeEditModal
 			:show="editor.nodeEditOpen"
 			@close="editor.nodeEditOpen = false" />
+
+		<ConnectionEditModal
+			:show="editor.edgeEditOpen"
+			@close="editor.edgeEditOpen = false" />
 
 		<DeadEndWarningDialog
 			v-if="editor.deadEnds.length > 0"
@@ -294,6 +325,7 @@ import Sitemap from 'vue-material-design-icons/Sitemap.vue'
 import Close from 'vue-material-design-icons/Close.vue'
 import NoteTextOutline from 'vue-material-design-icons/NoteTextOutline.vue'
 import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
+import ConnectionEditModal from '../modals/Flow/ConnectionEditModal.vue'
 import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
 import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
@@ -367,6 +399,7 @@ export default {
 		NcLoadingIcon,
 		Plus,
 		DeadEndWarningDialog,
+		ConnectionEditModal,
 		NodeEditModal,
 		RunFlowDialog,
 		Sitemap,
@@ -513,6 +546,87 @@ export default {
 			}
 
 			this.editor.moveNode(payload)
+		},
+
+		/**
+		 * Open the node context menu, selecting the node first.
+		 *
+		 * Selects before opening: every entry acts on the SELECTION, so a menu
+		 * raised without selecting would edit, copy or delete whichever node
+		 * happened to be selected before.
+		 *
+		 * @param {object} node  The node right-clicked.
+		 * @param {MouseEvent} event The event, for the position.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-canvas-offers-per-element-actions-reachable-two-ways
+		 */
+		onNodeContext(node, event) {
+			this.editor.selectNode(node.id)
+			this.editor.contextMenu = { kind: 'node', id: node.id, x: event.clientX, y: event.clientY }
+		},
+
+		/**
+		 * Open the connection context menu, selecting the connection first.
+		 *
+		 * @param {object} edge  The connection right-clicked.
+		 * @param {MouseEvent} event The event, for the position.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-canvas-offers-per-element-actions-reachable-two-ways
+		 */
+		onEdgeContext(edge, event) {
+			this.editor.selectEdge(edge.id)
+			this.editor.contextMenu = { kind: 'edge', id: edge.id, x: event.clientX, y: event.clientY }
+		},
+
+		/**
+		 * Edit whatever the menu was raised on.
+		 *
+		 * @return {void}
+		 */
+		onContextEdit() {
+			const kind = this.editor.contextMenu?.kind
+			this.editor.contextMenu = null
+			if (kind === 'node') {
+				this.editor.nodeEditOpen = true
+				return
+			}
+
+			this.editor.edgeEditOpen = true
+		},
+
+		/**
+		 * Copy the node the menu was raised on.
+		 *
+		 * @return {void}
+		 */
+		onContextCopy() {
+			const id = this.editor.contextMenu?.id
+			this.editor.contextMenu = null
+			if (id) {
+				this.editor.copyNode(id)
+			}
+		},
+
+		/**
+		 * Delete whatever the menu was raised on.
+		 *
+		 * @return {void}
+		 */
+		onContextDelete() {
+			const menu = this.editor.contextMenu
+			this.editor.contextMenu = null
+			if (!menu) {
+				return
+			}
+
+			if (menu.kind === 'node') {
+				this.editor.removeNode(menu.id)
+				return
+			}
+
+			this.editor.removeEdge(menu.id)
 		},
 
 		/**
@@ -1318,6 +1432,40 @@ export default {
 /* A trigger is green because it is a TRIGGER. Declared after the role accents
    so it wins over the topology-inferred one: the two normally agree, and where
    they disagree the node's own type is the truer answer. */
+/* The context menu floats over the canvas in VIEWPORT coordinates — that is
+   where the right-click happened, and anchoring it to the canvas would move it
+   the moment the canvas is zoomed or panned. */
+.flow-builder__context {
+	position: fixed;
+	z-index: 100;
+	display: flex;
+	flex-direction: column;
+	min-width: 140px;
+	padding: 4px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	background-color: var(--color-main-background);
+	box-shadow: 0 2px 8px var(--color-box-shadow);
+}
+
+.flow-builder__context button {
+	border: none;
+	background: transparent;
+	color: var(--color-main-text);
+	padding: 6px 10px;
+	text-align: start;
+	border-radius: var(--border-radius);
+}
+
+.flow-builder__context button:hover,
+.flow-builder__context button:focus-visible {
+	background-color: var(--color-background-hover);
+}
+
+.flow-builder__context-destructive {
+	color: var(--color-error);
+}
+
 .flow-builder__annotation {
 	display: flex;
 	gap: 4px;
