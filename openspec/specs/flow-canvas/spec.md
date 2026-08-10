@@ -155,3 +155,131 @@ The list MUST show when each flow last finished and its own status. A flow that 
 - **WHEN** the list renders
 - **THEN** its status MUST read that it will not run
 - **AND** its last run MUST read "Never"
+
+### Requirement: Selecting a run replays its path on the canvas
+
+Selecting a run in the Runs tab MUST mark, on the canvas, the connections that
+run followed and the nodes it touched. Marked in green, and the marking MUST
+also be carried by something other than hue — a run's path drawn only in colour
+is unreadable to a reader who cannot distinguish it and disappears in print
+(WCAG 2.1 AA 1.4.1).
+
+Beside each followed connection there MUST be a control opening the JSON that
+passed along it — the output of the node it left, which is the input of the node
+it reaches. That payload is the thing an operator actually needs when a flow
+"ran fine" and produced the wrong answer, and it is invisible in a status.
+
+A connection the run did NOT take MUST remain visibly unmarked. The value of a
+replay is the contrast: which way it went is only information if the ways it did
+not go are equally legible.
+
+A run whose record has no path MUST say so rather than drawing an empty canvas,
+which would read as "it did nothing".
+
+#### Scenario: A run's path is legible on the canvas
+- **GIVEN** a completed run that took one branch of a route
+- **WHEN** it is selected in the Runs tab
+- **THEN** the connections it followed and the nodes it touched MUST be marked
+- **AND** the branch it did not take MUST remain unmarked
+- @e2e exclude needs a seeded flow with a recorded branching run
+
+#### Scenario: The payload on a connection is inspectable
+- **GIVEN** a followed connection
+- **WHEN** its JSON control is used
+- **THEN** the items that passed along it MUST be shown
+- @e2e exclude needs a recorded run with items
+
+### Requirement: The node palette is a card per type, and the card explains itself
+
+Each palette entry MUST be a card carrying the node's name, the beginning of the
+engine's own description, and the icon of the app that CONTRIBUTED the type in
+front of the name. Cards MUST be colour-coded by role — an entry point, an
+ordinary node, a terminal — and the role MUST also be readable without colour.
+
+The provider's icon is not decoration. The catalogue mixes types from
+OpenRegister, openconnector and hermiq, and which app a node comes from decides
+where its configuration is documented and who to ask when it misbehaves.
+
+Selecting a card MUST expand it to the full description in place, rather than
+navigating or opening a dialog: the author is choosing between types, and a
+choice is made by comparison, which a modal over the list prevents.
+
+#### Scenario: A palette card names its provider
+- **GIVEN** a catalogue containing types from more than one app
+- **WHEN** the palette renders
+- **THEN** each card MUST show the contributing app's icon before the name
+- @e2e exclude covered by the palette's component tests
+
+#### Scenario: A card expands in place
+- **GIVEN** a palette card with a long description
+- **WHEN** it is selected
+- **THEN** the full description MUST be shown without leaving the list
+- @e2e exclude covered by the palette's component tests
+
+### Requirement: The canvas offers per-element actions, reachable two ways
+
+Right-clicking a node MUST offer edit, delete and copy; right-clicking a
+connection MUST offer edit and delete. Every one of those actions MUST also be
+reachable without a pointer, because a context menu is a pointer gesture and
+cannot be the only route to an action (WCAG 2.1 AA 2.1.1).
+
+Copying a node MUST copy its type and configuration and MUST NOT copy its
+connections. A copy that arrived pre-wired would silently add paths to a flow
+the author did not draw.
+
+#### Scenario: A node's context menu offers the three actions
+- **GIVEN** a node on the canvas
+- **WHEN** it is right-clicked
+- **THEN** edit, delete and copy MUST be offered
+- @e2e exclude covered by the canvas's component tests
+
+#### Scenario: Every context action has a keyboard route
+- **GIVEN** a selected node
+- **WHEN** the keyboard is used
+- **THEN** edit, delete and copy MUST all be reachable
+- @e2e exclude covered by the canvas's component tests
+
+### Requirement: Auto-sort arranges the drawing and never the flow
+
+The Flow tab MUST offer an auto-sort that lays the graph out so it reads in one
+direction, following the connections from the entry points onward.
+
+It MUST change only coordinates. Not one node, connection, type, configuration
+or branch target may differ before and after — a layout button that could alter
+behaviour is one nobody dares press on a flow that works.
+
+It MUST be undoable in the ordinary way: it marks the flow dirty and is
+discarded like any other unsaved edit.
+
+Nodes the layout cannot place — an unreachable island, a cycle with no entry —
+MUST still be placed somewhere visible, never dropped or stacked out of view.
+
+#### Scenario: Auto-sort moves nodes and changes nothing else
+- **GIVEN** a flow with nodes at arbitrary positions
+- **WHEN** auto-sort runs
+- **THEN** every node's `x`/`y` may differ
+- **AND** the node list, connection list, types, configurations and branch
+  targets MUST be identical
+- @e2e exclude a document invariant — covered by the layout function's tests
+
+#### Scenario: An unreachable node is still placed
+- **GIVEN** a flow containing a node no connection reaches
+- **WHEN** auto-sort runs
+- **THEN** that node MUST be placed somewhere visible
+- @e2e exclude covered by the layout function's tests
+
+### Requirement: A link into another app opens in a new tab
+
+Following a run-log action into another app — a contract, a session, a source —
+MUST open in a new browser tab.
+
+The editor holds unsaved state. Navigating away in place discards an author's
+in-progress flow to show them a record they wanted to glance at, and the browser
+back button returns to an editor that has forgotten everything. A new tab keeps
+the flow where it was.
+
+#### Scenario: A contract link keeps the flow open
+- **GIVEN** an unsaved flow and a run-log entry linking to a contract
+- **WHEN** the link is followed
+- **THEN** it MUST open in a new tab and the editor MUST retain its unsaved state
+- @e2e exclude covered by the run-log component tests
