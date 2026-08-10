@@ -34,6 +34,7 @@
 					:class="{
 						'flow-builder__step--selected': edge.edge.id === editor.selectedEdgeId,
 						'flow-builder__step--unassigned': isUnassigned(edge.edge),
+						'flow-builder__step--replayed': wasFollowed(edge.edge),
 					}">
 					<path
 						class="flow-builder__edge"
@@ -79,6 +80,35 @@
 							:cx="(chipWidth(edge.edge) / 2) - 2"
 							cy="-9"
 							r="5" />
+					</g>
+
+					<!--
+						The payload control: the JSON that passed along this
+						line — the output of the node it leaves, which is the
+						input of the node it reaches. Only on a line the
+						replayed run actually followed, because on any other
+						line there is nothing to show.
+
+						This is the point of the replay. A status says a flow
+						"ran fine"; when it ran fine and produced the wrong
+						answer, what an operator needs is what actually moved.
+					-->
+					<g
+						v-if="wasFollowed(edge.edge)"
+						class="flow-builder__payload"
+						:transform="`translate(${edgeMidpoint(from, to).x + (chipWidth(edge.edge) / 2) + 14}, ${edgeMidpoint(from, to).y})`"
+						role="button"
+						tabindex="0"
+						:aria-label="t('hermiq', 'Show what passed along this connection')"
+						@click.stop="editor.payloadEdgeId = edge.edge.id"
+						@keydown.enter.stop="editor.payloadEdgeId = edge.edge.id">
+						<circle r="10" class="flow-builder__payload-dot" />
+						<text
+							text-anchor="middle"
+							dominant-baseline="central"
+							class="flow-builder__payload-text">
+							{}
+						</text>
 					</g>
 				</g>
 			</template>
@@ -140,6 +170,7 @@
 						[`flow-builder__node--${roleOf(node.id)}`]: true,
 						'flow-builder__node--trigger': isTrigger(node),
 						'flow-builder__node--untyped': !node.type,
+						'flow-builder__node--replayed': editor.replayedNodeIds.includes(node.id),
 					}"
 					@dblclick.stop="onNodeEdit(node)"
 					@contextmenu.prevent.stop="onNodeContext(node, $event)">
@@ -307,6 +338,10 @@
 			:show="editor.edgeEditOpen"
 			@close="editor.edgeEditOpen = false" />
 
+		<PayloadModal
+			:show="editor.payloadEdgeId !== null"
+			@close="editor.payloadEdgeId = null" />
+
 		<DeadEndWarningDialog
 			v-if="editor.deadEnds.length > 0"
 			:node-ids="editor.deadEnds"
@@ -327,6 +362,7 @@ import NoteTextOutline from 'vue-material-design-icons/NoteTextOutline.vue'
 import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
 import ConnectionEditModal from '../modals/Flow/ConnectionEditModal.vue'
 import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
+import PayloadModal from '../modals/Flow/PayloadModal.vue'
 import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
 import { ANNOTATION_ID_PREFIX, useFlowEditorStore } from '../store/flowEditor.js'
@@ -401,6 +437,7 @@ export default {
 		DeadEndWarningDialog,
 		ConnectionEditModal,
 		NodeEditModal,
+		PayloadModal,
 		RunFlowDialog,
 		Sitemap,
 		StepResultDialog,
@@ -546,6 +583,30 @@ export default {
 			}
 
 			this.editor.moveNode(payload)
+		},
+
+		/**
+		 * Whether the replayed run followed this connection.
+		 *
+		 * A connection was followed when the run fired the node it LEAVES —
+		 * the transitions are what a run records, and an edge has no record of
+		 * its own. That is why a run with no replay selected marks nothing:
+		 * `replayedNodeIds` is empty, so this is false everywhere and the
+		 * canvas looks exactly as it does when no run is chosen.
+		 *
+		 * @param {object} edge The connection.
+		 * @return {boolean} Whether it was followed.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+		 */
+		wasFollowed(edge) {
+			if (this.editor.replayRunId === null) {
+				return false
+			}
+
+			const fired = this.editor.replayedNodeIds
+
+			return edge.from.some((id) => fired.includes(id))
 		},
 
 		/**
@@ -1491,6 +1552,36 @@ export default {
 
 .flow-builder__annotation-remove {
 	flex: 0 0 auto;
+}
+
+/* A replayed run's path. Marked with a colour AND a heavier line, because a
+   path drawn only in hue is unreadable in greyscale and to a reader who cannot
+   distinguish it (WCAG 2.1 AA 1.4.1). Lines the run did NOT take keep their
+   ordinary weight — the contrast is the information. */
+.flow-builder__step--replayed .flow-builder__edge {
+	stroke: var(--color-success, #46ba61);
+	stroke-width: 3;
+}
+
+.flow-builder__node--replayed {
+	outline: 2px solid var(--color-success, #46ba61);
+	outline-offset: 1px;
+}
+
+.flow-builder__payload-dot {
+	fill: var(--color-main-background);
+	stroke: var(--color-success, #46ba61);
+	stroke-width: 2;
+}
+
+.flow-builder__payload-text {
+	fill: var(--color-main-text);
+	font-size: 10px;
+	font-family: monospace;
+}
+
+.flow-builder__payload {
+	cursor: pointer;
 }
 
 .flow-builder__node--trigger {

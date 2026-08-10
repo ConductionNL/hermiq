@@ -185,6 +185,7 @@
 					<li v-for="run in editor.runs" :key="run.id || run.uuid" class="flow-sidebar__run">
 						<button
 							class="flow-sidebar__run-head"
+							:class="{ 'flow-sidebar__run-head--replayed': editor.replayRunId === (run.uuid || run.id) }"
 							:aria-expanded="editor.expandedRunId === (run.uuid || run.id) ? 'true' : 'false'"
 							@click="editor.toggleRun(run.uuid || run.id)">
 							<span :class="`flow-sidebar__run-status flow-sidebar__run-status--${run.status || 'unknown'}`">
@@ -192,6 +193,22 @@
 							</span>
 							<span class="flow-sidebar__run-when">{{ formatWhen(run) }}</span>
 						</button>
+
+						<!--
+							Replay is a separate control from expanding. Opening
+							a run to read its log and painting its path across
+							the canvas are different intents, and binding both
+							to one click means an operator cannot do either
+							without the other.
+						-->
+						<NcButton
+							type="tertiary"
+							class="flow-sidebar__run-replay"
+							@click="editor.replayRun(run.uuid || run.id)">
+							{{ editor.replayRunId === (run.uuid || run.id)
+								? t('hermiq', 'Hide on canvas')
+								: t('hermiq', 'Show on canvas') }}
+						</NcButton>
 
 						<div v-if="editor.expandedRunId === (run.uuid || run.id)" class="flow-sidebar__run-log">
 							<p v-if="editor.runDetail[run.uuid || run.id] === undefined" class="flow-sidebar__hint">
@@ -752,6 +769,14 @@ export default {
 
 .flow-sidebar__run-status--suspended {
 	color: var(--color-warning-text, var(--color-main-text));
+}
+
+.flow-sidebar__run-head--replayed {
+	border-color: var(--color-success, #46ba61);
+}
+
+.flow-sidebar__run-replay {
+	margin-inline-start: auto;
 }
 
 .flow-sidebar__run-when {

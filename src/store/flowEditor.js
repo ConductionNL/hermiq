@@ -222,9 +222,30 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		runsError: '',
 		expandedRunId: null,
 		runDetail: {},
+		// The run whose path is drawn on the canvas, or null.
+		replayRunId: null,
+		// The connection whose payload is open in the JSON peek, or null.
+		payloadEdgeId: null,
 	}),
 
 	getters: {
+		/**
+		 * The transition names the replayed run actually fired.
+		 *
+		 * Read from the run's LOG, which is the record of what happened —
+		 * not from the flow, which only says what could.
+		 *
+		 * @param {object} state The flow-editor store state.
+		 * @return {Array<string>} The node ids the run touched.
+		 */
+		replayedNodeIds: (state) => {
+			const detail = state.replayRunId === null ? null : state.runDetail[state.replayRunId]
+
+			return (detail?.log || [])
+				.map((entry) => entry.transition)
+				.filter(Boolean)
+		},
+
 		/**
 		 * @param {object} state The flow-editor store state.
 		 * @return {Array<object>} Canvas nodes (places).
@@ -734,6 +755,31 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				return { ...node, name }
 			})
 			this.dirty = true
+		},
+
+		/**
+		 * Show a run's path on the canvas, or clear it.
+		 *
+		 * Loads the run's detail if it is not already held, because the index
+		 * endpoint returns runs WITHOUT their logs and the path is derived from
+		 * the log — reading it off a list row yields an empty path, which draws
+		 * as "this run touched nothing".
+		 *
+		 * @param {string|null} uuid The run to replay, or null to clear.
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+		 */
+		async replayRun(uuid) {
+			if (uuid === null || this.replayRunId === uuid) {
+				this.replayRunId = null
+				return
+			}
+
+			this.replayRunId = uuid
+			if (this.runDetail[uuid] === undefined) {
+				await this.toggleRun(uuid)
+			}
 		},
 
 		/**

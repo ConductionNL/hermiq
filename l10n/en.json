@@ -1216,7 +1216,17 @@
         "step": "step",
         "A connection carries sequence and the words a reader needs. What a step DOES is on the node.": "A connection carries sequence and the words a reader needs. What a step DOES is on the node.",
         "Copy": "Copy",
-        "Edit connection": "Edit connection"
+        "Edit connection": "Edit connection",
+        "Hide on canvas": "Hide on canvas",
+        "No record for this connection in the selected run.": "No record for this connection in the selected run.",
+        "Not recorded.": "Not recorded.",
+        "Show on canvas": "Show on canvas",
+        "Show what passed along this connection": "Show what passed along this connection",
+        "Showing the first item of %n.": "Showing the first item of %n.",
+        "Showing the first items of %n.": "Showing the first items of %n.",
+        "This is what {node} returned — the input of whatever comes next.": "This is what {node} returned — the input of whatever comes next.",
+        "What {node} received": "What {node} received",
+        "What passed along this connection": "What passed along this connection"
     },
     "plurals": ""
 }
