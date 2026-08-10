@@ -19,8 +19,11 @@
 			@node-select="onCanvasSelect($event)"
 			@canvas-click="editor.contextMenu = null; editor.clearSelection()"
 			@node-move="onCanvasMove($event)"
+			show-grid
+			resizable
 			@connect="editor.connect($event)"
 			@canvas-drop="onCanvasDrop"
+			@node-resize="onCanvasResize($event)"
 			@contextmenu.prevent="onCanvasContext">
 			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
 			     in one direction, which a plain line does not convey. The line
@@ -697,6 +700,31 @@ export default {
 			}
 
 			this.editor.moveNode(payload)
+		},
+
+		/**
+		 * Route a canvas resize to the node or the annotation it names.
+		 *
+		 * Same split as `onCanvasMove`: the canvas resizes anything it draws,
+		 * and an annotation id handed to `resizeNode()` would resize nothing
+		 * while the note appeared to change under the pointer.
+		 *
+		 * @param {object} payload `{id, width, height}` from the canvas.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		onCanvasResize(payload) {
+			const id = String(payload?.id || '')
+			if (id.startsWith(ANNOTATION_ID_PREFIX)) {
+				this.editor.resizeAnnotation({
+					...payload,
+					id: id.slice(ANNOTATION_ID_PREFIX.length),
+				})
+				return
+			}
+
+			this.editor.resizeNode(payload)
 		},
 
 		/**

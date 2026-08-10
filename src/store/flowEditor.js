@@ -1224,6 +1224,25 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		},
 
 		/**
+		 * Resize a note.
+		 *
+		 * A note holds prose, and prose is the one thing on a canvas whose
+		 * needed size cannot be guessed — a sentence and a paragraph want very
+		 * different boxes.
+		 *
+		 * @param {object} payload `{id, width, height}`.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		resizeAnnotation({ id, width, height }) {
+			this.flow.annotations = (this.flow.annotations || []).map((note) =>
+				(note.id === id ? { ...note, width, height } : note),
+			)
+			this.dirty = true
+		},
+
+		/**
 		 * Remove a note.
 		 *
 		 * @param {string} id The annotation id.
@@ -1285,6 +1304,29 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				}
 
 				return { ...node, x, y }
+			})
+			this.dirty = true
+		},
+
+		/**
+		 * Resize a node.
+		 *
+		 * Coordinates and SIZE only — like `moveNode`, this must not be able to
+		 * change what a node DOES. The engine never reads `width`/`height`;
+		 * they are drawing, in the same class as `x`/`y`.
+		 *
+		 * @param {object} payload `{id, width, height}`.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		resizeNode({ id, width, height }) {
+			this.flow.nodes = this.nodes.map((node) => {
+				if (node.id !== id) {
+					return node
+				}
+
+				return { ...node, width, height }
 			})
 			this.dirty = true
 		},
