@@ -167,7 +167,15 @@ test.describe('flow builder — the node is the action', () => {
 		await openFlow(page, SEQUENCER)
 
 		// All 16 stored connections are titled, so all 16 draw a chip.
-		const labels = await page.locator('.flow-builder__step-text').allInnerTexts()
+		//
+		// `allTextContents()`, NOT `allInnerTexts()`. The chip label is an SVG
+		// <text>, and `innerText` is an HTMLElement property — on an SVG node it
+		// is undefined, so `allInnerTexts()` returned an array of 16 holes. The
+		// length assertion passed (16 elements DID match) and the very next line
+		// threw `Cannot read properties of undefined (reading 'trim')`, which
+		// reads like the app rendered nothing when in fact it rendered
+		// everything.
+		const labels = await page.locator('.flow-builder__step-text').allTextContents()
 		expect(labels).toHaveLength(16)
 
 		for (const label of labels) {
