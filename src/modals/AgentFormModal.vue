@@ -20,7 +20,7 @@
   ragNumSources, searchFiles, searchObjects). Every NcSelect carries an
   `inputLabel` for the nc-input-labels accessibility gate (WCAG 2.1 AA).
 
-  Icon (agent-icon-picker): a Material Design Icon name (e.g. "RobotOutline"),
+  Icon (agent-icon-picker): a Material Design Icon name (e.g. "Creation"),
   picked via the shared `CnIconPicker` in searchable+clearable mode (the full
   MDI range via @mdi/js, not the small curated dashboard-widget icon set) —
   matching the Agent schema's `icon` property description. Empty clears back
@@ -64,7 +64,7 @@
 			<!-- Icon (agent-icon-picker): a Material Design Icon name shown for this
 			     agent in lists and on its detail page. Searchable over the full MDI
 			     range (not the small curated dashboard set) since agent icons are
-			     free-form (e.g. "RobotOutline"); clearable — empty means the default
+			     free-form (e.g. "Creation"); clearable — empty means the default
 			     agent icon. -->
 			<div class="agent-form__field">
 				<label class="agent-form__icon-label">{{ t('hermiq', 'Icon') }}</label>

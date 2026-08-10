@@ -11,6 +11,9 @@
 		:objects="rows"
 		:loading="editor.loading"
 		:selectable="false"
+		:show-view-action="false"
+		:show-edit-action="false"
+		:actions="rowActions"
 		row-click-to-view
 		@row-click="open">
 		<template #header-actions>
@@ -27,6 +30,7 @@
 <script>
 import { NcButton } from '@nextcloud/vue'
 import { CnIndexPage } from '@conduction/nextcloud-vue'
+import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import { useFlowEditorStore } from '../store/flowEditor.js'
 
@@ -53,6 +57,8 @@ export default {
 	components: {
 		CnIndexPage,
 		NcButton,
+		// Pencil is deliberately NOT registered: it is passed as an icon
+		// COMPONENT in `rowActions`, never used as a tag in this template.
 		Plus,
 	},
 
@@ -61,6 +67,44 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The row-action menu: Edit, and only Edit.
+		 *
+		 * Both built-in actions are switched off rather than bound, because
+		 * neither could reach this page's detail view:
+		 *
+		 * - The built-in **Edit** never emits. Its handler sets `editItem` and
+		 *   opens CnIndexPage's schema-driven form dialog — a form over an
+		 *   OpenRegister object. A flow is not an object (flow-storage/spec.md:
+		 *   "A flow definition SHALL NOT be stored as an OpenRegister object"),
+		 *   so this page passes no register/schema and the dialog had nothing
+		 *   to render. Clicking Edit did nothing, visibly or in the console.
+		 *   There is no `@edit` to bind instead — the emit is on the dialog's
+		 *   save, not on the menu item — so the action has to be REPLACED.
+		 *
+		 * - The built-in **View** emits a dedicated `view` event that was never
+		 *   bound here. It is dropped rather than wired: a flow has no
+		 *   read-only detail page to view it in. The canvas IS the flow, and
+		 *   offering two menu entries that land on the same editor invites the
+		 *   reading that one of them is safe and the other is not.
+		 *
+		 * Row click still opens the same canvas via `row-click-to-view`, so the
+		 * menu entry and the click agree.
+		 *
+		 * @return {Array<object>} The row actions.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		rowActions() {
+			return [
+				{
+					label: this.t('hermiq', 'Edit'),
+					icon: Pencil,
+					handler: (row) => this.open(row),
+				},
+			]
+		},
+
 		/**
 		 * The columns, over the NATIVE flow fields.
 		 *

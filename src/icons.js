@@ -113,6 +113,11 @@ export default {
 	Pencil,
 	Plus,
 	PuzzleOutline,
+	// No manifest names RobotOutline any more — agents carry the AI sparkles
+	// (Creation) now. It stays REGISTERED because an agent's icon is free-form
+	// (see AgentFormModal): an agent an operator already saved as RobotOutline
+	// must keep rendering, and an unregistered name renders nothing at all
+	// rather than a fallback glyph.
 	RobotOutline,
 	RocketLaunch,
 	ScaleBalance,

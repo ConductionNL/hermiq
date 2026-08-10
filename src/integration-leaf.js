@@ -126,7 +126,7 @@ registerIntegration({
 	id: 'hermiq-agent',
 	label: t('hermiq', 'Agent'),
 	appName: t('hermiq', 'Hermiq'),
-	icon: 'RobotOutline',
+	icon: 'Creation',
 	requiredApp: 'hermiq',
 	order: 60,
 	group: 'workflow',

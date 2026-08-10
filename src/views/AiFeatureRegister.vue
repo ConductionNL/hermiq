@@ -45,7 +45,7 @@
 				:name="t('hermiq', 'No AI features yet')"
 				:description="t('hermiq', 'AI features are registered by the platform and appear here once seeded.')">
 				<template #icon>
-					<RobotIcon :size="20" />
+					<AiIcon :size="20" />
 				</template>
 			</NcEmptyContent>
 
@@ -139,7 +139,9 @@
 import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
 import { loadState } from '@nextcloud/initial-state'
-import RobotIcon from 'vue-material-design-icons/RobotOutline.vue'
+// The AI sparkles, not a robot — the single mark for "the model" across the
+// nav, the launcher hex and the chat empty state.
+import AiIcon from 'vue-material-design-icons/Creation.vue'
 import { acknowledgeAiFeature, disableAiFeature, enableAiFeature, listAiFeatures, publishAiFeature, withdrawAiFeature } from '../api/aiFeatures.js'
 
 /** The Algoritmekader fields mandatory to publish (mirrors AlgoritmekaderMapper::MANDATORY_FIELDS). */
@@ -161,7 +163,7 @@ export default {
 		NcButton,
 		NcEmptyContent,
 		NcNoteCard,
-		RobotIcon,
+		AiIcon,
 	},
 
 	data() {

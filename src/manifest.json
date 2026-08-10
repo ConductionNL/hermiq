@@ -8,14 +8,14 @@
 		{
 			"id": "Chat",
 			"label": "Chat",
-			"icon": "Creation",
+			"icon": "MessageTextOutline",
 			"route": "Chat",
 			"order": 8
 		},
 		{
 			"id": "AgentCatalog",
 			"label": "Agents",
-			"icon": "RobotOutline",
+			"icon": "Creation",
 			"route": "AgentCatalog",
 			"order": 10
 		},
@@ -43,7 +43,7 @@
 		{
 			"id": "SkillsCatalog",
 			"label": "Skills",
-			"icon": "Tune",
+			"icon": "SchoolOutline",
 			"route": "SkillsCatalog",
 			"order": 18
 		},

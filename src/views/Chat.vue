@@ -132,7 +132,7 @@
 		<section class="chat-page__thread">
 			<div class="chat-page__header">
 				<h2 class="chat-page__heading">
-					<Robot :size="26" />
+					<Creation :size="26" />
 					{{ headerTitle }}
 				</h2>
 				<div v-if="activeConversation" class="chat-page__header-actions">
@@ -190,7 +190,7 @@
 								:size="30"
 								:disable-menu="true"
 								:disable-tooltip="true" />
-							<Robot v-else :size="30" />
+							<Creation v-else :size="30" />
 						</div>
 						<div class="chat-page__bubble">
 							<div class="chat-page__bubble-head">
@@ -279,7 +279,7 @@
 					<!-- Live streaming bubble -->
 					<div v-if="isStreaming" class="chat-page__message chat-page__message--assistant">
 						<div class="chat-page__avatar">
-							<Robot :size="30" />
+							<Creation :size="30" />
 						</div>
 						<div class="chat-page__bubble">
 							<div class="chat-page__bubble-head">
@@ -390,7 +390,10 @@ import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
-import Robot from 'vue-material-design-icons/Robot.vue'
+// The assistant is drawn with the AI sparkles, not a robot — the same mark as
+// the launcher hex and the chat empty state, so "this came from the model"
+// reads identically wherever it appears.
+import Creation from 'vue-material-design-icons/Creation.vue'
 import Send from 'vue-material-design-icons/Send.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
@@ -437,7 +440,7 @@ export default {
 		Plus,
 		PuzzlePlusOutline,
 		Restore,
-		Robot,
+		Creation,
 		Send,
 		SkillFormModal,
 		ThumbDown,

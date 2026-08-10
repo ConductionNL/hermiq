@@ -30,7 +30,7 @@
 			:name="t('hermiq', 'No agents available')"
 			:description="t('hermiq', 'You need an agent to start a conversation. Create one in the Agents page.')">
 			<template #icon>
-				<Robot :size="20" />
+				<Creation :size="20" />
 			</template>
 			<template #action>
 				<NcButton type="primary" @click="$router.push('/agents')">
@@ -47,7 +47,7 @@
 				class="agent-selector__card">
 				<div class="agent-selector__card-head">
 					<div class="agent-selector__icon">
-						<Robot :size="28" />
+						<Creation :size="28" />
 					</div>
 					<div class="agent-selector__title">
 						<h3>{{ agent.name || t('hermiq', 'Untitled agent') }}</h3>
@@ -84,7 +84,9 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import MessagePlus from 'vue-material-design-icons/MessagePlus.vue'
-import Robot from 'vue-material-design-icons/Robot.vue'
+// Agents carry the AI sparkles, not a robot — one mark for "the model", used
+// identically in the nav, the launcher hex and the chat empty state.
+import Creation from 'vue-material-design-icons/Creation.vue'
 
 export default {
 	name: 'AgentSelector',
@@ -95,7 +97,7 @@ export default {
 		NcEmptyContent,
 		NcLoadingIcon,
 		NcNoteCard,
-		Robot,
+		Creation,
 	},
 
 	props: {
