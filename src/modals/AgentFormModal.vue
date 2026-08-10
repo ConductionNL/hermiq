@@ -98,20 +98,31 @@
 					track-by="value" />
 			</div>
 
-			<div v-if="allowedModelsForProvider.length > 0" class="agent-form__field">
+			<!--
+				A DROPDOWN even with no tenant policy. The list is the policy's
+				when one exists and the provider's known models otherwise —
+				previously that second case was an empty text box, so an author
+				had to type "claude-opus-4-8" from memory with nothing on screen
+				saying what the provider serves.
+
+				`taggable` because a provider ships new models faster than this
+				app is released: an unlisted model is typed and accepted, so the
+				list can never become the reason a new model cannot be used.
+			-->
+			<div class="agent-form__field">
 				<NcSelect
 					v-model="modelOption"
 					:input-label="t('hermiq', 'Model')"
 					:options="modelOptions"
 					:clearable="false"
+					:taggable="true"
+					:create-option="(value) => ({ label: value, value })"
 					label="label"
 					track-by="value" />
+				<p class="agent-form__hint">
+					{{ modelHint }}
+				</p>
 			</div>
-			<NcTextField
-				v-else
-				v-model="form.model"
-				:label="t('hermiq', 'Model')"
-				:placeholder="t('hermiq', 'qwen2.5')" />
 
 			<NcTextArea
 				v-model="form.prompt"
@@ -216,6 +227,7 @@ import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { listTools } from '../api/agents.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
+import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { updateToolGrants } from '../api/toolOversight.js'
 import { useAgentStore } from '../store/store.js'
 
@@ -351,7 +363,14 @@ export default {
 		 */
 		providerOptions() {
 			const allowed = this.policy?.allowed || []
-			return allowed.map((entry) => ({ label: entry.provider, value: entry.provider }))
+			if (allowed.length > 0) {
+				return allowed.map((entry) => ({ label: entry.provider, value: entry.provider }))
+			}
+
+			// No policy is the normal state of a fresh instance, and an empty
+			// provider list left the picker with nothing to choose — the agent
+			// could not name a provider at all until someone wrote a policy.
+			return Object.keys(KNOWN_MODELS).map((provider) => ({ label: provider, value: provider }))
 		},
 
 		/**
@@ -391,7 +410,44 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		modelOptions() {
-			return this.allowedModelsForProvider.map((model) => ({ label: model, value: model }))
+			return this.offeredModels.map((model) => ({ label: model, value: model }))
+		},
+
+		/**
+		 * The models to offer: the POLICY's when it names any, else the
+		 * provider's known ones.
+		 *
+		 * A policy is a constraint and wins where it exists. The known list is
+		 * only a starting point for an instance that has never written one.
+		 *
+		 * @return {Array<string>} The model ids.
+		 */
+		offeredModels() {
+			if (this.allowedModelsForProvider.length > 0) {
+				return this.allowedModelsForProvider
+			}
+
+			return knownModelsFor(this.form.provider)
+		},
+
+		/**
+		 * Where this model list came from, and where the KEY comes from.
+		 *
+		 * The key question is asked constantly and answered nowhere: this form
+		 * has no credential field because an agent never carries one. Every
+		 * call is resolved at RUN time through OpenRegister's credential
+		 * broker — the caller's personal credential first, then the
+		 * organisation's — so the agent names a provider and the broker finds
+		 * the key. Saying so here is cheaper than the support question.
+		 *
+		 * @return {string} The hint.
+		 */
+		modelHint() {
+			const source = this.allowedModelsForProvider.length > 0
+				? this.t('hermiq', 'Models allowed by your organisation\'s policy.')
+				: this.t('hermiq', 'Known models for this provider — type any other model to use it.')
+
+			return source + ' ' + this.t('hermiq', 'The API key is not set here: it is resolved when the agent runs, from your personal credential or your organisation\'s, under Settings → Agent credentials.')
 		},
 
 		/**
