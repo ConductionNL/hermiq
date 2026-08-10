@@ -23,7 +23,8 @@
     "check:json-strict": "node tests/validate-json-strict.js",
     "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context && npm run check:flow-branches",
     "prepare": "git config core.hooksPath .githooks || true",
-    "check:flow-branches": "node tests/flow-branches.spec.js"
+    "check:flow-branches": "node tests/flow-branches.spec.js",
+    "icons:opengemeenten": "node scripts/generate-opengemeenten-icons.mjs"
   },
   "browserslist": [
     "extends @nextcloud/browserslist-config"
@@ -40,6 +41,7 @@
     "@nextcloud/l10n": "^3.4.1",
     "@nextcloud/router": "^3.1.0",
     "@nextcloud/vue": "^9.9.0",
+    "@opengemeenten/iconset-web-component": "^2.0.0",
     "babel-loader": "^10.1.1",
     "dexie": "^4.4.4",
     "dompurify": "^3.4.11",

@@ -68,10 +68,20 @@
 			     agent icon. -->
 			<div class="agent-form__field">
 				<label class="agent-form__icon-label">{{ t('hermiq', 'Icon') }}</label>
+				<!--
+					BOTH sources. The picker offered MDI alone because this
+					passed no `catalogues` at all — the library deliberately
+					bundles no icon pack, so a consumer that names none gets the
+					one it can lazy-load. OpenGemeenten is the set a Dutch
+					municipal agent is actually named from ("Paspoort",
+					"Afvalcontainer"), and it is CC0.
+				-->
 				<CnIconPicker
 					v-model="form.icon"
 					searchable
-					clearable />
+					clearable
+					:sources="['mdi', 'opengemeenten']"
+					:catalogues="iconCatalogues" />
 			</div>
 
 			<!-- Provider/Model are policy-filtered pickers (tenant-model-policy):
@@ -202,7 +212,8 @@
 
 <script>
 import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
-import { CnIconPicker } from '@conduction/nextcloud-vue'
+import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
+import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { listTools } from '../api/agents.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
 import { updateToolGrants } from '../api/toolOversight.js'
@@ -296,6 +307,20 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The icon sources this form offers.
+		 *
+		 * MDI is absent from the map on purpose: the picker lazy-loads
+		 * `@mdi/js` itself when the `mdi` source is enabled and no catalogue is
+		 * supplied, so listing it here would load the whole set eagerly for a
+		 * dialog that is usually opened to type a name.
+		 *
+		 * @return {object} The catalogues, by source key.
+		 */
+		iconCatalogues() {
+			return { opengemeenten: fromOpenGemeenten(OPEN_GEMEENTEN_ICONS) }
+		},
+
 		/**
 		 * The agent being edited — the explicit `agent` prop wins (tests /
 		 * direct usage), then the `item` prop (agent-form-slot: CnIndexPage's

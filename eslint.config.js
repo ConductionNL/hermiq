@@ -56,9 +56,14 @@ module.exports = defineConfig([{
 		'vue/no-v-for-template-key-on-child': 'error',
 	},
 }, {
-	// Node-side CLI tools (build / validate scripts) legitimately use
+	// GENERATED. `src/icons/openGemeentenIcons.js` is 227 extracted SVG paths
+	// written by `npm run icons:opengemeenten`; hand-formatting a generated
+	// file is work that is undone the next time it is generated.
+	ignores: ['src/icons/openGemeentenIcons.js'],
+}, {
+	// Node-side CLI tools (build / validate / codegen scripts) legitimately use
 	// console + process.exit and ship as plain JS (no shebang).
-	files: ['tests/validate-manifest.js'],
+	files: ['tests/validate-manifest.js', 'scripts/*.mjs'],
 	rules: {
 		'no-console': 'off',
 		'n/no-process-exit': 'off',
