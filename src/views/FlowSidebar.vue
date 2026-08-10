@@ -18,44 +18,90 @@
 			</template>
 
 			<div class="flow-sidebar__pane">
-				<NcButton type="secondary" @click="editor.addNode()">
-					<template #icon>
-						<Plus :size="20" />
-					</template>
-					{{ t('hermiq', 'Add node') }}
-				</NcButton>
+				<!--
+					The palette. One card per type the ENGINE can execute, with a
+					search box above it, because the catalogue is long enough that
+					a flat list is a scroll-and-scan: the engine ships fifteen node
+					types before any app contributes one.
+
+					A card, not a bare row: the type's own description is the thing
+					an author picks on, and a name alone ("Route items", "Explode")
+					does not say what it does.
+				-->
+				<NcTextField
+					:model-value="nodeSearch"
+					:label="t('hermiq', 'Search node types')"
+					trailing-button-icon="close"
+					:show-trailing-button="nodeSearch !== ''"
+					@update:model-value="nodeSearch = $event"
+					@trailing-button-click="nodeSearch = ''">
+					<Magnify :size="16" />
+				</NcTextField>
+
+				<p v-if="paletteTypes.length === 0" class="flow-sidebar__hint">
+					{{ paletteEmptyText }}
+				</p>
+
+				<div v-else class="flow-sidebar__palette">
+					<button
+						v-for="type in paletteTypes"
+						:key="type.id"
+						class="flow-sidebar__palette-card"
+						:title="type.description"
+						draggable="true"
+						@dragstart="editor.paletteDragType = type.id"
+						@dragend="editor.paletteDragType = null"
+						@click="editor.addNode(type.id)">
+						<span class="flow-sidebar__palette-name">{{ type.label }}</span>
+						<span v-if="type.description" class="flow-sidebar__palette-desc">
+							{{ type.description }}
+						</span>
+					</button>
+				</div>
+
 				<p class="flow-sidebar__hint">
-					{{ t('hermiq', 'A node is a position in the flow — it holds no configuration. Drag from one node’s handle to another to create the step between them; that step is what runs.') }}
+					{{ t('hermiq', 'Click to add, or drag onto the canvas.') }}
 				</p>
 
 				<hr class="flow-sidebar__rule">
 
 				<template v-if="editor.selectedNode">
-					<NcTextField
-						:model-value="editor.selectedNode.name || ''"
-						:label="t('hermiq', 'Name')"
-						:placeholder="editor.selectedNode.id"
-						@update:model-value="editor.setNodeName($event)" />
 					<p class="flow-sidebar__hint">
-						{{ t('hermiq', 'Id: {id}', { id: editor.selectedNode.id }) }} · {{ roleLabel }}
+						{{ editor.selectedNode.name || editor.selectedNode.id }} · {{ roleLabel }}
 					</p>
 
-					<NcButton type="error" @click="editor.removeNode(editor.selectedNode.id)">
+					<!--
+						The keyboard-reachable way into the node editor. The canvas
+						opens the same modal on double-click, which is a pointer
+						gesture and therefore cannot be the only route (WCAG 2.1 AA
+						2.1.1).
+					-->
+					<NcButton type="secondary" @click="editor.nodeEditOpen = true">
 						<template #icon>
-							<Delete :size="20" />
+							<Pencil :size="20" />
 						</template>
-						{{ t('hermiq', 'Remove node') }}
+						{{ t('hermiq', 'Edit node') }}
 					</NcButton>
 				</template>
 
 				<p v-else class="flow-sidebar__hint">
-					{{ t('hermiq', 'Select a node on the canvas to rename it.') }}
+					{{ t('hermiq', 'Select a node on the canvas to edit it.') }}
 				</p>
 			</div>
 		</NcAppSidebarTab>
 
-		<!-- Step: the selected edge. This is where behaviour is authored. -->
-		<NcAppSidebarTab id="step" :name="t('hermiq', 'Step')" :order="2">
+		<!--
+			The CONNECTION tab: what a line is, and nothing more.
+
+			This pane used to pick a step type and edit its configuration, both
+			written onto the edge. That is the pre-inversion dialect, and it does
+			not merely look wrong — `FlowDefinitionBuilder::assertNotPreInversion()`
+			REFUSES any document in which an edge carries a non-empty `type`, so
+			every flow configured through this pane became unrunnable in whole.
+			Behaviour lives on the node (NodeEditModal); a connection carries
+			only sequence and the words a reader needs.
+		-->
+		<NcAppSidebarTab id="step" :name="t('hermiq', 'Connection')" :order="2">
 			<template #icon>
 				<ArrowRightBold :size="20" />
 			</template>
@@ -65,87 +111,36 @@
 					{{ t('hermiq', '{from} → {to}', { from: editor.selectedEdge.from.join(', '), to: editor.selectedEdge.to.join(', ') }) }}
 				</p>
 
-				<!-- The engine's catalogue, and nothing else. A step type the
-				     engine does not know is a step that resolves to nothing,
-				     runs, and reports success — so there is deliberately no
-				     hard-coded fallback list. An empty picker says the
-				     catalogue could not be read. -->
-				<NcSelect
-					v-if="stepTypes.length > 0"
-					:model-value="selectedStepType"
-					:options="stepTypes"
-					label="label"
-					:input-label="t('hermiq', 'Step type')"
-					:placeholder="t('hermiq', 'Pick what this step does')"
-					@update:model-value="editor.setEdgeType($event ? $event.id : '')" />
-				<p v-else class="flow-sidebar__hint">
-					{{ t('hermiq', 'Could not read the flow engine’s step types. Reload to try again — the list is deliberately empty rather than offering types the engine cannot run.') }}
-				</p>
+				<NcTextField
+					:model-value="editor.selectedEdge.title || ''"
+					:label="t('hermiq', 'Title')"
+					:placeholder="t('hermiq', 'The words on the line, e.g. “approved”')"
+					@update:model-value="editor.setEdgeField('title', $event)" />
 
-				<p v-if="stepDescription" class="flow-sidebar__hint">
-					{{ stepDescription }}
-				</p>
+				<NcTextArea
+					:model-value="editor.selectedEdge.description || ''"
+					:label="t('hermiq', 'Description')"
+					:placeholder="t('hermiq', 'What this connection means — when the flow takes it.')"
+					rows="3"
+					@update:model-value="editor.setEdgeField('description', $event)" />
 
-				<!-- The one typed pane, and the only one verified against the
-				     engine: HermiqAgentNode reads exactly agentId / prompt /
-				     output / expectJson. -->
-				<template v-if="editor.selectedEdge.type === 'hermiq.agent-step'">
-					<NcSelect
-						:model-value="selectedAgent"
-						:options="editor.agentOptions"
-						label="label"
-						:input-label="t('hermiq', 'Agent')"
-						:placeholder="t('hermiq', 'Pick an agent')"
-						@update:model-value="editor.setEdgeConfig('agentId', $event ? $event.id : '')" />
-					<NcTextArea
-						:model-value="selectedConfig.prompt || ''"
-						:label="t('hermiq', 'Prompt')"
-						:placeholder="t('hermiq', 'Supports {{state}} placeholders')"
-						@update:model-value="editor.setEdgeConfig('prompt', $event)" />
-					<NcTextField
-						:model-value="selectedConfig.output || ''"
-						:label="t('hermiq', 'Store answer as')"
-						:placeholder="t('hermiq', 'result')"
-						@update:model-value="editor.setEdgeConfig('output', $event)" />
-					<NcCheckboxRadioSwitch
-						:model-value="selectedConfig.expectJson === true"
-						type="switch"
-						@update:model-value="editor.setEdgeConfig('expectJson', $event)">
-						{{ t('hermiq', 'Answer must be JSON') }}
-					</NcCheckboxRadioSwitch>
-					<p class="flow-sidebar__hint">
-						{{ jsonHint }}
-					</p>
-				</template>
-
-				<!-- Everything else — the eighteen other engine step types, plus
-				     any step an app contributes later — is edited as raw config.
-				     Deliberately raw rather than typed-and-wrong: the engine's
-				     keys differ per step (route takes `rules`/`default`, filter
-				     takes `condition`, object-write takes eight), and a pane that
-				     edited invented keys would look like it worked while the
-				     step ignored every value. The catalogue carries no config
-				     schema yet; when it does, these become declarative. -->
-				<template v-else>
-					<NcTextArea
-						:model-value="rawConfig"
-						:label="t('hermiq', 'Configuration (JSON)')"
-						:error="rawConfigError !== ''"
-						:helper-text="rawConfigError"
-						rows="10"
-						@update:model-value="onRawConfig" />
-				</template>
+				<NcTextArea
+					:model-value="editor.selectedEdge.notes || ''"
+					:label="t('hermiq', 'Notes')"
+					:placeholder="t('hermiq', 'Anything the next person should know about this connection.')"
+					rows="4"
+					@update:model-value="editor.setEdgeField('notes', $event)" />
 
 				<NcButton type="error" @click="editor.removeEdge(editor.selectedEdge.id)">
 					<template #icon>
 						<Delete :size="20" />
 					</template>
-					{{ t('hermiq', 'Remove step') }}
+					{{ t('hermiq', 'Remove connection') }}
 				</NcButton>
 			</div>
 
 			<p v-else class="flow-sidebar__hint">
-				{{ t('hermiq', 'Select a step on the canvas — the line between two nodes — to configure what it does.') }}
+				{{ t('hermiq', 'Select a connection on the canvas — the line between two nodes — to describe it. What a step DOES is on the node.') }}
 			</p>
 		</NcAppSidebarTab>
 
@@ -287,9 +282,10 @@ import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
+import Magnify from 'vue-material-design-icons/Magnify.vue'
 import NoteTextOutline from 'vue-material-design-icons/NoteTextOutline.vue'
+import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
-import Plus from 'vue-material-design-icons/Plus.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
 import { useFlowEditorStore } from '../store/flowEditor.js'
 
@@ -323,6 +319,8 @@ export default {
 		Cog,
 		ContentSave,
 		Delete,
+		Magnify,
+		Pencil,
 		NcAppSidebar,
 		NcAppSidebarTab,
 		NcButton,
@@ -334,7 +332,6 @@ export default {
 		NcTextField,
 		NoteTextOutline,
 		Play,
-		Plus,
 		Sitemap,
 	},
 
@@ -345,11 +342,8 @@ export default {
 	data() {
 		return {
 			activeTab: 'nodes',
-			// Raw-config editing is a DRAFT: the textarea holds whatever is typed
-			// (including a half-finished object) and only valid JSON reaches the
-			// step, so a stray keystroke cannot wipe a step's configuration.
-			rawConfigDraft: null,
-			rawConfigError: '',
+			// Palette filter. Empty means "show the whole catalogue".
+			nodeSearch: '',
 			triggers: ['object.created', 'object.updated', 'object.deleted', 'schedule', 'manual'],
 			executionModes: ['async', 'sync'],
 		}
@@ -373,66 +367,47 @@ export default {
 		},
 
 		/**
-		 * The engine's step catalogue as picker options.
+		 * The palette: the engine's node types, filtered by the search box.
 		 *
-		 * @return {Array<{id: string, label: string, description: string}>} The options.
+		 * Matches the id as well as the name and description — an author who
+		 * knows the engine reaches for `openregister.object-read` before
+		 * "Read an object".
+		 *
+		 * @return {Array<{id: string, label: string, description: string}>} The cards.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
-		stepTypes() {
-			return (this.editor.nodeCatalog || []).map((entry) => ({
+		paletteTypes() {
+			const needle = this.nodeSearch.trim().toLowerCase()
+			const all = (this.editor.nodeCatalog || []).map((entry) => ({
 				id: entry.id,
 				label: entry.displayName || entry.id,
 				description: entry.description || '',
 			}))
-		},
 
-		/**
-		 * The option matching the selected step's stored type.
-		 *
-		 * @return {object|null} The option, or null when the step has no type.
-		 */
-		selectedStepType() {
-			const type = this.editor.selectedEdge?.type || ''
-
-			return this.stepTypes.find((option) => option.id === type) || null
-		},
-
-		/**
-		 * What the engine says this step type does.
-		 *
-		 * @return {string} The description, or ''.
-		 */
-		stepDescription() {
-			return this.selectedStepType?.description || ''
-		},
-
-		/**
-		 * The selected step's config, always an object.
-		 *
-		 * A step is NOT obliged to carry a `config` key: one created by drawing a
-		 * connection has none until a type is chosen. Reading
-		 * `selectedEdge.config.prompt` off such a step throws during render and
-		 * takes the whole sidebar with it.
-		 *
-		 * @return {object} The config, or an empty object.
-		 */
-		selectedConfig() {
-			return this.editor.selectedEdge?.config || {}
-		},
-
-		/**
-		 * The selected step's config as editable JSON.
-		 *
-		 * Returns the DRAFT while one is being typed, so an in-progress edit is
-		 * not reformatted under the cursor on every keystroke.
-		 *
-		 * @return {string} Pretty-printed JSON.
-		 */
-		rawConfig() {
-			if (this.rawConfigDraft !== null) {
-				return this.rawConfigDraft
+			if (needle === '') {
+				return all
 			}
 
-			return JSON.stringify(this.selectedConfig, null, 2)
+			return all.filter((entry) =>
+				`${entry.id} ${entry.label} ${entry.description}`.toLowerCase().includes(needle),
+			)
+		},
+
+		/**
+		 * Why the palette is empty — a failed catalogue read and a search that
+		 * matched nothing are different problems and only one is the author's.
+		 *
+		 * @return {string} The empty-state text.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		paletteEmptyText() {
+			if ((this.editor.nodeCatalog || []).length === 0) {
+				return this.t('hermiq', 'Could not read the flow engine’s node types. Reload to try again — the palette is deliberately empty rather than offering types the engine cannot run.')
+			}
+
+			return this.t('hermiq', 'No node type matches “{search}”.', { search: this.nodeSearch })
 		},
 
 		/**
@@ -485,36 +460,6 @@ export default {
 			return `${trigger || 'object.updated'} · ${this.editor.flow.triggerSchema}`
 		},
 
-		/**
-		 * The dropdown option matching the selected step's stored agent id.
-		 *
-		 * @return {object|null} The option, or null when nothing is chosen.
-		 */
-		selectedAgent() {
-			const id = this.editor.selectedEdge?.config?.agentId || ''
-
-			return this.editor.agentOptions.find((option) => option.id === id) || null
-		},
-
-		/**
-		 * How to read an agent step's answer downstream. Built here rather than
-		 * inline because it contains placeholder tokens in double braces, which
-		 * the template compiler would try to interpolate.
-		 *
-		 * @return {string} The hint.
-		 */
-		jsonHint() {
-			const key = this.editor.selectedEdge?.config?.output || 'result'
-			if (this.editor.selectedEdge?.config?.expectJson === true) {
-				return this.t(
-					'hermiq',
-					'The answer is parsed, so a later step can read one field with {field} — not just the whole reply.',
-					{ field: `{{${key}.someField}}` },
-				)
-			}
-
-			return this.t('hermiq', 'A later step reads this step’s answer with {token}.', { token: `{{${key}}}` })
-		},
 	},
 
 	watch: {
@@ -524,8 +469,6 @@ export default {
 		 * @param {string|null} id The newly selected place id.
 		 */
 		'editor.selectedNodeId'(id) {
-			this.rawConfigDraft = null
-			this.rawConfigError = ''
 			if (id !== null) {
 				this.activeTab = 'nodes'
 			}
@@ -541,8 +484,6 @@ export default {
 		 * @param {string|null} id The newly selected step id.
 		 */
 		'editor.selectedEdgeId'(id) {
-			this.rawConfigDraft = null
-			this.rawConfigError = ''
 			if (id !== null) {
 				this.activeTab = 'step'
 			}
@@ -550,35 +491,6 @@ export default {
 	},
 
 	methods: {
-		/**
-		 * Accept raw-config edits, keeping invalid JSON out of the step.
-		 *
-		 * The draft is always kept so typing is uninterrupted; the step is only
-		 * written when the text parses to an object. Anything else leaves the
-		 * stored config alone and reports why.
-		 *
-		 * @param {string} value The textarea contents.
-		 * @return {void}
-		 */
-		onRawConfig(value) {
-			this.rawConfigDraft = value
-
-			let parsed = null
-			try {
-				parsed = JSON.parse(value)
-			} catch (e) {
-				this.rawConfigError = this.t('hermiq', 'Not valid JSON — the step keeps its previous configuration.')
-				return
-			}
-
-			if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed) === true) {
-				this.rawConfigError = this.t('hermiq', 'Configuration must be a JSON object.')
-				return
-			}
-
-			this.rawConfigError = ''
-			this.editor.setEdgeConfigAll(parsed)
-		},
 
 		/**
 		 * Persist the flow, keeping the route in step when it gains an id.
@@ -618,6 +530,52 @@ export default {
 	border: none;
 	border-top: 1px solid var(--color-border);
 	margin: 12px 0;
+}
+
+.flow-sidebar__palette {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	/* The catalogue is long; cap it so the palette cannot push the selected
+	   node's controls off the bottom of the sidebar. */
+	max-height: 40vh;
+	overflow-y: auto;
+}
+
+.flow-sidebar__palette-card {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: 2px;
+	width: 100%;
+	padding: 8px 10px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	background-color: var(--color-main-background);
+	color: var(--color-main-text);
+	text-align: start;
+	cursor: grab;
+}
+
+.flow-sidebar__palette-card:hover,
+.flow-sidebar__palette-card:focus-visible {
+	background-color: var(--color-background-hover);
+}
+
+.flow-sidebar__palette-name {
+	font-weight: bold;
+}
+
+.flow-sidebar__palette-desc {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85em;
+	/* Two lines, then ellipsis: a description long enough to wrap four times
+	   turns the palette back into the scroll-and-scan the search box exists to
+	   avoid. The full text is on the card's title attribute. */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
 }
 
 .flow-sidebar__verbs {

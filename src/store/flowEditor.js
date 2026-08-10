@@ -130,13 +130,19 @@ function normaliseEdge(edge, index) {
 	const source = edge.from === undefined ? edge.source : edge.from
 	const target = edge.to === undefined ? edge.target : edge.to
 
+	// `type`/`config` are deliberately NOT defaulted onto the edge. They used
+	// to be, and that seeded every loaded edge with the two keys the engine
+	// treats as the pre-inversion marker — so a flow that merely passed through
+	// the editor came back carrying them. Empty `type: ''` is not refused
+	// (`assertNotPreInversion` tests for a NON-empty type), but writing keys
+	// the engine does not read onto every edge is how the dialect drifted in
+	// the first place. Anything already stored on the edge is preserved by the
+	// spread; nothing new is invented here.
 	return {
 		...edge,
 		id: String(edge.id || edge.name || `edge-${index}`),
 		from: endpointList(source),
 		to: endpointList(target),
-		type: edge.type || '',
-		config: edge.config || {},
 	}
 }
 
@@ -163,6 +169,17 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		// re-open control lives on the CANVAS — once the sidebar is closed it
 		// has no button of its own left to render.
 		sidebarOpen: true,
+		// Whether the node editor is open. Kept in the store rather than in
+		// FlowBuilder because both the canvas (double-click) and the sidebar
+		// (the keyboard-reachable "Edit node" button) open the same modal, and
+		// those two components cannot pass props to one another — the sidebar
+		// is mounted into Nextcloud's own #sidebar slot.
+		nodeEditOpen: false,
+		// The node type currently being dragged out of the palette, or null.
+		// Read by FlowBuilder's canvas-drop handler to decide what to create at
+		// the drop point — without it a drag lands as a drop with no type and
+		// creates a node the engine refuses.
+		paletteDragType: null,
 		validation: null,
 		// Node ids the last save reported as dead ends. Empty means "the save
 		// said nothing"; it never means "not checked yet" — the array is only
@@ -683,6 +700,39 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		},
 
 		/**
+		 * Write one top-level field on the selected node.
+		 *
+		 * Used for the node's own prose — `notes` — which rides on the node
+		 * next to what it does rather than in a tab of its own: a note about a
+		 * step is unreadable when it is filed somewhere other than the step.
+		 *
+		 * Kept separate from `setNodeConfig`, which writes INSIDE `config`. A
+		 * note is documentation for a reader; `config` is what the engine
+		 * executes, and putting prose in there would hand the node a key it
+		 * does not read.
+		 *
+		 * @param {string} key   The node field.
+		 * @param {*}      value The new value.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		setNodeField(key, value) {
+			if (this.selectedNodeId === null) {
+				return
+			}
+
+			this.flow.nodes = this.nodes.map((node) => {
+				if (node.id !== this.selectedNodeId) {
+					return node
+				}
+
+				return { ...node, [key]: value }
+			})
+			this.dirty = true
+		},
+
+		/**
 		 * Persist a place's new position.
 		 *
 		 * @param {object} payload `{id, x, y}`.
@@ -828,17 +878,27 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		},
 
 		/**
-		 * Set the selected step's type.
+		 * Write one field on the selected connection.
 		 *
-		 * The config is CLEARED with the type, not carried over: config keys are
-		 * per-node vocabulary, and keys the new node does not read are invisible
-		 * to it by construction — the step would run, ignore them, and report
-		 * success.
+		 * A connection carries SEQUENCE and words for a reader — `title`,
+		 * `description`, `notes` — and nothing the engine executes.
 		 *
-		 * @param {string} type The catalogue step type.
+		 * `setEdgeType` and `setEdgeConfig`/`setEdgeConfigAll` used to live here
+		 * and are deliberately gone. They wrote `type`/`config` onto the edge,
+		 * which is the pre-inversion dialect:
+		 * `FlowDefinitionBuilder::assertNotPreInversion()` refuses any document
+		 * in which an edge carries a non-empty `type` — "an edge is sequence and
+		 * a NODE is the action" — so a flow configured that way did not degrade,
+		 * it stopped building at all. Behaviour is set through `setNodeType` /
+		 * `setNodeConfig`.
+		 *
+		 * @param {string} key   The connection field.
+		 * @param {*}      value The new value.
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
-		setEdgeType(type) {
+		setEdgeField(key, value) {
 			if (this.selectedEdgeId === null) {
 				return
 			}
@@ -848,58 +908,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 					return edge
 				}
 
-				if (edge.type === type) {
-					return edge
-				}
-
-				return { ...edge, type, config: {} }
-			})
-			this.dirty = true
-		},
-
-		/**
-		 * Replace the selected step's whole config.
-		 *
-		 * The raw-config editor needs this: it edits the object as a document, so
-		 * a per-key setter could never REMOVE a key, and a step type whose keys
-		 * the builder does not know would accumulate stale ones.
-		 *
-		 * @param {object} config The new config object.
-		 * @return {void}
-		 */
-		setEdgeConfigAll(config) {
-			if (this.selectedEdgeId === null) {
-				return
-			}
-
-			this.flow.edges = this.edges.map((edge) => {
-				if (edge.id !== this.selectedEdgeId) {
-					return edge
-				}
-
-				return { ...edge, config: { ...config } }
-			})
-			this.dirty = true
-		},
-
-		/**
-		 * Write one config key on the selected step.
-		 *
-		 * @param {string} key   The config key.
-		 * @param {*}      value The value.
-		 * @return {void}
-		 */
-		setEdgeConfig(key, value) {
-			if (this.selectedEdgeId === null) {
-				return
-			}
-
-			this.flow.edges = this.edges.map((edge) => {
-				if (edge.id !== this.selectedEdgeId) {
-					return edge
-				}
-
-				return { ...edge, config: { ...(edge.config || {}), [key]: value } }
+				return { ...edge, [key]: value }
 			})
 			this.dirty = true
 		},

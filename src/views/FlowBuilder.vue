@@ -90,12 +90,20 @@
 			     such a document, and drawing it normally is how it stayed
 			     invisible. -->
 			<template #node="{ node }">
+				<!--
+					Double-click opens the node's editor. It is a shortcut, NOT
+					the only way in: a pointer gesture cannot be performed from
+					the keyboard (WCAG 2.1 AA 2.1.1), so the Nodes tab carries an
+					"Edit node" button for the selected node and that is the
+					accessible path.
+				-->
 				<div
 					class="flow-builder__node"
 					:class="{
 						[`flow-builder__node--${roleOf(node.id)}`]: true,
 						'flow-builder__node--untyped': !node.type,
-					}">
+					}"
+					@dblclick.stop="onNodeEdit(node)">
 					<span class="flow-builder__node-step">{{ nodeStepLabel(node) }}</span>
 					<span class="flow-builder__node-label">{{ nodeLabel(node) }}</span>
 					<span v-if="nodeConfigSummary(node)" class="flow-builder__node-config">
@@ -214,6 +222,10 @@
 			:result="resultDialog.result"
 			@close="resultDialog = null" />
 
+		<NodeEditModal
+			:show="editor.nodeEditOpen"
+			@close="editor.nodeEditOpen = false" />
+
 		<DeadEndWarningDialog
 			v-if="editor.deadEnds.length > 0"
 			:node-ids="editor.deadEnds"
@@ -230,6 +242,7 @@ import Minus from 'vue-material-design-icons/Minus.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
 import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
+import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
 import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
 import { useFlowEditorStore } from '../store/flowEditor.js'
@@ -300,6 +313,7 @@ export default {
 		NcLoadingIcon,
 		Plus,
 		DeadEndWarningDialog,
+		NodeEditModal,
 		RunFlowDialog,
 		Sitemap,
 		StepResultDialog,
@@ -379,6 +393,23 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * Select a node and open its editor.
+		 *
+		 * Selects first: the modal reads `editor.selectedNode`, so opening
+		 * without selecting would show whichever node happened to be selected
+		 * before — and every write would land on that one.
+		 *
+		 * @param {object} node The node that was double-clicked.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		onNodeEdit(node) {
+			this.editor.selectNode(node.id)
+			this.editor.nodeEditOpen = true
+		},
+
 		/**
 		 * The ports a node exposes, in render order.
 		 *
@@ -593,7 +624,16 @@ export default {
 		 * @return {void}
 		 */
 		onCanvasDrop({ x, y }) {
-			this.editor.addNode('', x, y)
+			// Create the type that was dragged. A drop with no type in flight
+			// is not a palette drag at all — creating an untyped node for it
+			// would put a node the engine refuses on the canvas, silently.
+			const type = this.editor.paletteDragType
+			if (!type) {
+				return
+			}
+
+			this.editor.addNode(type, x, y)
+			this.editor.paletteDragType = null
 		},
 
 		/**

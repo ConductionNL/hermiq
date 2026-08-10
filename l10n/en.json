@@ -1195,7 +1195,22 @@
         "Unassigned: branch “{branch}” no longer exists": "Unassigned: branch “{branch}” no longer exists",
         "Fetching the nodes and steps for this flow.": "Fetching the nodes and steps for this flow.",
         "Loading flow…": "Loading flow…",
-        "Which objects fire this trigger.": "Which objects fire this trigger."
+        "Which objects fire this trigger.": "Which objects fire this trigger.",
+        "A later node reads this node’s answer with {token}.": "A later node reads this node’s answer with {token}.",
+        "Anything the next person should know about this connection.": "Anything the next person should know about this connection.",
+        "Connection": "Connection",
+        "Could not read the flow engine’s node types. Reload to try again — the list is deliberately empty rather than offering types the engine cannot run.": "Could not read the flow engine’s node types. Reload to try again — the list is deliberately empty rather than offering types the engine cannot run.",
+        "Edit node": "Edit node",
+        "No node type matches “{search}”.": "No node type matches “{search}”.",
+        "Node type": "Node type",
+        "Pick what this node does": "Pick what this node does",
+        "Remove connection": "Remove connection",
+        "Search node types": "Search node types",
+        "Select a connection on the canvas — the line between two nodes — to describe it. What a step DOES is on the node.": "Select a connection on the canvas — the line between two nodes — to describe it. What a step DOES is on the node.",
+        "Select a node on the canvas to edit it.": "Select a node on the canvas to edit it.",
+        "The words on the line, e.g. “approved”": "The words on the line, e.g. “approved”",
+        "What this connection means — when the flow takes it.": "What this connection means — when the flow takes it.",
+        "Why this node is here, what it assumes, anything the next person should know.": "Why this node is here, what it assumes, anything the next person should know."
     },
     "plurals": ""
 }
