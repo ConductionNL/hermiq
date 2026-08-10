@@ -11,7 +11,7 @@ A node MAY declare ports. A node that declares none behaves exactly as today.
 ```
 node.ports?: Array<{
   id:     string   // unique within the node; echoed back on connect
-  side:   'left' | 'right' | 'bottom'
+  side:   'left' | 'right' | 'top'
   label?: string   // rendered beside the port and used as its accessible name
   kind?:  'in' | 'out'   // default: 'in' for left, 'out' for right
 }>

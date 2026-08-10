@@ -250,6 +250,46 @@ test.describe('flow builder — the node is the action', () => {
 		expect(workGate).toContain('idle')
 	})
 
+	// @e2e flow-canvas::two-branches-of-one-gate-reach-the-same-node
+	test('a branch port carries its branch into the connection', async ({ page }) => {
+		await openFlow(page, SEQUENCER)
+
+		// The canvas names a branch port `out:<branch>`. That id is what the
+		// editor turns into `edge.fromExit`, the field the engine's router matches
+		// on — so if the ids are not branch-bearing, every branch of a route
+		// produces an identical edge and the choice the author made is lost.
+		const portIds = await page.evaluate(() => {
+			const read: Record<string, string[]> = {}
+			document.querySelectorAll('.cn-graph-canvas__node').forEach((wrapper) => {
+				const label = wrapper.querySelector('.flow-builder__node-label')?.textContent?.trim() ?? ''
+				const ids: string[] = []
+				wrapper.querySelectorAll('.cn-graph-canvas__handle--out').forEach((handle) => {
+					ids.push(handle.getAttribute('aria-label') ?? '')
+				})
+				read[label] = ids
+			})
+
+			return read
+		})
+
+		// work-gate's two branches are named on their ports, so the two are
+		// distinguishable to a pointer and to the code that reads the drag.
+		expect(portIds['work-gate']).toBeDefined()
+		expect(portIds['work-gate'].join(' ')).toContain('work')
+		expect(portIds['work-gate'].join(' ')).toContain('idle')
+		expect(new Set(portIds['work-gate']).size).toBe(portIds['work-gate'].length)
+	})
+
+	test('no line is rendered as unassigned on a healthy flow', async ({ page }) => {
+		await openFlow(page, SEQUENCER)
+
+		// The negative control for the unassigned state. Every edge in this flow
+		// leaves a branch its node still offers, so the marker must be absent —
+		// otherwise "no unassigned edges" would be untestable and the styling
+		// could be wrong in either direction without anything noticing.
+		await expect(page.locator('.flow-builder__step--unassigned')).toHaveCount(0)
+	})
+
 	test('a port is a dot, not a bar', async ({ page }) => {
 		await openFlow(page, SEQUENCER)
 
