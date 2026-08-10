@@ -378,7 +378,7 @@ export default {
 		 * @return {Array<{id: string, label: string, description: string}>} The options.
 		 */
 		stepTypes() {
-			return (this.editor.stepCatalog || []).map((entry) => ({
+			return (this.editor.nodeCatalog || []).map((entry) => ({
 				id: entry.id,
 				label: entry.displayName || entry.id,
 				description: entry.description || '',

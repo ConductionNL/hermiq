@@ -62,7 +62,7 @@ import { branchOfPort, branchesOfNode, orphanedBranchEdgeIds } from './flowBranc
 import {
 	createFlow,
 	getFlowRun,
-	getStepCatalog,
+	getNodeCatalog,
 	listFlows,
 	runFlow,
 	updateFlow,
@@ -147,9 +147,11 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		agents: [],
 		selectedNodeId: null,
 		selectedEdgeId: null,
-		// The STEP types the engine can execute, from OpenRegister's catalogue
-		// (ADR-065 owns the vocabulary). These belong on edges, never on nodes.
-		stepCatalog: [],
+		// The NODE types the engine can execute, from OpenRegister's catalogue
+		// (ADR-065 owns the vocabulary). These belong on NODES: the engine
+		// reads `type`/`config` off the node and refuses any document where an
+		// edge carries a type. The comment here used to claim the reverse.
+		nodeCatalog: [],
 		lastRun: null,
 		loading: false,
 		saving: false,
@@ -445,7 +447,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			}
 
 			this.loadAgents()
-			this.loadStepCatalog()
+			this.loadNodeCatalog()
 			this.open(id)
 		},
 
@@ -458,11 +460,15 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @return {Promise<void>}
 		 */
-		async loadStepCatalog() {
+		async loadNodeCatalog() {
 			try {
-				this.stepCatalog = await getStepCatalog()
+				this.nodeCatalog = await getNodeCatalog()
 			} catch (e) {
-				this.stepCatalog = []
+				// A failure costs the palette, not the editor. The list stays
+				// empty rather than falling back to a hard-coded vocabulary:
+				// a type the engine does not know resolves to nothing, runs,
+				// and reports success having done no work.
+				this.nodeCatalog = []
 			}
 		},
 
@@ -517,31 +523,141 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		},
 
 		/**
-		 * Add a place.
+		 * Add a node OF A TYPE.
 		 *
-		 * Deliberately takes a NAME and not a type: a place has no type, and the
-		 * palette that used to pass one here is now the step picker on an edge.
+		 * This used to take a name and no type, with a comment saying "a place
+		 * has no type, and the palette that used to pass one here is now the
+		 * step picker on an edge". That was the pre-inversion model and it is
+		 * the wrong way round: OpenRegister's `flow-engine` spec requires that
+		 * "each node MUST carry the `type` and `config` of the step it
+		 * performs; each edge MUST carry only `from`, `to` and optional display
+		 * text", and it REFUSES any document in which an edge carries a type.
+		 * So a typeless node cannot describe a step, and the editor that made
+		 * them was building documents the engine rejects.
+		 *
+		 * `config` is seeded as an object rather than left absent: a node with
+		 * no `config` key throws the moment a form reads `node.config.prompt`,
+		 * and that takes the whole editor down with it.
 		 *
 		 * Default placement stacks a vertical chain near the left, leaving a gap
-		 * roughly the height of a card so the arrowhead and the step label that
-		 * sit on the connecting edge both have room to read.
+		 * roughly the height of a card so the arrowhead and the label that sit
+		 * on the connecting edge both have room to read.
 		 *
-		 * @param {string} name The place's label.
+		 * @param {string} type The engine node type, e.g. `hermiq.agent-step`.
 		 * @param {number} x    Canvas x (optional).
 		 * @param {number} y    Canvas y (optional).
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
-		addNode(name = '', x = null, y = null) {
+		addNode(type = '', x = null, y = null) {
 			const index = this.nodes.length
 			const node = {
 				id: `node-${Date.now().toString(36)}-${index}`,
-				name: name || `Step ${index + 1}`,
+				type,
+				name: this.nodeTypeLabel(type) || `Step ${index + 1}`,
+				config: {},
 				x: x === null ? 80 : x,
 				y: y === null ? (60 + index * 170) : y,
 			}
 
 			this.flow.nodes = [...this.nodes, node]
 			this.selectNode(node.id)
+			this.dirty = true
+		},
+
+		/**
+		 * The engine's display name for a node type, or '' when the catalogue
+		 * cannot explain it.
+		 *
+		 * There is deliberately no local name table. A type the catalogue does
+		 * not know is shown as its raw id, which is the truth, rather than as a
+		 * guess from a list that may have drifted from the engine.
+		 *
+		 * @param {string} type The node type.
+		 * @return {string} The label.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		nodeTypeLabel(type) {
+			const entry = (this.nodeCatalog || []).find((candidate) => candidate.id === type)
+
+			return entry?.displayName || ''
+		},
+
+		/**
+		 * Change the selected node's type.
+		 *
+		 * Clears `config` with it. The engine's keys differ per node — a router
+		 * reads `rules`/`default`, a filter reads `condition`, an object-write
+		 * reads eight — so carrying the old node's config across would leave
+		 * keys the new node never reads. Those do not error: they are stored,
+		 * ignored, and the step reports success having done nothing with them.
+		 *
+		 * @param {string} type The new node type.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		setNodeType(type) {
+			if (this.selectedNodeId === null) {
+				return
+			}
+
+			this.flow.nodes = this.nodes.map((node) => {
+				if (node.id !== this.selectedNodeId || node.type === type) {
+					return node
+				}
+
+				return { ...node, type, config: {} }
+			})
+			this.dirty = true
+		},
+
+		/**
+		 * Write one key of the selected node's config.
+		 *
+		 * @param {string} key   The config key.
+		 * @param {*}      value The new value.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		setNodeConfig(key, value) {
+			if (this.selectedNodeId === null) {
+				return
+			}
+
+			this.flow.nodes = this.nodes.map((node) => {
+				if (node.id !== this.selectedNodeId) {
+					return node
+				}
+
+				return { ...node, config: { ...(node.config || {}), [key]: value } }
+			})
+			this.dirty = true
+		},
+
+		/**
+		 * Replace the selected node's config wholesale — the raw-JSON path.
+		 *
+		 * @param {object} config The new config object.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		setNodeConfigAll(config) {
+			if (this.selectedNodeId === null) {
+				return
+			}
+
+			this.flow.nodes = this.nodes.map((node) => {
+				if (node.id !== this.selectedNodeId) {
+					return node
+				}
+
+				return { ...node, config: { ...config } }
+			})
 			this.dirty = true
 		},
 

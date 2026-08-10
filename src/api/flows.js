@@ -181,21 +181,29 @@ export async function validateFlow(flow) {
 }
 
 /**
- * The step types the engine can execute.
+ * The node types the engine can execute.
  *
  * OpenRegister's engine owns the vocabulary (ADR-065): every app that
- * contributes a step registers it there, so the catalogue is the only
+ * contributes a node registers it there, so the catalogue is the only
  * authoritative list.
  *
- * Note what these entries describe: a **step**, which in the canonical dialect
- * lives on an EDGE. The endpoint is called `node-catalog` for historical
- * reasons, and reading that name as "types a node can have" is exactly the
- * mistake that made every flow authored here unrunnable —
- * `FlowDefinitionBuilder::extractPlaces()` throws on a node carrying `type`.
+ * These entries describe a **node**, and the endpoint is called `node-catalog`
+ * because that is what it returns. This docblock used to say the opposite —
+ * that a step "lives on an EDGE", and that reading the endpoint's name as
+ * "types a node can have" was the mistake that made flows unrunnable, citing
+ * `FlowDefinitionBuilder::extractPlaces()` as throwing on a node carrying
+ * `type`. There is no `extractPlaces()` in the engine, and the builder rejects
+ * the opposite thing: `assertNotPreInversion()` throws when an EDGE carries a
+ * non-empty `type`, with the message "an edge is sequence and a NODE is the
+ * action". `flow-engine/spec.md` agrees — "each node MUST carry the `type` and
+ * `config` of the step it performs".
+ *
+ * The comment was describing the pre-inversion dialect as though it were the
+ * canonical one, which is how the editor came to write behaviour onto edges.
  *
  * @return {Promise<Array<object>>} The catalogue entries (`{id, displayName, description}`).
  */
-export async function getStepCatalog() {
+export async function getNodeCatalog() {
 	const url = generateUrl('/apps/openregister/api/flow/node-catalog')
 	const response = await axios.get(url)
 

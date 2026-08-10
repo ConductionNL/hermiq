@@ -510,7 +510,7 @@ export default {
 				return this.t('hermiq', 'No step type')
 			}
 
-			const entry = (this.editor.stepCatalog || []).find((candidate) => candidate.id === node.type)
+			const entry = (this.editor.nodeCatalog || []).find((candidate) => candidate.id === node.type)
 
 			// A type the catalogue cannot explain is shown as its raw id rather
 			// than guessed at from a list that may not match the engine.
