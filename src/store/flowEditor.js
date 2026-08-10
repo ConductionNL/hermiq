@@ -36,17 +36,19 @@
 //
 // A flow is a Petri net (ADR-065), and the two halves are not interchangeable:
 //
-//   node  = PLACE      `{id, name?}`  — a position. Carries NO behaviour.
-//   edge  = TRANSITION `{id, from, to, type, config}` — this is what RUNS.
+//   node  = ACTION   `{id, type, config, exit?}` — this is what RUNS.
+//   edge  = SEQUENCE `{id, from, to, title?, fromExit?}` — where it goes next.
 //
-// `FlowDefinitionBuilder::extractPlaces()` THROWS on a node carrying `type` or
-// `config`, because a step put on a node is a step nothing executes: dispatch
-// returns items untouched, the run reports COMPLETED, and the trace is empty.
+// The inversion LANDED (`or-flow-action-nodes`). `FlowDefinitionBuilder` now
+// refuses the opposite shape: a document where any EDGE carries a non-empty
+// `type` is pre-inversion, and it is refused rather than reinterpreted, because
+// a half-migrated flow would run, skip the step nobody claimed, and report
+// success.
 //
-// NOTE: this is being inverted — see `or-flow-action-nodes`, where a node
-// becomes the action and an edge becomes sequence. Until that lands and
-// `or-flow-migrate-definitions` converts the stored flows, this file reads what
-// the engine actually reads today.
+// `fromExit` names WHICH BRANCH of a routing node an edge leaves from. It is
+// what `FlowTokenRouter::placesForExit()` matches on, and it is the reason the
+// canvas draws one named out-port per branch: without it recorded, every branch
+// of a route produces an identical edge and the author's choice is lost.
 //
 // `from`/`to` may each be a LIST: several `from` is a join (the transition
 // waits for a token on every one), several `to` is a split (firing puts a token
@@ -56,6 +58,7 @@
 
 import { defineStore } from 'pinia'
 import { useAgentStore } from './store.js'
+import { branchOfPort, branchesOfNode, orphanedBranchEdgeIds } from './flowBranches.js'
 import {
 	createFlow,
 	getFlowRun,
@@ -211,6 +214,45 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 
 			return lines
 		},
+
+		/**
+		 * The branches each node exposes, keyed by node id.
+		 *
+		 * @param {object} state The flow-editor store state.
+		 * @return {object} `{[nodeId]: string[]}`.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		branchesByNode: (state) => {
+			const map = {}
+			for (const node of (state.flow.nodes || [])) {
+				map[node.id] = branchesOfNode(node)
+			}
+
+			return map
+		},
+
+		/**
+		 * Edges whose branch no longer exists on the node they leave.
+		 *
+		 * Editing a routing node's `rules[]` can remove a branch that edges were
+		 * already drawn from. Those edges are NOT deleted: silently removing a
+		 * connection the author drew — because a value changed in a different
+		 * panel — loses work with no trace, and the author cannot tell an edge
+		 * they forgot from one the editor took away.
+		 *
+		 * They are reported instead, so the canvas can draw them as unassigned
+		 * and the author can repoint or remove them deliberately.
+		 *
+		 * An edge with no `fromExit` is never orphaned: it leaves an unbranched
+		 * exit, which every node has.
+		 *
+		 * @param {object} state The flow-editor store state.
+		 * @return {Array<string>} The offending edge ids.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		orphanedBranchEdgeIds: (state) => orphanedBranchEdgeIds(state.flow.nodes || [], state.flow.edges || []),
 
 		/**
 		 * @param {object} state The flow-editor store state.
@@ -545,25 +587,45 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		},
 
 		/**
-		 * Connect two places, creating a step between them.
+		 * Connect two nodes, recording WHICH BRANCH the line leaves from.
 		 *
-		 * The new step is deliberately UNTYPED and immediately selected: an edge
-		 * is where behaviour lives, so the next thing the author must do is say
-		 * what it does. Creating it pre-typed would guess, and a step whose type
-		 * nobody chose is exactly the pass-through-that-reports-success the
-		 * engine's preflight exists to catch.
+		 * `sourcePort` is the port the author actually dragged. On a routing
+		 * node the canvas draws one named out-port per branch, and the branch is
+		 * carried to the engine as `edge.fromExit` — the field
+		 * `FlowTokenRouter::placesForExit()` matches on when it decides which
+		 * outgoing edges a token reaches. Without it every branch of a route
+		 * produced an IDENTICAL edge: the ports were drawn, the author picked
+		 * one, and the choice was dropped on the floor.
 		 *
-		 * @param {object} payload `{source, target}`.
-		 * @param {string} payload.source The step's source place id.
-		 * @param {string} payload.target The step's target place id.
+		 * The edge carries no `type`/`config` of its own. After
+		 * or-flow-action-nodes the NODE is the action and the edge is sequence,
+		 * so an edge carrying behaviour is the pre-inversion shape the engine
+		 * refuses outright.
+		 *
+		 * @param {object} payload `{source, target, sourcePort}`.
+		 * @param {string} payload.source     The originating node id.
+		 * @param {string} payload.target     The receiving node id.
+		 * @param {string} [payload.sourcePort] The port dragged from, e.g. `out:work`.
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
-		connect({ source, target }) {
+		connect({ source, target, sourcePort }) {
 			if (!source || !target || source === target) {
 				return
 			}
 
-			const exists = this.edges.some((edge) => edge.from.includes(source) && edge.to.includes(target))
+			const fromExit = branchOfPort(sourcePort)
+
+			// The branch is PART of the identity. Two branches of one route may
+			// legitimately lead to the same node — "passed" and "failed" both
+			// ending at `done` is ordinary — and keying the duplicate check on
+			// from/to alone silently refused the second one.
+			const exists = this.edges.some((edge) =>
+				edge.from.includes(source)
+				&& edge.to.includes(target)
+				&& String(edge.fromExit || '') === fromExit,
+			)
 			if (exists) {
 				return
 			}
@@ -572,8 +634,13 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				id: `step-${Date.now().toString(36)}-${this.edges.length}`,
 				from: [source],
 				to: [target],
-				type: '',
-				config: {},
+			}
+
+			// Only when it means something: an unbranched node has one exit, and
+			// writing `fromExit: ''` on it would be a key the engine has to read
+			// and ignore on every edge in every flow.
+			if (fromExit !== '') {
+				edge.fromExit = fromExit
 			}
 
 			this.flow.edges = [...this.edges, edge]

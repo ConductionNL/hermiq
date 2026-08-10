@@ -12,8 +12,8 @@ depends_on:
 
 Rebuild the flow canvas around action nodes with real connection ports: an
 **in-port** on the left of every non-start node, an **out-port** on the right,
-**one out-port per branch** on a routing node, and **loop ports** at the bottom
-of a loop node whose body is a chain of ordinary nodes.
+**one out-port per branch** on a routing node, and **loop ports** on the TOP
+edge of a loop node whose body is a chain of ordinary nodes.
 
 Plus the two surfaces the engine now exposes: a warning when saving a flow with
 a dead end, and the flow's last run.
@@ -41,7 +41,7 @@ requiring its config to be opened.
 - **Out-port** on the right, drag or keyboard to connect.
 - **One out-port per branch** on a routing/switch node, each labelled with its
   branch, so a two-way route has two distinct, named origins.
-- **Loop ports** on a loop node: a body-out at the bottom starting the loop body,
+- **Loop ports** on a loop node: a body-out on the TOP edge starting the loop body,
   and a body-in receiving the chained body back. The body is ordinary nodes, and
   the structure is an ordinary cycle — no new engine concept.
 - **Dead-end warning modal on save**, listing the offending nodes, with the save

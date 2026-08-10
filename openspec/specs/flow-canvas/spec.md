@@ -61,6 +61,73 @@ A loop node's body ports MUST sit on the TOP edge, so the repeated nodes read as
 - **THEN** it MUST expose exactly two out-ports
 - **AND** they MUST be named `work` and `idle`
 
+### Requirement: Connecting from a branch port records the branch
+
+Dragging or keyboard-connecting from a named out-port MUST record which branch
+the connection leaves, as `edge.fromExit`. That is the field
+`FlowTokenRouter::placesForExit()` matches on when it decides which outgoing
+edges a token reaches, so an edge without it is not routed by branch at all.
+
+The branch MUST be part of an edge's identity for duplicate detection: two
+branches of one routing node may legitimately lead to the same node, and keying
+the check on `from`/`to` alone silently refuses the second.
+
+An unbranched exit MUST NOT write the key at all, rather than writing an empty
+one the engine has to read and ignore on every edge of every flow.
+
+#### Scenario: Two branches of one gate reach the same node
+
+@e2e exclude authoring round-trip — asserting the stored document needs a save against a live engine; the routing half is covered by OpenRegister's FlowLogicTest
+
+- **GIVEN** a routing node whose branches are `passed` and `failed`
+- **WHEN** the author connects BOTH to the same downstream node
+- **THEN** two edges MUST exist, carrying `fromExit: "passed"` and `fromExit: "failed"`
+- **AND** neither MUST be refused as a duplicate of the other
+
+### Requirement: An edge whose branch disappears is shown, never deleted
+
+Editing a routing node's rules can remove a branch that edges already leave
+from. Those edges MUST NOT be deleted: silently removing a connection the author
+drew, because a value changed in a different panel, loses work with no trace and
+leaves them unable to tell an edge they forgot from one the editor took away.
+
+Such an edge MUST be drawn as unassigned and MUST say so in words, not by colour
+alone (WCAG 1.4.1). It MUST draw its label even when it has no title, since a
+blank line is exactly where the state would otherwise hide.
+
+The branch list used to detect this MUST be the same one the ports are drawn
+from, so an edge can never be marked unassigned while the port it points at is
+still on screen.
+
+#### Scenario: Removing a rule leaves its edge visible and named
+
+@e2e exclude requires editing a routing node's config and re-rendering, which is a save round-trip; the derivation is unit-level
+
+- **GIVEN** an edge leaving the `work` branch of a routing node
+- **WHEN** the author removes the rule that produced `work`
+- **THEN** the edge MUST still exist
+- **AND** it MUST render as unassigned, naming the branch that no longer exists
+
+### Requirement: The keyboard can choose which branch to connect from @e2e exclude keyboard interaction against a live canvas; the port arithmetic is asserted in the port tests
+
+Where a node exposes several out-ports, pressing the connect key again on the
+source MUST step through them, and the armed port MUST be identifiable — ringed
+and exposed as `aria-pressed` — rather than remembered. Dragging picks a branch
+by pointing at it; without this the keyboard reaches only the first, leaving
+every other branch mouse-only (WCAG 2.1.1).
+
+On a node with a single exit the behaviour MUST be unchanged: the repeat runs
+off the end and cancels.
+
+#### Scenario: The connect key walks a gate's branches
+
+@e2e exclude keyboard interaction against a live canvas
+
+- **GIVEN** a focused routing node with branches `work` and `idle`
+- **WHEN** the connect key is pressed twice
+- **THEN** the armed port MUST be `idle`, ringed and `aria-pressed`
+- **AND** completing on another node MUST record `fromExit: "idle"`
+
 ### Requirement: Saving warns about a dead end; it never refuses
 
 A save MUST succeed and then report the engine's connectivity verdict, taken from the save response's `warnings` (reason `node-dead-end`). The editor MUST NOT recompute that verdict itself — recomputing lets the dialog and the engine disagree.
