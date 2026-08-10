@@ -342,6 +342,10 @@
 			:show="editor.payloadEdgeId !== null"
 			@close="editor.payloadEdgeId = null" />
 
+		<RunLogModal
+			:show="editor.logModalRunId !== null"
+			@close="editor.logModalRunId = null" />
+
 		<DeadEndWarningDialog
 			v-if="editor.deadEnds.length > 0"
 			:node-ids="editor.deadEnds"
@@ -363,6 +367,7 @@ import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
 import ConnectionEditModal from '../modals/Flow/ConnectionEditModal.vue'
 import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
 import PayloadModal from '../modals/Flow/PayloadModal.vue'
+import RunLogModal from '../modals/Flow/RunLogModal.vue'
 import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
 import { ANNOTATION_ID_PREFIX, useFlowEditorStore } from '../store/flowEditor.js'
@@ -438,6 +443,7 @@ export default {
 		ConnectionEditModal,
 		NodeEditModal,
 		PayloadModal,
+		RunLogModal,
 		RunFlowDialog,
 		Sitemap,
 		StepResultDialog,

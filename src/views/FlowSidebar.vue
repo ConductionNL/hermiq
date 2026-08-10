@@ -210,6 +210,18 @@
 								: t('hermiq', 'Show on canvas') }}
 						</NcButton>
 
+						<!--
+							The log is READ in the modal, not here. This pane is
+							346px wide and a recorded payload is wider than that
+							before it wraps — the inline list below says which
+							steps ran; the modal is where you look at one.
+						-->
+						<NcButton
+							type="tertiary"
+							@click="editor.openRunLog(run.uuid || run.id)">
+							{{ t('hermiq', 'Open log') }}
+						</NcButton>
+
 						<div v-if="editor.expandedRunId === (run.uuid || run.id)" class="flow-sidebar__run-log">
 							<p v-if="editor.runDetail[run.uuid || run.id] === undefined" class="flow-sidebar__hint">
 								{{ t('hermiq', 'Loading the step log…') }}

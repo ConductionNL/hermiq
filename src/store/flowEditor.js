@@ -226,6 +226,10 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		replayRunId: null,
 		// The connection whose payload is open in the JSON peek, or null.
 		payloadEdgeId: null,
+		// The run open in the full-size log modal, or null. A 346px sidebar
+		// cannot hold a JSON payload — the pane is narrower than most single
+		// lines of it — so the log is READ here and merely listed there.
+		logModalRunId: null,
 	}),
 
 	getters: {
@@ -755,6 +759,21 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				return { ...node, name }
 			})
 			this.dirty = true
+		},
+
+		/**
+		 * Open one run in the full-size log modal, fetching it if needed.
+		 *
+		 * @param {string} uuid The run uuid.
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+		 */
+		async openRunLog(uuid) {
+			this.logModalRunId = uuid
+			if (this.runDetail[uuid] === undefined) {
+				await this.toggleRun(uuid)
+			}
 		},
 
 		/**
