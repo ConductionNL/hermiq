@@ -5,14 +5,16 @@
       id. Additive — a node declaring no ports keeps today's single right handle.
 - [x] `CnGraphCanvas`: fix the handle's measured size. Declared `16x16` round,
       renders `16x34` because Nextcloud's global button `min-height` wins.
-- [ ] `CnGraphCanvas`: keyboard connection chooses the origin port when a node
+- [x] `CnGraphCanvas`: keyboard connection chooses the origin port when a node
       has more than one (WCAG 2.1 AA 2.1.1).
-      **Implemented in nc-vue** (`feat/graph-canvas-keyboard-port`): pressing the
-      connect key again on the source steps through its exits, and the armed
-      port is ringed and `aria-pressed`. Left unticked HERE because hermiq
-      consumes the PUBLISHED library — the behaviour does not reach this app
-      until that lands in a release and the pin moves. Ticking it now would
-      record a capability the app does not have.
+      Implemented in nc-vue#621: pressing the connect key again on the source
+      steps through its exits, and the armed port is ringed and `aria-pressed`.
+      Ticked only now, with the pin on `2.2.0-vue3.8` — hermiq consumes the
+      PUBLISHED library, so between the merge and this bump the app did not have
+      the capability, and ticking it earlier would have recorded one it lacked.
+      Confirmed present in the installed tree rather than assumed from the
+      version number: the armed-port class appears in
+      `node_modules/@conduction/nextcloud-vue/dist`.
 - [x] Node cards render the step's catalogue name plus key config; a node with
       no step type is called out as a warning, not drawn as an ordinary node.
 - [x] In-port on every non-start node; out-port on every non-exit node. Role is
