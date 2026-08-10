@@ -144,8 +144,80 @@
 			</p>
 		</NcAppSidebarTab>
 
+		<!--
+			Runs: what this flow has actually done.
+
+			Its own tab rather than a panel under Flow, because it answers a
+			different question. Flow is "what should happen"; Runs is "what did".
+			An operator opens this one when something looks wrong, and making
+			them scroll past the editor's settings to reach it is the wrong way
+			round.
+		-->
+		<NcAppSidebarTab id="runs" :name="t('hermiq', 'Runs')" :order="3">
+			<template #icon>
+				<History :size="20" />
+			</template>
+
+			<div class="flow-sidebar__pane">
+				<NcButton type="secondary" :disabled="!editor.flow.id" @click="editor.loadRuns()">
+					<template #icon>
+						<NcLoadingIcon v-if="editor.runsLoading" :size="20" />
+						<Refresh v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Load runs') }}
+				</NcButton>
+
+				<NcNoteCard v-if="editor.runsError" type="error">
+					{{ editor.runsError }}
+				</NcNoteCard>
+
+				<p v-else-if="!editor.flow.id" class="flow-sidebar__hint">
+					{{ t('hermiq', 'Save this flow first — a flow that has never been stored has no runs.') }}
+				</p>
+
+				<!-- An unloaded list and an empty one are different claims, and
+				     only the second says anything about the flow. -->
+				<p v-else-if="editor.runs.length === 0 && !editor.runsLoading" class="flow-sidebar__hint">
+					{{ t('hermiq', 'No runs loaded yet, or this flow has never run.') }}
+				</p>
+
+				<ul v-else class="flow-sidebar__runs">
+					<li v-for="run in editor.runs" :key="run.id || run.uuid" class="flow-sidebar__run">
+						<button
+							class="flow-sidebar__run-head"
+							:aria-expanded="editor.expandedRunId === (run.uuid || run.id) ? 'true' : 'false'"
+							@click="editor.toggleRun(run.uuid || run.id)">
+							<span :class="`flow-sidebar__run-status flow-sidebar__run-status--${run.status || 'unknown'}`">
+								{{ run.status || t('hermiq', 'unknown') }}
+							</span>
+							<span class="flow-sidebar__run-when">{{ formatWhen(run) }}</span>
+						</button>
+
+						<div v-if="editor.expandedRunId === (run.uuid || run.id)" class="flow-sidebar__run-log">
+							<p v-if="editor.runDetail[run.uuid || run.id] === undefined" class="flow-sidebar__hint">
+								{{ t('hermiq', 'Loading the step log…') }}
+							</p>
+							<p v-else-if="editor.runDetail[run.uuid || run.id] === null" class="flow-sidebar__hint">
+								{{ t('hermiq', 'Could not read this run’s step log.') }}
+							</p>
+							<ol v-else-if="logOf(run).length > 0">
+								<li v-for="(entry, index) in logOf(run)" :key="index">
+									<strong>{{ entry.node || entry.step || '—' }}</strong>
+									· {{ entry.status || '—' }}
+									<span v-if="entry.error" class="flow-sidebar__run-error">{{ entry.error }}</span>
+								</li>
+							</ol>
+							<p v-else class="flow-sidebar__hint">
+								{{ t('hermiq', 'This run recorded no steps.') }}
+							</p>
+						</div>
+					</li>
+				</ul>
+			</div>
+		</NcAppSidebarTab>
+
 		<!-- Flow: identity, trigger wiring and the two verbs. -->
-		<NcAppSidebarTab id="flow" :name="t('hermiq', 'Flow')" :order="3">
+		<NcAppSidebarTab id="flow" :name="t('hermiq', 'Flow')" :order="4">
 			<template #icon>
 				<Cog :size="20" />
 			</template>
@@ -223,6 +295,19 @@
 					{{ n('hermiq', '%n trigger node starts this flow.', '%n trigger nodes start this flow.', triggerNodeCount) }}
 				</p>
 
+				<!-- How long this flow's runs are kept. A flow setting rather
+				     than an instance one because the right answer differs per
+				     flow: a five-minute sequencer produces 288 runs a day and
+				     wants a short window, while a quarterly reconciliation has
+				     to still be auditable months later. Empty means the
+				     instance default — NOT "keep forever". -->
+				<NcTextField
+					:model-value="editor.flow.retentionDays === null || editor.flow.retentionDays === undefined ? '' : String(editor.flow.retentionDays)"
+					type="number"
+					:label="t('hermiq', 'Keep run logs for (days)')"
+					:placeholder="t('hermiq', 'Instance default')"
+					@update:model-value="editor.setFlowField('retentionDays', $event === '' ? null : Number($event))" />
+
 				<NcSelect
 					:model-value="editor.flow.executionMode || 'async'"
 					:options="executionModes"
@@ -253,7 +338,9 @@ import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
+import History from 'vue-material-design-icons/History.vue'
 import Magnify from 'vue-material-design-icons/Magnify.vue'
+import Refresh from 'vue-material-design-icons/Refresh.vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
@@ -288,7 +375,9 @@ export default {
 		Cog,
 		ContentSave,
 		Delete,
+		History,
 		Magnify,
+		Refresh,
 		Pencil,
 		NcAppSidebar,
 		NcAppSidebarTab,
@@ -459,6 +548,43 @@ export default {
 	},
 
 	methods: {
+		/**
+		 * When a run happened, in the reader's locale.
+		 *
+		 * Falls back to the raw value rather than showing "Invalid Date": the
+		 * string the server sent tells an operator more than the words
+		 * "Invalid Date" do.
+		 *
+		 * @param {object} run The run.
+		 * @return {string} The display value.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		formatWhen(run) {
+			const raw = run.started || run.created || run.updated || ''
+			const when = new Date(raw)
+
+			return Number.isNaN(when.getTime()) ? String(raw) : when.toLocaleString()
+		},
+
+		/**
+		 * A run's per-step entries.
+		 *
+		 * Read from the DETAIL fetched on expand, not from the list row: the
+		 * index endpoint returns runs without their logs, so reading the log off
+		 * a list row yields an empty array for every run and looks exactly like
+		 * "this run recorded no steps".
+		 *
+		 * @param {object} run The run.
+		 * @return {Array<object>} The step entries.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		logOf(run) {
+			const detail = this.editor.runDetail[run.uuid || run.id]
+
+			return detail?.log || detail?.steps || []
+		},
 
 		/**
 		 * Persist the flow, keeping the route in step when it gains an id.
@@ -498,6 +624,67 @@ export default {
 	border: none;
 	border-top: 1px solid var(--color-border);
 	margin: 12px 0;
+}
+
+.flow-sidebar__runs {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	max-height: 45vh;
+	overflow-y: auto;
+}
+
+.flow-sidebar__run-head {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	width: 100%;
+	padding: 6px 8px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	background-color: var(--color-main-background);
+	color: var(--color-main-text);
+	text-align: start;
+}
+
+.flow-sidebar__run-head:hover,
+.flow-sidebar__run-head:focus-visible {
+	background-color: var(--color-background-hover);
+}
+
+/* The status is also the WORD, never colour alone (WCAG 2.1 AA 1.4.1). */
+.flow-sidebar__run-status {
+	font-weight: bold;
+}
+
+.flow-sidebar__run-status--failed,
+.flow-sidebar__run-status--dead_letter {
+	color: var(--color-error);
+}
+
+.flow-sidebar__run-status--completed {
+	color: var(--color-success);
+}
+
+.flow-sidebar__run-status--suspended {
+	color: var(--color-warning-text, var(--color-main-text));
+}
+
+.flow-sidebar__run-when {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85em;
+}
+
+.flow-sidebar__run-log {
+	padding: 6px 10px;
+	font-size: 0.9em;
+}
+
+.flow-sidebar__run-error {
+	color: var(--color-error);
 }
 
 .flow-sidebar__palette {

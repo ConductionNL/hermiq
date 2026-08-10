@@ -63,6 +63,7 @@ import {
 	createFlow,
 	getFlowRun,
 	getNodeCatalog,
+	listFlowRuns,
 	listFlows,
 	runFlow,
 	updateFlow,
@@ -203,6 +204,15 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		// said nothing"; it never means "not checked yet" — the array is only
 		// ever written from a save response.
 		deadEnds: [],
+		// Run history, loaded on demand from the Runs tab rather than on open:
+		// a flow's history is a panel an operator asks for, and fetching it with
+		// the editor would cost a request on every load to fill a list most
+		// sessions never look at.
+		runs: [],
+		runsLoading: false,
+		runsError: '',
+		expandedRunId: null,
+		runDetail: {},
 	}),
 
 	getters: {
@@ -715,6 +725,65 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				return { ...node, name }
 			})
 			this.dirty = true
+		},
+
+		/**
+		 * Load this flow's run history.
+		 *
+		 * Never on open. A flow's history is a panel an operator asks for, and
+		 * fetching it with the editor would put a request on every load of
+		 * every flow to fill a list most sessions never look at.
+		 *
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		async loadRuns() {
+			if (!this.flow.id) {
+				return
+			}
+
+			this.runsLoading = true
+			try {
+				this.runs = await listFlowRuns(this.flow.id)
+			} catch (e) {
+				// An empty list and a failed fetch must not look the same: the
+				// first says "this flow has never run", which is a fact about
+				// the flow, and the second says nothing about it at all.
+				this.runs = []
+				this.runsError = e?.response?.data?.error || e?.message || 'Could not load the run history'
+			} finally {
+				this.runsLoading = false
+			}
+		},
+
+		/**
+		 * Expand one run and fetch its step log the first time it is opened.
+		 *
+		 * Lazily, per run: a flow with a long history would otherwise issue one
+		 * request per row before the operator has asked for any of them.
+		 *
+		 * @param {string} uuid The run uuid.
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		async toggleRun(uuid) {
+			if (this.expandedRunId === uuid) {
+				this.expandedRunId = null
+				return
+			}
+
+			this.expandedRunId = uuid
+			if (this.runDetail[uuid] !== undefined) {
+				return
+			}
+
+			try {
+				this.runDetail = { ...this.runDetail, [uuid]: await getFlowRun(uuid) }
+			} catch (e) {
+				this.runDetail = { ...this.runDetail, [uuid]: null }
+			}
 		},
 
 		/**

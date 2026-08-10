@@ -137,6 +137,26 @@ export async function getFlowRun(uuid) {
 }
 
 /**
+ * This flow's runs, most recent first.
+ *
+ * Capped, and the cap is the point: a flow scheduled every five minutes
+ * produces 288 runs a day, so "all of them" is not a list anyone reads and is
+ * not what an operator opening the panel is asking for. They want the last few
+ * and whether they went well.
+ *
+ * @param {string} flowId The flow uuid.
+ * @param {number} limit  How many runs to fetch.
+ *
+ * @return {Promise<Array<object>>} The runs.
+ */
+export async function listFlowRuns(flowId, limit = 25) {
+	const url = generateUrl('/apps/openregister/api/flow-runs')
+	const response = await axios.get(url, { params: { flowId, limit } })
+
+	return response.data?.results || []
+}
+
+/**
  * Preflight a flow document against the live node registry WITHOUT saving it.
  *
  * This is the editor's correctness check and it is the engine's own: it builds

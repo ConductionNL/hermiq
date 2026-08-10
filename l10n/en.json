@@ -1218,7 +1218,15 @@
         "Add note": "Add note",
         "Note": "Note",
         "Remove note": "Remove note",
-        "Write a note…": "Write a note…"
+        "Write a note…": "Write a note…",
+        "Could not read this run’s step log.": "Could not read this run’s step log.",
+        "Keep run logs for (days)": "Keep run logs for (days)",
+        "Load runs": "Load runs",
+        "Loading the step log…": "Loading the step log…",
+        "No runs loaded yet, or this flow has never run.": "No runs loaded yet, or this flow has never run.",
+        "Save this flow first — a flow that has never been stored has no runs.": "Save this flow first — a flow that has never been stored has no runs.",
+        "This run recorded no steps.": "This run recorded no steps.",
+        "unknown": "unknown"
     },
     "plurals": ""
 }
