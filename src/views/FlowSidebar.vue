@@ -458,12 +458,23 @@ export default {
 		 * starts is not obviously broken — it simply never runs, which looks
 		 * exactly like a flow with nothing to do.
 		 *
+		 * ASKS THE ENGINE, DOES NOT GUESS FROM THE ID. This used to test
+		 * `node.type.includes('.trigger-')`, which is the hardcoded-list problem
+		 * that OpenRegister's `role` field exists to remove, reintroduced one
+		 * layer up: a trigger contributed by another app whose ids do not happen
+		 * to contain `.trigger-` counted as ZERO, so this panel told the author
+		 * their flow had no entry point while the engine started it perfectly
+		 * well. `roleOfNodeType` reads the published `role` and keeps the naming
+		 * convention only as a documented fallback for a catalogue that has not
+		 * loaded yet, so the fallback is still there for the case it was
+		 * actually written for.
+		 *
 		 * @return {number} The trigger-node count.
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		triggerNodeCount() {
-			return this.editor.nodes.filter((node) => String(node.type || '').includes('.trigger-')).length
+			return this.editor.nodes.filter((node) => this.editor.roleOfNodeType(node.type) === 'trigger').length
 		},
 
 		/**

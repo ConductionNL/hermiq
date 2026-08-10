@@ -21,9 +21,10 @@
     "check:registry": "node tests/registry.spec.js",
     "check:agent-context": "node tests/agent-context.spec.js",
     "check:json-strict": "node tests/validate-json-strict.js",
-    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context && npm run check:flow-branches",
+    "check:specs": "npm run check:json-strict && npm run check:manifest-v2 && npm run check:register && npm run check:registry && npm run check:agent-context && npm run check:flow-branches && npm run check:flow-trigger-count",
     "prepare": "git config core.hooksPath .githooks || true",
     "check:flow-branches": "node tests/flow-branches.spec.js",
+    "check:flow-trigger-count": "node tests/flow-trigger-count.spec.js",
     "icons:opengemeenten": "node scripts/generate-opengemeenten-icons.mjs"
   },
   "browserslist": [
