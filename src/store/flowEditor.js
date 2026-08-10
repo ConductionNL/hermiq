@@ -172,6 +172,11 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		agents: [],
 		selectedNodeId: null,
 		selectedEdgeId: null,
+		// A copied node, waiting to be placed. Held here rather than written
+		// straight back onto the canvas so the author chooses WHERE it lands —
+		// a copy that appears at a fixed offset is one they then have to drag.
+		// It never carries connections: see `copyNode()`.
+		clipboardNode: null,
 		// The NODE types the engine can execute, from OpenRegister's catalogue
 		// (ADR-065 owns the vocabulary). These belong on NODES: the engine
 		// reads `type`/`config` off the node and refuses any document where an
@@ -823,18 +828,73 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				return
 			}
 
-			const copy = {
-				...source,
-				id: `${source.type || 'node'}-${Date.now().toString(36)}-${this.nodes.length}`,
-				name: `${source.name || source.id} (copy)`,
+			// A SNAPSHOT, not a reference: the original stays editable and the
+			// clipboard keeps what was copied at the moment it was copied.
+			// `config` is cloned for the same reason — a shared object would
+			// let an edit to either one reach the other.
+			this.clipboardNode = {
+				type: source.type || '',
+				name: source.name || source.id,
 				config: { ...(source.config || {}) },
-				x: (source.x || 0) + 40,
-				y: (source.y || 0) + 40,
+			}
+		},
+
+		/**
+		 * Place the copied node at a point on the canvas.
+		 *
+		 * Carries the type and configuration and NO CONNECTIONS. A copy that
+		 * arrived pre-wired would silently add paths to a flow the author never
+		 * drew — which is why the clipboard holds three fields and not a node.
+		 *
+		 * @param {number} x Canvas x for the placed node.
+		 * @param {number} y Canvas y for the placed node.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-canvas-offers-per-element-actions-reachable-two-ways
+		 */
+		pasteNode(x = 80, y = 80) {
+			if (this.clipboardNode === null) {
+				return
+			}
+
+			const copy = {
+				id: `${this.clipboardNode.type || 'node'}-${Date.now().toString(36)}-${this.nodes.length}`,
+				type: this.clipboardNode.type,
+				name: `${this.clipboardNode.name} (copy)`,
+				config: { ...(this.clipboardNode.config || {}) },
+				x,
+				y,
 			}
 
 			this.flow.nodes = [...this.nodes, copy]
 			this.selectNode(copy.id)
 			this.dirty = true
+		},
+
+		/**
+		 * Delete whatever is selected — a node, or a connection.
+		 *
+		 * The keyboard route to deletion, so the context menu is a shortcut
+		 * rather than the only way (WCAG 2.1 AA 2.1.1). Deliberately does
+		 * NOTHING when nothing is selected: a Delete key that removes something
+		 * the author had not pointed at is worse than one that does nothing.
+		 *
+		 * @return {boolean} Whether something was deleted.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-canvas-offers-per-element-actions-reachable-two-ways
+		 */
+		deleteSelection() {
+			if (this.selectedNodeId !== null) {
+				this.removeNode(this.selectedNodeId)
+				return true
+			}
+
+			if (this.selectedEdgeId !== null) {
+				this.removeEdge(this.selectedEdgeId)
+				return true
+			}
+
+			return false
 		},
 
 		/**

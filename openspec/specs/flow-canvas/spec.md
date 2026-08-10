@@ -223,9 +223,20 @@ connection MUST offer edit and delete. Every one of those actions MUST also be
 reachable without a pointer, because a context menu is a pointer gesture and
 cannot be the only route to an action (WCAG 2.1 AA 2.1.1).
 
+Right-clicking the EMPTY canvas MUST offer paste and "add note". Both need a
+POINT — where the node lands, where the note is pinned — and the background is
+the only place that carries one.
+
 Copying a node MUST copy its type and configuration and MUST NOT copy its
 connections. A copy that arrived pre-wired would silently add paths to a flow
-the author did not draw.
+the author did not draw. Copy MUST place the node on a clipboard rather than on
+the canvas, and paste MUST place it where the menu was raised: a copy that
+appears at a fixed offset is one the author then has to drag.
+
+The keyboard route is on the CANVAS, where the selection is: Delete or Backspace
+MUST remove the selected node or connection, and Enter MUST open its editor.
+Both MUST be ignored while the author is typing — a Backspace that deleted the
+selected node mid-correction is the worst possible reading of the key.
 
 #### Scenario: A node's context menu offers the three actions
 - **GIVEN** a node on the canvas
@@ -237,6 +248,37 @@ the author did not draw.
 - **GIVEN** a selected node
 - **WHEN** the keyboard is used
 - **THEN** edit, delete and copy MUST all be reachable
+- @e2e exclude covered by the canvas's component tests
+
+#### Scenario: The empty canvas offers paste and add-note
+- **GIVEN** a canvas with nothing under the pointer
+- **WHEN** it is right-clicked
+- **THEN** paste and "add note" MUST be offered, and paste MUST be disabled
+  when nothing has been copied
+- @e2e exclude covered by the canvas's component tests
+
+#### Scenario: Delete removes the selection, and never while typing
+- **GIVEN** a selected node and an author typing in a note
+- **WHEN** Backspace is pressed inside the note
+- **THEN** the selected node MUST NOT be deleted
+- @e2e exclude covered by the canvas's component tests
+
+### Requirement: A note reads as paper, not as a node
+
+An annotation MUST be drawn as a sticky note — a warm sheet with its own ink,
+square-ish corners and a shadow — and MUST NOT be drawn as a node card. It
+belongs to no node and no edge, the engine never sees it, and a note that looks
+like a step invites an author to wire it up.
+
+The canvas draws its own card around everything it positions, so a note MUST
+suppress that card rather than render inside it, and the node body MUST NOT
+render for an annotation at all.
+
+#### Scenario: An annotation draws one thing, not two
+- **GIVEN** a note pinned to the canvas
+- **WHEN** it is drawn
+- **THEN** exactly one element MUST appear — the sheet — with no node card
+  around it and no second card beneath it reading "No step type"
 - @e2e exclude covered by the canvas's component tests
 
 ### Requirement: Auto-sort arranges the drawing and never the flow

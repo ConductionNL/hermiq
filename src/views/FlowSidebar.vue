@@ -17,7 +17,7 @@
 				<Sitemap :size="20" />
 			</template>
 
-			<div class="flow-sidebar__pane">
+			<div class="flow-sidebar__pane flow-sidebar__pane--fill">
 				<!--
 					The palette. One card per type the ENGINE can execute, with a
 					search box above it, because the catalogue is long enough that
@@ -62,11 +62,19 @@
 							class="flow-sidebar__palette-head"
 							:aria-expanded="expandedType === type.id ? 'true' : 'false'"
 							@click="expandedType = expandedType === type.id ? '' : type.id">
-							<img
+							<!--
+								MASKED, not drawn: the icon's colour comes from
+								the theme rather than from the SVG. App icons
+								ship in whatever colour their app chose and
+								several ship WHITE, which is invisible on this
+								card — a provider's palette choice must not
+								decide whether its own node can be read.
+							-->
+							<span
 								v-if="type.icon"
-								:src="type.icon"
-								alt=""
-								class="flow-sidebar__palette-icon">
+								class="flow-sidebar__palette-icon"
+								aria-hidden="true"
+								:style="{ '--flow-palette-icon': `url('${type.icon}')` }" />
 							<span class="flow-sidebar__palette-name">{{ type.label }}</span>
 							<!-- The role in WORDS as well as the accent stripe:
 							     a colour-only code is unreadable in greyscale
@@ -90,57 +98,17 @@
 					</li>
 				</ul>
 
-				<p class="flow-sidebar__hint">
-					{{ t('hermiq', 'Select a card to read what it does, or drag it onto the canvas.') }}
-				</p>
-
-				<hr class="flow-sidebar__rule">
-
-				<template v-if="editor.selectedNode">
-					<p class="flow-sidebar__hint">
-						{{ editor.selectedNode.name || editor.selectedNode.id }} · {{ roleLabel }}
-					</p>
-
-					<!--
-						The keyboard-reachable way into the node editor. The canvas
-						opens the same modal on double-click, which is a pointer
-						gesture and therefore cannot be the only route (WCAG 2.1 AA
-						2.1.1).
-					-->
-					<NcButton type="secondary" @click="editor.nodeEditOpen = true">
-						<template #icon>
-							<Pencil :size="20" />
-						</template>
-						{{ t('hermiq', 'Edit node') }}
-					</NcButton>
-				</template>
-
-				<p v-else class="flow-sidebar__hint">
-					{{ t('hermiq', 'Select a node on the canvas to edit it.') }}
-				</p>
-
 				<!--
-					The keyboard route to the connection editor.
+					Nothing follows the list.
 
-					The Connection TAB is gone — its three fields did not earn a
-					quarter of the tab strip — but its editor must still be
-					reachable without a pointer: right-click is the shortcut, and
-					a shortcut cannot be the only way to an action (WCAG 2.1 AA
-					2.1.1). Selecting a line on the canvas is keyboard-operable,
-					so this button completes the path.
+					The hint and the two "edit the selection" buttons that used
+					to sit here cost the list a third of the tab while repeating
+					what the canvas already shows. Their keyboard route did have
+					to survive — a right-click cannot be the only way to an
+					action (WCAG 2.1 AA 2.1.1) — so it moved to the canvas
+					itself, where the selection is: Enter opens the selected
+					node's or connection's editor, Delete removes it.
 				-->
-				<template v-if="editor.selectedEdge">
-					<hr class="flow-sidebar__rule">
-					<p class="flow-sidebar__hint">
-						{{ t('hermiq', '{from} → {to}', { from: editor.selectedEdge.from.join(', '), to: editor.selectedEdge.to.join(', ') }) }}
-					</p>
-					<NcButton type="secondary" @click="editor.edgeEditOpen = true">
-						<template #icon>
-							<Pencil :size="20" />
-						</template>
-						{{ t('hermiq', 'Edit connection') }}
-					</NcButton>
-				</template>
 			</div>
 		</NcAppSidebarTab>
 
@@ -395,7 +363,6 @@ import History from 'vue-material-design-icons/History.vue'
 import Magnify from 'vue-material-design-icons/Magnify.vue'
 import Refresh from 'vue-material-design-icons/Refresh.vue'
 import SortVariant from 'vue-material-design-icons/SortVariant.vue'
-import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
 import { useFlowEditorStore } from '../store/flowEditor.js'
@@ -431,7 +398,6 @@ export default {
 		Magnify,
 		Refresh,
 		SortVariant,
-		Pencil,
 		NcAppSidebar,
 		NcAppSidebarTab,
 		NcButton,
@@ -508,13 +474,31 @@ export default {
 				role: this.roleOfType(entry.id),
 			}))
 
-			if (needle === '') {
-				return all
-			}
+			const matched = needle === ''
+				? all
+				: all.filter((entry) =>
+					`${entry.id} ${entry.label} ${entry.description}`.toLowerCase().includes(needle),
+				)
 
-			return all.filter((entry) =>
-				`${entry.id} ${entry.label} ${entry.description}`.toLowerCase().includes(needle),
-			)
+			// START, then STEP, then STOP — the order a flow is read in, so the
+			// list itself teaches the shape of a flow. Alphabetical would put
+			// "Stop" between "Explode" and "Wait" and tell an author nothing.
+			// Ties keep the catalogue's own order, which groups by provider.
+			//
+			// The keys are `roleOfType()`'s OWN vocabulary — trigger/step/
+			// terminal — not the words the cards display. Ranking by the
+			// displayed words silently ranked nothing: every lookup missed and
+			// every type tied on the default.
+			const rank = { trigger: 0, step: 1, terminal: 2 }
+
+			return matched
+				.map((entry, index) => ({ entry, index }))
+				.sort((a, b) => {
+					const byRole = (rank[a.entry.role] ?? 1) - (rank[b.entry.role] ?? 1)
+
+					return byRole !== 0 ? byRole : (a.index - b.index)
+				})
+				.map((wrapped) => wrapped.entry)
 		},
 
 		/**
@@ -531,24 +515,6 @@ export default {
 			}
 
 			return this.t('hermiq', 'No node type matches “{search}”.', { search: this.nodeSearch })
-		},
-
-		/**
-		 * The selected place's role in the flow, in words.
-		 *
-		 * @return {string} The role.
-		 */
-		roleLabel() {
-			const id = this.editor.selectedNodeId
-			if (this.editor.startNodeIds.includes(id)) {
-				return this.t('hermiq', 'A run starts here')
-			}
-
-			if (this.editor.endNodeIds.includes(id)) {
-				return this.t('hermiq', 'A run ends here')
-			}
-
-			return this.t('hermiq', 'A run passes through here')
 		},
 
 		/**
@@ -730,12 +696,6 @@ export default {
 	margin: 0;
 }
 
-.flow-sidebar__rule {
-	border: none;
-	border-top: 1px solid var(--color-border);
-	margin: 12px 0;
-}
-
 .flow-sidebar__runs {
 	list-style: none;
 	padding: 0;
@@ -809,10 +769,20 @@ export default {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	/* The catalogue is long; cap it so the palette cannot push the selected
-	   node's controls off the bottom of the sidebar. */
-	max-height: 40vh;
+	/* The list takes the whole tab now that nothing follows it. It used to be
+	   capped at 40vh to keep the controls beneath it on screen; those moved to
+	   the canvas, and the cap was left showing a short list above empty space.
+	   `min-height: 0` is what actually lets a flex child scroll — without it
+	   the item's automatic minimum size wins and the pane scrolls instead. */
+	flex: 1;
+	min-height: 0;
 	overflow-y: auto;
+}
+
+/* Only the Nodes pane fills its tab; the others are short and would just grow
+   whitespace under their content. */
+.flow-sidebar__pane--fill {
+	height: 100%;
 }
 
 .flow-sidebar__palette-card {
@@ -858,6 +828,11 @@ export default {
 	width: 16px;
 	height: 16px;
 	flex: 0 0 auto;
+	/* The mask paints the theme's text colour through the icon's shape, so a
+	   white SVG and a black one both come out legible against this card. */
+	background-color: var(--color-main-text);
+	-webkit-mask: var(--flow-palette-icon) no-repeat center / contain;
+	mask: var(--flow-palette-icon) no-repeat center / contain;
 }
 
 .flow-sidebar__palette-role {

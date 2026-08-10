@@ -6,6 +6,7 @@
 <template>
 	<div class="flow-builder">
 		<CnGraphCanvas
+			ref="graph"
 			:nodes="nodesWithPorts"
 			:edges="editor.canvasEdges"
 			:selected-node-id="editor.selectedNodeId"
@@ -19,7 +20,8 @@
 			@canvas-click="editor.contextMenu = null; editor.clearSelection()"
 			@node-move="onCanvasMove($event)"
 			@connect="editor.connect($event)"
-			@canvas-drop="onCanvasDrop">
+			@canvas-drop="onCanvasDrop"
+			@contextmenu.prevent="onCanvasContext">
 			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
 			     in one direction, which a plain line does not convey. The line
 			     carries only its own title now — the behaviour moved to the
@@ -164,7 +166,15 @@
 					middle of a flow would stop looking like one exactly when it
 					most needs to.
 				-->
+				<!--
+					`v-else`, and load-bearing: without it an annotation drew
+					BOTH — its sticky note and, underneath, an ordinary node card
+					reading "No step type" over the annotation's own id. That
+					second card is the container-in-a-container on the board. A
+					note is not a node, so the node body must not render for one.
+				-->
 				<div
+					v-else
 					class="flow-builder__node"
 					:class="{
 						[`flow-builder__node--${roleOf(node.id)}`]: true,
@@ -237,18 +247,11 @@
 				</NcButton>
 			</div>
 
-			<!-- Pinning a note is a CANVAS action — the note lands on the canvas
-			     and its position is the point of it — so the control lives here
-			     rather than in a sidebar tab. -->
-			<NcButton
-				type="secondary"
-				:aria-label="t('hermiq', 'Add a note to the canvas')"
-				@click="editor.addAnnotation()">
-				<template #icon>
-					<NoteTextOutline :size="20" />
-				</template>
-				{{ t('hermiq', 'Add note') }}
-			</NcButton>
+			<!-- Pinning a note moved to the canvas's own context menu: a note's
+			     POSITION is the point of it, and a toolbar button has no point
+			     to give it — every note arrived at the same spot and had to be
+			     dragged. Right-clicking where the note belongs carries that
+			     point with it. -->
 
 			<!-- Re-open control for the sidebar. It lives on the CANVAS because
 			     once the sidebar is closed it has no chrome of its own left to
@@ -319,15 +322,35 @@
 			class="flow-builder__context"
 			:style="{ left: `${editor.contextMenu.x}px`, top: `${editor.contextMenu.y}px` }"
 			role="menu">
-			<button role="menuitem" @click="onContextEdit">
-				{{ t('hermiq', 'Edit') }}
-			</button>
-			<button v-if="editor.contextMenu.kind === 'node'" role="menuitem" @click="onContextCopy">
-				{{ t('hermiq', 'Copy') }}
-			</button>
-			<button role="menuitem" class="flow-builder__context-destructive" @click="onContextDelete">
-				{{ t('hermiq', 'Delete') }}
-			</button>
+			<!--
+				The EMPTY canvas offers what applies to a place rather than to a
+				thing: put the copied node here, or pin a note here. Both need a
+				point, which is what right-clicking the background provides —
+				that is why they live here and not in a toolbar.
+			-->
+			<template v-if="editor.contextMenu.kind === 'canvas'">
+				<button
+					role="menuitem"
+					:disabled="editor.clipboardNode === null"
+					@click="onContextPaste">
+					{{ t('hermiq', 'Paste') }}
+				</button>
+				<button role="menuitem" @click="onContextAddNote">
+					{{ t('hermiq', 'Add note') }}
+				</button>
+			</template>
+
+			<template v-else>
+				<button role="menuitem" @click="onContextEdit">
+					{{ t('hermiq', 'Edit') }}
+				</button>
+				<button v-if="editor.contextMenu.kind === 'node'" role="menuitem" @click="onContextCopy">
+					{{ t('hermiq', 'Copy') }}
+				</button>
+				<button role="menuitem" class="flow-builder__context-destructive" @click="onContextDelete">
+					{{ t('hermiq', 'Delete') }}
+				</button>
+			</template>
 		</div>
 
 		<NodeEditModal
@@ -362,7 +385,6 @@ import Minus from 'vue-material-design-icons/Minus.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
 import Close from 'vue-material-design-icons/Close.vue'
-import NoteTextOutline from 'vue-material-design-icons/NoteTextOutline.vue'
 import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
 import ConnectionEditModal from '../modals/Flow/ConnectionEditModal.vue'
 import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
@@ -432,7 +454,6 @@ export default {
 	components: {
 		Close,
 		CnGraphCanvas,
-		NoteTextOutline,
 		DockRight,
 		Minus,
 		NcButton,
@@ -547,7 +568,93 @@ export default {
 		this.editor.load(this.id)
 	},
 
+	mounted() {
+		window.addEventListener('keydown', this.onKeydown)
+	},
+
+	beforeUnmount() {
+		window.removeEventListener('keydown', this.onKeydown)
+	},
+
 	methods: {
+		/**
+		 * Keyboard actions on the current selection.
+		 *
+		 * This is the accessible route to the context menu's actions: a
+		 * right-click is a pointer gesture and cannot be the only way to reach
+		 * an action (WCAG 2.1 AA 2.1.1). Delete removes the selection, Enter
+		 * opens its editor.
+		 *
+		 * IGNORED WHILE TYPING. A note's textarea, a search field and every
+		 * modal input live inside this view, and a Backspace that deleted the
+		 * selected node while the author was correcting a typo would be the
+		 * worst possible reading of the key. The check is on the event target,
+		 * so it holds for inputs this component does not know about.
+		 *
+		 * @param {KeyboardEvent} event The key event.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-canvas-offers-per-element-actions-reachable-two-ways
+		 */
+		onKeydown(event) {
+			if (this.isTypingTarget(event.target)) {
+				return
+			}
+
+			// A modal owns the keyboard while it is open — Delete there belongs
+			// to whatever the author is editing, not to the canvas behind it.
+			if (this.editor.nodeEditOpen || this.editor.edgeEditOpen) {
+				return
+			}
+
+			if (event.key === 'Escape') {
+				this.editor.contextMenu = null
+				return
+			}
+
+			if (event.key === 'Delete' || event.key === 'Backspace') {
+				// Only swallow the key when something was actually deleted, so
+				// Backspace keeps its ordinary meaning the rest of the time.
+				if (this.editor.deleteSelection()) {
+					event.preventDefault()
+					this.editor.contextMenu = null
+				}
+
+				return
+			}
+
+			if (event.key === 'Enter') {
+				if (this.editor.selectedNodeId !== null) {
+					this.editor.nodeEditOpen = true
+					event.preventDefault()
+					return
+				}
+
+				if (this.editor.selectedEdgeId !== null) {
+					this.editor.edgeEditOpen = true
+					event.preventDefault()
+				}
+			}
+		},
+
+		/**
+		 * Whether a key event came from somewhere the author is typing.
+		 *
+		 * @param {EventTarget|null} target The event target.
+		 * @return {boolean} Whether to leave the key alone.
+		 */
+		isTypingTarget(target) {
+			if (target === null || target === undefined || target.tagName === undefined) {
+				return false
+			}
+
+			if (target.isContentEditable === true) {
+				return true
+			}
+
+			return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)
+		},
+
 		/**
 		 * Route a canvas selection to the node or the annotation it names.
 		 *
@@ -645,6 +752,96 @@ export default {
 		onEdgeContext(edge, event) {
 			this.editor.selectEdge(edge.id)
 			this.editor.contextMenu = { kind: 'edge', id: edge.id, x: event.clientX, y: event.clientY }
+		},
+
+		/**
+		 * Open the canvas's own context menu on empty space.
+		 *
+		 * Node and connection menus stop propagation, so reaching here means
+		 * the click landed on the BACKGROUND — the one place where "paste" and
+		 * "pin a note" mean something, because both need a point.
+		 *
+		 * @param {MouseEvent} event The event, for the position.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-canvas-offers-per-element-actions-reachable-two-ways
+		 */
+		onCanvasContext(event) {
+			this.editor.contextMenu = {
+				kind: 'canvas',
+				id: null,
+				// Where the MENU is drawn: viewport coordinates, because that
+				// is where the pointer is.
+				x: event.clientX,
+				y: event.clientY,
+				// Where the RESULT lands: canvas coordinates, so a paste or a
+				// note appears under the pointer whatever the pan and zoom.
+				point: this.canvasPointOf(event),
+			}
+		},
+
+		/**
+		 * The canvas-space point a pointer event happened at.
+		 *
+		 * Only the canvas knows its own pan and zoom, so only it can undo them
+		 * — the same reason it hands `canvas-drop` a converted point rather
+		 * than raw client coordinates. Asked through the ref, and guarded: if
+		 * that method ever stops being there, a note still gets pinned at the
+		 * default spot rather than the feature disappearing.
+		 *
+		 * @param {MouseEvent} event The event.
+		 * @return {{x: number, y: number}|null} The canvas point, or null.
+		 */
+		canvasPointOf(event) {
+			const canvas = this.$refs.graph
+
+			if (canvas === undefined || typeof canvas.toCanvasPoint !== 'function') {
+				return null
+			}
+
+			try {
+				return canvas.toCanvasPoint(event)
+			} catch (e) {
+				return null
+			}
+		},
+
+		/**
+		 * Place the copied node where the menu was raised.
+		 *
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-canvas-offers-per-element-actions-reachable-two-ways
+		 */
+		onContextPaste() {
+			const point = this.editor.contextMenu?.point
+			this.editor.contextMenu = null
+
+			if (point === null || point === undefined) {
+				this.editor.pasteNode()
+				return
+			}
+
+			this.editor.pasteNode(point.x, point.y)
+		},
+
+		/**
+		 * Pin a note where the menu was raised.
+		 *
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		onContextAddNote() {
+			const point = this.editor.contextMenu?.point
+			this.editor.contextMenu = null
+
+			if (point === null || point === undefined) {
+				this.editor.addAnnotation()
+				return
+			}
+
+			this.editor.addAnnotation(point.x, point.y)
 		},
 
 		/**
@@ -1533,31 +1730,72 @@ export default {
 	color: var(--color-error);
 }
 
+/*
+	A note is PAPER, not a card.
+
+	The canvas draws its own card around everything it positions — background,
+	2px border, rounded corners — so a note rendered inside it came out as a
+	sheet within a card, the "container in a container" the board is full of.
+	This strips the wrapper's chrome for notes only, keeping its border WIDTH so
+	the geometry the canvas laid out is unchanged and the note does not shift by
+	two pixels when it stops being a card.
+*/
+:deep(.cn-graph-canvas__node:has(.flow-builder__annotation)) {
+	background-color: transparent;
+	border-color: transparent;
+}
+
 .flow-builder__annotation {
+	position: relative;
 	display: flex;
 	gap: 4px;
 	width: 100%;
 	height: 100%;
-	padding: 6px;
-	border-radius: var(--border-radius-large);
-	/* A note is not a card. It reads as paper pinned to the board — warning
-	   yellow is the closest NC variable to a sticky note, and the dashed edge
-	   says "this is not part of the run" without relying on colour alone. */
-	background-color: var(--color-warning, #f0b543);
-	border: 1px dashed var(--color-border-dark);
+	padding: 8px;
+	/* Square-ish corners, a warm sheet, a soft shadow and a turned-up bottom
+	   corner: the things that make a rectangle read as a sticky note rather
+	   than as another node. It must not look like part of the run — the engine
+	   never sees it. */
+	background-color: #fdf6a9;
+	border: none;
+	border-radius: 2px;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.28);
+	/* The sheet is a FIXED colour, so its ink is fixed too: a theme's light
+	   text would disappear on yellow paper. */
+	color: #2f2c14;
+}
+
+/* The turned-up corner. Decorative only, and hidden from assistive tech by
+   being a pseudo-element with no content. */
+.flow-builder__annotation::after {
+	content: '';
+	position: absolute;
+	inset-inline-end: 0;
+	inset-block-end: 0;
+	border-width: 0 0 14px 14px;
+	border-style: solid;
+	border-color: transparent transparent rgba(0, 0, 0, 0.16) transparent;
 }
 
 .flow-builder__annotation-text {
 	flex: 1;
 	border: none;
 	background: transparent;
-	color: var(--color-main-text);
+	/* Inherits the sheet's ink rather than the theme's. */
+	color: inherit;
 	resize: none;
 	font-size: 0.9em;
 }
 
+.flow-builder__annotation-text::placeholder {
+	color: rgba(47, 44, 20, 0.55);
+}
+
 .flow-builder__annotation-remove {
 	flex: 0 0 auto;
+	/* Same reason as the text: on a fixed sheet the button's glyph cannot take
+	   its colour from the theme. */
+	color: inherit;
 }
 
 /* A replayed run's path. Marked with a colour AND a heavier line, because a
