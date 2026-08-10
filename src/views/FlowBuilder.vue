@@ -176,8 +176,25 @@
 			</NcButton>
 		</div>
 
+		<!--
+			While the flow is loading `nodes` is legitimately empty, so the
+			empty state used to flash "No nodes yet" at every open — telling
+			the operator their flow was blank a moment before drawing it.
+			"Nothing here" and "not here yet" are different claims and only one
+			of them is true during a fetch.
+		-->
 		<NcEmptyContent
-			v-if="editor.nodes.length === 0"
+			v-if="editor.loading"
+			class="flow-builder__empty"
+			:name="t('hermiq', 'Loading flow…')"
+			:description="t('hermiq', 'Fetching the nodes and steps for this flow.')">
+			<template #icon>
+				<NcLoadingIcon :size="20" />
+			</template>
+		</NcEmptyContent>
+
+		<NcEmptyContent
+			v-else-if="editor.nodes.length === 0"
 			class="flow-builder__empty"
 			:name="t('hermiq', 'No nodes yet')"
 			:description="t('hermiq', 'Add a node from the sidebar, then drag between two nodes to create a step.')">
@@ -205,7 +222,7 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent } from '@nextcloud/vue'
+import { NcButton, NcEmptyContent, NcLoadingIcon } from '@nextcloud/vue'
 import { CnGraphCanvas } from '@conduction/nextcloud-vue'
 import { showSuccess } from '@nextcloud/dialogs'
 import DockRight from 'vue-material-design-icons/DockRight.vue'
@@ -280,6 +297,7 @@ export default {
 		Minus,
 		NcButton,
 		NcEmptyContent,
+		NcLoadingIcon,
 		Plus,
 		DeadEndWarningDialog,
 		RunFlowDialog,
