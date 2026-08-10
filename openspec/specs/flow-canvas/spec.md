@@ -193,8 +193,22 @@ which would read as "it did nothing".
 
 Each palette entry MUST be a card carrying the node's name, the beginning of the
 engine's own description, and the icon of the app that CONTRIBUTED the type in
-front of the name. Cards MUST be colour-coded by role — an entry point, an
-ordinary node, a terminal — and the role MUST also be readable without colour.
+front of the name. Cards MUST be colour-coded by role — `start`, `step`, `stop`
+— and the role MUST also be readable without colour.
+
+The role MUST be read from the `role` OpenRegister ships on every palette entry,
+which it decides from the markers a node implements. The editor MUST NOT infer
+it from the node's id: a convention like `id.includes('.trigger-')` recognises
+OpenRegister's own three and silently badges a start or stop node contributed by
+any other app as a step.
+
+One vocabulary, everywhere. `start` / `step` / `stop` are the words in the node
+ids, in the engine's interfaces, in the palette API and on the badge. The editor
+must not introduce a fourth set — it previously showed "starts"/"ends" over role
+keys `trigger`/`terminal` over ids `trigger-*`/`stop`.
+
+The list MUST be ordered `start`, then `step`, then `stop`: the order a flow is
+read in, so the list itself teaches the shape of one.
 
 The provider's icon is not decoration. The catalogue mixes types from
 OpenRegister, openconnector and hermiq, and which app a node comes from decides

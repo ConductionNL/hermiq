@@ -376,6 +376,47 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {object} state The flow-editor store state.
 		 * @return {Array<string>} The starting place ids.
 		 */
+		/**
+		 * A node TYPE's declared role: `start`, `step` or `stop`.
+		 *
+		 * Read from the catalogue the ENGINE ships, never inferred from the id.
+		 * OpenRegister decides this from the markers a node implements
+		 * (`IFlowStartNode` / `IFlowStopNode`), so a start or stop node
+		 * contributed by any app is recognised whatever it is called — which a
+		 * string match on `.trigger-` or `.stop` cannot do.
+		 *
+		 * Note this is a different question from `startNodeIds`/`endNodeIds`,
+		 * which are about where a node sits in THIS graph. A type can be a
+		 * `step` and still be the first node drawn.
+		 *
+		 * @param {object} state The flow-editor store state.
+		 * @return {Function} `(type: string) => 'start'|'step'|'stop'`.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-node-palette-is-a-card-per-type-and-the-card-explains-itself
+		 */
+		roleOfNodeType: (state) => (type) => {
+			const id = String(type || '')
+			const entry = (state.nodeCatalog || []).find((candidate) => candidate.id === id)
+
+			if (entry !== undefined && entry.role) {
+				return entry.role
+			}
+
+			// The catalogue has not loaded, or an OpenRegister older than the
+			// `role` field answered. Degrade to the naming convention rather
+			// than calling everything a step, which would draw a trigger as an
+			// ordinary node.
+			if (id.includes('.trigger-')) {
+				return 'start'
+			}
+
+			if (id.endsWith('.stop')) {
+				return 'stop'
+			}
+
+			return 'step'
+		},
+
 		startNodeIds: (state) => {
 			const places = (state.flow.nodes || []).map((node) => node.id)
 			const declared = endpointList(state.flow.initial).filter((id) => places.includes(id))

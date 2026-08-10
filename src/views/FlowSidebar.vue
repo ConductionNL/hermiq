@@ -471,7 +471,13 @@ export default {
 				// from decides where it is documented and who to ask when it
 				// misbehaves, and the catalogue mixes three of them.
 				provider: String(entry.id || '').split('.')[0] || '',
-				role: this.roleOfType(entry.id),
+				// The role the ENGINE declares, never one inferred from the id.
+				// This used to string-match `.trigger-` and `.stop`, which is a
+				// naming convention rather than a fact: a start or stop node
+				// contributed by another app under a different name was badged
+				// a step. The store owns the lookup so the palette and the
+				// canvas cannot disagree about what a type is.
+				role: entry.role || this.editor.roleOfNodeType(entry.id),
 			}))
 
 			const matched = needle === ''
@@ -485,11 +491,12 @@ export default {
 			// "Stop" between "Explode" and "Wait" and tell an author nothing.
 			// Ties keep the catalogue's own order, which groups by provider.
 			//
-			// The keys are `roleOfType()`'s OWN vocabulary — trigger/step/
-			// terminal — not the words the cards display. Ranking by the
-			// displayed words silently ranked nothing: every lookup missed and
-			// every type tied on the default.
-			const rank = { trigger: 0, step: 1, terminal: 2 }
+			// The keys are the ENGINE's vocabulary, which is now also the
+			// badge's and the node ids' — start/step/stop. An earlier version
+			// ranked by words that matched none of them, so every lookup missed
+			// and every type tied on the default: the list came back in
+			// catalogue order looking untouched.
+			const rank = { start: 0, step: 1, stop: 2 }
 
 			return matched
 				.map((entry, index) => ({ entry, index }))
@@ -581,31 +588,11 @@ export default {
 
 	methods: {
 		/**
-		 * A node TYPE's role in a flow: entry point, terminal, or ordinary.
-		 *
-		 * Derived from the type, which is the only thing a palette card can
-		 * know — a card describes a type that is not on any canvas yet, so
-		 * there is no topology to infer a role from.
-		 *
-		 * @param {string} type The node type id.
-		 * @return {string} `'trigger'`, `'terminal'` or `'step'`.
-		 *
-		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-node-palette-is-a-card-per-type-and-the-card-explains-itself
-		 */
-		roleOfType(type) {
-			const id = String(type || '')
-			if (id.includes('.trigger-')) {
-				return 'trigger'
-			}
-
-			if (id.endsWith('.stop')) {
-				return 'terminal'
-			}
-
-			return 'step'
-		},
-		/**
 		 * A role as a word, for the card.
+		 *
+		 * The badge says the SAME word the engine and the node ids use. It
+		 * used to say "starts"/"ends" over role keys `trigger`/`terminal` over
+		 * ids `trigger-*`/`stop` — three vocabularies for two concepts.
 		 *
 		 * @param {string} role The role key.
 		 * @return {string} The label.
@@ -613,12 +600,12 @@ export default {
 		 * @spec openspec/specs/flow-canvas/spec.md#requirement-the-node-palette-is-a-card-per-type-and-the-card-explains-itself
 		 */
 		roleWord(role) {
-			if (role === 'trigger') {
-				return this.t('hermiq', 'starts')
+			if (role === 'start') {
+				return this.t('hermiq', 'start')
 			}
 
-			if (role === 'terminal') {
-				return this.t('hermiq', 'ends')
+			if (role === 'stop') {
+				return this.t('hermiq', 'stop')
 			}
 
 			return this.t('hermiq', 'step')
@@ -800,11 +787,11 @@ export default {
 	cursor: grab;
 }
 
-.flow-sidebar__palette-card--trigger {
+.flow-sidebar__palette-card--start {
 	border-left-color: var(--color-success, #46ba61);
 }
 
-.flow-sidebar__palette-card--terminal {
+.flow-sidebar__palette-card--stop {
 	border-left-color: var(--color-error, #e9322d);
 }
 

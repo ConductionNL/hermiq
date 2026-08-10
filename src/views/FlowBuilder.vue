@@ -1185,17 +1185,19 @@ export default {
 		 * Whether this node is an entry point — one of the engine's trigger
 		 * types.
 		 *
-		 * Tested by type prefix rather than against a hard-coded list of the
-		 * three: an app may contribute its own trigger, and a list here would
-		 * silently stop recognising it as one.
+		 * Asked of the ENGINE's catalogue, not of the id's shape. It used to
+		 * match a `.trigger-` prefix, which recognises OpenRegister's own three
+		 * and silently misses a start node any other app contributes under a
+		 * different name — the exact failure the prefix test was written to
+		 * avoid, arrived at from the other side.
 		 *
 		 * @param {object} node The node.
-		 * @return {boolean} Whether it starts the flow.
+		 * @return {boolean} Whether a run may begin here.
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		isTrigger(node) {
-			return String(node?.type || '').includes('.trigger-')
+			return this.editor.roleOfNodeType(node?.type) === 'start'
 		},
 
 		roleOf(id) {
