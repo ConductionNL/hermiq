@@ -401,11 +401,34 @@ class ConversationController extends Controller
 
         // Look up the agent to confirm it exists; log and continue with null
         // when absent (mirrors OR's warn-and-continue).
-        $agent = $this->objectService->find(
-            id: (string) $data['agentUuid'],
-            register: self::REGISTER_SLUG,
-            schema: self::AGENT_SCHEMA
-        );
+        //
+        // `ObjectService::find()` signals "not found" by THROWING (`@throws
+        // Exception If the object is not found`) rather than by returning null,
+        // so the warn-and-continue branch below was unreachable for the exact
+        // case it was written for: an unknown `agentUuid` propagated out of this
+        // helper instead of yielding an unbound session. Catching restores the
+        // documented contract. It grants nothing — a null agent leaves
+        // `agentId` unset, which the required-`agentId` conversation schema
+        // rejects on save, so an unresolvable agent still cannot create a bound
+        // session.
+        try {
+            $agent = $this->objectService->find(
+                id: (string) $data['agentUuid'],
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA
+            );
+        } catch (Throwable $e) {
+            $this->logger->warning(
+                message: '[ConversationController] Agent UUID could not be resolved',
+                context: [
+                    'file'      => __FILE__,
+                    'line'      => __LINE__,
+                    'agentUuid' => $data['agentUuid'],
+                    'error'     => $e->getMessage(),
+                ]
+            );
+            return null;
+        }//end try
 
         if ($agent === null) {
             $this->logger->warning(
@@ -908,6 +931,19 @@ class ConversationController extends Controller
      *
      * @return void
      *
+     * @throws Exception If the archive marker could not be persisted
+     *                   (`ObjectService::saveObject()` documents
+     *                   `@throws Exception If there is an error during save`).
+     *                   Propagation is deliberate: the sole caller, `destroy()`,
+     *                   invokes this INSIDE its own `try { … } catch (Exception
+     *                   $e)` and translates the failure into a logged error
+     *                   envelope. Catching it here would instead report
+     *                   "Conversation archived successfully" for a conversation
+     *                   that still carries no marker — and, because `destroy()`
+     *                   permanently deletes an already-archived conversation on
+     *                   the next call, a silently-missing marker also means the
+     *                   second delete never escalates.
+     *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
      */
     private function setArchiveMarker(ObjectEntity $conversation, string $deletedBy): void
@@ -937,6 +973,19 @@ class ConversationController extends Controller
      * @param string $conversationId Conversation UUID.
      *
      * @return void
+     *
+     * @throws Exception If a related object could not be deleted
+     *                   (`ObjectService::deleteObject()` documents
+     *                   `@throws \Exception If user does not have delete
+     *                   permission`, plus `DoesNotExistException`).
+     *                   Propagation is deliberate: both callers, `destroy()` and
+     *                   `destroyPermanent()`, invoke this INSIDE their own
+     *                   `try { … } catch (Exception $e)` and translate the
+     *                   failure into a logged error envelope. Catching it here
+     *                   would report a permanent delete as complete while
+     *                   messages or feedback survive it — the conversation row
+     *                   is deleted on the very next line, so those rows would be
+     *                   orphaned with no remaining handle to reach them.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
      */

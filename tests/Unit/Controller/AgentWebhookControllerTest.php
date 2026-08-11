@@ -29,6 +29,7 @@ use OCA\Hermiq\Controller\AgentWebhookController;
 use OCA\Hermiq\Service\WebhookSecretService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
@@ -192,6 +193,30 @@ class AgentWebhookControllerTest extends TestCase
         $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
 
     }//end testUnknownAgentGets404()
+
+    /**
+     * A THROWING agent lookup gets the same 404, not a 500.
+     *
+     * `ObjectService::find()` documents `@throws Exception If the object is not
+     * found`, and every endpoint here calls `loadOwnedAgent()` OUTSIDE its own
+     * try block — so before the fix the throw escaped to the dispatcher as a
+     * framework 500 with a stack trace on a `#[NoAdminRequired]` route, on the
+     * routes that mint and reveal a webhook secret.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+     */
+    public function testThrowingAgentLookupGets404(): void
+    {
+        $this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $controller = $this->controller($this->session('alice'));
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
+
+    }//end testThrowingAgentLookupGets404()
 
     /**
      * The owner can create a webhook: 201 with the plaintext secret.

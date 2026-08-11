@@ -29,6 +29,7 @@ use OCA\Hermiq\Service\ToolSearchService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
@@ -282,6 +283,42 @@ final class McpRunControllerTest extends TestCase
         $this->assertStringNotContainsString('"properties":[]', $encoded);
 
     }//end testToolsListReturnsGrantedToolsWithPropertiesAsObject()
+
+    /**
+     * A THROWING agent lookup grants nothing — it does not 500.
+     *
+     * `ObjectService::find()` documents `@throws Exception If the object is not
+     * found`, and both callers invoke `loadAgent()` OUTSIDE their own try block —
+     * so before the fix the throw escaped to the dispatcher as a framework 500
+     * with a stack trace. An agent that cannot be loaded grants no tools, which
+     * is exactly what the helper's null already means: the catalogue comes back
+     * empty and the transport stays a well-formed JSON-RPC result.
+     *
+     * @return void
+     */
+    public function testThrowingAgentLookupGrantsNoTools(): void
+    {
+        $facade = $this->createMock(ToolRegistryFacade::class);
+        $facade->method('listTools')->willReturn($this->catalog());
+
+        $objects = $this->createMock(ObjectService::class);
+        $objects->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $controller = $this->controller(
+            'Bearer good',
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}',
+            $this->tokens('good'),
+            $objects,
+            $facade,
+            $this->createMock(ToolLoop::class),
+            $this->createMock(ToolSearchService::class)
+        );
+
+        $data = $controller->handle()->getData();
+
+        $this->assertSame([], $data['result']['tools']);
+
+    }//end testThrowingAgentLookupGrantsNoTools()
 
     /**
      * `tools/call` for an ungranted tool returns `isError: true` and executes nothing.

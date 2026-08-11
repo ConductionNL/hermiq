@@ -845,6 +845,17 @@ class ChatController extends Controller
      *
      * @return void
      *
+     * @throws Exception If the archive marker could not be persisted
+     *                   (`ObjectService::saveObject()` documents
+     *                   `@throws Exception If there is an error during save`).
+     *                   Propagation is deliberate: the sole caller,
+     *                   `clearHistory()`, invokes this INSIDE its own
+     *                   `try { … } catch (Exception $e)` and translates the
+     *                   failure into a logged 500 envelope. Catching it here
+     *                   would instead report "Conversation cleared
+     *                   successfully" for a conversation that was never
+     *                   archived.
+     *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
      */
     private function archiveConversation(ObjectEntity $conversation, string $userId): void

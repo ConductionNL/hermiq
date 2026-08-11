@@ -36,6 +36,7 @@ use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IGroupManager;
 use OCP\IRequest;
@@ -151,6 +152,36 @@ class EvalRunControllerTest extends TestCase
         $this->assertSame(Http::STATUS_NOT_FOUND, $controller->run('ds-1')->getStatus());
 
     }//end testNonOwnedDatasetReturns404()
+
+    /**
+     * A THROWING dataset lookup is the same 404, not a 500.
+     *
+     * `ObjectService::find()` documents `@throws Exception If the object is not
+     * found` and only returns null on some paths, so "absent" reaches this
+     * controller both ways. `run()` calls `loadOwnedDataset()` BEFORE opening its
+     * own try block, so before the fix the throw escaped to the dispatcher as a
+     * framework 500 with a stack trace on a `#[NoAdminRequired]` route.
+     *
+     * @return void
+     */
+    public function testThrowingDatasetLookupReturns404(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $controller = new EvalRunController(
+            request: $this->createMock(IRequest::class),
+            objectService: $objectService,
+            agentMapper: $this->createMock(AgentMapper::class),
+            userSession: $this->session('alice'),
+            evalRunService: $this->createMock(EvalRunService::class),
+            seedCustody: $this->custody(),
+            logger: $this->createMock(LoggerInterface::class),
+        );
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->run('ds-1')->getStatus());
+
+    }//end testThrowingDatasetLookupReturns404()
 
     /**
      * An agent the caller does not own is 404, even when the dataset is owned.

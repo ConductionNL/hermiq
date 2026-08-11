@@ -224,11 +224,26 @@ class AgentVersionController extends Controller
      */
     private function loadAccessibleAgent(string $id, string $userId): ?ObjectEntity
     {
-        $agent = $this->objectService->find(
-            id: $id,
-            register: self::REGISTER_SLUG,
-            schema: self::AGENT_SCHEMA
-        );
+        try {
+            $agent = $this->objectService->find(
+                id: $id,
+                register: self::REGISTER_SLUG,
+                schema: self::AGENT_SCHEMA
+            );
+        } catch (Throwable $e) {
+            // `ObjectService::find()` documents `@throws Exception If the object
+            // is not found`, and every caller invokes this helper OUTSIDE its own
+            // try block — so an unhandled throw escapes to the dispatcher as a
+            // framework 500 with a stack trace on a #[NoAdminRequired] route. An
+            // agent that cannot be loaded is, to a caller, not accessible, which
+            // is exactly what null already means here.
+            $this->logger->warning(
+                'Hermiq agent lookup failed for '.$id.': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return null;
+        }//end try
+
         if (($agent instanceof ObjectEntity) === false) {
             return null;
         }

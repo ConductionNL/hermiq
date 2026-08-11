@@ -29,6 +29,7 @@ use OCA\Hermiq\Service\RunHistoryService;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
@@ -187,6 +188,34 @@ class RunHistoryControllerTest extends TestCase
         $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
     }//end testMissingScheduleIsNotFound()
+
+    /**
+     * A THROWING lookup is the same 404, and still reads no history.
+     *
+     * `ObjectService::find()` documents `@throws Exception If the object is not
+     * found` and only returns null on some paths, so "absent" reaches this
+     * controller both ways. `index()` and `replay()` call `loadOwnedSchedule()`
+     * BEFORE opening their own try block, so before the fix the throw escaped to
+     * the dispatcher as a framework 500 with a stack trace on a
+     * `#[NoAdminRequired]` route.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/run-audit-log/tasks.md#task-3-4
+     */
+    public function testThrowingScheduleLookupIsNotFound(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $runHistory = $this->createMock(RunHistoryService::class);
+        $runHistory->expects($this->never())->method('getRunHistory');
+
+        $controller = $this->controller($objectService, $this->session('alice'), $runHistory);
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->index('sched-1')->getStatus());
+
+    }//end testThrowingScheduleLookupIsNotFound()
 
     /**
      * An unauthenticated caller gets 401.

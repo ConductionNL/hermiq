@@ -34,6 +34,7 @@ use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\DataDownloadResponse;
 use OCP\AppFramework\Http\JSONResponse;
@@ -322,6 +323,27 @@ class ToolOversightControllerTest extends TestCase
         $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
     }//end testToolCatalogNotFound()
+
+    /**
+     * A THROWING agent lookup is the same 404, not a 500.
+     *
+     * `ObjectService::find()` documents `@throws Exception If the object is not
+     * found`, and both `toolCatalog()` and `updateToolGrants()` call
+     * `loadAgentForOversight()` OUTSIDE their own try block — so before the fix
+     * the throw escaped to the dispatcher as a framework 500 with a stack trace
+     * on a `#[NoAdminRequired]` route.
+     *
+     * @return void
+     */
+    public function testToolCatalogThrowingLookupIsNotFound(): void
+    {
+        $this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $response = $this->controller()->toolCatalog('missing');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testToolCatalogThrowingLookupIsNotFound()
 
     /**
      * updateToolGrants persists the new grant array via ObjectService::saveObject
