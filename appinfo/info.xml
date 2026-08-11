@@ -32,7 +32,17 @@
     <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-skills.png</screenshot>
 
     <dependencies>
-        <nextcloud min-version="30" max-version="34"/>
+        <!--
+          min-version is 32, not 30. Hermiq's storage IS OpenRegister and it
+          IMPLEMENTS OpenRegister interfaces (IFlowNode, IFlowNodeLogActions,
+          IShareableConfigType), so it cannot run without it — and OpenRegister
+          declares min-version="32". Claiming 30 was unsupportable: on
+          Nextcloud 31, `occ app:enable openregister` refuses with
+          `App "Open Register" cannot be installed because it is not compatible
+          with this version of the server`, measured in both stable31 cells of
+          run 31490144919.
+        -->
+        <nextcloud min-version="32" max-version="34"/>
         <php min-version="8.3"/>
     </dependencies>
 

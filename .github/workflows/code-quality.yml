@@ -101,7 +101,24 @@ jobs:
       #
       # Newest-first costs nothing (the matrix is unchanged) and points every
       # single-ref job at the version closest to production.
-      nextcloud-test-refs: '["stable33", "stable32", "stable31"]'
+      #
+      # 🔴 `stable31` REMOVED 2026-08-11 — it was never testing this app.
+      # OpenRegister declares `min-version="32"`, and it is a REQUIRED
+      # additional app here (see `additional-apps` below), so on Nextcloud 31
+      # `occ app:enable openregister` refuses:
+      #
+      #   App "Open Register" cannot be installed because it is not compatible
+      #   with this version of the server.
+      #
+      # The shared workflow swallows that as `::warning::Failed to enable
+      # openregister, continuing...` and the run carries on WITHOUT the app
+      # hermiq's storage and interfaces come from. Both stable31 cells of run
+      # 31490144919 then reported 12 PHPUnit errors against the 5 the healthy
+      # cells reported — seven phantom failures that read as application debt
+      # and were an absent dependency. A cell that cannot install this app's
+      # hard dependency measures nothing, so it is gone, and appinfo/info.xml
+      # now declares `min-version="32"` to match.
+      nextcloud-test-refs: '["stable33", "stable32"]'
       enable-psalm: true
       enable-phpstan: true
       enable-phpmetrics: true
