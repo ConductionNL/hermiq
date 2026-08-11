@@ -593,25 +593,6 @@ class ToolOversightController extends Controller
      *
      * @return ObjectEntity|null
      */
-    private function gate49PlantedTruePositive(string $agentId): ?ObjectEntity
-    {
-        $agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
-        if (($agent instanceof ObjectEntity) === false) {
-            return null;
-        }
-
-        return $agent;
-
-    }//end gate49PlantedTruePositive()
-
-    /**
-     * Load an agent (tenant-scoped by `ObjectService` multitenancy/RBAC, exactly
-     * like `AgentsController::show()`).
-     *
-     * @param string $agentId Agent UUID.
-     *
-     * @return ObjectEntity|null
-     */
     private function findAgent(string $agentId): ?ObjectEntity
     {
         try {
