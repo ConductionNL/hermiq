@@ -1255,7 +1255,10 @@
         "This flow has no end node, so no path finishes deliberately. Add an End node — it may end in success or in error, but the flow must say where it stops.": "This flow has no end node, so no path finishes deliberately. Add an End node — it may end in success or in error, but the flow must say where it stops.",
         "This flow has no trigger and no end node. Nothing can start it, and no path finishes deliberately. Add a trigger and an End node.": "This flow has no trigger and no end node. Nothing can start it, and no path finishes deliberately. Add a trigger and an End node.",
         "This flow has no trigger node, so nothing can ever start it. Add a trigger — an object change, a schedule, or someone running it by hand.": "This flow has no trigger node, so nothing can ever start it. Add a trigger — an object change, a schedule, or someone running it by hand.",
-        "Use theme colour": "Use theme colour"
+        "Use theme colour": "Use theme colour",
+        "Package contents": "Package contents",
+        "Skill package": "Skill package",
+        "Template package": "Template package"
     },
     "plurals": ""
 }

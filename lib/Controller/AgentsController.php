@@ -730,10 +730,12 @@ class AgentsController extends Controller
         $normalised = [];
         foreach ($filters as $key => $value) {
             if (is_bool($value) === true) {
+                // Written without `else` (phpmd ElseExpression) and without an
+                // inline ternary (phpcs): an earlier pass traded one for the
+                // other and each linter then rejected the other's fix.
+                $normalised[$key] = 'false';
                 if ($value === true) {
                     $normalised[$key] = 'true';
-                } else {
-                    $normalised[$key] = 'false';
                 }
 
                 continue;
