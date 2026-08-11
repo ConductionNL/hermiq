@@ -1273,7 +1273,11 @@
         "This node did not run in the selected run, so nothing was recorded for it.": "This node did not run in the selected run, so nothing was recorded for it.",
         "Triggers": "Triggers",
         "View data": "View data",
-        "What this node received and returned": "What this node received and returned"
+        "What this node received and returned": "What this node received and returned",
+        "Flow actions": "Flow actions",
+        "Open full size": "Open full size",
+        "The input of whatever comes next.": "The input of whatever comes next.",
+        "What {node} returned": "What {node} returned"
     },
     "plurals": ""
 }

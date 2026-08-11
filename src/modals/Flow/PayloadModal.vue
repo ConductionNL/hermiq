@@ -31,16 +31,24 @@
 						entry.output.count) }}
 				</NcNoteCard>
 
-				<p class="payload__hint">
-					{{ t('hermiq', 'This is what {node} returned — the input of whatever comes next.', { node: entry.transition }) }}
-				</p>
-
-				<pre class="payload__json">{{ pretty(entry.output) }}</pre>
-
+				<!--
+					RECEIVED first, then returned — the order the step ran in.
+					Printing the output above the input asks the reader to work
+					backwards through a transformation to see what caused it,
+					and the whole point of showing both is the before/after.
+				-->
 				<h3 class="payload__subtitle">
 					{{ t('hermiq', 'What {node} received', { node: entry.transition }) }}
 				</h3>
 				<pre class="payload__json">{{ pretty(entry.input) }}</pre>
+
+				<h3 class="payload__subtitle">
+					{{ t('hermiq', 'What {node} returned', { node: entry.transition }) }}
+				</h3>
+				<p class="payload__hint">
+					{{ t('hermiq', 'The input of whatever comes next.') }}
+				</p>
+				<pre class="payload__json">{{ pretty(entry.output) }}</pre>
 			</template>
 
 			<div class="payload__actions">

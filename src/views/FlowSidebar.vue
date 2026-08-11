@@ -221,13 +221,42 @@
 								<li v-for="(entry, index) in logOf(run)" :key="index">
 									<button
 										class="flow-sidebar__run-step"
-										@click="editor.openStepPayload(entry.transition || entry.node || entry.step)">
+										:class="{ 'flow-sidebar__run-step--open': expandedStep === stepKey(run, index) }"
+										:aria-expanded="expandedStep === stepKey(run, index) ? 'true' : 'false'"
+										@click="toggleStep(run, index, entry)">
 										<strong>{{ entry.transition || entry.node || entry.step || '—' }}</strong>
 										<span :class="`flow-sidebar__run-status flow-sidebar__run-status--${entry.status || 'unknown'}`">
 											{{ entry.status || '—' }}
 										</span>
 										<span v-if="entry.error" class="flow-sidebar__run-error">{{ entry.error }}</span>
 									</button>
+
+									<!--
+										The payload folds out HERE, under the step it
+										belongs to. A modal for this put the reader in
+										a different place from the list they were
+										working down, and closing it lost their spot —
+										for a step-by-step read, staying in the list is
+										the point. The modal is still one click away
+										for a payload too wide for a 346px pane.
+									-->
+									<div v-if="expandedStep === stepKey(run, index)" class="flow-sidebar__step-payload">
+										<h4 class="flow-sidebar__step-heading">
+											{{ t('hermiq', 'Received') }}
+										</h4>
+										<pre class="flow-sidebar__step-json">{{ prettyPayload(entry.input) }}</pre>
+
+										<h4 class="flow-sidebar__step-heading">
+											{{ t('hermiq', 'Returned') }}
+										</h4>
+										<pre class="flow-sidebar__step-json">{{ prettyPayload(entry.output) }}</pre>
+
+										<NcButton
+											type="tertiary"
+											@click="editor.openStepPayload(entry.transition || entry.node || entry.step)">
+											{{ t('hermiq', 'Open full size') }}
+										</NcButton>
+									</div>
 								</li>
 							</ol>
 							<p v-else class="flow-sidebar__hint">
@@ -251,50 +280,12 @@
 
 			<div class="flow-sidebar__pane">
 				<!--
-					The three verbs together. "Check this flow" used to sit
-					below the validation card, several controls away from Run —
-					which is the one it belongs beside: checking is what you do
-					BEFORE running, and separating them made the check look like
-					a property of the result rather than an alternative to
-					starting one.
+					The verbs moved ONTO THE CANVAS. Save, Run and Check are what
+					an author does to the drawing in front of them, and living
+					three tabs deep meant the two most-used actions on the page
+					were invisible from the page. They are in
+					`flow-builder__verbs`, top-left over the canvas.
 				-->
-				<div class="flow-sidebar__verbs">
-					<NcButton type="primary" :disabled="editor.saving || !editor.flow.name" @click="save">
-						<template #icon>
-							<NcLoadingIcon v-if="editor.saving" :size="20" />
-							<ContentSave v-else :size="20" />
-						</template>
-						{{ t('hermiq', 'Save') }}
-					</NcButton>
-					<NcButton type="secondary" :disabled="!editor.flow.id" @click="editor.showRun = true">
-						<template #icon>
-							<Play :size="20" />
-						</template>
-						{{ t('hermiq', 'Run…') }}
-					</NcButton>
-					<NcButton type="secondary" @click="editor.validate()">
-						<template #icon>
-							<CheckDecagram :size="20" />
-						</template>
-						{{ t('hermiq', 'Check') }}
-					</NcButton>
-					<!-- Auto-sort moves nothing but coordinates. See the layout
-					     function: the node list, connections, types,
-					     configurations and branch targets are identical before
-					     and after, which is what makes this safe to press on a
-					     flow that works. It sits with the other verbs rather
-					     than adrift between two status cards, where it read as
-					     a remedy for whichever banner happened to be above it. -->
-					<NcButton
-						type="tertiary"
-						:disabled="editor.nodes.length === 0"
-						@click="editor.autoSort()">
-						<template #icon>
-							<SortVariant :size="20" />
-						</template>
-						{{ t('hermiq', 'Auto sort') }}
-					</NcButton>
-				</div>
 
 				<!--
 					Unsaved changes as a WARNING, not a hint. It was a line of
@@ -407,14 +398,10 @@
 <script>
 import { NcAppSidebar, NcAppSidebarTab, NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
-import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
-import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import History from 'vue-material-design-icons/History.vue'
 import Magnify from 'vue-material-design-icons/Magnify.vue'
 import Refresh from 'vue-material-design-icons/Refresh.vue'
-import SortVariant from 'vue-material-design-icons/SortVariant.vue'
-import Play from 'vue-material-design-icons/Play.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
 import { useFlowEditorStore } from '../store/flowEditor.js'
 
@@ -442,13 +429,10 @@ export default {
 	name: 'FlowSidebar',
 
 	components: {
-		CheckDecagram,
 		Cog,
-		ContentSave,
 		History,
 		Magnify,
 		Refresh,
-		SortVariant,
 		NcAppSidebar,
 		NcAppSidebarTab,
 		NcButton,
@@ -457,7 +441,6 @@ export default {
 		NcNoteCard,
 		NcSelect,
 		NcTextField,
-		Play,
 		Sitemap,
 	},
 
@@ -473,6 +456,10 @@ export default {
 			// `null` value = every role. Held as an object because NcSelect
 			// binds whole options, and compared on `.value` everywhere.
 			nodeRole: { value: null, label: t('hermiq', 'All types') },
+			// Which step's payload is folded out, as `<runId>#<index>`. Keyed on
+			// the run too: the same index means a different step in a different
+			// run, and keying on index alone opened the wrong one.
+			expandedStep: '',
 			// Which palette card is folded open. One at a time: the point of
 			// expanding is to read one description, and several open at once
 			// pushes the rest of the list off the pane.
@@ -811,6 +798,60 @@ export default {
 		},
 
 		/**
+		 * The key identifying one step of one run.
+		 *
+		 * @param {object} run   The run.
+		 * @param {number} index The step's position in the log.
+		 *
+		 * @return {string} The key.
+		 */
+		stepKey(run, index) {
+			return `${run.uuid || run.id}#${index}`
+		},
+
+		/**
+		 * Fold a step's payload out, and light that node on the canvas.
+		 *
+		 * Selecting the node too, because the list and the drawing are two
+		 * views of one thing: reading step 3 while the canvas still highlights
+		 * step 1 makes the reader hold the mapping in their head.
+		 *
+		 * @param {object} run   The run.
+		 * @param {number} index The step's position.
+		 * @param {object} entry The log entry.
+		 *
+		 * @return {void}
+		 */
+		toggleStep(run, index, entry) {
+			const key = this.stepKey(run, index)
+			this.expandedStep = this.expandedStep === key ? '' : key
+
+			const nodeId = entry.transition || entry.node || entry.step
+			if (this.expandedStep !== '' && nodeId) {
+				this.editor.selectedNodeId = nodeId
+			}
+		},
+
+		/**
+		 * A recorded payload, small enough to read in a 346px pane.
+		 *
+		 * Shows the ITEMS rather than the envelope, like the modal does —
+		 * `count` and `truncated` are bookkeeping, and printing them in the
+		 * middle of the data is what makes a payload unreadable at this width.
+		 *
+		 * @param {object} envelope The `{count, truncated, items}` envelope.
+		 *
+		 * @return {string} Pretty JSON.
+		 */
+		prettyPayload(envelope) {
+			if (!envelope) {
+				return this.t('hermiq', 'Not recorded.')
+			}
+
+			return JSON.stringify(envelope.items ?? envelope, null, 2)
+		},
+
+		/**
 		 * A one-line summary of what a run did, for the card face.
 		 *
 		 * Step counts rather than a duration: the question a card has to answer
@@ -986,6 +1027,40 @@ export default {
 
 .flow-sidebar__run-step:hover {
 	background-color: var(--color-background-hover);
+}
+
+.flow-sidebar__run-step--open {
+	background-color: var(--color-background-hover);
+	font-weight: bold;
+}
+
+/* Indented under its step, so a folded-out payload reads as belonging to the
+   row above it rather than as the next item in the list. */
+.flow-sidebar__step-payload {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin-inline-start: 10px;
+	padding: 6px 0 8px 8px;
+	border-inline-start: 2px solid var(--color-border);
+}
+
+.flow-sidebar__step-heading {
+	margin: 0;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.8em;
+}
+
+.flow-sidebar__step-json {
+	max-height: 180px;
+	margin: 0;
+	overflow: auto;
+	padding: 6px;
+	border-radius: var(--border-radius);
+	background-color: var(--color-background-dark);
+	font-family: monospace;
+	font-size: 0.75em;
+	white-space: pre;
 }
 
 /* Search and type filter share a row: they are one question ("which node?")

@@ -616,22 +616,33 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			cron: state.flow.cron || '',
 			executionMode: state.flow.executionMode || 'async',
 			limits: state.flow.limits || {},
-			nodes: (state.flow.nodes || []).map((node) => {
-				// A place carries no behaviour. `type`/`config` are stripped on
-				// the way out rather than merely never added, because a document
-				// imported or hand-edited into that shape would otherwise be
-				// written straight back and refused by the engine.
-				const place = { ...node }
-				delete place.type
-				delete place.config
+			// The NODE carries the behaviour (ADR-065). This used to `delete
+			// place.type` and `delete place.config` on the way out, describing a
+			// place as carrying none — the PRE-inversion model, where a
+			// transition was the action and a place was a dumb waypoint.
+			//
+			// Left in place it made Save destructive: every node on every flow
+			// saved from the editor came back with `type: null` and no config,
+			// so a flow that ran perfectly was reduced to five anonymous boxes
+			// reading "No step type" the moment anyone pressed Save. Measured on
+			// the demo flow — all five nodes, one click.
+			nodes: (state.flow.nodes || []).map((node) => ({ ...node })),
+			edges: (state.flow.edges || []).map((edge) => {
+				// The EDGE is where behaviour must NOT be: the engine's
+				// `assertNotPreInversion()` refuses any document whose edge
+				// carries a non-empty `type`, so a hand-edited or imported
+				// pre-inversion document is normalised here rather than being
+				// written straight back and refused on the next run.
+				const line = { ...edge }
+				delete line.type
+				delete line.config
 
-				return place
+				return {
+					...line,
+					from: edge.from.length === 1 ? edge.from[0] : edge.from,
+					to: edge.to.length === 1 ? edge.to[0] : edge.to,
+				}
 			}),
-			edges: (state.flow.edges || []).map((edge) => ({
-				...edge,
-				from: edge.from.length === 1 ? edge.from[0] : edge.from,
-				to: edge.to.length === 1 ? edge.to[0] : edge.to,
-			})),
 		}),
 	},
 

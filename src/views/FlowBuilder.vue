@@ -5,6 +5,69 @@
 
 <template>
 	<div class="flow-builder">
+		<!--
+			The flow's VERBS, on the canvas rather than three tabs deep in the
+			sidebar. Save, Run and Check are what an author does to the thing in
+			front of them, and they were reachable only from the Flow tab — so
+			the two most-used actions on the page were invisible from the page.
+			Top-left, opposite the zoom group, over the canvas's own margin where
+			no node is placed by auto-sort.
+		-->
+		<!--
+			The hover preview for a connection's `{}`. In VIEWPORT coordinates,
+			like the context menu and for the same reason: it is anchored to
+			where the pointer is, and anchoring it to the canvas would move it
+			the moment the canvas is panned or zoomed.
+
+			`aria-hidden`: the same payload is reachable by activating the `{}`,
+			which is the accessible path — announcing a hover card would read the
+			JSON twice to a screen reader.
+		-->
+		<div
+			v-if="hoverPayload"
+			class="flow-builder__payload-preview"
+			aria-hidden="true"
+			:style="{ left: `${hoverPayload.x}px`, top: `${hoverPayload.y}px` }">
+			<span class="flow-builder__payload-preview-head">
+				{{ t('hermiq', 'What {node} received', { node: hoverPayload.node }) }}
+			</span>
+			<pre class="flow-builder__payload-preview-json">{{ hoverPayload.json }}</pre>
+		</div>
+
+		<div class="flow-builder__verbs" role="group" :aria-label="t('hermiq', 'Flow actions')">
+			<NcButton
+				type="primary"
+				:disabled="editor.saving || !editor.flow.name"
+				@click="onSave">
+				<template #icon>
+					<NcLoadingIcon v-if="editor.saving" :size="20" />
+					<ContentSave v-else :size="20" />
+				</template>
+				{{ t('hermiq', 'Save') }}
+			</NcButton>
+			<NcButton type="secondary" :disabled="!editor.flow.id" @click="editor.showRun = true">
+				<template #icon>
+					<Play :size="20" />
+				</template>
+				{{ t('hermiq', 'Run…') }}
+			</NcButton>
+			<NcButton type="secondary" @click="editor.validate()">
+				<template #icon>
+					<CheckDecagram :size="20" />
+				</template>
+				{{ t('hermiq', 'Check') }}
+			</NcButton>
+			<NcButton
+				type="secondary"
+				:disabled="editor.nodes.length === 0"
+				:aria-label="t('hermiq', 'Auto sort')"
+				@click="editor.autoSort()">
+				<template #icon>
+					<SortVariant :size="20" />
+				</template>
+			</NcButton>
+		</div>
+
 		<CnGraphCanvas
 			ref="graph"
 			:nodes="nodesWithPorts"
@@ -124,7 +187,11 @@
 						tabindex="0"
 						:aria-label="t('hermiq', 'Show what passed along this connection')"
 						@click.stop="editor.payloadEdgeId = edge.edge.id"
-						@keydown.enter.stop="editor.payloadEdgeId = edge.edge.id">
+						@keydown.enter.stop="editor.payloadEdgeId = edge.edge.id"
+						@mouseenter="onPayloadHover(edge.edge, $event)"
+						@mouseleave="hoverPayload = null"
+						@focus="onPayloadHover(edge.edge, $event)"
+						@blur="hoverPayload = null">
 						<circle r="10" class="flow-builder__payload-dot" />
 						<text
 							text-anchor="middle"
@@ -430,7 +497,7 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon } from '@nextcloud/vue'
 import { CnGraphCanvas } from '@conduction/nextcloud-vue'
-import { showSuccess } from '@nextcloud/dialogs'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import DockRight from 'vue-material-design-icons/DockRight.vue'
 import Minus from 'vue-material-design-icons/Minus.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
@@ -439,7 +506,11 @@ import Close from 'vue-material-design-icons/Close.vue'
 import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
 import ConnectionEditModal from '../modals/Flow/ConnectionEditModal.vue'
 import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
+import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
+import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import PayloadModal from '../modals/Flow/PayloadModal.vue'
+import Play from 'vue-material-design-icons/Play.vue'
+import SortVariant from 'vue-material-design-icons/SortVariant.vue'
 import RunLogModal from '../modals/Flow/RunLogModal.vue'
 import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
@@ -509,7 +580,11 @@ export default {
 		Minus,
 		NcButton,
 		NcEmptyContent,
+		CheckDecagram,
+		ContentSave,
 		NcLoadingIcon,
+		Play,
+		SortVariant,
 		Plus,
 		DeadEndWarningDialog,
 		ConnectionEditModal,
@@ -550,6 +625,9 @@ export default {
 			// changes through `update:zoom` — it never mutates it — so a canvas
 			// whose consumer does not bind it is pinned at 1 forever and the
 			// wheel gesture does nothing at all, which is what this page did.
+			// The connection whose payload is previewed on hover, with the
+			// viewport point to anchor the card to: `{id, x, y, node, json}`.
+			hoverPayload: null,
 			zoom: 1,
 			// Matched to the canvas's own defaults and to its wheel increment, so
 			// the buttons and the wheel move in the same steps and hit the same
@@ -1158,6 +1236,82 @@ export default {
 		 *
 		 * @return {void}
 		 */
+		/**
+		 * Preview what the node at the END of this connection RECEIVED.
+		 *
+		 * The complement of clicking, which opens what the node at the START
+		 * returned. Both are true of the same line — one node's output is the
+		 * next one's input — but they are different questions, and "what did
+		 * fetch1 get" was answerable only by opening the modal on the line
+		 * BEFORE it and reading the output half.
+		 *
+		 * A hover, so it costs nothing to ask. Keyboard reaches it through
+		 * focus, since a hover alone would make this mouse-only (WCAG 2.1 AA
+		 * 2.1.1).
+		 *
+		 * @param {object} edge  The connection.
+		 * @param {Event}  event The pointer or focus event, for the anchor.
+		 *
+		 * @return {void}
+		 */
+		onPayloadHover(edge, event) {
+			const detail = this.editor.replayRunId === null
+				? null
+				: this.editor.runDetail[this.editor.replayRunId]
+
+			if (!detail || !edge?.to) {
+				return
+			}
+
+			const entry = (detail.log || []).find((line) => {
+				const id = String(edge.to)
+
+				return String(line.transition || '') === id
+					|| String(line.node || '') === id
+					|| String(line.step || '') === id
+			})
+
+			if (!entry) {
+				return
+			}
+
+			const box = event.target?.getBoundingClientRect?.()
+			const envelope = entry.input
+			const items = envelope?.items ?? envelope
+
+			this.hoverPayload = {
+				id: edge.id,
+				node: String(edge.to),
+				x: box ? box.left + (box.width / 2) : 0,
+				y: box ? box.bottom + 8 : 0,
+				// Bounded here rather than in the template: a recorded payload
+				// can be thousands of lines, and a hover card is a glance.
+				json: JSON.stringify(items, null, 2).split('\n').slice(0, 14).join('\n'),
+			}
+		},
+
+		/**
+		 * Save the flow, and follow the id a first save mints.
+		 *
+		 * A flow created in the editor has no id until it is stored, so the
+		 * route still says "new" afterwards — reloading would lose the work
+		 * that was just saved. Replacing the route rather than pushing keeps
+		 * Back meaning "the page before the editor".
+		 *
+		 * @return {Promise<void>}
+		 */
+		async onSave() {
+			try {
+				const saved = await this.editor.save()
+				showSuccess(this.t('hermiq', 'Flow saved.'))
+				if (saved && saved.id && String(this.$route.params.id) !== String(saved.id)) {
+					this.$router.replace({ name: 'FlowDetail', params: { id: String(saved.id) } })
+				}
+			} catch (e) {
+				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the flow.'))
+			}
+		},
+
 		onContextData() {
 			const id = this.editor.contextMenu?.id
 			this.editor.contextMenu = null
@@ -1738,10 +1892,20 @@ export default {
 <style scoped>
 .flow-builder {
 	position: relative;
+	display: flex;
+	flex-direction: column;
 	height: 100%;
 	min-height: 0;
 	/* Clip so a node dragged past the edge can't paint over neighbouring chrome. */
 	overflow: hidden;
+}
+
+/* The canvas takes whatever the verb band leaves. `min-height: 0` because a
+   flex child's default `min-height: auto` refuses to shrink below its content,
+   which on a tall graph pushed the band off the top of the page. */
+.flow-builder > .cn-graph-canvas {
+	flex: 1 1 auto;
+	min-height: 0;
 }
 
 /* Marker definitions only — never painted itself. */
@@ -1765,6 +1929,61 @@ export default {
 	display: flex;
 	gap: 8px;
 	align-items: center;
+}
+
+/* Viewport-anchored, translated back by half its own width so it hangs under
+   the `{}` it belongs to. `pointer-events: none` matters: the card appears
+   directly below the dot, and a card that swallowed the pointer would make the
+   dot un-clickable the moment its own preview opened. */
+.flow-builder__payload-preview {
+	position: fixed;
+	z-index: 100;
+	transform: translateX(-50%);
+	max-width: 320px;
+	padding: 8px 10px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	background-color: var(--color-main-background);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+	pointer-events: none;
+}
+
+.flow-builder__payload-preview-head {
+	display: block;
+	margin-block-end: 4px;
+	color: var(--color-text-maxcontrast);
+	font-size: 0.8em;
+}
+
+.flow-builder__payload-preview-json {
+	max-height: 220px;
+	margin: 0;
+	overflow: hidden;
+	font-family: monospace;
+	font-size: 0.75em;
+	white-space: pre;
+}
+
+/* A BAND above the drawing, not a card floating on it.
+
+   Floating was the first attempt and it covered a node: measured on the demo
+   flow, the bar sat at 321,62 and the first node's rect intersected it, so the
+   node could not be clicked at all. A toolbar that eats clicks on the thing it
+   is a toolbar FOR is worse than one that is hard to find.
+
+   In the flow, so it takes its own height off the canvas rather than sharing
+   space with it — the graph area is what remains below. Still over the graph
+   area visually, which is what made the sidebar's copy invisible. */
+.flow-builder__verbs {
+	position: relative;
+	z-index: 2;
+	display: flex;
+	flex: 0 0 auto;
+	gap: 6px;
+	align-items: center;
+	padding: 8px 12px;
+	border-block-end: 1px solid var(--color-border);
+	background-color: var(--color-main-background);
 }
 
 .flow-builder__zoom {

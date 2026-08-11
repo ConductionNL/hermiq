@@ -290,4 +290,38 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		expect(written.length, 'the run reported success but wrote nothing').toBeGreaterThan(0)
 		expect(written.every((o) => o.status === 'created-by-ui-run')).toBe(true)
 	})
+
+	test('pressing Save keeps every node\'s type — the editor must not disarm the flow', async ({ page, request }) => {
+		// A DESTRUCTIVE save is the failure this pins. `flowDocument` used to
+		// `delete place.type` and `delete place.config` on the way out — the
+		// PRE-inversion model, where a transition was the action and a place was
+		// a dumb waypoint. Under ADR-065 the node IS the action, so stripping it
+		// reduced a working flow to anonymous boxes reading "No step type", and
+		// the flow silently stopped being runnable. Measured on the demo flow:
+		// five nodes, all `type: null`, one click.
+		//
+		// It cannot be caught by reading the canvas — the editor still holds the
+		// types in memory and draws them correctly after saving. Only the stored
+		// document shows it, which is why this asserts through the API.
+		const before = await api(request, 'GET', `/apps/openregister/api/flows/${made.flow}`)
+		const typesBefore = ((before?.nodes ?? []) as Array<Record<string, unknown>>).map((n) => n.type)
+		expect(typesBefore.filter(Boolean).length, 'fixture flow should start fully typed').toBe(5)
+
+		await page.goto(`/apps/hermiq/flows/${made.flow}`, { waitUntil: 'domcontentloaded' })
+		await dismissOnboarding(page)
+
+		const save = page.locator('.flow-builder__verbs').getByRole('button', { name: 'Save' })
+		await expect(save).toBeEnabled({ timeout: 30_000 })
+		await save.click()
+		await page.waitForTimeout(4_000)
+
+		const after = await api(request, 'GET', `/apps/openregister/api/flows/${made.flow}`)
+		const typesAfter = ((after?.nodes ?? []) as Array<Record<string, unknown>>).map((n) => n.type)
+
+		expect(
+			typesAfter,
+			'saving from the editor changed the nodes\' types — a save must never disarm a flow',
+		).toEqual(typesBefore)
+		expect(typesAfter.filter(Boolean).length, 'a node lost its type on save').toBe(5)
+	})
 })

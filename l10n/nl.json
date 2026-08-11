@@ -1,6 +1,12 @@
 {
     "translations": {
         "%n step": ["%n stap", "%n stappen"],
+        "Flow actions": "Flow-acties",
+        "Open full size": "Op volledige grootte openen",
+        "Received": "Ontvangen",
+        "Returned": "Teruggegeven",
+        "The input of whatever comes next.": "De invoer van wat hierna komt.",
+        "What {node} returned": "Wat {node} teruggaf",
         "%n step, 1 failed": "%n stap, 1 mislukt",
         "%n steps, {failed} failed": "%n stappen, {failed} mislukt",
         "All types": "Alle typen",
