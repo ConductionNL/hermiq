@@ -10,7 +10,7 @@
   Pure presentation: the parent performs the export call and passes the
   resulting package text in.
 
-  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-010-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
+  @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 -->
 <template>
 	<NcModal @close="$emit('close')">

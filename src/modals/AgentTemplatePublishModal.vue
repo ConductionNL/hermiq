@@ -15,7 +15,7 @@
   notice and refresh the list; the parent owns both, because both outlive this
   component.
 
-  @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
+  @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
 -->
 <template>
 	<NcModal @close="$emit('close')">
@@ -103,6 +103,8 @@ export default {
 		 * default: new repos default to `private`).
 		 *
 		 * @return {Array<object>} NcSelect options.
+		 *
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
 		 */
 		visibilityOptions() {
 			return [
@@ -115,6 +117,8 @@ export default {
 		 * The caller's broker credentials scoped to the `github` provider.
 		 *
 		 * @return {Array<object>} NcSelect options.
+		 *
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
 		 */
 		githubCredentials() {
 			return this.credentials
@@ -126,6 +130,8 @@ export default {
 		 * Whether the publish form has everything it needs to submit.
 		 *
 		 * @return {boolean} True when the form can be submitted.
+		 *
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
 		 */
 		canPublish() {
 			return this.form.owner.trim() !== '' && this.form.repo.trim() !== '' && !!this.credential
@@ -141,6 +147,8 @@ export default {
 		 * Load the caller's broker credentials (for the GitHub credential picker).
 		 *
 		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-never-hold-or-log-the-github-token
 		 */
 		async fetchCredentials() {
 			this.loadingCredentials = true
@@ -160,6 +168,8 @@ export default {
 		 * required — the GitHub token never reaches Hermiq.
 		 *
 		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
 		 */
 		async doPublish() {
 			this.publishing = true

@@ -1,0 +1,7 @@
+.: PARSE ERROR — [Errno 21] Is a directory: '.'
+src/manifest.json: page 'AgentDetail' — widget icon 'CogOutline' is not in the shared icon registry (renders the '?' fallback, ADR-062 rule 8)
+src/manifest.json: page 'AgentDetail' — widget icon 'ChartTimelineVariant' is not in the shared icon registry (renders the '?' fallback, ADR-062 rule 8)
+src/manifest.json: page 'AgentDetail' — widget icon 'PackageVariantClosed' is not in the shared icon registry (renders the '?' fallback, ADR-062 rule 8)
+src/manifest.json: page 'AgentDetail' — widget icon 'PlayCircleOutline' is not in the shared icon registry (renders the '?' fallback, ADR-062 rule 8)
+src/manifest.json: page 'SkillDetail' — widget icon 'SchoolOutline' is not in the shared icon registry (renders the '?' fallback, ADR-062 rule 8)
+src/manifest.json: page 'EvalDatasetDetail' — widget icon 'PlayCircleOutline' is not in the shared icon registry (renders the '?' fallback, ADR-062 rule 8)

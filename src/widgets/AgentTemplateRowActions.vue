@@ -241,6 +241,8 @@ export default {
 		 * @param {string} repoUrl The created repository URL.
 		 *
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
 		 */
 		onPublished(repoUrl) {
 			this.publishNotice = this.t('hermiq', 'Published to {repoUrl}', { repoUrl })
