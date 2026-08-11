@@ -30,6 +30,7 @@ use OCA\Hermiq\Controller\ScheduleWebhookSecretController;
 use OCA\Hermiq\Service\ScheduleWebhookSecretService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
@@ -190,6 +191,30 @@ class ScheduleWebhookSecretControllerTest extends TestCase
         $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
 
     }//end testUnknownScheduleGets404()
+
+    /**
+     * A THROWING lookup gets the same 404 on every endpoint.
+     *
+     * `ObjectService::find()` documents `@throws Exception If the object is not
+     * found`, and every endpoint here calls `loadOwnedSchedule()` OUTSIDE its own
+     * try block — so before the fix the throw escaped to the dispatcher as a
+     * framework 500 with a stack trace on a `#[NoAdminRequired]` route, on the
+     * four routes that mint and reveal a signing secret.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+     */
+    public function testThrowingScheduleLookupGets404(): void
+    {
+        $this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $controller = $this->controller($this->session('alice'));
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
+        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
+
+    }//end testThrowingScheduleLookupGets404()
 
     /**
      * The owner can mint a secret: 201 with the plaintext secret, never re-displayed.
