@@ -230,11 +230,24 @@ class EvalRunController extends Controller
      */
     private function loadOwnedDataset(string $datasetId, string $uid): ?ObjectEntity
     {
-        $dataset = $this->objectService->find(
-            id: $datasetId,
-            register: self::REGISTER_SLUG,
-            schema: self::DATASET_SCHEMA
-        );
+        try {
+            $dataset = $this->objectService->find(
+                id: $datasetId,
+                register: self::REGISTER_SLUG,
+                schema: self::DATASET_SCHEMA
+            );
+        } catch (Throwable $e) {
+            // `ObjectService::find()` throws when the object is absent, and
+            // `run()` calls this helper OUTSIDE its own try block — so the throw
+            // would escape as a framework 500 with a stack trace on a
+            // #[NoAdminRequired] route. A dataset that cannot be loaded is, to a
+            // caller, not owned; null already carries that meaning.
+            $this->logger->warning(
+                'Hermiq eval dataset lookup failed for '.$datasetId.': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return null;
+        }//end try
 
         if (($dataset instanceof ObjectEntity) === false) {
             return null;

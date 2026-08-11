@@ -30,6 +30,7 @@ use OCA\Hermiq\Service\EngineRequiredException;
 use OCA\Hermiq\Service\ScheduleService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
@@ -206,6 +207,57 @@ class RunNowControllerTest extends TestCase
         $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
     }//end testMissingScheduleIsNotFound()
+
+    /**
+     * A THROWING `ObjectService::find()` is the same 404, and still never runs.
+     *
+     * `find()` documents `@throws Exception If the object is not found` and only
+     * returns null on some paths, so "absent" reaches this controller both ways.
+     * `run()` calls `loadOwnedSchedule()` BEFORE opening its own try block, so
+     * before the fix the throw escaped to the dispatcher as a framework 500 with
+     * a stack trace on a `#[NoAdminRequired]` route — and, worse, the reader
+     * could not tell a missing schedule from a refused one.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-management-ui/tasks.md#task-1-3
+     */
+    public function testThrowingFindIsNotFoundAndNeverRuns(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->expects($this->never())->method('runNow');
+
+        $controller = $this->controller($objectService, $this->session('alice'), $scheduleService);
+        $response   = $controller->run('sched-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testThrowingFindIsNotFoundAndNeverRuns()
+
+    /**
+     * The same holds for `dryRun()`, which also loads outside its own try block.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-management-ui/tasks.md#task-1-3
+     */
+    public function testThrowingFindIsNotFoundOnDryRun(): void
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $scheduleService = $this->createMock(ScheduleService::class);
+        $scheduleService->expects($this->never())->method('dryRunNow');
+
+        $controller = $this->controller($objectService, $this->session('alice'), $scheduleService);
+        $response   = $controller->dryRun('sched-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testThrowingFindIsNotFoundOnDryRun()
 
     /**
      * An unauthenticated caller gets 401 and never runs.

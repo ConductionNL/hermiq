@@ -30,6 +30,7 @@ use OCA\Hermiq\Service\Talk\TalkSessionRoom;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -297,6 +298,48 @@ class ConversationControllerTest extends TestCase
         $this->assertSame('conv-new', $response->getData()['uuid']);
 
     }//end testCreatePersistsConversationWithGeneratedTitle()
+
+    /**
+     * An unknown `agentUuid` warns and continues with an UNBOUND session —
+     * the behaviour `resolveAgentId()` has always documented.
+     *
+     * `ObjectService::find()` signals "not found" by THROWING (`@throws
+     * Exception If the object is not found`), not by returning null, so the
+     * helper's `if ($agent === null)` warn-and-continue branch was unreachable
+     * for the exact case it was written for: the throw propagated to `create()`
+     * and was translated into a 500 "Failed to create conversation". This
+     * asserts the documented contract instead.
+     *
+     * The null grants nothing: with `agentId` unset the required-`agentId`
+     * conversation schema rejects the save in production, so an unresolvable
+     * agent still cannot produce a bound session.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+     */
+    public function testCreateWithUnknownAgentUuidWarnsAndLeavesSessionUnbound(): void
+    {
+        $this->request->method('getParams')->willReturn(['agentUuid' => 'agent-missing']);
+        $this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+
+        $saved = null;
+        $this->objectService->method('saveObject')->willReturnCallback(
+            function (mixed $object) use (&$saved): ObjectEntity {
+                $saved  = $object;
+                $entity = new ObjectEntity();
+                $entity->setUuid('conv-new');
+                $entity->setObject($object);
+                return $entity;
+            }
+        );
+
+        $response = $this->controller()->create();
+
+        $this->assertSame(201, $response->getStatus());
+        $this->assertNull($saved['agentId']);
+
+    }//end testCreateWithUnknownAgentUuidWarnsAndLeavesSessionUnbound()
 
     /**
      * update() refuses a foreign conversation (403, gate-7) and, for the

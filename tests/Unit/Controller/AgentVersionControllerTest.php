@@ -27,6 +27,7 @@ use OCA\Hermiq\Controller\AgentVersionController;
 use OCA\Hermiq\Service\AgentVersionService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
+use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
@@ -191,6 +192,53 @@ class AgentVersionControllerTest extends TestCase
         $this->assertSame(Http::STATUS_OK, $response->getStatus());
 
     }//end testNonOwnerCanListSharedAgentVersions()
+
+    /**
+     * A throwing `ObjectService::find()` becomes the ordinary 404, not an
+     * escaped exception.
+     *
+     * `find()` documents `@throws Exception If the object is not found`, and
+     * `index()` calls `loadAccessibleAgent()` BEFORE opening its own try block —
+     * so before the fix the throw reached the Nextcloud dispatcher as a
+     * framework 500 with a stack trace on a `#[NoAdminRequired]` route. The
+     * helper's contract for "absent or not permitted" is null, and an agent that
+     * cannot be loaded is, to `index()`, not found.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+     */
+    public function testFindThrowIsTranslatedToNotFound(): void
+    {
+        $this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+        $this->agentVersionService->expects($this->never())->method('listVersions');
+
+        $controller = $this->controller($this->session('alice'));
+        $response   = $controller->index('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testFindThrowIsTranslatedToNotFound()
+
+    /**
+     * The same translation holds for `diff()`, which also calls the loader
+     * outside its own try block.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
+     */
+    public function testDiffFindThrowIsTranslatedToNotFound(): void
+    {
+        $this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+        $this->agentVersionService->expects($this->never())->method('diff');
+
+        $controller = $this->controller($this->session('alice'), ['from' => 'e1', 'to' => 'e2']);
+        $response   = $controller->diff('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testDiffFindThrowIsTranslatedToNotFound()
 
     /**
      * A user with read access can diff two versions.

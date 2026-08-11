@@ -267,11 +267,24 @@ class RunHistoryController extends Controller
      */
     private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity
     {
-        $schedule = $this->objectService->find(
-            id: $scheduleId,
-            register: self::REGISTER_SLUG,
-            schema: self::SCHEMA_SLUG
-        );
+        try {
+            $schedule = $this->objectService->find(
+                id: $scheduleId,
+                register: self::REGISTER_SLUG,
+                schema: self::SCHEMA_SLUG
+            );
+        } catch (Throwable $e) {
+            // `ObjectService::find()` throws when the object is absent, and
+            // `replay()` calls this helper OUTSIDE its own try block — so the
+            // throw would escape as a framework 500 with a stack trace on a
+            // #[NoAdminRequired] route. A schedule that cannot be loaded is, to a
+            // caller, not owned; null already carries that meaning.
+            $this->logger->warning(
+                'Hermiq schedule lookup failed for '.$scheduleId.': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return null;
+        }//end try
 
         if (($schedule instanceof ObjectEntity) === false) {
             return null;
