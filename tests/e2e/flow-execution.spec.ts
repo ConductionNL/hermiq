@@ -222,8 +222,15 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		await page.goto(`/apps/hermiq/flows/${made.flow}`, { waitUntil: 'domcontentloaded' })
 		await dismissOnboarding(page)
 
-		// The canvas has to be up before Run means anything — the button is
-		// disabled until the editor has a flow id.
+		// Run lives on the sidebar's "Flow" TAB, and the canvas opens on the
+		// node palette — so the button is not merely hidden, it is not in the
+		// DOM until the tab is selected. Without this the locator times out
+		// against a page that is working perfectly.
+		await page.getByRole('tab', { name: 'Flow' }).click({ timeout: 30_000 })
+
+		// The button stays disabled until the editor has a flow id, so waiting
+		// for ENABLED (not merely visible) is what proves the editor loaded the
+		// flow rather than just painted its chrome.
 		const runOpen = page.getByRole('button', { name: /^Run…$/ })
 		await expect(runOpen).toBeEnabled({ timeout: 30_000 })
 		await runOpen.click()
@@ -240,19 +247,31 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		// background worker driven from the test plus a polling loop — and on a
 		// stack whose cron is idle the poll never resolved, so a healthy engine
 		// read as a dead one.
+		// Wait for a TERMINAL run, not merely for one to exist. A synchronous
+		// run is written as `running` the moment it starts and only settles when
+		// the browser's POST returns, so a loop that stops at "a run appeared"
+		// reads the row mid-flight and reports `running` as a failure — against
+		// an engine that is working.
+		const terminal = ['stopped', 'completed', 'failed']
 		let runs: Record<string, unknown> | null = null
 		let list: Array<Record<string, unknown>> = []
-		for (let attempt = 0; attempt < 60 && list.length === 0; attempt++) {
+		let latest: Record<string, unknown> | undefined
+
+		for (let attempt = 0; attempt < 90; attempt++) {
 			await page.waitForTimeout(1_000)
 			runs = await api(request, 'GET', `/apps/openregister/api/flow-runs?flowId=${made.flow}`)
 			list = (Array.isArray(runs?.results) ? runs.results : []) as Array<Record<string, unknown>>
+			latest = list[list.length - 1]
+			if (latest !== undefined && terminal.includes(String(latest.status))) {
+				break
+			}
 		}
 
 		expect(list.length, 'pressing Run recorded no run — the button is not wired to the engine').toBeGreaterThan(0)
-
-		runs = await api(request, 'GET', `/apps/openregister/api/flow-runs?flowId=${made.flow}`)
-		const list = (Array.isArray(runs?.results) ? runs.results : []) as Array<Record<string, unknown>>
-		const latest = list[list.length - 1]
+		expect(
+			terminal,
+			`the run never settled — still ${String(latest?.status)}`,
+		).toContain(String(latest?.status))
 
 		const steps = (latest?.log ?? []) as Array<Record<string, unknown>>
 		const failed = steps.filter((s) => s.status === 'failed')
