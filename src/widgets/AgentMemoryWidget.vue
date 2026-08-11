@@ -13,7 +13,7 @@
   forwards `{ item, widget }`, not the loaded object). AgentMemoryPanel.vue
   itself is not modified.
 
-  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-001-agentdetail-renders-as-a-detail-type-widget-grid
+  @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agentdetail-renders-as-a-detail-type-widget-grid
 -->
 <template>
 	<AgentMemoryPanel :agent-id="agentId" />

@@ -444,7 +444,7 @@ class ToolLoop
      * is a cross-cutting mode threaded through the engine as a flag by design.
      *
      * @spec openspec/changes/agent-engine-port/tasks.md#task-3-1
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-3
      * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-4
      * @spec openspec/changes/agent-guardrails/tasks.md#task-5-tool-classification-autodeny-enforced-in-facadetoolinvoker

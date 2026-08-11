@@ -14,8 +14,7 @@
   in this app (a documented, defensible substitute for design.md's NcInputField —
   no NcInputField usage exists elsewhere in Hermiq's frontend).
 
-  @spec openspec/changes/cost-guardrails/tasks.md#task-6-1
-  @spec openspec/changes/cost-guardrails/specs/multi-tenant-ops/spec.md
+  @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 -->
 <template>
 	<NcDialog

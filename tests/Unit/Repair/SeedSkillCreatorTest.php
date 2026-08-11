@@ -159,7 +159,7 @@ class SeedSkillCreatorTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-1
+     * @spec openspec/specs/skills-catalog/spec.md#requirement-a-seeded-skill-creator-skill-teaches-an-agent-to-guide-skill-authoring
      */
     public function testFreshInstallSeedsSkillCreator(): void
     {
@@ -199,7 +199,7 @@ class SeedSkillCreatorTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-1
+     * @spec openspec/specs/skills-catalog/spec.md#requirement-a-seeded-skill-creator-skill-teaches-an-agent-to-guide-skill-authoring
      */
     public function testReRunIsIdempotentAndPreservesEdits(): void
     {

@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use RuntimeException;
 /**
  * Tests for the cost-guardrails BudgetService.
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 class BudgetServiceTest extends TestCase
 {
@@ -272,7 +272,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testIsBlockedTrueAtOrAboveTokenLimit(): void
     {
@@ -295,7 +295,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testIsBlockedFalseBelowLimit(): void
     {
@@ -320,7 +320,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testIsBlockedScopesUsageToOwnOrganisationOnly(): void
     {
@@ -351,7 +351,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testIsBlockedAgentScopeCountsOnlyThatAgent(): void
     {
@@ -382,7 +382,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testIsBlockedFailsOpenOnReadFailure(): void
     {
@@ -411,7 +411,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history
      */
     public function testIsBlockedNeverReadsTheEstimate(): void
     {
@@ -441,7 +441,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testRecordWarningIfDueFiresOncePerPeriod(): void
     {
@@ -484,7 +484,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testRecordWarningIfDueReturnsNullBelowThreshold(): void
     {
@@ -508,7 +508,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testCheckAndDeliverWarningsDeliversOnceWhenDue(): void
     {
@@ -538,7 +538,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testCheckAndDeliverWarningsNeverThrowsOnDeliveryFailure(): void
     {
@@ -567,7 +567,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history
      */
     public function testEstimateNextRunReturnsTrailingAverage(): void
     {
@@ -597,7 +597,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history
      */
     public function testEstimateNextRunUnavailableWhenNoHistory(): void
     {
@@ -621,7 +621,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-2-1
+     * @spec openspec/specs/run-analytics/spec.md#requirement-pre-run-cost-estimate-derived-from-trailing-per-agent-run-history
      */
     public function testEstimateNextRunDerivesEurWhenRateConfigured(): void
     {
@@ -644,7 +644,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-1-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testCreateRejectsAgentScopeWithoutAgentId(): void
     {
@@ -660,7 +660,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-1-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testCreateRejectsMissingBothLimits(): void
     {
@@ -677,7 +677,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-1-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testCreatePersistsBudgetPinnedToTargetOrganisation(): void
     {
@@ -702,7 +702,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testStatusForScopeReportsNotConfiguredWhenNoBudget(): void
     {
@@ -721,7 +721,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testListForCallerFiltersByOrganisation(): void
     {
@@ -748,7 +748,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testUpdateMergesFieldsAndPersists(): void
     {
@@ -769,7 +769,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testUpdateThrowsWhenBudgetMissing(): void
     {
@@ -785,7 +785,7 @@ class BudgetServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testDeleteRemovesTheBudget(): void
     {

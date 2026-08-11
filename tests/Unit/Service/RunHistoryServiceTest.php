@@ -268,7 +268,7 @@ class RunHistoryServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testGetRunTraceReturnsPersistedSteps(): void
     {
@@ -409,7 +409,7 @@ class RunHistoryServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testGetRunTraceReturnsNullForUnknownRunId(): void
     {
@@ -434,7 +434,7 @@ class RunHistoryServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testGetRunTraceReconstructsGateWaitFromAdjacentSkips(): void
     {
@@ -477,7 +477,7 @@ class RunHistoryServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testGetRunTraceOmitsGateWaitWithoutAdjacentSkip(): void
     {
@@ -513,7 +513,7 @@ class RunHistoryServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testGetRunTraceDerivesToolStepsAvailableWhenNotPersisted(): void
     {
@@ -547,7 +547,7 @@ class RunHistoryServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testGetRunTraceHandlesMissingStepsGracefully(): void
     {

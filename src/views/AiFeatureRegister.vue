@@ -18,7 +18,7 @@
   t(); server data is fetched through the tenant-scoped API (no DOM reads).
 
   @spec openspec/changes/ai-feature-governance-register/tasks.md#task-4-2
-  @spec openspec/changes/ai-feature-governance-register/specs/ai-feature-governance-register/spec.md
+  @spec openspec/specs/ai-feature-governance/spec.md#requirement-the-register-lists-the-tenants-high-risk-ai-features
 -->
 <template>
 	<div class="ai-feature-register">

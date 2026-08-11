@@ -55,7 +55,7 @@ class AgentTemplateSerializer
      *
      * @return string The JSON package string.
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function toPackage(array $template): string
     {
@@ -94,7 +94,7 @@ class AgentTemplateSerializer
      *                               suggestedProvider, suggestedModel, tools, skillRefs,
      *                               suggestedSchedule, version }.
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function fromPackage(string $package): array
     {

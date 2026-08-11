@@ -16,7 +16,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-1-websearchsettingshandler--hermiqwebresearch-config-shape
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
 
 declare(strict_types=1);
@@ -30,7 +30,7 @@ use PHPUnit\Framework\TestCase;
 /**
  * Tests for the hermiq.webResearch settings handler.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-1-websearchsettingshandler--hermiqwebresearch-config-shape
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
 class WebResearchSettingsHandlerTest extends TestCase
 {
@@ -77,7 +77,7 @@ class WebResearchSettingsHandlerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-1-websearchsettingshandler--hermiqwebresearch-config-shape
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     public function testDefaultsWhenUnset(): void
     {
@@ -125,7 +125,7 @@ class WebResearchSettingsHandlerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-1-websearchsettingshandler--hermiqwebresearch-config-shape
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     public function testPartialPatchPreservesOtherFields(): void
     {

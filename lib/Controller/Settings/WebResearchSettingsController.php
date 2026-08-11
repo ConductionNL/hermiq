@@ -24,7 +24,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
 
 declare(strict_types=1);
@@ -45,7 +45,7 @@ use Throwable;
 /**
  * Read + patch the Hermiq web-research configuration.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
 class WebResearchSettingsController extends Controller
 {
@@ -73,7 +73,7 @@ class WebResearchSettingsController extends Controller
      * @return JSONResponse The config, with `searchCredentialId` replaced by a
      *                      `searchCredentialConfigured` boolean.
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     #[AuthorizedAdminSetting(AdminSettings::class)]
     public function get(): JSONResponse
@@ -98,7 +98,7 @@ class WebResearchSettingsController extends Controller
      * @return JSONResponse The merged, persisted (masked) configuration, or 422 on an
      *                      unsupported search provider.
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     #[AuthorizedAdminSetting(AdminSettings::class)]
     public function update(): JSONResponse

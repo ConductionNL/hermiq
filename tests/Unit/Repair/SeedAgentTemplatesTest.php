@@ -154,7 +154,7 @@ class SeedAgentTemplatesTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-6-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-a-fresh-install-ships-seeded-starter-templates
      */
     public function testFreshInstallSeedsFiveTemplates(): void
     {
@@ -194,7 +194,7 @@ class SeedAgentTemplatesTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-6-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-a-fresh-install-ships-seeded-starter-templates
      */
     public function testReRunIsIdempotentAndPreservesEdits(): void
     {

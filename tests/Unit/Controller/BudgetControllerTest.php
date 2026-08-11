@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 
 declare(strict_types=1);
@@ -44,7 +44,7 @@ use RuntimeException;
 /**
  * Tests for the cost-guardrails BudgetController.
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 class BudgetControllerTest extends TestCase
 {

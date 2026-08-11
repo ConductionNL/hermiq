@@ -340,7 +340,7 @@ class TalkAgentBinding
      *
      * @return string The agent's name, or '' when unresolvable.
      *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-room-it-did-not-create
+     * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
      */
     public function agentName(string $agentId): string
     {

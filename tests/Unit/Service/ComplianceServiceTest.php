@@ -258,7 +258,7 @@ class ComplianceServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-human-oversight-control-reflects-recorded-approval-decisions
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-each-evidence-source-maps-to-exactly-one-existing-hermiq-seam
      */
     public function testApprovalEvidenceThreeStates(): void
     {
@@ -425,7 +425,7 @@ class ComplianceServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-a-compliance-dashboard-shows-per-framework-coverage-and-the-gap-list
      */
     public function testDashboardAggregatesCoverageAndGaps(): void
     {
@@ -481,7 +481,7 @@ class ComplianceServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-the-auditors-pack-export-extends-the-existing-art-12-export
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-auditors-pack-export-extends-the-existing-art-12-export
      */
     public function testAuditorPackWrapsAuditTrailUnmodified(): void
     {
@@ -505,7 +505,7 @@ class ComplianceServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
      */
     public function testFactsheetAssemblesAllFourSourcesAndNullsWhenAgentMissing(): void
     {

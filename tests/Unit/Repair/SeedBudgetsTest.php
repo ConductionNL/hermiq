@@ -17,7 +17,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 
 declare(strict_types=1);
@@ -38,7 +38,7 @@ use Psr\Log\LoggerInterface;
 /**
  * Tests for the cost-guardrails SeedBudgets repair step.
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 class SeedBudgetsTest extends TestCase
 {
@@ -149,7 +149,7 @@ class SeedBudgetsTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testSeedsAllThreeRowsWhenPrerequisitesExist(): void
     {
@@ -191,7 +191,7 @@ class SeedBudgetsTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testDefersOrgBudgetWhenNoOrganisationExists(): void
     {
@@ -214,7 +214,7 @@ class SeedBudgetsTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testDefersAgentBudgetWhenAgentMissing(): void
     {
@@ -248,7 +248,7 @@ class SeedBudgetsTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testReRunIsIdempotent(): void
     {

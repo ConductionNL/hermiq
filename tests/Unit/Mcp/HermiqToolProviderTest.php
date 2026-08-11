@@ -228,7 +228,7 @@ class HermiqToolProviderTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-every-native-descriptor-declares-a-reach
+     * @spec openspec/specs/agent-capability-reach/spec.md#requirement-every-tool-descriptor-declares-a-reach-on-a-closed-ordered-vocabulary
      */
     public function testEveryDescriptorDeclaresItsReach(): void
     {
@@ -289,7 +289,7 @@ class HermiqToolProviderTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-reach-is-orthogonal-to-scope
+     * @spec openspec/specs/agent-capability-reach/spec.md#requirement-every-tool-descriptor-declares-a-reach-on-a-closed-ordered-vocabulary
      */
     public function testReachIsNotARestatementOfScope(): void
     {

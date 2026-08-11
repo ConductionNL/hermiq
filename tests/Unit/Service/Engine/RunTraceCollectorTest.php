@@ -40,7 +40,7 @@ class RunTraceCollectorTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testSingleStepIsRecordedWithComputedFields(): void
     {
@@ -75,7 +75,7 @@ class RunTraceCollectorTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testSequentialStepsPreserveOrderAndSeq(): void
     {
@@ -105,7 +105,7 @@ class RunTraceCollectorTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testNestedStepCompletesBeforeItsEnclosingStep(): void
     {
@@ -128,7 +128,7 @@ class RunTraceCollectorTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testUnknownEndTokenIsIgnoredDefensively(): void
     {
@@ -155,7 +155,7 @@ class RunTraceCollectorTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testEmptyCollectorReturnsEmptyArray(): void
     {

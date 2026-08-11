@@ -12,7 +12,7 @@
   agent id from `$route.params.id` and the agent object (for its current
   `skillInstalls`) plus the tenant's skill catalogue.
 
-  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-004-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
+  @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
 -->
 <template>
 	<div class="agent-skills-widget">

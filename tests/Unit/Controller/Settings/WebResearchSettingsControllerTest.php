@@ -18,7 +18,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
 
 declare(strict_types=1);
@@ -35,7 +35,7 @@ use Psr\Log\NullLogger;
 /**
  * Tests for WebResearchSettingsController.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
 class WebResearchSettingsControllerTest extends TestCase
 {
@@ -81,7 +81,7 @@ class WebResearchSettingsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     public function testGetMasksCredentialAndNeverReturnsTheRawId(): void
     {
@@ -126,7 +126,7 @@ class WebResearchSettingsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     public function testUpdateRejectsUnknownProvider(): void
     {
@@ -171,7 +171,7 @@ class WebResearchSettingsControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-2-websearchsettingscontroller--routes
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     public function testUpdateDropsBlankSearchCredential(): void
     {

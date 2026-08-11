@@ -18,7 +18,7 @@
 
   @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
   @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
-  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-008-header-actions-open-their-modal-via-a-registry-resolved-open-modal-action
+  @spec openspec/specs/manifest-driven-pages/spec.md#requirement-header-actions-open-their-modal-via-a-registry-resolved-open-modal-action
 -->
 <template>
 	<NcDialog

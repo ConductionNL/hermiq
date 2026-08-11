@@ -212,7 +212,7 @@ class RunHistoryControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testOwnerGetsRunTrace(): void
     {
@@ -240,7 +240,7 @@ class RunHistoryControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testNonOwnerIsRefusedForTrace(): void
     {
@@ -264,7 +264,7 @@ class RunHistoryControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testUnknownRunIsNotFound(): void
     {
@@ -286,7 +286,7 @@ class RunHistoryControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-5-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function testUnauthenticatedIsRejectedForTrace(): void
     {

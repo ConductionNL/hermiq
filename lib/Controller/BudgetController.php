@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 
 declare(strict_types=1);
@@ -54,7 +54,7 @@ use Throwable;
  *   (budget service, user session, group manager, org mapper, logger) plus the HTTP
  *   response/exception types every endpoint returns.
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 class BudgetController extends Controller
 {
@@ -90,7 +90,7 @@ class BudgetController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function index(string $organisation=''): JSONResponse
     {
@@ -118,7 +118,7 @@ class BudgetController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function status(string $organisation='', string $agentId=''): JSONResponse
     {
@@ -175,7 +175,7 @@ class BudgetController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function create(): JSONResponse
     {
@@ -212,7 +212,7 @@ class BudgetController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function update(string $budgetId): JSONResponse
     {
@@ -256,7 +256,7 @@ class BudgetController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function destroy(string $budgetId): JSONResponse
     {
@@ -295,7 +295,7 @@ class BudgetController extends Controller
      *
      * @return bool
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-4-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     private function mayAdminister(string $organisation, IUser $user): bool
     {

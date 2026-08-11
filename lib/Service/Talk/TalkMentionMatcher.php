@@ -32,7 +32,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/talk-agent-sessions/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-room-it-did-not-create
+ * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
  */
 
 declare(strict_types=1);
@@ -57,7 +57,7 @@ class TalkMentionMatcher
      *
      * @return bool True when one of the names is addressed.
      *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-room-it-did-not-create
+     * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
      */
     public function matchesAny(string $content, array $names): bool
     {
@@ -79,7 +79,7 @@ class TalkMentionMatcher
      *
      * @return bool True when the name is addressed.
      *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-room-it-did-not-create
+     * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
      */
     public function matches(string $content, string $name): bool
     {
@@ -116,7 +116,7 @@ class TalkMentionMatcher
      *
      * @return bool True when a parameter names one of the targets.
      *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-room-it-did-not-create
+     * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
      */
     public function matchesParameters(array $parameters, array $names): bool
     {

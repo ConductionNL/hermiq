@@ -243,7 +243,7 @@ class ToolGrantResolver
      *
      * @return bool True when the agent is deliberately tool-less.
      *
-     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
      */
     public function isExplicitNoTools(array $grants): bool
     {
@@ -280,7 +280,7 @@ class ToolGrantResolver
      *
      * @return bool True when the grants are broken and the caller must not degrade silently.
      *
-     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
      */
     public function resolvesToNothing(array $grants, array $resolvedTools): bool
     {

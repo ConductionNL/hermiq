@@ -33,7 +33,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 
 declare(strict_types=1);
@@ -53,7 +53,7 @@ use Throwable;
 /**
  * Seed the realistic Budget guardrail objects via BudgetService (idempotent).
  *
- * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+ * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
 class SeedBudgets implements IRepairStep
 {
@@ -101,7 +101,7 @@ class SeedBudgets implements IRepairStep
      *
      * @return string
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function getName(): string
     {
@@ -118,7 +118,7 @@ class SeedBudgets implements IRepairStep
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-5-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function run(IOutput $output): void
     {

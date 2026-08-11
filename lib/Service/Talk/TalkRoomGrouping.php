@@ -52,7 +52,7 @@ use Throwable;
  *
  * @psalm-api
  *
- * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-agent-rooms-are-grouped-automatically-for-each-participant
+ * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
  */
 class TalkRoomGrouping
 {
@@ -134,7 +134,7 @@ class TalkRoomGrouping
      *
      * @return int The number of participants the room was filed for.
      *
-     * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-agent-rooms-are-grouped-automatically-for-each-participant
+     * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
      */
     public function groupRoom(string $roomToken): int
     {
@@ -204,7 +204,7 @@ class TalkRoomGrouping
      *
      * @return bool True when the room is filed for this user.
      *
-     * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-grouping-never-disturbs-the-users-own-tags
+     * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
      */
     private function fileForUser(object $room, string $uid): bool
     {
@@ -252,7 +252,7 @@ class TalkRoomGrouping
      *
      * @return string[] The currently assigned tag ids.
      *
-     * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-grouping-never-disturbs-the-users-own-tags
+     * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
      */
     private function currentTagIds(object $attendee): array
     {

@@ -595,7 +595,7 @@ class AgentsController extends Controller
     public function tools(): JSONResponse
     {
         try {
-            // describeTools(), not listTools(): this endpoint feeds a PICKER,
+            // Use describeTools(), not listTools(): this endpoint feeds a PICKER,
             // and a person choosing between 98 tools needs the contributing app
             // and the operation, which a raw LLM function descriptor does not
             // carry. listTools() stays exactly as it is — its descriptors go to
@@ -730,7 +730,12 @@ class AgentsController extends Controller
         $normalised = [];
         foreach ($filters as $key => $value) {
             if (is_bool($value) === true) {
-                $normalised[$key] = ($value === true) ? 'true' : 'false';
+                if ($value === true) {
+                    $normalised[$key] = 'true';
+                } else {
+                    $normalised[$key] = 'false';
+                }
+
                 continue;
             }
 
