@@ -8,12 +8,24 @@
  * is a built-in engine node or Hermiq's own agent step (never a Hermiq-authored HTTP
  * step), and the branch cannot reach the command step on an empty triage result.
  *
- * ⚠️ EVERY ASSERTION HERE USED TO READ `nodes[]`, AND THAT IS WHY THEY ALL PASSED
- * WHILE THE FLOW DID NOTHING. In OpenRegister's engine the executable unit is the
- * EDGE: `FlowEngine::stepFor()` resolves a transition to the matching entry in
- * `edges[]` and `RegistryStepDispatcher::dispatch()` reads `type`/`config` off that
- * edge. A node is a Petri-net place. A suite that inspects node types is checking
- * decoration, so `testNoNodeCarriesExecutableConfig()` is now the load-bearing one.
+ * ⚠️ THIS SUITE HAS NOW BEEN GREEN AGAINST BOTH SIDES OF THE SAME INVERSION, AND
+ * WAS WRONG EACH TIME IN THE SAME WAY — it asserted where the work lived rather
+ * than that the work was somewhere the engine reads:
+ *
+ *   before 2026-07-31  asserted `nodes[].type`   -> engine read edges -> flow inert
+ *   2026-07-31         asserted NO node has type -> engine read edges -> correct that day
+ *   2026-08-04         OR INVERTS (ADR-065): a NODE is the action, and
+ *                      `FlowDefinitionBuilder::extractNodes()` THROWS on a node with
+ *                      no type. The suite stayed green asserting exactly the shape
+ *                      the engine now refuses — green precisely while the flow was
+ *                      unbuildable.
+ *   2026-08-12         migrated via the graph dual; the assertions swap sides again.
+ *
+ * 🔑 The durable lesson is not "read nodes". It is that a document-shape assertion is
+ * only as good as its agreement with the CONSUMER, and the consumer is versioned. The
+ * load-bearing test is now `testNoEdgeCarriesExecutableConfig()`, and its counterpart
+ * `testEveryNodeDeclaresAType()` exists because a node with no type is the failure the
+ * engine refuses — neither alone would have caught this.
  *
  * Since hermiq#89 a FAILED turn ends the run through the step's `onError` policy
  * instead of arriving at the gate as an empty string, so the branch no longer stands
@@ -66,7 +78,7 @@ class SeedHydraTriageFlowTest extends TestCase
     private const PERMITTED_STEP_TYPES = [
         'hermiq.agent-step',
         'openregister.route',
-        'openregister.stop',
+        'openregister.end',
     ];
 
 
@@ -143,6 +155,48 @@ class SeedHydraTriageFlowTest extends TestCase
 
 
     /**
+     * The flow's nodes, keyed by id — which is where the WORK lives (ADR-065).
+     *
+     * @return array<string, array> The nodes.
+     */
+    private function nodes(): array
+    {
+        $nodes = [];
+        foreach ($this->step()->flowObject()['nodes'] as $node) {
+            $nodes[$node['id']] = $node;
+        }
+
+        return $nodes;
+
+    }//end nodes()
+
+
+    /**
+     * The ids of the nodes one node's outgoing edges reach.
+     *
+     * @param string $nodeId The source node.
+     *
+     * @return array<int, string> The reachable node ids.
+     */
+    private function targetsOf(string $nodeId): array
+    {
+        $targets = [];
+        foreach ($this->step()->flowObject()['edges'] as $edge) {
+            if (in_array($nodeId, (array) $edge['from'], true) === false) {
+                continue;
+            }
+
+            foreach ((array) $edge['to'] as $target) {
+                $targets[] = $target;
+            }
+        }
+
+        return $targets;
+
+    }//end targetsOf()
+
+
+    /**
      * The flow declares its trigger the way OpenRegister's engine matches it:
      * event plus register plus schema.
      *
@@ -192,31 +246,58 @@ class SeedHydraTriageFlowTest extends TestCase
 
 
     /**
-     * No node carries `type` or `config` — the engine never reads either.
+     * No EDGE carries `type` or `config` — an edge is sequence, and the engine
+     * refuses a document where one carries behaviour.
      *
-     * This is the assertion the old suite lacked, and its absence is why every
-     * other test passed against a flow that imported cleanly, walked all three
-     * edges as pass-throughs and reported `completed` without ever calling an
-     * agent. A `type` on a node is not merely redundant; it is the whole
-     * behaviour of the flow, put somewhere nothing looks.
+     * `FlowDefinitionBuilder::refuseLegacyShape()` throws on any edge with a
+     * non-empty `type`, and refuses rather than reinterprets on purpose: "a
+     * half-migrated flow would run, skip the step nobody claimed, and report
+     * success". So this is not a style rule — a single typed edge makes the whole
+     * flow unbuildable.
      *
      * @return void
      *
      * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
      */
-    public function testNoNodeCarriesExecutableConfig(): void
+    public function testNoEdgeCarriesExecutableConfig(): void
     {
-        foreach ($this->step()->flowObject()['nodes'] as $node) {
-            $this->assertArrayNotHasKey('type', $node, "Node '{$node['id']}' carries a type the engine never reads.");
-            $this->assertArrayNotHasKey('config', $node, "Node '{$node['id']}' carries config the engine never reads.");
+        foreach ($this->step()->flowObject()['edges'] as $edge) {
+            $this->assertArrayNotHasKey('type', $edge, "Edge '{$edge['id']}' carries a type the engine refuses.");
+            $this->assertArrayNotHasKey('config', $edge, "Edge '{$edge['id']}' carries config the engine never reads.");
         }
 
-    }//end testNoNodeCarriesExecutableConfig()
+    }//end testNoEdgeCarriesExecutableConfig()
+
+
+    /**
+     * Every node declares a `type` — the other half of the same contract.
+     *
+     * `FlowDefinitionBuilder::extractNodes()` throws on a node without one,
+     * because "a node is the action that runs, so a node without a type is a step
+     * that does nothing while reporting success". This is the assertion whose
+     * ABSENCE let the suite stay green from 2026-08-04 while the seeded flow could
+     * not be lowered to a Definition at all.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
+     */
+    public function testEveryNodeDeclaresAType(): void
+    {
+        $nodes = $this->step()->flowObject()['nodes'];
+        $this->assertNotEmpty($nodes, 'A flow with no nodes executes nothing.');
+
+        foreach ($nodes as $node) {
+            $this->assertArrayHasKey('type', $node, "Node '{$node['id']}' declares no type; the engine refuses it.");
+            $this->assertNotSame('', trim((string) $node['type']), "Node '{$node['id']}' has an empty type.");
+        }
+
+    }//end testEveryNodeDeclaresAType()
 
 
     /**
      * Every step is a built-in engine node or `hermiq.agent-step` — none opens an
-     * HTTP client from Hermiq code. And at least one edge does work, so the flow
+     * HTTP client from Hermiq code. And at least one node does work, so the flow
      * is not a graph of pure pass-throughs.
      *
      * @return void
@@ -226,16 +307,16 @@ class SeedHydraTriageFlowTest extends TestCase
     public function testEveryStepIsBuiltInOrTheAgentStep(): void
     {
         $typed = 0;
-        foreach ($this->edges() as $edge) {
-            if (isset($edge['type']) === false) {
+        foreach ($this->nodes() as $node) {
+            if (isset($node['type']) === false) {
                 continue;
             }
 
             $typed++;
-            $this->assertContains($edge['type'], self::PERMITTED_STEP_TYPES);
+            $this->assertContains($node['type'], self::PERMITTED_STEP_TYPES);
         }
 
-        $this->assertGreaterThan(0, $typed, 'No edge carries a type — the flow would do nothing.');
+        $this->assertGreaterThan(0, $typed, 'No node carries a type — the flow would do nothing.');
 
     }//end testEveryStepIsBuiltInOrTheAgentStep()
 
@@ -254,14 +335,14 @@ class SeedHydraTriageFlowTest extends TestCase
      */
     public function testAnEmptyTriageResultCannotReachTheCommandStep(): void
     {
-        $gate = $this->edges()['gate'];
+        $gate = $this->nodes()['gate'];
 
         $this->assertSame('openregister.route', $gate['type']);
-        $this->assertSame('no-result', $gate['config']['default']);
+        $this->assertSame('no-result-stop', $gate['config']['default']);
         $this->assertCount(1, $gate['config']['rules']);
 
         $rule = $gate['config']['rules'][0];
-        $this->assertSame('command', $rule['output']);
+        $this->assertSame('command-stop', $rule['output']);
         $this->assertSame(['!!' => ['var' => 'json.triage.label']], $rule['condition']);
 
     }//end testAnEmptyTriageResultCannotReachTheCommandStep()
@@ -278,9 +359,13 @@ class SeedHydraTriageFlowTest extends TestCase
      */
     public function testTheCommandBranchStopsWhileNoCommandStepIsWiredUp(): void
     {
-        $command = $this->edges()['command-stop'];
+        $command = $this->nodes()['command-stop'];
 
-        $this->assertSame('openregister.stop', $command['type']);
+        // `openregister.end`, not the `openregister.stop` alias: `EndNode::getId()`
+        // is the canonical id and `FlowNodeRegistry:76` only aliases the old
+        // spelling, which hydra#533 moved all eleven of its flows off of "before
+        // the alias expires".
+        $this->assertSame('openregister.end', $command['type']);
         $this->assertFalse($command['config']['error']);
         $this->assertStringContainsString('No forge write was attempted', $command['config']['message']);
 
@@ -288,13 +373,18 @@ class SeedHydraTriageFlowTest extends TestCase
 
 
     /**
-     * Every endpoint names a declared node, and every router output is a place the
-     * ROUTING EDGE ITSELF reaches.
+     * Every endpoint names a declared node, and every router output names a node
+     * the ROUTING NODE ITSELF reaches through one of its own outgoing edges.
      *
-     * The second half is the sharp one. `FlowEngine::advanceItems()` distributes
-     * items only to the places on the firing transition's own `to` list, so an
-     * output naming a node that this edge does not reach silently drops every item
-     * routed to it — the place is simply never marked and the branch never fires.
+     * The second half is the sharp one, and the inversion MOVED WHAT IT COMPARES
+     * AGAINST without changing a word of its intent. `FlowEngine::advanceItems()`
+     * distributes items only to the places on the firing transition's own output
+     * list, and post-inversion those places are the TARGET NODE IDS —
+     * `FlowGraph::inPlace()` returns the node id unprefixed for exactly this
+     * reason, and `FlowItemPlacement::itemsForOutput()` compares an item's tag
+     * against that place name. So an output still naming the old place
+     * (`command`, `no-result`) matches nothing, and every routed item is dropped
+     * into an empty branch with no error at all.
      *
      * @return void
      *
@@ -311,9 +401,10 @@ class SeedHydraTriageFlowTest extends TestCase
             }
         }
 
-        $gate    = $this->edges()['gate'];
-        $targets = (array) $gate['to'];
+        $gate    = $this->nodes()['gate'];
+        $targets = $this->targetsOf('gate');
 
+        $this->assertNotEmpty($targets, 'The routing node reaches nothing at all.');
         $this->assertContains($gate['config']['default'], $targets);
         foreach ($gate['config']['rules'] as $rule) {
             $this->assertContains($rule['output'], $targets);
@@ -337,7 +428,7 @@ class SeedHydraTriageFlowTest extends TestCase
      */
     public function testTheAgentStepExpectsJsonAndNamesItsAgentByUuidOrNotAtAll(): void
     {
-        $triage = $this->edges()['triage'];
+        $triage = $this->nodes()['triage'];
 
         $this->assertSame('hermiq.agent-step', $triage['type']);
         $this->assertTrue($triage['config']['expectJson']);
