@@ -803,11 +803,13 @@
                                     "nextcloud",
                                     "anthropic"
                                 ],
-                                "title": "Provider"
+                                "title": "Provider",
+                                "description": "Which LLM provider the suggested default comes from. Must be one of the providers this policy allows."
                             },
                             "model": {
                                 "type": "string",
-                                "title": "Model"
+                                "title": "Model",
+                                "description": "The model identifier as the provider names it (e.g. gpt-4o-mini, llama3.1). Must be allowed for the chosen provider."
                             }
                         }
                     }
@@ -895,7 +897,8 @@
                                         "deny"
                                     ],
                                     "default": "auto",
-                                    "title": "Classification"
+                                    "title": "Classification",
+                                    "description": "How this tool is treated at call time: auto invokes it unchanged, confirm refuses it until a matching human approval exists, deny refuses it unconditionally."
                                 }
                             }
                         }
@@ -2785,7 +2788,8 @@
                                     "type": "string",
                                     "format": "uuid",
                                     "title": "Course ID",
-                                    "description": "UUID of the recommended Course in the source app's own register (foreign key into Scholiq's Course register — no cross-register $ref)."
+                                    "description": "UUID of the recommended Course in the source app's own register (foreign key into Scholiq's Course register — no cross-register $ref).",
+                                    "x-external-register": "scholiq"
                                 },
                                 "courseCode": {
                                     "type": "string",
@@ -3562,20 +3566,24 @@
                         "type": "string",
                         "format": "uuid",
                         "title": "Agent flow",
+                        "description": "The authored agent graph this run walked.",
                         "$ref": "agentflow"
                     },
                     "correlationId": {
                         "type": "string",
-                        "title": "Correlation id"
+                        "title": "Correlation id",
+                        "description": "Ties this run to the triggering event or schedule, so every record produced by one trigger can be found together."
                     },
                     "status": {
                         "type": "string",
-                        "title": "Status"
+                        "title": "Status",
+                        "description": "Where the run got to: queued, running, succeeded, failed or cancelled."
                     },
                     "steps": {
                         "type": "array",
                         "default": [],
                         "title": "Steps",
+                        "description": "The node steps in the order they executed, each with what it received, returned and logged.",
                         "items": {
                             "type": "object"
                         }
@@ -3583,11 +3591,13 @@
                     "state": {
                         "type": "object",
                         "title": "State",
+                        "description": "The run's state checkpoint, so a resumed or replayed run picks up where this one stopped.",
                         "default": {}
                     },
                     "usage": {
                         "type": "object",
                         "title": "Usage",
+                        "description": "Token and cost totals accumulated across the run's LLM calls.",
                         "default": {}
                     }
                 }

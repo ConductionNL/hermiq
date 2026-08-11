@@ -75,7 +75,16 @@ class MetricsController extends Controller
     }//end __construct()
 
     /**
-     * Prometheus text exposition. Admin auth per ADR-006.
+     * Prometheus text exposition. Admin-only per ADR-006.
+     *
+     * "Admin-only" is the exact posture wording gate-30 recognises for a
+     * *metrics* controller, and it is the wording openregister's own
+     * GenericMetricsController — the engine that owns this decision — uses.
+     * This method previously said "Admin auth", which is the same posture in
+     * different words, so gate-30 read it as an UNDECLARED posture and asked
+     * for #[PublicPage]. Adding that attribute would have published this
+     * exposition to anonymous callers to satisfy a gate, so the fix is to
+     * state the posture the way the fleet states it, not to change it.
      *
      * Deliberately NOT #[PublicPage]. ADR-006 splits the two monitoring
      * surfaces: `/api/metrics` is admin-authed, `/api/health` is public. The

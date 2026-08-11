@@ -128,7 +128,14 @@ class RegisterAgentLeafListener implements IEventListener
             $descriptor = new LeafDescriptor(
                 id: self::LEAF_ID,
                 label: $this->l10n->t('Agent'),
-                icon: 'RobotOutline',
+                // `Creation` (the AI sparkles), matching src/integration-leaf.js
+                // and src/manifest.json. This half said `RobotOutline`, so the two
+                // halves of one registration described different leaves (gate-24
+                // R4 metadata parity) and which icon a consumer drew depended on
+                // which half it read. `RobotOutline` is the retired spelling —
+                // src/icons.js keeps it registered only because an agent's OWN
+                // icon is free-form and older saved agents still carry it.
+                icon: 'Creation',
                 kinds: [
                     LeafDescriptor::KIND_RENDER_SURFACE,
                     LeafDescriptor::KIND_AGENT_RUNNER,

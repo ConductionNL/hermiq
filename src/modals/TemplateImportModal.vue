@@ -25,11 +25,20 @@
 				{{ error }}
 			</NcNoteCard>
 
-			<textarea
-				v-model="importText"
-				class="template-import__textarea"
-				:disabled="busy"
-				:placeholder="placeholder" />
+			<!--
+			  The <label> WRAPS the control — the canonical HTML association, no
+			  for/id pair needed. A placeholder is NOT a label: it disappears the
+			  moment the field has content, so it names the field for nobody once
+			  the user starts typing.
+			-->
+			<label class="template-import__label">
+				<span>{{ t('hermiq', 'Template package') }}</span>
+				<textarea
+					v-model="importText"
+					class="template-import__textarea"
+					:disabled="busy"
+					:placeholder="placeholder" />
+			</label>
 
 			<p class="template-import__note">
 				{{ t('hermiq', 'Templates imported from another organisation start quarantined and must be approved before they can be used.') }}
@@ -125,6 +134,12 @@ export default {
 	margin: 0;
 	font-size: 20px;
 	font-weight: 600;
+}
+
+.template-import__label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
 }
 
 .template-import__textarea {

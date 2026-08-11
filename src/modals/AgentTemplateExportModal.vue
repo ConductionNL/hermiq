@@ -2,18 +2,19 @@
 <!-- Copyright (C) 2026 Conduction B.V. -->
 
 <!--
-  SkillExportModal — shows a skill's exported agentskills.io package after the
-  Export row action on the Skills catalog. Own file per the modal-isolation
-  rule; imported by SkillRowActions.vue.
+  AgentTemplateExportModal — shows a template's exported JSON package after the
+  Export row action on the Store page. Own file per the modal-isolation rule
+  (gate-13); imported by AgentTemplateRowActions.vue, where it used to be
+  written inline.
 
   Pure presentation: the parent performs the export call and passes the
   resulting package text in.
 
-  @spec openspec/specs/skills-catalog/spec.md#requirement-bidirectional-skillserializer-round-trip-fidelity
+  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-010-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 -->
 <template>
 	<NcModal @close="$emit('close')">
-		<div class="skill-export-modal">
+		<div class="agent-template-export-modal">
 			<h3>{{ t('hermiq', 'Exported package') }}</h3>
 			<!--
 			  The <label> WRAPS the control: that is the canonical HTML association
@@ -22,9 +23,9 @@
 			  speech-input user with nothing visible to say — so the visible label
 			  is the fix, not the attribute.
 			-->
-			<label class="skill-export-modal__label">
+			<label class="agent-template-export-modal__label">
 				<span>{{ t('hermiq', 'Package contents') }}</span>
-				<textarea class="skill-export-modal__textarea" readonly :value="exportedPackage" />
+				<textarea class="agent-template-export-modal__textarea" readonly :value="exportedPackage" />
 			</label>
 		</div>
 	</NcModal>
@@ -34,14 +35,14 @@
 import { NcModal } from '@nextcloud/vue'
 
 export default {
-	name: 'SkillExportModal',
+	name: 'AgentTemplateExportModal',
 
 	components: {
 		NcModal,
 	},
 
 	props: {
-		/** The exported agentskills.io package text. */
+		/** The exported template package text. */
 		exportedPackage: {
 			type: String,
 			required: true,
@@ -53,20 +54,20 @@ export default {
 </script>
 
 <style scoped>
-.skill-export-modal {
+.agent-template-export-modal {
 	padding: 20px;
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
 }
 
-.skill-export-modal__label {
+.agent-template-export-modal__label {
 	display: flex;
 	flex-direction: column;
 	gap: 4px;
 }
 
-.skill-export-modal__textarea {
+.agent-template-export-modal__textarea {
 	width: 100%;
 	min-height: 120px;
 	font-family: monospace;
