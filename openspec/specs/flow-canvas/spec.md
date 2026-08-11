@@ -220,6 +220,42 @@ publishes. A flow saved before a node was renamed still names the old id, and
 without the aliases it renders a raw type id where the node's name belongs while
 the engine runs it perfectly well.
 
+### Requirement: A connection's label can be moved, and its line styled
+
+A connection's label MUST be movable ALONG its own line, and the position MUST
+be stored as a FRACTION of the way from source to target — not as a pixel
+offset. A label pushed clear of a crossing line must stay clear after a pan, a
+zoom and an auto-sort, and only a fraction survives all three.
+
+It MUST be movable from the keyboard as well as by dragging: a drag is a pointer
+gesture and cannot be the only route to an action (WCAG 2.1 AA 2.1.1). The
+fraction MUST be clamped away from both endpoints — a label sitting on a node is
+unreadable, unclickable, and hides the port beneath it.
+
+Right-clicking a label MUST open the same menu as right-clicking its line, and
+its editor MUST offer the label, a description, a colour, a line style, a
+thickness and a symbol for each end.
+
+Every one of those keys is DRAWING. The engine reads `from` and `to` off an edge
+and nothing else, so styling a connection MUST NOT be able to change what the
+flow does — and a `type` on an edge still makes the engine refuse the whole
+document.
+
+"No symbol" MUST be a real choice that beats the default: an author who removed
+an arrowhead did not ask for it back.
+
+#### Scenario: A label keeps its place on the line, not on the screen
+- **GIVEN** a label moved to a third of the way along its connection
+- **WHEN** the graph is panned, zoomed or auto-sorted
+- **THEN** the label MUST still sit a third of the way along that connection
+- @e2e exclude covered by the canvas's component tests
+
+#### Scenario: The keyboard moves a label
+- **GIVEN** a focused connection label
+- **WHEN** the arrow keys are pressed
+- **THEN** it MUST move along its line, without a pointer
+- @e2e exclude covered by the canvas's component tests
+
 ### Requirement: A flow MUST have a trigger and an end
 
 The editor MUST show an ERROR banner when a flow carries no trigger node, no end

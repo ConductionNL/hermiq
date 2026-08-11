@@ -45,7 +45,9 @@
 						class="flow-builder__edge"
 						:d="edgePath(from, to)"
 						fill="none"
-						:marker-end="`url(#${arrowId})`"
+						:style="edgeStyle(edge.edge)"
+						:marker-start="markerRef(edge.edge.startMarker)"
+						:marker-end="markerRef(edge.edge.endMarker, arrowId)"
 						@click.stop="editor.selectEdge(edge.edge.id)"
 						@contextmenu.prevent.stop="onEdgeContext(edge.edge, $event)" />
 
@@ -56,15 +58,31 @@
 					     exactly the "No step type" that appeared 16 times) or
 					     duplicate the card. An edge with no title draws no chip
 					     at all rather than an empty one. -->
+					<!--
+						The label SLIDES ALONG ITS LINE. `labelT` is a fraction of
+						the way from source to target, stored on the edge, so a
+						label pushed clear of a crossing line stays clear when the
+						graph is panned, zoomed or re-laid-out — a pixel offset
+						would not.
+
+						Dragged with the pointer, and moved with the arrow keys
+						when focused: a drag is a pointer gesture and cannot be
+						the only way to perform an action (WCAG 2.1 AA 2.1.1).
+					-->
 					<g
 						v-if="edgeLabel(edge.edge)"
 						class="flow-builder__step-label"
-						:transform="`translate(${edgeMidpoint(from, to).x}, ${edgeMidpoint(from, to).y})`"
+						:class="{ 'flow-builder__step-label--dragging': draggingLabelId === edge.edge.id }"
+						:transform="`translate(${labelPoint(edge.edge, from, to).x}, ${labelPoint(edge.edge, from, to).y})`"
 						role="button"
 						tabindex="0"
 						:aria-label="stepAriaLabel(edge.edge)"
 						@click.stop="onStepClick(edge.edge)"
-						@keydown.enter.stop="onStepClick(edge.edge)">
+						@keydown.enter.stop="onStepClick(edge.edge)"
+						@keydown.left.stop.prevent="nudgeLabel(edge.edge, -0.05)"
+						@keydown.right.stop.prevent="nudgeLabel(edge.edge, 0.05)"
+						@mousedown.stop="onLabelMouseDown(edge.edge, $event)"
+						@contextmenu.prevent.stop="onEdgeContext(edge.edge, $event)">
 						<rect
 							class="flow-builder__step-chip"
 							:width="chipWidth(edge.edge)"
@@ -213,6 +231,21 @@
 					markerHeight="5"
 					orient="auto-start-reverse">
 					<path d="M 0 0 L 10 5 L 0 10 z" class="flow-builder__arrowhead" />
+				</marker>
+				<!-- The other end symbol an author can choose. `none` needs no
+				     marker at all — it is the absence of one. -->
+				<marker
+					id="flow-builder-dot"
+					viewBox="0 0 10 10"
+					refX="5"
+					refY="5"
+					markerWidth="4"
+					markerHeight="4">
+					<circle
+						cx="5"
+						cy="5"
+						r="4"
+						class="flow-builder__arrowhead" />
 				</marker>
 			</defs>
 		</svg>
@@ -493,6 +526,8 @@ export default {
 		return {
 			arrowId: 'flow-builder-arrow',
 			resultDialog: null,
+			// The connection whose label is being slid along its line.
+			draggingLabelId: null,
 			// Node box size. Shared with the canvas and with edge trimming, which
 			// has to know where a card ends to stop the arrowhead short of it.
 			nodeWidth: 200,
@@ -574,10 +609,17 @@ export default {
 
 	mounted() {
 		window.addEventListener('keydown', this.onKeydown)
+		// Bound on the WINDOW, not the label: a drag that leaves the chip must
+		// keep tracking, and must end even if the pointer is released outside
+		// the canvas.
+		window.addEventListener('mousemove', this.onLabelMouseMove)
+		window.addEventListener('mouseup', this.onLabelMouseUp)
 	},
 
 	beforeUnmount() {
 		window.removeEventListener('keydown', this.onKeydown)
+		window.removeEventListener('mousemove', this.onLabelMouseMove)
+		window.removeEventListener('mouseup', this.onLabelMouseUp)
 	},
 
 	methods: {
@@ -714,6 +756,201 @@ export default {
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
+		/**
+		 * A connection's own drawing style, when it declares one.
+		 *
+		 * DRAWING ONLY. `colour`, `lineStyle` and `width` are read here and
+		 * nowhere else — the engine takes `from`/`to` from an edge and nothing
+		 * more. An author styling a line cannot change what the flow does.
+		 *
+		 * Returned as inline style rather than classes because colour and
+		 * thickness are continuous: a class per value would be a palette this
+		 * file had to keep in step with the editor's.
+		 *
+		 * @param {object} edge The connection.
+		 * @return {object} Style bindings; empty for an unstyled edge.
+		 */
+		edgeStyle(edge) {
+			const style = {}
+
+			if (edge?.colour) {
+				style.stroke = edge.colour
+			}
+
+			if (Number(edge?.width) > 0) {
+				style.strokeWidth = Number(edge.width)
+			}
+
+			const dashes = { dashed: '8 6', dotted: '2 5' }
+			if (dashes[edge?.lineStyle]) {
+				style.strokeDasharray = dashes[edge.lineStyle]
+			}
+
+			return style
+		},
+
+		/**
+		 * The marker url for an end of a line.
+		 *
+		 * @param {string}      name     The marker name, or empty.
+		 * @param {string|null} fallback A marker to use when none is named.
+		 * @return {string|null} The `url(#…)` reference, or null for a bare end.
+		 */
+		markerRef(name, fallback = null) {
+			const markers = {
+				arrow: this.arrowId,
+				dot: 'flow-builder-dot',
+				none: null,
+			}
+
+			// `none` is a real choice and must beat the fallback: an author who
+			// removed the arrowhead did not ask for the default back.
+			if (name && Object.prototype.hasOwnProperty.call(markers, name)) {
+				return markers[name] === null ? null : `url(#${markers[name]})`
+			}
+
+			return fallback === null ? null : `url(#${fallback})`
+		},
+
+		/**
+		 * Where a connection's label sits, as a point on its line.
+		 *
+		 * `labelT` is a FRACTION (0 = source, 1 = target), defaulting to the
+		 * midpoint. Storing a fraction rather than a pixel offset is what makes
+		 * the position survive a pan, a zoom and an auto-sort: the label keeps
+		 * its place ON THE LINE rather than its place on the screen.
+		 *
+		 * @param {object} edge The connection.
+		 * @param {{x: number, y: number}} from Source centre.
+		 * @param {{x: number, y: number}} to   Target centre.
+		 * @return {{x: number, y: number}} The label's canvas point.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		labelPoint(edge, from, to) {
+			const t = this.labelFraction(edge)
+			if (t === 0.5) {
+				// The midpoint comes from the router, which knows the orthogonal
+				// path — not the straight line between the two centres.
+				return this.edgeMidpoint(from, to)
+			}
+
+			return {
+				x: from.x + ((to.x - from.x) * t),
+				y: from.y + ((to.y - from.y) * t),
+			}
+		},
+
+		/**
+		 * A connection's stored label position, clamped into the line.
+		 *
+		 * @param {object} edge The connection.
+		 * @return {number} The fraction, 0.1–0.9.
+		 */
+		labelFraction(edge) {
+			const raw = Number(edge?.labelT)
+			if (Number.isFinite(raw) === false) {
+				return 0.5
+			}
+
+			// Never all the way to an endpoint: a label sitting on a node is
+			// unreadable and unclickable, and it hides the port it covers.
+			return Math.min(0.9, Math.max(0.1, raw))
+		},
+
+		/**
+		 * Slide the dragged label to wherever the pointer is on its line.
+		 *
+		 * The fraction is the PROJECTION of the pointer onto the source→target
+		 * vector, so the label follows the pointer along the line and ignores
+		 * how far off it the pointer strays — dragging sideways does not throw
+		 * the label off its own connection.
+		 *
+		 * @param {MouseEvent} event The mousemove.
+		 * @return {void}
+		 */
+		onLabelMouseMove(event) {
+			if (this.draggingLabelId === null) {
+				return
+			}
+
+			const edge = this.editor.edges.find((candidate) => candidate.id === this.draggingLabelId)
+			const line = edge ? this.editor.canvasEdges.find((drawn) => drawn.edge.id === edge.id) : null
+			if (!edge || !line) {
+				return
+			}
+
+			const from = this.nodeCentre(line.edge.from?.[0])
+			const to = this.nodeCentre(line.edge.to?.[0])
+			const point = this.canvasPointOf(event)
+			if (!from || !to || point === null) {
+				return
+			}
+
+			const dx = to.x - from.x
+			const dy = to.y - from.y
+			const lengthSquared = ((dx * dx) + (dy * dy))
+			if (lengthSquared === 0) {
+				return
+			}
+
+			const t = ((((point.x - from.x) * dx) + ((point.y - from.y) * dy)) / lengthSquared)
+			this.editor.setEdgeFieldById(edge.id, 'labelT', t)
+		},
+
+		/**
+		 * End the drag.
+		 *
+		 * @return {void}
+		 */
+		onLabelMouseUp() {
+			this.draggingLabelId = null
+		},
+
+		/**
+		 * A node's centre in canvas space.
+		 *
+		 * @param {string} id The node id.
+		 * @return {{x: number, y: number}|null} The centre.
+		 */
+		nodeCentre(id) {
+			const node = this.editor.nodes.find((candidate) => candidate.id === id)
+			if (node === undefined) {
+				return null
+			}
+
+			return {
+				x: ((node.x || 0) + (this.nodeWidth / 2)),
+				y: ((node.y || 0) + (this.nodeHeight / 2)),
+			}
+		},
+
+		/**
+		 * Begin sliding a label along its line.
+		 *
+		 * @param {object} edge The connection.
+		 * @param {MouseEvent} event The mousedown.
+		 * @return {void}
+		 */
+		onLabelMouseDown(edge, event) {
+			this.draggingLabelId = edge.id
+			this.dragLabelFrom = null
+			// The canvas owns pan and zoom, so it is the only thing that can
+			// turn a client point into a canvas one.
+			this.dragLabelStart = this.canvasPointOf(event)
+		},
+
+		/**
+		 * Move a label by a step, from the keyboard.
+		 *
+		 * @param {object} edge  The connection.
+		 * @param {number} delta The fraction to move by.
+		 * @return {void}
+		 */
+		nudgeLabel(edge, delta) {
+			this.editor.setEdgeFieldById(edge.id, 'labelT', this.labelFraction(edge) + delta)
+		},
+
 		onCanvasResize(payload) {
 			const id = String(payload?.id || '')
 			if (id.startsWith(ANNOTATION_ID_PREFIX)) {

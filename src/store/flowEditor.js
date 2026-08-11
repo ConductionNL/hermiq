@@ -1482,8 +1482,31 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				return
 			}
 
+			this.setEdgeFieldById(this.selectedEdgeId, key, value)
+		},
+
+		/**
+		 * Write one field on a NAMED connection.
+		 *
+		 * `setEdgeField` acts on the selection, which is right for a form but
+		 * wrong for a drag: sliding a label must not depend on — or change —
+		 * what happens to be selected.
+		 *
+		 * Drawing only. These keys (`labelT`, `colour`, `lineStyle`, `width`,
+		 * `startMarker`, `endMarker`) are read by the CANVAS and never by the
+		 * engine, which takes `from`/`to` and nothing else. A `type` here would
+		 * make the engine refuse the whole document.
+		 *
+		 * @param {string} id    The connection id.
+		 * @param {string} key   The field.
+		 * @param {*}      value The new value.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		setEdgeFieldById(id, key, value) {
 			this.flow.edges = this.edges.map((edge) => {
-				if (edge.id !== this.selectedEdgeId) {
+				if (edge.id !== id) {
 					return edge
 				}
 
