@@ -4,11 +4,16 @@
  * Hermiq MemoryController.
  *
  * Read + manage an agent's memory surface (Memory, UserProfile, Session, SessionTurn)
- * and run tenant-scoped recall. All reads/writes run in the caller's session context
- * through MemoryService → OpenRegister ObjectService, so OR's native RBAC denies
- * cross-tenant access (a foreign-tenant agentId simply resolves to nothing — no content
- * leak). `@NoAdminRequired` opens the routes to any authenticated user; tenancy is the
- * guard.
+ * and run tenant-scoped recall.
+ *
+ * ⚠️ Tenancy is NOT the guard. Every route here takes a caller-supplied `agentId`
+ * off the URL, and the Memory/UserProfile/AgentSession/AgentSessionTurn schemas
+ * declare no `authorization` block, so OpenRegister's register RBAC is
+ * default-OPEN on them and multitenancy scopes organisations rather than the two
+ * users inside one. Each route therefore resolves the agent through
+ * `AgentAccessService` first — READ routes require read access, WRITE routes
+ * (append, consolidate) require ownership — and a refusal is a 404, never a 403,
+ * so a non-owner cannot confirm a private agent exists (ADR-005 Rule 3).
  *
  * @category Controller
  * @package  OCA\Hermiq\Controller
@@ -30,6 +35,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Controller;
@@ -50,10 +56,11 @@ class MemoryController extends Controller
     /**
      * Constructor.
      *
-     * @param IRequest        $request       The request object.
-     * @param MemoryService   $memoryService The memory read/write path.
-     * @param IUserSession    $userSession   Resolves the requesting user.
-     * @param LoggerInterface $logger        PSR-3 logger.
+     * @param IRequest           $request       The request object.
+     * @param MemoryService      $memoryService The memory read/write path.
+     * @param IUserSession       $userSession   Resolves the requesting user.
+     * @param LoggerInterface    $logger        PSR-3 logger.
+     * @param AgentAccessService $agentAccess   Per-agent authorization (IDOR guard).
      *
      * @spec openspec/changes/agent-memory/tasks.md#task-3-1
      */
@@ -62,6 +69,7 @@ class MemoryController extends Controller
         private readonly MemoryService $memoryService,
         private readonly IUserSession $userSession,
         private readonly LoggerInterface $logger,
+        private readonly AgentAccessService $agentAccess,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -82,6 +90,10 @@ class MemoryController extends Controller
     {
         if ($this->userSession->getUser() === null) {
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
         }
 
         try {
@@ -117,6 +129,10 @@ class MemoryController extends Controller
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
         }
 
+        if ($this->requireAgentOwnership(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+        }
+
         $text = trim((string) $this->request->getParam('text', ''));
         if ($text === '') {
             return new JSONResponse(['error' => 'A non-empty text is required'], Http::STATUS_BAD_REQUEST);
@@ -150,6 +166,10 @@ class MemoryController extends Controller
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
         }
 
+        if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+        }
+
         try {
             $profiles = array_map([$this, 'shape'], $this->memoryService->listUserProfiles(agentId: $agentId));
             return new JSONResponse(['results' => $profiles]);
@@ -176,6 +196,10 @@ class MemoryController extends Controller
     {
         if ($this->userSession->getUser() === null) {
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
         }
 
         try {
@@ -205,6 +229,10 @@ class MemoryController extends Controller
     {
         if ($this->userSession->getUser() === null) {
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        if ($this->requireAgentOwnership(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
         }
 
         $entries = $this->request->getParam('entries');
@@ -248,6 +276,10 @@ class MemoryController extends Controller
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
         }
 
+        if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+        }
+
         try {
             $turns = array_map([$this, 'shape'], $this->memoryService->recallSessions(agentId: $agentId, query: $q));
             return new JSONResponse(['results' => $turns]);
@@ -257,6 +289,59 @@ class MemoryController extends Controller
         }
 
     }//end recall()
+
+    /**
+     * IDOR guard for the READ routes: the caller must be able to read the agent
+     * whose memory surface they are addressing (owner, invitee, or any
+     * organisation member for a non-private agent).
+     *
+     * @param string $agentId The agent UUID taken off the URL.
+     *
+     * @return bool True when the caller may read this agent's memory surface.
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    private function requireAgentReadAccess(string $agentId): bool
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return false;
+        }
+
+        return $this->agentAccess->loadAccessibleAgent(
+            agentId: $agentId,
+            userId: $user->getUID()
+        ) !== null;
+
+    }//end requireAgentReadAccess()
+
+    /**
+     * IDOR guard for the WRITE routes (append, consolidate): owner-only.
+     *
+     * Read access is deliberately not enough. A memory entry is folded into the
+     * system-prompt preamble of every subsequent run of the agent, so an append
+     * by a non-owner is a durable instruction to somebody else's agent, and
+     * `consolidate` REPLACES the entry array outright — a wipe.
+     *
+     * @param string $agentId The agent UUID taken off the URL.
+     *
+     * @return bool True when the caller owns this agent.
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    private function requireAgentOwnership(string $agentId): bool
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return false;
+        }
+
+        return $this->agentAccess->loadModifiableAgent(
+            agentId: $agentId,
+            userId: $user->getUID()
+        ) !== null;
+
+    }//end requireAgentOwnership()
 
     /**
      * De-duplicate the current Memory entries by text (default consolidation strategy).
