@@ -236,7 +236,11 @@ test.describe('hydra-console-agent-leaves', () => {
 		}
 
 		// And the edges must carry NO type: one that did would be refused by
-		// FlowDefinitionBuilder::assertNotPreInversion() in whole.
+		// FlowDefinitionBuilder::refuseLegacyShape() in whole. (This named
+		// `assertNotPreInversion()` until 2026-08-12 — no such method has ever
+		// existed on that class; positive control: it has 9 methods, none by
+		// that name. A comment citing a guard by a name it does not have reads
+		// as verified and is not.)
 		const edges = (flow.edges ?? []) as Array<Record<string, unknown>>
 		expect(edges.length, 'a flow with no edges executes nothing').toBeGreaterThan(0)
 		for (const edge of edges) {

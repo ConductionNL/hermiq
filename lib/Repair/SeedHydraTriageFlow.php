@@ -9,14 +9,14 @@
  * that porting an orchestrator's loop creates no code, only flows, so an operator
  * can retune the loop without a Hermiq release.
  *
- * Shape of the seeded graph:
+ * Shape of the seeded graph — NODES are the steps, edges are sequence (ADR-065):
  *
  *   [triage]  hermiq.agent-step   run the Hydra Triage agent over the finding
- *      │                          (expectJson, so a later edge can read one field)
- *      ▼
+ *      │                          (expectJson, so the gate can read one field)
+ *      ▼  "triaged"
  *   [gate]    openregister.route  per-item branch on the triage result
- *      ├── a proposed label ─────▶ [command]  the command step
- *      └── otherwise ────────────▶ [no-result] stop, nothing proposed
+ *      ├── a proposed label ─────▶ [command-stop]   openregister.end, the command step's slot
+ *      └── otherwise ────────────▶ [no-result-stop] openregister.end, nothing proposed
  *
  * The `gate` is not decoration, and what it guards has narrowed. A FAILED turn no
  * longer reaches it at all: `HermiqAgentNode::execute()` lets the failure
@@ -27,7 +27,7 @@
  * proposed nothing. Without it that would fall through to a step that commands a
  * build pipeline.
  *
- * The `command` node is `openregister.stop` TODAY and that is not a placeholder
+ * The `command-stop` node is `openregister.end` TODAY and that is not a placeholder
  * standing in for missing work — it is the specified behaviour while the
  * OpenConnector-backed command node does not exist. OpenConnector registers no MCP
  * tool provider and contributes no flow node or resolver, so there is presently
@@ -437,55 +437,46 @@ class SeedHydraTriageFlow implements IRepairStep
             'limits'          => ['maxNodes' => 20, 'maxIterations' => 20],
             'notes'           => 'Seeded by hermiq (hydra-console-agent-leaves). Before enabling: set `owner` to '
                 .'your own Nextcloud UID — a trigger fires with no acting user, and an ownerless run must not '
-                .'dispatch. When a command step exists, change the `command-stop` EDGE\'s `type` to it; until '
-                .'then the branch stops with the proposed label recorded and writes nothing. Note the work '
-                .'lives on the edges — a `type` on a node is never read by the engine.',
+                .'dispatch. When a command step exists, change the `command-stop` NODE\'s `type` to it; until '
+                .'then the branch ends with the proposed label recorded and writes nothing. Note the work '
+                .'lives on the nodes — a `type` on an edge is refused outright by the engine (ADR-065).',
         ];
 
     }//end flowObject()
 
     /**
-     * The flow's nodes.
+     * The flow's nodes — and the flow's WORK.
+     *
+     * 🔑 In OpenRegister's engine the executable unit is the NODE. `FlowTokenRouter::stepFor()`
+     * resolves a transition to the matching entry in `nodes[]` — "the lookup is a node lookup
+     * by id. It used to search `edges[]`, because an edge was the transition" — and
+     * `FlowDefinitionBuilder::extractNodes()` REFUSES any node without a `type`. An edge is
+     * now sequence and carries no behaviour.
+     *
+     * ⚠️ This inverted TWICE, four days apart, and both halves fail silently in the same
+     * direction — a step nobody executes, on a run that reports `completed`:
+     *
+     *   2026-07-31  OR refuses a node carrying step config   -> this seed moved node -> EDGE
+     *   2026-08-04  OR INVERTS (`or-flow-action-nodes`,      -> this seed moved edge -> NODE
+     *               ADR-065): a node IS the action              (here, 2026-08-12)
+     *
+     * Rebuilt with OpenRegister's own documented GRAPH DUAL, not by hand
+     * (`openspec/changes/or-flow-migrate-definitions/design.md`): each old edge became a
+     * node carrying its `type`/`config`, and each old PLACE became the edge connecting the
+     * steps that met there, its id preserved as that edge's `title`. So the five places
+     * `finding`/`triaged`/`command`/`no-result`/`done` are gone as nodes and survive as
+     * labels on the lines — which is what they always meant.
      *
      * @return array<int, array<string, mixed>>
      */
     private function nodes(): array
     {
         return [
-            ['id' => 'finding', 'position' => ['x' => 0, 'y' => 0]],
-            ['id' => 'triaged', 'position' => ['x' => 260, 'y' => 0]],
-            ['id' => 'command', 'position' => ['x' => 520, 'y' => -80]],
-            ['id' => 'no-result', 'position' => ['x' => 520, 'y' => 80]],
-            ['id' => 'done', 'position' => ['x' => 780, 'y' => 0]],
-        ];
-
-    }//end nodes()
-
-    /**
-     * The flow's edges — and the flow's WORK.
-     *
-     * 🔑 In OpenRegister's engine the executable unit is the EDGE. `FlowEngine::stepFor()`
-     * resolves a transition to the matching entry in `edges[]`, and
-     * `RegistryStepDispatcher::dispatch()` reads `type` and `config` off THAT edge. A node
-     * is a Petri-net PLACE and carries no behaviour: a `type` on it is never read.
-     *
-     * This seed used to put every `type`/`config` on `nodes[]`, which made the whole flow
-     * inert — a step with no `type` passes its items through untouched, so the graph
-     * imported cleanly, walked all three edges and reported `completed` having called no
-     * agent and taken no branch. Silently: no error, no warning, no log line. Measured on a
-     * live instance 2026-07-31 both ways, node form versus edge form, on the same graph.
-     *
-     * @return array<int, array<string, mixed>>
-     */
-    private function edges(): array
-    {
-        return [
             [
-                'id'     => 'triage',
-                'from'   => 'finding',
-                'to'     => 'triaged',
-                'type'   => 'hermiq.agent-step',
-                'config' => [
+                'id'       => 'triage',
+                'position' => ['x' => 0, 'y' => 0],
+                'type'     => 'hermiq.agent-step',
+                'config'   => [
                     // ⚠️ A UUID, not a name. `AgentMapper::findByUuid()` matches the
                     // `uuid` COLUMN, so the seeded agent's NAME — which this carried —
                     // resolves to nothing at all. Since hermiq#89 that fails the step
@@ -504,21 +495,24 @@ class SeedHydraTriageFlow implements IRepairStep
                 ],
             ],
             [
-                'id'     => 'gate',
-                'from'   => 'triaged',
-                // Both branch places must be reachable FROM THIS EDGE:
-                // `FlowEngine::advanceItems()` only distributes items to the places on
-                // the firing transition's own `to` list, so an output naming anything
-                // else drops every item routed to it, silently.
-                'to'     => ['command', 'no-result'],
-                'type'   => 'openregister.route',
-                'config' => [
+                'id'       => 'gate',
+                'position' => ['x' => 260, 'y' => 0],
+                'type'     => 'openregister.route',
+                'config'   => [
                     // The router tags each item with the OUTPUT it selected, and the
-                    // engine delivers an item only to the place matching its tag —
-                    // so an output name IS a target place id.
+                    // engine delivers an item only to the place matching its tag.
+                    //
+                    // ⚠️ Post-inversion an output names the TARGET NODE, not the old
+                    // place. `FlowGraph::inPlace()` returns the node id UNPREFIXED
+                    // precisely so that `FlowItemPlacement::itemsForOutput()` can compare
+                    // an item's tag against the output place name — and its docblock says
+                    // so: "a routing step tags an item with the NODE it is routing to".
+                    // These read `command`/`no-result` (the old places) until the dual;
+                    // left that way they would match no place at all and every routed
+                    // item would be dropped into an empty branch, with no error.
                     'rules'   => [
                         [
-                            'output'    => 'command',
+                            'output'    => 'command-stop',
                             // Truthy only when the agent actually proposed a label.
                             // A turn that FAILS no longer arrives here at all (hermiq#89
                             // fails the step, and its onError policy ends the run); what
@@ -527,32 +521,82 @@ class SeedHydraTriageFlow implements IRepairStep
                             'condition' => ['!!' => ['var' => 'json.'.self::TRIAGE_OUTPUT_KEY.'.label']],
                         ],
                     ],
-                    'default' => 'no-result',
+                    'default' => 'no-result-stop',
                 ],
             ],
             [
-                'id'     => 'command-stop',
-                'from'   => 'command',
-                'to'     => 'done',
-                // Built-in stop while the OpenConnector-backed command step is not
+                'id'       => 'command-stop',
+                'position' => ['x' => 520, 'y' => -80],
+                // Built-in end while the OpenConnector-backed command step is not
                 // wired up — see the class docblock. Swapping this `type` is the whole
                 // change needed when that upstream half ships.
-                'type'   => 'openregister.stop',
-                'config' => [
+                //
+                // ⚠️ `openregister.end`, NOT `openregister.stop`. The old spelling still
+                // resolves through `FlowNodeRegistry`'s alias map (`:76`), but it is an
+                // ALIAS on its way out — hydra moved all eleven of its flows off it in
+                // #533 "before the alias expires". `EndNode::getId()` is the canonical id
+                // and it is registered TERMINAL, which is also why this sink needs no
+                // `exit: true` mark under the connectivity rule.
+                'type'     => 'openregister.end',
+                'config'   => [
                     'error'   => false,
                     'message' => 'A label was proposed and recorded. No forge write was attempted: this flow '
                         .'has no command step wired up yet.',
                 ],
             ],
             [
-                'id'     => 'no-result-stop',
-                'from'   => 'no-result',
-                'to'     => 'done',
-                'type'   => 'openregister.stop',
-                'config' => [
+                'id'       => 'no-result-stop',
+                'position' => ['x' => 520, 'y' => 80],
+                'type'     => 'openregister.end',
+                'config'   => [
                     'error'   => false,
                     'message' => 'The agent proposed no label — the flow stops before the command step.',
                 ],
+            ],
+        ];
+
+    }//end nodes()
+
+    /**
+     * The flow's edges — pure SEQUENCE, and deliberately typeless.
+     *
+     * Each one is an old PLACE: the dual turns a place into the connection between the
+     * steps that met there, and preserves the place's id as the edge `title` so the
+     * labels the author wrote survive on the lines. `FlowDefinitionBuilder::refuseLegacyShape()`
+     * throws on ANY edge carrying a non-empty `type` — it refuses rather than
+     * reinterprets, because "a half-migrated flow would run, skip the step nobody
+     * claimed, and report success".
+     *
+     * The two places that vanish entirely are the ones that were never connections:
+     * `finding` had no incoming edge, so `triage` is simply the initial node, and `done`
+     * had no outgoing edge, so both stops are sinks.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function edges(): array
+    {
+        return [
+            [
+                'id'    => 'triage-gate',
+                'from'  => 'triage',
+                'to'    => 'gate',
+                'title' => 'triaged',
+            ],
+            // Both branch targets must be reachable FROM THE ROUTING NODE:
+            // `FlowEngine::advanceItems()` only distributes items to the places on the
+            // firing transition's own output list, so an output naming anything else
+            // drops every item routed to it, silently.
+            [
+                'id'    => 'gate-command-stop',
+                'from'  => 'gate',
+                'to'    => 'command-stop',
+                'title' => 'command',
+            ],
+            [
+                'id'    => 'gate-no-result-stop',
+                'from'  => 'gate',
+                'to'    => 'no-result-stop',
+                'title' => 'no-result',
             ],
         ];
 
