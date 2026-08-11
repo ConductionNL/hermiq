@@ -65,6 +65,9 @@
     "eslint-import-resolver-typescript": "~3.8.7",
     "eslint-plugin-import-x": {
       "@typescript-eslint/utils": "^7.18.0"
+    },
+    "@toast-ui/editor": {
+      "dompurify": "^3.4.13"
     }
   },
   "devDependencies": {
