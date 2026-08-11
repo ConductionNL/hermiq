@@ -256,6 +256,11 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		replayRunId: null,
 		// The connection whose payload is open in the JSON peek, or null.
 		payloadEdgeId: null,
+		// The NODE whose recorded payload is open, when the payload was asked
+		// for from the node itself rather than from a line. A run records
+		// transitions per node, so this is the direct question; `payloadEdgeId`
+		// is the indirect one ("what left along this line").
+		payloadNodeId: null,
 		// The run open in the full-size log modal, or null. A 346px sidebar
 		// cannot hold a JSON payload — the pane is narrower than most single
 		// lines of it — so the log is READ here and merely listed there.
@@ -899,6 +904,39 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			if (this.runDetail[uuid] === undefined) {
 				await this.toggleRun(uuid)
 			}
+		},
+
+		/**
+		 * Open one NODE's recorded payload from the run being replayed.
+		 *
+		 * If no run is on the canvas there is nothing to show — a payload is a
+		 * fact about a RUN, not about the flow — so this replays the newest run
+		 * first rather than opening an empty modal. That emptiness was the
+		 * complaint: `{}` opened and said nothing, because the reader had not
+		 * also pressed "Show on canvas".
+		 *
+		 * @param {string} nodeId The node whose payload to show.
+		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+		 */
+		async openStepPayload(nodeId) {
+			if (!nodeId) {
+				return
+			}
+
+			if (this.replayRunId === null) {
+				if (this.runs.length === 0) {
+					await this.loadRuns()
+				}
+
+				const newest = this.runs[this.runs.length - 1]
+				if (newest) {
+					await this.replayRun(newest.uuid || newest.id)
+				}
+			}
+
+			this.payloadNodeId = nodeId
 		},
 
 		/**

@@ -28,15 +28,32 @@
 					an author picks on, and a name alone ("Route items", "Explode")
 					does not say what it does.
 				-->
-				<NcTextField
-					:model-value="nodeSearch"
-					:label="t('hermiq', 'Search node types')"
-					trailing-button-icon="close"
-					:show-trailing-button="nodeSearch !== ''"
-					@update:model-value="nodeSearch = $event"
-					@trailing-button-click="nodeSearch = ''">
-					<Magnify :size="16" />
-				</NcTextField>
+				<div class="flow-sidebar__palette-filters">
+					<NcTextField
+						class="flow-sidebar__palette-search"
+						:model-value="nodeSearch"
+						:label="t('hermiq', 'Search nodes')"
+						trailing-button-icon="close"
+						:show-trailing-button="nodeSearch !== ''"
+						@update:model-value="nodeSearch = $event"
+						@trailing-button-click="nodeSearch = ''">
+						<Magnify :size="16" />
+					</NcTextField>
+
+					<!--
+						Filter by ROLE, in the engine's own vocabulary. The list is
+						already ordered trigger → step → end, so this narrows the
+						same ordering rather than introducing a second one.
+					-->
+					<NcSelect
+						v-model="nodeRole"
+						class="flow-sidebar__palette-type"
+						:options="roleOptions"
+						:clearable="false"
+						:input-label="t('hermiq', 'Type')"
+						label="label"
+						track-by="value" />
+				</div>
 
 				<p v-if="paletteTypes.length === 0" class="flow-sidebar__hint">
 					{{ paletteEmptyText }}
@@ -127,12 +144,19 @@
 			</template>
 
 			<div class="flow-sidebar__pane">
-				<NcButton type="secondary" :disabled="!editor.flow.id" @click="editor.loadRuns()">
+				<!--
+					Refresh, not Load. The list loads itself the moment the tab is
+					opened (see the `activeTab` watcher) — asking an operator to
+					press a button before the pane says anything is asking them to
+					do the pane's job, and an empty list they had not loaded says
+					nothing about the flow.
+				-->
+				<NcButton type="tertiary" :disabled="!editor.flow.id" @click="editor.loadRuns()">
 					<template #icon>
 						<NcLoadingIcon v-if="editor.runsLoading" :size="20" />
 						<Refresh v-else :size="20" />
 					</template>
-					{{ t('hermiq', 'Load runs') }}
+					{{ t('hermiq', 'Refresh') }}
 				</NcButton>
 
 				<NcNoteCard v-if="editor.runsError" type="error">
@@ -146,49 +170,39 @@
 				<!-- An unloaded list and an empty one are different claims, and
 				     only the second says anything about the flow. -->
 				<p v-else-if="editor.runs.length === 0 && !editor.runsLoading" class="flow-sidebar__hint">
-					{{ t('hermiq', 'No runs loaded yet, or this flow has never run.') }}
+					{{ t('hermiq', 'This flow has never run.') }}
 				</p>
 
 				<ul v-else class="flow-sidebar__runs">
+					<!--
+						ONE card, ONE click. Reading a run and seeing it on the
+						canvas were two controls because they are two intents —
+						but nobody wants one without the other: the log says
+						which steps ran and the canvas says where, and split
+						apart an operator had to press two buttons on every run
+						to answer one question. The card now does both, and the
+						canvas replay is what makes a step's recorded payload
+						reachable at all (`{}` reads the REPLAYED run).
+					-->
 					<li v-for="run in editor.runs" :key="run.id || run.uuid" class="flow-sidebar__run">
 						<button
-							class="flow-sidebar__run-head"
-							:class="{ 'flow-sidebar__run-head--replayed': editor.replayRunId === (run.uuid || run.id) }"
+							class="flow-sidebar__run-card"
+							:class="{
+								'flow-sidebar__run-card--open': editor.expandedRunId === (run.uuid || run.id),
+								'flow-sidebar__run-card--replayed': editor.replayRunId === (run.uuid || run.id),
+							}"
 							:aria-expanded="editor.expandedRunId === (run.uuid || run.id) ? 'true' : 'false'"
-							@click="editor.toggleRun(run.uuid || run.id)">
-							<span :class="`flow-sidebar__run-status flow-sidebar__run-status--${run.status || 'unknown'}`">
-								{{ run.status || t('hermiq', 'unknown') }}
+							@click="openRun(run)">
+							<span class="flow-sidebar__run-card-head">
+								<span :class="`flow-sidebar__run-status flow-sidebar__run-status--${run.status || 'unknown'}`">
+									{{ run.status || t('hermiq', 'unknown') }}
+								</span>
+								<span class="flow-sidebar__run-when">{{ formatWhen(run) }}</span>
 							</span>
-							<span class="flow-sidebar__run-when">{{ formatWhen(run) }}</span>
+							<span class="flow-sidebar__run-card-meta">
+								{{ runSummary(run) }}
+							</span>
 						</button>
-
-						<!--
-							Replay is a separate control from expanding. Opening
-							a run to read its log and painting its path across
-							the canvas are different intents, and binding both
-							to one click means an operator cannot do either
-							without the other.
-						-->
-						<NcButton
-							type="tertiary"
-							class="flow-sidebar__run-replay"
-							@click="editor.replayRun(run.uuid || run.id)">
-							{{ editor.replayRunId === (run.uuid || run.id)
-								? t('hermiq', 'Hide on canvas')
-								: t('hermiq', 'Show on canvas') }}
-						</NcButton>
-
-						<!--
-							The log is READ in the modal, not here. This pane is
-							346px wide and a recorded payload is wider than that
-							before it wraps — the inline list below says which
-							steps ran; the modal is where you look at one.
-						-->
-						<NcButton
-							type="tertiary"
-							@click="editor.openRunLog(run.uuid || run.id)">
-							{{ t('hermiq', 'Open log') }}
-						</NcButton>
 
 						<div v-if="editor.expandedRunId === (run.uuid || run.id)" class="flow-sidebar__run-log">
 							<p v-if="editor.runDetail[run.uuid || run.id] === undefined" class="flow-sidebar__hint">
@@ -197,16 +211,32 @@
 							<p v-else-if="editor.runDetail[run.uuid || run.id] === null" class="flow-sidebar__hint">
 								{{ t('hermiq', 'Could not read this run’s step log.') }}
 							</p>
-							<ol v-else-if="logOf(run).length > 0">
+							<ol v-else-if="logOf(run).length > 0" class="flow-sidebar__run-steps">
+								<!--
+									Each step opens its OWN payload — what that
+									node received and returned, at that point in
+									that run. Reading a run one step at a time is
+									the whole reason to open it.
+								-->
 								<li v-for="(entry, index) in logOf(run)" :key="index">
-									<strong>{{ entry.node || entry.step || '—' }}</strong>
-									· {{ entry.status || '—' }}
-									<span v-if="entry.error" class="flow-sidebar__run-error">{{ entry.error }}</span>
+									<button
+										class="flow-sidebar__run-step"
+										@click="editor.openStepPayload(entry.transition || entry.node || entry.step)">
+										<strong>{{ entry.transition || entry.node || entry.step || '—' }}</strong>
+										<span :class="`flow-sidebar__run-status flow-sidebar__run-status--${entry.status || 'unknown'}`">
+											{{ entry.status || '—' }}
+										</span>
+										<span v-if="entry.error" class="flow-sidebar__run-error">{{ entry.error }}</span>
+									</button>
 								</li>
 							</ol>
 							<p v-else class="flow-sidebar__hint">
 								{{ t('hermiq', 'This run recorded no steps.') }}
 							</p>
+
+							<NcButton type="tertiary" @click="editor.openRunLog(run.uuid || run.id)">
+								{{ t('hermiq', 'Open full log') }}
+							</NcButton>
 						</div>
 					</li>
 				</ul>
@@ -440,6 +470,9 @@ export default {
 			activeTab: 'nodes',
 			// Palette filter. Empty means "show the whole catalogue".
 			nodeSearch: '',
+			// `null` value = every role. Held as an object because NcSelect
+			// binds whole options, and compared on `.value` everywhere.
+			nodeRole: { value: null, label: t('hermiq', 'All types') },
 			// Which palette card is folded open. One at a time: the point of
 			// expanding is to read one description, and several open at once
 			// pushes the rest of the list off the pane.
@@ -449,6 +482,22 @@ export default {
 	},
 
 	computed: {
+		/**
+		 * The type filter's options, in the order a flow is read.
+		 *
+		 * The engine's own vocabulary — trigger / step / end — so the dropdown,
+		 * the palette badges and the node ids all say the same word.
+		 *
+		 * @return {Array<{value: string|null, label: string}>} The options.
+		 */
+		roleOptions() {
+			return [
+				{ value: null, label: this.t('hermiq', 'All types') },
+				{ value: 'trigger', label: this.t('hermiq', 'Triggers') },
+				{ value: 'step', label: this.t('hermiq', 'Steps') },
+				{ value: 'end', label: this.t('hermiq', 'End') },
+			]
+		},
 
 		/**
 		 * How many entry points this flow has.
@@ -512,9 +561,14 @@ export default {
 				role: entry.role || this.editor.roleOfNodeType(entry.id),
 			}))
 
-			const matched = needle === ''
+			const wantedRole = this.nodeRole?.value ?? null
+			const byRole = wantedRole === null
 				? all
-				: all.filter((entry) =>
+				: all.filter((entry) => entry.role === wantedRole)
+
+			const matched = needle === ''
+				? byRole
+				: byRole.filter((entry) =>
 					`${entry.id} ${entry.label} ${entry.description}`.toLowerCase().includes(needle),
 				)
 
@@ -652,6 +706,25 @@ export default {
 				this.activeTab = 'step'
 			}
 		},
+
+		/**
+		 * Load the runs the moment the Runs tab is opened.
+		 *
+		 * A pane whose first state is "press this button" makes the operator do
+		 * the pane's job, and the empty list it shows until they do says nothing
+		 * about the flow — "no runs loaded" and "never ran" are different claims
+		 * and only one is about the flow. Loading on open collapses them.
+		 *
+		 * Guarded on `runs.length` so switching tabs back and forth does not
+		 * refetch; Refresh is there for a deliberate reload.
+		 *
+		 * @param {string} tab The newly active tab id.
+		 */
+		activeTab(tab) {
+			if (tab === 'runs' && this.editor.flow.id && this.editor.runs.length === 0 && !this.editor.runsLoading) {
+				this.editor.loadRuns()
+			}
+		},
 	},
 
 	methods: {
@@ -692,6 +765,75 @@ export default {
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
+		/**
+		 * Open a run: fold out its log AND paint it on the canvas.
+		 *
+		 * Both, from one click. They were separate controls because they are
+		 * separate intents, but nobody wants one without the other — and the
+		 * canvas replay is what makes a step's recorded payload reachable at
+		 * all, since the payload modal reads the REPLAYED run. Split apart, an
+		 * operator who expanded a run and clicked a step's `{}` got nothing.
+		 *
+		 * Clicking the open run closes it and clears the canvas, so the card is
+		 * a toggle rather than a one-way door.
+		 *
+		 * @param {object} run The run.
+		 *
+		 * @return {void}
+		 */
+		async openRun(run) {
+			const id = run.uuid || run.id
+			const closing = this.editor.expandedRunId === id
+
+			if (closing === true) {
+				this.editor.expandedRunId = null
+				if (this.editor.replayRunId === id) {
+					await this.editor.replayRun(id)
+				}
+
+				return
+			}
+
+			await this.editor.toggleRun(id)
+
+			if (this.editor.replayRunId !== id) {
+				await this.editor.replayRun(id)
+			}
+
+			// The LAST word on the card's state, and it has to be: both
+			// `toggleRun` and `replayRun` flip `expandedRunId` — `replayRun`
+			// calls `toggleRun` when it needs to fetch the log — so opening a
+			// card expanded it and the replay immediately collapsed it again.
+			// The canvas lit up while the log the operator had just asked for
+			// vanished. Stating the intended end state removes the ordering
+			// question entirely.
+			this.editor.expandedRunId = id
+		},
+
+		/**
+		 * A one-line summary of what a run did, for the card face.
+		 *
+		 * Step counts rather than a duration: the question a card has to answer
+		 * before it is opened is "did this do anything, and did it finish", and
+		 * a failure count answers it where a timestamp does not.
+		 *
+		 * @param {object} run The run.
+		 *
+		 * @return {string} The summary.
+		 */
+		runSummary(run) {
+			const log = this.logOf(run)
+			if (log.length === 0) {
+				return run.error ? String(run.error).slice(0, 80) : this.t('hermiq', 'No steps recorded')
+			}
+
+			const failed = log.filter((entry) => entry.status === 'failed').length
+
+			return failed > 0
+				? this.n('hermiq', '%n step, 1 failed', '%n steps, {failed} failed', log.length, { failed })
+				: this.n('hermiq', '%n step', '%n steps', log.length)
+		},
+
 		formatWhen(run) {
 			const raw = run.started || run.created || run.updated || ''
 			const when = new Date(raw)
@@ -774,6 +916,94 @@ export default {
 	background-color: var(--color-main-background);
 	color: var(--color-main-text);
 	text-align: start;
+}
+
+/* A card, not a row: the whole thing is the target, because one click both
+   opens the log and paints the run on the canvas. */
+.flow-sidebar__run-card {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	width: 100%;
+	padding: 10px;
+	border: 1px solid var(--color-border);
+	border-radius: var(--border-radius-large);
+	background-color: var(--color-main-background);
+	color: var(--color-main-text);
+	text-align: start;
+	cursor: pointer;
+}
+
+.flow-sidebar__run-card:hover {
+	background-color: var(--color-background-hover);
+}
+
+.flow-sidebar__run-card--open {
+	border-color: var(--color-primary-element);
+}
+
+/* The run that is currently drawn on the canvas. A left accent rather than a
+   fill, so it reads as "this one" without competing with the status pill. */
+.flow-sidebar__run-card--replayed {
+	box-shadow: inset 4px 0 0 0 var(--color-primary-element);
+}
+
+.flow-sidebar__run-card-head {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+}
+
+.flow-sidebar__run-card-meta {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.85em;
+}
+
+.flow-sidebar__run-steps {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Each step is its own target — it opens that node's recorded payload. */
+.flow-sidebar__run-step {
+	display: flex;
+	gap: 6px;
+	align-items: center;
+	width: 100%;
+	padding: 4px 6px;
+	border: none;
+	border-radius: var(--border-radius);
+	background: transparent;
+	color: var(--color-main-text);
+	text-align: start;
+	font-size: 0.9em;
+	cursor: pointer;
+}
+
+.flow-sidebar__run-step:hover {
+	background-color: var(--color-background-hover);
+}
+
+/* Search and type filter share a row: they are one question ("which node?")
+   asked two ways, and stacking them pushed the palette below the fold. */
+.flow-sidebar__palette-filters {
+	display: flex;
+	gap: 8px;
+	align-items: flex-end;
+}
+
+.flow-sidebar__palette-search {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.flow-sidebar__palette-type {
+	flex: 0 0 128px;
+	min-width: 128px;
 }
 
 .flow-sidebar__run-head:hover,

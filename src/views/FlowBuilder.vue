@@ -381,6 +381,20 @@
 				<button role="menuitem" @click="onContextEdit">
 					{{ t('hermiq', 'Edit') }}
 				</button>
+				<!--
+					What this node actually received and returned, in the run
+					being replayed. The recording is per NODE — a run records
+					transitions — so the node is where an operator looks for it,
+					and until now the only way in was the `{}` on a line, which
+					answers for the node the line LEAVES rather than the one you
+					clicked.
+				-->
+				<button
+					v-if="editor.contextMenu.kind === 'node'"
+					role="menuitem"
+					@click="onContextData">
+					{{ t('hermiq', 'View data') }}
+				</button>
 				<button v-if="editor.contextMenu.kind === 'node'" role="menuitem" @click="onContextCopy">
 					{{ t('hermiq', 'Copy') }}
 				</button>
@@ -399,8 +413,8 @@
 			@close="editor.edgeEditOpen = false" />
 
 		<PayloadModal
-			:show="editor.payloadEdgeId !== null"
-			@close="editor.payloadEdgeId = null" />
+			:show="editor.payloadEdgeId !== null || editor.payloadNodeId !== null"
+			@close="editor.payloadEdgeId = null; editor.payloadNodeId = null" />
 
 		<RunLogModal
 			:show="editor.logModalRunId !== null"
@@ -1136,6 +1150,19 @@ export default {
 			this.editor.contextMenu = null
 			if (id) {
 				this.editor.copyNode(id)
+			}
+		},
+
+		/**
+		 * Open what this node received and returned in the replayed run.
+		 *
+		 * @return {void}
+		 */
+		onContextData() {
+			const id = this.editor.contextMenu?.id
+			this.editor.contextMenu = null
+			if (id) {
+				this.editor.openStepPayload(id)
 			}
 		},
 
@@ -1904,8 +1931,23 @@ export default {
 	flex-direction: column;
 	justify-content: center;
 	gap: 2px;
-	width: 100%;
-	height: 100%;
+	/*
+	   FILL the card by positioning, not by `height: 100%`.
+
+	   The canvas sizes a node with `min-height`, not `height` — so the wrapper
+	   has no definite height and a percentage height on the child resolves
+	   against `auto`, which is the child's own content. A node with fewer lines
+	   then came out SHORTER than its card and the white wrapper showed around
+	   it: the container-in-a-container. Measured on the demo flow — a step (3
+	   lines) filled at 76px while a trigger (2 lines, no config summary) sat at
+	   57px inside the same 80px card.
+
+	   It reads as a trigger/end problem because those two rarely carry a config
+	   summary, but the cause is line count, not role. The wrapper is
+	   `position: absolute`, so insetting the child fills it whatever it holds.
+	*/
+	position: absolute;
+	inset: 0;
 	padding: 8px 10px 8px 14px;
 	box-shadow: inset 6px 0 0 0 var(--color-border);
 	box-sizing: border-box;

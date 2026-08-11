@@ -1258,7 +1258,22 @@
         "Use theme colour": "Use theme colour",
         "Package contents": "Package contents",
         "Skill package": "Skill package",
-        "Template package": "Template package"
+        "Template package": "Template package",
+        "%n step": "%n step",
+        "%n step, 1 failed": "%n step, 1 failed",
+        "%n steps, {failed} failed": "%n steps, {failed} failed",
+        "All types": "All types",
+        "No run is open. Choose a run under Runs to see what passed through here.": "No run is open. Choose a run under Runs to see what passed through here.",
+        "No steps recorded": "No steps recorded",
+        "Open full log": "Open full log",
+        "Refresh": "Refresh",
+        "Search nodes": "Search nodes",
+        "Steps": "Steps",
+        "This flow has never run.": "This flow has never run.",
+        "This node did not run in the selected run, so nothing was recorded for it.": "This node did not run in the selected run, so nothing was recorded for it.",
+        "Triggers": "Triggers",
+        "View data": "View data",
+        "What this node received and returned": "What this node received and returned"
     },
     "plurals": ""
 }

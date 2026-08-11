@@ -14,7 +14,7 @@
 			</h2>
 
 			<p v-if="!entry" class="payload__hint">
-				{{ t('hermiq', 'No record for this connection in the selected run.') }}
+				{{ emptyReason }}
 			</p>
 
 			<template v-else>
@@ -99,13 +99,43 @@ export default {
 		 * @return {object|null} The log entry.
 		 */
 		entry() {
-			const edge = (this.editor.edges || []).find((candidate) => candidate.id === this.editor.payloadEdgeId)
 			const detail = this.editor.replayRunId === null ? null : this.editor.runDetail[this.editor.replayRunId]
-			if (!edge || !detail) {
+			if (!detail) {
 				return null
 			}
 
-			return (detail.log || []).find((line) => edge.from.includes(line.transition)) || null
+			// Asked from the NODE: answer for that node directly.
+			const node = this.editor.payloadNodeId
+			if (node) {
+				return (detail.log || []).find((line) => this.namesNode(line, node)) || null
+			}
+
+			// Asked from a LINE: a run records transitions, not edges, so the
+			// payload on a line is the entry of the node it LEAVES.
+			const edge = (this.editor.edges || []).find((candidate) => candidate.id === this.editor.payloadEdgeId)
+			if (!edge) {
+				return null
+			}
+
+			return (detail.log || []).find((line) => this.namesNode(line, edge.from)) || null
+		},
+
+		/**
+		 * Why there is nothing to show, when there is nothing to show.
+		 *
+		 * "No run is open" and "this node did not run" are different answers and
+		 * only the second is about the node. Before this the modal said the same
+		 * blank thing for both, which read as a broken payload rather than a
+		 * missing run.
+		 *
+		 * @return {string} The explanation.
+		 */
+		emptyReason() {
+			if (this.editor.replayRunId === null) {
+				return this.t('hermiq', 'No run is open. Choose a run under Runs to see what passed through here.')
+			}
+
+			return this.t('hermiq', 'This node did not run in the selected run, so nothing was recorded for it.')
 		},
 
 		/**
@@ -114,13 +144,36 @@ export default {
 		 * @return {string} The heading.
 		 */
 		heading() {
-			return this.t('hermiq', 'What passed along this connection')
+			return this.editor.payloadNodeId
+				? this.t('hermiq', 'What this node received and returned')
+				: this.t('hermiq', 'What passed along this connection')
 		},
 	},
 
 	methods: {
 		t,
 		n,
+
+		/**
+		 * Whether a log line is the one for this node.
+		 *
+		 * EXACT match on the recorded transition, never `includes()`. A node id
+		 * is a free-form string, so a substring test makes `end1` match a line
+		 * recorded for `end11` — and it matched the wrong step silently, which
+		 * is worse than matching none.
+		 *
+		 * @param {object} line   The log line.
+		 * @param {string} nodeId The node id.
+		 *
+		 * @return {boolean} Whether the line records that node.
+		 */
+		namesNode(line, nodeId) {
+			const id = String(nodeId || '')
+
+			return String(line.transition || '') === id
+				|| String(line.node || '') === id
+				|| String(line.step || '') === id
+		},
 
 		/**
 		 * Format a payload envelope for reading.
