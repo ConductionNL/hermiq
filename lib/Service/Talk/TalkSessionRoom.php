@@ -311,7 +311,7 @@ class TalkSessionRoom
      *
      * @return bool True when a room was renamed.
      *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-renaming-a-session-renames-the-room-it-owns
+     * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-renaming-a-session-renames-its-room
      */
     public function renameIfOwned(array $session): bool
     {
@@ -338,7 +338,7 @@ class TalkSessionRoom
      *
      * @return bool True when the room was renamed.
      *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-renaming-a-session-renames-the-room-it-owns
+     * @spec openspec/specs/talk-agent-sessions/spec.md#requirement-renaming-a-session-renames-its-room
      */
     public function renameRoom(string $roomToken, string $title): bool
     {

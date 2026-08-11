@@ -1513,7 +1513,7 @@ class ScheduleServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testBudgetHardCapSkipsRun(): void
     {
@@ -1567,7 +1567,7 @@ class ScheduleServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testBudgetHardCapOverridesApprovalBypass(): void
     {
@@ -1617,7 +1617,7 @@ class ScheduleServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testBudgetSoftThresholdCheckRunsEveryDispatch(): void
     {
@@ -1827,7 +1827,7 @@ class ScheduleServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testEngineFlagOnCapturesToolStepsFromCollector(): void
     {
@@ -1909,7 +1909,7 @@ class ScheduleServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testOrChatServicePathCapturesCoarseStepsOnly(): void
     {
@@ -1966,7 +1966,7 @@ class ScheduleServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testMissingTimingsOmitsCoarseStepsWithoutFabrication(): void
     {
@@ -2007,7 +2007,7 @@ class ScheduleServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-3-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testDeliveryFailureRecordsErrorStepButRunStaysOk(): void
     {

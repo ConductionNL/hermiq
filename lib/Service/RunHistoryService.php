@@ -254,7 +254,7 @@ class RunHistoryService
      *
      * @return array<string, mixed>|null The synthesised step, or null when none applies.
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     private function reconstructGateWait(array $logs, int $targetIndex, array $targetContext): ?array
     {
@@ -322,7 +322,7 @@ class RunHistoryService
      *
      * @return array<int, array<string, mixed>> The renumbered steps.
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     private function renumberSteps(array $steps): array
     {
@@ -345,7 +345,7 @@ class RunHistoryService
      *
      * @return bool True when at least one step has `type === 'tool'`.
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-4-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     private function hasToolStep(array $steps): bool
     {

@@ -23,7 +23,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-1-websearchsettingshandler--hermiqwebresearch-config-shape
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
 
 declare(strict_types=1);
@@ -37,7 +37,7 @@ use RuntimeException;
 /**
  * Handler for the `hermiq.webResearch` IAppConfig key.
  *
- * @spec openspec/changes/web-research-tool/tasks.md#task-1-websearchsettingshandler--hermiqwebresearch-config-shape
+ * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
 class WebResearchSettingsHandler
 {
@@ -72,7 +72,7 @@ class WebResearchSettingsHandler
      *
      * @throws RuntimeException If the stored config cannot be decoded.
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-1-websearchsettingshandler--hermiqwebresearch-config-shape
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     public function getWebResearchSettingsOnly(): array
     {
@@ -105,7 +105,7 @@ class WebResearchSettingsHandler
      *
      * @throws RuntimeException If persisting fails.
      *
-     * @spec openspec/changes/web-research-tool/tasks.md#task-1-websearchsettingshandler--hermiqwebresearch-config-shape
+     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
      */
     public function updateWebResearchSettingsOnly(array $data): array
     {

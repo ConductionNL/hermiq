@@ -77,7 +77,7 @@ class AgentVersionController extends Controller
      * @param IUserSession        $userSession         Resolves the requesting user.
      * @param LoggerInterface     $logger              PSR-3 logger.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-2-1
+     * @spec openspec/specs/agent-versioning/spec.md
      */
     public function __construct(
         IRequest $request,
@@ -99,8 +99,7 @@ class AgentVersionController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-2-2
-     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
      */
     public function index(string $id): JSONResponse
     {
@@ -134,8 +133,7 @@ class AgentVersionController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-2-2
-     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
      */
     public function diff(string $id): JSONResponse
     {
@@ -176,8 +174,7 @@ class AgentVersionController extends Controller
      * @NoAdminRequired
      * @NoCSRFRequired
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-2-2
-     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
      */
     public function rollback(string $id, string $versionId): JSONResponse
     {
@@ -223,7 +220,7 @@ class AgentVersionController extends Controller
      *
      * @return ObjectEntity|null The accessible agent, or null.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-2-2
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
      */
     private function loadAccessibleAgent(string $id, string $userId): ?ObjectEntity
     {
@@ -254,7 +251,7 @@ class AgentVersionController extends Controller
      *
      * @return bool True when the user may access the agent's version history.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-2-2
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
      */
     private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool
     {
@@ -287,7 +284,7 @@ class AgentVersionController extends Controller
      *
      * @return bool True when the user may roll back the agent.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-2-2
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
      */
     private function canUserModifyAgent(ObjectEntity $agent, string $userId): bool
     {
@@ -303,7 +300,7 @@ class AgentVersionController extends Controller
      *
      * @return array<string, mixed> Serialized agent.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-2-2
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
      */
     private function serializeAgent(ObjectEntity $agent): array
     {

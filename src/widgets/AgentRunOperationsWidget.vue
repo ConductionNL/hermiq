@@ -22,7 +22,7 @@
   AgentRunHistoryWidget reloads its run list without a bespoke sibling
   channel.
 
-  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-006-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
+  @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 -->
 <template>
 	<div class="agent-run-ops-widget">

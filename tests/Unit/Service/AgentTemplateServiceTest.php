@@ -300,7 +300,7 @@ class AgentTemplateServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-3-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
      */
     public function testImportPackageQuarantinesForOrgSource(): void
     {
@@ -324,7 +324,7 @@ class AgentTemplateServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-3-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-importing-a-template-from-an-external-source-lands-quarantined-and-content-scanned
      */
     public function testImportPackageActiveForLocalSource(): void
     {
@@ -372,7 +372,7 @@ class AgentTemplateServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-3-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-approving-a-quarantined-template-requires-action-authorization
      */
     public function testApproveActivatesQuarantined(): void
     {

@@ -154,7 +154,7 @@ class ComplianceControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
      */
     public function testDashboardRefusesUnauthorizedWith403(): void
     {
@@ -194,7 +194,7 @@ class ComplianceControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
      */
     public function testExportRefusesUnauthorizedWith403(): void
     {
@@ -213,7 +213,7 @@ class ComplianceControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-the-auditors-pack-export-extends-the-existing-art-12-export
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-auditors-pack-export-extends-the-existing-art-12-export
      */
     public function testExportReturnsAuditorPack(): void
     {
@@ -256,7 +256,7 @@ class ComplianceControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
      */
     public function testFactsheetRefusesNonOwnerNonAuthorizedWith404(): void
     {
@@ -284,7 +284,7 @@ class ComplianceControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
      */
     public function testFactsheetReturnedToOwner(): void
     {
@@ -313,7 +313,7 @@ class ComplianceControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
+     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
      */
     public function testFactsheetReturnedToAuthorizedNonOwner(): void
     {

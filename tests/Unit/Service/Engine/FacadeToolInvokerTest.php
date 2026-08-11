@@ -51,7 +51,7 @@ class FacadeToolInvokerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testSuccessfulCallRecordsOkStep(): void
     {
@@ -81,7 +81,7 @@ class FacadeToolInvokerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testErrorResultRecordsErrorStep(): void
     {
@@ -110,7 +110,7 @@ class FacadeToolInvokerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testCollectorAndChannelBothRecordTheSameCall(): void
     {
@@ -146,7 +146,7 @@ class FacadeToolInvokerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testNoCollectorIsANoOp(): void
     {

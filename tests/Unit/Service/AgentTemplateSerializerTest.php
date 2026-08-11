@@ -43,7 +43,7 @@ class AgentTemplateSerializerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function testToPackageEmitsOnlyPortableFields(): void
     {
@@ -95,7 +95,7 @@ class AgentTemplateSerializerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function testRoundTripReproducesFields(): void
     {
@@ -137,7 +137,7 @@ class AgentTemplateSerializerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-1
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
      */
     public function testFromPackageToleratesMissingFields(): void
     {

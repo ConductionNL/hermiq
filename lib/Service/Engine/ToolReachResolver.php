@@ -189,7 +189,7 @@ class ToolReachResolver
      *
      * @return int The rank, or -1.
      *
-     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-reach-is-a-closed-ordered-vocabulary
+     * @spec openspec/specs/agent-capability-reach/spec.md#requirement-every-tool-descriptor-declares-a-reach-on-a-closed-ordered-vocabulary
      */
     public static function rank(string $reach): int
     {
@@ -214,7 +214,7 @@ class ToolReachResolver
      *
      * @return bool True when $reach >= $threshold in the total order.
      *
-     * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-reach-is-a-closed-ordered-vocabulary
+     * @spec openspec/specs/agent-capability-reach/spec.md#requirement-every-tool-descriptor-declares-a-reach-on-a-closed-ordered-vocabulary
      */
     public static function atLeast(string $reach, string $threshold): bool
     {

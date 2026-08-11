@@ -126,7 +126,7 @@ class AgentVersionService
      *                                           rollback's read) and persists a rollback via
      *                                           the single write-path.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-1
+     * @spec openspec/specs/agent-versioning/spec.md
      */
     public function __construct(
         private readonly AuditTrailMapper $auditTrailMapper,
@@ -142,8 +142,7 @@ class AgentVersionService
      * @return array<int, array<string, mixed>> The versions (id, timestamp, user,
      *         action, changedFields), newest-first.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-2
-     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
      */
     public function listVersions(string $agentUuid): array
     {
@@ -169,8 +168,7 @@ class AgentVersionService
      *
      * @throws RuntimeException When either version id is unknown for this agent.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-3
-     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
      */
     public function diff(string $agentUuid, string $fromId, string $toId): array
     {
@@ -224,8 +222,7 @@ class AgentVersionService
      * @throws RuntimeException When the version id is unknown, or the agent
      *                          cannot be resolved.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-4
-     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
      */
     public function rollback(string $agentUuid, string $versionId): ObjectEntity
     {
@@ -271,8 +268,7 @@ class AgentVersionService
      *
      * @return string|null The newest version's AuditTrail entry UUID, or null.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-5
-     * @spec openspec/changes/agent-versioning/specs/agent-versioning/spec.md#requirement-a-runs-audit-entry-pins-the-exact-agent-version-that-executed-it
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-a-runs-audit-entry-pins-the-exact-agent-version-that-executed-it
      */
     public function currentVersionId(string $agentUuid): ?string
     {
@@ -302,7 +298,7 @@ class AgentVersionService
      *
      * @return array<int, AuditTrail> The version entries, newest-first.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-2
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
      */
     private function fetchVersionEntries(string $agentUuid): array
     {
@@ -349,7 +345,7 @@ class AgentVersionService
      *
      * @return int|null The entry's index, or null when not found.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-3
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
      */
     private function findEntryIndex(array $entries, string $versionId): ?int
     {
@@ -379,7 +375,7 @@ class AgentVersionService
      *
      * @return array<string, mixed> The reconstructed allowlisted field values.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-3
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
      */
     private function reconstructAsOf(array $entries, int $targetIndex, array $liveData): array
     {
@@ -413,7 +409,7 @@ class AgentVersionService
      *
      * @throws RuntimeException When the agent cannot be resolved.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-3
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
      */
     private function liveAgentData(string $agentUuid): array
     {
@@ -437,7 +433,7 @@ class AgentVersionService
      *
      * @return array<string, mixed> The version record.
      *
-     * @spec openspec/changes/agent-versioning/tasks.md#task-1-2
+     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
      */
     private function toVersionRecord(AuditTrail $entry): array
     {

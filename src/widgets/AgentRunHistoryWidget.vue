@@ -20,7 +20,7 @@
   here (rather than in the sibling's dry-run preview panel) — each widget
   renders the result of its OWN triggered action.
 
-  @spec openspec/changes/manifest-driven-pages/specs/manifest-driven-pages/spec.md#req-007-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
+  @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 -->
 <template>
 	<div class="agent-run-history-widget">

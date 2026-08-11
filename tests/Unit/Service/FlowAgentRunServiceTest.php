@@ -390,7 +390,7 @@ class FlowAgentRunServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testBudgetHardCapHaltsRunBeforeAgent(): void
     {
@@ -427,7 +427,7 @@ class FlowAgentRunServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testBudgetHardCapOverridesApprovalBypass(): void
     {
@@ -464,7 +464,7 @@ class FlowAgentRunServiceTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cost-guardrails/tasks.md#task-3-1
+     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
      */
     public function testBudgetSoftThresholdCheckFailureNeverBlocksRun(): void
     {

@@ -575,7 +575,7 @@ class EngineTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testProcessMessageThreadsCollectorAndOrdersStepsByCompletion(): void
     {
@@ -666,7 +666,7 @@ class EngineTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function testProcessMessageWithoutCollectorReturnsEmptySteps(): void
     {

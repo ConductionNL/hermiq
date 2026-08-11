@@ -454,7 +454,7 @@ class ChatStreamControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-grant-set-that-resolves-to-no-tools-fails-loudly
+     * @spec openspec/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
      */
     public function testUnresolvedToolGrantsErrorIsSurfacedToTheUserNotMasked(): void
     {

@@ -465,7 +465,7 @@ class TalkBotInvokeListener implements IEventListener
      *
      * @return bool True when the agent should take the turn.
      *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-room-it-did-not-create
+     * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
      */
     private function isAddressed(array $payload, string $roomToken, string $agentId): bool
     {

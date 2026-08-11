@@ -146,7 +146,7 @@ class ResponseGenerationHandler
      * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
      * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
      * @spec openspec/changes/agent-context-system/tasks.md#task-3-2
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-2-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      * @spec openspec/changes/run-replay-and-dry-run/tasks.md#task-3-thread-dryrun-through-toolloop-engine-and-responsegenerationhandler
      */
     public function generateResponse(

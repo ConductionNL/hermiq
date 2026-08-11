@@ -99,7 +99,7 @@ class RunTraceCollector
      *
      * @return int An opaque token to pass to `endStep()`.
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function startStep(string $type, string $name): int
     {
@@ -138,7 +138,7 @@ class RunTraceCollector
      *
      * @return void
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
      */
     public function endStep(int $token, string $outcome, array $extra=[]): void
@@ -174,7 +174,7 @@ class RunTraceCollector
      * @return array<int, array{seq: int, type: string, name: string, startedAt: string,
      *     endedAt: string, durationMs: int, outcome: string, ...<string, mixed>}>
      *
-     * @spec openspec/changes/run-trace-observability/tasks.md#task-1-1
+     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
      */
     public function toArray(): array
     {

@@ -155,7 +155,7 @@ class ScheduleWebhookSecretControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-non-owner-cannot-manage-another-owners-schedule-webhook-secret
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
      */
     public function testNonOwnerGets404OnEveryEndpoint(): void
     {
@@ -178,7 +178,7 @@ class ScheduleWebhookSecretControllerTest extends TestCase
      *
      * @return void
      *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-non-owner-cannot-manage-another-owners-schedule-webhook-secret
+     * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
      */
     public function testUnknownScheduleGets404(): void
     {

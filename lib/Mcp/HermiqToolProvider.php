@@ -84,7 +84,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/nc-native-tools/tasks.md#1-ncnativetoolprovider
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-nc-native-capabilities-registered-as-imcptoolprovider-tools
  */
 
 declare(strict_types=1);
@@ -136,7 +136,7 @@ use Throwable;
  * exists there: a missing parent fails at autoload, not at compile, so the
  * damage shows up as an empty tool catalogue rather than a fatal.
  *
- * @spec openspec/changes/nc-native-tools/tasks.md#1-ncnativetoolprovider
+ * @spec openspec/specs/nc-native-tools/spec.md#requirement-nc-native-capabilities-registered-as-imcptoolprovider-tools
  */
 class HermiqToolProvider implements IMcpToolProvider
 {
