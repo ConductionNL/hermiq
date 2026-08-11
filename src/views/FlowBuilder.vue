@@ -5,69 +5,6 @@
 
 <template>
 	<div class="flow-builder">
-		<!--
-			The flow's VERBS, on the canvas rather than three tabs deep in the
-			sidebar. Save, Run and Check are what an author does to the thing in
-			front of them, and they were reachable only from the Flow tab — so
-			the two most-used actions on the page were invisible from the page.
-			Top-left, opposite the zoom group, over the canvas's own margin where
-			no node is placed by auto-sort.
-		-->
-		<!--
-			The hover preview for a connection's `{}`. In VIEWPORT coordinates,
-			like the context menu and for the same reason: it is anchored to
-			where the pointer is, and anchoring it to the canvas would move it
-			the moment the canvas is panned or zoomed.
-
-			`aria-hidden`: the same payload is reachable by activating the `{}`,
-			which is the accessible path — announcing a hover card would read the
-			JSON twice to a screen reader.
-		-->
-		<div
-			v-if="hoverPayload"
-			class="flow-builder__payload-preview"
-			aria-hidden="true"
-			:style="{ left: `${hoverPayload.x}px`, top: `${hoverPayload.y}px` }">
-			<span class="flow-builder__payload-preview-head">
-				{{ t('hermiq', 'What {node} received', { node: hoverPayload.node }) }}
-			</span>
-			<pre class="flow-builder__payload-preview-json">{{ hoverPayload.json }}</pre>
-		</div>
-
-		<div class="flow-builder__verbs" role="group" :aria-label="t('hermiq', 'Flow actions')">
-			<NcButton
-				type="primary"
-				:disabled="editor.saving || !editor.flow.name"
-				@click="onSave">
-				<template #icon>
-					<NcLoadingIcon v-if="editor.saving" :size="20" />
-					<ContentSave v-else :size="20" />
-				</template>
-				{{ t('hermiq', 'Save') }}
-			</NcButton>
-			<NcButton type="secondary" :disabled="!editor.flow.id" @click="editor.showRun = true">
-				<template #icon>
-					<Play :size="20" />
-				</template>
-				{{ t('hermiq', 'Run…') }}
-			</NcButton>
-			<NcButton type="secondary" @click="editor.validate()">
-				<template #icon>
-					<CheckDecagram :size="20" />
-				</template>
-				{{ t('hermiq', 'Check') }}
-			</NcButton>
-			<NcButton
-				type="secondary"
-				:disabled="editor.nodes.length === 0"
-				:aria-label="t('hermiq', 'Auto sort')"
-				@click="editor.autoSort()">
-				<template #icon>
-					<SortVariant :size="20" />
-				</template>
-			</NcButton>
-		</div>
-
 		<CnGraphCanvas
 			ref="graph"
 			:nodes="nodesWithPorts"
@@ -323,7 +260,70 @@
 		     the keyboard (WCAG 2.1 AA 2.1.1). The reset is not a nicety either:
 		     zoom has no floor at 1, so without it a canvas zoomed out is
 		     laborious to bring back. -->
+		<!--
+			The hover preview for a connection's `{}`. In VIEWPORT coordinates,
+			like the context menu and for the same reason: it is anchored to
+			where the pointer is, and anchoring it to the canvas would move it
+			the moment the canvas is panned or zoomed.
+
+			`aria-hidden`: the same payload is reachable by activating the `{}`,
+			which is the accessible path — announcing a hover card would read the
+			JSON twice to a screen reader.
+		-->
+		<div
+			v-if="hoverPayload"
+			class="flow-builder__payload-preview"
+			aria-hidden="true"
+			:style="{ left: `${hoverPayload.x}px`, top: `${hoverPayload.y}px` }">
+			<span class="flow-builder__payload-preview-head">
+				{{ t('hermiq', 'What {node} received', { node: hoverPayload.node }) }}
+			</span>
+			<pre class="flow-builder__payload-preview-json">{{ hoverPayload.json }}</pre>
+		</div>
+
 		<div class="flow-builder__controls">
+			<!--
+				The flow's VERBS, on the canvas rather than three tabs deep in the
+				sidebar. Save, Run and Check are what an author does to the thing in
+				front of them, and they were reachable only from the Flow tab — so
+				the two most-used actions on the page were invisible from the page.
+				Beside the zoom cluster: both are canvas controls, and the top-right
+				is the corner auto-sort never lays a node into.
+			-->
+			<div class="flow-builder__verbs" role="group" :aria-label="t('hermiq', 'Flow actions')">
+				<NcButton
+					type="primary"
+					:disabled="editor.saving || !editor.flow.name"
+					@click="onSave">
+					<template #icon>
+						<NcLoadingIcon v-if="editor.saving" :size="20" />
+						<ContentSave v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Save') }}
+				</NcButton>
+				<NcButton type="secondary" :disabled="!editor.flow.id" @click="editor.showRun = true">
+					<template #icon>
+						<Play :size="20" />
+					</template>
+					{{ t('hermiq', 'Run…') }}
+				</NcButton>
+				<NcButton type="secondary" @click="editor.validate()">
+					<template #icon>
+						<CheckDecagram :size="20" />
+					</template>
+					{{ t('hermiq', 'Check') }}
+				</NcButton>
+				<NcButton
+					type="secondary"
+					:disabled="editor.nodes.length === 0"
+					:aria-label="t('hermiq', 'Auto sort')"
+					@click="editor.autoSort()">
+					<template #icon>
+						<SortVariant :size="20" />
+					</template>
+				</NcButton>
+			</div>
+
 			<div class="flow-builder__zoom" role="group" :aria-label="t('hermiq', 'Zoom')">
 				<NcButton
 					type="secondary"
@@ -1892,20 +1892,10 @@ export default {
 <style scoped>
 .flow-builder {
 	position: relative;
-	display: flex;
-	flex-direction: column;
 	height: 100%;
 	min-height: 0;
 	/* Clip so a node dragged past the edge can't paint over neighbouring chrome. */
 	overflow: hidden;
-}
-
-/* The canvas takes whatever the verb band leaves. `min-height: 0` because a
-   flex child's default `min-height: auto` refuses to shrink below its content,
-   which on a tall graph pushed the band off the top of the page. */
-.flow-builder > .cn-graph-canvas {
-	flex: 1 1 auto;
-	min-height: 0;
 }
 
 /* Marker definitions only — never painted itself. */
@@ -1964,26 +1954,23 @@ export default {
 	white-space: pre;
 }
 
-/* A BAND above the drawing, not a card floating on it.
+/* The same floating card as the zoom cluster, beside it. Both are canvas
+   controls, so they read as one control strip rather than two conventions.
 
-   Floating was the first attempt and it covered a node: measured on the demo
-   flow, the bar sat at 321,62 and the first node's rect intersected it, so the
-   node could not be clicked at all. A toolbar that eats clicks on the thing it
-   is a toolbar FOR is worse than one that is hard to find.
-
-   In the flow, so it takes its own height off the canvas rather than sharing
-   space with it — the graph area is what remains below. Still over the graph
-   area visually, which is what made the sidebar's copy invisible. */
+   Floating in the TOP-RIGHT rather than the top-left, which matters: the first
+   attempt floated top-left and covered a node — measured, the bar sat at 321,62
+   and the first node's rect intersected it, so that node could not be clicked
+   at all. Auto-sort lays a flow out from the top-LEFT, so that corner is the
+   one place a node is guaranteed to be; the right-hand corner is where the
+   canvas already keeps its own controls for the same reason. */
 .flow-builder__verbs {
-	position: relative;
-	z-index: 2;
 	display: flex;
-	flex: 0 0 auto;
-	gap: 6px;
+	gap: 4px;
 	align-items: center;
-	padding: 8px 12px;
-	border-block-end: 1px solid var(--color-border);
+	padding: 4px;
+	border-radius: var(--border-radius-large, 8px);
 	background-color: var(--color-main-background);
+	box-shadow: 0 1px 4px var(--color-box-shadow, rgba(0, 0, 0, 0.2));
 }
 
 .flow-builder__zoom {
