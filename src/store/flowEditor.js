@@ -1619,14 +1619,22 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				}
 				: {}
 
-			const queued = await runFlow(this.flow.id, payload)
+			// Synchronous: the response IS the finished run, log and all, so
+			// the canvas can colour its nodes immediately. Asynchronously this
+			// returned `status: queued` with no log, and the read-back below
+			// raced the worker — on a dev stack with no cron running it never
+			// won, so pressing Run appeared to do nothing.
+			const finished = await runFlow(this.flow.id, payload)
 
-			this.lastRun = queued
-			if (queued?.uuid) {
+			this.lastRun = finished
+			if (finished?.uuid && !Array.isArray(finished?.log)) {
+				// Only when the server answered without a trace (an async run,
+				// or an older backend that ignores `sync`). Then, and only then,
+				// is a read-back worth a request.
 				try {
-					this.lastRun = await getFlowRun(queued.uuid)
+					this.lastRun = await getFlowRun(finished.uuid)
 				} catch (e) {
-					// The queued run is still a real result; a failed read-back
+					// The run itself is still a real result; a failed read-back
 					// only costs the log.
 				}
 			}

@@ -103,21 +103,29 @@ export async function updateFlow(id, flow) {
 }
 
 /**
- * Queue a run of a saved flow.
+ * Run a saved flow.
  *
- * Returns the queued FlowRun, NOT a finished trace: the engine runs flows
- * asynchronously by default (`executionMode`), so the run has a `uuid` and a
- * `status` long before it has a `log`. Callers poll `getFlowRun`.
+ * SYNCHRONOUS by default, because this is the path a person takes: they press
+ * Run and expect to see what happened. Asynchronously the response carries a
+ * `uuid` and `status: queued` and no `log` at all, so the editor could only
+ * show "queued" and start polling — and on an instance whose cron is not
+ * running (every dev stack, `backgroundjobs_mode=cron` with nothing calling
+ * cron.php) that poll never resolves, which reads as a broken engine rather
+ * than an absent scheduler.
  *
- * @param {string} id      The flow uuid.
- * @param {object} subject `{uuid, register, schema}` the run walks against.
- * @param {object} context Extra context seeded onto the run.
+ * Pass `sync = false` for fire-and-forget, where the caller genuinely does not
+ * want to hold the request open for the length of an arbitrary graph.
  *
- * @return {Promise<object>} The queued run.
+ * @param {string}  id      The flow uuid.
+ * @param {object}  subject `{uuid, register, schema}` the run walks against.
+ * @param {object}  context Extra context seeded onto the run.
+ * @param {boolean} sync    Wait for the run and return the finished trace.
+ *
+ * @return {Promise<object>} The finished run when sync, else the queued run.
  */
-export async function runFlow(id, subject = {}, context = {}) {
+export async function runFlow(id, subject = {}, context = {}, sync = true) {
 	const url = generateUrl('/apps/openregister/api/flows/{id}/run', { id })
-	const response = await axios.post(url, { subject, context })
+	const response = await axios.post(url, { subject, context, sync })
 
 	return response.data
 }
