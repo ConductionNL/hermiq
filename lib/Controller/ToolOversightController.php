@@ -595,7 +595,21 @@ class ToolOversightController extends Controller
      */
     private function findAgent(string $agentId): ?ObjectEntity
     {
-        $agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+        try {
+            $agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+        } catch (Throwable $e) {
+            // `ObjectService::find()` throws when the object is absent, and
+            // `toolCatalog()`/`updateToolGrants()` call this helper OUTSIDE their
+            // own try block — so the throw would escape as a framework 500 with a
+            // stack trace on a #[NoAdminRequired] route. An agent that cannot be
+            // loaded is, to a caller, not found; null already carries that.
+            $this->logger->warning(
+                'Hermiq agent lookup failed for '.$agentId.': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return null;
+        }//end try
+
         if (($agent instanceof ObjectEntity) === false) {
             return null;
         }

@@ -464,7 +464,20 @@ class McpRunController extends Controller
             return null;
         }
 
-        $agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+        try {
+            $agent = $this->objectService->find(id: $agentId, register: self::REGISTER_SLUG, schema: self::AGENT_SCHEMA);
+        } catch (Throwable $e) {
+            // `ObjectService::find()` throws when the object is absent, and both
+            // callers invoke this helper OUTSIDE their own try block — so the
+            // throw would escape as a framework 500 with a stack trace. An agent
+            // that cannot be loaded is, to a caller, unreadable, which is exactly
+            // what this helper's null already means.
+            $this->logger->warning(
+                'Hermiq MCP agent lookup failed for '.$agentId.': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return null;
+        }//end try
 
         if ($agent instanceof ObjectEntity) {
             return $agent;
