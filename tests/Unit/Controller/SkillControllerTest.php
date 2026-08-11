@@ -30,8 +30,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\SkillController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillBundleInstaller;
 use OCA\Hermiq\Service\SkillIdentityResolver;
 use OCA\Hermiq\Service\SkillBundleSerializer;
@@ -39,7 +41,9 @@ use OCA\Hermiq\Service\SkillMarketplaceService;
 use OCA\Hermiq\Service\SkillSerializer;
 use OCA\Hermiq\Service\SkillService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -120,6 +124,7 @@ class SkillControllerTest extends TestCase
      * @param SkillService|null                  $skillService An optional SkillService mock.
      * @param GitHubTemplateCatalogService|null  $catalog      An optional GitHub catalog service mock.
      * @param SkillMarketplaceService|null       $marketplace  An optional marketplace service mock.
+     * @param ObjectEntity|null                  $agent        The agent the install/uninstall guard resolves.
      *
      * @return SkillController
      */
@@ -130,7 +135,8 @@ class SkillControllerTest extends TestCase
         ?GitHubTemplateCatalogService $catalog=null,
         ?SkillMarketplaceService $marketplace=null,
         ?SkillBundleSerializer $bundle=null,
-        ?GitHubTemplatePushService $push=null
+        ?GitHubTemplatePushService $push=null,
+        ?ObjectEntity $agent=null
     ): SkillController {
         $catalog     = ($catalog ?? $this->createMock(GitHubTemplateCatalogService::class));
         $marketplace = ($marketplace ?? $this->createMock(SkillMarketplaceService::class));
@@ -156,10 +162,47 @@ class SkillControllerTest extends TestCase
                 $marketplace,
                 new SkillIdentityResolver(),
                 $this->createMock(LoggerInterface::class)
-            )
+            ),
+            // REAL guards over mocked lookups: the predicates under test are the
+            // production ones, not doubles shaped to what the caller expects.
+            new SeedCustodyService($this->createMock(IGroupManager::class)),
+            $this->agentAccess(($agent ?? $this->agent('alice')))
         );
 
     }//end controller()
+
+    /**
+     * An Agent ObjectEntity with the given owner and privacy.
+     *
+     * @param string $owner     The owning uid.
+     * @param bool   $isPrivate Whether the agent is private.
+     *
+     * @return ObjectEntity
+     */
+    private function agent(string $owner='alice', bool $isPrivate=true): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid('agent-1');
+        $entity->setOwner($owner);
+        $entity->setObject(['isPrivate' => $isPrivate, 'invitedUsers' => []]);
+        return $entity;
+
+    }//end agent()
+
+    /**
+     * A REAL AgentAccessService over an ObjectService mock resolving to $agent.
+     *
+     * @param ObjectEntity|null $agent The agent the lookup resolves to, or null.
+     *
+     * @return AgentAccessService
+     */
+    private function agentAccess(?ObjectEntity $agent): AgentAccessService
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($agent);
+        return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+
+    }//end agentAccess()
 
     /**
      * githubSearch() returns 401 for an unauthenticated caller, never reaching the catalog service.
@@ -602,4 +645,176 @@ class SkillControllerTest extends TestCase
         $this->assertSame('cap_reached', $byName['beta-skill']['reason']);
 
     }//end testDroppedSkillsAreNotReportedAsPublished()
+
+    /**
+     * A Skill ObjectEntity owned by the given uid.
+     *
+     * @param string $owner The owning uid.
+     *
+     * @return ObjectEntity
+     */
+    private function ownedSkill(string $owner): ObjectEntity
+    {
+        $entity = $this->skill('active');
+        $entity->setOwner($owner);
+        return $entity;
+
+    }//end ownedSkill()
+
+    /**
+     * 🔴 IDOR (hermiq#187), the worst of the set: `PUT /api/skills/{id}` rewrote
+     * ANY user's skill. A skill body is folded into the system-prompt preamble of
+     * every run of every agent that installed it, so this is persistent fan-out
+     * prompt injection, not a one-shot write. Owner-guarded now — 404, and
+     * `updateSkill()` is never reached.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+     */
+    public function testUpdateIsRefusedForANonOwner(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('getSkill')->willReturn($this->ownedSkill('alice'));
+        $skillService->expects($this->never())->method('updateSkill');
+
+        $response = $this->controller($this->session('mallory'), $this->request(['description' => 'POISONED']), $skillService)
+            ->update('skill-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testUpdateIsRefusedForANonOwner()
+
+    /**
+     * POSITIVE CONTROL for the guard above: the skill's OWNER still updates it.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-maturitylevel-and-computed-evidence-are-never-client-writable
+     */
+    public function testOwnerCanStillUpdateTheirSkill(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('getSkill')->willReturn($this->ownedSkill('alice'));
+        $skillService->method('updateSkill')->willReturn($this->ownedSkill('alice'));
+
+        $response = $this->controller($this->session('alice'), $this->request(['description' => 'a legitimate edit']), $skillService)
+            ->update('skill-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+    }//end testOwnerCanStillUpdateTheirSkill()
+
+    /**
+     * IDOR (hermiq#187): install is guarded on the AGENT, not the skill —
+     * installing a colleague's published skill onto MY agent is the point of an
+     * org-readable catalog; installing anything onto SOMEBODY ELSE'S agent is the
+     * attack. A non-owner of the target agent gets 404 and never reaches the
+     * service.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skills-catalog/spec.md#requirement-browse-and-install-skills-into-an-agent
+     */
+    public function testInstallIsRefusedForAForeignAgent(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->expects($this->never())->method('installOnAgent');
+
+        $response = $this->controller(
+            $this->session('mallory'),
+            $this->request(['agentId' => 'agent-1']),
+            $skillService,
+            null,
+            null,
+            null,
+            null,
+            $this->agent('alice', false)
+        )->install('skill-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testInstallIsRefusedForAForeignAgent()
+
+    /**
+     * POSITIVE CONTROL: a caller may install a skill they do NOT own onto an
+     * agent they DO own — the guard must not close the org-readable catalog.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skills-catalog/spec.md#requirement-browse-and-install-skills-into-an-agent
+     */
+    public function testInstallOfAForeignSkillOntoOwnAgentIsAllowed(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('installOnAgent')->willReturn($this->ownedSkill('alice'));
+
+        $response = $this->controller(
+            $this->session('bob'),
+            $this->request(['agentId' => 'agent-1']),
+            $skillService,
+            null,
+            null,
+            null,
+            null,
+            $this->agent('bob', true)
+        )->install('skill-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+    }//end testInstallOfAForeignSkillOntoOwnAgentIsAllowed()
+
+    /**
+     * IDOR (hermiq#187): detaching a skill from somebody else's agent is refused.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    public function testUninstallIsRefusedForAForeignAgent(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->expects($this->never())->method('uninstallFromAgent');
+
+        $response = $this->controller(
+            $this->session('mallory'),
+            null,
+            $skillService,
+            null,
+            null,
+            null,
+            null,
+            $this->agent('alice', false)
+        )->uninstall('skill-1', 'agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testUninstallIsRefusedForAForeignAgent()
+
+    /**
+     * POSITIVE CONTROL: the agent's owner still detaches a skill from it.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    public function testOwnerCanStillUninstallFromTheirAgent(): void
+    {
+        $skillService = $this->createMock(SkillService::class);
+        $skillService->method('uninstallFromAgent')->willReturn($this->ownedSkill('alice'));
+
+        $response = $this->controller(
+            $this->session('alice'),
+            null,
+            $skillService,
+            null,
+            null,
+            null,
+            null,
+            $this->agent('alice', true)
+        )->uninstall('skill-1', 'agent-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+    }//end testOwnerCanStillUninstallFromTheirAgent()
 }//end class

@@ -8,6 +8,12 @@
  * reading endpoint is asserted for the 401-before-service contract shared across Hermiq's
  * controllers.
  *
+ * Plus the per-agent IDOR guard (hermiq#187): all six routes take a caller-supplied
+ * `agentId` off the URL, so each is asserted to 404 — and to leave the service
+ * UNCALLED — for a caller who may not read (reads) or may not own (writes) that
+ * agent. The guard is exercised through the REAL `AgentAccessService` over a mocked
+ * `ObjectService`, so the predicate itself is under test rather than a double of it.
+ *
  * @category Test
  * @package  OCA\Hermiq\Tests\Unit\Controller
  *
@@ -28,8 +34,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\MemoryController;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
 use OCP\IUser;
@@ -102,21 +110,61 @@ class MemoryControllerTest extends TestCase
     }//end session()
 
     /**
+     * An Agent ObjectEntity with the given owner and privacy.
+     *
+     * @param string $owner     The owning uid.
+     * @param bool   $isPrivate Whether the agent is private.
+     *
+     * @return ObjectEntity
+     */
+    private function agent(string $owner='alice', bool $isPrivate=true): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid('agent-1');
+        $entity->setOwner($owner);
+        $entity->setObject(['isPrivate' => $isPrivate, 'invitedUsers' => []]);
+        return $entity;
+
+    }//end agent()
+
+    /**
+     * A REAL AgentAccessService over an ObjectService mock resolving to $agent —
+     * the predicate under test is the production one, not a double of it.
+     *
+     * @param ObjectEntity|null $agent The agent the lookup resolves to, or null.
+     *
+     * @return AgentAccessService
+     */
+    private function agentAccess(?ObjectEntity $agent): AgentAccessService
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($agent);
+        return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+
+    }//end agentAccess()
+
+    /**
      * Build the controller with the given collaborators.
      *
-     * @param MemoryService $service The memory service.
-     * @param IUserSession  $session The user session.
-     * @param IRequest|null $request An optional request mock.
+     * @param MemoryService     $service The memory service.
+     * @param IUserSession      $session The user session.
+     * @param IRequest|null     $request An optional request mock.
+     * @param ObjectEntity|null $agent   The agent the guard resolves; defaults to one owned by `alice`.
      *
      * @return MemoryController
      */
-    private function controller(MemoryService $service, IUserSession $session, ?IRequest $request=null): MemoryController
-    {
+    private function controller(
+        MemoryService $service,
+        IUserSession $session,
+        ?IRequest $request=null,
+        ?ObjectEntity $agent=null
+    ): MemoryController {
         return new MemoryController(
             ($request ?? $this->request()),
             $service,
             $session,
-            $this->createMock(LoggerInterface::class)
+            $this->createMock(LoggerInterface::class),
+            $this->agentAccess(($agent ?? $this->agent('alice')))
         );
 
     }//end controller()
@@ -223,4 +271,178 @@ class MemoryControllerTest extends TestCase
         $this->assertCount(1, $response->getData()['results']);
 
     }//end testSessionsReturnsList()
+
+    /**
+     * IDOR (hermiq#187): a non-owner, non-invited caller cannot READ a private
+     * agent's Memory — 404, and `getMemory()` is never reached.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    public function testMemoryIsRefusedForAForeignPrivateAgent(): void
+    {
+        $service = $this->createMock(MemoryService::class);
+        $service->expects($this->never())->method('getMemory');
+
+        $response = $this->controller($service, $this->session('mallory'), null, $this->agent('alice', true))
+            ->memory('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testMemoryIsRefusedForAForeignPrivateAgent()
+
+    /**
+     * IDOR (hermiq#187): appending to another user's agent memory is
+     * OWNER-guarded, not read-guarded — a shared (non-private) agent that
+     * `mallory` may READ is still refused for a WRITE, because the entry is
+     * folded into that agent's system-prompt preamble on its next run.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    public function testAddMemoryIsRefusedForANonOwnerOfASharedAgent(): void
+    {
+        $service = $this->createMock(MemoryService::class);
+        $service->expects($this->never())->method('appendMemoryEntry');
+        $request = $this->request(['text' => 'ATTACKER INJECTED FACT']);
+
+        $response = $this->controller($service, $this->session('mallory'), $request, $this->agent('alice', false))
+            ->addMemory('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testAddMemoryIsRefusedForANonOwnerOfASharedAgent()
+
+    /**
+     * IDOR (hermiq#187): `consolidate()` REPLACES the entry array, so a non-owner
+     * call is a wipe. Owner-guarded; the service is never reached.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    public function testConsolidateIsRefusedForANonOwner(): void
+    {
+        $service = $this->createMock(MemoryService::class);
+        $service->expects($this->never())->method('consolidateMemory');
+        $service->expects($this->never())->method('getMemory');
+        $request = $this->request(['entries' => []]);
+
+        $response = $this->controller($service, $this->session('mallory'), $request, $this->agent('alice', false))
+            ->consolidate('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testConsolidateIsRefusedForANonOwner()
+
+    /**
+     * IDOR (hermiq#187): per-subject learned profiles are the most PII-dense
+     * objects in the app — refused for a foreign private agent.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    public function testUserProfilesAreRefusedForAForeignPrivateAgent(): void
+    {
+        $service = $this->createMock(MemoryService::class);
+        $service->expects($this->never())->method('listUserProfiles');
+
+        $response = $this->controller($service, $this->session('mallory'), null, $this->agent('alice', true))
+            ->userProfiles('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testUserProfilesAreRefusedForAForeignPrivateAgent()
+
+    /**
+     * IDOR (hermiq#187): session listing is refused for a foreign private agent.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    public function testSessionsAreRefusedForAForeignPrivateAgent(): void
+    {
+        $service = $this->createMock(MemoryService::class);
+        $service->expects($this->never())->method('listSessions');
+
+        $response = $this->controller($service, $this->session('mallory'), null, $this->agent('alice', true))
+            ->sessions('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testSessionsAreRefusedForAForeignPrivateAgent()
+
+    /**
+     * IDOR (hermiq#187): free-text recall across another agent's conversation
+     * turns is refused for a foreign private agent.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    public function testRecallIsRefusedForAForeignPrivateAgent(): void
+    {
+        $service = $this->createMock(MemoryService::class);
+        $service->expects($this->never())->method('recallSessions');
+
+        $response = $this->controller($service, $this->session('mallory'), null, $this->agent('alice', true))
+            ->recall('agent-1', 'bank');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testRecallIsRefusedForAForeignPrivateAgent()
+
+    /**
+     * POSITIVE CONTROL: the same six routes still work for the agent's OWNER, so
+     * the tests above are measuring the guard and not a broken controller.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    public function testOwnerStillReachesTheGuardedRoutes(): void
+    {
+        $service = $this->createMock(MemoryService::class);
+        $service->method('getMemory')->willReturn($this->memoryObject(['entries' => []]));
+        $service->method('appendMemoryEntry')->willReturn($this->memoryObject(['entries' => []]));
+        $service->method('consolidateMemory')->willReturn($this->memoryObject(['entries' => []]));
+        $service->method('listUserProfiles')->willReturn([]);
+        $service->method('listSessions')->willReturn([]);
+        $service->method('recallSessions')->willReturn([]);
+
+        $request    = $this->request(['text' => 'a fact', 'entries' => []]);
+        $controller = $this->controller($service, $this->session('alice'), $request, $this->agent('alice', true));
+
+        $this->assertSame(Http::STATUS_OK, $controller->memory('agent-1')->getStatus());
+        $this->assertSame(Http::STATUS_OK, $controller->addMemory('agent-1')->getStatus());
+        $this->assertSame(Http::STATUS_OK, $controller->userProfiles('agent-1')->getStatus());
+        $this->assertSame(Http::STATUS_OK, $controller->sessions('agent-1')->getStatus());
+        $this->assertSame(Http::STATUS_OK, $controller->consolidate('agent-1')->getStatus());
+        $this->assertSame(Http::STATUS_OK, $controller->recall('agent-1', 'q')->getStatus());
+
+    }//end testOwnerStillReachesTheGuardedRoutes()
+
+    /**
+     * A non-owner CAN still read a SHARED (non-private) agent's memory surface —
+     * the guard scopes by access, it does not close the org-shared case.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
+     */
+    public function testNonOwnerCanReadASharedAgentsMemory(): void
+    {
+        $service = $this->createMock(MemoryService::class);
+        $service->method('getMemory')->willReturn($this->memoryObject(['entries' => []]));
+
+        $response = $this->controller($service, $this->session('bob'), null, $this->agent('alice', false))
+            ->memory('agent-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+    }//end testNonOwnerCanReadASharedAgentsMemory()
 }//end class

@@ -105,7 +105,12 @@ class AgentRunControllerTest extends TestCase
         parent::setUp();
         $this->request         = $this->createMock(IRequest::class);
         $this->objectService   = $this->createMock(ObjectService::class);
-        $this->agentMapper     = $this->createMock(AgentMapper::class);
+        // PARTIAL mock: only the lookup is doubled, so `canUserAccessAgent()` runs
+        // OpenRegister's REAL predicate. A full mock would return false for every
+        // agent (bool default) and, worse, would let the IDOR test below pass
+        // against a double rather than against the guard (SHARED-LESSONS: a double
+        // shaped to the caller makes the test green and the gate quiet at once).
+        $this->agentMapper     = $this->createPartialMock(AgentMapper::class, ['findByUuid']);
         $this->schemaMapper    = $this->createMock(SchemaMapper::class);
         $this->eventDispatcher = $this->createMock(IEventDispatcher::class);
 
@@ -316,4 +321,85 @@ class AgentRunControllerTest extends TestCase
         $event = $this->dispatched;
         $this->assertTrue($event->isRequiresApproval(), 'agent policy approval must win over the request body');
     }//end testApprovalCannotBeDowngradedByBody()
+
+    /**
+     * IDOR (hermiq#187): object permission is NOT agent permission. A caller who
+     * can legitimately read the triggering object still may not dispatch a run on
+     * somebody else's PRIVATE agent — its prompt, model policy, tools and budget.
+     * 404 (indistinguishable from nonexistent) and NO event is dispatched.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
+     */
+    public function testRunOnAForeignPrivateAgentIsRefused(): void
+    {
+        $this->stubParams(['register' => 'reg', 'schema' => 'sch', 'objectId' => 'obj-1']);
+        // The OBJECT is readable — the object-scoped guard passes, as it should.
+        $this->objectService->method('find')->willReturn($this->readableObject());
+
+        $agent = new Agent();
+        $agent->setUuid('agent-1');
+        $agent->setOwner('bob');
+        $agent->setIsPrivate(true);
+        $this->agentMapper->method('findByUuid')->willReturn($agent);
+
+        $response = $this->controller()->runOnObject('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+        $this->assertNull($this->dispatched, 'a refused run MUST NOT dispatch the governed event');
+    }//end testRunOnAForeignPrivateAgentIsRefused()
+
+    /**
+     * POSITIVE CONTROL for the guard above: the same request against an agent the
+     * caller OWNS is accepted, so the 404 measures authorisation and not a broken
+     * controller.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
+     */
+    public function testOwnerCanStillRunOnTheirPrivateAgent(): void
+    {
+        $this->stubParams(['register' => 'reg', 'schema' => 'sch', 'objectId' => 'obj-1']);
+        $this->objectService->method('find')->willReturn($this->readableObject());
+
+        $agent = new Agent();
+        $agent->setUuid('agent-1');
+        $agent->setOwner('alice');
+        $agent->setIsPrivate(true);
+        $this->agentMapper->method('findByUuid')->willReturn($agent);
+        $this->schemaMapper->method('find')->willReturn(new Schema());
+
+        $response = $this->controller()->runOnObject('agent-1');
+
+        $this->assertSame(Http::STATUS_ACCEPTED, $response->getStatus());
+        $this->assertInstanceOf(AgentRunRequestedEvent::class, $this->dispatched);
+    }//end testOwnerCanStillRunOnTheirPrivateAgent()
+
+    /**
+     * An INVITED user may still run a private agent — the guard scopes by access,
+     * it does not collapse to owner-only.
+     *
+     * @return void
+     *
+     * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
+     */
+    public function testInvitedUserCanRunAPrivateAgent(): void
+    {
+        $this->stubParams(['register' => 'reg', 'schema' => 'sch', 'objectId' => 'obj-1']);
+        $this->objectService->method('find')->willReturn($this->readableObject());
+
+        $agent = new Agent();
+        $agent->setUuid('agent-1');
+        $agent->setOwner('bob');
+        $agent->setIsPrivate(true);
+        $agent->setInvitedUsers(['alice']);
+        $this->agentMapper->method('findByUuid')->willReturn($agent);
+        $this->schemaMapper->method('find')->willReturn(new Schema());
+
+        $response = $this->controller()->runOnObject('agent-1');
+
+        $this->assertSame(Http::STATUS_ACCEPTED, $response->getStatus());
+    }//end testInvitedUserCanRunAPrivateAgent()
 }//end class

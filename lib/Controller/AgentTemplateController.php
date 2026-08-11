@@ -12,8 +12,15 @@
  * SkillMarketplaceController exactly.
  *
  * Security (ADR-005 Rule 3 / OWASP A01): `@NoAdminRequired` opens index/show/create/update/
- * destroy/export/import/instantiate to any authenticated user — tenancy (OR RBAC) is the
- * guard, exactly as SkillController's routes are. `approve()` is the one privileged mutation:
+ * destroy/export/import/instantiate to any authenticated user. ⚠️ Tenancy is NOT sufficient
+ * for the three routes that take a caller-supplied id and act on it: the `AgentTemplate`
+ * schema declares no `authorization` block, so OR's register RBAC is default-OPEN on it and
+ * multitenancy scopes organisations rather than the users inside one. `update()` and
+ * `destroy()` are therefore owner-guarded (`SeedCustodyService::actsAsOwner()`, the same
+ * predicate the owner-guarded skill routes use, which also lets an admin curate the
+ * `__system__`-owned seeded templates), and `export()` — which serialises an Agent's system
+ * prompt, tools and skill refs — is guarded by `AgentAccessService`. The catalog stays
+ * org-readable: `index`/`show` are unchanged. `approve()` is the one privileged mutation:
  * it gates on `ActionAuthService::requireAction()` (ADR-023), requiring
  * `agenttemplate.approve-quarantined`, and — when the caller passes `force=true` — additionally
  * `agenttemplate.override-scan-verdict` (a caller trusted to wave through a clean scan is not
@@ -53,9 +60,11 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
 use OCP\AppFramework\Controller;
@@ -114,6 +123,8 @@ class AgentTemplateController extends Controller
      * @param LoggerInterface              $logger             PSR-3 logger.
      * @param GitHubTemplateCatalogService $catalogService     GitHub search/fetch (agent-template-github-store).
      * @param GitHubTemplatePushService    $pushService        GitHub publish (agent-template-github-store).
+     * @param SeedCustodyService           $seedCustody        Owner-or-seed-custodian check (update/destroy guard).
+     * @param AgentAccessService           $agentAccess        Per-agent authorization (export guard).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
@@ -127,6 +138,8 @@ class AgentTemplateController extends Controller
         private readonly LoggerInterface $logger,
         private readonly GitHubTemplateCatalogService $catalogService,
         private readonly GitHubTemplatePushService $pushService,
+        private readonly SeedCustodyService $seedCustody,
+        private readonly AgentAccessService $agentAccess,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -234,6 +247,10 @@ class AgentTemplateController extends Controller
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
         }
 
+        if ($this->requireTemplateOwnership(templateId: $id) === false) {
+            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+        }
+
         try {
             $template = $this->templateService->update(templateId: $id, payload: $this->request->getParams());
             if ($template === null) {
@@ -266,6 +283,10 @@ class AgentTemplateController extends Controller
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
         }
 
+        if ($this->requireTemplateOwnership(templateId: $id) === false) {
+            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+        }
+
         try {
             $this->templateService->delete(templateId: $id);
             return new JSONResponse([]);
@@ -292,6 +313,10 @@ class AgentTemplateController extends Controller
     {
         if ($this->userSession->getUser() === null) {
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        if ($this->requireAgentReadAccess(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
         }
 
         try {
@@ -698,6 +723,75 @@ class AgentTemplateController extends Controller
         return new JSONResponse($result, Http::STATUS_CREATED);
 
     }//end publishGithub()
+
+    /**
+     * IDOR guard for `update()`/`destroy()`: the caller must own the template, or
+     * be an instance admin acting as custodian of a `__system__`-seeded one (the
+     * seeded starter templates have no human owner, so without the custodian arm
+     * nobody could ever curate them). Same predicate the owner-guarded skill
+     * routes already use.
+     *
+     * A refusal is a 404, never a 403 — the gallery is org-readable, but who owns
+     * a template is not something a non-owner needs confirmed.
+     *
+     * @param string $templateId The AgentTemplate UUID taken off the URL.
+     *
+     * @return bool True when the caller may write this template.
+     *
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     */
+    private function requireTemplateOwnership(string $templateId): bool
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return false;
+        }
+
+        try {
+            $template = $this->templateService->get(templateId: $templateId);
+        } catch (Throwable $e) {
+            // `ObjectService::find()` throws when the object is absent and this
+            // guard runs OUTSIDE the caller's try block — an escape would be a
+            // framework 500 on a #[NoAdminRequired] route (gate-49).
+            $this->logger->warning(
+                'Hermiq agent-template lookup failed for '.$templateId.': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return false;
+        }
+
+        if (($template instanceof ObjectEntity) === false) {
+            return false;
+        }
+
+        return $this->seedCustody->actsAsOwner(owner: $template->getOwner(), uid: $user->getUID());
+
+    }//end requireTemplateOwnership()
+
+    /**
+     * IDOR guard for `export()`: the package it returns carries the Agent's
+     * `systemPrompt`, tools and skill refs, so exporting is a READ of the agent —
+     * including a private one that `AgentsController::show()` would have refused.
+     *
+     * @param string $agentId The Agent UUID taken off the URL.
+     *
+     * @return bool True when the caller may read this agent.
+     *
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     */
+    private function requireAgentReadAccess(string $agentId): bool
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return false;
+        }
+
+        return $this->agentAccess->loadAccessibleAgent(
+            agentId: $agentId,
+            userId: $user->getUID()
+        ) !== null;
+
+    }//end requireAgentReadAccess()
 
     /**
      * Read the optional `credentialId` request param (broker upgrade) for the GitHub

@@ -13,11 +13,18 @@
  * AUTHORIZATION (ADR-005 / hydra-gate-no-admin-idor). Unlike
  * a manual flow run — guarded because it executes an arbitrary
  * caller-supplied graph — this endpoint names an EXISTING agent and an EXISTING
- * object and is authorized against the OBJECT's own OpenRegister permissions in
- * the CALLER's RBAC scope (`_rbac: true`). A caller who cannot read the object
- * gets a 404, fail-closed and indistinguishable from "does not exist", so the
- * endpoint cannot be used to probe for objects the caller may not see. This is the
- * per-object guard that keeps `#[NoAdminRequired]` safe (design.md Decision 2).
+ * object and is authorized on BOTH halves.
+ *
+ * - The OBJECT half: resolved against its own OpenRegister permissions in the
+ *   CALLER's RBAC scope (`_rbac: true`). A caller who cannot read the object gets
+ *   a 404, fail-closed and indistinguishable from "does not exist", so the
+ *   endpoint cannot be used to probe for objects the caller may not see
+ *   (design.md Decision 2).
+ * - The AGENT half: resolved through OpenRegister's own
+ *   `AgentMapper::canUserAccessAgent()`. ⚠️ Object permission is NOT agent
+ *   permission — without this half, any authenticated user could dispatch a run
+ *   on somebody else's PRIVATE agent (its prompt, model policy, tools and budget)
+ *   just by naming an object they may legitimately read (hermiq#187). Same 404.
  *
  * GOVERNANCE (ADR-041 / ADR-066). Starting the run is a cross-app COMMAND, so the
  * endpoint dispatches the SAME typed `AgentRunRequestedEvent` recipe every other
@@ -167,9 +174,10 @@ class AgentRunController extends Controller
             );
         }
 
-        // Resolve + validate the agent exactly as FlowAgentRunService::resolveAgent()
-        // does; an unresolvable agent is a 404 (indistinguishable from nonexistent).
-        $agent = $this->resolveAgent(ref: $id);
+        // AGENT-SCOPED AUTHORIZATION: object permission is NOT agent permission
+        // (see resolveAccessibleAgent()). Unresolvable and unauthorised are the
+        // same 404, indistinguishable from nonexistent.
+        $agent = $this->resolveAccessibleAgent(ref: $id, userId: $user->getUID());
         if ($agent === null) {
             return new JSONResponse(
                 ['error' => $this->l10n->t('Agent not found')],
@@ -274,27 +282,43 @@ class AgentRunController extends Controller
 
     /**
      * Resolve the configured agent reference (UUID in v1) — mirrors
-     * FlowAgentRunService::resolveAgent().
+     * FlowAgentRunService::resolveAgent() — and authorise the caller against it
+     * with OpenRegister's own `AgentMapper::canUserAccessAgent()`: a non-private
+     * agent is open to the organisation, a private one only to its owner or an
+     * explicitly invited user.
      *
-     * @param string $ref The agent reference.
+     * Unresolvable and unauthorised both return null, so the caller's 404 never
+     * distinguishes "not yours" from "does not exist" (ADR-005 Rule 3).
      *
-     * @return Agent|null The resolved agent, or null when unresolvable.
+     * @param string $ref    The agent reference.
+     * @param string $userId The requesting user's UID.
+     *
+     * @return Agent|null The resolved, caller-accessible agent, or null.
      *
      * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-1-3
+     * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-run-on-object-authorization-is-object-permission-scoped
      */
-    private function resolveAgent(string $ref): ?Agent
+    private function resolveAccessibleAgent(string $ref, string $userId): ?Agent
     {
-        if ($ref === '') {
+        if ($ref === '' || $userId === '') {
             return null;
         }
 
         try {
-            return $this->agentMapper->findByUuid($ref);
+            $agent = $this->agentMapper->findByUuid($ref);
         } catch (Throwable $e) {
             return null;
         }
 
-    }//end resolveAgent()
+        // No `instanceof` guard: `AgentMapper::findByUuid()` is typed `: Agent`
+        // and throws when absent, so the catch above is the only "not found" path.
+        if ($this->agentMapper->canUserAccessAgent($agent, $userId) === false) {
+            return null;
+        }
+
+        return $agent;
+
+    }//end resolveAccessibleAgent()
 
     /**
      * Build the bounded, fail-closed context from the schema's allowlist.

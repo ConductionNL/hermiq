@@ -6,8 +6,19 @@
  * Browse the tenant-scoped skills catalog, import/export agentskills.io packages, and
  * install a skill onto an agent. All reads/writes run in the caller's session context
  * through SkillService → OpenRegister ObjectService, so OR's native RBAC denies
- * cross-tenant access. `@NoAdminRequired` opens the routes to any authenticated user;
- * tenancy is the guard.
+ * cross-tenant access. `@NoAdminRequired` opens the routes to any authenticated user.
+ *
+ * ⚠️ Tenancy is NOT the guard on the three routes that MUTATE. The catalog is
+ * deliberately org-readable, so `index` hands every authenticated user the full
+ * list of skill uuids, and the `Skill` schema declares no `authorization` block,
+ * which leaves OpenRegister's register RBAC default-OPEN on it. Therefore:
+ * `update()` is OWNER-guarded (`SeedCustodyService::actsAsOwner()`, the predicate
+ * `SkillMaturityController::qualify` already uses) because a skill body is folded
+ * into the system-prompt preamble of every run of every agent that installed it;
+ * and `install()`/`uninstall()` are guarded on the TARGET AGENT
+ * (`AgentAccessService::loadModifiableAgent()`), because installing a colleague's
+ * skill onto your own agent is legitimate while installing anything onto theirs is
+ * not. Every refusal is a 404, never a 403.
  *
  * hermiq-github-store adds two GitHub-store endpoints on this SAME controller
  * (catalog/discovery operations, mirroring how `import`/`export` already live here):
@@ -40,8 +51,10 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\Hermiq\Service\SkillBundleInstaller;
 use OCA\Hermiq\Service\SkillBundleSerializer;
 use OCA\Hermiq\Service\SkillMarketplaceService;
@@ -103,6 +116,8 @@ class SkillController extends Controller
      * @param SkillBundleSerializer        $bundleSerializer   Bundle tree (de)serialiser (skill-bundle-publish).
      * @param GitHubTemplatePushService    $pushService        Bundle publish (skill-bundle-publish).
      * @param SkillBundleInstaller         $bundleInstaller    Bundle install, shared with OpenBuild (apply-v2-channels).
+     * @param SeedCustodyService           $seedCustody        Owner-or-seed-custodian check (skill write guard).
+     * @param AgentAccessService           $agentAccess        Per-agent authorization (install/uninstall guard).
      *
      * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
      *   distinct injected collaborator, not a logic-bearing argument list.
@@ -119,6 +134,8 @@ class SkillController extends Controller
         private readonly SkillBundleSerializer $bundleSerializer,
         private readonly GitHubTemplatePushService $pushService,
         private readonly SkillBundleInstaller $bundleInstaller,
+        private readonly SeedCustodyService $seedCustody,
+        private readonly AgentAccessService $agentAccess,
     ) {
         parent::__construct(appName: Application::APP_ID, request: $request);
     }//end __construct()
@@ -217,8 +234,16 @@ class SkillController extends Controller
      * Update a Skill from the edit form's merge payload (skill-maturity). The service
      * applies the computed-maturity write guard: client-supplied `maturityLevel` /
      * `levelEvidence.l1`–`l4` are ignored and stored values carried forward, while
-     * `targetLevel` and ordinary fields stay editable. RBAC-scoped in the caller's
-     * session (a skill outside the caller's scope 404s).
+     * `targetLevel` and ordinary fields stay editable.
+     *
+     * ⚠️ OWNER-GUARDED. A skill body is not an inert document: its text is folded
+     * into the system-prompt preamble of every run of every agent that installed
+     * it (`Engine::assembleSkillsForRun()`), so an unguarded write here is
+     * persistent, fan-out prompt injection into other users' agents rather than a
+     * one-shot edit. The catalog is deliberately org-readable, which hands every
+     * authenticated user the list of targets — so visibility can never be the
+     * write guard. Same predicate `SkillMaturityController::qualify` already
+     * uses.
      *
      * @param string $id The Skill UUID.
      *
@@ -233,6 +258,10 @@ class SkillController extends Controller
     {
         if ($this->userSession->getUser() === null) {
             return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+        }
+
+        if ($this->requireSkillOwnership(skillId: $id) === false) {
+            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
         }
 
         $params = $this->request->getParams();
@@ -280,6 +309,10 @@ class SkillController extends Controller
             return new JSONResponse(['error' => 'An agentId is required'], Http::STATUS_BAD_REQUEST);
         }
 
+        if ($this->requireAgentOwnership(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+        }
+
         try {
             $skill = $this->skillService->installOnAgent(skillId: $id, agentId: $agentId);
             if ($skill === null) {
@@ -315,6 +348,10 @@ class SkillController extends Controller
 
         if (trim($agentId) === '') {
             return new JSONResponse(['error' => 'An agentId is required'], Http::STATUS_BAD_REQUEST);
+        }
+
+        if ($this->requireAgentOwnership(agentId: $agentId) === false) {
+            return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
         }
 
         try {
@@ -475,6 +512,78 @@ class SkillController extends Controller
         }//end try
 
     }//end githubInstall()
+
+    /**
+     * IDOR guard for the skill WRITE path: the caller must own the skill, or be
+     * an instance admin acting as custodian of a system-seeded one. Exactly the
+     * predicate `SkillMaturityController::loadOwnedSkill()` and
+     * `SkillVersionController` already apply to the same objects — this endpoint
+     * simply never called it.
+     *
+     * A refusal is a 404, never a 403: the catalog is org-readable, but who owns
+     * a given skill is not something a non-owner needs confirmed.
+     *
+     * @param string $skillId The Skill UUID taken off the URL.
+     *
+     * @return bool True when the caller may write this skill.
+     *
+     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+     */
+    private function requireSkillOwnership(string $skillId): bool
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return false;
+        }
+
+        try {
+            $skill = $this->skillService->getSkill(skillId: $skillId);
+        } catch (Throwable $e) {
+            // `ObjectService::find()` throws when the object is absent, and this
+            // guard runs OUTSIDE the caller's try block — an escape would be a
+            // framework 500 on a #[NoAdminRequired] route (gate-49).
+            $this->logger->warning(
+                'Hermiq skill lookup failed for '.$skillId.': '.$e->getMessage(),
+                ['exception' => $e]
+            );
+            return false;
+        }
+
+        if (($skill instanceof ObjectEntity) === false) {
+            return false;
+        }
+
+        return $this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $user->getUID());
+
+    }//end requireSkillOwnership()
+
+    /**
+     * IDOR guard for install/uninstall: the guard belongs on the AGENT, not the
+     * skill. Installing a colleague's published skill onto MY agent is the whole
+     * point of an org-readable catalog; installing ANY skill onto SOMEBODY
+     * ELSE'S agent is the attack, because an installed skill's text joins that
+     * agent's system-prompt preamble on its next run.
+     *
+     * @param string $agentId The agent UUID supplied by the caller.
+     *
+     * @return bool True when the caller owns the target agent.
+     *
+     * @spec openspec/specs/skills-catalog/spec.md#requirement-browse-and-install-skills-into-an-agent
+     * @spec openspec/specs/skills-catalog/spec.md#requirement-detach-an-installed-skill-from-an-agent
+     */
+    private function requireAgentOwnership(string $agentId): bool
+    {
+        $user = $this->userSession->getUser();
+        if ($user === null) {
+            return false;
+        }
+
+        return $this->agentAccess->loadModifiableAgent(
+            agentId: $agentId,
+            userId: $user->getUID()
+        ) !== null;
+
+    }//end requireAgentOwnership()
 
     /**
      * Read the optional `credentialId` request param (broker upgrade) for the

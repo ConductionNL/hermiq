@@ -235,4 +235,81 @@ class Agent
     {
         $this->configuration = $configuration;
     }//end setConfiguration()
+
+    /**
+     * Whether the agent is private (visible only to its owner and invited users).
+     * Mirrors the real entity: `protected ?bool $isPrivate = null` — null means
+     * "unset", which `AgentMapper::canUserAccessAgent()` treats as NOT private.
+     *
+     * @var bool|null
+     */
+    private ?bool $isPrivate = null;
+
+    /**
+     * Explicitly invited user ids (only meaningful when `isPrivate` is true).
+     *
+     * @var array<int, string>|null
+     */
+    private ?array $invitedUsers = null;
+
+    /**
+     * Whether the agent is private.
+     *
+     * @return bool|null
+     */
+    public function getIsPrivate(): ?bool
+    {
+        return $this->isPrivate;
+    }//end getIsPrivate()
+
+    /**
+     * Set the privacy flag.
+     *
+     * @param bool|null $isPrivate The privacy flag.
+     *
+     * @return void
+     */
+    public function setIsPrivate(?bool $isPrivate): void
+    {
+        $this->isPrivate = $isPrivate;
+    }//end setIsPrivate()
+
+    /**
+     * Get the invited user ids.
+     *
+     * @return array<int, string>|null
+     */
+    public function getInvitedUsers(): ?array
+    {
+        return $this->invitedUsers;
+    }//end getInvitedUsers()
+
+    /**
+     * Set the invited user ids.
+     *
+     * @param array<int, string>|null $invitedUsers The invited user ids.
+     *
+     * @return void
+     */
+    public function setInvitedUsers(?array $invitedUsers): void
+    {
+        $this->invitedUsers = $invitedUsers;
+    }//end setInvitedUsers()
+
+    /**
+     * Whether the given user is explicitly invited — verbatim from the real
+     * entity, including the null-list short circuit.
+     *
+     * @param string $userId The user id.
+     *
+     * @return bool
+     */
+    public function hasInvitedUser(string $userId): bool
+    {
+        if ($this->invitedUsers === null) {
+            return false;
+        }
+
+        return in_array($userId, $this->invitedUsers, true);
+    }//end hasInvitedUser()
 }//end class

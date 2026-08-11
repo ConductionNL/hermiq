@@ -30,13 +30,17 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\AgentTemplateController;
 use OCA\Hermiq\Service\ActionAuthService;
+use OCA\Hermiq\Service\AgentAccessService;
 use OCA\Hermiq\Service\AgentTemplateService;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCA\Hermiq\Service\GitHubTemplatePushService;
+use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\OCS\OCSForbiddenException;
+use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUser;
 use OCP\IUserSession;
@@ -134,6 +138,7 @@ class AgentTemplateControllerTest extends TestCase
      * @param OrganisationMapper|null            $mapper     An optional organisation mapper.
      * @param GitHubTemplateCatalogService|null  $catalog    An optional GitHub catalog service mock.
      * @param GitHubTemplatePushService|null     $push       An optional GitHub push service mock.
+     * @param ObjectEntity|null                  $agent      The agent the export guard resolves.
      *
      * @return AgentTemplateController
      */
@@ -144,7 +149,8 @@ class AgentTemplateControllerTest extends TestCase
         ?IRequest $request=null,
         ?OrganisationMapper $mapper=null,
         ?GitHubTemplateCatalogService $catalog=null,
-        ?GitHubTemplatePushService $push=null
+        ?GitHubTemplatePushService $push=null,
+        ?ObjectEntity $agent=null
     ): AgentTemplateController {
         return new AgentTemplateController(
             ($request ?? $this->request()),
@@ -154,10 +160,47 @@ class AgentTemplateControllerTest extends TestCase
             ($mapper ?? $this->organisationMapper()),
             $this->createMock(LoggerInterface::class),
             ($catalog ?? $this->createMock(GitHubTemplateCatalogService::class)),
-            ($push ?? $this->createMock(GitHubTemplatePushService::class))
+            ($push ?? $this->createMock(GitHubTemplatePushService::class)),
+            // REAL guards over mocked lookups: the predicates under test are the
+            // production ones, not doubles shaped to what the caller expects.
+            new SeedCustodyService($this->createMock(IGroupManager::class)),
+            $this->agentAccess(($agent ?? $this->agent('alice')))
         );
 
     }//end controller()
+
+    /**
+     * An Agent ObjectEntity with the given owner and privacy.
+     *
+     * @param string $owner     The owning uid.
+     * @param bool   $isPrivate Whether the agent is private.
+     *
+     * @return ObjectEntity
+     */
+    private function agent(string $owner='alice', bool $isPrivate=true): ObjectEntity
+    {
+        $entity = new ObjectEntity();
+        $entity->setUuid('agent-1');
+        $entity->setOwner($owner);
+        $entity->setObject(['isPrivate' => $isPrivate, 'invitedUsers' => []]);
+        return $entity;
+
+    }//end agent()
+
+    /**
+     * A REAL AgentAccessService over an ObjectService mock resolving to $agent.
+     *
+     * @param ObjectEntity|null $agent The agent the lookup resolves to, or null.
+     *
+     * @return AgentAccessService
+     */
+    private function agentAccess(?ObjectEntity $agent): AgentAccessService
+    {
+        $objectService = $this->createMock(ObjectService::class);
+        $objectService->method('find')->willReturn($agent);
+        return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+
+    }//end agentAccess()
 
     /**
      * index() returns 401 for an unauthenticated caller, never reaching the service.
@@ -727,4 +770,152 @@ class AgentTemplateControllerTest extends TestCase
         $this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
 
     }//end testPublishGithubRefusedByPushServiceIsUnprocessable()
+
+    /**
+     * An AgentTemplate ObjectEntity owned by the given uid.
+     *
+     * @param string $owner The owning uid.
+     *
+     * @return ObjectEntity
+     */
+    private function ownedTemplate(string $owner): ObjectEntity
+    {
+        $entity = $this->template('active');
+        $entity->setOwner($owner);
+        return $entity;
+
+    }//end ownedTemplate()
+
+    /**
+     * IDOR (hermiq#187): `PUT /api/agent-templates/{id}` merged the caller's
+     * payload into ANY user's template. Owner-guarded now — 404, and `update()`
+     * is never reached.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     */
+    public function testUpdateIsRefusedForANonOwner(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->method('get')->willReturn($this->ownedTemplate('alice'));
+        $service->expects($this->never())->method('update');
+
+        $response = $this->controller(
+            $service,
+            $this->createMock(ActionAuthService::class),
+            $this->session('mallory'),
+            $this->request(['description' => 'HIJACKED'])
+        )->update('template-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testUpdateIsRefusedForANonOwner()
+
+    /**
+     * IDOR (hermiq#187): `DELETE /api/agent-templates/{id}` was a bare
+     * `deleteObject()` — a hard delete of anyone's template. Owner-guarded now.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     */
+    public function testDestroyIsRefusedForANonOwner(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->method('get')->willReturn($this->ownedTemplate('alice'));
+        $service->expects($this->never())->method('delete');
+
+        $response = $this->controller(
+            $service,
+            $this->createMock(ActionAuthService::class),
+            $this->session('mallory')
+        )->destroy('template-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testDestroyIsRefusedForANonOwner()
+
+    /**
+     * POSITIVE CONTROL: the owner still updates and deletes their own template,
+     * so the two tests above measure the guard and not a broken controller.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     */
+    public function testOwnerCanStillUpdateAndDeleteTheirTemplate(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->method('get')->willReturn($this->ownedTemplate('alice'));
+        $service->method('update')->willReturn($this->ownedTemplate('alice'));
+        $service->method('delete')->willReturn(true);
+
+        $controller = $this->controller(
+            $service,
+            $this->createMock(ActionAuthService::class),
+            $this->session('alice'),
+            $this->request(['description' => 'a legitimate edit'])
+        );
+
+        $this->assertSame(Http::STATUS_OK, $controller->update('template-1')->getStatus());
+        $this->assertSame(Http::STATUS_OK, $controller->destroy('template-1')->getStatus());
+
+    }//end testOwnerCanStillUpdateAndDeleteTheirTemplate()
+
+    /**
+     * IDOR (hermiq#187): the export package carries the Agent's `systemPrompt`,
+     * `tools` and `skillRefs`, so exporting is a READ of the agent — including a
+     * PRIVATE one `AgentsController::show()` would have refused. Refused now.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     */
+    public function testExportFromAgentIsRefusedForAForeignPrivateAgent(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->expects($this->never())->method('exportFromAgent');
+
+        $response = $this->controller(
+            $service,
+            $this->createMock(ActionAuthService::class),
+            $this->session('mallory'),
+            null,
+            null,
+            null,
+            null,
+            $this->agent('alice', true)
+        )->export('agent-1');
+
+        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+    }//end testExportFromAgentIsRefusedForAForeignPrivateAgent()
+
+    /**
+     * POSITIVE CONTROL: the agent's owner still exports it to a package.
+     *
+     * @return void
+     *
+     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+     */
+    public function testOwnerCanStillExportTheirAgent(): void
+    {
+        $service = $this->createMock(AgentTemplateService::class);
+        $service->method('exportFromAgent')->willReturn('{"name":"Agent"}');
+
+        $response = $this->controller(
+            $service,
+            $this->createMock(ActionAuthService::class),
+            $this->session('alice'),
+            null,
+            null,
+            null,
+            null,
+            $this->agent('alice', true)
+        )->export('agent-1');
+
+        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+    }//end testOwnerCanStillExportTheirAgent()
 }//end class
