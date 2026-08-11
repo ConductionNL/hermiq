@@ -595,7 +595,13 @@ class AgentsController extends Controller
     public function tools(): JSONResponse
     {
         try {
-            $tools = $this->toolRegistry->listTools();
+            // describeTools(), not listTools(): this endpoint feeds a PICKER,
+            // and a person choosing between 98 tools needs the contributing app
+            // and the operation, which a raw LLM function descriptor does not
+            // carry. listTools() stays exactly as it is — its descriptors go to
+            // the model as function definitions, and extra keys there are
+            // rejected by strict provider APIs.
+            $tools = $this->toolRegistry->describeTools();
 
             $this->logger->debug(
                 message: '[AgentsController] Returning available tools',

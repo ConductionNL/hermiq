@@ -615,13 +615,31 @@ export default {
 			this.toolsLoading = true
 			try {
 				const tools = await listTools()
+
+				// `App | tool | right` — the three things an author actually
+				// chooses on. The label used to be the raw function id plus its
+				// whole description, so a list of 98 read as
+				// "cms_create_page — Create a new page with title and…", which
+				// says neither which app is being granted access nor what the
+				// tool DOES to the data.
+				//
+				// The app and the right come from the ENGINE
+				// (`ToolRegistryFacade::describeTools()`), never from parsing
+				// the id here: only the registry knows which app contributed a
+				// tool, and a mapping invented in this file would be a second
+				// answer free to drift from it.
 				this.toolOptions = tools.map((tool) => {
-					// Agents reference a tool by its id (e.g. "opencatalogi.cms"); show the
-					// human name in the label but persist the id as the value.
+					// The VALUE is unchanged — an agent still references a tool
+					// by the same id it always did, so existing agents keep
+					// their grants.
 					const value = tool.id || tool.name || tool.key || String(tool)
-					const label = tool.name || value
-					const description = tool.description ? ` — ${tool.description}` : ''
-					return { label: `${label}${description}`, value }
+					const parts = [tool.app, tool.tool, tool.right].filter(Boolean)
+
+					return {
+						label: parts.length === 3 ? parts.join(' | ') : (tool.name || value),
+						value,
+						description: tool.description || '',
+					}
 				})
 			} catch (e) {
 				// Non-fatal: the picker just stays empty; the agent can still be saved.
