@@ -5,9 +5,15 @@
  *
  * Stands in for OCA\OpenRegister\Service\Mcp\ToolRegistryFacade when OpenRegister
  * is not installed (standalone CI: php:8.3-cli + OCP stubs). Mirrors the facade's
- * two-method public contract exactly (or-tool-registry-facade, ai-mcp REQ-006):
- * listTools(toolWhitelist) and invokeTool(toolId, arguments). The real class ships
- * with OpenRegister at runtime; Hermiq's ToolLoop consumes ONLY this surface.
+ * public contract exactly (or-tool-registry-facade, ai-mcp REQ-006):
+ * listTools(toolWhitelist), describeTools() and invokeTool(toolId, arguments).
+ * The real class ships with OpenRegister at runtime; Hermiq consumes ONLY this surface.
+ *
+ * ⚠️ Keep this in step with OpenRegister's real facade. `describeTools()` was added
+ * there and consumed by AgentsController::tools(), but not mirrored here, so every
+ * matrix cell in which OpenRegister failed to enable errored with
+ * `Call to undefined method MockObject_ToolRegistryFacade::describeTools()`
+ * instead of exercising the controller (run 31490144919).
  *
  * @category Test
  * @package  OCA\OpenRegister\Service\Mcp
@@ -41,6 +47,17 @@ class ToolRegistryFacade
     {
         return [];
     }//end listTools()
+
+    /**
+     * Describe every callable function for a human-facing picker.
+     *
+     * @return array<int,array{name: string, description: string, app: string, tool: string, group: string, right: string}>
+     *         One entry per callable function.
+     */
+    public function describeTools(): array
+    {
+        return [];
+    }//end describeTools()
 
     /**
      * Invoke a tool function by its descriptor name or dotted mcpId.

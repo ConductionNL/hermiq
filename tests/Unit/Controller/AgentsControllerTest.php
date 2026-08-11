@@ -415,13 +415,20 @@ class AgentsControllerTest extends TestCase
      */
     public function testToolsReturnsFacadeCatalogue(): void
     {
+        // describeTools(), not listTools(): tools() feeds a human picker and
+        // switched to the descriptive surface, but this test kept stubbing the
+        // raw LLM-function surface. The stub therefore never applied, the real
+        // call returned [], and the assertion failed on every cell where
+        // OpenRegister was installed (run 31490144919).
         $descriptor = [
             'name'        => 'decidesk_listMeetings',
             'description' => 'List meetings',
-            'parameters'  => [],
-            'mcpId'       => 'decidesk.listMeetings',
+            'app'         => 'decidesk',
+            'tool'        => 'decidesk_listMeetings',
+            'group'       => 'meetings',
+            'right'       => 'read',
         ];
-        $this->toolRegistry->expects($this->once())->method('listTools')->willReturn([$descriptor]);
+        $this->toolRegistry->expects($this->once())->method('describeTools')->willReturn([$descriptor]);
 
         $response = $this->controller()->tools();
 

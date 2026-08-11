@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace OCA\Talk\Chat;
 
 use DateTime;
-use OCA\Talk\Model\Participant;
+use OCA\Talk\Participant;
 use OCA\Talk\Room;
 
 /**
