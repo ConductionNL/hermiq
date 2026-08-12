@@ -95,6 +95,7 @@ class BudgetServiceTest extends TestCase {
 				bool $_rbac = true,
 				bool $_multitenancy = true,
 				bool $_render = true,
+				bool $_audit = true,
 			): ?ObjectEntity {
 				foreach (($this->bySchema[(string)$schema] ?? []) as $object) {
 					if ((string)$object->getUuid() === (string)$id) {
