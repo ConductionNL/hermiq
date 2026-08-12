@@ -528,8 +528,15 @@ import { ANNOTATION_ID_PREFIX, useFlowEditorStore } from '../store/flowEditor.js
  *
  * If a contributed terminal type is missing here, the cost is one extra
  * out-port on its card, not a wrong run: the engine still ends the path.
+ *
+ * ⚠️ BOTH SPELLINGS, and `openregister.end` is the canonical one.
+ * `EndNode::getId()` returns `openregister.end`; `openregister.stop` survives only
+ * as an alias in `FlowNodeRegistry` and is on its way out (hydra#533 moved all
+ * eleven of its flows off it "before the alias expires"). The alias is kept here
+ * because STORED documents still carry it — a flow written before the rename is
+ * still drawn by this canvas.
  */
-const TERMINAL_STEP_TYPES = ['openregister.stop']
+const TERMINAL_STEP_TYPES = ['openregister.end', 'openregister.stop']
 
 /** Step types that own a body of repeated nodes (IterateNode's `config.body`). */
 const LOOP_STEP_TYPES = ['openregister.iterate', 'openregister.loop']
