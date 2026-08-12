@@ -1016,10 +1016,26 @@ class HermiqToolProvider implements IMcpToolProvider
 
         $results = [];
         foreach ($boards as $board) {
-            if (is_object($board) === true && method_exists($board, 'getTitle') === true) {
-                $results[] = ['title' => (string) $board->getTitle()];
+            // 🔴 Was `method_exists($board, 'getTitle')`, which is false for every getter
+            // reached through `Entity::__call()`, so this listed NOTHING for its whole
+            // life. `property_exists()` is what `Entity::getter()` itself consults;
+            // `is_callable()` would only invert the silence. See DeckBoardMagicAccessorTest.
+            if (is_object($board) === false || property_exists($board, 'title') === false) {
+                continue;
             }
-        }
+
+            try {
+                // Dynamic because it IS dynamic — `__call()` materialises the method.
+                $title = call_user_func([$board, 'getTitle']);
+            } catch (Throwable $e) {
+                $this->logger->warning('Hermiq skipped an unreadable Deck board: '.$e->getMessage());
+                continue;
+            }
+
+            if (is_scalar($title) === true) {
+                $results[] = ['title' => (string) $title];
+            }
+        }//end foreach
 
         return ['boards' => $results];
 
