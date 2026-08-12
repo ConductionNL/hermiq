@@ -46,80 +46,74 @@ use ReflectionClass;
 /**
  * Subclass capturing SSE frames + driving a fake clock for now().
  */
-class HeartbeatTestableChatStreamController extends ChatStreamController
-{
+class HeartbeatTestableChatStreamController extends ChatStreamController {
 
-    /**
-     * Captured SSE frames in emit order.
-     *
-     * @var array<int, array{type: string, payload: array}>
-     */
-    public array $capturedEvents = [];
+	/**
+	 * Captured SSE frames in emit order.
+	 *
+	 * @var array<int, array{type: string, payload: array}>
+	 */
+	public array $capturedEvents = [];
 
-    /**
-     * Controllable wall-clock value returned by now(). Tests advance it
-     * between forwardWithHeartbeat() calls.
-     *
-     * @var float
-     */
-    public float $fakeNow = 0.0;
+	/**
+	 * Controllable wall-clock value returned by now(). Tests advance it
+	 * between forwardWithHeartbeat() calls.
+	 *
+	 * @var float
+	 */
+	public float $fakeNow = 0.0;
 
-    /**
-     * Return the fake clock.
-     *
-     * @return float
-     */
-    protected function now(): float
-    {
-        return $this->fakeNow;
+	/**
+	 * Return the fake clock.
+	 *
+	 * @return float
+	 */
+	protected function now(): float {
+		return $this->fakeNow;
+	}//end now()
 
-    }//end now()
+	/**
+	 * Capture the frame in-memory instead of echoing.
+	 *
+	 * @param string $eventType Event type.
+	 * @param array $payload Frame payload.
+	 *
+	 * @return void
+	 */
+	protected function emitSseEvent(string $eventType, array $payload): void {
+		$this->capturedEvents[] = ['type' => $eventType, 'payload' => $payload];
 
-    /**
-     * Capture the frame in-memory instead of echoing.
-     *
-     * @param string $eventType Event type.
-     * @param array  $payload   Frame payload.
-     *
-     * @return void
-     */
-    protected function emitSseEvent(string $eventType, array $payload): void
-    {
-        $this->capturedEvents[] = ['type' => $eventType, 'payload' => $payload];
+	}//end emitSseEvent()
 
-    }//end emitSseEvent()
+	/**
+	 * Expose the protected forwardWithHeartbeat for direct testing.
+	 *
+	 * @param string $eventType Frame type.
+	 * @param array $payload Frame payload.
+	 *
+	 * @return void
+	 */
+	public function forward(string $eventType, array $payload): void {
+		$this->forwardWithHeartbeat(eventType: $eventType, payload: $payload);
 
-    /**
-     * Expose the protected forwardWithHeartbeat for direct testing.
-     *
-     * @param string $eventType Frame type.
-     * @param array  $payload   Frame payload.
-     *
-     * @return void
-     */
-    public function forward(string $eventType, array $payload): void
-    {
-        $this->forwardWithHeartbeat(eventType: $eventType, payload: $payload);
+	}//end forward()
 
-    }//end forward()
+	/**
+	 * Expose the private $lastEventAt so tests can seed it after the
+	 * "initial heartbeat" moment without going through the full stream()
+	 * setup.
+	 *
+	 * @param float $value The seed value.
+	 *
+	 * @return void
+	 */
+	public function seedLastEventAt(float $value): void {
+		$reflection = new ReflectionClass(ChatStreamController::class);
+		$prop = $reflection->getProperty('lastEventAt');
+		$prop->setAccessible(true);
+		$prop->setValue($this, $value);
 
-    /**
-     * Expose the private $lastEventAt so tests can seed it after the
-     * "initial heartbeat" moment without going through the full stream()
-     * setup.
-     *
-     * @param float $value The seed value.
-     *
-     * @return void
-     */
-    public function seedLastEventAt(float $value): void
-    {
-        $reflection = new ReflectionClass(ChatStreamController::class);
-        $prop       = $reflection->getProperty('lastEventAt');
-        $prop->setAccessible(true);
-        $prop->setValue($this, $value);
-
-    }//end seedLastEventAt()
+	}//end seedLastEventAt()
 }//end class
 
 /**
@@ -127,144 +121,138 @@ class HeartbeatTestableChatStreamController extends ChatStreamController
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
  */
-class ChatStreamControllerHeartbeatTest extends TestCase
-{
+class ChatStreamControllerHeartbeatTest extends TestCase {
 
-    /**
-     * Build the testable controller with inert mocks.
-     *
-     * @return HeartbeatTestableChatStreamController
-     */
-    private function makeController(): HeartbeatTestableChatStreamController
-    {
-        return new HeartbeatTestableChatStreamController(
-            $this->createMock(IRequest::class),
-            $this->createMock(Engine::class),
-            $this->createMock(ObjectService::class),
-            $this->createMock(IUserSession::class),
-            $this->createMock(IDBConnection::class),
-            $this->createMock(LoggerInterface::class),
-            $this->createMock(IL10N::class)
-        );
+	/**
+	 * Build the testable controller with inert mocks.
+	 *
+	 * @return HeartbeatTestableChatStreamController
+	 */
+	private function makeController(): HeartbeatTestableChatStreamController {
+		return new HeartbeatTestableChatStreamController(
+			$this->createMock(IRequest::class),
+			$this->createMock(Engine::class),
+			$this->createMock(ObjectService::class),
+			$this->createMock(IUserSession::class),
+			$this->createMock(IDBConnection::class),
+			$this->createMock(LoggerInterface::class),
+			$this->createMock(IL10N::class)
+		);
 
-    }//end makeController()
+	}//end makeController()
 
-    /**
-     * Sub-15s gaps never interleave a heartbeat.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-     */
-    public function testSubFifteenSecondGapsEmitNoInterleavedHeartbeat(): void
-    {
-        $controller          = $this->makeController();
-        $controller->fakeNow = 100.0;
-        $controller->seedLastEventAt(100.0);
+	/**
+	 * Sub-15s gaps never interleave a heartbeat.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	public function testSubFifteenSecondGapsEmitNoInterleavedHeartbeat(): void {
+		$controller = $this->makeController();
+		$controller->fakeNow = 100.0;
+		$controller->seedLastEventAt(100.0);
 
-        // +7s.
-        $controller->fakeNow = 107.0;
-        $controller->forward(eventType: 'token', payload: ['delta' => 'a']);
+		// +7s.
+		$controller->fakeNow = 107.0;
+		$controller->forward(eventType: 'token', payload: ['delta' => 'a']);
 
-        // +8s.
-        $controller->fakeNow = 115.0;
-        $controller->forward(eventType: 'token', payload: ['delta' => 'b']);
+		// +8s.
+		$controller->fakeNow = 115.0;
+		$controller->forward(eventType: 'token', payload: ['delta' => 'b']);
 
-        // +7s.
-        $controller->fakeNow = 122.0;
-        $controller->forward(eventType: 'token', payload: ['delta' => 'c']);
+		// +7s.
+		$controller->fakeNow = 122.0;
+		$controller->forward(eventType: 'token', payload: ['delta' => 'c']);
 
-        $types = array_column($controller->capturedEvents, 'type');
-        $this->assertSame(
-            ['token', 'token', 'token'],
-            $types,
-            'No heartbeats must interleave when each gap is under 15s.'
-        );
+		$types = array_column($controller->capturedEvents, 'type');
+		$this->assertSame(
+			['token', 'token', 'token'],
+			$types,
+			'No heartbeats must interleave when each gap is under 15s.'
+		);
 
-    }//end testSubFifteenSecondGapsEmitNoInterleavedHeartbeat()
+	}//end testSubFifteenSecondGapsEmitNoInterleavedHeartbeat()
 
-    /**
-     * A single 20s gap triggers exactly one interleaved heartbeat right
-     * before the token.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-     */
-    public function testTwentySecondGapTriggersOneInterleavedHeartbeat(): void
-    {
-        $controller          = $this->makeController();
-        $controller->fakeNow = 200.0;
-        $controller->seedLastEventAt(200.0);
+	/**
+	 * A single 20s gap triggers exactly one interleaved heartbeat right
+	 * before the token.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	public function testTwentySecondGapTriggersOneInterleavedHeartbeat(): void {
+		$controller = $this->makeController();
+		$controller->fakeNow = 200.0;
+		$controller->seedLastEventAt(200.0);
 
-        // +20s.
-        $controller->fakeNow = 220.0;
-        $controller->forward(eventType: 'token', payload: ['delta' => 'late']);
+		// +20s.
+		$controller->fakeNow = 220.0;
+		$controller->forward(eventType: 'token', payload: ['delta' => 'late']);
 
-        $this->assertSame(
-            ['heartbeat', 'token'],
-            array_column($controller->capturedEvents, 'type'),
-            'The heartbeat must precede the late token frame.'
-        );
+		$this->assertSame(
+			['heartbeat', 'token'],
+			array_column($controller->capturedEvents, 'type'),
+			'The heartbeat must precede the late token frame.'
+		);
 
-    }//end testTwentySecondGapTriggersOneInterleavedHeartbeat()
+	}//end testTwentySecondGapTriggersOneInterleavedHeartbeat()
 
-    /**
-     * Two forwards at +20s gaps each trigger their own interleaved heartbeat
-     * (the first emit resets $lastEventAt, the second gap still exceeds 15s).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-     */
-    public function testFortySecondTotalElapsedTriggersTwoHeartbeats(): void
-    {
-        $controller          = $this->makeController();
-        $controller->fakeNow = 300.0;
-        $controller->seedLastEventAt(300.0);
+	/**
+	 * Two forwards at +20s gaps each trigger their own interleaved heartbeat
+	 * (the first emit resets $lastEventAt, the second gap still exceeds 15s).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	public function testFortySecondTotalElapsedTriggersTwoHeartbeats(): void {
+		$controller = $this->makeController();
+		$controller->fakeNow = 300.0;
+		$controller->seedLastEventAt(300.0);
 
-        // First forward at +20s → 1 heartbeat + 1 token.
-        $controller->fakeNow = 320.0;
-        $controller->forward(eventType: 'token', payload: ['delta' => 'one']);
+		// First forward at +20s → 1 heartbeat + 1 token.
+		$controller->fakeNow = 320.0;
+		$controller->forward(eventType: 'token', payload: ['delta' => 'one']);
 
-        // Second forward at +40s from origin (+20s from previous token) → 1 heartbeat + 1 token.
-        $controller->fakeNow = 340.0;
-        $controller->forward(eventType: 'token', payload: ['delta' => 'two']);
+		// Second forward at +40s from origin (+20s from previous token) → 1 heartbeat + 1 token.
+		$controller->fakeNow = 340.0;
+		$controller->forward(eventType: 'token', payload: ['delta' => 'two']);
 
-        $this->assertSame(
-            ['heartbeat', 'token', 'heartbeat', 'token'],
-            array_column($controller->capturedEvents, 'type'),
-            'Frames must interleave heartbeat-then-token twice.'
-        );
+		$this->assertSame(
+			['heartbeat', 'token', 'heartbeat', 'token'],
+			array_column($controller->capturedEvents, 'type'),
+			'Frames must interleave heartbeat-then-token twice.'
+		);
 
-    }//end testFortySecondTotalElapsedTriggersTwoHeartbeats()
+	}//end testFortySecondTotalElapsedTriggersTwoHeartbeats()
 
-    /**
-     * A non-token frame (tool_call) triggers the same interleave.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
-     */
-    public function testToolCallFrameAlsoTriggersInterleavedHeartbeat(): void
-    {
-        $controller          = $this->makeController();
-        $controller->fakeNow = 0.0;
-        $controller->seedLastEventAt(0.0);
+	/**
+	 * A non-token frame (tool_call) triggers the same interleave.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-2
+	 */
+	public function testToolCallFrameAlsoTriggersInterleavedHeartbeat(): void {
+		$controller = $this->makeController();
+		$controller->fakeNow = 0.0;
+		$controller->seedLastEventAt(0.0);
 
-        $controller->fakeNow = 20.0;
-        $controller->forward(
-            eventType: 'tool_call',
-            payload: [
-                'toolId'    => 'x.y',
-                'arguments' => [],
-            ]
-        );
+		$controller->fakeNow = 20.0;
+		$controller->forward(
+			eventType: 'tool_call',
+			payload: [
+				'toolId' => 'x.y',
+				'arguments' => [],
+			]
+		);
 
-        $this->assertSame(
-            ['heartbeat', 'tool_call'],
-            array_column($controller->capturedEvents, 'type')
-        );
+		$this->assertSame(
+			['heartbeat', 'tool_call'],
+			array_column($controller->capturedEvents, 'type')
+		);
 
-    }//end testToolCallFrameAlsoTriggersInterleavedHeartbeat()
+	}//end testToolCallFrameAlsoTriggersInterleavedHeartbeat()
 }//end class

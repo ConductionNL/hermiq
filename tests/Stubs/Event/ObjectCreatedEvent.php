@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal OpenRegister ObjectCreatedEvent stub for standalone unit runs
  * and static analysis.
@@ -27,28 +28,26 @@ use OCP\EventDispatcher\Event;
 /**
  * Minimal ObjectCreatedEvent stub.
  */
-class ObjectCreatedEvent extends Event
-{
+class ObjectCreatedEvent extends Event {
 
-    /**
-     * Constructor.
-     *
-     * @param ObjectEntity $object The created object.
-     */
-    public function __construct(private readonly ObjectEntity $object)
-    {
-        parent::__construct();
+	/**
+	 * Constructor.
+	 *
+	 * @param ObjectEntity $object The created object.
+	 */
+	public function __construct(
+		private readonly ObjectEntity $object,
+	) {
+		parent::__construct();
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * The created object.
-     *
-     * @return ObjectEntity The object.
-     */
-    public function getObject(): ObjectEntity
-    {
-        return $this->object;
-
-    }//end getObject()
+	/**
+	 * The created object.
+	 *
+	 * @return ObjectEntity The object.
+	 */
+	public function getObject(): ObjectEntity {
+		return $this->object;
+	}//end getObject()
 }//end class

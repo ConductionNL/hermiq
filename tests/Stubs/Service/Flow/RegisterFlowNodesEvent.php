@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal OpenRegister RegisterFlowNodesEvent stub for standalone unit runs
  * and static analysis.
@@ -22,37 +23,33 @@ use OCP\EventDispatcher\Event;
 /**
  * Minimal RegisterFlowNodesEvent stub.
  */
-class RegisterFlowNodesEvent extends Event
-{
+class RegisterFlowNodesEvent extends Event {
 
-    /**
-     * Contributed node types.
-     *
-     * @var array<int, IFlowNode>
-     */
-    private array $nodes = [];
+	/**
+	 * Contributed node types.
+	 *
+	 * @var array<int, IFlowNode>
+	 */
+	private array $nodes = [];
 
-    /**
-     * Contribute a node type.
-     *
-     * @param IFlowNode $node The node type.
-     *
-     * @return void
-     */
-    public function registerNode(IFlowNode $node): void
-    {
-        $this->nodes[] = $node;
+	/**
+	 * Contribute a node type.
+	 *
+	 * @param IFlowNode $node The node type.
+	 *
+	 * @return void
+	 */
+	public function registerNode(IFlowNode $node): void {
+		$this->nodes[] = $node;
 
-    }//end registerNode()
+	}//end registerNode()
 
-    /**
-     * Every contributed node type.
-     *
-     * @return array<int, IFlowNode> The node types.
-     */
-    public function getNodes(): array
-    {
-        return $this->nodes;
-
-    }//end getNodes()
+	/**
+	 * Every contributed node type.
+	 *
+	 * @return array<int, IFlowNode> The node types.
+	 */
+	public function getNodes(): array {
+		return $this->nodes;
+	}//end getNodes()
 }//end class

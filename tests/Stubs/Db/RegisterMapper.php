@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal OpenRegister RegisterMapper stub for standalone unit runs.
  *
@@ -16,18 +17,16 @@ namespace OCA\OpenRegister\Db;
 /**
  * Minimal RegisterMapper stub.
  */
-class RegisterMapper
-{
+class RegisterMapper {
 
-    /**
-     * Resolve a register by id or slug.
-     *
-     * @param string|int $id The register id or slug.
-     *
-     * @return Register The resolved register.
-     */
-    public function find(string | int $id): Register
-    {
-        return new Register();
-    }//end find()
+	/**
+	 * Resolve a register by id or slug.
+	 *
+	 * @param string|int $id The register id or slug.
+	 *
+	 * @return Register The resolved register.
+	 */
+	public function find(string|int $id): Register {
+		return new Register();
+	}//end find()
 }//end class

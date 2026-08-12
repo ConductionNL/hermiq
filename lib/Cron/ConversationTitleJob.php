@@ -49,55 +49,53 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
  */
-class ConversationTitleJob extends QueuedJob
-{
-    /**
-     * Constructor.
-     *
-     * @param ITimeFactory            $time   Time factory for the base job.
-     * @param ConversationTitleWriter $writer Generates and persists the title.
-     */
-    public function __construct(
-        ITimeFactory $time,
-        private readonly ConversationTitleWriter $writer,
-    ) {
-        parent::__construct(time: $time);
+class ConversationTitleJob extends QueuedJob {
+	/**
+	 * Constructor.
+	 *
+	 * @param ITimeFactory $time Time factory for the base job.
+	 * @param ConversationTitleWriter $writer Generates and persists the title.
+	 */
+	public function __construct(
+		ITimeFactory $time,
+		private readonly ConversationTitleWriter $writer,
+	) {
+		parent::__construct(time: $time);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * Run the job: generate and persist the conversation's title.
-     *
-     * @param mixed $argument `['conversationId' => string, 'userMessage' => string,
-     *                        'userId' => string]`. Defensively re-checked: `IJobList`
-     *                        argument storage is a JSON round-trip, not a compile-time-
-     *                        guaranteed shape. `userId` is the owner this runs as — a job
-     *                        has no session, and both the write (OpenRegister RBAC) and the
-     *                        credential broker refuse an anonymous principal.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
-     */
-    protected function run($argument): void
-    {
-        $payload = $argument;
-        if (is_array($payload) === false) {
-            return;
-        }
+	/**
+	 * Run the job: generate and persist the conversation's title.
+	 *
+	 * @param mixed $argument `['conversationId' => string, 'userMessage' => string,
+	 *                        'userId' => string]`. Defensively re-checked: `IJobList`
+	 *                        argument storage is a JSON round-trip, not a compile-time-
+	 *                        guaranteed shape. `userId` is the owner this runs as — a job
+	 *                        has no session, and both the write (OpenRegister RBAC) and the
+	 *                        credential broker refuse an anonymous principal.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 */
+	protected function run($argument): void {
+		$payload = $argument;
+		if (is_array($payload) === false) {
+			return;
+		}
 
-        $conversationId = (string) ($payload['conversationId'] ?? '');
-        $userMessage    = (string) ($payload['userMessage'] ?? '');
-        $userId         = (string) ($payload['userId'] ?? '');
-        if ($conversationId === '' || $userMessage === '' || $userId === '') {
-            return;
-        }
+		$conversationId = (string)($payload['conversationId'] ?? '');
+		$userMessage = (string)($payload['userMessage'] ?? '');
+		$userId = (string)($payload['userId'] ?? '');
+		if ($conversationId === '' || $userMessage === '' || $userId === '') {
+			return;
+		}
 
-        $this->writer->write(
-            conversationId: $conversationId,
-            userMessage: $userMessage,
-            userId: $userId
-        );
+		$this->writer->write(
+			conversationId: $conversationId,
+			userMessage: $userMessage,
+			userId: $userId
+		);
 
-    }//end run()
+	}//end run()
 }//end class

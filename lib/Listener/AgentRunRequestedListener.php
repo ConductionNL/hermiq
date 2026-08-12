@@ -53,53 +53,51 @@ use Throwable;
  *
  * @spec openspec/changes/flow-agent-listener/tasks.md#1-listener-and-queued-job
  */
-class AgentRunRequestedListener implements IEventListener
-{
-    /**
-     * Constructor.
-     *
-     * @param IJobList        $jobList Enqueues the one-shot AgentRunRequestedJob.
-     * @param LoggerInterface $logger  Logs unsupported modes / enqueue failures.
-     */
-    public function __construct(
-        private readonly IJobList $jobList,
-        private readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+class AgentRunRequestedListener implements IEventListener {
+	/**
+	 * Constructor.
+	 *
+	 * @param IJobList $jobList Enqueues the one-shot AgentRunRequestedJob.
+	 * @param LoggerInterface $logger Logs unsupported modes / enqueue failures.
+	 */
+	public function __construct(
+		private readonly IJobList $jobList,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Handle the agent-run-requested event.
-     *
-     * @param Event $event The event to handle.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
-     */
-    public function handle(Event $event): void
-    {
-        if ($event instanceof AgentRunRequestedEvent === false) {
-            return;
-        }
+	/**
+	 * Handle the agent-run-requested event.
+	 *
+	 * @param Event $event The event to handle.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
+	 */
+	public function handle(Event $event): void {
+		if ($event instanceof AgentRunRequestedEvent === false) {
+			return;
+		}
 
-        $payload = $event->getPayload();
+		$payload = $event->getPayload();
 
-        $mode = (string) ($payload['mode'] ?? 'async');
-        if ($mode !== 'async') {
-            $this->logger->warning(
-                sprintf('Hermiq ignoring flow agent-run request with unsupported mode "%s".', $mode)
-            );
-            return;
-        }
+		$mode = (string)($payload['mode'] ?? 'async');
+		if ($mode !== 'async') {
+			$this->logger->warning(
+				sprintf('Hermiq ignoring flow agent-run request with unsupported mode "%s".', $mode)
+			);
+			return;
+		}
 
-        try {
-            $this->jobList->add(AgentRunRequestedJob::class, $payload);
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                'Hermiq could not enqueue flow agent-run job: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-        }
+		try {
+			$this->jobList->add(AgentRunRequestedJob::class, $payload);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq could not enqueue flow agent-run job: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
 
-    }//end handle()
+	}//end handle()
 }//end class

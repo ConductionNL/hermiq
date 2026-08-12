@@ -56,54 +56,51 @@ use OCA\Hermiq\Service\Engine\ToolGrantResolver;
  *
  * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
  */
-class ToolClassificationService
-{
-    /**
-     * Whether a tool id is side-effecting (and must therefore be neutralised,
-     * never invoked for real, during a dry-run).
-     *
-     * An empty/malformed id, or any id `ToolGrantResolver::requiresGrant()`
-     * cannot positively classify as a low-reach read (no hint, not a
-     * `{app}.{schema}.{verb}` id with a read verb, or a reach of `instance` or
-     * higher), is treated as side-effecting — the fail-safe-closed default the
-     * spec requires.
-     *
-     * 🔴 This delegates to the UNION predicate, not to `isWriteOrDestructive()`
-     * alone, because the reach axis exposed a real hole here: `hermiq.webFetch`
-     * declares `scope: read` and `readOnlyHint: true`, so a "preview" would
-     * invoke it FOR REAL and send a model-chosen URL out of the instance. A
-     * preview that egresses has already done the unrecallable part of the thing
-     * it was previewing. The union can only ever neutralise MORE calls than
-     * before, never fewer, so no dry-run that previously skipped a call now
-     * performs one.
-     *
-     * @param string                   $id         The `{appId}.{toolName}` registry id
-     *                                             (the `mcpId`, when resolvable).
-     * @param array<string,mixed>|null $descriptor The catalog descriptor for `$id`, when
-     *                                             available (carries the optional
-     *                                             `scope`/`destructiveHint`/`readOnlyHint`
-     *                                             keys forwarded from OpenRegister's MCP
-     *                                             annotations). Null when unavailable —
-     *                                             falls straight to the verb-suffix/
-     *                                             fail-closed rules.
-     *
-     * @return bool True when the tool must be neutralised in a dry-run.
-     *
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
-     *
-     * @SuppressWarnings(PHPMD.StaticAccess) ToolGrantResolver::requiresGrant()
-     *   is a deliberately stateless pure classifier — both classifications must share
-     *   the ONE verb/hint/reach rule set, so it is called statically, not injected.
-     */
-    public function isSideEffecting(string $id, ?array $descriptor=null): bool
-    {
-        if (trim($id) === '') {
-            // Empty/malformed id — never let a nonsense identifier silently
-            // fall through as "safe to invoke for real".
-            return true;
-        }
+class ToolClassificationService {
+	/**
+	 * Whether a tool id is side-effecting (and must therefore be neutralised,
+	 * never invoked for real, during a dry-run).
+	 *
+	 * An empty/malformed id, or any id `ToolGrantResolver::requiresGrant()`
+	 * cannot positively classify as a low-reach read (no hint, not a
+	 * `{app}.{schema}.{verb}` id with a read verb, or a reach of `instance` or
+	 * higher), is treated as side-effecting — the fail-safe-closed default the
+	 * spec requires.
+	 *
+	 * 🔴 This delegates to the UNION predicate, not to `isWriteOrDestructive()`
+	 * alone, because the reach axis exposed a real hole here: `hermiq.webFetch`
+	 * declares `scope: read` and `readOnlyHint: true`, so a "preview" would
+	 * invoke it FOR REAL and send a model-chosen URL out of the instance. A
+	 * preview that egresses has already done the unrecallable part of the thing
+	 * it was previewing. The union can only ever neutralise MORE calls than
+	 * before, never fewer, so no dry-run that previously skipped a call now
+	 * performs one.
+	 *
+	 * @param string $id The `{appId}.{toolName}` registry id
+	 *                   (the `mcpId`, when resolvable).
+	 * @param array<string,mixed>|null $descriptor The catalog descriptor for `$id`, when
+	 *                                             available (carries the optional
+	 *                                             `scope`/`destructiveHint`/`readOnlyHint`
+	 *                                             keys forwarded from OpenRegister's MCP
+	 *                                             annotations). Null when unavailable —
+	 *                                             falls straight to the verb-suffix/
+	 *                                             fail-closed rules.
+	 *
+	 * @return bool True when the tool must be neutralised in a dry-run.
+	 *
+	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) ToolGrantResolver::requiresGrant()
+	 *   is a deliberately stateless pure classifier — both classifications must share
+	 *   the ONE verb/hint/reach rule set, so it is called statically, not injected.
+	 */
+	public function isSideEffecting(string $id, ?array $descriptor = null): bool {
+		if (trim($id) === '') {
+			// Empty/malformed id — never let a nonsense identifier silently
+			// fall through as "safe to invoke for real".
+			return true;
+		}
 
-        return ToolGrantResolver::requiresGrant(id: $id, descriptor: $descriptor);
-
-    }//end isSideEffecting()
+		return ToolGrantResolver::requiresGrant(id: $id, descriptor: $descriptor);
+	}//end isSideEffecting()
 }//end class

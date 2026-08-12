@@ -39,105 +39,99 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-2-align-the-leaf-surface-vocabulary-across-both-halves
  */
-class LeafSurfaceParityTest extends TestCase
-{
+class LeafSurfaceParityTest extends TestCase {
 
-    /**
-     * OpenRegister's authoritative surface vocabulary
-     * (`LeafDescriptor::VALID_SURFACES`). Mirrored rather than imported because
-     * `OCA\OpenRegister\*` is absent from this repository's analysis environment;
-     * a drift in OR's own list is caught live, not here.
-     *
-     * @var array<int, string>
-     */
-    private const VALID_SURFACES = ['user-dashboard', 'app-dashboard', 'detail-page', 'single-entity'];
+	/**
+	 * OpenRegister's authoritative surface vocabulary
+	 * (`LeafDescriptor::VALID_SURFACES`). Mirrored rather than imported because
+	 * `OCA\OpenRegister\*` is absent from this repository's analysis environment;
+	 * a drift in OR's own list is caught live, not here.
+	 *
+	 * @var array<int, string>
+	 */
+	private const VALID_SURFACES = ['user-dashboard', 'app-dashboard', 'detail-page', 'single-entity'];
 
-    /**
-     * The surfaces the JS half declares, read from its source.
-     *
-     * @return array<int, string>
-     */
-    private function jsSurfaces(): array
-    {
-        $source = file_get_contents(__DIR__.'/../../../src/integration-leaf.js');
-        $this->assertIsString($source, 'src/integration-leaf.js must be readable.');
+	/**
+	 * The surfaces the JS half declares, read from its source.
+	 *
+	 * @return array<int, string>
+	 */
+	private function jsSurfaces(): array {
+		$source = file_get_contents(__DIR__ . '/../../../src/integration-leaf.js');
+		$this->assertIsString($source, 'src/integration-leaf.js must be readable.');
 
-        // The registration object must reference the declared list, not omit it.
-        $this->assertMatchesRegularExpression(
-            '/\n\tsurfaces:\s*SURFACES,/',
-            $source,
-            'The JS half must pass an EXPLICIT surfaces list to registerIntegration().'
-        );
+		// The registration object must reference the declared list, not omit it.
+		$this->assertMatchesRegularExpression(
+			'/\n\tsurfaces:\s*SURFACES,/',
+			$source,
+			'The JS half must pass an EXPLICIT surfaces list to registerIntegration().'
+		);
 
-        $matched = preg_match('/const SURFACES = \[([^\]]*)\]/', $source, $matches);
-        $this->assertSame(1, $matched, 'src/integration-leaf.js must declare a SURFACES list.');
+		$matched = preg_match('/const SURFACES = \[([^\]]*)\]/', $source, $matches);
+		$this->assertSame(1, $matched, 'src/integration-leaf.js must declare a SURFACES list.');
 
-        $surfaces = [];
-        foreach (explode(',', $matches[1]) as $entry) {
-            $entry = trim($entry, " \t\n'\"");
-            if ($entry !== '') {
-                $surfaces[] = $entry;
-            }
-        }
+		$surfaces = [];
+		foreach (explode(',', $matches[1]) as $entry) {
+			$entry = trim($entry, " \t\n'\"");
+			if ($entry !== '') {
+				$surfaces[] = $entry;
+			}
+		}
 
-        return $surfaces;
+		return $surfaces;
+	}//end jsSurfaces()
 
-    }//end jsSurfaces()
+	/**
+	 * Both halves name the SAME set, in the same order.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-both-registration-halves-declare-the-same-explicit-surface-set
+	 */
+	public function testBothHalvesDeclareTheSameSurfaceSet(): void {
+		$this->assertSame(RegisterAgentLeafListener::SURFACES, $this->jsSurfaces());
 
-    /**
-     * Both halves name the SAME set, in the same order.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-both-registration-halves-declare-the-same-explicit-surface-set
-     */
-    public function testBothHalvesDeclareTheSameSurfaceSet(): void
-    {
-        $this->assertSame(RegisterAgentLeafListener::SURFACES, $this->jsSurfaces());
+	}//end testBothHalvesDeclareTheSameSurfaceSet()
 
-    }//end testBothHalvesDeclareTheSameSurfaceSet()
+	/**
+	 * Every declared surface is a member of OpenRegister's vocabulary — a typo
+	 * would otherwise register a surface nothing ever renders.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-both-registration-halves-declare-the-same-explicit-surface-set
+	 */
+	public function testEverySurfaceIsInTheOpenRegisterVocabulary(): void {
+		foreach (RegisterAgentLeafListener::SURFACES as $surface) {
+			$this->assertContains($surface, self::VALID_SURFACES);
+		}
 
-    /**
-     * Every declared surface is a member of OpenRegister's vocabulary — a typo
-     * would otherwise register a surface nothing ever renders.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-both-registration-halves-declare-the-same-explicit-surface-set
-     */
-    public function testEverySurfaceIsInTheOpenRegisterVocabulary(): void
-    {
-        foreach (RegisterAgentLeafListener::SURFACES as $surface) {
-            $this->assertContains($surface, self::VALID_SURFACES);
-        }
+	}//end testEverySurfaceIsInTheOpenRegisterVocabulary()
 
-    }//end testEverySurfaceIsInTheOpenRegisterVocabulary()
+	/**
+	 * The dashboard surfaces are included, because the leaf ships a run-history
+	 * widget with a default grid size and consuming apps place that widget on
+	 * dashboards. This is the assertion that would have failed before the fix.
+	 *
+	 * The widget is asserted by the component it roots rather than by a literal
+	 * `widget:` key: under renderMode `mount` (openregister#2127, ADR-066) the leaf
+	 * registers a `mount`/`unmount` pair instead of `tab`/`widget` SFCs, and
+	 * `componentForSurface()` roots `CnAgentRunsWidget` on the dashboard surfaces.
+	 * The thing that matters — a dashboard-sized run widget the declared surfaces
+	 * can host — holds in either registration form.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-agent-widget-is-placeable-on-a-consuming-apps-dashboard
+	 */
+	public function testTheDashboardSurfacesAreDeclaredBecauseTheLeafShipsAWidget(): void {
+		$source = file_get_contents(__DIR__ . '/../../../src/integration-leaf.js');
 
-    /**
-     * The dashboard surfaces are included, because the leaf ships a run-history
-     * widget with a default grid size and consuming apps place that widget on
-     * dashboards. This is the assertion that would have failed before the fix.
-     *
-     * The widget is asserted by the component it roots rather than by a literal
-     * `widget:` key: under renderMode `mount` (openregister#2127, ADR-066) the leaf
-     * registers a `mount`/`unmount` pair instead of `tab`/`widget` SFCs, and
-     * `componentForSurface()` roots `CnAgentRunsWidget` on the dashboard surfaces.
-     * The thing that matters — a dashboard-sized run widget the declared surfaces
-     * can host — holds in either registration form.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-agent-widget-is-placeable-on-a-consuming-apps-dashboard
-     */
-    public function testTheDashboardSurfacesAreDeclaredBecauseTheLeafShipsAWidget(): void
-    {
-        $source = file_get_contents(__DIR__.'/../../../src/integration-leaf.js');
+		$this->assertStringContainsString('CnAgentRunsWidget', (string)$source);
+		$this->assertStringContainsString('defaultSize:', (string)$source);
 
-        $this->assertStringContainsString('CnAgentRunsWidget', (string) $source);
-        $this->assertStringContainsString('defaultSize:', (string) $source);
+		$this->assertContains('user-dashboard', RegisterAgentLeafListener::SURFACES);
+		$this->assertContains('app-dashboard', RegisterAgentLeafListener::SURFACES);
 
-        $this->assertContains('user-dashboard', RegisterAgentLeafListener::SURFACES);
-        $this->assertContains('app-dashboard', RegisterAgentLeafListener::SURFACES);
-
-    }//end testTheDashboardSurfacesAreDeclaredBecauseTheLeafShipsAWidget()
+	}//end testTheDashboardSurfacesAreDeclaredBecauseTheLeafShipsAWidget()
 }//end class

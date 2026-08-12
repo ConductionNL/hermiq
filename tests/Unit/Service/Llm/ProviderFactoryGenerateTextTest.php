@@ -38,81 +38,76 @@ use Psr\Log\NullLogger;
  *
  * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
  */
-class ProviderFactoryGenerateTextTest extends TestCase
-{
-    /**
-     * Build a factory over a config-returning settings handler + manager mock.
-     *
-     * @param array $llmConfig     The config the settings handler returns.
-     * @param bool  $hasProviders  Whether the TaskProcessing manager reports providers.
-     *
-     * @return array{0: ProviderFactory, 1: IManager} The factory and manager mock.
-     */
-    private function factory(array $llmConfig, bool $hasProviders=true): array
-    {
-        $settings = $this->createMock(LlmSettingsHandler::class);
-        $settings->method('getLLMSettingsOnly')->willReturn($llmConfig);
+class ProviderFactoryGenerateTextTest extends TestCase {
+	/**
+	 * Build a factory over a config-returning settings handler + manager mock.
+	 *
+	 * @param array $llmConfig The config the settings handler returns.
+	 * @param bool $hasProviders Whether the TaskProcessing manager reports providers.
+	 *
+	 * @return array{0: ProviderFactory, 1: IManager} The factory and manager mock.
+	 */
+	private function factory(array $llmConfig, bool $hasProviders = true): array {
+		$settings = $this->createMock(LlmSettingsHandler::class);
+		$settings->method('getLLMSettingsOnly')->willReturn($llmConfig);
 
-        $manager = $this->createMock(IManager::class);
-        $manager->method('hasProviders')->willReturn($hasProviders);
+		$manager = $this->createMock(IManager::class);
+		$manager->method('hasProviders')->willReturn($hasProviders);
 
-        // The broker's ownership guard needs an identity to check the credential against.
-        $user = $this->createMock(IUser::class);
-        $user->method('getUID')->willReturn('alice');
-        $userSession = $this->createMock(IUserSession::class);
-        $userSession->method('getUser')->willReturn($user);
+		// The broker's ownership guard needs an identity to check the credential against.
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn('alice');
+		$userSession = $this->createMock(IUserSession::class);
+		$userSession->method('getUser')->willReturn($user);
 
-        return [new ProviderFactory($settings, $manager, $userSession, new NullLogger()), $manager];
-    }//end factory()
+		return [new ProviderFactory($settings, $manager, $userSession, new NullLogger()), $manager];
+	}//end factory()
 
-    /**
-     * With allowNextcloud=false, selecting the nextcloud driver is refused (400) —
-     * a Hermiq provider must never recurse into TaskProcessing.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
-     */
-    public function testNextcloudForbiddenForProviderBackedGeneration(): void
-    {
-        [$factory] = $this->factory(['chatProvider' => 'nextcloud'], true);
+	/**
+	 * With allowNextcloud=false, selecting the nextcloud driver is refused (400) —
+	 * a Hermiq provider must never recurse into TaskProcessing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
+	 */
+	public function testNextcloudForbiddenForProviderBackedGeneration(): void {
+		[$factory] = $this->factory(['chatProvider' => 'nextcloud'], true);
 
-        $this->expectException(ProviderUnavailableException::class);
-        $this->expectExceptionCode(400);
-        $factory->generateText('hello', null, false);
-    }//end testNextcloudForbiddenForProviderBackedGeneration()
+		$this->expectException(ProviderUnavailableException::class);
+		$this->expectExceptionCode(400);
+		$factory->generateText('hello', null, false);
+	}//end testNextcloudForbiddenForProviderBackedGeneration()
 
-    /**
-     * With allowNextcloud=true (the default, background-work caller), the nextcloud
-     * driver runs the TaskProcessing round-trip and returns its output.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
-     */
-    public function testNextcloudAllowedForBackgroundGeneration(): void
-    {
-        [$factory, $manager] = $this->factory(['chatProvider' => 'nextcloud'], true);
+	/**
+	 * With allowNextcloud=true (the default, background-work caller), the nextcloud
+	 * driver runs the TaskProcessing round-trip and returns its output.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
+	 */
+	public function testNextcloudAllowedForBackgroundGeneration(): void {
+		[$factory, $manager] = $this->factory(['chatProvider' => 'nextcloud'], true);
 
-        $done = new Task('core:text2text', ['input' => 'hello'], 'hermiq', null, '');
-        $done->setOutput(['output' => 'assistant reply']);
-        $manager->method('runTask')->willReturn($done);
+		$done = new Task('core:text2text', ['input' => 'hello'], 'hermiq', null, '');
+		$done->setOutput(['output' => 'assistant reply']);
+		$manager->method('runTask')->willReturn($done);
 
-        $this->assertSame('assistant reply', $factory->generateText('hello', null, true));
-    }//end testNextcloudAllowedForBackgroundGeneration()
+		$this->assertSame('assistant reply', $factory->generateText('hello', null, true));
+	}//end testNextcloudAllowedForBackgroundGeneration()
 
-    /**
-     * An unconfigured provider raises the recoverable unavailable signal.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
-     */
-    public function testMissingProviderThrows(): void
-    {
-        [$factory] = $this->factory(['chatProvider' => null], true);
+	/**
+	 * An unconfigured provider raises the recoverable unavailable signal.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-2-1
+	 */
+	public function testMissingProviderThrows(): void {
+		[$factory] = $this->factory(['chatProvider' => null], true);
 
-        $this->expectException(ProviderUnavailableException::class);
-        $factory->generateText('hello', null, false);
-    }//end testMissingProviderThrows()
+		$this->expectException(ProviderUnavailableException::class);
+		$factory->generateText('hello', null, false);
+	}//end testMissingProviderThrows()
 }//end class

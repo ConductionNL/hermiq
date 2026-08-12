@@ -210,14 +210,23 @@ export default {
 
 <style scoped>
 .cn-agent-runs-widget { display: flex; flex-direction: column; gap: 12px; padding: 8px 4px; }
+
 .cn-agent-runs-widget__run { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+
 .cn-agent-runs-widget__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+
 .cn-agent-runs-widget__item { display: flex; gap: 8px; align-items: baseline; }
+
 .cn-agent-runs-widget__status { font-weight: 600; font-size: 0.85em; padding: 2px 6px; border-radius: var(--border-radius, 4px); background: var(--color-background-hover); white-space: nowrap; }
+
 .cn-agent-runs-widget__status--ok { color: var(--color-success); }
+
 .cn-agent-runs-widget__status--error { color: var(--color-error); }
+
 .cn-agent-runs-widget__status--skipped_killswitch,
 .cn-agent-runs-widget__status--skipped_budget { color: var(--color-warning); }
+
 .cn-agent-runs-widget__status--awaiting_approval { color: var(--color-primary-element); }
+
 .cn-agent-runs-widget__meta { color: var(--color-text-maxcontrast); font-size: 0.9em; }
 </style>

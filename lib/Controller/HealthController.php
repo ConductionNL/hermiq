@@ -46,65 +46,63 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/specs/observability/spec.md
  */
-class HealthController extends Controller
-{
-    /**
-     * Constructor.
-     *
-     * @param IRequest        $request         The request object
-     * @param SettingsService $settingsService For OpenRegister availability check
-     * @param LoggerInterface $logger          The logger
-     *
-     * @return void
-     *
-     * @spec openspec/specs/observability/spec.md#REQ-OBS-002
-     */
-    public function __construct(
-        IRequest $request,
-        private SettingsService $settingsService,
-        private LoggerInterface $logger,
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
-    }//end __construct()
+class HealthController extends Controller {
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object
+	 * @param SettingsService $settingsService For OpenRegister availability check
+	 * @param LoggerInterface $logger The logger
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/observability/spec.md#REQ-OBS-002
+	 */
+	public function __construct(
+		IRequest $request,
+		private SettingsService $settingsService,
+		private LoggerInterface $logger,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
+	}//end __construct()
 
-    /**
-     * Health check JSON. Public endpoint.
-     *
-     * @PublicPage
-     * @NoCSRFRequired
-     *
-     * @return JSONResponse
-     *
-     * @spec openspec/specs/observability/spec.md#REQ-OBS-002
-     */
-    public function index(): JSONResponse
-    {
-        try {
-            $openRegister = $this->settingsService->isOpenRegisterAvailable();
-            $status       = 'degraded';
-            $httpStatus   = Http::STATUS_SERVICE_UNAVAILABLE;
-            if ($openRegister === true) {
-                $status     = 'ok';
-                $httpStatus = Http::STATUS_OK;
-            }
+	/**
+	 * Health check JSON. Public endpoint.
+	 *
+	 * @PublicPage
+	 * @NoCSRFRequired
+	 *
+	 * @return JSONResponse
+	 *
+	 * @spec openspec/specs/observability/spec.md#REQ-OBS-002
+	 */
+	public function index(): JSONResponse {
+		try {
+			$openRegister = $this->settingsService->isOpenRegisterAvailable();
+			$status = 'degraded';
+			$httpStatus = Http::STATUS_SERVICE_UNAVAILABLE;
+			if ($openRegister === true) {
+				$status = 'ok';
+				$httpStatus = Http::STATUS_OK;
+			}
 
-            return new JSONResponse(
-                [
-                    'status'       => $status,
-                    'app'          => Application::APP_ID,
-                    'version'      => '0.1.0',
-                    'dependencies' => [
-                        'openregister' => $openRegister,
-                    ],
-                ],
-                $httpStatus
-            );
-        } catch (\Throwable $e) {
-            $this->logger->error('Hermiq: health check failed', ['exception' => $e]);
-            return new JSONResponse(
-                ['status' => 'error', 'message' => 'Health check failed'],
-                Http::STATUS_INTERNAL_SERVER_ERROR
-            );
-        }//end try
-    }//end index()
+			return new JSONResponse(
+				[
+					'status' => $status,
+					'app' => Application::APP_ID,
+					'version' => '0.1.0',
+					'dependencies' => [
+						'openregister' => $openRegister,
+					],
+				],
+				$httpStatus
+			);
+		} catch (\Throwable $e) {
+			$this->logger->error('Hermiq: health check failed', ['exception' => $e]);
+			return new JSONResponse(
+				['status' => 'error', 'message' => 'Health check failed'],
+				Http::STATUS_INTERNAL_SERVER_ERROR
+			);
+		}//end try
+	}//end index()
 }//end class

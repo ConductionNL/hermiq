@@ -38,71 +38,67 @@ use Psr\Log\LoggerInterface;
  *
  * @spec exclude See file-level docblock.
  */
-class CheckOpenRegisterCompatibilityTest extends TestCase
-{
+class CheckOpenRegisterCompatibilityTest extends TestCase {
 
-    /**
-     * When both required OpenRegister classes are present (the real FQCNs, backed
-     * by the test stubs), run() must log info only — no warning, no error.
-     *
-     * @return void
-     */
-    public function testAllClassesPresentLogsInfoOnly(): void
-    {
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->never())->method('error');
+	/**
+	 * When both required OpenRegister classes are present (the real FQCNs, backed
+	 * by the test stubs), run() must log info only — no warning, no error.
+	 *
+	 * @return void
+	 */
+	public function testAllClassesPresentLogsInfoOnly(): void {
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->never())->method('error');
 
-        $output = $this->createMock(IOutput::class);
-        $output->expects($this->once())->method('info');
-        $output->expects($this->never())->method('warning');
+		$output = $this->createMock(IOutput::class);
+		$output->expects($this->once())->method('info');
+		$output->expects($this->never())->method('warning');
 
-        $subject = new CheckOpenRegisterCompatibility($logger);
-        $subject->run($output);
+		$subject = new CheckOpenRegisterCompatibility($logger);
+		$subject->run($output);
 
-    }//end testAllClassesPresentLogsInfoOnly()
+	}//end testAllClassesPresentLogsInfoOnly()
 
-    /**
-     * When a required class is missing, run() must warn (console) and log an error
-     * (persistent log trail) naming the minimum OpenRegister version and the
-     * missing class — never throw.
-     *
-     * @return void
-     */
-    public function testMissingClassLogsActionableWarningAndError(): void
-    {
-        $logger = $this->createMock(LoggerInterface::class);
-        $capturedError = null;
-        $logger->expects($this->once())->method('error')->willReturnCallback(
-            function (string $message) use (&$capturedError): void {
-                $capturedError = $message;
-            }
-        );
+	/**
+	 * When a required class is missing, run() must warn (console) and log an error
+	 * (persistent log trail) naming the minimum OpenRegister version and the
+	 * missing class — never throw.
+	 *
+	 * @return void
+	 */
+	public function testMissingClassLogsActionableWarningAndError(): void {
+		$logger = $this->createMock(LoggerInterface::class);
+		$capturedError = null;
+		$logger->expects($this->once())->method('error')->willReturnCallback(
+			function (string $message) use (&$capturedError): void {
+				$capturedError = $message;
+			}
+		);
 
-        $capturedWarning = null;
-        $output = $this->createMock(IOutput::class);
-        $output->expects($this->never())->method('info');
-        $output->expects($this->once())->method('warning')->willReturnCallback(
-            function (string $message) use (&$capturedWarning): void {
-                $capturedWarning = $message;
-            }
-        );
+		$capturedWarning = null;
+		$output = $this->createMock(IOutput::class);
+		$output->expects($this->never())->method('info');
+		$output->expects($this->once())->method('warning')->willReturnCallback(
+			function (string $message) use (&$capturedWarning): void {
+				$capturedWarning = $message;
+			}
+		);
 
-        $subject = new class ($logger) extends CheckOpenRegisterCompatibility {
-            protected function getRequiredClasses(): array
-            {
-                return ['OCA\Hermiq\Tests\Fixtures\DoesNotExist' => 'Fake missing class (test fixture)'];
-            }//end getRequiredClasses()
-        };
+		$subject = new class($logger) extends CheckOpenRegisterCompatibility {
+			protected function getRequiredClasses(): array {
+				return ['OCA\Hermiq\Tests\Fixtures\DoesNotExist' => 'Fake missing class (test fixture)'];
+			}//end getRequiredClasses()
+		};
 
-        $subject->run($output);
+		$subject->run($output);
 
-        $this->assertNotNull($capturedWarning);
-        $this->assertStringContainsString('Fake missing class (test fixture)', $capturedWarning);
-        $this->assertStringContainsString(
-            CheckOpenRegisterCompatibility::MIN_OPENREGISTER_VERSION,
-            $capturedWarning
-        );
-        $this->assertSame($capturedWarning, $capturedError, 'The console warning and the logged error must carry the same actionable message.');
+		$this->assertNotNull($capturedWarning);
+		$this->assertStringContainsString('Fake missing class (test fixture)', $capturedWarning);
+		$this->assertStringContainsString(
+			CheckOpenRegisterCompatibility::MIN_OPENREGISTER_VERSION,
+			$capturedWarning
+		);
+		$this->assertSame($capturedWarning, $capturedError, 'The console warning and the logged error must carry the same actionable message.');
 
-    }//end testMissingClassLogsActionableWarningAndError()
+	}//end testMissingClassLogsActionableWarningAndError()
 }//end class

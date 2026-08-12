@@ -54,131 +54,125 @@ use DateTimeZone;
  *
  * @spec openspec/changes/run-trace-observability/tasks.md#task-1-runtracecollector-ordered-in-memory-step-recorder
  */
-class RunTraceCollector
-{
+class RunTraceCollector {
 
-    /**
-     * Steps not yet ended, keyed by their start token.
-     *
-     * @var array<int, array{type: string, name: string, startedAt: DateTimeImmutable, startedAtMicro: float}>
-     */
-    private array $pending = [];
+	/**
+	 * Steps not yet ended, keyed by their start token.
+	 *
+	 * @var array<int, array{type: string, name: string, startedAt: DateTimeImmutable, startedAtMicro: float}>
+	 */
+	private array $pending = [];
 
-    /**
-     * Completed steps, in COMPLETION (endStep call) order — see class docblock.
-     *
-     * The shape is unsealed (`...<string, mixed>`): endStep() merges caller-supplied
-     * `$extra` keys (e.g. tool call metadata) alongside the fixed timeline keys.
-     *
-     * @var array<int, array{seq: int, type: string, name: string, startedAt: string,
-     *     endedAt: string, durationMs: int, outcome: string, ...<string, mixed>}>
-     */
-    private array $steps = [];
+	/**
+	 * Completed steps, in COMPLETION (endStep call) order — see class docblock.
+	 *
+	 * The shape is unsealed (`...<string, mixed>`): endStep() merges caller-supplied
+	 * `$extra` keys (e.g. tool call metadata) alongside the fixed timeline keys.
+	 *
+	 * @var array<int, array{seq: int, type: string, name: string, startedAt: string,
+	 *     endedAt: string, durationMs: int, outcome: string, ...<string, mixed>}>
+	 */
+	private array $steps = [];
 
-    /**
-     * Monotonic token counter for `startStep()`.
-     *
-     * @var integer
-     */
-    private int $nextToken = 0;
+	/**
+	 * Monotonic token counter for `startStep()`.
+	 *
+	 * @var integer
+	 */
+	private int $nextToken = 0;
 
-    /**
-     * Monotonic sequence counter, incremented on each `endStep()` completion.
-     *
-     * @var integer
-     */
-    private int $nextSeq = 0;
+	/**
+	 * Monotonic sequence counter, incremented on each `endStep()` completion.
+	 *
+	 * @var integer
+	 */
+	private int $nextSeq = 0;
 
-    /**
-     * Begin timing one step.
-     *
-     * @param string $type A step type (`context`|`history`|`llm`|`tool`|`delivery`).
-     * @param string $name A human-readable step name (a fixed label or a
-     *                     `{appId}.{toolName}` registry id — never free user/tool
-     *                     text, so no redaction is needed on this field).
-     *
-     * @return int An opaque token to pass to `endStep()`.
-     *
-     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-     */
-    public function startStep(string $type, string $name): int
-    {
-        $token = $this->nextToken++;
+	/**
+	 * Begin timing one step.
+	 *
+	 * @param string $type A step type (`context`|`history`|`llm`|`tool`|`delivery`).
+	 * @param string $name A human-readable step name (a fixed label or a
+	 *                     `{appId}.{toolName}` registry id — never free user/tool
+	 *                     text, so no redaction is needed on this field).
+	 *
+	 * @return int An opaque token to pass to `endStep()`.
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 */
+	public function startStep(string $type, string $name): int {
+		$token = $this->nextToken++;
 
-        $this->pending[$token] = [
-            'type'           => $type,
-            'name'           => $name,
-            'startedAt'      => new DateTimeImmutable('now', new DateTimeZone('UTC')),
-            'startedAtMicro' => microtime(true),
-        ];
+		$this->pending[$token] = [
+			'type' => $type,
+			'name' => $name,
+			'startedAt' => new DateTimeImmutable('now', new DateTimeZone('UTC')),
+			'startedAtMicro' => microtime(true),
+		];
 
-        return $token;
+		return $token;
+	}//end startStep()
 
-    }//end startStep()
+	/**
+	 * End a previously started step and record it.
+	 *
+	 * Defensive by design: an unknown/already-ended token is silently ignored —
+	 * a caller bug (double-end, stale token) must never throw and must never
+	 * corrupt already-recorded steps.
+	 *
+	 * @param int $token The token returned by the matching `startStep()`.
+	 * @param string $outcome The step outcome (`ok`|`error`, or a fixed label
+	 *                        like `approved` for a reconstructed gate-wait step,
+	 *                        or `would-have-called` for a dry-run-neutralised
+	 *                        tool call — run-replay-and-dry-run).
+	 * @param array<string, mixed> $extra Additional fields to merge onto the recorded step
+	 *                                    (run-replay-and-dry-run: `['arguments' => ...]` on a
+	 *                                    `would-have-called` step, empty for every other
+	 *                                    caller — zero behavior change). Applied BEFORE the
+	 *                                    fixed fields below, so `$extra` can never clobber
+	 *                                    `seq`/`type`/`name`/`startedAt`/`endedAt`/`durationMs`/
+	 *                                    `outcome` even if it tried to.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
+	 */
+	public function endStep(int $token, string $outcome, array $extra = []): void {
+		if (isset($this->pending[$token]) === false) {
+			return;
+		}
 
-    /**
-     * End a previously started step and record it.
-     *
-     * Defensive by design: an unknown/already-ended token is silently ignored —
-     * a caller bug (double-end, stale token) must never throw and must never
-     * corrupt already-recorded steps.
-     *
-     * @param int                  $token   The token returned by the matching `startStep()`.
-     * @param string               $outcome The step outcome (`ok`|`error`, or a fixed label
-     *                                      like `approved` for a reconstructed gate-wait step,
-     *                                      or `would-have-called` for a dry-run-neutralised
-     *                                      tool call — run-replay-and-dry-run).
-     * @param array<string, mixed> $extra   Additional fields to merge onto the recorded step
-     *                                      (run-replay-and-dry-run: `['arguments' => ...]` on a
-     *                                      `would-have-called` step, empty for every other
-     *                                      caller — zero behavior change). Applied BEFORE the
-     *                                      fixed fields below, so `$extra` can never clobber
-     *                                      `seq`/`type`/`name`/`startedAt`/`endedAt`/`durationMs`/
-     *                                      `outcome` even if it tried to.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-audit-log/spec.md#requirement-downloadable-redacted-run-trace-mvp
-     */
-    public function endStep(int $token, string $outcome, array $extra=[]): void
-    {
-        if (isset($this->pending[$token]) === false) {
-            return;
-        }
+		$entry = $this->pending[$token];
+		unset($this->pending[$token]);
 
-        $entry = $this->pending[$token];
-        unset($this->pending[$token]);
+		$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+		$durationMs = (int)round((microtime(true) - $entry['startedAtMicro']) * 1000);
 
-        $endedAt    = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $durationMs = (int) round((microtime(true) - $entry['startedAtMicro']) * 1000);
+		$this->steps[] = array_merge(
+			$extra,
+			[
+				'seq' => $this->nextSeq++,
+				'type' => $entry['type'],
+				'name' => $entry['name'],
+				'startedAt' => $entry['startedAt']->format('c'),
+				'endedAt' => $endedAt->format('c'),
+				'durationMs' => $durationMs,
+				'outcome' => $outcome,
+			]
+		);
 
-        $this->steps[] = array_merge(
-            $extra,
-            [
-                'seq'        => $this->nextSeq++,
-                'type'       => $entry['type'],
-                'name'       => $entry['name'],
-                'startedAt'  => $entry['startedAt']->format('c'),
-                'endedAt'    => $endedAt->format('c'),
-                'durationMs' => $durationMs,
-                'outcome'    => $outcome,
-            ]
-        );
+	}//end endStep()
 
-    }//end endStep()
-
-    /**
-     * Return every recorded step, in completion order (see class docblock).
-     *
-     * @return array<int, array{seq: int, type: string, name: string, startedAt: string,
-     *     endedAt: string, durationMs: int, outcome: string, ...<string, mixed>}>
-     *
-     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-     */
-    public function toArray(): array
-    {
-        return $this->steps;
-
-    }//end toArray()
+	/**
+	 * Return every recorded step, in completion order (see class docblock).
+	 *
+	 * @return array<int, array{seq: int, type: string, name: string, startedAt: string,
+	 *     endedAt: string, durationMs: int, outcome: string, ...<string, mixed>}>
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 */
+	public function toArray(): array {
+		return $this->steps;
+	}//end toArray()
 }//end class

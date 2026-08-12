@@ -25,25 +25,24 @@ namespace OCA\OpenRegister\Db;
 /**
  * Minimal SchemaMapper stub for standalone unit runs.
  */
-class SchemaMapper
-{
+class SchemaMapper {
 
-    /**
-     * Resolve a schema by id/slug — mirrors the real mapper's signature.
-     *
-     * @param string|int          $id            The schema id or slug.
-     * @param array<int,mixed>|null $_extend      Extend config (unused in the stub).
-     * @param bool                $_rbac         Whether RBAC applies.
-     * @param bool                $_multitenancy Whether multi-tenancy applies.
-     *
-     * @return Schema The resolved schema.
-     */
-    public function find(
-        string | int $id,
-        ?array $_extend=[],
-        bool $_rbac=true,
-        bool $_multitenancy=true
-    ): Schema {
-        return new Schema();
-    }//end find()
+	/**
+	 * Resolve a schema by id/slug — mirrors the real mapper's signature.
+	 *
+	 * @param string|int $id The schema id or slug.
+	 * @param array<int,mixed>|null $_extend Extend config (unused in the stub).
+	 * @param bool $_rbac Whether RBAC applies.
+	 * @param bool $_multitenancy Whether multi-tenancy applies.
+	 *
+	 * @return Schema The resolved schema.
+	 */
+	public function find(
+		string|int $id,
+		?array $_extend = [],
+		bool $_rbac = true,
+		bool $_multitenancy = true,
+	): Schema {
+		return new Schema();
+	}//end find()
 }//end class

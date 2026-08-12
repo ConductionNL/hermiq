@@ -44,242 +44,230 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#5-kill-switch-toggle-endpoint
  */
-class TenantControlControllerTest extends TestCase
-{
+class TenantControlControllerTest extends TestCase {
 
-    /**
-     * A session with the given (or no) user.
-     *
-     * @param string|null $uid The UID, or null for unauthenticated.
-     *
-     * @return IUserSession
-     */
-    private function session(?string $uid): IUserSession
-    {
-        $session = $this->createMock(IUserSession::class);
-        if ($uid === null) {
-            $session->method('getUser')->willReturn(null);
-            return $session;
-        }
+	/**
+	 * A session with the given (or no) user.
+	 *
+	 * @param string|null $uid The UID, or null for unauthenticated.
+	 *
+	 * @return IUserSession
+	 */
+	private function session(?string $uid): IUserSession {
+		$session = $this->createMock(IUserSession::class);
+		if ($uid === null) {
+			$session->method('getUser')->willReturn(null);
+			return $session;
+		}
 
-        $user = $this->createMock(IUser::class);
-        $user->method('getUID')->willReturn($uid);
-        $session->method('getUser')->willReturn($user);
-        return $session;
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$session->method('getUser')->willReturn($user);
+		return $session;
+	}//end session()
 
-    }//end session()
+	/**
+	 * A request whose params resolve from the given map.
+	 *
+	 * @param array<string,mixed> $params The param map.
+	 *
+	 * @return IRequest
+	 */
+	private function request(array $params = []): IRequest {
+		$request = $this->createMock(IRequest::class);
+		$request->method('getParam')->willReturnCallback(
+			static fn (string $key, $default = null) => ($params[$key] ?? $default)
+		);
+		return $request;
+	}//end request()
 
-    /**
-     * A request whose params resolve from the given map.
-     *
-     * @param array<string,mixed> $params The param map.
-     *
-     * @return IRequest
-     */
-    private function request(array $params=[]): IRequest
-    {
-        $request = $this->createMock(IRequest::class);
-        $request->method('getParam')->willReturnCallback(
-            static fn (string $key, $default=null) => ($params[$key] ?? $default)
-        );
-        return $request;
+	/**
+	 * An OrganisationMapper that resolves the target org to one owned by $ownerUid.
+	 *
+	 * When $ownerUid is null the mapper throws DoesNotExistException (unknown org).
+	 *
+	 * @param string|null $ownerUid The owner UID of the resolved organisation, or null.
+	 *
+	 * @return OrganisationMapper
+	 */
+	private function orgMapper(?string $ownerUid): OrganisationMapper {
+		$mapper = $this->createMock(OrganisationMapper::class);
+		if ($ownerUid === null) {
+			$mapper->method('findByUuid')->willThrowException(new DoesNotExistException('no org'));
+			return $mapper;
+		}
 
-    }//end request()
+		// Real entity, not a mock: the real Organisation resolves getOwner()
+		// via Entity magic, unmockable under a server tree.
+		$org = new Organisation();
+		$org->setOwner($ownerUid);
+		$mapper->method('findByUuid')->willReturn($org);
+		return $mapper;
+	}//end orgMapper()
 
-    /**
-     * An OrganisationMapper that resolves the target org to one owned by $ownerUid.
-     *
-     * When $ownerUid is null the mapper throws DoesNotExistException (unknown org).
-     *
-     * @param string|null $ownerUid The owner UID of the resolved organisation, or null.
-     *
-     * @return OrganisationMapper
-     */
-    private function orgMapper(?string $ownerUid): OrganisationMapper
-    {
-        $mapper = $this->createMock(OrganisationMapper::class);
-        if ($ownerUid === null) {
-            $mapper->method('findByUuid')->willThrowException(new DoesNotExistException('no org'));
-            return $mapper;
-        }
+	/**
+	 * Build the controller with the given collaborators.
+	 *
+	 * @param IRequest $request The request.
+	 * @param TenantControlService $service The kill-switch service.
+	 * @param IUserSession $session The user session.
+	 * @param IGroupManager $groupManager The group manager.
+	 * @param OrganisationMapper $orgMapper The organisation mapper (owner check).
+	 *
+	 * @return TenantControlController
+	 */
+	private function controller(
+		IRequest $request,
+		TenantControlService $service,
+		IUserSession $session,
+		IGroupManager $groupManager,
+		OrganisationMapper $orgMapper,
+	): TenantControlController {
+		return new TenantControlController(
+			$request,
+			$service,
+			$session,
+			$groupManager,
+			$orgMapper,
+			$this->createMock(LoggerInterface::class)
+		);
 
-        // Real entity, not a mock: the real Organisation resolves getOwner()
-        // via Entity magic, unmockable under a server tree.
-        $org = new Organisation();
-        $org->setOwner($ownerUid);
-        $mapper->method('findByUuid')->willReturn($org);
-        return $mapper;
+	}//end controller()
 
-    }//end orgMapper()
+	/**
+	 * An instance admin can read the kill-switch state.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 */
+	public function testInstanceAdminCanShow(): void {
+		$control = new ObjectEntity();
+		$control->setObject(['engaged' => true, 'reason' => 'incident']);
 
-    /**
-     * Build the controller with the given collaborators.
-     *
-     * @param IRequest             $request      The request.
-     * @param TenantControlService $service      The kill-switch service.
-     * @param IUserSession         $session      The user session.
-     * @param IGroupManager        $groupManager The group manager.
-     * @param OrganisationMapper   $orgMapper    The organisation mapper (owner check).
-     *
-     * @return TenantControlController
-     */
-    private function controller(
-        IRequest $request,
-        TenantControlService $service,
-        IUserSession $session,
-        IGroupManager $groupManager,
-        OrganisationMapper $orgMapper
-    ): TenantControlController {
-        return new TenantControlController(
-            $request,
-            $service,
-            $session,
-            $groupManager,
-            $orgMapper,
-            $this->createMock(LoggerInterface::class)
-        );
+		$service = $this->createMock(TenantControlService::class);
+		$service->method('getForOrganisation')->willReturn($control);
 
-    }//end controller()
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isAdmin')->willReturn(true);
 
-    /**
-     * An instance admin can read the kill-switch state.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
-     */
-    public function testInstanceAdminCanShow(): void
-    {
-        $control = new ObjectEntity();
-        $control->setObject(['engaged' => true, 'reason' => 'incident']);
+		$controller = $this->controller(
+			$this->request(),
+			$service,
+			$this->session('root'),
+			$groupManager,
+			$this->orgMapper(null)
+		);
+		$response = $controller->show('org-x');
 
-        $service = $this->createMock(TenantControlService::class);
-        $service->method('getForOrganisation')->willReturn($control);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertTrue($response->getData()['engaged']);
 
-        $groupManager = $this->createMock(IGroupManager::class);
-        $groupManager->method('isAdmin')->willReturn(true);
+	}//end testInstanceAdminCanShow()
 
-        $controller = $this->controller(
-            $this->request(),
-            $service,
-            $this->session('root'),
-            $groupManager,
-            $this->orgMapper(null)
-        );
-        $response = $controller->show('org-x');
+	/**
+	 * The owner of the target OpenRegister organisation can toggle its kill-switch.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 */
+	public function testOrgOwnerCanToggle(): void {
+		$saved = new ObjectEntity();
+		$saved->setObject(['engaged' => true]);
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertTrue($response->getData()['engaged']);
+		$service = $this->createMock(TenantControlService::class);
+		$service->expects($this->once())->method('toggle')->willReturn($saved);
 
-    }//end testInstanceAdminCanShow()
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isAdmin')->willReturn(false);
 
-    /**
-     * The owner of the target OpenRegister organisation can toggle its kill-switch.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
-     */
-    public function testOrgOwnerCanToggle(): void
-    {
-        $saved = new ObjectEntity();
-        $saved->setObject(['engaged' => true]);
+		$controller = $this->controller(
+			$this->request(['engaged' => 'true', 'reason' => 'pause']),
+			$service,
+			$this->session('bob'),
+			$groupManager,
+			$this->orgMapper('bob')
+		);
+		$response = $controller->toggle('org-x');
 
-        $service = $this->createMock(TenantControlService::class);
-        $service->expects($this->once())->method('toggle')->willReturn($saved);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertTrue($response->getData()['engaged']);
 
-        $groupManager = $this->createMock(IGroupManager::class);
-        $groupManager->method('isAdmin')->willReturn(false);
+	}//end testOrgOwnerCanToggle()
 
-        $controller = $this->controller(
-            $this->request(['engaged' => 'true', 'reason' => 'pause']),
-            $service,
-            $this->session('bob'),
-            $groupManager,
-            $this->orgMapper('bob')
-        );
-        $response = $controller->toggle('org-x');
+	/**
+	 * A plain member (not admin, not owner) cannot toggle — 403, never writes.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 */
+	public function testNonOwnerCannotToggle(): void {
+		$service = $this->createMock(TenantControlService::class);
+		$service->expects($this->never())->method('toggle');
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertTrue($response->getData()['engaged']);
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isAdmin')->willReturn(false);
 
-    }//end testOrgOwnerCanToggle()
+		$controller = $this->controller(
+			$this->request(['engaged' => 'true']),
+			$service,
+			$this->session('mallory'),
+			$groupManager,
+			$this->orgMapper('someone-else')
+		);
+		$response = $controller->toggle('org-x');
 
-    /**
-     * A plain member (not admin, not owner) cannot toggle — 403, never writes.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
-     */
-    public function testNonOwnerCannotToggle(): void
-    {
-        $service = $this->createMock(TenantControlService::class);
-        $service->expects($this->never())->method('toggle');
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 
-        $groupManager = $this->createMock(IGroupManager::class);
-        $groupManager->method('isAdmin')->willReturn(false);
+	}//end testNonOwnerCannotToggle()
 
-        $controller = $this->controller(
-            $this->request(['engaged' => 'true']),
-            $service,
-            $this->session('mallory'),
-            $groupManager,
-            $this->orgMapper('someone-else')
-        );
-        $response = $controller->toggle('org-x');
+	/**
+	 * A non-admin cannot even read another organisation's state — 404 (no leak).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 */
+	public function testNonOwnerShowIsNotFound(): void {
+		$service = $this->createMock(TenantControlService::class);
+		$service->expects($this->never())->method('getForOrganisation');
 
-        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isAdmin')->willReturn(false);
 
-    }//end testNonOwnerCannotToggle()
+		$controller = $this->controller(
+			$this->request(),
+			$service,
+			$this->session('mallory'),
+			$groupManager,
+			$this->orgMapper(null)
+		);
+		$response = $controller->show('org-x');
 
-    /**
-     * A non-admin cannot even read another organisation's state — 404 (no leak).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
-     */
-    public function testNonOwnerShowIsNotFound(): void
-    {
-        $service = $this->createMock(TenantControlService::class);
-        $service->expects($this->never())->method('getForOrganisation');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-        $groupManager = $this->createMock(IGroupManager::class);
-        $groupManager->method('isAdmin')->willReturn(false);
+	}//end testNonOwnerShowIsNotFound()
 
-        $controller = $this->controller(
-            $this->request(),
-            $service,
-            $this->session('mallory'),
-            $groupManager,
-            $this->orgMapper(null)
-        );
-        $response = $controller->show('org-x');
+	/**
+	 * An unauthenticated caller gets 401.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
+	 */
+	public function testUnauthenticatedIsRejected(): void {
+		$controller = $this->controller(
+			$this->request(),
+			$this->createMock(TenantControlService::class),
+			$this->session(null),
+			$this->createMock(IGroupManager::class),
+			$this->createMock(OrganisationMapper::class)
+		);
+		$response = $controller->toggle('org-x');
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
-    }//end testNonOwnerShowIsNotFound()
-
-    /**
-     * An unauthenticated caller gets 401.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/human-approval-gate-enforcement/tasks.md#task-5-1
-     */
-    public function testUnauthenticatedIsRejected(): void
-    {
-        $controller = $this->controller(
-            $this->request(),
-            $this->createMock(TenantControlService::class),
-            $this->session(null),
-            $this->createMock(IGroupManager::class),
-            $this->createMock(OrganisationMapper::class)
-        );
-        $response = $controller->toggle('org-x');
-
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
-
-    }//end testUnauthenticatedIsRejected()
+	}//end testUnauthenticatedIsRejected()
 }//end class

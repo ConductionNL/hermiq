@@ -55,272 +55,261 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
  */
-class SkillVersionControllerTest extends TestCase
-{
+class SkillVersionControllerTest extends TestCase {
 
-    /**
-     * The prepared skill-service mock.
-     *
-     * @var SkillService&MockObject
-     */
-    private SkillService&MockObject $skillService;
+	/**
+	 * The prepared skill-service mock.
+	 *
+	 * @var SkillService&MockObject
+	 */
+	private SkillService&MockObject $skillService;
 
-    /**
-     * The prepared version-service mock.
-     *
-     * @var SkillVersionService&MockObject
-     */
-    private SkillVersionService&MockObject $versionService;
+	/**
+	 * The prepared version-service mock.
+	 *
+	 * @var SkillVersionService&MockObject
+	 */
+	private SkillVersionService&MockObject $versionService;
 
-    /**
-     * The prepared push-service mock.
-     *
-     * @var GitHubTemplatePushService&MockObject
-     */
-    private GitHubTemplatePushService&MockObject $pushService;
+	/**
+	 * The prepared push-service mock.
+	 *
+	 * @var GitHubTemplatePushService&MockObject
+	 */
+	private GitHubTemplatePushService&MockObject $pushService;
 
-    /**
-     * The prepared request mock.
-     *
-     * @var IRequest&MockObject
-     */
-    private IRequest&MockObject $request;
+	/**
+	 * The prepared request mock.
+	 *
+	 * @var IRequest&MockObject
+	 */
+	private IRequest&MockObject $request;
 
-    /**
-     * A user session resolving to $uid.
-     *
-     * @param string $uid The UID.
-     *
-     * @return IUserSession
-     */
-    private function session(string $uid): IUserSession
-    {
-        $session = $this->createMock(IUserSession::class);
-        $user    = $this->createMock(IUser::class);
-        $user->method('getUID')->willReturn($uid);
-        $session->method('getUser')->willReturn($user);
-        return $session;
+	/**
+	 * A user session resolving to $uid.
+	 *
+	 * @param string $uid The UID.
+	 *
+	 * @return IUserSession
+	 */
+	private function session(string $uid): IUserSession {
+		$session = $this->createMock(IUserSession::class);
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$session->method('getUser')->willReturn($user);
+		return $session;
+	}//end session()
 
-    }//end session()
+	/**
+	 * Build the controller under test.
+	 *
+	 * @param IUserSession $session The user session.
+	 *
+	 * @return SkillVersionController
+	 */
+	private function controller(IUserSession $session, bool $callerIsAdmin = false): SkillVersionController {
+		$this->skillService = $this->createMock(SkillService::class);
+		$this->versionService = $this->createMock(SkillVersionService::class);
+		$this->pushService = $this->createMock(GitHubTemplatePushService::class);
+		$this->request = $this->createMock(IRequest::class);
 
-    /**
-     * Build the controller under test.
-     *
-     * @param IUserSession $session The user session.
-     *
-     * @return SkillVersionController
-     */
-    private function controller(IUserSession $session, bool $callerIsAdmin=false): SkillVersionController
-    {
-        $this->skillService   = $this->createMock(SkillService::class);
-        $this->versionService = $this->createMock(SkillVersionService::class);
-        $this->pushService    = $this->createMock(GitHubTemplatePushService::class);
-        $this->request        = $this->createMock(IRequest::class);
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isAdmin')->willReturn($callerIsAdmin);
 
-        $groupManager = $this->createMock(IGroupManager::class);
-        $groupManager->method('isAdmin')->willReturn($callerIsAdmin);
+		return new SkillVersionController(
+			$this->request,
+			$this->skillService,
+			$this->versionService,
+			$this->pushService,
+			$this->createMock(ActionAuthService::class),
+			$this->createMock(AuditTrailMapper::class),
+			new SeedCustodyService(groupManager: $groupManager),
+			$session,
+			$this->createMock(LoggerInterface::class)
+		);
 
-        return new SkillVersionController(
-            $this->request,
-            $this->skillService,
-            $this->versionService,
-            $this->pushService,
-            $this->createMock(ActionAuthService::class),
-            $this->createMock(AuditTrailMapper::class),
-            new SeedCustodyService(groupManager: $groupManager),
-            $session,
-            $this->createMock(LoggerInterface::class)
-        );
+	}//end controller()
 
-    }//end controller()
+	/**
+	 * A skill entity with GitHub provenance stamped.
+	 *
+	 * @param string $owner The owner uid.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function publishedSkill(string $owner = 'alice'): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('skill-1');
+		$entity->setOwner($owner);
+		$entity->setObject(
+			[
+				'name' => 'tender-summary',
+				'githubOwner' => 'YOUR_OWNER_HERE',
+				'githubRepo' => 'hermiq-skill-example',
+				'publishedAt' => '2026-07-01T00:00:00+00:00',
+			]
+		);
+		return $entity;
+	}//end publishedSkill()
 
-    /**
-     * A skill entity with GitHub provenance stamped.
-     *
-     * @param string $owner The owner uid.
-     *
-     * @return ObjectEntity
-     */
-    private function publishedSkill(string $owner='alice'): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('skill-1');
-        $entity->setOwner($owner);
-        $entity->setObject(
-            [
-                'name'        => 'tender-summary',
-                'githubOwner' => 'YOUR_OWNER_HERE',
-                'githubRepo'  => 'hermiq-skill-example',
-                'publishedAt' => '2026-07-01T00:00:00+00:00',
-            ]
-        );
-        return $entity;
+	/**
+	 * The version endpoints are owner-guarded: a visible-but-not-owned skill and a
+	 * missing skill are BOTH 404 — never a 403 that confirms existence.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
+	 */
+	public function testVersionEndpointsOwnerGuardWith404Never403(): void {
+		$controller = $this->controller(session: $this->session('mallory'));
+		$this->skillService->method('getSkill')->willReturn($this->publishedSkill(owner: 'alice'));
+		$this->versionService->expects($this->never())->method('listVersions');
+		$this->versionService->expects($this->never())->method('rollback');
 
-    }//end publishedSkill()
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->index('skill-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->rollback('skill-1')->getStatus());
 
-    /**
-     * The version endpoints are owner-guarded: a visible-but-not-owned skill and a
-     * missing skill are BOTH 404 — never a 403 that confirms existence.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
-     */
-    public function testVersionEndpointsOwnerGuardWith404Never403(): void
-    {
-        $controller = $this->controller(session: $this->session('mallory'));
-        $this->skillService->method('getSkill')->willReturn($this->publishedSkill(owner: 'alice'));
-        $this->versionService->expects($this->never())->method('listVersions');
-        $this->versionService->expects($this->never())->method('rollback');
+	}//end testVersionEndpointsOwnerGuardWith404Never403()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->index('skill-1')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->rollback('skill-1')->getStatus());
+	/**
+	 * Seed custodianship: an instance admin reads the version history of a
+	 * system-seeded skill (owner `__system__`), while a non-admin still 404s and
+	 * a HUMAN-owned skill stays closed to admins (see SeedCustodyService).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
+	 */
+	public function testVersionIndexOnSystemSeededSkillIsAdminCustodied(): void {
+		// Admin caller on the seed: custodian-owner → 200.
+		$admin = $this->controller(session: $this->session('admin'), callerIsAdmin: true);
+		$this->skillService->method('getSkill')
+			->willReturn($this->publishedSkill(owner: SeedCustodyService::SYSTEM_OWNER));
+		$this->versionService->method('listVersions')->willReturn([]);
+		$this->assertSame(Http::STATUS_OK, $admin->index('skill-1')->getStatus());
 
-    }//end testVersionEndpointsOwnerGuardWith404Never403()
+		// Non-admin caller on the seed: still 404.
+		$nonAdmin = $this->controller(session: $this->session('mallory'));
+		$this->skillService->method('getSkill')
+			->willReturn($this->publishedSkill(owner: SeedCustodyService::SYSTEM_OWNER));
+		$this->assertSame(Http::STATUS_NOT_FOUND, $nonAdmin->index('skill-1')->getStatus());
 
-    /**
-     * Seed custodianship: an instance admin reads the version history of a
-     * system-seeded skill (owner `__system__`), while a non-admin still 404s and
-     * a HUMAN-owned skill stays closed to admins (see SeedCustodyService).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
-     */
-    public function testVersionIndexOnSystemSeededSkillIsAdminCustodied(): void
-    {
-        // Admin caller on the seed: custodian-owner → 200.
-        $admin = $this->controller(session: $this->session('admin'), callerIsAdmin: true);
-        $this->skillService->method('getSkill')
-            ->willReturn($this->publishedSkill(owner: SeedCustodyService::SYSTEM_OWNER));
-        $this->versionService->method('listVersions')->willReturn([]);
-        $this->assertSame(Http::STATUS_OK, $admin->index('skill-1')->getStatus());
+		// Admin caller on a HUMAN-owned skill: the custodian rule does not apply.
+		$adminOnHuman = $this->controller(session: $this->session('admin'), callerIsAdmin: true);
+		$this->skillService->method('getSkill')->willReturn($this->publishedSkill(owner: 'alice'));
+		$this->assertSame(Http::STATUS_NOT_FOUND, $adminOnHuman->index('skill-1')->getStatus());
 
-        // Non-admin caller on the seed: still 404.
-        $nonAdmin = $this->controller(session: $this->session('mallory'));
-        $this->skillService->method('getSkill')
-            ->willReturn($this->publishedSkill(owner: SeedCustodyService::SYSTEM_OWNER));
-        $this->assertSame(Http::STATUS_NOT_FOUND, $nonAdmin->index('skill-1')->getStatus());
+	}//end testVersionIndexOnSystemSeededSkillIsAdminCustodied()
 
-        // Admin caller on a HUMAN-owned skill: the custodian rule does not apply.
-        $adminOnHuman = $this->controller(session: $this->session('admin'), callerIsAdmin: true);
-        $this->skillService->method('getSkill')->willReturn($this->publishedSkill(owner: 'alice'));
-        $this->assertSame(Http::STATUS_NOT_FOUND, $adminOnHuman->index('skill-1')->getStatus());
+	/**
+	 * Rollback (owner) delegates to the version service and returns the NEW
+	 * version id.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
+	 */
+	public function testRollbackReturnsTheNewVersionId(): void {
+		$controller = $this->controller(session: $this->session('alice'));
+		$skill = $this->publishedSkill(owner: 'alice');
+		$this->skillService->method('getSkill')->willReturn($skill);
+		$this->request->method('getParam')->willReturnMap([['versionId', '', 'v2']]);
+		$this->versionService->expects($this->once())->method('rollback')->willReturn($skill);
+		$this->versionService->method('currentVersionId')->willReturn('v-new');
 
-    }//end testVersionIndexOnSystemSeededSkillIsAdminCustodied()
+		$response = $controller->rollback('skill-1');
 
-    /**
-     * Rollback (owner) delegates to the version service and returns the NEW
-     * version id.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
-     */
-    public function testRollbackReturnsTheNewVersionId(): void
-    {
-        $controller = $this->controller(session: $this->session('alice'));
-        $skill      = $this->publishedSkill(owner: 'alice');
-        $this->skillService->method('getSkill')->willReturn($skill);
-        $this->request->method('getParam')->willReturnMap([['versionId', '', 'v2']]);
-        $this->versionService->expects($this->once())->method('rollback')->willReturn($skill);
-        $this->versionService->method('currentVersionId')->willReturn('v-new');
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame('v-new', $response->getData()['versionId']);
 
-        $response = $controller->rollback('skill-1');
+	}//end testRollbackReturnsTheNewVersionId()
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame('v-new', $response->getData()['versionId']);
+	/**
+	 * Republish pushes to EXACTLY the stamped provenance repo with the STRIPPED
+	 * file selection aboard, and restamps publishedAt on success.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
+	 */
+	public function testRepublishTargetsTheProvenanceRepoWithStrippedSelection(): void {
+		$controller = $this->controller(session: $this->session('alice'));
+		$this->skillService->method('getSkill')->willReturn($this->publishedSkill());
+		$this->skillService->method('exportSkill')->willReturn("---\nname: tender-summary\n---\nBODY");
+		$selection = [
+			[
+				'name' => 'learnings.md',
+				'content' => '# Learnings',
+			],
+		];
+		$this->skillService->method('publishFileSelection')->willReturn($selection);
+		$this->request->method('getParam')->willReturnMap([['credentialId', null, 'cred-1']]);
+		$this->pushService->method('isBrokerAvailable')->willReturn(true);
 
-    }//end testRollbackReturnsTheNewVersionId()
+		$captured = [];
+		$this->pushService->expects($this->once())->method('pushUpdate')->willReturnCallback(
+			function (
+				string $package,
+				string $owner,
+				string $repo,
+				string $credentialId,
+				?string $actingUserId = null,
+				string $kind = 'skill',
+				array $auxFiles = [],
+			) use (&$captured): array {
+				unset($package, $credentialId, $actingUserId, $kind);
+				$captured = [
+					'owner' => $owner,
+					'repo' => $repo,
+					'auxFiles' => $auxFiles,
+				];
+				return [
+					'repoUrl' => 'https://github.com/YOUR_OWNER_HERE/hermiq-skill-example',
+					'commitSha' => 'abc123',
+				];
+			}
+		);
+		$this->skillService->expects($this->once())->method('stampGithubPublish');
 
-    /**
-     * Republish pushes to EXACTLY the stamped provenance repo with the STRIPPED
-     * file selection aboard, and restamps publishedAt on success.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-an-accepted-version-behind-the-published-copy-raises-an-explicit-republish-signal
-     */
-    public function testRepublishTargetsTheProvenanceRepoWithStrippedSelection(): void
-    {
-        $controller = $this->controller(session: $this->session('alice'));
-        $this->skillService->method('getSkill')->willReturn($this->publishedSkill());
-        $this->skillService->method('exportSkill')->willReturn("---\nname: tender-summary\n---\nBODY");
-        $selection = [
-            [
-                'name'    => 'learnings.md',
-                'content' => '# Learnings',
-            ],
-        ];
-        $this->skillService->method('publishFileSelection')->willReturn($selection);
-        $this->request->method('getParam')->willReturnMap([['credentialId', null, 'cred-1']]);
-        $this->pushService->method('isBrokerAvailable')->willReturn(true);
+		$response = $controller->republish('skill-1');
 
-        $captured = [];
-        $this->pushService->expects($this->once())->method('pushUpdate')->willReturnCallback(
-            function (
-                string $package,
-                string $owner,
-                string $repo,
-                string $credentialId,
-                ?string $actingUserId=null,
-                string $kind='skill',
-                array $auxFiles=[]
-            ) use (&$captured): array {
-                unset($package, $credentialId, $actingUserId, $kind);
-                $captured = [
-                    'owner'    => $owner,
-                    'repo'     => $repo,
-                    'auxFiles' => $auxFiles,
-                ];
-                return [
-                    'repoUrl'   => 'https://github.com/YOUR_OWNER_HERE/hermiq-skill-example',
-                    'commitSha' => 'abc123',
-                ];
-            }
-        );
-        $this->skillService->expects($this->once())->method('stampGithubPublish');
+		$this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+		$this->assertSame('YOUR_OWNER_HERE', $captured['owner'], 'The target is the stamped provenance owner — never client input.');
+		$this->assertSame('hermiq-skill-example', $captured['repo']);
+		$this->assertSame($selection, $captured['auxFiles'], 'The committed selection is the stripped publishFileSelection().');
 
-        $response = $controller->republish('skill-1');
+	}//end testRepublishTargetsTheProvenanceRepoWithStrippedSelection()
 
-        $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
-        $this->assertSame('YOUR_OWNER_HERE', $captured['owner'], 'The target is the stamped provenance owner — never client input.');
-        $this->assertSame('hermiq-skill-example', $captured['repo']);
-        $this->assertSame($selection, $captured['auxFiles'], 'The committed selection is the stripped publishFileSelection().');
+	/**
+	 * A missing broker fails CLOSED (503) with no push attempted; an unpublished
+	 * skill is a 400 (no carve-out without provenance).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
+	 */
+	public function testRepublishFailsClosedWithoutBrokerAndRefusesUnpublishedSkills(): void {
+		$controller = $this->controller(session: $this->session('alice'));
+		$this->skillService->method('getSkill')->willReturn($this->publishedSkill());
+		$this->request->method('getParam')->willReturnMap([['credentialId', null, 'cred-1']]);
+		$this->pushService->method('isBrokerAvailable')->willReturn(false);
+		$this->pushService->expects($this->never())->method('pushUpdate');
 
-    }//end testRepublishTargetsTheProvenanceRepoWithStrippedSelection()
+		$this->assertSame(Http::STATUS_SERVICE_UNAVAILABLE, $controller->republish('skill-1')->getStatus());
 
-    /**
-     * A missing broker fails CLOSED (503) with no push attempted; an unpublished
-     * skill is a 400 (no carve-out without provenance).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
-     */
-    public function testRepublishFailsClosedWithoutBrokerAndRefusesUnpublishedSkills(): void
-    {
-        $controller = $this->controller(session: $this->session('alice'));
-        $this->skillService->method('getSkill')->willReturn($this->publishedSkill());
-        $this->request->method('getParam')->willReturnMap([['credentialId', null, 'cred-1']]);
-        $this->pushService->method('isBrokerAvailable')->willReturn(false);
-        $this->pushService->expects($this->never())->method('pushUpdate');
+		// Unpublished skill: no provenance → no carve-out.
+		$controller = $this->controller(session: $this->session('alice'));
+		$unpublished = new ObjectEntity();
+		$unpublished->setUuid('skill-2');
+		$unpublished->setOwner('alice');
+		$unpublished->setObject(['name' => 'local-skill']);
+		$this->skillService->method('getSkill')->willReturn($unpublished);
+		$this->pushService->expects($this->never())->method('pushUpdate');
 
-        $this->assertSame(Http::STATUS_SERVICE_UNAVAILABLE, $controller->republish('skill-1')->getStatus());
+		$response = $controller->republish('skill-2');
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertSame('not_published', $response->getData()['error']);
 
-        // Unpublished skill: no provenance → no carve-out.
-        $controller  = $this->controller(session: $this->session('alice'));
-        $unpublished = new ObjectEntity();
-        $unpublished->setUuid('skill-2');
-        $unpublished->setOwner('alice');
-        $unpublished->setObject(['name' => 'local-skill']);
-        $this->skillService->method('getSkill')->willReturn($unpublished);
-        $this->pushService->expects($this->never())->method('pushUpdate');
-
-        $response = $controller->republish('skill-2');
-        $this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
-        $this->assertSame('not_published', $response->getData()['error']);
-
-    }//end testRepublishFailsClosedWithoutBrokerAndRefusesUnpublishedSkills()
+	}//end testRepublishFailsClosedWithoutBrokerAndRefusesUnpublishedSkills()
 }//end class

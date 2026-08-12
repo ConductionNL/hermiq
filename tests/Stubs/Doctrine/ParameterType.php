@@ -27,55 +27,54 @@ namespace Doctrine\DBAL;
 /**
  * Minimal ParameterType stub for standalone unit runs (doctrine/dbal 3.x values).
  */
-final class ParameterType
-{
+final class ParameterType {
 
-    /**
-     * NULL parameter type.
-     *
-     * @var int
-     */
-    public const NULL = 0;
+	/**
+	 * NULL parameter type.
+	 *
+	 * @var int
+	 */
+	public const NULL = 0;
 
-    /**
-     * Integer parameter type.
-     *
-     * @var int
-     */
-    public const INTEGER = 1;
+	/**
+	 * Integer parameter type.
+	 *
+	 * @var int
+	 */
+	public const INTEGER = 1;
 
-    /**
-     * String parameter type.
-     *
-     * @var int
-     */
-    public const STRING = 2;
+	/**
+	 * String parameter type.
+	 *
+	 * @var int
+	 */
+	public const STRING = 2;
 
-    /**
-     * Large object parameter type.
-     *
-     * @var int
-     */
-    public const LARGE_OBJECT = 3;
+	/**
+	 * Large object parameter type.
+	 *
+	 * @var int
+	 */
+	public const LARGE_OBJECT = 3;
 
-    /**
-     * Boolean parameter type.
-     *
-     * @var int
-     */
-    public const BOOLEAN = 5;
+	/**
+	 * Boolean parameter type.
+	 *
+	 * @var int
+	 */
+	public const BOOLEAN = 5;
 
-    /**
-     * Binary parameter type.
-     *
-     * @var int
-     */
-    public const BINARY = 16;
+	/**
+	 * Binary parameter type.
+	 *
+	 * @var int
+	 */
+	public const BINARY = 16;
 
-    /**
-     * ASCII parameter type.
-     *
-     * @var int
-     */
-    public const ASCII = 17;
+	/**
+	 * ASCII parameter type.
+	 *
+	 * @var int
+	 */
+	public const ASCII = 17;
 }//end class

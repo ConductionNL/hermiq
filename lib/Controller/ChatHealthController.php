@@ -47,76 +47,74 @@ use Throwable;
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
  */
-class ChatHealthController extends Controller
-{
-    /**
-     * Constructor.
-     *
-     * @param IRequest           $request     The request object.
-     * @param LlmSettingsHandler $llmSettings Reads the `hermiq.llm` provider configuration.
-     * @param LoggerInterface    $logger      PSR-3 logger for surfacing config errors.
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-     */
-    public function __construct(
-        IRequest $request,
-        private readonly LlmSettingsHandler $llmSettings,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
-    }//end __construct()
+class ChatHealthController extends Controller {
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object.
+	 * @param LlmSettingsHandler $llmSettings Reads the `hermiq.llm` provider configuration.
+	 * @param LoggerInterface $logger PSR-3 logger for surfacing config errors.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function __construct(
+		IRequest $request,
+		private readonly LlmSettingsHandler $llmSettings,
+		private readonly LoggerInterface $logger,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
+	}//end __construct()
 
-    /**
-     * Health probe for the AI chat backend.
-     *
-     * Returns 200 when a chat provider is configured, 503 otherwise. Annotated
-     * as PublicPage so the widget can probe without authentication (mirrors
-     * OR's ChatHealthController::health()). A failing config read is reported
-     * as `config_error` (not `no_provider`) so operators can tell a fresh
-     * instance from a broken config service; the widget treats any non-200 as
-     * "no AI" without branching.
-     *
-     * @return JSONResponse 200 or 503 JSON response.
-     *
-     * @PublicPage
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-     */
-    public function health(): JSONResponse
-    {
-        try {
-            $llmConfig    = $this->llmSettings->getLLMSettingsOnly();
-            $chatProvider = ($llmConfig['chatProvider'] ?? null);
+	/**
+	 * Health probe for the AI chat backend.
+	 *
+	 * Returns 200 when a chat provider is configured, 503 otherwise. Annotated
+	 * as PublicPage so the widget can probe without authentication (mirrors
+	 * OR's ChatHealthController::health()). A failing config read is reported
+	 * as `config_error` (not `no_provider`) so operators can tell a fresh
+	 * instance from a broken config service; the widget treats any non-200 as
+	 * "no AI" without branching.
+	 *
+	 * @return JSONResponse 200 or 503 JSON response.
+	 *
+	 * @PublicPage
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function health(): JSONResponse {
+		try {
+			$llmConfig = $this->llmSettings->getLLMSettingsOnly();
+			$chatProvider = ($llmConfig['chatProvider'] ?? null);
 
-            if (empty($chatProvider) === true) {
-                return new JSONResponse(
-                    data: ['status' => 'no_provider'],
-                    statusCode: 503
-                );
-            }
+			if (empty($chatProvider) === true) {
+				return new JSONResponse(
+					data: ['status' => 'no_provider'],
+					statusCode: 503
+				);
+			}
 
-            return new JSONResponse(
-                data: [
-                    'status'       => 'ok',
-                    'capabilities' => ['chat', 'stream'],
-                ],
-                statusCode: 200
-            );
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                message: '[ChatHealthController] Health probe failed reading LLM settings',
-                context: [
-                    'file'      => __FILE__,
-                    'line'      => __LINE__,
-                    'exception' => $e,
-                    'error'     => $e->getMessage(),
-                ]
-            );
-            return new JSONResponse(
-                data: ['status' => 'config_error'],
-                statusCode: 503
-            );
-        }//end try
-    }//end health()
+			return new JSONResponse(
+				data: [
+					'status' => 'ok',
+					'capabilities' => ['chat', 'stream'],
+				],
+				statusCode: 200
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[ChatHealthController] Health probe failed reading LLM settings',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'exception' => $e,
+					'error' => $e->getMessage(),
+				]
+			);
+			return new JSONResponse(
+				data: ['status' => 'config_error'],
+				statusCode: 503
+			);
+		}//end try
+	}//end health()
 }//end class

@@ -43,56 +43,54 @@ use Throwable;
  *
  * @spec openspec/changes/run-analytics/tasks.md#2-controller-route
  */
-class AnalyticsController extends Controller
-{
-    /**
-     * Constructor.
-     *
-     * @param IRequest         $request          The request object.
-     * @param AnalyticsService $analyticsService The run-analytics read service.
-     * @param IUserSession     $userSession      Resolves the requesting user.
-     * @param LoggerInterface  $logger           PSR-3 logger.
-     *
-     * @spec openspec/changes/run-analytics/tasks.md#task-2-1
-     */
-    public function __construct(
-        IRequest $request,
-        private readonly AnalyticsService $analyticsService,
-        private readonly IUserSession $userSession,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
-    }//end __construct()
+class AnalyticsController extends Controller {
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object.
+	 * @param AnalyticsService $analyticsService The run-analytics read service.
+	 * @param IUserSession $userSession Resolves the requesting user.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 *
+	 * @spec openspec/changes/run-analytics/tasks.md#task-2-1
+	 */
+	public function __construct(
+		IRequest $request,
+		private readonly AnalyticsService $analyticsService,
+		private readonly IUserSession $userSession,
+		private readonly LoggerInterface $logger,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
+	}//end __construct()
 
-    /**
-     * Return run analytics for the caller's tenant (optionally scoped to one agent).
-     *
-     * @param string $agentId Optional agent UUID to scope the metrics to.
-     *
-     * @return JSONResponse The metrics payload, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/run-analytics/tasks.md#task-2-1
-     */
-    public function index(string $agentId=''): JSONResponse
-    {
-        if ($this->userSession->getUser() === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * Return run analytics for the caller's tenant (optionally scoped to one agent).
+	 *
+	 * @param string $agentId Optional agent UUID to scope the metrics to.
+	 *
+	 * @return JSONResponse The metrics payload, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/run-analytics/tasks.md#task-2-1
+	 */
+	public function index(string $agentId = ''): JSONResponse {
+		if ($this->userSession->getUser() === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        $scopedAgent = null;
-        if (trim($agentId) !== '') {
-            $scopedAgent = $agentId;
-        }
+		$scopedAgent = null;
+		if (trim($agentId) !== '') {
+			$scopedAgent = $agentId;
+		}
 
-        try {
-            return new JSONResponse($this->analyticsService->computeAnalytics(agentId: $scopedAgent));
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq analytics failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Could not compute analytics'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+		try {
+			return new JSONResponse($this->analyticsService->computeAnalytics(agentId: $scopedAgent));
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq analytics failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not compute analytics'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 
-    }//end index()
+	}//end index()
 }//end class

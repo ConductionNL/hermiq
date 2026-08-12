@@ -25,46 +25,44 @@ namespace OCA\OpenRegister\Service;
 /**
  * Minimal ContentScanService stub for standalone unit runs.
  */
-class ContentScanService
-{
+class ContentScanService {
 
-    /**
-     * Verdict: no known-bad pattern matched.
-     *
-     * @var string
-     */
-    public const SEVERITY_CLEAN = 'clean';
+	/**
+	 * Verdict: no known-bad pattern matched.
+	 *
+	 * @var string
+	 */
+	public const SEVERITY_CLEAN = 'clean';
 
-    /**
-     * Verdict: warrants a human review before trust.
-     *
-     * @var string
-     */
-    public const SEVERITY_SUSPICIOUS = 'suspicious';
+	/**
+	 * Verdict: warrants a human review before trust.
+	 *
+	 * @var string
+	 */
+	public const SEVERITY_SUSPICIOUS = 'suspicious';
 
-    /**
-     * Verdict: must not be auto-trusted.
-     *
-     * @var string
-     */
-    public const SEVERITY_DANGEROUS = 'dangerous';
+	/**
+	 * Verdict: must not be auto-trusted.
+	 *
+	 * @var string
+	 */
+	public const SEVERITY_DANGEROUS = 'dangerous';
 
-    /**
-     * Scan text for dangerous patterns.
-     *
-     * @param string               $content  The primary text.
-     * @param array<string, mixed> $metadata Optional structured metadata folded in.
-     *
-     * @return array{safe: bool, severity: string, findings: array<int, array<string, string>>, scannedBytes: int, truncated: bool}
-     */
-    public function scan(string $content, array $metadata=[]): array
-    {
-        return [
-            'safe'         => true,
-            'severity'     => self::SEVERITY_CLEAN,
-            'findings'     => [],
-            'scannedBytes' => strlen($content),
-            'truncated'    => false,
-        ];
-    }//end scan()
+	/**
+	 * Scan text for dangerous patterns.
+	 *
+	 * @param string $content The primary text.
+	 * @param array<string, mixed> $metadata Optional structured metadata folded in.
+	 *
+	 * @return array{safe: bool, severity: string, findings: array<int, array<string, string>>, scannedBytes: int, truncated: bool}
+	 */
+	public function scan(string $content, array $metadata = []): array {
+		return [
+			'safe' => true,
+			'severity' => self::SEVERITY_CLEAN,
+			'findings' => [],
+			'scannedBytes' => strlen($content),
+			'truncated' => false,
+		];
+	}//end scan()
 }//end class

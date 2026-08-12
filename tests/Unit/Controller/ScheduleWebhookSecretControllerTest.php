@@ -44,274 +44,258 @@ use RuntimeException;
  *
  * @spec openspec/changes/delivery-channels/tasks.md#task-3-schedulewebhooksecretcontroller-owner-guarded-crud
  */
-class ScheduleWebhookSecretControllerTest extends TestCase
-{
+class ScheduleWebhookSecretControllerTest extends TestCase {
 
-    /**
-     * Mock ObjectService.
-     *
-     * @var ObjectService&\PHPUnit\Framework\MockObject\MockObject
-     */
-    private ObjectService $objectService;
+	/**
+	 * Mock ObjectService.
+	 *
+	 * @var ObjectService&\PHPUnit\Framework\MockObject\MockObject
+	 */
+	private ObjectService $objectService;
 
-    /**
-     * Mock ScheduleWebhookSecretService.
-     *
-     * @var ScheduleWebhookSecretService&\PHPUnit\Framework\MockObject\MockObject
-     */
-    private ScheduleWebhookSecretService $scheduleWebhookSecretService;
+	/**
+	 * Mock ScheduleWebhookSecretService.
+	 *
+	 * @var ScheduleWebhookSecretService&\PHPUnit\Framework\MockObject\MockObject
+	 */
+	private ScheduleWebhookSecretService $scheduleWebhookSecretService;
 
-    /**
-     * Build a Schedule ObjectEntity owned by $owner.
-     *
-     * @param string $owner The owner UID.
-     *
-     * @return ObjectEntity
-     */
-    private function schedule(string $owner): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('sched-1');
-        $entity->setOwner($owner);
-        $entity->setObject(['name' => 'Daily briefing', 'deliver' => 'webhook']);
-        return $entity;
+	/**
+	 * Build a Schedule ObjectEntity owned by $owner.
+	 *
+	 * @param string $owner The owner UID.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function schedule(string $owner): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('sched-1');
+		$entity->setOwner($owner);
+		$entity->setObject(['name' => 'Daily briefing', 'deliver' => 'webhook']);
+		return $entity;
+	}//end schedule()
 
-    }//end schedule()
+	/**
+	 * Build the controller with the given collaborators.
+	 *
+	 * @param IUserSession $userSession The user session.
+	 *
+	 * @return ScheduleWebhookSecretController
+	 */
+	private function controller(IUserSession $userSession): ScheduleWebhookSecretController {
+		return new ScheduleWebhookSecretController(
+			$this->createMock(IRequest::class),
+			$this->objectService,
+			$userSession,
+			$this->scheduleWebhookSecretService,
+			$this->createMock(LoggerInterface::class)
+		);
 
-    /**
-     * Build the controller with the given collaborators.
-     *
-     * @param IUserSession $userSession The user session.
-     *
-     * @return ScheduleWebhookSecretController
-     */
-    private function controller(IUserSession $userSession): ScheduleWebhookSecretController
-    {
-        return new ScheduleWebhookSecretController(
-            $this->createMock(IRequest::class),
-            $this->objectService,
-            $userSession,
-            $this->scheduleWebhookSecretService,
-            $this->createMock(LoggerInterface::class)
-        );
+	}//end controller()
 
-    }//end controller()
+	/**
+	 * A session with the given (or no) user.
+	 *
+	 * @param string|null $uid The UID, or null for unauthenticated.
+	 *
+	 * @return IUserSession
+	 */
+	private function session(?string $uid): IUserSession {
+		$session = $this->createMock(IUserSession::class);
+		if ($uid === null) {
+			$session->method('getUser')->willReturn(null);
+			return $session;
+		}
 
-    /**
-     * A session with the given (or no) user.
-     *
-     * @param string|null $uid The UID, or null for unauthenticated.
-     *
-     * @return IUserSession
-     */
-    private function session(?string $uid): IUserSession
-    {
-        $session = $this->createMock(IUserSession::class);
-        if ($uid === null) {
-            $session->method('getUser')->willReturn(null);
-            return $session;
-        }
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$session->method('getUser')->willReturn($user);
+		return $session;
+	}//end session()
 
-        $user = $this->createMock(IUser::class);
-        $user->method('getUID')->willReturn($uid);
-        $session->method('getUser')->willReturn($user);
-        return $session;
+	/**
+	 * Wire fresh mocks before each test.
+	 *
+	 * @return void
+	 */
+	protected function setUp(): void {
+		parent::setUp();
+		$this->objectService = $this->createMock(ObjectService::class);
+		$this->scheduleWebhookSecretService = $this->createMock(ScheduleWebhookSecretService::class);
 
-    }//end session()
+	}//end setUp()
 
-    /**
-     * Wire fresh mocks before each test.
-     *
-     * @return void
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->objectService                = $this->createMock(ObjectService::class);
-        $this->scheduleWebhookSecretService = $this->createMock(ScheduleWebhookSecretService::class);
+	/**
+	 * An unauthenticated caller gets 401 on every endpoint.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testUnauthenticatedGets401(): void {
+		$controller = $this->controller($this->session(null));
 
-    }//end setUp()
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->create('sched-1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->rotate('sched-1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->revoke('sched-1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->show('sched-1')->getStatus());
 
-    /**
-     * An unauthenticated caller gets 401 on every endpoint.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testUnauthenticatedGets401(): void
-    {
-        $controller = $this->controller($this->session(null));
+	}//end testUnauthenticatedGets401()
 
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->create('sched-1')->getStatus());
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->rotate('sched-1')->getStatus());
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->revoke('sched-1')->getStatus());
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->show('sched-1')->getStatus());
+	/**
+	 * A non-owner gets 404 (never 403) for every endpoint, so they cannot
+	 * confirm the schedule's existence — mirrors RunNowController's IDOR guard.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testNonOwnerGets404OnEveryEndpoint(): void {
+		$this->objectService->method('find')->willReturn($this->schedule('alice'));
+		$this->scheduleWebhookSecretService->expects($this->never())->method('mint');
+		$this->scheduleWebhookSecretService->expects($this->never())->method('rotate');
+		$this->scheduleWebhookSecretService->expects($this->never())->method('revoke');
 
-    }//end testUnauthenticatedGets401()
+		$controller = $this->controller($this->session('mallory'));
 
-    /**
-     * A non-owner gets 404 (never 403) for every endpoint, so they cannot
-     * confirm the schedule's existence — mirrors RunNowController's IDOR guard.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testNonOwnerGets404OnEveryEndpoint(): void
-    {
-        $this->objectService->method('find')->willReturn($this->schedule('alice'));
-        $this->scheduleWebhookSecretService->expects($this->never())->method('mint');
-        $this->scheduleWebhookSecretService->expects($this->never())->method('rotate');
-        $this->scheduleWebhookSecretService->expects($this->never())->method('revoke');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('sched-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->rotate('sched-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->revoke('sched-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('sched-1')->getStatus());
 
-        $controller = $this->controller($this->session('mallory'));
+	}//end testNonOwnerGets404OnEveryEndpoint()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('sched-1')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->rotate('sched-1')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->revoke('sched-1')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('sched-1')->getStatus());
+	/**
+	 * An unknown schedule id gets 404 on every endpoint.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testUnknownScheduleGets404(): void {
+		$this->objectService->method('find')->willReturn(null);
 
-    }//end testNonOwnerGets404OnEveryEndpoint()
+		$controller = $this->controller($this->session('alice'));
 
-    /**
-     * An unknown schedule id gets 404 on every endpoint.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testUnknownScheduleGets404(): void
-    {
-        $this->objectService->method('find')->willReturn(null);
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
 
-        $controller = $this->controller($this->session('alice'));
+	}//end testUnknownScheduleGets404()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
+	/**
+	 * A THROWING lookup gets the same 404 on every endpoint.
+	 *
+	 * `ObjectService::find()` documents `@throws Exception If the object is not
+	 * found`, and every endpoint here calls `loadOwnedSchedule()` OUTSIDE its own
+	 * try block — so before the fix the throw escaped to the dispatcher as a
+	 * framework 500 with a stack trace on a `#[NoAdminRequired]` route, on the
+	 * four routes that mint and reveal a signing secret.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testThrowingScheduleLookupGets404(): void {
+		$this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
 
-    }//end testUnknownScheduleGets404()
+		$controller = $this->controller($this->session('alice'));
 
-    /**
-     * A THROWING lookup gets the same 404 on every endpoint.
-     *
-     * `ObjectService::find()` documents `@throws Exception If the object is not
-     * found`, and every endpoint here calls `loadOwnedSchedule()` OUTSIDE its own
-     * try block — so before the fix the throw escaped to the dispatcher as a
-     * framework 500 with a stack trace on a `#[NoAdminRequired]` route, on the
-     * four routes that mint and reveal a signing secret.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testThrowingScheduleLookupGets404(): void
-    {
-        $this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
 
-        $controller = $this->controller($this->session('alice'));
+	}//end testThrowingScheduleLookupGets404()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
+	/**
+	 * The owner can mint a secret: 201 with the plaintext secret, never re-displayed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testOwnerCanMintSecret(): void {
+		$this->objectService->method('find')->willReturn($this->schedule('alice'));
+		$this->scheduleWebhookSecretService->method('mint')
+			->willReturn(['secret' => 'hws_plaintext', 'rotatedAt' => '2026-07-13T00:00:00+00:00']);
 
-    }//end testThrowingScheduleLookupGets404()
+		$response = $this->controller($this->session('alice'))->create('sched-1');
 
-    /**
-     * The owner can mint a secret: 201 with the plaintext secret, never re-displayed.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testOwnerCanMintSecret(): void
-    {
-        $this->objectService->method('find')->willReturn($this->schedule('alice'));
-        $this->scheduleWebhookSecretService->method('mint')
-            ->willReturn(['secret' => 'hws_plaintext', 'rotatedAt' => '2026-07-13T00:00:00+00:00']);
+		$this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+		$this->assertSame('hws_plaintext', $response->getData()['secret']);
+		$this->assertTrue($response->getData()['configured']);
 
-        $response = $this->controller($this->session('alice'))->create('sched-1');
+	}//end testOwnerCanMintSecret()
 
-        $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
-        $this->assertSame('hws_plaintext', $response->getData()['secret']);
-        $this->assertTrue($response->getData()['configured']);
+	/**
+	 * A mint request when a secret already exists gets 409, instructing the
+	 * caller to rotate instead.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testMintConflictsWhenSecretAlreadyExists(): void {
+		$this->objectService->method('find')->willReturn($this->schedule('alice'));
+		$this->scheduleWebhookSecretService->method('mint')->willThrowException(new RuntimeException('exists'));
 
-    }//end testOwnerCanMintSecret()
+		$response = $this->controller($this->session('alice'))->create('sched-1');
 
-    /**
-     * A mint request when a secret already exists gets 409, instructing the
-     * caller to rotate instead.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testMintConflictsWhenSecretAlreadyExists(): void
-    {
-        $this->objectService->method('find')->willReturn($this->schedule('alice'));
-        $this->scheduleWebhookSecretService->method('mint')->willThrowException(new RuntimeException('exists'));
+		$this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
 
-        $response = $this->controller($this->session('alice'))->create('sched-1');
+	}//end testMintConflictsWhenSecretAlreadyExists()
 
-        $this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
+	/**
+	 * Rotating a non-configured secret returns 404.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testRotateWithoutExistingSecretReturns404(): void {
+		$this->objectService->method('find')->willReturn($this->schedule('alice'));
+		$this->scheduleWebhookSecretService->method('rotate')->willThrowException(new RuntimeException('nothing to rotate'));
 
-    }//end testMintConflictsWhenSecretAlreadyExists()
+		$response = $this->controller($this->session('alice'))->rotate('sched-1');
 
-    /**
-     * Rotating a non-configured secret returns 404.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testRotateWithoutExistingSecretReturns404(): void
-    {
-        $this->objectService->method('find')->willReturn($this->schedule('alice'));
-        $this->scheduleWebhookSecretService->method('rotate')->willThrowException(new RuntimeException('nothing to rotate'));
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-        $response = $this->controller($this->session('alice'))->rotate('sched-1');
+	}//end testRotateWithoutExistingSecretReturns404()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	/**
+	 * The owner can revoke a secret: never a secret in the response.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testOwnerCanRevokeSecret(): void {
+		$schedule = $this->schedule('alice');
+		$this->objectService->method('find')->willReturn($schedule);
+		$this->scheduleWebhookSecretService->method('revoke')->willReturn($schedule);
+		$this->scheduleWebhookSecretService->method('status')->willReturn(['configured' => false, 'rotatedAt' => null]);
 
-    }//end testRotateWithoutExistingSecretReturns404()
+		$response = $this->controller($this->session('alice'))->revoke('sched-1');
 
-    /**
-     * The owner can revoke a secret: never a secret in the response.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testOwnerCanRevokeSecret(): void
-    {
-        $schedule = $this->schedule('alice');
-        $this->objectService->method('find')->willReturn($schedule);
-        $this->scheduleWebhookSecretService->method('revoke')->willReturn($schedule);
-        $this->scheduleWebhookSecretService->method('status')->willReturn(['configured' => false, 'rotatedAt' => null]);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['configured' => false, 'rotatedAt' => null], $response->getData());
 
-        $response = $this->controller($this->session('alice'))->revoke('sched-1');
+	}//end testOwnerCanRevokeSecret()
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame(['configured' => false, 'rotatedAt' => null], $response->getData());
+	/**
+	 * show() reports the status payload for the owner, never a secret.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function testShowReportsStatusForOwner(): void {
+		$this->objectService->method('find')->willReturn($this->schedule('alice'));
+		$this->scheduleWebhookSecretService->method('status')->willReturn(['configured' => true, 'rotatedAt' => '2026-07-13T00:00:00+00:00']);
 
-    }//end testOwnerCanRevokeSecret()
+		$response = $this->controller($this->session('alice'))->show('sched-1');
 
-    /**
-     * show() reports the status payload for the owner, never a secret.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function testShowReportsStatusForOwner(): void
-    {
-        $this->objectService->method('find')->willReturn($this->schedule('alice'));
-        $this->scheduleWebhookSecretService->method('status')->willReturn(['configured' => true, 'rotatedAt' => '2026-07-13T00:00:00+00:00']);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertTrue($response->getData()['configured']);
+		$this->assertArrayNotHasKey('secret', $response->getData());
 
-        $response = $this->controller($this->session('alice'))->show('sched-1');
-
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertTrue($response->getData()['configured']);
-        $this->assertArrayNotHasKey('secret', $response->getData());
-
-    }//end testShowReportsStatusForOwner()
+	}//end testShowReportsStatusForOwner()
 }//end class

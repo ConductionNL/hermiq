@@ -43,115 +43,108 @@ use OCP\TaskProcessing\TaskTypes\ContextAgentInteraction;
  *
  * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
  */
-class ContextAgentProvider implements ISynchronousProvider
-{
-    use EmptyOptionalShapesTrait;
+class ContextAgentProvider implements ISynchronousProvider {
+	use EmptyOptionalShapesTrait;
 
-    /**
-     * Constructor.
-     *
-     * @param ContextAgentInteractionService $interactionService Runs the governed turn.
-     *
-     * @return void
-     */
-    public function __construct(
-        private readonly ContextAgentInteractionService $interactionService,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ContextAgentInteractionService $interactionService Runs the governed turn.
+	 *
+	 * @return void
+	 */
+	public function __construct(
+		private readonly ContextAgentInteractionService $interactionService,
+	) {
+	}//end __construct()
 
-    /**
-     * The unique id of this provider.
-     *
-     * @return string
-     *
-     * @spec exclude Trivial provider identity accessor; no behavioural spec.
-     */
-    public function getId(): string
-    {
-        return 'hermiq:contextagent';
-    }//end getId()
+	/**
+	 * The unique id of this provider.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial provider identity accessor; no behavioural spec.
+	 */
+	public function getId(): string {
+		return 'hermiq:contextagent';
+	}//end getId()
 
-    /**
-     * The localized name of this provider.
-     *
-     * @return string
-     *
-     * @spec exclude Trivial provider name accessor; no behavioural spec.
-     */
-    public function getName(): string
-    {
-        return 'Hermiq (governed agents)';
-    }//end getName()
+	/**
+	 * The localized name of this provider.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial provider name accessor; no behavioural spec.
+	 */
+	public function getName(): string {
+		return 'Hermiq (governed agents)';
+	}//end getName()
 
-    /**
-     * The task type this provider handles.
-     *
-     * @return string
-     *
-     * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
-     */
-    public function getTaskTypeId(): string
-    {
-        return ContextAgentInteraction::ID;
-    }//end getTaskTypeId()
+	/**
+	 * The task type this provider handles.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+	 */
+	public function getTaskTypeId(): string {
+		return ContextAgentInteraction::ID;
+	}//end getTaskTypeId()
 
-    /**
-     * The expected average runtime of a task in seconds (an agent turn may call
-     * tools, so budget more than a plain text2text call).
-     *
-     * @return int
-     *
-     * @spec exclude Trivial framework runtime hint; no behavioural spec.
-     */
-    public function getExpectedRuntime(): int
-    {
-        return 30;
-    }//end getExpectedRuntime()
+	/**
+	 * The expected average runtime of a task in seconds (an agent turn may call
+	 * tools, so budget more than a plain text2text call).
+	 *
+	 * @return int
+	 *
+	 * @spec exclude Trivial framework runtime hint; no behavioural spec.
+	 */
+	public function getExpectedRuntime(): int {
+		return 30;
+	}//end getExpectedRuntime()
 
-    /**
-     * Run one ContextAgent interaction turn.
-     *
-     * Maps the NC ContextAgent input (`input` + `confirmation` + `conversation_token`)
-     * onto a governed Hermiq turn and returns the ContextAgent output shape (`output`
-     * + new `conversation_token` + `actions` JSON).
-     *
-     * @param string|null $userId         The user that created the task (owns the conversation).
-     * @param array       $input          The task input (`input`, `confirmation`, `conversation_token`).
-     * @param callable    $reportProgress Progress reporter (single blocking call; reported once).
-     *
-     * @return array{output: string, conversation_token: string, actions: string}
-     *
-     * @throws \OCP\TaskProcessing\Exception\ProcessingException When there is no user
-     *         context, no available agent, the org kill-switch is engaged, or the turn fails.
-     *
-     * @psalm-param  callable(float):bool $reportProgress
-     * @psalm-return array{output: string, conversation_token: string, actions: string}
-     *
-     * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
-     */
-    public function process(?string $userId, array $input, callable $reportProgress): array
-    {
-        $message           = (string) ($input['input'] ?? '');
-        $conversationToken = (string) ($input['conversation_token'] ?? '');
+	/**
+	 * Run one ContextAgent interaction turn.
+	 *
+	 * Maps the NC ContextAgent input (`input` + `confirmation` + `conversation_token`)
+	 * onto a governed Hermiq turn and returns the ContextAgent output shape (`output`
+	 * + new `conversation_token` + `actions` JSON).
+	 *
+	 * @param string|null $userId The user that created the task (owns the conversation).
+	 * @param array $input The task input (`input`, `confirmation`, `conversation_token`).
+	 * @param callable $reportProgress Progress reporter (single blocking call; reported once).
+	 *
+	 * @return array{output: string, conversation_token: string, actions: string}
+	 *
+	 * @throws \OCP\TaskProcessing\Exception\ProcessingException When there is no user
+	 *                                                           context, no available agent, the org kill-switch is engaged, or the turn fails.
+	 *
+	 * @psalm-param  callable(float):bool $reportProgress
+	 * @psalm-return array{output: string, conversation_token: string, actions: string}
+	 *
+	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 */
+	public function process(?string $userId, array $input, callable $reportProgress): array {
+		$message = (string)($input['input'] ?? '');
+		$conversationToken = (string)($input['conversation_token'] ?? '');
 
-        // `confirmation` is a Number slot; null when the client is not answering a
-        // prior action request.
-        $confirmation = null;
-        if (array_key_exists('confirmation', $input) === true && is_numeric($input['confirmation']) === true) {
-            $confirmation = (int) $input['confirmation'];
-        }
+		// `confirmation` is a Number slot; null when the client is not answering a
+		// prior action request.
+		$confirmation = null;
+		if (array_key_exists('confirmation', $input) === true && is_numeric($input['confirmation']) === true) {
+			$confirmation = (int)$input['confirmation'];
+		}
 
-        $result = $this->interactionService->interact(
-            userId: $userId,
-            input: $message,
-            confirmation: $confirmation,
-            conversationToken: $conversationToken
-        );
+		$result = $this->interactionService->interact(
+			userId: $userId,
+			input: $message,
+			confirmation: $confirmation,
+			conversationToken: $conversationToken
+		);
 
-        // Report completion so cancelled tasks stop cleanly (single blocking call).
-        $reportProgress(1.0);
+		// Report completion so cancelled tasks stop cleanly (single blocking call).
+		$reportProgress(1.0);
 
-        return $result;
-
-    }//end process()
+		return $result;
+	}//end process()
 }//end class

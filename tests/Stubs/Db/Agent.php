@@ -29,287 +29,267 @@ namespace OCA\OpenRegister\Db;
 /**
  * Minimal Agent stub for standalone unit runs.
  */
-class Agent
-{
+class Agent {
 
-    /**
-     * Agent id.
-     *
-     * @var int|null
-     */
-    private ?int $id = null;
+	/**
+	 * Agent id.
+	 *
+	 * @var int|null
+	 */
+	private ?int $id = null;
 
-    /**
-     * Agent UUID.
-     *
-     * @var string|null
-     */
-    private ?string $uuid = null;
+	/**
+	 * Agent UUID.
+	 *
+	 * @var string|null
+	 */
+	private ?string $uuid = null;
 
-    /**
-     * Owner user id (the agent's acting user).
-     *
-     * @var string|null
-     */
-    private ?string $owner = null;
+	/**
+	 * Owner user id (the agent's acting user).
+	 *
+	 * @var string|null
+	 */
+	private ?string $owner = null;
 
-    /**
-     * Organisation identifier (kill-switch scoping for a webhook-triggered run).
-     *
-     * @var string|null
-     */
-    private ?string $organisation = null;
+	/**
+	 * Organisation identifier (kill-switch scoping for a webhook-triggered run).
+	 *
+	 * @var string|null
+	 */
+	private ?string $organisation = null;
 
-    /**
-     * Get the agent id.
-     *
-     * @return int|null
-     */
-    public function getId(): ?int
-    {
-        return $this->id;
-    }//end getId()
+	/**
+	 * Get the agent id.
+	 *
+	 * @return int|null
+	 */
+	public function getId(): ?int {
+		return $this->id;
+	}//end getId()
 
-    /**
-     * Set the agent id.
-     *
-     * @param int|null $id The id.
-     *
-     * @return void
-     */
-    public function setId(?int $id): void
-    {
-        $this->id = $id;
-    }//end setId()
+	/**
+	 * Set the agent id.
+	 *
+	 * @param int|null $id The id.
+	 *
+	 * @return void
+	 */
+	public function setId(?int $id): void {
+		$this->id = $id;
+	}//end setId()
 
-    /**
-     * Get the agent UUID.
-     *
-     * @return string|null
-     */
-    public function getUuid(): ?string
-    {
-        return $this->uuid;
-    }//end getUuid()
+	/**
+	 * Get the agent UUID.
+	 *
+	 * @return string|null
+	 */
+	public function getUuid(): ?string {
+		return $this->uuid;
+	}//end getUuid()
 
-    /**
-     * Set the agent UUID.
-     *
-     * @param string|null $uuid The UUID.
-     *
-     * @return void
-     */
-    public function setUuid(?string $uuid): void
-    {
-        $this->uuid = $uuid;
-    }//end setUuid()
+	/**
+	 * Set the agent UUID.
+	 *
+	 * @param string|null $uuid The UUID.
+	 *
+	 * @return void
+	 */
+	public function setUuid(?string $uuid): void {
+		$this->uuid = $uuid;
+	}//end setUuid()
 
-    /**
-     * Get the owner user id.
-     *
-     * @return string|null
-     */
-    public function getOwner(): ?string
-    {
-        return $this->owner;
-    }//end getOwner()
+	/**
+	 * Get the owner user id.
+	 *
+	 * @return string|null
+	 */
+	public function getOwner(): ?string {
+		return $this->owner;
+	}//end getOwner()
 
-    /**
-     * Set the owner user id.
-     *
-     * @param string|null $owner The owner user id.
-     *
-     * @return void
-     */
-    public function setOwner(?string $owner): void
-    {
-        $this->owner = $owner;
-    }//end setOwner()
+	/**
+	 * Set the owner user id.
+	 *
+	 * @param string|null $owner The owner user id.
+	 *
+	 * @return void
+	 */
+	public function setOwner(?string $owner): void {
+		$this->owner = $owner;
+	}//end setOwner()
 
-    /**
-     * Get the organisation identifier.
-     *
-     * @return string|null
-     */
-    public function getOrganisation(): ?string
-    {
-        return $this->organisation;
-    }//end getOrganisation()
+	/**
+	 * Get the organisation identifier.
+	 *
+	 * @return string|null
+	 */
+	public function getOrganisation(): ?string {
+		return $this->organisation;
+	}//end getOrganisation()
 
-    /**
-     * Set the organisation identifier.
-     *
-     * @param string|null $organisation The organisation identifier.
-     *
-     * @return void
-     */
-    public function setOrganisation(?string $organisation): void
-    {
-        $this->organisation = $organisation;
-    }//end setOrganisation()
+	/**
+	 * Set the organisation identifier.
+	 *
+	 * @param string|null $organisation The organisation identifier.
+	 *
+	 * @return void
+	 */
+	public function setOrganisation(?string $organisation): void {
+		$this->organisation = $organisation;
+	}//end setOrganisation()
 
-    /**
-     * Agent display name.
-     *
-     * @var string|null
-     */
-    private ?string $name = null;
+	/**
+	 * Agent display name.
+	 *
+	 * @var string|null
+	 */
+	private ?string $name = null;
 
-    /**
-     * Whether the agent is active.
-     *
-     * @var bool
-     */
-    private bool $active = true;
+	/**
+	 * Whether the agent is active.
+	 *
+	 * @var bool
+	 */
+	private bool $active = true;
 
-    /**
-     * Free-form agent configuration bag (holds the agent's policy, e.g.
-     * `requiresApproval`).
-     *
-     * @var array<string,mixed>|null
-     */
-    private ?array $configuration = null;
+	/**
+	 * Free-form agent configuration bag (holds the agent's policy, e.g.
+	 * `requiresApproval`).
+	 *
+	 * @var array<string,mixed>|null
+	 */
+	private ?array $configuration = null;
 
-    /**
-     * Get the agent display name.
-     *
-     * @return string|null
-     */
-    public function getName(): ?string
-    {
-        return $this->name;
-    }//end getName()
+	/**
+	 * Get the agent display name.
+	 *
+	 * @return string|null
+	 */
+	public function getName(): ?string {
+		return $this->name;
+	}//end getName()
 
-    /**
-     * Set the agent display name.
-     *
-     * @param string|null $name The name.
-     *
-     * @return void
-     */
-    public function setName(?string $name): void
-    {
-        $this->name = $name;
-    }//end setName()
+	/**
+	 * Set the agent display name.
+	 *
+	 * @param string|null $name The name.
+	 *
+	 * @return void
+	 */
+	public function setName(?string $name): void {
+		$this->name = $name;
+	}//end setName()
 
-    /**
-     * Whether the agent is active.
-     *
-     * @return bool
-     */
-    public function getActive(): bool
-    {
-        return $this->active;
-    }//end getActive()
+	/**
+	 * Whether the agent is active.
+	 *
+	 * @return bool
+	 */
+	public function getActive(): bool {
+		return $this->active;
+	}//end getActive()
 
-    /**
-     * Set whether the agent is active.
-     *
-     * @param bool $active Active flag.
-     *
-     * @return void
-     */
-    public function setActive(bool $active): void
-    {
-        $this->active = $active;
-    }//end setActive()
+	/**
+	 * Set whether the agent is active.
+	 *
+	 * @param bool $active Active flag.
+	 *
+	 * @return void
+	 */
+	public function setActive(bool $active): void {
+		$this->active = $active;
+	}//end setActive()
 
-    /**
-     * Get the agent configuration bag.
-     *
-     * @return array<string,mixed>|null
-     */
-    public function getConfiguration(): ?array
-    {
-        return $this->configuration;
-    }//end getConfiguration()
+	/**
+	 * Get the agent configuration bag.
+	 *
+	 * @return array<string,mixed>|null
+	 */
+	public function getConfiguration(): ?array {
+		return $this->configuration;
+	}//end getConfiguration()
 
-    /**
-     * Set the agent configuration bag.
-     *
-     * @param array<string,mixed>|null $configuration The configuration.
-     *
-     * @return void
-     */
-    public function setConfiguration(?array $configuration): void
-    {
-        $this->configuration = $configuration;
-    }//end setConfiguration()
+	/**
+	 * Set the agent configuration bag.
+	 *
+	 * @param array<string,mixed>|null $configuration The configuration.
+	 *
+	 * @return void
+	 */
+	public function setConfiguration(?array $configuration): void {
+		$this->configuration = $configuration;
+	}//end setConfiguration()
 
-    /**
-     * Whether the agent is private (visible only to its owner and invited users).
-     * Mirrors the real entity: `protected ?bool $isPrivate = null` — null means
-     * "unset", which `AgentMapper::canUserAccessAgent()` treats as NOT private.
-     *
-     * @var bool|null
-     */
-    private ?bool $isPrivate = null;
+	/**
+	 * Whether the agent is private (visible only to its owner and invited users).
+	 * Mirrors the real entity: `protected ?bool $isPrivate = null` — null means
+	 * "unset", which `AgentMapper::canUserAccessAgent()` treats as NOT private.
+	 *
+	 * @var bool|null
+	 */
+	private ?bool $isPrivate = null;
 
-    /**
-     * Explicitly invited user ids (only meaningful when `isPrivate` is true).
-     *
-     * @var array<int, string>|null
-     */
-    private ?array $invitedUsers = null;
+	/**
+	 * Explicitly invited user ids (only meaningful when `isPrivate` is true).
+	 *
+	 * @var array<int, string>|null
+	 */
+	private ?array $invitedUsers = null;
 
-    /**
-     * Whether the agent is private.
-     *
-     * @return bool|null
-     */
-    public function getIsPrivate(): ?bool
-    {
-        return $this->isPrivate;
-    }//end getIsPrivate()
+	/**
+	 * Whether the agent is private.
+	 *
+	 * @return bool|null
+	 */
+	public function getIsPrivate(): ?bool {
+		return $this->isPrivate;
+	}//end getIsPrivate()
 
-    /**
-     * Set the privacy flag.
-     *
-     * @param bool|null $isPrivate The privacy flag.
-     *
-     * @return void
-     */
-    public function setIsPrivate(?bool $isPrivate): void
-    {
-        $this->isPrivate = $isPrivate;
-    }//end setIsPrivate()
+	/**
+	 * Set the privacy flag.
+	 *
+	 * @param bool|null $isPrivate The privacy flag.
+	 *
+	 * @return void
+	 */
+	public function setIsPrivate(?bool $isPrivate): void {
+		$this->isPrivate = $isPrivate;
+	}//end setIsPrivate()
 
-    /**
-     * Get the invited user ids.
-     *
-     * @return array<int, string>|null
-     */
-    public function getInvitedUsers(): ?array
-    {
-        return $this->invitedUsers;
-    }//end getInvitedUsers()
+	/**
+	 * Get the invited user ids.
+	 *
+	 * @return array<int, string>|null
+	 */
+	public function getInvitedUsers(): ?array {
+		return $this->invitedUsers;
+	}//end getInvitedUsers()
 
-    /**
-     * Set the invited user ids.
-     *
-     * @param array<int, string>|null $invitedUsers The invited user ids.
-     *
-     * @return void
-     */
-    public function setInvitedUsers(?array $invitedUsers): void
-    {
-        $this->invitedUsers = $invitedUsers;
-    }//end setInvitedUsers()
+	/**
+	 * Set the invited user ids.
+	 *
+	 * @param array<int, string>|null $invitedUsers The invited user ids.
+	 *
+	 * @return void
+	 */
+	public function setInvitedUsers(?array $invitedUsers): void {
+		$this->invitedUsers = $invitedUsers;
+	}//end setInvitedUsers()
 
-    /**
-     * Whether the given user is explicitly invited — verbatim from the real
-     * entity, including the null-list short circuit.
-     *
-     * @param string $userId The user id.
-     *
-     * @return bool
-     */
-    public function hasInvitedUser(string $userId): bool
-    {
-        if ($this->invitedUsers === null) {
-            return false;
-        }
+	/**
+	 * Whether the given user is explicitly invited — verbatim from the real
+	 * entity, including the null-list short circuit.
+	 *
+	 * @param string $userId The user id.
+	 *
+	 * @return bool
+	 */
+	public function hasInvitedUser(string $userId): bool {
+		if ($this->invitedUsers === null) {
+			return false;
+		}
 
-        return in_array($userId, $this->invitedUsers, true);
-    }//end hasInvitedUser()
+		return in_array($userId, $this->invitedUsers, true);
+	}//end hasInvitedUser()
 }//end class

@@ -27,6 +27,5 @@ use Exception;
 /**
  * Minimal stub of the spreed ParticipantNotFoundException.
  */
-class ParticipantNotFoundException extends Exception
-{
+class ParticipantNotFoundException extends Exception {
 }//end class

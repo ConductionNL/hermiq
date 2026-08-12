@@ -39,98 +39,91 @@ use PHPUnit\Framework\TestCase;
 /**
  * @coversNothing Guards a declarative register file, not a PHP class.
  */
-class AgentAuthorizationTest extends TestCase
-{
+class AgentAuthorizationTest extends TestCase {
 
-    /**
-     * The Agent schema's authorization block.
-     *
-     * @return array<string,mixed> The block.
-     */
-    private function agentAuthorization(): array
-    {
-        $path = __DIR__.'/../../../lib/Settings/hermiq_register.json';
-        $this->assertFileExists($path, 'The register file must exist.');
+	/**
+	 * The Agent schema's authorization block.
+	 *
+	 * @return array<string,mixed> The block.
+	 */
+	private function agentAuthorization(): array {
+		$path = __DIR__ . '/../../../lib/Settings/hermiq_register.json';
+		$this->assertFileExists($path, 'The register file must exist.');
 
-        $register = json_decode((string) file_get_contents($path), true);
-        $this->assertIsArray($register, 'The register must be valid JSON.');
+		$register = json_decode((string)file_get_contents($path), true);
+		$this->assertIsArray($register, 'The register must be valid JSON.');
 
-        $agent = ($register['components']['schemas']['Agent'] ?? null);
-        $this->assertIsArray($agent, 'The Agent schema must exist.');
+		$agent = ($register['components']['schemas']['Agent'] ?? null);
+		$this->assertIsArray($agent, 'The Agent schema must exist.');
 
-        $authorization = ($agent['authorization'] ?? null);
-        $this->assertIsArray(
-            $authorization,
-            'Agent MUST declare an authorization block. Without one OpenRegister treats '
-            .'the schema as OPEN for update, and any authenticated user can rewrite any '
-            .'agent — reproduced, HTTP 200.'
-        );
+		$authorization = ($agent['authorization'] ?? null);
+		$this->assertIsArray(
+			$authorization,
+			'Agent MUST declare an authorization block. Without one OpenRegister treats '
+			. 'the schema as OPEN for update, and any authenticated user can rewrite any '
+			. 'agent — reproduced, HTTP 200.'
+		);
 
-        return $authorization;
+		return $authorization;
+	}//end agentAuthorization()
 
-    }//end agentAuthorization()
+	/**
+	 * Read stays open, so invited users keep seeing shared agents.
+	 */
+	public function testReadIsGrantedToAuthenticatedUsers(): void {
+		$this->assertSame(['authenticated'], ($this->agentAuthorization()['read'] ?? null));
 
-    /**
-     * Read stays open, so invited users keep seeing shared agents.
-     */
-    public function testReadIsGrantedToAuthenticatedUsers(): void
-    {
-        $this->assertSame(['authenticated'], ($this->agentAuthorization()['read'] ?? null));
+	}//end testReadIsGrantedToAuthenticatedUsers()
 
-    }//end testReadIsGrantedToAuthenticatedUsers()
+	/**
+	 * 🔴 The load-bearing assertion. Every write action MUST stay absent.
+	 *
+	 * If this fails, read the failure message before "fixing" the file.
+	 */
+	public function testWriteActionsAreOmittedSoTheyStayOwnerOnly(): void {
+		$authorization = $this->agentAuthorization();
 
-    /**
-     * 🔴 The load-bearing assertion. Every write action MUST stay absent.
-     *
-     * If this fails, read the failure message before "fixing" the file.
-     */
-    public function testWriteActionsAreOmittedSoTheyStayOwnerOnly(): void
-    {
-        $authorization = $this->agentAuthorization();
+		foreach (['create', 'update', 'delete'] as $action) {
+			$this->assertArrayNotHasKey(
+				$action,
+				$authorization,
+				sprintf(
+					'Agent.authorization MUST NOT list "%s". The omission is not an oversight — it '
+					. 'is the mechanism: OpenRegister fails closed on an action a non-empty block '
+					. 'does not list, which is what makes writes owner-only. Listing it (even as '
+					. '["authenticated"]) reopens a reproduced hole where any user could grant any '
+					. 'agent the ability to send irreversible external email. Owners and admins are '
+					. 'already admitted before this check, so nothing legitimate needs it.',
+					$action
+				)
+			);
+		}
 
-        foreach (['create', 'update', 'delete'] as $action) {
-            $this->assertArrayNotHasKey(
-                $action,
-                $authorization,
-                sprintf(
-                    'Agent.authorization MUST NOT list "%s". The omission is not an oversight — it '
-                    .'is the mechanism: OpenRegister fails closed on an action a non-empty block '
-                    .'does not list, which is what makes writes owner-only. Listing it (even as '
-                    .'["authenticated"]) reopens a reproduced hole where any user could grant any '
-                    .'agent the ability to send irreversible external email. Owners and admins are '
-                    .'already admitted before this check, so nothing legitimate needs it.',
-                    $action
-                )
-            );
-        }
+	}//end testWriteActionsAreOmittedSoTheyStayOwnerOnly()
 
-    }//end testWriteActionsAreOmittedSoTheyStayOwnerOnly()
+	/**
+	 * `scope` must stay unused: it is a single key covering EVERY action, so it
+	 * would close reads for invited users at the same time as closing writes.
+	 */
+	public function testScopeIsNotUsed(): void {
+		$this->assertArrayNotHasKey(
+			'scope',
+			$this->agentAuthorization(),
+			'scope covers every action at once and would break agent sharing — hermiq shares via '
+			. 'its own invitedUsers/groups fields and never projects them into OpenRegister grants.'
+		);
 
-    /**
-     * `scope` must stay unused: it is a single key covering EVERY action, so it
-     * would close reads for invited users at the same time as closing writes.
-     */
-    public function testScopeIsNotUsed(): void
-    {
-        $this->assertArrayNotHasKey(
-            'scope',
-            $this->agentAuthorization(),
-            'scope covers every action at once and would break agent sharing — hermiq shares via '
-            .'its own invitedUsers/groups fields and never projects them into OpenRegister grants.'
-        );
+	}//end testScopeIsNotUsed()
 
-    }//end testScopeIsNotUsed()
+	/**
+	 * A non-empty block is what arms the fail-closed rule; an empty one is
+	 * evaluated as OPEN and is exactly the pre-fix state.
+	 */
+	public function testTheBlockIsNotEmpty(): void {
+		$this->assertNotEmpty(
+			$this->agentAuthorization(),
+			'An EMPTY authorization block is evaluated as OPEN for update — the pre-fix state.'
+		);
 
-    /**
-     * A non-empty block is what arms the fail-closed rule; an empty one is
-     * evaluated as OPEN and is exactly the pre-fix state.
-     */
-    public function testTheBlockIsNotEmpty(): void
-    {
-        $this->assertNotEmpty(
-            $this->agentAuthorization(),
-            'An EMPTY authorization block is evaluated as OPEN for update — the pre-fix state.'
-        );
-
-    }//end testTheBlockIsNotEmpty()
+	}//end testTheBlockIsNotEmpty()
 }//end class

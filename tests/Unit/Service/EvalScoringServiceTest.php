@@ -36,204 +36,190 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/agent-evals/specs/agent-evals/spec.md
  */
-class EvalScoringServiceTest extends TestCase
-{
+class EvalScoringServiceTest extends TestCase {
 
-    /**
-     * A scoring service over a ProviderFactory whose generateText() returns $judge.
-     *
-     * @param string|null $judge     The canned judge response, or null to expect no judge call.
-     * @param \Throwable  $throwable Optional throwable the judge call raises instead.
-     *
-     * @return EvalScoringService
-     */
-    private function service(?string $judge=null, ?\Throwable $throwable=null): EvalScoringService
-    {
-        $factory = $this->createMock(ProviderFactory::class);
-        if ($throwable !== null) {
-            $factory->method('generateText')->willThrowException($throwable);
-        } else if ($judge !== null) {
-            $factory->method('generateText')->willReturn($judge);
-        } else {
-            $factory->expects($this->never())->method('generateText');
-        }
+	/**
+	 * A scoring service over a ProviderFactory whose generateText() returns $judge.
+	 *
+	 * @param string|null $judge The canned judge response, or null to expect no judge call.
+	 * @param \Throwable $throwable Optional throwable the judge call raises instead.
+	 *
+	 * @return EvalScoringService
+	 */
+	private function service(?string $judge = null, ?\Throwable $throwable = null): EvalScoringService {
+		$factory = $this->createMock(ProviderFactory::class);
+		if ($throwable !== null) {
+			$factory->method('generateText')->willThrowException($throwable);
+		} elseif ($judge !== null) {
+			$factory->method('generateText')->willReturn($judge);
+		} else {
+			$factory->expects($this->never())->method('generateText');
+		}
 
-        return new EvalScoringService(providerFactory: $factory);
+		return new EvalScoringService(providerFactory: $factory);
+	}//end service()
 
-    }//end service()
+	/**
+	 * `contains` passes when the substring is present, fails when absent.
+	 *
+	 * @return void
+	 */
+	public function testContainsSubstring(): void {
+		$service = $this->service();
+		$case = ['expectationType' => 'contains', 'expectedSubstring' => 'hello'];
 
-    /**
-     * `contains` passes when the substring is present, fails when absent.
-     *
-     * @return void
-     */
-    public function testContainsSubstring(): void
-    {
-        $service = $this->service();
-        $case    = ['expectationType' => 'contains', 'expectedSubstring' => 'hello'];
+		$this->assertTrue($service->score($case, 'well hello there')['passed']);
+		$this->assertFalse($service->score($case, 'goodbye')['passed']);
 
-        $this->assertTrue($service->score($case, 'well hello there')['passed']);
-        $this->assertFalse($service->score($case, 'goodbye')['passed']);
+	}//end testContainsSubstring()
 
-    }//end testContainsSubstring()
+	/**
+	 * `notContains` is the inverse of `contains`.
+	 *
+	 * @return void
+	 */
+	public function testNotContainsSubstring(): void {
+		$service = $this->service();
+		$case = ['expectationType' => 'notContains', 'expectedSubstring' => 'error'];
 
-    /**
-     * `notContains` is the inverse of `contains`.
-     *
-     * @return void
-     */
-    public function testNotContainsSubstring(): void
-    {
-        $service = $this->service();
-        $case    = ['expectationType' => 'notContains', 'expectedSubstring' => 'error'];
+		$this->assertTrue($service->score($case, 'all good')['passed']);
+		$this->assertFalse($service->score($case, 'fatal error occurred')['passed']);
 
-        $this->assertTrue($service->score($case, 'all good')['passed']);
-        $this->assertFalse($service->score($case, 'fatal error occurred')['passed']);
+	}//end testNotContainsSubstring()
 
-    }//end testNotContainsSubstring()
+	/**
+	 * A missing expectedSubstring fails cleanly, never throws.
+	 *
+	 * @return void
+	 */
+	public function testContainsMissingSubstringFailsCleanly(): void {
+		$result = $this->service()->score(['expectationType' => 'contains'], 'anything');
 
-    /**
-     * A missing expectedSubstring fails cleanly, never throws.
-     *
-     * @return void
-     */
-    public function testContainsMissingSubstringFailsCleanly(): void
-    {
-        $result = $this->service()->score(['expectationType' => 'contains'], 'anything');
+		$this->assertFalse($result['passed']);
+		$this->assertNotNull($result['errorMessage']);
 
-        $this->assertFalse($result['passed']);
-        $this->assertNotNull($result['errorMessage']);
+	}//end testContainsMissingSubstringFailsCleanly()
 
-    }//end testContainsMissingSubstringFailsCleanly()
+	/**
+	 * `jsonPathEquals` resolves dotted + bracketed paths and compares as strings.
+	 *
+	 * @return void
+	 */
+	public function testJsonPathEquals(): void {
+		$service = $this->service();
+		$output = '{"result": {"status": "ok"}, "items": [{"name": "first"}]}';
 
-    /**
-     * `jsonPathEquals` resolves dotted + bracketed paths and compares as strings.
-     *
-     * @return void
-     */
-    public function testJsonPathEquals(): void
-    {
-        $service = $this->service();
-        $output  = '{"result": {"status": "ok"}, "items": [{"name": "first"}]}';
+		$this->assertTrue($service->score(['expectationType' => 'jsonPathEquals', 'jsonPath' => 'result.status', 'expectedValue' => 'ok'], $output)['passed']);
+		$this->assertTrue($service->score(['expectationType' => 'jsonPathEquals', 'jsonPath' => 'items[0].name', 'expectedValue' => 'first'], $output)['passed']);
+		$this->assertFalse($service->score(['expectationType' => 'jsonPathEquals', 'jsonPath' => 'result.status', 'expectedValue' => 'fail'], $output)['passed']);
 
-        $this->assertTrue($service->score(['expectationType' => 'jsonPathEquals', 'jsonPath' => 'result.status', 'expectedValue' => 'ok'], $output)['passed']);
-        $this->assertTrue($service->score(['expectationType' => 'jsonPathEquals', 'jsonPath' => 'items[0].name', 'expectedValue' => 'first'], $output)['passed']);
-        $this->assertFalse($service->score(['expectationType' => 'jsonPathEquals', 'jsonPath' => 'result.status', 'expectedValue' => 'fail'], $output)['passed']);
+	}//end testJsonPathEquals()
 
-    }//end testJsonPathEquals()
+	/**
+	 * A jsonPathEquals case over non-JSON output FAILS (not errors) — the run continues.
+	 *
+	 * @return void
+	 */
+	public function testJsonPathEqualsMalformedOutputFailsNotThrows(): void {
+		$result = $this->service()->score(
+			['expectationType' => 'jsonPathEquals', 'jsonPath' => 'a.b', 'expectedValue' => 'x'],
+			'this is not json'
+		);
 
-    /**
-     * A jsonPathEquals case over non-JSON output FAILS (not errors) — the run continues.
-     *
-     * @return void
-     */
-    public function testJsonPathEqualsMalformedOutputFailsNotThrows(): void
-    {
-        $result = $this->service()->score(
-            ['expectationType' => 'jsonPathEquals', 'jsonPath' => 'a.b', 'expectedValue' => 'x'],
-            'this is not json'
-        );
+		$this->assertFalse($result['passed']);
+		$this->assertNotNull($result['errorMessage']);
 
-        $this->assertFalse($result['passed']);
-        $this->assertNotNull($result['errorMessage']);
+	}//end testJsonPathEqualsMalformedOutputFailsNotThrows()
 
-    }//end testJsonPathEqualsMalformedOutputFailsNotThrows()
+	/**
+	 * An unresolvable JSON path fails cleanly.
+	 *
+	 * @return void
+	 */
+	public function testJsonPathEqualsUnresolvedPathFails(): void {
+		$result = $this->service()->score(
+			['expectationType' => 'jsonPathEquals', 'jsonPath' => 'missing.key', 'expectedValue' => 'x'],
+			'{"present": 1}'
+		);
 
-    /**
-     * An unresolvable JSON path fails cleanly.
-     *
-     * @return void
-     */
-    public function testJsonPathEqualsUnresolvedPathFails(): void
-    {
-        $result = $this->service()->score(
-            ['expectationType' => 'jsonPathEquals', 'jsonPath' => 'missing.key', 'expectedValue' => 'x'],
-            '{"present": 1}'
-        );
+		$this->assertFalse($result['passed']);
+		$this->assertNotNull($result['errorMessage']);
 
-        $this->assertFalse($result['passed']);
-        $this->assertNotNull($result['errorMessage']);
+	}//end testJsonPathEqualsUnresolvedPathFails()
 
-    }//end testJsonPathEqualsUnresolvedPathFails()
+	/**
+	 * A rubric case scores via the judge; a score at/above threshold passes.
+	 *
+	 * @return void
+	 */
+	public function testRubricPassesWhenJudgeScoreMeetsThreshold(): void {
+		$service = $this->service(judge: '{"score": 0.9, "rationale": "great"}');
+		$result = $service->score(
+			['expectationType' => 'rubric', 'rubric' => 'Is it polite?', 'rubricPassThreshold' => 0.7, 'prompt' => 'hi'],
+			'Hello, how may I help?'
+		);
 
-    /**
-     * A rubric case scores via the judge; a score at/above threshold passes.
-     *
-     * @return void
-     */
-    public function testRubricPassesWhenJudgeScoreMeetsThreshold(): void
-    {
-        $service = $this->service(judge: '{"score": 0.9, "rationale": "great"}');
-        $result  = $service->score(
-            ['expectationType' => 'rubric', 'rubric' => 'Is it polite?', 'rubricPassThreshold' => 0.7, 'prompt' => 'hi'],
-            'Hello, how may I help?'
-        );
+		$this->assertTrue($result['passed']);
+		$this->assertSame(0.9, $result['score']);
+		$this->assertSame('great', $result['judgeRationale']);
 
-        $this->assertTrue($result['passed']);
-        $this->assertSame(0.9, $result['score']);
-        $this->assertSame('great', $result['judgeRationale']);
+	}//end testRubricPassesWhenJudgeScoreMeetsThreshold()
 
-    }//end testRubricPassesWhenJudgeScoreMeetsThreshold()
+	/**
+	 * A judge score below threshold fails.
+	 *
+	 * @return void
+	 */
+	public function testRubricFailsWhenJudgeScoreBelowThreshold(): void {
+		$service = $this->service(judge: 'The verdict is {"score": 0.3, "rationale": "rude"} overall');
+		$result = $service->score(
+			['expectationType' => 'rubric', 'rubric' => 'Is it polite?', 'rubricPassThreshold' => 0.7],
+			'go away'
+		);
 
-    /**
-     * A judge score below threshold fails.
-     *
-     * @return void
-     */
-    public function testRubricFailsWhenJudgeScoreBelowThreshold(): void
-    {
-        $service = $this->service(judge: 'The verdict is {"score": 0.3, "rationale": "rude"} overall');
-        $result  = $service->score(
-            ['expectationType' => 'rubric', 'rubric' => 'Is it polite?', 'rubricPassThreshold' => 0.7],
-            'go away'
-        );
+		$this->assertFalse($result['passed']);
+		$this->assertSame(0.3, $result['score']);
 
-        $this->assertFalse($result['passed']);
-        $this->assertSame(0.3, $result['score']);
+	}//end testRubricFailsWhenJudgeScoreBelowThreshold()
 
-    }//end testRubricFailsWhenJudgeScoreBelowThreshold()
+	/**
+	 * A model-policy violation on the judge call is a failed case, never a thrown run.
+	 *
+	 * @return void
+	 */
+	public function testRubricJudgePolicyViolationFailsNotThrows(): void {
+		$service = $this->service(throwable: new ModelPolicyViolationException('blocked', 422));
+		$result = $service->score(['expectationType' => 'rubric', 'rubric' => 'r'], 'out');
 
-    /**
-     * A model-policy violation on the judge call is a failed case, never a thrown run.
-     *
-     * @return void
-     */
-    public function testRubricJudgePolicyViolationFailsNotThrows(): void
-    {
-        $service = $this->service(throwable: new ModelPolicyViolationException('blocked', 422));
-        $result  = $service->score(['expectationType' => 'rubric', 'rubric' => 'r'], 'out');
+		$this->assertFalse($result['passed']);
+		$this->assertNotNull($result['errorMessage']);
 
-        $this->assertFalse($result['passed']);
-        $this->assertNotNull($result['errorMessage']);
+	}//end testRubricJudgePolicyViolationFailsNotThrows()
 
-    }//end testRubricJudgePolicyViolationFailsNotThrows()
+	/**
+	 * An unparseable judge response fails cleanly (no numeric score).
+	 *
+	 * @return void
+	 */
+	public function testRubricUnparseableJudgeResponseFails(): void {
+		$service = $this->service(judge: 'I cannot score this.');
+		$result = $service->score(['expectationType' => 'rubric', 'rubric' => 'r'], 'out');
 
-    /**
-     * An unparseable judge response fails cleanly (no numeric score).
-     *
-     * @return void
-     */
-    public function testRubricUnparseableJudgeResponseFails(): void
-    {
-        $service = $this->service(judge: 'I cannot score this.');
-        $result  = $service->score(['expectationType' => 'rubric', 'rubric' => 'r'], 'out');
+		$this->assertFalse($result['passed']);
+		$this->assertNotNull($result['errorMessage']);
 
-        $this->assertFalse($result['passed']);
-        $this->assertNotNull($result['errorMessage']);
+	}//end testRubricUnparseableJudgeResponseFails()
 
-    }//end testRubricUnparseableJudgeResponseFails()
+	/**
+	 * An unknown expectationType fails cleanly rather than throwing.
+	 *
+	 * @return void
+	 */
+	public function testUnknownExpectationTypeFailsCleanly(): void {
+		$result = $this->service()->score(['expectationType' => 'wat'], 'out');
 
-    /**
-     * An unknown expectationType fails cleanly rather than throwing.
-     *
-     * @return void
-     */
-    public function testUnknownExpectationTypeFailsCleanly(): void
-    {
-        $result = $this->service()->score(['expectationType' => 'wat'], 'out');
+		$this->assertFalse($result['passed']);
+		$this->assertNotNull($result['errorMessage']);
 
-        $this->assertFalse($result['passed']);
-        $this->assertNotNull($result['errorMessage']);
-
-    }//end testUnknownExpectationTypeFailsCleanly()
+	}//end testUnknownExpectationTypeFailsCleanly()
 }//end class

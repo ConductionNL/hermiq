@@ -40,234 +40,222 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
-class SeedBudgetsTest extends TestCase
-{
+class SeedBudgetsTest extends TestCase {
 
-    /**
-     * A stateful ObjectService test double keyed by schema (mirrors BudgetServiceTest).
-     *
-     * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
-     *
-     * @return ObjectService
-     */
-    private function objectService(array $bySchema): ObjectService
-    {
-        return new class ($bySchema) extends ObjectService {
-            private ?string $schema = null;
+	/**
+	 * A stateful ObjectService test double keyed by schema (mirrors BudgetServiceTest).
+	 *
+	 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
+	 *
+	 * @return ObjectService
+	 */
+	private function objectService(array $bySchema): ObjectService {
+		return new class($bySchema) extends ObjectService {
+			private ?string $schema = null;
 
-            /**
-             * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
-             */
-            public function __construct(private array $bySchema)
-            {
-            }
+			/**
+			 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
+			 */
+			public function __construct(
+				private array $bySchema,
+			) {
+			}
 
-            public function setRegister(mixed $register): static
-            {
-                return $this;
-            }
+			public function setRegister(mixed $register): static {
+				return $this;
+			}
 
-            public function setSchema(mixed $schema): static
-            {
-                $this->schema = (string) $schema;
-                return $this;
-            }
+			public function setSchema(mixed $schema): static {
+				$this->schema = (string)$schema;
+				return $this;
+			}
 
-            public function findAll(array $config=[], bool $_rbac=true, bool $_multitenancy=true): array
-            {
-                return ($this->bySchema[$this->schema] ?? []);
-            }
-        };
+			public function findAll(array $config = [], bool $_rbac = true, bool $_multitenancy = true): array {
+				return ($this->bySchema[$this->schema] ?? []);
+			}
+		};
 
-    }//end objectService()
+	}//end objectService()
 
-    /**
-     * An agent ObjectEntity with a name and organisation.
-     *
-     * @param string $uuid         The agent uuid.
-     * @param string $name         The agent display name.
-     * @param string $organisation The agent's organisation.
-     *
-     * @return ObjectEntity
-     */
-    private function agent(string $uuid, string $name, string $organisation): ObjectEntity
-    {
-        $e = new ObjectEntity();
-        $e->setUuid($uuid);
-        $e->setOrganisation($organisation);
-        $e->setObject(['name' => $name]);
-        return $e;
+	/**
+	 * An agent ObjectEntity with a name and organisation.
+	 *
+	 * @param string $uuid The agent uuid.
+	 * @param string $name The agent display name.
+	 * @param string $organisation The agent's organisation.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function agent(string $uuid, string $name, string $organisation): ObjectEntity {
+		$e = new ObjectEntity();
+		$e->setUuid($uuid);
+		$e->setOrganisation($organisation);
+		$e->setObject(['name' => $name]);
+		return $e;
+	}//end agent()
 
-    }//end agent()
+	/**
+	 * A container resolving ObjectService/OrganisationMapper/BudgetService to the
+	 * given fixtures.
+	 *
+	 * @param ObjectService $objectService The object service double.
+	 * @param array<int, string> $orgUuids Organisation UUIDs findAll() returns.
+	 * @param BudgetService|null $budgetService Optional custom BudgetService.
+	 *
+	 * @return ContainerInterface
+	 */
+	private function container(ObjectService $objectService, array $orgUuids, ?BudgetService $budgetService = null): ContainerInterface {
+		$orgMapper = $this->createMock(OrganisationMapper::class);
+		$orgs = array_map(
+			function (string $uuid) {
+				// Real entity, not a mock: the real Organisation resolves
+				// getUuid() via Entity magic, unmockable under a server tree.
+				$org = new Organisation();
+				$org->setUuid($uuid);
+				return $org;
+			},
+			$orgUuids
+		);
+		$orgMapper->method('findAll')->willReturn($orgs);
 
-    /**
-     * A container resolving ObjectService/OrganisationMapper/BudgetService to the
-     * given fixtures.
-     *
-     * @param ObjectService      $objectService The object service double.
-     * @param array<int, string> $orgUuids      Organisation UUIDs findAll() returns.
-     * @param BudgetService|null $budgetService Optional custom BudgetService.
-     *
-     * @return ContainerInterface
-     */
-    private function container(ObjectService $objectService, array $orgUuids, ?BudgetService $budgetService=null): ContainerInterface
-    {
-        $orgMapper = $this->createMock(OrganisationMapper::class);
-        $orgs      = array_map(
-            function (string $uuid) {
-                // Real entity, not a mock: the real Organisation resolves
-                // getUuid() via Entity magic, unmockable under a server tree.
-                $org = new Organisation();
-                $org->setUuid($uuid);
-                return $org;
-            },
-            $orgUuids
-        );
-        $orgMapper->method('findAll')->willReturn($orgs);
+		$budgetService ??= $this->createMock(BudgetService::class);
 
-        $budgetService ??= $this->createMock(BudgetService::class);
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			function (string $class) use ($objectService, $orgMapper, $budgetService) {
+				return match ($class) {
+					ObjectService::class => $objectService,
+					OrganisationMapper::class => $orgMapper,
+					BudgetService::class => $budgetService,
+					default => throw new \RuntimeException("Unexpected service: {$class}"),
+				};
+			}
+		);
 
-        $container = $this->createMock(ContainerInterface::class);
-        $container->method('get')->willReturnCallback(
-            function (string $class) use ($objectService, $orgMapper, $budgetService) {
-                return match ($class) {
-                    ObjectService::class => $objectService,
-                    OrganisationMapper::class => $orgMapper,
-                    BudgetService::class => $budgetService,
-                    default => throw new \RuntimeException("Unexpected service: {$class}"),
-                };
-            }
-        );
+		return $container;
+	}//end container()
 
-        return $container;
+	/**
+	 * With an organisation and both named agents present, and no pre-existing
+	 * budgets, all three seed rows are created via BudgetService::create().
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+	 */
+	public function testSeedsAllThreeRowsWhenPrerequisitesExist(): void {
+		$objectService = $this->objectService(
+			[
+				'agentbudget' => [],
+				'agent' => [
+					$this->agent('agent-briefing', 'Daily Briefing', 'org-a'),
+					$this->agent('agent-heavy', 'Heavy Tool Runner', 'org-a'),
+				],
+			]
+		);
 
-    }//end container()
+		$budgetService = $this->createMock(BudgetService::class);
+		$created = [];
+		$budgetService->method('create')->willReturnCallback(
+			function (array $payload, string $organisation) use (&$created): array {
+				$created[] = ['payload' => $payload, 'organisation' => $organisation];
+				return array_merge(['id' => 'new'], $payload);
+			}
+		);
 
-    /**
-     * With an organisation and both named agents present, and no pre-existing
-     * budgets, all three seed rows are created via BudgetService::create().
-     *
-     * @return void
-     *
-     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
-     */
-    public function testSeedsAllThreeRowsWhenPrerequisitesExist(): void
-    {
-        $objectService = $this->objectService(
-            [
-                'agentbudget' => [],
-                'agent'  => [
-                    $this->agent('agent-briefing', 'Daily Briefing', 'org-a'),
-                    $this->agent('agent-heavy', 'Heavy Tool Runner', 'org-a'),
-                ],
-            ]
-        );
+		$step = new SeedBudgets(
+			container: $this->container(objectService: $objectService, orgUuids: ['org-a'], budgetService: $budgetService),
+			logger: $this->createMock(LoggerInterface::class),
+		);
 
-        $budgetService = $this->createMock(BudgetService::class);
-        $created       = [];
-        $budgetService->method('create')->willReturnCallback(
-            function (array $payload, string $organisation) use (&$created): array {
-                $created[] = ['payload' => $payload, 'organisation' => $organisation];
-                return array_merge(['id' => 'new'], $payload);
-            }
-        );
+		$step->run(output: $this->createMock(IOutput::class));
 
-        $step = new SeedBudgets(
-            container: $this->container(objectService: $objectService, orgUuids: ['org-a'], budgetService: $budgetService),
-            logger: $this->createMock(LoggerInterface::class),
-        );
+		$this->assertCount(3, $created, 'Org budget + 2 agent budgets must all be created.');
+		$scopes = array_map(static fn (array $c) => $c['payload']['scope'], $created);
+		$this->assertSame(['organisation', 'agent', 'agent'], $scopes);
 
-        $step->run(output: $this->createMock(IOutput::class));
+	}//end testSeedsAllThreeRowsWhenPrerequisitesExist()
 
-        $this->assertCount(3, $created, 'Org budget + 2 agent budgets must all be created.');
-        $scopes = array_map(static fn (array $c) => $c['payload']['scope'], $created);
-        $this->assertSame(['organisation', 'agent', 'agent'], $scopes);
+	/**
+	 * With no OpenRegister organisation yet, the org-level budget is deferred (never
+	 * fabricated into a bogus tenant) — no BudgetService::create() call for it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+	 */
+	public function testDefersOrgBudgetWhenNoOrganisationExists(): void {
+		$objectService = $this->objectService(['agentbudget' => [], 'agent' => []]);
+		$budgetService = $this->createMock(BudgetService::class);
+		$budgetService->expects($this->never())->method('create');
 
-    }//end testSeedsAllThreeRowsWhenPrerequisitesExist()
+		$step = new SeedBudgets(
+			container: $this->container(objectService: $objectService, orgUuids: [], budgetService: $budgetService),
+			logger: $this->createMock(LoggerInterface::class),
+		);
 
-    /**
-     * With no OpenRegister organisation yet, the org-level budget is deferred (never
-     * fabricated into a bogus tenant) — no BudgetService::create() call for it.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
-     */
-    public function testDefersOrgBudgetWhenNoOrganisationExists(): void
-    {
-        $objectService = $this->objectService(['agentbudget' => [], 'agent' => []]);
-        $budgetService = $this->createMock(BudgetService::class);
-        $budgetService->expects($this->never())->method('create');
+		$step->run(output: $this->createMock(IOutput::class));
 
-        $step = new SeedBudgets(
-            container: $this->container(objectService: $objectService, orgUuids: [], budgetService: $budgetService),
-            logger: $this->createMock(LoggerInterface::class),
-        );
+	}//end testDefersOrgBudgetWhenNoOrganisationExists()
 
-        $step->run(output: $this->createMock(IOutput::class));
+	/**
+	 * When a named seed agent does not exist, its budget row is deferred (skipped,
+	 * logged) rather than fabricating an agentId.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+	 */
+	public function testDefersAgentBudgetWhenAgentMissing(): void {
+		$objectService = $this->objectService(['agentbudget' => [], 'agent' => []]);
 
-    }//end testDefersOrgBudgetWhenNoOrganisationExists()
+		$budgetService = $this->createMock(BudgetService::class);
+		$created = [];
+		$budgetService->method('create')->willReturnCallback(
+			function (array $payload, string $organisation) use (&$created): array {
+				$created[] = $payload;
+				return array_merge(['id' => 'new'], $payload);
+			}
+		);
 
-    /**
-     * When a named seed agent does not exist, its budget row is deferred (skipped,
-     * logged) rather than fabricating an agentId.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
-     */
-    public function testDefersAgentBudgetWhenAgentMissing(): void
-    {
-        $objectService = $this->objectService(['agentbudget' => [], 'agent' => []]);
+		$step = new SeedBudgets(
+			container: $this->container(objectService: $objectService, orgUuids: ['org-a'], budgetService: $budgetService),
+			logger: $this->createMock(LoggerInterface::class),
+		);
 
-        $budgetService = $this->createMock(BudgetService::class);
-        $created       = [];
-        $budgetService->method('create')->willReturnCallback(
-            function (array $payload, string $organisation) use (&$created): array {
-                $created[] = $payload;
-                return array_merge(['id' => 'new'], $payload);
-            }
-        );
+		$step->run(output: $this->createMock(IOutput::class));
 
-        $step = new SeedBudgets(
-            container: $this->container(objectService: $objectService, orgUuids: ['org-a'], budgetService: $budgetService),
-            logger: $this->createMock(LoggerInterface::class),
-        );
+		// Only the organisation-scoped budget is created; neither agent exists.
+		$this->assertCount(1, $created);
+		$this->assertSame('organisation', $created[0]['scope']);
 
-        $step->run(output: $this->createMock(IOutput::class));
+	}//end testDefersAgentBudgetWhenAgentMissing()
 
-        // Only the organisation-scoped budget is created; neither agent exists.
-        $this->assertCount(1, $created);
-        $this->assertSame('organisation', $created[0]['scope']);
+	/**
+	 * A re-run (upgrade) does not duplicate an already-seeded budget — matched by
+	 * (organisation, scope, agentId, period).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+	 */
+	public function testReRunIsIdempotent(): void {
+		$existingOrgBudget = new ObjectEntity();
+		$existingOrgBudget->setUuid('existing-1');
+		$existingOrgBudget->setOrganisation('org-a');
+		$existingOrgBudget->setObject(['scope' => 'organisation', 'agentId' => '', 'period' => 'monthly']);
 
-    }//end testDefersAgentBudgetWhenAgentMissing()
+		$objectService = $this->objectService(['agentbudget' => [$existingOrgBudget], 'agent' => []]);
 
-    /**
-     * A re-run (upgrade) does not duplicate an already-seeded budget — matched by
-     * (organisation, scope, agentId, period).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
-     */
-    public function testReRunIsIdempotent(): void
-    {
-        $existingOrgBudget = new ObjectEntity();
-        $existingOrgBudget->setUuid('existing-1');
-        $existingOrgBudget->setOrganisation('org-a');
-        $existingOrgBudget->setObject(['scope' => 'organisation', 'agentId' => '', 'period' => 'monthly']);
+		$budgetService = $this->createMock(BudgetService::class);
+		$budgetService->expects($this->never())->method('create');
 
-        $objectService = $this->objectService(['agentbudget' => [$existingOrgBudget], 'agent' => []]);
+		$step = new SeedBudgets(
+			container: $this->container(objectService: $objectService, orgUuids: ['org-a'], budgetService: $budgetService),
+			logger: $this->createMock(LoggerInterface::class),
+		);
 
-        $budgetService = $this->createMock(BudgetService::class);
-        $budgetService->expects($this->never())->method('create');
+		$step->run(output: $this->createMock(IOutput::class));
 
-        $step = new SeedBudgets(
-            container: $this->container(objectService: $objectService, orgUuids: ['org-a'], budgetService: $budgetService),
-            logger: $this->createMock(LoggerInterface::class),
-        );
-
-        $step->run(output: $this->createMock(IOutput::class));
-
-    }//end testReRunIsIdempotent()
+	}//end testReRunIsIdempotent()
 }//end class

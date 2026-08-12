@@ -49,144 +49,135 @@ use OCP\App\IAppManager;
  *
  * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
  */
-class PublicationGateway
-{
+class PublicationGateway {
 
-    /**
-     * The fleet publication leaf whose presence makes the publish action available.
-     *
-     * @var string
-     */
-    public const PUBLICATION_APP = 'opencatalogi';
+	/**
+	 * The fleet publication leaf whose presence makes the publish action available.
+	 *
+	 * @var string
+	 */
+	public const PUBLICATION_APP = 'opencatalogi';
 
-    /**
-     * The OpenRegister register slug OpenCatalogi's publications live in.
-     *
-     * @var string
-     */
-    private const PUBLICATION_REGISTER = 'opencatalogi';
+	/**
+	 * The OpenRegister register slug OpenCatalogi's publications live in.
+	 *
+	 * @var string
+	 */
+	private const PUBLICATION_REGISTER = 'opencatalogi';
 
-    /**
-     * The OpenRegister schema slug of a publication.
-     *
-     * @var string
-     */
-    private const PUBLICATION_SCHEMA = 'publication';
+	/**
+	 * The OpenRegister schema slug of a publication.
+	 *
+	 * @var string
+	 */
+	private const PUBLICATION_SCHEMA = 'publication';
 
-    /**
-     * Constructor.
-     *
-     * @param IAppManager   $appManager    Resolves whether the publication leaf is installed (runtime seam).
-     * @param ObjectService $objectService OpenRegister shared write-path (published-predicate seam).
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function __construct(
-        private readonly IAppManager $appManager,
-        private readonly ObjectService $objectService,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param IAppManager $appManager Resolves whether the publication leaf is installed (runtime seam).
+	 * @param ObjectService $objectService OpenRegister shared write-path (published-predicate seam).
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function __construct(
+		private readonly IAppManager $appManager,
+		private readonly ObjectService $objectService,
+	) {
+	}//end __construct()
 
-    /**
-     * Whether the fleet publication path (OpenCatalogi) is available at runtime.
-     *
-     * @return bool True when OpenCatalogi is installed; false otherwise.
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function isAvailable(): bool
-    {
-        return $this->appManager->isInstalled(self::PUBLICATION_APP);
+	/**
+	 * Whether the fleet publication path (OpenCatalogi) is available at runtime.
+	 *
+	 * @return bool True when OpenCatalogi is installed; false otherwise.
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function isAvailable(): bool {
+		return $this->appManager->isInstalled(self::PUBLICATION_APP);
+	}//end isAvailable()
 
-    }//end isAvailable()
+	/**
+	 * Hand a mapped Algoritmekader publication to OpenCatalogi's publication register.
+	 *
+	 * Writes the publication object through the shared OpenRegister write-path into
+	 * OpenCatalogi's publication register (published-predicate seam). Returns the created
+	 * object's UUID — the external register reference stored back on the AiFeature. When
+	 * OpenCatalogi is absent it fails closed and returns null (the caller then reports the
+	 * action as unavailable and leaves the feature internally governable).
+	 *
+	 * @param array<string, mixed> $publication The Algoritmekader-conformant publication.
+	 *
+	 * @return string|null The external register reference (UUID), or null when unavailable.
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function publish(array $publication): ?string {
+		if ($this->isAvailable() === false) {
+			return null;
+		}
 
-    /**
-     * Hand a mapped Algoritmekader publication to OpenCatalogi's publication register.
-     *
-     * Writes the publication object through the shared OpenRegister write-path into
-     * OpenCatalogi's publication register (published-predicate seam). Returns the created
-     * object's UUID — the external register reference stored back on the AiFeature. When
-     * OpenCatalogi is absent it fails closed and returns null (the caller then reports the
-     * action as unavailable and leaves the feature internally governable).
-     *
-     * @param array<string, mixed> $publication The Algoritmekader-conformant publication.
-     *
-     * @return string|null The external register reference (UUID), or null when unavailable.
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function publish(array $publication): ?string
-    {
-        if ($this->isAvailable() === false) {
-            return null;
-        }
+		$publication['publicatiedatum'] = $this->now();
 
-        $publication['publicatiedatum'] = $this->now();
+		$saved = $this->objectService->saveObject(
+			object: $publication,
+			register: self::PUBLICATION_REGISTER,
+			schema: self::PUBLICATION_SCHEMA
+		);
 
-        $saved = $this->objectService->saveObject(
-            object: $publication,
-            register: self::PUBLICATION_REGISTER,
-            schema: self::PUBLICATION_SCHEMA
-        );
+		return (string)$saved->getUuid();
+	}//end publish()
 
-        return (string) $saved->getUuid();
+	/**
+	 * Request unpublication of a previously published entry (withdrawal).
+	 *
+	 * Stamps the OpenCatalogi publication with a depublication date through the shared
+	 * write-path, which removes it from the outward feed. Fails closed (false) when
+	 * OpenCatalogi is absent or no reference was recorded.
+	 *
+	 * @param string $reference The external register reference stored at publish time.
+	 *
+	 * @return bool True when the withdrawal was requested; false when unavailable.
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function withdraw(string $reference): bool {
+		if ($this->isAvailable() === false || trim($reference) === '') {
+			return false;
+		}
 
-    }//end publish()
+		$existing = $this->objectService->find(
+			id: $reference,
+			register: self::PUBLICATION_REGISTER,
+			schema: self::PUBLICATION_SCHEMA
+		);
 
-    /**
-     * Request unpublication of a previously published entry (withdrawal).
-     *
-     * Stamps the OpenCatalogi publication with a depublication date through the shared
-     * write-path, which removes it from the outward feed. Fails closed (false) when
-     * OpenCatalogi is absent or no reference was recorded.
-     *
-     * @param string $reference The external register reference stored at publish time.
-     *
-     * @return bool True when the withdrawal was requested; false when unavailable.
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function withdraw(string $reference): bool
-    {
-        if ($this->isAvailable() === false || trim($reference) === '') {
-            return false;
-        }
+		$data = [];
+		if ($existing instanceof ObjectEntity) {
+			$data = $existing->getObject();
+		}
 
-        $existing = $this->objectService->find(
-            id: $reference,
-            register: self::PUBLICATION_REGISTER,
-            schema: self::PUBLICATION_SCHEMA
-        );
+		$data['depublicatiedatum'] = $this->now();
+		$data['status'] = 'withdrawn';
 
-        $data = [];
-        if ($existing instanceof ObjectEntity) {
-            $data = $existing->getObject();
-        }
+		$this->objectService->saveObject(
+			object: $data,
+			register: self::PUBLICATION_REGISTER,
+			schema: self::PUBLICATION_SCHEMA,
+			uuid: $reference
+		);
 
-        $data['depublicatiedatum'] = $this->now();
-        $data['status']            = 'withdrawn';
+		return true;
+	}//end withdraw()
 
-        $this->objectService->saveObject(
-            object: $data,
-            register: self::PUBLICATION_REGISTER,
-            schema: self::PUBLICATION_SCHEMA,
-            uuid: $reference
-        );
-
-        return true;
-
-    }//end withdraw()
-
-    /**
-     * The current UTC timestamp in ISO-8601.
-     *
-     * @return string The ISO-8601 timestamp.
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
-
-    }//end now()
+	/**
+	 * The current UTC timestamp in ISO-8601.
+	 *
+	 * @return string The ISO-8601 timestamp.
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	private function now(): string {
+		return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('c');
+	}//end now()
 }//end class

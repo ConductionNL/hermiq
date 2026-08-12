@@ -53,162 +53,156 @@ use Throwable;
  *
  * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
  */
-class SeedSkillCreator implements IRepairStep
-{
+class SeedSkillCreator implements IRepairStep {
 
-    /**
-     * OpenRegister register slug that holds Hermiq objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * Schema slug for Skill objects (namespaced to avoid a cross-app slug collision).
-     *
-     * @var string
-     */
-    private const SKILL_SCHEMA = 'agentskill';
+	/**
+	 * Schema slug for Skill objects (namespaced to avoid a cross-app slug collision).
+	 *
+	 * @var string
+	 */
+	private const SKILL_SCHEMA = 'agentskill';
 
-    /**
-     * The seeded skill's name (also the idempotency key).
-     *
-     * @var string
-     */
-    private const SKILL_NAME = 'skill-creator';
+	/**
+	 * The seeded skill's name (also the idempotency key).
+	 *
+	 * @var string
+	 */
+	private const SKILL_NAME = 'skill-creator';
 
-    /**
-     * Constructor.
-     *
-     * @param ContainerInterface   $container Server container for lazy ObjectService resolution
-     *                                        (OpenRegister may not be installed yet).
-     * @param LoggerInterface      $logger    PSR-3 logger.
-     * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
-     */
-    public function __construct(
-        private readonly ContainerInterface $container,
-        private readonly LoggerInterface $logger,
-        private readonly SeedFreshnessService $freshness,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ContainerInterface $container Server container for lazy ObjectService resolution
+	 *                                      (OpenRegister may not be installed yet).
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
+	 */
+	public function __construct(
+		private readonly ContainerInterface $container,
+		private readonly LoggerInterface $logger,
+		private readonly SeedFreshnessService $freshness,
+	) {
+	}//end __construct()
 
-    /**
-     * Repair-step name.
-     *
-     * @return string
-     *
-     * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
-     */
-    public function getName(): string
-    {
-        return 'Seed skill-creator skill (hermiq-skill-conversational-authoring)';
+	/**
+	 * Repair-step name.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
+	 */
+	public function getName(): string {
+		return 'Seed skill-creator skill (hermiq-skill-conversational-authoring)';
+	}//end getName()
 
-    }//end getName()
+	/**
+	 * Seed the `skill-creator` Skill if it does not already exist (matched by name); an
+	 * existing seeded skill — including one an admin has since edited — keeps its
+	 * content untouched, but a still-`active`/`stale` `__system__`-owned seed gets its
+	 * `lastActivityAt` refreshed (a stale seed flips back to active) so the Curator's
+	 * age-staleness never empties the seed catalog on a longer-lived instance.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
+	 */
+	public function run(IOutput $output): void {
+		try {
+			$objectService = $this->container->get(ObjectService::class);
+		} catch (Throwable $e) {
+			$output->warning('OpenRegister not available — skipping skill-creator seed.');
+			$this->logger->warning('[hermiq] skill-creator seed skipped: ' . $e->getMessage());
+			return;
+		}
 
-    /**
-     * Seed the `skill-creator` Skill if it does not already exist (matched by name); an
-     * existing seeded skill — including one an admin has since edited — keeps its
-     * content untouched, but a still-`active`/`stale` `__system__`-owned seed gets its
-     * `lastActivityAt` refreshed (a stale seed flips back to active) so the Curator's
-     * age-staleness never empties the seed catalog on a longer-lived instance.
-     *
-     * @param IOutput $output Repair output channel.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
-     */
-    public function run(IOutput $output): void
-    {
-        try {
-            $objectService = $this->container->get(ObjectService::class);
-        } catch (Throwable $e) {
-            $output->warning('OpenRegister not available — skipping skill-creator seed.');
-            $this->logger->warning('[hermiq] skill-creator seed skipped: '.$e->getMessage());
-            return;
-        }
+		try {
+			$existing = $this->findByName(objectService: $objectService);
+			if ($existing !== null) {
+				$refreshed = $this->freshness->refreshedPayload(skill: $existing);
+				if ($refreshed === null) {
+					$output->info('skill-creator seed already present — skipped.');
+					return;
+				}
 
-        try {
-            $existing = $this->findByName(objectService: $objectService);
-            if ($existing !== null) {
-                $refreshed = $this->freshness->refreshedPayload(skill: $existing);
-                if ($refreshed === null) {
-                    $output->info('skill-creator seed already present — skipped.');
-                    return;
-                }
+				$objectService->saveObject(
+					object: $refreshed,
+					register: self::REGISTER_SLUG,
+					schema: self::SKILL_SCHEMA,
+					uuid: (string)$existing->getUuid(),
+					_rbac: false,
+					_multitenancy: false
+				);
+				$output->info('skill-creator seed already present — freshness refreshed.');
+				return;
+			}
 
-                $objectService->saveObject(
-                    object: $refreshed,
-                    register: self::REGISTER_SLUG,
-                    schema: self::SKILL_SCHEMA,
-                    uuid: (string) $existing->getUuid(),
-                    _rbac: false,
-                    _multitenancy: false
-                );
-                $output->info('skill-creator seed already present — freshness refreshed.');
-                return;
-            }
+			// Explicit — never rely on the JSON-schema `default` being applied by whatever
+			// OpenRegister/ObjectService version is running; a seed step must be correct on
+			// its own. Written DIRECTLY (never via installFromSource): first-party trusted
+			// content, never scanned/quarantined.
+			$objectService->saveObject(
+				object: $this->freshness->stampFresh(
+					seed: [
+						'name' => self::SKILL_NAME,
+						'description' => 'Guides you through authoring a new agent skill in the agentskills.io '
+							. 'format — interviews you about the capability, then drafts a clean SKILL.md (frontmatter '
+							. '+ body) you can save to your catalog.',
+						'frontmatter' => $this->seedFrontmatter(),
+						'body' => $this->seedBody(),
+						'files' => [],
+						'state' => 'active',
+						'source' => 'local',
+						'quarantineReason' => null,
+						'scanReport' => null,
+						'createdBy' => '',
+						'installedOn' => [],
+					]
+				),
+				register: self::REGISTER_SLUG,
+				schema: self::SKILL_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+			$output->info('skill-creator seed complete.');
+		} catch (Throwable $e) {
+			$output->warning('Could not seed skill-creator skill: ' . $e->getMessage());
+			$this->logger->error('[hermiq] skill-creator seed failed: ' . $e->getMessage());
+		}//end try
 
-            // Explicit — never rely on the JSON-schema `default` being applied by whatever
-            // OpenRegister/ObjectService version is running; a seed step must be correct on
-            // its own. Written DIRECTLY (never via installFromSource): first-party trusted
-            // content, never scanned/quarantined.
-            $objectService->saveObject(
-                object: $this->freshness->stampFresh(
-                    seed: [
-                        'name'             => self::SKILL_NAME,
-                        'description'      => 'Guides you through authoring a new agent skill in the agentskills.io '
-                            .'format — interviews you about the capability, then drafts a clean SKILL.md (frontmatter '
-                            .'+ body) you can save to your catalog.',
-                        'frontmatter'      => $this->seedFrontmatter(),
-                        'body'             => $this->seedBody(),
-                        'files'            => [],
-                        'state'            => 'active',
-                        'source'           => 'local',
-                        'quarantineReason' => null,
-                        'scanReport'       => null,
-                        'createdBy'        => '',
-                        'installedOn'      => [],
-                    ]
-                ),
-                register: self::REGISTER_SLUG,
-                schema: self::SKILL_SCHEMA,
-                _rbac: false,
-                _multitenancy: false
-            );
-            $output->info('skill-creator seed complete.');
-        } catch (Throwable $e) {
-            $output->warning('Could not seed skill-creator skill: '.$e->getMessage());
-            $this->logger->error('[hermiq] skill-creator seed failed: '.$e->getMessage());
-        }//end try
+	}//end run()
 
-    }//end run()
-
-    /**
-     * The seeded skill's raw agentskills.io YAML frontmatter block (stored verbatim — the
-     * `SkillSerializer` round-trip preserves it byte-for-byte).
-     *
-     * @return string
-     */
-    private function seedFrontmatter(): string
-    {
-        return <<<'YAML'
+	/**
+	 * The seeded skill's raw agentskills.io YAML frontmatter block (stored verbatim — the
+	 * `SkillSerializer` round-trip preserves it byte-for-byte).
+	 *
+	 * @return string
+	 */
+	private function seedFrontmatter(): string {
+		return <<<'YAML'
         name: skill-creator
         description: Guides you through authoring a new agent skill — interviews you, then drafts a clean SKILL.md.
         version: 0.1.0
         YAML;
 
-    }//end seedFrontmatter()
+	}//end seedFrontmatter()
 
-    /**
-     * The seeded skill's SKILL.md body — a real, sensible skill-authoring instruction; safe
-     * placeholders only, no shell/exfiltration example patterns.
-     *
-     * @return string
-     */
-    private function seedBody(): string
-    {
-        return <<<'MARKDOWN'
+	/**
+	 * The seeded skill's SKILL.md body — a real, sensible skill-authoring instruction; safe
+	 * placeholders only, no shell/exfiltration example patterns.
+	 *
+	 * @return string
+	 */
+	private function seedBody(): string {
+		return <<<'MARKDOWN'
         # Skill Creator
 
         You help the user author a new **agent skill** in the agentskills.io format. A skill is a
@@ -249,38 +243,36 @@ class SeedSkillCreator implements IRepairStep
         - Keep the body focused and skimmable; an agent reads it as instructions, not prose.
         MARKDOWN;
 
-    }//end seedBody()
+	}//end seedBody()
 
-    /**
-     * Find the seeded Skill when it exists (system context, no RBAC). Formerly a
-     * boolean `nameExists()` — the freshness refresh needs the entity itself.
-     *
-     * @param ObjectService $objectService The OpenRegister object service.
-     *
-     * @return ObjectEntity|null The matching Skill, or null when absent.
-     */
-    private function findByName(ObjectService $objectService): ?ObjectEntity
-    {
-        $objects = $objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::SKILL_SCHEMA)
-            ->findAll(
-                config: ['filters' => ['name' => self::SKILL_NAME], 'limit' => 50],
-                _rbac: false,
-                _multitenancy: false
-            );
+	/**
+	 * Find the seeded Skill when it exists (system context, no RBAC). Formerly a
+	 * boolean `nameExists()` — the freshness refresh needs the entity itself.
+	 *
+	 * @param ObjectService $objectService The OpenRegister object service.
+	 *
+	 * @return ObjectEntity|null The matching Skill, or null when absent.
+	 */
+	private function findByName(ObjectService $objectService): ?ObjectEntity {
+		$objects = $objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SKILL_SCHEMA)
+			->findAll(
+				config: ['filters' => ['name' => self::SKILL_NAME], 'limit' => 50],
+				_rbac: false,
+				_multitenancy: false
+			);
 
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
-            }
+		foreach ($objects as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
 
-            if ((string) ($object->getObject()['name'] ?? '') === self::SKILL_NAME) {
-                return $object;
-            }
-        }
+			if ((string)($object->getObject()['name'] ?? '') === self::SKILL_NAME) {
+				return $object;
+			}
+		}
 
-        return null;
-
-    }//end findByName()
+		return null;
+	}//end findByName()
 }//end class

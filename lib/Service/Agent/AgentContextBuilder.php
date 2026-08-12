@@ -48,160 +48,151 @@ namespace OCA\Hermiq\Service\Agent;
  *
  * @spec openspec/changes/hermiq-agent-leaf/tasks.md#3-declarative-context-allowlist
  */
-class AgentContextBuilder
-{
+class AgentContextBuilder {
 
-    /**
-     * The schema keyword naming the agent-context allowlist.
-     *
-     * @var string
-     */
-    public const KEYWORD = 'x-openregister-agent-context';
+	/**
+	 * The schema keyword naming the agent-context allowlist.
+	 *
+	 * @var string
+	 */
+	public const KEYWORD = 'x-openregister-agent-context';
 
-    /**
-     * Build the bounded context from an object's data and its schema configuration.
-     *
-     * @param array<string,mixed> $objectData          The object's data (its
-     *                                                 `jsonSerialize()` output or `getObject()`).
-     * @param array<string,mixed> $schemaConfiguration The target schema's configuration array
-     *                                                 (`Schema::getConfiguration()`), from which
-     *                                                 the `x-openregister-agent-context` allowlist
-     *                                                 is read. Anything else in it is ignored.
-     *
-     * @return array<string,mixed> The bounded context — ONLY allowlisted properties present on the
-     *                             instance, capped where declared. Empty when the allowlist is
-     *                             absent or empty (fail-closed).
-     *
-     * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-1
-     */
-    public function build(array $objectData, array $schemaConfiguration): array
-    {
-        $allowlist = $this->normaliseAllowlist(spec: ($schemaConfiguration[self::KEYWORD] ?? null));
-        if ($allowlist === []) {
-            // Fail-closed: no allowlist means an EMPTY context, never the whole object.
-            return [];
-        }
+	/**
+	 * Build the bounded context from an object's data and its schema configuration.
+	 *
+	 * @param array<string,mixed> $objectData The object's data (its
+	 *                                        `jsonSerialize()` output or `getObject()`).
+	 * @param array<string,mixed> $schemaConfiguration The target schema's configuration array
+	 *                                                 (`Schema::getConfiguration()`), from which
+	 *                                                 the `x-openregister-agent-context` allowlist
+	 *                                                 is read. Anything else in it is ignored.
+	 *
+	 * @return array<string,mixed> The bounded context — ONLY allowlisted properties present on the
+	 *                             instance, capped where declared. Empty when the allowlist is
+	 *                             absent or empty (fail-closed).
+	 *
+	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-1
+	 */
+	public function build(array $objectData, array $schemaConfiguration): array {
+		$allowlist = $this->normaliseAllowlist(spec: ($schemaConfiguration[self::KEYWORD] ?? null));
+		if ($allowlist === []) {
+			// Fail-closed: no allowlist means an EMPTY context, never the whole object.
+			return [];
+		}
 
-        $context = [];
-        foreach ($allowlist as $property => $caps) {
-            if (array_key_exists($property, $objectData) === false) {
-                // A listed property absent on the instance is omitted, not an error.
-                continue;
-            }
+		$context = [];
+		foreach ($allowlist as $property => $caps) {
+			if (array_key_exists($property, $objectData) === false) {
+				// A listed property absent on the instance is omitted, not an error.
+				continue;
+			}
 
-            $value = $objectData[$property];
-            if ($value === null || $value === '') {
-                continue;
-            }
+			$value = $objectData[$property];
+			if ($value === null || $value === '') {
+				continue;
+			}
 
-            $context[$property] = $this->applyCaps(value: $value, caps: $caps);
-        }
+			$context[$property] = $this->applyCaps(value: $value, caps: $caps);
+		}
 
-        return $context;
+		return $context;
+	}//end build()
 
-    }//end build()
+	/**
+	 * Normalise the raw allowlist spec into a `property => caps[]` map.
+	 *
+	 * Accepts a plain list of names, an associative name => caps map, or a list of
+	 * `{property, ...caps}` entries. Anything else yields an empty allowlist
+	 * (fail-closed).
+	 *
+	 * @param mixed $spec The raw `x-openregister-agent-context` value.
+	 *
+	 * @return array<string,array<string,mixed>> Property name => caps map.
+	 *
+	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 */
+	private function normaliseAllowlist(mixed $spec): array {
+		if (is_array($spec) === false || $spec === []) {
+			return [];
+		}
 
-    /**
-     * Normalise the raw allowlist spec into a `property => caps[]` map.
-     *
-     * Accepts a plain list of names, an associative name => caps map, or a list of
-     * `{property, ...caps}` entries. Anything else yields an empty allowlist
-     * (fail-closed).
-     *
-     * @param mixed $spec The raw `x-openregister-agent-context` value.
-     *
-     * @return array<string,array<string,mixed>> Property name => caps map.
-     *
-     * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
-     */
-    private function normaliseAllowlist(mixed $spec): array
-    {
-        if (is_array($spec) === false || $spec === []) {
-            return [];
-        }
+		$allowlist = [];
+		foreach ($spec as $key => $entry) {
+			[$name, $caps] = $this->normaliseEntry(key: $key, entry: $entry);
+			if ($name !== '') {
+				$allowlist[$name] = $caps;
+			}
+		}
 
-        $allowlist = [];
-        foreach ($spec as $key => $entry) {
-            [$name, $caps] = $this->normaliseEntry(key: $key, entry: $entry);
-            if ($name !== '') {
-                $allowlist[$name] = $caps;
-            }
-        }
+		return $allowlist;
+	}//end normaliseAllowlist()
 
-        return $allowlist;
+	/**
+	 * Normalise one allowlist entry into a `[name, caps]` pair.
+	 *
+	 * Handles the three accepted shapes; an unrecognised entry yields an empty
+	 * name so the caller drops it (fail-closed).
+	 *
+	 * @param int|string $key The array key (int for a list, string for a map).
+	 * @param mixed $entry The entry value.
+	 *
+	 * @return array{0:string,1:array<string,mixed>} The `[name, caps]` pair.
+	 *
+	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 */
+	private function normaliseEntry(int|string $key, mixed $entry): array {
+		// Associative name => caps map: the key is the property name.
+		if (is_string($key) === true) {
+			$caps = [];
+			if (is_array($entry) === true) {
+				$caps = $entry;
+			}
 
-    }//end normaliseAllowlist()
+			return [$key, $caps];
+		}
 
-    /**
-     * Normalise one allowlist entry into a `[name, caps]` pair.
-     *
-     * Handles the three accepted shapes; an unrecognised entry yields an empty
-     * name so the caller drops it (fail-closed).
-     *
-     * @param int|string $key   The array key (int for a list, string for a map).
-     * @param mixed      $entry The entry value.
-     *
-     * @return array{0:string,1:array<string,mixed>} The `[name, caps]` pair.
-     *
-     * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
-     */
-    private function normaliseEntry(int | string $key, mixed $entry): array
-    {
-        // Associative name => caps map: the key is the property name.
-        if (is_string($key) === true) {
-            $caps = [];
-            if (is_array($entry) === true) {
-                $caps = $entry;
-            }
+		// Plain list entry: a bare property name string.
+		if (is_string($entry) === true) {
+			return [$entry, []];
+		}
 
-            return [$key, $caps];
-        }
+		// List of {property, maxLength, ...} entries.
+		if (is_array($entry) === true) {
+			return [(string)($entry['property'] ?? ''), $entry];
+		}
 
-        // Plain list entry: a bare property name string.
-        if (is_string($entry) === true) {
-            return [$entry, []];
-        }
+		return ['', []];
+	}//end normaliseEntry()
 
-        // List of {property, maxLength, ...} entries.
-        if (is_array($entry) === true) {
-            return [(string) ($entry['property'] ?? ''), $entry];
-        }
+	/**
+	 * Apply per-field caps (currently `maxLength`, multibyte-safe) to a value.
+	 *
+	 * Only string values are truncated; non-strings pass through unchanged so a
+	 * structured allowlisted field keeps its shape.
+	 *
+	 * @param mixed $value The property value.
+	 * @param array<string,mixed> $caps The per-field caps (`maxLength`).
+	 *
+	 * @return mixed The capped value.
+	 *
+	 * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
+	 */
+	private function applyCaps(mixed $value, array $caps): mixed {
+		$maxLength = $caps['maxLength'] ?? null;
+		if (is_int($maxLength) === false || $maxLength <= 0) {
+			return $value;
+		}
 
-        return ['', []];
+		if (is_string($value) === false) {
+			return $value;
+		}
 
-    }//end normaliseEntry()
+		if (mb_strlen($value) <= $maxLength) {
+			return $value;
+		}
 
-    /**
-     * Apply per-field caps (currently `maxLength`, multibyte-safe) to a value.
-     *
-     * Only string values are truncated; non-strings pass through unchanged so a
-     * structured allowlisted field keeps its shape.
-     *
-     * @param mixed               $value The property value.
-     * @param array<string,mixed> $caps  The per-field caps (`maxLength`).
-     *
-     * @return mixed The capped value.
-     *
-     * @spec openspec/changes/hermiq-agent-leaf/tasks.md#task-3-2
-     */
-    private function applyCaps(mixed $value, array $caps): mixed
-    {
-        $maxLength = $caps['maxLength'] ?? null;
-        if (is_int($maxLength) === false || $maxLength <= 0) {
-            return $value;
-        }
-
-        if (is_string($value) === false) {
-            return $value;
-        }
-
-        if (mb_strlen($value) <= $maxLength) {
-            return $value;
-        }
-
-        // Multibyte-safe truncation: a byte-based substr() risks splitting a
-        // multi-byte UTF-8 character and corrupting the text sent to the agent.
-        return (mb_substr($value, 0, $maxLength).'…');
-
-    }//end applyCaps()
+		// Multibyte-safe truncation: a byte-based substr() risks splitting a
+		// multi-byte UTF-8 character and corrupting the text sent to the agent.
+		return (mb_substr($value, 0, $maxLength) . '…');
+	}//end applyCaps()
 }//end class

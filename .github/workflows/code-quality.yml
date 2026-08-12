@@ -118,7 +118,7 @@ jobs:
       # and were an absent dependency. A cell that cannot install this app's
       # hard dependency measures nothing, so it is gone, and appinfo/info.xml
       # now declares `min-version="32"` to match.
-      nextcloud-test-refs: '["stable33", "stable32"]'
+      nextcloud-test-refs: '["stable34"]'
       enable-psalm: true
       enable-phpstan: true
       enable-phpmetrics: true

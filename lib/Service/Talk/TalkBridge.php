@@ -50,346 +50,331 @@ use Throwable;
  *
  * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
  */
-class TalkBridge
-{
+class TalkBridge {
 
-    /**
-     * The bot URL. The `nextcloudapp://` scheme makes spreed dispatch
-     * `BotInvokeEvent` IN-PROCESS instead of issuing an HTTP webhook — no
-     * reachable callback URL, no shared secret to rotate, no egress, and no
-     * 5s HTTP timeout.
-     *
-     * @var string
-     */
-    public const BOT_URL = 'nextcloudapp://hermiq';
+	/**
+	 * The bot URL. The `nextcloudapp://` scheme makes spreed dispatch
+	 * `BotInvokeEvent` IN-PROCESS instead of issuing an HTTP webhook — no
+	 * reachable callback URL, no shared secret to rotate, no egress, and no
+	 * 5s HTTP timeout.
+	 *
+	 * @var string
+	 */
+	public const BOT_URL = 'nextcloudapp://hermiq';
 
-    /**
-     * Display name of the bot as it appears in Talk.
-     *
-     * @var string
-     */
-    public const BOT_NAME = 'Hermiq';
+	/**
+	 * Display name of the bot as it appears in Talk.
+	 *
+	 * @var string
+	 */
+	public const BOT_NAME = 'Hermiq';
 
-    /**
-     * URL prefix for a PER-AGENT bot: `nextcloudapp://hermiq-<agentId>`.
-     *
-     * 🔴 The bot record is the ONLY carrier of the name Talk displays.
-     * `ChatManager::sendMessage()` takes no display-name parameter, and
-     * `MessageParser` derives the shown name by stripping the actor prefix,
-     * treating the remainder as a `url_hash` and looking the bot record up
-     * scoped to the conversation. So "post as this agent" is expressible only
-     * as "post as a DIFFERENT BOT", which is why one shared bot could never
-     * render anything but "Hermiq (Bot)" for every agent alike.
-     *
-     * @var string
-     */
-    public const BOT_URL_PREFIX = 'nextcloudapp://hermiq-';
+	/**
+	 * URL prefix for a PER-AGENT bot: `nextcloudapp://hermiq-<agentId>`.
+	 *
+	 * 🔴 The bot record is the ONLY carrier of the name Talk displays.
+	 * `ChatManager::sendMessage()` takes no display-name parameter, and
+	 * `MessageParser` derives the shown name by stripping the actor prefix,
+	 * treating the remainder as a `url_hash` and looking the bot record up
+	 * scoped to the conversation. So "post as this agent" is expressible only
+	 * as "post as a DIFFERENT BOT", which is why one shared bot could never
+	 * render anything but "Hermiq (Bot)" for every agent alike.
+	 *
+	 * @var string
+	 */
+	public const BOT_URL_PREFIX = 'nextcloudapp://hermiq-';
 
-    /**
-     * Spreed's bot actor type (Attendee::ACTOR_BOTS).
-     *
-     * @var string
-     */
-    private const ACTOR_BOTS = 'bots';
+	/**
+	 * Spreed's bot actor type (Attendee::ACTOR_BOTS).
+	 *
+	 * @var string
+	 */
+	private const ACTOR_BOTS = 'bots';
 
-    /**
-     * Spreed's bot actor id prefix (Attendee::ACTOR_BOT_PREFIX).
-     *
-     * @var string
-     */
-    private const ACTOR_BOT_PREFIX = 'bot-';
+	/**
+	 * Spreed's bot actor id prefix (Attendee::ACTOR_BOT_PREFIX).
+	 *
+	 * @var string
+	 */
+	private const ACTOR_BOT_PREFIX = 'bot-';
 
-    /**
-     * Fully-qualified spreed room manager, resolved lazily.
-     *
-     * @var string
-     */
-    private const TALK_MANAGER = 'OCA\\Talk\\Manager';
+	/**
+	 * Fully-qualified spreed room manager, resolved lazily.
+	 *
+	 * @var string
+	 */
+	private const TALK_MANAGER = 'OCA\\Talk\\Manager';
 
-    /**
-     * Fully-qualified spreed chat manager, resolved lazily.
-     *
-     * @var string
-     */
-    private const TALK_CHAT_MANAGER = 'OCA\\Talk\\Chat\\ChatManager';
+	/**
+	 * Fully-qualified spreed chat manager, resolved lazily.
+	 *
+	 * @var string
+	 */
+	private const TALK_CHAT_MANAGER = 'OCA\\Talk\\Chat\\ChatManager';
 
-    /**
-     * Constructor.
-     *
-     * Both dependencies are always-present Nextcloud services; spreed is only
-     * ever reached through `$container` behind `isAvailable()`.
-     *
-     * @param IBroker            $talkBroker Core Talk availability probe.
-     * @param ContainerInterface $container  Server container for lazy spreed resolution.
-     * @param LoggerInterface    $logger     PSR-3 logger.
-     */
-    public function __construct(
-        private readonly IBroker $talkBroker,
-        private readonly ContainerInterface $container,
-        private readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * Both dependencies are always-present Nextcloud services; spreed is only
+	 * ever reached through `$container` behind `isAvailable()`.
+	 *
+	 * @param IBroker $talkBroker Core Talk availability probe.
+	 * @param ContainerInterface $container Server container for lazy spreed resolution.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		private readonly IBroker $talkBroker,
+		private readonly ContainerInterface $container,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Whether Talk is installed and usable for the bridge.
-     *
-     * @return bool True when spreed is present and its classes resolve.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-listener-registration-is-unconditional-and-availability-is-probed-at-invoke-time
-     */
-    public function isAvailable(): bool
-    {
-        return $this->talkBroker->hasBackend() === true
-            && class_exists(self::TALK_MANAGER) === true
-            && class_exists(self::TALK_CHAT_MANAGER) === true;
+	/**
+	 * Whether Talk is installed and usable for the bridge.
+	 *
+	 * @return bool True when spreed is present and its classes resolve.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-listener-registration-is-unconditional-and-availability-is-probed-at-invoke-time
+	 */
+	public function isAvailable(): bool {
+		return $this->talkBroker->hasBackend() === true
+			&& class_exists(self::TALK_MANAGER) === true
+			&& class_exists(self::TALK_CHAT_MANAGER) === true;
 
-    }//end isAvailable()
+	}//end isAvailable()
 
-    /**
-     * The bot's actor id, derived exactly as spreed derives it.
-     *
-     * Spreed stores `urlHash = sha1($url)` on install and builds the actor id
-     * as `ACTOR_BOT_PREFIX . urlHash` (`BotController::sendMessage`), so this
-     * is deterministic and needs no database read.
-     *
-     * @param string|null $agentId The agent whose bot identity to use; null yields the shared bot.
-     *
-     * @return string The bot actor id.
-     *
-     * @spec openspec/changes/talk-chat-bridge/contract.md
-     */
-    public function botActorId(?string $agentId=null): string
-    {
-        if ($agentId === null || trim($agentId) === '') {
-            return self::ACTOR_BOT_PREFIX.sha1(self::BOT_URL);
-        }
+	/**
+	 * The bot's actor id, derived exactly as spreed derives it.
+	 *
+	 * Spreed stores `urlHash = sha1($url)` on install and builds the actor id
+	 * as `ACTOR_BOT_PREFIX . urlHash` (`BotController::sendMessage`), so this
+	 * is deterministic and needs no database read.
+	 *
+	 * @param string|null $agentId The agent whose bot identity to use; null yields the shared bot.
+	 *
+	 * @return string The bot actor id.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/contract.md
+	 */
+	public function botActorId(?string $agentId = null): string {
+		if ($agentId === null || trim($agentId) === '') {
+			return self::ACTOR_BOT_PREFIX . sha1(self::BOT_URL);
+		}
 
-        return self::ACTOR_BOT_PREFIX.sha1(self::botUrlFor(agentId: $agentId));
+		return self::ACTOR_BOT_PREFIX . sha1(self::botUrlFor(agentId: $agentId));
+	}//end botActorId()
 
-    }//end botActorId()
+	/**
+	 * The bot URL that carries a given agent's identity in Talk.
+	 *
+	 * @param string $agentId The agent's uuid.
+	 *
+	 * @return string The per-agent bot URL.
+	 *
+	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 */
+	public static function botUrlFor(string $agentId): string {
+		return self::BOT_URL_PREFIX . $agentId;
+	}//end botUrlFor()
 
-    /**
-     * The bot URL that carries a given agent's identity in Talk.
-     *
-     * @param string $agentId The agent's uuid.
-     *
-     * @return string The per-agent bot URL.
-     *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
-     */
-    public static function botUrlFor(string $agentId): string
-    {
-        return self::BOT_URL_PREFIX.$agentId;
+	/**
+	 * Whether a bot URL belongs to Hermiq at all.
+	 *
+	 * Both listeners guard on this instead of comparing against one constant,
+	 * because after per-agent bots there is no single URL to compare to.
+	 *
+	 * 🔴 STATIC on purpose. This is a pure function of the URL, and it is the
+	 * guard standing in front of the approval path. As an instance method it
+	 * became mockable, and a bare test double answers `false` — so every
+	 * listener test would have needed a blanket `willReturn(true)` stub, which
+	 * in turn defeats the one test that proves a FOREIGN bot is rejected.
+	 * Static keeps the real rule in the path under test, with no shape for a
+	 * double to get wrong.
+	 *
+	 * @param string $url The invoking bot's URL.
+	 *
+	 * @return bool True when Hermiq owns this bot.
+	 *
+	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 */
+	public static function isHermiqBotUrl(string $url): bool {
+		return ($url === self::BOT_URL || self::agentIdFromBotUrl(url: $url) !== null);
+	}//end isHermiqBotUrl()
 
-    }//end botUrlFor()
+	/**
+	 * The agent id carried by a per-agent bot URL, or null.
+	 *
+	 * 🔴 Deliberately strict. The guard this feeds replaced an exact-match on a
+	 * single constant, and the approval path behind it decides governance
+	 * actions — so "looks roughly like ours" is not good enough. Anything that
+	 * is not exactly `nextcloudapp://hermiq-<non-empty>` yields null and the
+	 * caller does nothing. In particular the legacy shared `nextcloudapp://hermiq`
+	 * carries NO agent and must not be mistaken for the agent `''`.
+	 *
+	 * @param string $url The invoking bot's URL.
+	 *
+	 * @return string|null The agent uuid, or null when this is not a per-agent Hermiq bot.
+	 *
+	 * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
+	 */
+	public static function agentIdFromBotUrl(string $url): ?string {
+		if (str_starts_with($url, self::BOT_URL_PREFIX) === false) {
+			return null;
+		}
 
-    /**
-     * Whether a bot URL belongs to Hermiq at all.
-     *
-     * Both listeners guard on this instead of comparing against one constant,
-     * because after per-agent bots there is no single URL to compare to.
-     *
-     * 🔴 STATIC on purpose. This is a pure function of the URL, and it is the
-     * guard standing in front of the approval path. As an instance method it
-     * became mockable, and a bare test double answers `false` — so every
-     * listener test would have needed a blanket `willReturn(true)` stub, which
-     * in turn defeats the one test that proves a FOREIGN bot is rejected.
-     * Static keeps the real rule in the path under test, with no shape for a
-     * double to get wrong.
-     *
-     * @param string $url The invoking bot's URL.
-     *
-     * @return bool True when Hermiq owns this bot.
-     *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
-     */
-    public static function isHermiqBotUrl(string $url): bool
-    {
-        return ($url === self::BOT_URL || self::agentIdFromBotUrl(url: $url) !== null);
+		$agentId = substr($url, strlen(self::BOT_URL_PREFIX));
+		if (trim($agentId) === '') {
+			return null;
+		}
 
-    }//end isHermiqBotUrl()
+		return $agentId;
+	}//end agentIdFromBotUrl()
 
-    /**
-     * The agent id carried by a per-agent bot URL, or null.
-     *
-     * 🔴 Deliberately strict. The guard this feeds replaced an exact-match on a
-     * single constant, and the approval path behind it decides governance
-     * actions — so "looks roughly like ours" is not good enough. Anything that
-     * is not exactly `nextcloudapp://hermiq-<non-empty>` yields null and the
-     * caller does nothing. In particular the legacy shared `nextcloudapp://hermiq`
-     * carries NO agent and must not be mistaken for the agent `''`.
-     *
-     * @param string $url The invoking bot's URL.
-     *
-     * @return string|null The agent uuid, or null when this is not a per-agent Hermiq bot.
-     *
-     * @spec openspec/changes/talk-agent-sessions/specs/talk-agent-sessions/spec.md#requirement-each-talk-enabled-agent-has-its-own-talk-bot-identity
-     */
-    public static function agentIdFromBotUrl(string $url): ?string
-    {
-        if (str_starts_with($url, self::BOT_URL_PREFIX) === false) {
-            return null;
-        }
+	/**
+	 * Post a message into a room as the Hermiq bot.
+	 *
+	 * Best-effort by contract: a room that has been deleted, or a bot that was
+	 * disabled or uninstalled while a turn was queued, is a terminal and
+	 * NON-RETRYABLE outcome — it must never fail the run.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 * @param string $message The message body (markdown).
+	 * @param string|null $agentId Post under this agent's bot identity; null uses the shared bot.
+	 *
+	 * @return bool True when the message was posted.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
+	 */
+	public function postToRoom(string $roomToken, string $message, ?string $agentId = null): bool {
+		return ($this->postToRoomReturningId(roomToken: $roomToken, message: $message, agentId: $agentId) !== null);
+	}//end postToRoom()
 
-        $agentId = substr($url, strlen(self::BOT_URL_PREFIX));
-        if (trim($agentId) === '') {
-            return null;
-        }
+	/**
+	 * Post a message into a room as the bot and return its message id.
+	 *
+	 * The id is what makes a message referenceable later — an approval request
+	 * has to be resolvable from a reaction on it, which needs the id spreed
+	 * assigned. Callers that do not care use `postToRoom()`.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 * @param string $message The message body (markdown).
+	 * @param string|null $agentId Post under this agent's bot identity; null uses the shared bot.
+	 *
+	 * @return string|null The posted message's id, or null when it could not be posted.
+	 *
+	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+	 */
+	public function postToRoomReturningId(string $roomToken, string $message, ?string $agentId = null): ?string {
+		if ($this->isAvailable() === false || $roomToken === '' || trim($message) === '') {
+			return null;
+		}
 
-        return $agentId;
+		try {
+			$room = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
+			$comment = $this->container->get(self::TALK_CHAT_MANAGER)->sendMessage(
+				$room,
+				null,
+				self::ACTOR_BOTS,
+				$this->botActorId(agentId: $agentId),
+				$message,
+				new DateTime()
+			);
 
-    }//end agentIdFromBotUrl()
+			return (string)$comment->getId();
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[TalkBridge] Could not post the agent answer into the room',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'roomToken' => $roomToken,
+					'error' => $e->getMessage(),
+				]
+			);
+			return null;
+		}//end try
 
-    /**
-     * Post a message into a room as the Hermiq bot.
-     *
-     * Best-effort by contract: a room that has been deleted, or a bot that was
-     * disabled or uninstalled while a turn was queued, is a terminal and
-     * NON-RETRYABLE outcome — it must never fail the run.
-     *
-     * @param string      $roomToken The Talk room token.
-     * @param string      $message   The message body (markdown).
-     * @param string|null $agentId   Post under this agent's bot identity; null uses the shared bot.
-     *
-     * @return bool True when the message was posted.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-a-room-message-becomes-a-turn-on-the-bound-session-and-is-answered-in-the-room
-     */
-    public function postToRoom(string $roomToken, string $message, ?string $agentId=null): bool
-    {
-        return ($this->postToRoomReturningId(roomToken: $roomToken, message: $message, agentId: $agentId) !== null);
+	}//end postToRoomReturningId()
 
-    }//end postToRoom()
+	/**
+	 * Whether the given room is a one-to-one conversation.
+	 *
+	 * Drives mention gating: in a one-to-one room with the bot every message is
+	 * a turn; in a group room the agent answers only when addressed.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 *
+	 * @return bool True when the room is one-to-one.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
+	 */
+	public function isOneToOne(string $roomToken): bool {
+		if ($this->isAvailable() === false || $roomToken === '') {
+			return false;
+		}
 
-    /**
-     * Post a message into a room as the bot and return its message id.
-     *
-     * The id is what makes a message referenceable later — an approval request
-     * has to be resolvable from a reaction on it, which needs the id spreed
-     * assigned. Callers that do not care use `postToRoom()`.
-     *
-     * @param string      $roomToken The Talk room token.
-     * @param string      $message   The message body (markdown).
-     * @param string|null $agentId   Post under this agent's bot identity; null uses the shared bot.
-     *
-     * @return string|null The posted message's id, or null when it could not be posted.
-     *
-     * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
-     */
-    public function postToRoomReturningId(string $roomToken, string $message, ?string $agentId=null): ?string
-    {
-        if ($this->isAvailable() === false || $roomToken === '' || trim($message) === '') {
-            return null;
-        }
+		try {
+			$room = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
+			// Room::TYPE_ONE_TO_ONE = 1, Room::TYPE_ONE_TO_ONE_FORMER = 5.
+			return in_array((int)$room->getType(), [1, 5], true);
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkBridge] Could not resolve the room type; treating it as a group room',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'roomToken' => $roomToken,
+					'error' => $e->getMessage(),
+				]
+			);
+			return false;
+		}//end try
 
-        try {
-            $room    = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
-            $comment = $this->container->get(self::TALK_CHAT_MANAGER)->sendMessage(
-                $room,
-                null,
-                self::ACTOR_BOTS,
-                $this->botActorId(agentId: $agentId),
-                $message,
-                new DateTime()
-            );
+	}//end isOneToOne()
 
-            return (string) $comment->getId();
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                message: '[TalkBridge] Could not post the agent answer into the room',
-                context: [
-                    'file'      => __FILE__,
-                    'line'      => __LINE__,
-                    'roomToken' => $roomToken,
-                    'error'     => $e->getMessage(),
-                ]
-            );
-            return null;
-        }//end try
+	/**
+	 * The uids of a room's user participants.
+	 *
+	 * Used to seed a new conversation's participant roster at bind time. Note
+	 * this is a SNAPSHOT: the roster stays explicit thereafter, so "who can use
+	 * this agent" never changes silently when someone is later added to a room.
+	 *
+	 * @param string $roomToken The Talk room token.
+	 *
+	 * @return string[] The participant uids, or an empty list when unresolvable.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 */
+	public function roomUserIds(string $roomToken): array {
+		if ($this->isAvailable() === false || $roomToken === '') {
+			return [];
+		}
 
-    }//end postToRoomReturningId()
+		try {
+			$room = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
+			$participants = $this->container->get('OCA\\Talk\\Service\\ParticipantService')
+				->getParticipantUserIds($room);
 
-    /**
-     * Whether the given room is a one-to-one conversation.
-     *
-     * Drives mention gating: in a one-to-one room with the bot every message is
-     * a turn; in a group room the agent answers only when addressed.
-     *
-     * @param string $roomToken The Talk room token.
-     *
-     * @return bool True when the room is one-to-one.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
-     */
-    public function isOneToOne(string $roomToken): bool
-    {
-        if ($this->isAvailable() === false || $roomToken === '') {
-            return false;
-        }
+			$uids = [];
+			foreach ($participants as $uid) {
+				if (is_string($uid) === true && $uid !== '' && in_array($uid, $uids, true) === false) {
+					$uids[] = $uid;
+				}
+			}
 
-        try {
-            $room = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
-            // Room::TYPE_ONE_TO_ONE = 1, Room::TYPE_ONE_TO_ONE_FORMER = 5.
-            return in_array((int) $room->getType(), [1, 5], true);
-        } catch (Throwable $e) {
-            $this->logger->debug(
-                message: '[TalkBridge] Could not resolve the room type; treating it as a group room',
-                context: [
-                    'file'      => __FILE__,
-                    'line'      => __LINE__,
-                    'roomToken' => $roomToken,
-                    'error'     => $e->getMessage(),
-                ]
-            );
-            return false;
-        }//end try
+			return $uids;
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkBridge] Could not resolve room participants',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'roomToken' => $roomToken,
+					'error' => $e->getMessage(),
+				]
+			);
+			return [];
+		}//end try
 
-    }//end isOneToOne()
-
-    /**
-     * The uids of a room's user participants.
-     *
-     * Used to seed a new conversation's participant roster at bind time. Note
-     * this is a SNAPSHOT: the roster stays explicit thereafter, so "who can use
-     * this agent" never changes silently when someone is later added to a room.
-     *
-     * @param string $roomToken The Talk room token.
-     *
-     * @return string[] The participant uids, or an empty list when unresolvable.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
-     */
-    public function roomUserIds(string $roomToken): array
-    {
-        if ($this->isAvailable() === false || $roomToken === '') {
-            return [];
-        }
-
-        try {
-            $room         = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
-            $participants = $this->container->get('OCA\\Talk\\Service\\ParticipantService')
-                ->getParticipantUserIds($room);
-
-            $uids = [];
-            foreach ($participants as $uid) {
-                if (is_string($uid) === true && $uid !== '' && in_array($uid, $uids, true) === false) {
-                    $uids[] = $uid;
-                }
-            }
-
-            return $uids;
-        } catch (Throwable $e) {
-            $this->logger->debug(
-                message: '[TalkBridge] Could not resolve room participants',
-                context: [
-                    'file'      => __FILE__,
-                    'line'      => __LINE__,
-                    'roomToken' => $roomToken,
-                    'error'     => $e->getMessage(),
-                ]
-            );
-            return [];
-        }//end try
-
-    }//end roomUserIds()
+	}//end roomUserIds()
 }//end class

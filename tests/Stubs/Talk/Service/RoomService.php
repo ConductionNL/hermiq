@@ -31,20 +31,17 @@ use OCP\IUser;
 /**
  * Minimal stub of the spreed room service.
  */
-class RoomService
-{
-    /**
-     * Create a conversation.
-     *
-     * @param int        $type  The room type (2 = group).
-     * @param string     $name  The room display name.
-     * @param IUser|null $owner The owning user.
-     *
-     * @return Room The created room.
-     */
-    public function createConversation(int $type, string $name, ?IUser $owner=null): Room
-    {
-        return new Room();
-
-    }//end createConversation()
+class RoomService {
+	/**
+	 * Create a conversation.
+	 *
+	 * @param int $type The room type (2 = group).
+	 * @param string $name The room display name.
+	 * @param IUser|null $owner The owning user.
+	 *
+	 * @return Room The created room.
+	 */
+	public function createConversation(int $type, string $name, ?IUser $owner = null): Room {
+		return new Room();
+	}//end createConversation()
 }//end class

@@ -26,34 +26,33 @@ namespace Doctrine\DBAL;
 /**
  * Minimal ArrayParameterType stub for standalone unit runs (doctrine/dbal 3.x values).
  */
-final class ArrayParameterType
-{
+final class ArrayParameterType {
 
-    /**
-     * Integer array parameter type.
-     *
-     * @var int
-     */
-    public const INTEGER = 101;
+	/**
+	 * Integer array parameter type.
+	 *
+	 * @var int
+	 */
+	public const INTEGER = 101;
 
-    /**
-     * String array parameter type.
-     *
-     * @var int
-     */
-    public const STRING = 102;
+	/**
+	 * String array parameter type.
+	 *
+	 * @var int
+	 */
+	public const STRING = 102;
 
-    /**
-     * Binary array parameter type.
-     *
-     * @var int
-     */
-    public const BINARY = 116;
+	/**
+	 * Binary array parameter type.
+	 *
+	 * @var int
+	 */
+	public const BINARY = 116;
 
-    /**
-     * ASCII array parameter type.
-     *
-     * @var int
-     */
-    public const ASCII = 117;
+	/**
+	 * ASCII array parameter type.
+	 *
+	 * @var int
+	 */
+	public const ASCII = 117;
 }//end class

@@ -254,14 +254,21 @@ export default {
 
 <style scoped>
 .cn-agent-chat-tab { display: flex; flex-direction: column; gap: 12px; padding: 8px 4px; }
+
 .cn-agent-chat-tab__messages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+
 .cn-agent-chat-tab__message { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: var(--border-radius-large, 8px); background: var(--color-background-hover); }
+
 .cn-agent-chat-tab__message--user { background: var(--color-primary-element-light, var(--color-background-dark)); }
+
 .cn-agent-chat-tab__role { font-size: 0.8em; font-weight: 600; color: var(--color-text-maxcontrast); }
+
 .cn-agent-chat-tab__text { white-space: pre-wrap; }
+
 .cn-agent-chat-tab__empty { color: var(--color-text-maxcontrast); padding: 8px 0; }
 /* Text state, never a colour-only state (WCAG 2.1 AA 1.4.1): the words carry the
    meaning and the variable-driven colour only reinforces it. */
 .cn-agent-chat-tab__ungrounded { font-size: 0.8em; font-style: italic; color: var(--color-text-maxcontrast); }
+
 .cn-agent-chat-tab__composer { display: flex; flex-direction: column; gap: 8px; }
 </style>

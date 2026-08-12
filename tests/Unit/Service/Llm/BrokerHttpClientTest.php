@@ -34,173 +34,161 @@ use Psr\Log\NullLogger;
 use ReflectionClass;
 use RuntimeException;
 
-class BrokerHttpClientTest extends TestCase
-{
-    /**
-     * It is a PSR-18 client, which is the whole trick: `OpenAI::factory()` takes any
-     * PSR-18 client, and LLPhant's OpenAIChat honours a pre-built one. That is how the
-     * library's calls get proxied without rewriting the library.
-     *
-     * @return void
-     */
-    public function testItIsAPsr18Client(): void
-    {
-        $client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
+class BrokerHttpClientTest extends TestCase {
+	/**
+	 * It is a PSR-18 client, which is the whole trick: `OpenAI::factory()` takes any
+	 * PSR-18 client, and LLPhant's OpenAIChat honours a pre-built one. That is how the
+	 * library's calls get proxied without rewriting the library.
+	 *
+	 * @return void
+	 */
+	public function testItIsAPsr18Client(): void {
+		$client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
 
-        $this->assertInstanceOf(ClientInterface::class, $client);
-    }//end testItIsAPsr18Client()
+		$this->assertInstanceOf(ClientInterface::class, $client);
+	}//end testItIsAPsr18Client()
 
-    /**
-     * Every auth header the LLM library set is dropped before the broker call.
-     *
-     * openai-php REQUIRES an api key and sets it as a Bearer header before this client
-     * ever sees the request. That placeholder must not survive: the broker injects the
-     * real secret and discards caller-supplied auth anyway.
-     *
-     * @return void
-     */
-    public function testAuthHeadersAreStripped(): void
-    {
-        $client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
+	/**
+	 * Every auth header the LLM library set is dropped before the broker call.
+	 *
+	 * openai-php REQUIRES an api key and sets it as a Bearer header before this client
+	 * ever sees the request. That placeholder must not survive: the broker injects the
+	 * real secret and discards caller-supplied auth anyway.
+	 *
+	 * @return void
+	 */
+	public function testAuthHeadersAreStripped(): void {
+		$client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
 
-        $strip = (new ReflectionClass($client))->getMethod('headersWithoutAuth');
-        $strip->setAccessible(true);
+		$strip = (new ReflectionClass($client))->getMethod('headersWithoutAuth');
+		$strip->setAccessible(true);
 
-        $request = new Request(
-            'POST',
-            'https://api.openai.com/v1/chat/completions',
-            [
-                'Content-Type'  => 'application/json',
-                'Authorization' => 'Bearer '.BrokerHttpClient::BROKER_MANAGED_KEY,
-                'X-API-Key'     => 'anything',
-                'OpenAI-Beta'   => 'assistants=v2',
-            ]
-        );
+		$request = new Request(
+			'POST',
+			'https://api.openai.com/v1/chat/completions',
+			[
+				'Content-Type' => 'application/json',
+				'Authorization' => 'Bearer ' . BrokerHttpClient::BROKER_MANAGED_KEY,
+				'X-API-Key' => 'anything',
+				'OpenAI-Beta' => 'assistants=v2',
+			]
+		);
 
-        $out = $strip->invoke($client, $request);
+		$out = $strip->invoke($client, $request);
 
-        $this->assertArrayNotHasKey('Authorization', $out);
-        $this->assertArrayNotHasKey('X-API-Key', $out);
-        $this->assertSame('application/json', $out['Content-Type']);
-        $this->assertSame('assistants=v2', $out['OpenAI-Beta']);
-    }//end testAuthHeadersAreStripped()
+		$this->assertArrayNotHasKey('Authorization', $out);
+		$this->assertArrayNotHasKey('X-API-Key', $out);
+		$this->assertSame('application/json', $out['Content-Type']);
+		$this->assertSame('assistants=v2', $out['OpenAI-Beta']);
+	}//end testAuthHeadersAreStripped()
 
-    /**
-     * No credential → no call. There is deliberately no app-held key to fall back to.
-     *
-     * @return void
-     */
-    public function testItFailsClosedWithoutACredential(): void
-    {
-        $client = new BrokerHttpClient(credentialId: '', logger: new NullLogger());
+	/**
+	 * No credential → no call. There is deliberately no app-held key to fall back to.
+	 *
+	 * @return void
+	 */
+	public function testItFailsClosedWithoutACredential(): void {
+		$client = new BrokerHttpClient(credentialId: '', logger: new NullLogger());
 
-        $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('no broker credential');
+		$this->expectException(RuntimeException::class);
+		$this->expectExceptionMessage('no broker credential');
 
-        $client->sendRequest(new Request('POST', 'https://api.openai.com/v1/chat/completions'));
-    }//end testItFailsClosedWithoutACredential()
+		$client->sendRequest(new Request('POST', 'https://api.openai.com/v1/chat/completions'));
+	}//end testItFailsClosedWithoutACredential()
 
-    /**
-     * The placeholder we hand openai-php is a label, not a key — and it is meant to be
-     * recognisable in a log if it ever escapes.
-     *
-     * @return void
-     */
-    public function testThePlaceholderIsNotSecretShaped(): void
-    {
-        $this->assertSame('__managed_by_credential_broker__', BrokerHttpClient::BROKER_MANAGED_KEY);
-        $this->assertStringStartsNotWith('sk-', BrokerHttpClient::BROKER_MANAGED_KEY);
-    }//end testThePlaceholderIsNotSecretShaped()
+	/**
+	 * The placeholder we hand openai-php is a label, not a key — and it is meant to be
+	 * recognisable in a log if it ever escapes.
+	 *
+	 * @return void
+	 */
+	public function testThePlaceholderIsNotSecretShaped(): void {
+		$this->assertSame('__managed_by_credential_broker__', BrokerHttpClient::BROKER_MANAGED_KEY);
+		$this->assertStringStartsNotWith('sk-', BrokerHttpClient::BROKER_MANAGED_KEY);
+	}//end testThePlaceholderIsNotSecretShaped()
 
-    /**
-     * Hermiq identifies itself to the broker as `hermiq`. If this drifts, the broker's
-     * allowed-app guard silently stops matching and every call is refused.
-     *
-     * @return void
-     */
-    public function testItIdentifiesItselfAsHermiq(): void
-    {
-        $this->assertSame('hermiq', BrokerHttpClient::APP_ID);
-    }//end testItIdentifiesItselfAsHermiq()
+	/**
+	 * Hermiq identifies itself to the broker as `hermiq`. If this drifts, the broker's
+	 * allowed-app guard silently stops matching and every call is refused.
+	 *
+	 * @return void
+	 */
+	public function testItIdentifiesItselfAsHermiq(): void {
+		$this->assertSame('hermiq', BrokerHttpClient::APP_ID);
+	}//end testItIdentifiesItselfAsHermiq()
 
+	/**
+	 * The provider's response headers must survive the broker hop. They carry signals
+	 * that exist nowhere else in the response — `retry-after` and the
+	 * `anthropic-ratelimit-*` counters — and without them a 429 cannot be told apart
+	 * from a hard refusal.
+	 *
+	 * @return void
+	 */
+	public function testProviderResponseHeadersArePassedThrough(): void {
+		$client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
 
-    /**
-     * The provider's response headers must survive the broker hop. They carry signals
-     * that exist nowhere else in the response — `retry-after` and the
-     * `anthropic-ratelimit-*` counters — and without them a 429 cannot be told apart
-     * from a hard refusal.
-     *
-     * @return void
-     */
-    public function testProviderResponseHeadersArePassedThrough(): void
-    {
-        $client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
+		$pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
+		$pass->setAccessible(true);
 
-        $pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
-        $pass->setAccessible(true);
+		$out = $pass->invoke(
+			$client,
+			[
+				'content-type' => ['application/json'],
+				'retry-after' => ['30'],
+				'anthropic-ratelimit-requests-remaining' => ['0'],
+				'request-id' => ['req_abc'],
+			]
+		);
 
-        $out = $pass->invoke(
-            $client,
-            [
-                'content-type'                           => ['application/json'],
-                'retry-after'                            => ['30'],
-                'anthropic-ratelimit-requests-remaining' => ['0'],
-                'request-id'                             => ['req_abc'],
-            ]
-        );
+		$this->assertSame(['30'], $out['retry-after']);
+		$this->assertSame(['0'], $out['anthropic-ratelimit-requests-remaining']);
+		$this->assertSame(['req_abc'], $out['request-id']);
+	}//end testProviderResponseHeadersArePassedThrough()
 
-        $this->assertSame(['30'], $out['retry-after']);
-        $this->assertSame(['0'], $out['anthropic-ratelimit-requests-remaining']);
-        $this->assertSame(['req_abc'], $out['request-id']);
-    }//end testProviderResponseHeadersArePassedThrough()
+	/**
+	 * Transfer-scoped headers must NOT be forwarded: the broker already materialised and
+	 * decoded the body, so a forwarded `Content-Length` / `Content-Encoding` would
+	 * describe a transfer that no longer applies.
+	 *
+	 * @return void
+	 */
+	public function testTransferScopedResponseHeadersAreDropped(): void {
+		$client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
 
+		$pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
+		$pass->setAccessible(true);
 
-    /**
-     * Transfer-scoped headers must NOT be forwarded: the broker already materialised and
-     * decoded the body, so a forwarded `Content-Length` / `Content-Encoding` would
-     * describe a transfer that no longer applies.
-     *
-     * @return void
-     */
-    public function testTransferScopedResponseHeadersAreDropped(): void
-    {
-        $client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
+		$out = $pass->invoke(
+			$client,
+			[
+				'content-type' => ['application/json'],
+				'content-encoding' => ['gzip'],
+				'content-length' => ['12345'],
+				'transfer-encoding' => ['chunked'],
+				'connection' => ['keep-alive'],
+			]
+		);
 
-        $pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
-        $pass->setAccessible(true);
+		$this->assertArrayNotHasKey('content-encoding', $out);
+		$this->assertArrayNotHasKey('content-length', $out);
+		$this->assertArrayNotHasKey('transfer-encoding', $out);
+		$this->assertArrayNotHasKey('connection', $out);
+		$this->assertSame(['application/json'], $out['content-type']);
+	}//end testTransferScopedResponseHeadersAreDropped()
 
-        $out = $pass->invoke(
-            $client,
-            [
-                'content-type'      => ['application/json'],
-                'content-encoding'  => ['gzip'],
-                'content-length'    => ['12345'],
-                'transfer-encoding' => ['chunked'],
-                'connection'        => ['keep-alive'],
-            ]
-        );
+	/**
+	 * A broker that reports no headers still yields a usable JSON response.
+	 *
+	 * @return void
+	 */
+	public function testMissingBrokerHeadersFallBackToJson(): void {
+		$client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
 
-        $this->assertArrayNotHasKey('content-encoding', $out);
-        $this->assertArrayNotHasKey('content-length', $out);
-        $this->assertArrayNotHasKey('transfer-encoding', $out);
-        $this->assertArrayNotHasKey('connection', $out);
-        $this->assertSame(['application/json'], $out['content-type']);
-    }//end testTransferScopedResponseHeadersAreDropped()
+		$pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
+		$pass->setAccessible(true);
 
-
-    /**
-     * A broker that reports no headers still yields a usable JSON response.
-     *
-     * @return void
-     */
-    public function testMissingBrokerHeadersFallBackToJson(): void
-    {
-        $client = new BrokerHttpClient(credentialId: 'cred-1', logger: new NullLogger());
-
-        $pass = (new ReflectionClass($client))->getMethod('passthroughResponseHeaders');
-        $pass->setAccessible(true);
-
-        $this->assertSame(['Content-Type' => 'application/json'], $pass->invoke($client, []));
-        $this->assertSame(['Content-Type' => 'application/json'], $pass->invoke($client, null));
-    }//end testMissingBrokerHeadersFallBackToJson()
+		$this->assertSame(['Content-Type' => 'application/json'], $pass->invoke($client, []));
+		$this->assertSame(['Content-Type' => 'application/json'], $pass->invoke($client, null));
+	}//end testMissingBrokerHeadersFallBackToJson()
 }//end class

@@ -61,179 +61,173 @@ use Throwable;
  *
  * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
  */
-class SeedMaturityExampleSkills implements IRepairStep
-{
+class SeedMaturityExampleSkills implements IRepairStep {
 
-    /**
-     * OpenRegister register slug that holds Hermiq objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * Schema slug for Skill objects (namespaced to avoid a cross-app slug collision).
-     *
-     * @var string
-     */
-    private const SKILL_SCHEMA = 'agentskill';
+	/**
+	 * Schema slug for Skill objects (namespaced to avoid a cross-app slug collision).
+	 *
+	 * @var string
+	 */
+	private const SKILL_SCHEMA = 'agentskill';
 
-    /**
-     * The seeded L4 attestation timestamp (fixed — a seed must be deterministic).
-     *
-     * @var string
-     */
-    private const SEED_ATTESTED_AT = '2026-01-15T09:00:00+00:00';
+	/**
+	 * The seeded L4 attestation timestamp (fixed — a seed must be deterministic).
+	 *
+	 * @var string
+	 */
+	private const SEED_ATTESTED_AT = '2026-01-15T09:00:00+00:00';
 
-    /**
-     * Constructor.
-     *
-     * @param ContainerInterface   $container Server container for lazy ObjectService resolution
-     *                                        (OpenRegister may not be installed yet).
-     * @param LoggerInterface      $logger    PSR-3 logger.
-     * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
-     */
-    public function __construct(
-        private readonly ContainerInterface $container,
-        private readonly LoggerInterface $logger,
-        private readonly SeedFreshnessService $freshness,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ContainerInterface $container Server container for lazy ObjectService resolution
+	 *                                      (OpenRegister may not be installed yet).
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param SeedFreshnessService $freshness Seed lifecycle freshness rules.
+	 */
+	public function __construct(
+		private readonly ContainerInterface $container,
+		private readonly LoggerInterface $logger,
+		private readonly SeedFreshnessService $freshness,
+	) {
+	}//end __construct()
 
-    /**
-     * Repair-step name.
-     *
-     * @return string
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public function getName(): string
-    {
-        return 'Seed maturity example skills (skill-maturity)';
+	/**
+	 * Repair-step name.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public function getName(): string {
+		return 'Seed maturity example skills (skill-maturity)';
+	}//end getName()
 
-    }//end getName()
+	/**
+	 * Seed each example skill that does not already exist (matched by name); an
+	 * existing seed — including one an admin has since edited — keeps its content
+	 * untouched, but a still-`active`/`stale` `__system__`-owned seed gets its
+	 * `lastActivityAt` refreshed (a stale seed flips back to active) so the daily
+	 * Curator's age-staleness never empties the seed catalog — and with it every
+	 * skill link-picker — on a longer-lived instance.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public function run(IOutput $output): void {
+		try {
+			$objectService = $this->container->get(ObjectService::class);
+		} catch (Throwable $e) {
+			$output->warning('OpenRegister not available — skipping maturity example skills seed.');
+			$this->logger->warning('[hermiq] maturity example skills seed skipped: ' . $e->getMessage());
+			return;
+		}
 
-    /**
-     * Seed each example skill that does not already exist (matched by name); an
-     * existing seed — including one an admin has since edited — keeps its content
-     * untouched, but a still-`active`/`stale` `__system__`-owned seed gets its
-     * `lastActivityAt` refreshed (a stale seed flips back to active) so the daily
-     * Curator's age-staleness never empties the seed catalog — and with it every
-     * skill link-picker — on a longer-lived instance.
-     *
-     * @param IOutput $output Repair output channel.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public function run(IOutput $output): void
-    {
-        try {
-            $objectService = $this->container->get(ObjectService::class);
-        } catch (Throwable $e) {
-            $output->warning('OpenRegister not available — skipping maturity example skills seed.');
-            $this->logger->warning('[hermiq] maturity example skills seed skipped: '.$e->getMessage());
-            return;
-        }
+		foreach (self::seedSkills() as $seed) {
+			$name = (string)$seed['name'];
 
-        foreach (self::seedSkills() as $seed) {
-            $name = (string) $seed['name'];
+			try {
+				$existing = $this->findByName(objectService: $objectService, name: $name);
+				if ($existing !== null) {
+					// Seed freshness: refresh lastActivityAt (and un-stale) for a
+					// __system__-owned seed still in active/stale; null = untouchable
+					// (human-owned, archived, or quarantined — those decisions win).
+					$refreshed = $this->freshness->refreshedPayload(skill: $existing);
 
-            try {
-                $existing = $this->findByName(objectService: $objectService, name: $name);
-                if ($existing !== null) {
-                    // Seed freshness: refresh lastActivityAt (and un-stale) for a
-                    // __system__-owned seed still in active/stale; null = untouchable
-                    // (human-owned, archived, or quarantined — those decisions win).
-                    $refreshed = $this->freshness->refreshedPayload(skill: $existing);
+					if ($name === 'tender-summary') {
+						// Skill-learnings: an upgraded install already carries the
+						// tender-summary seed — add ONLY the missing demo learnings
+						// artifacts (files added only when absent; admin edits and
+						// any real l6 activity are never overwritten).
+						$this->ensureLearningsSeed(
+							objectService: $objectService,
+							skill: $existing,
+							output: $output,
+							refreshed: $refreshed
+						);
+						continue;
+					}
 
-                    if ($name === 'tender-summary') {
-                        // Skill-learnings: an upgraded install already carries the
-                        // tender-summary seed — add ONLY the missing demo learnings
-                        // artifacts (files added only when absent; admin edits and
-                        // any real l6 activity are never overwritten).
-                        $this->ensureLearningsSeed(
-                            objectService: $objectService,
-                            skill: $existing,
-                            output: $output,
-                            refreshed: $refreshed
-                        );
-                        continue;
-                    }
+					if ($refreshed === null) {
+						$output->info($name . ' seed already present — skipped.');
+						continue;
+					}
 
-                    if ($refreshed === null) {
-                        $output->info($name.' seed already present — skipped.');
-                        continue;
-                    }
+					$objectService->saveObject(
+						object: $refreshed,
+						register: self::REGISTER_SLUG,
+						schema: self::SKILL_SCHEMA,
+						uuid: (string)$existing->getUuid(),
+						_rbac: false,
+						_multitenancy: false
+					);
+					$output->info($name . ' seed already present — freshness refreshed.');
+					continue;
+				}//end if
 
-                    $objectService->saveObject(
-                        object: $refreshed,
-                        register: self::REGISTER_SLUG,
-                        schema: self::SKILL_SCHEMA,
-                        uuid: (string) $existing->getUuid(),
-                        _rbac: false,
-                        _multitenancy: false
-                    );
-                    $output->info($name.' seed already present — freshness refreshed.');
-                    continue;
-                }//end if
+				// Written DIRECTLY (never via installFromSource): first-party trusted
+				// content, lands `active` immediately, never scanned/quarantined. The
+				// creation payload is stamped fresh so the Curator's staleness clock
+				// starts at seed time.
+				$objectService->saveObject(
+					object: $this->freshness->stampFresh(seed: $seed),
+					register: self::REGISTER_SLUG,
+					schema: self::SKILL_SCHEMA,
+					_rbac: false,
+					_multitenancy: false
+				);
+				$output->info($name . ' seed complete.');
+			} catch (Throwable $e) {
+				$output->warning('Could not seed ' . $name . ' skill: ' . $e->getMessage());
+				$this->logger->error('[hermiq] ' . $name . ' seed failed: ' . $e->getMessage());
+			}//end try
+		}//end foreach
 
-                // Written DIRECTLY (never via installFromSource): first-party trusted
-                // content, lands `active` immediately, never scanned/quarantined. The
-                // creation payload is stamped fresh so the Curator's staleness clock
-                // starts at seed time.
-                $objectService->saveObject(
-                    object: $this->freshness->stampFresh(seed: $seed),
-                    register: self::REGISTER_SLUG,
-                    schema: self::SKILL_SCHEMA,
-                    _rbac: false,
-                    _multitenancy: false
-                );
-                $output->info($name.' seed complete.');
-            } catch (Throwable $e) {
-                $output->warning('Could not seed '.$name.' skill: '.$e->getMessage());
-                $this->logger->error('[hermiq] '.$name.' seed failed: '.$e->getMessage());
-            }//end try
-        }//end foreach
+	}//end run()
 
-    }//end run()
+	/**
+	 * The three seed skill payloads. Public + static so `SkillMaturityServiceTest` can
+	 * assert each stored `maturityLevel` equals what the service computes for the seed's
+	 * content (the anti-drift guarantee of the spec).
+	 *
+	 * @return array<int, array<string, mixed>> The seed Skill object payloads.
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public static function seedSkills(): array {
+		return [
+			self::meetingNotesCleanup(),
+			self::wooRequestTriage(),
+			self::tenderSummary(),
+		];
 
-    /**
-     * The three seed skill payloads. Public + static so `SkillMaturityServiceTest` can
-     * assert each stored `maturityLevel` equals what the service computes for the seed's
-     * content (the anti-drift guarantee of the spec).
-     *
-     * @return array<int, array<string, mixed>> The seed Skill object payloads.
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public static function seedSkills(): array
-    {
-        return [
-            self::meetingNotesCleanup(),
-            self::wooRequestTriage(),
-            self::tenderSummary(),
-        ];
+	}//end seedSkills()
 
-    }//end seedSkills()
-
-    /**
-     * L1 seed: structurally valid (frontmatter name + description, non-empty body) but
-     * poorly triggering — the description is a bare noun phrase, so L2's trigger check
-     * fails. `targetLevel: 2`.
-     *
-     * @return array<string, mixed> The Skill payload.
-     */
-    private static function meetingNotesCleanup(): array
-    {
-        $frontmatter = <<<'YAML'
+	/**
+	 * L1 seed: structurally valid (frontmatter name + description, non-empty body) but
+	 * poorly triggering — the description is a bare noun phrase, so L2's trigger check
+	 * fails. `targetLevel: 2`.
+	 *
+	 * @return array<string, mixed> The Skill payload.
+	 */
+	private static function meetingNotesCleanup(): array {
+		$frontmatter = <<<'YAML'
         name: meeting-notes-cleanup
         description: Meeting notes helper
         version: 0.1.0
         YAML;
 
-        $body = <<<'MARKDOWN'
+		$body = <<<'MARKDOWN'
         # Meeting Notes Cleanup
 
         Tidy up raw meeting notes: fix headings, group action items under an "Actions"
@@ -241,43 +235,42 @@ class SeedMaturityExampleSkills implements IRepairStep
         of decisions intact.
         MARKDOWN;
 
-        return [
-            'name'             => 'meeting-notes-cleanup',
-            'description'      => 'Meeting notes helper',
-            'frontmatter'      => $frontmatter,
-            'body'             => $body,
-            'files'            => [],
-            'state'            => 'active',
-            'source'           => 'local',
-            'quarantineReason' => null,
-            'scanReport'       => null,
-            'createdBy'        => '',
-            'installedOn'      => [],
-            'maturityLevel'    => 1,
-            'targetLevel'      => 2,
-        ];
+		return [
+			'name' => 'meeting-notes-cleanup',
+			'description' => 'Meeting notes helper',
+			'frontmatter' => $frontmatter,
+			'body' => $body,
+			'files' => [],
+			'state' => 'active',
+			'source' => 'local',
+			'quarantineReason' => null,
+			'scanReport' => null,
+			'createdBy' => '',
+			'installedOn' => [],
+			'maturityLevel' => 1,
+			'targetLevel' => 2,
+		];
 
-    }//end meetingNotesCleanup()
+	}//end meetingNotesCleanup()
 
-    /**
-     * L2 seed (municipality context): clear trigger phrasing + when-to-use, compact
-     * procedural body, no reference files — so L3 fails on missing references/examples.
-     * `targetLevel: 3`.
-     *
-     * @return array<string, mixed> The Skill payload.
-     */
-    private static function wooRequestTriage(): array
-    {
-        $description = 'Triage an incoming WOO request — use when a new WOO/Woo-verzoek arrives '
-            .'and needs routing, deadline and exemption pre-check.';
+	/**
+	 * L2 seed (municipality context): clear trigger phrasing + when-to-use, compact
+	 * procedural body, no reference files — so L3 fails on missing references/examples.
+	 * `targetLevel: 3`.
+	 *
+	 * @return array<string, mixed> The Skill payload.
+	 */
+	private static function wooRequestTriage(): array {
+		$description = 'Triage an incoming WOO request — use when a new WOO/Woo-verzoek arrives '
+			. 'and needs routing, deadline and exemption pre-check.';
 
-        $frontmatter = <<<'YAML'
+		$frontmatter = <<<'YAML'
         name: woo-request-triage
         description: Triage an incoming WOO request — use when a new WOO/Woo-verzoek arrives and needs routing, deadline and exemption pre-check.
         version: 0.1.0
         YAML;
 
-        $body = <<<'MARKDOWN'
+		$body = <<<'MARKDOWN'
         # WOO Request Triage
 
         You triage incoming WOO (Wet open overheid) requests for a Dutch municipality.
@@ -329,48 +322,47 @@ class SeedMaturityExampleSkills implements IRepairStep
           deadline.
         MARKDOWN;
 
-        return [
-            'name'             => 'woo-request-triage',
-            'description'      => $description,
-            'frontmatter'      => $frontmatter,
-            'body'             => $body,
-            'files'            => [],
-            'state'            => 'active',
-            'source'           => 'local',
-            'quarantineReason' => null,
-            'scanReport'       => null,
-            'createdBy'        => '',
-            'installedOn'      => [],
-            'maturityLevel'    => 2,
-            'targetLevel'      => 3,
-        ];
+		return [
+			'name' => 'woo-request-triage',
+			'description' => $description,
+			'frontmatter' => $frontmatter,
+			'body' => $body,
+			'files' => [],
+			'state' => 'active',
+			'source' => 'local',
+			'quarantineReason' => null,
+			'scanReport' => null,
+			'createdBy' => '',
+			'installedOn' => [],
+			'maturityLevel' => 2,
+			'targetLevel' => 3,
+		];
 
-    }//end wooRequestTriage()
+	}//end wooRequestTriage()
 
-    /**
-     * L4 seed (consultancy context): trigger-quality description, compact body,
-     * `references/` + `examples/` files, and a seeded L4 attestation (synthetic —
-     * the note says so; real attestation flows through the action-gated endpoint).
-     * `targetLevel: 5` — its scorecard shows L5 failing with "no eval evidence",
-     * pointing at the future skill-evals change.
-     *
-     * @return array<string, mixed> The Skill payload.
-     *
-     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) The length is literal seed
-     *   content (frontmatter + skill body + reference/example files in heredocs),
-     *   not logic to split.
-     */
-    private static function tenderSummary(): array
-    {
-        $description = 'Summarise a tender publication — use when the user pastes or links a TenderNed/TED notice.';
+	/**
+	 * L4 seed (consultancy context): trigger-quality description, compact body,
+	 * `references/` + `examples/` files, and a seeded L4 attestation (synthetic —
+	 * the note says so; real attestation flows through the action-gated endpoint).
+	 * `targetLevel: 5` — its scorecard shows L5 failing with "no eval evidence",
+	 * pointing at the future skill-evals change.
+	 *
+	 * @return array<string, mixed> The Skill payload.
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveMethodLength) The length is literal seed
+	 *   content (frontmatter + skill body + reference/example files in heredocs),
+	 *   not logic to split.
+	 */
+	private static function tenderSummary(): array {
+		$description = 'Summarise a tender publication — use when the user pastes or links a TenderNed/TED notice.';
 
-        $frontmatter = <<<'YAML'
+		$frontmatter = <<<'YAML'
         name: tender-summary
         description: Summarise a tender publication — use when the user pastes or links a TenderNed/TED notice.
         version: 0.1.0
         YAML;
 
-        $body = <<<'MARKDOWN'
+		$body = <<<'MARKDOWN'
         # Tender Summary
 
         You summarise public-procurement notices (TenderNed / TED) for a consultancy
@@ -395,7 +387,7 @@ class SeedMaturityExampleSkills implements IRepairStep
         - Keep the summary under one page; the bid team reads it in a stand-up.
         MARKDOWN;
 
-        $referenceContent = <<<'MARKDOWN'
+		$referenceContent = <<<'MARKDOWN'
         # Exemption and Exclusion Grounds (NL public procurement)
 
         Quick-reference list the summary step checks against:
@@ -411,7 +403,7 @@ class SeedMaturityExampleSkills implements IRepairStep
         current Aanbestedingswet text before relying on it.
         MARKDOWN;
 
-        $exampleContent = <<<'MARKDOWN'
+		$exampleContent = <<<'MARKDOWN'
         # Example: tender summary output shape
 
         **Notice**: Cloud workplace services — Gemeente Voorbeeld (TenderNed
@@ -428,283 +420,273 @@ class SeedMaturityExampleSkills implements IRepairStep
         **Advice line**: worth a bid review — quality-weighted award suits us.
         MARKDOWN;
 
-        return [
-            'name'             => 'tender-summary',
-            'description'      => $description,
-            'frontmatter'      => $frontmatter,
-            'body'             => $body,
-            'files'            => [
-                [
-                    'name'    => 'references/exemption-grounds.md',
-                    'content' => $referenceContent,
-                ],
-                [
-                    'name'    => 'examples/tender-summary-example.md',
-                    'content' => $exampleContent,
-                ],
-                [
-                    'name'    => 'learnings.md',
-                    'content' => self::seedLearningsContent(),
-                ],
-                [
-                    'name'    => 'learning-candidates.md',
-                    'content' => self::seedCandidatesContent(),
-                ],
-            ],
-            'state'            => 'active',
-            'source'           => 'local',
-            'quarantineReason' => null,
-            'scanReport'       => null,
-            'createdBy'        => '',
-            'installedOn'      => [],
-            'maturityLevel'    => 4,
-            'targetLevel'      => 5,
-            'levelEvidence'    => [
-                'l4' => [
-                    'attestedBy' => 'admin',
-                    'attestedAt' => self::SEED_ATTESTED_AT,
-                    'note'       => 'Tuned for NL public-procurement summaries (seeded example attestation).',
-                ],
-                'l6' => self::seedL6Evidence(),
-            ],
-        ];
+		return [
+			'name' => 'tender-summary',
+			'description' => $description,
+			'frontmatter' => $frontmatter,
+			'body' => $body,
+			'files' => [
+				[
+					'name' => 'references/exemption-grounds.md',
+					'content' => $referenceContent,
+				],
+				[
+					'name' => 'examples/tender-summary-example.md',
+					'content' => $exampleContent,
+				],
+				[
+					'name' => 'learnings.md',
+					'content' => self::seedLearningsContent(),
+				],
+				[
+					'name' => 'learning-candidates.md',
+					'content' => self::seedCandidatesContent(),
+				],
+			],
+			'state' => 'active',
+			'source' => 'local',
+			'quarantineReason' => null,
+			'scanReport' => null,
+			'createdBy' => '',
+			'installedOn' => [],
+			'maturityLevel' => 4,
+			'targetLevel' => 5,
+			'levelEvidence' => [
+				'l4' => [
+					'attestedBy' => 'admin',
+					'attestedAt' => self::SEED_ATTESTED_AT,
+					'note' => 'Tuned for NL public-procurement summaries (seeded example attestation).',
+				],
+				'l6' => self::seedL6Evidence(),
+			],
+		];
 
-    }//end tenderSummary()
+	}//end tenderSummary()
 
-    /**
-     * The demo `learnings.md` (skill-learnings): the five fixed sections with six
-     * consultancy-context entries; Consolidated Principles deliberately EMPTY —
-     * consolidation (`skill-self-improvement`) has not run, so the maturity scorecard
-     * stays honest. Entry provenance markers use nil-UUID placeholders only.
-     *
-     * @return string The demo learnings content.
-     *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
-     */
-    public static function seedLearningsContent(): string
-    {
-        $date = self::seedDate();
+	/**
+	 * The demo `learnings.md` (skill-learnings): the five fixed sections with six
+	 * consultancy-context entries; Consolidated Principles deliberately EMPTY —
+	 * consolidation (`skill-self-improvement`) has not run, so the maturity scorecard
+	 * stays honest. Entry provenance markers use nil-UUID placeholders only.
+	 *
+	 * @return string The demo learnings content.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	public static function seedLearningsContent(): string {
+		$date = self::seedDate();
 
-        $nilRun    = '00000000-0000-0000-0000-000000000000';
-        $marker    = '<!-- promoted '.$date.' | runs: '.$nilRun.' -->';
-        $markdown  = "# Learnings\n\n";
-        $markdown .= "## Patterns That Work\n\n";
-        $markdown .= '- Quoting the award-criteria weights verbatim avoids a manual re-check by the bid team. '.$marker."\n";
-        $markdown .= '- Leading the summary with the submission deadline speeds the go/no-go call. '.$marker."\n\n";
-        $markdown .= "## Mistakes to Avoid\n\n";
-        $markdown .= '- Do not infer an estimated value when the notice says "not stated" — flag it instead. '.$marker."\n";
-        $markdown .= '- Do not merge lots with different CPV codes into one summary block. '.$marker."\n\n";
-        $markdown .= "## Domain Knowledge\n\n";
-        $markdown .= '- TED deadlines are CET, not the contracting authority\'s local time. '.$marker."\n\n";
-        $markdown .= "## Open Questions\n\n";
-        $markdown .= '- Does the bid team want incumbent hints ranked above certification requirements? '.$marker."\n\n";
-        $markdown .= "## Consolidated Principles\n";
+		$nilRun = '00000000-0000-0000-0000-000000000000';
+		$marker = '<!-- promoted ' . $date . ' | runs: ' . $nilRun . ' -->';
+		$markdown = "# Learnings\n\n";
+		$markdown .= "## Patterns That Work\n\n";
+		$markdown .= '- Quoting the award-criteria weights verbatim avoids a manual re-check by the bid team. ' . $marker . "\n";
+		$markdown .= '- Leading the summary with the submission deadline speeds the go/no-go call. ' . $marker . "\n\n";
+		$markdown .= "## Mistakes to Avoid\n\n";
+		$markdown .= '- Do not infer an estimated value when the notice says "not stated" — flag it instead. ' . $marker . "\n";
+		$markdown .= '- Do not merge lots with different CPV codes into one summary block. ' . $marker . "\n\n";
+		$markdown .= "## Domain Knowledge\n\n";
+		$markdown .= '- TED deadlines are CET, not the contracting authority\'s local time. ' . $marker . "\n\n";
+		$markdown .= "## Open Questions\n\n";
+		$markdown .= '- Does the bid team want incumbent hints ranked above certification requirements? ' . $marker . "\n\n";
+		$markdown .= "## Consolidated Principles\n";
 
-        return $markdown;
+		return $markdown;
+	}//end seedLearningsContent()
 
-    }//end seedLearningsContent()
+	/**
+	 * The demo `learning-candidates.md` (skill-learnings): two candidate lines in the
+	 * EXACT normative grammar — one with a single nil-UUID run id, one with two — so
+	 * the promotion job and the Learnings UI have real input on a fresh install.
+	 *
+	 * @return string The demo candidates content.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	public static function seedCandidatesContent(): string {
+		$date = self::seedDate();
 
-    /**
-     * The demo `learning-candidates.md` (skill-learnings): two candidate lines in the
-     * EXACT normative grammar — one with a single nil-UUID run id, one with two — so
-     * the promotion job and the Learnings UI have real input on a fresh install.
-     *
-     * @return string The demo candidates content.
-     *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
-     */
-    public static function seedCandidatesContent(): string
-    {
-        $date = self::seedDate();
+		return '- [' . $date . '] {domain} Framework agreements on TenderNed republish under a new notice id for each call-off. '
+			. '<!-- runs: 00000000-0000-0000-0000-000000000000 -->' . "\n"
+			. '- [' . $date . '] {patterns} Checking annex A for an incumbent before summarising saves a full re-read. '
+			. '<!-- runs: 00000000-0000-0000-0000-000000000000,00000000-0000-0000-0000-000000000001 -->' . "\n";
 
-        return '- ['.$date.'] {domain} Framework agreements on TenderNed republish under a new notice id for each call-off. '
-            .'<!-- runs: 00000000-0000-0000-0000-000000000000 -->'."\n"
-            .'- ['.$date.'] {patterns} Checking annex A for an incumbent before summarising saves a full re-read. '
-            .'<!-- runs: 00000000-0000-0000-0000-000000000000,00000000-0000-0000-0000-000000000001 -->'."\n";
+	}//end seedCandidatesContent()
 
-    }//end seedCandidatesContent()
+	/**
+	 * The demo `levelEvidence.l6` activity matching the seeded files: 2 candidates,
+	 * 6 promoted learnings, capture/promotion timestamps — deliberately NO
+	 * `lastConsolidatedAt`, so L6 truthfully reads as not passed.
+	 *
+	 * @return array<string, mixed> The l6 evidence.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	public static function seedL6Evidence(): array {
+		$stamp = self::seedDate() . 'T09:00:00+00:00';
 
-    /**
-     * The demo `levelEvidence.l6` activity matching the seeded files: 2 candidates,
-     * 6 promoted learnings, capture/promotion timestamps — deliberately NO
-     * `lastConsolidatedAt`, so L6 truthfully reads as not passed.
-     *
-     * @return array<string, mixed> The l6 evidence.
-     *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
-     */
-    public static function seedL6Evidence(): array
-    {
-        $stamp = self::seedDate().'T09:00:00+00:00';
+		return [
+			'candidateCount' => 2,
+			'learningsCount' => 6,
+			'lastCaptureAt' => $stamp,
+			'lastPromotedAt' => $stamp,
+		];
 
-        return [
-            'candidateCount' => 2,
-            'learningsCount' => 6,
-            'lastCaptureAt'  => $stamp,
-            'lastPromotedAt' => $stamp,
-        ];
+	}//end seedL6Evidence()
 
-    }//end seedL6Evidence()
+	/**
+	 * The seed date for the demo learnings (today, UTC): a candidate seeded with a
+	 * fixed historic date would be silently expired by the promotion job's 30-day
+	 * rule on its very first pass, defeating the demo. Idempotency comes from the
+	 * only-when-absent rule, not from byte-determinism.
+	 *
+	 * @return string Today's UTC date (`YYYY-MM-DD`).
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	private static function seedDate(): string {
+		return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d');
+	}//end seedDate()
 
-    /**
-     * The seed date for the demo learnings (today, UTC): a candidate seeded with a
-     * fixed historic date would be silently expired by the promotion job's 30-day
-     * rule on its very first pass, defeating the demo. Idempotency comes from the
-     * only-when-absent rule, not from byte-determinism.
-     *
-     * @return string Today's UTC date (`YYYY-MM-DD`).
-     *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
-     */
-    private static function seedDate(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d');
+	/**
+	 * Add the missing demo learnings artifacts to an EXISTING tender-summary seed
+	 * (upgrade path): each of the two files is added only when absent, and the l6
+	 * activity is stamped only when no l6 evidence exists yet — an admin's edits and
+	 * any real learnings activity are never overwritten. A `$refreshed` payload from
+	 * `SeedFreshnessService` (fresh `lastActivityAt`, stale flipped back to active) is
+	 * folded into the same single write; when both are no-ops, a re-run changes nothing.
+	 *
+	 * @param ObjectService $objectService The OpenRegister object service.
+	 * @param ObjectEntity $skill The existing tender-summary Skill.
+	 * @param IOutput $output Repair output channel.
+	 * @param array<string, mixed>|null $refreshed Freshness-refreshed payload, or null when untouchable.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Each only-when-absent idempotency
+	 *   guard (two files, l6 evidence, no-op detection, refresh fold-in) adds a branch
+	 *   on one linear upgrade path.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+	 *   presence guards multiply paths without nested logic.
+	 */
+	private function ensureLearningsSeed(
+		ObjectService $objectService,
+		ObjectEntity $skill,
+		IOutput $output,
+		?array $refreshed = null,
+	): void {
+		$data = ($refreshed ?? $skill->getObject());
+		$files = ($data['files'] ?? []);
+		if (is_array($files) === false) {
+			$files = [];
+		}
 
-    }//end seedDate()
+		$filesAdded = false;
 
-    /**
-     * Add the missing demo learnings artifacts to an EXISTING tender-summary seed
-     * (upgrade path): each of the two files is added only when absent, and the l6
-     * activity is stamped only when no l6 evidence exists yet — an admin's edits and
-     * any real learnings activity are never overwritten. A `$refreshed` payload from
-     * `SeedFreshnessService` (fresh `lastActivityAt`, stale flipped back to active) is
-     * folded into the same single write; when both are no-ops, a re-run changes nothing.
-     *
-     * @param ObjectService             $objectService The OpenRegister object service.
-     * @param ObjectEntity              $skill         The existing tender-summary Skill.
-     * @param IOutput                   $output        Repair output channel.
-     * @param array<string, mixed>|null $refreshed     Freshness-refreshed payload, or null when untouchable.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
-     *
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity) Each only-when-absent idempotency
-     *   guard (two files, l6 evidence, no-op detection, refresh fold-in) adds a branch
-     *   on one linear upgrade path.
-     * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
-     *   presence guards multiply paths without nested logic.
-     */
-    private function ensureLearningsSeed(
-        ObjectService $objectService,
-        ObjectEntity $skill,
-        IOutput $output,
-        ?array $refreshed=null,
-    ): void {
-        $data  = ($refreshed ?? $skill->getObject());
-        $files = ($data['files'] ?? []);
-        if (is_array($files) === false) {
-            $files = [];
-        }
+		if ($this->hasFile(files: $files, name: 'learnings.md') === false) {
+			$files[] = [
+				'name' => 'learnings.md',
+				'content' => self::seedLearningsContent(),
+			];
+			$filesAdded = true;
+		}
 
-        $filesAdded = false;
+		if ($this->hasFile(files: $files, name: 'learning-candidates.md') === false) {
+			$files[] = [
+				'name' => 'learning-candidates.md',
+				'content' => self::seedCandidatesContent(),
+			];
+			$filesAdded = true;
+		}
 
-        if ($this->hasFile(files: $files, name: 'learnings.md') === false) {
-            $files[]    = [
-                'name'    => 'learnings.md',
-                'content' => self::seedLearningsContent(),
-            ];
-            $filesAdded = true;
-        }
+		$evidence = ($data['levelEvidence'] ?? []);
+		if (is_array($evidence) === false) {
+			$evidence = [];
+		}
 
-        if ($this->hasFile(files: $files, name: 'learning-candidates.md') === false) {
-            $files[]    = [
-                'name'    => 'learning-candidates.md',
-                'content' => self::seedCandidatesContent(),
-            ];
-            $filesAdded = true;
-        }
+		$l6Evidence = ($evidence['l6'] ?? []);
+		if ($filesAdded === true && (is_array($l6Evidence) === false || $l6Evidence === [])) {
+			$evidence['l6'] = self::seedL6Evidence();
+			$data['levelEvidence'] = $evidence;
+		}
 
-        $evidence = ($data['levelEvidence'] ?? []);
-        if (is_array($evidence) === false) {
-            $evidence = [];
-        }
+		if ($filesAdded === false && $refreshed === null) {
+			$output->info('tender-summary seed already present (learnings included) — skipped.');
+			return;
+		}
 
-        $l6Evidence = ($evidence['l6'] ?? []);
-        if ($filesAdded === true && (is_array($l6Evidence) === false || $l6Evidence === [])) {
-            $evidence['l6']        = self::seedL6Evidence();
-            $data['levelEvidence'] = $evidence;
-        }
+		$data['files'] = array_values($files);
 
-        if ($filesAdded === false && $refreshed === null) {
-            $output->info('tender-summary seed already present (learnings included) — skipped.');
-            return;
-        }
+		$objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: self::SKILL_SCHEMA,
+			uuid: (string)$skill->getUuid(),
+			_rbac: false,
+			_multitenancy: false
+		);
 
-        $data['files'] = array_values($files);
+		if ($filesAdded === true) {
+			$output->info('tender-summary seed gained the demo learnings files.');
+			return;
+		}
 
-        $objectService->saveObject(
-            object: $data,
-            register: self::REGISTER_SLUG,
-            schema: self::SKILL_SCHEMA,
-            uuid: (string) $skill->getUuid(),
-            _rbac: false,
-            _multitenancy: false
-        );
+		$output->info('tender-summary seed already present — freshness refreshed.');
 
-        if ($filesAdded === true) {
-            $output->info('tender-summary seed gained the demo learnings files.');
-            return;
-        }
+	}//end ensureLearningsSeed()
 
-        $output->info('tender-summary seed already present — freshness refreshed.');
+	/**
+	 * Whether the `files` array already carries an entry with the given name.
+	 *
+	 * @param array<int, mixed> $files The skill's `files` array.
+	 * @param string $name The entry name.
+	 *
+	 * @return bool True when present.
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
+	 */
+	private function hasFile(array $files, string $name): bool {
+		foreach ($files as $file) {
+			if (is_array($file) === true && (string)($file['name'] ?? '') === $name) {
+				return true;
+			}
+		}
 
-    }//end ensureLearningsSeed()
+		return false;
+	}//end hasFile()
 
-    /**
-     * Whether the `files` array already carries an entry with the given name.
-     *
-     * @param array<int, mixed> $files The skill's `files` array.
-     * @param string            $name  The entry name.
-     *
-     * @return bool True when present.
-     *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-one-seeded-skill-demonstrates-the-learnings-shape
-     */
-    private function hasFile(array $files, string $name): bool
-    {
-        foreach ($files as $file) {
-            if (is_array($file) === true && (string) ($file['name'] ?? '') === $name) {
-                return true;
-            }
-        }
+	/**
+	 * Find the Skill with the given name, when it exists (system context, no RBAC).
+	 * Formerly a boolean `nameExists()` — skill-learnings needs the entity itself so
+	 * the upgrade path can add missing learnings artifacts to an existing seed.
+	 *
+	 * @param ObjectService $objectService The OpenRegister object service.
+	 * @param string $name The seed skill name (idempotency key).
+	 *
+	 * @return ObjectEntity|null The matching Skill, or null when absent.
+	 */
+	private function findByName(ObjectService $objectService, string $name): ?ObjectEntity {
+		$objects = $objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SKILL_SCHEMA)
+			->findAll(
+				config: ['filters' => ['name' => $name], 'limit' => 50],
+				_rbac: false,
+				_multitenancy: false
+			);
 
-        return false;
+		foreach ($objects as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
 
-    }//end hasFile()
+			if ((string)($object->getObject()['name'] ?? '') === $name) {
+				return $object;
+			}
+		}
 
-    /**
-     * Find the Skill with the given name, when it exists (system context, no RBAC).
-     * Formerly a boolean `nameExists()` — skill-learnings needs the entity itself so
-     * the upgrade path can add missing learnings artifacts to an existing seed.
-     *
-     * @param ObjectService $objectService The OpenRegister object service.
-     * @param string        $name          The seed skill name (idempotency key).
-     *
-     * @return ObjectEntity|null The matching Skill, or null when absent.
-     */
-    private function findByName(ObjectService $objectService, string $name): ?ObjectEntity
-    {
-        $objects = $objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::SKILL_SCHEMA)
-            ->findAll(
-                config: ['filters' => ['name' => $name], 'limit' => 50],
-                _rbac: false,
-                _multitenancy: false
-            );
-
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
-            }
-
-            if ((string) ($object->getObject()['name'] ?? '') === $name) {
-                return $object;
-            }
-        }
-
-        return null;
-
-    }//end findByName()
+		return null;
+	}//end findByName()
 }//end class

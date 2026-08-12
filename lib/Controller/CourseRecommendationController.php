@@ -45,58 +45,56 @@ use Throwable;
  *
  * @spec openspec/changes/ai-course-recommendations/tasks.md#task-3-1
  */
-class CourseRecommendationController extends Controller
-{
-    /**
-     * Constructor.
-     *
-     * @param IRequest                   $request     The request object.
-     * @param IUserSession               $userSession Resolves the requesting user (self-scope).
-     * @param CourseRecommendationEngine $engine      The gated ranking/explanation pipeline.
-     * @param LoggerInterface            $logger      PSR-3 logger.
-     */
-    public function __construct(
-        IRequest $request,
-        private readonly IUserSession $userSession,
-        private readonly CourseRecommendationEngine $engine,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
-    }//end __construct()
+class CourseRecommendationController extends Controller {
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object.
+	 * @param IUserSession $userSession Resolves the requesting user (self-scope).
+	 * @param CourseRecommendationEngine $engine The gated ranking/explanation pipeline.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		IRequest $request,
+		private readonly IUserSession $userSession,
+		private readonly CourseRecommendationEngine $engine,
+		private readonly LoggerInterface $logger,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
+	}//end __construct()
 
-    /**
-     * Return the caller's current CourseRecommendation, regenerating via the
-     * engine when missing or past `staleAt`. `learnerId` is always the caller's
-     * own uid — never read from `$this->request`.
-     *
-     * @return JSONResponse The recommendation payload, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/ai-course-recommendations/tasks.md#task-3-1
-     * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-recommendation-access-is-self-scoped-to-the-callers-own-learner-identity
-     */
-    public function index(): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * Return the caller's current CourseRecommendation, regenerating via the
+	 * engine when missing or past `staleAt`. `learnerId` is always the caller's
+	 * own uid — never read from `$this->request`.
+	 *
+	 * @return JSONResponse The recommendation payload, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-3-1
+	 * @spec openspec/changes/ai-course-recommendations/specs/course-recommendations/spec.md#requirement-recommendation-access-is-self-scoped-to-the-callers-own-learner-identity
+	 */
+	public function index(): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        try {
-            $result = $this->engine->getOrRegenerate(learnerUid: $user->getUID());
-            return new JSONResponse($result);
-        } catch (Throwable $e) {
-            $this->logger->error(
-                'Hermiq course-recommendation read failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-            return new JSONResponse(
-                ['error' => 'Could not load course recommendations'],
-                Http::STATUS_INTERNAL_SERVER_ERROR
-            );
-        }
+		try {
+			$result = $this->engine->getOrRegenerate(learnerUid: $user->getUID());
+			return new JSONResponse($result);
+		} catch (Throwable $e) {
+			$this->logger->error(
+				'Hermiq course-recommendation read failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return new JSONResponse(
+				['error' => 'Could not load course recommendations'],
+				Http::STATUS_INTERNAL_SERVER_ERROR
+			);
+		}
 
-    }//end index()
+	}//end index()
 }//end class

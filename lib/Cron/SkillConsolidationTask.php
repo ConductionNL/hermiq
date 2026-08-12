@@ -49,56 +49,54 @@ use Throwable;
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
  */
-class SkillConsolidationTask extends TimedJob
-{
-    /**
-     * Constructor — deliberately NO cross-app dependency here: a FATAL at job
-     * construction escapes cron's try/catch and aborts the whole background pass
-     * for every app, so the service is resolved lazily in run().
-     *
-     * @param ITimeFactory       $time      Time factory for TimedJob scheduling.
-     * @param ContainerInterface $container Lazy SkillConsolidationService resolution.
-     * @param LoggerInterface    $logger    PSR-3 logger (pass-level failure isolation).
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
-     */
-    public function __construct(
-        ITimeFactory $time,
-        private readonly ContainerInterface $container,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(time: $time);
+class SkillConsolidationTask extends TimedJob {
+	/**
+	 * Constructor — deliberately NO cross-app dependency here: a FATAL at job
+	 * construction escapes cron's try/catch and aborts the whole background pass
+	 * for every app, so the service is resolved lazily in run().
+	 *
+	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
+	 * @param ContainerInterface $container Lazy SkillConsolidationService resolution.
+	 * @param LoggerInterface $logger PSR-3 logger (pass-level failure isolation).
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
+	 */
+	public function __construct(
+		ITimeFactory $time,
+		private readonly ContainerInterface $container,
+		private readonly LoggerInterface $logger,
+	) {
+		parent::__construct(time: $time);
 
-        // Consolidation is not time-critical — run daily, like the Curator.
-        $this->setInterval(seconds: 86400);
-        $this->setAllowParallelRuns(allow: false);
+		// Consolidation is not time-critical — run daily, like the Curator.
+		$this->setInterval(seconds: 86400);
+		$this->setAllowParallelRuns(allow: false);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * Execute one consolidation pass. Never throws: OpenRegister being absent (or any
-     * pass-level failure) is logged and swallowed so this job can never poison the
-     * shared cron loop.
-     *
-     * @param mixed $argument The (unused) background-job argument.
-     *
-     * @return void
-     *
-     * @phpstan-param mixed $argument
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
-     */
-    public function run(mixed $argument): void
-    {
-        try {
-            $service = $this->container->get(SkillConsolidationService::class);
-            $service->runPass();
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                'Hermiq skill consolidation pass failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-        }
+	/**
+	 * Execute one consolidation pass. Never throws: OpenRegister being absent (or any
+	 * pass-level failure) is logged and swallowed so this job can never poison the
+	 * shared cron loop.
+	 *
+	 * @param mixed $argument The (unused) background-job argument.
+	 *
+	 * @return void
+	 *
+	 * @phpstan-param mixed $argument
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
+	 */
+	public function run(mixed $argument): void {
+		try {
+			$service = $this->container->get(SkillConsolidationService::class);
+			$service->runPass();
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq skill consolidation pass failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
 
-    }//end run()
+	}//end run()
 }//end class
