@@ -125,7 +125,7 @@ import { useFlowEditorStore } from '../../store/flowEditor.js'
  * a JSON payload: the pane is narrower than most single lines of it. This is
  * where a run is actually read.
  *
- * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+ * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
  */
 export default {
 	name: 'RunLogModal',
