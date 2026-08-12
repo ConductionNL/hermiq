@@ -116,6 +116,7 @@ class GuardrailPolicyServiceTest extends TestCase {
 				bool $_rbac = true,
 				bool $_multitenancy = true,
 				bool $_render = true,
+				bool $_audit = true,
 			): ?ObjectEntity {
 				foreach ($this->policies as $policy) {
 					if ((string)$policy->getUuid() === (string)$id) {

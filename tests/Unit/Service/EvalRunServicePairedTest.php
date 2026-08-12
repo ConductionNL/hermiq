@@ -135,6 +135,7 @@ class RecordingObjectService extends ObjectService {
 		bool $_rbac = true,
 		bool $_multitenancy = true,
 		bool $_render = true,
+		bool $_audit = true,
 	): ?ObjectEntity {
 		return ($this->objects[(string)$id] ?? null);
 	}//end find()

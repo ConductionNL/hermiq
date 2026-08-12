@@ -162,6 +162,7 @@ class TenantOpsServiceTest extends TestCase {
 				bool $_rbac = true,
 				bool $_multitenancy = true,
 				bool $_render = true,
+				bool $_audit = true,
 			): ?ObjectEntity {
 				foreach (($this->bySchema[(string)$schema] ?? []) as $object) {
 					if ($object->getUuid() === $id) {
