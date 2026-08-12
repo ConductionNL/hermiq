@@ -14,7 +14,7 @@
     "lint-fix": "npm run lint -- --fix",
     "test:l10n": "node tests/l10n/check-l10n.js",
     "stylelint": "stylelint \"src/**/*.{vue,scss,css}\"",
-    "stylelint-fix": "stylelint src/**/*.vue src/**/*.scss src/**/*.css --fix",
+    "stylelint-fix": "stylelint \"src/**/*.{vue,scss,css}\" --fix",
     "check:manifest": "node tests/validate-manifest.js",
     "check:manifest-v2": "node tests/manifest-v2.spec.js",
     "check:register": "node tests/validate-register.js",
