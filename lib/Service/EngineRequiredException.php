@@ -38,16 +38,14 @@ use RuntimeException;
  *
  * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-and-replay-require-the-in-app-agent-engine
  */
-class EngineRequiredException extends RuntimeException
-{
-    /**
-     * Constructor.
-     *
-     * @param string $message A clear, actionable message naming the required feature flag.
-     */
-    public function __construct(string $message='Dry-run requires the in-app agent engine. Enable the engine.enabled feature flag first.')
-    {
-        parent::__construct(message: $message, code: 422);
+class EngineRequiredException extends RuntimeException {
+	/**
+	 * Constructor.
+	 *
+	 * @param string $message A clear, actionable message naming the required feature flag.
+	 */
+	public function __construct(string $message = 'Dry-run requires the in-app agent engine. Enable the engine.enabled feature flag first.') {
+		parent::__construct(message: $message, code: 422);
 
-    }//end __construct()
+	}//end __construct()
 }//end class

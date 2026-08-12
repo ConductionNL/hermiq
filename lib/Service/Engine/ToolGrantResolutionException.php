@@ -46,49 +46,45 @@ use RuntimeException;
  *
  * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
  */
-class ToolGrantResolutionException extends RuntimeException
-{
+class ToolGrantResolutionException extends RuntimeException {
 
-    /**
-     * The grant entries that resolved to nothing.
-     *
-     * @var array<int, string>
-     */
-    private array $grants;
+	/**
+	 * The grant entries that resolved to nothing.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $grants;
 
-    /**
-     * Constructor.
-     *
-     * @param array<int, string> $grants The grant entries that produced no tools.
-     */
-    public function __construct(array $grants)
-    {
-        $this->grants = array_values($grants);
+	/**
+	 * Constructor.
+	 *
+	 * @param array<int, string> $grants The grant entries that produced no tools.
+	 */
+	public function __construct(array $grants) {
+		$this->grants = array_values($grants);
 
-        // The ids are agent CONFIGURATION, never user content or a secret, so
-        // naming them is what makes the error actionable rather than a puzzle.
-        parent::__construct(
-            message: sprintf(
-                'This agent\'s tool grants resolve to no tools: %s. Check the ids against the tool '
-                .'catalog — an agent with no tools on purpose should be granted "%s" instead.',
-                implode(', ', $this->grants),
-                ToolGrantResolver::NO_TOOLS_SENTINEL
-            ),
-            code: 422
-        );
+		// The ids are agent CONFIGURATION, never user content or a secret, so
+		// naming them is what makes the error actionable rather than a puzzle.
+		parent::__construct(
+			message: sprintf(
+				'This agent\'s tool grants resolve to no tools: %s. Check the ids against the tool '
+				. 'catalog — an agent with no tools on purpose should be granted "%s" instead.',
+				implode(', ', $this->grants),
+				ToolGrantResolver::NO_TOOLS_SENTINEL
+			),
+			code: 422
+		);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * The unresolved grant entries, for structured logging and API bodies.
-     *
-     * @return array<int, string> The grants that matched no tool.
-     *
-     * @spec exclude Trivial exception-payload accessor; no behavioural spec.
-     */
-    public function getGrants(): array
-    {
-        return $this->grants;
-
-    }//end getGrants()
+	/**
+	 * The unresolved grant entries, for structured logging and API bodies.
+	 *
+	 * @return array<int, string> The grants that matched no tool.
+	 *
+	 * @spec exclude Trivial exception-payload accessor; no behavioural spec.
+	 */
+	public function getGrants(): array {
+		return $this->grants;
+	}//end getGrants()
 }//end class

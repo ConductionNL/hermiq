@@ -36,81 +36,76 @@ use RuntimeException;
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
  */
-class ChatHealthControllerTest extends TestCase
-{
+class ChatHealthControllerTest extends TestCase {
 
-    /**
-     * Build the controller with the given LLM settings handler.
-     *
-     * @param LlmSettingsHandler $llmSettings The settings handler mock.
-     *
-     * @return ChatHealthController
-     */
-    private function controller(LlmSettingsHandler $llmSettings): ChatHealthController
-    {
-        return new ChatHealthController(
-            $this->createMock(IRequest::class),
-            $llmSettings,
-            $this->createMock(LoggerInterface::class)
-        );
+	/**
+	 * Build the controller with the given LLM settings handler.
+	 *
+	 * @param LlmSettingsHandler $llmSettings The settings handler mock.
+	 *
+	 * @return ChatHealthController
+	 */
+	private function controller(LlmSettingsHandler $llmSettings): ChatHealthController {
+		return new ChatHealthController(
+			$this->createMock(IRequest::class),
+			$llmSettings,
+			$this->createMock(LoggerInterface::class)
+		);
 
-    }//end controller()
+	}//end controller()
 
-    /**
-     * A configured chat provider yields 200 {status:ok, capabilities:[chat,stream]}.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-     */
-    public function testHealthOkWhenProviderConfigured(): void
-    {
-        $llmSettings = $this->createMock(LlmSettingsHandler::class);
-        $llmSettings->method('getLLMSettingsOnly')->willReturn(['chatProvider' => 'ollama']);
+	/**
+	 * A configured chat provider yields 200 {status:ok, capabilities:[chat,stream]}.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testHealthOkWhenProviderConfigured(): void {
+		$llmSettings = $this->createMock(LlmSettingsHandler::class);
+		$llmSettings->method('getLLMSettingsOnly')->willReturn(['chatProvider' => 'ollama']);
 
-        $response = $this->controller($llmSettings)->health();
+		$response = $this->controller($llmSettings)->health();
 
-        $this->assertSame(200, $response->getStatus());
-        $this->assertSame('ok', $response->getData()['status']);
-        $this->assertSame(['chat', 'stream'], $response->getData()['capabilities']);
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame('ok', $response->getData()['status']);
+		$this->assertSame(['chat', 'stream'], $response->getData()['capabilities']);
 
-    }//end testHealthOkWhenProviderConfigured()
+	}//end testHealthOkWhenProviderConfigured()
 
-    /**
-     * No configured chat provider yields 503 {status:no_provider}.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-     */
-    public function testHealthNoProviderWhenUnconfigured(): void
-    {
-        $llmSettings = $this->createMock(LlmSettingsHandler::class);
-        $llmSettings->method('getLLMSettingsOnly')->willReturn(['chatProvider' => null]);
+	/**
+	 * No configured chat provider yields 503 {status:no_provider}.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testHealthNoProviderWhenUnconfigured(): void {
+		$llmSettings = $this->createMock(LlmSettingsHandler::class);
+		$llmSettings->method('getLLMSettingsOnly')->willReturn(['chatProvider' => null]);
 
-        $response = $this->controller($llmSettings)->health();
+		$response = $this->controller($llmSettings)->health();
 
-        $this->assertSame(503, $response->getStatus());
-        $this->assertSame('no_provider', $response->getData()['status']);
+		$this->assertSame(503, $response->getStatus());
+		$this->assertSame('no_provider', $response->getData()['status']);
 
-    }//end testHealthNoProviderWhenUnconfigured()
+	}//end testHealthNoProviderWhenUnconfigured()
 
-    /**
-     * A failing config read yields 503 {status:config_error}, not no_provider.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-     */
-    public function testHealthConfigErrorWhenSettingsReadFails(): void
-    {
-        $llmSettings = $this->createMock(LlmSettingsHandler::class);
-        $llmSettings->method('getLLMSettingsOnly')->willThrowException(new RuntimeException('boom'));
+	/**
+	 * A failing config read yields 503 {status:config_error}, not no_provider.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	public function testHealthConfigErrorWhenSettingsReadFails(): void {
+		$llmSettings = $this->createMock(LlmSettingsHandler::class);
+		$llmSettings->method('getLLMSettingsOnly')->willThrowException(new RuntimeException('boom'));
 
-        $response = $this->controller($llmSettings)->health();
+		$response = $this->controller($llmSettings)->health();
 
-        $this->assertSame(503, $response->getStatus());
-        $this->assertSame('config_error', $response->getData()['status']);
+		$this->assertSame(503, $response->getStatus());
+		$this->assertSame('config_error', $response->getData()['status']);
 
-    }//end testHealthConfigErrorWhenSettingsReadFails()
+	}//end testHealthConfigErrorWhenSettingsReadFails()
 }//end class

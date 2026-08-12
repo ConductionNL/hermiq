@@ -42,150 +42,138 @@ use RuntimeException;
  *
  * @spec openspec/specs/agent-memory/spec.md#requirement-per-tenant-memory-scoping
  */
-class AgentAccessServiceTest extends TestCase
-{
+class AgentAccessServiceTest extends TestCase {
 
-    /**
-     * An Agent ObjectEntity.
-     *
-     * @param string             $owner        The owning uid.
-     * @param bool|null          $isPrivate    The privacy flag (null = unset).
-     * @param array<int, string> $invitedUsers Explicitly invited uids.
-     *
-     * @return ObjectEntity
-     */
-    private function agent(string $owner, ?bool $isPrivate=true, array $invitedUsers=[]): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('agent-1');
-        $entity->setOwner($owner);
-        $entity->setObject(['isPrivate' => $isPrivate, 'invitedUsers' => $invitedUsers]);
-        return $entity;
+	/**
+	 * An Agent ObjectEntity.
+	 *
+	 * @param string $owner The owning uid.
+	 * @param bool|null $isPrivate The privacy flag (null = unset).
+	 * @param array<int, string> $invitedUsers Explicitly invited uids.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function agent(string $owner, ?bool $isPrivate = true, array $invitedUsers = []): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('agent-1');
+		$entity->setOwner($owner);
+		$entity->setObject(['isPrivate' => $isPrivate, 'invitedUsers' => $invitedUsers]);
+		return $entity;
+	}//end agent()
 
-    }//end agent()
+	/**
+	 * The service over an ObjectService that resolves to $agent (or throws).
+	 *
+	 * @param ObjectEntity|null $agent The agent the lookup resolves to.
+	 * @param bool $throws Whether the lookup throws instead.
+	 *
+	 * @return AgentAccessService
+	 */
+	private function service(?ObjectEntity $agent, bool $throws = false): AgentAccessService {
+		$objectService = $this->createMock(ObjectService::class);
+		if ($throws === true) {
+			$objectService->method('find')->willThrowException(new RuntimeException('not found'));
+		} else {
+			$objectService->method('find')->willReturn($agent);
+		}
 
-    /**
-     * The service over an ObjectService that resolves to $agent (or throws).
-     *
-     * @param ObjectEntity|null $agent  The agent the lookup resolves to.
-     * @param bool              $throws Whether the lookup throws instead.
-     *
-     * @return AgentAccessService
-     */
-    private function service(?ObjectEntity $agent, bool $throws=false): AgentAccessService
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        if ($throws === true) {
-            $objectService->method('find')->willThrowException(new RuntimeException('not found'));
-        } else {
-            $objectService->method('find')->willReturn($agent);
-        }
+		return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+	}//end service()
 
-        return new AgentAccessService($objectService, $this->createMock(LoggerInterface::class));
+	/**
+	 * The owner may read and modify their own private agent.
+	 *
+	 * @return void
+	 */
+	public function testOwnerMayReadAndModify(): void {
+		$service = $this->service($this->agent('alice'));
 
-    }//end service()
+		$this->assertNotNull($service->loadAccessibleAgent('agent-1', 'alice'));
+		$this->assertNotNull($service->loadModifiableAgent('agent-1', 'alice'));
 
-    /**
-     * The owner may read and modify their own private agent.
-     *
-     * @return void
-     */
-    public function testOwnerMayReadAndModify(): void
-    {
-        $service = $this->service($this->agent('alice'));
+	}//end testOwnerMayReadAndModify()
 
-        $this->assertNotNull($service->loadAccessibleAgent('agent-1', 'alice'));
-        $this->assertNotNull($service->loadModifiableAgent('agent-1', 'alice'));
+	/**
+	 * A stranger may neither read nor modify a PRIVATE agent.
+	 *
+	 * @return void
+	 */
+	public function testStrangerMayNotReachAPrivateAgent(): void {
+		$service = $this->service($this->agent('alice'));
 
-    }//end testOwnerMayReadAndModify()
+		$this->assertNull($service->loadAccessibleAgent('agent-1', 'mallory'));
+		$this->assertNull($service->loadModifiableAgent('agent-1', 'mallory'));
 
-    /**
-     * A stranger may neither read nor modify a PRIVATE agent.
-     *
-     * @return void
-     */
-    public function testStrangerMayNotReachAPrivateAgent(): void
-    {
-        $service = $this->service($this->agent('alice'));
+	}//end testStrangerMayNotReachAPrivateAgent()
 
-        $this->assertNull($service->loadAccessibleAgent('agent-1', 'mallory'));
-        $this->assertNull($service->loadModifiableAgent('agent-1', 'mallory'));
+	/**
+	 * An explicitly invited user may READ a private agent but NOT modify it.
+	 *
+	 * @return void
+	 */
+	public function testInvitedUserMayReadButNotModify(): void {
+		$service = $this->service($this->agent('alice', true, ['bob']));
 
-    }//end testStrangerMayNotReachAPrivateAgent()
+		$this->assertNotNull($service->loadAccessibleAgent('agent-1', 'bob'));
+		$this->assertNull($service->loadModifiableAgent('agent-1', 'bob'));
 
-    /**
-     * An explicitly invited user may READ a private agent but NOT modify it.
-     *
-     * @return void
-     */
-    public function testInvitedUserMayReadButNotModify(): void
-    {
-        $service = $this->service($this->agent('alice', true, ['bob']));
+	}//end testInvitedUserMayReadButNotModify()
 
-        $this->assertNotNull($service->loadAccessibleAgent('agent-1', 'bob'));
-        $this->assertNull($service->loadModifiableAgent('agent-1', 'bob'));
+	/**
+	 * A NON-private agent is readable across the organisation but still only
+	 * modifiable by its owner — this is the split the memory write routes rely
+	 * on, and getting it wrong in either direction is a finding.
+	 *
+	 * @return void
+	 */
+	public function testSharedAgentIsOrgReadableAndOwnerWritable(): void {
+		$service = $this->service($this->agent('alice', false));
 
-    }//end testInvitedUserMayReadButNotModify()
+		$this->assertNotNull($service->loadAccessibleAgent('agent-1', 'bob'));
+		$this->assertNull($service->loadModifiableAgent('agent-1', 'bob'));
+		$this->assertNotNull($service->loadModifiableAgent('agent-1', 'alice'));
 
-    /**
-     * A NON-private agent is readable across the organisation but still only
-     * modifiable by its owner — this is the split the memory write routes rely
-     * on, and getting it wrong in either direction is a finding.
-     *
-     * @return void
-     */
-    public function testSharedAgentIsOrgReadableAndOwnerWritable(): void
-    {
-        $service = $this->service($this->agent('alice', false));
+	}//end testSharedAgentIsOrgReadableAndOwnerWritable()
 
-        $this->assertNotNull($service->loadAccessibleAgent('agent-1', 'bob'));
-        $this->assertNull($service->loadModifiableAgent('agent-1', 'bob'));
-        $this->assertNotNull($service->loadModifiableAgent('agent-1', 'alice'));
+	/**
+	 * An agent with `isPrivate` UNSET behaves as non-private (OR's own default in
+	 * `AgentMapper::canUserAccessAgent()`), so legacy agents are not locked out.
+	 *
+	 * @return void
+	 */
+	public function testUnsetPrivacyIsTreatedAsShared(): void {
+		$service = $this->service($this->agent('alice', null));
 
-    }//end testSharedAgentIsOrgReadableAndOwnerWritable()
+		$this->assertNotNull($service->loadAccessibleAgent('agent-1', 'bob'));
 
-    /**
-     * An agent with `isPrivate` UNSET behaves as non-private (OR's own default in
-     * `AgentMapper::canUserAccessAgent()`), so legacy agents are not locked out.
-     *
-     * @return void
-     */
-    public function testUnsetPrivacyIsTreatedAsShared(): void
-    {
-        $service = $this->service($this->agent('alice', null));
+	}//end testUnsetPrivacyIsTreatedAsShared()
 
-        $this->assertNotNull($service->loadAccessibleAgent('agent-1', 'bob'));
+	/**
+	 * An empty uid never passes either check — an unauthenticated caller must not
+	 * be credited with access to a shared agent.
+	 *
+	 * @return void
+	 */
+	public function testEmptyUidNeverPasses(): void {
+		$service = $this->service($this->agent('', false));
 
-    }//end testUnsetPrivacyIsTreatedAsShared()
+		$this->assertNull($service->loadAccessibleAgent('agent-1', ''));
+		$this->assertNull($service->loadModifiableAgent('agent-1', ''));
 
-    /**
-     * An empty uid never passes either check — an unauthenticated caller must not
-     * be credited with access to a shared agent.
-     *
-     * @return void
-     */
-    public function testEmptyUidNeverPasses(): void
-    {
-        $service = $this->service($this->agent('', false));
+	}//end testEmptyUidNeverPasses()
 
-        $this->assertNull($service->loadAccessibleAgent('agent-1', ''));
-        $this->assertNull($service->loadModifiableAgent('agent-1', ''));
+	/**
+	 * An absent agent, an empty id, and a THROWING lookup all resolve to null —
+	 * `ObjectService::find()` documents `@throws Exception If the object is not
+	 * found`, and the guard runs outside its caller's try block (gate-49).
+	 *
+	 * @return void
+	 */
+	public function testMissingOrThrowingLookupResolvesToNull(): void {
+		$this->assertNull($this->service(null)->loadAccessibleAgent('agent-1', 'alice'));
+		$this->assertNull($this->service($this->agent('alice'))->loadAccessibleAgent('  ', 'alice'));
+		$this->assertNull($this->service(null, true)->loadAccessibleAgent('agent-1', 'alice'));
+		$this->assertNull($this->service(null, true)->loadModifiableAgent('agent-1', 'alice'));
 
-    }//end testEmptyUidNeverPasses()
-
-    /**
-     * An absent agent, an empty id, and a THROWING lookup all resolve to null —
-     * `ObjectService::find()` documents `@throws Exception If the object is not
-     * found`, and the guard runs outside its caller's try block (gate-49).
-     *
-     * @return void
-     */
-    public function testMissingOrThrowingLookupResolvesToNull(): void
-    {
-        $this->assertNull($this->service(null)->loadAccessibleAgent('agent-1', 'alice'));
-        $this->assertNull($this->service($this->agent('alice'))->loadAccessibleAgent('  ', 'alice'));
-        $this->assertNull($this->service(null, true)->loadAccessibleAgent('agent-1', 'alice'));
-        $this->assertNull($this->service(null, true)->loadModifiableAgent('agent-1', 'alice'));
-
-    }//end testMissingOrThrowingLookupResolvesToNull()
+	}//end testMissingOrThrowingLookupResolvesToNull()
 }//end class

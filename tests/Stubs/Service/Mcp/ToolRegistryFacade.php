@@ -32,46 +32,42 @@ namespace OCA\OpenRegister\Service\Mcp;
 /**
  * Minimal ToolRegistryFacade stub for standalone unit runs.
  */
-class ToolRegistryFacade
-{
+class ToolRegistryFacade {
 
-    /**
-     * List every callable function descriptor known to the tool registry.
-     *
-     * @param array<int,string> $toolWhitelist Optional whitelist of registry ids
-     *                                         ({appId}.{toolName}). Empty = all.
-     *
-     * @return array<int,array<string,mixed>> Flattened LLPhant function descriptors.
-     */
-    public function listTools(array $toolWhitelist=[]): array
-    {
-        return [];
-    }//end listTools()
+	/**
+	 * List every callable function descriptor known to the tool registry.
+	 *
+	 * @param array<int,string> $toolWhitelist Optional whitelist of registry ids
+	 *                                         ({appId}.{toolName}). Empty = all.
+	 *
+	 * @return array<int,array<string,mixed>> Flattened LLPhant function descriptors.
+	 */
+	public function listTools(array $toolWhitelist = []): array {
+		return [];
+	}//end listTools()
 
-    /**
-     * Describe every callable function for a human-facing picker.
-     *
-     * @return array<int,array{name: string, description: string, app: string, tool: string, group: string, right: string}>
-     *         One entry per callable function.
-     */
-    public function describeTools(): array
-    {
-        return [];
-    }//end describeTools()
+	/**
+	 * Describe every callable function for a human-facing picker.
+	 *
+	 * @return array<int,array{name: string, description: string, app: string, tool: string, group: string, right: string}>
+	 *                                                                                                                      One entry per callable function.
+	 */
+	public function describeTools(): array {
+		return [];
+	}//end describeTools()
 
-    /**
-     * Invoke a tool function by its descriptor name or dotted mcpId.
-     *
-     * @param string              $toolId    Function name or dotted mcpId.
-     * @param array<string,mixed> $arguments Decoded arguments object.
-     *
-     * @return array{result: array<string,mixed>, isError: bool} Result envelope.
-     */
-    public function invokeTool(string $toolId, array $arguments): array
-    {
-        return [
-            'result'  => [],
-            'isError' => false,
-        ];
-    }//end invokeTool()
+	/**
+	 * Invoke a tool function by its descriptor name or dotted mcpId.
+	 *
+	 * @param string $toolId Function name or dotted mcpId.
+	 * @param array<string,mixed> $arguments Decoded arguments object.
+	 *
+	 * @return array{result: array<string,mixed>, isError: bool} Result envelope.
+	 */
+	public function invokeTool(string $toolId, array $arguments): array {
+		return [
+			'result' => [],
+			'isError' => false,
+		];
+	}//end invokeTool()
 }//end class

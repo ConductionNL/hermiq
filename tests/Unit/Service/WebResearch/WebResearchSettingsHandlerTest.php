@@ -32,169 +32,161 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
  */
-class WebResearchSettingsHandlerTest extends TestCase
-{
+class WebResearchSettingsHandlerTest extends TestCase {
 
-    /**
-     * An IAppConfig mock whose `hermiq.webResearch` value is the given string and
-     * whose writes are captured into $written.
-     *
-     * @param string      $stored  The stored JSON (empty = unset).
-     * @param string|null $written Out-param: the last written value.
-     *
-     * @return IAppConfig
-     */
-    private function appConfig(string $stored, ?string &$written=null): IAppConfig
-    {
-        $config = $this->createMock(IAppConfig::class);
-        $config->method('getValueString')->willReturnCallback(
-            function (string $app, string $key, string $default='') use ($stored): string {
-                $this->assertSame('hermiq', $app);
-                $this->assertSame('webResearch', $key);
-                if ($stored === '') {
-                    return $default;
-                }
+	/**
+	 * An IAppConfig mock whose `hermiq.webResearch` value is the given string and
+	 * whose writes are captured into $written.
+	 *
+	 * @param string $stored The stored JSON (empty = unset).
+	 * @param string|null $written Out-param: the last written value.
+	 *
+	 * @return IAppConfig
+	 */
+	private function appConfig(string $stored, ?string &$written = null): IAppConfig {
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturnCallback(
+			function (string $app, string $key, string $default = '') use ($stored): string {
+				$this->assertSame('hermiq', $app);
+				$this->assertSame('webResearch', $key);
+				if ($stored === '') {
+					return $default;
+				}
 
-                return $stored;
-            }
-        );
-        $config->method('setValueString')->willReturnCallback(
-            function (string $app, string $key, string $value) use (&$written): bool {
-                $this->assertSame('hermiq', $app);
-                $this->assertSame('webResearch', $key);
-                $written = $value;
-                return true;
-            }
-        );
+				return $stored;
+			}
+		);
+		$config->method('setValueString')->willReturnCallback(
+			function (string $app, string $key, string $value) use (&$written): bool {
+				$this->assertSame('hermiq', $app);
+				$this->assertSame('webResearch', $key);
+				$written = $value;
+				return true;
+			}
+		);
 
-        return $config;
+		return $config;
+	}//end appConfig()
 
-    }//end appConfig()
+	/**
+	 * An unset key returns the full default configuration shape (design.md
+	 * "Configuration Shape").
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+	 */
+	public function testDefaultsWhenUnset(): void {
+		$handler = new WebResearchSettingsHandler($this->appConfig(''));
+		$settings = $handler->getWebResearchSettingsOnly();
 
-    /**
-     * An unset key returns the full default configuration shape (design.md
-     * "Configuration Shape").
-     *
-     * @return void
-     *
-     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
-     */
-    public function testDefaultsWhenUnset(): void
-    {
-        $handler  = new WebResearchSettingsHandler($this->appConfig(''));
-        $settings = $handler->getWebResearchSettingsOnly();
+		$this->assertSame('', $settings['searchProvider']);
+		$this->assertSame('', $settings['searchEndpoint']);
+		$this->assertSame('', $settings['searchCredentialId']);
+		$this->assertSame([], $settings['fetchAllowlist']);
+		$this->assertSame([], $settings['fetchDenylist']);
+		$this->assertFalse($settings['allowInsecureHttp']);
+		$this->assertSame(500000, $settings['maxResponseBytes']);
+		$this->assertSame(10, $settings['timeoutSeconds']);
+		$this->assertSame('results', $settings['searchFieldMapping']['resultsPath']);
+		$this->assertSame('title', $settings['searchFieldMapping']['titleField']);
+		$this->assertSame('url', $settings['searchFieldMapping']['urlField']);
+		$this->assertSame('content', $settings['searchFieldMapping']['snippetField']);
 
-        $this->assertSame('', $settings['searchProvider']);
-        $this->assertSame('', $settings['searchEndpoint']);
-        $this->assertSame('', $settings['searchCredentialId']);
-        $this->assertSame([], $settings['fetchAllowlist']);
-        $this->assertSame([], $settings['fetchDenylist']);
-        $this->assertFalse($settings['allowInsecureHttp']);
-        $this->assertSame(500000, $settings['maxResponseBytes']);
-        $this->assertSame(10, $settings['timeoutSeconds']);
-        $this->assertSame('results', $settings['searchFieldMapping']['resultsPath']);
-        $this->assertSame('title', $settings['searchFieldMapping']['titleField']);
-        $this->assertSame('url', $settings['searchFieldMapping']['urlField']);
-        $this->assertSame('content', $settings['searchFieldMapping']['snippetField']);
+	}//end testDefaultsWhenUnset()
 
-    }//end testDefaultsWhenUnset()
+	/**
+	 * A stored config missing newer fields gets them backfilled (forward
+	 * compatibility).
+	 *
+	 * @return void
+	 */
+	public function testBackfillsMissingFieldsOnDecode(): void {
+		$stored = json_encode(['searchProvider' => 'searxng', 'searchEndpoint' => 'https://searxng.internal']);
 
-    /**
-     * A stored config missing newer fields gets them backfilled (forward
-     * compatibility).
-     *
-     * @return void
-     */
-    public function testBackfillsMissingFieldsOnDecode(): void
-    {
-        $stored = json_encode(['searchProvider' => 'searxng', 'searchEndpoint' => 'https://searxng.internal']);
+		$handler = new WebResearchSettingsHandler($this->appConfig((string)$stored));
+		$settings = $handler->getWebResearchSettingsOnly();
 
-        $handler  = new WebResearchSettingsHandler($this->appConfig((string) $stored));
-        $settings = $handler->getWebResearchSettingsOnly();
+		$this->assertSame('searxng', $settings['searchProvider']);
+		$this->assertSame(500000, $settings['maxResponseBytes']);
+		$this->assertSame(10, $settings['timeoutSeconds']);
+		$this->assertSame([], $settings['fetchAllowlist']);
 
-        $this->assertSame('searxng', $settings['searchProvider']);
-        $this->assertSame(500000, $settings['maxResponseBytes']);
-        $this->assertSame(10, $settings['timeoutSeconds']);
-        $this->assertSame([], $settings['fetchAllowlist']);
+	}//end testBackfillsMissingFieldsOnDecode()
 
-    }//end testBackfillsMissingFieldsOnDecode()
+	/**
+	 * A partial patch (only `fetchAllowlist`) preserves every other existing field,
+	 * INCLUDING `searchCredentialId` (Task 1 acceptance criterion).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
+	 */
+	public function testPartialPatchPreservesOtherFields(): void {
+		$stored = json_encode(
+			[
+				'searchProvider' => 'generic-json',
+				'searchEndpoint' => 'https://api.example.test',
+				'searchCredentialId' => 'cred-uuid-search',
+				'fetchAllowlist' => [],
+				'fetchDenylist' => [],
+				'allowInsecureHttp' => false,
+				'maxResponseBytes' => 500000,
+				'timeoutSeconds' => 10,
+			]
+		);
 
-    /**
-     * A partial patch (only `fetchAllowlist`) preserves every other existing field,
-     * INCLUDING `searchCredentialId` (Task 1 acceptance criterion).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/web-research-tool/spec.md#requirement-pluggable-admin-configured-search-backend
-     */
-    public function testPartialPatchPreservesOtherFields(): void
-    {
-        $stored = json_encode(
-            [
-                'searchProvider'     => 'generic-json',
-                'searchEndpoint'     => 'https://api.example.test',
-                'searchCredentialId' => 'cred-uuid-search',
-                'fetchAllowlist'     => [],
-                'fetchDenylist'      => [],
-                'allowInsecureHttp'  => false,
-                'maxResponseBytes'   => 500000,
-                'timeoutSeconds'     => 10,
-            ]
-        );
+		$written = null;
+		$handler = new WebResearchSettingsHandler($this->appConfig((string)$stored, $written));
+		$result = $handler->updateWebResearchSettingsOnly(['fetchAllowlist' => ['en.wikipedia.org']]);
 
-        $written = null;
-        $handler = new WebResearchSettingsHandler($this->appConfig((string) $stored, $written));
-        $result  = $handler->updateWebResearchSettingsOnly(['fetchAllowlist' => ['en.wikipedia.org']]);
+		$this->assertSame(['en.wikipedia.org'], $result['fetchAllowlist']);
+		// Everything else survives untouched.
+		$this->assertSame('generic-json', $result['searchProvider']);
+		$this->assertSame('https://api.example.test', $result['searchEndpoint']);
+		$this->assertSame('cred-uuid-search', $result['searchCredentialId']);
 
-        $this->assertSame(['en.wikipedia.org'], $result['fetchAllowlist']);
-        // Everything else survives untouched.
-        $this->assertSame('generic-json', $result['searchProvider']);
-        $this->assertSame('https://api.example.test', $result['searchEndpoint']);
-        $this->assertSame('cred-uuid-search', $result['searchCredentialId']);
+		$this->assertNotNull($written);
+		$persisted = json_decode((string)$written, true);
+		$this->assertSame(['en.wikipedia.org'], $persisted['fetchAllowlist']);
+		$this->assertSame('cred-uuid-search', $persisted['searchCredentialId']);
 
-        $this->assertNotNull($written);
-        $persisted = json_decode((string) $written, true);
-        $this->assertSame(['en.wikipedia.org'], $persisted['fetchAllowlist']);
-        $this->assertSame('cred-uuid-search', $persisted['searchCredentialId']);
+	}//end testPartialPatchPreservesOtherFields()
 
-    }//end testPartialPatchPreservesOtherFields()
+	/**
+	 * The `searchFieldMapping` sub-object merges field-by-field, like `openaiConfig`
+	 * does for `LlmSettingsHandler`.
+	 *
+	 * @return void
+	 */
+	public function testFieldMappingMergesIndividualFields(): void {
+		$stored = json_encode(
+			[
+				'searchFieldMapping' => [
+					'resultsPath' => 'data.items',
+					'titleField' => 'headline',
+					'urlField' => 'link',
+					'snippetField' => 'summary',
+				],
+			]
+		);
 
-    /**
-     * The `searchFieldMapping` sub-object merges field-by-field, like `openaiConfig`
-     * does for `LlmSettingsHandler`.
-     *
-     * @return void
-     */
-    public function testFieldMappingMergesIndividualFields(): void
-    {
-        $stored = json_encode(
-            [
-                'searchFieldMapping' => [
-                    'resultsPath'  => 'data.items',
-                    'titleField'   => 'headline',
-                    'urlField'     => 'link',
-                    'snippetField' => 'summary',
-                ],
-            ]
-        );
+		$handler = new WebResearchSettingsHandler($this->appConfig((string)$stored));
+		$result = $handler->updateWebResearchSettingsOnly(['searchFieldMapping' => ['titleField' => 'title2']]);
 
-        $handler = new WebResearchSettingsHandler($this->appConfig((string) $stored));
-        $result  = $handler->updateWebResearchSettingsOnly(['searchFieldMapping' => ['titleField' => 'title2']]);
+		$this->assertSame('title2', $result['searchFieldMapping']['titleField']);
+		$this->assertSame('data.items', $result['searchFieldMapping']['resultsPath']);
+		$this->assertSame('link', $result['searchFieldMapping']['urlField']);
 
-        $this->assertSame('title2', $result['searchFieldMapping']['titleField']);
-        $this->assertSame('data.items', $result['searchFieldMapping']['resultsPath']);
-        $this->assertSame('link', $result['searchFieldMapping']['urlField']);
+	}//end testFieldMappingMergesIndividualFields()
 
-    }//end testFieldMappingMergesIndividualFields()
+	/**
+	 * The allowed search-provider list carries the three valid values.
+	 *
+	 * @return void
+	 */
+	public function testAllowedSearchProviders(): void {
+		$this->assertSame(['', 'searxng', 'generic-json'], WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS);
 
-    /**
-     * The allowed search-provider list carries the three valid values.
-     *
-     * @return void
-     */
-    public function testAllowedSearchProviders(): void
-    {
-        $this->assertSame(['', 'searxng', 'generic-json'], WebResearchSettingsHandler::ALLOWED_SEARCH_PROVIDERS);
-
-    }//end testAllowedSearchProviders()
+	}//end testAllowedSearchProviders()
 }//end class

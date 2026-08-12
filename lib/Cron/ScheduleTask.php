@@ -42,54 +42,52 @@ use OCP\BackgroundJob\TimedJob;
  *
  * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#2-scheduletask-timedjob-wrapper
  */
-class ScheduleTask extends TimedJob
-{
-    /**
-     * Constructor.
-     *
-     * Configures the polling cadence and delegates execution to the service.
-     *
-     * @param ITimeFactory    $time            Time factory for TimedJob scheduling.
-     * @param ScheduleService $scheduleService Service that dispatches due schedules.
-     *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
-     */
-    public function __construct(
-        ITimeFactory $time,
-        private readonly ScheduleService $scheduleService,
-    ) {
-        parent::__construct(time: $time);
+class ScheduleTask extends TimedJob {
+	/**
+	 * Constructor.
+	 *
+	 * Configures the polling cadence and delegates execution to the service.
+	 *
+	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
+	 * @param ScheduleService $scheduleService Service that dispatches due schedules.
+	 *
+	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
+	 */
+	public function __construct(
+		ITimeFactory $time,
+		private readonly ScheduleService $scheduleService,
+	) {
+		parent::__construct(time: $time);
 
-        // Poll every 5 minutes — cron granularity is capped by this cadence
-        // and the system-cron poll interval (ADR-002).
-        $this->setInterval(seconds: 300);
+		// Poll every 5 minutes — cron granularity is capped by this cadence
+		// and the system-cron poll interval (ADR-002).
+		$this->setInterval(seconds: 300);
 
-        // Honour the schedule's declared cron/interval timing.
-        $this->setTimeSensitivity(sensitivity: IJob::TIME_SENSITIVE);
+		// Honour the schedule's declared cron/interval timing.
+		$this->setTimeSensitivity(sensitivity: IJob::TIME_SENSITIVE);
 
-        // At-most-once safety: never run two dispatch ticks concurrently.
-        $this->setAllowParallelRuns(allow: false);
+		// At-most-once safety: never run two dispatch ticks concurrently.
+		$this->setAllowParallelRuns(allow: false);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * Execute one dispatch tick.
-     *
-     * Delegates all business logic to ScheduleService::run(); the argument is
-     * unused because the job polls every due schedule per tick rather than
-     * carrying per-schedule state.
-     *
-     * @param mixed $argument The (unused) background-job argument.
-     *
-     * @return void
-     *
-     * @phpstan-param mixed $argument
-     *
-     * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
-     */
-    public function run(mixed $argument): void
-    {
-        $this->scheduleService->run();
+	/**
+	 * Execute one dispatch tick.
+	 *
+	 * Delegates all business logic to ScheduleService::run(); the argument is
+	 * unused because the job polls every due schedule per tick rather than
+	 * carrying per-schedule state.
+	 *
+	 * @param mixed $argument The (unused) background-job argument.
+	 *
+	 * @return void
+	 *
+	 * @phpstan-param mixed $argument
+	 *
+	 * @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-2-2
+	 */
+	public function run(mixed $argument): void {
+		$this->scheduleService->run();
 
-    }//end run()
+	}//end run()
 }//end class

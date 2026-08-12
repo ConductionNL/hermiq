@@ -34,406 +34,388 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
  */
-class SkillBundleSerializerTest extends TestCase
-{
+class SkillBundleSerializerTest extends TestCase {
 
-    /**
-     * A real (not mocked) bundle serialiser — the whole point of this class is the
-     * composition with SkillSerializer, which mocking would hide.
-     *
-     * @return SkillBundleSerializer
-     */
-    private function serializer(): SkillBundleSerializer
-    {
-        return new SkillBundleSerializer(new SkillSerializer());
+	/**
+	 * A real (not mocked) bundle serialiser — the whole point of this class is the
+	 * composition with SkillSerializer, which mocking would hide.
+	 *
+	 * @return SkillBundleSerializer
+	 */
+	private function serializer(): SkillBundleSerializer {
+		return new SkillBundleSerializer(new SkillSerializer());
+	}//end serializer()
 
-    }//end serializer()
+	/**
+	 * A namespaced name reaches the bundle instead of being dropped.
+	 *
+	 * `intelligence:update` follows the `/namespace:command` convention, and the
+	 * colon only ever mattered to a DIRECTORY name — the skill keeps calling
+	 * itself whatever its frontmatter says, and fromBundle() records the folder
+	 * separately as bundleName. Dropping the whole skill over it lost real work.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	public function testANamespacedNameIsFoldedIntoASafeDirectoryRatherThanDropped(): void {
+		$dropped = null;
+		$bundle = $this->serializer()->toBundle(
+			skills: [
+				[
+					'name' => 'intelligence:update',
+					'frontmatter' => 'name: intelligence:update',
+					'body' => "Pull the latest data.\n",
+					'files' => [],
+				],
+			],
+			dropped: $dropped
+		);
 
-    /**
-     * A namespaced name reaches the bundle instead of being dropped.
-     *
-     * `intelligence:update` follows the `/namespace:command` convention, and the
-     * colon only ever mattered to a DIRECTORY name — the skill keeps calling
-     * itself whatever its frontmatter says, and fromBundle() records the folder
-     * separately as bundleName. Dropping the whole skill over it lost real work.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-     */
-    public function testANamespacedNameIsFoldedIntoASafeDirectoryRatherThanDropped(): void
-    {
-        $dropped = null;
-        $bundle  = $this->serializer()->toBundle(
-            skills: [
-                [
-                    'name'        => 'intelligence:update',
-                    'frontmatter' => 'name: intelligence:update',
-                    'body'        => "Pull the latest data.\n",
-                    'files'       => [],
-                ],
-            ],
-            dropped: $dropped
-        );
+		self::assertSame([], (array)$dropped, 'a colon must not cost the whole skill');
+		self::assertArrayHasKey('skills/intelligence-update/SKILL.md', $bundle);
+		// The skill keeps its own name; only the folder was made safe.
+		self::assertStringContainsString('intelligence:update', $bundle['skills/intelligence-update/SKILL.md']);
 
-        self::assertSame([], (array) $dropped, 'a colon must not cost the whole skill');
-        self::assertArrayHasKey('skills/intelligence-update/SKILL.md', $bundle);
-        // The skill keeps its own name; only the folder was made safe.
-        self::assertStringContainsString('intelligence:update', $bundle['skills/intelligence-update/SKILL.md']);
+	}//end testANamespacedNameIsFoldedIntoASafeDirectoryRatherThanDropped()
 
-    }//end testANamespacedNameIsFoldedIntoASafeDirectoryRatherThanDropped()
+	/**
+	 * Traversal characters cannot survive into a path.
+	 *
+	 * The original code rejected these outright; sanitising must keep the SAME
+	 * guarantee rather than trade it for convenience.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	public function testTraversalCharactersCannotReachAPath(): void {
+		$dropped = null;
+		$bundle = $this->serializer()->toBundle(
+			skills: [
+				[
+					'name' => '../../etc/passwd',
+					'frontmatter' => 'name: evil',
+					'body' => "x\n",
+					'files' => [],
+				],
+			],
+			dropped: $dropped
+		);
 
+		// A path is not a name: rejected outright rather than laundered into a
+		// tidy `etc` folder, which would accept a hostile value under a clean name.
+		self::assertCount(1, (array)$dropped);
+		self::assertSame('invalid_name', ((array)$dropped)[0]['reason']);
 
-    /**
-     * Traversal characters cannot survive into a path.
-     *
-     * The original code rejected these outright; sanitising must keep the SAME
-     * guarantee rather than trade it for convenience.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-     */
-    public function testTraversalCharactersCannotReachAPath(): void
-    {
-        $dropped = null;
-        $bundle  = $this->serializer()->toBundle(
-            skills: [
-                [
-                    'name'        => '../../etc/passwd',
-                    'frontmatter' => 'name: evil',
-                    'body'        => "x\n",
-                    'files'       => [],
-                ],
-            ],
-            dropped: $dropped
-        );
+		foreach (array_keys($bundle) as $path) {
+			self::assertStringNotContainsString('..', (string)$path);
+		}
 
-        // A path is not a name: rejected outright rather than laundered into a
-        // tidy `etc` folder, which would accept a hostile value under a clean name.
-        self::assertCount(1, (array) $dropped);
-        self::assertSame('invalid_name', ((array) $dropped)[0]['reason']);
+	}//end testTraversalCharactersCannotReachAPath()
 
-        foreach (array_keys($bundle) as $path) {
-            self::assertStringNotContainsString('..', (string) $path);
-        }
+	/**
+	 * Two names folding onto one directory is reported, never silently merged.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	public function testACollidingDirectoryNameIsReportedNotOverwritten(): void {
+		$dropped = null;
+		$bundle = $this->serializer()->toBundle(
+			skills: [
+				['name' => 'intelligence:update', 'frontmatter' => 'name: a', 'body' => "a\n", 'files' => []],
+				['name' => 'intelligence-update', 'frontmatter' => 'name: b', 'body' => "b\n", 'files' => []],
+			],
+			dropped: $dropped
+		);
 
-    }//end testTraversalCharactersCannotReachAPath()
+		self::assertCount(1, (array)$dropped);
+		self::assertSame('duplicate_directory_name', ((array)$dropped)[0]['reason']);
+		self::assertStringContainsString('a', $bundle['skills/intelligence-update/SKILL.md']);
 
+	}//end testACollidingDirectoryNameIsReportedNotOverwritten()
 
-    /**
-     * Two names folding onto one directory is reported, never silently merged.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-     */
-    public function testACollidingDirectoryNameIsReportedNotOverwritten(): void
-    {
-        $dropped = null;
-        $bundle  = $this->serializer()->toBundle(
-            skills: [
-                ['name' => 'intelligence:update', 'frontmatter' => 'name: a', 'body' => "a\n", 'files' => []],
-                ['name' => 'intelligence-update', 'frontmatter' => 'name: b', 'body' => "b\n", 'files' => []],
-            ],
-            dropped: $dropped
-        );
+	/**
+	 * Three skills, one multi-file, round-trip through the bundle byte-identically.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	public function testBundleRoundTripsEverySkill(): void {
+		$serializer = $this->serializer();
 
-        self::assertCount(1, (array) $dropped);
-        self::assertSame('duplicate_directory_name', ((array) $dropped)[0]['reason']);
-        self::assertStringContainsString('a', $bundle['skills/intelligence-update/SKILL.md']);
+		$skills = [
+			[
+				'name' => 'create-pr',
+				'frontmatter' => "name: create-pr\ndescription: Open a PR",
+				'body' => "Follow references/local-checks.md\n",
+				'files' => [
+					['name' => 'references/local-checks.md', 'content' => "1. composer check:strict\n"],
+					['name' => 'learnings.md', 'content' => "- vetted\n"],
+				],
+			],
+			[
+				'name' => 'clean-env',
+				'frontmatter' => 'name: clean-env',
+				'body' => "Reset the environment.\n",
+				'files' => [],
+			],
+			[
+				'name' => 'blog-write',
+				'frontmatter' => 'name: blog-write',
+				'body' => "Write a post.\n",
+				'files' => [['name' => 'assets/blog-template.mdx', 'content' => "# Title\n"]],
+			],
+		];
 
-    }//end testACollidingDirectoryNameIsReportedNotOverwritten()
+		$bundle = $serializer->toBundle(skills: $skills);
 
+		$this->assertArrayHasKey(SkillBundleSerializer::MANIFEST_FILE, $bundle);
+		$this->assertArrayHasKey('skills/create-pr/SKILL.md', $bundle);
+		$this->assertArrayHasKey('skills/create-pr/references/local-checks.md', $bundle);
+		$this->assertArrayHasKey('skills/blog-write/assets/blog-template.mdx', $bundle);
 
-    /**
-     * Three skills, one multi-file, round-trip through the bundle byte-identically.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-     */
-    public function testBundleRoundTripsEverySkill(): void
-    {
-        $serializer = $this->serializer();
+		$parsed = $serializer->fromBundle(files: $bundle);
+		$this->assertCount(3, $parsed);
 
-        $skills = [
-            [
-                'name'        => 'create-pr',
-                'frontmatter' => "name: create-pr\ndescription: Open a PR",
-                'body'        => "Follow references/local-checks.md\n",
-                'files'       => [
-                    ['name' => 'references/local-checks.md', 'content' => "1. composer check:strict\n"],
-                    ['name' => 'learnings.md', 'content' => "- vetted\n"],
-                ],
-            ],
-            [
-                'name'        => 'clean-env',
-                'frontmatter' => 'name: clean-env',
-                'body'        => "Reset the environment.\n",
-                'files'       => [],
-            ],
-            [
-                'name'        => 'blog-write',
-                'frontmatter' => 'name: blog-write',
-                'body'        => "Write a post.\n",
-                'files'       => [['name' => 'assets/blog-template.mdx', 'content' => "# Title\n"]],
-            ],
-        ];
+		$byName = [];
+		foreach ($parsed as $skill) {
+			$byName[$skill['bundleName']] = $skill;
+		}
 
-        $bundle = $serializer->toBundle(skills: $skills);
+		$this->assertSame("Follow references/local-checks.md\n", $byName['create-pr']['body']);
+		$this->assertSame("name: create-pr\ndescription: Open a PR", $byName['create-pr']['frontmatter']);
+		$this->assertCount(2, $byName['create-pr']['files']);
+		$this->assertSame([], $byName['clean-env']['files']);
+		$this->assertCount(1, $byName['blog-write']['files']);
 
-        $this->assertArrayHasKey(SkillBundleSerializer::MANIFEST_FILE, $bundle);
-        $this->assertArrayHasKey('skills/create-pr/SKILL.md', $bundle);
-        $this->assertArrayHasKey('skills/create-pr/references/local-checks.md', $bundle);
-        $this->assertArrayHasKey('skills/blog-write/assets/blog-template.mdx', $bundle);
+		$aux = array_column($byName['create-pr']['files'], 'content', 'name');
+		$this->assertSame("1. composer check:strict\n", $aux['references/local-checks.md']);
 
-        $parsed = $serializer->fromBundle(files: $bundle);
-        $this->assertCount(3, $parsed);
+	}//end testBundleRoundTripsEverySkill()
 
-        $byName = [];
-        foreach ($parsed as $skill) {
-            $byName[$skill['bundleName']] = $skill;
-        }
+	/**
+	 * The manifest is consumed as metadata and never surfaces as a skill.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	public function testManifestIsNeverParsedAsASkill(): void {
+		$serializer = $this->serializer();
+		$bundle = $serializer->toBundle(
+			skills: [['name' => 'solo', 'frontmatter' => 'name: solo', 'body' => "b\n", 'files' => []]]
+		);
 
-        $this->assertSame("Follow references/local-checks.md\n", $byName['create-pr']['body']);
-        $this->assertSame("name: create-pr\ndescription: Open a PR", $byName['create-pr']['frontmatter']);
-        $this->assertCount(2, $byName['create-pr']['files']);
-        $this->assertSame([], $byName['clean-env']['files']);
-        $this->assertCount(1, $byName['blog-write']['files']);
+		$parsed = $serializer->fromBundle(files: $bundle);
 
-        $aux = array_column($byName['create-pr']['files'], 'content', 'name');
-        $this->assertSame("1. composer check:strict\n", $aux['references/local-checks.md']);
+		$this->assertCount(1, $parsed);
+		$this->assertSame('solo', $parsed[0]['bundleName']);
 
-    }//end testBundleRoundTripsEverySkill()
+	}//end testManifestIsNeverParsedAsASkill()
 
-    /**
-     * The manifest is consumed as metadata and never surfaces as a skill.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-     */
-    public function testManifestIsNeverParsedAsASkill(): void
-    {
-        $serializer = $this->serializer();
-        $bundle     = $serializer->toBundle(
-            skills: [['name' => 'solo', 'frontmatter' => 'name: solo', 'body' => "b\n", 'files' => []]]
-        );
+	/**
+	 * A crafted manifest name never reaches a path concatenation.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+	 */
+	public function testCraftedManifestNameIsRejected(): void {
+		$serializer = $this->serializer();
 
-        $parsed = $serializer->fromBundle(files: $bundle);
+		$bundle = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode(
+				[
+					'formatVersion' => SkillBundleSerializer::FORMAT_VERSION,
+					'skills' => [
+						['name' => '../../etc'],
+						['name' => '/absolute'],
+						['name' => 'ok-skill'],
+					],
+				]
+			),
+			'skills/ok-skill/SKILL.md' => "---\nname: ok-skill\n---\nbody\n",
+			'skills/../../etc/SKILL.md' => 'escaped',
+		];
 
-        $this->assertCount(1, $parsed);
-        $this->assertSame('solo', $parsed[0]['bundleName']);
+		$parsed = $serializer->fromBundle(files: $bundle);
 
-    }//end testManifestIsNeverParsedAsASkill()
+		$this->assertCount(1, $parsed, 'Only the well-named skill survives.');
+		$this->assertSame('ok-skill', $parsed[0]['bundleName']);
 
-    /**
-     * A crafted manifest name never reaches a path concatenation.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
-     */
-    public function testCraftedManifestNameIsRejected(): void
-    {
-        $serializer = $this->serializer();
+	}//end testCraftedManifestNameIsRejected()
 
-        $bundle = [
-            SkillBundleSerializer::MANIFEST_FILE => json_encode(
-                [
-                    'formatVersion' => SkillBundleSerializer::FORMAT_VERSION,
-                    'skills'        => [
-                        ['name' => '../../etc'],
-                        ['name' => '/absolute'],
-                        ['name' => 'ok-skill'],
-                    ],
-                ]
-            ),
-            'skills/ok-skill/SKILL.md' => "---\nname: ok-skill\n---\nbody\n",
-            'skills/../../etc/SKILL.md' => 'escaped',
-        ];
+	/**
+	 * An auxiliary entry that escapes its own prefix is dropped, not relocated.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+	 */
+	public function testEntryEscapingItsPrefixIsDropped(): void {
+		$serializer = $this->serializer();
 
-        $parsed = $serializer->fromBundle(files: $bundle);
+		$bundle = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode(
+				['formatVersion' => SkillBundleSerializer::FORMAT_VERSION, 'skills' => [['name' => 'demo']]]
+			),
+			'skills/demo/SKILL.md' => "---\nname: demo\n---\nbody\n",
+			'skills/demo/references/ok.md' => "safe\n",
+			'skills/demo/../../escape.md' => 'escaped',
+			'skills/demo//double.md' => 'empty segment',
+		];
 
-        $this->assertCount(1, $parsed, 'Only the well-named skill survives.');
-        $this->assertSame('ok-skill', $parsed[0]['bundleName']);
+		$parsed = $serializer->fromBundle(files: $bundle);
 
-    }//end testCraftedManifestNameIsRejected()
+		$this->assertCount(1, $parsed);
+		$names = array_column($parsed[0]['files'], 'name');
+		$this->assertSame(['references/ok.md'], $names);
 
-    /**
-     * An auxiliary entry that escapes its own prefix is dropped, not relocated.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
-     */
-    public function testEntryEscapingItsPrefixIsDropped(): void
-    {
-        $serializer = $this->serializer();
+	}//end testEntryEscapingItsPrefixIsDropped()
 
-        $bundle = [
-            SkillBundleSerializer::MANIFEST_FILE => json_encode(
-                ['formatVersion' => SkillBundleSerializer::FORMAT_VERSION, 'skills' => [['name' => 'demo']]]
-            ),
-            'skills/demo/SKILL.md'          => "---\nname: demo\n---\nbody\n",
-            'skills/demo/references/ok.md'  => "safe\n",
-            'skills/demo/../../escape.md'   => 'escaped',
-            'skills/demo//double.md'        => 'empty segment',
-        ];
+	/**
+	 * A skill declared in the manifest but missing its SKILL.md is skipped rather
+	 * than producing an empty-bodied skill.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+	 */
+	public function testDeclaredSkillWithoutSkillFileIsSkipped(): void {
+		$serializer = $this->serializer();
 
-        $parsed = $serializer->fromBundle(files: $bundle);
+		$parsed = $serializer->fromBundle(
+			files: [
+				SkillBundleSerializer::MANIFEST_FILE => json_encode(
+					['formatVersion' => SkillBundleSerializer::FORMAT_VERSION, 'skills' => [['name' => 'ghost']]]
+				),
+				'skills/ghost/references/only.md' => 'orphan',
+			]
+		);
 
-        $this->assertCount(1, $parsed);
-        $names = array_column($parsed[0]['files'], 'name');
-        $this->assertSame(['references/ok.md'], $names);
+		$this->assertSame([], $parsed);
 
-    }//end testEntryEscapingItsPrefixIsDropped()
+	}//end testDeclaredSkillWithoutSkillFileIsSkipped()
 
-    /**
-     * A skill declared in the manifest but missing its SKILL.md is skipped rather
-     * than producing an empty-bodied skill.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
-     */
-    public function testDeclaredSkillWithoutSkillFileIsSkipped(): void
-    {
-        $serializer = $this->serializer();
+	/**
+	 * A repository without a manifest is NOT a bundle, and an unsupported major
+	 * version refuses rather than half-parsing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	public function testNonBundleAndUnsupportedVersionRefuse(): void {
+		$serializer = $this->serializer();
 
-        $parsed = $serializer->fromBundle(
-            files: [
-                SkillBundleSerializer::MANIFEST_FILE => json_encode(
-                    ['formatVersion' => SkillBundleSerializer::FORMAT_VERSION, 'skills' => [['name' => 'ghost']]]
-                ),
-                'skills/ghost/references/only.md' => 'orphan',
-            ]
-        );
+		// Non-bundle: parses to nothing, so the caller reports "not a bundle"
+		// rather than installing a partial set.
+		$noManifest = ['skills/demo/SKILL.md' => "---\nname: demo\n---\nb"];
+		$this->assertSame([], $serializer->fromBundle(files: $noManifest));
 
-        $this->assertSame([], $parsed);
+		// A future major version REFUSES rather than half-parsing — a bundle that
+		// partly reads is worse than one that declines, because the caller would
+		// believe an incomplete skill set was complete.
+		$future = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode(
+				['formatVersion' => '9.0', 'skills' => [['name' => 'demo']]]
+			),
+			'skills/demo/SKILL.md' => "---\nname: demo\n---\nb",
+		];
+		$this->assertSame([], $serializer->fromBundle(files: $future));
 
-    }//end testDeclaredSkillWithoutSkillFileIsSkipped()
+	}//end testNonBundleAndUnsupportedVersionRefuse()
 
-    /**
-     * A repository without a manifest is NOT a bundle, and an unsupported major
-     * version refuses rather than half-parsing.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-     */
-    public function testNonBundleAndUnsupportedVersionRefuse(): void
-    {
-        $serializer = $this->serializer();
+	/**
+	 * The bundle honours its skill cap rather than fanning out without bound.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+	 */
+	public function testSkillCapIsEnforced(): void {
+		$serializer = $this->serializer();
 
-        // Non-bundle: parses to nothing, so the caller reports "not a bundle"
-        // rather than installing a partial set.
-        $noManifest = ['skills/demo/SKILL.md' => "---\nname: demo\n---\nb"];
-        $this->assertSame([], $serializer->fromBundle(files: $noManifest));
+		$skills = [];
+		for ($i = 0; $i < (SkillBundleSerializer::MAX_SKILLS + 5); $i++) {
+			$skills[] = [
+				'name' => 'skill-' . $i,
+				'frontmatter' => 'name: skill-' . $i,
+				'body' => "b\n",
+				'files' => [],
+			];
+		}
 
-        // A future major version REFUSES rather than half-parsing — a bundle that
-        // partly reads is worse than one that declines, because the caller would
-        // believe an incomplete skill set was complete.
-        $future = [
-            SkillBundleSerializer::MANIFEST_FILE => json_encode(
-                ['formatVersion' => '9.0', 'skills' => [['name' => 'demo']]]
-            ),
-            'skills/demo/SKILL.md' => "---\nname: demo\n---\nb",
-        ];
-        $this->assertSame([], $serializer->fromBundle(files: $future));
+		$dropped = [];
+		$bundle = $serializer->toBundle(skills: $skills, dropped: $dropped);
+		$manifest = json_decode($bundle[SkillBundleSerializer::MANIFEST_FILE], true);
 
-    }//end testNonBundleAndUnsupportedVersionRefuse()
+		$this->assertCount(SkillBundleSerializer::MAX_SKILLS, $manifest['skills']);
 
-    /**
-     * The bundle honours its skill cap rather than fanning out without bound.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
-     */
-    public function testSkillCapIsEnforced(): void
-    {
-        $serializer = $this->serializer();
+		// The cap must REPORT what it discarded. Silently capping is how the first
+		// real bundle shipped 64 of hydra's 94 skills while the API reported all 94
+		// as published — and the artefact was internally consistent, so nothing in
+		// the repository revealed the loss.
+		$this->assertCount(5, $dropped, 'Every skill beyond the cap must be reported as dropped.');
+		$this->assertSame('cap_reached', $dropped[0]['reason']);
 
-        $skills = [];
-        for ($i = 0; $i < (SkillBundleSerializer::MAX_SKILLS + 5); $i++) {
-            $skills[] = [
-                'name'        => 'skill-'.$i,
-                'frontmatter' => 'name: skill-'.$i,
-                'body'        => "b\n",
-                'files'       => [],
-            ];
-        }
+	}//end testSkillCapIsEnforced()
 
-        $dropped  = [];
-        $bundle   = $serializer->toBundle(skills: $skills, dropped: $dropped);
-        $manifest = json_decode($bundle[SkillBundleSerializer::MANIFEST_FILE], true);
+	/**
+	 * A bundle within the cap drops nothing — the counter must not cry wolf.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
+	 */
+	public function testNothingIsDroppedWithinTheCap(): void {
+		$serializer = $this->serializer();
 
-        $this->assertCount(SkillBundleSerializer::MAX_SKILLS, $manifest['skills']);
+		// 94 = hydra's real skill count, the set that exposed the 64 cap.
+		$skills = [];
+		for ($i = 0; $i < 94; $i++) {
+			$skills[] = [
+				'name' => 'skill-' . $i,
+				'frontmatter' => 'name: skill-' . $i,
+				'body' => "b\n",
+				'files' => [],
+			];
+		}
 
-        // The cap must REPORT what it discarded. Silently capping is how the first
-        // real bundle shipped 64 of hydra's 94 skills while the API reported all 94
-        // as published — and the artefact was internally consistent, so nothing in
-        // the repository revealed the loss.
-        $this->assertCount(5, $dropped, 'Every skill beyond the cap must be reported as dropped.');
-        $this->assertSame('cap_reached', $dropped[0]['reason']);
+		$dropped = [];
+		$bundle = $serializer->toBundle(skills: $skills, dropped: $dropped);
+		$manifest = json_decode($bundle[SkillBundleSerializer::MANIFEST_FILE], true);
 
-    }//end testSkillCapIsEnforced()
+		$this->assertCount(94, $manifest['skills'], "hydra's 94-skill set must bundle whole.");
+		$this->assertSame([], $dropped);
 
-    /**
-     * A bundle within the cap drops nothing — the counter must not cry wolf.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
-     */
-    public function testNothingIsDroppedWithinTheCap(): void
-    {
-        $serializer = $this->serializer();
+	}//end testNothingIsDroppedWithinTheCap()
 
-        // 94 = hydra's real skill count, the set that exposed the 64 cap.
-        $skills = [];
-        for ($i = 0; $i < 94; $i++) {
-            $skills[] = [
-                'name'        => 'skill-'.$i,
-                'frontmatter' => 'name: skill-'.$i,
-                'body'        => "b\n",
-                'files'       => [],
-            ];
-        }
+	/**
+	 * An unusable skill name is reported as dropped, not merely skipped.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
+	 */
+	public function testInvalidNameIsReportedAsDropped(): void {
+		$serializer = $this->serializer();
 
-        $dropped  = [];
-        $bundle   = $serializer->toBundle(skills: $skills, dropped: $dropped);
-        $manifest = json_decode($bundle[SkillBundleSerializer::MANIFEST_FILE], true);
+		$dropped = [];
+		$serializer->toBundle(
+			skills: [
+				['name' => '../../etc', 'frontmatter' => 'name: x', 'body' => "b\n", 'files' => []],
+				['name' => 'good-skill', 'frontmatter' => 'name: good-skill', 'body' => "b\n", 'files' => []],
+			],
+			dropped: $dropped
+		);
 
-        $this->assertCount(94, $manifest['skills'], "hydra's 94-skill set must bundle whole.");
-        $this->assertSame([], $dropped);
+		$this->assertCount(1, $dropped);
+		$this->assertSame('invalid_name', $dropped[0]['reason']);
 
-    }//end testNothingIsDroppedWithinTheCap()
-
-    /**
-     * An unusable skill name is reported as dropped, not merely skipped.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-bundle-entries-are-validated-before-use-as-paths
-     */
-    public function testInvalidNameIsReportedAsDropped(): void
-    {
-        $serializer = $this->serializer();
-
-        $dropped = [];
-        $serializer->toBundle(
-            skills: [
-                ['name' => '../../etc', 'frontmatter' => 'name: x', 'body' => "b\n", 'files' => []],
-                ['name' => 'good-skill', 'frontmatter' => 'name: good-skill', 'body' => "b\n", 'files' => []],
-            ],
-            dropped: $dropped
-        );
-
-        $this->assertCount(1, $dropped);
-        $this->assertSame('invalid_name', $dropped[0]['reason']);
-
-    }//end testInvalidNameIsReportedAsDropped()
+	}//end testInvalidNameIsReportedAsDropped()
 }//end class

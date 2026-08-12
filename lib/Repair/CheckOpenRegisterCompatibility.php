@@ -55,106 +55,103 @@ use Psr\Log\LoggerInterface;
  *
  * @spec exclude See file-level docblock — live e2e verification finding, no design change.
  */
-class CheckOpenRegisterCompatibility implements IRepairStep
-{
-    /**
-     * The OpenRegister `appinfo/info.xml` `<version>` at the commit that first
-     * contains BOTH required classes (OpenRegister #297 + #306). Documented here
-     * only — NC has no mechanism to enforce it (see file docblock). Bumped for
-     * agent-credentials: 0.2.17-unstable.14 is also the version that ships
-     * OpenRegister's organisation-scope credential broker
-     * (`credential-broker-organisation-scope`), which the "Agent credentials"
-     * Settings section and `CredentialScopeResolver`'s organisation branch
-     * depend on.
-     *
-     * @var string
-     */
-    public const MIN_OPENREGISTER_VERSION = '0.2.17-unstable.14';
+class CheckOpenRegisterCompatibility implements IRepairStep {
+	/**
+	 * The OpenRegister `appinfo/info.xml` `<version>` at the commit that first
+	 * contains BOTH required classes (OpenRegister #297 + #306). Documented here
+	 * only — NC has no mechanism to enforce it (see file docblock). Bumped for
+	 * agent-credentials: 0.2.17-unstable.14 is also the version that ships
+	 * OpenRegister's organisation-scope credential broker
+	 * (`credential-broker-organisation-scope`), which the "Agent credentials"
+	 * Settings section and `CredentialScopeResolver`'s organisation branch
+	 * depend on.
+	 *
+	 * @var string
+	 */
+	public const MIN_OPENREGISTER_VERSION = '0.2.17-unstable.14';
 
-    /**
-     * FQCN => human-readable label (with the OpenRegister PR that introduced it),
-     * checked by run(). Exposed via getRequiredClasses() so tests can substitute a
-     * fake, guaranteed-absent class list without needing to actually remove
-     * OpenRegister's classes from the autoloader.
-     *
-     * @var array<string,string>
-     */
-    private const REQUIRED_CLASSES = [
-        ToolRegistryFacade::class     => 'OCA\OpenRegister\Service\Mcp\ToolRegistryFacade (OpenRegister #297)',
-        AgentRunRequestedEvent::class => 'OCA\OpenRegister\Event\AgentRunRequestedEvent (OpenRegister #306)',
-    ];
+	/**
+	 * FQCN => human-readable label (with the OpenRegister PR that introduced it),
+	 * checked by run(). Exposed via getRequiredClasses() so tests can substitute a
+	 * fake, guaranteed-absent class list without needing to actually remove
+	 * OpenRegister's classes from the autoloader.
+	 *
+	 * @var array<string,string>
+	 */
+	private const REQUIRED_CLASSES = [
+		ToolRegistryFacade::class => 'OCA\OpenRegister\Service\Mcp\ToolRegistryFacade (OpenRegister #297)',
+		AgentRunRequestedEvent::class => 'OCA\OpenRegister\Event\AgentRunRequestedEvent (OpenRegister #306)',
+	];
 
-    /**
-     * Constructor.
-     *
-     * @param LoggerInterface $logger PSR-3 logger for the persistent nextcloud.log trail.
-     *
-     * @return void
-     */
-    public function __construct(private readonly LoggerInterface $logger)
-    {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param LoggerInterface $logger PSR-3 logger for the persistent nextcloud.log trail.
+	 *
+	 * @return void
+	 */
+	public function __construct(
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Get the name of this repair step.
-     *
-     * @return string
-     *
-     * @spec exclude Trivial IRepairStep display-name accessor; no behavioural contract.
-     */
-    public function getName(): string
-    {
-        return "Verify OpenRegister provides Hermiq's agent-engine classes";
-    }//end getName()
+	/**
+	 * Get the name of this repair step.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial IRepairStep display-name accessor; no behavioural contract.
+	 */
+	public function getName(): string {
+		return "Verify OpenRegister provides Hermiq's agent-engine classes";
+	}//end getName()
 
-    /**
-     * The FQCN => label map to verify present. A protected seam so tests can
-     * override it with a deliberately-absent class without touching the
-     * autoloader or the real OpenRegister install.
-     *
-     * @return array<string,string>
-     */
-    protected function getRequiredClasses(): array
-    {
-        return self::REQUIRED_CLASSES;
-    }//end getRequiredClasses()
+	/**
+	 * The FQCN => label map to verify present. A protected seam so tests can
+	 * override it with a deliberately-absent class without touching the
+	 * autoloader or the real OpenRegister install.
+	 *
+	 * @return array<string,string>
+	 */
+	protected function getRequiredClasses(): array {
+		return self::REQUIRED_CLASSES;
+	}//end getRequiredClasses()
 
-    /**
-     * Run the repair step: class_exists() every required class and, if any are
-     * missing, surface an actionable warning (console + log) naming the minimum
-     * OpenRegister version and the missing classes. Never throws — a missing
-     * OpenRegister dependency is a deployment misconfiguration to flag loudly,
-     * not a reason to abort the calling `occ upgrade`/`occ app:install` run.
-     *
-     * @param IOutput $output The output interface for progress reporting.
-     *
-     * @return void
-     *
-     * @spec exclude See file-level docblock — live e2e verification finding, no design change.
-     */
-    public function run(IOutput $output): void
-    {
-        $missing = [];
-        foreach ($this->getRequiredClasses() as $fqcn => $label) {
-            if (class_exists($fqcn) === false) {
-                $missing[] = $label;
-            }
-        }
+	/**
+	 * Run the repair step: class_exists() every required class and, if any are
+	 * missing, surface an actionable warning (console + log) naming the minimum
+	 * OpenRegister version and the missing classes. Never throws — a missing
+	 * OpenRegister dependency is a deployment misconfiguration to flag loudly,
+	 * not a reason to abort the calling `occ upgrade`/`occ app:install` run.
+	 *
+	 * @param IOutput $output The output interface for progress reporting.
+	 *
+	 * @return void
+	 *
+	 * @spec exclude See file-level docblock — live e2e verification finding, no design change.
+	 */
+	public function run(IOutput $output): void {
+		$missing = [];
+		foreach ($this->getRequiredClasses() as $fqcn => $label) {
+			if (class_exists($fqcn) === false) {
+				$missing[] = $label;
+			}
+		}
 
-        if ($missing === []) {
-            $output->info("OpenRegister provides the classes Hermiq's agent engine requires.");
-            return;
-        }
+		if ($missing === []) {
+			$output->info("OpenRegister provides the classes Hermiq's agent engine requires.");
+			return;
+		}
 
-        $message = sprintf(
-            'Hermiq requires OpenRegister >= %s but the following required classes are missing: %s. '
-            .'The agent engine (chat, scheduled runs, flow-triggered agent actions) will fail to '
-            .'construct until OpenRegister is upgraded on this instance.',
-            self::MIN_OPENREGISTER_VERSION,
-            implode(', ', $missing)
-        );
+		$message = sprintf(
+			'Hermiq requires OpenRegister >= %s but the following required classes are missing: %s. '
+			. 'The agent engine (chat, scheduled runs, flow-triggered agent actions) will fail to '
+			. 'construct until OpenRegister is upgraded on this instance.',
+			self::MIN_OPENREGISTER_VERSION,
+			implode(', ', $missing)
+		);
 
-        $output->warning($message);
-        $this->logger->error($message);
-    }//end run()
+		$output->warning($message);
+		$this->logger->error($message);
+	}//end run()
 }//end class

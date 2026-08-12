@@ -31,19 +31,17 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/web-research-tool/tasks.md#task-5-webfetchservice--readabletextextractor
  */
-class ReadableTextExtractorTest extends TestCase
-{
+class ReadableTextExtractorTest extends TestCase {
 
-    /**
-     * Script/style/nav/footer markup is stripped and only readable body text remains.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
-     */
-    public function testStripsScriptStyleNavAndFooter(): void
-    {
-        $html = <<<HTML
+	/**
+	 * Script/style/nav/footer markup is stripped and only readable body text remains.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#scenario-an-agent-fetches-an-html-page
+	 */
+	public function testStripsScriptStyleNavAndFooter(): void {
+		$html = <<<HTML
             <html><head><style>.x{color:red}</style></head>
             <body>
                 <nav>Home | About</nav>
@@ -53,77 +51,73 @@ class ReadableTextExtractorTest extends TestCase
             </body></html>
             HTML;
 
-        $extractor = new ReadableTextExtractor();
-        $text      = $extractor->extract(html: $html);
+		$extractor = new ReadableTextExtractor();
+		$text = $extractor->extract(html: $html);
 
-        $this->assertStringContainsString('The quick brown fox.', $text);
-        $this->assertStringNotContainsString('alert', $text);
-        $this->assertStringNotContainsString('color:red', $text);
-        $this->assertStringNotContainsString('Home | About', $text);
-        $this->assertStringNotContainsString('Copyright 2026', $text);
+		$this->assertStringContainsString('The quick brown fox.', $text);
+		$this->assertStringNotContainsString('alert', $text);
+		$this->assertStringNotContainsString('color:red', $text);
+		$this->assertStringNotContainsString('Home | About', $text);
+		$this->assertStringNotContainsString('Copyright 2026', $text);
 
-    }//end testStripsScriptStyleNavAndFooter()
+	}//end testStripsScriptStyleNavAndFooter()
 
-    /**
-     * Whitespace (newlines, tabs, repeated spaces) collapses to single spaces.
-     *
-     * @return void
-     */
-    public function testCollapsesWhitespace(): void
-    {
-        $html = "<html><body>\n\n<p>Hello   \t\n  world</p>\n</body></html>";
+	/**
+	 * Whitespace (newlines, tabs, repeated spaces) collapses to single spaces.
+	 *
+	 * @return void
+	 */
+	public function testCollapsesWhitespace(): void {
+		$html = "<html><body>\n\n<p>Hello   \t\n  world</p>\n</body></html>";
 
-        $extractor = new ReadableTextExtractor();
-        $text      = $extractor->extract(html: $html);
+		$extractor = new ReadableTextExtractor();
+		$text = $extractor->extract(html: $html);
 
-        $this->assertSame('Hello world', $text);
+		$this->assertSame('Hello world', $text);
 
-    }//end testCollapsesWhitespace()
+	}//end testCollapsesWhitespace()
 
-    /**
-     * Empty input returns an empty string, never an exception.
-     *
-     * @return void
-     */
-    public function testEmptyInputReturnsEmptyString(): void
-    {
-        $extractor = new ReadableTextExtractor();
+	/**
+	 * Empty input returns an empty string, never an exception.
+	 *
+	 * @return void
+	 */
+	public function testEmptyInputReturnsEmptyString(): void {
+		$extractor = new ReadableTextExtractor();
 
-        $this->assertSame('', $extractor->extract(html: ''));
-        $this->assertSame('', $extractor->extract(html: '   '));
+		$this->assertSame('', $extractor->extract(html: ''));
+		$this->assertSame('', $extractor->extract(html: '   '));
 
-    }//end testEmptyInputReturnsEmptyString()
+	}//end testEmptyInputReturnsEmptyString()
 
-    /**
-     * Malformed / garbage HTML never throws — it yields the best-effort text (or
-     * empty), never an exception (this app's "never throw" ethos one layer down).
-     *
-     * @return void
-     */
-    public function testMalformedHtmlNeverThrows(): void
-    {
-        $extractor = new ReadableTextExtractor();
+	/**
+	 * Malformed / garbage HTML never throws — it yields the best-effort text (or
+	 * empty), never an exception (this app's "never throw" ethos one layer down).
+	 *
+	 * @return void
+	 */
+	public function testMalformedHtmlNeverThrows(): void {
+		$extractor = new ReadableTextExtractor();
 
-        $text = $extractor->extract(html: '<html><body><p>Unclosed <div>tags<span>everywhere');
+		$text = $extractor->extract(html: '<html><body><p>Unclosed <div>tags<span>everywhere');
 
-        $this->assertStringContainsString('Unclosed', $text);
-        $this->assertStringContainsString('tags', $text);
+		$this->assertStringContainsString('Unclosed', $text);
+		$this->assertStringContainsString('tags', $text);
 
-    }//end testMalformedHtmlNeverThrows()
+	}//end testMalformedHtmlNeverThrows()
 
-    /**
-     * A document with no `<body>` at all still yields whatever text is present,
-     * rather than throwing or erroring.
-     *
-     * @return void
-     */
-    public function testNoBodyTagStillExtractsText(): void
-    {
-        $extractor = new ReadableTextExtractor();
+	/**
+	 * A document with no `<body>` at all still yields whatever text is present,
+	 * rather than throwing or erroring.
+	 *
+	 * @return void
+	 */
+	public function testNoBodyTagStillExtractsText(): void {
+		$extractor = new ReadableTextExtractor();
 
-        $text = $extractor->extract(html: 'Just some bare text, no html wrapper at all.');
+		$text = $extractor->extract(html: 'Just some bare text, no html wrapper at all.');
 
-        $this->assertStringContainsString('Just some bare text', $text);
+		$this->assertStringContainsString('Just some bare text', $text);
 
-    }//end testNoBodyTagStillExtractsText()
+	}//end testNoBodyTagStillExtractsText()
 }//end class

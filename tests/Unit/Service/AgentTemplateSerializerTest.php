@@ -34,144 +34,139 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/agent-template-gallery/tasks.md#task-2-agenttemplateserializer-json-package-deserialisation
  */
-class AgentTemplateSerializerTest extends TestCase
-{
+class AgentTemplateSerializerTest extends TestCase {
 
-    /**
-     * toPackage() emits only the portable fields — never state/source/quarantineReason/
-     * scanReport/createdBy.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
-     */
-    public function testToPackageEmitsOnlyPortableFields(): void
-    {
-        $serializer = new AgentTemplateSerializer();
+	/**
+	 * toPackage() emits only the portable fields — never state/source/quarantineReason/
+	 * scanReport/createdBy.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+	 */
+	public function testToPackageEmitsOnlyPortableFields(): void {
+		$serializer = new AgentTemplateSerializer();
 
-        $package = $serializer->toPackage(
-            template: [
-                'name'              => 'Morning briefing',
-                'description'       => 'Summarises your day',
-                'category'          => 'productivity',
-                'systemPrompt'      => 'Summarise the day ahead',
-                'suggestedProvider' => 'ollama',
-                'suggestedModel'    => 'qwen2.5',
-                'tools'             => ['openregister.searchObjects'],
-                'skillRefs'         => [['skillId' => 'skill-1', 'name' => 'Calendar reader']],
-                'suggestedSchedule' => ['kind' => 'cron', 'cronExpr' => '0 7 * * *', 'deliver' => 'talk'],
-                'version'           => '0.1.0',
-                'state'             => 'active',
-                'source'            => 'local',
-                'quarantineReason'  => 'should never appear',
-                'scanReport'        => ['severity' => 'clean'],
-                'createdBy'         => 'alice',
-                'githubOwner'       => 'acme-council',
-                'githubRepo'        => 'morning-briefing-template',
-                'publishedAt'       => '2026-01-01T00:00:00+00:00',
-            ]
-        );
+		$package = $serializer->toPackage(
+			template: [
+				'name' => 'Morning briefing',
+				'description' => 'Summarises your day',
+				'category' => 'productivity',
+				'systemPrompt' => 'Summarise the day ahead',
+				'suggestedProvider' => 'ollama',
+				'suggestedModel' => 'qwen2.5',
+				'tools' => ['openregister.searchObjects'],
+				'skillRefs' => [['skillId' => 'skill-1', 'name' => 'Calendar reader']],
+				'suggestedSchedule' => ['kind' => 'cron', 'cronExpr' => '0 7 * * *', 'deliver' => 'talk'],
+				'version' => '0.1.0',
+				'state' => 'active',
+				'source' => 'local',
+				'quarantineReason' => 'should never appear',
+				'scanReport' => ['severity' => 'clean'],
+				'createdBy' => 'alice',
+				'githubOwner' => 'acme-council',
+				'githubRepo' => 'morning-briefing-template',
+				'publishedAt' => '2026-01-01T00:00:00+00:00',
+			]
+		);
 
-        $decoded = json_decode($package, true);
+		$decoded = json_decode($package, true);
 
-        $this->assertSame('Morning briefing', $decoded['name']);
-        $this->assertSame('ollama', $decoded['suggestedProvider']);
-        $this->assertSame(['openregister.searchObjects'], $decoded['tools']);
-        $this->assertArrayNotHasKey('state', $decoded);
-        $this->assertArrayNotHasKey('source', $decoded);
-        $this->assertArrayNotHasKey('quarantineReason', $decoded);
-        $this->assertArrayNotHasKey('scanReport', $decoded);
-        $this->assertArrayNotHasKey('createdBy', $decoded);
-        // agent-template-github-store: publish provenance is never round-tripped through
-        // the portable package (design.md/spec.md "record ... without leaking it into packages").
-        $this->assertArrayNotHasKey('githubOwner', $decoded);
-        $this->assertArrayNotHasKey('githubRepo', $decoded);
-        $this->assertArrayNotHasKey('publishedAt', $decoded);
+		$this->assertSame('Morning briefing', $decoded['name']);
+		$this->assertSame('ollama', $decoded['suggestedProvider']);
+		$this->assertSame(['openregister.searchObjects'], $decoded['tools']);
+		$this->assertArrayNotHasKey('state', $decoded);
+		$this->assertArrayNotHasKey('source', $decoded);
+		$this->assertArrayNotHasKey('quarantineReason', $decoded);
+		$this->assertArrayNotHasKey('scanReport', $decoded);
+		$this->assertArrayNotHasKey('createdBy', $decoded);
+		// agent-template-github-store: publish provenance is never round-tripped through
+		// the portable package (design.md/spec.md "record ... without leaking it into packages").
+		$this->assertArrayNotHasKey('githubOwner', $decoded);
+		$this->assertArrayNotHasKey('githubRepo', $decoded);
+		$this->assertArrayNotHasKey('publishedAt', $decoded);
 
-    }//end testToPackageEmitsOnlyPortableFields()
+	}//end testToPackageEmitsOnlyPortableFields()
 
-    /**
-     * A serialise → deserialise round trip reproduces every portable field.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
-     */
-    public function testRoundTripReproducesFields(): void
-    {
-        $serializer = new AgentTemplateSerializer();
+	/**
+	 * A serialise → deserialise round trip reproduces every portable field.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+	 */
+	public function testRoundTripReproducesFields(): void {
+		$serializer = new AgentTemplateSerializer();
 
-        $original = [
-            'name'              => 'Inbox triage',
-            'description'       => 'Reviews unread mail',
-            'category'          => 'productivity',
-            'systemPrompt'      => 'Triage the inbox',
-            'suggestedProvider' => 'openai',
-            'suggestedModel'    => 'gpt-4o-mini',
-            'tools'             => ['a.b.search'],
-            'skillRefs'         => [['skillId' => 's1', 'name' => 'Mail reader']],
-            'suggestedSchedule' => ['kind' => 'interval', 'intervalMinutes' => 60, 'deliver' => 'notification'],
-            'version'           => '1.2.0',
-        ];
+		$original = [
+			'name' => 'Inbox triage',
+			'description' => 'Reviews unread mail',
+			'category' => 'productivity',
+			'systemPrompt' => 'Triage the inbox',
+			'suggestedProvider' => 'openai',
+			'suggestedModel' => 'gpt-4o-mini',
+			'tools' => ['a.b.search'],
+			'skillRefs' => [['skillId' => 's1', 'name' => 'Mail reader']],
+			'suggestedSchedule' => ['kind' => 'interval', 'intervalMinutes' => 60, 'deliver' => 'notification'],
+			'version' => '1.2.0',
+		];
 
-        $package = $serializer->toPackage(template: $original);
-        $parsed  = $serializer->fromPackage(package: $package);
+		$package = $serializer->toPackage(template: $original);
+		$parsed = $serializer->fromPackage(package: $package);
 
-        $this->assertSame($original['name'], $parsed['name']);
-        $this->assertSame($original['description'], $parsed['description']);
-        $this->assertSame($original['category'], $parsed['category']);
-        $this->assertSame($original['systemPrompt'], $parsed['systemPrompt']);
-        $this->assertSame($original['suggestedProvider'], $parsed['suggestedProvider']);
-        $this->assertSame($original['suggestedModel'], $parsed['suggestedModel']);
-        $this->assertSame($original['tools'], $parsed['tools']);
-        $this->assertSame($original['skillRefs'], $parsed['skillRefs']);
-        $this->assertSame($original['suggestedSchedule'], $parsed['suggestedSchedule']);
-        $this->assertSame($original['version'], $parsed['version']);
+		$this->assertSame($original['name'], $parsed['name']);
+		$this->assertSame($original['description'], $parsed['description']);
+		$this->assertSame($original['category'], $parsed['category']);
+		$this->assertSame($original['systemPrompt'], $parsed['systemPrompt']);
+		$this->assertSame($original['suggestedProvider'], $parsed['suggestedProvider']);
+		$this->assertSame($original['suggestedModel'], $parsed['suggestedModel']);
+		$this->assertSame($original['tools'], $parsed['tools']);
+		$this->assertSame($original['skillRefs'], $parsed['skillRefs']);
+		$this->assertSame($original['suggestedSchedule'], $parsed['suggestedSchedule']);
+		$this->assertSame($original['version'], $parsed['version']);
 
-    }//end testRoundTripReproducesFields()
+	}//end testRoundTripReproducesFields()
 
-    /**
-     * fromPackage() is tolerant of missing optional fields — every key still resolves to
-     * a well-shaped default (mirrors SkillSerializer::fromPackage()'s empty-string/array
-     * defaults).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
-     */
-    public function testFromPackageToleratesMissingFields(): void
-    {
-        $serializer = new AgentTemplateSerializer();
+	/**
+	 * fromPackage() is tolerant of missing optional fields — every key still resolves to
+	 * a well-shaped default (mirrors SkillSerializer::fromPackage()'s empty-string/array
+	 * defaults).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+	 */
+	public function testFromPackageToleratesMissingFields(): void {
+		$serializer = new AgentTemplateSerializer();
 
-        $parsed = $serializer->fromPackage(package: '{"name": "Minimal"}');
+		$parsed = $serializer->fromPackage(package: '{"name": "Minimal"}');
 
-        $this->assertSame('Minimal', $parsed['name']);
-        $this->assertSame('', $parsed['description']);
-        $this->assertSame('', $parsed['category']);
-        $this->assertSame('', $parsed['systemPrompt']);
-        $this->assertSame('', $parsed['suggestedProvider']);
-        $this->assertSame('', $parsed['suggestedModel']);
-        $this->assertSame([], $parsed['tools']);
-        $this->assertSame([], $parsed['skillRefs']);
-        $this->assertSame([], $parsed['suggestedSchedule']);
-        $this->assertSame('0.1.0', $parsed['version']);
+		$this->assertSame('Minimal', $parsed['name']);
+		$this->assertSame('', $parsed['description']);
+		$this->assertSame('', $parsed['category']);
+		$this->assertSame('', $parsed['systemPrompt']);
+		$this->assertSame('', $parsed['suggestedProvider']);
+		$this->assertSame('', $parsed['suggestedModel']);
+		$this->assertSame([], $parsed['tools']);
+		$this->assertSame([], $parsed['skillRefs']);
+		$this->assertSame([], $parsed['suggestedSchedule']);
+		$this->assertSame('0.1.0', $parsed['version']);
 
-    }//end testFromPackageToleratesMissingFields()
+	}//end testFromPackageToleratesMissingFields()
 
-    /**
-     * fromPackage() never throws on malformed JSON — it falls back to a well-shaped,
-     * empty template instead of a fatal error.
-     *
-     * @return void
-     */
-    public function testFromPackageToleratesMalformedJson(): void
-    {
-        $serializer = new AgentTemplateSerializer();
+	/**
+	 * fromPackage() never throws on malformed JSON — it falls back to a well-shaped,
+	 * empty template instead of a fatal error.
+	 *
+	 * @return void
+	 */
+	public function testFromPackageToleratesMalformedJson(): void {
+		$serializer = new AgentTemplateSerializer();
 
-        $parsed = $serializer->fromPackage(package: 'not json at all {{{');
+		$parsed = $serializer->fromPackage(package: 'not json at all {{{');
 
-        $this->assertSame('', $parsed['name']);
-        $this->assertSame([], $parsed['tools']);
+		$this->assertSame('', $parsed['name']);
+		$this->assertSame([], $parsed['tools']);
 
-    }//end testFromPackageToleratesMalformedJson()
+	}//end testFromPackageToleratesMalformedJson()
 }//end class

@@ -52,176 +52,164 @@ use Throwable;
  * must not fork a local spec for this contract; the tag becomes a real @spec
  * pointer once OpenRegister archives it.
  */
-class HermiqSkillShareableConfigType implements IShareableConfigType
-{
-    /**
-     * Constructor.
-     *
-     * @param ContainerInterface $container Resolves the skill services lazily.
-     */
-    public function __construct(
-        private readonly ContainerInterface $container
-    ) {
+class HermiqSkillShareableConfigType implements IShareableConfigType {
+	/**
+	 * Constructor.
+	 *
+	 * @param ContainerInterface $container Resolves the skill services lazily.
+	 */
+	public function __construct(
+		private readonly ContainerInterface $container,
+	) {
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * The type id.
-     *
-     * @return string The id.
-     *
-     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
-     * spec has its single home in openregister (federated-config-sharing).
-     */
-    public function getId(): string
-    {
-        return 'hermiq.skill';
+	/**
+	 * The type id.
+	 *
+	 * @return string The id.
+	 *
+	 * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+	 * spec has its single home in openregister (federated-config-sharing).
+	 */
+	public function getId(): string {
+		return 'hermiq.skill';
+	}//end getId()
 
-    }//end getId()
+	/**
+	 * The display name.
+	 *
+	 * @return string The name.
+	 *
+	 * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+	 * spec has its single home in openregister (federated-config-sharing).
+	 */
+	public function getDisplayName(): string {
+		return 'Agent skills';
+	}//end getDisplayName()
 
-    /**
-     * The display name.
-     *
-     * @return string The name.
-     *
-     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
-     * spec has its single home in openregister (federated-config-sharing).
-     */
-    public function getDisplayName(): string
-    {
-        return 'Agent skills';
+	/**
+	 * The discovery topic. Pinned to hermiq's existing corpus so previously
+	 * published skill repos stay discoverable after the cutover.
+	 *
+	 * @return string The topic.
+	 *
+	 * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+	 * spec has its single home in openregister (federated-config-sharing).
+	 */
+	public function getTopic(): string {
+		return 'hermiq-skill';
+	}//end getTopic()
 
-    }//end getDisplayName()
+	/**
+	 * Package selected skills (or all) into a portable bundle.
+	 *
+	 * Each skill keeps its agentskills.io package string verbatim, so a byte-for-byte
+	 * round trip survives the store.
+	 *
+	 * @param array $selection `{skillIds?: [...]}`.
+	 *
+	 * @return array `{type, version, skills: [{name, package}]}`.
+	 *
+	 * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+	 * spec has its single home in openregister (federated-config-sharing).
+	 */
+	public function serialise(array $selection): array {
+		$skillService = $this->container->get(SkillService::class);
+		$serializer = $this->container->get(SkillSerializer::class);
 
-    /**
-     * The discovery topic. Pinned to hermiq's existing corpus so previously
-     * published skill repos stay discoverable after the cutover.
-     *
-     * @return string The topic.
-     *
-     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
-     * spec has its single home in openregister (federated-config-sharing).
-     */
-    public function getTopic(): string
-    {
-        return 'hermiq-skill';
+		$wanted = array_map('strval', (array)($selection['skillIds'] ?? []));
 
-    }//end getTopic()
+		$skills = $this->selectSkills(skillService: $skillService, wanted: $wanted);
 
-    /**
-     * Package selected skills (or all) into a portable bundle.
-     *
-     * Each skill keeps its agentskills.io package string verbatim, so a byte-for-byte
-     * round trip survives the store.
-     *
-     * @param array $selection `{skillIds?: [...]}`.
-     *
-     * @return array `{type, version, skills: [{name, package}]}`.
-     *
-     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
-     * spec has its single home in openregister (federated-config-sharing).
-     */
-    public function serialise(array $selection): array
-    {
-        $skillService = $this->container->get(SkillService::class);
-        $serializer   = $this->container->get(SkillSerializer::class);
+		$out = [];
+		foreach ($skills as $skill) {
+			if (($skill instanceof ObjectEntity) === false) {
+				continue;
+			}
 
-        $wanted = array_map('strval', (array) ($selection['skillIds'] ?? []));
+			$data = $skill->getObject();
+			$out[] = [
+				'name' => (string)($data['name'] ?? ''),
+				'package' => $serializer->toPackage(skill: $data),
+			];
+		}
 
-        $skills = $this->selectSkills(skillService: $skillService, wanted: $wanted);
+		return [
+			'type' => $this->getId(),
+			'version' => '1.0',
+			'skills' => $out,
+		];
 
-        $out = [];
-        foreach ($skills as $skill) {
-            if (($skill instanceof ObjectEntity) === false) {
-                continue;
-            }
+	}//end serialise()
 
-            $data  = $skill->getObject();
-            $out[] = [
-                'name'    => (string) ($data['name'] ?? ''),
-                'package' => $serializer->toPackage(skill: $data),
-            ];
-        }
+	/**
+	 * Resolve which skills a selection refers to.
+	 *
+	 * An empty selection means "share everything". A non-empty one is resolved id
+	 * by id, and an id that no longer resolves is skipped rather than failing the
+	 * whole bundle for one stale reference — a share is a best-effort snapshot of
+	 * what currently exists, not a transaction over the caller's list.
+	 *
+	 * @param SkillService $skillService The skill service.
+	 * @param array $wanted The requested skill ids, possibly empty.
+	 *
+	 * @return array The resolved skills.
+	 */
+	private function selectSkills(SkillService $skillService, array $wanted): array {
+		if ($wanted === []) {
+			return $skillService->listSkills();
+		}
 
-        return [
-            'type'    => $this->getId(),
-            'version' => '1.0',
-            'skills'  => $out,
-        ];
+		$skills = [];
+		foreach ($wanted as $id) {
+			$skill = $skillService->getSkill(skillId: $id);
+			if ($skill !== null) {
+				$skills[] = $skill;
+			}
+		}
 
-    }//end serialise()
+		return $skills;
+	}//end selectSkills()
 
-    /**
-     * Resolve which skills a selection refers to.
-     *
-     * An empty selection means "share everything". A non-empty one is resolved id
-     * by id, and an id that no longer resolves is skipped rather than failing the
-     * whole bundle for one stale reference — a share is a best-effort snapshot of
-     * what currently exists, not a transaction over the caller's list.
-     *
-     * @param SkillService $skillService The skill service.
-     * @param array        $wanted       The requested skill ids, possibly empty.
-     *
-     * @return array The resolved skills.
-     */
-    private function selectSkills(SkillService $skillService, array $wanted): array
-    {
-        if ($wanted === []) {
-            return $skillService->listSkills();
-        }
+	/**
+	 * Install a skill bundle into this instance (into quarantine, never active).
+	 *
+	 * @param array $bundle A bundle produced by this type.
+	 *
+	 * @return array `{installed: [uuid, ...]}`.
+	 *
+	 * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
+	 * spec has its single home in openregister (federated-config-sharing).
+	 */
+	public function deserialise(array $bundle): array {
+		$marketplace = $this->container->get(SkillMarketplaceService::class);
 
-        $skills = [];
-        foreach ($wanted as $id) {
-            $skill = $skillService->getSkill(skillId: $id);
-            if ($skill !== null) {
-                $skills[] = $skill;
-            }
-        }
+		$uid = '';
+		try {
+			$user = $this->container->get(IUserSession::class)->getUser();
+			if ($user !== null) {
+				$uid = (string)$user->getUID();
+			}
+		} catch (Throwable $e) {
+			$uid = '';
+		}
 
-        return $skills;
+		$installed = [];
+		foreach ((array)($bundle['skills'] ?? []) as $skill) {
+			if (is_array($skill) === false) {
+				continue;
+			}
 
-    }//end selectSkills()
+			$package = (string)($skill['package'] ?? '');
+			if ($package === '') {
+				continue;
+			}
 
-    /**
-     * Install a skill bundle into this instance (into quarantine, never active).
-     *
-     * @param array $bundle A bundle produced by this type.
-     *
-     * @return array `{installed: [uuid, ...]}`.
-     *
-     * @spec exclude Implements OpenRegister's IShareableConfigType; the canonical
-     * spec has its single home in openregister (federated-config-sharing).
-     */
-    public function deserialise(array $bundle): array
-    {
-        $marketplace = $this->container->get(SkillMarketplaceService::class);
+			$saved = $marketplace->installFromSource(package: $package, source: 'hub', createdBy: $uid);
+			$installed[] = (string)$saved->getUuid();
+		}
 
-        $uid = '';
-        try {
-            $user = $this->container->get(IUserSession::class)->getUser();
-            if ($user !== null) {
-                $uid = (string) $user->getUID();
-            }
-        } catch (Throwable $e) {
-            $uid = '';
-        }
-
-        $installed = [];
-        foreach ((array) ($bundle['skills'] ?? []) as $skill) {
-            if (is_array($skill) === false) {
-                continue;
-            }
-
-            $package = (string) ($skill['package'] ?? '');
-            if ($package === '') {
-                continue;
-            }
-
-            $saved       = $marketplace->installFromSource(package: $package, source: 'hub', createdBy: $uid);
-            $installed[] = (string) $saved->getUuid();
-        }
-
-        return ['installed' => $installed];
-
-    }//end deserialise()
+		return ['installed' => $installed];
+	}//end deserialise()
 }//end class

@@ -54,310 +54,297 @@ use Throwable;
  *
  * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
  */
-class TalkRoomGrouping
-{
+class TalkRoomGrouping {
 
-    /**
-     * The tag name shown in the user's conversation list.
-     *
-     * @var string
-     */
-    public const TAG_NAME = 'Hermiq';
+	/**
+	 * The tag name shown in the user's conversation list.
+	 *
+	 * @var string
+	 */
+	public const TAG_NAME = 'Hermiq';
 
-    /**
-     * Personal-settings key for the per-user opt-out.
-     *
-     * @var string
-     */
-    public const PREFERENCE_KEY = 'talk_group_rooms';
+	/**
+	 * Personal-settings key for the per-user opt-out.
+	 *
+	 * @var string
+	 */
+	public const PREFERENCE_KEY = 'talk_group_rooms';
 
-    /**
-     * Spreed's per-user conversation tag service (resolved lazily).
-     *
-     * Introduced in spreed 24; absent on older Talk, where grouping is skipped
-     * and nothing else is affected.
-     *
-     * @var string
-     */
-    private const TAG_SERVICE = 'OCA\\Talk\\Service\\ConversationTagService';
+	/**
+	 * Spreed's per-user conversation tag service (resolved lazily).
+	 *
+	 * Introduced in spreed 24; absent on older Talk, where grouping is skipped
+	 * and nothing else is affected.
+	 *
+	 * @var string
+	 */
+	private const TAG_SERVICE = 'OCA\\Talk\\Service\\ConversationTagService';
 
-    /**
-     * Spreed's participant service, which owns tag assignment.
-     *
-     * @var string
-     */
-    private const PARTICIPANT_SERVICE = 'OCA\\Talk\\Service\\ParticipantService';
+	/**
+	 * Spreed's participant service, which owns tag assignment.
+	 *
+	 * @var string
+	 */
+	private const PARTICIPANT_SERVICE = 'OCA\\Talk\\Service\\ParticipantService';
 
-    /**
-     * Spreed's room manager.
-     *
-     * @var string
-     */
-    private const TALK_MANAGER = 'OCA\\Talk\\Manager';
+	/**
+	 * Spreed's room manager.
+	 *
+	 * @var string
+	 */
+	private const TALK_MANAGER = 'OCA\\Talk\\Manager';
 
-    /**
-     * Constructor.
-     *
-     * @param TalkBridge         $bridge    Talk availability probe.
-     * @param ContainerInterface $container Server container for lazy spreed resolution.
-     * @param IConfig            $config    Reads the per-user opt-out preference.
-     * @param LoggerInterface    $logger    PSR-3 logger.
-     */
-    public function __construct(
-        private readonly TalkBridge $bridge,
-        private readonly ContainerInterface $container,
-        private readonly IConfig $config,
-        private readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param TalkBridge $bridge Talk availability probe.
+	 * @param ContainerInterface $container Server container for lazy spreed resolution.
+	 * @param IConfig $config Reads the per-user opt-out preference.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		private readonly TalkBridge $bridge,
+		private readonly ContainerInterface $container,
+		private readonly IConfig $config,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Whether this Talk supports conversation tags at all.
-     *
-     * @return bool True when tag grouping can be attempted.
-     *
-     * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-grouping-never-breaks-anything-it-touches
-     */
-    public function isSupported(): bool
-    {
-        return $this->bridge->isAvailable() === true && class_exists(self::TAG_SERVICE) === true;
+	/**
+	 * Whether this Talk supports conversation tags at all.
+	 *
+	 * @return bool True when tag grouping can be attempted.
+	 *
+	 * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-grouping-never-breaks-anything-it-touches
+	 */
+	public function isSupported(): bool {
+		return $this->bridge->isAvailable() === true && class_exists(self::TAG_SERVICE) === true;
+	}//end isSupported()
 
-    }//end isSupported()
+	/**
+	 * File a bound agent room under the Hermiq tag for every participant.
+	 *
+	 * Best-effort throughout: grouping is cosmetic and MUST never fail a bind,
+	 * a turn or a delivery.
+	 *
+	 * @param string $roomToken The Talk room that was bound.
+	 *
+	 * @return int The number of participants the room was filed for.
+	 *
+	 * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
+	 */
+	public function groupRoom(string $roomToken): int {
+		if ($this->isSupported() === false || $roomToken === '') {
+			return 0;
+		}
 
-    /**
-     * File a bound agent room under the Hermiq tag for every participant.
-     *
-     * Best-effort throughout: grouping is cosmetic and MUST never fail a bind,
-     * a turn or a delivery.
-     *
-     * @param string $roomToken The Talk room that was bound.
-     *
-     * @return int The number of participants the room was filed for.
-     *
-     * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
-     */
-    public function groupRoom(string $roomToken): int
-    {
-        if ($this->isSupported() === false || $roomToken === '') {
-            return 0;
-        }
+		$filed = 0;
 
-        $filed = 0;
+		try {
+			$room = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
+			$participants = $this->container->get(self::PARTICIPANT_SERVICE)->getParticipantUserIds($room);
 
-        try {
-            $room         = $this->container->get(self::TALK_MANAGER)->getRoomByToken($roomToken);
-            $participants = $this->container->get(self::PARTICIPANT_SERVICE)->getParticipantUserIds($room);
+			foreach ($participants as $uid) {
+				if (is_string($uid) === false || $uid === '') {
+					continue;
+				}
 
-            foreach ($participants as $uid) {
-                if (is_string($uid) === false || $uid === '') {
-                    continue;
-                }
+				if ($this->isEnabledFor(uid: $uid) === false) {
+					continue;
+				}
 
-                if ($this->isEnabledFor(uid: $uid) === false) {
-                    continue;
-                }
+				if ($this->fileForUser(room: $room, uid: $uid) === true) {
+					$filed++;
+				}
+			}
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkRoomGrouping] Could not group the room (chat is unaffected)',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'roomToken' => $roomToken,
+					'error' => $e->getMessage(),
+				]
+			);
+		}//end try
 
-                if ($this->fileForUser(room: $room, uid: $uid) === true) {
-                    $filed++;
-                }
-            }
-        } catch (Throwable $e) {
-            $this->logger->debug(
-                message: '[TalkRoomGrouping] Could not group the room (chat is unaffected)',
-                context: [
-                    'file'      => __FILE__,
-                    'line'      => __LINE__,
-                    'roomToken' => $roomToken,
-                    'error'     => $e->getMessage(),
-                ]
-            );
-        }//end try
+		return $filed;
+	}//end groupRoom()
 
-        return $filed;
+	/**
+	 * Whether a user has left Hermiq's tag grouping enabled.
+	 *
+	 * Defaults to enabled; disabling stops further creation and assignment but
+	 * deliberately leaves existing assignments in place — they are the user's
+	 * own tags, removable through Talk's UI.
+	 *
+	 * @param string $uid The user id.
+	 *
+	 * @return bool True when grouping is enabled for this user.
+	 *
+	 * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-grouping-is-per-user-optional
+	 */
+	public function isEnabledFor(string $uid): bool {
+		return ($this->config->getUserValue($uid, 'hermiq', self::PREFERENCE_KEY, 'yes') !== 'no');
+	}//end isEnabledFor()
 
-    }//end groupRoom()
+	/**
+	 * File one room under one user's Hermiq tag.
+	 *
+	 * @param object $room The resolved spreed Room.
+	 * @param string $uid The participant's user id.
+	 *
+	 * @return bool True when the room is filed for this user.
+	 *
+	 * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
+	 */
+	private function fileForUser(object $room, string $uid): bool {
+		try {
+			$tagId = $this->ensureTag(uid: $uid);
+			if ($tagId === null) {
+				return false;
+			}
 
-    /**
-     * Whether a user has left Hermiq's tag grouping enabled.
-     *
-     * Defaults to enabled; disabling stops further creation and assignment but
-     * deliberately leaves existing assignments in place — they are the user's
-     * own tags, removable through Talk's UI.
-     *
-     * @param string $uid The user id.
-     *
-     * @return bool True when grouping is enabled for this user.
-     *
-     * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-grouping-is-per-user-optional
-     */
-    public function isEnabledFor(string $uid): bool
-    {
-        return ($this->config->getUserValue($uid, 'hermiq', self::PREFERENCE_KEY, 'yes') !== 'no');
+			$participantService = $this->container->get(self::PARTICIPANT_SERVICE);
+			$participant = $participantService->getParticipant($room, $uid);
+			$attendee = $participant->getAttendee();
 
-    }//end isEnabledFor()
+			// READ-MODIFY-WRITE. The assignment API replaces the whole list for
+			// this attendee-room pair, so writing only Hermiq's id would wipe
+			// every tag the user had on this room.
+			$existing = $this->currentTagIds(attendee: $attendee);
+			if (in_array($tagId, $existing, true) === true) {
+				return true;
+			}
 
-    /**
-     * File one room under one user's Hermiq tag.
-     *
-     * @param object $room The resolved spreed Room.
-     * @param string $uid  The participant's user id.
-     *
-     * @return bool True when the room is filed for this user.
-     *
-     * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
-     */
-    private function fileForUser(object $room, string $uid): bool
-    {
-        try {
-            $tagId = $this->ensureTag(uid: $uid);
-            if ($tagId === null) {
-                return false;
-            }
+			$existing[] = $tagId;
+			$participantService->assignConversationToTags($participant, $existing);
 
-            $participantService = $this->container->get(self::PARTICIPANT_SERVICE);
-            $participant        = $participantService->getParticipant($room, $uid);
-            $attendee           = $participant->getAttendee();
+			return true;
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkRoomGrouping] Could not file the room for this user',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'uid' => $uid,
+					'error' => $e->getMessage(),
+				]
+			);
+			return false;
+		}//end try
 
-            // READ-MODIFY-WRITE. The assignment API replaces the whole list for
-            // this attendee-room pair, so writing only Hermiq's id would wipe
-            // every tag the user had on this room.
-            $existing = $this->currentTagIds(attendee: $attendee);
-            if (in_array($tagId, $existing, true) === true) {
-                return true;
-            }
+	}//end fileForUser()
 
-            $existing[] = $tagId;
-            $participantService->assignConversationToTags($participant, $existing);
+	/**
+	 * The tag ids already assigned to a room for one attendee.
+	 *
+	 * @param object $attendee The spreed Attendee row.
+	 *
+	 * @return string[] The currently assigned tag ids.
+	 *
+	 * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
+	 */
+	private function currentTagIds(object $attendee): array {
+		$raw = $attendee->getTagIds();
+		if (is_string($raw) === false || $raw === '') {
+			return [];
+		}
 
-            return true;
-        } catch (Throwable $e) {
-            $this->logger->debug(
-                message: '[TalkRoomGrouping] Could not file the room for this user',
-                context: [
-                    'file'  => __FILE__,
-                    'line'  => __LINE__,
-                    'uid'   => $uid,
-                    'error' => $e->getMessage(),
-                ]
-            );
-            return false;
-        }//end try
+		$decoded = json_decode($raw, true);
+		if (is_array($decoded) === false) {
+			// Spreed has also stored these as a comma-separated list; tolerate both.
+			$decoded = explode(',', $raw);
+		}
 
-    }//end fileForUser()
+		$ids = [];
+		foreach ($decoded as $id) {
+			$id = trim((string)$id);
+			if ($id !== '' && in_array($id, $ids, true) === false) {
+				$ids[] = $id;
+			}
+		}
 
-    /**
-     * The tag ids already assigned to a room for one attendee.
-     *
-     * @param object $attendee The spreed Attendee row.
-     *
-     * @return string[] The currently assigned tag ids.
-     *
-     * @spec openspec/specs/talk-room-grouping/spec.md#requirement-a-bound-agent-room-is-filed-under-each-participants-hermiq-tag
-     */
-    private function currentTagIds(object $attendee): array
-    {
-        $raw = $attendee->getTagIds();
-        if (is_string($raw) === false || $raw === '') {
-            return [];
-        }
+		return $ids;
+	}//end currentTagIds()
 
-        $decoded = json_decode($raw, true);
-        if (is_array($decoded) === false) {
-            // Spreed has also stored these as a comma-separated list; tolerate both.
-            $decoded = explode(',', $raw);
-        }
+	/**
+	 * Resolve the user's Hermiq tag, creating it on first use.
+	 *
+	 * `(user_id, type, name)` is unique, so a concurrent create fails rather
+	 * than duplicating — that failure is treated as success and the existing
+	 * tag re-read, which turns a harmless race into a no-op instead of a
+	 * failed bind.
+	 *
+	 * @param string $uid The user id.
+	 *
+	 * @return string|null The tag id, or null when it cannot be resolved.
+	 *
+	 * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-a-hermiq-conversation-tag-is-created-per-user-on-demand
+	 */
+	private function ensureTag(string $uid): ?string {
+		$tagService = $this->container->get(self::TAG_SERVICE);
 
-        $ids = [];
-        foreach ($decoded as $id) {
-            $id = trim((string) $id);
-            if ($id !== '' && in_array($id, $ids, true) === false) {
-                $ids[] = $id;
-            }
-        }
+		$existing = $this->findTag(uid: $uid);
+		if ($existing !== null) {
+			return $existing;
+		}
 
-        return $ids;
+		try {
+			$created = $tagService->createTag($uid, self::TAG_NAME);
 
-    }//end currentTagIds()
+			return (string)$created->getId();
+		} catch (Throwable $e) {
+			// Most likely a uniqueness conflict from a concurrent create —
+			// re-read rather than fail.
+			$recheck = $this->findTag(uid: $uid);
+			if ($recheck !== null) {
+				return $recheck;
+			}
 
-    /**
-     * Resolve the user's Hermiq tag, creating it on first use.
-     *
-     * `(user_id, type, name)` is unique, so a concurrent create fails rather
-     * than duplicating — that failure is treated as success and the existing
-     * tag re-read, which turns a harmless race into a no-op instead of a
-     * failed bind.
-     *
-     * @param string $uid The user id.
-     *
-     * @return string|null The tag id, or null when it cannot be resolved.
-     *
-     * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-a-hermiq-conversation-tag-is-created-per-user-on-demand
-     */
-    private function ensureTag(string $uid): ?string
-    {
-        $tagService = $this->container->get(self::TAG_SERVICE);
+			$this->logger->debug(
+				message: '[TalkRoomGrouping] Could not create the Hermiq tag',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'uid' => $uid,
+					'error' => $e->getMessage(),
+				]
+			);
+			return null;
+		}//end try
 
-        $existing = $this->findTag(uid: $uid);
-        if ($existing !== null) {
-            return $existing;
-        }
+	}//end ensureTag()
 
-        try {
-            $created = $tagService->createTag($uid, self::TAG_NAME);
+	/**
+	 * Find an existing Hermiq tag for a user.
+	 *
+	 * @param string $uid The user id.
+	 *
+	 * @return string|null The tag id, or null when the user has none.
+	 *
+	 * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-a-hermiq-conversation-tag-is-created-per-user-on-demand
+	 */
+	private function findTag(string $uid): ?string {
+		try {
+			foreach ($this->container->get(self::TAG_SERVICE)->getTags($uid) as $tag) {
+				if ($tag->getName() === self::TAG_NAME) {
+					return (string)$tag->getId();
+				}
+			}
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkRoomGrouping] Could not list the user\'s conversation tags',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'uid' => $uid,
+					'error' => $e->getMessage(),
+				]
+			);
+		}
 
-            return (string) $created->getId();
-        } catch (Throwable $e) {
-            // Most likely a uniqueness conflict from a concurrent create —
-            // re-read rather than fail.
-            $recheck = $this->findTag(uid: $uid);
-            if ($recheck !== null) {
-                return $recheck;
-            }
-
-            $this->logger->debug(
-                message: '[TalkRoomGrouping] Could not create the Hermiq tag',
-                context: [
-                    'file'  => __FILE__,
-                    'line'  => __LINE__,
-                    'uid'   => $uid,
-                    'error' => $e->getMessage(),
-                ]
-            );
-            return null;
-        }//end try
-
-    }//end ensureTag()
-
-    /**
-     * Find an existing Hermiq tag for a user.
-     *
-     * @param string $uid The user id.
-     *
-     * @return string|null The tag id, or null when the user has none.
-     *
-     * @spec openspec/changes/talk-room-grouping/specs/talk-room-grouping/spec.md#requirement-a-hermiq-conversation-tag-is-created-per-user-on-demand
-     */
-    private function findTag(string $uid): ?string
-    {
-        try {
-            foreach ($this->container->get(self::TAG_SERVICE)->getTags($uid) as $tag) {
-                if ($tag->getName() === self::TAG_NAME) {
-                    return (string) $tag->getId();
-                }
-            }
-        } catch (Throwable $e) {
-            $this->logger->debug(
-                message: '[TalkRoomGrouping] Could not list the user\'s conversation tags',
-                context: [
-                    'file'  => __FILE__,
-                    'line'  => __LINE__,
-                    'uid'   => $uid,
-                    'error' => $e->getMessage(),
-                ]
-            );
-        }
-
-        return null;
-
-    }//end findTag()
+		return null;
+	}//end findTag()
 }//end class

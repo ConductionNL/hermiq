@@ -36,62 +36,58 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/hermiq-agent-leaf/tasks.md#2-agent-render-leaf-adr-019
  */
-class RegisterAgentLeafListenerTest extends TestCase
-{
+class RegisterAgentLeafListenerTest extends TestCase {
 
-    /**
-     * Build the listener with an identity l10n and a null logger.
-     *
-     * @return RegisterAgentLeafListener
-     */
-    private function listener(): RegisterAgentLeafListener
-    {
-        $l10n = $this->createMock(IL10N::class);
-        $l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
+	/**
+	 * Build the listener with an identity l10n and a null logger.
+	 *
+	 * @return RegisterAgentLeafListener
+	 */
+	private function listener(): RegisterAgentLeafListener {
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 
-        return new RegisterAgentLeafListener($l10n, $this->createMock(LoggerInterface::class));
-    }//end listener()
+		return new RegisterAgentLeafListener($l10n, $this->createMock(LoggerInterface::class));
+	}//end listener()
 
-    /**
-     * The listener registers the hermiq-agent leaf, render-only, with the expected kinds.
-     *
-     * @return void
-     */
-    public function testRegistersHermiqAgentLeaf(): void
-    {
-        $event = new RegisterLeafProvidersEvent();
+	/**
+	 * The listener registers the hermiq-agent leaf, render-only, with the expected kinds.
+	 *
+	 * @return void
+	 */
+	public function testRegistersHermiqAgentLeaf(): void {
+		$event = new RegisterLeafProvidersEvent();
 
-        $this->listener()->handle($event);
+		$this->listener()->handle($event);
 
-        $leaves = $event->getLeaves();
-        $this->assertCount(1, $leaves);
+		$leaves = $event->getLeaves();
+		$this->assertCount(1, $leaves);
 
-        /** @var LeafDescriptor $descriptor */
-        $descriptor = $leaves[0]['descriptor'];
-        $this->assertInstanceOf(LeafDescriptor::class, $descriptor);
-        $this->assertSame('hermiq-agent', $descriptor->getId());
-        $this->assertSame('hermiq', $descriptor->getRequiredApp());
-        $this->assertTrue($descriptor->hasKind(LeafDescriptor::KIND_RENDER_SURFACE));
-        $this->assertTrue($descriptor->hasKind(LeafDescriptor::KIND_AGENT_RUNNER));
-        $this->assertContains('detail-page', $descriptor->getSurfaces());
+		/** @var LeafDescriptor $descriptor */
+		$descriptor = $leaves[0]['descriptor'];
+		$this->assertInstanceOf(LeafDescriptor::class, $descriptor);
+		$this->assertSame('hermiq-agent', $descriptor->getId());
+		$this->assertSame('hermiq', $descriptor->getRequiredApp());
+		$this->assertTrue($descriptor->hasKind(LeafDescriptor::KIND_RENDER_SURFACE));
+		$this->assertTrue($descriptor->hasKind(LeafDescriptor::KIND_AGENT_RUNNER));
+		$this->assertContains('detail-page', $descriptor->getSurfaces());
 
-        // Vue 3 leaf under a Vue 2.7 host renders via the JS `mount`/`unmount`
-        // hand-off, so the server descriptor declares renderMode 'mount' to match
-        // the JS registration under the shared id (openregister#2127, gate-24).
-        $this->assertSame(LeafDescriptor::RENDER_MODE_MOUNT, $descriptor->getRenderMode());
+		// Vue 3 leaf under a Vue 2.7 host renders via the JS `mount`/`unmount`
+		// hand-off, so the server descriptor declares renderMode 'mount' to match
+		// the JS registration under the shared id (openregister#2127, gate-24).
+		$this->assertSame(LeafDescriptor::RENDER_MODE_MOUNT, $descriptor->getRenderMode());
 
-        // Render-only: no data provider.
-        $this->assertNull($leaves[0]['provider']);
-    }//end testRegistersHermiqAgentLeaf()
+		// Render-only: no data provider.
+		$this->assertNull($leaves[0]['provider']);
+	}//end testRegistersHermiqAgentLeaf()
 
-    /**
-     * A non-matching event contributes nothing and does not throw.
-     *
-     * @return void
-     */
-    public function testIgnoresNonMatchingEvent(): void
-    {
-        $this->expectNotToPerformAssertions();
-        $this->listener()->handle(new Event());
-    }//end testIgnoresNonMatchingEvent()
+	/**
+	 * A non-matching event contributes nothing and does not throw.
+	 *
+	 * @return void
+	 */
+	public function testIgnoresNonMatchingEvent(): void {
+		$this->expectNotToPerformAssertions();
+		$this->listener()->handle(new Event());
+	}//end testIgnoresNonMatchingEvent()
 }//end class

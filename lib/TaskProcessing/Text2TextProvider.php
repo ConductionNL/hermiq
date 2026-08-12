@@ -35,55 +35,50 @@ use OCP\TaskProcessing\TaskTypes\TextToText;
  *
  * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
  */
-class Text2TextProvider extends AbstractTextProvider
-{
-    /**
-     * The unique id of this provider.
-     *
-     * @return string
-     *
-     * @spec exclude Trivial provider identity accessor; no behavioural spec.
-     */
-    public function getId(): string
-    {
-        return 'hermiq:text2text';
-    }//end getId()
+class Text2TextProvider extends AbstractTextProvider {
+	/**
+	 * The unique id of this provider.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial provider identity accessor; no behavioural spec.
+	 */
+	public function getId(): string {
+		return 'hermiq:text2text';
+	}//end getId()
 
-    /**
-     * The localized name of this provider.
-     *
-     * @return string
-     *
-     * @spec exclude Trivial provider name accessor; no behavioural spec.
-     */
-    public function getName(): string
-    {
-        return 'Hermiq';
-    }//end getName()
+	/**
+	 * The localized name of this provider.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial provider name accessor; no behavioural spec.
+	 */
+	public function getName(): string {
+		return 'Hermiq';
+	}//end getName()
 
-    /**
-     * The task type this provider handles.
-     *
-     * @return string
-     *
-     * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
-     */
-    public function getTaskTypeId(): string
-    {
-        return TextToText::ID;
-    }//end getTaskTypeId()
+	/**
+	 * The task type this provider handles.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
+	 */
+	public function getTaskTypeId(): string {
+		return TextToText::ID;
+	}//end getTaskTypeId()
 
-    /**
-     * Pass the prompt through unchanged.
-     *
-     * @param string $input The raw prompt.
-     *
-     * @return string
-     *
-     * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
-     */
-    protected function buildPrompt(string $input): string
-    {
-        return $input;
-    }//end buildPrompt()
+	/**
+	 * Pass the prompt through unchanged.
+	 *
+	 * @param string $input The raw prompt.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
+	 */
+	protected function buildPrompt(string $input): string {
+		return $input;
+	}//end buildPrompt()
 }//end class

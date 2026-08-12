@@ -55,86 +55,79 @@ use Exception;
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
  */
-trait SanitizesForSaveTrait
-{
-    /**
-     * Normalise a payload before `ObjectService::saveObject()`.
-     *
-     * @param array<string, mixed> $data The object payload about to be saved.
-     *
-     * @return array<string, mixed> The normalised payload.
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
-     */
-    private function sanitizeForSave(array $data): array
-    {
-        foreach ($data as $key => $value) {
-            if (is_string($value) === true) {
-                $data[$key] = $this->reformatSqlDateTime(value: $value);
-                continue;
-            }
+trait SanitizesForSaveTrait {
+	/**
+	 * Normalise a payload before `ObjectService::saveObject()`.
+	 *
+	 * @param array<string, mixed> $data The object payload about to be saved.
+	 *
+	 * @return array<string, mixed> The normalised payload.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-2
+	 */
+	private function sanitizeForSave(array $data): array {
+		foreach ($data as $key => $value) {
+			if (is_string($value) === true) {
+				$data[$key] = $this->reformatSqlDateTime(value: $value);
+				continue;
+			}
 
-            if (is_array($value) === true) {
-                if ($this->isAllNullAssoc(value: $value) === true) {
-                    $data[$key] = null;
-                    continue;
-                }
+			if (is_array($value) === true) {
+				if ($this->isAllNullAssoc(value: $value) === true) {
+					$data[$key] = null;
+					continue;
+				}
 
-                $data[$key] = $this->sanitizeForSave(data: $value);
-            }
-        }
+				$data[$key] = $this->sanitizeForSave(data: $value);
+			}
+		}
 
-        return $data;
+		return $data;
+	}//end sanitizeForSave()
 
-    }//end sanitizeForSave()
+	/**
+	 * Reformat a `Y-m-d H:i:s` (space-separated) date-time string to ISO-8601
+	 * (`DateTime::format('c')`). Any other string is returned unchanged.
+	 *
+	 * @param string $value The candidate value.
+	 *
+	 * @return string The reformatted value, or the original when it does not
+	 *                match the SQL date-time shape.
+	 */
+	private function reformatSqlDateTime(string $value): string {
+		if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value) !== 1) {
+			return $value;
+		}
 
-    /**
-     * Reformat a `Y-m-d H:i:s` (space-separated) date-time string to ISO-8601
-     * (`DateTime::format('c')`). Any other string is returned unchanged.
-     *
-     * @param string $value The candidate value.
-     *
-     * @return string The reformatted value, or the original when it does not
-     *                match the SQL date-time shape.
-     */
-    private function reformatSqlDateTime(string $value): string
-    {
-        if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $value) !== 1) {
-            return $value;
-        }
+		try {
+			$date = new DateTime($value);
+		} catch (Exception) {
+			return $value;
+		}
 
-        try {
-            $date = new DateTime($value);
-        } catch (Exception) {
-            return $value;
-        }
+		return $date->format('c');
+	}//end reformatSqlDateTime()
 
-        return $date->format('c');
+	/**
+	 * Whether an array is a non-empty associative array whose values are ALL
+	 * `null` — the shape a stored `null` nested object materializes as on
+	 * read. Lists (`array_is_list()`) are never collapsed.
+	 *
+	 * @param array<array-key, mixed> $value The candidate array.
+	 *
+	 * @return bool True when every value is `null` and the array is associative.
+	 */
+	private function isAllNullAssoc(array $value): bool {
+		if ($value === [] || array_is_list($value) === true) {
+			return false;
+		}
 
-    }//end reformatSqlDateTime()
+		foreach ($value as $item) {
+			if ($item !== null) {
+				return false;
+			}
+		}
 
-    /**
-     * Whether an array is a non-empty associative array whose values are ALL
-     * `null` — the shape a stored `null` nested object materializes as on
-     * read. Lists (`array_is_list()`) are never collapsed.
-     *
-     * @param array<array-key, mixed> $value The candidate array.
-     *
-     * @return bool True when every value is `null` and the array is associative.
-     */
-    private function isAllNullAssoc(array $value): bool
-    {
-        if ($value === [] || array_is_list($value) === true) {
-            return false;
-        }
-
-        foreach ($value as $item) {
-            if ($item !== null) {
-                return false;
-            }
-        }
-
-        return true;
-
-    }//end isAllNullAssoc()
+		return true;
+	}//end isAllNullAssoc()
 }//end trait

@@ -68,218 +68,210 @@ use RuntimeException;
  *
  * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-runner-to-hermiq-call-is-authenticated-by-a-short-lived-run-scoped-token
  */
-class RunTokenService
-{
+class RunTokenService {
 
-    /**
-     * Distributed-cache prefix for run tokens (mirrors OR's session-cache prefix
-     * pattern).
-     *
-     * @var string
-     */
-    private const CACHE_PREFIX = 'hermiq_run_tokens';
+	/**
+	 * Distributed-cache prefix for run tokens (mirrors OR's session-cache prefix
+	 * pattern).
+	 *
+	 * @var string
+	 */
+	private const CACHE_PREFIX = 'hermiq_run_tokens';
 
-    /**
-     * Token length: 43 alphanumeric characters ≈ 256 bits of entropy (matches
-     * `McpProtocolService`/`WebhookSecretService` precedent).
-     *
-     * @var int
-     */
-    private const TOKEN_LENGTH = 43;
+	/**
+	 * Token length: 43 alphanumeric characters ≈ 256 bits of entropy (matches
+	 * `McpProtocolService`/`WebhookSecretService` precedent).
+	 *
+	 * @var int
+	 */
+	private const TOKEN_LENGTH = 43;
 
-    /**
-     * The runner's own CLI timeout in milliseconds — mirrored from `runner.js`'s
-     * `RUNNER_TIMEOUT_MS` default (a container env var Hermiq cannot read, so this
-     * tracks the DEFAULT rather than the live value).
-     *
-     * @var int
-     */
-    private const RUNNER_TIMEOUT_MS = 120000;
+	/**
+	 * The runner's own CLI timeout in milliseconds — mirrored from `runner.js`'s
+	 * `RUNNER_TIMEOUT_MS` default (a container env var Hermiq cannot read, so this
+	 * tracks the DEFAULT rather than the live value).
+	 *
+	 * @var int
+	 */
+	private const RUNNER_TIMEOUT_MS = 120000;
 
-    /**
-     * Slack (seconds) added to the runner's own timeout to form the token TTL, so
-     * a token outlives the turn it belongs to only briefly and never becomes a
-     * long-lived credential.
-     *
-     * @var int
-     */
-    private const TTL_SLACK_SECONDS = 30;
+	/**
+	 * Slack (seconds) added to the runner's own timeout to form the token TTL, so
+	 * a token outlives the turn it belongs to only briefly and never becomes a
+	 * long-lived credential.
+	 *
+	 * @var int
+	 */
+	private const TTL_SLACK_SECONDS = 30;
 
-    /**
-     * The distributed token store (TTL-native, auto-expiring).
-     *
-     * @var ICache
-     */
-    private ICache $cache;
+	/**
+	 * The distributed token store (TTL-native, auto-expiring).
+	 *
+	 * @var ICache
+	 */
+	private ICache $cache;
 
-    /**
-     * Constructor.
-     *
-     * @param ICacheFactory $cacheFactory Builds the distributed token store.
-     * @param ISecureRandom $secureRandom CSPRNG for the token entropy.
-     */
-    public function __construct(
-        ICacheFactory $cacheFactory,
-        private readonly ISecureRandom $secureRandom
-    ) {
-        $this->cache = $cacheFactory->createDistributed(prefix: self::CACHE_PREFIX);
+	/**
+	 * Constructor.
+	 *
+	 * @param ICacheFactory $cacheFactory Builds the distributed token store.
+	 * @param ISecureRandom $secureRandom CSPRNG for the token entropy.
+	 */
+	public function __construct(
+		ICacheFactory $cacheFactory,
+		private readonly ISecureRandom $secureRandom,
+	) {
+		$this->cache = $cacheFactory->createDistributed(prefix: self::CACHE_PREFIX);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * Mint a fresh per-run token bound to `(runId, agentId, userId,
-     * conversationId)` and store it with the run TTL. The returned string is the
-     * ONLY place the plaintext token exists — it is never logged.
-     *
-     * @param string   $runId          The run's unique id (opaque; binds the token to one run).
-     * @param string   $agentId        The acting agent's UUID (resolves the granted tool set).
-     * @param string   $userId         The acting user's UID (resolves RBAC on tool dispatch).
-     * @param string   $conversationId The conversation UUID, when one exists (audit binding only).
-     * @param int|null $ttlSeconds     Override the default TTL. Used ONLY by the workload plane.
-     *
-     *                                 The default is the LLM turn's timeout plus slack — 150
-     *                                 seconds — which is right for a turn and wrong for a stage
-     *                                 by two orders of magnitude: a stage's ceiling is 30
-     *                                 minutes. A stage token minted at the default expires while
-     *                                 the workload is still running, so the clone at the start
-     *                                 succeeds and the push at the end is denied `invalid_token`
-     *                                 — a failure that looks like a forge problem and is not.
-     *
-     *                                 The caller passes its OWN ceiling, so the token still dies
-     *                                 with the work it belongs to and never becomes a long-lived
-     *                                 credential. Null keeps the turn default.
-     *
-     * @return string The plaintext bearer token.
-     *
-     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
-     */
-    public function mint(
-        string $runId,
-        string $agentId,
-        string $userId,
-        string $conversationId='',
-        ?int $ttlSeconds=null
-    ): string {
-        $token = $this->secureRandom->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
+	/**
+	 * Mint a fresh per-run token bound to `(runId, agentId, userId,
+	 * conversationId)` and store it with the run TTL. The returned string is the
+	 * ONLY place the plaintext token exists — it is never logged.
+	 *
+	 * @param string $runId The run's unique id (opaque; binds the token to one run).
+	 * @param string $agentId The acting agent's UUID (resolves the granted tool set).
+	 * @param string $userId The acting user's UID (resolves RBAC on tool dispatch).
+	 * @param string $conversationId The conversation UUID, when one exists (audit binding only).
+	 * @param int|null $ttlSeconds Override the default TTL. Used ONLY by the workload plane.
+	 *
+	 *                                 The default is the LLM turn's timeout plus slack — 150
+	 *                                 seconds — which is right for a turn and wrong for a stage
+	 *                                 by two orders of magnitude: a stage's ceiling is 30
+	 *                                 minutes. A stage token minted at the default expires while
+	 *                                 the workload is still running, so the clone at the start
+	 *                                 succeeds and the push at the end is denied `invalid_token`
+	 *                                 — a failure that looks like a forge problem and is not.
+	 *
+	 *                                 The caller passes its OWN ceiling, so the token still dies
+	 *                                 with the work it belongs to and never becomes a long-lived
+	 *                                 credential. Null keeps the turn default.
+	 *
+	 * @return string The plaintext bearer token.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-token-cannot-reach-another-runs-tools
+	 */
+	public function mint(
+		string $runId,
+		string $agentId,
+		string $userId,
+		string $conversationId = '',
+		?int $ttlSeconds = null,
+	): string {
+		$token = $this->secureRandom->generate(self::TOKEN_LENGTH, ISecureRandom::CHAR_ALPHANUMERIC);
 
-        $record = [
-            'runId'          => $runId,
-            'agentId'        => $agentId,
-            'userId'         => $userId,
-            'conversationId' => $conversationId,
-            // The token's own digest — re-checked with hash_equals() on verify().
-            'hash'           => $this->digest(token: $token),
-        ];
+		$record = [
+			'runId' => $runId,
+			'agentId' => $agentId,
+			'userId' => $userId,
+			'conversationId' => $conversationId,
+			// The token's own digest — re-checked with hash_equals() on verify().
+			'hash' => $this->digest(token: $token),
+		];
 
-        $encoded = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        if (is_string($encoded) === false) {
-            // Never mint a token whose record could not be stored — a token that
-            // cannot be verified later is worse than no token.
-            throw new RuntimeException('Could not encode the run-token record.');
-        }
+		$encoded = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		if (is_string($encoded) === false) {
+			// Never mint a token whose record could not be stored — a token that
+			// cannot be verified later is worse than no token.
+			throw new RuntimeException('Could not encode the run-token record.');
+		}
 
-        $ttl = $this->ttlSeconds();
-        if ($ttlSeconds !== null && $ttlSeconds > 0) {
-            $ttl = $ttlSeconds;
-        }
+		$ttl = $this->ttlSeconds();
+		if ($ttlSeconds !== null && $ttlSeconds > 0) {
+			$ttl = $ttlSeconds;
+		}
 
-        $this->cache->set(key: $this->digest(token: $token), value: $encoded, ttl: $ttl);
+		$this->cache->set(key: $this->digest(token: $token), value: $encoded, ttl: $ttl);
 
-        return $token;
+		return $token;
+	}//end mint()
 
-    }//end mint()
+	/**
+	 * Verify a presented token and return its binding, or null when it is missing,
+	 * malformed, unknown, expired or already consumed. The comparison is
+	 * constant-time; the code path always reaches the `hash_equals()` call rather
+	 * than short-circuiting on a fast negative.
+	 *
+	 * @param string $token The presented bearer token.
+	 *
+	 * @return array{runId: string, agentId: string, userId: string, conversationId: string}|null
+	 *                                                                                            The binding, or null when the token is not valid.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
+	 */
+	public function verify(string $token): ?array {
+		// Always compute the digest (constant work) even for an empty token, so
+		// the presence/absence of a token is not itself a timing signal.
+		$presentedDigest = $this->digest(token: $token);
 
-    /**
-     * Verify a presented token and return its binding, or null when it is missing,
-     * malformed, unknown, expired or already consumed. The comparison is
-     * constant-time; the code path always reaches the `hash_equals()` call rather
-     * than short-circuiting on a fast negative.
-     *
-     * @param string $token The presented bearer token.
-     *
-     * @return array{runId: string, agentId: string, userId: string, conversationId: string}|null
-     *         The binding, or null when the token is not valid.
-     *
-     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-request-without-a-valid-token-is-rejected-before-any-tool-work
-     */
-    public function verify(string $token): ?array
-    {
-        // Always compute the digest (constant work) even for an empty token, so
-        // the presence/absence of a token is not itself a timing signal.
-        $presentedDigest = $this->digest(token: $token);
+		$raw = $this->cache->get(key: $presentedDigest);
+		if (is_string($raw) === false) {
+			return null;
+		}
 
-        $raw = $this->cache->get(key: $presentedDigest);
-        if (is_string($raw) === false) {
-            return null;
-        }
+		$record = json_decode($raw, true);
+		if (is_array($record) === false || isset($record['hash']) === false || is_string($record['hash']) === false) {
+			return null;
+		}
 
-        $record = json_decode($raw, true);
-        if (is_array($record) === false || isset($record['hash']) === false || is_string($record['hash']) === false) {
-            return null;
-        }
+		if (hash_equals($record['hash'], $presentedDigest) === false) {
+			return null;
+		}
 
-        if (hash_equals($record['hash'], $presentedDigest) === false) {
-            return null;
-        }
+		if ($token === '') {
+			// A digest collision on the empty string cannot authorise a run.
+			return null;
+		}
 
-        if ($token === '') {
-            // A digest collision on the empty string cannot authorise a run.
-            return null;
-        }
+		return [
+			'runId' => (string)($record['runId'] ?? ''),
+			'agentId' => (string)($record['agentId'] ?? ''),
+			'userId' => (string)($record['userId'] ?? ''),
+			'conversationId' => (string)($record['conversationId'] ?? ''),
+		];
 
-        return [
-            'runId'          => (string) ($record['runId'] ?? ''),
-            'agentId'        => (string) ($record['agentId'] ?? ''),
-            'userId'         => (string) ($record['userId'] ?? ''),
-            'conversationId' => (string) ($record['conversationId'] ?? ''),
-        ];
+	}//end verify()
 
-    }//end verify()
+	/**
+	 * Consume a token so any later use is rejected. Called in a `finally` when the
+	 * run closes (success, error, or timeout). Idempotent and safe on an unknown
+	 * token.
+	 *
+	 * @param string $token The token to invalidate.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-token-dies-with-the-run-for-both-endpoints
+	 */
+	public function consume(string $token): void {
+		if ($token === '') {
+			return;
+		}
 
-    /**
-     * Consume a token so any later use is rejected. Called in a `finally` when the
-     * run closes (success, error, or timeout). Idempotent and safe on an unknown
-     * token.
-     *
-     * @param string $token The token to invalidate.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-token-dies-with-the-run-for-both-endpoints
-     */
-    public function consume(string $token): void
-    {
-        if ($token === '') {
-            return;
-        }
+		$this->cache->remove(key: $this->digest(token: $token));
 
-        $this->cache->remove(key: $this->digest(token: $token));
+	}//end consume()
 
-    }//end consume()
+	/**
+	 * The run-token TTL in seconds: the runner's own CLI timeout plus a small
+	 * slack, so the token cannot legitimately outlive the turn.
+	 *
+	 * @return int The TTL in seconds.
+	 */
+	private function ttlSeconds(): int {
+		return ((int)ceil(self::RUNNER_TIMEOUT_MS / 1000) + self::TTL_SLACK_SECONDS);
+	}//end ttlSeconds()
 
-    /**
-     * The run-token TTL in seconds: the runner's own CLI timeout plus a small
-     * slack, so the token cannot legitimately outlive the turn.
-     *
-     * @return int The TTL in seconds.
-     */
-    private function ttlSeconds(): int
-    {
-        return ((int) ceil(self::RUNNER_TIMEOUT_MS / 1000) + self::TTL_SLACK_SECONDS);
-
-    }//end ttlSeconds()
-
-    /**
-     * The cache key / stored digest for a token: a SHA-256 hex digest, so the
-     * store is keyed by an irreversible value and never by the raw token.
-     *
-     * @param string $token The token to digest.
-     *
-     * @return string The hex digest.
-     */
-    private function digest(string $token): string
-    {
-        return hash('sha256', $token);
-
-    }//end digest()
+	/**
+	 * The cache key / stored digest for a token: a SHA-256 hex digest, so the
+	 * store is keyed by an irreversible value and never by the raw token.
+	 *
+	 * @param string $token The token to digest.
+	 *
+	 * @return string The hex digest.
+	 */
+	private function digest(string $token): string {
+		return hash('sha256', $token);
+	}//end digest()
 }//end class

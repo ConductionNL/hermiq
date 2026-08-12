@@ -29,41 +29,39 @@ use Throwable;
 /**
  * Minimal HookStoppedException stub for standalone unit runs.
  */
-class HookStoppedException extends Exception
-{
+class HookStoppedException extends Exception {
 
-    /**
-     * Validation errors from the hook.
-     *
-     * @var array<string, mixed>
-     */
-    private readonly array $errors;
+	/**
+	 * Validation errors from the hook.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private readonly array $errors;
 
-    /**
-     * Constructor.
-     *
-     * @param string               $message  Error message.
-     * @param array<string, mixed> $errors   Hook validation errors.
-     * @param int                  $code     Error code.
-     * @param Throwable|null       $previous Previous exception.
-     */
-    public function __construct(
-        string $message='Operation blocked by schema hook',
-        array $errors=[],
-        int $code=0,
-        ?Throwable $previous=null
-    ) {
-        $this->errors = $errors;
-        parent::__construct(message: $message, code: $code, previous: $previous);
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param string $message Error message.
+	 * @param array<string, mixed> $errors Hook validation errors.
+	 * @param int $code Error code.
+	 * @param Throwable|null $previous Previous exception.
+	 */
+	public function __construct(
+		string $message = 'Operation blocked by schema hook',
+		array $errors = [],
+		int $code = 0,
+		?Throwable $previous = null,
+	) {
+		$this->errors = $errors;
+		parent::__construct(message: $message, code: $code, previous: $previous);
+	}//end __construct()
 
-    /**
-     * Get the hook validation errors.
-     *
-     * @return array<string, mixed>
-     */
-    public function getErrors(): array
-    {
-        return $this->errors;
-    }//end getErrors()
+	/**
+	 * Get the hook validation errors.
+	 *
+	 * @return array<string, mixed>
+	 */
+	public function getErrors(): array {
+		return $this->errors;
+	}//end getErrors()
 }//end class

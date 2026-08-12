@@ -34,6 +34,5 @@ namespace OCA\Talk;
 /**
  * Minimal stub of the spreed Participant model.
  */
-class Participant
-{
+class Participant {
 }//end class

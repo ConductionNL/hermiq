@@ -55,243 +55,234 @@ use Throwable;
  *   `$scheduleWebhookSecretService` mirrors its collaborator class name
  *   (ScheduleWebhookSecretService) — the length IS the clarity.
  */
-class ScheduleWebhookSecretController extends Controller
-{
+class ScheduleWebhookSecretController extends Controller {
 
-    /**
-     * OpenRegister register slug that holds Hermiq schedule objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq schedule objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * OpenRegister schema slug for schedule objects.
-     *
-     * @var string
-     */
-    private const SCHEMA_SLUG = 'schedule';
+	/**
+	 * OpenRegister schema slug for schedule objects.
+	 *
+	 * @var string
+	 */
+	private const SCHEMA_SLUG = 'schedule';
 
-    /**
-     * Constructor.
-     *
-     * @param IRequest                     $request                      The request object.
-     * @param ObjectService                $objectService                OpenRegister object read (schedule ownership check).
-     * @param IUserSession                 $userSession                  Resolves the requesting user for the owner guard.
-     * @param ScheduleWebhookSecretService $scheduleWebhookSecretService The webhook secret lifecycle service.
-     * @param LoggerInterface              $logger                       PSR-3 logger.
-     */
-    public function __construct(
-        IRequest $request,
-        private readonly ObjectService $objectService,
-        private readonly IUserSession $userSession,
-        private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object.
+	 * @param ObjectService $objectService OpenRegister object read (schedule ownership check).
+	 * @param IUserSession $userSession Resolves the requesting user for the owner guard.
+	 * @param ScheduleWebhookSecretService $scheduleWebhookSecretService The webhook secret lifecycle service.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		IRequest $request,
+		private readonly ObjectService $objectService,
+		private readonly IUserSession $userSession,
+		private readonly ScheduleWebhookSecretService $scheduleWebhookSecretService,
+		private readonly LoggerInterface $logger,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
+	}//end __construct()
 
-    /**
-     * Mint a new webhook signing secret for the given schedule. The plaintext
-     * secret is returned ONLY in this response body.
-     *
-     * @param string $id The schedule UUID.
-     *
-     * @return JSONResponse 201 with the plaintext secret, 404 for a
-     *                      non-owner/unknown schedule, or 409 when a secret
-     *                      already exists.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function create(string $id): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * Mint a new webhook signing secret for the given schedule. The plaintext
+	 * secret is returned ONLY in this response body.
+	 *
+	 * @param string $id The schedule UUID.
+	 *
+	 * @return JSONResponse 201 with the plaintext secret, 404 for a
+	 *                      non-owner/unknown schedule, or 409 when a secret
+	 *                      already exists.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function create(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        $schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
-        if ($schedule === null) {
-            return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
-        }
+		$schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
+		if ($schedule === null) {
+			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        try {
-            $result = $this->scheduleWebhookSecretService->mint(schedule: $schedule);
-        } catch (RuntimeException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq schedule webhook-secret mint failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Could not mint webhook secret'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+		try {
+			$result = $this->scheduleWebhookSecretService->mint(schedule: $schedule);
+		} catch (RuntimeException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq schedule webhook-secret mint failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not mint webhook secret'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 
-        return new JSONResponse(
-            [
-                'secret'     => $result['secret'],
-                'configured' => true,
-                'rotatedAt'  => $result['rotatedAt'],
-            ],
-            Http::STATUS_CREATED
-        );
+		return new JSONResponse(
+			[
+				'secret' => $result['secret'],
+				'configured' => true,
+				'rotatedAt' => $result['rotatedAt'],
+			],
+			Http::STATUS_CREATED
+		);
 
-    }//end create()
+	}//end create()
 
-    /**
-     * Rotate the schedule's webhook signing secret, invalidating the previous
-     * one immediately.
-     *
-     * @param string $id The schedule UUID.
-     *
-     * @return JSONResponse 200 with the new plaintext secret, or 404 for a
-     *                      non-owner/unknown schedule/unconfigured secret.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function rotate(string $id): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * Rotate the schedule's webhook signing secret, invalidating the previous
+	 * one immediately.
+	 *
+	 * @param string $id The schedule UUID.
+	 *
+	 * @return JSONResponse 200 with the new plaintext secret, or 404 for a
+	 *                      non-owner/unknown schedule/unconfigured secret.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function rotate(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        $schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
-        if ($schedule === null) {
-            return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
-        }
+		$schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
+		if ($schedule === null) {
+			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        try {
-            $result = $this->scheduleWebhookSecretService->rotate(schedule: $schedule);
-        } catch (RuntimeException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq schedule webhook-secret rotate failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Could not rotate webhook secret'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+		try {
+			$result = $this->scheduleWebhookSecretService->rotate(schedule: $schedule);
+		} catch (RuntimeException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_NOT_FOUND);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq schedule webhook-secret rotate failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not rotate webhook secret'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 
-        return new JSONResponse(
-            [
-                'secret'     => $result['secret'],
-                'configured' => true,
-                'rotatedAt'  => $result['rotatedAt'],
-            ]
-        );
+		return new JSONResponse(
+			[
+				'secret' => $result['secret'],
+				'configured' => true,
+				'rotatedAt' => $result['rotatedAt'],
+			]
+		);
 
-    }//end rotate()
+	}//end rotate()
 
-    /**
-     * Revoke the schedule's webhook signing secret — idempotent, never a
-     * secret in the response.
-     *
-     * @param string $id The schedule UUID.
-     *
-     * @return JSONResponse The status payload (never a secret), or 404 for a
-     *                      non-owner/unknown schedule.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function revoke(string $id): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * Revoke the schedule's webhook signing secret — idempotent, never a
+	 * secret in the response.
+	 *
+	 * @param string $id The schedule UUID.
+	 *
+	 * @return JSONResponse The status payload (never a secret), or 404 for a
+	 *                      non-owner/unknown schedule.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function revoke(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        $schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
-        if ($schedule === null) {
-            return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
-        }
+		$schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
+		if ($schedule === null) {
+			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        try {
-            $updated = $this->scheduleWebhookSecretService->revoke(schedule: $schedule);
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq schedule webhook-secret revoke failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Could not revoke webhook secret'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+		try {
+			$updated = $this->scheduleWebhookSecretService->revoke(schedule: $schedule);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq schedule webhook-secret revoke failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Could not revoke webhook secret'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 
-        return new JSONResponse($this->scheduleWebhookSecretService->status(schedule: $updated));
+		return new JSONResponse($this->scheduleWebhookSecretService->status(schedule: $updated));
+	}//end revoke()
 
-    }//end revoke()
+	/**
+	 * Read the schedule's webhook-secret status. NEVER includes the plaintext secret.
+	 *
+	 * @param string $id The schedule UUID.
+	 *
+	 * @return JSONResponse The status payload, or 404 for a non-owner/unknown schedule.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	public function show(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-    /**
-     * Read the schedule's webhook-secret status. NEVER includes the plaintext secret.
-     *
-     * @param string $id The schedule UUID.
-     *
-     * @return JSONResponse The status payload, or 404 for a non-owner/unknown schedule.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    public function show(string $id): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+		$schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
+		if ($schedule === null) {
+			return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        $schedule = $this->loadOwnedSchedule(scheduleId: $id, uid: $user->getUID());
-        if ($schedule === null) {
-            return new JSONResponse(['error' => 'Schedule not found'], Http::STATUS_NOT_FOUND);
-        }
+		return new JSONResponse($this->scheduleWebhookSecretService->status(schedule: $schedule));
+	}//end show()
 
-        return new JSONResponse($this->scheduleWebhookSecretService->status(schedule: $schedule));
+	/**
+	 * Load the schedule only if the given user owns it (IDOR guard).
+	 *
+	 * Fetches WITH RBAC enabled and additionally asserts owner identity, so
+	 * neither a cross-tenant object nor another user's owned schedule is ever
+	 * returned — mirrors `RunNowController::loadOwnedSchedule()` exactly.
+	 *
+	 * @param string $scheduleId The Schedule object UUID.
+	 * @param string $uid The requesting user's UID.
+	 *
+	 * @return ObjectEntity|null The owned schedule, or null when absent/not owned.
+	 *
+	 * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
+	 */
+	private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity {
+		try {
+			$schedule = $this->objectService->find(
+				id: $scheduleId,
+				register: self::REGISTER_SLUG,
+				schema: self::SCHEMA_SLUG
+			);
+		} catch (Throwable $e) {
+			// `ObjectService::find()` throws when the object is absent, and every
+			// caller invokes this helper OUTSIDE its own try block — so the throw
+			// would escape as a framework 500 with a stack trace on a
+			// #[NoAdminRequired] route. A schedule that cannot be loaded is, to a
+			// caller, not owned; null already carries that meaning.
+			$this->logger->warning(
+				'Hermiq schedule lookup failed for ' . $scheduleId . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return null;
+		}//end try
 
-    }//end show()
+		if (($schedule instanceof ObjectEntity) === false) {
+			return null;
+		}
 
-    /**
-     * Load the schedule only if the given user owns it (IDOR guard).
-     *
-     * Fetches WITH RBAC enabled and additionally asserts owner identity, so
-     * neither a cross-tenant object nor another user's owned schedule is ever
-     * returned — mirrors `RunNowController::loadOwnedSchedule()` exactly.
-     *
-     * @param string $scheduleId The Schedule object UUID.
-     * @param string $uid        The requesting user's UID.
-     *
-     * @return ObjectEntity|null The owned schedule, or null when absent/not owned.
-     *
-     * @spec openspec/changes/delivery-channels/specs/talk-delivery/spec.md#requirement-a-per-schedule-webhook-signing-secret-can-be-minted-rotated-and-revoked-mvp
-     */
-    private function loadOwnedSchedule(string $scheduleId, string $uid): ?ObjectEntity
-    {
-        try {
-            $schedule = $this->objectService->find(
-                id: $scheduleId,
-                register: self::REGISTER_SLUG,
-                schema: self::SCHEMA_SLUG
-            );
-        } catch (Throwable $e) {
-            // `ObjectService::find()` throws when the object is absent, and every
-            // caller invokes this helper OUTSIDE its own try block — so the throw
-            // would escape as a framework 500 with a stack trace on a
-            // #[NoAdminRequired] route. A schedule that cannot be loaded is, to a
-            // caller, not owned; null already carries that meaning.
-            $this->logger->warning(
-                'Hermiq schedule lookup failed for '.$scheduleId.': '.$e->getMessage(),
-                ['exception' => $e]
-            );
-            return null;
-        }//end try
+		if ((string)($schedule->getOwner() ?? '') !== $uid) {
+			return null;
+		}
 
-        if (($schedule instanceof ObjectEntity) === false) {
-            return null;
-        }
-
-        if ((string) ($schedule->getOwner() ?? '') !== $uid) {
-            return null;
-        }
-
-        return $schedule;
-
-    }//end loadOwnedSchedule()
+		return $schedule;
+	}//end loadOwnedSchedule()
 }//end class

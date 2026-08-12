@@ -46,135 +46,129 @@ use Throwable;
  *
  * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
  */
-class SeedCourseRecommendationFeature implements IRepairStep
-{
+class SeedCourseRecommendationFeature implements IRepairStep {
 
-    /**
-     * OpenRegister register slug that holds Hermiq objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * Schema slug for AiFeature objects.
-     *
-     * @var string
-     */
-    private const AIFEATURE_SCHEMA = 'agentaifeature';
+	/**
+	 * Schema slug for AiFeature objects.
+	 *
+	 * @var string
+	 */
+	private const AIFEATURE_SCHEMA = 'agentaifeature';
 
-    /**
-     * The feature slug this step seeds.
-     *
-     * @var string
-     */
-    private const FEATURE_SLUG = 'course-recommendations';
+	/**
+	 * The feature slug this step seeds.
+	 *
+	 * @var string
+	 */
+	private const FEATURE_SLUG = 'course-recommendations';
 
-    /**
-     * Constructor.
-     *
-     * @param ContainerInterface $container Server container for lazy ObjectService resolution.
-     * @param LoggerInterface    $logger    PSR-3 logger.
-     */
-    public function __construct(
-        private readonly ContainerInterface $container,
-        private readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ContainerInterface $container Server container for lazy ObjectService resolution.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		private readonly ContainerInterface $container,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Repair-step name.
-     *
-     * @return string
-     *
-     * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
-     */
-    public function getName(): string
-    {
-        return 'Seed the course-recommendations AI feature (ai-course-recommendations)';
+	/**
+	 * Repair-step name.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
+	 */
+	public function getName(): string {
+		return 'Seed the course-recommendations AI feature (ai-course-recommendations)';
+	}//end getName()
 
-    }//end getName()
+	/**
+	 * Seed the `course-recommendations` AiFeature when it does not yet exist.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
+	 */
+	public function run(IOutput $output): void {
+		try {
+			$objectService = $this->container->get(ObjectService::class);
+		} catch (Throwable $e) {
+			$output->warning('OpenRegister not available — skipping course-recommendations AI-feature seed.');
+			$this->logger->warning('[hermiq] course-recommendations AiFeature seed skipped: ' . $e->getMessage());
+			return;
+		}
 
-    /**
-     * Seed the `course-recommendations` AiFeature when it does not yet exist.
-     *
-     * @param IOutput $output Repair output channel.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
-     */
-    public function run(IOutput $output): void
-    {
-        try {
-            $objectService = $this->container->get(ObjectService::class);
-        } catch (Throwable $e) {
-            $output->warning('OpenRegister not available — skipping course-recommendations AI-feature seed.');
-            $this->logger->warning('[hermiq] course-recommendations AiFeature seed skipped: '.$e->getMessage());
-            return;
-        }
+		try {
+			if ($this->slugExists(objectService: $objectService) === true) {
+				$output->info('course-recommendations AI feature already exists — skipping.');
+				return;
+			}
 
-        try {
-            if ($this->slugExists(objectService: $objectService) === true) {
-                $output->info('course-recommendations AI feature already exists — skipping.');
-                return;
-            }
+			$objectService->saveObject(
+				object: [
+					'slug' => self::FEATURE_SLUG,
+					'name' => 'Course recommendations',
+					'description' => 'A next-best-course recommendation engine that reads a learner\'s '
+						. 'enrolment, completion, activity and goal data (from Scholiq) to suggest what to study '
+						. 'next. High-risk under EU AI Act Annex III §3 (education and vocational training) '
+						. 'because it can materially influence a learner\'s course/career path. Advisory only — '
+						. 'ranking is a deterministic weighted-signal score; no automated enrolment.',
+					'riskCategory' => 'high',
+					'lifecycle' => 'disabled',
+					'tenantId' => '',
+				],
+				register: self::REGISTER_SLUG,
+				schema: self::AIFEATURE_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+			$output->info('Seeded the course-recommendations AI feature (disabled, pending DPO acknowledgement).');
+		} catch (Throwable $e) {
+			$output->warning('Could not seed the course-recommendations AI feature: ' . $e->getMessage());
+			$this->logger->error('[hermiq] course-recommendations AiFeature seed failed: ' . $e->getMessage());
+		}//end try
 
-            $objectService->saveObject(
-                object: [
-                    'slug'         => self::FEATURE_SLUG,
-                    'name'         => 'Course recommendations',
-                    'description'  => 'A next-best-course recommendation engine that reads a learner\'s '
-                        .'enrolment, completion, activity and goal data (from Scholiq) to suggest what to study '
-                        .'next. High-risk under EU AI Act Annex III §3 (education and vocational training) '
-                        .'because it can materially influence a learner\'s course/career path. Advisory only — '
-                        .'ranking is a deterministic weighted-signal score; no automated enrolment.',
-                    'riskCategory' => 'high',
-                    'lifecycle'    => 'disabled',
-                    'tenantId'     => '',
-                ],
-                register: self::REGISTER_SLUG,
-                schema: self::AIFEATURE_SCHEMA,
-                _rbac: false,
-                _multitenancy: false
-            );
-            $output->info('Seeded the course-recommendations AI feature (disabled, pending DPO acknowledgement).');
-        } catch (Throwable $e) {
-            $output->warning('Could not seed the course-recommendations AI feature: '.$e->getMessage());
-            $this->logger->error('[hermiq] course-recommendations AiFeature seed failed: '.$e->getMessage());
-        }//end try
+	}//end run()
 
-    }//end run()
+	/**
+	 * Whether the `course-recommendations` AiFeature already exists (system context, no RBAC).
+	 *
+	 * @param ObjectService $objectService The OpenRegister object service.
+	 *
+	 * @return bool True when the feature already exists.
+	 */
+	private function slugExists(ObjectService $objectService): bool {
+		$objects = $objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::AIFEATURE_SCHEMA)
+			->findAll(
+				config: ['filters' => ['slug' => self::FEATURE_SLUG], 'limit' => 200],
+				_rbac: false,
+				_multitenancy: false
+			);
 
-    /**
-     * Whether the `course-recommendations` AiFeature already exists (system context, no RBAC).
-     *
-     * @param ObjectService $objectService The OpenRegister object service.
-     *
-     * @return bool True when the feature already exists.
-     */
-    private function slugExists(ObjectService $objectService): bool
-    {
-        $objects = $objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::AIFEATURE_SCHEMA)
-            ->findAll(
-                config: ['filters' => ['slug' => self::FEATURE_SLUG], 'limit' => 200],
-                _rbac: false,
-                _multitenancy: false
-            );
+		foreach ($objects as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
 
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
-            }
+			if ((string)($object->getObject()['slug'] ?? '') === self::FEATURE_SLUG) {
+				return true;
+			}
+		}
 
-            if ((string) ($object->getObject()['slug'] ?? '') === self::FEATURE_SLUG) {
-                return true;
-            }
-        }
-
-        return false;
-
-    }//end slugExists()
+		return false;
+	}//end slugExists()
 }//end class

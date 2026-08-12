@@ -33,41 +33,39 @@ use OCP\EventDispatcher\IEventListener;
  *
  * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
-class HermiqFlowNodeListener implements IEventListener
-{
-    /**
-     * Constructor.
-     *
-     * @param HermiqAgentNode    $agentNode    The agent step node.
-     * @param HermiqWorkloadNode $workloadNode The workload step node.
-     */
-    public function __construct(
-        private readonly HermiqAgentNode $agentNode,
-        private readonly HermiqWorkloadNode $workloadNode
-    ) {
+class HermiqFlowNodeListener implements IEventListener {
+	/**
+	 * Constructor.
+	 *
+	 * @param HermiqAgentNode $agentNode The agent step node.
+	 * @param HermiqWorkloadNode $workloadNode The workload step node.
+	 */
+	public function __construct(
+		private readonly HermiqAgentNode $agentNode,
+		private readonly HermiqWorkloadNode $workloadNode,
+	) {
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * Contribute hermiq's nodes.
-     *
-     * Two, and they are the two things a flow cannot do for itself: run a model
-     * turn, and run a command over a checked-out tree.
-     *
-     * @param Event $event The dispatched event.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
-     */
-    public function handle(Event $event): void
-    {
-        if (($event instanceof RegisterFlowNodesEvent) === false) {
-            return;
-        }
+	/**
+	 * Contribute hermiq's nodes.
+	 *
+	 * Two, and they are the two things a flow cannot do for itself: run a model
+	 * turn, and run a command over a checked-out tree.
+	 *
+	 * @param Event $event The dispatched event.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
+	 */
+	public function handle(Event $event): void {
+		if (($event instanceof RegisterFlowNodesEvent) === false) {
+			return;
+		}
 
-        $event->registerNode(node: $this->agentNode);
-        $event->registerNode(node: $this->workloadNode);
+		$event->registerNode(node: $this->agentNode);
+		$event->registerNode(node: $this->workloadNode);
 
-    }//end handle()
+	}//end handle()
 }//end class

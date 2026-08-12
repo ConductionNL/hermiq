@@ -49,54 +49,51 @@ use OCP\IGroupManager;
  * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-skills-have-version-history-diff-and-rollback-mirroring-agent-versioning
  */
-class SeedCustodyService
-{
+class SeedCustodyService {
 
-    /**
-     * The owner uid OpenRegister repair-step imports stamp on seeded objects.
-     *
-     * @var string
-     */
-    public const SYSTEM_OWNER = '__system__';
+	/**
+	 * The owner uid OpenRegister repair-step imports stamp on seeded objects.
+	 *
+	 * @var string
+	 */
+	public const SYSTEM_OWNER = '__system__';
 
-    /**
-     * Constructor.
-     *
-     * @param IGroupManager $groupManager Instance-admin check for the seed-custodian case.
-     */
-    public function __construct(
-        private readonly IGroupManager $groupManager,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param IGroupManager $groupManager Instance-admin check for the seed-custodian case.
+	 */
+	public function __construct(
+		private readonly IGroupManager $groupManager,
+	) {
+	}//end __construct()
 
-    /**
-     * Whether $uid may act as the owner of an object whose stored owner is $owner.
-     *
-     * True when $uid IS the owner, or when the object is system-seeded
-     * (`__system__`) and $uid is an instance admin (seed custodianship — see the
-     * class docblock). Everything else is a mismatch and MUST 404 upstream
-     * (never 403) so existence is not confirmed to a non-owner.
-     *
-     * @param string|null $owner The object's stored owner uid (null-safe).
-     * @param string      $uid   The requesting user's uid.
-     *
-     * @return bool True when the caller may act as the owner.
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
-     */
-    public function actsAsOwner(?string $owner, string $uid): bool
-    {
-        $stored = (string) ($owner ?? '');
+	/**
+	 * Whether $uid may act as the owner of an object whose stored owner is $owner.
+	 *
+	 * True when $uid IS the owner, or when the object is system-seeded
+	 * (`__system__`) and $uid is an instance admin (seed custodianship — see the
+	 * class docblock). Everything else is a mismatch and MUST 404 upstream
+	 * (never 403) so existence is not confirmed to a non-owner.
+	 *
+	 * @param string|null $owner The object's stored owner uid (null-safe).
+	 * @param string $uid The requesting user's uid.
+	 *
+	 * @return bool True when the caller may act as the owner.
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+	 */
+	public function actsAsOwner(?string $owner, string $uid): bool {
+		$stored = (string)($owner ?? '');
 
-        if ($stored === $uid && $uid !== '') {
-            return true;
-        }
+		if ($stored === $uid && $uid !== '') {
+			return true;
+		}
 
-        if ($stored === self::SYSTEM_OWNER) {
-            return $this->groupManager->isAdmin($uid);
-        }
+		if ($stored === self::SYSTEM_OWNER) {
+			return $this->groupManager->isAdmin($uid);
+		}
 
-        return false;
-
-    }//end actsAsOwner()
+		return false;
+	}//end actsAsOwner()
 }//end class

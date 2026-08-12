@@ -45,90 +45,83 @@ namespace OCA\Hermiq\Service\Talk;
  *
  * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
  */
-class ConversationParticipation
-{
-    /**
-     * Whether the given user may take a turn in the given conversation.
-     *
-     * Never widens to "any authenticated user", and never consults live Talk
-     * room membership — the roster is explicit precisely so that "who can use
-     * this agent" cannot change silently when someone is added to a room.
-     *
-     * @param array  $conversationData The conversation object payload.
-     * @param string $userId           The acting user's uid.
-     *
-     * @return bool True when the user owns the conversation or is a listed participant.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
-     */
-    public function mayTakeTurn(array $conversationData, string $userId): bool
-    {
-        if ($userId === '') {
-            return false;
-        }
+class ConversationParticipation {
+	/**
+	 * Whether the given user may take a turn in the given conversation.
+	 *
+	 * Never widens to "any authenticated user", and never consults live Talk
+	 * room membership — the roster is explicit precisely so that "who can use
+	 * this agent" cannot change silently when someone is added to a room.
+	 *
+	 * @param array $conversationData The conversation object payload.
+	 * @param string $userId The acting user's uid.
+	 *
+	 * @return bool True when the user owns the conversation or is a listed participant.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 */
+	public function mayTakeTurn(array $conversationData, string $userId): bool {
+		if ($userId === '') {
+			return false;
+		}
 
-        if (($conversationData['userId'] ?? null) === $userId) {
-            return true;
-        }
+		if (($conversationData['userId'] ?? null) === $userId) {
+			return true;
+		}
 
-        return in_array($userId, $this->roster(conversationData: $conversationData), true);
+		return in_array($userId, $this->roster(conversationData: $conversationData), true);
+	}//end mayTakeTurn()
 
-    }//end mayTakeTurn()
+	/**
+	 * Normalise the participants roster to a list of non-empty uid strings.
+	 *
+	 * Tolerates a null, absent or malformed roster by returning an empty list,
+	 * so a corrupt payload degrades to owner-only rather than to open access.
+	 *
+	 * @param array $conversationData The conversation object payload.
+	 *
+	 * @return string[] The listed participant uids, excluding the implicit owner.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 */
+	public function roster(array $conversationData): array {
+		$participants = ($conversationData['participants'] ?? []);
+		if (is_array($participants) === false) {
+			return [];
+		}
 
-    /**
-     * Normalise the participants roster to a list of non-empty uid strings.
-     *
-     * Tolerates a null, absent or malformed roster by returning an empty list,
-     * so a corrupt payload degrades to owner-only rather than to open access.
-     *
-     * @param array $conversationData The conversation object payload.
-     *
-     * @return string[] The listed participant uids, excluding the implicit owner.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
-     */
-    public function roster(array $conversationData): array
-    {
-        $participants = ($conversationData['participants'] ?? []);
-        if (is_array($participants) === false) {
-            return [];
-        }
+		$uids = [];
+		foreach ($participants as $participant) {
+			if (is_string($participant) === true && $participant !== '') {
+				$uids[] = $participant;
+			}
+		}
 
-        $uids = [];
-        foreach ($participants as $participant) {
-            if (is_string($participant) === true && $participant !== '') {
-                $uids[] = $participant;
-            }
-        }
+		return $uids;
+	}//end roster()
 
-        return $uids;
+	/**
+	 * The full set of uids permitted to take a turn, owner first.
+	 *
+	 * @param array $conversationData The conversation object payload.
+	 *
+	 * @return string[] Owner plus listed participants, de-duplicated.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
+	 */
+	public function permittedUids(array $conversationData): array {
+		$owner = ($conversationData['userId'] ?? '');
+		$uids = [];
+		if (is_string($owner) === true && $owner !== '') {
+			$uids[] = $owner;
+		}
 
-    }//end roster()
+		foreach ($this->roster(conversationData: $conversationData) as $participant) {
+			if (in_array($participant, $uids, true) === false) {
+				$uids[] = $participant;
+			}
+		}
 
-    /**
-     * The full set of uids permitted to take a turn, owner first.
-     *
-     * @param array $conversationData The conversation object payload.
-     *
-     * @return string[] Owner plus listed participants, de-duplicated.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-shared-sessions/spec.md#requirement-a-session-may-be-taken-up-by-its-owner-or-a-listed-participant
-     */
-    public function permittedUids(array $conversationData): array
-    {
-        $owner = ($conversationData['userId'] ?? '');
-        $uids  = [];
-        if (is_string($owner) === true && $owner !== '') {
-            $uids[] = $owner;
-        }
-
-        foreach ($this->roster(conversationData: $conversationData) as $participant) {
-            if (in_array($participant, $uids, true) === false) {
-                $uids[] = $participant;
-            }
-        }
-
-        return $uids;
-
-    }//end permittedUids()
+		return $uids;
+	}//end permittedUids()
 }//end class

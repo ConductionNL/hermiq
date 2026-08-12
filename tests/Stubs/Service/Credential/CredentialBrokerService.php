@@ -37,36 +37,35 @@ namespace OCA\OpenRegister\Service\Credential;
 /**
  * Minimal stand-in for the real broker.
  */
-class CredentialBrokerService
-{
-    /**
-     * Proxy a request, injecting the vault-held secret server-side.
-     *
-     * @param string                $credentialId The credential UUID.
-     * @param string                $appId        The calling app.
-     * @param string                $method       The HTTP method.
-     * @param string                $path         The provider-relative path.
-     * @param array<string, string> $headers      Request headers (auth headers discarded).
-     * @param string|null           $body         The raw request body.
-     * @param string|null           $actingUserId The credential owner.
-     *
-     * @return array{status: int, headers: array<string, array<int, string>>, body: string} The
-     *         proxied response. Mirrors the real broker, which returns the provider's
-     *         response headers alongside the status and body.
-     */
-    public function request(
-        string $credentialId,
-        string $appId,
-        string $method,
-        string $path,
-        array $headers=[],
-        ?string $body=null,
-        ?string $actingUserId=null
-    ): array {
-        return [
-            'status'  => 200,
-            'headers' => ['content-type' => ['application/json']],
-            'body'    => '{}',
-        ];
-    }//end request()
+class CredentialBrokerService {
+	/**
+	 * Proxy a request, injecting the vault-held secret server-side.
+	 *
+	 * @param string $credentialId The credential UUID.
+	 * @param string $appId The calling app.
+	 * @param string $method The HTTP method.
+	 * @param string $path The provider-relative path.
+	 * @param array<string, string> $headers Request headers (auth headers discarded).
+	 * @param string|null $body The raw request body.
+	 * @param string|null $actingUserId The credential owner.
+	 *
+	 * @return array{status: int, headers: array<string, array<int, string>>, body: string} The
+	 *                                                                                      proxied response. Mirrors the real broker, which returns the provider's
+	 *                                                                                      response headers alongside the status and body.
+	 */
+	public function request(
+		string $credentialId,
+		string $appId,
+		string $method,
+		string $path,
+		array $headers = [],
+		?string $body = null,
+		?string $actingUserId = null,
+	): array {
+		return [
+			'status' => 200,
+			'headers' => ['content-type' => ['application/json']],
+			'body' => '{}',
+		];
+	}//end request()
 }//end class

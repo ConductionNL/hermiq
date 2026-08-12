@@ -29,18 +29,15 @@ use OCA\Talk\Room;
 /**
  * Minimal stub of the spreed Note-to-self service.
  */
-class NoteToSelfService
-{
-    /**
-     * Resolve (or create) the user's Note-to-self room.
-     *
-     * @param string $userId The user.
-     *
-     * @return Room The Note-to-self room.
-     */
-    public function ensureNoteToSelfExistsForUser(string $userId): Room
-    {
-        return new Room();
-
-    }//end ensureNoteToSelfExistsForUser()
+class NoteToSelfService {
+	/**
+	 * Resolve (or create) the user's Note-to-self room.
+	 *
+	 * @param string $userId The user.
+	 *
+	 * @return Room The Note-to-self room.
+	 */
+	public function ensureNoteToSelfExistsForUser(string $userId): Room {
+		return new Room();
+	}//end ensureNoteToSelfExistsForUser()
 }//end class

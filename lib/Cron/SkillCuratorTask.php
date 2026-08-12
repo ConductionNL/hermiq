@@ -36,42 +36,40 @@ use OCP\BackgroundJob\TimedJob;
  *
  * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
  */
-class SkillCuratorTask extends TimedJob
-{
-    /**
-     * Constructor.
-     *
-     * @param ITimeFactory            $time               Time factory for TimedJob scheduling.
-     * @param SkillMarketplaceService $marketplaceService Service that curates skill lifecycle.
-     *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
-     */
-    public function __construct(
-        ITimeFactory $time,
-        private readonly SkillMarketplaceService $marketplaceService,
-    ) {
-        parent::__construct(time: $time);
+class SkillCuratorTask extends TimedJob {
+	/**
+	 * Constructor.
+	 *
+	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
+	 * @param SkillMarketplaceService $marketplaceService Service that curates skill lifecycle.
+	 *
+	 * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
+	 */
+	public function __construct(
+		ITimeFactory $time,
+		private readonly SkillMarketplaceService $marketplaceService,
+	) {
+		parent::__construct(time: $time);
 
-        // Curation is not time-critical — run daily.
-        $this->setInterval(seconds: 86400);
-        $this->setAllowParallelRuns(allow: false);
+		// Curation is not time-critical — run daily.
+		$this->setInterval(seconds: 86400);
+		$this->setAllowParallelRuns(allow: false);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * Execute one curation pass.
-     *
-     * @param mixed $argument The (unused) background-job argument.
-     *
-     * @return void
-     *
-     * @phpstan-param mixed $argument
-     *
-     * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
-     */
-    public function run(mixed $argument): void
-    {
-        $this->marketplaceService->curate();
+	/**
+	 * Execute one curation pass.
+	 *
+	 * @param mixed $argument The (unused) background-job argument.
+	 *
+	 * @return void
+	 *
+	 * @phpstan-param mixed $argument
+	 *
+	 * @spec openspec/changes/skills-marketplace/tasks.md#task-3-1
+	 */
+	public function run(mixed $argument): void {
+		$this->marketplaceService->curate();
 
-    }//end run()
+	}//end run()
 }//end class

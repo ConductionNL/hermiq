@@ -57,247 +57,234 @@ use OCA\OpenRegister\Service\ObjectService;
  *
  * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
  */
-class CredentialScopeResolver
-{
+class CredentialScopeResolver {
 
-    /**
-     * OpenRegister register slug holding brokered-credential metadata objects.
-     * The SAME register `CredentialBrokerService::REGISTER` reads from — this
-     * class is a second, read-only consumer of that one collection.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'credential-broker';
+	/**
+	 * OpenRegister register slug holding brokered-credential metadata objects.
+	 * The SAME register `CredentialBrokerService::REGISTER` reads from — this
+	 * class is a second, read-only consumer of that one collection.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'credential-broker';
 
-    /**
-     * OpenRegister schema slug for brokered-credential metadata objects.
-     *
-     * @var string
-     */
-    private const SCHEMA_SLUG = 'brokeredcredential';
+	/**
+	 * OpenRegister schema slug for brokered-credential metadata objects.
+	 *
+	 * @var string
+	 */
+	private const SCHEMA_SLUG = 'brokeredcredential';
 
-    /**
-     * The app id a credential's `allowedApps[]` must contain for hermiq to be
-     * permitted to select it. Matches `BrokerHttpClient::APP_ID`.
-     *
-     * @var string
-     */
-    private const APP_ID = 'hermiq';
+	/**
+	 * The app id a credential's `allowedApps[]` must contain for hermiq to be
+	 * permitted to select it. Matches `BrokerHttpClient::APP_ID`.
+	 *
+	 * @var string
+	 */
+	private const APP_ID = 'hermiq';
 
-    /**
-     * The personal (owner-scoped) credential scope — the default when the
-     * credential's own `scope` field is absent.
-     *
-     * @var string
-     */
-    private const SCOPE_PERSONAL = 'personal';
+	/**
+	 * The personal (owner-scoped) credential scope — the default when the
+	 * credential's own `scope` field is absent.
+	 *
+	 * @var string
+	 */
+	private const SCOPE_PERSONAL = 'personal';
 
-    /**
-     * The organisation (membership-scoped) credential scope.
-     *
-     * @var string
-     */
-    private const SCOPE_ORGANISATION = 'organisation';
+	/**
+	 * The organisation (membership-scoped) credential scope.
+	 *
+	 * @var string
+	 */
+	private const SCOPE_ORGANISATION = 'organisation';
 
-    /**
-     * Constructor.
-     *
-     * @param ObjectService $objectService OpenRegister object read (single read-path;
-     *                                     this class never writes a credential).
-     */
-    public function __construct(
-        private readonly ObjectService $objectService,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ObjectService $objectService OpenRegister object read (single read-path;
+	 *                                     this class never writes a credential).
+	 */
+	public function __construct(
+		private readonly ObjectService $objectService,
+	) {
+	}//end __construct()
 
-    /**
-     * Resolve the best-scoped broker credential id for the given provider.
-     *
-     * @param string      $provider     The provider identifier (e.g. "openai", "fireworks").
-     * @param string|null $actingUserId The acting user's uid, or null when there is no
-     *                                  identity to check a personal credential against
-     *                                  (the personal branch is then skipped entirely).
-     * @param string|null $organisation The agent's organisation, or null/'' to skip the
-     *                                  organisation branch (matches the
-     *                                  `createChatDriver()`/`enforceModelPolicy()` opt-in
-     *                                  shape — an organisation-less call never resolves
-     *                                  an organisation-scope credential).
-     *
-     * @return string|null The resolved credential uuid, or null when neither a personal
-     *                     nor an organisation match exists (fall back to instance).
-     *
-     * @SuppressWarnings(PHPMD.UnusedFormalParameter) The personal-scope predicate closure
-     *   must keep `$_data`: `firstMatch()`'s callable contract is (ObjectEntity, array)
-     *   even when a predicate only inspects the entity.
-     *
-     * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
-     */
-    public function resolve(string $provider, ?string $actingUserId, ?string $organisation): ?string
-    {
-        $candidates = $this->loadCandidates();
+	/**
+	 * Resolve the best-scoped broker credential id for the given provider.
+	 *
+	 * @param string $provider The provider identifier (e.g. "openai", "fireworks").
+	 * @param string|null $actingUserId The acting user's uid, or null when there is no
+	 *                                  identity to check a personal credential against
+	 *                                  (the personal branch is then skipped entirely).
+	 * @param string|null $organisation The agent's organisation, or null/'' to skip the
+	 *                                  organisation branch (matches the
+	 *                                  `createChatDriver()`/`enforceModelPolicy()` opt-in
+	 *                                  shape — an organisation-less call never resolves
+	 *                                  an organisation-scope credential).
+	 *
+	 * @return string|null The resolved credential uuid, or null when neither a personal
+	 *                     nor an organisation match exists (fall back to instance).
+	 *
+	 * @SuppressWarnings(PHPMD.UnusedFormalParameter) The personal-scope predicate closure
+	 *   must keep `$_data`: `firstMatch()`'s callable contract is (ObjectEntity, array)
+	 *   even when a predicate only inspects the entity.
+	 *
+	 * @spec openspec/changes/agent-credentials/specs/agent-credentials/spec.md#requirement-run-time-credential-resolution-precedence
+	 */
+	public function resolve(string $provider, ?string $actingUserId, ?string $organisation): ?string {
+		$candidates = $this->loadCandidates();
 
-        if ($actingUserId !== null && $actingUserId !== '') {
-            $personal = $this->firstMatch(
-                candidates: $candidates,
-                provider: $provider,
-                scope: self::SCOPE_PERSONAL,
-                predicate: static fn (ObjectEntity $candidate, array $_data): bool => $candidate->getOwner() === $actingUserId
-            );
+		if ($actingUserId !== null && $actingUserId !== '') {
+			$personal = $this->firstMatch(
+				candidates: $candidates,
+				provider: $provider,
+				scope: self::SCOPE_PERSONAL,
+				predicate: static fn (ObjectEntity $candidate, array $_data): bool => $candidate->getOwner() === $actingUserId
+			);
 
-            if ($personal !== null) {
-                return $personal;
-            }
-        }
+			if ($personal !== null) {
+				return $personal;
+			}
+		}
 
-        if ($organisation !== null && $organisation !== '') {
-            $organisationMatch = $this->firstMatch(
-                candidates: $candidates,
-                provider: $provider,
-                scope: self::SCOPE_ORGANISATION,
-                predicate: static fn (ObjectEntity $candidate, array $data): bool => (string) ($data['organisation'] ?? '') === $organisation
-            );
+		if ($organisation !== null && $organisation !== '') {
+			$organisationMatch = $this->firstMatch(
+				candidates: $candidates,
+				provider: $provider,
+				scope: self::SCOPE_ORGANISATION,
+				predicate: static fn (ObjectEntity $candidate, array $data): bool => (string)($data['organisation'] ?? '') === $organisation
+			);
 
-            if ($organisationMatch !== null) {
-                return $organisationMatch;
-            }
-        }
+			if ($organisationMatch !== null) {
+				return $organisationMatch;
+			}
+		}
 
-        return null;
+		return null;
+	}//end resolve()
 
-    }//end resolve()
+	/**
+	 * Resolve the scope of ONE known credential id.
+	 *
+	 * A companion to {@see resolve()}, which picks a credential id by provider. This
+	 * answers the inverse question — "what scope is THIS id?" — which the `anthropic-cli`
+	 * (Claude Max/Pro subscription) path needs: that credential is PERSONAL-SCOPE ONLY per
+	 * the Anthropic Terms of Service and must be refused at organisation scope.
+	 *
+	 * The broker cannot answer this: `CredentialBrokerService::resolveInjectable()` returns
+	 * a bare `string|null`, its `scopeOf()` is private, and its Guard 1 deliberately ADMITS
+	 * any organisation member for an organisation-scope credential
+	 * (`loadAdmittedCredential()` → `assertOrganisationMember()`). Enforcing a
+	 * personal-only ToS constraint therefore has to happen caller-side, and this class is
+	 * already this app's sanctioned reader of that one collection (see the class docblock).
+	 *
+	 * Read-only and guard-free by design: like {@see resolve()}, this is a policy input, not
+	 * a trust boundary — the broker still re-runs its own guards before any secret is
+	 * touched.
+	 *
+	 * @param string $credentialId The `credential` object UUID.
+	 *
+	 * @return string|null `personal`|`organisation`, or null when no such credential exists.
+	 *
+	 * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
+	 */
+	public function scopeOfCredential(string $credentialId): ?string {
+		foreach ($this->loadCandidates() as $candidate) {
+			if ((string)$candidate->getUuid() === $credentialId) {
+				return $this->scopeOf(data: $candidate->getObject());
+			}
+		}
 
-    /**
-     * Resolve the scope of ONE known credential id.
-     *
-     * A companion to {@see resolve()}, which picks a credential id by provider. This
-     * answers the inverse question — "what scope is THIS id?" — which the `anthropic-cli`
-     * (Claude Max/Pro subscription) path needs: that credential is PERSONAL-SCOPE ONLY per
-     * the Anthropic Terms of Service and must be refused at organisation scope.
-     *
-     * The broker cannot answer this: `CredentialBrokerService::resolveInjectable()` returns
-     * a bare `string|null`, its `scopeOf()` is private, and its Guard 1 deliberately ADMITS
-     * any organisation member for an organisation-scope credential
-     * (`loadAdmittedCredential()` → `assertOrganisationMember()`). Enforcing a
-     * personal-only ToS constraint therefore has to happen caller-side, and this class is
-     * already this app's sanctioned reader of that one collection (see the class docblock).
-     *
-     * Read-only and guard-free by design: like {@see resolve()}, this is a policy input, not
-     * a trust boundary — the broker still re-runs its own guards before any secret is
-     * touched.
-     *
-     * @param string $credentialId The `credential` object UUID.
-     *
-     * @return string|null `personal`|`organisation`, or null when no such credential exists.
-     *
-     * @spec openspec/changes/cli-runner-text-turn-dispatch/specs/cli-execution-mode/spec.md#requirement-the-subscription-token-is-resolved-through-the-broker-and-never-persisted-by-hermiq
-     */
-    public function scopeOfCredential(string $credentialId): ?string
-    {
-        foreach ($this->loadCandidates() as $candidate) {
-            if ((string) $candidate->getUuid() === $credentialId) {
-                return $this->scopeOf(data: $candidate->getObject());
-            }
-        }
+		return null;
+	}//end scopeOfCredential()
 
-        return null;
+	/**
+	 * Load every brokered-credential object, system-wide — the same small,
+	 * admin/user-curated collection `TenantModelPolicyService::getForOrganisation()`
+	 * and `ScheduleWebhookSecretService` read in the same `_rbac: false,
+	 * _multitenancy: false` shape (this class filters ownership/membership
+	 * itself; RBAC/multitenancy scoping would be the wrong lens for a
+	 * cross-user, cross-organisation catalogue read).
+	 *
+	 * @return array<int, ObjectEntity> Every brokered-credential object.
+	 */
+	private function loadCandidates(): array {
+		$objects = $this->objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::SCHEMA_SLUG)
+			->findAll(config: [], _rbac: false, _multitenancy: false);
 
-    }//end scopeOfCredential()
+		return array_values(array_filter($objects, static fn ($object): bool => $object instanceof ObjectEntity));
+	}//end loadCandidates()
 
-    /**
-     * Load every brokered-credential object, system-wide — the same small,
-     * admin/user-curated collection `TenantModelPolicyService::getForOrganisation()`
-     * and `ScheduleWebhookSecretService` read in the same `_rbac: false,
-     * _multitenancy: false` shape (this class filters ownership/membership
-     * itself; RBAC/multitenancy scoping would be the wrong lens for a
-     * cross-user, cross-organisation catalogue read).
-     *
-     * @return array<int, ObjectEntity> Every brokered-credential object.
-     */
-    private function loadCandidates(): array
-    {
-        $objects = $this->objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::SCHEMA_SLUG)
-            ->findAll(config: [], _rbac: false, _multitenancy: false);
+	/**
+	 * Find the first candidate matching `provider`, the given `scope`,
+	 * `hermiq` in `allowedApps`, and the scope-specific `$predicate` (owner
+	 * equality for personal, organisation equality for organisation).
+	 *
+	 * @param array<int, ObjectEntity> $candidates Every brokered-credential object.
+	 * @param string $provider The provider identifier to match.
+	 * @param string $scope The scope to match (`personal`|`organisation`).
+	 * @param callable(ObjectEntity, array<string,mixed>): bool $predicate The scope-specific match (owner/organisation).
+	 *
+	 * @return string|null The first match's uuid, or null.
+	 */
+	private function firstMatch(array $candidates, string $provider, string $scope, callable $predicate): ?string {
+		foreach ($candidates as $candidate) {
+			$data = $candidate->getObject();
 
-        return array_values(array_filter($objects, static fn ($object): bool => $object instanceof ObjectEntity));
+			if (($data['provider'] ?? null) !== $provider) {
+				continue;
+			}
 
-    }//end loadCandidates()
+			if ($this->allowsHermiq(data: $data) === false) {
+				continue;
+			}
 
-    /**
-     * Find the first candidate matching `provider`, the given `scope`,
-     * `hermiq` in `allowedApps`, and the scope-specific `$predicate` (owner
-     * equality for personal, organisation equality for organisation).
-     *
-     * @param array<int, ObjectEntity>                          $candidates Every brokered-credential object.
-     * @param string                                            $provider   The provider identifier to match.
-     * @param string                                            $scope      The scope to match (`personal`|`organisation`).
-     * @param callable(ObjectEntity, array<string,mixed>): bool $predicate  The scope-specific match (owner/organisation).
-     *
-     * @return string|null The first match's uuid, or null.
-     */
-    private function firstMatch(array $candidates, string $provider, string $scope, callable $predicate): ?string
-    {
-        foreach ($candidates as $candidate) {
-            $data = $candidate->getObject();
+			if ($this->scopeOf(data: $data) !== $scope) {
+				continue;
+			}
 
-            if (($data['provider'] ?? null) !== $provider) {
-                continue;
-            }
+			if ($predicate($candidate, $data) === false) {
+				continue;
+			}
 
-            if ($this->allowsHermiq(data: $data) === false) {
-                continue;
-            }
+			return (string)$candidate->getUuid();
+		}//end foreach
 
-            if ($this->scopeOf(data: $data) !== $scope) {
-                continue;
-            }
+		return null;
+	}//end firstMatch()
 
-            if ($predicate($candidate, $data) === false) {
-                continue;
-            }
+	/**
+	 * Resolve a credential's scope from its serialised data (absent ⇒ personal) —
+	 * mirrors `CredentialBrokerService::scopeOf()` exactly.
+	 *
+	 * @param array<string, mixed> $data The credential's data (`getObject()`).
+	 *
+	 * @return string The scope (`personal`|`organisation`).
+	 */
+	private function scopeOf(array $data): string {
+		$scope = (string)($data['scope'] ?? self::SCOPE_PERSONAL);
+		if ($scope === self::SCOPE_ORGANISATION) {
+			return self::SCOPE_ORGANISATION;
+		}
 
-            return (string) $candidate->getUuid();
-        }//end foreach
+		return self::SCOPE_PERSONAL;
+	}//end scopeOf()
 
-        return null;
+	/**
+	 * Whether a credential's `allowedApps[]` contains `hermiq`.
+	 *
+	 * @param array<string, mixed> $data The credential's data (`getObject()`).
+	 *
+	 * @return bool True when hermiq is allowed to use this credential.
+	 */
+	private function allowsHermiq(array $data): bool {
+		$allowedApps = ($data['allowedApps'] ?? []);
+		if (is_array($allowedApps) === false) {
+			return false;
+		}
 
-    }//end firstMatch()
-
-    /**
-     * Resolve a credential's scope from its serialised data (absent ⇒ personal) —
-     * mirrors `CredentialBrokerService::scopeOf()` exactly.
-     *
-     * @param array<string, mixed> $data The credential's data (`getObject()`).
-     *
-     * @return string The scope (`personal`|`organisation`).
-     */
-    private function scopeOf(array $data): string
-    {
-        $scope = (string) ($data['scope'] ?? self::SCOPE_PERSONAL);
-        if ($scope === self::SCOPE_ORGANISATION) {
-            return self::SCOPE_ORGANISATION;
-        }
-
-        return self::SCOPE_PERSONAL;
-
-    }//end scopeOf()
-
-    /**
-     * Whether a credential's `allowedApps[]` contains `hermiq`.
-     *
-     * @param array<string, mixed> $data The credential's data (`getObject()`).
-     *
-     * @return bool True when hermiq is allowed to use this credential.
-     */
-    private function allowsHermiq(array $data): bool
-    {
-        $allowedApps = ($data['allowedApps'] ?? []);
-        if (is_array($allowedApps) === false) {
-            return false;
-        }
-
-        return in_array(self::APP_ID, $allowedApps, true);
-
-    }//end allowsHermiq()
+		return in_array(self::APP_ID, $allowedApps, true);
+	}//end allowsHermiq()
 }//end class

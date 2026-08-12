@@ -52,96 +52,92 @@ use Throwable;
  *
  * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-1
  */
-abstract class AbstractTextProvider implements ISynchronousProvider
-{
-    use EmptyOptionalShapesTrait;
+abstract class AbstractTextProvider implements ISynchronousProvider {
+	use EmptyOptionalShapesTrait;
 
-    /**
-     * Constructor.
-     *
-     * @param ProviderFactory $providerFactory Hermiq's configured-LLM generation seam.
-     * @param LoggerInterface $logger          Logger.
-     *
-     * @return void
-     */
-    public function __construct(
-        protected readonly ProviderFactory $providerFactory,
-        protected readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ProviderFactory $providerFactory Hermiq's configured-LLM generation seam.
+	 * @param LoggerInterface $logger Logger.
+	 *
+	 * @return void
+	 */
+	public function __construct(
+		protected readonly ProviderFactory $providerFactory,
+		protected readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Frame the raw user input into the prompt this task type should send to the
-     * language model (e.g. wrap in a "summarize the following" instruction).
-     *
-     * @param string $input The raw `input` slot value.
-     *
-     * @return string The prompt to send to the LLM.
-     *
-     * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
-     */
-    abstract protected function buildPrompt(string $input): string;
+	/**
+	 * Frame the raw user input into the prompt this task type should send to the
+	 * language model (e.g. wrap in a "summarize the following" instruction).
+	 *
+	 * @param string $input The raw `input` slot value.
+	 *
+	 * @return string The prompt to send to the LLM.
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-3
+	 */
+	abstract protected function buildPrompt(string $input): string;
 
-    /**
-     * Run the task: frame the input, generate via Hermiq's configured LLM, return
-     * the `output` slot. The `nextcloud` driver is forbidden here — a Hermiq
-     * TaskProcessing provider backed by the TaskProcessing driver would recurse.
-     *
-     * @param string|null $userId         The user that created the task.
-     * @param array       $input          The task input (expects `input` string).
-     * @param callable    $reportProgress Progress reporter (single blocking call; reported once).
-     *
-     * @return array{output: string} The generated reply.
-     *
-     * @throws ProcessingException When the input is missing/empty or generation fails.
-     *
-     * @psalm-param  callable(float):bool $reportProgress
-     * @psalm-return array{output: string}
-     *
-     * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-2
-     */
-    public function process(?string $userId, array $input, callable $reportProgress): array
-    {
-        $text = $input['input'] ?? null;
-        if (is_string($text) === false || trim($text) === '') {
-            throw new ProcessingException('Hermiq text provider requires a non-empty "input".');
-        }
+	/**
+	 * Run the task: frame the input, generate via Hermiq's configured LLM, return
+	 * the `output` slot. The `nextcloud` driver is forbidden here — a Hermiq
+	 * TaskProcessing provider backed by the TaskProcessing driver would recurse.
+	 *
+	 * @param string|null $userId The user that created the task.
+	 * @param array $input The task input (expects `input` string).
+	 * @param callable $reportProgress Progress reporter (single blocking call; reported once).
+	 *
+	 * @return array{output: string} The generated reply.
+	 *
+	 * @throws ProcessingException When the input is missing/empty or generation fails.
+	 *
+	 * @psalm-param  callable(float):bool $reportProgress
+	 * @psalm-return array{output: string}
+	 *
+	 * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-2
+	 */
+	public function process(?string $userId, array $input, callable $reportProgress): array {
+		$text = $input['input'] ?? null;
+		if (is_string($text) === false || trim($text) === '') {
+			throw new ProcessingException('Hermiq text provider requires a non-empty "input".');
+		}
 
-        try {
-            $output = $this->providerFactory->generateText(
-                prompt: $this->buildPrompt(input: $text),
-                userId: $userId,
-                allowNextcloud: false
-            );
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                message: '[Hermiq TaskProcessing] text2text generation failed',
-                context: [
-                    'file'       => __FILE__,
-                    'line'       => __LINE__,
-                    'taskTypeId' => $this->getTaskTypeId(),
-                    'error'      => $e->getMessage(),
-                ]
-            );
-            throw new ProcessingException('Hermiq could not generate a reply: '.$e->getMessage(), 0, $e);
-        }
+		try {
+			$output = $this->providerFactory->generateText(
+				prompt: $this->buildPrompt(input: $text),
+				userId: $userId,
+				allowNextcloud: false
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[Hermiq TaskProcessing] text2text generation failed',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'taskTypeId' => $this->getTaskTypeId(),
+					'error' => $e->getMessage(),
+				]
+			);
+			throw new ProcessingException('Hermiq could not generate a reply: ' . $e->getMessage(), 0, $e);
+		}
 
-        // Report completion so cancelled tasks stop cleanly (single blocking call).
-        $reportProgress(1.0);
+		// Report completion so cancelled tasks stop cleanly (single blocking call).
+		$reportProgress(1.0);
 
-        return ['output' => $output];
+		return ['output' => $output];
+	}//end process()
 
-    }//end process()
-
-    /**
-     * The expected average runtime of a task in seconds.
-     *
-     * @return int
-     *
-     * @spec exclude Trivial framework runtime hint; no behavioural spec.
-     */
-    public function getExpectedRuntime(): int
-    {
-        return 10;
-    }//end getExpectedRuntime()
+	/**
+	 * The expected average runtime of a task in seconds.
+	 *
+	 * @return int
+	 *
+	 * @spec exclude Trivial framework runtime hint; no behavioural spec.
+	 */
+	public function getExpectedRuntime(): int {
+		return 10;
+	}//end getExpectedRuntime()
 }//end class

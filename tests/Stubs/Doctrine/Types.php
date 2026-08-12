@@ -26,69 +26,68 @@ namespace Doctrine\DBAL\Types;
 /**
  * Minimal Types stub for standalone unit runs (doctrine/dbal 3.x values).
  */
-final class Types
-{
+final class Types {
 
-    /**
-     * Boolean column type.
-     *
-     * @var string
-     */
-    public const BOOLEAN = 'boolean';
+	/**
+	 * Boolean column type.
+	 *
+	 * @var string
+	 */
+	public const BOOLEAN = 'boolean';
 
-    /**
-     * Mutable datetime column type.
-     *
-     * @var string
-     */
-    public const DATETIME_MUTABLE = 'datetime';
+	/**
+	 * Mutable datetime column type.
+	 *
+	 * @var string
+	 */
+	public const DATETIME_MUTABLE = 'datetime';
 
-    /**
-     * Immutable datetime column type.
-     *
-     * @var string
-     */
-    public const DATETIME_IMMUTABLE = 'datetime_immutable';
+	/**
+	 * Immutable datetime column type.
+	 *
+	 * @var string
+	 */
+	public const DATETIME_IMMUTABLE = 'datetime_immutable';
 
-    /**
-     * Mutable datetime-with-timezone column type.
-     *
-     * @var string
-     */
-    public const DATETIMETZ_MUTABLE = 'datetimetz';
+	/**
+	 * Mutable datetime-with-timezone column type.
+	 *
+	 * @var string
+	 */
+	public const DATETIMETZ_MUTABLE = 'datetimetz';
 
-    /**
-     * Immutable datetime-with-timezone column type.
-     *
-     * @var string
-     */
-    public const DATETIMETZ_IMMUTABLE = 'datetimetz_immutable';
+	/**
+	 * Immutable datetime-with-timezone column type.
+	 *
+	 * @var string
+	 */
+	public const DATETIMETZ_IMMUTABLE = 'datetimetz_immutable';
 
-    /**
-     * Mutable date column type.
-     *
-     * @var string
-     */
-    public const DATE_MUTABLE = 'date';
+	/**
+	 * Mutable date column type.
+	 *
+	 * @var string
+	 */
+	public const DATE_MUTABLE = 'date';
 
-    /**
-     * Immutable date column type.
-     *
-     * @var string
-     */
-    public const DATE_IMMUTABLE = 'date_immutable';
+	/**
+	 * Immutable date column type.
+	 *
+	 * @var string
+	 */
+	public const DATE_IMMUTABLE = 'date_immutable';
 
-    /**
-     * Mutable time column type.
-     *
-     * @var string
-     */
-    public const TIME_MUTABLE = 'time';
+	/**
+	 * Mutable time column type.
+	 *
+	 * @var string
+	 */
+	public const TIME_MUTABLE = 'time';
 
-    /**
-     * Immutable time column type.
-     *
-     * @var string
-     */
-    public const TIME_IMMUTABLE = 'time_immutable';
+	/**
+	 * Immutable time column type.
+	 *
+	 * @var string
+	 */
+	public const TIME_IMMUTABLE = 'time_immutable';
 }//end class
