@@ -13,4 +13,4 @@
 # style: reformat with nextcloud/coding-standard — whitespace only
 # The fleet-wide move from a PEAR-derived PHPCS ruleset (4 spaces, next-line
 # braces) to Nextcloud's own standard (tabs, same-line braces).
-135e7d3c086834f876f27f957ea2d0d55d8ab22b
+b2af4befb6163c2844081f507c324430e230a4c2
