@@ -456,6 +456,9 @@ class MemoryService {
 	 * them. `hermiq.recallMemory` merges this with `recallSessions()`'s turn matches into
 	 * one combined tool result (design.md Decision 5).
 	 *
+	 * The returned entries are tenant-scoped for free (unchanged ObjectService
+	 * caller-context RBAC).
+	 *
 	 * @param string $agentId The agent UUID.
 	 * @param string|null $subjectUid The acting user id whose own UserProfile is also
 	 *                                searched, or null to search only the agent's Memory.
@@ -463,7 +466,6 @@ class MemoryService {
 	 * @param int $limit Maximum objects to search per schema.
 	 *
 	 * @return array{memoryEntries: array<int, array<string, string>>, userProfileEntries: array<int, array<string, string>>}
-	 *                                                                                                                        Matching entries, tenant-scoped for free (unchanged ObjectService caller-context RBAC).
 	 *
 	 * @spec openspec/changes/agent-memory-tools/tasks.md#task-4
 	 */

@@ -136,17 +136,17 @@ class RunTokenService {
 	 * @param string $conversationId The conversation UUID, when one exists (audit binding only).
 	 * @param int|null $ttlSeconds Override the default TTL. Used ONLY by the workload plane.
 	 *
-	 *                                 The default is the LLM turn's timeout plus slack — 150
-	 *                                 seconds — which is right for a turn and wrong for a stage
-	 *                                 by two orders of magnitude: a stage's ceiling is 30
-	 *                                 minutes. A stage token minted at the default expires while
-	 *                                 the workload is still running, so the clone at the start
-	 *                                 succeeds and the push at the end is denied `invalid_token`
-	 *                                 — a failure that looks like a forge problem and is not.
+	 *                             The default is the LLM turn's timeout plus slack — 150
+	 *                             seconds — which is right for a turn and wrong for a stage
+	 *                             by two orders of magnitude: a stage's ceiling is 30
+	 *                             minutes. A stage token minted at the default expires while
+	 *                             the workload is still running, so the clone at the start
+	 *                             succeeds and the push at the end is denied `invalid_token`
+	 *                             — a failure that looks like a forge problem and is not.
 	 *
-	 *                                 The caller passes its OWN ceiling, so the token still dies
-	 *                                 with the work it belongs to and never becomes a long-lived
-	 *                                 credential. Null keeps the turn default.
+	 *                             The caller passes its OWN ceiling, so the token still dies
+	 *                             with the work it belongs to and never becomes a long-lived
+	 *                             credential. Null keeps the turn default.
 	 *
 	 * @return string The plaintext bearer token.
 	 *

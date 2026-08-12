@@ -392,9 +392,11 @@ class ToolGrantResolver {
 	 *                                                         an `argument => {mode, values}` map.
 	 * @param array<string, mixed> $arguments The decoded tool-call arguments.
 	 *
-	 * @return array{argument:string, mode:string, values:array<int,string>}|null The first violated
-	 *                                                                            constraint (of the first alternative), or null when the call conforms — including
-	 *                                                                            when no constraint set was declared at all.
+	 * @return array{argument:string, mode:string, values:array<int,string>}|null The first
+	 *                                                                            violated constraint (of the first
+	 *                                                                            alternative), or null when the call
+	 *                                                                            conforms — including when no constraint
+	 *                                                                            set was declared at all.
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-a-pinned-argument-that-differs-is-refused-before-dispatch
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#scenario-a-value-outside-a-closed-set-is-refused
@@ -554,10 +556,11 @@ class ToolGrantResolver {
 	 * prevent. That is why the alternatives are kept apart here rather than
 	 * merged into a per-tool boolean.
 	 *
+	 * The returned map is `tool id => list of waived alternative constraint sets`.
+	 *
 	 * @param array<int, string> $grants Raw `Agent.tools` entries.
 	 *
 	 * @return array<string, array<int, array<string, array{mode:string, values:array<int,string>}>>>
-	 *                                                                                                Tool id => list of waived alternative constraint sets.
 	 *
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-the-waiver-suppresses-the-approval-gate-and-nothing-else
 	 */

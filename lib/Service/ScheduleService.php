@@ -935,11 +935,12 @@ class ScheduleService {
 	 * and no `Approval` is created — a preview must be repeatable without
 	 * affecting the schedule's real cadence.
 	 *
+	 * Returns `{status: 'blocked', gate: ...}` when a governance gate refused the
+	 * preview, otherwise `{status: 'ok'|'error', error, steps, summary}`.
+	 *
 	 * @param ObjectEntity $schedule The schedule to preview.
 	 *
 	 * @return array{status:string,gate?:string,error?:?string,steps?:array<int,array<string,mixed>>,summary?:string}
-	 *                                                                                                                `{status: 'blocked', gate: ...}` when a governance gate refused the
-	 *                                                                                                                preview, otherwise `{status: 'ok'|'error', error, steps, summary}`.
 	 *
 	 * @throws EngineRequiredException When `hermiq.engine.enabled` is off.
 	 *
