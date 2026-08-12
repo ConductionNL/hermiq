@@ -95,6 +95,7 @@ class AgentTemplateServiceTest extends TestCase {
 				bool $_rbac = true,
 				bool $_multitenancy = true,
 				bool $_render = true,
+				bool $_audit = true,
 			): ?ObjectEntity {
 				return ($this->byId[$schema . ':' . $id] ?? null);
 			}
