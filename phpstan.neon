@@ -10,6 +10,16 @@ includes:
     - phpstan-baseline.neon
 
 parameters:
+    # `lib/Resources/template` USED to be excluded by the shared base. It left the
+    # base in conduction/hydra-gates v1.7.3, because a conditional path has no
+    # spelling that is safe on both PHPStan majors: plain aborts 2.x (it validates
+    # the entry), the `(?)` marker makes NEON parse it as an entity and aborts 2.x
+    # differently, and quoting stops 1.x stripping the marker so the exclusion
+    # silently matches nothing — which would have started analysing this snapshot
+    # with nobody told. Only the apps that actually ship the directory carry it.
+    excludePaths:
+        - lib/Resources/template
+
     # App-specific only. The base already sets level, paths, bootstrapFiles,
     # excludePaths, scanDirectories and every fleet-wide ignore.
     scanDirectories:
