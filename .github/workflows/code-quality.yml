@@ -118,7 +118,13 @@ jobs:
       # and were an absent dependency. A cell that cannot install this app's
       # hard dependency measures nothing, so it is gone, and appinfo/info.xml
       # now declares `min-version="32"` to match.
-      nextcloud-test-refs: '["stable34"]'
+      #
+      # THE LIST IS THE WHOLE DECLARED RANGE. appinfo/info.xml declares
+      # <nextcloud min-version="32" max-version="34"/>, so 32, 33 and 34 each get
+      # a leg. Adopting NC 34 by REPLACING the list left 32 and 33 advertised to
+      # the App Store with no job touching them — the declared floor became the
+      # untested end, which is the same drift as never testing 34, reversed.
+      nextcloud-test-refs: '["stable34", "stable32", "stable33"]'
       enable-psalm: true
       enable-phpstan: true
       enable-phpmetrics: true
