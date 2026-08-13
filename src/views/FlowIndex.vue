@@ -6,7 +6,12 @@
 <template>
 	<CnIndexPage
 		:title="t('hermiq', 'Flows')"
-		:description="t('hermiq', 'Flows owned by Hermiq. A flow is a flow — the same definition the engine runs, stored once in OpenRegister.')"
+		:description="
+			t(
+				'hermiq',
+				'Flows owned by Hermiq. A flow is a flow — the same definition the engine runs, stored once in OpenRegister.',
+			)
+		"
 		:columns="columns"
 		:objects="rows"
 		:loading="editor.loading"

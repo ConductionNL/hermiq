@@ -12,7 +12,12 @@
 <template>
 	<div class="talk-delivery">
 		<p class="talk-delivery__text">
-			{{ t('hermiq', 'Scheduled runs deliver their results to a Nextcloud Talk room. Pick a room you are in, or create one. Leave as “Note to self” to deliver privately to yourself.') }}
+			{{
+				t(
+					'hermiq',
+					'Scheduled runs deliver their results to a Nextcloud Talk room. Pick a room you are in, or create one. Leave as “Note to self” to deliver privately to yourself.',
+				)
+			}}
 		</p>
 		<NcSelect
 			class="talk-delivery__select"
@@ -50,8 +55,19 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
-import { createRoom, getDeliveryTarget, listRooms, setDeliveryTarget } from '../api/talk.js'
+import {
+	NcButton,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+	NcTextField,
+} from '@nextcloud/vue'
+import {
+	createRoom,
+	getDeliveryTarget,
+	listRooms,
+	setDeliveryTarget,
+} from '../api/talk.js'
 
 /** The sentinel "no room → Note to self" option. */
 const NOTE_TO_SELF = { token: '', name: '' }
@@ -86,7 +102,10 @@ export default {
 		 * @return {Array<{token: string, name: string}>} Options for NcSelect.
 		 */
 		options() {
-			return [{ token: '', name: this.t('hermiq', 'Note to self (private)') }, ...this.rooms]
+			return [
+				{ token: '', name: this.t('hermiq', 'Note to self (private)') },
+				...this.rooms,
+			]
 		},
 
 		/**
@@ -99,7 +118,9 @@ export default {
 			if (!token) {
 				return this.t('hermiq', 'Saved — runs deliver to your Note to self.')
 			}
-			return this.t('hermiq', 'Saved — runs deliver to “{room}”.', { room: this.selected.name })
+			return this.t('hermiq', 'Saved — runs deliver to “{room}”.', {
+				room: this.selected.name,
+			})
 		},
 	},
 
@@ -116,11 +137,18 @@ export default {
 		async load() {
 			this.loading = true
 			try {
-				const [rooms, target] = await Promise.all([listRooms(), getDeliveryTarget()])
+				const [rooms, target] = await Promise.all([
+					listRooms(),
+					getDeliveryTarget(),
+				])
 				this.rooms = rooms
-				this.selected = this.options.find((o) => o.token === target) || NOTE_TO_SELF
+				this.selected =
+					this.options.find((o) => o.token === target) || NOTE_TO_SELF
 			} catch (e) {
-				this.error = e?.response?.data?.message || e?.message || this.t('hermiq', 'Could not load your Talk rooms')
+				this.error =
+					e?.response?.data?.message
+					|| e?.message
+					|| this.t('hermiq', 'Could not load your Talk rooms')
 			} finally {
 				this.loading = false
 			}
@@ -152,7 +180,10 @@ export default {
 				this.newName = ''
 				await this.save(room.token)
 			} catch (e) {
-				this.error = e?.response?.data?.ocs?.meta?.message || e?.message || this.t('hermiq', 'Could not create the room')
+				this.error =
+					e?.response?.data?.ocs?.meta?.message
+					|| e?.message
+					|| this.t('hermiq', 'Could not create the room')
 			} finally {
 				this.creating = false
 			}
@@ -170,7 +201,10 @@ export default {
 				await setDeliveryTarget(token)
 				this.saved = true
 			} catch (e) {
-				this.error = e?.response?.data?.message || e?.message || this.t('hermiq', 'Could not save')
+				this.error =
+					e?.response?.data?.message
+					|| e?.message
+					|| this.t('hermiq', 'Could not save')
 			}
 		},
 	},

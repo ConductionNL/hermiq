@@ -31,7 +31,15 @@ import { test, type Page } from '@playwright/test'
 import * as path from 'path'
 import * as fs from 'fs'
 
-const SHOT_ROOT = path.resolve(__dirname, '..', '..', 'docs', 'static', 'screenshots', 'tutorials')
+const SHOT_ROOT = path.resolve(
+	__dirname,
+	'..',
+	'..',
+	'docs',
+	'static',
+	'screenshots',
+	'tutorials',
+)
 
 /**
  * Save a screenshot under
@@ -43,7 +51,11 @@ const SHOT_ROOT = path.resolve(__dirname, '..', '..', 'docs', 'static', 'screens
  * @param track The tutorial track subdirectory (user or admin).
  * @param file The PNG file name to write.
  */
-async function shoot(page: Page, track: 'user' | 'admin', file: string): Promise<void> {
+async function shoot(
+	page: Page,
+	track: 'user' | 'admin',
+	file: string,
+): Promise<void> {
 	const dir = path.join(SHOT_ROOT, track)
 	if (!fs.existsSync(dir)) {
 		fs.mkdirSync(dir, { recursive: true })
@@ -77,7 +89,7 @@ const NC_PASS = process.env.NC_PASS || 'admin'
 async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 	await userField.fill(NC_USER)
@@ -118,7 +130,10 @@ test.describe('docs: admin track', () => {
 		// NEVER fires and would burn the whole test timeout (same trap the
 		// login helper above documents). Wait for a rendered settings
 		// section instead.
-		await page.locator('.settings-section, #app-content, #content-vue').first().waitFor({ state: 'visible', timeout: 30_000 })
+		await page
+			.locator('.settings-section, #app-content, #content-vue')
+			.first()
+			.waitFor({ state: 'visible', timeout: 30_000 })
 	})
 
 	test('AN admin-settings', async ({ page }) => {

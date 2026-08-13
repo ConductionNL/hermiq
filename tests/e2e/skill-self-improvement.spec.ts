@@ -75,7 +75,7 @@ async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 
@@ -92,7 +92,9 @@ async function login(page: Page): Promise<void> {
  */
 async function openSkillsCatalog(page: Page): Promise<void> {
 	await page.goto('/apps/hermiq/skills', { waitUntil: 'domcontentloaded' })
-	await expect(page.getByText('tender-summary').first()).toBeVisible({ timeout: 30_000 })
+	await expect(page.getByText('tender-summary').first()).toBeVisible({
+		timeout: 30_000,
+	})
 }
 
 /**
@@ -103,7 +105,12 @@ async function openSkillsCatalog(page: Page): Promise<void> {
  */
 async function openSkillDetail(page: Page, name: string): Promise<void> {
 	await openSkillsCatalog(page)
-	await page.locator('tr', { hasText: name }).first().getByText(name).first().click()
+	await page
+		.locator('tr', { hasText: name })
+		.first()
+		.getByText(name)
+		.first()
+		.click()
 }
 
 test.describe('skill self-improvement (skill-self-improvement)', () => {
@@ -114,22 +121,37 @@ test.describe('skill self-improvement (skill-self-improvement)', () => {
 	// @e2e openspec/specs/skill-self-improvement/spec.md#a-fresh-install-renders-a-decidable-review-surface
 	// @e2e openspec/specs/skill-self-improvement/spec.md#the-review-card-shows-everything-the-decision-needs
 	// @e2e openspec/specs/skill-self-improvement/spec.md#no-linked-evals-yields-an-honestly-flagged-draft
-	test('the seeded pending draft renders diff, provenance, scan verdict and the verbatim no-eval-evidence flag', async ({ page }) => {
+	test('the seeded pending draft renders diff, provenance, scan verdict and the verbatim no-eval-evidence flag', async ({
+		page,
+	}) => {
 		await openSkillDetail(page, 'tender-summary')
 
 		// The scenario's GIVEN is a fresh install with the seeded draft still
 		// pending; once a prior run decided it, skip — same contract as the
 		// accept/reject/edit siblings below.
-		await page.getByText('Awaiting review').first().waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {})
-		if (await page.getByText('Awaiting review').count() === 0) {
-			test.skip(true, 'Seeded draft already decided on this instance — the pending review surface is covered on a fresh install.')
+		await page
+			.getByText('Awaiting review')
+			.first()
+			.waitFor({ state: 'visible', timeout: 30_000 })
+			.catch(() => {})
+		if ((await page.getByText('Awaiting review').count()) === 0) {
+			test.skip(
+				true,
+				'Seeded draft already decided on this instance — the pending review surface is covered on a fresh install.',
+			)
 			return
 		}
 
 		// The review card: awaiting-review chip + gate evidence.
 		await expect(page.getByText('Awaiting review').first()).toBeVisible()
 		await expect(page.getByText('Scan verdict: clean').first()).toBeVisible()
-		await expect(page.getByText('No eval evidence — accepting this draft can never grant L5.').first()).toBeVisible()
+		await expect(
+			page
+				.getByText(
+					'No eval evidence — accepting this draft can never grant L5.',
+				)
+				.first(),
+		).toBeVisible()
 
 		// Side-by-side diff of proposed vs active, with non-color-only line markers.
 		await expect(page.getByText('Active version').first()).toBeVisible()
@@ -137,35 +159,55 @@ test.describe('skill self-improvement (skill-self-improvement)', () => {
 		await expect(page.getByText('Line changes').first()).toBeVisible()
 
 		// Driving learnings provenance (dated entry refs).
-		await expect(page.getByText('Driving learnings entries').first()).toBeVisible()
+		await expect(
+			page.getByText('Driving learnings entries').first(),
+		).toBeVisible()
 
 		// The three action-gated decisions are live for the admin reviewer.
-		await expect(page.getByRole('button', { name: 'Accept', exact: true })).toBeVisible()
-		await expect(page.getByRole('button', { name: 'Edit, then accept' })).toBeVisible()
-		await expect(page.getByRole('button', { name: 'Reject', exact: true })).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: 'Accept', exact: true }),
+		).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: 'Edit, then accept' }),
+		).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: 'Reject', exact: true }),
+		).toBeVisible()
 	})
 
 	// @e2e openspec/specs/skill-self-improvement/spec.md#accepting-a-draft-creates-a-new-active-version
 	// @e2e openspec/specs/skill-self-improvement/spec.md#approving-from-the-generic-approval-inbox-applies-the-draft
-	test('accepting the seeded draft applies it as a new version through the Approval transition', async ({ page }) => {
+	test('accepting the seeded draft applies it as a new version through the Approval transition', async ({
+		page,
+	}) => {
 		await openSkillDetail(page, 'tender-summary')
 
 		// Let the async review-card load settle before deciding whether a pending
 		// draft exists — an instant count() during the fetch reads 0 and skips
 		// spuriously.
 		const accept = page.getByRole('button', { name: 'Accept', exact: true })
-		await accept.first().waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {})
-		if (await accept.count() === 0) {
-			test.skip(true, 'Seeded draft already decided on this instance — apply path covered on a fresh install.')
+		await accept
+			.first()
+			.waitFor({ state: 'visible', timeout: 30_000 })
+			.catch(() => {})
+		if ((await accept.count()) === 0) {
+			test.skip(
+				true,
+				'Seeded draft already decided on this instance — apply path covered on a fresh install.',
+			)
 			return
 		}
 
 		await accept.click()
 
 		// The review card settles; the version history gains the accepted version.
-		await expect(page.getByText('Awaiting review')).toHaveCount(0, { timeout: 30_000 })
+		await expect(page.getByText('Awaiting review')).toHaveCount(0, {
+			timeout: 30_000,
+		})
 		await expect(page.getByText('Version history').first()).toBeVisible()
-		await expect(page.getByText('current').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.getByText('current').first()).toBeVisible({
+			timeout: 30_000,
+		})
 
 		// The applied content became the NEW current version (spec: the skill's
 		// body equals the proposed content, written as a new version). SkillDetail
@@ -175,28 +217,44 @@ test.describe('skill self-improvement (skill-self-improvement)', () => {
 		const diffButton = page.getByRole('button', { name: 'Diff' }).first()
 		await expect(diffButton).toBeVisible({ timeout: 30_000 })
 		await diffButton.click()
-		await expect(page.getByText('Differences vs current version').first()).toBeVisible({ timeout: 30_000 })
+		await expect(
+			page.getByText('Differences vs current version').first(),
+		).toBeVisible({ timeout: 30_000 })
 		await expect(page.getByText('Exemption note').first()).toBeVisible()
 	})
 
 	// @e2e openspec/specs/skill-self-improvement/spec.md#rejecting-can-mark-learnings-as-bad-for-future-proposals
 	// @e2e openspec/specs/skill-self-improvement/spec.md#denying-from-the-generic-approval-inbox-rejects-the-draft
-	test('rejecting a draft offers per-entry bad-learnings marking', async ({ page }) => {
+	test('rejecting a draft offers per-entry bad-learnings marking', async ({
+		page,
+	}) => {
 		await openSkillDetail(page, 'tender-summary')
 
 		const reject = page.getByRole('button', { name: 'Reject', exact: true })
-		await reject.first().waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {})
-		if (await reject.count() === 0) {
-			test.skip(true, 'Seeded draft already decided on this instance — reject path covered on a fresh install.')
+		await reject
+			.first()
+			.waitFor({ state: 'visible', timeout: 30_000 })
+			.catch(() => {})
+		if ((await reject.count()) === 0) {
+			test.skip(
+				true,
+				'Seeded draft already decided on this instance — reject path covered on a fresh install.',
+			)
 			return
 		}
 
 		await reject.click()
 
 		// The reject modal: note + the driving entries as markable checkboxes.
-		await expect(page.getByRole('heading', { name: 'Reject draft' })).toBeVisible({ timeout: 30_000 })
 		await expect(
-			page.getByText('Mark learnings entries that led the proposal astray — marked entries will not drive the next proposal.').first(),
+			page.getByRole('heading', { name: 'Reject draft' }),
+		).toBeVisible({ timeout: 30_000 })
+		await expect(
+			page
+				.getByText(
+					'Mark learnings entries that led the proposal astray — marked entries will not drive the next proposal.',
+				)
+				.first(),
 		).toBeVisible()
 
 		// Close without deciding — the accept test owns the decision.
@@ -205,22 +263,36 @@ test.describe('skill self-improvement (skill-self-improvement)', () => {
 
 	// @e2e openspec/specs/skill-self-improvement/spec.md#editing-the-draft-invalidates-prior-gate-evidence
 	// @e2e openspec/specs/skill-self-improvement/spec.md#edit-then-accept-records-human-curation
-	test('edit-then-accept opens the SkillDetail-only editor with the re-qualification warning', async ({ page }) => {
+	test('edit-then-accept opens the SkillDetail-only editor with the re-qualification warning', async ({
+		page,
+	}) => {
 		await openSkillDetail(page, 'tender-summary')
 
 		const edit = page.getByRole('button', { name: 'Edit, then accept' })
-		await edit.first().waitFor({ state: 'visible', timeout: 30_000 }).catch(() => {})
-		if (await edit.count() === 0) {
-			test.skip(true, 'Seeded draft already decided on this instance — editor covered on a fresh install.')
+		await edit
+			.first()
+			.waitFor({ state: 'visible', timeout: 30_000 })
+			.catch(() => {})
+		if ((await edit.count()) === 0) {
+			test.skip(
+				true,
+				'Seeded draft already decided on this instance — editor covered on a fresh install.',
+			)
 			return
 		}
 
 		await edit.click()
 
-		await expect(page.getByRole('heading', { name: 'Edit draft before accepting' })).toBeVisible({ timeout: 30_000 })
+		await expect(
+			page.getByRole('heading', { name: 'Edit draft before accepting' }),
+		).toBeVisible({ timeout: 30_000 })
 		// The invalidation contract is stated on the surface itself.
 		await expect(
-			page.getByText('Saving re-runs the content scan and the paired eval over your edited text. The draft cannot be accepted anywhere until re-qualification passes.').first(),
+			page
+				.getByText(
+					'Saving re-runs the content scan and the paired eval over your edited text. The draft cannot be accepted anywhere until re-qualification passes.',
+				)
+				.first(),
 		).toBeVisible()
 
 		await page.keyboard.press('Escape')
@@ -229,30 +301,40 @@ test.describe('skill self-improvement (skill-self-improvement)', () => {
 	// @e2e openspec/specs/skill-self-improvement/spec.md#rolling-back-restores-content-as-a-new-version
 	// @e2e openspec/specs/skill-self-improvement/spec.md#rollback-leaves-non-versioned-fields-alone
 	// @e2e openspec/specs/skill-self-improvement/spec.md#diff-covers-only-the-versioned-field-set
-	test('the version history lists AuditTrail versions with diff and an explicit rollback action', async ({ page }) => {
+	test('the version history lists AuditTrail versions with diff and an explicit rollback action', async ({
+		page,
+	}) => {
 		await openSkillDetail(page, 'tender-summary')
 
-		await expect(page.getByText('Version history').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.getByText('Version history').first()).toBeVisible({
+			timeout: 30_000,
+		})
 		await expect(page.getByText('current').first()).toBeVisible()
 
 		// Older versions carry the explicit Diff + Roll back actions (advisory,
 		// never automatic). A fresh install may have only the create version.
 		const diffButtons = page.getByRole('button', { name: 'Diff' })
-		if (await diffButtons.count() > 0) {
+		if ((await diffButtons.count()) > 0) {
 			await diffButtons.first().click()
-			await expect(page.getByText('Differences vs current version').first()).toBeVisible({ timeout: 30_000 })
+			await expect(
+				page.getByText('Differences vs current version').first(),
+			).toBeVisible({ timeout: 30_000 })
 		}
 	})
 
 	// @e2e openspec/specs/skill-self-improvement/spec.md#acceptance-flips-a-published-skill-to-behind
 	// @e2e openspec/specs/skill-self-improvement/spec.md#republish-clears-the-badge-through-the-authorized-path
-	test('the behind-badge never renders for an unpublished skill and no GitHub call happens on its own', async ({ page }) => {
+	test('the behind-badge never renders for an unpublished skill and no GitHub call happens on its own', async ({
+		page,
+	}) => {
 		await openSkillDetail(page, 'tender-summary')
 
 		// The seed skill has NO GitHub provenance: the badge must be absent on
 		// SkillDetail even after an acceptance stamped lastAcceptedVersionAt —
 		// behind = published AND publishedAt < lastAcceptedVersionAt.
-		await expect(page.getByText('Version history').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.getByText('Version history').first()).toBeVisible({
+			timeout: 30_000,
+		})
 		await expect(page.getByText('Published copy is behind')).toHaveCount(0)
 
 		// And on the catalog list row (same client-side comparison).
@@ -262,12 +344,16 @@ test.describe('skill self-improvement (skill-self-improvement)', () => {
 	})
 
 	// @e2e openspec/specs/skill-self-improvement/spec.md#re-running-the-seed-never-duplicates
-	test('the review surface never shows more than one open draft (seed idempotency)', async ({ page }) => {
+	test('the review surface never shows more than one open draft (seed idempotency)', async ({
+		page,
+	}) => {
 		await openSkillDetail(page, 'tender-summary')
 
 		// Exactly zero or one "Awaiting review" chip — a re-run repair step (or a
 		// decided seed) never yields a second pending draft.
-		await expect(page.getByText('Version history').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.getByText('Version history').first()).toBeVisible({
+			timeout: 30_000,
+		})
 		const chips = page.getByText('Awaiting review')
 		expect(await chips.count()).toBeLessThanOrEqual(1)
 	})

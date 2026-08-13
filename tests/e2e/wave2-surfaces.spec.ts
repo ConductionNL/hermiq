@@ -42,7 +42,7 @@ const NC_PASS = process.env.NC_PASS || 'admin'
 async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 	await userField.fill(NC_USER)
@@ -66,7 +66,11 @@ function collectConsoleErrors(page: Page): string[] {
 			return
 		}
 		const text = msg.text()
-		if (/favicon|manifest\.json|the server responded with a status of 404/i.test(text)) {
+		if (
+			/favicon|manifest\.json|the server responded with a status of 404/i.test(
+				text,
+			)
+		) {
 			return
 		}
 		// Only hermiq's own failures may fail a hermiq test — Nextcloud hosts
@@ -75,7 +79,8 @@ function collectConsoleErrors(page: Page): string[] {
 		// dashboard-and-agents.spec.ts. Errors with no attributable script are
 		// kept, so raw console.error from application code still counts.
 		const source = `${msg.location()?.url || ''} ${text}`
-		const foreignApp = source.match(/\/custom_apps\/([^/]+)\//)?.[1]
+		const foreignApp =
+			source.match(/\/custom_apps\/([^/]+)\//)?.[1]
 			|| source.match(/\/apps\/([^/]+)\/js\//)?.[1]
 		if (foreignApp !== undefined && foreignApp !== 'hermiq') {
 			return
@@ -93,13 +98,15 @@ function collectConsoleErrors(page: Page): string[] {
  */
 async function dismissTour(page: Page): Promise<void> {
 	const close = page.getByRole('button', { name: 'Close tour' })
-	if (await close.count() > 0) {
+	if ((await close.count()) > 0) {
 		await close.first().click()
 	}
 }
 
 test.describe('hermiq regression: wave-2 surfaces', () => {
-	test('Evaluations page round-trips a dataset through OpenRegister', async ({ page }) => {
+	test('Evaluations page round-trips a dataset through OpenRegister', async ({
+		page,
+	}) => {
 		const errors = collectConsoleErrors(page)
 		await login(page)
 
@@ -109,7 +116,9 @@ test.describe('hermiq regression: wave-2 surfaces', () => {
 		// type:"custom" page (data-testid="evals-heading") to a generic
 		// type:"index" page — assert on CnPageRenderer's stable
 		// data-testid-page-id instead of the removed bespoke testid.
-		await expect(page.locator('[data-testid-page-id="EvalDatasets"]')).toBeVisible({ timeout: 10_000 })
+		await expect(
+			page.locator('[data-testid-page-id="EvalDatasets"]'),
+		).toBeVisible({ timeout: 10_000 })
 
 		// Create a dataset and assert it persists + re-renders. The page is a
 		// generic type:"index" manifest page now, so the affordance is the
@@ -130,24 +139,39 @@ test.describe('hermiq regression: wave-2 surfaces', () => {
 
 		// Clean up the object we created so the test is idempotent across runs.
 		await page.evaluate(async (name) => {
-			const token = (window as unknown as { OC?: { requestToken?: string } }).OC?.requestToken
-				|| document.head.querySelector<HTMLMetaElement>('meta[name=requesttoken]')?.content || ''
+			const token =
+				(window as unknown as { OC?: { requestToken?: string } }).OC
+					?.requestToken
+				|| document.head.querySelector<HTMLMetaElement>(
+					'meta[name=requesttoken]',
+				)?.content
+				|| ''
 			const base = '/apps/openregister/api/objects/hermiq/evaldataset'
-			const listRes = await fetch(`${base}?_limit=200`, { headers: { requesttoken: token, 'OCS-APIRequest': 'true' } })
+			const listRes = await fetch(`${base}?_limit=200`, {
+				headers: { requesttoken: token, 'OCS-APIRequest': 'true' },
+			})
 			const body = await listRes.json()
-			const list = Array.isArray(body) ? body : (body.results || body.data || [])
+			const list = Array.isArray(body) ? body : body.results || body.data || []
 			for (const obj of list) {
 				if ((obj.name || obj['@self']?.name) === name) {
 					const id = obj.id || obj['@self']?.id
-					await fetch(`${base}/${id}`, { method: 'DELETE', headers: { requesttoken: token, 'OCS-APIRequest': 'true' } })
+					await fetch(`${base}/${id}`, {
+						method: 'DELETE',
+						headers: { requesttoken: token, 'OCS-APIRequest': 'true' },
+					})
 				}
 			}
 		}, uniqueName)
 
-		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
+		expect(
+			errors,
+			`Unexpected console errors: ${errors.join(' | ')}`,
+		).toHaveLength(0)
 	})
 
-	test('Compliance dashboard renders live-computed control rows', async ({ page }) => {
+	test('Compliance dashboard renders live-computed control rows', async ({
+		page,
+	}) => {
 		const errors = collectConsoleErrors(page)
 		await login(page)
 
@@ -161,13 +185,24 @@ test.describe('hermiq regression: wave-2 surfaces', () => {
 		// `@e2e exclude` (ComplianceService::computeControlStatus) — the
 		// browser contract asserted here is the CURRENT one: seeded control
 		// rows render with their framework, and the operations widget is live.
-		await expect(page.locator('[data-testid-page-id="Compliance"]')).toBeVisible({ timeout: 10_000 })
+		await expect(page.locator('[data-testid-page-id="Compliance"]')).toBeVisible(
+			{ timeout: 10_000 },
+		)
 
-		await expect(page.getByRole('cell', { name: 'Record-keeping' }).first()).toBeVisible()
-		await expect(page.getByRole('cell', { name: 'eu-ai-act' }).first()).toBeVisible()
-		await expect(page.getByRole('heading', { name: 'EU AI Act audit export' })).toBeVisible()
+		await expect(
+			page.getByRole('cell', { name: 'Record-keeping' }).first(),
+		).toBeVisible()
+		await expect(
+			page.getByRole('cell', { name: 'eu-ai-act' }).first(),
+		).toBeVisible()
+		await expect(
+			page.getByRole('heading', { name: 'EU AI Act audit export' }),
+		).toBeVisible()
 
-		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
+		expect(
+			errors,
+			`Unexpected console errors: ${errors.join(' | ')}`,
+		).toHaveLength(0)
 	})
 
 	test('Store page renders the seeded starter templates', async ({ page }) => {
@@ -180,12 +215,21 @@ test.describe('hermiq regression: wave-2 surfaces', () => {
 		// replaced by the unified Store page (/store) — same underlying local list
 		// (register:hermiq schema:agenttemplate), so CnPageRenderer's stable
 		// data-testid-page-id now reads "Store" instead of "AgentTemplateGallery".
-		await expect(page.locator('[data-testid-page-id="Store"]')).toBeVisible({ timeout: 10_000 })
+		await expect(page.locator('[data-testid-page-id="Store"]')).toBeVisible({
+			timeout: 10_000,
+		})
 
 		// The SeedAgentTemplates repair step seeds five starters; assert a representative one.
-		await expect(page.getByRole('cell', { name: 'Morning briefing' })).toBeVisible()
-		await expect(page.getByRole('button', { name: 'Use this template' }).first()).toBeVisible()
+		await expect(
+			page.getByRole('cell', { name: 'Morning briefing' }),
+		).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: 'Use this template' }).first(),
+		).toBeVisible()
 
-		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
+		expect(
+			errors,
+			`Unexpected console errors: ${errors.join(' | ')}`,
+		).toHaveLength(0)
 	})
 })

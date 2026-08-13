@@ -24,32 +24,45 @@
 			<NcNoteCard v-if="publishError" type="error">
 				{{ publishError }}
 			</NcNoteCard>
-			<NcTextField v-model="form.owner"
+			<NcTextField
+				v-model="form.owner"
 				:label="t('hermiq', 'Owner')"
 				:placeholder="t('hermiq', 'e.g. acme-council')" />
-			<NcTextField v-model="form.repo"
+			<NcTextField
+				v-model="form.repo"
 				:label="t('hermiq', 'Repository name')"
 				:placeholder="t('hermiq', 'e.g. morning-briefing-template')" />
-			<NcSelect v-model="visibility"
+			<NcSelect
+				v-model="visibility"
 				:options="visibilityOptions"
 				:input-label="t('hermiq', 'Visibility')"
 				:clearable="false"
 				label="label"
 				track-by="value" />
-			<NcSelect v-model="credential"
+			<NcSelect
+				v-model="credential"
 				:options="githubCredentials"
 				:input-label="t('hermiq', 'GitHub credential')"
 				:loading="loadingCredentials"
 				:placeholder="t('hermiq', 'Select a credential')"
 				label="label" />
-			<p v-if="!loadingCredentials && githubCredentials.length === 0" class="agent-template-publish-modal__hint">
-				{{ t('hermiq', 'No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.') }}
+			<p
+				v-if="!loadingCredentials && githubCredentials.length === 0"
+				class="agent-template-publish-modal__hint">
+				{{
+					t(
+						'hermiq',
+						'No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.',
+					)
+				}}
 			</p>
 			<NcButton
 				type="primary"
 				:disabled="publishing || !canPublish"
 				@click="doPublish">
-				{{ publishing ? t('hermiq', 'Publishing…') : t('hermiq', 'Publish') }}
+				{{
+					publishing ? t('hermiq', 'Publishing…') : t('hermiq', 'Publish')
+				}}
 			</NcButton>
 		</div>
 	</NcModal>
@@ -134,7 +147,11 @@ export default {
 		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-validate-repo-coordinates-before-any-github-call
 		 */
 		canPublish() {
-			return this.form.owner.trim() !== '' && this.form.repo.trim() !== '' && !!this.credential
+			return (
+				this.form.owner.trim() !== ''
+				&& this.form.repo.trim() !== ''
+				&& !!this.credential
+			)
 		},
 	},
 
@@ -153,7 +170,9 @@ export default {
 		async fetchCredentials() {
 			this.loadingCredentials = true
 			try {
-				const { data } = await axios.get(generateUrl('/apps/openregister/api/credentials'))
+				const { data } = await axios.get(
+					generateUrl('/apps/openregister/api/credentials'),
+				)
 				this.credentials = data.results || []
 			} catch (e) {
 				this.credentials = []
@@ -183,7 +202,10 @@ export default {
 				})
 				this.$emit('published', result.repoUrl)
 			} catch (e) {
-				this.publishError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.publishError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.publishing = false
 			}

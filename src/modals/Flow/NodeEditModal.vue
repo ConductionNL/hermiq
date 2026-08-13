@@ -3,11 +3,7 @@
   - SPDX-License-Identifier: EUPL-1.2
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="normal"
-		:name="heading"
-		@close="$emit('close')">
+	<NcModal :show="show" size="normal" :name="heading" @close="$emit('close')">
 		<div class="node-edit" data-testid="flow-node-edit">
 			<h2 class="node-edit__title">
 				{{ heading }}
@@ -35,9 +31,16 @@
 					label="label"
 					:input-label="t('hermiq', 'Node type')"
 					:placeholder="t('hermiq', 'Pick what this node does')"
-					@update:model-value="editor.setNodeType($event ? $event.id : '')" />
+					@update:model-value="
+						editor.setNodeType($event ? $event.id : '')
+					" />
 				<p v-else class="node-edit__hint">
-					{{ t('hermiq', 'Could not read the flow engine’s node types. Reload to try again — the list is deliberately empty rather than offering types the engine cannot run.') }}
+					{{
+						t(
+							'hermiq',
+							'Could not read the flow engine’s node types. Reload to try again — the list is deliberately empty rather than offering types the engine cannot run.',
+						)
+					}}
 				</p>
 
 				<p v-if="typeDescription" class="node-edit__hint">
@@ -54,21 +57,29 @@
 						label="label"
 						:input-label="t('hermiq', 'Agent')"
 						:placeholder="t('hermiq', 'Pick an agent')"
-						@update:model-value="editor.setNodeConfig('agentId', $event ? $event.id : '')" />
+						@update:model-value="
+							editor.setNodeConfig('agentId', $event ? $event.id : '')
+						" />
 					<NcTextArea
 						:model-value="config.prompt || ''"
 						:label="t('hermiq', 'Prompt')"
 						:placeholder="t('hermiq', 'Supports {{state}} placeholders')"
-						@update:model-value="editor.setNodeConfig('prompt', $event)" />
+						@update:model-value="
+							editor.setNodeConfig('prompt', $event)
+						" />
 					<NcTextField
 						:model-value="config.output || ''"
 						:label="t('hermiq', 'Store answer as')"
 						:placeholder="t('hermiq', 'result')"
-						@update:model-value="editor.setNodeConfig('output', $event)" />
+						@update:model-value="
+							editor.setNodeConfig('output', $event)
+						" />
 					<NcCheckboxRadioSwitch
 						:model-value="config.expectJson === true"
 						type="switch"
-						@update:model-value="editor.setNodeConfig('expectJson', $event)">
+						@update:model-value="
+							editor.setNodeConfig('expectJson', $event)
+						">
 						{{ t('hermiq', 'Answer must be JSON') }}
 					</NcCheckboxRadioSwitch>
 					<p class="node-edit__hint">
@@ -86,7 +97,12 @@
 				     does, these become declarative. -->
 				<template v-else>
 					<p class="node-edit__hint">
-						{{ t('hermiq', 'This node type has no guided form yet — edit its configuration directly. Keys must match what the node reads.') }}
+						{{
+							t(
+								'hermiq',
+								'This node type has no guided form yet — edit its configuration directly. Keys must match what the node reads.',
+							)
+						}}
 					</p>
 					<NcTextArea
 						:model-value="rawConfig"
@@ -103,7 +119,12 @@
 				<NcTextArea
 					:model-value="node.notes || ''"
 					:label="t('hermiq', 'Notes')"
-					:placeholder="t('hermiq', 'Why this node is here, what it assumes, anything the next person should know.')"
+					:placeholder="
+						t(
+							'hermiq',
+							'Why this node is here, what it assumes, anything the next person should know.',
+						)
+					"
 					rows="4"
 					@update:model-value="editor.setNodeField('notes', $event)" />
 			</template>
@@ -124,7 +145,14 @@
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcModal, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcModal,
+	NcSelect,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
 import { translate as t } from '@nextcloud/l10n'
 import { useFlowEditorStore } from '../../store/flowEditor.js'
@@ -232,7 +260,10 @@ export default {
 		 * @return {object|null} The selected option.
 		 */
 		selectedType() {
-			return this.typeOptions.find((option) => option.id === this.node?.type) || null
+			return (
+				this.typeOptions.find((option) => option.id === this.node?.type)
+				|| null
+			)
 		},
 
 		/**
@@ -250,7 +281,11 @@ export default {
 		 * @return {object|null} The selected agent option.
 		 */
 		selectedAgent() {
-			return (this.editor.agentOptions || []).find((option) => option.id === this.config.agentId) || null
+			return (
+				(this.editor.agentOptions || []).find(
+					(option) => option.id === this.config.agentId,
+				) || null
+			)
 		},
 
 		/**
@@ -284,7 +319,11 @@ export default {
 				)
 			}
 
-			return this.t('hermiq', 'A later node reads this node’s answer with {token}.', { token: `{{${key}}}` })
+			return this.t(
+				'hermiq',
+				'A later node reads this node’s answer with {token}.',
+				{ token: `{{${key}}}` },
+			)
 		},
 	},
 
@@ -321,12 +360,22 @@ export default {
 			try {
 				parsed = JSON.parse(value)
 			} catch (e) {
-				this.rawConfigError = this.t('hermiq', 'Not valid JSON — the node keeps its previous configuration.')
+				this.rawConfigError = this.t(
+					'hermiq',
+					'Not valid JSON — the node keeps its previous configuration.',
+				)
 				return
 			}
 
-			if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed) === true) {
-				this.rawConfigError = this.t('hermiq', 'Configuration must be a JSON object.')
+			if (
+				parsed === null
+				|| typeof parsed !== 'object'
+				|| Array.isArray(parsed) === true
+			) {
+				this.rawConfigError = this.t(
+					'hermiq',
+					'Configuration must be a JSON object.',
+				)
 				return
 			}
 

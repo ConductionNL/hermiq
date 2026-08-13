@@ -29,19 +29,39 @@
 -->
 <template>
 	<div class="skill-provenance">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Provenance error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Provenance error')">
 			{{ error }}
 		</NcNoteCard>
 
 		<NcLoadingIcon v-if="loading" :size="24" class="skill-provenance__loading" />
 
 		<template v-else>
-			<NcNoteCard v-if="isQuarantined" type="warning" :heading="t('hermiq', 'Awaiting review')">
-				{{ quarantineReason || t('hermiq', 'This skill is quarantined and is not available to agents until it is approved.') }}
+			<NcNoteCard
+				v-if="isQuarantined"
+				type="warning"
+				:heading="t('hermiq', 'Awaiting review')">
+				{{
+					quarantineReason
+					|| t(
+						'hermiq',
+						'This skill is quarantined and is not available to agents until it is approved.',
+					)
+				}}
 			</NcNoteCard>
 
-			<NcNoteCard v-if="learningsAheadOfSource" type="info" :heading="t('hermiq', 'Local learnings are ahead of the source')">
-				{{ t('hermiq', 'This skill has learnings accepted here since it was last updated from its source. Updating keeps them — the incoming learnings file is not applied.') }}
+			<NcNoteCard
+				v-if="learningsAheadOfSource"
+				type="info"
+				:heading="t('hermiq', 'Local learnings are ahead of the source')">
+				{{
+					t(
+						'hermiq',
+						'This skill has learnings accepted here since it was last updated from its source. Updating keeps them — the incoming learnings file is not applied.',
+					)
+				}}
 			</NcNoteCard>
 
 			<dl class="skill-provenance__facts">
@@ -52,11 +72,19 @@
 				<div class="skill-provenance__fact">
 					<dt>{{ t('hermiq', 'Source') }}</dt>
 					<dd>
-						<a v-if="sourceUrl"
+						<a
+							v-if="sourceUrl"
 							:href="sourceUrl"
 							target="_blank"
-							rel="noreferrer noopener">{{ sourceUrl }}</a>
-						<span v-else>{{ t('hermiq', 'Authored here — not installed from a bundle') }}</span>
+							rel="noreferrer noopener"
+							>{{ sourceUrl }}</a
+						>
+						<span v-else>{{
+							t(
+								'hermiq',
+								'Authored here — not installed from a bundle',
+							)
+						}}</span>
 					</dd>
 				</div>
 				<div class="skill-provenance__fact">
@@ -203,9 +231,14 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				this.skill = await this.skillStore.fetchObject('agentskill', this.skillId) || null
+				this.skill =
+					(await this.skillStore.fetchObject('agentskill', this.skillId))
+					|| null
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not load the skill.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not load the skill.')
 			} finally {
 				this.loading = false
 			}

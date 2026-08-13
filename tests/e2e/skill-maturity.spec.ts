@@ -34,7 +34,7 @@ async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 
@@ -51,7 +51,9 @@ async function login(page: Page): Promise<void> {
  */
 async function openSkillsCatalog(page: Page): Promise<void> {
 	await page.goto('/apps/hermiq/skills', { waitUntil: 'domcontentloaded' })
-	await expect(page.getByText('woo-request-triage').first()).toBeVisible({ timeout: 30_000 })
+	await expect(page.getByText('woo-request-triage').first()).toBeVisible({
+		timeout: 30_000,
+	})
 }
 
 test.describe('skill maturity (skill-maturity-model)', () => {
@@ -66,7 +68,9 @@ test.describe('skill maturity (skill-maturity-model)', () => {
 	// @e2e skill-maturity::the-list-shows-maturity-dots
 	// @e2e skill-maturity::a-fresh-install-shows-the-maturity-spread
 	// @e2e skill-maturity::a-compact-well-triggering-skill-without-reference-files-is-l2
-	test('catalog shows maturity dots for the three seed skills', async ({ page }) => {
+	test('catalog shows maturity dots for the three seed skills', async ({
+		page,
+	}) => {
 		await openSkillsCatalog(page)
 
 		await expect(page.getByText('meeting-notes-cleanup').first()).toBeVisible()
@@ -82,14 +86,20 @@ test.describe('skill maturity (skill-maturity-model)', () => {
 	// calls the endpoint and the returned per-level scorecard shows the first failing
 	// level's reasons (woo-request-triage fails L3 for missing references/examples).
 	// @e2e skill-maturity::qualifying-from-the-row-shows-the-scorecard
-	test('Qualify row action shows the scorecard with failing reasons', async ({ page }) => {
+	test('Qualify row action shows the scorecard with failing reasons', async ({
+		page,
+	}) => {
 		await openSkillsCatalog(page)
 
 		const row = page.locator('tr', { hasText: 'woo-request-triage' }).first()
 		await row.getByRole('button', { name: 'Qualify skill maturity' }).click()
 
-		await expect(page.getByText('Maturity scorecard').first()).toBeVisible({ timeout: 15_000 })
-		await expect(page.getByText('no references/ or examples/ entry in files').first()).toBeVisible()
+		await expect(page.getByText('Maturity scorecard').first()).toBeVisible({
+			timeout: 15_000,
+		})
+		await expect(
+			page.getByText('no references/ or examples/ entry in files').first(),
+		).toBeVisible()
 		await expect(page.getByText('Not passed').first()).toBeVisible()
 	})
 
@@ -97,17 +107,28 @@ test.describe('skill maturity (skill-maturity-model)', () => {
 	// stored maturity level, target level and per-level evidence, including the seeded
 	// L4 attestation of tender-summary.
 	// @e2e skill-maturity::the-detail-page-shows-the-durable-scorecard
-	test('SkillDetail page shows the durable scorecard with the seeded attestation', async ({ page }) => {
+	test('SkillDetail page shows the durable scorecard with the seeded attestation', async ({
+		page,
+	}) => {
 		await openSkillsCatalog(page)
 
-		await page.locator('tr', { hasText: 'tender-summary' }).first().getByText('tender-summary').first().click()
+		await page
+			.locator('tr', { hasText: 'tender-summary' })
+			.first()
+			.getByText('tender-summary')
+			.first()
+			.click()
 
-		await expect(page.getByLabel('Maturity level 4 of 7').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.getByLabel('Maturity level 4 of 7').first()).toBeVisible({
+			timeout: 30_000,
+		})
 		await expect(page.getByText('Target: L5').first()).toBeVisible()
 		await expect(page.getByText('Personalization').first()).toBeVisible()
 		// The seeded attestation's curator is shown as evidence.
 		await expect(page.getByText(/Attested by admin/).first()).toBeVisible()
 		// The action-gated attest surface is present (admin passes the matrix).
-		await expect(page.getByRole('button', { name: 'Attest maturity level 4' })).toBeVisible()
+		await expect(
+			page.getByRole('button', { name: 'Attest maturity level 4' }),
+		).toBeVisible()
 	})
 })

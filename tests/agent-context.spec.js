@@ -58,7 +58,10 @@ console.log('agentContext — fail-closed allowlist')
 		{ title: 'Permit', status: 'open', bsn: '123456789' },
 		{ 'x-openregister-agent-context': ['title', 'status'] },
 	)
-	assert(ctx.title === 'Permit' && ctx.status === 'open', 'returns allowlisted fields')
+	assert(
+		ctx.title === 'Permit' && ctx.status === 'open',
+		'returns allowlisted fields',
+	)
 	assert(!('bsn' in ctx), 'omits an unlisted confidential field')
 }
 
@@ -70,14 +73,23 @@ console.log('agentContext — fail-closed allowlist')
 
 // Empty allowlist → empty context.
 {
-	const ctx = buildAgentContext({ title: 'x' }, { 'x-openregister-agent-context': [] })
+	const ctx = buildAgentContext(
+		{ title: 'x' },
+		{ 'x-openregister-agent-context': [] },
+	)
 	assert(Object.keys(ctx).length === 0, 'empty allowlist yields an empty context')
 }
 
 // Missing listed field omitted, not errored.
 {
-	const ctx = buildAgentContext({ title: 'x' }, { 'x-openregister-agent-context': ['title', 'deadline'] })
-	assert(Object.keys(ctx).length === 1 && ctx.title === 'x', 'missing listed field is omitted')
+	const ctx = buildAgentContext(
+		{ title: 'x' },
+		{ 'x-openregister-agent-context': ['title', 'deadline'] },
+	)
+	assert(
+		Object.keys(ctx).length === 1 && ctx.title === 'x',
+		'missing listed field is omitted',
+	)
 }
 
 // maxLength cap, multibyte-safe.
@@ -95,7 +107,10 @@ console.log('agentContext — fail-closed allowlist')
 		{ title: 'T', secret: 's' },
 		{ configuration: { 'x-openregister-agent-context': ['title'] } },
 	)
-	assert(ctx.title === 'T' && !('secret' in ctx), 'reads the allowlist from a nested configuration bag')
+	assert(
+		ctx.title === 'T' && !('secret' in ctx),
+		'reads the allowlist from a nested configuration bag',
+	)
 }
 
 if (failures > 0) {

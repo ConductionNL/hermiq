@@ -39,18 +39,21 @@
 		</h3>
 
 		<div class="agent-template-github-store__search">
-			<NcTextField v-model="query"
+			<NcTextField
+				v-model="query"
 				:label="t('hermiq', 'Search GitHub for agent templates or skills')"
 				:placeholder="t('hermiq', 'Search by name or keyword…')"
 				@update:modelValue="onQueryChange" />
-			<NcSelect v-model="kindFilter"
+			<NcSelect
+				v-model="kindFilter"
 				:options="kindOptions"
 				:input-label="t('hermiq', 'Kind')"
 				:clearable="false"
 				label="label"
 				track-by="value"
 				@update:modelValue="doSearch" />
-			<NcSelect v-if="githubCredentials.length > 0"
+			<NcSelect
+				v-if="githubCredentials.length > 0"
 				v-model="selectedCredential"
 				:options="githubCredentials"
 				:input-label="t('hermiq', 'GitHub credential')"
@@ -61,10 +64,20 @@
 		</div>
 
 		<NcNoteCard v-if="rateLimitHintVisible" type="warning">
-			{{ t('hermiq', 'GitHub\'s anonymous search rate limit was reached. Add a personal GitHub credential under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, to raise the limit and see private repos.') }}
+			{{
+				t(
+					'hermiq',
+					"GitHub's anonymous search rate limit was reached. Add a personal GitHub credential under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, to raise the limit and see private repos.",
+				)
+			}}
 		</NcNoteCard>
 		<NcNoteCard v-else-if="unreachableHintVisible" type="warning">
-			{{ t('hermiq', 'Could not reach GitHub right now. Please try again later.') }}
+			{{
+				t(
+					'hermiq',
+					'Could not reach GitHub right now. Please try again later.',
+				)
+			}}
 		</NcNoteCard>
 		<NcNoteCard v-if="installError" type="error">
 			{{ installError }}
@@ -74,31 +87,49 @@
 		</NcNoteCard>
 
 		<NcLoadingIcon v-if="loading" :size="32" />
-		<NcEmptyContent v-else-if="cards.length === 0"
+		<NcEmptyContent
+			v-else-if="cards.length === 0"
 			:name="t('hermiq', 'No GitHub results found')"
-			:description="t('hermiq', 'Publish an agent template or skill from a row below, or try a different search term.')" />
+			:description="
+				t(
+					'hermiq',
+					'Publish an agent template or skill from a row below, or try a different search term.',
+				)
+			" />
 		<div v-else class="agent-template-github-store__cards">
-			<div v-for="card in cards" :key="card.kind + ':' + card.owner + '/' + card.repo" class="agent-template-github-store__card">
+			<div
+				v-for="card in cards"
+				:key="card.kind + ':' + card.owner + '/' + card.repo"
+				class="agent-template-github-store__card">
 				<div class="agent-template-github-store__card-title">
-					{{ card.name || (card.owner + '/' + card.repo) }}
-					<span class="agent-template-github-store__card-kind">{{ kindLabel(card.kind) }}</span>
+					{{ card.name || card.owner + '/' + card.repo }}
+					<span class="agent-template-github-store__card-kind">{{
+						kindLabel(card.kind)
+					}}</span>
 				</div>
 				<div class="agent-template-github-store__card-meta">
 					{{ card.owner }}/{{ card.repo }}
 					<span v-if="card.version"> · v{{ card.version }}</span>
 					<span> · ★{{ card.stars }}</span>
 				</div>
-				<p v-if="card.description" class="agent-template-github-store__card-description">
+				<p
+					v-if="card.description"
+					class="agent-template-github-store__card-description">
 					{{ card.description }}
 				</p>
 				<NcNoteCard v-if="card.unparseable" type="warning">
 					{{ unparseableHint(card.kind) }}
 				</NcNoteCard>
-				<NcButton v-else
+				<NcButton
+					v-else
 					type="primary"
 					:disabled="installingId === cardKey(card)"
 					@click="doInstall(card)">
-					{{ installingId === cardKey(card) ? t('hermiq', 'Installing…') : t('hermiq', 'Install') }}
+					{{
+						installingId === cardKey(card)
+							? t('hermiq', 'Installing…')
+							: t('hermiq', 'Install')
+					}}
 				</NcButton>
 			</div>
 		</div>
@@ -106,11 +137,21 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcEmptyContent,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+	NcTextField,
+} from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
 import { emit } from '@nextcloud/event-bus'
-import { installGithubTemplate, searchGithubTemplates } from '../api/agentTemplates.js'
+import {
+	installGithubTemplate,
+	searchGithubTemplates,
+} from '../api/agentTemplates.js'
 import { installGithubSkill, searchGithubSkills } from '../api/skills.js'
 
 /** Debounce delay (ms) before a typed search term triggers a request. */
@@ -135,7 +176,10 @@ export default {
 	data() {
 		return {
 			query: '',
-			kindFilter: { label: this.t('hermiq', 'All (agent templates + skills)'), value: 'all' },
+			kindFilter: {
+				label: this.t('hermiq', 'All (agent templates + skills)'),
+				value: 'all',
+			},
 			cards: [],
 			outcome: 'ok',
 			brokerCredentialAvailable: false,
@@ -159,8 +203,14 @@ export default {
 		 */
 		kindOptions() {
 			return [
-				{ label: this.t('hermiq', 'All (agent templates + skills)'), value: 'all' },
-				{ label: this.t('hermiq', 'Agent templates'), value: KIND_AGENT_TEMPLATE },
+				{
+					label: this.t('hermiq', 'All (agent templates + skills)'),
+					value: 'all',
+				},
+				{
+					label: this.t('hermiq', 'Agent templates'),
+					value: KIND_AGENT_TEMPLATE,
+				},
 				{ label: this.t('hermiq', 'Skills'), value: KIND_SKILL },
 			]
 		},
@@ -183,7 +233,9 @@ export default {
 		 * @return {boolean}
 		 */
 		rateLimitHintVisible() {
-			return this.rateLimited === true && this.outcome === 'github_rate_limited'
+			return (
+				this.rateLimited === true && this.outcome === 'github_rate_limited'
+			)
 		},
 
 		/**
@@ -192,7 +244,9 @@ export default {
 		 * @return {boolean}
 		 */
 		unreachableHintVisible() {
-			return this.rateLimited === false && this.outcome === 'github_unreachable'
+			return (
+				this.rateLimited === false && this.outcome === 'github_unreachable'
+			)
 		},
 	},
 
@@ -210,7 +264,9 @@ export default {
 		async fetchCredentials() {
 			this.loadingCredentials = true
 			try {
-				const { data } = await axios.get(generateUrl('/apps/openregister/api/credentials'))
+				const { data } = await axios.get(
+					generateUrl('/apps/openregister/api/credentials'),
+				)
 				this.credentials = data.results || []
 			} catch (e) {
 				this.credentials = []
@@ -236,7 +292,10 @@ export default {
 		 * @return {boolean}
 		 */
 		kindActive(kind) {
-			return (this.kindFilter?.value || 'all') === 'all' || this.kindFilter?.value === kind
+			return (
+				(this.kindFilter?.value || 'all') === 'all'
+				|| this.kindFilter?.value === kind
+			)
 		},
 
 		/**
@@ -246,7 +305,9 @@ export default {
 		 * @return {string}
 		 */
 		kindLabel(kind) {
-			return kind === KIND_SKILL ? this.t('hermiq', 'Skill') : this.t('hermiq', 'Agent template')
+			return kind === KIND_SKILL
+				? this.t('hermiq', 'Skill')
+				: this.t('hermiq', 'Agent template')
 		},
 
 		/**
@@ -257,8 +318,14 @@ export default {
 		 */
 		unparseableHint(kind) {
 			return kind === KIND_SKILL
-				? this.t('hermiq', 'This repo does not carry a readable hermiq-skill.md — it cannot be installed.')
-				: this.t('hermiq', 'This repo does not carry a readable hermiq-agent-template.json — it cannot be installed.')
+				? this.t(
+						'hermiq',
+						'This repo does not carry a readable hermiq-skill.md — it cannot be installed.',
+					)
+				: this.t(
+						'hermiq',
+						'This repo does not carry a readable hermiq-agent-template.json — it cannot be installed.',
+					)
 		},
 
 		/**
@@ -277,20 +344,32 @@ export default {
 				const calls = []
 				if (this.kindActive(KIND_AGENT_TEMPLATE)) {
 					calls.push(
-						searchGithubTemplates(this.query, credentialId)
-							.catch(() => ({ outcome: 'github_unreachable', cards: [], rateLimited: false, brokerCredentialAvailable: false })),
+						searchGithubTemplates(this.query, credentialId).catch(
+							() => ({
+								outcome: 'github_unreachable',
+								cards: [],
+								rateLimited: false,
+								brokerCredentialAvailable: false,
+							}),
+						),
 					)
 				}
 				if (this.kindActive(KIND_SKILL)) {
 					calls.push(
-						searchGithubSkills(this.query, credentialId)
-							.catch(() => ({ outcome: 'github_unreachable', cards: [], rateLimited: false, brokerCredentialAvailable: false })),
+						searchGithubSkills(this.query, credentialId).catch(() => ({
+							outcome: 'github_unreachable',
+							cards: [],
+							rateLimited: false,
+							brokerCredentialAvailable: false,
+						})),
 					)
 				}
 
 				const results = await Promise.all(calls)
 				this.cards = results.flatMap((r) => r.cards || [])
-				this.brokerCredentialAvailable = results.some((r) => r.brokerCredentialAvailable === true)
+				this.brokerCredentialAvailable = results.some(
+					(r) => r.brokerCredentialAvailable === true,
+				)
 
 				const anyOk = results.some((r) => r.outcome === 'ok')
 				const anyRateLimited = results.some((r) => r.rateLimited === true)
@@ -337,15 +416,34 @@ export default {
 			try {
 				const credentialId = this.selectedCredential?.value || null
 				if (card.kind === KIND_SKILL) {
-					await installGithubSkill({ owner: card.owner, repo: card.repo, credentialId })
-					this.installNotice = this.t('hermiq', 'Installed skill "{name}" — it is quarantined until reviewed. Find it on the Skills page.', { name: card.name || this.cardKey(card) })
+					await installGithubSkill({
+						owner: card.owner,
+						repo: card.repo,
+						credentialId,
+					})
+					this.installNotice = this.t(
+						'hermiq',
+						'Installed skill "{name}" — it is quarantined until reviewed. Find it on the Skills page.',
+						{ name: card.name || this.cardKey(card) },
+					)
 				} else {
-					await installGithubTemplate({ owner: card.owner, repo: card.repo, credentialId })
-					this.installNotice = this.t('hermiq', 'Installed "{name}" — it is quarantined until reviewed.', { name: card.name || this.cardKey(card) })
+					await installGithubTemplate({
+						owner: card.owner,
+						repo: card.repo,
+						credentialId,
+					})
+					this.installNotice = this.t(
+						'hermiq',
+						'Installed "{name}" — it is quarantined until reviewed.',
+						{ name: card.name || this.cardKey(card) },
+					)
 					emit('cn:page:refresh', {})
 				}
 			} catch (e) {
-				this.installError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.installError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.installingId = null
 			}

@@ -25,19 +25,32 @@
 		<NcEmptyContent
 			v-if="forbidden"
 			:name="t('hermiq', 'Organisation admins only')"
-			:description="t('hermiq', 'The compliance dashboard and export are available to organisation owners and instance admins.')">
+			:description="
+				t(
+					'hermiq',
+					'The compliance dashboard and export are available to organisation owners and instance admins.',
+				)
+			">
 			<template #icon>
 				<ShieldIcon :size="20" />
 			</template>
 		</NcEmptyContent>
 
 		<template v-else>
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Compliance dashboard error')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Compliance dashboard error')">
 				{{ error }}
 			</NcNoteCard>
 
 			<p class="compliance-dashboard__disclaimer">
-				{{ t('hermiq', '"Satisfied" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.') }}
+				{{
+					t(
+						'hermiq',
+						'"Satisfied" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.',
+					)
+				}}
 			</p>
 
 			<div v-if="loading" class="compliance-dashboard__loading">
@@ -45,13 +58,20 @@
 			</div>
 
 			<template v-else>
-				<section v-for="framework in frameworks" :key="framework.slug" class="compliance-dashboard__section">
+				<section
+					v-for="framework in frameworks"
+					:key="framework.slug"
+					class="compliance-dashboard__section">
 					<div class="compliance-dashboard__section-head">
 						<h3 class="compliance-dashboard__subhead">
 							{{ framework.name }}
 						</h3>
 						<span class="compliance-dashboard__coverage">
-							{{ t('hermiq', '{percent}% coverage', { percent: framework.coveragePercent }) }}
+							{{
+								t('hermiq', '{percent}% coverage', {
+									percent: framework.coveragePercent,
+								})
+							}}
 						</span>
 					</div>
 
@@ -59,7 +79,9 @@
 						:columns="controlColumns"
 						:rows="framework.controls"
 						row-key="controlId"
-						:empty-text="t('hermiq', 'No controls seeded for this framework yet.')">
+						:empty-text="
+							t('hermiq', 'No controls seeded for this framework yet.')
+						">
 						<template #column-status="{ row }">
 							<span
 								class="compliance-dashboard__status"
@@ -85,10 +107,18 @@
 						{{ t('hermiq', 'Gap list') }}
 					</h3>
 					<p v-if="gaps.length === 0" class="compliance-dashboard__note">
-						{{ t('hermiq', 'Every seeded control is currently satisfied.') }}
+						{{
+							t(
+								'hermiq',
+								'Every seeded control is currently satisfied.',
+							)
+						}}
 					</p>
 					<ul v-else class="compliance-dashboard__gap-list">
-						<li v-for="gap in gaps" :key="`${gap.frameworkSlug}-${gap.controlId}`" class="compliance-dashboard__gap">
+						<li
+							v-for="gap in gaps"
+							:key="`${gap.frameworkSlug}-${gap.controlId}`"
+							class="compliance-dashboard__gap">
 							<span
 								class="compliance-dashboard__status"
 								:class="`compliance-dashboard__status--${gap.status}`">
@@ -107,7 +137,12 @@
 						{{ t('hermiq', "Auditor's pack") }}
 					</h3>
 					<p class="compliance-dashboard__note">
-						{{ t('hermiq', "Download the EU AI Act audit export together with this organisation's compliance coverage, in one JSON file.") }}
+						{{
+							t(
+								'hermiq',
+								"Download the EU AI Act audit export together with this organisation's compliance coverage, in one JSON file.",
+							)
+						}}
 					</p>
 					<NcButton
 						type="primary"
@@ -188,13 +223,18 @@ export default {
 			this.forbidden = false
 			try {
 				const data = await getComplianceDashboard()
-				this.frameworks = Array.isArray(data.frameworks) ? data.frameworks : []
+				this.frameworks = Array.isArray(data.frameworks)
+					? data.frameworks
+					: []
 				this.gaps = Array.isArray(data.gaps) ? data.gaps : []
 			} catch (e) {
 				if (e?.response?.status === 403) {
 					this.forbidden = true
 				} else {
-					this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+					this.error =
+						e?.response?.data?.error
+						|| e?.message
+						|| this.t('hermiq', 'Unknown error')
 				}
 			} finally {
 				this.loading = false
@@ -214,7 +254,10 @@ export default {
 				const data = await getComplianceExport()
 				this.downloadJson(data, 'hermiq-compliance-auditor-pack.json')
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.exporting = false
 			}
@@ -228,7 +271,9 @@ export default {
 		 * @return {void}
 		 */
 		downloadJson(data, filename) {
-			const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+			const blob = new Blob([JSON.stringify(data, null, 2)], {
+				type: 'application/json',
+			})
 			const url = URL.createObjectURL(blob)
 			const a = document.createElement('a')
 			a.href = url

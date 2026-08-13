@@ -23,7 +23,12 @@
 				{{ t('hermiq', 'Chat provider') }}
 			</h2>
 			<p class="llm-provider__description">
-				{{ t('hermiq', 'Choose which language-model provider Hermiq uses for background work such as conversation titles and summaries. Configure OpenAI, Ollama, or Fireworks with credentials, or select Nextcloud Assistant to reuse whatever AI provider is installed instance-wide.') }}
+				{{
+					t(
+						'hermiq',
+						'Choose which language-model provider Hermiq uses for background work such as conversation titles and summaries. Configure OpenAI, Ollama, or Fireworks with credentials, or select Nextcloud Assistant to reuse whatever AI provider is installed instance-wide.',
+					)
+				}}
 			</p>
 
 			<div v-if="loading" class="llm-provider__loading">
@@ -52,7 +57,8 @@
 						credential from the broker, and OpenRegister injects the secret
 						server-side on every call. (The keys used to sit here in CLEARTEXT.)
 					-->
-					<NcSelect v-model="openaiCredential"
+					<NcSelect
+						v-model="openaiCredential"
 						:options="credentialsFor('openai')"
 						:input-label="t('hermiq', 'API credential')"
 						:loading="loadingCredentials"
@@ -85,7 +91,8 @@
 						v-model="form.fireworksConfig.chatModel"
 						:label="t('hermiq', 'Model')"
 						:placeholder="'accounts/fireworks/models/llama-v3p1-8b-instruct'" />
-					<NcSelect v-model="fireworksCredential"
+					<NcSelect
+						v-model="fireworksCredential"
 						:options="credentialsFor('fireworks')"
 						:input-label="t('hermiq', 'API credential')"
 						:loading="loadingCredentials"
@@ -103,26 +110,50 @@
 						:label="t('hermiq', 'Model')"
 						:placeholder="'claude-opus-4-8'" />
 					<p class="llm-provider-modal__hint">
-						{{ t('hermiq', 'Suggested models: claude-opus-4-8, claude-sonnet-5, claude-haiku-4-5, claude-fable-5. Free text is allowed.') }}
+						{{
+							t(
+								'hermiq',
+								'Suggested models: claude-opus-4-8, claude-sonnet-5, claude-haiku-4-5, claude-fable-5. Free text is allowed.',
+							)
+						}}
 					</p>
-					<NcSelect v-model="anthropicAuthMode"
+					<NcSelect
+						v-model="anthropicAuthMode"
 						:options="authModeOptions"
 						:input-label="t('hermiq', 'Authentication')"
 						:clearable="false"
 						label="label"
 						track-by="value" />
-					<NcSelect v-model="anthropicCredential"
+					<NcSelect
+						v-model="anthropicCredential"
 						:options="credentialsFor(anthropicCredentialProviderId)"
-						:input-label="anthropicAuthModeValue === 'oauth' ? t('hermiq', 'Claude subscription (OAuth) credential') : t('hermiq', 'API credential')"
+						:input-label="
+							anthropicAuthModeValue === 'oauth'
+								? t(
+										'hermiq',
+										'Claude subscription (OAuth) credential',
+									)
+								: t('hermiq', 'API credential')
+						"
 						:loading="loadingCredentials"
 						:placeholder="t('hermiq', 'Select a credential')"
 						label="label" />
 					<p class="llm-provider-modal__hint">
 						{{ credentialHint(anthropicCredentialProviderId) }}
 					</p>
-					<NcNoteCard v-if="anthropicAuthModeValue === 'oauth'" type="warning">
-						{{ t('hermiq', 'A Claude Max/Pro subscription (OAuth) is personal-only per the Anthropic Terms of Service. It may be set only as a personal token in your own personal settings — never as an organisation-wide credential here. OAuth tokens also cannot refresh headlessly, so a Max token may go stale.') }}
-						<a href="https://www.anthropic.com/legal/consumer-terms" target="_blank" rel="noopener noreferrer">
+					<NcNoteCard
+						v-if="anthropicAuthModeValue === 'oauth'"
+						type="warning">
+						{{
+							t(
+								'hermiq',
+								'A Claude Max/Pro subscription (OAuth) is personal-only per the Anthropic Terms of Service. It may be set only as a personal token in your own personal settings — never as an organisation-wide credential here. OAuth tokens also cannot refresh headlessly, so a Max token may go stale.',
+							)
+						}}
+						<a
+							href="https://www.anthropic.com/legal/consumer-terms"
+							target="_blank"
+							rel="noopener noreferrer">
 							{{ t('hermiq', 'Anthropic Terms of Service') }}
 						</a>
 					</NcNoteCard>
@@ -131,7 +162,12 @@
 				<!-- Nextcloud Assistant (TaskProcessing) -->
 				<template v-else-if="providerValue === 'nextcloud'">
 					<NcNoteCard type="info">
-						{{ t('hermiq', 'Hermiq will run background text through Nextcloud’s own AI (TaskProcessing). No credentials are needed here, but a TaskProcessing provider (e.g. integration_openai, llm2, or the Assistant) must be installed on this instance. Streaming chat and embeddings are not routed through this provider.') }}
+						{{
+							t(
+								'hermiq',
+								'Hermiq will run background text through Nextcloud’s own AI (TaskProcessing). No credentials are needed here, but a TaskProcessing provider (e.g. integration_openai, llm2, or the Assistant) must be installed on this instance. Streaming chat and embeddings are not routed through this provider.',
+							)
+						}}
 					</NcNoteCard>
 				</template>
 
@@ -156,7 +192,14 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcLoadingIcon,
+	NcModal,
+	NcNoteCard,
+	NcSelect,
+	NcTextField,
+} from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
 import axios from '@nextcloud/axios'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
@@ -212,13 +255,20 @@ export default {
 				{ value: 'anthropic', label: 'Anthropic (Claude)' },
 				{ value: 'ollama', label: 'Ollama (local)' },
 				{ value: 'fireworks', label: 'Fireworks AI' },
-				{ value: 'nextcloud', label: 'Nextcloud Assistant (TaskProcessing)' },
+				{
+					value: 'nextcloud',
+					label: 'Nextcloud Assistant (TaskProcessing)',
+				},
 			],
 			form: {
 				openaiConfig: { chatModel: '', credentialId: '' },
 				ollamaConfig: { url: '', chatModel: '' },
 				fireworksConfig: { baseUrl: '', chatModel: '', credentialId: '' },
-				anthropicConfig: { chatModel: '', credentialId: '', authMode: 'api_key' },
+				anthropicConfig: {
+					chatModel: '',
+					credentialId: '',
+					authMode: 'api_key',
+				},
 			},
 		}
 	},
@@ -282,7 +332,9 @@ export default {
 		 * @spec exclude Trivial computed display helper; no behavioural spec.
 		 */
 		anthropicCredentialProviderId() {
-			return this.anthropicAuthModeValue === 'oauth' ? 'anthropic-oauth' : 'anthropic'
+			return this.anthropicAuthModeValue === 'oauth'
+				? 'anthropic-oauth'
+				: 'anthropic'
 		},
 	},
 
@@ -333,30 +385,59 @@ export default {
 				const config = await getLlmSettings()
 				this.openaiKeySet = config.openaiApiKeySet === true
 				this.fireworksKeySet = config.fireworksApiKeySet === true
-				this.form.openaiConfig.chatModel = (config.openaiConfig && config.openaiConfig.chatModel) || ''
-				this.form.openaiConfig.credentialId = (config.openaiConfig && config.openaiConfig.credentialId) || ''
-				this.form.ollamaConfig.url = (config.ollamaConfig && config.ollamaConfig.url) || ''
-				this.form.ollamaConfig.chatModel = (config.ollamaConfig && config.ollamaConfig.chatModel) || ''
-				this.form.fireworksConfig.baseUrl = (config.fireworksConfig && config.fireworksConfig.baseUrl) || ''
-				this.form.fireworksConfig.chatModel = (config.fireworksConfig && config.fireworksConfig.chatModel) || ''
-				this.form.fireworksConfig.credentialId = (config.fireworksConfig && config.fireworksConfig.credentialId) || ''
-				this.form.anthropicConfig.chatModel = (config.anthropicConfig && config.anthropicConfig.chatModel) || ''
-				this.form.anthropicConfig.credentialId = (config.anthropicConfig && config.anthropicConfig.credentialId) || ''
-				this.form.anthropicConfig.authMode = (config.anthropicConfig && config.anthropicConfig.authMode) || 'api_key'
+				this.form.openaiConfig.chatModel =
+					(config.openaiConfig && config.openaiConfig.chatModel) || ''
+				this.form.openaiConfig.credentialId =
+					(config.openaiConfig && config.openaiConfig.credentialId) || ''
+				this.form.ollamaConfig.url =
+					(config.ollamaConfig && config.ollamaConfig.url) || ''
+				this.form.ollamaConfig.chatModel =
+					(config.ollamaConfig && config.ollamaConfig.chatModel) || ''
+				this.form.fireworksConfig.baseUrl =
+					(config.fireworksConfig && config.fireworksConfig.baseUrl) || ''
+				this.form.fireworksConfig.chatModel =
+					(config.fireworksConfig && config.fireworksConfig.chatModel)
+					|| ''
+				this.form.fireworksConfig.credentialId =
+					(config.fireworksConfig && config.fireworksConfig.credentialId)
+					|| ''
+				this.form.anthropicConfig.chatModel =
+					(config.anthropicConfig && config.anthropicConfig.chatModel)
+					|| ''
+				this.form.anthropicConfig.credentialId =
+					(config.anthropicConfig && config.anthropicConfig.credentialId)
+					|| ''
+				this.form.anthropicConfig.authMode =
+					(config.anthropicConfig && config.anthropicConfig.authMode)
+					|| 'api_key'
 
 				// Reflect the stored credential references back into the pickers.
-				this.openaiCredential = this.credentialsFor('openai')
-					.find((o) => o.value === this.form.openaiConfig.credentialId) || null
-				this.fireworksCredential = this.credentialsFor('fireworks')
-					.find((o) => o.value === this.form.fireworksConfig.credentialId) || null
-				this.anthropicCredential = this.credentialsFor('anthropic')
-					.find((o) => o.value === this.form.anthropicConfig.credentialId) || null
-				this.anthropicAuthMode = this.authModeOptions
-					.find((o) => o.value === this.form.anthropicConfig.authMode) || this.authModeOptions[0]
+				this.openaiCredential =
+					this.credentialsFor('openai').find(
+						(o) => o.value === this.form.openaiConfig.credentialId,
+					) || null
+				this.fireworksCredential =
+					this.credentialsFor('fireworks').find(
+						(o) => o.value === this.form.fireworksConfig.credentialId,
+					) || null
+				this.anthropicCredential =
+					this.credentialsFor('anthropic').find(
+						(o) => o.value === this.form.anthropicConfig.credentialId,
+					) || null
+				this.anthropicAuthMode =
+					this.authModeOptions.find(
+						(o) => o.value === this.form.anthropicConfig.authMode,
+					) || this.authModeOptions[0]
 
-				this.selectedProvider = this.providerOptions.find((option) => option.value === config.chatProvider) || null
+				this.selectedProvider =
+					this.providerOptions.find(
+						(option) => option.value === config.chatProvider,
+					) || null
 			} catch (e) {
-				this.error = this.t('hermiq', 'Could not load the current LLM configuration.')
+				this.error = this.t(
+					'hermiq',
+					'Could not load the current LLM configuration.',
+				)
 			} finally {
 				this.loading = false
 			}
@@ -375,7 +456,9 @@ export default {
 		async fetchCredentials() {
 			this.loadingCredentials = true
 			try {
-				const { data } = await axios.get(generateUrl('/apps/openregister/api/credentials'))
+				const { data } = await axios.get(
+					generateUrl('/apps/openregister/api/credentials'),
+				)
 				this.credentials = data.results || []
 			} catch (e) {
 				this.credentials = []
@@ -408,9 +491,15 @@ export default {
 		 */
 		credentialHint(provider) {
 			if (!this.loadingCredentials && !this.credentialsFor(provider).length) {
-				return this.t('hermiq', 'No credential yet. Add one under Personal settings → Additional settings, then reopen this dialog.')
+				return this.t(
+					'hermiq',
+					'No credential yet. Add one under Personal settings → Additional settings, then reopen this dialog.',
+				)
 			}
-			return this.t('hermiq', 'The key stays in your credential vault. Hermiq sends only the request it wants made, and the broker injects the key.')
+			return this.t(
+				'hermiq',
+				'The key stays in your credential vault. Hermiq sends only the request it wants made, and the broker injects the key.',
+			)
 		},
 
 		/**
@@ -446,7 +535,10 @@ export default {
 				}
 			} else if (this.providerValue === 'fireworks') {
 				if (!this.fireworksCredential) {
-					this.error = this.t('hermiq', 'Pick a Fireworks AI credential first.')
+					this.error = this.t(
+						'hermiq',
+						'Pick a Fireworks AI credential first.',
+					)
 					this.saving = false
 					return
 				}
@@ -460,12 +552,18 @@ export default {
 				// configured as an organisation credential here (admin settings). The server
 				// rejects it too; this guard gives an immediate, clear message.
 				if (this.anthropicAuthModeValue === 'oauth') {
-					this.error = this.t('hermiq', 'A Claude Max subscription (OAuth) may only be set as a personal token in your personal settings, per the Anthropic Terms of Service. Use an API key here.')
+					this.error = this.t(
+						'hermiq',
+						'A Claude Max subscription (OAuth) may only be set as a personal token in your personal settings, per the Anthropic Terms of Service. Use an API key here.',
+					)
 					this.saving = false
 					return
 				}
 				if (!this.anthropicCredential) {
-					this.error = this.t('hermiq', 'Pick an Anthropic credential first.')
+					this.error = this.t(
+						'hermiq',
+						'Pick an Anthropic credential first.',
+					)
 					this.saving = false
 					return
 				}
@@ -482,7 +580,10 @@ export default {
 				this.$emit('saved', this.providerValue)
 				this.$emit('close')
 			} catch (e) {
-				this.error = this.t('hermiq', 'Could not save the LLM configuration.')
+				this.error = this.t(
+					'hermiq',
+					'Could not save the LLM configuration.',
+				)
 			} finally {
 				this.saving = false
 			}

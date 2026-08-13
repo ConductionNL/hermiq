@@ -29,26 +29,36 @@
   @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="normal"
-		:name="heading"
-		@close="$emit('close')">
+	<NcModal :show="show" size="normal" :name="heading" @close="$emit('close')">
 		<div class="schedule-form">
 			<h2 class="schedule-form__title">
 				{{ heading }}
 			</h2>
 
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not save schedule')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not save schedule')">
 				{{ error }}
 			</NcNoteCard>
 
 			<!-- Pre-run cost estimate (cost-guardrails): trailing average, clearly
 			     labelled an estimate — never a fabricated figure without history. -->
 			<p v-if="estimate && estimate.available" class="schedule-form__estimate">
-				{{ t('hermiq', 'Estimate: ~{tokens} tokens per run (average of the last {count} runs)', { tokens: estimate.avgTotalTokens, count: estimate.sampleSize }) }}
+				{{
+					t(
+						'hermiq',
+						'Estimate: ~{tokens} tokens per run (average of the last {count} runs)',
+						{
+							tokens: estimate.avgTotalTokens,
+							count: estimate.sampleSize,
+						},
+					)
+				}}
 			</p>
-			<p v-else-if="estimate" class="schedule-form__estimate schedule-form__estimate--empty">
+			<p
+				v-else-if="estimate"
+				class="schedule-form__estimate schedule-form__estimate--empty">
 				{{ t('hermiq', 'Not enough run history yet for a cost estimate.') }}
 			</p>
 
@@ -114,7 +124,9 @@
 				v-model="form.deliverTarget"
 				type="email"
 				:label="t('hermiq', 'Email recipient')"
-				:placeholder="t('hermiq', 'Leave empty to use your own account email')" />
+				:placeholder="
+					t('hermiq', 'Leave empty to use your own account email')
+				" />
 
 			<template v-if="form.deliver === 'webhook'">
 				<NcTextField
@@ -122,11 +134,18 @@
 					:label="t('hermiq', 'Webhook URL')"
 					placeholder="https://example.com/hook" />
 
-				<NcButton v-if="schedule && schedule.id" @click="showWebhookSecretDialog = true">
+				<NcButton
+					v-if="schedule && schedule.id"
+					@click="showWebhookSecretDialog = true">
 					{{ t('hermiq', 'Manage webhook signing secret') }}
 				</NcButton>
 				<NcNoteCard v-else type="info">
-					{{ t('hermiq', 'Save this schedule first, then reopen it to mint a webhook signing secret.') }}
+					{{
+						t(
+							'hermiq',
+							'Save this schedule first, then reopen it to mint a webhook signing secret.',
+						)
+					}}
 				</NcNoteCard>
 			</template>
 
@@ -157,8 +176,14 @@
 
 				<NcTextField
 					v-model="form.reviewer"
-					:label="form.reviewerType === 'group' ? t('hermiq', 'Reviewer group id') : t('hermiq', 'Reviewer user id')"
-					:placeholder="t('hermiq', 'Leave empty to use the schedule owner')" />
+					:label="
+						form.reviewerType === 'group'
+							? t('hermiq', 'Reviewer group id')
+							: t('hermiq', 'Reviewer user id')
+					"
+					:placeholder="
+						t('hermiq', 'Leave empty to use the schedule owner')
+					" />
 			</template>
 
 			<!-- Retry policy (run-reliability): opt-in bounded retry with exponential
@@ -213,7 +238,16 @@
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcLoadingIcon,
+	NcModal,
+	NcNoteCard,
+	NcSelect,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
 import { useScheduleStore } from '../store/store.js'
 import { getBudgetEstimate } from '../api/budgets.js'
 import ScheduleWebhookSecretDialog from './ScheduleWebhookSecretDialog.vue'
@@ -290,7 +324,9 @@ export default {
 		 * @return {string} The localised heading.
 		 */
 		heading() {
-			return this.schedule ? this.t('hermiq', 'Edit schedule') : this.t('hermiq', 'Attach schedule')
+			return this.schedule
+				? this.t('hermiq', 'Edit schedule')
+				: this.t('hermiq', 'Attach schedule')
 		},
 
 		/**
@@ -298,7 +334,11 @@ export default {
 		 */
 		kindOption: {
 			get() {
-				return this.kindOptions.find((option) => option.value === this.form.kind) || this.kindOptions[0]
+				return (
+					this.kindOptions.find(
+						(option) => option.value === this.form.kind,
+					) || this.kindOptions[0]
+				)
 			},
 			set(option) {
 				this.form.kind = option ? option.value : 'once'
@@ -310,7 +350,11 @@ export default {
 		 */
 		deliverOption: {
 			get() {
-				return this.deliverOptions.find((option) => option.value === this.form.deliver) || this.deliverOptions[2]
+				return (
+					this.deliverOptions.find(
+						(option) => option.value === this.form.deliver,
+					) || this.deliverOptions[2]
+				)
 			},
 			set(option) {
 				this.form.deliver = option ? option.value : 'none'
@@ -322,7 +366,11 @@ export default {
 		 */
 		reviewerTypeOption: {
 			get() {
-				return this.reviewerTypeOptions.find((option) => option.value === this.form.reviewerType) || this.reviewerTypeOptions[0]
+				return (
+					this.reviewerTypeOptions.find(
+						(option) => option.value === this.form.reviewerType,
+					) || this.reviewerTypeOptions[0]
+				)
 			},
 			set(option) {
 				this.form.reviewerType = option ? option.value : 'user'
@@ -407,7 +455,8 @@ export default {
 				deliver: source.deliver || 'none',
 				deliverTarget: source.deliverTarget || '',
 				enabled: source.enabled !== false,
-				repeatTimes: source.repeat && source.repeat.times ? source.repeat.times : '',
+				repeatTimes:
+					source.repeat && source.repeat.times ? source.repeat.times : '',
 				requiresApproval: source.requiresApproval === true,
 				reviewer: source.reviewer || '',
 				reviewerType: source.reviewerType || 'user',
@@ -443,7 +492,10 @@ export default {
 			// channel (Talk room token / email recipient / webhook URL) — an
 			// empty value is meaningful for talk/email (owner-scoped fallback)
 			// but omitted rather than sent as ''.
-			if (['talk', 'email', 'webhook'].includes(this.form.deliver) && this.form.deliverTarget) {
+			if (
+				['talk', 'email', 'webhook'].includes(this.form.deliver)
+				&& this.form.deliverTarget
+			) {
 				payload.deliverTarget = this.form.deliverTarget
 			}
 			const times = Number(this.form.repeatTimes)
@@ -463,8 +515,10 @@ export default {
 			if (this.form.retryEnabled) {
 				payload.retryEnabled = true
 				payload.retryMaxAttempts = Number(this.form.retryMaxAttempts) || 3
-				payload.retryBackoffBaseSeconds = Number(this.form.retryBackoffBaseSeconds) || 60
-				payload.circuitBreakerThreshold = Number(this.form.circuitBreakerThreshold) || 3
+				payload.retryBackoffBaseSeconds =
+					Number(this.form.retryBackoffBaseSeconds) || 60
+				payload.circuitBreakerThreshold =
+					Number(this.form.circuitBreakerThreshold) || 3
 			}
 			// Preserve the object id on edit so saveObject issues a PUT.
 			if (this.schedule && this.schedule.id) {
@@ -482,9 +536,13 @@ export default {
 			this.saving = true
 			this.error = ''
 			try {
-				const saved = await this.store.saveObject('schedule', this.buildPayload())
+				const saved = await this.store.saveObject(
+					'schedule',
+					this.buildPayload(),
+				)
 				if (saved === null) {
-					this.error = this.store.errors?.schedule?.message
+					this.error =
+						this.store.errors?.schedule?.message
 						|| this.t('hermiq', 'Could not save schedule')
 					return
 				}

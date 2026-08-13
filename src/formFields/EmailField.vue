@@ -29,7 +29,7 @@
 			class="email-field__input"
 			:value="value"
 			:placeholder="placeholder"
-			@input="$emit('input', $event.target.value)">
+			@input="$emit('input', $event.target.value)" />
 	</div>
 </template>
 
@@ -82,7 +82,8 @@ export default {
 
 .email-field__input {
 	width: 100%;
-	padding: var(--default-grid-baseline, 4px) calc(var(--default-grid-baseline, 4px) * 2);
+	padding: var(--default-grid-baseline, 4px)
+		calc(var(--default-grid-baseline, 4px) * 2);
 	border: 1px solid var(--color-border-dark, #ccc);
 	border-radius: var(--border-radius, 4px);
 }

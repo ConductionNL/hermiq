@@ -18,6 +18,8 @@ const ANALYTICS_BASE = '/apps/hermiq/api/analytics'
  * @return {Promise<object>} The metrics payload.
  */
 export async function getAnalytics(agentId = '') {
-	const response = await axios.get(generateUrl(ANALYTICS_BASE), { params: agentId ? { agentId } : {} })
+	const response = await axios.get(generateUrl(ANALYTICS_BASE), {
+		params: agentId ? { agentId } : {},
+	})
 	return response.data
 }

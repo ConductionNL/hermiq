@@ -93,7 +93,9 @@ export async function listTools() {
  * @return {Promise<object>} The run outcome ({ status, error, nextRun }).
  */
 export async function runScheduleNow(scheduleId) {
-	const response = await axios.post(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/run`))
+	const response = await axios.post(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/run`),
+	)
 	return response.data
 }
 
@@ -104,7 +106,9 @@ export async function runScheduleNow(scheduleId) {
  * @return {Promise<Array<object>>} The run records, newest-first.
  */
 export async function listRuns(scheduleId) {
-	const response = await axios.get(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs`))
+	const response = await axios.get(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs`),
+	)
 	return toList(response.data)
 }
 
@@ -119,7 +123,9 @@ export async function listRuns(scheduleId) {
  * @return {Promise<object>} The run's trace (id, status, steps, toolStepsAvailable, ...).
  */
 export async function getRunTrace(scheduleId, runId) {
-	const response = await axios.get(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/trace`))
+	const response = await axios.get(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/trace`),
+	)
 	return response.data
 }
 
@@ -138,7 +144,9 @@ export async function getRunTrace(scheduleId, runId) {
  * @return {Promise<object>} The dry-run outcome ({ scheduleId, dryRun, status, error, steps, summary }).
  */
 export async function dryRunSchedule(scheduleId) {
-	const response = await axios.post(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/dry-run`))
+	const response = await axios.post(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/dry-run`),
+	)
 	return response.data
 }
 
@@ -153,7 +161,9 @@ export async function dryRunSchedule(scheduleId) {
  * @return {Promise<object>} { scheduleId, replayOf, original, replay, diff }.
  */
 export async function replayRun(scheduleId, runId) {
-	const response = await axios.post(generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/replay`))
+	const response = await axios.post(
+		generateUrl(`${HERMIQ_SCHEDULES_BASE}/${scheduleId}/runs/${runId}/replay`),
+	)
 	return response.data
 }
 
@@ -169,7 +179,9 @@ export async function replayRun(scheduleId, runId) {
  * changedFields), newest-first.
  */
 export async function listAgentVersions(agentId) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/versions`))
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/versions`),
+	)
 	return toList(response.data)
 }
 
@@ -183,9 +195,12 @@ export async function listAgentVersions(agentId) {
  * @return {Promise<object>} A map of changed field -> { old, new }.
  */
 export async function diffAgentVersions(agentId, fromId, toId) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/versions/diff`), {
-		params: { from: fromId, to: toId },
-	})
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/versions/diff`),
+		{
+			params: { from: fromId, to: toId },
+		},
+	)
 	return response.data?.results ?? {}
 }
 
@@ -200,6 +215,8 @@ export async function diffAgentVersions(agentId, fromId, toId) {
  * @return {Promise<object>} The updated agent.
  */
 export async function rollbackAgentVersion(agentId, versionId) {
-	const response = await axios.post(generateUrl(`${AGENTS_BASE}/${agentId}/versions/${versionId}/rollback`))
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/versions/${versionId}/rollback`),
+	)
 	return response.data
 }

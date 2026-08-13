@@ -50,7 +50,9 @@ export async function getAccessReview() {
  * @return {Promise<object>} The updated access-review row.
  */
 export async function attestReviewed(uuid) {
-	const response = await axios.post(generateUrl(`${TENANT_OPS_BASE}/access-review/${uuid}/attest`))
+	const response = await axios.post(
+		generateUrl(`${TENANT_OPS_BASE}/access-review/${uuid}/attest`),
+	)
 	return response.data
 }
 
@@ -62,7 +64,10 @@ export async function attestReviewed(uuid) {
  * @return {Promise<object>} The updated access-review row.
  */
 export async function reassignAgent(uuid, actingUser) {
-	const response = await axios.post(generateUrl(`${TENANT_OPS_BASE}/access-review/${uuid}/reassign`), { actingUser })
+	const response = await axios.post(
+		generateUrl(`${TENANT_OPS_BASE}/access-review/${uuid}/reassign`),
+		{ actingUser },
+	)
 	return response.data
 }
 
@@ -83,7 +88,10 @@ export async function getIncidents() {
  * @return {Promise<object>} The created incident.
  */
 export async function createIncident(payload) {
-	const response = await axios.post(generateUrl(`${TENANT_OPS_BASE}/incidents`), payload)
+	const response = await axios.post(
+		generateUrl(`${TENANT_OPS_BASE}/incidents`),
+		payload,
+	)
 	return response.data
 }
 
@@ -104,6 +112,8 @@ export async function getRetention() {
  * @return {Promise<object>} `{ retentionMonths }`.
  */
 export async function setRetention(months) {
-	const response = await axios.put(generateUrl(`${TENANT_OPS_BASE}/retention`), { retentionMonths: months })
+	const response = await axios.put(generateUrl(`${TENANT_OPS_BASE}/retention`), {
+		retentionMonths: months,
+	})
 	return response.data
 }

@@ -22,11 +22,17 @@
 -->
 <template>
 	<div class="skill-maturity-scorecard">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Maturity error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Maturity error')">
 			{{ error }}
 		</NcNoteCard>
 
-		<NcLoadingIcon v-if="loading" :size="24" class="skill-maturity-scorecard__loading" />
+		<NcLoadingIcon
+			v-if="loading"
+			:size="24"
+			class="skill-maturity-scorecard__loading" />
 
 		<template v-else-if="skill">
 			<div class="skill-maturity-scorecard__header">
@@ -64,18 +70,29 @@
 						</td>
 						<td>
 							<span class="skill-maturity-scorecard__status">
-								<CheckBold v-if="entry.passed" :size="16" aria-hidden="true" />
+								<CheckBold
+									v-if="entry.passed"
+									:size="16"
+									aria-hidden="true" />
 								<CloseThick v-else :size="16" aria-hidden="true" />
-								<span>{{ entry.passed ? t('hermiq', 'Passed') : t('hermiq', 'Not passed') }}</span>
+								<span>{{
+									entry.passed
+										? t('hermiq', 'Passed')
+										: t('hermiq', 'Not passed')
+								}}</span>
 							</span>
 						</td>
 						<td class="skill-maturity-scorecard__details">
-							<ul v-if="entry.reasons.length > 0" class="skill-maturity-scorecard__reasons">
+							<ul
+								v-if="entry.reasons.length > 0"
+								class="skill-maturity-scorecard__reasons">
 								<li v-for="reason in entry.reasons" :key="reason">
 									{{ t('hermiq', reason) }}
 								</li>
 							</ul>
-							<p v-if="entry.evidence" class="skill-maturity-scorecard__evidence">
+							<p
+								v-if="entry.evidence"
+								class="skill-maturity-scorecard__evidence">
 								{{ entry.evidence }}
 							</p>
 						</td>
@@ -88,7 +105,12 @@
 					{{ t('hermiq', 'Attest L4 (personalization)') }}
 				</h3>
 				<p class="skill-maturity-scorecard__hint">
-					{{ t('hermiq', 'A curator act: confirms this skill has been tuned for your organisation. Requires the skill.attest-maturity action.') }}
+					{{
+						t(
+							'hermiq',
+							'A curator act: confirms this skill has been tuned for your organisation. Requires the skill.attest-maturity action.',
+						)
+					}}
 				</p>
 				<NcNoteCard v-if="attestError" type="error">
 					{{ attestError }}
@@ -97,7 +119,12 @@
 					<NcTextField
 						v-model="attestNote"
 						:label="t('hermiq', 'Attestation note')"
-						:placeholder="t('hermiq', 'e.g. Tuned for our municipality\'s WOO workflow')" />
+						:placeholder="
+							t(
+								'hermiq',
+								'e.g. Tuned for our municipality\'s WOO workflow',
+							)
+						" />
 					<NcButton
 						type="primary"
 						:disabled="attesting"
@@ -207,11 +234,15 @@ export default {
 			const evidence = this.skill?.levelEvidence || {}
 			return names.map((name, index) => {
 				const level = index + 1
-				const fresh = (this.scorecard || []).find((entry) => entry.level === level)
+				const fresh = (this.scorecard || []).find(
+					(entry) => entry.level === level,
+				)
 				return {
 					level,
 					name,
-					passed: fresh ? fresh.passed : this.storedPassed(level, evidence),
+					passed: fresh
+						? fresh.passed
+						: this.storedPassed(level, evidence),
 					reasons: fresh ? fresh.reasons : [],
 					evidence: this.evidenceSummary(level, evidence),
 				}
@@ -272,7 +303,9 @@ export default {
 			if (level <= 3) {
 				const checkedAt = evidence[`l${level}`]?.checkedAt
 				if (checkedAt) {
-					return this.t('hermiq', 'Checked {date}', { date: this.formatDate(checkedAt) })
+					return this.t('hermiq', 'Checked {date}', {
+						date: this.formatDate(checkedAt),
+					})
 				}
 				return ''
 			}
@@ -287,11 +320,15 @@ export default {
 				return base
 			}
 			if (level === 5 && evidence.l5?.lastValidated) {
-				return this.t('hermiq', 'Pass rate {rate}, baseline delta {delta}, validated {date}', {
-					rate: String(evidence.l5.passRate ?? '—'),
-					delta: String(evidence.l5.baselineDelta ?? '—'),
-					date: this.formatDate(evidence.l5.lastValidated),
-				})
+				return this.t(
+					'hermiq',
+					'Pass rate {rate}, baseline delta {delta}, validated {date}',
+					{
+						rate: String(evidence.l5.passRate ?? '—'),
+						delta: String(evidence.l5.baselineDelta ?? '—'),
+						date: this.formatDate(evidence.l5.lastValidated),
+					},
+				)
 			}
 			if (level === 6 && evidence.l6?.lastConsolidatedAt) {
 				return this.t('hermiq', '{count} learnings, consolidated {date}', {
@@ -336,7 +373,10 @@ export default {
 				this.skill = await store.fetchObject('agentskill', this.skillId)
 			} catch (e) {
 				this.skill = null
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not load the skill.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not load the skill.')
 			} finally {
 				this.loading = false
 			}
@@ -357,7 +397,10 @@ export default {
 				this.scorecard = result.scorecard || []
 				await this.fetchSkill()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.qualifying = false
 			}
@@ -374,12 +417,18 @@ export default {
 			this.attesting = true
 			this.attestError = ''
 			try {
-				const result = await attestSkillL4(this.skillId, this.attestNote.trim())
+				const result = await attestSkillL4(
+					this.skillId,
+					this.attestNote.trim(),
+				)
 				this.scorecard = result.scorecard || []
 				this.attestNote = ''
 				await this.fetchSkill()
 			} catch (e) {
-				this.attestError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.attestError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.attesting = false
 			}

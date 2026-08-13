@@ -44,7 +44,8 @@ function loadModule() {
 	let src = fs.readFileSync(SRC, 'utf8')
 	src = src.replace(/export\s+const\s+/g, 'const ')
 	src = src.replace(/export\s+function\s+/g, 'function ')
-	src += '\nmodule.exports = { branchesOfNode, branchOfPort, orphanedBranchEdgeIds, ROUTER_STEP_TYPES }\n'
+	src +=
+		'\nmodule.exports = { branchesOfNode, branchOfPort, orphanedBranchEdgeIds, ROUTER_STEP_TYPES }\n'
 	const sandbox = { module: { exports: {} }, console }
 	vm.createContext(sandbox)
 	vm.runInContext(src, sandbox, { filename: 'flowBranches.js' })
@@ -83,16 +84,30 @@ const gate = {
 
 console.log('branchesOfNode — rules[].output plus default')
 {
-	assert(JSON.stringify(branchesOfNode(gate)) === JSON.stringify(['work', 'idle']),
-		'a gate with one rule and a default has both branches, rule first')
+	assert(
+		JSON.stringify(branchesOfNode(gate)) === JSON.stringify(['work', 'idle']),
+		'a gate with one rule and a default has both branches, rule first',
+	)
 
 	// The inverse: an ordinary action node has none. Without this, a derivation
 	// that returned ['work','idle'] for everything would pass the line above.
-	assert(branchesOfNode({ id: 'a', type: 'openregister.set-fields', config: { rules: [{ output: 'x' }] } }).length === 0,
-		'a NON-routing node has no branches even when it carries a rules key')
+	assert(
+		branchesOfNode({
+			id: 'a',
+			type: 'openregister.set-fields',
+			config: { rules: [{ output: 'x' }] },
+		}).length === 0,
+		'a NON-routing node has no branches even when it carries a rules key',
+	)
 
-	assert(branchesOfNode({ id: 'r', type: 'openregister.route', config: { routes: [{ to: 'x' }] } }).length === 0,
-		'config.routes is ignored — it is the mis-authored key the engine never reads')
+	assert(
+		branchesOfNode({
+			id: 'r',
+			type: 'openregister.route',
+			config: { routes: [{ to: 'x' }] },
+		}).length === 0,
+		'config.routes is ignored — it is the mis-authored key the engine never reads',
+	)
 
 	assert(branchesOfNode(null).length === 0, 'a missing node has no branches')
 
@@ -101,7 +116,10 @@ console.log('branchesOfNode — rules[].output plus default')
 		type: 'openregister.route',
 		config: { rules: [{ output: 'a' }, { output: 'a' }], default: 'a' },
 	})
-	assert(dupes.length === 1 && dupes[0] === 'a', 'a repeated branch name is listed once')
+	assert(
+		dupes.length === 1 && dupes[0] === 'a',
+		'a repeated branch name is listed once',
+	)
 }
 
 console.log('branchOfPort — only out:<branch> carries a branch')
@@ -122,27 +140,53 @@ console.log('orphanedBranchEdgeIds — reports the lost, spares the rest')
 		{ id: 'e2', from: ['work-gate'], to: ['derive'], fromExit: 'idle' },
 		{ id: 'e3', from: ['derive'], to: ['work-gate'] },
 	]
-	assert(orphanedBranchEdgeIds(nodes, healthy).length === 0,
-		'nothing is orphaned while every branch still exists')
+	assert(
+		orphanedBranchEdgeIds(nodes, healthy).length === 0,
+		'nothing is orphaned while every branch still exists',
+	)
 
 	// Two branches of one gate reaching the SAME node is ordinary, and both
 	// survive — this is the case a from/to-only identity check would have
 	// collapsed into one edge.
-	assert(healthy.filter((e) => e.fromExit).length === 2,
-		'two branches may legitimately lead to the same node')
+	assert(
+		healthy.filter((e) => e.fromExit).length === 2,
+		'two branches may legitimately lead to the same node',
+	)
 
-	const edited = [{ id: 'e1', from: ['work-gate'], to: ['derive'], fromExit: 'gone' }]
-	assert(JSON.stringify(orphanedBranchEdgeIds(nodes, edited)) === JSON.stringify(['e1']),
-		'an edge whose branch was removed is reported')
+	const edited = [
+		{ id: 'e1', from: ['work-gate'], to: ['derive'], fromExit: 'gone' },
+	]
+	assert(
+		JSON.stringify(orphanedBranchEdgeIds(nodes, edited))
+			=== JSON.stringify(['e1']),
+		'an edge whose branch was removed is reported',
+	)
 
-	assert(orphanedBranchEdgeIds(nodes, [{ id: 'e9', from: ['derive'], to: ['work-gate'] }]).length === 0,
-		'an edge with no fromExit is never orphaned — it leaves the unbranched exit')
+	assert(
+		orphanedBranchEdgeIds(nodes, [
+			{ id: 'e9', from: ['derive'], to: ['work-gate'] },
+		]).length === 0,
+		'an edge with no fromExit is never orphaned — it leaves the unbranched exit',
+	)
 
-	const split = [{ id: 'e5', from: ['work-gate', 'derive'], to: ['derive'], fromExit: 'work' }]
-	assert(JSON.stringify(orphanedBranchEdgeIds(nodes, split)) === JSON.stringify(['e5']),
-		'a split edge is orphaned when ANY of its sources lost the branch')
+	const split = [
+		{
+			id: 'e5',
+			from: ['work-gate', 'derive'],
+			to: ['derive'],
+			fromExit: 'work',
+		},
+	]
+	assert(
+		JSON.stringify(orphanedBranchEdgeIds(nodes, split))
+			=== JSON.stringify(['e5']),
+		'a split edge is orphaned when ANY of its sources lost the branch',
+	)
 
-	assert(orphanedBranchEdgeIds([], []).length === 0, 'an empty flow reports nothing')
+	assert(
+		orphanedBranchEdgeIds([], []).length === 0,
+		'an empty flow reports nothing',
+	)
 }
 
 if (failures > 0) {

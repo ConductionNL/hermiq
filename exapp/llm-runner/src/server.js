@@ -19,18 +19,20 @@
  * @copyright 2026 Conduction B.V.
  */
 
-'use strict';
+'use strict'
 
-const http = require('http');
+const http = require('http')
 
-const auth = require('./auth');
-const { getProvider } = require('./providers');
-const { run } = require('./runner');
-const { runStage } = require('./stage');
+const auth = require('./auth')
+const { getProvider } = require('./providers')
+const { run } = require('./runner')
+const { runStage } = require('./stage')
 
-const HOST = process.env.RUNNER_HOST || '0.0.0.0';
-const PORT = Number(process.env.RUNNER_PORT || process.env.APP_PORT || '9000');
-const MAX_BODY_BYTES = Number(process.env.RUNNER_MAX_BODY_BYTES || String(4 * 1024 * 1024));
+const HOST = process.env.RUNNER_HOST || '0.0.0.0'
+const PORT = Number(process.env.RUNNER_PORT || process.env.APP_PORT || '9000')
+const MAX_BODY_BYTES = Number(
+	process.env.RUNNER_MAX_BODY_BYTES || String(4 * 1024 * 1024),
+)
 
 /**
  * Body cap for `/stage`, which may carry a tool tree as a base64 archive.
@@ -38,8 +40,8 @@ const MAX_BODY_BYTES = Number(process.env.RUNNER_MAX_BODY_BYTES || String(4 * 10
  * @type {number}
  */
 const MAX_STAGE_BODY_BYTES = Number(
-    process.env.RUNNER_MAX_STAGE_BODY_BYTES || String(96 * 1024 * 1024)
-);
+	process.env.RUNNER_MAX_STAGE_BODY_BYTES || String(96 * 1024 * 1024),
+)
 
 /**
  * Emit a terse, credential-free log line.
@@ -49,8 +51,8 @@ const MAX_STAGE_BODY_BYTES = Number(
  * @returns {void}
  */
 function log(level, message) {
-    // eslint-disable-next-line no-console
-    console.log(`[hermiq-llm-runner] ${level}: ${message}`);
+	// eslint-disable-next-line no-console
+	console.log(`[hermiq-llm-runner] ${level}: ${message}`)
 }
 
 /**
@@ -62,9 +64,9 @@ function log(level, message) {
  * @returns {void}
  */
 function sendJson(res, status, body) {
-    const payload = JSON.stringify(body);
-    res.writeHead(status, { 'Content-Type': 'application/json' });
-    res.end(payload);
+	const payload = JSON.stringify(body)
+	res.writeHead(status, { 'Content-Type': 'application/json' })
+	res.end(payload)
 }
 
 /**
@@ -82,21 +84,21 @@ function sendJson(res, status, body) {
  * @returns {Promise<Buffer>} The raw body.
  */
 function readBody(req, limit = MAX_BODY_BYTES) {
-    return new Promise((resolve, reject) => {
-        const chunks = [];
-        let size = 0;
-        req.on('data', (chunk) => {
-            size += chunk.length;
-            if (size > limit) {
-                reject(new Error('request body too large'));
-                req.destroy();
-                return;
-            }
-            chunks.push(chunk);
-        });
-        req.on('end', () => resolve(Buffer.concat(chunks)));
-        req.on('error', reject);
-    });
+	return new Promise((resolve, reject) => {
+		const chunks = []
+		let size = 0
+		req.on('data', (chunk) => {
+			size += chunk.length
+			if (size > limit) {
+				reject(new Error('request body too large'))
+				req.destroy()
+				return
+			}
+			chunks.push(chunk)
+		})
+		req.on('end', () => resolve(Buffer.concat(chunks)))
+		req.on('error', reject)
+	})
 }
 
 /**
@@ -108,53 +110,70 @@ function readBody(req, limit = MAX_BODY_BYTES) {
  * @returns {Promise<void>} Resolves when the response has been sent.
  */
 async function handleRun(req, res, rawBody) {
-    // 1. AUTH — before any parsing or CLI invocation.
-    const verdict = auth.verify(lowerHeaders(req.headers), rawBody);
-    if (!verdict.ok) {
-        log('warn', `/run rejected: ${verdict.reason}`);
-        sendJson(res, verdict.status, { error: 'unauthorised' });
-        return;
-    }
+	// 1. AUTH — before any parsing or CLI invocation.
+	const verdict = auth.verify(lowerHeaders(req.headers), rawBody)
+	if (!verdict.ok) {
+		log('warn', `/run rejected: ${verdict.reason}`)
+		sendJson(res, verdict.status, { error: 'unauthorised' })
+		return
+	}
 
-    // 2. Parse the assembled turn.
-    let payload;
-    try {
-        payload = JSON.parse(rawBody.toString('utf8') || '{}');
-    } catch (e) {
-        sendJson(res, 400, { error: 'invalid JSON body' });
-        return;
-    }
+	// 2. Parse the assembled turn.
+	let payload
+	try {
+		payload = JSON.parse(rawBody.toString('utf8') || '{}')
+	} catch (e) {
+		sendJson(res, 400, { error: 'invalid JSON body' })
+		return
+	}
 
-    const { provider: providerId, model, messages, credentialEnv, mcpConfig, runToken } = payload;
-    const provider = getProvider(providerId);
-    if (!provider) {
-        sendJson(res, 400, { error: `unknown provider '${providerId}'` });
-        return;
-    }
-    if (!Array.isArray(messages) || messages.length === 0) {
-        sendJson(res, 400, { error: 'messages must be a non-empty array' });
-        return;
-    }
+	const {
+		provider: providerId,
+		model,
+		messages,
+		credentialEnv,
+		mcpConfig,
+		runToken,
+	} = payload
+	const provider = getProvider(providerId)
+	if (!provider) {
+		sendJson(res, 400, { error: `unknown provider '${providerId}'` })
+		return
+	}
+	if (!Array.isArray(messages) || messages.length === 0) {
+		sendJson(res, 400, { error: 'messages must be a non-empty array' })
+		return
+	}
 
-    // 3. Run exactly one turn. Custom tools reach the CLI ONLY via governed MCP
-    //    (cli-runner-governed-mcp-and-egress): a tool-requiring turn carries `mcpConfig`
-    //    — the {mcpServers:{hermiq:{type:"http",...}}} block Hermiq assembled, whose
-    //    headers carry the per-run bearer token. run() writes it to a 0600 scratch file
-    //    and locks the CLI down with `--tools "" --strict-mcp-config --mcp-config <path>`.
-    //    A text-only turn omits `mcpConfig` and is served exactly as link 2 built it.
-    log('info', `/run provider=${providerId} model=${model || '(default)'} messages=${messages.length} governed=${mcpConfig ? 'yes' : 'no'}`);
-    try {
-        const result = await run({ provider, model, messages, credentialEnv, mcpConfig, runToken });
-        sendJson(res, 200, {
-            text: result.text,
-            toolCalls: result.toolCalls,
-            usage: result.usage,
-        });
-    } catch (err) {
-        // err.message is already redacted in runner.js.
-        log('error', `/run failed: ${err.message}`);
-        sendJson(res, 502, { error: 'runner execution failed', detail: err.message });
-    }
+	// 3. Run exactly one turn. Custom tools reach the CLI ONLY via governed MCP
+	//    (cli-runner-governed-mcp-and-egress): a tool-requiring turn carries `mcpConfig`
+	//    — the {mcpServers:{hermiq:{type:"http",...}}} block Hermiq assembled, whose
+	//    headers carry the per-run bearer token. run() writes it to a 0600 scratch file
+	//    and locks the CLI down with `--tools "" --strict-mcp-config --mcp-config <path>`.
+	//    A text-only turn omits `mcpConfig` and is served exactly as link 2 built it.
+	log(
+		'info',
+		`/run provider=${providerId} model=${model || '(default)'} messages=${messages.length} governed=${mcpConfig ? 'yes' : 'no'}`,
+	)
+	try {
+		const result = await run({
+			provider,
+			model,
+			messages,
+			credentialEnv,
+			mcpConfig,
+			runToken,
+		})
+		sendJson(res, 200, {
+			text: result.text,
+			toolCalls: result.toolCalls,
+			usage: result.usage,
+		})
+	} catch (err) {
+		// err.message is already redacted in runner.js.
+		log('error', `/run failed: ${err.message}`)
+		sendJson(res, 502, { error: 'runner execution failed', detail: err.message })
+	}
 }
 
 /**
@@ -176,108 +195,113 @@ async function handleRun(req, res, rawBody) {
  * @returns {Promise<void>}
  */
 async function handleStage(req, res, rawBody) {
-    // AUTH first, before parsing and long before anything is cloned.
-    const verdict = auth.verify(lowerHeaders(req.headers), rawBody);
-    if (!verdict.ok) {
-        log('warn', `/stage rejected: ${verdict.reason}`);
-        sendJson(res, verdict.status, { error: 'unauthorised' });
-        return;
-    }
+	// AUTH first, before parsing and long before anything is cloned.
+	const verdict = auth.verify(lowerHeaders(req.headers), rawBody)
+	if (!verdict.ok) {
+		log('warn', `/stage rejected: ${verdict.reason}`)
+		sendJson(res, verdict.status, { error: 'unauthorised' })
+		return
+	}
 
-    let payload;
-    try {
-        payload = JSON.parse(rawBody.toString('utf8') || '{}');
-    } catch (e) {
-        sendJson(res, 400, { error: 'invalid JSON body' });
-        return;
-    }
+	let payload
+	try {
+		payload = JSON.parse(rawBody.toString('utf8') || '{}')
+	} catch (e) {
+		sendJson(res, 400, { error: 'invalid JSON body' })
+		return
+	}
 
-    // ⚠️ This destructuring is a FILTER, and it silently dropped `toolRepo` for
-    // an entire release: the field was added to the caller and to `runStage()`,
-    // both were tested, and neither test crossed this line — the unit tests call
-    // `runStage()` directly and the PHP tests mock the transport. A parameter
-    // that exists on both sides of a boundary and not IN it fails with the
-    // symptom of a missing FILE (`spawn scripts/... ENOENT`), which points at
-    // the clone rather than at the route.
-    //
-    // Kept explicit rather than spreading `payload` into `runStage()`: the
-    // request body is untrusted, and an allowlist of fields is the reason a
-    // caller cannot reach arguments this endpoint never meant to expose. The
-    // cost is exactly this failure mode, so the route test below crosses the
-    // boundary for every field.
-    const {
-        repo,
-        ref,
-        command,
-        toolRepo,
-        toolRef,
-        toolTarball,
-        collect,
-        forgeToken,
-        forgeUser,
-        timeoutMs,
-        env,
-        runToken,
-        push,
-    } = payload;
+	// ⚠️ This destructuring is a FILTER, and it silently dropped `toolRepo` for
+	// an entire release: the field was added to the caller and to `runStage()`,
+	// both were tested, and neither test crossed this line — the unit tests call
+	// `runStage()` directly and the PHP tests mock the transport. A parameter
+	// that exists on both sides of a boundary and not IN it fails with the
+	// symptom of a missing FILE (`spawn scripts/... ENOENT`), which points at
+	// the clone rather than at the route.
+	//
+	// Kept explicit rather than spreading `payload` into `runStage()`: the
+	// request body is untrusted, and an allowlist of fields is the reason a
+	// caller cannot reach arguments this endpoint never meant to expose. The
+	// cost is exactly this failure mode, so the route test below crosses the
+	// boundary for every field.
+	const {
+		repo,
+		ref,
+		command,
+		toolRepo,
+		toolRef,
+		toolTarball,
+		collect,
+		forgeToken,
+		forgeUser,
+		timeoutMs,
+		env,
+		runToken,
+		push,
+	} = payload
 
-    // The repo and ref are safe to log — they are how an operator finds this run
-    // again. The token is not, and is never touched here.
-    // The tool repo is logged too, because its absence is what a dropped field
-    // looks like from the outside and the log is the first place anyone looks.
-    //
-    // The push INTENT is logged (branch and issue are not secrets) because
-    // "this stage was allowed to write" is the single most important fact about
-    // a run when reconstructing one afterwards, and its absence from the log is
-    // indistinguishable from a stage that could not write at all.
-    log(
-        'info',
-        `/stage repo=${repo} ref=${ref} `
-        + `tool=${toolRepo || (toolTarball ? `archive(${toolTarball.length}b)` : '(none)')} `
-        + `command=${Array.isArray(command) ? command[0] : '(none)'} `
-        + `push=${push && typeof push === 'object' ? `${push.branch} (issue ${push.issue})` : '(none)'}`
-    );
+	// The repo and ref are safe to log — they are how an operator finds this run
+	// again. The token is not, and is never touched here.
+	// The tool repo is logged too, because its absence is what a dropped field
+	// looks like from the outside and the log is the first place anyone looks.
+	//
+	// The push INTENT is logged (branch and issue are not secrets) because
+	// "this stage was allowed to write" is the single most important fact about
+	// a run when reconstructing one afterwards, and its absence from the log is
+	// indistinguishable from a stage that could not write at all.
+	log(
+		'info',
+		`/stage repo=${repo} ref=${ref} `
+			+ `tool=${toolRepo || (toolTarball ? `archive(${toolTarball.length}b)` : '(none)')} `
+			+ `command=${Array.isArray(command) ? command[0] : '(none)'} `
+			+ `push=${push && typeof push === 'object' ? `${push.branch} (issue ${push.issue})` : '(none)'}`,
+	)
 
-    try {
-        const result = await runStage({
-            repo,
-            ref,
-            command,
-            toolRepo,
-            toolRef,
-            toolTarball,
-            collect,
-            forgeToken,
-            forgeUser,
-            timeoutMs,
-            env,
-            runToken,
-            push,
-        });
-        log(
-            'info',
-            `/stage finished exit=${result.exitCode}`
-            + (result.push ? ` pushed=${result.push.pushed} branch=${result.push.branch}` : '')
-        );
-        sendJson(res, 200, result);
-    } catch (err) {
-        // 502: the stage was dispatched and could not be carried out. It is NOT
-        // a 400 — the request was well formed — and not a 200 with a failure
-        // field, because a caller reading only the status must not mistake
-        // "could not run" for "ran and failed".
-        //
-        // A REFUSED PUSH lands here too, and deliberately so: a fence that
-        // returned 200 with `pushed: false` would be recorded by every caller
-        // that reads only the status as a stage that completed. `code` is
-        // carried out so a consumer can route on the refusal without matching
-        // prose — the assertion that stops testing anything the day somebody
-        // rewords a message.
-        log('warn', `/stage failed${err.code ? ` (${err.code})` : ''}: ${err.message}`);
-        sendJson(res, 502, {
-            error: err.message,
-            ...(err.code ? { code: err.code } : {}),
-        });
-    }
+	try {
+		const result = await runStage({
+			repo,
+			ref,
+			command,
+			toolRepo,
+			toolRef,
+			toolTarball,
+			collect,
+			forgeToken,
+			forgeUser,
+			timeoutMs,
+			env,
+			runToken,
+			push,
+		})
+		log(
+			'info',
+			`/stage finished exit=${result.exitCode}`
+				+ (result.push
+					? ` pushed=${result.push.pushed} branch=${result.push.branch}`
+					: ''),
+		)
+		sendJson(res, 200, result)
+	} catch (err) {
+		// 502: the stage was dispatched and could not be carried out. It is NOT
+		// a 400 — the request was well formed — and not a 200 with a failure
+		// field, because a caller reading only the status must not mistake
+		// "could not run" for "ran and failed".
+		//
+		// A REFUSED PUSH lands here too, and deliberately so: a fence that
+		// returned 200 with `pushed: false` would be recorded by every caller
+		// that reads only the status as a stage that completed. `code` is
+		// carried out so a consumer can route on the refusal without matching
+		// prose — the assertion that stops testing anything the day somebody
+		// rewords a message.
+		log(
+			'warn',
+			`/stage failed${err.code ? ` (${err.code})` : ''}: ${err.message}`,
+		)
+		sendJson(res, 502, {
+			error: err.message,
+			...(err.code ? { code: err.code } : {}),
+		})
+	}
 }
 
 /**
@@ -287,11 +311,11 @@ async function handleStage(req, res, rawBody) {
  * @returns {object} Header map with lower-cased keys.
  */
 function lowerHeaders(headers) {
-    const out = {};
-    for (const key of Object.keys(headers)) {
-        out[key.toLowerCase()] = headers[key];
-    }
-    return out;
+	const out = {}
+	for (const key of Object.keys(headers)) {
+		out[key.toLowerCase()] = headers[key]
+	}
+	return out
 }
 
 /**
@@ -310,72 +334,73 @@ function lowerHeaders(headers) {
  * @returns {void}
  */
 function handleEnabled(req, res, rawBody) {
-    const verdict = auth.verify(lowerHeaders(req.headers), rawBody);
-    if (!verdict.ok) {
-        log('warn', `/enabled rejected: ${verdict.reason}`);
-        sendJson(res, verdict.status, { error: 'unauthorised' });
-        return;
-    }
-    const enabled = new URL(req.url, 'http://localhost').searchParams.get('enabled') === '1';
-    log('info', `/enabled -> ${enabled ? 'enabled' : 'disabled'}`);
-    // Empty/absent `error` = success. There is no `/init` handler on purpose:
-    // AppAPI treats a 404/501 on POST /init as "nothing to initialise" and sets
-    // init progress to 100 (AppAPIService::dispatchExAppInitInternal). A naive
-    // 200 without the progress callback would instead leave init stuck at 0.
-    sendJson(res, 200, {});
+	const verdict = auth.verify(lowerHeaders(req.headers), rawBody)
+	if (!verdict.ok) {
+		log('warn', `/enabled rejected: ${verdict.reason}`)
+		sendJson(res, verdict.status, { error: 'unauthorised' })
+		return
+	}
+	const enabled =
+		new URL(req.url, 'http://localhost').searchParams.get('enabled') === '1'
+	log('info', `/enabled -> ${enabled ? 'enabled' : 'disabled'}`)
+	// Empty/absent `error` = success. There is no `/init` handler on purpose:
+	// AppAPI treats a 404/501 on POST /init as "nothing to initialise" and sets
+	// init progress to 100 (AppAPIService::dispatchExAppInitInternal). A naive
+	// 200 without the progress callback would instead leave init stuck at 0.
+	sendJson(res, 200, {})
 }
 
 const server = http.createServer((req, res) => {
-    // AppAPI health probe — no auth, invokes no CLI.
-    if (req.method === 'GET' && req.url === '/heartbeat') {
-        sendJson(res, 200, { status: 'ok' });
-        return;
-    }
+	// AppAPI health probe — no auth, invokes no CLI.
+	if (req.method === 'GET' && req.url === '/heartbeat') {
+		sendJson(res, 200, { status: 'ok' })
+		return
+	}
 
-    // AppAPI enable/disable lifecycle call.
-    if (req.method === 'PUT' && req.url.split('?')[0] === '/enabled') {
-        readBody(req)
-            .then((rawBody) => handleEnabled(req, res, rawBody))
-            .catch((err) => {
-                log('warn', `request error: ${err.message}`);
-                if (!res.headersSent) {
-                    sendJson(res, 413, { error: err.message });
-                }
-            });
-        return;
-    }
+	// AppAPI enable/disable lifecycle call.
+	if (req.method === 'PUT' && req.url.split('?')[0] === '/enabled') {
+		readBody(req)
+			.then((rawBody) => handleEnabled(req, res, rawBody))
+			.catch((err) => {
+				log('warn', `request error: ${err.message}`)
+				if (!res.headersSent) {
+					sendJson(res, 413, { error: err.message })
+				}
+			})
+		return
+	}
 
-    if (req.method === 'POST' && req.url === '/stage') {
-        readBody(req, MAX_STAGE_BODY_BYTES)
-            .then((rawBody) => handleStage(req, res, rawBody))
-            .catch((err) => {
-                log('warn', `request error: ${err.message}`);
-                if (!res.headersSent) {
-                    sendJson(res, 413, { error: err.message });
-                }
-            });
-        return;
-    }
+	if (req.method === 'POST' && req.url === '/stage') {
+		readBody(req, MAX_STAGE_BODY_BYTES)
+			.then((rawBody) => handleStage(req, res, rawBody))
+			.catch((err) => {
+				log('warn', `request error: ${err.message}`)
+				if (!res.headersSent) {
+					sendJson(res, 413, { error: err.message })
+				}
+			})
+		return
+	}
 
-    if (req.method === 'POST' && req.url === '/run') {
-        readBody(req)
-            .then((rawBody) => handleRun(req, res, rawBody))
-            .catch((err) => {
-                log('warn', `request error: ${err.message}`);
-                if (!res.headersSent) {
-                    sendJson(res, 413, { error: err.message });
-                }
-            });
-        return;
-    }
+	if (req.method === 'POST' && req.url === '/run') {
+		readBody(req)
+			.then((rawBody) => handleRun(req, res, rawBody))
+			.catch((err) => {
+				log('warn', `request error: ${err.message}`)
+				if (!res.headersSent) {
+					sendJson(res, 413, { error: err.message })
+				}
+			})
+		return
+	}
 
-    sendJson(res, 404, { error: 'not found' });
-});
+	sendJson(res, 404, { error: 'not found' })
+})
 
 if (require.main === module) {
-    server.listen(PORT, HOST, () => {
-        log('info', `listening on ${HOST}:${PORT} (app-id=${auth.APP_ID})`);
-    });
+	server.listen(PORT, HOST, () => {
+		log('info', `listening on ${HOST}:${PORT} (app-id=${auth.APP_ID})`)
+	})
 }
 
 // `handleStage` is exported for the ROUTE test. It is the one seam where a
@@ -383,4 +408,4 @@ if (require.main === module) {
 // exactly what happened to `toolRepo` — and a test that cannot reach the
 // handler can only assert the function behind it, which is where the bug
 // already wasn't.
-module.exports = { server, handleStage };
+module.exports = { server, handleStage }

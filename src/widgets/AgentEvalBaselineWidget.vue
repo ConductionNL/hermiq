@@ -22,7 +22,10 @@
 -->
 <template>
 	<div class="agent-eval-baseline">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Eval baseline error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Eval baseline error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -40,7 +43,9 @@
 				<template #trigger>
 					<NcButton
 						type="tertiary"
-						:aria-label="t('hermiq', 'What does the eval baseline mode change?')">
+						:aria-label="
+							t('hermiq', 'What does the eval baseline mode change?')
+						">
 						<template #icon>
 							<InformationOutline :size="20" />
 						</template>
@@ -67,7 +72,13 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcNoteCard, NcPopover, NcSelect } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcPopover,
+	NcSelect,
+} from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import InformationOutline from 'vue-material-design-icons/InformationOutline.vue'
 import { useAgentStore } from '../store/store.js'
@@ -113,8 +124,20 @@ export default {
 		 */
 		modeOptions() {
 			return [
-				{ label: this.t('hermiq', 'Joint (default) — one baseline, ~2x cost'), value: 'joint' },
-				{ label: this.t('hermiq', 'Per-skill — true marginals, (N+1)x cost'), value: 'per-skill' },
+				{
+					label: this.t(
+						'hermiq',
+						'Joint (default) — one baseline, ~2x cost',
+					),
+					value: 'joint',
+				},
+				{
+					label: this.t(
+						'hermiq',
+						'Per-skill — true marginals, (N+1)x cost',
+					),
+					value: 'per-skill',
+				},
 			]
 		},
 
@@ -126,7 +149,9 @@ export default {
 		 * @return {string} joint|per-skill.
 		 */
 		storedMode() {
-			return this.agent?.evalBaselineMode === 'per-skill' ? 'per-skill' : 'joint'
+			return this.agent?.evalBaselineMode === 'per-skill'
+				? 'per-skill'
+				: 'joint'
 		},
 
 		/**
@@ -147,7 +172,10 @@ export default {
 		 * @return {string} The translated description.
 		 */
 		modeDescription() {
-			return this.t('hermiq', "How a paired (with-skill vs without-skill) eval baseline is constructed for this agent. 'joint' (the default, also when unset): every paired run executes ONE without-skill half that detaches all of the dataset's linked skills together — each case runs exactly twice, at roughly 2x the token cost of a normal eval run, and the recorded baseline delta is the JOINT contribution of the whole linked skill set, shared by every linked skill. 'per-skill': every paired run executes one without-skill half PER linked skill (the with-set minus only that skill) — with N linked skills each case runs N+1 times, at (N+1)x the token cost per paired run, and each skill receives its own TRUE marginal baseline delta. Every half counts toward the same organisation and agent budgets.")
+			return this.t(
+				'hermiq',
+				"How a paired (with-skill vs without-skill) eval baseline is constructed for this agent. 'joint' (the default, also when unset): every paired run executes ONE without-skill half that detaches all of the dataset's linked skills together — each case runs exactly twice, at roughly 2x the token cost of a normal eval run, and the recorded baseline delta is the JOINT contribution of the whole linked skill set, shared by every linked skill. 'per-skill': every paired run executes one without-skill half PER linked skill (the with-set minus only that skill) — with N linked skills each case runs N+1 times, at (N+1)x the token cost per paired run, and each skill receives its own TRUE marginal baseline delta. Every half counts toward the same organisation and agent budgets.",
+			)
 		},
 
 		/**
@@ -158,9 +186,15 @@ export default {
 		 */
 		currentModeSummary() {
 			if (this.storedMode === 'per-skill') {
-				return this.t('hermiq', 'Paired evals run one without-skill half per linked skill — true per-skill deltas at (N+1)x token cost.')
+				return this.t(
+					'hermiq',
+					'Paired evals run one without-skill half per linked skill — true per-skill deltas at (N+1)x token cost.',
+				)
 			}
-			return this.t('hermiq', 'Paired evals run one shared without-skill half — a joint delta for the linked set at ~2x token cost.')
+			return this.t(
+				'hermiq',
+				'Paired evals run one shared without-skill half — a joint delta for the linked set at ~2x token cost.',
+			)
 		},
 	},
 
@@ -187,9 +221,15 @@ export default {
 			this.error = ''
 			try {
 				this.agent = await this.agentStore.fetchObject('agent', this.agentId)
-				this.selectedMode = this.modeOptions.find((option) => option.value === this.storedMode) || this.modeOptions[0]
+				this.selectedMode =
+					this.modeOptions.find(
+						(option) => option.value === this.storedMode,
+					) || this.modeOptions[0]
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not load the agent.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not load the agent.')
 			} finally {
 				this.loading = false
 			}
@@ -208,7 +248,10 @@ export default {
 			}
 			this.saving = true
 			try {
-				await this.agentStore.saveObject('agent', { ...this.agent, evalBaselineMode: this.selectedMode.value })
+				await this.agentStore.saveObject('agent', {
+					...this.agent,
+					evalBaselineMode: this.selectedMode.value,
+				})
 				await this.load()
 				showSuccess(this.t('hermiq', 'Eval baseline mode saved.'))
 			} catch (e) {

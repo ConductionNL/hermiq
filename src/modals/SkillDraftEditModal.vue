@@ -25,7 +25,12 @@
 			</h2>
 
 			<p class="skill-draft-edit__hint">
-				{{ t('hermiq', 'Saving re-runs the content scan and the paired eval over your edited text. The draft cannot be accepted anywhere until re-qualification passes.') }}
+				{{
+					t(
+						'hermiq',
+						'Saving re-runs the content scan and the paired eval over your edited text. The draft cannot be accepted anywhere until re-qualification passes.',
+					)
+				}}
 			</p>
 
 			<label class="skill-draft-edit__label" for="skill-draft-edit-body">
@@ -38,11 +43,16 @@
 				rows="18" />
 
 			<div class="skill-draft-edit__actions">
-				<NcButton type="primary"
+				<NcButton
+					type="primary"
 					:disabled="busy || body.trim() === ''"
 					:aria-label="t('hermiq', 'Save the edited draft and re-qualify')"
 					@click="$emit('save', { body })">
-					{{ busy ? t('hermiq', 'Saving…') : t('hermiq', 'Save and re-qualify') }}
+					{{
+						busy
+							? t('hermiq', 'Saving…')
+							: t('hermiq', 'Save and re-qualify')
+					}}
 				</NcButton>
 				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
@@ -78,7 +88,10 @@ export default {
 
 	data() {
 		return {
-			body: typeof this.draft?.proposedBody === 'string' ? this.draft.proposedBody : '',
+			body:
+				typeof this.draft?.proposedBody === 'string'
+					? this.draft.proposedBody
+					: '',
 		}
 	},
 }

@@ -19,11 +19,17 @@
 -->
 <template>
 	<div class="skill-version-history">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Version history error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Version history error')">
 			{{ error }}
 		</NcNoteCard>
 
-		<NcLoadingIcon v-if="loading" :size="24" class="skill-version-history__loading" />
+		<NcLoadingIcon
+			v-if="loading"
+			:size="24"
+			class="skill-version-history__loading" />
 
 		<template v-else>
 			<div v-if="publishedCopyBehind" class="skill-version-history__behind">
@@ -31,50 +37,92 @@
 					{{ t('hermiq', 'Published copy is behind') }}
 				</span>
 				<span class="skill-version-history__hint">
-					{{ t('hermiq', 'The accepted local version postdates the GitHub publish. Nothing is pushed automatically.') }}
+					{{
+						t(
+							'hermiq',
+							'The accepted local version postdates the GitHub publish. Nothing is pushed automatically.',
+						)
+					}}
 				</span>
 				<div class="skill-version-history__republish">
 					<NcTextField
 						v-model="republishCredentialId"
 						:label="t('hermiq', 'Broker credential ID')"
 						:placeholder="t('hermiq', 'github credential UUID')" />
-					<NcButton type="secondary"
+					<NcButton
+						type="secondary"
 						:disabled="busy || republishCredentialId.trim() === ''"
-						:aria-label="t('hermiq', 'Republish to the published GitHub repository')"
+						:aria-label="
+							t(
+								'hermiq',
+								'Republish to the published GitHub repository',
+							)
+						"
 						@click="doRepublish">
-						{{ busy ? t('hermiq', 'Working…') : t('hermiq', 'Republish') }}
+						{{
+							busy ? t('hermiq', 'Working…') : t('hermiq', 'Republish')
+						}}
 					</NcButton>
 				</div>
 			</div>
 
-			<NcNoteCard v-if="rollbackSuggestion" type="warning" :heading="t('hermiq', 'Roll back to previous version?')">
-				{{ t('hermiq', 'The first eval run after the last accepted version failed the regression gate. Rolling back is advisory and always your explicit choice.') }}
+			<NcNoteCard
+				v-if="rollbackSuggestion"
+				type="warning"
+				:heading="t('hermiq', 'Roll back to previous version?')">
+				{{
+					t(
+						'hermiq',
+						'The first eval run after the last accepted version failed the regression gate. Rolling back is advisory and always your explicit choice.',
+					)
+				}}
 			</NcNoteCard>
 
 			<h4 class="skill-version-history__heading">
 				{{ t('hermiq', 'Version history') }}
 			</h4>
 			<ul class="skill-version-history__list">
-				<li v-for="(version, index) in versions" :key="version.id" class="skill-version-history__row">
+				<li
+					v-for="(version, index) in versions"
+					:key="version.id"
+					class="skill-version-history__row">
 					<div class="skill-version-history__row-main">
-						<span class="skill-version-history__stamp">{{ formatDate(version.timestamp) }}</span>
-						<span class="skill-version-history__user">{{ version.user || '—' }}</span>
+						<span class="skill-version-history__stamp">{{
+							formatDate(version.timestamp)
+						}}</span>
+						<span class="skill-version-history__user">{{
+							version.user || '—'
+						}}</span>
 						<span class="skill-version-history__fields">
-							{{ version.changedFields && version.changedFields.length ? version.changedFields.join(', ') : t('hermiq', 'no content change') }}
+							{{
+								version.changedFields && version.changedFields.length
+									? version.changedFields.join(', ')
+									: t('hermiq', 'no content change')
+							}}
 						</span>
-						<span v-if="index === 0" class="skill-version-history__current" role="status">
+						<span
+							v-if="index === 0"
+							class="skill-version-history__current"
+							role="status">
 							{{ t('hermiq', 'current') }}
 						</span>
 					</div>
 					<div class="skill-version-history__row-actions">
-						<NcButton v-if="index !== 0"
+						<NcButton
+							v-if="index !== 0"
 							type="tertiary"
 							:disabled="busy"
-							:aria-label="t('hermiq', 'Show the differences against the current version')"
+							:aria-label="
+								t(
+									'hermiq',
+									'Show the differences against the current version',
+								)
+							"
 							@click="showDiff(version.id)">
 							{{ t('hermiq', 'Diff') }}
 						</NcButton>
-						<NcButton v-if="index !== 0"
+						<NcButton
+							v-if="index !== 0"
 							type="tertiary"
 							:disabled="busy"
 							:aria-label="t('hermiq', 'Roll back to this version')"
@@ -83,7 +131,9 @@
 						</NcButton>
 					</div>
 				</li>
-				<li v-if="versions.length === 0" class="skill-version-history__empty">
+				<li
+					v-if="versions.length === 0"
+					class="skill-version-history__empty">
 					{{ t('hermiq', 'No versions recorded yet.') }}
 				</li>
 			</ul>
@@ -92,19 +142,29 @@
 				<h4 class="skill-version-history__heading">
 					{{ t('hermiq', 'Differences vs current version') }}
 				</h4>
-				<dl v-if="Object.keys(diff).length > 0" class="skill-version-history__diff">
+				<dl
+					v-if="Object.keys(diff).length > 0"
+					class="skill-version-history__diff">
 					<template v-for="(change, field) in diff" :key="field">
 						<dt>
 							{{ field }}
 						</dt>
 						<dd>
 							<div class="skill-version-history__diff-half">
-								<span class="skill-version-history__diff-label">{{ t('hermiq', 'Then') }}</span>
-								<pre class="skill-version-history__pre">{{ stringify(change.old) }}</pre>
+								<span class="skill-version-history__diff-label">{{
+									t('hermiq', 'Then')
+								}}</span>
+								<pre class="skill-version-history__pre">{{
+									stringify(change.old)
+								}}</pre>
 							</div>
 							<div class="skill-version-history__diff-half">
-								<span class="skill-version-history__diff-label">{{ t('hermiq', 'Now') }}</span>
-								<pre class="skill-version-history__pre">{{ stringify(change.new) }}</pre>
+								<span class="skill-version-history__diff-label">{{
+									t('hermiq', 'Now')
+								}}</span>
+								<pre class="skill-version-history__pre">{{
+									stringify(change.new)
+								}}</pre>
 							</div>
 						</dd>
 					</template>
@@ -120,8 +180,17 @@
 <script>
 import { subscribe, unsubscribe } from '@nextcloud/event-bus'
 import { NcButton, NcLoadingIcon, NcNoteCard, NcTextField } from '@nextcloud/vue'
-import { diffSkillVersions, listSkillVersions, republishSkill, rollbackSkill } from '../api/skills.js'
-import { useEvalDatasetStore, useEvalRunStore, useSkillStore } from '../store/store.js'
+import {
+	diffSkillVersions,
+	listSkillVersions,
+	republishSkill,
+	rollbackSkill,
+} from '../api/skills.js'
+import {
+	useEvalDatasetStore,
+	useEvalRunStore,
+	useSkillStore,
+} from '../store/store.js'
 
 export default {
 	name: 'SkillVersionHistory',
@@ -174,7 +243,11 @@ export default {
 			}
 			const published = new Date(publishedAt).getTime()
 			const accepted = new Date(acceptedAt).getTime()
-			return Number.isFinite(published) && Number.isFinite(accepted) && accepted > published
+			return (
+				Number.isFinite(published)
+				&& Number.isFinite(accepted)
+				&& accepted > published
+			)
 		},
 
 		/**
@@ -193,11 +266,18 @@ export default {
 			const accepted = new Date(acceptedAt).getTime()
 			const linkedDatasetIds = new Set(
 				this.datasets
-					.filter((dataset) => Array.isArray(dataset?.skillRefs) && dataset.skillRefs.includes(this.skillId))
+					.filter(
+						(dataset) =>
+							Array.isArray(dataset?.skillRefs)
+							&& dataset.skillRefs.includes(this.skillId),
+					)
 					.map((dataset) => dataset.uuid || dataset.id),
 			)
 			return this.evalRuns.some((run) => {
-				if (!linkedDatasetIds.has(run?.datasetId) || run?.regressionGateResult !== 'failed') {
+				if (
+					!linkedDatasetIds.has(run?.datasetId)
+					|| run?.regressionGateResult !== 'failed'
+				) {
 					return false
 				}
 				const ended = new Date(run?.endedAt || 0).getTime()
@@ -250,10 +330,17 @@ export default {
 				])
 				this.skill = skill || null
 				this.versions = versions
-				this.datasets = Array.isArray(datasets) ? datasets : (datasets?.results || [])
-				this.evalRuns = Array.isArray(evalRuns) ? evalRuns : (evalRuns?.results || [])
+				this.datasets = Array.isArray(datasets)
+					? datasets
+					: datasets?.results || []
+				this.evalRuns = Array.isArray(evalRuns)
+					? evalRuns
+					: evalRuns?.results || []
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not load the version history.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not load the version history.')
 			} finally {
 				this.loading = false
 			}
@@ -271,10 +358,17 @@ export default {
 			this.error = ''
 			try {
 				const currentId = this.versions[0]?.id
-				this.diff = await diffSkillVersions(this.skillId, versionId, currentId)
+				this.diff = await diffSkillVersions(
+					this.skillId,
+					versionId,
+					currentId,
+				)
 				this.diffVersionId = versionId
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Diff failed.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Diff failed.')
 			} finally {
 				this.busy = false
 			}
@@ -297,7 +391,10 @@ export default {
 				this.diffVersionId = ''
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Rollback failed.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Rollback failed.')
 			} finally {
 				this.busy = false
 			}
@@ -317,7 +414,10 @@ export default {
 				await republishSkill(this.skillId, this.republishCredentialId.trim())
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Republish failed.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Republish failed.')
 			} finally {
 				this.busy = false
 			}

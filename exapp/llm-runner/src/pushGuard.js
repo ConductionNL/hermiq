@@ -43,7 +43,7 @@
  * @copyright 2026 Conduction B.V.
  */
 
-'use strict';
+'use strict'
 
 /**
  * An error carrying a stable machine-readable code.
@@ -54,15 +54,15 @@
  * of assertion that silently stops testing anything when the prose is reworded.
  */
 class PushRefused extends Error {
-    /**
-     * @param {string} code    Stable refusal code.
-     * @param {string} message Human-readable reason.
-     */
-    constructor(code, message) {
-        super(message);
-        this.name = 'PushRefused';
-        this.code = code;
-    }
+	/**
+	 * @param {string} code    Stable refusal code.
+	 * @param {string} message Human-readable reason.
+	 */
+	constructor(code, message) {
+		super(message)
+		this.name = 'PushRefused'
+		this.code = code
+	}
 }
 
 /**
@@ -82,27 +82,27 @@ class PushRefused extends Error {
  * @type {Array<{prefix: string, code: string, why: string}>}
  */
 const FORBIDDEN_PREFIXES = [
-    {
-        prefix: '.github/workflows/',
-        code: 'workflow_definition',
-        why: 'a workflow definition is code the forge executes with the forge’s own secrets',
-    },
-    {
-        prefix: '.forgejo/workflows/',
-        code: 'workflow_definition',
-        why: 'a workflow definition is code the forge executes with the forge’s own secrets',
-    },
-    {
-        prefix: '.github/actions/',
-        code: 'workflow_definition',
-        why: 'a composite action is executed by every workflow that references it',
-    },
-    {
-        prefix: '.git/',
-        code: 'git_internals',
-        why: 'a file under .git/ can install a hook that runs on the runner itself',
-    },
-];
+	{
+		prefix: '.github/workflows/',
+		code: 'workflow_definition',
+		why: 'a workflow definition is code the forge executes with the forge’s own secrets',
+	},
+	{
+		prefix: '.forgejo/workflows/',
+		code: 'workflow_definition',
+		why: 'a workflow definition is code the forge executes with the forge’s own secrets',
+	},
+	{
+		prefix: '.github/actions/',
+		code: 'workflow_definition',
+		why: 'a composite action is executed by every workflow that references it',
+	},
+	{
+		prefix: '.git/',
+		code: 'git_internals',
+		why: 'a file under .git/ can install a hook that runs on the runner itself',
+	},
+]
 
 /**
  * Dependency manifests and their lockfiles.
@@ -121,25 +121,25 @@ const FORBIDDEN_PREFIXES = [
  * @type {Array<string>}
  */
 const DEPENDENCY_MANIFESTS = [
-    'package.json',
-    'package-lock.json',
-    'npm-shrinkwrap.json',
-    'yarn.lock',
-    'pnpm-lock.yaml',
-    'composer.json',
-    'composer.lock',
-    'requirements.txt',
-    'pyproject.toml',
-    'poetry.lock',
-    'Pipfile',
-    'Pipfile.lock',
-    'go.mod',
-    'go.sum',
-    'Gemfile',
-    'Gemfile.lock',
-    'Cargo.toml',
-    'Cargo.lock',
-];
+	'package.json',
+	'package-lock.json',
+	'npm-shrinkwrap.json',
+	'yarn.lock',
+	'pnpm-lock.yaml',
+	'composer.json',
+	'composer.lock',
+	'requirements.txt',
+	'pyproject.toml',
+	'poetry.lock',
+	'Pipfile',
+	'Pipfile.lock',
+	'go.mod',
+	'go.sum',
+	'Gemfile',
+	'Gemfile.lock',
+	'Cargo.toml',
+	'Cargo.lock',
+]
 
 /**
  * Branch names that are never a legitimate builder target.
@@ -152,7 +152,15 @@ const DEPENDENCY_MANIFESTS = [
  *
  * @type {Array<string>}
  */
-const PROTECTED_BRANCHES = ['main', 'master', 'development', 'develop', 'beta', 'release', 'HEAD'];
+const PROTECTED_BRANCHES = [
+	'main',
+	'master',
+	'development',
+	'develop',
+	'beta',
+	'release',
+	'HEAD',
+]
 
 /**
  * Reduce a clone URL to a comparable repository identity.
@@ -172,30 +180,33 @@ const PROTECTED_BRANCHES = ['main', 'master', 'development', 'develop', 'beta', 
  * @returns {string|null} `host/owner/repo`, or null when it cannot be read.
  */
 function repoIdentity(url) {
-    if (typeof url !== 'string' || url.trim() === '') {
-        return null;
-    }
+	if (typeof url !== 'string' || url.trim() === '') {
+		return null
+	}
 
-    let parsed;
-    try {
-        parsed = new URL(url.trim());
-    } catch (err) {
-        // `git@github.com:owner/repo.git` is not a URL. It is also not a shape
-        // this runner ever produces or accepts — the clone URL is built from an
-        // https base — so it is refused rather than special-cased.
-        return null;
-    }
+	let parsed
+	try {
+		parsed = new URL(url.trim())
+	} catch (err) {
+		// `git@github.com:owner/repo.git` is not a URL. It is also not a shape
+		// this runner ever produces or accepts — the clone URL is built from an
+		// https base — so it is refused rather than special-cased.
+		return null
+	}
 
-    const host = String(parsed.hostname || '').toLowerCase();
-    let path = String(parsed.pathname || '').toLowerCase();
+	const host = String(parsed.hostname || '').toLowerCase()
+	let path = String(parsed.pathname || '').toLowerCase()
 
-    path = path.replace(/\.git$/, '').replace(/^\/+/, '').replace(/\/+$/, '');
+	path = path
+		.replace(/\.git$/, '')
+		.replace(/^\/+/, '')
+		.replace(/\/+$/, '')
 
-    if (host === '' || path === '') {
-        return null;
-    }
+	if (host === '' || path === '') {
+		return null
+	}
 
-    return `${host}/${path}`;
+	return `${host}/${path}`
 }
 
 /**
@@ -207,31 +218,31 @@ function repoIdentity(url) {
  * @throws {PushRefused} When the two are not the same repository.
  */
 function assertSameRepository(pushUrl, allowedUrl) {
-    const target = repoIdentity(pushUrl);
-    const allowed = repoIdentity(allowedUrl);
+	const target = repoIdentity(pushUrl)
+	const allowed = repoIdentity(allowedUrl)
 
-    if (allowed === null) {
-        // Fail CLOSED. An unreadable allowlist entry must never widen to
-        // "anything goes" — that is how an allowlist becomes a no-op.
-        throw new PushRefused(
-            'allowed_repo_unreadable',
-            `the stage declares no readable target repository (got ${JSON.stringify(allowedUrl)})`
-        );
-    }
+	if (allowed === null) {
+		// Fail CLOSED. An unreadable allowlist entry must never widen to
+		// "anything goes" — that is how an allowlist becomes a no-op.
+		throw new PushRefused(
+			'allowed_repo_unreadable',
+			`the stage declares no readable target repository (got ${JSON.stringify(allowedUrl)})`,
+		)
+	}
 
-    if (target === null) {
-        throw new PushRefused(
-            'push_repo_unreadable',
-            `the push target is not a readable repository URL (got ${JSON.stringify(pushUrl)})`
-        );
-    }
+	if (target === null) {
+		throw new PushRefused(
+			'push_repo_unreadable',
+			`the push target is not a readable repository URL (got ${JSON.stringify(pushUrl)})`,
+		)
+	}
 
-    if (target !== allowed) {
-        throw new PushRefused(
-            'repo_not_allowed',
-            `push refused: this stage may write only to ${allowed}, not to ${target}`
-        );
-    }
+	if (target !== allowed) {
+		throw new PushRefused(
+			'repo_not_allowed',
+			`push refused: this stage may write only to ${allowed}, not to ${target}`,
+		)
+	}
 }
 
 /**
@@ -249,53 +260,55 @@ function assertSameRepository(pushUrl, allowedUrl) {
  * @throws {PushRefused} When the branch is outside the allowlist.
  */
 function assertBranchAllowed(branch, issue) {
-    const name = String(branch === undefined || branch === null ? '' : branch).trim();
-    const issueNumber = String(issue === undefined || issue === null ? '' : issue).trim();
+	const name = String(branch === undefined || branch === null ? '' : branch).trim()
+	const issueNumber = String(
+		issue === undefined || issue === null ? '' : issue,
+	).trim()
 
-    if (name === '') {
-        throw new PushRefused('branch_missing', 'push refused: no branch was named');
-    }
+	if (name === '') {
+		throw new PushRefused('branch_missing', 'push refused: no branch was named')
+	}
 
-    if (/^[0-9]+$/.test(issueNumber) === false) {
-        // Without an issue there is no scope, and without a scope the pattern
-        // below would admit `feature/<anything>/<anything>`. Fail closed.
-        throw new PushRefused(
-            'issue_missing',
-            `push refused: the stage declares no issue number, so no branch can be in scope (got ${JSON.stringify(issue)})`
-        );
-    }
+	if (/^[0-9]+$/.test(issueNumber) === false) {
+		// Without an issue there is no scope, and without a scope the pattern
+		// below would admit `feature/<anything>/<anything>`. Fail closed.
+		throw new PushRefused(
+			'issue_missing',
+			`push refused: the stage declares no issue number, so no branch can be in scope (got ${JSON.stringify(issue)})`,
+		)
+	}
 
-    // Named explicitly so the refusal says WHY, even though the pattern below
-    // would reject these anyway. See PROTECTED_BRANCHES.
-    if (PROTECTED_BRANCHES.includes(name) === true) {
-        throw new PushRefused(
-            'protected_branch',
-            `push refused: "${name}" is a protected branch — nothing reaches it without human approval`
-        );
-    }
+	// Named explicitly so the refusal says WHY, even though the pattern below
+	// would reject these anyway. See PROTECTED_BRANCHES.
+	if (PROTECTED_BRANCHES.includes(name) === true) {
+		throw new PushRefused(
+			'protected_branch',
+			`push refused: "${name}" is a protected branch — nothing reaches it without human approval`,
+		)
+	}
 
-    // `refs/heads/...`, `refs/tags/...` and any other fully-qualified ref are
-    // refused here rather than normalised. A caller that hands a ref where a
-    // branch was asked for has a bug, and normalising it would let
-    // `refs/heads/main` slip past the protected-branch list above by not being
-    // spelled `main`.
-    if (name.startsWith('refs/') === true) {
-        throw new PushRefused(
-            'qualified_ref',
-            `push refused: expected a branch name, got the fully-qualified ref "${name}"`
-        );
-    }
+	// `refs/heads/...`, `refs/tags/...` and any other fully-qualified ref are
+	// refused here rather than normalised. A caller that hands a ref where a
+	// branch was asked for has a bug, and normalising it would let
+	// `refs/heads/main` slip past the protected-branch list above by not being
+	// spelled `main`.
+	if (name.startsWith('refs/') === true) {
+		throw new PushRefused(
+			'qualified_ref',
+			`push refused: expected a branch name, got the fully-qualified ref "${name}"`,
+		)
+	}
 
-    // Anchored at both ends. An unanchored test would match
-    // `evil/feature/42/x` and `feature/42/x:refs/heads/main`.
-    const pattern = new RegExp(`^feature/${issueNumber}/[A-Za-z0-9][A-Za-z0-9._-]*$`);
-    if (pattern.test(name) === false) {
-        throw new PushRefused(
-            'branch_not_allowed',
-            `push refused: "${name}" is outside the allowlist — `
-            + `this stage may push only to feature/${issueNumber}/<slug>`
-        );
-    }
+	// Anchored at both ends. An unanchored test would match
+	// `evil/feature/42/x` and `feature/42/x:refs/heads/main`.
+	const pattern = new RegExp(`^feature/${issueNumber}/[A-Za-z0-9][A-Za-z0-9._-]*$`)
+	if (pattern.test(name) === false) {
+		throw new PushRefused(
+			'branch_not_allowed',
+			`push refused: "${name}" is outside the allowlist — `
+				+ `this stage may push only to feature/${issueNumber}/<slug>`,
+		)
+	}
 }
 
 /**
@@ -310,17 +323,17 @@ function assertBranchAllowed(branch, issue) {
  * @returns {boolean} True when the file is in scope.
  */
 function isInScope(file, scope) {
-    for (const raw of scope) {
-        const entry = String(raw).replace(/^\.\//, '').replace(/\/+$/, '');
-        if (entry === '') {
-            continue;
-        }
-        if (file === entry || file.startsWith(`${entry}/`) === true) {
-            return true;
-        }
-    }
+	for (const raw of scope) {
+		const entry = String(raw).replace(/^\.\//, '').replace(/\/+$/, '')
+		if (entry === '') {
+			continue
+		}
+		if (file === entry || file.startsWith(`${entry}/`) === true) {
+			return true
+		}
+	}
 
-    return false;
+	return false
 }
 
 /**
@@ -343,53 +356,59 @@ function isInScope(file, scope) {
  * @throws {PushRefused} On the first path that is refused.
  */
 function assertDiffAllowed(files, scope = []) {
-    if (Array.isArray(files) === false) {
-        throw new PushRefused('diff_unreadable', 'push refused: the change set could not be read');
-    }
+	if (Array.isArray(files) === false) {
+		throw new PushRefused(
+			'diff_unreadable',
+			'push refused: the change set could not be read',
+		)
+	}
 
-    const scopeList = Array.isArray(scope) ? scope : [];
+	const scopeList = Array.isArray(scope) ? scope : []
 
-    for (const raw of files) {
-        // Normalise the leading `./` git never emits but a caller might, and
-        // reject a path that climbs out of the tree before any rule sees it.
-        const file = String(raw).replace(/^\.\//, '');
-        if (file === '') {
-            continue;
-        }
+	for (const raw of files) {
+		// Normalise the leading `./` git never emits but a caller might, and
+		// reject a path that climbs out of the tree before any rule sees it.
+		const file = String(raw).replace(/^\.\//, '')
+		if (file === '') {
+			continue
+		}
 
-        if (file.startsWith('/') === true || file.split('/').includes('..') === true) {
-            throw new PushRefused(
-                'path_escape',
-                `push refused: "${file}" is not a repository-relative path`
-            );
-        }
+		if (
+			file.startsWith('/') === true
+			|| file.split('/').includes('..') === true
+		) {
+			throw new PushRefused(
+				'path_escape',
+				`push refused: "${file}" is not a repository-relative path`,
+			)
+		}
 
-        for (const rule of FORBIDDEN_PREFIXES) {
-            if (file.startsWith(rule.prefix) === true) {
-                throw new PushRefused(
-                    rule.code,
-                    `push refused: "${file}" is out of bounds — ${rule.why}`
-                );
-            }
-        }
+		for (const rule of FORBIDDEN_PREFIXES) {
+			if (file.startsWith(rule.prefix) === true) {
+				throw new PushRefused(
+					rule.code,
+					`push refused: "${file}" is out of bounds — ${rule.why}`,
+				)
+			}
+		}
 
-        const base = file.split('/').pop();
-        if (DEPENDENCY_MANIFESTS.includes(base) === true) {
-            throw new PushRefused(
-                'dependency_manifest',
-                `push refused: "${file}" is a dependency manifest — `
-                + 'adding or moving a dependency needs human review'
-            );
-        }
+		const base = file.split('/').pop()
+		if (DEPENDENCY_MANIFESTS.includes(base) === true) {
+			throw new PushRefused(
+				'dependency_manifest',
+				`push refused: "${file}" is a dependency manifest — `
+					+ 'adding or moving a dependency needs human review',
+			)
+		}
 
-        if (scopeList.length > 0 && isInScope(file, scopeList) === false) {
-            throw new PushRefused(
-                'out_of_scope',
-                `push refused: "${file}" is outside the scope this issue declared `
-                + `(${scopeList.join(', ')})`
-            );
-        }
-    }
+		if (scopeList.length > 0 && isInScope(file, scopeList) === false) {
+			throw new PushRefused(
+				'out_of_scope',
+				`push refused: "${file}" is outside the scope this issue declared `
+					+ `(${scopeList.join(', ')})`,
+			)
+		}
+	}
 }
 
 /**
@@ -410,20 +429,20 @@ function assertDiffAllowed(files, scope = []) {
  * @throws {PushRefused} On the first fence that refuses.
  */
 function assertPushAllowed({ pushUrl, allowedUrl, branch, issue, files, scope }) {
-    assertSameRepository(pushUrl, allowedUrl);
-    assertBranchAllowed(branch, issue);
-    assertDiffAllowed(files, scope);
+	assertSameRepository(pushUrl, allowedUrl)
+	assertBranchAllowed(branch, issue)
+	assertDiffAllowed(files, scope)
 }
 
 module.exports = {
-    PushRefused,
-    repoIdentity,
-    assertSameRepository,
-    assertBranchAllowed,
-    assertDiffAllowed,
-    assertPushAllowed,
-    isInScope,
-    FORBIDDEN_PREFIXES,
-    DEPENDENCY_MANIFESTS,
-    PROTECTED_BRANCHES,
-};
+	PushRefused,
+	repoIdentity,
+	assertSameRepository,
+	assertBranchAllowed,
+	assertDiffAllowed,
+	assertPushAllowed,
+	isInScope,
+	FORBIDDEN_PREFIXES,
+	DEPENDENCY_MANIFESTS,
+	PROTECTED_BRANCHES,
+}

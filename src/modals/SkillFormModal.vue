@@ -66,17 +66,16 @@
   @spec openspec/specs/skills-catalog/spec.md#requirement-a-chat-assistant-message-can-be-saved-as-a-reviewable-skill
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="large"
-		:name="heading"
-		@close="handleClose">
+	<NcModal :show="show" size="large" :name="heading" @close="handleClose">
 		<div class="skill-form">
 			<h2 class="skill-form__title">
 				{{ heading }}
 			</h2>
 
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not save skill')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not save skill')">
 				{{ error }}
 			</NcNoteCard>
 
@@ -91,8 +90,15 @@
 				</NcNoteCard>
 				<NcTextArea
 					v-model="pasteText"
-					:label="t('hermiq', 'Package (starts with a --- frontmatter fence)')"
-					:placeholder="t('hermiq', 'Paste the whole package, starting with the --- fence')"
+					:label="
+						t('hermiq', 'Package (starts with a --- frontmatter fence)')
+					"
+					:placeholder="
+						t(
+							'hermiq',
+							'Paste the whole package, starting with the --- fence',
+						)
+					"
 					resize="vertical" />
 				<NcButton
 					type="secondary"
@@ -114,16 +120,22 @@
 			<NcTextField
 				v-model="form.description"
 				:label="t('hermiq', 'Description')"
-				:placeholder="t('hermiq', 'What does this skill teach an agent to do?')" />
+				:placeholder="
+					t('hermiq', 'What does this skill teach an agent to do?')
+				" />
 
 			<NcTextArea
 				v-model="form.frontmatter"
 				:label="t('hermiq', 'Frontmatter (YAML)')"
-				:placeholder="t('hermiq', 'name: my-skill, description: …, version: 0.1.0')"
+				:placeholder="
+					t('hermiq', 'name: my-skill, description: …, version: 0.1.0')
+				"
 				resize="vertical" />
 
 			<div class="skill-form__field">
-				<label class="skill-form__label">{{ t('hermiq', 'Body (SKILL.md)') }}</label>
+				<label class="skill-form__label">{{
+					t('hermiq', 'Body (SKILL.md)')
+				}}</label>
 				<CnMarkdownEditor
 					:value="form.body"
 					:placeholder="t('hermiq', 'Write the SKILL.md body…')"
@@ -135,10 +147,18 @@
 				{{ t('hermiq', 'Auxiliary files') }}
 			</h3>
 			<p class="skill-form__hint">
-				{{ t('hermiq', 'Extra files an agent may read alongside SKILL.md (optional).') }}
+				{{
+					t(
+						'hermiq',
+						'Extra files an agent may read alongside SKILL.md (optional).',
+					)
+				}}
 			</p>
 
-			<div v-for="(file, index) in files" :key="index" class="skill-form__file">
+			<div
+				v-for="(file, index) in files"
+				:key="index"
+				class="skill-form__file">
 				<div class="skill-form__file-head">
 					<NcTextField
 						:model-value="file.name"
@@ -169,7 +189,10 @@
 					v-model="newFileName"
 					:label="t('hermiq', 'New file name')"
 					:placeholder="t('hermiq', 'reference.md')" />
-				<NcButton type="secondary" :disabled="!newFileName.trim()" @click="addFile">
+				<NcButton
+					type="secondary"
+					:disabled="!newFileName.trim()"
+					@click="addFile">
 					{{ t('hermiq', 'Add file') }}
 				</NcButton>
 			</div>
@@ -193,7 +216,14 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcTextArea, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcLoadingIcon,
+	NcModal,
+	NcNoteCard,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
 import { CnMarkdownEditor } from '@conduction/nextcloud-vue'
 import { importSkill, installFromSource, updateSkill } from '../api/skills.js'
 
@@ -310,7 +340,9 @@ export default {
 		 * @return {string} The localised heading.
 		 */
 		heading() {
-			return this.effectiveSkill ? this.t('hermiq', 'Edit skill') : this.t('hermiq', 'Create skill')
+			return this.effectiveSkill
+				? this.t('hermiq', 'Edit skill')
+				: this.t('hermiq', 'Create skill')
 		},
 
 		/**
@@ -370,7 +402,10 @@ export default {
 				body: source.body || '',
 			}
 			this.files = Array.isArray(source.files)
-				? source.files.map((file) => ({ name: file.name || '', content: file.content || '' }))
+				? source.files.map((file) => ({
+						name: file.name || '',
+						content: file.content || '',
+					}))
 				: []
 		},
 
@@ -396,7 +431,11 @@ export default {
 				return
 			}
 			if (this.files.some((file) => file.name === name)) {
-				this.error = this.t('hermiq', 'A file named "{name}" already exists.', { name })
+				this.error = this.t(
+					'hermiq',
+					'A file named "{name}" already exists.',
+					{ name },
+				)
 				return
 			}
 			this.files.push({ name, content: '' })
@@ -458,10 +497,13 @@ export default {
 				.trim()
 
 			const lines = []
-			if (/^\s*name\s*:/mi.test(block) === false) {
+			if (/^\s*name\s*:/im.test(block) === false) {
 				lines.push(`name: ${this.form.name}`)
 			}
-			if (this.form.description && /^\s*description\s*:/mi.test(block) === false) {
+			if (
+				this.form.description
+				&& /^\s*description\s*:/im.test(block) === false
+			) {
 				lines.push(`description: ${this.form.description}`)
 			}
 
@@ -497,7 +539,10 @@ export default {
 				description: this.form.description,
 				frontmatter: this.form.frontmatter,
 				body: this.form.body,
-				files: this.files.map((file) => ({ name: file.name, content: file.content })),
+				files: this.files.map((file) => ({
+					name: file.name,
+					content: file.content,
+				})),
 			}
 
 			if (this.effectiveSkill && this.effectiveSkill.id) {
@@ -522,7 +567,10 @@ export default {
 				return
 			}
 			if (text.startsWith('---') === false) {
-				this.pasteError = this.t('hermiq', 'This does not look like a fenced agentskills.io package (it must start with "---").')
+				this.pasteError = this.t(
+					'hermiq',
+					'This does not look like a fenced agentskills.io package (it must start with "---").',
+				)
 				return
 			}
 
@@ -538,11 +586,17 @@ export default {
 					body: result.body || '',
 				}
 				this.files = Array.isArray(result.files)
-					? result.files.map((file) => ({ name: file.name || '', content: file.content || '' }))
+					? result.files.map((file) => ({
+							name: file.name || '',
+							content: file.content || '',
+						}))
 					: []
 				this.pasteText = ''
 			} catch (e) {
-				this.pasteError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not import the pasted package.')
+				this.pasteError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not import the pasted package.')
 			} finally {
 				this.pasteBusy = false
 			}
@@ -572,23 +626,30 @@ export default {
 					// skill-maturity: EDIT goes through the guarded hermiq merge path
 					// (PUT /api/skills/{id}) so the server silently preserves the
 					// computed maturity fields; targetLevel stays freely editable.
-					saved = await updateSkill(this.effectiveSkill.id, this.buildEditPayload())
+					saved = await updateSkill(
+						this.effectiveSkill.id,
+						this.buildEditPayload(),
+					)
 					if (saved === null) {
 						this.error = this.t('hermiq', 'Could not save skill')
 						return
 					}
 				} else {
 					const pkg = this.buildPackage()
-					saved = this.saveTarget === 'quarantine'
-						? await installFromSource(pkg, 'local')
-						: await importSkill(pkg)
+					saved =
+						this.saveTarget === 'quarantine'
+							? await installFromSource(pkg, 'local')
+							: await importSkill(pkg)
 
 					if (this.files.length > 0) {
 						// skill-maturity: the follow-up files write uses the same
 						// guarded merge path as an edit save.
 						const withFiles = await updateSkill(saved.uuid || saved.id, {
 							...saved,
-							files: this.files.map((file) => ({ name: file.name, content: file.content })),
+							files: this.files.map((file) => ({
+								name: file.name,
+								content: file.content,
+							})),
 						})
 						if (withFiles) {
 							saved = withFiles
@@ -599,7 +660,10 @@ export default {
 				this.$emit('saved', saved)
 				this.handleClose()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.saving = false
 			}

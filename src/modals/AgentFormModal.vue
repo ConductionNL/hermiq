@@ -32,17 +32,16 @@
   @spec openspec/changes/sub-agent-delegation/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-the-delegation-allowlist-in-place-mvp
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="normal"
-		:name="heading"
-		@close="handleClose">
+	<NcModal :show="show" size="normal" :name="heading" @close="handleClose">
 		<div class="agent-form">
 			<h2 class="agent-form__title">
 				{{ heading }}
 			</h2>
 
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not save agent')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not save agent')">
 				{{ error }}
 			</NcNoteCard>
 
@@ -67,7 +66,9 @@
 			     free-form (e.g. "Creation"); clearable — empty means the default
 			     agent icon. -->
 			<div class="agent-form__field">
-				<label class="agent-form__icon-label">{{ t('hermiq', 'Icon') }}</label>
+				<label class="agent-form__icon-label">{{
+					t('hermiq', 'Icon')
+				}}</label>
 				<!--
 					BOTH sources. The picker offered MDI alone because this
 					passed no `catalogues` at all — the library deliberately
@@ -173,9 +174,16 @@
 					:close-on-select="false"
 					label="label"
 					track-by="value"
-					:placeholder="t('hermiq', 'Select agents this agent may delegate to')" />
+					:placeholder="
+						t('hermiq', 'Select agents this agent may delegate to')
+					" />
 				<p class="agent-form__hint">
-					{{ t('hermiq', 'Leave empty to disallow delegation entirely (default).') }}
+					{{
+						t(
+							'hermiq',
+							'Leave empty to disallow delegation entirely (default).',
+						)
+					}}
 				</p>
 			</div>
 
@@ -222,7 +230,16 @@
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcLoadingIcon,
+	NcModal,
+	NcNoteCard,
+	NcSelect,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
 import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
 import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { listTools } from '../api/agents.js'
@@ -353,7 +370,9 @@ export default {
 		 * @return {string} The localised heading.
 		 */
 		heading() {
-			return this.effectiveAgent ? this.t('hermiq', 'Edit agent') : this.t('hermiq', 'Create agent')
+			return this.effectiveAgent
+				? this.t('hermiq', 'Edit agent')
+				: this.t('hermiq', 'Create agent')
 		},
 
 		/**
@@ -364,13 +383,19 @@ export default {
 		providerOptions() {
 			const allowed = this.policy?.allowed || []
 			if (allowed.length > 0) {
-				return allowed.map((entry) => ({ label: entry.provider, value: entry.provider }))
+				return allowed.map((entry) => ({
+					label: entry.provider,
+					value: entry.provider,
+				}))
 			}
 
 			// No policy is the normal state of a fresh instance, and an empty
 			// provider list left the picker with nothing to choose — the agent
 			// could not name a provider at all until someone wrote a policy.
-			return Object.keys(KNOWN_MODELS).map((provider) => ({ label: provider, value: provider }))
+			return Object.keys(KNOWN_MODELS).map((provider) => ({
+				label: provider,
+				value: provider,
+			}))
 		},
 
 		/**
@@ -378,17 +403,26 @@ export default {
 		 */
 		providerOption: {
 			get() {
-				return this.providerOptions.find((option) => option.value === this.form.provider) || null
+				return (
+					this.providerOptions.find(
+						(option) => option.value === this.form.provider,
+					) || null
+				)
 			},
 			set(option) {
 				this.form.provider = option ? option.value : ''
 				// Changing provider invalidates a model outside its allowlist.
-				if (this.allowedModelsForProvider.length > 0
-					&& !this.allowedModelsForProvider.includes(this.form.model)) {
-					this.form.model = this.policy?.defaultModel
-						&& this.allowedModelsForProvider.includes(this.policy.defaultModel)
-						? this.policy.defaultModel
-						: (this.allowedModelsForProvider[0] || '')
+				if (
+					this.allowedModelsForProvider.length > 0
+					&& !this.allowedModelsForProvider.includes(this.form.model)
+				) {
+					this.form.model =
+						this.policy?.defaultModel
+						&& this.allowedModelsForProvider.includes(
+							this.policy.defaultModel,
+						)
+							? this.policy.defaultModel
+							: this.allowedModelsForProvider[0] || ''
 				}
 			},
 		},
@@ -400,7 +434,9 @@ export default {
 		 */
 		allowedModelsForProvider() {
 			const allowed = this.policy?.allowed || []
-			const entry = allowed.find((candidate) => candidate.provider === this.form.provider)
+			const entry = allowed.find(
+				(candidate) => candidate.provider === this.form.provider,
+			)
 			return Array.isArray(entry?.models) ? entry.models : []
 		},
 
@@ -410,7 +446,10 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		modelOptions() {
-			return this.offeredModels.map((model) => ({ label: model, value: model }))
+			return this.offeredModels.map((model) => ({
+				label: model,
+				value: model,
+			}))
 		},
 
 		/**
@@ -443,11 +482,25 @@ export default {
 		 * @return {string} The hint.
 		 */
 		modelHint() {
-			const source = this.allowedModelsForProvider.length > 0
-				? this.t('hermiq', 'Models allowed by your organisation\'s policy.')
-				: this.t('hermiq', 'Known models for this provider — type any other model to use it.')
+			const source =
+				this.allowedModelsForProvider.length > 0
+					? this.t(
+							'hermiq',
+							"Models allowed by your organisation's policy.",
+						)
+					: this.t(
+							'hermiq',
+							'Known models for this provider — type any other model to use it.',
+						)
 
-			return source + ' ' + this.t('hermiq', 'The API key is not set here: it is resolved when the agent runs, from your personal credential or your organisation\'s, under Settings → Agent credentials.')
+			return (
+				source
+				+ ' '
+				+ this.t(
+					'hermiq',
+					"The API key is not set here: it is resolved when the agent runs, from your personal credential or your organisation's, under Settings → Agent credentials.",
+				)
+			)
 		},
 
 		/**
@@ -455,7 +508,11 @@ export default {
 		 */
 		modelOption: {
 			get() {
-				return this.modelOptions.find((option) => option.value === this.form.model) || null
+				return (
+					this.modelOptions.find(
+						(option) => option.value === this.form.model,
+					) || null
+				)
 			},
 			set(option) {
 				this.form.model = option ? option.value : ''
@@ -470,9 +527,12 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		delegationAllowlistOptions() {
-			const editingId = this.effectiveAgent?.uuid || this.effectiveAgent?.id || null
+			const editingId =
+				this.effectiveAgent?.uuid || this.effectiveAgent?.id || null
 			return this.agentCatalog
-				.filter((candidate) => (candidate.uuid || candidate.id) !== editingId)
+				.filter(
+					(candidate) => (candidate.uuid || candidate.id) !== editingId,
+				)
 				.map((candidate) => ({
 					label: candidate.name || candidate.uuid || candidate.id,
 					value: candidate.uuid || candidate.id,
@@ -546,7 +606,9 @@ export default {
 			}
 			const store = useAgentStore()
 			store.registerObjectType('agent', 'agent', 'hermiq')
-			this.routeAgent = await store.fetchObject('agent', routeAgentId).catch(() => null)
+			this.routeAgent = await store
+				.fetchObject('agent', routeAgentId)
+				.catch(() => null)
 		},
 
 		/**
@@ -586,7 +648,9 @@ export default {
 			}
 			const source = this.effectiveAgent
 			const tools = Array.isArray(source.tools) ? source.tools : []
-			const delegationAllowlist = Array.isArray(source.delegationAllowlist) ? source.delegationAllowlist : []
+			const delegationAllowlist = Array.isArray(source.delegationAllowlist)
+				? source.delegationAllowlist
+				: []
 			this.form = {
 				name: source.name || '',
 				description: source.description || '',
@@ -597,7 +661,8 @@ export default {
 				temperature: source.temperature ?? '',
 				maxTokens: source.maxTokens ?? '',
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
-				delegationAllowlist: this.mapDelegationAllowlistToOptions(delegationAllowlist),
+				delegationAllowlist:
+					this.mapDelegationAllowlistToOptions(delegationAllowlist),
 				enableRag: source.enableRag === true,
 				searchObjects: source.searchObjects !== false,
 				searchFiles: source.searchFiles !== false,
@@ -636,7 +701,10 @@ export default {
 					const parts = [tool.app, tool.tool, tool.right].filter(Boolean)
 
 					return {
-						label: parts.length === 3 ? parts.join(' | ') : (tool.name || value),
+						label:
+							parts.length === 3
+								? parts.join(' | ')
+								: tool.name || value,
 						value,
 						description: tool.description || '',
 					}
@@ -682,7 +750,9 @@ export default {
 			}
 			if (this.show) {
 				this.form.delegationAllowlist = this.mapDelegationAllowlistToOptions(
-					(this.form.delegationAllowlist || []).map((option) => option.value),
+					(this.form.delegationAllowlist || []).map(
+						(option) => option.value,
+					),
 				)
 			}
 		},
@@ -697,7 +767,9 @@ export default {
 		 */
 		mapDelegationAllowlistToOptions(ids) {
 			return (ids || []).map((id) => {
-				const match = this.agentCatalog.find((candidate) => (candidate.uuid || candidate.id) === id)
+				const match = this.agentCatalog.find(
+					(candidate) => (candidate.uuid || candidate.id) === id,
+				)
 				return { label: match?.name || id, value: id }
 			})
 		},
@@ -710,14 +782,24 @@ export default {
 		 */
 		violatesPolicy() {
 			const allowed = this.policy?.allowed
-			if (!Array.isArray(allowed) || allowed.length === 0 || !this.form.provider) {
+			if (
+				!Array.isArray(allowed)
+				|| allowed.length === 0
+				|| !this.form.provider
+			) {
 				return false
 			}
-			const entry = allowed.find((candidate) => candidate.provider === this.form.provider)
+			const entry = allowed.find(
+				(candidate) => candidate.provider === this.form.provider,
+			)
 			if (!entry) {
 				return true
 			}
-			return entry.models.length > 0 && !!this.form.model && !entry.models.includes(this.form.model)
+			return (
+				entry.models.length > 0
+				&& !!this.form.model
+				&& !entry.models.includes(this.form.model)
+			)
 		},
 
 		/**
@@ -756,8 +838,14 @@ export default {
 				provider: this.form.provider,
 				model: this.form.model,
 				prompt: this.form.prompt,
-				tools: this.isEdit() ? (Array.isArray(base.tools) ? base.tools : []) : this.selectedGrants(),
-				delegationAllowlist: (this.form.delegationAllowlist || []).map((option) => option.value),
+				tools: this.isEdit()
+					? Array.isArray(base.tools)
+						? base.tools
+						: []
+					: this.selectedGrants(),
+				delegationAllowlist: (this.form.delegationAllowlist || []).map(
+					(option) => option.value,
+				),
 				enableRag: this.form.enableRag,
 				searchObjects: this.form.searchObjects,
 				searchFiles: this.form.searchFiles,
@@ -808,16 +896,23 @@ export default {
 		 */
 		async save() {
 			if (this.violatesPolicy()) {
-				this.error = this.t('hermiq', 'The chosen provider/model is not allowed by your organisation\'s model policy.')
+				this.error = this.t(
+					'hermiq',
+					"The chosen provider/model is not allowed by your organisation's model policy.",
+				)
 				return
 			}
 			this.saving = true
 			this.error = ''
 			try {
 				const wasEdit = this.isEdit()
-				const saved = await this.store.saveObject('agent', this.buildPayload())
+				const saved = await this.store.saveObject(
+					'agent',
+					this.buildPayload(),
+				)
 				if (saved === null) {
-					this.error = this.store.errors?.agent?.message
+					this.error =
+						this.store.errors?.agent?.message
 						|| this.t('hermiq', 'Could not save agent')
 					return
 				}
@@ -826,7 +921,8 @@ export default {
 				// never through the object write above. Only on edit: a create
 				// already carried the selection, and the creator is the owner.
 				if (wasEdit) {
-					const agentId = saved?.['@self']?.id || saved?.id || this.effectiveAgent?.id
+					const agentId =
+						saved?.['@self']?.id || saved?.id || this.effectiveAgent?.id
 					try {
 						await updateToolGrants(agentId, this.selectedGrants())
 					} catch (grantError) {
@@ -835,7 +931,7 @@ export default {
 						// two have very different next steps for the user.
 						this.error = this.t(
 							'hermiq',
-							'The agent was saved, but its tool grants were not updated. Only the agent\'s owner may change them.',
+							"The agent was saved, but its tool grants were not updated. Only the agent's owner may change them.",
 						)
 						return
 					}

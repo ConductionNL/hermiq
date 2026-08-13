@@ -77,8 +77,13 @@
 						-->
 						<button
 							class="flow-sidebar__palette-head"
-							:aria-expanded="expandedType === type.id ? 'true' : 'false'"
-							@click="expandedType = expandedType === type.id ? '' : type.id">
+							:aria-expanded="
+								expandedType === type.id ? 'true' : 'false'
+							"
+							@click="
+								expandedType =
+									expandedType === type.id ? '' : type.id
+							">
 							<!--
 								MASKED, not drawn: the icon's colour comes from
 								the theme rather than from the SVG. App icons
@@ -91,24 +96,39 @@
 								v-if="type.icon"
 								class="flow-sidebar__palette-icon"
 								aria-hidden="true"
-								:style="{ '--flow-palette-icon': `url('${type.icon}')` }" />
-							<span class="flow-sidebar__palette-name">{{ type.label }}</span>
+								:style="{
+									'--flow-palette-icon': `url('${type.icon}')`,
+								}" />
+							<span class="flow-sidebar__palette-name">{{
+								type.label
+							}}</span>
 							<!-- The role in WORDS as well as the accent stripe:
 							     a colour-only code is unreadable in greyscale
 							     and to a reader who cannot distinguish the hues
 							     (WCAG 2.1 AA 1.4.1). -->
-							<span class="flow-sidebar__palette-role">{{ roleWord(type.role) }}</span>
+							<span class="flow-sidebar__palette-role">{{
+								roleWord(type.role)
+							}}</span>
 						</button>
 
 						<p
 							class="flow-sidebar__palette-desc"
-							:class="{ 'flow-sidebar__palette-desc--full': expandedType === type.id }">
+							:class="{
+								'flow-sidebar__palette-desc--full':
+									expandedType === type.id,
+							}">
 							{{ type.description }}
 						</p>
 
-						<div v-if="expandedType === type.id" class="flow-sidebar__palette-actions">
-							<span class="flow-sidebar__palette-provider">{{ type.provider }}</span>
-							<NcButton type="secondary" @click="editor.addNode(type.id)">
+						<div
+							v-if="expandedType === type.id"
+							class="flow-sidebar__palette-actions">
+							<span class="flow-sidebar__palette-provider">{{
+								type.provider
+							}}</span>
+							<NcButton
+								type="secondary"
+								@click="editor.addNode(type.id)">
 								{{ t('hermiq', 'Add to flow') }}
 							</NcButton>
 						</div>
@@ -151,7 +171,10 @@
 					do the pane's job, and an empty list they had not loaded says
 					nothing about the flow.
 				-->
-				<NcButton type="tertiary" :disabled="!editor.flow.id" @click="editor.loadRuns()">
+				<NcButton
+					type="tertiary"
+					:disabled="!editor.flow.id"
+					@click="editor.loadRuns()">
 					<template #icon>
 						<NcLoadingIcon v-if="editor.runsLoading" :size="20" />
 						<Refresh v-else :size="20" />
@@ -164,12 +187,19 @@
 				</NcNoteCard>
 
 				<p v-else-if="!editor.flow.id" class="flow-sidebar__hint">
-					{{ t('hermiq', 'Save this flow first — a flow that has never been stored has no runs.') }}
+					{{
+						t(
+							'hermiq',
+							'Save this flow first — a flow that has never been stored has no runs.',
+						)
+					}}
 				</p>
 
 				<!-- An unloaded list and an empty one are different claims, and
 				     only the second says anything about the flow. -->
-				<p v-else-if="editor.runs.length === 0 && !editor.runsLoading" class="flow-sidebar__hint">
+				<p
+					v-else-if="editor.runs.length === 0 && !editor.runsLoading"
+					class="flow-sidebar__hint">
 					{{ t('hermiq', 'This flow has never run.') }}
 				</p>
 
@@ -184,51 +214,100 @@
 						canvas replay is what makes a step's recorded payload
 						reachable at all (`{}` reads the REPLAYED run).
 					-->
-					<li v-for="run in editor.runs" :key="run.id || run.uuid" class="flow-sidebar__run">
+					<li
+						v-for="run in editor.runs"
+						:key="run.id || run.uuid"
+						class="flow-sidebar__run">
 						<button
 							class="flow-sidebar__run-card"
 							:class="{
-								'flow-sidebar__run-card--open': editor.expandedRunId === (run.uuid || run.id),
-								'flow-sidebar__run-card--replayed': editor.replayRunId === (run.uuid || run.id),
+								'flow-sidebar__run-card--open':
+									editor.expandedRunId === (run.uuid || run.id),
+								'flow-sidebar__run-card--replayed':
+									editor.replayRunId === (run.uuid || run.id),
 							}"
-							:aria-expanded="editor.expandedRunId === (run.uuid || run.id) ? 'true' : 'false'"
+							:aria-expanded="
+								editor.expandedRunId === (run.uuid || run.id)
+									? 'true'
+									: 'false'
+							"
 							@click="openRun(run)">
 							<span class="flow-sidebar__run-card-head">
-								<span :class="`flow-sidebar__run-status flow-sidebar__run-status--${run.status || 'unknown'}`">
+								<span
+									:class="`flow-sidebar__run-status flow-sidebar__run-status--${run.status || 'unknown'}`">
 									{{ run.status || t('hermiq', 'unknown') }}
 								</span>
-								<span class="flow-sidebar__run-when">{{ formatWhen(run) }}</span>
+								<span class="flow-sidebar__run-when">{{
+									formatWhen(run)
+								}}</span>
 							</span>
 							<span class="flow-sidebar__run-card-meta">
 								{{ runSummary(run) }}
 							</span>
 						</button>
 
-						<div v-if="editor.expandedRunId === (run.uuid || run.id)" class="flow-sidebar__run-log">
-							<p v-if="editor.runDetail[run.uuid || run.id] === undefined" class="flow-sidebar__hint">
+						<div
+							v-if="editor.expandedRunId === (run.uuid || run.id)"
+							class="flow-sidebar__run-log">
+							<p
+								v-if="
+									editor.runDetail[run.uuid || run.id]
+									=== undefined
+								"
+								class="flow-sidebar__hint">
 								{{ t('hermiq', 'Loading the step log…') }}
 							</p>
-							<p v-else-if="editor.runDetail[run.uuid || run.id] === null" class="flow-sidebar__hint">
-								{{ t('hermiq', 'Could not read this run’s step log.') }}
+							<p
+								v-else-if="
+									editor.runDetail[run.uuid || run.id] === null
+								"
+								class="flow-sidebar__hint">
+								{{
+									t(
+										'hermiq',
+										'Could not read this run’s step log.',
+									)
+								}}
 							</p>
-							<ol v-else-if="logOf(run).length > 0" class="flow-sidebar__run-steps">
+							<ol
+								v-else-if="logOf(run).length > 0"
+								class="flow-sidebar__run-steps">
 								<!--
 									Each step opens its OWN payload — what that
 									node received and returned, at that point in
 									that run. Reading a run one step at a time is
 									the whole reason to open it.
 								-->
-								<li v-for="(entry, index) in logOf(run)" :key="index">
+								<li
+									v-for="(entry, index) in logOf(run)"
+									:key="index">
 									<button
 										class="flow-sidebar__run-step"
-										:class="{ 'flow-sidebar__run-step--open': expandedStep === stepKey(run, index) }"
-										:aria-expanded="expandedStep === stepKey(run, index) ? 'true' : 'false'"
+										:class="{
+											'flow-sidebar__run-step--open':
+												expandedStep === stepKey(run, index),
+										}"
+										:aria-expanded="
+											expandedStep === stepKey(run, index)
+												? 'true'
+												: 'false'
+										"
 										@click="toggleStep(run, index, entry)">
-										<strong>{{ entry.transition || entry.node || entry.step || '—' }}</strong>
-										<span :class="`flow-sidebar__run-status flow-sidebar__run-status--${entry.status || 'unknown'}`">
+										<strong>{{
+											entry.transition
+											|| entry.node
+											|| entry.step
+											|| '—'
+										}}</strong>
+										<span
+											:class="`flow-sidebar__run-status flow-sidebar__run-status--${entry.status || 'unknown'}`">
 											{{ entry.status || '—' }}
 										</span>
-										<span v-if="entry.error" class="flow-sidebar__run-error">{{ entry.error }}</span>
+										<span
+											v-if="entry.error"
+											class="flow-sidebar__run-error"
+											>{{ entry.error }}</span
+										>
 									</button>
 
 									<!--
@@ -240,20 +319,32 @@
 										the point. The modal is still one click away
 										for a payload too wide for a 346px pane.
 									-->
-									<div v-if="expandedStep === stepKey(run, index)" class="flow-sidebar__step-payload">
+									<div
+										v-if="expandedStep === stepKey(run, index)"
+										class="flow-sidebar__step-payload">
 										<h4 class="flow-sidebar__step-heading">
 											{{ t('hermiq', 'Received') }}
 										</h4>
-										<pre class="flow-sidebar__step-json">{{ prettyPayload(entry.input) }}</pre>
+										<pre class="flow-sidebar__step-json">{{
+											prettyPayload(entry.input)
+										}}</pre>
 
 										<h4 class="flow-sidebar__step-heading">
 											{{ t('hermiq', 'Returned') }}
 										</h4>
-										<pre class="flow-sidebar__step-json">{{ prettyPayload(entry.output) }}</pre>
+										<pre class="flow-sidebar__step-json">{{
+											prettyPayload(entry.output)
+										}}</pre>
 
 										<NcButton
 											type="tertiary"
-											@click="editor.openStepPayload(entry.transition || entry.node || entry.step)">
+											@click="
+												editor.openStepPayload(
+													entry.transition
+														|| entry.node
+														|| entry.step,
+												)
+											">
 											{{ t('hermiq', 'Open full size') }}
 										</NcButton>
 									</div>
@@ -263,7 +354,9 @@
 								{{ t('hermiq', 'This run recorded no steps.') }}
 							</p>
 
-							<NcButton type="tertiary" @click="editor.openRunLog(run.uuid || run.id)">
+							<NcButton
+								type="tertiary"
+								@click="editor.openRunLog(run.uuid || run.id)">
 								{{ t('hermiq', 'Open full log') }}
 							</NcButton>
 						</div>
@@ -294,7 +387,12 @@
 					that closing this page loses work.
 				-->
 				<NcNoteCard v-if="editor.dirty" type="warning">
-					{{ t('hermiq', 'Unsaved changes. Save before leaving this page.') }}
+					{{
+						t(
+							'hermiq',
+							'Unsaved changes. Save before leaving this page.',
+						)
+					}}
 				</NcNoteCard>
 
 				<!--
@@ -309,7 +407,9 @@
 					refusing would force them to build in an order where the
 					document is never incomplete.
 				-->
-				<NcNoteCard v-if="missingEnds.trigger || missingEnds.end" type="error">
+				<NcNoteCard
+					v-if="missingEnds.trigger || missingEnds.end"
+					type="error">
 					{{ missingEndsMessage }}
 				</NcNoteCard>
 
@@ -318,7 +418,9 @@
 				     validateConfig(), so a step written in another step's
 				     dialect — which resolves, runs and reports COMPLETED while
 				     doing nothing — is reported here instead of at 03:00. -->
-				<NcNoteCard v-if="validationMessage" :type="editor.validation.valid ? 'success' : 'error'">
+				<NcNoteCard
+					v-if="validationMessage"
+					:type="editor.validation.valid ? 'success' : 'error'">
 					{{ validationMessage }}
 				</NcNoteCard>
 
@@ -330,7 +432,9 @@
 				<NcTextField
 					:model-value="editor.flow.description || ''"
 					:label="t('hermiq', 'Description')"
-					@update:model-value="editor.setFlowField('description', $event)" />
+					@update:model-value="
+						editor.setFlowField('description', $event)
+					" />
 
 				<!--
 					No trigger fields here.
@@ -354,10 +458,22 @@
 					which is indistinguishable from a flow with nothing to do.
 				-->
 				<p v-if="triggerNodeCount === 0" class="flow-sidebar__hint">
-					{{ t('hermiq', 'Nothing starts this flow yet. Add a trigger node from the Nodes tab.') }}
+					{{
+						t(
+							'hermiq',
+							'Nothing starts this flow yet. Add a trigger node from the Nodes tab.',
+						)
+					}}
 				</p>
 				<p v-else class="flow-sidebar__hint">
-					{{ n('hermiq', '%n trigger node starts this flow.', '%n trigger nodes start this flow.', triggerNodeCount) }}
+					{{
+						n(
+							'hermiq',
+							'%n trigger node starts this flow.',
+							'%n trigger nodes start this flow.',
+							triggerNodeCount,
+						)
+					}}
 				</p>
 
 				<!-- How long this flow's runs are kept. A flow setting rather
@@ -367,17 +483,29 @@
 				     to still be auditable months later. Empty means the
 				     instance default — NOT "keep forever". -->
 				<NcTextField
-					:model-value="editor.flow.retentionDays === null || editor.flow.retentionDays === undefined ? '' : String(editor.flow.retentionDays)"
+					:model-value="
+						editor.flow.retentionDays === null
+						|| editor.flow.retentionDays === undefined
+							? ''
+							: String(editor.flow.retentionDays)
+					"
 					type="number"
 					:label="t('hermiq', 'Keep run logs for (days)')"
 					:placeholder="t('hermiq', 'Instance default')"
-					@update:model-value="editor.setFlowField('retentionDays', $event === '' ? null : Number($event))" />
+					@update:model-value="
+						editor.setFlowField(
+							'retentionDays',
+							$event === '' ? null : Number($event),
+						)
+					" />
 
 				<NcSelect
 					:model-value="editor.flow.executionMode || 'async'"
 					:options="executionModes"
 					:input-label="t('hermiq', 'Execution')"
-					@update:model-value="editor.setFlowField('executionMode', $event)" />
+					@update:model-value="
+						editor.setFlowField('executionMode', $event)
+					" />
 
 				<NcCheckboxRadioSwitch
 					:model-value="editor.flow.enabled === true"
@@ -388,7 +516,14 @@
 
 				<p class="flow-sidebar__hint">
 					{{ n('hermiq', '%n node', '%n nodes', editor.nodes.length) }} ·
-					{{ n('hermiq', '%n connection', '%n connections', editor.edges.length) }}
+					{{
+						n(
+							'hermiq',
+							'%n connection',
+							'%n connections',
+							editor.edges.length,
+						)
+					}}
 				</p>
 			</div>
 		</NcAppSidebarTab>
@@ -396,7 +531,16 @@
 </template>
 
 <script>
-import { NcAppSidebar, NcAppSidebarTab, NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import {
+	NcAppSidebar,
+	NcAppSidebarTab,
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+	NcTextField,
+} from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import History from 'vue-material-design-icons/History.vue'
@@ -510,7 +654,9 @@ export default {
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		triggerNodeCount() {
-			return this.editor.nodes.filter((node) => this.editor.roleOfNodeType(node.type) === 'trigger').length
+			return this.editor.nodes.filter(
+				(node) => this.editor.roleOfNodeType(node.type) === 'trigger',
+			).length
 		},
 
 		/**
@@ -549,15 +695,19 @@ export default {
 			}))
 
 			const wantedRole = this.nodeRole?.value ?? null
-			const byRole = wantedRole === null
-				? all
-				: all.filter((entry) => entry.role === wantedRole)
+			const byRole =
+				wantedRole === null
+					? all
+					: all.filter((entry) => entry.role === wantedRole)
 
-			const matched = needle === ''
-				? byRole
-				: byRole.filter((entry) =>
-					`${entry.id} ${entry.label} ${entry.description}`.toLowerCase().includes(needle),
-				)
+			const matched =
+				needle === ''
+					? byRole
+					: byRole.filter((entry) =>
+							`${entry.id} ${entry.label} ${entry.description}`
+								.toLowerCase()
+								.includes(needle),
+						)
 
 			// START, then STEP, then STOP — the order a flow is read in, so the
 			// list itself teaches the shape of a flow. Alphabetical would put
@@ -574,9 +724,10 @@ export default {
 			return matched
 				.map((entry, index) => ({ entry, index }))
 				.sort((a, b) => {
-					const byRole = (rank[a.entry.role] ?? 1) - (rank[b.entry.role] ?? 1)
+					const byRole =
+						(rank[a.entry.role] ?? 1) - (rank[b.entry.role] ?? 1)
 
-					return byRole !== 0 ? byRole : (a.index - b.index)
+					return byRole !== 0 ? byRole : a.index - b.index
 				})
 				.map((wrapped) => wrapped.entry)
 		},
@@ -591,10 +742,15 @@ export default {
 		 */
 		paletteEmptyText() {
 			if ((this.editor.nodeCatalog || []).length === 0) {
-				return this.t('hermiq', 'Could not read the flow engine’s node types. Reload to try again — the palette is deliberately empty rather than offering types the engine cannot run.')
+				return this.t(
+					'hermiq',
+					'Could not read the flow engine’s node types. Reload to try again — the palette is deliberately empty rather than offering types the engine cannot run.',
+				)
 			}
 
-			return this.t('hermiq', 'No node type matches “{search}”.', { search: this.nodeSearch })
+			return this.t('hermiq', 'No node type matches “{search}”.', {
+				search: this.nodeSearch,
+			})
 		},
 
 		/**
@@ -623,14 +779,23 @@ export default {
 			const missing = this.missingEnds
 
 			if (missing.trigger && missing.end) {
-				return this.t('hermiq', 'This flow has no trigger and no end node. Nothing can start it, and no path finishes deliberately. Add a trigger and an End node.')
+				return this.t(
+					'hermiq',
+					'This flow has no trigger and no end node. Nothing can start it, and no path finishes deliberately. Add a trigger and an End node.',
+				)
 			}
 
 			if (missing.trigger) {
-				return this.t('hermiq', 'This flow has no trigger node, so nothing can ever start it. Add a trigger — an object change, a schedule, or someone running it by hand.')
+				return this.t(
+					'hermiq',
+					'This flow has no trigger node, so nothing can ever start it. Add a trigger — an object change, a schedule, or someone running it by hand.',
+				)
 			}
 
-			return this.t('hermiq', 'This flow has no end node, so no path finishes deliberately. Add an End node — it may end in success or in error, but the flow must say where it stops.')
+			return this.t(
+				'hermiq',
+				'This flow has no end node, so no path finishes deliberately. Add an End node — it may end in success or in error, but the flow must say where it stops.',
+			)
 		},
 
 		/**
@@ -647,15 +812,19 @@ export default {
 				return this.t('hermiq', 'The flow engine accepts this flow.')
 			}
 
-			return this.editor.validation.message
+			return (
+				this.editor.validation.message
 				|| this.t('hermiq', 'The flow engine will not run this flow.')
+			)
 		},
 
 		/** @return {string} Sidebar subtitle: what this flow reacts to. */
 		subname() {
 			const trigger = this.editor.flow.trigger || ''
 			if (trigger === 'schedule') {
-				return this.t('hermiq', 'Schedule · {cron}', { cron: this.editor.flow.cron || '—' })
+				return this.t('hermiq', 'Schedule · {cron}', {
+					cron: this.editor.flow.cron || '—',
+				})
 			}
 
 			if (!this.editor.flow.triggerSchema) {
@@ -664,7 +833,6 @@ export default {
 
 			return `${trigger || 'object.updated'} · ${this.editor.flow.triggerSchema}`
 		},
-
 	},
 
 	watch: {
@@ -708,7 +876,12 @@ export default {
 		 * @param {string} tab The newly active tab id.
 		 */
 		activeTab(tab) {
-			if (tab === 'runs' && this.editor.flow.id && this.editor.runs.length === 0 && !this.editor.runsLoading) {
+			if (
+				tab === 'runs'
+				&& this.editor.flow.id
+				&& this.editor.runs.length === 0
+				&& !this.editor.runsLoading
+			) {
 				this.editor.loadRuns()
 			}
 		},
@@ -865,13 +1038,21 @@ export default {
 		runSummary(run) {
 			const log = this.logOf(run)
 			if (log.length === 0) {
-				return run.error ? String(run.error).slice(0, 80) : this.t('hermiq', 'No steps recorded')
+				return run.error
+					? String(run.error).slice(0, 80)
+					: this.t('hermiq', 'No steps recorded')
 			}
 
 			const failed = log.filter((entry) => entry.status === 'failed').length
 
 			return failed > 0
-				? this.n('hermiq', '%n step, 1 failed', '%n steps, {failed} failed', log.length, { failed })
+				? this.n(
+						'hermiq',
+						'%n step, 1 failed',
+						'%n steps, {failed} failed',
+						log.length,
+						{ failed },
+					)
 				: this.n('hermiq', '%n step', '%n steps', log.length)
 		},
 
@@ -910,11 +1091,21 @@ export default {
 			try {
 				const saved = await this.editor.save()
 				showSuccess(this.t('hermiq', 'Flow saved.'))
-				if (saved && saved.id && String(this.$route.params.id) !== String(saved.id)) {
-					this.$router.replace({ name: 'FlowDetail', params: { id: String(saved.id) } })
+				if (
+					saved
+					&& saved.id
+					&& String(this.$route.params.id) !== String(saved.id)
+				) {
+					this.$router.replace({
+						name: 'FlowDetail',
+						params: { id: String(saved.id) },
+					})
 				}
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the flow.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'Could not save the flow.'),
+				)
 			}
 		},
 	},

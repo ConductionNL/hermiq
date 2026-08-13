@@ -41,6 +41,8 @@ export async function getComplianceExport() {
  * @return {Promise<object>} The factsheet (`{ agent, aiFeature, approvals, incidents, lastReviewedAt }`).
  */
 export async function getAgentFactsheet(agentId) {
-	const response = await axios.get(generateUrl(`${COMPLIANCE_BASE}/factsheet/${agentId}`))
+	const response = await axios.get(
+		generateUrl(`${COMPLIANCE_BASE}/factsheet/${agentId}`),
+	)
 	return response.data
 }

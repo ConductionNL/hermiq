@@ -40,7 +40,9 @@
 		<template v-else>
 			<span class="quota-stat__value">{{ valueLabel }}</span>
 			<span class="quota-stat__label">{{ label }}</span>
-			<span v-if="atLimit" class="quota-stat__warn">{{ t('hermiq', 'Quota reached') }}</span>
+			<span v-if="atLimit" class="quota-stat__warn">{{
+				t('hermiq', 'Quota reached')
+			}}</span>
 		</template>
 	</div>
 </template>
@@ -159,7 +161,10 @@ export default {
 			try {
 				this.quota = await getQuota()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}

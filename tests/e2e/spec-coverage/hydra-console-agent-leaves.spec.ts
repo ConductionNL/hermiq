@@ -71,7 +71,9 @@ async function objectsNamed(
 	// `_limit`, underscore-prefixed: OpenRegister control params require the
 	// prefix — a bare `limit` is treated as a PROPERTY filter and silently
 	// matches nothing (the API even says so in its `@self.hint`).
-	const res = await req.get(`${OR_API}/objects/hermiq/${schema}?_limit=100`, { headers: jsonHeaders(token) })
+	const res = await req.get(`${OR_API}/objects/hermiq/${schema}?_limit=100`, {
+		headers: jsonHeaders(token),
+	})
 	expect(res.ok(), `listing hermiq/${schema} must succeed`).toBeTruthy()
 	const body = await res.json()
 	const rows = Array.isArray(body) ? body : (body.results ?? body.data ?? [])
@@ -100,15 +102,21 @@ async function seededFlows(
 	req: APIRequestContext,
 	token: string,
 ): Promise<Array<Record<string, unknown>>> {
-	const res = await req.get(`${OR_API}/flows?app=hermiq&limit=200`, { headers: jsonHeaders(token) })
-	expect(res.ok(), `listing OpenRegister flows must succeed (HTTP ${res.status()})`).toBeTruthy()
+	const res = await req.get(`${OR_API}/flows?app=hermiq&limit=200`, {
+		headers: jsonHeaders(token),
+	})
+	expect(
+		res.ok(),
+		`listing OpenRegister flows must succeed (HTTP ${res.status()})`,
+	).toBeTruthy()
 	const body = await res.json()
-	const rows: Array<Record<string, unknown>> = Array.isArray(body) ? body : (body.results ?? [])
+	const rows: Array<Record<string, unknown>> = Array.isArray(body)
+		? body
+		: (body.results ?? [])
 	return rows.filter((row) => row?.name === FLOW_NAME)
 }
 
 test.describe('hydra-console-agent-leaves', () => {
-
 	/*
 	 * @e2e openspec/specs/agent-object-leaf/spec.md#seeding-twice-creates-one-agent
 	 *
@@ -117,26 +125,45 @@ test.describe('hydra-console-agent-leaves', () => {
 	 * than its name would have produced a duplicate on the second upgrade this
 	 * instance has already had.
 	 */
-	test('the triage agent is seeded exactly once and is approval-gated and read-only', async ({ page }) => {
+	test('the triage agent is seeded exactly once and is approval-gated and read-only', async ({
+		page,
+	}) => {
 		const token = await harvestToken(page)
 		const agents = await objectsNamed(page.request, token, 'agent', AGENT_NAME)
 
-		expect(agents.length, `exactly one "${AGENT_NAME}" agent must exist after repeated upgrades`).toBe(1)
+		expect(
+			agents.length,
+			`exactly one "${AGENT_NAME}" agent must exist after repeated upgrades`,
+		).toBe(1)
 
 		const agent = agents[0].object ?? agents[0]
 
 		// The policy half of the posture.
-		expect(agent.requiresApproval, 'the triage agent must be approval-gated').toBeTruthy()
-		expect(agent.delegationAllowlist ?? [], 'the triage agent must delegate to no one').toEqual([])
+		expect(
+			agent.requiresApproval,
+			'the triage agent must be approval-gated',
+		).toBeTruthy()
+		expect(
+			agent.delegationAllowlist ?? [],
+			'the triage agent must delegate to no one',
+		).toEqual([])
 
 		// The grant half. Every read grant is a wildcard (read verbs only) and
 		// nothing carries the `:write` modifier or names a write verb.
 		const tools: string[] = agent.tools ?? []
 		expect(tools.length, 'the triage agent must carry grants').toBeGreaterThan(0)
 		for (const grant of tools) {
-			expect(grant, `grant "${grant}" must not carry the :write modifier`).not.toContain(':write')
-			expect(grant, `grant "${grant}" must not name a write verb`).not.toMatch(/\.(create|update|delete)$/)
-			expect(grant.toLowerCase(), `grant "${grant}" must not name a forge tool`).not.toContain('forge')
+			expect(
+				grant,
+				`grant "${grant}" must not carry the :write modifier`,
+			).not.toContain(':write')
+			expect(grant, `grant "${grant}" must not name a write verb`).not.toMatch(
+				/\.(create|update|delete)$/,
+			)
+			expect(
+				grant.toLowerCase(),
+				`grant "${grant}" must not name a forge tool`,
+			).not.toContain('forge')
 		}
 	})
 
@@ -148,20 +175,33 @@ test.describe('hydra-console-agent-leaves', () => {
 	 * the instance — the exact hole this change closes — so finding one here is
 	 * a failure, not a variation.
 	 */
-	test('the triage agent holds at most one command grant, and it is argument-scoped', async ({ page }) => {
+	test('the triage agent holds at most one command grant, and it is argument-scoped', async ({
+		page,
+	}) => {
 		const token = await harvestToken(page)
 		const agents = await objectsNamed(page.request, token, 'agent', AGENT_NAME)
 		expect(agents.length).toBe(1)
 
 		const tools: string[] = (agents[0].object ?? agents[0]).tools ?? []
-		const commandGrants = tools.filter((grant) => grant.startsWith('openregister.runFlow'))
+		const commandGrants = tools.filter((grant) =>
+			grant.startsWith('openregister.runFlow'),
+		)
 
-		expect(commandGrants.length, 'at most one command grant').toBeLessThanOrEqual(1)
+		expect(
+			commandGrants.length,
+			'at most one command grant',
+		).toBeLessThanOrEqual(1)
 
 		for (const grant of commandGrants) {
-			expect(grant, 'a flow-runner grant must be argument-scoped, never bare').toContain('?')
+			expect(
+				grant,
+				'a flow-runner grant must be argument-scoped, never bare',
+			).toContain('?')
 			expect(grant, 'the command grant must pin a flowId').toContain('flowId=')
-			expect(grant, 'the command grant must close its label vocabulary').toContain('label=in:')
+			expect(
+				grant,
+				'the command grant must close its label vocabulary',
+			).toContain('label=in:')
 		}
 	})
 
@@ -194,7 +234,9 @@ test.describe('hydra-console-agent-leaves', () => {
 	// The seed now scopes to the default organisation and REFUSES to write at
 	// all when none resolves: an absent flow is recoverable on the next run,
 	// whereas an orphan blocks its own re-seed forever while reporting success.
-	test('the triage flow is seeded once, declares its trigger, and contains only permitted step types', async ({ page }) => {
+	test('the triage flow is seeded once, declares its trigger, and contains only permitted step types', async ({
+		page,
+	}) => {
 		const token = await harvestToken(page)
 		const flows = await seededFlows(page.request, token)
 
@@ -203,7 +245,10 @@ test.describe('hydra-console-agent-leaves', () => {
 		const flow = flows[0]
 
 		expect(flow.trigger).toBe('object.created')
-		expect(flow.triggerRegister, 'triggerRegister must survive the save — it is declared on the schema').toBe(HYDRA_REGISTER)
+		expect(
+			flow.triggerRegister,
+			'triggerRegister must survive the save — it is declared on the schema',
+		).toBe(HYDRA_REGISTER)
 		expect(flow.triggerSchema).toBe('finding')
 
 		// 🔑 The NODE is the executable unit. This read `edges` and asserted a
@@ -227,7 +272,10 @@ test.describe('hydra-console-agent-leaves', () => {
 			'openregister.stop',
 		]
 		const nodes = (flow.nodes ?? []) as Array<Record<string, unknown>>
-		expect(nodes.length, 'a flow with no nodes executes nothing').toBeGreaterThan(0)
+		expect(
+			nodes.length,
+			'a flow with no nodes executes nothing',
+		).toBeGreaterThan(0)
 		for (const node of nodes) {
 			expect(
 				permitted,
@@ -242,7 +290,10 @@ test.describe('hydra-console-agent-leaves', () => {
 		// that name. A comment citing a guard by a name it does not have reads
 		// as verified and is not.)
 		const edges = (flow.edges ?? []) as Array<Record<string, unknown>>
-		expect(edges.length, 'a flow with no edges executes nothing').toBeGreaterThan(0)
+		expect(
+			edges.length,
+			'a flow with no edges executes nothing',
+		).toBeGreaterThan(0)
 		for (const edge of edges) {
 			expect(
 				edge.type ?? '',
@@ -254,7 +305,10 @@ test.describe('hydra-console-agent-leaves', () => {
 		const gate = nodes.find((node) => node.type === 'openregister.route')
 		expect(gate, 'the flow must branch before its command step').toBeTruthy()
 		const gateConfig = (gate?.config ?? {}) as Record<string, unknown>
-		expect(gateConfig.default, 'the fallback branch must not be the command step').not.toBe('command')
+		expect(
+			gateConfig.default,
+			'the fallback branch must not be the command step',
+		).not.toBe('command')
 	})
 
 	/*
@@ -276,9 +330,15 @@ test.describe('hydra-console-agent-leaves', () => {
 		const owner = String(flow.owner ?? '').trim()
 
 		if (flow.enabled === true) {
-			expect(owner, 'an ENABLED triage flow must name the UID it runs as').not.toEqual('')
+			expect(
+				owner,
+				'an ENABLED triage flow must name the UID it runs as',
+			).not.toEqual('')
 		} else {
-			expect(flow.enabled, 'the seeded flow ships disabled until an operator owns it').toBe(false)
+			expect(
+				flow.enabled,
+				'the seeded flow ships disabled until an operator owns it',
+			).toBe(false)
 		}
 	})
 
@@ -294,9 +354,13 @@ test.describe('hydra-console-agent-leaves', () => {
 	 * detail page (hydra-console-openbuild-app). Skips loudly when absent — see
 	 * the file header on why a vacuous pass would be worse.
 	 */
-	test('the agent chat tab states in text when an object contributed no context', async ({ page }) => {
+	test('the agent chat tab states in text when an object contributed no context', async ({
+		page,
+	}) => {
 		const token = await harvestToken(page)
-		const registers = await page.request.get(`${OR_API}/registers`, { headers: jsonHeaders(token) })
+		const registers = await page.request.get(`${OR_API}/registers`, {
+			headers: jsonHeaders(token),
+		})
 		const body = registers.ok() ? await registers.json() : {}
 		const rows = Array.isArray(body) ? body : (body.results ?? [])
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -305,20 +369,22 @@ test.describe('hydra-console-agent-leaves', () => {
 		test.skip(
 			hydra === undefined,
 			'PRECONDITION MISSING: the `hydra` register is not installed — it ships with '
-			+ 'hydra-register-data-plane in the hydra repository. Not a pass.',
+				+ 'hydra-register-data-plane in the hydra repository. Not a pass.',
 		)
 
-		await page.goto('/apps/openbuild/hydra-console', { waitUntil: 'domcontentloaded' })
+		await page.goto('/apps/openbuild/hydra-console', {
+			waitUntil: 'domcontentloaded',
+		})
 
 		const tab = page.locator('[data-testid="cn-agent-chat-tab"]')
 		test.skip(
-			await tab.count() === 0,
+			(await tab.count()) === 0,
 			'PRECONDITION MISSING: no console detail page renders the hermiq-agent leaf — it ships '
-			+ 'with hydra-console-openbuild-app. Not a pass.',
+				+ 'with hydra-console-openbuild-app. Not a pass.',
 		)
 
 		const notice = page.locator('[data-testid="cn-agent-chat-tab-no-context"]')
-		if (await notice.count() > 0) {
+		if ((await notice.count()) > 0) {
 			// The state is conveyed in TEXT, not by colour alone (WCAG 2.1 AA 1.4.1).
 			await expect(notice.first()).toContainText(/no object context/i)
 		}

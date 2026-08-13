@@ -38,7 +38,12 @@
 		<NcEmptyContent
 			v-if="!canManage"
 			:name="t('hermiq', 'Organisation admins only')"
-			:description="t('hermiq', 'Tenant ops is available to organisation owners and instance admins.')">
+			:description="
+				t(
+					'hermiq',
+					'Tenant ops is available to organisation owners and instance admins.',
+				)
+			">
 			<template #icon>
 				<ShieldIcon :size="20" />
 			</template>
@@ -65,7 +70,10 @@
 						track-by="value" />
 				</div>
 
-				<NcNoteCard v-if="budgetError" type="error" :heading="t('hermiq', 'Budget error')">
+				<NcNoteCard
+					v-if="budgetError"
+					type="error"
+					:heading="t('hermiq', 'Budget error')">
 					{{ budgetError }}
 				</NcNoteCard>
 
@@ -74,7 +82,12 @@
 				</div>
 
 				<p v-else-if="budgets.length === 0" class="tenant-ops__note">
-					{{ t('hermiq', 'No budgets configured yet for this organisation.') }}
+					{{
+						t(
+							'hermiq',
+							'No budgets configured yet for this organisation.',
+						)
+					}}
 				</p>
 
 				<div v-else class="tenant-ops__cards">
@@ -82,18 +95,42 @@
 						v-for="entry in budgets"
 						:key="entry.id"
 						class="tenant-ops__card tenant-ops__card--budget"
-						:class="{ 'tenant-ops__card--warn': entry.status && (entry.status.hardCapReached || entry.status.softThresholdReached) }">
+						:class="{
+							'tenant-ops__card--warn':
+								entry.status
+								&& (entry.status.hardCapReached
+									|| entry.status.softThresholdReached),
+						}">
 						<span class="tenant-ops__card-label">
-							{{ entry.scope === 'agent' ? t('hermiq', 'Agent budget') : t('hermiq', 'Organisation budget') }}
-							<span v-if="entry.scope === 'agent'" class="tenant-ops__card-sub">({{ entry.agentId }})</span>
+							{{
+								entry.scope === 'agent'
+									? t('hermiq', 'Agent budget')
+									: t('hermiq', 'Organisation budget')
+							}}
+							<span
+								v-if="entry.scope === 'agent'"
+								class="tenant-ops__card-sub"
+								>({{ entry.agentId }})</span
+							>
 						</span>
 						<span class="tenant-ops__card-value">
 							{{ budgetUsageLabel(entry) }}
 						</span>
-						<span v-if="entry.status && entry.status.hardCapReached" class="tenant-ops__card-warn">
-							{{ t('hermiq', 'Hard cap reached — new runs are blocked') }}
+						<span
+							v-if="entry.status && entry.status.hardCapReached"
+							class="tenant-ops__card-warn">
+							{{
+								t(
+									'hermiq',
+									'Hard cap reached — new runs are blocked',
+								)
+							}}
 						</span>
-						<span v-else-if="entry.status && entry.status.softThresholdReached" class="tenant-ops__card-warn">
+						<span
+							v-else-if="
+								entry.status && entry.status.softThresholdReached
+							"
+							class="tenant-ops__card-warn">
 							{{ t('hermiq', 'Soft threshold crossed') }}
 						</span>
 						<div class="tenant-ops__card-actions">
@@ -118,19 +155,43 @@
 					</h3>
 				</div>
 
-				<NcNoteCard v-if="policyError" type="error" :heading="t('hermiq', 'Model policy error')">
+				<NcNoteCard
+					v-if="policyError"
+					type="error"
+					:heading="t('hermiq', 'Model policy error')">
 					{{ policyError }}
 				</NcNoteCard>
 
-				<p v-if="modelPolicies.length === 0 && !policyError" class="tenant-ops__note">
-					{{ t('hermiq', 'No model policies configured — agents fall back to the instance-wide LLM configuration.') }}
+				<p
+					v-if="modelPolicies.length === 0 && !policyError"
+					class="tenant-ops__note">
+					{{
+						t(
+							'hermiq',
+							'No model policies configured — agents fall back to the instance-wide LLM configuration.',
+						)
+					}}
 				</p>
 
-				<div v-for="policy in modelPolicies" :key="policy.id" class="tenant-ops__policy">
+				<div
+					v-for="policy in modelPolicies"
+					:key="policy.id"
+					class="tenant-ops__policy">
 					<div class="tenant-ops__policy-head">
-						<strong>{{ policy.organisation ? organisationLabel(policy.organisation, organisations) : t('hermiq', 'Instance default') }}</strong>
+						<strong>{{
+							policy.organisation
+								? organisationLabel(
+										policy.organisation,
+										organisations,
+									)
+								: t('hermiq', 'Instance default')
+						}}</strong>
 						<NcButton type="tertiary" @click="togglePolicyEdit(policy)">
-							{{ editingPolicyId === policy.id ? t('hermiq', 'Cancel') : t('hermiq', 'Edit') }}
+							{{
+								editingPolicyId === policy.id
+									? t('hermiq', 'Cancel')
+									: t('hermiq', 'Edit')
+							}}
 						</NcButton>
 					</div>
 					<p v-if="editingPolicyId !== policy.id" class="tenant-ops__note">
@@ -140,14 +201,22 @@
 						<NcTextArea
 							v-model="policyDraft.allowedText"
 							:label="t('hermiq', 'Allowed providers and models')"
-							:placeholder="t('hermiq', 'One per line: provider or provider: model1, model2')"
+							:placeholder="
+								t(
+									'hermiq',
+									'One per line: provider or provider: model1, model2',
+								)
+							"
 							resize="vertical" />
 						<NcTextField
 							v-model="policyDraft.defaultModel"
 							:label="t('hermiq', 'Default model (optional)')"
 							placeholder="qwen2.5" />
 						<div class="tenant-ops__card-actions">
-							<NcButton type="primary" :disabled="policySaving" @click="savePolicy(policy)">
+							<NcButton
+								type="primary"
+								:disabled="policySaving"
+								@click="savePolicy(policy)">
 								{{ t('hermiq', 'Save policy') }}
 							</NcButton>
 						</div>
@@ -163,10 +232,18 @@
 					{{ t('hermiq', 'Access review') }}
 				</h3>
 				<p class="tenant-ops__note">
-					{{ t('hermiq', 'Review who owns each agent and what it can do. Marking an agent reviewed records your user id and the current time, auditably.') }}
+					{{
+						t(
+							'hermiq',
+							'Review who owns each agent and what it can do. Marking an agent reviewed records your user id and the current time, auditably.',
+						)
+					}}
 				</p>
 
-				<NcNoteCard v-if="reviewError" type="error" :heading="t('hermiq', 'Access review error')">
+				<NcNoteCard
+					v-if="reviewError"
+					type="error"
+					:heading="t('hermiq', 'Access review error')">
 					{{ reviewError }}
 				</NcNoteCard>
 
@@ -177,7 +254,9 @@
 					row-key="uuid"
 					:empty-text="t('hermiq', 'No agents yet.')">
 					<template #column-reassignmentFlag="{ row }">
-						<span v-if="row.reassignmentFlag" class="tenant-ops__card-warn">
+						<span
+							v-if="row.reassignmentFlag"
+							class="tenant-ops__card-warn">
 							{{ t('hermiq', 'Flagged for reassignment') }}
 						</span>
 						<span v-else>—</span>
@@ -195,10 +274,15 @@
 									v-model="reassignDrafts[row.uuid]"
 									class="tenant-ops__reassign-input"
 									:input-label="t('hermiq', 'New acting user id')"
-									:placeholder="t('hermiq', 'New acting user id')" />
+									:placeholder="
+										t('hermiq', 'New acting user id')
+									" />
 								<NcButton
 									type="secondary"
-									:disabled="!reassignDrafts[row.uuid] || reviewBusyUuid === row.uuid"
+									:disabled="
+										!reassignDrafts[row.uuid]
+										|| reviewBusyUuid === row.uuid
+									"
 									@click="reassign(row)">
 									{{ t('hermiq', 'Reassign') }}
 								</NcButton>
@@ -219,16 +303,20 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcEmptyContent,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
 import { loadState } from '@nextcloud/initial-state'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
-import {
-	attestReviewed,
-	getAccessReview,
-	reassignAgent,
-} from '../api/tenantOps.js'
+import { attestReviewed, getAccessReview, reassignAgent } from '../api/tenantOps.js'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
 import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
@@ -298,7 +386,11 @@ export default {
 		 */
 		orgOption: {
 			get() {
-				return this.orgOptions.find((option) => option.value === this.selectedOrg) || this.orgOptions[0]
+				return (
+					this.orgOptions.find(
+						(option) => option.value === this.selectedOrg,
+					) || this.orgOptions[0]
+				)
 			},
 			set(option) {
 				this.selectedOrg = option ? option.value : ''
@@ -334,7 +426,9 @@ export default {
 				name: agent.name || agent.uuid,
 				owner: agent.owner || '—',
 				actingUser: agent.actingUser || '—',
-				lastRunAt: agent.lastRunAt ? this.formatDate(agent.lastRunAt) : this.t('hermiq', 'Never'),
+				lastRunAt: agent.lastRunAt
+					? this.formatDate(agent.lastRunAt)
+					: this.t('hermiq', 'Never'),
 				capabilities: this.capabilitySummary(agent),
 				reviewState: agent.reviewedAt
 					? `${this.formatDate(agent.reviewedAt)} (${agent.reviewedBy})`
@@ -380,7 +474,10 @@ export default {
 				const withStatus = await Promise.all(
 					list.map(async (entry) => {
 						try {
-							const status = await getBudgetStatus(this.selectedOrg, entry.agentId || '')
+							const status = await getBudgetStatus(
+								this.selectedOrg,
+								entry.agentId || '',
+							)
 							return { ...entry, status }
 						} catch (e) {
 							return { ...entry, status: null }
@@ -389,7 +486,10 @@ export default {
 				)
 				this.budgets = withStatus
 			} catch (e) {
-				this.budgetError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.budgetError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.budgetsLoading = false
 			}
@@ -456,7 +556,10 @@ export default {
 			try {
 				this.modelPolicies = await listModelPolicies()
 			} catch (e) {
-				this.policyError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.policyError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			}
 		},
 
@@ -471,9 +574,11 @@ export default {
 			if (allowed.length === 0) {
 				return this.t('hermiq', 'No providers allowed (fail closed).')
 			}
-			const parts = allowed.map((entry) => entry.models && entry.models.length > 0
-				? `${entry.provider}: ${entry.models.join(', ')}`
-				: entry.provider)
+			const parts = allowed.map((entry) =>
+				entry.models && entry.models.length > 0
+					? `${entry.provider}: ${entry.models.join(', ')}`
+					: entry.provider,
+			)
 			const suffix = policy.defaultModel
 				? ` — ${this.t('hermiq', 'default')}: ${policy.defaultModel}`
 				: ''
@@ -495,9 +600,13 @@ export default {
 			}
 			const allowed = Array.isArray(policy.allowed) ? policy.allowed : []
 			this.policyDraft = {
-				allowedText: allowed.map((entry) => entry.models && entry.models.length > 0
-					? `${entry.provider}: ${entry.models.join(', ')}`
-					: entry.provider).join('\n'),
+				allowedText: allowed
+					.map((entry) =>
+						entry.models && entry.models.length > 0
+							? `${entry.provider}: ${entry.models.join(', ')}`
+							: entry.provider,
+					)
+					.join('\n'),
 				defaultModel: policy.defaultModel || '',
 			}
 			this.editingPolicyId = policy.id
@@ -519,7 +628,10 @@ export default {
 					return {
 						provider: provider.trim(),
 						models: models
-							? models.split(',').map((model) => model.trim()).filter((model) => model !== '')
+							? models
+									.split(',')
+									.map((model) => model.trim())
+									.filter((model) => model !== '')
 							: [],
 					}
 				})
@@ -533,7 +645,10 @@ export default {
 				this.editingPolicyId = null
 				await this.loadModelPolicies()
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the model policy.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'Could not save the model policy.'),
+				)
 			} finally {
 				this.policySaving = false
 			}
@@ -578,7 +693,8 @@ export default {
 		 */
 		capabilitySummary(agent) {
 			const tools = Array.isArray(agent.tools) ? agent.tools : []
-			const toolsLabel = tools.length > 0 ? tools.join(', ') : this.t('hermiq', 'No tools')
+			const toolsLabel =
+				tools.length > 0 ? tools.join(', ') : this.t('hermiq', 'No tools')
 			if (!agent.enableRag) {
 				return toolsLabel
 			}
@@ -603,7 +719,10 @@ export default {
 					}
 				})
 			} catch (e) {
-				this.reviewError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.reviewError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.reviewLoading = false
 			}
@@ -622,7 +741,10 @@ export default {
 				showSuccess(this.t('hermiq', 'Agent marked as reviewed.'))
 				await this.loadAccessReview()
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not record the review.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'Could not record the review.'),
+				)
 			} finally {
 				this.reviewBusyUuid = ''
 			}
@@ -646,7 +768,10 @@ export default {
 				this.reassignDrafts[row.uuid] = ''
 				await this.loadAccessReview()
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not reassign the agent.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'Could not reassign the agent.'),
+				)
 			} finally {
 				this.reviewBusyUuid = ''
 			}

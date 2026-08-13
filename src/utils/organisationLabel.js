@@ -21,5 +21,5 @@
 export function organisationLabel(orgId, organisations) {
 	const list = Array.isArray(organisations) ? organisations : []
 	const org = list.find((candidate) => candidate && candidate.id === orgId)
-	return org ? (org.label || org.id) : orgId
+	return org ? org.label || org.id : orgId
 }

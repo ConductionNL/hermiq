@@ -22,32 +22,47 @@
 			<NcNoteCard v-if="githubPublishError" type="error">
 				{{ githubPublishError }}
 			</NcNoteCard>
-			<NcTextField v-model="githubPublishForm.owner"
+			<NcTextField
+				v-model="githubPublishForm.owner"
 				:label="t('hermiq', 'Owner')"
 				:placeholder="t('hermiq', 'e.g. acme-council')" />
-			<NcTextField v-model="githubPublishForm.repo"
+			<NcTextField
+				v-model="githubPublishForm.repo"
 				:label="t('hermiq', 'Repository name')"
 				:placeholder="t('hermiq', 'e.g. demo-skill')" />
-			<NcSelect v-model="githubPublishVisibility"
+			<NcSelect
+				v-model="githubPublishVisibility"
 				:options="visibilityOptions"
 				:input-label="t('hermiq', 'Visibility')"
 				:clearable="false"
 				label="label"
 				track-by="value" />
-			<NcSelect v-model="githubPublishCredential"
+			<NcSelect
+				v-model="githubPublishCredential"
 				:options="githubCredentials"
 				:input-label="t('hermiq', 'GitHub credential')"
 				:loading="loadingGithubCredentials"
 				:placeholder="t('hermiq', 'Select a credential')"
 				label="label" />
-			<p v-if="!loadingGithubCredentials && githubCredentials.length === 0" class="skill-github-publish-modal__hint">
-				{{ t('hermiq', 'No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.') }}
+			<p
+				v-if="!loadingGithubCredentials && githubCredentials.length === 0"
+				class="skill-github-publish-modal__hint">
+				{{
+					t(
+						'hermiq',
+						'No GitHub credential yet. Add a personal one under your Personal settings, or ask an organisation admin to add one under the Hermiq admin settings, then reopen this dialog.',
+					)
+				}}
 			</p>
 			<NcButton
 				type="primary"
 				:disabled="githubPublishing || !canGithubPublish"
 				@click="doGithubPublish">
-				{{ githubPublishing ? t('hermiq', 'Publishing…') : t('hermiq', 'Publish') }}
+				{{
+					githubPublishing
+						? t('hermiq', 'Publishing…')
+						: t('hermiq', 'Publish')
+				}}
 			</NcButton>
 		</div>
 	</NcModal>
@@ -88,7 +103,10 @@ export default {
 				owner: '',
 				repo: '',
 			},
-			githubPublishVisibility: { label: this.t('hermiq', 'Private'), value: 'private' },
+			githubPublishVisibility: {
+				label: this.t('hermiq', 'Private'),
+				value: 'private',
+			},
 			githubPublishCredential: null,
 			githubCredentialsList: [],
 			loadingGithubCredentials: false,
@@ -130,7 +148,11 @@ export default {
 		 * @return {boolean}
 		 */
 		canGithubPublish() {
-			return this.githubPublishForm.owner.trim() !== '' && this.githubPublishForm.repo.trim() !== '' && !!this.githubPublishCredential
+			return (
+				this.githubPublishForm.owner.trim() !== ''
+				&& this.githubPublishForm.repo.trim() !== ''
+				&& !!this.githubPublishCredential
+			)
 		},
 	},
 
@@ -149,7 +171,9 @@ export default {
 		async fetchGithubCredentials() {
 			this.loadingGithubCredentials = true
 			try {
-				const { data } = await axios.get(generateUrl('/apps/openregister/api/credentials'))
+				const { data } = await axios.get(
+					generateUrl('/apps/openregister/api/credentials'),
+				)
 				this.githubCredentialsList = data.results || []
 			} catch (e) {
 				this.githubCredentialsList = []
@@ -179,7 +203,10 @@ export default {
 				})
 				this.$emit('published', result.repoUrl)
 			} catch (e) {
-				this.githubPublishError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.githubPublishError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.githubPublishing = false
 			}

@@ -18,8 +18,14 @@
 <template>
 	<div v-if="canManage && organisations.length > 0" class="kill-switch">
 		<div class="kill-switch__head">
-			<AlertOctagon :size="20" :class="engaged ? 'kill-switch__icon--on' : 'kill-switch__icon--off'" />
-			<span class="kill-switch__label">{{ t('hermiq', 'Emergency stop') }}</span>
+			<AlertOctagon
+				:size="20"
+				:class="
+					engaged ? 'kill-switch__icon--on' : 'kill-switch__icon--off'
+				" />
+			<span class="kill-switch__label">{{
+				t('hermiq', 'Emergency stop')
+			}}</span>
 		</div>
 
 		<div v-if="organisations.length > 1" class="kill-switch__org">
@@ -32,7 +38,10 @@
 				track-by="value" />
 		</div>
 
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Kill-switch error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Kill-switch error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -42,7 +51,11 @@
 				:disabled="loading || saving"
 				type="switch"
 				@update:modelValue="onToggle">
-				{{ engaged ? t('hermiq', 'All runs halted for this organisation') : t('hermiq', 'Halt all runs for this organisation') }}
+				{{
+					engaged
+						? t('hermiq', 'All runs halted for this organisation')
+						: t('hermiq', 'Halt all runs for this organisation')
+				}}
 			</NcCheckboxRadioSwitch>
 			<NcLoadingIcon v-if="loading || saving" :size="20" />
 		</div>
@@ -54,7 +67,12 @@
 </template>
 
 <script>
-import { NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import {
+	NcCheckboxRadioSwitch,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+} from '@nextcloud/vue'
 import { loadState } from '@nextcloud/initial-state'
 import AlertOctagon from 'vue-material-design-icons/AlertOctagon.vue'
 import { getKillSwitch, toggleKillSwitch } from '../api/approvals.js'
@@ -104,7 +122,11 @@ export default {
 		 */
 		orgOption: {
 			get() {
-				return this.orgOptions.find((option) => option.value === this.selectedOrg) || this.orgOptions[0]
+				return (
+					this.orgOptions.find(
+						(option) => option.value === this.selectedOrg,
+					) || this.orgOptions[0]
+				)
 			},
 			set(option) {
 				this.selectedOrg = option ? option.value : ''
@@ -137,7 +159,10 @@ export default {
 				this.engaged = state?.engaged === true
 				this.reason = state?.reason || ''
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}
@@ -160,7 +185,10 @@ export default {
 				this.engaged = state?.engaged === true
 				this.reason = state?.reason || ''
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 				// Reflect the server's actual state on failure.
 				await this.load()
 			} finally {

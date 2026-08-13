@@ -33,12 +33,12 @@
  * @copyright 2026 Conduction B.V.
  */
 
-'use strict';
+'use strict'
 
-const crypto = require('crypto');
+const crypto = require('crypto')
 
-const APP_ID = process.env.APP_ID || 'hermiq-llm-runner';
-const APP_SECRET = process.env.APP_SECRET || '';
+const APP_ID = process.env.APP_ID || 'hermiq-llm-runner'
+const APP_SECRET = process.env.APP_SECRET || ''
 
 /**
  * Constant-time string comparison. Returns false on any length or value
@@ -49,15 +49,15 @@ const APP_SECRET = process.env.APP_SECRET || '';
  * @returns {boolean} True when equal.
  */
 function timingSafeEqualStr(a, b) {
-    if (typeof a !== 'string' || typeof b !== 'string') {
-        return false;
-    }
-    const bufA = Buffer.from(a, 'utf8');
-    const bufB = Buffer.from(b, 'utf8');
-    if (bufA.length !== bufB.length) {
-        return false;
-    }
-    return crypto.timingSafeEqual(bufA, bufB);
+	if (typeof a !== 'string' || typeof b !== 'string') {
+		return false
+	}
+	const bufA = Buffer.from(a, 'utf8')
+	const bufB = Buffer.from(b, 'utf8')
+	if (bufA.length !== bufB.length) {
+		return false
+	}
+	return crypto.timingSafeEqual(bufA, bufB)
 }
 
 /**
@@ -70,17 +70,17 @@ function timingSafeEqualStr(a, b) {
  * @returns {string|null} The secret, or null when the header is malformed.
  */
 function secretFromAuthHeader(authApp) {
-    let decoded;
-    try {
-        decoded = Buffer.from(authApp, 'base64').toString('utf8');
-    } catch (e) {
-        return null;
-    }
-    const idx = decoded.indexOf(':');
-    if (idx < 0) {
-        return null;
-    }
-    return decoded.slice(idx + 1);
+	let decoded
+	try {
+		decoded = Buffer.from(authApp, 'base64').toString('utf8')
+	} catch (e) {
+		return null
+	}
+	const idx = decoded.indexOf(':')
+	if (idx < 0) {
+		return null
+	}
+	return decoded.slice(idx + 1)
 }
 
 /**
@@ -94,29 +94,49 @@ function secretFromAuthHeader(authApp) {
  *   return (401 for missing credentials, 403 for a present-but-invalid one).
  */
 function verify(headers, _rawBody) {
-    if (APP_SECRET === '') {
-        // Fail closed: an unconfigured secret must never accept traffic.
-        return { ok: false, status: 401, reason: 'runner APP_SECRET is not configured' };
-    }
+	if (APP_SECRET === '') {
+		// Fail closed: an unconfigured secret must never accept traffic.
+		return {
+			ok: false,
+			status: 401,
+			reason: 'runner APP_SECRET is not configured',
+		}
+	}
 
-    const appId = headers['ex-app-id'];
-    const authApp = headers['authorization-app-api'];
+	const appId = headers['ex-app-id']
+	const authApp = headers['authorization-app-api']
 
-    if (!appId || !authApp) {
-        return { ok: false, status: 401, reason: 'missing AppAPI authentication headers' };
-    }
-    if (appId !== APP_ID) {
-        return { ok: false, status: 403, reason: 'EX-APP-ID does not match this runner' };
-    }
+	if (!appId || !authApp) {
+		return {
+			ok: false,
+			status: 401,
+			reason: 'missing AppAPI authentication headers',
+		}
+	}
+	if (appId !== APP_ID) {
+		return {
+			ok: false,
+			status: 403,
+			reason: 'EX-APP-ID does not match this runner',
+		}
+	}
 
-    const secret = secretFromAuthHeader(authApp);
-    if (secret === null) {
-        return { ok: false, status: 403, reason: 'AUTHORIZATION-APP-API is not valid base64 user:secret' };
-    }
-    if (!timingSafeEqualStr(secret, APP_SECRET)) {
-        return { ok: false, status: 403, reason: 'AUTHORIZATION-APP-API secret does not match' };
-    }
-    return { ok: true, status: 200, reason: 'ok' };
+	const secret = secretFromAuthHeader(authApp)
+	if (secret === null) {
+		return {
+			ok: false,
+			status: 403,
+			reason: 'AUTHORIZATION-APP-API is not valid base64 user:secret',
+		}
+	}
+	if (!timingSafeEqualStr(secret, APP_SECRET)) {
+		return {
+			ok: false,
+			status: 403,
+			reason: 'AUTHORIZATION-APP-API secret does not match',
+		}
+	}
+	return { ok: true, status: 200, reason: 'ok' }
 }
 
-module.exports = { verify, timingSafeEqualStr, secretFromAuthHeader, APP_ID };
+module.exports = { verify, timingSafeEqualStr, secretFromAuthHeader, APP_ID }

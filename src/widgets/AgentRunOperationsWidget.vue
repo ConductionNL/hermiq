@@ -31,11 +31,20 @@
 				<h4>{{ t('hermiq', 'Schedule') }}</h4>
 				<div class="agent-run-ops-widget__actions">
 					<NcButton @click="showScheduleForm = true">
-						{{ schedule ? t('hermiq', 'Edit schedule') : t('hermiq', 'Attach schedule') }}
+						{{
+							schedule
+								? t('hermiq', 'Edit schedule')
+								: t('hermiq', 'Attach schedule')
+						}}
 					</NcButton>
 					<NcButton
 						:disabled="!schedule || running || dryRunning"
-						:aria-label="t('hermiq', 'Preview this run without letting it change anything')"
+						:aria-label="
+							t(
+								'hermiq',
+								'Preview this run without letting it change anything',
+							)
+						"
 						@click="dryRun">
 						<template #icon>
 							<NcLoadingIcon v-if="dryRunning" :size="20" />
@@ -56,10 +65,23 @@
 				</div>
 			</div>
 
-			<p v-if="estimate && estimate.available" class="agent-run-ops-widget__estimate">
-				{{ t('hermiq', 'Estimate: ~{tokens} tokens per run (average of the last {count} runs)', { tokens: estimate.avgTotalTokens, count: estimate.sampleSize }) }}
+			<p
+				v-if="estimate && estimate.available"
+				class="agent-run-ops-widget__estimate">
+				{{
+					t(
+						'hermiq',
+						'Estimate: ~{tokens} tokens per run (average of the last {count} runs)',
+						{
+							tokens: estimate.avgTotalTokens,
+							count: estimate.sampleSize,
+						},
+					)
+				}}
 			</p>
-			<p v-else-if="estimate" class="agent-run-ops-widget__estimate agent-run-ops-widget__estimate--empty">
+			<p
+				v-else-if="estimate"
+				class="agent-run-ops-widget__estimate agent-run-ops-widget__estimate--empty">
 				{{ t('hermiq', 'Not enough run history yet for a cost estimate.') }}
 			</p>
 
@@ -76,7 +98,12 @@
 			</NcNoteCard>
 
 			<p v-if="!schedule" class="agent-run-ops-widget__empty-hint">
-				{{ t('hermiq', 'No schedule attached yet. Attach one to run this agent unattended, or use Run now once attached.') }}
+				{{
+					t(
+						'hermiq',
+						'No schedule attached yet. Attach one to run this agent unattended, or use Run now once attached.',
+					)
+				}}
 			</p>
 			<dl v-else class="agent-run-ops-widget__meta">
 				<div>
@@ -89,7 +116,13 @@
 				</div>
 				<div>
 					<dt>{{ t('hermiq', 'Enabled') }}</dt>
-					<dd>{{ schedule.enabled === false ? t('hermiq', 'No') : t('hermiq', 'Yes') }}</dd>
+					<dd>
+						{{
+							schedule.enabled === false
+								? t('hermiq', 'No')
+								: t('hermiq', 'Yes')
+						}}
+					</dd>
 				</div>
 				<div>
 					<dt>{{ t('hermiq', 'Next run') }}</dt>
@@ -106,17 +139,40 @@
 				</NcButton>
 			</div>
 			<NcNoteCard type="info">
-				{{ t('hermiq', 'Nothing was changed — side-effecting tools were reported, not executed.') }}
+				{{
+					t(
+						'hermiq',
+						'Nothing was changed — side-effecting tools were reported, not executed.',
+					)
+				}}
 			</NcNoteCard>
-			<ol v-if="previewSteps.length > 0" class="agent-run-ops-widget__trace-steps">
-				<li v-for="step in previewSteps" :key="step.seq" class="agent-run-ops-widget__trace-step">
-					<span class="agent-run-ops-widget__trace-step-type">{{ stepTypeLabel(step.type) }}</span>
-					<span class="agent-run-ops-widget__trace-step-name">{{ step.name }}</span>
+			<ol
+				v-if="previewSteps.length > 0"
+				class="agent-run-ops-widget__trace-steps">
+				<li
+					v-for="step in previewSteps"
+					:key="step.seq"
+					class="agent-run-ops-widget__trace-step">
+					<span class="agent-run-ops-widget__trace-step-type">{{
+						stepTypeLabel(step.type)
+					}}</span>
+					<span class="agent-run-ops-widget__trace-step-name">{{
+						step.name
+					}}</span>
 					<span
-						:class="['agent-run-ops-widget__badge', step.outcome === 'would-have-called'
-							? 'agent-run-ops-widget__badge--warn'
-							: (step.outcome === 'error' ? 'agent-run-ops-widget__badge--error' : 'agent-run-ops-widget__badge--ok')]">
-						{{ step.outcome === 'would-have-called' ? t('hermiq', 'would have called') : step.outcome }}
+						:class="[
+							'agent-run-ops-widget__badge',
+							step.outcome === 'would-have-called'
+								? 'agent-run-ops-widget__badge--warn'
+								: step.outcome === 'error'
+									? 'agent-run-ops-widget__badge--error'
+									: 'agent-run-ops-widget__badge--ok',
+						]">
+						{{
+							step.outcome === 'would-have-called'
+								? t('hermiq', 'would have called')
+								: step.outcome
+						}}
 					</span>
 				</li>
 			</ol>
@@ -153,15 +209,32 @@
 				</div>
 			</div>
 
-			<p v-if="!webhookStatus || !webhookStatus.configured" class="agent-run-ops-widget__empty-hint">
-				{{ t('hermiq', 'No webhook configured yet. Create one to let an external system (n8n, a CI pipeline, a third-party event) trigger this agent.') }}
+			<p
+				v-if="!webhookStatus || !webhookStatus.configured"
+				class="agent-run-ops-widget__empty-hint">
+				{{
+					t(
+						'hermiq',
+						'No webhook configured yet. Create one to let an external system (n8n, a CI pipeline, a third-party event) trigger this agent.',
+					)
+				}}
 			</p>
 			<dl v-else class="agent-run-ops-widget__meta">
 				<div>
 					<dt>{{ t('hermiq', 'Status') }}</dt>
 					<dd>
-						<span :class="['agent-run-ops-widget__badge', webhookStatus.enabled ? 'agent-run-ops-widget__badge--ok' : 'agent-run-ops-widget__badge--error']">
-							{{ webhookStatus.enabled ? t('hermiq', 'Enabled') : t('hermiq', 'Disabled') }}
+						<span
+							:class="[
+								'agent-run-ops-widget__badge',
+								webhookStatus.enabled
+									? 'agent-run-ops-widget__badge--ok'
+									: 'agent-run-ops-widget__badge--error',
+							]">
+							{{
+								webhookStatus.enabled
+									? t('hermiq', 'Enabled')
+									: t('hermiq', 'Disabled')
+							}}
 						</span>
 					</dd>
 				</div>
@@ -180,10 +253,17 @@
 			</dl>
 		</div>
 
-		<section v-if="budgetStatus && budgetStatus.configured" class="agent-run-ops-widget__section">
+		<section
+			v-if="budgetStatus && budgetStatus.configured"
+			class="agent-run-ops-widget__section">
 			<h4>{{ t('hermiq', 'Budget') }}</h4>
 			<NcNoteCard v-if="budgetStatus.hardCapReached" type="error">
-				{{ t('hermiq', 'Hard cap reached — new runs are blocked until the next period.') }}
+				{{
+					t(
+						'hermiq',
+						'Hard cap reached — new runs are blocked until the next period.',
+					)
+				}}
 			</NcNoteCard>
 			<NcNoteCard v-else-if="budgetStatus.softThresholdReached" type="warning">
 				{{ t('hermiq', 'Soft threshold crossed for the current period.') }}
@@ -191,11 +271,18 @@
 			<dl class="agent-run-ops-widget__meta">
 				<div v-if="budgetStatus.tokens && budgetStatus.tokens.limit">
 					<dt>{{ t('hermiq', 'Tokens this period') }}</dt>
-					<dd>{{ budgetStatus.tokens.used }} / {{ budgetStatus.tokens.limit }} ({{ budgetStatus.tokens.percent }}%)</dd>
+					<dd>
+						{{ budgetStatus.tokens.used }} /
+						{{ budgetStatus.tokens.limit }} ({{
+							budgetStatus.tokens.percent
+						}}%)
+					</dd>
 				</div>
 				<div v-if="budgetStatus.eur && budgetStatus.eur.limit">
 					<dt>{{ t('hermiq', 'Spend this period') }}</dt>
-					<dd>€{{ budgetStatus.eur.used }} / €{{ budgetStatus.eur.limit }}</dd>
+					<dd>
+						€{{ budgetStatus.eur.used }} / €{{ budgetStatus.eur.limit }}
+					</dd>
 				</div>
 			</dl>
 		</section>
@@ -222,7 +309,12 @@ import BeakerOutline from 'vue-material-design-icons/BeakerOutline.vue'
 import Play from 'vue-material-design-icons/Play.vue'
 import { dryRunSchedule, runScheduleNow } from '../api/agents.js'
 import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
-import { createWebhookSecret, getWebhookStatus, revokeWebhookSecret, rotateWebhookSecret } from '../api/webhooks.js'
+import {
+	createWebhookSecret,
+	getWebhookStatus,
+	revokeWebhookSecret,
+	rotateWebhookSecret,
+} from '../api/webhooks.js'
 import { useScheduleStore } from '../store/store.js'
 import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
 import WebhookSecretDialog from '../modals/WebhookSecretDialog.vue'
@@ -276,7 +368,9 @@ export default {
 			if (!this.previewResult) {
 				return []
 			}
-			return Array.isArray(this.previewResult.steps) ? this.previewResult.steps : []
+			return Array.isArray(this.previewResult.steps)
+				? this.previewResult.steps
+				: []
 		},
 
 		/**
@@ -312,9 +406,12 @@ export default {
 		 */
 		async load() {
 			try {
-				const schedules = await this.scheduleStore.fetchCollection('schedule')
-				this.schedule = (Array.isArray(schedules) ? schedules : [])
-					.find((candidate) => candidate.agentId === this.agentId) || null
+				const schedules =
+					await this.scheduleStore.fetchCollection('schedule')
+				this.schedule =
+					(Array.isArray(schedules) ? schedules : []).find(
+						(candidate) => candidate.agentId === this.agentId,
+					) || null
 			} catch (e) {
 				this.schedule = null
 			}
@@ -434,9 +531,12 @@ export default {
 			this.previewResult = null
 			try {
 				this.previewResult = await dryRunSchedule(this.schedule.id)
-				showSuccess(this.t('hermiq', 'Dry run complete — nothing was changed.'))
+				showSuccess(
+					this.t('hermiq', 'Dry run complete — nothing was changed.'),
+				)
 			} catch (e) {
-				this.runError = e?.response?.data?.error
+				this.runError =
+					e?.response?.data?.error
 					|| e?.message
 					|| this.t('hermiq', 'The dry run failed.')
 				showError(this.t('hermiq', 'The dry run failed.'))
@@ -461,13 +561,15 @@ export default {
 			try {
 				const result = await runScheduleNow(this.schedule.id)
 				if (result && result.status === 'error') {
-					this.runError = result.error || this.t('hermiq', 'The agent run failed.')
+					this.runError =
+						result.error || this.t('hermiq', 'The agent run failed.')
 					showError(this.t('hermiq', 'The agent run reported an error.'))
 				} else {
 					showSuccess(this.t('hermiq', 'Agent run started.'))
 				}
 			} catch (e) {
-				this.runError = e?.response?.data?.message
+				this.runError =
+					e?.response?.data?.message
 					|| e?.response?.data?.error
 					|| e?.message
 					|| this.t('hermiq', 'The agent run failed.')

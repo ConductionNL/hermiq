@@ -21,7 +21,10 @@
 -->
 <template>
 	<div class="skill-learnings">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Learnings error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Learnings error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -50,18 +53,36 @@
 
 				<!-- Learnings markdown is sanitised via DOMPurify with the shared safe config. -->
 				<!-- eslint-disable-next-line vue/no-v-html -->
-				<div v-if="learningsMarkdown" class="skill-learnings__content" v-html="renderMarkdown(learningsMarkdown)" />
+				<div
+					v-if="learningsMarkdown"
+					class="skill-learnings__content"
+					v-html="renderMarkdown(learningsMarkdown)" />
 				<p v-else class="skill-learnings__empty">
-					{{ t('hermiq', 'Candidates are being collected, but nothing has been promoted into learnings yet.') }}
+					{{
+						t(
+							'hermiq',
+							'Candidates are being collected, but nothing has been promoted into learnings yet.',
+						)
+					}}
 				</p>
 
 				<p class="skill-learnings__hint">
-					{{ t('hermiq', 'Learnings are captured automatically after runs that used this skill and promoted by a daily background pass. This view is read-only.') }}
+					{{
+						t(
+							'hermiq',
+							'Learnings are captured automatically after runs that used this skill and promoted by a daily background pass. This view is read-only.',
+						)
+					}}
 				</p>
 			</template>
 
 			<p v-else class="skill-learnings__empty">
-				{{ t('hermiq', 'No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.') }}
+				{{
+					t(
+						'hermiq',
+						'No learnings yet. Once agents run with this skill, observations are captured automatically and confirmed ones are promoted here.',
+					)
+				}}
 			</p>
 		</template>
 	</div>
@@ -141,8 +162,15 @@ export default {
 		 * @return {boolean} True when the learnings surface has content to show.
 		 */
 		hasLearningsActivity() {
-			const hasCandidates = this.files.some((file) => file?.name === 'learning-candidates.md')
-			return this.learningsMarkdown !== '' || hasCandidates || !!this.l6.lastCaptureAt || !!this.l6.lastPromotedAt
+			const hasCandidates = this.files.some(
+				(file) => file?.name === 'learning-candidates.md',
+			)
+			return (
+				this.learningsMarkdown !== ''
+				|| hasCandidates
+				|| !!this.l6.lastCaptureAt
+				|| !!this.l6.lastPromotedAt
+			)
 		},
 	},
 
@@ -171,10 +199,16 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				const skill = await this.skillStore.fetchObject('agentskill', this.skillId)
+				const skill = await this.skillStore.fetchObject(
+					'agentskill',
+					this.skillId,
+				)
 				this.skill = skill || null
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not load the skill.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not load the skill.')
 			} finally {
 				this.loading = false
 			}
@@ -189,7 +223,10 @@ export default {
 		 * @return {string} Sanitised HTML.
 		 */
 		renderMarkdown(content) {
-			return DOMPurify.sanitize(marked.parse(content || ''), SAFE_MARKDOWN_DOMPURIFY_CONFIG)
+			return DOMPurify.sanitize(
+				marked.parse(content || ''),
+				SAFE_MARKDOWN_DOMPURIFY_CONFIG,
+			)
 		},
 
 		/**

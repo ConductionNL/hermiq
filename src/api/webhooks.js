@@ -24,7 +24,9 @@ const AGENTS_BASE = '/apps/hermiq/api/agents'
  * @return {Promise<object>} The status payload.
  */
 export async function getWebhookStatus(agentId) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret`))
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret`),
+	)
 	return response.data
 }
 
@@ -36,7 +38,9 @@ export async function getWebhookStatus(agentId) {
  * @return {Promise<object>} The created status payload plus a one-time `secret`.
  */
 export async function createWebhookSecret(agentId) {
-	const response = await axios.post(generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret`))
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret`),
+	)
 	return response.data
 }
 
@@ -48,7 +52,9 @@ export async function createWebhookSecret(agentId) {
  * @return {Promise<object>} The updated status payload plus a one-time `secret`.
  */
 export async function rotateWebhookSecret(agentId) {
-	const response = await axios.post(generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret/rotate`))
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret/rotate`),
+	)
 	return response.data
 }
 
@@ -59,7 +65,9 @@ export async function rotateWebhookSecret(agentId) {
  * @return {Promise<object>} The updated status payload (never a secret).
  */
 export async function revokeWebhookSecret(agentId) {
-	const response = await axios.post(generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret/revoke`))
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret/revoke`),
+	)
 	return response.data
 }
 
@@ -71,6 +79,9 @@ export async function revokeWebhookSecret(agentId) {
  * @return {Promise<object>} The updated status payload.
  */
 export async function patchWebhookSecret(agentId, payload) {
-	const response = await axios.patch(generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret`), payload)
+	const response = await axios.patch(
+		generateUrl(`${AGENTS_BASE}/${agentId}/webhook-secret`),
+		payload,
+	)
 	return response.data
 }

@@ -41,7 +41,12 @@ function normaliseAllowlist(spec) {
 		for (const entry of spec) {
 			if (typeof entry === 'string' && entry !== '') {
 				allowlist[entry] = {}
-			} else if (entry && typeof entry === 'object' && typeof entry.property === 'string' && entry.property !== '') {
+			} else if (
+				entry
+				&& typeof entry === 'object'
+				&& typeof entry.property === 'string'
+				&& entry.property !== ''
+			) {
 				allowlist[entry.property] = entry
 			}
 		}
@@ -50,7 +55,7 @@ function normaliseAllowlist(spec) {
 
 	for (const [key, caps] of Object.entries(spec)) {
 		if (key !== '') {
-			allowlist[key] = (caps && typeof caps === 'object') ? caps : {}
+			allowlist[key] = caps && typeof caps === 'object' ? caps : {}
 		}
 	}
 	return allowlist
@@ -65,7 +70,11 @@ function normaliseAllowlist(spec) {
  */
 function applyCaps(value, caps) {
 	const maxLength = caps && caps.maxLength
-	if (typeof maxLength !== 'number' || maxLength <= 0 || typeof value !== 'string') {
+	if (
+		typeof maxLength !== 'number'
+		|| maxLength <= 0
+		|| typeof value !== 'string'
+	) {
 		return value
 	}
 	// Array.from() splits on code points, so a multi-byte character is never cut.
@@ -87,10 +96,12 @@ function applyCaps(value, caps) {
  *   Empty when the allowlist is absent or empty.
  */
 export function buildAgentContext(objectData, schema) {
-	const data = (objectData && typeof objectData === 'object') ? objectData : {}
-	const schemaObj = (schema && typeof schema === 'object') ? schema : {}
-	const rawSpec = schemaObj[AGENT_CONTEXT_KEYWORD]
-		?? (schemaObj.configuration && schemaObj.configuration[AGENT_CONTEXT_KEYWORD])
+	const data = objectData && typeof objectData === 'object' ? objectData : {}
+	const schemaObj = schema && typeof schema === 'object' ? schema : {}
+	const rawSpec =
+		schemaObj[AGENT_CONTEXT_KEYWORD]
+		?? (schemaObj.configuration
+			&& schemaObj.configuration[AGENT_CONTEXT_KEYWORD])
 		?? null
 
 	const allowlist = normaliseAllowlist(rawSpec)

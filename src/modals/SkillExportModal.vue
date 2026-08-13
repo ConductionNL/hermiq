@@ -24,7 +24,10 @@
 			-->
 			<label class="skill-export-modal__label">
 				<span>{{ t('hermiq', 'Package contents') }}</span>
-				<textarea class="skill-export-modal__textarea" readonly :value="exportedPackage" />
+				<textarea
+					class="skill-export-modal__textarea"
+					readonly
+					:value="exportedPackage" />
 			</label>
 		</div>
 	</NcModal>

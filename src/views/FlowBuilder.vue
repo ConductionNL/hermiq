@@ -17,7 +17,7 @@
 			:max-zoom="maxZoom"
 			@update:zoom="zoom = $event"
 			@node-select="onCanvasSelect($event)"
-			@canvas-click="editor.contextMenu = null; editor.clearSelection()"
+			@canvas-click="onCanvasClick"
 			@node-move="onCanvasMove($event)"
 			show-grid
 			resizable
@@ -37,7 +37,8 @@
 				<g
 					class="flow-builder__step"
 					:class="{
-						'flow-builder__step--selected': edge.edge.id === editor.selectedEdgeId,
+						'flow-builder__step--selected':
+							edge.edge.id === editor.selectedEdgeId,
 						'flow-builder__step--unassigned': isUnassigned(edge.edge),
 						'flow-builder__step--replayed': wasFollowed(edge.edge),
 					}">
@@ -49,7 +50,9 @@
 						:marker-start="markerRef(edge.edge.startMarker)"
 						:marker-end="markerRef(edge.edge.endMarker, arrowId)"
 						@click.stop="editor.selectEdge(edge.edge.id)"
-						@contextmenu.prevent.stop="onEdgeContext(edge.edge, $event)" />
+						@contextmenu.prevent.stop="
+							onEdgeContext(edge.edge, $event)
+						" />
 
 					<!-- The line's own label, and nothing else. Under the old
 					     reading the step rode here and this chip named it; the
@@ -72,7 +75,10 @@
 					<g
 						v-if="edgeLabel(edge.edge)"
 						class="flow-builder__step-label"
-						:class="{ 'flow-builder__step-label--dragging': draggingLabelId === edge.edge.id }"
+						:class="{
+							'flow-builder__step-label--dragging':
+								draggingLabelId === edge.edge.id,
+						}"
 						:transform="`translate(${labelPoint(edge.edge, from, to).x}, ${labelPoint(edge.edge, from, to).y})`"
 						role="button"
 						tabindex="0"
@@ -100,7 +106,7 @@
 							v-if="resultFor(edge.edge)"
 							class="flow-builder__step-result"
 							:class="`flow-builder__step-result--${resultFor(edge.edge).status}`"
-							:cx="(chipWidth(edge.edge) / 2) - 2"
+							:cx="chipWidth(edge.edge) / 2 - 2"
 							cy="-9"
 							r="5" />
 					</g>
@@ -119,10 +125,12 @@
 					<g
 						v-if="wasFollowed(edge.edge)"
 						class="flow-builder__payload"
-						:transform="`translate(${edgeMidpoint(from, to).x + (chipWidth(edge.edge) / 2) + 14}, ${edgeMidpoint(from, to).y})`"
+						:transform="`translate(${edgeMidpoint(from, to).x + chipWidth(edge.edge) / 2 + 14}, ${edgeMidpoint(from, to).y})`"
 						role="button"
 						tabindex="0"
-						:aria-label="t('hermiq', 'Show what passed along this connection')"
+						:aria-label="
+							t('hermiq', 'Show what passed along this connection')
+						"
 						@click.stop="editor.payloadEdgeId = edge.edge.id"
 						@keydown.enter.stop="editor.payloadEdgeId = edge.edge.id"
 						@mouseenter="onPayloadHover(edge.edge, $event)"
@@ -164,13 +172,22 @@
 						:aria-label="t('hermiq', 'Note')"
 						:placeholder="t('hermiq', 'Write a note…')"
 						@mousedown.stop
-						@input="editor.setAnnotationText(node.id.slice(annotationPrefix.length), $event.target.value)" />
+						@input="
+							editor.setAnnotationText(
+								node.id.slice(annotationPrefix.length),
+								$event.target.value,
+							)
+						" />
 					<NcButton
 						type="tertiary"
 						class="flow-builder__annotation-remove"
 						:aria-label="t('hermiq', 'Remove note')"
 						@mousedown.stop
-						@click.stop="editor.removeAnnotation(node.id.slice(annotationPrefix.length))">
+						@click.stop="
+							editor.removeAnnotation(
+								node.id.slice(annotationPrefix.length),
+							)
+						">
 						<template #icon>
 							<Close :size="16" />
 						</template>
@@ -206,16 +223,25 @@
 						// and makes a flow that can never fire look finished.
 						[`flow-builder__node--${editor.roleOfNodeType(node.type)}`]: true,
 						'flow-builder__node--untyped': !node.type,
-						'flow-builder__node--replayed': editor.replayedNodeIds.includes(node.id),
+						'flow-builder__node--replayed':
+							editor.replayedNodeIds.includes(node.id),
 					}"
 					@dblclick.stop="onNodeEdit(node)"
 					@contextmenu.prevent.stop="onNodeContext(node, $event)">
-					<span class="flow-builder__node-step">{{ nodeStepLabel(node) }}</span>
-					<span class="flow-builder__node-label">{{ nodeLabel(node) }}</span>
-					<span v-if="nodeConfigSummary(node)" class="flow-builder__node-config">
+					<span class="flow-builder__node-step">{{
+						nodeStepLabel(node)
+					}}</span>
+					<span class="flow-builder__node-label">{{
+						nodeLabel(node)
+					}}</span>
+					<span
+						v-if="nodeConfigSummary(node)"
+						class="flow-builder__node-config">
 						{{ nodeConfigSummary(node) }}
 					</span>
-					<span v-if="editor.markingByNode[node.id]" class="flow-builder__node-badge">
+					<span
+						v-if="editor.markingByNode[node.id]"
+						class="flow-builder__node-badge">
 						{{ t('hermiq', 'Run is here') }}
 					</span>
 				</div>
@@ -234,7 +260,9 @@
 					markerWidth="5"
 					markerHeight="5"
 					orient="auto-start-reverse">
-					<path d="M 0 0 L 10 5 L 0 10 z" class="flow-builder__arrowhead" />
+					<path
+						d="M 0 0 L 10 5 L 0 10 z"
+						class="flow-builder__arrowhead" />
 				</marker>
 				<!-- The other end symbol an author can choose. `none` needs no
 				     marker at all — it is the absence of one. -->
@@ -245,11 +273,7 @@
 					refY="5"
 					markerWidth="4"
 					markerHeight="4">
-					<circle
-						cx="5"
-						cy="5"
-						r="4"
-						class="flow-builder__arrowhead" />
+					<circle cx="5" cy="5" r="4" class="flow-builder__arrowhead" />
 				</marker>
 			</defs>
 		</svg>
@@ -276,9 +300,13 @@
 			aria-hidden="true"
 			:style="{ left: `${hoverPayload.x}px`, top: `${hoverPayload.y}px` }">
 			<span class="flow-builder__payload-preview-head">
-				{{ t('hermiq', 'What {node} received', { node: hoverPayload.node }) }}
+				{{
+					t('hermiq', 'What {node} received', { node: hoverPayload.node })
+				}}
 			</span>
-			<pre class="flow-builder__payload-preview-json">{{ hoverPayload.json }}</pre>
+			<pre class="flow-builder__payload-preview-json">{{
+				hoverPayload.json
+			}}</pre>
 		</div>
 
 		<div class="flow-builder__controls">
@@ -290,7 +318,10 @@
 				Beside the zoom cluster: both are canvas controls, and the top-right
 				is the corner auto-sort never lays a node into.
 			-->
-			<div class="flow-builder__verbs" role="group" :aria-label="t('hermiq', 'Flow actions')">
+			<div
+				class="flow-builder__verbs"
+				role="group"
+				:aria-label="t('hermiq', 'Flow actions')">
 				<NcButton
 					type="primary"
 					:disabled="editor.saving || !editor.flow.name"
@@ -301,7 +332,10 @@
 					</template>
 					{{ t('hermiq', 'Save') }}
 				</NcButton>
-				<NcButton type="secondary" :disabled="!editor.flow.id" @click="editor.showRun = true">
+				<NcButton
+					type="secondary"
+					:disabled="!editor.flow.id"
+					@click="editor.showRun = true">
 					<template #icon>
 						<Play :size="20" />
 					</template>
@@ -324,7 +358,10 @@
 				</NcButton>
 			</div>
 
-			<div class="flow-builder__zoom" role="group" :aria-label="t('hermiq', 'Zoom')">
+			<div
+				class="flow-builder__zoom"
+				role="group"
+				:aria-label="t('hermiq', 'Zoom')">
 				<NcButton
 					type="secondary"
 					:disabled="zoom <= minZoom"
@@ -385,7 +422,9 @@
 			v-if="editor.loading"
 			class="flow-builder__empty"
 			:name="t('hermiq', 'Loading flow…')"
-			:description="t('hermiq', 'Fetching the nodes and steps for this flow.')">
+			:description="
+				t('hermiq', 'Fetching the nodes and steps for this flow.')
+			">
 			<template #icon>
 				<NcLoadingIcon :size="20" />
 			</template>
@@ -395,7 +434,12 @@
 			v-else-if="editor.nodes.length === 0"
 			class="flow-builder__empty"
 			:name="t('hermiq', 'No nodes yet')"
-			:description="t('hermiq', 'Add a node from the sidebar, then drag between two nodes to create a step.')">
+			:description="
+				t(
+					'hermiq',
+					'Add a node from the sidebar, then drag between two nodes to create a step.',
+				)
+			">
 			<template #icon>
 				<Sitemap :size="20" />
 			</template>
@@ -424,7 +468,10 @@
 		<div
 			v-if="editor.contextMenu"
 			class="flow-builder__context"
-			:style="{ left: `${editor.contextMenu.x}px`, top: `${editor.contextMenu.y}px` }"
+			:style="{
+				left: `${editor.contextMenu.x}px`,
+				top: `${editor.contextMenu.y}px`,
+			}"
 			role="menu">
 			<!--
 				The EMPTY canvas offers what applies to a place rather than to a
@@ -462,10 +509,16 @@
 					@click="onContextData">
 					{{ t('hermiq', 'View data') }}
 				</button>
-				<button v-if="editor.contextMenu.kind === 'node'" role="menuitem" @click="onContextCopy">
+				<button
+					v-if="editor.contextMenu.kind === 'node'"
+					role="menuitem"
+					@click="onContextCopy">
 					{{ t('hermiq', 'Copy') }}
 				</button>
-				<button role="menuitem" class="flow-builder__context-destructive" @click="onContextDelete">
+				<button
+					role="menuitem"
+					class="flow-builder__context-destructive"
+					@click="onContextDelete">
 					{{ t('hermiq', 'Delete') }}
 				</button>
 			</template>
@@ -481,7 +534,7 @@
 
 		<PayloadModal
 			:show="editor.payloadEdgeId !== null || editor.payloadNodeId !== null"
-			@close="editor.payloadEdgeId = null; editor.payloadNodeId = null" />
+			@close="onPayloadModalClose" />
 
 		<RunLogModal
 			:show="editor.logModalRunId !== null"
@@ -789,7 +842,11 @@ export default {
 		 * @return {boolean} Whether to leave the key alone.
 		 */
 		isTypingTarget(target) {
-			if (target === null || target === undefined || target.tagName === undefined) {
+			if (
+				target === null
+				|| target === undefined
+				|| target.tagName === undefined
+			) {
 				return false
 			}
 
@@ -820,6 +877,39 @@ export default {
 			}
 
 			this.editor.selectNode(id)
+		},
+
+		/**
+		 * Dismiss the context menu and drop the current selection.
+		 *
+		 * Extracted from an inline
+		 * `@canvas-click="editor.contextMenu = null; editor.clearSelection()"`.
+		 * Vue's template compiler only treats a handler as raw STATEMENTS when the
+		 * expression contains a `;`, and prettier's `semi: false` strips it —
+		 * leaving two newline-separated statements the compiler then tries to parse
+		 * as one expression and rejects. No behaviour change.
+		 *
+		 * @return {void}
+		 *
+		 * @spec exclude formatting-only extraction of an existing inline handler — no behaviour change
+		 */
+		onCanvasClick() {
+			this.editor.contextMenu = null
+			this.editor.clearSelection()
+		},
+
+		/**
+		 * Close the payload modal, clearing both of the ids that open it.
+		 * Extracted from an inline multi-statement handler, same reason as
+		 * `onCanvasClick()`.
+		 *
+		 * @return {void}
+		 *
+		 * @spec exclude formatting-only extraction of an existing inline handler — no behaviour change
+		 */
+		onPayloadModalClose() {
+			this.editor.payloadEdgeId = null
+			this.editor.payloadNodeId = null
 		},
 
 		/**
@@ -935,8 +1025,8 @@ export default {
 			}
 
 			return {
-				x: from.x + ((to.x - from.x) * t),
-				y: from.y + ((to.y - from.y) * t),
+				x: from.x + (to.x - from.x) * t,
+				y: from.y + (to.y - from.y) * t,
 			}
 		},
 
@@ -973,8 +1063,12 @@ export default {
 				return
 			}
 
-			const edge = this.editor.edges.find((candidate) => candidate.id === this.draggingLabelId)
-			const line = edge ? this.editor.canvasEdges.find((drawn) => drawn.edge.id === edge.id) : null
+			const edge = this.editor.edges.find(
+				(candidate) => candidate.id === this.draggingLabelId,
+			)
+			const line = edge
+				? this.editor.canvasEdges.find((drawn) => drawn.edge.id === edge.id)
+				: null
 			if (!edge || !line) {
 				return
 			}
@@ -988,12 +1082,13 @@ export default {
 
 			const dx = to.x - from.x
 			const dy = to.y - from.y
-			const lengthSquared = ((dx * dx) + (dy * dy))
+			const lengthSquared = dx * dx + dy * dy
 			if (lengthSquared === 0) {
 				return
 			}
 
-			const t = ((((point.x - from.x) * dx) + ((point.y - from.y) * dy)) / lengthSquared)
+			const t =
+				((point.x - from.x) * dx + (point.y - from.y) * dy) / lengthSquared
 			this.editor.setEdgeFieldById(edge.id, 'labelT', t)
 		},
 
@@ -1019,8 +1114,8 @@ export default {
 			}
 
 			return {
-				x: ((node.x || 0) + (this.nodeWidth / 2)),
-				y: ((node.y || 0) + (this.nodeHeight / 2)),
+				x: (node.x || 0) + this.nodeWidth / 2,
+				y: (node.y || 0) + this.nodeHeight / 2,
 			}
 		},
 
@@ -1047,7 +1142,11 @@ export default {
 		 * @return {void}
 		 */
 		nudgeLabel(edge, delta) {
-			this.editor.setEdgeFieldById(edge.id, 'labelT', this.labelFraction(edge) + delta)
+			this.editor.setEdgeFieldById(
+				edge.id,
+				'labelT',
+				this.labelFraction(edge) + delta,
+			)
 		},
 
 		onCanvasResize(payload) {
@@ -1102,7 +1201,12 @@ export default {
 		 */
 		onNodeContext(node, event) {
 			this.editor.selectNode(node.id)
-			this.editor.contextMenu = { kind: 'node', id: node.id, x: event.clientX, y: event.clientY }
+			this.editor.contextMenu = {
+				kind: 'node',
+				id: node.id,
+				x: event.clientX,
+				y: event.clientY,
+			}
 		},
 
 		/**
@@ -1116,7 +1220,12 @@ export default {
 		 */
 		onEdgeContext(edge, event) {
 			this.editor.selectEdge(edge.id)
-			this.editor.contextMenu = { kind: 'edge', id: edge.id, x: event.clientX, y: event.clientY }
+			this.editor.contextMenu = {
+				kind: 'edge',
+				id: edge.id,
+				x: event.clientX,
+				y: event.clientY,
+			}
 		},
 
 		/**
@@ -1262,9 +1371,10 @@ export default {
 		 * @return {void}
 		 */
 		onPayloadHover(edge, event) {
-			const detail = this.editor.replayRunId === null
-				? null
-				: this.editor.runDetail[this.editor.replayRunId]
+			const detail =
+				this.editor.replayRunId === null
+					? null
+					: this.editor.runDetail[this.editor.replayRunId]
 
 			if (!detail || !edge?.to) {
 				return
@@ -1273,9 +1383,11 @@ export default {
 			const entry = (detail.log || []).find((line) => {
 				const id = String(edge.to)
 
-				return String(line.transition || '') === id
+				return (
+					String(line.transition || '') === id
 					|| String(line.node || '') === id
 					|| String(line.step || '') === id
+				)
 			})
 
 			if (!entry) {
@@ -1289,11 +1401,14 @@ export default {
 			this.hoverPayload = {
 				id: edge.id,
 				node: String(edge.to),
-				x: box ? box.left + (box.width / 2) : 0,
+				x: box ? box.left + box.width / 2 : 0,
 				y: box ? box.bottom + 8 : 0,
 				// Bounded here rather than in the template: a recorded payload
 				// can be thousands of lines, and a hover card is a glance.
-				json: JSON.stringify(items, null, 2).split('\n').slice(0, 14).join('\n'),
+				json: JSON.stringify(items, null, 2)
+					.split('\n')
+					.slice(0, 14)
+					.join('\n'),
 			}
 		},
 
@@ -1311,11 +1426,21 @@ export default {
 			try {
 				const saved = await this.editor.save()
 				showSuccess(this.t('hermiq', 'Flow saved.'))
-				if (saved && saved.id && String(this.$route.params.id) !== String(saved.id)) {
-					this.$router.replace({ name: 'FlowDetail', params: { id: String(saved.id) } })
+				if (
+					saved
+					&& saved.id
+					&& String(this.$route.params.id) !== String(saved.id)
+				) {
+					this.$router.replace({
+						name: 'FlowDetail',
+						params: { id: String(saved.id) },
+					})
 				}
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the flow.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'Could not save the flow.'),
+				)
 			}
 		},
 
@@ -1385,7 +1510,12 @@ export default {
 			// is what makes an edge's direction readable without following the
 			// arrowhead: lines land on the left and leave on the right.
 			if (!this.editor.startNodeIds.includes(node.id)) {
-				ports.push({ id: 'in', side: 'left', kind: 'in', label: this.t('hermiq', 'In') })
+				ports.push({
+					id: 'in',
+					side: 'left',
+					kind: 'in',
+					label: this.t('hermiq', 'In'),
+				})
 			}
 
 			// A loop owns its body (IterateNode's `config.body` is a list of
@@ -1393,8 +1523,18 @@ export default {
 			// clear of the left-to-right run of the main chain — a loop body
 			// drawn inline reads as a detour rather than as a repeat.
 			if (this.isLoopNode(node)) {
-				ports.push({ id: 'body-out', side: 'top', kind: 'out', label: this.t('hermiq', 'Loop body') })
-				ports.push({ id: 'body-in', side: 'top', kind: 'in', label: this.t('hermiq', 'Loop body returns') })
+				ports.push({
+					id: 'body-out',
+					side: 'top',
+					kind: 'out',
+					label: this.t('hermiq', 'Loop body'),
+				})
+				ports.push({
+					id: 'body-in',
+					side: 'top',
+					kind: 'in',
+					label: this.t('hermiq', 'Loop body returns'),
+				})
 			}
 
 			const branches = this.branchesOf(node)
@@ -1419,7 +1559,12 @@ export default {
 			// accepts, OR-ed, so the drawing agrees with what will actually run
 			// (openregister: IFlowTerminalNode).
 			if (!this.isExitNode(node)) {
-				ports.push({ id: 'out', side: 'right', kind: 'out', label: this.t('hermiq', 'Out') })
+				ports.push({
+					id: 'out',
+					side: 'right',
+					kind: 'out',
+					label: this.t('hermiq', 'Out'),
+				})
 			}
 
 			return ports
@@ -1499,7 +1644,7 @@ export default {
 
 			// A type the catalogue cannot explain is shown as its raw id rather
 			// than guessed at from a list that may not match the engine.
-			return entry ? (entry.displayName || entry.id) : node.type
+			return entry ? entry.displayName || entry.id : node.type
 		},
 
 		/**
@@ -1521,7 +1666,9 @@ export default {
 		 */
 		nodeConfigSummary(node) {
 			const config = node.config || {}
-			const keys = Object.keys(config).filter((key) => key.startsWith('$') === false)
+			const keys = Object.keys(config).filter(
+				(key) => key.startsWith('$') === false,
+			)
 			if (keys.length === 0) {
 				return ''
 			}
@@ -1530,7 +1677,11 @@ export default {
 			const value = config[key]
 
 			let rendered = ''
-			if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+			if (
+				typeof value === 'string'
+				|| typeof value === 'number'
+				|| typeof value === 'boolean'
+			) {
 				rendered = String(value)
 			} else if (Array.isArray(value)) {
 				rendered = this.n('hermiq', '%n entry', '%n entries', value.length)
@@ -1561,7 +1712,10 @@ export default {
 		 * @return {void}
 		 */
 		zoomBy(delta) {
-			const next = Math.min(this.maxZoom, Math.max(this.minZoom, this.zoom + delta))
+			const next = Math.min(
+				this.maxZoom,
+				Math.max(this.minZoom, this.zoom + delta),
+			)
 			this.zoom = Math.round(next * 100) / 100
 		},
 
@@ -1621,7 +1775,7 @@ export default {
 					to: edge.to.join(', '),
 				})
 
-				this.resultDialog = { title: (label || fallback), result: entry }
+				this.resultDialog = { title: label || fallback, result: entry }
 			}
 		},
 
@@ -1673,9 +1827,13 @@ export default {
 			// changed a routing rule in another panel and this connection quietly
 			// stopped meaning anything.
 			if (this.isUnassigned(edge) === true) {
-				return this.t('hermiq', 'Unassigned: branch “{branch}” no longer exists', {
-					branch: String(edge.fromExit || '').trim(),
-				})
+				return this.t(
+					'hermiq',
+					'Unassigned: branch “{branch}” no longer exists',
+					{
+						branch: String(edge.fromExit || '').trim(),
+					},
+				)
 			}
 
 			return String(edge.title || edge.name || '').trim()
@@ -1715,10 +1873,17 @@ export default {
 			const to = edge.to.join(', ')
 
 			if (label === '') {
-				return this.t('hermiq', 'Connection from {from} to {to}', { from, to })
+				return this.t('hermiq', 'Connection from {from} to {to}', {
+					from,
+					to,
+				})
 			}
 
-			return this.t('hermiq', '{label}, from {from} to {to}', { label, from, to })
+			return this.t('hermiq', '{label}, from {from} to {to}', {
+				label,
+				from,
+				to,
+			})
 		},
 
 		/**
@@ -1734,7 +1899,7 @@ export default {
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		chipWidth(edge) {
-			return Math.max(56, (this.edgeLabel(edge).length * 6.5) + 20)
+			return Math.max(56, this.edgeLabel(edge).length * 6.5 + 20)
 		},
 
 		/**
@@ -1808,14 +1973,22 @@ export default {
 				? this.trimOn('y', this.nodeHeight, gap, from, to)
 				: this.trimOn('x', this.nodeWidth, gap, from, to)
 
-			const across = vertical ? Math.abs(to.x - from.x) : Math.abs(to.y - from.y)
+			const across = vertical
+				? Math.abs(to.x - from.x)
+				: Math.abs(to.y - from.y)
 			const span = vertical ? this.nodeWidth : this.nodeHeight
-			if (across <= (span - margin)) {
+			if (across <= span - margin) {
 				// Straight run down (or across) the middle of the shared span.
 				const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
 				const [start, end] = vertical
-					? [{ x: mid.x, y: a.y }, { x: mid.x, y: b.y }]
-					: [{ x: a.x, y: mid.y }, { x: b.x, y: mid.y }]
+					? [
+							{ x: mid.x, y: a.y },
+							{ x: mid.x, y: b.y },
+						]
+					: [
+							{ x: a.x, y: mid.y },
+							{ x: b.x, y: mid.y },
+						]
 
 				return { d: `M ${start.x} ${start.y} L ${end.x} ${end.y}`, mid }
 			}
@@ -1835,7 +2008,7 @@ export default {
 		 */
 		trimOn(axis, size, gap, from, to) {
 			const delta = to[axis] - from[axis]
-			const inset = Math.min((size / 2) + gap, Math.abs(delta) / 2)
+			const inset = Math.min(size / 2 + gap, Math.abs(delta) / 2)
 			const step = Math.sign(delta) * inset
 
 			return [
@@ -1863,31 +2036,31 @@ export default {
 			const sy = Math.sign(dy)
 
 			if (vertical) {
-				const midY = from.y + (dy / 2)
+				const midY = from.y + dy / 2
 
 				return {
-					mid: { x: from.x + (dx / 2), y: midY },
+					mid: { x: from.x + dx / 2, y: midY },
 					d: [
 						`M ${from.x} ${from.y}`,
-						`L ${from.x} ${midY - (rad * sy)}`,
-						`Q ${from.x} ${midY} ${from.x + (rad * sx)} ${midY}`,
-						`L ${to.x - (rad * sx)} ${midY}`,
-						`Q ${to.x} ${midY} ${to.x} ${midY + (rad * sy)}`,
+						`L ${from.x} ${midY - rad * sy}`,
+						`Q ${from.x} ${midY} ${from.x + rad * sx} ${midY}`,
+						`L ${to.x - rad * sx} ${midY}`,
+						`Q ${to.x} ${midY} ${to.x} ${midY + rad * sy}`,
 						`L ${to.x} ${to.y}`,
 					].join(' '),
 				}
 			}
 
-			const midX = from.x + (dx / 2)
+			const midX = from.x + dx / 2
 
 			return {
-				mid: { x: midX, y: from.y + (dy / 2) },
+				mid: { x: midX, y: from.y + dy / 2 },
 				d: [
 					`M ${from.x} ${from.y}`,
-					`L ${midX - (rad * sx)} ${from.y}`,
-					`Q ${midX} ${from.y} ${midX} ${from.y + (rad * sy)}`,
-					`L ${midX} ${to.y - (rad * sy)}`,
-					`Q ${midX} ${to.y} ${midX + (rad * sx)} ${to.y}`,
+					`L ${midX - rad * sx} ${from.y}`,
+					`Q ${midX} ${from.y} ${midX} ${from.y + rad * sy}`,
+					`L ${midX} ${to.y - rad * sy}`,
+					`Q ${midX} ${to.y} ${midX + rad * sx} ${to.y}`,
 					`L ${to.x} ${to.y}`,
 				].join(' '),
 			}
@@ -2126,11 +2299,18 @@ export default {
 /* Role, on the port: green where a run begins, red where it ends. The port is a
    sibling of our slot content, so it cannot be given a class from inside the
    slot — `:has()` reads the role off the card we DID render. */
-.flow-builder :deep(.cn-graph-canvas__node:has(.flow-builder__node--trigger) .cn-graph-canvas__handle) {
+.flow-builder
+	:deep(
+		.cn-graph-canvas__node:has(.flow-builder__node--trigger)
+			.cn-graph-canvas__handle
+	) {
 	background-color: var(--color-success, #46ba61);
 }
 
-.flow-builder :deep(.cn-graph-canvas__node:has(.flow-builder__node--end) .cn-graph-canvas__handle) {
+.flow-builder
+	:deep(
+		.cn-graph-canvas__node:has(.flow-builder__node--end) .cn-graph-canvas__handle
+	) {
 	background-color: var(--color-error, #e9322d);
 }
 

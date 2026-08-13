@@ -25,17 +25,30 @@
 		</div>
 
 		<p class="mcp-tools__intro">
-			{{ t('hermiq', 'These Model Context Protocol tools are available across this Nextcloud. Give an agent one or more of them in the agent editor to let it act on your behalf.') }}
+			{{
+				t(
+					'hermiq',
+					'These Model Context Protocol tools are available across this Nextcloud. Give an agent one or more of them in the agent editor to let it act on your behalf.',
+				)
+			}}
 		</p>
 
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not load MCP tools')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Could not load MCP tools')">
 			{{ error }}
 		</NcNoteCard>
 
 		<NcEmptyContent
 			v-if="!loading && tools.length === 0 && !error"
 			:name="t('hermiq', 'No MCP tools available')"
-			:description="t('hermiq', 'Install apps that register MCP tool providers (or enable Hermiq\'s native Nextcloud tools) to give agents capabilities.')">
+			:description="
+				t(
+					'hermiq',
+					'Install apps that register MCP tool providers (or enable Hermiq\'s native Nextcloud tools) to give agents capabilities.',
+				)
+			">
 			<template #icon>
 				<ToolboxIcon :size="20" />
 			</template>
@@ -104,7 +117,8 @@ export default {
 				id: tool.id || tool.name || `tool-${index}`,
 				name: tool.name || tool.id || this.t('hermiq', 'Unnamed tool'),
 				description: tool.description || '—',
-				source: tool.appId || tool.app || tool.provider || tool.source || '—',
+				source:
+					tool.appId || tool.app || tool.provider || tool.source || '—',
 			}))
 		},
 	},
@@ -125,7 +139,10 @@ export default {
 			try {
 				this.tools = await listTools()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}

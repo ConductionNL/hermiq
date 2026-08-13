@@ -22,7 +22,12 @@
 				{{ t('hermiq', 'Search backend') }}
 			</h2>
 			<p class="web-research__description">
-				{{ t('hermiq', 'Choose the web-search backend hermiq.webSearch queries — a self-hosted SearXNG instance, or any JSON search API via a field mapping. Leave unconfigured and the tool reports itself unavailable rather than fabricating results.') }}
+				{{
+					t(
+						'hermiq',
+						'Choose the web-search backend hermiq.webSearch queries — a self-hosted SearXNG instance, or any JSON search API via a field mapping. Leave unconfigured and the tool reports itself unavailable rather than fabricating results.',
+					)
+				}}
 			</p>
 
 			<div v-if="loading" class="web-research__loading">
@@ -47,20 +52,38 @@
 						:placeholder="'https://searxng.internal:8080'" />
 
 					<template v-if="providerValue === 'generic-json'">
-						<NcTextField v-model="form.searchFieldMapping.resultsPath" :label="t('hermiq', 'Results path (dot-separated)')" placeholder="results" />
-						<NcTextField v-model="form.searchFieldMapping.titleField" :label="t('hermiq', 'Title field')" placeholder="title" />
-						<NcTextField v-model="form.searchFieldMapping.urlField" :label="t('hermiq', 'URL field')" placeholder="url" />
-						<NcTextField v-model="form.searchFieldMapping.snippetField" :label="t('hermiq', 'Snippet field')" placeholder="content" />
+						<NcTextField
+							v-model="form.searchFieldMapping.resultsPath"
+							:label="t('hermiq', 'Results path (dot-separated)')"
+							placeholder="results" />
+						<NcTextField
+							v-model="form.searchFieldMapping.titleField"
+							:label="t('hermiq', 'Title field')"
+							placeholder="title" />
+						<NcTextField
+							v-model="form.searchFieldMapping.urlField"
+							:label="t('hermiq', 'URL field')"
+							placeholder="url" />
+						<NcTextField
+							v-model="form.searchFieldMapping.snippetField"
+							:label="t('hermiq', 'Snippet field')"
+							placeholder="content" />
 					</template>
 
-					<NcSelect v-model="searchCredential"
+					<NcSelect
+						v-model="searchCredential"
 						:options="credentialOptions"
 						:input-label="t('hermiq', 'API credential (optional)')"
 						:loading="loadingCredentials"
 						:placeholder="t('hermiq', 'None — no authentication')"
 						label="label" />
 					<p class="web-research__hint">
-						{{ t('hermiq', 'Only needed for a paid search API. The key stays in your credential vault — Hermiq only ever holds a reference to it.') }}
+						{{
+							t(
+								'hermiq',
+								'Only needed for a paid search API. The key stays in your credential vault — Hermiq only ever holds a reference to it.',
+							)
+						}}
 					</p>
 				</template>
 
@@ -68,18 +91,35 @@
 					{{ t('hermiq', 'web.fetch egress governance') }}
 				</h2>
 				<p class="web-research__description">
-					{{ t('hermiq', 'Every hermiq.webFetch target is checked against its resolved IP address — private, loopback, link-local and cloud-metadata addresses are always blocked. These lists narrow which hosts an agent may reach further.') }}
+					{{
+						t(
+							'hermiq',
+							'Every hermiq.webFetch target is checked against its resolved IP address — private, loopback, link-local and cloud-metadata addresses are always blocked. These lists narrow which hosts an agent may reach further.',
+						)
+					}}
 				</p>
 
 				<NcTextArea
 					v-model="allowlistText"
-					:label="t('hermiq', 'Allowlist (one host per line — empty means any public host is reachable)')"
+					:label="
+						t(
+							'hermiq',
+							'Allowlist (one host per line — empty means any public host is reachable)',
+						)
+					"
 					:placeholder="'en.wikipedia.org\nwww.rijksoverheid.nl'" />
 				<NcTextArea
 					v-model="denylistText"
 					:label="t('hermiq', 'Denylist (one host per line)')" />
-				<NcCheckboxRadioSwitch v-model="form.allowInsecureHttp" type="switch">
-					{{ t('hermiq', 'Allow plain http:// (an explicit opt-in — https:// is required by default)') }}
+				<NcCheckboxRadioSwitch
+					v-model="form.allowInsecureHttp"
+					type="switch">
+					{{
+						t(
+							'hermiq',
+							'Allow plain http:// (an explicit opt-in — https:// is required by default)',
+						)
+					}}
 				</NcCheckboxRadioSwitch>
 				<NcTextField
 					v-model="maxResponseBytesText"
@@ -111,10 +151,21 @@
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcModal, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcLoadingIcon,
+	NcModal,
+	NcSelect,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
 import { generateUrl } from '@nextcloud/router'
 import axios from '@nextcloud/axios'
-import { getWebResearchSettings, patchWebResearchSettings } from '../api/webResearch.js'
+import {
+	getWebResearchSettings,
+	patchWebResearchSettings,
+} from '../api/webResearch.js'
 
 export default {
 	name: 'WebResearchSettingsModal',
@@ -157,9 +208,15 @@ export default {
 			maxResponseBytesText: '500000',
 			timeoutSecondsText: '10',
 			providerOptions: [
-				{ value: '', label: this.t('hermiq', 'None (web.search reports unavailable)') },
+				{
+					value: '',
+					label: this.t('hermiq', 'None (web.search reports unavailable)'),
+				},
 				{ value: 'searxng', label: 'SearXNG (self-hosted)' },
-				{ value: 'generic-json', label: this.t('hermiq', 'Generic JSON search API') },
+				{
+					value: 'generic-json',
+					label: this.t('hermiq', 'Generic JSON search API'),
+				},
 			],
 			form: {
 				searchEndpoint: '',
@@ -193,7 +250,10 @@ export default {
 		 * @spec exclude Trivial computed display helper; no behavioural spec.
 		 */
 		credentialOptions() {
-			return this.credentials.map((c) => ({ label: c.name || c.id, value: c.id }))
+			return this.credentials.map((c) => ({
+				label: c.name || c.id,
+				value: c.id,
+			}))
 		},
 	},
 
@@ -244,17 +304,32 @@ export default {
 				this.form.searchEndpoint = config.searchEndpoint || ''
 				this.form.allowInsecureHttp = config.allowInsecureHttp === true
 				this.form.searchFieldMapping = {
-					resultsPath: (config.searchFieldMapping && config.searchFieldMapping.resultsPath) || 'results',
-					titleField: (config.searchFieldMapping && config.searchFieldMapping.titleField) || 'title',
-					urlField: (config.searchFieldMapping && config.searchFieldMapping.urlField) || 'url',
-					snippetField: (config.searchFieldMapping && config.searchFieldMapping.snippetField) || 'content',
+					resultsPath:
+						(config.searchFieldMapping
+							&& config.searchFieldMapping.resultsPath)
+						|| 'results',
+					titleField:
+						(config.searchFieldMapping
+							&& config.searchFieldMapping.titleField)
+						|| 'title',
+					urlField:
+						(config.searchFieldMapping
+							&& config.searchFieldMapping.urlField)
+						|| 'url',
+					snippetField:
+						(config.searchFieldMapping
+							&& config.searchFieldMapping.snippetField)
+						|| 'content',
 				}
 				this.allowlistText = (config.fetchAllowlist || []).join('\n')
 				this.denylistText = (config.fetchDenylist || []).join('\n')
 				this.maxResponseBytesText = String(config.maxResponseBytes || 500000)
 				this.timeoutSecondsText = String(config.timeoutSeconds || 10)
 
-				this.selectedProvider = this.providerOptions.find((option) => option.value === (config.searchProvider || '')) || this.providerOptions[0]
+				this.selectedProvider =
+					this.providerOptions.find(
+						(option) => option.value === (config.searchProvider || ''),
+					) || this.providerOptions[0]
 
 				if (config.searchCredentialConfigured === true) {
 					// The raw id is never returned — only a "configured" flag. The picker
@@ -264,7 +339,10 @@ export default {
 					this.searchCredential = null
 				}
 			} catch (e) {
-				this.error = this.t('hermiq', 'Could not load the current web-research configuration.')
+				this.error = this.t(
+					'hermiq',
+					'Could not load the current web-research configuration.',
+				)
 			} finally {
 				this.loading = false
 			}
@@ -278,7 +356,9 @@ export default {
 		async fetchCredentials() {
 			this.loadingCredentials = true
 			try {
-				const { data } = await axios.get(generateUrl('/apps/openregister/api/credentials'))
+				const { data } = await axios.get(
+					generateUrl('/apps/openregister/api/credentials'),
+				)
 				this.credentials = data.results || []
 			} catch (e) {
 				this.credentials = []
@@ -296,7 +376,10 @@ export default {
 		 * @spec exclude Trivial text-to-list parsing helper; no behavioural spec.
 		 */
 		parseHostList(text) {
-			return text.split('\n').map((line) => line.trim()).filter((line) => line !== '')
+			return text
+				.split('\n')
+				.map((line) => line.trim())
+				.filter((line) => line !== '')
 		},
 
 		/**
@@ -331,7 +414,10 @@ export default {
 				this.$emit('saved', payload.searchProvider)
 				this.$emit('close')
 			} catch (e) {
-				this.error = this.t('hermiq', 'Could not save the web-research configuration.')
+				this.error = this.t(
+					'hermiq',
+					'Could not save the web-research configuration.',
+				)
 			} finally {
 				this.saving = false
 			}

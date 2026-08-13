@@ -23,7 +23,12 @@
 				button.
 			-->
 			<NcNoteCard type="info">
-				{{ t('hermiq', 'Optional: a flow that walks an object can be given one to run against — its state seeds the run and object-write steps write back onto it. A flow that fetches its own work, like a sync or a mailbox summary, needs none.') }}
+				{{
+					t(
+						'hermiq',
+						'Optional: a flow that walks an object can be given one to run against — its state seeds the run and object-write steps write back onto it. A flow that fetches its own work, like a sync or a mailbox summary, needs none.',
+					)
+				}}
 			</NcNoteCard>
 
 			<CnRegisterSchemaSelect
@@ -44,15 +49,22 @@
 			<NcTextField
 				:model-value="subjectUuid"
 				:label="t('hermiq', 'Subject object UUID')"
-				:placeholder="t('hermiq', 'Pick above, paste a UUID, or leave empty')"
+				:placeholder="
+					t('hermiq', 'Pick above, paste a UUID, or leave empty')
+				"
 				@update:model-value="subjectUuid = $event" />
 
 			<!-- Says which of the two runs is about to happen, so "Run" with an
 			     empty form is a deliberate choice rather than a hope. -->
 			<p class="run-flow-dialog__hint">
-				{{ subjectUuid === ''
-					? t('hermiq', 'Running with no object. The flow must fetch its own work.')
-					: t('hermiq', 'Running against the object above.') }}
+				{{
+					subjectUuid === ''
+						? t(
+								'hermiq',
+								'Running with no object. The flow must fetch its own work.',
+							)
+						: t('hermiq', 'Running against the object above.')
+				}}
 			</p>
 
 			<NcNoteCard v-if="error" type="error">
@@ -76,7 +88,14 @@
 </template>
 
 <script>
-import { NcButton, NcDialog, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcDialog,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+	NcTextField,
+} from '@nextcloud/vue'
 import { CnRegisterSchemaSelect } from '@conduction/nextcloud-vue'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
@@ -205,17 +224,22 @@ export default {
 
 			this.loadingCandidates = true
 			try {
-				const url = generateUrl('/apps/openregister/api/objects/{register}/{schema}', {
-					register: this.subjectRegister,
-					schema: this.subjectSchema,
-				})
+				const url = generateUrl(
+					'/apps/openregister/api/objects/{register}/{schema}',
+					{
+						register: this.subjectRegister,
+						schema: this.subjectSchema,
+					},
+				)
 				// `_limit` (underscored) — plain `limit` is treated as a property filter.
 				const response = await axios.get(`${url}?_limit=20`)
 				const rows = response?.data?.results || []
-				this.candidates = rows.map((row) => ({
-					id: row['@self']?.id || row.id,
-					label: row.name || row.title || row['@self']?.id || row.id,
-				})).filter((row) => row.id)
+				this.candidates = rows
+					.map((row) => ({
+						id: row['@self']?.id || row.id,
+						label: row.name || row.title || row['@self']?.id || row.id,
+					}))
+					.filter((row) => row.id)
 			} catch (e) {
 				this.candidates = []
 			} finally {
@@ -249,7 +273,10 @@ export default {
 				})
 				this.$emit('ran', result)
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'The flow run failed.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'The flow run failed.')
 			} finally {
 				this.running = false
 			}

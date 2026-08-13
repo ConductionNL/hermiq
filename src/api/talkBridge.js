@@ -18,7 +18,9 @@ import { generateUrl } from '@nextcloud/router'
  * @return {Promise<object>} `{ talkAvailable, botUrl, botInstalled, groupingEnabled, handOffPath, rooms }`.
  */
 export async function getTalkBridgeStatus() {
-	const { data } = await axios.get(generateUrl('/apps/hermiq/api/settings/talk-bridge'))
+	const { data } = await axios.get(
+		generateUrl('/apps/hermiq/api/settings/talk-bridge'),
+	)
 	return data
 }
 
