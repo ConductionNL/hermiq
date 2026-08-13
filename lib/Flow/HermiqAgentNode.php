@@ -135,7 +135,7 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 	 *
 	 * @return array<int, array{label: string, href: string}> The links.
 	 *
-	 * @spec openspec/specs/flow-engine/spec.md#requirement-a-node-type-declares-its-own-form-and-its-own-run-log-actions
+	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function logActions(array $entry): array {
 		$items = (array)($entry['output']['items'] ?? []);

@@ -228,7 +228,7 @@ class ScheduleService {
 	 *
 	 * @return string The conversation uuid, or '' when there is none.
 	 *
-	 * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+	 * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
 	 */
 	public function lastRunConversationUuid(): string {
 		return $this->lastRunConversationUuid;

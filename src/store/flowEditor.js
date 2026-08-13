@@ -908,7 +908,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {string} uuid The run uuid.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		async openRunLog(uuid) {
 			this.logModalRunId = uuid
@@ -929,7 +929,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {string} nodeId The node whose payload to show.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		async openStepPayload(nodeId) {
 			if (!nodeId) {
