@@ -106,6 +106,42 @@ COPY src/ ./src/
 # opts INTO the hardening the docs point at, which is why it went unnoticed.
 COPY deploy/ ./deploy/
 
+# --- hydra's gate package -------------------------------------------------------
+# The image already carries jq, php and composer BECAUSE a stage runs
+# `scripts/run-hydra-gates.sh` — and that script cannot run without the
+# `conduction/hydra-gates` package, which lived nowhere in this image.
+#
+# `resolve_hydra_gates()` searches four locations and the SECOND is
+# `/usr/local/lib/hydra-gates/hydra-gates`, commented in that script as the
+# "container image layout". This is that layout; until now the candidate
+# pointed at nothing.
+#
+# Measured 2026-08-12 on a live stage: the sequencer reached `run-stage`,
+# cloned the repo and the hydra tool tree, ran the command, and got
+#
+#     [hydra-gates] FATAL: the conduction/hydra-gates package could not be located.
+#     /stage finished exit=99
+#
+# 99 is that script's "the gates could not be run AT ALL" code, and it is
+# deliberately not a failure count — a missing package is a configuration
+# error and never degrades into a pass. So the whole pipeline worked and the
+# stage could not check anything.
+#
+# Fetched at BUILD time, not at run time: the runtime filesystem is read-only
+# and the workload command is allowlisted to `scripts/run-hydra-gates.sh`, so a
+# stage cannot fetch this for itself — correctly, since a workload that could
+# install its own gate runner could install any gate runner.
+ARG HYDRA_GATES_REF=main
+RUN git clone --depth 1 --branch "${HYDRA_GATES_REF}" \
+        https://github.com/ConductionNL/.github /tmp/conduction-github \
+    && mkdir -p /usr/local/lib/hydra-gates \
+    && cp -a /tmp/conduction-github/hydra-gates /usr/local/lib/hydra-gates/hydra-gates \
+    && rm -rf /tmp/conduction-github \
+    # A path that exists is not the same claim as "the gates are there" — the
+    # resolver only counts a candidate that carries the runner script, so the
+    # build fails here rather than shipping an image that exits 99 in production.
+    && test -f /usr/local/lib/hydra-gates/hydra-gates/scripts/run-hydra-gates.sh
+
 # Persistent-storage / scratch dir owned by the runtime user.
 RUN mkdir -p /app/scratch && chmod +x /app/deploy/*.sh && chown -R node:node /app
 
