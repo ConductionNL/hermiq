@@ -162,6 +162,10 @@ class RecordingObjectService extends ObjectService {
 		bool $_rbac = true,
 		bool $_multitenancy = true,
 		bool $silent = false,
+		// Added by openregister@8729969f7 (decline schema re-validation on save),
+		// 2026-08-13 00:07Z, INSERTED MID-SIGNATURE — appending it would not have
+		// matched. Second such break in 70 minutes; see #2211's note above.
+		bool $_validation = true,
 		?array $uploadedFiles = null,
 		?\OCP\IUser $currentUser = null,
 		// Added by openregister#2211 (insert-only saves). A double that does not
