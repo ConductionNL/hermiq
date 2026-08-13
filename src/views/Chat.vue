@@ -70,12 +70,15 @@
 				<NcLoadingIcon :size="28" />
 			</div>
 
-			<NcNoteCard
-				v-else-if="visibleConversations.length === 0"
-				type="info">
-				{{ showArchive
-					? t('hermiq', 'No archived conversations.')
-					: t('hermiq', 'No conversations yet. Start one to chat with an agent.') }}
+			<NcNoteCard v-else-if="visibleConversations.length === 0" type="info">
+				{{
+					showArchive
+						? t('hermiq', 'No archived conversations.')
+						: t(
+								'hermiq',
+								'No conversations yet. Start one to chat with an agent.',
+							)
+				}}
 			</NcNoteCard>
 
 			<div v-else class="chat-page__rows">
@@ -91,8 +94,12 @@
 						tabindex="0"
 						@click="selectConversation(conversation)"
 						@keydown.enter="selectConversation(conversation)">
-						<strong>{{ conversation.title || t('hermiq', 'New conversation') }}</strong>
-						<span class="chat-page__row-date">{{ formatTime(conversation.updated) }}</span>
+						<strong>{{
+							conversation.title || t('hermiq', 'New conversation')
+						}}</strong>
+						<span class="chat-page__row-date">{{
+							formatTime(conversation.updated)
+						}}</span>
 					</div>
 					<div class="chat-page__row-actions">
 						<template v-if="!showArchive">
@@ -161,7 +168,14 @@
 					<MessageText :size="56" />
 				</div>
 				<h3>{{ t('hermiq', 'Start a conversation') }}</h3>
-				<p>{{ t('hermiq', 'Select an agent to begin chatting with your data.') }}</p>
+				<p>
+					{{
+						t(
+							'hermiq',
+							'Select an agent to begin chatting with your data.',
+						)
+					}}
+				</p>
 				<AgentSelector
 					:agents="agents"
 					:loading="agentsLoading"
@@ -173,7 +187,9 @@
 			<!-- Thread -->
 			<template v-else>
 				<div ref="messagesContainer" class="chat-page__messages">
-					<div v-if="messagesLoading && messages.length === 0" class="chat-page__messages-state">
+					<div
+						v-if="messagesLoading && messages.length === 0"
+						class="chat-page__messages-state">
 						<NcLoadingIcon :size="28" />
 						<p>{{ t('hermiq', 'Loading conversation…') }}</p>
 					</div>
@@ -184,7 +200,8 @@
 						class="chat-page__message"
 						:class="`chat-page__message--${message.role}`">
 						<div class="chat-page__avatar">
-							<NcAvatar v-if="message.role === 'user'"
+							<NcAvatar
+								v-if="message.role === 'user'"
 								:user="currentUserId"
 								:display-name="currentUserName"
 								:size="30"
@@ -195,16 +212,26 @@
 						<div class="chat-page__bubble">
 							<div class="chat-page__bubble-head">
 								<span class="chat-page__sender">
-									{{ message.role === 'user' ? t('hermiq', 'You') : agentName }}
+									{{
+										message.role === 'user'
+											? t('hermiq', 'You')
+											: agentName
+									}}
 								</span>
-								<span class="chat-page__time">{{ formatTime(message.created) }}</span>
+								<span class="chat-page__time">{{
+									formatTime(message.created)
+								}}</span>
 							</div>
 							<!-- Assistant markdown is sanitised via DOMPurify with the shared safe config. -->
 							<!-- eslint-disable-next-line vue/no-v-html -->
-							<div class="chat-page__text" v-html="renderMarkdown(message.content)" />
+							<div
+								class="chat-page__text"
+								v-html="renderMarkdown(message.content)" />
 
 							<!-- RAG sources -->
-							<div v-if="message.sources && message.sources.length > 0" class="chat-page__sources">
+							<div
+								v-if="message.sources && message.sources.length > 0"
+								class="chat-page__sources">
 								<div class="chat-page__sources-head">
 									<FileDocumentOutline :size="16" />
 									<span>{{ t('hermiq', 'Sources') }}</span>
@@ -213,21 +240,35 @@
 									v-for="(source, sourceIndex) in message.sources"
 									:key="sourceIndex"
 									class="chat-page__source">
-									<FileDocument v-if="source.type === 'file'" :size="16" />
+									<FileDocument
+										v-if="source.type === 'file'"
+										:size="16" />
 									<CubeOutline v-else :size="16" />
-									<span class="chat-page__source-name">{{ source.name || source.id }}</span>
-									<span v-if="source.similarity" class="chat-page__source-match">
+									<span class="chat-page__source-name">{{
+										source.name || source.id
+									}}</span>
+									<span
+										v-if="source.similarity"
+										class="chat-page__source-match">
 										{{ Math.round(source.similarity * 100) }}%
 									</span>
 								</div>
 							</div>
 
 							<!-- Feedback (assistant messages with a persisted id) -->
-							<div v-if="message.role === 'assistant' && (message.uuid || message.id)" class="chat-page__feedback">
+							<div
+								v-if="
+									message.role === 'assistant'
+									&& (message.uuid || message.id)
+								"
+								class="chat-page__feedback">
 								<NcButton
 									type="tertiary"
 									:aria-label="t('hermiq', 'Helpful')"
-									:class="{ 'chat-page__feedback--active-positive': message.feedback === 'positive' }"
+									:class="{
+										'chat-page__feedback--active-positive':
+											message.feedback === 'positive',
+									}"
 									@click="sendFeedback(message, 'positive')">
 									<template #icon>
 										<ThumbUp :size="16" />
@@ -236,7 +277,10 @@
 								<NcButton
 									type="tertiary"
 									:aria-label="t('hermiq', 'Not helpful')"
-									:class="{ 'chat-page__feedback--active-negative': message.feedback === 'negative' }"
+									:class="{
+										'chat-page__feedback--active-negative':
+											message.feedback === 'negative',
+									}"
 									@click="sendFeedback(message, 'negative')">
 									<template #icon>
 										<ThumbDown :size="16" />
@@ -254,7 +298,9 @@
 									</template>
 								</NcButton>
 							</div>
-							<div v-if="message.showFeedbackInput" class="chat-page__feedback-comment">
+							<div
+								v-if="message.showFeedbackInput"
+								class="chat-page__feedback-comment">
 								<!-- `aria-label`, not the placeholder alone: a placeholder is
 								     not an accessible name. It disappears the moment the user
 								     types, so anyone relying on a screen reader loses the only
@@ -264,11 +310,21 @@
 									class="chat-page__feedback-input"
 									rows="2"
 									:aria-label="t('hermiq', 'Feedback details')"
-									:placeholder="t('hermiq', 'Optionally add details to your feedback…')"
-									@input="message.feedbackComment = $event.target.value" />
+									:placeholder="
+										t(
+											'hermiq',
+											'Optionally add details to your feedback…',
+										)
+									"
+									@input="
+										message.feedbackComment = $event.target.value
+									" />
 								<NcButton
 									type="secondary"
-									:disabled="!message.feedbackComment || !message.feedbackComment.trim()"
+									:disabled="
+										!message.feedbackComment
+										|| !message.feedbackComment.trim()
+									"
 									@click="saveFeedbackComment(message)">
 									{{ t('hermiq', 'Send feedback') }}
 								</NcButton>
@@ -277,27 +333,42 @@
 					</div>
 
 					<!-- Live streaming bubble -->
-					<div v-if="isStreaming" class="chat-page__message chat-page__message--assistant">
+					<div
+						v-if="isStreaming"
+						class="chat-page__message chat-page__message--assistant">
 						<div class="chat-page__avatar">
 							<Creation :size="30" />
 						</div>
 						<div class="chat-page__bubble">
 							<div class="chat-page__bubble-head">
-								<span class="chat-page__sender">{{ agentName }}</span>
+								<span class="chat-page__sender">{{
+									agentName
+								}}</span>
 							</div>
-							<div v-if="streamingTools.length > 0" class="chat-page__stream-tools">
+							<div
+								v-if="streamingTools.length > 0"
+								class="chat-page__stream-tools">
 								<span
 									v-for="(tool, toolIndex) in streamingTools"
 									:key="toolIndex"
 									class="chat-page__stream-tool">
-									{{ tool.done
-										? t('hermiq', 'Used tool: {tool}', { tool: tool.toolId })
-										: t('hermiq', 'Using tool: {tool}…', { tool: tool.toolId }) }}
+									{{
+										tool.done
+											? t('hermiq', 'Used tool: {tool}', {
+													tool: tool.toolId,
+												})
+											: t('hermiq', 'Using tool: {tool}…', {
+													tool: tool.toolId,
+												})
+									}}
 								</span>
 							</div>
 							<!-- Streamed markdown is sanitised via DOMPurify with the shared safe config. -->
 							<!-- eslint-disable-next-line vue/no-v-html -->
-							<div v-if="streamingText" class="chat-page__text" v-html="renderMarkdown(streamingText)" />
+							<div
+								v-if="streamingText"
+								class="chat-page__text"
+								v-html="renderMarkdown(streamingText)" />
 							<div v-else class="chat-page__typing">
 								<span /><span /><span />
 							</div>
@@ -335,7 +406,12 @@
 						</NcButton>
 					</div>
 					<p class="chat-page__composer-hint">
-						{{ t('hermiq', 'Press Enter to send, Shift+Enter for a new line') }}
+						{{
+							t(
+								'hermiq',
+								'Press Enter to send, Shift+Enter for a new line',
+							)
+						}}
 					</p>
 				</div>
 			</template>
@@ -373,7 +449,13 @@
 </template>
 
 <script>
-import { NcAvatar, NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import {
+	NcAvatar,
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcLoadingIcon,
+	NcNoteCard,
+} from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
 import { getCurrentUser } from '@nextcloud/auth'
@@ -523,9 +605,11 @@ export default {
 		 * @return {string} Agent name, conversation title, or the page name.
 		 */
 		headerTitle() {
-			return this.currentAgent?.name
+			return (
+				this.currentAgent?.name
 				|| this.activeConversation?.title
 				|| this.t('hermiq', 'Chat')
+			)
 		},
 
 		/**
@@ -543,8 +627,12 @@ export default {
 		 * @return {Array<object>} The view descriptors.
 		 */
 		availableViews() {
-			const raw = Array.isArray(this.currentAgent?.views) ? this.currentAgent.views : []
-			return raw.map((view) => (typeof view === 'string' ? { uuid: view, name: view } : view))
+			const raw = Array.isArray(this.currentAgent?.views)
+				? this.currentAgent.views
+				: []
+			return raw.map((view) =>
+				typeof view === 'string' ? { uuid: view, name: view } : view,
+			)
 		},
 
 		/**
@@ -553,11 +641,18 @@ export default {
 		 * @return {Array<object>} The tool descriptors.
 		 */
 		availableTools() {
-			const raw = Array.isArray(this.currentAgent?.tools) ? this.currentAgent.tools : []
+			const raw = Array.isArray(this.currentAgent?.tools)
+				? this.currentAgent.tools
+				: []
 			return raw.map((tool) => {
 				if (typeof tool === 'string') {
-					const label = tool.replace(/^[a-z0-9_-]+\./i, '').replace(/_/g, ' ')
-					return { uuid: tool, name: label.charAt(0).toUpperCase() + label.slice(1) }
+					const label = tool
+						.replace(/^[a-z0-9_-]+\./i, '')
+						.replace(/_/g, ' ')
+					return {
+						uuid: tool,
+						name: label.charAt(0).toUpperCase() + label.slice(1),
+					}
 				}
 				return tool
 			})
@@ -572,12 +667,14 @@ export default {
 		 */
 		settingsCustomised() {
 			const defaults = this.defaultSettingsFor(this.currentAgent)
-			return this.settings.views.length !== defaults.views.length
+			return (
+				this.settings.views.length !== defaults.views.length
 				|| this.settings.tools.length !== defaults.tools.length
 				|| this.settings.includeObjects !== defaults.includeObjects
 				|| this.settings.includeFiles !== defaults.includeFiles
 				|| this.settings.numSourcesObjects !== defaults.numSourcesObjects
 				|| this.settings.numSourcesFiles !== defaults.numSourcesFiles
+			)
 		},
 	},
 
@@ -631,8 +728,12 @@ export default {
 			const views = Array.isArray(agent.views) ? agent.views : []
 			const tools = Array.isArray(agent.tools) ? agent.tools : []
 			return {
-				views: views.map((view) => (typeof view === 'string' ? view : view.uuid)),
-				tools: tools.map((tool) => (typeof tool === 'string' ? tool : tool.uuid)),
+				views: views.map((view) =>
+					typeof view === 'string' ? view : view.uuid,
+				),
+				tools: tools.map((tool) =>
+					typeof tool === 'string' ? tool : tool.uuid,
+				),
 				includeObjects: agent.searchObjects ?? true,
 				includeFiles: agent.searchFiles ?? true,
 				numSourcesObjects: agent.ragNumSources ?? 5,
@@ -675,7 +776,8 @@ export default {
 			const agents = await this.agentStore.fetchCollection('agent')
 			this.agents = Array.isArray(agents) ? agents : []
 			if (this.agentStore.errors?.agent) {
-				this.agentsError = this.agentStore.errors.agent.message
+				this.agentsError =
+					this.agentStore.errors.agent.message
 					|| this.t('hermiq', 'Could not load agents.')
 			}
 			this.agentsLoading = false
@@ -695,7 +797,9 @@ export default {
 					const { results } = await listConversations({ archived: true })
 					this.archivedConversations = results
 				} catch (e) {
-					showError(this.t('hermiq', 'Could not load archived conversations.'))
+					showError(
+						this.t('hermiq', 'Could not load archived conversations.'),
+					)
 				} finally {
 					this.conversationsLoading = false
 				}
@@ -763,7 +867,10 @@ export default {
 			if (!conversation.agentId) {
 				return
 			}
-			const agent = await this.agentStore.fetchObject('agent', conversation.agentId)
+			const agent = await this.agentStore.fetchObject(
+				'agent',
+				conversation.agentId,
+			)
 			this.currentAgent = agent || null
 		},
 
@@ -783,7 +890,11 @@ export default {
 				this.messages = []
 				this.settings = this.defaultSettingsFor(agent)
 				await this.loadConversations(true)
-				showSuccess(this.t('hermiq', 'Conversation started with {agent}', { agent: agent.name || agentUuid }))
+				showSuccess(
+					this.t('hermiq', 'Conversation started with {agent}', {
+						agent: agent.name || agentUuid,
+					}),
+				)
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not start the conversation.'))
 			} finally {
@@ -824,7 +935,8 @@ export default {
 					await this.sendViaStream(text, uuid)
 				}
 			} catch (e) {
-				this.sendError = e?.response?.data?.message
+				this.sendError =
+					e?.response?.data?.message
 					|| e?.message
 					|| this.t('hermiq', 'Failed to get a response.')
 			} finally {
@@ -861,11 +973,15 @@ export default {
 							this.scrollToBottom()
 						},
 						onToolCall: (payload) => {
-							this.streamingTools.push({ toolId: payload.toolId || this.t('hermiq', 'tool'), done: false })
+							this.streamingTools.push({
+								toolId: payload.toolId || this.t('hermiq', 'tool'),
+								done: false,
+							})
 						},
 						onToolResult: (payload) => {
 							const entry = this.streamingTools.find(
-								(tool) => tool.toolId === payload.toolId && !tool.done,
+								(tool) =>
+									tool.toolId === payload.toolId && !tool.done,
 							)
 							if (entry) {
 								entry.done = true
@@ -945,7 +1061,11 @@ export default {
 				return
 			}
 			try {
-				await sendMessageFeedback(this.activeConversation.uuid, message.uuid || message.id, { type })
+				await sendMessageFeedback(
+					this.activeConversation.uuid,
+					message.uuid || message.id,
+					{ type },
+				)
 				showSuccess(this.t('hermiq', 'Feedback recorded'))
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not record feedback.'))
@@ -965,10 +1085,14 @@ export default {
 				return
 			}
 			try {
-				await sendMessageFeedback(this.activeConversation.uuid, message.uuid || message.id, {
-					type: message.feedback,
-					comment: message.feedbackComment.trim(),
-				})
+				await sendMessageFeedback(
+					this.activeConversation.uuid,
+					message.uuid || message.id,
+					{
+						type: message.feedback,
+						comment: message.feedbackComment.trim(),
+					},
+				)
 				message.showFeedbackInput = false
 				showSuccess(this.t('hermiq', 'Thanks for the additional feedback!'))
 			} catch (e) {
@@ -999,7 +1123,12 @@ export default {
 		 * @return {void}
 		 */
 		onSkillSaved() {
-			showSuccess(this.t('hermiq', 'Skill saved for review. Approve it in the Skills catalog before it can be used.'))
+			showSuccess(
+				this.t(
+					'hermiq',
+					'Skill saved for review. Approve it in the Skills catalog before it can be used.',
+				),
+			)
 		},
 
 		/**
@@ -1030,8 +1159,9 @@ export default {
 		async restore(conversation) {
 			try {
 				await restoreConversation(conversation.uuid)
-				this.archivedConversations = this.archivedConversations
-					.filter((entry) => entry.uuid !== conversation.uuid)
+				this.archivedConversations = this.archivedConversations.filter(
+					(entry) => entry.uuid !== conversation.uuid,
+				)
 				await this.loadConversations(true)
 				showSuccess(this.t('hermiq', 'Conversation restored'))
 			} catch (e) {
@@ -1057,8 +1187,9 @@ export default {
 		 * @return {void}
 		 */
 		onDeleted(conversation) {
-			this.archivedConversations = this.archivedConversations
-				.filter((entry) => entry.uuid !== conversation.uuid)
+			this.archivedConversations = this.archivedConversations.filter(
+				(entry) => entry.uuid !== conversation.uuid,
+			)
 			if (this.isActive(conversation)) {
 				this.newConversation()
 			}
@@ -1085,7 +1216,10 @@ export default {
 		 * @return {string} Sanitised HTML.
 		 */
 		renderMarkdown(content) {
-			return DOMPurify.sanitize(marked.parse(content || ''), SAFE_MARKDOWN_DOMPURIFY_CONFIG)
+			return DOMPurify.sanitize(
+				marked.parse(content || ''),
+				SAFE_MARKDOWN_DOMPURIFY_CONFIG,
+			)
 		},
 
 		/**
@@ -1107,7 +1241,10 @@ export default {
 				return this.t('hermiq', 'Just now')
 			}
 			if (diff < 86400000) {
-				return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+				return date.toLocaleTimeString([], {
+					hour: '2-digit',
+					minute: '2-digit',
+				})
 			}
 			return date.toLocaleDateString()
 		},
@@ -1216,7 +1353,10 @@ export default {
 }
 
 .chat-page__row--active:hover {
-	background-color: var(--color-primary-element-light-hover, var(--color-primary-element-light));
+	background-color: var(
+		--color-primary-element-light-hover,
+		var(--color-primary-element-light)
+	);
 }
 
 .chat-page__row-main {
@@ -1518,7 +1658,9 @@ export default {
 }
 
 @keyframes chat-page-bounce {
-	0%, 80%, 100% {
+	0%,
+	80%,
+	100% {
 		transform: scale(0);
 	}
 	40% {

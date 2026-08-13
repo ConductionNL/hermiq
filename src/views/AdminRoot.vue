@@ -40,9 +40,16 @@
 	<div class="hermiq-admin-settings">
 		<NcSettingsSection
 			:name="t('hermiq', 'AI provider')"
-			:description="t('hermiq', 'Choose which language-model provider Hermiq uses for background work (conversation titles, summaries). Streaming chat and embeddings always use the directly-configured provider — they cannot run through Nextcloud’s TaskProcessing.')">
+			:description="
+				t(
+					'hermiq',
+					'Choose which language-model provider Hermiq uses for background work (conversation titles, summaries). Streaming chat and embeddings always use the directly-configured provider — they cannot run through Nextcloud’s TaskProcessing.',
+				)
+			">
 			<div class="hermiq-admin-settings__provider">
-				<span class="hermiq-admin-settings__provider-label">{{ t('hermiq', 'Current provider') }}:</span>
+				<span class="hermiq-admin-settings__provider-label"
+					>{{ t('hermiq', 'Current provider') }}:</span
+				>
 				<strong>{{ currentProviderLabel }}</strong>
 			</div>
 			<NcButton type="primary" @click="showModal = true">
@@ -60,9 +67,16 @@
 
 		<NcSettingsSection
 			:name="t('hermiq', 'Web research')"
-			:description="t('hermiq', 'Configure the web-search backend and the web.fetch allowlist/denylist that hermiq.webSearch/hermiq.webFetch run behind.')">
+			:description="
+				t(
+					'hermiq',
+					'Configure the web-search backend and the web.fetch allowlist/denylist that hermiq.webSearch/hermiq.webFetch run behind.',
+				)
+			">
 			<div class="hermiq-admin-settings__provider">
-				<span class="hermiq-admin-settings__provider-label">{{ t('hermiq', 'Search backend') }}:</span>
+				<span class="hermiq-admin-settings__provider-label"
+					>{{ t('hermiq', 'Search backend') }}:</span
+				>
 				<strong>{{ currentSearchProviderLabel }}</strong>
 			</div>
 			<NcButton type="primary" @click="showWebResearchModal = true">
@@ -80,19 +94,34 @@
 
 		<NcSettingsSection
 			:name="t('hermiq', 'AI features')"
-			:description="t('hermiq', 'Review the EU AI Act risk classification of each AI feature and acknowledge it as DPO before it may be enabled instance-wide.')">
+			:description="
+				t(
+					'hermiq',
+					'Review the EU AI Act risk classification of each AI feature and acknowledge it as DPO before it may be enabled instance-wide.',
+				)
+			">
 			<AiFeatureRegister />
 		</NcSettingsSection>
 
 		<NcSettingsSection
 			:name="t('hermiq', 'Talk chat bridge')"
-			:description="t('hermiq', 'Let people converse with an agent from a Nextcloud Talk conversation, including the Talk mobile apps. A conversation only becomes active when a Talk moderator enables the Hermiq bot in it AND an opted-in agent is bound to it here.')">
+			:description="
+				t(
+					'hermiq',
+					'Let people converse with an agent from a Nextcloud Talk conversation, including the Talk mobile apps. A conversation only becomes active when a Talk moderator enables the Hermiq bot in it AND an opted-in agent is bound to it here.',
+				)
+			">
 			<TalkBridgeSettings />
 		</NcSettingsSection>
 
 		<NcSettingsSection
 			:name="t('hermiq', 'Organisation credentials')"
-			:description="t('hermiq', 'Manage organisation-wide broker credentials (e.g. GitHub) that any allowed Nextcloud app may use on behalf of your organisation. The secret is stored in Doriath — Nextcloud’s native credential vault — never in Hermiq itself.')">
+			:description="
+				t(
+					'hermiq',
+					'Manage organisation-wide broker credentials (e.g. GitHub) that any allowed Nextcloud app may use on behalf of your organisation. The secret is stored in Doriath — Nextcloud’s native credential vault — never in Hermiq itself.',
+				)
+			">
 			<CnCredentials
 				scope="organisation"
 				app-id="hermiq"

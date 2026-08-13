@@ -36,22 +36,22 @@
  * @copyright 2026 Conduction B.V.
  */
 
-'use strict';
+'use strict'
 
-const http = require('http');
-const net = require('net');
-const { URL } = require('url');
+const http = require('http')
+const net = require('net')
+const { URL } = require('url')
 
-const PORT = Number(process.env.PROXY_PORT || '3128');
+const PORT = Number(process.env.PROXY_PORT || '3128')
 
 // The PDP endpoint — Hermiq's governed egress decision point. Required: with no
 // PDP configured there is no policy to enforce, and a proxy with no policy that
 // still forwards traffic is an open relay. Fail at boot instead.
-const PDP_URL = process.env.EGRESS_PDP_URL || '';
+const PDP_URL = process.env.EGRESS_PDP_URL || ''
 
 // How long to wait for a verdict. A slow PDP denies (see DEFAULT DENY above) —
 // this bounds how long a caller waits to be told "no".
-const PDP_TIMEOUT_MS = Number(process.env.EGRESS_PDP_TIMEOUT_MS || '5000');
+const PDP_TIMEOUT_MS = Number(process.env.EGRESS_PDP_TIMEOUT_MS || '5000')
 
 /**
  * Ask the PDP whether this run may reach this host:port.
@@ -66,81 +66,86 @@ const PDP_TIMEOUT_MS = Number(process.env.EGRESS_PDP_TIMEOUT_MS || '5000');
  * @returns {Promise<{allowed: boolean, code: string, message: string}>} Verdict.
  */
 function askPdp(host, port, token) {
-    return new Promise((resolve) => {
-        const deny = (code, message) => resolve({ allowed: false, code, message });
+	return new Promise((resolve) => {
+		const deny = (code, message) => resolve({ allowed: false, code, message })
 
-        if (token === '') {
-            deny('no_run_token', 'no run token presented to the proxy');
-            return;
-        }
+		if (token === '') {
+			deny('no_run_token', 'no run token presented to the proxy')
+			return
+		}
 
-        let target;
-        try {
-            target = new URL(PDP_URL);
-        } catch (e) {
-            deny('pdp_misconfigured', 'the PDP URL is not a valid URL');
-            return;
-        }
+		let target
+		try {
+			target = new URL(PDP_URL)
+		} catch (e) {
+			deny('pdp_misconfigured', 'the PDP URL is not a valid URL')
+			return
+		}
 
-        const body = JSON.stringify({ host, port });
-        const transport = target.protocol === 'https:' ? require('https') : http;
+		const body = JSON.stringify({ host, port })
+		const transport = target.protocol === 'https:' ? require('https') : http
 
-        const req = transport.request(
-            {
-                protocol: target.protocol,
-                hostname: target.hostname,
-                port: target.port || (target.protocol === 'https:' ? 443 : 80),
-                path: target.pathname + target.search,
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(body),
-                    // The run token authenticates the run to Hermiq. Never logged.
-                    Authorization: `Bearer ${token}`,
-                    'OCS-APIRequest': 'true',
-                },
-                timeout: PDP_TIMEOUT_MS,
-            },
-            (res) => {
-                let raw = '';
-                res.setEncoding('utf8');
-                res.on('data', (c) => {
-                    // Bound the read: a hostile/broken PDP must not exhaust memory.
-                    if (raw.length < 64 * 1024) {
-                        raw += c;
-                    }
-                });
-                res.on('end', () => {
-                    if (res.statusCode !== 200) {
-                        deny('pdp_rejected', `the PDP answered ${res.statusCode}`);
-                        return;
-                    }
-                    let parsed;
-                    try {
-                        parsed = JSON.parse(raw);
-                    } catch (e) {
-                        deny('pdp_unparseable', 'the PDP answer was not JSON');
-                        return;
-                    }
-                    // STRICT: only a literal `true` permits. A truthy string, a
-                    // missing key or a differently-shaped answer is a denial.
-                    if (parsed.allowed === true) {
-                        resolve({ allowed: true, code: 'allowed', message: '' });
-                        return;
-                    }
-                    deny(String(parsed.code || 'denied'), String(parsed.message || 'denied by policy'));
-                });
-            }
-        );
+		const req = transport.request(
+			{
+				protocol: target.protocol,
+				hostname: target.hostname,
+				port: target.port || (target.protocol === 'https:' ? 443 : 80),
+				path: target.pathname + target.search,
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Content-Length': Buffer.byteLength(body),
+					// The run token authenticates the run to Hermiq. Never logged.
+					Authorization: `Bearer ${token}`,
+					'OCS-APIRequest': 'true',
+				},
+				timeout: PDP_TIMEOUT_MS,
+			},
+			(res) => {
+				let raw = ''
+				res.setEncoding('utf8')
+				res.on('data', (c) => {
+					// Bound the read: a hostile/broken PDP must not exhaust memory.
+					if (raw.length < 64 * 1024) {
+						raw += c
+					}
+				})
+				res.on('end', () => {
+					if (res.statusCode !== 200) {
+						deny('pdp_rejected', `the PDP answered ${res.statusCode}`)
+						return
+					}
+					let parsed
+					try {
+						parsed = JSON.parse(raw)
+					} catch (e) {
+						deny('pdp_unparseable', 'the PDP answer was not JSON')
+						return
+					}
+					// STRICT: only a literal `true` permits. A truthy string, a
+					// missing key or a differently-shaped answer is a denial.
+					if (parsed.allowed === true) {
+						resolve({ allowed: true, code: 'allowed', message: '' })
+						return
+					}
+					deny(
+						String(parsed.code || 'denied'),
+						String(parsed.message || 'denied by policy'),
+					)
+				})
+			},
+		)
 
-        req.on('timeout', () => {
-            req.destroy();
-            deny('pdp_timeout', 'the PDP did not answer in time');
-        });
-        req.on('error', () => deny('pdp_unreachable', 'the PDP could not be reached'));
-        req.write(body);
-        req.end();
-    });
+		req.on('timeout', () => {
+			req.destroy()
+			deny('pdp_timeout', 'the PDP did not answer in time')
+		})
+		req.on('error', () =>
+			deny('pdp_unreachable', 'the PDP could not be reached'),
+		)
+		req.write(body)
+		req.end()
+	})
 }
 
 /**
@@ -152,20 +157,20 @@ function askPdp(host, port, token) {
  * @returns {string} The token, or '' when absent/malformed.
  */
 function tokenFromProxyAuth(headers) {
-    const raw = headers['proxy-authorization'] || '';
-    const m = /^Basic\s+(.+)$/i.exec(raw);
-    if (m === null) {
-        return '';
-    }
-    let decoded;
-    try {
-        decoded = Buffer.from(m[1], 'base64').toString('utf8');
-    } catch (e) {
-        return '';
-    }
-    // `run:<token>` — split on the FIRST colon; a token may contain colons.
-    const i = decoded.indexOf(':');
-    return i === -1 ? '' : decoded.slice(i + 1);
+	const raw = headers['proxy-authorization'] || ''
+	const m = /^Basic\s+(.+)$/i.exec(raw)
+	if (m === null) {
+		return ''
+	}
+	let decoded
+	try {
+		decoded = Buffer.from(m[1], 'base64').toString('utf8')
+	} catch (e) {
+		return ''
+	}
+	// `run:<token>` — split on the FIRST colon; a token may contain colons.
+	const i = decoded.indexOf(':')
+	return i === -1 ? '' : decoded.slice(i + 1)
 }
 
 /**
@@ -175,126 +180,135 @@ function tokenFromProxyAuth(headers) {
  * @returns {{host: string, port: number}|null} Parsed target, or null.
  */
 function parseTarget(target) {
-    const i = (target || '').lastIndexOf(':');
-    if (i <= 0) {
-        return null;
-    }
-    const host = target.slice(0, i);
-    const port = Number(target.slice(i + 1));
-    if (host === '' || Number.isInteger(port) === false || port <= 0 || port > 65535) {
-        return null;
-    }
-    return { host, port };
+	const i = (target || '').lastIndexOf(':')
+	if (i <= 0) {
+		return null
+	}
+	const host = target.slice(0, i)
+	const port = Number(target.slice(i + 1))
+	if (
+		host === ''
+		|| Number.isInteger(port) === false
+		|| port <= 0
+		|| port > 65535
+	) {
+		return null
+	}
+	return { host, port }
 }
 
 const server = http.createServer((req, res) => {
-    // Plain HTTP proxying is not served — only CONNECT. Anything else is a 405.
-    res.writeHead(405, { 'Content-Type': 'text/plain' });
-    res.end('this proxy serves CONNECT only\n');
-});
+	// Plain HTTP proxying is not served — only CONNECT. Anything else is a 405.
+	res.writeHead(405, { 'Content-Type': 'text/plain' })
+	res.end('this proxy serves CONNECT only\n')
+})
 
 server.on('connect', async (req, clientSocket, head) => {
-    const refuse = (code, reason) => {
-        // eslint-disable-next-line no-console
-        console.log(`[hermiq-egress-proxy] DENY ${req.url} (${code})`);
-        clientSocket.write(`HTTP/1.1 403 Forbidden\r\nX-Egress-Deny-Code: ${code}\r\n\r\n${reason}\n`);
-        clientSocket.destroy();
-    };
+	const refuse = (code, reason) => {
+		// eslint-disable-next-line no-console
+		console.log(`[hermiq-egress-proxy] DENY ${req.url} (${code})`)
+		clientSocket.write(
+			`HTTP/1.1 403 Forbidden\r\nX-Egress-Deny-Code: ${code}\r\n\r\n${reason}\n`,
+		)
+		clientSocket.destroy()
+	}
 
-    /**
-     * Answer 407 with a Basic challenge, and open nothing.
-     *
-     * ⚠️ THIS IS WHY GIT COULD NOT GET OUT, AND IT WAS INVISIBLE.
-     *
-     * `HTTPS_PROXY=http://run:<token>@proxy:3128` does NOT make every client
-     * present the credential. curl's CLI defaults to Basic and sends it
-     * PREEMPTIVELY; git sets libcurl's proxy auth to `CURLAUTH_ANY`, which waits
-     * for a 407 challenge before sending anything. Answering 403 to an
-     * unauthenticated CONNECT means git never learns there is a credential to
-     * offer, so it never offers the one it already holds.
-     *
-     * Measured 2026-08-02 inside the jailed container, same proxy, same URL:
-     *
-     *   curl --proxy http://run:tok@proxy:3128 https://github.com/
-     *       => Proxy-Authorization sent  => 200 Connection Established
-     *   git  HTTPS_PROXY=http://run:tok@proxy:3128 ls-remote https://github.com/…
-     *       => NO Proxy-Authorization    => 403, `no_run_token`, every time
-     *
-     * The proxy's own test suite could not see it: its client sets the header
-     * explicitly, so it exercised the authenticated path exclusively. A control
-     * that blocks the one workload it exists to govern is the jail's failure
-     * repeated in a different layer.
-     *
-     * A 407 opens no tunnel and is still a refusal, so default-deny is intact.
-     * It is used ONLY when no credential was presented at all — a token that IS
-     * presented and refused by policy stays a 403, because retrying it cannot
-     * help and challenging for it again would loop.
-     *
-     * @param {string} code Refusal code, for the log and the header.
-     * @returns {void}
-     */
-    const challenge = (code) => {
-        // eslint-disable-next-line no-console
-        console.log(`[hermiq-egress-proxy] CHALLENGE ${req.url} (${code})`);
-        clientSocket.write(
-            'HTTP/1.1 407 Proxy Authentication Required\r\n'
-            + 'Proxy-Authenticate: Basic realm="hermiq-egress"\r\n'
-            + `X-Egress-Deny-Code: ${code}\r\n`
-            + 'Content-Length: 0\r\n'
-            + 'Connection: close\r\n\r\n'
-        );
-        clientSocket.destroy();
-    };
+	/**
+	 * Answer 407 with a Basic challenge, and open nothing.
+	 *
+	 * ⚠️ THIS IS WHY GIT COULD NOT GET OUT, AND IT WAS INVISIBLE.
+	 *
+	 * `HTTPS_PROXY=http://run:<token>@proxy:3128` does NOT make every client
+	 * present the credential. curl's CLI defaults to Basic and sends it
+	 * PREEMPTIVELY; git sets libcurl's proxy auth to `CURLAUTH_ANY`, which waits
+	 * for a 407 challenge before sending anything. Answering 403 to an
+	 * unauthenticated CONNECT means git never learns there is a credential to
+	 * offer, so it never offers the one it already holds.
+	 *
+	 * Measured 2026-08-02 inside the jailed container, same proxy, same URL:
+	 *
+	 *   curl --proxy http://run:tok@proxy:3128 https://github.com/
+	 *       => Proxy-Authorization sent  => 200 Connection Established
+	 *   git  HTTPS_PROXY=http://run:tok@proxy:3128 ls-remote https://github.com/…
+	 *       => NO Proxy-Authorization    => 403, `no_run_token`, every time
+	 *
+	 * The proxy's own test suite could not see it: its client sets the header
+	 * explicitly, so it exercised the authenticated path exclusively. A control
+	 * that blocks the one workload it exists to govern is the jail's failure
+	 * repeated in a different layer.
+	 *
+	 * A 407 opens no tunnel and is still a refusal, so default-deny is intact.
+	 * It is used ONLY when no credential was presented at all — a token that IS
+	 * presented and refused by policy stays a 403, because retrying it cannot
+	 * help and challenging for it again would loop.
+	 *
+	 * @param {string} code Refusal code, for the log and the header.
+	 * @returns {void}
+	 */
+	const challenge = (code) => {
+		// eslint-disable-next-line no-console
+		console.log(`[hermiq-egress-proxy] CHALLENGE ${req.url} (${code})`)
+		clientSocket.write(
+			'HTTP/1.1 407 Proxy Authentication Required\r\n'
+				+ 'Proxy-Authenticate: Basic realm="hermiq-egress"\r\n'
+				+ `X-Egress-Deny-Code: ${code}\r\n`
+				+ 'Content-Length: 0\r\n'
+				+ 'Connection: close\r\n\r\n',
+		)
+		clientSocket.destroy()
+	}
 
-    const target = parseTarget(req.url);
-    if (target === null) {
-        refuse('bad_target', 'malformed CONNECT target');
-        return;
-    }
+	const target = parseTarget(req.url)
+	if (target === null) {
+		refuse('bad_target', 'malformed CONNECT target')
+		return
+	}
 
-    const token = tokenFromProxyAuth(req.headers);
-    if (token === '') {
-        // No credential offered. Ask for one instead of refusing outright — see
-        // `challenge()`. The PDP is NOT consulted: there is no run to ask about.
-        challenge('no_run_token');
-        return;
-    }
+	const token = tokenFromProxyAuth(req.headers)
+	if (token === '') {
+		// No credential offered. Ask for one instead of refusing outright — see
+		// `challenge()`. The PDP is NOT consulted: there is no run to ask about.
+		challenge('no_run_token')
+		return
+	}
 
-    const verdict = await askPdp(target.host, target.port, token);
-    if (verdict.allowed !== true) {
-        refuse(verdict.code, verdict.message);
-        return;
-    }
+	const verdict = await askPdp(target.host, target.port, token)
+	if (verdict.allowed !== true) {
+		refuse(verdict.code, verdict.message)
+		return
+	}
 
-    const upstream = net.connect(target.port, target.host, () => {
-        clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-        if (head && head.length > 0) {
-            upstream.write(head);
-        }
-        upstream.pipe(clientSocket);
-        clientSocket.pipe(upstream);
-    });
+	const upstream = net.connect(target.port, target.host, () => {
+		clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+		if (head && head.length > 0) {
+			upstream.write(head)
+		}
+		upstream.pipe(clientSocket)
+		clientSocket.pipe(upstream)
+	})
 
-    upstream.on('error', () => {
-        clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n');
-        clientSocket.destroy();
-    });
-    clientSocket.on('error', () => upstream.destroy());
-    // eslint-disable-next-line no-console
-    console.log(`[hermiq-egress-proxy] ALLOW ${target.host}:${target.port}`);
-});
+	upstream.on('error', () => {
+		clientSocket.write('HTTP/1.1 502 Bad Gateway\r\n\r\n')
+		clientSocket.destroy()
+	})
+	clientSocket.on('error', () => upstream.destroy())
+	// eslint-disable-next-line no-console
+	console.log(`[hermiq-egress-proxy] ALLOW ${target.host}:${target.port}`)
+})
 
 if (require.main === module) {
-    if (PDP_URL === '') {
-        // eslint-disable-next-line no-console
-        console.error('[hermiq-egress-proxy] refusing to start: EGRESS_PDP_URL is not set — '
-            + 'a proxy with no policy decision point would be an open relay');
-        process.exit(1);
-    }
-    server.listen(PORT, () => {
-        // eslint-disable-next-line no-console
-        console.log(`[hermiq-egress-proxy] listening on ${PORT}, PDP=${PDP_URL}`);
-    });
+	if (PDP_URL === '') {
+		// eslint-disable-next-line no-console
+		console.error(
+			'[hermiq-egress-proxy] refusing to start: EGRESS_PDP_URL is not set — '
+				+ 'a proxy with no policy decision point would be an open relay',
+		)
+		process.exit(1)
+	}
+	server.listen(PORT, () => {
+		// eslint-disable-next-line no-console
+		console.log(`[hermiq-egress-proxy] listening on ${PORT}, PDP=${PDP_URL}`)
+	})
 }
 
-module.exports = { server, askPdp, tokenFromProxyAuth, parseTarget };
+module.exports = { server, askPdp, tokenFromProxyAuth, parseTarget }

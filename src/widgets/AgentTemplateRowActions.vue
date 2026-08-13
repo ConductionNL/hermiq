@@ -39,12 +39,41 @@
 			{{ publishNotice }}
 		</NcNoteCard>
 
-		<NcNoteCard v-if="instantiateNote" type="info" :heading="t('hermiq', 'Agent created')">
+		<NcNoteCard
+			v-if="instantiateNote"
+			type="info"
+			:heading="t('hermiq', 'Agent created')">
 			<p v-if="instantiateNote.modelCoerced">
-				{{ t('hermiq', 'The suggested model ({requested}) is outside your organisation\'s model policy. The agent was created with {resolved} instead.', { requested: instantiateNote.requestedProvider + '/' + instantiateNote.requestedModel, resolved: instantiateNote.resolvedProvider + '/' + instantiateNote.resolvedModel }) }}
+				{{
+					t(
+						'hermiq',
+						"The suggested model ({requested}) is outside your organisation's model policy. The agent was created with {resolved} instead.",
+						{
+							requested:
+								instantiateNote.requestedProvider
+								+ '/'
+								+ instantiateNote.requestedModel,
+							resolved:
+								instantiateNote.resolvedProvider
+								+ '/'
+								+ instantiateNote.resolvedModel,
+						},
+					)
+				}}
 			</p>
-			<p v-if="instantiateNote.unresolvedSkillRefs && instantiateNote.unresolvedSkillRefs.length > 0">
-				{{ n('hermiq', '%n suggested skill could not be found in your organisation and was skipped.', '%n suggested skills could not be found in your organisation and were skipped.', instantiateNote.unresolvedSkillRefs.length) }}
+			<p
+				v-if="
+					instantiateNote.unresolvedSkillRefs
+					&& instantiateNote.unresolvedSkillRefs.length > 0
+				">
+				{{
+					n(
+						'hermiq',
+						'%n suggested skill could not be found in your organisation and was skipped.',
+						'%n suggested skills could not be found in your organisation and were skipped.',
+						instantiateNote.unresolvedSkillRefs.length,
+					)
+				}}
 			</p>
 			<NcButton type="primary" @click="openInstantiatedAgent">
 				{{ t('hermiq', 'Open agent') }}
@@ -161,14 +190,20 @@ export default {
 			this.instantiateNote = null
 			try {
 				const result = await instantiateAgentTemplate(this.templateId())
-				const hasNote = result.modelCoerced || (result.unresolvedSkillRefs && result.unresolvedSkillRefs.length > 0)
+				const hasNote =
+					result.modelCoerced
+					|| (result.unresolvedSkillRefs
+						&& result.unresolvedSkillRefs.length > 0)
 				if (hasNote) {
 					this.instantiateNote = result
 				} else {
 					this.$router.push(`/agents/${result.agent?.uuid}`)
 				}
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -201,7 +236,10 @@ export default {
 				await approveAgentTemplate(this.templateId())
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -218,7 +256,10 @@ export default {
 				this.exportedPackage = await exportAgentTemplate(this.templateId())
 				this.showExport = true
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			}
 		},
 
@@ -245,7 +286,9 @@ export default {
 		 * @spec openspec/specs/agent-template-github-store/spec.md#requirement-the-system-must-let-a-template-owner-publish-it-to-a-new-tagged-github-repository
 		 */
 		onPublished(repoUrl) {
-			this.publishNotice = this.t('hermiq', 'Published to {repoUrl}', { repoUrl })
+			this.publishNotice = this.t('hermiq', 'Published to {repoUrl}', {
+				repoUrl,
+			})
 			this.showPublish = false
 			emit('cn:page:refresh', {})
 		},

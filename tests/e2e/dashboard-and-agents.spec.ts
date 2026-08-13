@@ -38,7 +38,7 @@ async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		// Already authenticated (redirected past the login form).
 		return
 	}
@@ -67,7 +67,11 @@ function collectConsoleErrors(page: Page): string[] {
 			return
 		}
 		const text = msg.text()
-		if (/favicon|manifest\.json|the server responded with a status of 404/i.test(text)) {
+		if (
+			/favicon|manifest\.json|the server responded with a status of 404/i.test(
+				text,
+			)
+		) {
 			return
 		}
 		// The chat-health probe answers a DESIGNED 503 ({"status":"no_provider"})
@@ -91,7 +95,8 @@ function collectConsoleErrors(page: Page): string[] {
 		// `console.error` from application code, e.g. a Vue warning) are kept —
 		// dropping them would silently gut what this test exists to catch.
 		const source = `${msg.location()?.url || ''} ${text}`
-		const foreignApp = source.match(/\/custom_apps\/([^/]+)\//)?.[1]
+		const foreignApp =
+			source.match(/\/custom_apps\/([^/]+)\//)?.[1]
 			|| source.match(/\/apps\/([^/]+)\/js\//)?.[1]
 		if (foreignApp !== undefined && foreignApp !== 'hermiq') {
 			return
@@ -115,14 +120,18 @@ async function dismissOnboarding(page: Page): Promise<void> {
 	// "subtree intercepts pointer events" rather than anything about the row.
 	// Poll until nothing is left to dismiss.
 	for (let attempt = 0; attempt < 6; attempt++) {
-		if (await modal.isVisible().catch(() => false) === false) {
+		if ((await modal.isVisible().catch(() => false)) === false) {
 			// One more beat, in case it is still on its way in.
 			await page.waitForTimeout(600)
-			if (await modal.isVisible().catch(() => false) === false) {
+			if ((await modal.isVisible().catch(() => false)) === false) {
 				break
 			}
 		}
-		await modal.first().getByRole('button', { name: 'Close' }).click({ timeout: 2_000 }).catch(() => {})
+		await modal
+			.first()
+			.getByRole('button', { name: 'Close' })
+			.click({ timeout: 2_000 })
+			.catch(() => {})
 		await page.keyboard.press('Escape').catch(() => {})
 		await page.waitForTimeout(700)
 	}
@@ -130,7 +139,10 @@ async function dismissOnboarding(page: Page): Promise<void> {
 	// The walkthrough is a popover, not a modal — it has its own Close.
 	const closers = page.getByRole('button', { name: 'Close' })
 	for (let i = 0, count = await closers.count(); i < count; i++) {
-		await closers.nth(i).click({ timeout: 2_000 }).catch(() => {})
+		await closers
+			.nth(i)
+			.click({ timeout: 2_000 })
+			.catch(() => {})
 	}
 
 	// Deliberately NOT asserted gone here: the setup wizard is re-opened by an
@@ -152,7 +164,10 @@ async function dismissOnboarding(page: Page): Promise<void> {
  * @param page   The Playwright page.
  * @param target The element to click.
  */
-async function clickPastOverlays(page: Page, target: ReturnType<Page['locator']>): Promise<void> {
+async function clickPastOverlays(
+	page: Page,
+	target: ReturnType<Page['locator']>,
+): Promise<void> {
 	let lastError: unknown = null
 	for (let attempt = 0; attempt < 5; attempt++) {
 		await dismissOnboarding(page)
@@ -167,14 +182,22 @@ async function clickPastOverlays(page: Page, target: ReturnType<Page['locator']>
 }
 
 test.describe('hermiq regression: dashboard + agents', () => {
-	test('logs in, opens the app, and renders the Agents view without console errors', async ({ page }) => {
+	test('logs in, opens the app, and renders the Agents view without console errors', async ({
+		page,
+	}) => {
 		const errors = collectConsoleErrors(page)
 
 		await login(page)
 
 		// The Hermiq app shell renders (its nav lists the Agents entry).
 		await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
-		await expect(page.locator('#app-content, .app-hermiq, [data-testid-page-id="Dashboard"]').first()).toBeVisible()
+		await expect(
+			page
+				.locator(
+					'#app-content, .app-hermiq, [data-testid-page-id="Dashboard"]',
+				)
+				.first(),
+		).toBeVisible()
 
 		// Navigate to the Agents view and assert its heading renders. The app uses Vue
 		// history mode (ADR-004), so the route is a real path, not a `#/` hash fragment.
@@ -188,10 +211,15 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		await expect(agentsPage).toContainText('Agent')
 
 		// No app-level console errors surfaced across the flow.
-		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
+		expect(
+			errors,
+			`Unexpected console errors: ${errors.join(' | ')}`,
+		).toHaveLength(0)
 	})
 
-	test('renders the Dashboard quota tiles matching a direct API call (dashboard-org-widgets)', async ({ page }) => {
+	test('renders the Dashboard quota tiles matching a direct API call (dashboard-org-widgets)', async ({
+		page,
+	}) => {
 		await login(page)
 
 		// The admin login used across this spec is an instance admin, so
@@ -217,8 +245,12 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		expect(response.ok()).toBeTruthy()
 		const quota = await response.json()
 
-		await expect(schedulesCard).toContainText(`${quota.schedules.count} / ${quota.schedules.limit}`)
-		await expect(agentsCard).toContainText(`${quota.agents.count} / ${quota.agents.limit}`)
+		await expect(schedulesCard).toContainText(
+			`${quota.schedules.count} / ${quota.schedules.limit}`,
+		)
+		await expect(agentsCard).toContainText(
+			`${quota.agents.count} / ${quota.agents.limit}`,
+		)
 	})
 
 	/**
@@ -232,7 +264,9 @@ test.describe('hermiq regression: dashboard + agents', () => {
 	 * widgets render as that placeholder text when the app forgets to call
 	 * registerBuiltinDashboardWidgets(), silently and with no console error.
 	 */
-	test('renders four separate KPI stat tiles matching /api/analytics (dashboard-kpi-tiles)', async ({ page }) => {
+	test('renders four separate KPI stat tiles matching /api/analytics (dashboard-kpi-tiles)', async ({
+		page,
+	}) => {
 		const errors = collectConsoleErrors(page)
 
 		await login(page)
@@ -254,7 +288,10 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		// Success rate renders with a percent suffix and no decimals.
 		await expect(dashboard).toContainText(`${Math.round(metrics.successRate)}%`)
 
-		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
+		expect(
+			errors,
+			`Unexpected console errors: ${errors.join(' | ')}`,
+		).toHaveLength(0)
 	})
 
 	/**
@@ -264,7 +301,9 @@ test.describe('hermiq regression: dashboard + agents', () => {
 	 * endpoint rather than testing the widget's internals (those are unit-tested
 	 * in nextcloud-vue).
 	 */
-	test('renders the shared running-flows widget agreeing with /api/flow-runs/active (cn-flow-runs-widget)', async ({ page }) => {
+	test('renders the shared running-flows widget agreeing with /api/flow-runs/active (cn-flow-runs-widget)', async ({
+		page,
+	}) => {
 		await login(page)
 		await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 		await dismissOnboarding(page)
@@ -272,7 +311,9 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		const widget = page.locator('.cn-flow-runs-widget')
 		await expect(widget).toBeVisible({ timeout: 20_000 })
 
-		const response = await page.request.get('/apps/openregister/api/flow-runs/active?limit=6')
+		const response = await page.request.get(
+			'/apps/openregister/api/flow-runs/active?limit=6',
+		)
 		expect(response.ok()).toBeTruthy()
 		const payload = await response.json()
 
@@ -282,7 +323,9 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		if (payload.results.length === 0) {
 			// Nothing running is the normal state: ONE quiet line, no error.
 			await expect(widget.locator('.cn-flow-runs-widget__empty')).toBeVisible()
-			await expect(widget.locator('.cn-flow-runs-widget__error')).toHaveCount(0)
+			await expect(widget.locator('.cn-flow-runs-widget__error')).toHaveCount(
+				0,
+			)
 			return
 		}
 
@@ -305,7 +348,9 @@ test.describe('hermiq regression: dashboard + agents', () => {
 	 * `GraphIndex`/`GraphDetail` no longer exist and a selector naming them
 	 * matches nothing at all.
 	 */
-	test('opens the flow builder from a Flows index row (rowRoute)', async ({ page }) => {
+	test('opens the flow builder from a Flows index row (rowRoute)', async ({
+		page,
+	}) => {
 		await login(page)
 		await page.goto('/apps/hermiq/flows', { waitUntil: 'domcontentloaded' })
 		await dismissOnboarding(page)
@@ -319,8 +364,12 @@ test.describe('hermiq regression: dashboard + agents', () => {
 
 		// The builder is a custom page at /flows/:id — assert the URL carries an
 		// id and the custom page mounted.
-		await expect(page).toHaveURL(/\/apps\/hermiq\/flows\/[^/]+$/, { timeout: 20_000 })
-		await expect(page.locator('[data-testid-page-id="FlowDetail"]')).toBeVisible()
+		await expect(page).toHaveURL(/\/apps\/hermiq\/flows\/[^/]+$/, {
+			timeout: 20_000,
+		})
+		await expect(
+			page.locator('[data-testid-page-id="FlowDetail"]'),
+		).toBeVisible()
 	})
 
 	/**
@@ -352,7 +401,9 @@ test.describe('hermiq regression: dashboard + agents', () => {
 	 * assertion quietly rewritten to match current behaviour is how the decision
 	 * would be lost a second time.
 	 */
-	test.fixme('offers exactly one row action, Edit, which opens the flow builder', async ({ page }) => {
+	test.fixme('offers exactly one row action, Edit, which opens the flow builder', async ({
+		page,
+	}) => {
 		await login(page)
 		await page.goto('/apps/hermiq/flows', { waitUntil: 'domcontentloaded' })
 		await dismissOnboarding(page)
@@ -361,17 +412,26 @@ test.describe('hermiq regression: dashboard + agents', () => {
 		await expect(index).toBeVisible({ timeout: 20_000 })
 
 		const firstRow = index.locator('tbody tr').first()
-		await clickPastOverlays(page, firstRow.getByRole('button', { name: 'Actions' }))
+		await clickPastOverlays(
+			page,
+			firstRow.getByRole('button', { name: 'Actions' }),
+		)
 
 		// Edit is present; the redundant View is gone.
 		const menu = page.locator('.v-popper__popper--shown, [role="menu"]').last()
-		await expect(menu.getByText('Edit', { exact: true })).toBeVisible({ timeout: 10_000 })
+		await expect(menu.getByText('Edit', { exact: true })).toBeVisible({
+			timeout: 10_000,
+		})
 		await expect(menu.getByText('View', { exact: true })).toHaveCount(0)
 
 		await menu.getByText('Edit', { exact: true }).click()
 
-		await expect(page).toHaveURL(/\/apps\/hermiq\/flows\/[^/]+$/, { timeout: 20_000 })
-		await expect(page.locator('[data-testid-page-id="FlowDetail"]')).toBeVisible()
+		await expect(page).toHaveURL(/\/apps\/hermiq\/flows\/[^/]+$/, {
+			timeout: 20_000,
+		})
+		await expect(
+			page.locator('[data-testid-page-id="FlowDetail"]'),
+		).toBeVisible()
 	})
 
 	// REMOVED: `graph-editor-vocabulary` — it asserted the dialect the engine

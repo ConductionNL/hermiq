@@ -13,17 +13,16 @@
   @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="large"
-		:name="heading"
-		@close="$emit('close')">
+	<NcModal :show="show" size="large" :name="heading" @close="$emit('close')">
 		<div class="eval-form">
 			<h2 class="eval-form__title">
 				{{ heading }}
 			</h2>
 
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not save dataset')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not save dataset')">
 				{{ error }}
 			</NcNoteCard>
 
@@ -37,10 +36,16 @@
 				{{ t('hermiq', 'Cases') }}
 			</h3>
 
-			<div v-for="(evalCase, index) in form.cases" :key="index" class="eval-form__case">
+			<div
+				v-for="(evalCase, index) in form.cases"
+				:key="index"
+				class="eval-form__case">
 				<div class="eval-form__case-head">
 					<strong>{{ t('hermiq', 'Case {n}', { n: index + 1 }) }}</strong>
-					<NcButton type="tertiary" :aria-label="t('hermiq', 'Remove case')" @click="removeCase(index)">
+					<NcButton
+						type="tertiary"
+						:aria-label="t('hermiq', 'Remove case')"
+						@click="removeCase(index)">
 						{{ t('hermiq', 'Remove') }}
 					</NcButton>
 				</div>
@@ -48,7 +53,9 @@
 				<NcTextArea
 					v-model="evalCase.prompt"
 					:label="t('hermiq', 'Prompt')"
-					:placeholder="t('hermiq', 'The input given to the agent for this case')"
+					:placeholder="
+						t('hermiq', 'The input given to the agent for this case')
+					"
 					resize="vertical" />
 
 				<div class="eval-form__field">
@@ -59,24 +66,39 @@
 						:clearable="false"
 						label="label"
 						track-by="value"
-						@update:modelValue="(opt) => setExpectation(evalCase, opt)" />
+						@update:modelValue="
+							(opt) => setExpectation(evalCase, opt)
+						" />
 				</div>
 
 				<NcTextField
-					v-if="evalCase.expectationType === 'contains' || evalCase.expectationType === 'notContains'"
+					v-if="
+						evalCase.expectationType === 'contains'
+						|| evalCase.expectationType === 'notContains'
+					"
 					v-model="evalCase.expectedSubstring"
 					:label="t('hermiq', 'Expected substring')" />
 
 				<template v-if="evalCase.expectationType === 'jsonPathEquals'">
-					<NcTextField v-model="evalCase.jsonPath" :label="t('hermiq', 'JSON path')" placeholder="result.status" />
-					<NcTextField v-model="evalCase.expectedValue" :label="t('hermiq', 'Expected value')" />
+					<NcTextField
+						v-model="evalCase.jsonPath"
+						:label="t('hermiq', 'JSON path')"
+						placeholder="result.status" />
+					<NcTextField
+						v-model="evalCase.expectedValue"
+						:label="t('hermiq', 'Expected value')" />
 				</template>
 
 				<NcTextArea
 					v-if="evalCase.expectationType === 'rubric'"
 					v-model="evalCase.rubric"
 					:label="t('hermiq', 'Rubric (graded by an LLM judge)')"
-					:placeholder="t('hermiq', 'e.g. The reply is polite and answers the question.')"
+					:placeholder="
+						t(
+							'hermiq',
+							'e.g. The reply is polite and answers the question.',
+						)
+					"
 					resize="vertical" />
 			</div>
 
@@ -88,7 +110,10 @@
 				<NcButton :disabled="saving" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
-				<NcButton type="primary" :disabled="saving || !form.name || form.cases.length === 0" @click="save">
+				<NcButton
+					type="primary"
+					:disabled="saving || !form.name || form.cases.length === 0"
+					@click="save">
 					<template v-if="saving" #icon>
 						<NcLoadingIcon :size="20" />
 					</template>
@@ -100,7 +125,15 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcLoadingIcon,
+	NcModal,
+	NcNoteCard,
+	NcSelect,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
 import { useEvalDatasetStore } from '../store/store.js'
 
 export default {
@@ -137,10 +170,22 @@ export default {
 			saving: false,
 			error: '',
 			expectationOptions: [
-				{ label: this.t('hermiq', 'Output contains a substring'), value: 'contains' },
-				{ label: this.t('hermiq', 'Output does NOT contain a substring'), value: 'notContains' },
-				{ label: this.t('hermiq', 'JSON path equals a value'), value: 'jsonPathEquals' },
-				{ label: this.t('hermiq', 'LLM judge scores a rubric'), value: 'rubric' },
+				{
+					label: this.t('hermiq', 'Output contains a substring'),
+					value: 'contains',
+				},
+				{
+					label: this.t('hermiq', 'Output does NOT contain a substring'),
+					value: 'notContains',
+				},
+				{
+					label: this.t('hermiq', 'JSON path equals a value'),
+					value: 'jsonPathEquals',
+				},
+				{
+					label: this.t('hermiq', 'LLM judge scores a rubric'),
+					value: 'rubric',
+				},
 			],
 		}
 	},
@@ -152,7 +197,9 @@ export default {
 		 * @return {string} The localised heading.
 		 */
 		heading() {
-			return this.dataset ? this.t('hermiq', 'Edit dataset') : this.t('hermiq', 'Create dataset')
+			return this.dataset
+				? this.t('hermiq', 'Edit dataset')
+				: this.t('hermiq', 'Create dataset')
 		},
 	},
 
@@ -185,7 +232,14 @@ export default {
 		 * @return {object} The blank case model.
 		 */
 		blankCase() {
-			return { prompt: '', expectationType: 'contains', expectedSubstring: '', jsonPath: '', expectedValue: '', rubric: '' }
+			return {
+				prompt: '',
+				expectationType: 'contains',
+				expectedSubstring: '',
+				jsonPath: '',
+				expectedValue: '',
+				rubric: '',
+			}
 		},
 
 		/**
@@ -202,7 +256,10 @@ export default {
 			const cases = Array.isArray(this.dataset.cases) ? this.dataset.cases : []
 			this.form = {
 				name: this.dataset.name || '',
-				cases: cases.length > 0 ? cases.map((c) => ({ ...this.blankCase(), ...c })) : [this.blankCase()],
+				cases:
+					cases.length > 0
+						? cases.map((c) => ({ ...this.blankCase(), ...c }))
+						: [this.blankCase()],
 			}
 		},
 
@@ -213,7 +270,11 @@ export default {
 		 * @return {object|null} The matching option.
 		 */
 		expectationOptionFor(evalCase) {
-			return this.expectationOptions.find((o) => o.value === evalCase.expectationType) || null
+			return (
+				this.expectationOptions.find(
+					(o) => o.value === evalCase.expectationType,
+				) || null
+			)
 		},
 
 		/**
@@ -261,8 +322,14 @@ export default {
 				...base,
 				name: this.form.name,
 				cases: this.form.cases.map((c) => {
-					const trimmed = { prompt: c.prompt, expectationType: c.expectationType }
-					if (c.expectationType === 'contains' || c.expectationType === 'notContains') {
+					const trimmed = {
+						prompt: c.prompt,
+						expectationType: c.expectationType,
+					}
+					if (
+						c.expectationType === 'contains'
+						|| c.expectationType === 'notContains'
+					) {
 						trimmed.expectedSubstring = c.expectedSubstring
 					} else if (c.expectationType === 'jsonPathEquals') {
 						trimmed.jsonPath = c.jsonPath
@@ -288,9 +355,14 @@ export default {
 			this.saving = true
 			this.error = ''
 			try {
-				const saved = await this.store.saveObject('evaldataset', this.buildPayload())
+				const saved = await this.store.saveObject(
+					'evaldataset',
+					this.buildPayload(),
+				)
 				if (saved === null) {
-					this.error = this.store.errors?.evaldataset?.message || this.t('hermiq', 'Could not save dataset')
+					this.error =
+						this.store.errors?.evaldataset?.message
+						|| this.t('hermiq', 'Could not save dataset')
 					return
 				}
 				this.$emit('saved', saved)

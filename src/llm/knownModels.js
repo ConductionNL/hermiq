@@ -35,16 +35,8 @@ export const KNOWN_MODELS = {
 		'claude-haiku-4-5',
 		'claude-opus-4-8',
 	],
-	openai: [
-		'gpt-4o',
-		'gpt-4o-mini',
-		'o3-mini',
-	],
-	ollama: [
-		'llama3',
-		'qwen2.5',
-		'mistral',
-	],
+	openai: ['gpt-4o', 'gpt-4o-mini', 'o3-mini'],
+	ollama: ['llama3', 'qwen2.5', 'mistral'],
 	fireworks: [
 		'accounts/fireworks/models/llama-v3p1-8b-instruct',
 		'accounts/fireworks/models/llama-v3p1-70b-instruct',

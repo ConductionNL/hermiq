@@ -93,7 +93,9 @@ export async function deleteAgentTemplate(id) {
  * @return {Promise<string>} The JSON package string.
  */
 export async function exportAgentToTemplate(agentId) {
-	const response = await axios.get(generateUrl(`${TEMPLATES_BASE}/from-agent/${agentId}/export`))
+	const response = await axios.get(
+		generateUrl(`${TEMPLATES_BASE}/from-agent/${agentId}/export`),
+	)
 	return response.data?.package || ''
 }
 
@@ -118,7 +120,10 @@ export async function exportAgentTemplate(id) {
  * @return {Promise<object>} The imported template.
  */
 export async function importAgentTemplate(pkg, source = 'org') {
-	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/import`), { package: pkg, source })
+	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/import`), {
+		package: pkg,
+		source,
+	})
 	return response.data
 }
 
@@ -130,7 +135,10 @@ export async function importAgentTemplate(pkg, source = 'org') {
  * @return {Promise<object>} The updated template.
  */
 export async function approveAgentTemplate(id, force = false) {
-	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/${id}/approve`), { force })
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/${id}/approve`),
+		{ force },
+	)
 	return response.data
 }
 
@@ -144,7 +152,10 @@ export async function approveAgentTemplate(id, force = false) {
  * @return {Promise<object>} The instantiate result.
  */
 export async function instantiateAgentTemplate(id, overrides = {}) {
-	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/${id}/instantiate`), { overrides })
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/${id}/instantiate`),
+		{ overrides },
+	)
 	return response.data
 }
 
@@ -167,7 +178,10 @@ export async function searchGithubTemplates(query = '', credentialId = null) {
 	if (credentialId) {
 		params.credentialId = credentialId
 	}
-	const response = await axios.get(generateUrl(`${TEMPLATES_BASE}/github/search`), { params })
+	const response = await axios.get(
+		generateUrl(`${TEMPLATES_BASE}/github/search`),
+		{ params },
+	)
 	return response.data
 }
 
@@ -184,8 +198,16 @@ export async function searchGithubTemplates(query = '', credentialId = null) {
  * @param {string|null} [target.credentialId] Optional broker `github` credential UUID.
  * @return {Promise<object>} The created (quarantined) template.
  */
-export async function installGithubTemplate({ owner, repo, ref = null, credentialId = null }) {
-	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/github/install`), { owner, repo, ref, credentialId })
+export async function installGithubTemplate({
+	owner,
+	repo,
+	ref = null,
+	credentialId = null,
+}) {
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/github/install`),
+		{ owner, repo, ref, credentialId },
+	)
 	return response.data
 }
 
@@ -203,7 +225,13 @@ export async function installGithubTemplate({ owner, repo, ref = null, credentia
  * @param {string} target.credentialId The broker `github` credential UUID (required).
  * @return {Promise<object>} `{ repoUrl, commitSha }`.
  */
-export async function publishAgentTemplateToGithub(id, { owner, repo, visibility = 'private', credentialId }) {
-	const response = await axios.post(generateUrl(`${TEMPLATES_BASE}/${id}/publish-github`), { owner, repo, visibility, credentialId })
+export async function publishAgentTemplateToGithub(
+	id,
+	{ owner, repo, visibility = 'private', credentialId },
+) {
+	const response = await axios.post(
+		generateUrl(`${TEMPLATES_BASE}/${id}/publish-github`),
+		{ owner, repo, visibility, credentialId },
+	)
 	return response.data
 }

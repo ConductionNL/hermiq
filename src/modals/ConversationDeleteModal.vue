@@ -28,7 +28,12 @@
 			</NcNoteCard>
 
 			<p class="conversation-delete__text">
-				{{ t('hermiq', 'This permanently deletes the conversation and all of its messages. This cannot be undone.') }}
+				{{
+					t(
+						'hermiq',
+						'This permanently deletes the conversation and all of its messages. This cannot be undone.',
+					)
+				}}
 			</p>
 			<p v-if="conversation" class="conversation-delete__name">
 				{{ conversation.title || t('hermiq', 'New conversation') }}
@@ -38,10 +43,7 @@
 				<NcButton :disabled="deleting" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
-				<NcButton
-					type="error"
-					:disabled="deleting"
-					@click="confirmDelete">
+				<NcButton type="error" :disabled="deleting" @click="confirmDelete">
 					<template #icon>
 						<NcLoadingIcon v-if="deleting" :size="20" />
 						<Delete v-else :size="20" />
@@ -116,7 +118,10 @@ export default {
 				this.$emit('deleted', this.conversation)
 				this.$emit('close')
 			} catch (e) {
-				this.error = e?.response?.data?.message || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.message
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.deleting = false
 			}

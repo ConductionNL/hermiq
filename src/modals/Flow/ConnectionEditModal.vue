@@ -3,11 +3,7 @@
   - SPDX-License-Identifier: EUPL-1.2
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="normal"
-		:name="heading"
-		@close="$emit('close')">
+	<NcModal :show="show" size="normal" :name="heading" @close="$emit('close')">
 		<div class="connection-edit" data-testid="flow-connection-edit">
 			<h2 class="connection-edit__title">
 				{{ heading }}
@@ -15,26 +11,45 @@
 
 			<template v-if="edge">
 				<p class="connection-edit__hint">
-					{{ t('hermiq', 'A connection carries sequence and the words a reader needs. What a step DOES is on the node.') }}
+					{{
+						t(
+							'hermiq',
+							'A connection carries sequence and the words a reader needs. What a step DOES is on the node.',
+						)
+					}}
 				</p>
 
 				<NcTextField
 					:model-value="edge.title || ''"
 					:label="t('hermiq', 'Title')"
-					:placeholder="t('hermiq', 'The words on the line, e.g. “approved”')"
+					:placeholder="
+						t('hermiq', 'The words on the line, e.g. “approved”')
+					"
 					@update:model-value="editor.setEdgeField('title', $event)" />
 
 				<NcTextArea
 					:model-value="edge.description || ''"
 					:label="t('hermiq', 'Description')"
-					:placeholder="t('hermiq', 'What this connection means — when the flow takes it.')"
+					:placeholder="
+						t(
+							'hermiq',
+							'What this connection means — when the flow takes it.',
+						)
+					"
 					rows="3"
-					@update:model-value="editor.setEdgeField('description', $event)" />
+					@update:model-value="
+						editor.setEdgeField('description', $event)
+					" />
 
 				<NcTextArea
 					:model-value="edge.notes || ''"
 					:label="t('hermiq', 'Notes')"
-					:placeholder="t('hermiq', 'Anything the next person should know about this connection.')"
+					:placeholder="
+						t(
+							'hermiq',
+							'Anything the next person should know about this connection.',
+						)
+					"
 					rows="4"
 					@update:model-value="editor.setEdgeField('notes', $event)" />
 
@@ -60,7 +75,12 @@
 						:clearable="false"
 						label="label"
 						track-by="value"
-						@update:model-value="editor.setEdgeField('lineStyle', $event ? $event.value : 'solid')" />
+						@update:model-value="
+							editor.setEdgeField(
+								'lineStyle',
+								$event ? $event.value : 'solid',
+							)
+						" />
 
 					<NcSelect
 						:model-value="option(WIDTHS, String(edge.width || 2))"
@@ -69,7 +89,12 @@
 						:clearable="false"
 						label="label"
 						track-by="value"
-						@update:model-value="editor.setEdgeField('width', $event ? Number($event.value) : 2)" />
+						@update:model-value="
+							editor.setEdgeField(
+								'width',
+								$event ? Number($event.value) : 2,
+							)
+						" />
 				</div>
 
 				<div class="connection-edit__row">
@@ -80,7 +105,12 @@
 						:clearable="false"
 						label="label"
 						track-by="value"
-						@update:model-value="editor.setEdgeField('startMarker', $event ? $event.value : 'none')" />
+						@update:model-value="
+							editor.setEdgeField(
+								'startMarker',
+								$event ? $event.value : 'none',
+							)
+						" />
 
 					<NcSelect
 						:model-value="option(MARKERS, edge.endMarker || 'arrow')"
@@ -89,7 +119,12 @@
 						:clearable="false"
 						label="label"
 						track-by="value"
-						@update:model-value="editor.setEdgeField('endMarker', $event ? $event.value : 'arrow')" />
+						@update:model-value="
+							editor.setEdgeField(
+								'endMarker',
+								$event ? $event.value : 'arrow',
+							)
+						" />
 				</div>
 
 				<!--
@@ -101,7 +136,9 @@
 					following the theme.
 				-->
 				<div class="connection-edit__row connection-edit__row--colour">
-					<label class="connection-edit__colour-label" for="connection-colour">
+					<label
+						class="connection-edit__colour-label"
+						for="connection-colour">
 						{{ t('hermiq', 'Colour') }}
 					</label>
 					<input
@@ -109,8 +146,12 @@
 						type="color"
 						class="connection-edit__colour"
 						:value="edge.colour || '#8b8b9e'"
-						@input="editor.setEdgeField('colour', $event.target.value)">
-					<NcButton type="tertiary" @click="editor.setEdgeField('colour', '')">
+						@input="
+							editor.setEdgeField('colour', $event.target.value)
+						" />
+					<NcButton
+						type="tertiary"
+						@click="editor.setEdgeField('colour', '')">
 						{{ t('hermiq', 'Use theme colour') }}
 					</NcButton>
 				</div>
@@ -238,7 +279,10 @@ export default {
 		 * @return {object|null} The matching option.
 		 */
 		option(options, value) {
-			return options.find((candidate) => candidate.value === String(value)) || null
+			return (
+				options.find((candidate) => candidate.value === String(value))
+				|| null
+			)
 		},
 
 		/**

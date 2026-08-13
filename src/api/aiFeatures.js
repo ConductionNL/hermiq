@@ -56,7 +56,9 @@ export async function listAiFeatures() {
  * @return {Promise<object>} The stamped feature ({ uuid, slug, dpoAckBy, dpoAckAt, … }).
  */
 export async function acknowledgeAiFeature(slug) {
-	const response = await axios.post(generateUrl(`${AI_FEATURES_BASE}/${slug}/acknowledge`))
+	const response = await axios.post(
+		generateUrl(`${AI_FEATURES_BASE}/${slug}/acknowledge`),
+	)
 	return response.data
 }
 
@@ -67,7 +69,9 @@ export async function acknowledgeAiFeature(slug) {
  * @return {Promise<object>} The transition outcome ({ id, lifecycle }).
  */
 export async function enableAiFeature(id) {
-	const response = await axios.post(generateUrl(`${AI_FEATURES_BASE}/${id}/enable`))
+	const response = await axios.post(
+		generateUrl(`${AI_FEATURES_BASE}/${id}/enable`),
+	)
 	return response.data
 }
 
@@ -78,7 +82,9 @@ export async function enableAiFeature(id) {
  * @return {Promise<object>} The transition outcome ({ id, lifecycle }).
  */
 export async function disableAiFeature(id) {
-	const response = await axios.post(generateUrl(`${AI_FEATURES_BASE}/${id}/disable`))
+	const response = await axios.post(
+		generateUrl(`${AI_FEATURES_BASE}/${id}/disable`),
+	)
 	return response.data
 }
 
@@ -91,7 +97,9 @@ export async function disableAiFeature(id) {
  * @return {Promise<object>} The stamped feature ({ uuid, algoritmeregisterStatus, algoritmeregisterRef, … }).
  */
 export async function publishAiFeature(id) {
-	const response = await axios.post(generateUrl(`${AI_FEATURES_BASE}/${id}/publish`))
+	const response = await axios.post(
+		generateUrl(`${AI_FEATURES_BASE}/${id}/publish`),
+	)
 	return response.data
 }
 
@@ -102,6 +110,8 @@ export async function publishAiFeature(id) {
  * @return {Promise<object>} The stamped feature ({ uuid, algoritmeregisterStatus, … }).
  */
 export async function withdrawAiFeature(id) {
-	const response = await axios.post(generateUrl(`${AI_FEATURES_BASE}/${id}/withdraw`))
+	const response = await axios.post(
+		generateUrl(`${AI_FEATURES_BASE}/${id}/withdraw`),
+	)
 	return response.data
 }

@@ -71,7 +71,9 @@ export async function exportSkill(id) {
  * @return {Promise<object>} The updated Skill.
  */
 export async function installSkill(id, agentId) {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/install`), { agentId })
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/install`), {
+		agentId,
+	})
 	return response.data
 }
 
@@ -84,7 +86,9 @@ export async function installSkill(id, agentId) {
  * @return {Promise<object>} The updated Skill.
  */
 export async function uninstallSkill(id, agentId) {
-	const response = await axios.delete(generateUrl(`${SKILLS_BASE}/${id}/install/${agentId}`))
+	const response = await axios.delete(
+		generateUrl(`${SKILLS_BASE}/${id}/install/${agentId}`),
+	)
 	return response.data
 }
 
@@ -127,7 +131,10 @@ export async function qualifySkill(id) {
  * @return {Promise<object>} The refreshed `{ skillId, maturityLevel, targetLevel, scorecard }`.
  */
 export async function attestSkillL4(id, note = '') {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/attest-l4`), { note })
+	const response = await axios.post(
+		generateUrl(`${SKILLS_BASE}/${id}/attest-l4`),
+		{ note },
+	)
 	return response.data
 }
 
@@ -140,7 +147,10 @@ export async function attestSkillL4(id, note = '') {
  * @return {Promise<object>} The quarantined Skill.
  */
 export async function installFromSource(pkg, source = 'hub') {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/install-from-source`), { package: pkg, source })
+	const response = await axios.post(
+		generateUrl(`${SKILLS_BASE}/install-from-source`),
+		{ package: pkg, source },
+	)
 	return response.data
 }
 
@@ -163,7 +173,9 @@ export async function approveSkill(id) {
  * @return {Promise<object>} The publish result (or a structured seam error).
  */
 export async function publishSkill(id, hubId = 'default') {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/publish`), { hubId })
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/publish`), {
+		hubId,
+	})
 	return response.data
 }
 
@@ -188,7 +200,9 @@ export async function searchGithubSkills(query = '', credentialId = null) {
 	if (credentialId) {
 		params.credentialId = credentialId
 	}
-	const response = await axios.get(generateUrl(`${SKILLS_BASE}/github/search`), { params })
+	const response = await axios.get(generateUrl(`${SKILLS_BASE}/github/search`), {
+		params,
+	})
 	return response.data
 }
 
@@ -205,8 +219,18 @@ export async function searchGithubSkills(query = '', credentialId = null) {
  * @param {string|null} [target.credentialId] Optional broker `github` credential UUID.
  * @return {Promise<object>} The created (quarantined) skill.
  */
-export async function installGithubSkill({ owner, repo, ref = null, credentialId = null }) {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/github/install`), { owner, repo, ref, credentialId })
+export async function installGithubSkill({
+	owner,
+	repo,
+	ref = null,
+	credentialId = null,
+}) {
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/github/install`), {
+		owner,
+		repo,
+		ref,
+		credentialId,
+	})
 	return response.data
 }
 
@@ -226,8 +250,14 @@ export async function installGithubSkill({ owner, repo, ref = null, credentialId
  * @param {string} target.credentialId The broker `github` credential UUID (required).
  * @return {Promise<object>} `{ repoUrl, commitSha }`.
  */
-export async function publishSkillToGithub(id, { owner, repo, visibility = 'private', credentialId }) {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/github/publish`), { owner, repo, visibility, credentialId })
+export async function publishSkillToGithub(
+	id,
+	{ owner, repo, visibility = 'private', credentialId },
+) {
+	const response = await axios.post(
+		generateUrl(`${SKILLS_BASE}/${id}/github/publish`),
+		{ owner, repo, visibility, credentialId },
+	)
 	return response.data
 }
 
@@ -240,7 +270,9 @@ export async function publishSkillToGithub(id, { owner, repo, visibility = 'priv
  * @return {Promise<object>} `{ status, draft }`.
  */
 export async function proposeSkillImprovement(id) {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/propose-improvement`))
+	const response = await axios.post(
+		generateUrl(`${SKILLS_BASE}/${id}/propose-improvement`),
+	)
 	return response.data
 }
 
@@ -269,7 +301,10 @@ export async function listSkillDrafts(id) {
  * @return {Promise<object>} The re-qualified draft.
  */
 export async function updateSkillDraftContent(draftId, content) {
-	const response = await axios.post(generateUrl(`/apps/hermiq/api/skill-drafts/${draftId}/content`), content)
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/skill-drafts/${draftId}/content`),
+		content,
+	)
 	return response.data
 }
 
@@ -283,7 +318,9 @@ export async function updateSkillDraftContent(draftId, content) {
  * @return {Promise<object>} `{ status, versionId, draft }`.
  */
 export async function acceptSkillDraft(draftId) {
-	const response = await axios.post(generateUrl(`/apps/hermiq/api/skill-drafts/${draftId}/accept`))
+	const response = await axios.post(
+		generateUrl(`/apps/hermiq/api/skill-drafts/${draftId}/accept`),
+	)
 	return response.data
 }
 
@@ -297,7 +334,11 @@ export async function acceptSkillDraft(draftId) {
  * @param {Array<string>} [rejectedLearningRefs] Learnings entry refs marked bad.
  * @return {Promise<object>} `{ status, draft }`.
  */
-export async function rejectSkillDraft(draftId, note = '', rejectedLearningRefs = []) {
+export async function rejectSkillDraft(
+	draftId,
+	note = '',
+	rejectedLearningRefs = [],
+) {
 	const response = await axios.post(
 		generateUrl(`/apps/hermiq/api/skill-drafts/${draftId}/reject`),
 		{ note, rejectedLearningRefs },
@@ -327,7 +368,10 @@ export async function listSkillVersions(id) {
  * @return {Promise<object>} Map of field → `{ old, new }`.
  */
 export async function diffSkillVersions(id, from, to) {
-	const response = await axios.get(generateUrl(`${SKILLS_BASE}/${id}/versions/diff`), { params: { from, to } })
+	const response = await axios.get(
+		generateUrl(`${SKILLS_BASE}/${id}/versions/diff`),
+		{ params: { from, to } },
+	)
 	return response.data?.diff || {}
 }
 
@@ -341,7 +385,9 @@ export async function diffSkillVersions(id, from, to) {
  * @return {Promise<object>} `{ status, versionId }`.
  */
 export async function rollbackSkill(id, versionId) {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/rollback`), { versionId })
+	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/rollback`), {
+		versionId,
+	})
 	return response.data
 }
 
@@ -356,6 +402,9 @@ export async function rollbackSkill(id, versionId) {
  * @return {Promise<object>} `{ repoUrl, commitSha }`.
  */
 export async function republishSkill(id, credentialId) {
-	const response = await axios.post(generateUrl(`${SKILLS_BASE}/${id}/republish`), { credentialId })
+	const response = await axios.post(
+		generateUrl(`${SKILLS_BASE}/${id}/republish`),
+		{ credentialId },
+	)
 	return response.data
 }

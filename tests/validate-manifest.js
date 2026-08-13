@@ -57,7 +57,9 @@ const DEFAULT_SCHEMA_FILE = 'app-manifest.schema.json'
 function schemaFileName(manifest) {
 	const declared = typeof manifest.$schema === 'string' ? manifest.$schema : ''
 	const base = declared.split('/').pop() || ''
-	return /^app-manifest(-v\d+)?\.schema\.json$/.test(base) ? base : DEFAULT_SCHEMA_FILE
+	return /^app-manifest(-v\d+)?\.schema\.json$/.test(base)
+		? base
+		: DEFAULT_SCHEMA_FILE
 }
 
 /**
@@ -69,7 +71,15 @@ function schemaFileName(manifest) {
 function schemaCandidates(file) {
 	return [
 		process.env.APP_MANIFEST_SCHEMA,
-		path.join(REPO_ROOT, 'node_modules', '@conduction', 'nextcloud-vue', 'src', 'schemas', file),
+		path.join(
+			REPO_ROOT,
+			'node_modules',
+			'@conduction',
+			'nextcloud-vue',
+			'src',
+			'schemas',
+			file,
+		),
 		path.join(REPO_ROOT, '..', 'nextcloud-vue', 'src', 'schemas', file),
 	].filter(Boolean)
 }
@@ -110,8 +120,12 @@ function loadAjv() {
 			Ajv2020 = require('ajv').default || require('ajv')
 		} catch (__) {
 			console.error('[validate-manifest] Ajv not installed in node_modules.')
-			console.error('[validate-manifest] Install with: npm i -D ajv ajv-formats')
-			console.error('[validate-manifest] Falling back to a structural lint pass.')
+			console.error(
+				'[validate-manifest] Install with: npm i -D ajv ajv-formats',
+			)
+			console.error(
+				'[validate-manifest] Falling back to a structural lint pass.',
+			)
 			return { Ajv: null, addFormats: null }
 		}
 	}
@@ -131,9 +145,20 @@ function structuralLint(manifest) {
 	if (!manifest.version || typeof manifest.version !== 'string') {
 		errors.push('top-level: version (string) is required')
 	}
-	if (!Array.isArray(manifest.menu)) errors.push('top-level: menu (array) is required')
-	if (!Array.isArray(manifest.pages)) errors.push('top-level: pages (array) is required')
-	const allowedTypes = new Set(['index', 'detail', 'dashboard', 'logs', 'settings', 'chat', 'files', 'custom'])
+	if (!Array.isArray(manifest.menu))
+		errors.push('top-level: menu (array) is required')
+	if (!Array.isArray(manifest.pages))
+		errors.push('top-level: pages (array) is required')
+	const allowedTypes = new Set([
+		'index',
+		'detail',
+		'dashboard',
+		'logs',
+		'settings',
+		'chat',
+		'files',
+		'custom',
+	])
 	const seenIds = new Set()
 	for (let i = 0; i < (manifest.pages || []).length; i++) {
 		const page = manifest.pages[i]
@@ -143,14 +168,17 @@ function structuralLint(manifest) {
 		}
 		for (const required of ['id', 'route', 'type', 'title']) {
 			if (!page[required] || typeof page[required] !== 'string') {
-				errors.push(`pages[${i}]: missing required string field "${required}"`)
+				errors.push(
+					`pages[${i}]: missing required string field "${required}"`,
+				)
 			}
 		}
 		if (page.type && !allowedTypes.has(page.type)) {
 			errors.push(`pages[${i}].type: "${page.type}" not in v1.1 enum`)
 		}
 		if (page.id) {
-			if (seenIds.has(page.id)) errors.push(`pages[${i}].id: duplicate "${page.id}"`)
+			if (seenIds.has(page.id))
+				errors.push(`pages[${i}].id: duplicate "${page.id}"`)
 			seenIds.add(page.id)
 		}
 		if (page.type === 'custom' && !page.component) {
@@ -189,12 +217,17 @@ function gridGeometryLint(manifest) {
 			for (let b = a + 1; b < rects.length; b++) {
 				const p = rects[a]
 				const q = rects[b]
-				const overlaps = p.x < q.x + q.w && q.x < p.x + p.w
-					&& p.y < q.y + q.h && q.y < p.y + p.h
+				const overlaps =
+					p.x < q.x + q.w
+					&& q.x < p.x + p.w
+					&& p.y < q.y + q.h
+					&& q.y < p.y + p.h
 				if (overlaps) {
-					errors.push(`pages[id="${page.id}"].config.layout: "${p.id}" `
-						+ `(x${p.x} y${p.y} w${p.w} h${p.h}) overlaps "${q.id}" `
-						+ `(x${q.x} y${q.y} w${q.w} h${q.h})`)
+					errors.push(
+						`pages[id="${page.id}"].config.layout: "${p.id}" `
+							+ `(x${p.x} y${p.y} w${p.w} h${p.h}) overlaps "${q.id}" `
+							+ `(x${q.x} y${q.y} w${q.w} h${q.h})`,
+					)
 				}
 			}
 		}
@@ -221,11 +254,15 @@ function main() {
 		for (const err of geometryErrors) console.error(`  - ${err}`)
 		process.exit(1)
 	}
-	console.log('[validate-manifest] grid geometry: PASS (no overlapping widget cells)')
+	console.log(
+		'[validate-manifest] grid geometry: PASS (no overlapping widget cells)',
+	)
 
 	const schemaPath = findSchemaPath(manifest)
 	if (!schemaPath) {
-		console.warn('[validate-manifest] no schema candidate resolved; falling back to structural lint.')
+		console.warn(
+			'[validate-manifest] no schema candidate resolved; falling back to structural lint.',
+		)
 		const errors = structuralLint(manifest)
 		if (errors.length === 0) {
 			console.log('[validate-manifest] structural lint: PASS (0 issues)')
@@ -243,7 +280,9 @@ function main() {
 	if (!Ajv) {
 		const errors = structuralLint(manifest)
 		if (errors.length === 0) {
-			console.log('[validate-manifest] structural lint (no Ajv): PASS (0 issues)')
+			console.log(
+				'[validate-manifest] structural lint (no Ajv): PASS (0 issues)',
+			)
 			process.exit(0)
 		}
 		console.error('[validate-manifest] structural lint (no Ajv): FAIL')
@@ -261,7 +300,9 @@ function main() {
 	}
 	console.error('[validate-manifest] Ajv validation: FAIL')
 	for (const err of validate.errors || []) {
-		console.error(`  - ${err.instancePath || '(root)'} ${err.message} (keyword=${err.keyword})`)
+		console.error(
+			`  - ${err.instancePath || '(root)'} ${err.message} (keyword=${err.keyword})`,
+		)
 	}
 	process.exit(1)
 }

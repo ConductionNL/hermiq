@@ -91,8 +91,13 @@ export async function appRoot(page: Page): Promise<string> {
 		return ''
 	})
 
-	expect(base, 'the hermiq router base must be resolvable from OC.generateUrl').not.toEqual('')
-	expect(base, 'the resolved router base must address the hermiq app').toContain('/apps/hermiq')
+	expect(
+		base,
+		'the hermiq router base must be resolvable from OC.generateUrl',
+	).not.toEqual('')
+	expect(base, 'the resolved router base must address the hermiq app').toContain(
+		'/apps/hermiq',
+	)
 
 	_appRoot = base.replace(/\/+$/, '')
 	return _appRoot
@@ -110,8 +115,14 @@ export async function appRoot(page: Page): Promise<string> {
  * @param appId The app id to look for (e.g. `spreed`).
  * @return True when the provisioning API lists it among the enabled apps.
  */
-export async function appEnabled(req: APIRequestContext, token: string, appId: string): Promise<boolean> {
-	const res = await req.get('/ocs/v2.php/cloud/apps?filter=enabled&format=json', { headers: jsonHeaders(token) })
+export async function appEnabled(
+	req: APIRequestContext,
+	token: string,
+	appId: string,
+): Promise<boolean> {
+	const res = await req.get('/ocs/v2.php/cloud/apps?filter=enabled&format=json', {
+		headers: jsonHeaders(token),
+	})
 	if (res.ok() === false) {
 		return false
 	}
@@ -138,10 +149,13 @@ export async function harvestToken(page: Page): Promise<string> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
 	const userField = page.locator('#user')
-	if (await userField.count() > 0) {
+	if ((await userField.count()) > 0) {
 		await userField.fill(NC_USER)
 		await page.locator('#password').fill(NC_PASS)
-		await page.locator('button[type="submit"], input[type="submit"]').first().click()
+		await page
+			.locator('button[type="submit"], input[type="submit"]')
+			.first()
+			.click()
 		// Nextcloud holds persistent long-poll connections, so 'networkidle'
 		// never fires; the login field detaching is the "logged in" signal.
 		await page.locator('#user').waitFor({ state: 'hidden', timeout: 30_000 })
@@ -152,11 +166,17 @@ export async function harvestToken(page: Page): Promise<string> {
 	await page.goto('/index.php/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 	const token = await page.evaluate(
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		() => (window as any).OC?.requestToken
-			|| document.head.querySelector('meta[name="requesttoken"]')?.getAttribute('content')
+		() =>
+			(window as any).OC?.requestToken
+			|| document.head
+				.querySelector('meta[name="requesttoken"]')
+				?.getAttribute('content')
 			|| '',
 	)
-	expect(token, 'CSRF request-token must be harvestable from the running app').not.toEqual('')
+	expect(
+		token,
+		'CSRF request-token must be harvestable from the running app',
+	).not.toEqual('')
 	return token
 }
 
@@ -194,20 +214,35 @@ export async function resolveRegisterSchema(
 	req: APIRequestContext,
 	token: string,
 	schemaSlug: string,
-): Promise<{ register: Record<string, unknown>, schema: Record<string, unknown> | null }> {
+): Promise<{
+	register: Record<string, unknown>
+	schema: Record<string, unknown> | null
+}> {
 	const res = await req.get(`${OR_API}/registers`, { headers: jsonHeaders(token) })
 	expect(res.ok(), `GET ${OR_API}/registers HTTP ${res.status()}`).toBeTruthy()
 	const body = await res.json()
-	const registers = (Array.isArray(body) ? body : (body.results ?? body.data ?? [])) as Array<Record<string, unknown>>
+	const registers = (
+		Array.isArray(body) ? body : (body.results ?? body.data ?? [])
+	) as Array<Record<string, unknown>>
 	const register = registers.find((r) => r.slug === 'hermiq')
-	expect(register, 'hermiq register must exist (install/repair the hermiq app first)').toBeTruthy()
+	expect(
+		register,
+		'hermiq register must exist (install/repair the hermiq app first)',
+	).toBeTruthy()
 	// Schemas may be embedded as objects or referenced by id depending on OR
 	// version — only assert the slug when the embedded form is available.
-	const schemas = (register?.schemas ?? []) as Array<Record<string, unknown> | number | string>
-	const embedded = schemas.filter((s): s is Record<string, unknown> => typeof s === 'object' && s !== null)
+	const schemas = (register?.schemas ?? []) as Array<
+		Record<string, unknown> | number | string
+	>
+	const embedded = schemas.filter(
+		(s): s is Record<string, unknown> => typeof s === 'object' && s !== null,
+	)
 	const schema = embedded.find((s) => s.slug === schemaSlug) ?? null
 	if (embedded.length > 0) {
-		expect(schema, `schema '${schemaSlug}' must exist on the hermiq register`).toBeTruthy()
+		expect(
+			schema,
+			`schema '${schemaSlug}' must exist on the hermiq register`,
+		).toBeTruthy()
 	}
 	return { register: register as Record<string, unknown>, schema }
 }
@@ -239,7 +274,10 @@ export async function seedObject(
 		data,
 	})
 	const text = await res.text().catch(() => '')
-	expect([200, 201], `create ${schema} HTTP ${res.status()} (body: ${text.slice(0, 300)})`).toContain(res.status())
+	expect(
+		[200, 201],
+		`create ${schema} HTTP ${res.status()} (body: ${text.slice(0, 300)})`,
+	).toContain(res.status())
 	const body = JSON.parse(text)
 	const id = String(body.id ?? body['@self']?.id ?? body.uuid ?? '')
 	expect(id, `created ${schema} must carry a persisted id`).not.toEqual('')
@@ -277,8 +315,17 @@ export async function seedAgent(
  * @param id     The object id/uuid.
  * @return The HTTP status (0 on transport failure).
  */
-export async function deleteObject(req: APIRequestContext, token: string, schema: string, id: string): Promise<number> {
-	const res = await req.delete(`${OR_API}/objects/hermiq/${schema}/${id}`, { headers: jsonHeaders(token) }).catch(() => null)
+export async function deleteObject(
+	req: APIRequestContext,
+	token: string,
+	schema: string,
+	id: string,
+): Promise<number> {
+	const res = await req
+		.delete(`${OR_API}/objects/hermiq/${schema}/${id}`, {
+			headers: jsonHeaders(token),
+		})
+		.catch(() => null)
 	return res ? res.status() : 0
 }
 
@@ -291,13 +338,23 @@ export async function deleteObject(req: APIRequestContext, token: string, schema
  * @param schema The schema slug to sweep.
  * @return Resolves once all family-prefixed objects are deleted.
  */
-export async function cleanupFamily(req: APIRequestContext, token: string, schema: string): Promise<void> {
-	const res = await req.get(`${OR_API}/objects/hermiq/${schema}?_limit=200`, { headers: jsonHeaders(token) }).catch(() => null)
+export async function cleanupFamily(
+	req: APIRequestContext,
+	token: string,
+	schema: string,
+): Promise<void> {
+	const res = await req
+		.get(`${OR_API}/objects/hermiq/${schema}?_limit=200`, {
+			headers: jsonHeaders(token),
+		})
+		.catch(() => null)
 	if (!res || !res.ok()) {
 		return
 	}
 	const body = await res.json().catch(() => ({}))
-	const list = (Array.isArray(body) ? body : (body.results ?? body.data ?? [])) as Array<Record<string, unknown>>
+	const list = (
+		Array.isArray(body) ? body : (body.results ?? body.data ?? [])
+	) as Array<Record<string, unknown>>
 	for (const obj of list) {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const name = String(obj.name ?? (obj as any)['@self']?.name ?? '')
@@ -331,14 +388,30 @@ export async function cleanupFamily(req: APIRequestContext, token: string, schem
  */
 export async function dismissTour(page: Page): Promise<void> {
 	const close = page.getByRole('button', { name: 'Close tour' })
-	if (await close.count() > 0) {
-		await close.first().click().catch(() => undefined)
+	if ((await close.count()) > 0) {
+		await close
+			.first()
+			.click()
+			.catch(() => undefined)
 	}
 
 	const wizard = page.locator('[data-testid-modal="cn-wizard-dialog"]')
-	if (await wizard.count() > 0 && await wizard.first().isVisible().catch(() => false)) {
-		await wizard.first().getByRole('button', { name: 'Cancel' }).click().catch(() => undefined)
-		await wizard.first().waitFor({ state: 'hidden', timeout: 10_000 }).catch(() => undefined)
+	if (
+		(await wizard.count()) > 0
+		&& (await wizard
+			.first()
+			.isVisible()
+			.catch(() => false))
+	) {
+		await wizard
+			.first()
+			.getByRole('button', { name: 'Cancel' })
+			.click()
+			.catch(() => undefined)
+		await wizard
+			.first()
+			.waitFor({ state: 'hidden', timeout: 10_000 })
+			.catch(() => undefined)
 	}
 }
 
@@ -362,14 +435,19 @@ export function collectHermiqConsoleErrors(page: Page): string[] {
 			return
 		}
 		const text = msg.text()
-		if (/favicon|manifest\.json|the server responded with a status of 404|user_status|Failed to load resource/i.test(text)) {
+		if (
+			/favicon|manifest\.json|the server responded with a status of 404|user_status|Failed to load resource/i.test(
+				text,
+			)
+		) {
 			return
 		}
 		if ((msg.location()?.url || '').includes('/api/chat/health')) {
 			return
 		}
 		const source = `${msg.location()?.url || ''} ${text}`
-		const foreignApp = source.match(/\/custom_apps\/([^/]+)\//)?.[1]
+		const foreignApp =
+			source.match(/\/custom_apps\/([^/]+)\//)?.[1]
 			|| source.match(/\/apps\/([^/]+)\/js\//)?.[1]
 		if (foreignApp !== undefined && foreignApp !== 'hermiq') {
 			return
@@ -427,7 +505,7 @@ export async function createSecondUser(
 	expect(
 		[100, 102].includes(Number(ocsCode)),
 		'Provisioning a second user must report OCS 100 (created) or 102 (exists); '
-		+ `got HTTP ${res.status()} / OCS ${ocsCode} — ${JSON.stringify(body?.ocs?.meta ?? body).slice(0, 200)}`,
+			+ `got HTTP ${res.status()} / OCS ${ocsCode} — ${JSON.stringify(body?.ocs?.meta ?? body).slice(0, 200)}`,
 	).toBeTruthy()
 
 	return { uid, password }
@@ -444,7 +522,10 @@ export async function createSecondUser(
  * @param uid The expected user id.
  * @return void
  */
-export async function assertSecondUserAuthenticates(ctx: APIRequestContext, uid: string): Promise<void> {
+export async function assertSecondUserAuthenticates(
+	ctx: APIRequestContext,
+	uid: string,
+): Promise<void> {
 	const res = await ctx.get('/ocs/v1.php/cloud/user?format=json', {
 		headers: { 'OCS-APIRequest': 'true', Accept: 'application/json' },
 	})
@@ -453,7 +534,7 @@ export async function assertSecondUserAuthenticates(ctx: APIRequestContext, uid:
 	expect(
 		who,
 		'The second user must be able to authenticate before we assert anything is refused for them. '
-		+ `HTTP ${res.status()}, identity=${JSON.stringify(who)}`,
+			+ `HTTP ${res.status()}, identity=${JSON.stringify(who)}`,
 	).toBe(uid)
 }
 
@@ -465,9 +546,15 @@ export async function assertSecondUserAuthenticates(ctx: APIRequestContext, uid:
  * @param uid   The user id to remove.
  * @return The HTTP status (0 on transport failure).
  */
-export async function deleteSecondUser(req: APIRequestContext, token: string, uid: string): Promise<number> {
-	const res = await req.delete(`/ocs/v1.php/cloud/users/${uid}`, {
-		headers: { ...jsonHeaders(token), 'OCS-APIRequest': 'true' },
-	}).catch(() => null)
+export async function deleteSecondUser(
+	req: APIRequestContext,
+	token: string,
+	uid: string,
+): Promise<number> {
+	const res = await req
+		.delete(`/ocs/v1.php/cloud/users/${uid}`, {
+			headers: { ...jsonHeaders(token), 'OCS-APIRequest': 'true' },
+		})
+		.catch(() => null)
 	return res ? res.status() : 0
 }

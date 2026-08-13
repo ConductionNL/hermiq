@@ -25,7 +25,10 @@ const ROOM_TYPE_GROUP = 2
 export async function listRooms() {
 	const { data } = await axios.get(generateOcsUrl('apps/spreed/api/v4/room'))
 	const rooms = (data && data.ocs && data.ocs.data) || []
-	return rooms.map((r) => ({ token: r.token, name: r.displayName || r.name || r.token }))
+	return rooms.map((r) => ({
+		token: r.token,
+		name: r.displayName || r.name || r.token,
+	}))
 }
 
 /**
@@ -49,7 +52,9 @@ export async function createRoom(name) {
  * @return {Promise<string>} The stored room token, or `''`.
  */
 export async function getDeliveryTarget() {
-	const { data } = await axios.get(generateUrl('/apps/hermiq/api/preferences/delivertarget'))
+	const { data } = await axios.get(
+		generateUrl('/apps/hermiq/api/preferences/delivertarget'),
+	)
 	return (data && data.value) || ''
 }
 
@@ -60,5 +65,7 @@ export async function getDeliveryTarget() {
  * @return {Promise<void>}
  */
 export async function setDeliveryTarget(token) {
-	await axios.put(generateUrl('/apps/hermiq/api/preferences/delivertarget'), { value: token || '' })
+	await axios.put(generateUrl('/apps/hermiq/api/preferences/delivertarget'), {
+		value: token || '',
+	})
 }

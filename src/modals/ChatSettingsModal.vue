@@ -24,7 +24,12 @@
 			</h2>
 
 			<p class="chat-settings__description">
-				{{ t('hermiq', 'Control which views and tools the AI may use in this conversation. By default, all agent capabilities are enabled.') }}
+				{{
+					t(
+						'hermiq',
+						'Control which views and tools the AI may use in this conversation. By default, all agent capabilities are enabled.',
+					)
+				}}
 			</p>
 
 			<!-- Views -->
@@ -46,7 +51,12 @@
 			<section v-if="availableTools.length > 0" class="chat-settings__section">
 				<h3>{{ t('hermiq', 'Tools') }}</h3>
 				<p class="chat-settings__hint">
-					{{ t('hermiq', 'Select which tools the AI can use to perform actions') }}
+					{{
+						t(
+							'hermiq',
+							'Select which tools the AI can use to perform actions',
+						)
+					}}
 				</p>
 				<NcCheckboxRadioSwitch
 					v-for="tool in availableTools"
@@ -61,7 +71,12 @@
 			<section class="chat-settings__section">
 				<h3>{{ t('hermiq', 'RAG configuration') }}</h3>
 				<p class="chat-settings__hint">
-					{{ t('hermiq', 'Configure which data is searched for context and how many sources are retrieved') }}
+					{{
+						t(
+							'hermiq',
+							'Configure which data is searched for context and how many sources are retrieved',
+						)
+					}}
 				</p>
 				<NcCheckboxRadioSwitch
 					:model-value="value.includeObjects"
@@ -79,7 +94,9 @@
 						:model-value="String(value.numSourcesObjects)"
 						type="number"
 						:label="t('hermiq', 'Object sources')"
-						@update:modelValue="setNumber('numSourcesObjects', $event)" />
+						@update:modelValue="
+							setNumber('numSourcesObjects', $event)
+						" />
 					<NcTextField
 						:model-value="String(value.numSourcesFiles)"
 						type="number"
@@ -87,7 +104,12 @@
 						@update:modelValue="setNumber('numSourcesFiles', $event)" />
 				</div>
 				<p class="chat-settings__hint">
-					{{ t('hermiq', 'Fewer sources answer faster and more focused; more sources give broader context but slower responses. 5 is a good balance.') }}
+					{{
+						t(
+							'hermiq',
+							'Fewer sources answer faster and more focused; more sources give broader context but slower responses. 5 is a good balance.',
+						)
+					}}
 				</p>
 			</section>
 
@@ -101,7 +123,12 @@
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcModal, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcModal,
+	NcTextField,
+} from '@nextcloud/vue'
 
 export default {
 	name: 'ChatSettingsModal',

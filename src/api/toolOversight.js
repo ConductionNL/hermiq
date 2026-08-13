@@ -22,7 +22,9 @@ const AGENTS_BASE = '/apps/hermiq/api/agents'
  * @return {Promise<object>} { agentId, disclosureThreshold, resolvedCount, disclosureActive, tools }.
  */
 export async function getToolCatalog(agentId) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/tool-catalog`))
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/tool-catalog`),
+	)
 	return response.data
 }
 
@@ -34,7 +36,10 @@ export async function getToolCatalog(agentId) {
  * @return {Promise<object>} { agentId, tools }.
  */
 export async function updateToolGrants(agentId, grants) {
-	const response = await axios.put(generateUrl(`${AGENTS_BASE}/${agentId}/tool-grants`), { grants })
+	const response = await axios.put(
+		generateUrl(`${AGENTS_BASE}/${agentId}/tool-grants`),
+		{ grants },
+	)
 	return response.data
 }
 
@@ -46,7 +51,10 @@ export async function updateToolGrants(agentId, grants) {
  * @return {Promise<object>} { agentId, available, source, retention, rows }.
  */
 export async function getToolInvocations(agentId, params = {}) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/tool-invocations`), { params })
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/tool-invocations`),
+		{ params },
+	)
 	return response.data
 }
 

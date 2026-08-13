@@ -34,7 +34,12 @@
 				v-if="contextResolved && !hasBoundedContext"
 				type="warning"
 				data-testid="cn-agent-chat-tab-no-context">
-				{{ t('hermiq', 'No object context is available. This object\'s schema shares no fields with the agent, so its answers are not grounded in this object.') }}
+				{{
+					t(
+						'hermiq',
+						"No object context is available. This object's schema shares no fields with the agent, so its answers are not grounded in this object.",
+					)
+				}}
 			</NcNoteCard>
 
 			<ul class="cn-agent-chat-tab__messages">
@@ -43,17 +48,29 @@
 					:key="idx"
 					class="cn-agent-chat-tab__message"
 					:class="`cn-agent-chat-tab__message--${entry.role}`">
-					<span class="cn-agent-chat-tab__role">{{ roleLabel(entry.role) }}</span>
+					<span class="cn-agent-chat-tab__role">{{
+						roleLabel(entry.role)
+					}}</span>
 					<span class="cn-agent-chat-tab__text">{{ entry.text }}</span>
 					<span
 						v-if="entry.role === 'agent' && entry.grounded === false"
 						class="cn-agent-chat-tab__ungrounded"
 						data-testid="cn-agent-chat-tab-ungrounded">
-						{{ t('hermiq', 'Not grounded in this object — no object context was shared.') }}
+						{{
+							t(
+								'hermiq',
+								'Not grounded in this object — no object context was shared.',
+							)
+						}}
 					</span>
 				</li>
 				<li v-if="messages.length === 0" class="cn-agent-chat-tab__empty">
-					{{ t('hermiq', 'Ask the agent about this object. Only allowlisted fields are shared.') }}
+					{{
+						t(
+							'hermiq',
+							'Ask the agent about this object. Only allowlisted fields are shared.',
+						)
+					}}
 				</li>
 			</ul>
 
@@ -131,7 +148,12 @@ export default {
 		},
 	},
 	watch: {
-		objectId: { immediate: true, handler() { this.reset() } },
+		objectId: {
+			immediate: true,
+			handler() {
+				this.reset()
+			},
+		},
 	},
 	methods: {
 		t,
@@ -175,25 +197,36 @@ export default {
 			}
 		},
 		async fetchObject() {
-			const url = generateUrl('/apps/openregister/api/objects/{register}/{schema}/{id}', {
-				register: this.register, schema: this.schema, id: this.objectId,
+			const url = generateUrl(
+				'/apps/openregister/api/objects/{register}/{schema}/{id}',
+				{
+					register: this.register,
+					schema: this.schema,
+					id: this.objectId,
+				},
+			)
+			const res = await fetch(url, {
+				headers: { requesttoken: getRequestToken() },
 			})
-			const res = await fetch(url, { headers: { requesttoken: getRequestToken() } })
 			if (!res.ok) {
 				return {}
 			}
 			const body = await res.json()
 			// OR returns either the object directly or `{ '@self': …, ...properties }`.
-			return (body && typeof body === 'object') ? body : {}
+			return body && typeof body === 'object' ? body : {}
 		},
 		async fetchSchema() {
-			const url = generateUrl('/apps/openregister/api/schemas/{id}', { id: this.schema })
-			const res = await fetch(url, { headers: { requesttoken: getRequestToken() } })
+			const url = generateUrl('/apps/openregister/api/schemas/{id}', {
+				id: this.schema,
+			})
+			const res = await fetch(url, {
+				headers: { requesttoken: getRequestToken() },
+			})
 			if (!res.ok) {
 				return {}
 			}
 			const body = await res.json()
-			return (body && typeof body === 'object') ? body : {}
+			return body && typeof body === 'object' ? body : {}
 		},
 		async send() {
 			const message = this.draft.trim()
@@ -219,18 +252,25 @@ export default {
 			}
 
 			try {
-				const res = await fetch(generateUrl('/apps/hermiq/api/assistant/converse'), {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json', requesttoken: getRequestToken() },
-					body: JSON.stringify(payload),
-				})
+				const res = await fetch(
+					generateUrl('/apps/hermiq/api/assistant/converse'),
+					{
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
+							requesttoken: getRequestToken(),
+						},
+						body: JSON.stringify(payload),
+					},
+				)
 				const body = await res.json()
 				if (res.status === 503) {
 					this.unavailable = true
 					return
 				}
 				if (!res.ok) {
-					this.error = body?.message || t('hermiq', 'The agent could not answer.')
+					this.error =
+						body?.message || t('hermiq', 'The agent could not answer.')
 					return
 				}
 				this.sessionId = body?.sessionId || this.sessionId
@@ -253,22 +293,60 @@ export default {
 </script>
 
 <style scoped>
-.cn-agent-chat-tab { display: flex; flex-direction: column; gap: 12px; padding: 8px 4px; }
+.cn-agent-chat-tab {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 8px 4px;
+}
 
-.cn-agent-chat-tab__messages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.cn-agent-chat-tab__messages {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
 
-.cn-agent-chat-tab__message { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: var(--border-radius-large, 8px); background: var(--color-background-hover); }
+.cn-agent-chat-tab__message {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 8px 10px;
+	border-radius: var(--border-radius-large, 8px);
+	background: var(--color-background-hover);
+}
 
-.cn-agent-chat-tab__message--user { background: var(--color-primary-element-light, var(--color-background-dark)); }
+.cn-agent-chat-tab__message--user {
+	background: var(--color-primary-element-light, var(--color-background-dark));
+}
 
-.cn-agent-chat-tab__role { font-size: 0.8em; font-weight: 600; color: var(--color-text-maxcontrast); }
+.cn-agent-chat-tab__role {
+	font-size: 0.8em;
+	font-weight: 600;
+	color: var(--color-text-maxcontrast);
+}
 
-.cn-agent-chat-tab__text { white-space: pre-wrap; }
+.cn-agent-chat-tab__text {
+	white-space: pre-wrap;
+}
 
-.cn-agent-chat-tab__empty { color: var(--color-text-maxcontrast); padding: 8px 0; }
+.cn-agent-chat-tab__empty {
+	color: var(--color-text-maxcontrast);
+	padding: 8px 0;
+}
 /* Text state, never a colour-only state (WCAG 2.1 AA 1.4.1): the words carry the
    meaning and the variable-driven colour only reinforces it. */
-.cn-agent-chat-tab__ungrounded { font-size: 0.8em; font-style: italic; color: var(--color-text-maxcontrast); }
+.cn-agent-chat-tab__ungrounded {
+	font-size: 0.8em;
+	font-style: italic;
+	color: var(--color-text-maxcontrast);
+}
 
-.cn-agent-chat-tab__composer { display: flex; flex-direction: column; gap: 8px; }
+.cn-agent-chat-tab__composer {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
 </style>

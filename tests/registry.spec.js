@@ -138,7 +138,9 @@ function main() {
 		}
 
 		if (!VALID_KINDS.includes(kind)) {
-			errors.push(`entry "${key}": unknown kind "${kind}" (must be one of: ${VALID_KINDS.join(', ')})`)
+			errors.push(
+				`entry "${key}": unknown kind "${kind}" (must be one of: ${VALID_KINDS.join(', ')})`,
+			)
 			continue
 		}
 
@@ -147,48 +149,75 @@ function main() {
 		// Validate component is present (but we only check it's set, since the
 		// value is a stubbed Vue object during this parse step)
 		if (!entry.component) {
-			errors.push(`entry "${key}" (kind=${kind}): missing required "component" field`)
+			errors.push(
+				`entry "${key}" (kind=${kind}): missing required "component" field`,
+			)
 		}
 
 		// Validate kind-specific required metadata fields
 		const requiredMeta = KIND_REQUIRED_META[kind] || []
 		for (const field of requiredMeta) {
 			if (entry[field] === undefined) {
-				errors.push(`entry "${key}" (kind=${kind}): missing required metadata field "${field}"`)
+				errors.push(
+					`entry "${key}" (kind=${kind}): missing required metadata field "${field}"`,
+				)
 			}
 		}
 
 		// Extra: form-field appliesTo must have format or property
-		if (kind === 'form-field' && entry.appliesTo && typeof entry.appliesTo === 'object') {
+		if (
+			kind === 'form-field'
+			&& entry.appliesTo
+			&& typeof entry.appliesTo === 'object'
+		) {
 			if (!entry.appliesTo.format && !entry.appliesTo.property) {
-				errors.push(`entry "${key}" (kind=form-field): appliesTo must have "format" or "property"`)
+				errors.push(
+					`entry "${key}" (kind=form-field): appliesTo must have "format" or "property"`,
+				)
 			}
 		}
 
 		// Extra: cell-renderer appliesTo must have schema AND property
-		if (kind === 'cell-renderer' && entry.appliesTo && typeof entry.appliesTo === 'object') {
+		if (
+			kind === 'cell-renderer'
+			&& entry.appliesTo
+			&& typeof entry.appliesTo === 'object'
+		) {
 			if (!entry.appliesTo.schema || !entry.appliesTo.property) {
-				errors.push(`entry "${key}" (kind=cell-renderer): appliesTo must have "schema" and "property"`)
+				errors.push(
+					`entry "${key}" (kind=cell-renderer): appliesTo must have "schema" and "property"`,
+				)
 			}
 		}
 
 		// Extra: widget entries need a _note justifying why no built-in widget
 		// fits (ADR-049 built-in-first rule; mirrors hydra gate 29)
-		if (kind === 'widget' && (typeof entry._note !== 'string' || entry._note.trim().length === 0)) {
-			errors.push(`entry "${key}" (kind=widget): missing "_note" — custom widgets require a justification why no built-in widget (object-table, stats-block, …) fits (hydra ADR-049)`)
+		if (
+			kind === 'widget'
+			&& (typeof entry._note !== 'string' || entry._note.trim().length === 0)
+		) {
+			errors.push(
+				`entry "${key}" (kind=widget): missing "_note" — custom widgets require a justification why no built-in widget (object-table, stats-block, …) fits (hydra ADR-049)`,
+			)
 		}
 	}
 
 	// Check all required kinds are represented (widget is deliberately optional)
 	for (const kind of REQUIRED_KINDS) {
 		if (!foundKinds.has(kind)) {
-			errors.push(`missing kind: no entry with kind="${kind}" found in registry`)
+			errors.push(
+				`missing kind: no entry with kind="${kind}" found in registry`,
+			)
 		}
 	}
 
 	if (errors.length === 0) {
-		console.log(`[registry.spec] required kinds present: ${[...foundKinds].sort().join(', ')}`)
-		console.log(`[registry.spec] custom kind="widget" entries: ${entries.filter(([, e]) => e && e.kind === 'widget').length} (scaffold target: 0 — ADR-049)`)
+		console.log(
+			`[registry.spec] required kinds present: ${[...foundKinds].sort().join(', ')}`,
+		)
+		console.log(
+			`[registry.spec] custom kind="widget" entries: ${entries.filter(([, e]) => e && e.kind === 'widget').length} (scaffold target: 0 — ADR-049)`,
+		)
 		console.log('[registry.spec] registry validation: PASS (0 errors)')
 		process.exit(0)
 	}

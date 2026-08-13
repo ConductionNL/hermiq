@@ -511,7 +511,7 @@ export default {
 		maxSize: { w: 12, h: 12 },
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
-		_note: 'Incident records, the AI Act audit export, and the retention statement are governance actions (createIncident/audit-export/retention endpoints) with no OpenRegister object-collection equivalent — object-list/stats-block cannot express them (ADR-049), mirroring agent-template-github-store\'s below-header placement.',
+		_note: "Incident records, the AI Act audit export, and the retention statement are governance actions (createIncident/audit-export/retention endpoints) with no OpenRegister object-collection equivalent — object-list/stats-block cannot express them (ADR-049), mirroring agent-template-github-store's below-header placement.",
 	},
 
 	/**
@@ -601,7 +601,7 @@ export default {
 		maxSize: { w: 12, h: 10 },
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
-		_note: 'Joins the skill\'s levelEvidence.l5, the datasets whose skillRefs reference it, and the paired EvalRun history — a cross-schema read + a bespoke trigger action (EvalRunController), not expressible as object-table/object-op (ADR-049).',
+		_note: "Joins the skill's levelEvidence.l5, the datasets whose skillRefs reference it, and the paired EvalRun history — a cross-schema read + a bespoke trigger action (EvalRunController), not expressible as object-table/object-op (ADR-049).",
 	},
 
 	/**

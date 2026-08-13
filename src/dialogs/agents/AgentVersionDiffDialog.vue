@@ -22,13 +22,18 @@
 		size="normal"
 		@update:open="onUpdateOpen">
 		<div class="agent-version-diff-dialog">
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not load the comparison')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not load the comparison')">
 				{{ error }}
 			</NcNoteCard>
 
 			<NcLoadingIcon v-if="loading" :size="32" />
 
-			<p v-else-if="fields.length === 0" class="agent-version-diff-dialog__empty">
+			<p
+				v-else-if="fields.length === 0"
+				class="agent-version-diff-dialog__empty">
 				{{ t('hermiq', 'No differences between these two versions.') }}
 			</p>
 
@@ -39,11 +44,15 @@
 					</dt>
 					<dd class="agent-version-diff-dialog__values">
 						<span class="agent-version-diff-dialog__old">
-							<span class="agent-version-diff-dialog__tag">{{ t('hermiq', 'Before') }}</span>
+							<span class="agent-version-diff-dialog__tag">{{
+								t('hermiq', 'Before')
+							}}</span>
 							<code>{{ formatValue(diff[field].old) }}</code>
 						</span>
 						<span class="agent-version-diff-dialog__new">
-							<span class="agent-version-diff-dialog__tag">{{ t('hermiq', 'After') }}</span>
+							<span class="agent-version-diff-dialog__tag">{{
+								t('hermiq', 'After')
+							}}</span>
 							<code>{{ formatValue(diff[field].new) }}</code>
 						</span>
 					</dd>
@@ -139,9 +148,16 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				this.diff = await diffAgentVersions(this.agentId, this.fromId, this.toId)
+				this.diff = await diffAgentVersions(
+					this.agentId,
+					this.fromId,
+					this.toId,
+				)
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 				this.diff = {}
 			} finally {
 				this.loading = false

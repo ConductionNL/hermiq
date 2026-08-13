@@ -41,7 +41,12 @@
 			</label>
 
 			<p class="template-import__note">
-				{{ t('hermiq', 'Templates imported from another organisation start quarantined and must be approved before they can be used.') }}
+				{{
+					t(
+						'hermiq',
+						'Templates imported from another organisation start quarantined and must be approved before they can be used.',
+					)
+				}}
 			</p>
 
 			<div class="template-import__actions">
@@ -52,7 +57,9 @@
 					type="secondary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('org')">
-					{{ t('hermiq', 'Import from another organisation (quarantine)') }}
+					{{
+						t('hermiq', 'Import from another organisation (quarantine)')
+					}}
 				</NcButton>
 				<NcButton
 					type="primary"
@@ -87,7 +94,8 @@ export default {
 			importText: '',
 			busy: false,
 			error: '',
-			placeholder: '{\n  "name": "My template",\n  "description": "What it does",\n  "systemPrompt": "…"\n}',
+			placeholder:
+				'{\n  "name": "My template",\n  "description": "What it does",\n  "systemPrompt": "…"\n}',
 		}
 	},
 
@@ -113,7 +121,10 @@ export default {
 				this.$emit('imported')
 				this.$emit('close')
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not import the template')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not import the template')
 			} finally {
 				this.busy = false
 			}

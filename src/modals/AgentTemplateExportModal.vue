@@ -25,7 +25,10 @@
 			-->
 			<label class="agent-template-export-modal__label">
 				<span>{{ t('hermiq', 'Package contents') }}</span>
-				<textarea class="agent-template-export-modal__textarea" readonly :value="exportedPackage" />
+				<textarea
+					class="agent-template-export-modal__textarea"
+					readonly
+					:value="exportedPackage" />
 			</label>
 		</div>
 	</NcModal>

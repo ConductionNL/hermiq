@@ -11,17 +11,26 @@
 		@update:open="$emit('close')">
 		<div class="dead-end">
 			<NcNoteCard type="warning">
-				{{ n('hermiq',
-					'One node has nowhere to send its work.',
-					'%n nodes have nowhere to send their work.',
-					nodeIds.length) }}
+				{{
+					n(
+						'hermiq',
+						'One node has nowhere to send its work.',
+						'%n nodes have nowhere to send their work.',
+						nodeIds.length,
+					)
+				}}
 			</NcNoteCard>
 
 			<!-- The save already happened. Saying so first matters: an author
 			     who reads "cannot finish" and assumes their work was rejected
 			     will redo it. -->
 			<p class="dead-end__intro">
-				{{ t('hermiq', 'Your changes are saved. This is about what will happen when the flow RUNS.') }}
+				{{
+					t(
+						'hermiq',
+						'Your changes are saved. This is about what will happen when the flow RUNS.',
+					)
+				}}
 			</p>
 
 			<ul class="dead-end__list">
@@ -31,7 +40,12 @@
 			</ul>
 
 			<p class="dead-end__hint">
-				{{ t('hermiq', 'A run that reaches one of these stops there and is still recorded as completed — so it would look like it worked. Connect the node onward, give it a step that ends the flow, or mark it as an exit if stopping there is deliberate.') }}
+				{{
+					t(
+						'hermiq',
+						'A run that reaches one of these stops there and is still recorded as completed — so it would look like it worked. Connect the node onward, give it a step that ends the flow, or mark it as an exit if stopping there is deliberate.',
+					)
+				}}
 			</p>
 		</div>
 

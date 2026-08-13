@@ -25,7 +25,12 @@
 			</h2>
 
 			<NcNoteCard type="warning">
-				{{ t('hermiq', 'This secret is shown only once. Copy it now — it cannot be displayed again.') }}
+				{{
+					t(
+						'hermiq',
+						'This secret is shown only once. Copy it now — it cannot be displayed again.',
+					)
+				}}
 			</NcNoteCard>
 
 			<NcTextField
@@ -35,7 +40,13 @@
 				@focus="selectAll" />
 
 			<p class="webhook-secret-dialog__hint">
-				{{ t('hermiq', 'Send this value in the {header} header when calling the trigger endpoint.', { header: 'X-Hermiq-Webhook-Secret' }) }}
+				{{
+					t(
+						'hermiq',
+						'Send this value in the {header} header when calling the trigger endpoint.',
+						{ header: 'X-Hermiq-Webhook-Secret' },
+					)
+				}}
 			</p>
 
 			<div class="webhook-secret-dialog__actions">
@@ -112,7 +123,12 @@ export default {
 				await navigator.clipboard.writeText(this.secret)
 				showSuccess(this.t('hermiq', 'Secret copied to clipboard.'))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not copy automatically — select and copy the value manually.'))
+				showError(
+					this.t(
+						'hermiq',
+						'Could not copy automatically — select and copy the value manually.',
+					),
+				)
 			}
 		},
 	},

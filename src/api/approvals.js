@@ -58,7 +58,9 @@ export async function listPendingApprovals() {
  * @return {Promise<object>} The decision outcome ({ approvalId, status, ran }).
  */
 export async function approveApproval(approvalId) {
-	const response = await axios.post(generateUrl(`${APPROVALS_BASE}/${approvalId}/approve`))
+	const response = await axios.post(
+		generateUrl(`${APPROVALS_BASE}/${approvalId}/approve`),
+	)
 	return response.data
 }
 
@@ -84,7 +86,9 @@ export async function denyApproval(approvalId, reason) {
  * @return {Promise<object>} The control state ({ organisation, engaged, reason, … }).
  */
 export async function getKillSwitch(organisation) {
-	const response = await axios.get(generateUrl(`${TENANT_CONTROL_BASE}/${organisation}`))
+	const response = await axios.get(
+		generateUrl(`${TENANT_CONTROL_BASE}/${organisation}`),
+	)
 	return response.data
 }
 

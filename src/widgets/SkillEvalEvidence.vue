@@ -22,11 +22,17 @@
 -->
 <template>
 	<div class="skill-eval-evidence">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Eval evidence error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Eval evidence error')">
 			{{ error }}
 		</NcNoteCard>
 
-		<NcLoadingIcon v-if="loading" :size="24" class="skill-eval-evidence__loading" />
+		<NcLoadingIcon
+			v-if="loading"
+			:size="24"
+			class="skill-eval-evidence__loading" />
 
 		<template v-else>
 			<template v-if="hasEvidence">
@@ -45,7 +51,12 @@
 					</div>
 				</dl>
 				<p v-if="l5.mode === 'joint'" class="skill-eval-evidence__hint">
-					{{ t('hermiq', 'Joint attribution: this delta is the joint contribution of all skills linked to the dataset, not this skill\'s individual marginal.') }}
+					{{
+						t(
+							'hermiq',
+							"Joint attribution: this delta is the joint contribution of all skills linked to the dataset, not this skill's individual marginal.",
+						)
+					}}
 				</p>
 
 				<div v-if="trend.length > 0" class="skill-eval-evidence__trend">
@@ -54,7 +65,8 @@
 					</h4>
 					<ol class="skill-eval-evidence__trend-list">
 						<li v-for="point in trend" :key="point.id">
-							{{ formatDate(point.startedAt) }} — {{ passRateLabel(point.passRateWith) }}
+							{{ formatDate(point.startedAt) }} —
+							{{ passRateLabel(point.passRateWith) }}
 						</li>
 					</ol>
 				</div>
@@ -68,8 +80,15 @@
 				<h4 class="skill-eval-evidence__subtitle">
 					{{ t('hermiq', 'Run paired eval') }}
 				</h4>
-				<p v-if="datasetOptions.length === 0" class="skill-eval-evidence__hint">
-					{{ t('hermiq', 'No dataset links this skill yet. Link it from an evaluation dataset first.') }}
+				<p
+					v-if="datasetOptions.length === 0"
+					class="skill-eval-evidence__hint">
+					{{
+						t(
+							'hermiq',
+							'No dataset links this skill yet. Link it from an evaluation dataset first.',
+						)
+					}}
 				</p>
 				<template v-else>
 					<div class="skill-eval-evidence__run-form">
@@ -110,7 +129,12 @@
 import { NcButton, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { runEval } from '../api/evals.js'
-import { useAgentStore, useEvalDatasetStore, useEvalRunStore, useSkillStore } from '../store/store.js'
+import {
+	useAgentStore,
+	useEvalDatasetStore,
+	useEvalRunStore,
+	useSkillStore,
+} from '../store/store.js'
 
 export default {
 	name: 'SkillEvalEvidence',
@@ -193,9 +217,15 @@ export default {
 		 */
 		emptyStateText() {
 			if (this.datasetOptions.length === 0) {
-				return this.t('hermiq', 'No eval evidence yet. Link this skill to an evaluation dataset and run a paired eval to measure its contribution.')
+				return this.t(
+					'hermiq',
+					'No eval evidence yet. Link this skill to an evaluation dataset and run a paired eval to measure its contribution.',
+				)
 			}
-			return this.t('hermiq', 'No eval evidence yet. Run a paired eval below to measure this skill\'s contribution.')
+			return this.t(
+				'hermiq',
+				"No eval evidence yet. Run a paired eval below to measure this skill's contribution.",
+			)
 		},
 
 		/**
@@ -206,8 +236,15 @@ export default {
 		 */
 		datasetOptions() {
 			return this.datasets
-				.filter((dataset) => Array.isArray(dataset.skillRefs) && dataset.skillRefs.includes(this.skillId))
-				.map((dataset) => ({ label: dataset.name || (dataset.uuid || dataset.id), value: dataset.uuid || dataset.id }))
+				.filter(
+					(dataset) =>
+						Array.isArray(dataset.skillRefs)
+						&& dataset.skillRefs.includes(this.skillId),
+				)
+				.map((dataset) => ({
+					label: dataset.name || dataset.uuid || dataset.id,
+					value: dataset.uuid || dataset.id,
+				}))
 		},
 
 		/**
@@ -218,7 +255,7 @@ export default {
 		 */
 		agentOptions() {
 			return this.agents.map((agent) => ({
-				label: agent.name || (agent.uuid || agent.id),
+				label: agent.name || agent.uuid || agent.id,
 				value: agent.uuid || agent.id,
 			}))
 		},
@@ -230,7 +267,9 @@ export default {
 		 * @return {string} joint|per-skill.
 		 */
 		selectedAgentMode() {
-			const agent = this.agents.find((entry) => (entry.uuid || entry.id) === this.selectedAgent?.value)
+			const agent = this.agents.find(
+				(entry) => (entry.uuid || entry.id) === this.selectedAgent?.value,
+			)
 			return agent?.evalBaselineMode === 'per-skill' ? 'per-skill' : 'joint'
 		},
 
@@ -241,7 +280,9 @@ export default {
 		 * @return {number} The count (at least 1).
 		 */
 		selectedDatasetSkillCount() {
-			const dataset = this.datasets.find((entry) => (entry.uuid || entry.id) === this.selectedDataset?.value)
+			const dataset = this.datasets.find(
+				(entry) => (entry.uuid || entry.id) === this.selectedDataset?.value,
+			)
 			const refs = Array.isArray(dataset?.skillRefs) ? dataset.skillRefs : []
 			return Math.max(refs.length, 1)
 		},
@@ -255,9 +296,16 @@ export default {
 		 */
 		costNote() {
 			if (this.selectedAgentMode === 'per-skill') {
-				return this.t('hermiq', 'Per-skill baseline: every case runs {times} times (one without-half per linked skill) — about {times}x the token cost of a normal run, counted against the same budgets.', { times: this.selectedDatasetSkillCount + 1 })
+				return this.t(
+					'hermiq',
+					'Per-skill baseline: every case runs {times} times (one without-half per linked skill) — about {times}x the token cost of a normal run, counted against the same budgets.',
+					{ times: this.selectedDatasetSkillCount + 1 },
+				)
 			}
-			return this.t('hermiq', 'Joint baseline: every case runs twice (all linked skills detached together) — about 2x the token cost of a normal run, counted against the same budgets. Link one skill per dataset for the cleanest attribution.')
+			return this.t(
+				'hermiq',
+				'Joint baseline: every case runs twice (all linked skills detached together) — about 2x the token cost of a normal run, counted against the same budgets. Link one skill per dataset for the cleanest attribution.',
+			)
 		},
 
 		/**
@@ -269,12 +317,26 @@ export default {
 		 */
 		trend() {
 			return this.runs
-				.filter((runRow) => runRow.baselineMode === true && runRow.status === 'completed')
-				.filter((runRow) => (runRow.skillResults || []).some((entry) => entry.skillId === this.skillId))
-				.sort((a, b) => String(a.startedAt || '').localeCompare(String(b.startedAt || '')))
+				.filter(
+					(runRow) =>
+						runRow.baselineMode === true
+						&& runRow.status === 'completed',
+				)
+				.filter((runRow) =>
+					(runRow.skillResults || []).some(
+						(entry) => entry.skillId === this.skillId,
+					),
+				)
+				.sort((a, b) =>
+					String(a.startedAt || '').localeCompare(
+						String(b.startedAt || ''),
+					),
+				)
 				.slice(-10)
 				.map((runRow) => {
-					const entry = (runRow.skillResults || []).find((item) => item.skillId === this.skillId)
+					const entry = (runRow.skillResults || []).find(
+						(item) => item.skillId === this.skillId,
+					)
 					return {
 						id: runRow.id || runRow.uuid,
 						startedAt: runRow.startedAt,
@@ -324,7 +386,10 @@ export default {
 				this.agents = Array.isArray(agents) ? agents : []
 				this.runs = Array.isArray(runs) ? runs : []
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not load the skill.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not load the skill.')
 			} finally {
 				this.loading = false
 			}
@@ -343,11 +408,22 @@ export default {
 			}
 			this.running = true
 			try {
-				const outcome = await runEval(this.selectedDataset.value, this.selectedAgent.value, { baseline: true })
-				showSuccess(this.t('hermiq', 'Paired eval complete: {rate} passed.', { rate: this.passRateLabel(outcome.passRate) }))
+				const outcome = await runEval(
+					this.selectedDataset.value,
+					this.selectedAgent.value,
+					{ baseline: true },
+				)
+				showSuccess(
+					this.t('hermiq', 'Paired eval complete: {rate} passed.', {
+						rate: this.passRateLabel(outcome.passRate),
+					}),
+				)
 				await this.load()
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'The paired eval failed.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'The paired eval failed.'),
+				)
 			} finally {
 				this.running = false
 			}

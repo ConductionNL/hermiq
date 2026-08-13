@@ -27,11 +27,17 @@
 -->
 <template>
 	<div class="skill-draft-review">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Draft review error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Draft review error')">
 			{{ error }}
 		</NcNoteCard>
 
-		<NcLoadingIcon v-if="loading" :size="24" class="skill-draft-review__loading" />
+		<NcLoadingIcon
+			v-if="loading"
+			:size="24"
+			class="skill-draft-review__loading" />
 
 		<template v-else>
 			<template v-if="pendingDraft">
@@ -40,19 +46,44 @@
 						{{ t('hermiq', 'Awaiting review') }}
 					</span>
 					<span class="skill-draft-review__fact">
-						{{ t('hermiq', 'Trigger: {trigger}', { trigger: pendingDraft.trigger || '—' }) }}
+						{{
+							t('hermiq', 'Trigger: {trigger}', {
+								trigger: pendingDraft.trigger || '—',
+							})
+						}}
 					</span>
 					<span class="skill-draft-review__fact">
-						{{ t('hermiq', 'Scan verdict: {verdict}', { verdict: pendingDraft.scanVerdict || t('hermiq', 'pending') }) }}
+						{{
+							t('hermiq', 'Scan verdict: {verdict}', {
+								verdict:
+									pendingDraft.scanVerdict
+									|| t('hermiq', 'pending'),
+							})
+						}}
 					</span>
-					<span v-if="pendingDraft.noEvalEvidence" class="skill-draft-review__fact skill-draft-review__fact--warn">
-						{{ t('hermiq', 'No eval evidence — accepting this draft can never grant L5.') }}
+					<span
+						v-if="pendingDraft.noEvalEvidence"
+						class="skill-draft-review__fact skill-draft-review__fact--warn">
+						{{
+							t(
+								'hermiq',
+								'No eval evidence — accepting this draft can never grant L5.',
+							)
+						}}
 					</span>
-					<span v-else-if="evalDeltaLabel" class="skill-draft-review__fact">
+					<span
+						v-else-if="evalDeltaLabel"
+						class="skill-draft-review__fact">
 						{{ evalDeltaLabel }}
 					</span>
-					<span v-if="pendingDraft.editedBeforeAccept" class="skill-draft-review__fact">
-						{{ t('hermiq', 'Edited before accept by {editor}', { editor: pendingDraft.editedBy || '—' }) }}
+					<span
+						v-if="pendingDraft.editedBeforeAccept"
+						class="skill-draft-review__fact">
+						{{
+							t('hermiq', 'Edited before accept by {editor}', {
+								editor: pendingDraft.editedBy || '—',
+							})
+						}}
 					</span>
 				</div>
 
@@ -73,17 +104,43 @@
 				<h4 class="skill-draft-review__heading">
 					{{ t('hermiq', 'Line changes') }}
 				</h4>
-				<ul class="skill-draft-review__diff" :aria-label="t('hermiq', 'Changed lines between the active and proposed version')">
-					<li v-for="(line, index) in diffLines"
+				<ul
+					class="skill-draft-review__diff"
+					:aria-label="
+						t(
+							'hermiq',
+							'Changed lines between the active and proposed version',
+						)
+					">
+					<li
+						v-for="(line, index) in diffLines"
 						:key="index"
-						:class="['skill-draft-review__diff-line', 'skill-draft-review__diff-line--' + line.kind]">
-						<span class="skill-draft-review__diff-marker" :aria-label="line.kind === 'added' ? t('hermiq', 'Added line') : t('hermiq', 'Removed line')">
+						:class="[
+							'skill-draft-review__diff-line',
+							'skill-draft-review__diff-line--' + line.kind,
+						]">
+						<span
+							class="skill-draft-review__diff-marker"
+							:aria-label="
+								line.kind === 'added'
+									? t('hermiq', 'Added line')
+									: t('hermiq', 'Removed line')
+							">
 							{{ line.kind === 'added' ? '+' : '−' }}
 						</span>
-						<span class="skill-draft-review__diff-text">{{ line.text }}</span>
+						<span class="skill-draft-review__diff-text">{{
+							line.text
+						}}</span>
 					</li>
-					<li v-if="diffLines.length === 0" class="skill-draft-review__empty">
-						{{ t('hermiq', 'The proposed body is identical to the active body.') }}
+					<li
+						v-if="diffLines.length === 0"
+						class="skill-draft-review__empty">
+						{{
+							t(
+								'hermiq',
+								'The proposed body is identical to the active body.',
+							)
+						}}
 					</li>
 				</ul>
 
@@ -94,7 +151,9 @@
 					<li v-for="ref in learningRefs" :key="ref">
 						<code>{{ ref }}</code>
 					</li>
-					<li v-if="learningRefs.length === 0" class="skill-draft-review__empty">
+					<li
+						v-if="learningRefs.length === 0"
+						class="skill-draft-review__empty">
 						{{ t('hermiq', 'No driving entries recorded.') }}
 					</li>
 				</ul>
@@ -106,17 +165,14 @@
 				  in it ("Edit, then accept" vs "Edit the draft before accepting").
 				-->
 				<div class="skill-draft-review__actions">
-					<NcButton type="primary"
-						:disabled="busy"
-						@click="doAccept">
+					<NcButton type="primary" :disabled="busy" @click="doAccept">
 						{{ busy ? t('hermiq', 'Working…') : t('hermiq', 'Accept') }}
 					</NcButton>
-					<NcButton type="secondary"
-						:disabled="busy"
-						@click="openEditor">
+					<NcButton type="secondary" :disabled="busy" @click="openEditor">
 						{{ t('hermiq', 'Edit, then accept') }}
 					</NcButton>
-					<NcButton type="tertiary"
+					<NcButton
+						type="tertiary"
 						:disabled="busy"
 						@click="showReject = true">
 						{{ t('hermiq', 'Reject') }}
@@ -126,15 +182,26 @@
 
 			<template v-else-if="qualifyingDraft">
 				<p class="skill-draft-review__empty">
-					{{ t('hermiq', 'A draft is being qualified (content scan and paired eval). It appears here once it passes the gates.') }}
+					{{
+						t(
+							'hermiq',
+							'A draft is being qualified (content scan and paired eval). It appears here once it passes the gates.',
+						)
+					}}
 				</p>
 			</template>
 
 			<template v-else>
 				<p class="skill-draft-review__empty">
-					{{ t('hermiq', 'No open improvement draft. Consolidation proposes one automatically once enough learnings accumulate — or propose one now.') }}
+					{{
+						t(
+							'hermiq',
+							'No open improvement draft. Consolidation proposes one automatically once enough learnings accumulate — or propose one now.',
+						)
+					}}
 				</p>
-				<NcButton type="secondary"
+				<NcButton
+					type="secondary"
 					:disabled="busy"
 					:aria-label="t('hermiq', 'Propose an improvement draft now')"
 					@click="doPropose">
@@ -143,13 +210,15 @@
 			</template>
 		</template>
 
-		<SkillDraftEditModal v-if="showEditor"
+		<SkillDraftEditModal
+			v-if="showEditor"
 			:draft="pendingDraft"
 			:busy="busy"
 			@save="doEditContent"
 			@close="showEditor = false" />
 
-		<SkillDraftRejectModal v-if="showReject"
+		<SkillDraftRejectModal
+			v-if="showReject"
 			:learning-refs="learningRefs"
 			:busy="busy"
 			@reject="doReject"
@@ -212,7 +281,10 @@ export default {
 		 * @return {object|null} The awaiting-approval draft.
 		 */
 		pendingDraft() {
-			return this.drafts.find((draft) => draft?.status === 'awaiting-approval') || null
+			return (
+				this.drafts.find((draft) => draft?.status === 'awaiting-approval')
+				|| null
+			)
 		},
 
 		/**
@@ -242,7 +314,9 @@ export default {
 		 * @return {string} The proposed body.
 		 */
 		proposedBody() {
-			return typeof this.pendingDraft?.proposedBody === 'string' ? this.pendingDraft.proposedBody : ''
+			return typeof this.pendingDraft?.proposedBody === 'string'
+				? this.pendingDraft.proposedBody
+				: ''
 		},
 
 		/**
@@ -253,7 +327,9 @@ export default {
 		 */
 		learningRefs() {
 			const refs = this.pendingDraft?.provenance?.learningRefs
-			return Array.isArray(refs) ? refs.filter((ref) => typeof ref === 'string' && ref !== '') : []
+			return Array.isArray(refs)
+				? refs.filter((ref) => typeof ref === 'string' && ref !== '')
+				: []
 		},
 
 		/**
@@ -270,11 +346,15 @@ export default {
 			const draftRate = Math.round((evidence.draftPassRate || 0) * 100)
 			const activeRate = Math.round((evidence.activePassRate || 0) * 100)
 			const delta = Math.round(evidence.delta * 100)
-			return this.t('hermiq', 'Eval: draft {draft}% vs active {active}% (delta {delta})', {
-				draft: draftRate,
-				active: activeRate,
-				delta: (delta >= 0 ? '+' : '') + delta + '%',
-			})
+			return this.t(
+				'hermiq',
+				'Eval: draft {draft}% vs active {active}% (delta {delta})',
+				{
+					draft: draftRate,
+					active: activeRate,
+					delta: (delta >= 0 ? '+' : '') + delta + '%',
+				},
+			)
 		},
 
 		/**
@@ -328,7 +408,10 @@ export default {
 				this.skill = skill || null
 				this.drafts = drafts
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not load the drafts.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not load the drafts.')
 			} finally {
 				this.loading = false
 			}
@@ -347,7 +430,10 @@ export default {
 				await proposeSkillImprovement(this.skillId)
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Propose failed.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Propose failed.')
 			} finally {
 				this.busy = false
 			}
@@ -371,7 +457,10 @@ export default {
 				// as SkillRowActions' qualify.
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Accept failed.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Accept failed.')
 			} finally {
 				this.busy = false
 			}
@@ -402,7 +491,10 @@ export default {
 				this.showEditor = false
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Edit failed.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Edit failed.')
 			} finally {
 				this.busy = false
 			}
@@ -419,14 +511,21 @@ export default {
 			this.busy = true
 			this.error = ''
 			try {
-				await rejectSkillDraft(this.pendingDraft.uuid, decision.note, decision.rejectedLearningRefs)
+				await rejectSkillDraft(
+					this.pendingDraft.uuid,
+					decision.note,
+					decision.rejectedLearningRefs,
+				)
 				this.showReject = false
 				await this.load()
 				// The decision changed the draft's lifecycle — refresh the page's
 				// other surfaces (same pattern as doAccept).
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Reject failed.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Reject failed.')
 			} finally {
 				this.busy = false
 			}

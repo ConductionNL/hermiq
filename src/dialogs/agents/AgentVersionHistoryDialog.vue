@@ -27,13 +27,18 @@
 		size="normal"
 		@update:open="onUpdateOpen">
 		<div class="agent-version-history-dialog">
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not load version history')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not load version history')">
 				{{ error }}
 			</NcNoteCard>
 
 			<NcLoadingIcon v-if="loading" :size="32" />
 
-			<p v-else-if="versions.length === 0" class="agent-version-history-dialog__empty">
+			<p
+				v-else-if="versions.length === 0"
+				class="agent-version-history-dialog__empty">
 				{{ t('hermiq', 'No versions recorded yet.') }}
 			</p>
 
@@ -44,23 +49,49 @@
 					class="agent-version-history-dialog__row">
 					<NcCheckboxRadioSwitch
 						:model-value="isSelected(version.id)"
-						:aria-label="t('hermiq', 'Select version from {date} to compare', { date: formatDate(version.timestamp) })"
+						:aria-label="
+							t('hermiq', 'Select version from {date} to compare', {
+								date: formatDate(version.timestamp),
+							})
+						"
 						@update:modelValue="toggleSelected(version.id)">
 						<span class="agent-version-history-dialog__meta">
-							<span class="agent-version-history-dialog__date">{{ formatDate(version.timestamp) }}</span>
-							<span class="agent-version-history-dialog__user">{{ version.user || t('hermiq', 'Unknown user') }}</span>
-							<span class="agent-version-history-dialog__action">{{ actionLabel(version.action) }}</span>
+							<span class="agent-version-history-dialog__date">{{
+								formatDate(version.timestamp)
+							}}</span>
+							<span class="agent-version-history-dialog__user">{{
+								version.user || t('hermiq', 'Unknown user')
+							}}</span>
+							<span class="agent-version-history-dialog__action">{{
+								actionLabel(version.action)
+							}}</span>
 						</span>
 					</NcCheckboxRadioSwitch>
-					<span v-if="version.changedFields && version.changedFields.length" class="agent-version-history-dialog__fields">
-						{{ t('hermiq', 'Changed: {fields}', { fields: version.changedFields.join(', ') }) }}
+					<span
+						v-if="version.changedFields && version.changedFields.length"
+						class="agent-version-history-dialog__fields">
+						{{
+							t('hermiq', 'Changed: {fields}', {
+								fields: version.changedFields.join(', '),
+							})
+						}}
 					</span>
 					<template v-if="resolvedCanRollback">
-						<span v-if="confirmingId === version.id" class="agent-version-history-dialog__confirm">
+						<span
+							v-if="confirmingId === version.id"
+							class="agent-version-history-dialog__confirm">
 							<span class="agent-version-history-dialog__confirm-text">
-								{{ t('hermiq', 'Roll back to this version? This creates a new version — nothing is deleted.') }}
+								{{
+									t(
+										'hermiq',
+										'Roll back to this version? This creates a new version — nothing is deleted.',
+									)
+								}}
 							</span>
-							<NcButton type="tertiary" :disabled="rollingBackId !== null" @click="confirmingId = null">
+							<NcButton
+								type="tertiary"
+								:disabled="rollingBackId !== null"
+								@click="confirmingId = null">
 								{{ t('hermiq', 'Cancel') }}
 							</NcButton>
 							<NcButton
@@ -109,7 +140,13 @@
 
 <script>
 import { getCurrentUser } from '@nextcloud/auth'
-import { NcButton, NcCheckboxRadioSwitch, NcDialog, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcDialog,
+	NcLoadingIcon,
+	NcNoteCard,
+} from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { listAgentVersions, rollbackAgentVersion } from '../../api/agents.js'
 import { useAgentStore } from '../../store/store.js'
@@ -228,7 +265,10 @@ export default {
 			try {
 				this.versions = await listAgentVersions(this.resolvedAgentId)
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 				this.versions = []
 			} finally {
 				this.loading = false
@@ -247,7 +287,9 @@ export default {
 			}
 			const store = useAgentStore()
 			store.registerObjectType('agent', 'agent', 'hermiq')
-			this.agent = await store.fetchObject('agent', this.resolvedAgentId).catch(() => null)
+			this.agent = await store
+				.fetchObject('agent', this.resolvedAgentId)
+				.catch(() => null)
 		},
 
 		/**
@@ -304,7 +346,9 @@ export default {
 			this.rollingBackId = version.id
 			try {
 				await rollbackAgentVersion(this.resolvedAgentId, version.id)
-				showSuccess(this.t('hermiq', 'Agent rolled back to the selected version.'))
+				showSuccess(
+					this.t('hermiq', 'Agent rolled back to the selected version.'),
+				)
 				this.selected = []
 				this.confirmingId = null
 				await this.load()

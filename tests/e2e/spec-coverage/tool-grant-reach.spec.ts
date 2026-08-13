@@ -31,7 +31,12 @@
  * Covers openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md
  */
 
-import { test, expect, request as playwrightRequest, type APIRequestContext } from '@playwright/test'
+import {
+	test,
+	expect,
+	request as playwrightRequest,
+	type APIRequestContext,
+} from '@playwright/test'
 import {
 	OR_API,
 	TEST_PREFIX,
@@ -64,7 +69,9 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		const page = await browser.newPage()
 		token = await harvestToken(page)
 
-		const seeded = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-reach` })
+		const seeded = await seedAgent(page.request, token, {
+			name: `${TEST_PREFIX}-reach`,
+		})
 		agentId = seeded.id
 
 		second = await createSecondUser(page.request, token, 'nonowner')
@@ -90,9 +97,16 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		// be excluding. Round 4 reported `identity="admin"` for a context built
 		// from the second user's credentials; that is what this line fixes.
 		secondCtx = await playwrightRequest.newContext({
-			baseURL: process.env.NEXTCLOUD_URL || process.env.BASE_URL || 'http://localhost:8080',
+			baseURL:
+				process.env.NEXTCLOUD_URL
+				|| process.env.BASE_URL
+				|| 'http://localhost:8080',
 			storageState: { cookies: [], origins: [] },
-			httpCredentials: { username: second.uid, password: second.password, send: 'always' },
+			httpCredentials: {
+				username: second.uid,
+				password: second.password,
+				send: 'always',
+			},
 		})
 
 		await page.close()
@@ -109,33 +123,51 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		await page.close()
 	})
 
-	test('every tool-catalogue entry carries a reach from the closed vocabulary', async ({ page }) => {
+	test('every tool-catalogue entry carries a reach from the closed vocabulary', async ({
+		page,
+	}) => {
 		const res = await page.request.get(
 			`/index.php/apps/hermiq/api/agents/${agentId}/tool-catalog`,
 			{ headers: jsonHeaders(token) },
 		)
 
-		expect(res.status(), 'tool-catalog must be readable by the agent owner').toBe(200)
+		expect(
+			res.status(),
+			'tool-catalog must be readable by the agent owner',
+		).toBe(200)
 
 		const body = await res.json()
 		const tools = body?.tools
-		expect(Array.isArray(tools), 'tool-catalog must return a tools array').toBe(true)
+		expect(Array.isArray(tools), 'tool-catalog must return a tools array').toBe(
+			true,
+		)
 
 		// A catalogue of zero would make every per-entry assertion below
 		// vacuously true — the classic "passes because it checked nothing".
-		expect(tools.length, 'The catalogue must not be empty with both apps installed').toBeGreaterThan(0)
+		expect(
+			tools.length,
+			'The catalogue must not be empty with both apps installed',
+		).toBeGreaterThan(0)
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const missing = tools.filter((t: any) => typeof t?.reach !== 'string' || t.reach === '')
+		const missing = tools.filter(
+			(t: any) => typeof t?.reach !== 'string' || t.reach === '',
+		)
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		expect(missing.map((t: any) => t.id), 'Every entry must carry a reach').toEqual([])
+		expect(
+			missing.map((t: any) => t.id),
+			'Every entry must carry a reach',
+		).toEqual([])
 
 		const outOfVocabulary = tools
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			.filter((t: any) => !REACHES.includes(t.reach))
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			.map((t: any) => `${t.id}=${t.reach}`)
-		expect(outOfVocabulary, 'Every reach must come from the closed vocabulary').toEqual([])
+		expect(
+			outOfVocabulary,
+			'Every reach must come from the closed vocabulary',
+		).toEqual([])
 
 		// 🔴 THE CROSS-APP ASSERTION. The two checks above would both PASS if the
 		// bridge were dropping `reach` — every entry would still carry one, and
@@ -146,9 +178,12 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 			const tool = byId.get(id)
 			expect(tool, `${id} must be present in the catalogue`).toBeTruthy()
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			expect((tool as any).reach, `${id} must resolve to 'user'. Getting 'external' means the reach `
-				+ 'annotation is being DROPPED between Hermiq and OpenRegister — check '
-				+ 'McpProviderBridge PASSTHROUGH_KEYS.').toBe('user')
+			expect(
+				(tool as any).reach,
+				`${id} must resolve to 'user'. Getting 'external' means the reach `
+					+ 'annotation is being DROPPED between Hermiq and OpenRegister — check '
+					+ 'McpProviderBridge PASSTHROUGH_KEYS.',
+			).toBe('user')
 		}
 
 		// Same `read` scope, different reach — the axis earning its existence.
@@ -156,40 +191,63 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		const webFetch = byId.get('hermiq.webFetch') as any
 		expect(webFetch, 'hermiq.webFetch must be present').toBeTruthy()
 		expect(webFetch.reach).toBe('external')
-		expect(webFetch.requiresExplicitGrant, 'An external-reach tool must need naming').toBe(true)
+		expect(
+			webFetch.requiresExplicitGrant,
+			'An external-reach tool must need naming',
+		).toBe(true)
 	})
 
-	test('a #noapproval waiver survives a persist and read-back', async ({ page }) => {
+	test('a #noapproval waiver survives a persist and read-back', async ({
+		page,
+	}) => {
 		const waived = `openregister.runFlow?flowId=00000000-0000-0000-0000-000000000000${WAIVER}`
 
 		const put = await page.request.put(
 			`/index.php/apps/hermiq/api/agents/${agentId}/tool-grants`,
-			{ headers: jsonHeaders(token), data: { grants: [waived, 'hermiq.listFiles'] } },
+			{
+				headers: jsonHeaders(token),
+				data: { grants: [waived, 'hermiq.listFiles'] },
+			},
 		)
 		// Carry the BODY into the failure message. A bare status number turns a
 		// server-side exception into a guessing game — this run cost a full CI
 		// cycle to learn only that it was "500".
 		const putBody = await put.text().catch(() => '<unreadable>')
-		expect(put.status(), `The owner may write grants (body: ${putBody.slice(0, 300)})`).toBe(200)
+		expect(
+			put.status(),
+			`The owner may write grants (body: ${putBody.slice(0, 300)})`,
+		).toBe(200)
 
 		// Read back through a DIFFERENT endpoint than the one that wrote it: the
 		// PUT response echoes what it just saved, so asserting on that alone
 		// would pass even if nothing was persisted.
-		const read = await page.request.get(`${OR_API}/objects/hermiq/agent/${agentId}`, { headers: jsonHeaders(token) })
+		const read = await page.request.get(
+			`${OR_API}/objects/hermiq/agent/${agentId}`,
+			{ headers: jsonHeaders(token) },
+		)
 		expect(read.status(), 'The agent read-back must succeed').toBe(200)
 
 		const body = await read.json()
 		const tools = body?.tools ?? body?.['@self']?.tools
-		expect(Array.isArray(tools), 'Agent.tools must persist as an array of strings').toBe(true)
+		expect(
+			Array.isArray(tools),
+			'Agent.tools must persist as an array of strings',
+		).toBe(true)
 
 		// Verbatim: fragment, constraint and their order all intact. A parser
 		// that stripped the fragment before saving, or absorbed it into the
 		// constraint value, fails right here.
-		expect(tools, 'The waived grant must round-trip byte for byte').toContain(waived)
+		expect(tools, 'The waived grant must round-trip byte for byte').toContain(
+			waived,
+		)
 		expect(tools).toContain('hermiq.listFiles')
 
-		const unexpected = tools.filter((t: string) => t.includes(WAIVER) && t !== waived)
-		expect(unexpected, 'No other grant may come back carrying a waiver').toEqual([])
+		const unexpected = tools.filter(
+			(t: string) => t.includes(WAIVER) && t !== waived,
+		)
+		expect(unexpected, 'No other grant may come back carrying a waiver').toEqual(
+			[],
+		)
 	})
 
 	test('a non-owner is refused on BOTH grant write paths', async ({ page }) => {
@@ -207,7 +265,10 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		// change, so a pass here alone proves nothing; it is the regression half.
 		const viaHermiq = await ctx.put(
 			`/index.php/apps/hermiq/api/agents/${agentId}/tool-grants`,
-			{ headers: { 'OCS-APIRequest': 'true', Accept: 'application/json' }, data: { grants: attack } },
+			{
+				headers: { 'OCS-APIRequest': 'true', Accept: 'application/json' },
+				data: { grants: attack },
+			},
 		)
 		expect(
 			[401, 403].includes(viaHermiq.status()),
@@ -219,20 +280,29 @@ test.describe('agent-capability-reach: catalogue reach, waiver round-trip, owner
 		// closed by the Agent schema's authorization block, not by app code.
 		const viaGeneric = await ctx.put(
 			`${OR_API}/objects/hermiq/agent/${agentId}`,
-			{ headers: { 'OCS-APIRequest': 'true', Accept: 'application/json' }, data: { name: 'hijacked', tools: attack } },
+			{
+				headers: { 'OCS-APIRequest': 'true', Accept: 'application/json' },
+				data: { name: 'hijacked', tools: attack },
+			},
 		)
 		expect(
 			[401, 403, 404].includes(viaGeneric.status()),
 			`The generic object path must refuse a non-owner, got ${viaGeneric.status()} — `
-			+ 'a 200 here is the reproduced IDOR, reopened.',
+				+ 'a 200 here is the reproduced IDOR, reopened.',
 		).toBeTruthy()
 
 		// 🔴 The assertion that actually matters: whatever status came back, the
 		// STORED grants must be untouched. A refusal that still wrote would be
 		// the worst of both worlds, and status codes alone cannot see it.
-		const read = await page.request.get(`${OR_API}/objects/hermiq/agent/${agentId}`, { headers: jsonHeaders(token) })
+		const read = await page.request.get(
+			`${OR_API}/objects/hermiq/agent/${agentId}`,
+			{ headers: jsonHeaders(token) },
+		)
 		expect(read.status()).toBe(200)
 		const stored = (await read.json())?.tools ?? []
-		expect(stored, 'A refused attack must leave the grant list unchanged').not.toContain('hermiq.sendMail')
+		expect(
+			stored,
+			'A refused attack must leave the grant list unchanged',
+		).not.toContain('hermiq.sendMail')
 	})
 })

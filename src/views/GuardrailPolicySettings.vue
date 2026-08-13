@@ -33,7 +33,12 @@
 		<NcEmptyContent
 			v-if="!canManage"
 			:name="t('hermiq', 'Organisation admins only')"
-			:description="t('hermiq', 'Guardrail policy administration is available to organisation owners and instance admins.')">
+			:description="
+				t(
+					'hermiq',
+					'Guardrail policy administration is available to organisation owners and instance admins.',
+				)
+			">
 			<template #icon>
 				<ShieldIcon :size="20" />
 			</template>
@@ -41,18 +46,35 @@
 
 		<template v-else>
 			<p class="guardrail-policy-settings__intro">
-				{{ t('hermiq', 'Per-organisation content filters (PII/secret redaction or block, prompt-injection block) and per-tool risk classification for agent input and output.') }}
+				{{
+					t(
+						'hermiq',
+						'Per-organisation content filters (PII/secret redaction or block, prompt-injection block) and per-tool risk classification for agent input and output.',
+					)
+				}}
 			</p>
 
-			<NcNoteCard v-if="guardrailPolicyError" type="error" :heading="t('hermiq', 'Guardrail policy error')">
+			<NcNoteCard
+				v-if="guardrailPolicyError"
+				type="error"
+				:heading="t('hermiq', 'Guardrail policy error')">
 				{{ guardrailPolicyError }}
 			</NcNoteCard>
 
-			<p v-if="guardrailPolicies.length === 0 && !guardrailPolicyError" class="guardrail-policy-settings__note">
-				{{ t('hermiq', 'No guardrail policies configured — agents run with every filter off and every tool auto-approved.') }}
+			<p
+				v-if="guardrailPolicies.length === 0 && !guardrailPolicyError"
+				class="guardrail-policy-settings__note">
+				{{
+					t(
+						'hermiq',
+						'No guardrail policies configured — agents run with every filter off and every tool auto-approved.',
+					)
+				}}
 			</p>
 
-			<div v-if="!creatingPolicy && organisationOptions.length > 0" class="guardrail-policy-settings__actions">
+			<div
+				v-if="!creatingPolicy && organisationOptions.length > 0"
+				class="guardrail-policy-settings__actions">
 				<NcButton type="primary" @click="startCreateGuardrailPolicy">
 					<template #icon>
 						<PlusIcon :size="20" />
@@ -74,74 +96,167 @@
 						:options="organisationOptions"
 						:input-label="t('hermiq', 'Applies to')"
 						:clearable="false"
-						@update:modelValue="(option) => { createOrganisation = option ? option.value : '' }" />
+						@update:modelValue="
+							(option) => {
+								createOrganisation = option ? option.value : ''
+							}
+						" />
 					<NcSelect
-						:model-value="guardrailActionOption(guardrailPolicyDraft.inputPiiAction, piiActionOptions)"
+						:model-value="
+							guardrailActionOption(
+								guardrailPolicyDraft.inputPiiAction,
+								piiActionOptions,
+							)
+						"
 						:options="piiActionOptions"
 						:input-label="t('hermiq', 'Input: PII/secret action')"
 						:clearable="false"
-						@update:modelValue="(option) => { guardrailPolicyDraft.inputPiiAction = option ? option.value : 'off' }" />
+						@update:modelValue="
+							(option) => {
+								guardrailPolicyDraft.inputPiiAction = option
+									? option.value
+									: 'off'
+							}
+						" />
 					<NcSelect
-						:model-value="guardrailActionOption(guardrailPolicyDraft.inputPromptInjectionAction, injectionActionOptions)"
+						:model-value="
+							guardrailActionOption(
+								guardrailPolicyDraft.inputPromptInjectionAction,
+								injectionActionOptions,
+							)
+						"
 						:options="injectionActionOptions"
 						:input-label="t('hermiq', 'Input: prompt-injection action')"
 						:clearable="false"
-						@update:modelValue="(option) => { guardrailPolicyDraft.inputPromptInjectionAction = option ? option.value : 'off' }" />
+						@update:modelValue="
+							(option) => {
+								guardrailPolicyDraft.inputPromptInjectionAction =
+									option ? option.value : 'off'
+							}
+						" />
 					<NcSelect
-						:model-value="guardrailActionOption(guardrailPolicyDraft.outputPiiAction, piiActionOptions)"
+						:model-value="
+							guardrailActionOption(
+								guardrailPolicyDraft.outputPiiAction,
+								piiActionOptions,
+							)
+						"
 						:options="piiActionOptions"
 						:input-label="t('hermiq', 'Output: PII/secret action')"
 						:clearable="false"
-						@update:modelValue="(option) => { guardrailPolicyDraft.outputPiiAction = option ? option.value : 'off' }" />
+						@update:modelValue="
+							(option) => {
+								guardrailPolicyDraft.outputPiiAction = option
+									? option.value
+									: 'off'
+							}
+						" />
 					<NcTextArea
 						v-model="guardrailPolicyDraft.toolPolicyText"
 						:label="t('hermiq', 'Per-tool classification')"
-						:placeholder="t('hermiq', 'One per line: toolId: auto|confirm|deny')"
+						:placeholder="
+							t('hermiq', 'One per line: toolId: auto|confirm|deny')
+						"
 						resize="vertical" />
 					<div class="guardrail-policy-settings__actions">
-						<NcButton type="primary" :disabled="guardrailPolicySaving" @click="saveNewGuardrailPolicy">
+						<NcButton
+							type="primary"
+							:disabled="guardrailPolicySaving"
+							@click="saveNewGuardrailPolicy">
 							{{ t('hermiq', 'Create policy') }}
 						</NcButton>
 					</div>
 				</div>
 			</div>
 
-			<div v-for="policy in guardrailPolicies" :key="policy.id" class="guardrail-policy-settings__policy">
+			<div
+				v-for="policy in guardrailPolicies"
+				:key="policy.id"
+				class="guardrail-policy-settings__policy">
 				<div class="guardrail-policy-settings__policy-head">
-					<strong>{{ policy.organisation ? organisationLabel(policy.organisation, organisations) : t('hermiq', 'Instance default') }}</strong>
-					<NcButton type="tertiary" @click="toggleGuardrailPolicyEdit(policy)">
-						{{ editingGuardrailPolicyId === policy.id ? t('hermiq', 'Cancel') : t('hermiq', 'Edit') }}
+					<strong>{{
+						policy.organisation
+							? organisationLabel(policy.organisation, organisations)
+							: t('hermiq', 'Instance default')
+					}}</strong>
+					<NcButton
+						type="tertiary"
+						@click="toggleGuardrailPolicyEdit(policy)">
+						{{
+							editingGuardrailPolicyId === policy.id
+								? t('hermiq', 'Cancel')
+								: t('hermiq', 'Edit')
+						}}
 					</NcButton>
 				</div>
-				<p v-if="editingGuardrailPolicyId !== policy.id" class="guardrail-policy-settings__note">
+				<p
+					v-if="editingGuardrailPolicyId !== policy.id"
+					class="guardrail-policy-settings__note">
 					{{ guardrailPolicySummary(policy) }}
 				</p>
 				<div v-else class="guardrail-policy-settings__policy-edit">
 					<NcSelect
-						:model-value="guardrailActionOption(guardrailPolicyDraft.inputPiiAction, piiActionOptions)"
+						:model-value="
+							guardrailActionOption(
+								guardrailPolicyDraft.inputPiiAction,
+								piiActionOptions,
+							)
+						"
 						:options="piiActionOptions"
 						:input-label="t('hermiq', 'Input: PII/secret action')"
 						:clearable="false"
-						@update:modelValue="(option) => { guardrailPolicyDraft.inputPiiAction = option ? option.value : 'off' }" />
+						@update:modelValue="
+							(option) => {
+								guardrailPolicyDraft.inputPiiAction = option
+									? option.value
+									: 'off'
+							}
+						" />
 					<NcSelect
-						:model-value="guardrailActionOption(guardrailPolicyDraft.inputPromptInjectionAction, injectionActionOptions)"
+						:model-value="
+							guardrailActionOption(
+								guardrailPolicyDraft.inputPromptInjectionAction,
+								injectionActionOptions,
+							)
+						"
 						:options="injectionActionOptions"
 						:input-label="t('hermiq', 'Input: prompt-injection action')"
 						:clearable="false"
-						@update:modelValue="(option) => { guardrailPolicyDraft.inputPromptInjectionAction = option ? option.value : 'off' }" />
+						@update:modelValue="
+							(option) => {
+								guardrailPolicyDraft.inputPromptInjectionAction =
+									option ? option.value : 'off'
+							}
+						" />
 					<NcSelect
-						:model-value="guardrailActionOption(guardrailPolicyDraft.outputPiiAction, piiActionOptions)"
+						:model-value="
+							guardrailActionOption(
+								guardrailPolicyDraft.outputPiiAction,
+								piiActionOptions,
+							)
+						"
 						:options="piiActionOptions"
 						:input-label="t('hermiq', 'Output: PII/secret action')"
 						:clearable="false"
-						@update:modelValue="(option) => { guardrailPolicyDraft.outputPiiAction = option ? option.value : 'off' }" />
+						@update:modelValue="
+							(option) => {
+								guardrailPolicyDraft.outputPiiAction = option
+									? option.value
+									: 'off'
+							}
+						" />
 					<NcTextArea
 						v-model="guardrailPolicyDraft.toolPolicyText"
 						:label="t('hermiq', 'Per-tool classification')"
-						:placeholder="t('hermiq', 'One per line: toolId: auto|confirm|deny')"
+						:placeholder="
+							t('hermiq', 'One per line: toolId: auto|confirm|deny')
+						"
 						resize="vertical" />
 					<div class="guardrail-policy-settings__actions">
-						<NcButton type="primary" :disabled="guardrailPolicySaving" @click="saveGuardrailPolicy(policy)">
+						<NcButton
+							type="primary"
+							:disabled="guardrailPolicySaving"
+							@click="saveGuardrailPolicy(policy)">
 							{{ t('hermiq', 'Save policy') }}
 						</NcButton>
 					</div>
@@ -152,12 +267,22 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcNoteCard, NcSelect, NcTextArea } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcEmptyContent,
+	NcNoteCard,
+	NcSelect,
+	NcTextArea,
+} from '@nextcloud/vue'
 import { loadState } from '@nextcloud/initial-state'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import PlusIcon from 'vue-material-design-icons/Plus.vue'
-import { createGuardrailPolicy, listGuardrailPolicies, updateGuardrailPolicy } from '../api/guardrailPolicy.js'
+import {
+	createGuardrailPolicy,
+	listGuardrailPolicies,
+	updateGuardrailPolicy,
+} from '../api/guardrailPolicy.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
 
 export default {
@@ -235,15 +360,23 @@ export default {
 		 * @return {Array<object>} The { label, value } options.
 		 */
 		organisationOptions() {
-			const taken = new Set(this.guardrailPolicies.map((p) => p.organisation || ''))
+			const taken = new Set(
+				this.guardrailPolicies.map((p) => p.organisation || ''),
+			)
 			const options = []
 			if (!taken.has('')) {
-				options.push({ label: this.t('hermiq', 'Instance default'), value: '' })
+				options.push({
+					label: this.t('hermiq', 'Instance default'),
+					value: '',
+				})
 			}
 			for (const org of this.organisations) {
 				const value = org.id || org.uuid || org
 				if (!taken.has(value)) {
-					options.push({ label: organisationLabel(value, this.organisations), value })
+					options.push({
+						label: organisationLabel(value, this.organisations),
+						value,
+					})
 				}
 			}
 			return options
@@ -255,7 +388,11 @@ export default {
 		 * @return {?object} The matching option, or null.
 		 */
 		selectedCreateOrganisation() {
-			return this.organisationOptions.find((o) => o.value === this.createOrganisation) || null
+			return (
+				this.organisationOptions.find(
+					(o) => o.value === this.createOrganisation,
+				) || null
+			)
 		},
 	},
 
@@ -280,7 +417,10 @@ export default {
 			try {
 				this.guardrailPolicies = await listGuardrailPolicies()
 			} catch (e) {
-				this.guardrailPolicyError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.guardrailPolicyError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			}
 		},
 
@@ -304,14 +444,25 @@ export default {
 		guardrailPolicySummary(policy) {
 			const input = policy.inputFilters || {}
 			const output = policy.outputFilters || {}
-			const toolPolicy = Array.isArray(policy.toolPolicy) ? policy.toolPolicy : []
+			const toolPolicy = Array.isArray(policy.toolPolicy)
+				? policy.toolPolicy
+				: []
 			const piiLabel = this.t('hermiq', 'PII')
 			const inputPii = input.piiAction || 'off'
 			const inputInjection = input.promptInjectionAction || 'off'
 			const outputPii = output.piiAction || 'off'
-			const inputSummary = this.t('hermiq', 'Input') + ': ' + piiLabel + ' ' + inputPii
-				+ ', ' + this.t('hermiq', 'prompt injection') + ' ' + inputInjection
-			const outputSummary = this.t('hermiq', 'Output') + ': ' + piiLabel + ' ' + outputPii
+			const inputSummary =
+				this.t('hermiq', 'Input')
+				+ ': '
+				+ piiLabel
+				+ ' '
+				+ inputPii
+				+ ', '
+				+ this.t('hermiq', 'prompt injection')
+				+ ' '
+				+ inputInjection
+			const outputSummary =
+				this.t('hermiq', 'Output') + ': ' + piiLabel + ' ' + outputPii
 			const parts = [inputSummary, outputSummary]
 			if (toolPolicy.length > 0) {
 				parts.push(toolPolicy.length + ' ' + this.t('hermiq', 'tool rules'))
@@ -357,7 +508,10 @@ export default {
 				outputPiiAction: 'off',
 				toolPolicyText: '',
 			}
-			this.createOrganisation = this.organisationOptions.length > 0 ? this.organisationOptions[0].value : ''
+			this.createOrganisation =
+				this.organisationOptions.length > 0
+					? this.organisationOptions[0].value
+					: ''
 			this.creatingPolicy = true
 		},
 
@@ -374,7 +528,8 @@ export default {
 					organisation: this.createOrganisation,
 					inputFilters: {
 						piiAction: this.guardrailPolicyDraft.inputPiiAction,
-						promptInjectionAction: this.guardrailPolicyDraft.inputPromptInjectionAction,
+						promptInjectionAction:
+							this.guardrailPolicyDraft.inputPromptInjectionAction,
 					},
 					outputFilters: {
 						piiAction: this.guardrailPolicyDraft.outputPiiAction,
@@ -386,7 +541,13 @@ export default {
 				this.creatingPolicy = false
 				await this.loadGuardrailPolicies()
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not create the guardrail policy.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t(
+							'hermiq',
+							'Could not create the guardrail policy.',
+						),
+				)
 			} finally {
 				this.guardrailPolicySaving = false
 			}
@@ -406,12 +567,22 @@ export default {
 				this.editingGuardrailPolicyId = null
 				return
 			}
-			const toolPolicy = Array.isArray(policy.toolPolicy) ? policy.toolPolicy : []
+			const toolPolicy = Array.isArray(policy.toolPolicy)
+				? policy.toolPolicy
+				: []
 			this.guardrailPolicyDraft = {
-				inputPiiAction: (policy.inputFilters && policy.inputFilters.piiAction) || 'off',
-				inputPromptInjectionAction: (policy.inputFilters && policy.inputFilters.promptInjectionAction) || 'off',
-				outputPiiAction: (policy.outputFilters && policy.outputFilters.piiAction) || 'off',
-				toolPolicyText: toolPolicy.map((entry) => `${entry.toolId}: ${entry.classification}`).join('\n'),
+				inputPiiAction:
+					(policy.inputFilters && policy.inputFilters.piiAction) || 'off',
+				inputPromptInjectionAction:
+					(policy.inputFilters
+						&& policy.inputFilters.promptInjectionAction)
+					|| 'off',
+				outputPiiAction:
+					(policy.outputFilters && policy.outputFilters.piiAction)
+					|| 'off',
+				toolPolicyText: toolPolicy
+					.map((entry) => `${entry.toolId}: ${entry.classification}`)
+					.join('\n'),
 			}
 			this.editingGuardrailPolicyId = policy.id
 		},
@@ -441,7 +612,8 @@ export default {
 				await updateGuardrailPolicy(policy.id, {
 					inputFilters: {
 						piiAction: this.guardrailPolicyDraft.inputPiiAction,
-						promptInjectionAction: this.guardrailPolicyDraft.inputPromptInjectionAction,
+						promptInjectionAction:
+							this.guardrailPolicyDraft.inputPromptInjectionAction,
 					},
 					outputFilters: {
 						piiAction: this.guardrailPolicyDraft.outputPiiAction,
@@ -453,7 +625,10 @@ export default {
 				this.editingGuardrailPolicyId = null
 				await this.loadGuardrailPolicies()
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'Could not save the guardrail policy.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'Could not save the guardrail policy.'),
+				)
 			} finally {
 				this.guardrailPolicySaving = false
 			}

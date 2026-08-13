@@ -129,7 +129,12 @@
 <script>
 import { NcButton, NcNoteCard } from '@nextcloud/vue'
 import { emit } from '@nextcloud/event-bus'
-import { approveSkill, exportSkill, publishSkill, qualifySkill } from '../api/skills.js'
+import {
+	approveSkill,
+	exportSkill,
+	publishSkill,
+	qualifySkill,
+} from '../api/skills.js'
 // skill-maturity: the post-qualify scorecard, its own file per the
 // modal-isolation rule — as are the export, install and GitHub-publish
 // modals below.
@@ -192,9 +197,12 @@ export default {
 			}
 			const published = new Date(publishedAt).getTime()
 			const accepted = new Date(acceptedAt).getTime()
-			return Number.isFinite(published) && Number.isFinite(accepted) && accepted > published
+			return (
+				Number.isFinite(published)
+				&& Number.isFinite(accepted)
+				&& accepted > published
+			)
 		},
-
 	},
 
 	methods: {
@@ -222,7 +230,10 @@ export default {
 				await approveSkill(this.skillId())
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -243,7 +254,10 @@ export default {
 				this.scorecardResult = await qualifySkill(this.skillId())
 				emit('cn:page:refresh', {})
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -261,7 +275,10 @@ export default {
 				this.exportedPackage = await exportSkill(this.skillId())
 				this.showExport = true
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			}
 		},
 
@@ -277,10 +294,15 @@ export default {
 			try {
 				const result = await publishSkill(this.skillId())
 				if (result && result.error) {
-					this.error = result.error.message || this.t('hermiq', 'Publishing is not available.')
+					this.error =
+						result.error.message
+						|| this.t('hermiq', 'Publishing is not available.')
 				}
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -307,7 +329,9 @@ export default {
 		 * @return {void}
 		 */
 		onGithubPublished(repoUrl) {
-			this.githubPublishNotice = this.t('hermiq', 'Published to {repoUrl}', { repoUrl })
+			this.githubPublishNotice = this.t('hermiq', 'Published to {repoUrl}', {
+				repoUrl,
+			})
 			this.showGithubPublish = false
 			emit('cn:page:refresh', {})
 		},
@@ -358,5 +382,4 @@ export default {
 	flex-wrap: wrap;
 	justify-content: flex-end;
 }
-
 </style>

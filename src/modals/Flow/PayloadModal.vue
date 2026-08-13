@@ -3,11 +3,7 @@
   - SPDX-License-Identifier: EUPL-1.2
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="large"
-		:name="heading"
-		@close="$emit('close')">
+	<NcModal :show="show" size="large" :name="heading" @close="$emit('close')">
 		<div class="payload" data-testid="flow-payload">
 			<h2 class="payload__title">
 				{{ heading }}
@@ -24,11 +20,17 @@
 					comparing five items against a node that processed ten
 					thousand concludes the flow dropped data.
 				-->
-				<NcNoteCard v-if="entry.output && entry.output.truncated" type="warning">
-					{{ n('hermiq',
-						'Showing the first item of %n.',
-						'Showing the first items of %n.',
-						entry.output.count) }}
+				<NcNoteCard
+					v-if="entry.output && entry.output.truncated"
+					type="warning">
+					{{
+						n(
+							'hermiq',
+							'Showing the first item of %n.',
+							'Showing the first items of %n.',
+							entry.output.count,
+						)
+					}}
 				</NcNoteCard>
 
 				<!--
@@ -38,12 +40,20 @@
 					and the whole point of showing both is the before/after.
 				-->
 				<h3 class="payload__subtitle">
-					{{ t('hermiq', 'What {node} received', { node: entry.transition }) }}
+					{{
+						t('hermiq', 'What {node} received', {
+							node: entry.transition,
+						})
+					}}
 				</h3>
 				<pre class="payload__json">{{ pretty(entry.input) }}</pre>
 
 				<h3 class="payload__subtitle">
-					{{ t('hermiq', 'What {node} returned', { node: entry.transition }) }}
+					{{
+						t('hermiq', 'What {node} returned', {
+							node: entry.transition,
+						})
+					}}
 				</h3>
 				<p class="payload__hint">
 					{{ t('hermiq', 'The input of whatever comes next.') }}
@@ -107,7 +117,10 @@ export default {
 		 * @return {object|null} The log entry.
 		 */
 		entry() {
-			const detail = this.editor.replayRunId === null ? null : this.editor.runDetail[this.editor.replayRunId]
+			const detail =
+				this.editor.replayRunId === null
+					? null
+					: this.editor.runDetail[this.editor.replayRunId]
 			if (!detail) {
 				return null
 			}
@@ -115,17 +128,25 @@ export default {
 			// Asked from the NODE: answer for that node directly.
 			const node = this.editor.payloadNodeId
 			if (node) {
-				return (detail.log || []).find((line) => this.namesNode(line, node)) || null
+				return (
+					(detail.log || []).find((line) => this.namesNode(line, node))
+					|| null
+				)
 			}
 
 			// Asked from a LINE: a run records transitions, not edges, so the
 			// payload on a line is the entry of the node it LEAVES.
-			const edge = (this.editor.edges || []).find((candidate) => candidate.id === this.editor.payloadEdgeId)
+			const edge = (this.editor.edges || []).find(
+				(candidate) => candidate.id === this.editor.payloadEdgeId,
+			)
 			if (!edge) {
 				return null
 			}
 
-			return (detail.log || []).find((line) => this.namesNode(line, edge.from)) || null
+			return (
+				(detail.log || []).find((line) => this.namesNode(line, edge.from))
+				|| null
+			)
 		},
 
 		/**
@@ -140,10 +161,16 @@ export default {
 		 */
 		emptyReason() {
 			if (this.editor.replayRunId === null) {
-				return this.t('hermiq', 'No run is open. Choose a run under Runs to see what passed through here.')
+				return this.t(
+					'hermiq',
+					'No run is open. Choose a run under Runs to see what passed through here.',
+				)
 			}
 
-			return this.t('hermiq', 'This node did not run in the selected run, so nothing was recorded for it.')
+			return this.t(
+				'hermiq',
+				'This node did not run in the selected run, so nothing was recorded for it.',
+			)
 		},
 
 		/**
@@ -178,9 +205,11 @@ export default {
 		namesNode(line, nodeId) {
 			const id = String(nodeId || '')
 
-			return String(line.transition || '') === id
+			return (
+				String(line.transition || '') === id
 				|| String(line.node || '') === id
 				|| String(line.step || '') === id
+			)
 		},
 
 		/**

@@ -41,7 +41,9 @@ function toList(data) {
  * @return {Promise<Array<object>>} The budget records.
  */
 export async function listBudgets(organisation) {
-	const response = await axios.get(generateUrl(BUDGETS_BASE), { params: { organisation } })
+	const response = await axios.get(generateUrl(BUDGETS_BASE), {
+		params: { organisation },
+	})
 	return toList(response.data)
 }
 
@@ -78,7 +80,10 @@ export async function createBudget(payload) {
  * @return {Promise<object>} The updated budget.
  */
 export async function updateBudget(budgetId, payload) {
-	const response = await axios.put(generateUrl(`${BUDGETS_BASE}/${budgetId}`), payload)
+	const response = await axios.put(
+		generateUrl(`${BUDGETS_BASE}/${budgetId}`),
+		payload,
+	)
 	return response.data
 }
 
@@ -101,6 +106,8 @@ export async function deleteBudget(budgetId) {
  * @return {Promise<object>} The estimate payload ({ available, sampleSize, avgTotalTokens, avgCostEur, label }).
  */
 export async function getBudgetEstimate(agentId) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/budget-estimate`))
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/budget-estimate`),
+	)
 	return response.data
 }

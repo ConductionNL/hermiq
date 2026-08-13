@@ -26,11 +26,26 @@ const NC_PASS = process.env.NC_PASS || 'admin'
 
 const SITE = '/home/rubenlinde/gate19-worktrees/website-hermiq-tutorial/academy'
 const OUT = {
-	catalog: path.join(SITE, '2026-07-27-hermiq-skills-tutorial-1-skills-for-your-agents/images/01-skills-catalog-maturity-dots.png'),
-	saveAsSkill: path.join(SITE, '2026-07-27-hermiq-skills-tutorial-1-skills-for-your-agents/images/02-save-as-skill-modal.png'),
-	scorecard: path.join(SITE, '2026-07-27-hermiq-skills-tutorial-2-qualifying-a-skill/images/01-qualify-scorecard.png'),
-	pairedRun: path.join(SITE, '2026-07-27-hermiq-skills-tutorial-3-paired-evals/images/01-paired-run-detail.png'),
-	learnings: path.join(SITE, '2026-07-27-hermiq-skills-tutorial-4-skills-that-learn/images/01-learnings-tab.png'),
+	catalog: path.join(
+		SITE,
+		'2026-07-27-hermiq-skills-tutorial-1-skills-for-your-agents/images/01-skills-catalog-maturity-dots.png',
+	),
+	saveAsSkill: path.join(
+		SITE,
+		'2026-07-27-hermiq-skills-tutorial-1-skills-for-your-agents/images/02-save-as-skill-modal.png',
+	),
+	scorecard: path.join(
+		SITE,
+		'2026-07-27-hermiq-skills-tutorial-2-qualifying-a-skill/images/01-qualify-scorecard.png',
+	),
+	pairedRun: path.join(
+		SITE,
+		'2026-07-27-hermiq-skills-tutorial-3-paired-evals/images/01-paired-run-detail.png',
+	),
+	learnings: path.join(
+		SITE,
+		'2026-07-27-hermiq-skills-tutorial-4-skills-that-learn/images/01-learnings-tab.png',
+	),
 }
 
 test.use({ viewport: { width: 1280, height: 800 }, colorScheme: 'light' })
@@ -39,7 +54,7 @@ test.use({ viewport: { width: 1280, height: 800 }, colorScheme: 'light' })
 async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 	await userField.fill(NC_USER)
@@ -56,7 +71,9 @@ async function shoot(target: Locator | Page, file: string): Promise<void> {
 
 async function openSkillsCatalog(page: Page): Promise<void> {
 	await page.goto('/apps/hermiq/skills', { waitUntil: 'domcontentloaded' })
-	await expect(page.getByText('woo-request-triage').first()).toBeVisible({ timeout: 30_000 })
+	await expect(page.getByText('woo-request-triage').first()).toBeVisible({
+		timeout: 30_000,
+	})
 }
 
 test.describe('tutorial captures', () => {
@@ -87,20 +104,28 @@ test.describe('tutorial captures', () => {
 		// seeded by any repair step. Skip loudly when absent (fresh/disposable
 		// instance) instead of timing out: same not-a-pass pattern as the
 		// hydra-console spec's precondition skips.
-		await page.getByText('Draft a meeting-notes skill').first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {})
+		await page
+			.getByText('Draft a meeting-notes skill')
+			.first()
+			.waitFor({ state: 'visible', timeout: 15_000 })
+			.catch(() => {})
 		test.skip(
-			await page.getByText('Draft a meeting-notes skill').count() === 0,
+			(await page.getByText('Draft a meeting-notes skill').count()) === 0,
 			'PRECONDITION MISSING: the curated "Draft a meeting-notes skill" demo conversation does not exist on this instance (requires an LLM provider + manual authoring). Not a pass.',
 		)
 		await page.getByText('Draft a meeting-notes skill').first().click()
-		await expect(page.getByText('meeting-notes-to-decisions').first()).toBeVisible({ timeout: 30_000 })
+		await expect(
+			page.getByText('meeting-notes-to-decisions').first(),
+		).toBeVisible({ timeout: 30_000 })
 		await page.getByRole('button', { name: 'Save as skill' }).first().click()
 		// The modal opens pre-filled with the assistant message's SKILL.md body.
 		// NOTE: latent hidden [role=dialog]/.modal-container hosts stay mounted —
 		// always match the VISIBLE one.
 		const dialog = page.locator('.modal-container:visible').first()
 		await expect(dialog).toBeVisible({ timeout: 15_000 })
-		await expect(dialog.getByText('meeting-notes-to-decisions').first()).toBeVisible()
+		await expect(
+			dialog.getByText('meeting-notes-to-decisions').first(),
+		).toBeVisible()
 		await page.waitForTimeout(750)
 		await shoot(page, OUT.saveAsSkill)
 	})
@@ -110,7 +135,9 @@ test.describe('tutorial captures', () => {
 		await openSkillsCatalog(page)
 		const row = page.locator('tr', { hasText: 'meeting-notes-cleanup' }).first()
 		await row.getByRole('button', { name: 'Qualify skill maturity' }).click()
-		await expect(page.getByText('Maturity scorecard').first()).toBeVisible({ timeout: 15_000 })
+		await expect(page.getByText('Maturity scorecard').first()).toBeVisible({
+			timeout: 15_000,
+		})
 		await page.waitForTimeout(750)
 		await shoot(page.locator('.modal-container:visible').first(), OUT.scorecard)
 	})
@@ -121,19 +148,27 @@ test.describe('tutorial captures', () => {
 		await page.setViewportSize({ width: 1920, height: 1080 })
 		await page.goto('/apps/hermiq/evals', { waitUntil: 'domcontentloaded' })
 		await page.getByText('woo-triage-paired-eval').first().click()
-		await expect(page.getByText('Linked skills').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.getByText('Linked skills').first()).toBeVisible({
+			timeout: 30_000,
+		})
 		// A COMPLETED paired run is curated state — executing one needs a
 		// configured LLM provider, which a fresh/disposable instance lacks.
 		// Skip loudly instead of timing out (not-a-pass precondition pattern).
-		await page.getByRole('button', { name: 'Details' }).first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => {})
+		await page
+			.getByRole('button', { name: 'Details' })
+			.first()
+			.waitFor({ state: 'visible', timeout: 15_000 })
+			.catch(() => {})
 		test.skip(
-			await page.getByRole('button', { name: 'Details' }).count() === 0,
+			(await page.getByRole('button', { name: 'Details' }).count()) === 0,
 			'PRECONDITION MISSING: no completed paired eval run exists on this instance (requires an LLM provider to execute one). Not a pass.',
 		)
 		await page.getByRole('button', { name: 'Details' }).first().click()
 		await expect(page.getByText('Baseline delta').first()).toBeVisible()
 		await expect(page.getByText('With skill').first()).toBeVisible()
-		await expect(page.getByText('Without skills — per case').first()).toBeVisible()
+		await expect(
+			page.getByText('Without skills — per case').first(),
+		).toBeVisible()
 		await page.waitForTimeout(750)
 		await shoot(page.locator('.eval-run-panel-widget').first(), OUT.pairedRun)
 	})
@@ -143,9 +178,18 @@ test.describe('tutorial captures', () => {
 		// Tall viewport so the whole learnings card (five sections + strip) is in view.
 		await page.setViewportSize({ width: 1280, height: 1700 })
 		await openSkillsCatalog(page)
-		await page.locator('tr', { hasText: 'tender-summary' }).first().getByText('tender-summary').first().click()
-		await expect(page.getByText('Promoted learnings').first()).toBeVisible({ timeout: 30_000 })
-		await expect(page.getByRole('heading', { name: 'Patterns That Work' })).toBeVisible()
+		await page
+			.locator('tr', { hasText: 'tender-summary' })
+			.first()
+			.getByText('tender-summary')
+			.first()
+			.click()
+		await expect(page.getByText('Promoted learnings').first()).toBeVisible({
+			timeout: 30_000,
+		})
+		await expect(
+			page.getByRole('heading', { name: 'Patterns That Work' }),
+		).toBeVisible()
 		// The card scrolls internally inside a fixed-height gridstack item (456px
 		// visible vs ~568px content). Grow just that item for the capture so all
 		// five sections + the activity strip land in one image — the equivalent of

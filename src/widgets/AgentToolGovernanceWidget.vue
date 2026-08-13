@@ -61,7 +61,10 @@
 				type="button"
 				role="tab"
 				class="agent-tool-governance-widget__tab"
-				:class="{ 'agent-tool-governance-widget__tab--active': activeTab === tab.id }"
+				:class="{
+					'agent-tool-governance-widget__tab--active':
+						activeTab === tab.id,
+				}"
 				:aria-selected="activeTab === tab.id ? 'true' : 'false'"
 				:aria-controls="`${uid}-panel-${tab.id}`"
 				:tabindex="activeTab === tab.id ? 0 : -1"
@@ -218,7 +221,9 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async loadAgent() {
-			this.agent = await this.agentStore.fetchObject('agent', this.agentId).catch(() => null)
+			this.agent = await this.agentStore
+				.fetchObject('agent', this.agentId)
+				.catch(() => null)
 		},
 
 		/**

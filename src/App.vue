@@ -58,18 +58,31 @@
 			  user clicks the manifest menu entry with action: "user-settings".
 			-->
 			<template #user-settings>
-				<NcAppSettingsSection
-					id="about"
-					:name="t('hermiq', 'About Hermiq')">
+				<NcAppSettingsSection id="about" :name="t('hermiq', 'About Hermiq')">
 					<p class="hermiq-settings__text">
-						{{ t('hermiq', 'Hermiq brings autonomous AI agents to Nextcloud — define an agent, give it tools, and run it on a schedule. Open source, EUPL-1.2, by Conduction.') }}
+						{{
+							t(
+								'hermiq',
+								'Hermiq brings autonomous AI agents to Nextcloud — define an agent, give it tools, and run it on a schedule. Open source, EUPL-1.2, by Conduction.',
+							)
+						}}
 					</p>
 					<ul class="hermiq-settings__links">
 						<li>
-							<a href="https://www.conduction.nl/academy" target="_blank" rel="noopener noreferrer">{{ t('hermiq', 'Documentation') }}</a>
+							<a
+								href="https://www.conduction.nl/academy"
+								target="_blank"
+								rel="noopener noreferrer"
+								>{{ t('hermiq', 'Documentation') }}</a
+							>
 						</li>
 						<li>
-							<a href="https://codeberg.org/Conduction/hermiq" target="_blank" rel="noopener noreferrer">{{ t('hermiq', 'Source code (Codeberg)') }}</a>
+							<a
+								href="https://codeberg.org/Conduction/hermiq"
+								target="_blank"
+								rel="noopener noreferrer"
+								>{{ t('hermiq', 'Source code (Codeberg)') }}</a
+							>
 						</li>
 					</ul>
 				</NcAppSettingsSection>
@@ -83,7 +96,12 @@
 					id="setup"
 					:name="t('hermiq', 'Setup')">
 					<p class="hermiq-settings__text">
-						{{ t('hermiq', 'Re-run the first-time setup wizard to point Hermiq at your LLM host and test the connection.') }}
+						{{
+							t(
+								'hermiq',
+								'Re-run the first-time setup wizard to point Hermiq at your LLM host and test the connection.',
+							)
+						}}
 					</p>
 					<NcButton type="secondary" @click="showSetup = true">
 						{{ t('hermiq', 'Run setup wizard') }}
@@ -115,7 +133,12 @@
 import { reactive } from 'vue'
 import { translate as ncT } from '@nextcloud/l10n'
 import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
-import { CnAppRoot, CnObjectSidebar, CnSetupWizard, CnCredentials } from '@conduction/nextcloud-vue'
+import {
+	CnAppRoot,
+	CnObjectSidebar,
+	CnSetupWizard,
+	CnCredentials,
+} from '@conduction/nextcloud-vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
 // Provider-credential declarations for the CnCredentials settings surface.
 // Lives beside the manifest (not inside it): the app-manifest v2 schema has no
@@ -256,7 +279,10 @@ export default {
 		 *   the setup contract.
 		 */
 		setupSteps() {
-			return (this.manifest && this.manifest.setup && this.manifest.setup.steps) || []
+			return (
+				(this.manifest && this.manifest.setup && this.manifest.setup.steps)
+				|| []
+			)
 		},
 
 		/**

@@ -7,7 +7,12 @@
 import './publicPath.js'
 import { createApp } from 'vue'
 import { createRouter, createWebHistory } from 'vue-router'
-import { translate as t, translatePlural as n, loadTranslations, register } from '@nextcloud/l10n'
+import {
+	translate as t,
+	translatePlural as n,
+	loadTranslations,
+	register,
+} from '@nextcloud/l10n'
 import enTranslations from '../l10n/en.json'
 import { generateUrl } from '@nextcloud/router'
 import {
@@ -82,7 +87,10 @@ function tryLoadTranslations() {
 	try {
 		const result = loadTranslations('hermiq', () => {})
 		if (result && typeof result.then === 'function') {
-			result.then(() => {}, () => {})
+			result.then(
+				() => {},
+				() => {},
+			)
 		}
 	} catch {
 		// no-op

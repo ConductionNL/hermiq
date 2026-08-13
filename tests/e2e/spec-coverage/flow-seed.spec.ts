@@ -84,7 +84,9 @@ test.describe('hermiq#140: the Hydra Triage flow seeds on a clean install', () =
 	// And when no organisation resolves at all, the step now writes NOTHING
 	// rather than an orphan: an absent flow is recoverable on the next run, an
 	// orphan blocks its own re-seed forever while reporting success.
-	test('the install-time flow seed reports success, and the flow exists', async ({ page }) => {
+	test('the install-time flow seed reports success, and the flow exists', async ({
+		page,
+	}) => {
 		const token = await harvestToken(page)
 
 		const outcome = await appConfig(page.request, token, OUTCOME_KEY)
@@ -98,14 +100,14 @@ test.describe('hermiq#140: the Hydra Triage flow seeds on a clean install', () =
 		expect(
 			outcome,
 			'The flow-seed step recorded no outcome at all. Either it never ran during '
-			+ '`occ app:enable`, or it died before its own breadcrumb. Both are different '
-			+ 'from "the write failed".',
+				+ '`occ app:enable`, or it died before its own breadcrumb. Both are different '
+				+ 'from "the write failed".',
 		).not.toEqual('')
 
 		expect(
 			outcome,
 			`The install-time Hydra Triage flow seed did not succeed (outcome="${outcome}"). `
-			+ `Recorded cause: ${detail || '<none recorded>'}`,
+				+ `Recorded cause: ${detail || '<none recorded>'}`,
 		).toBe('seeded')
 
 		// And the flow is actually readable — the breadcrumb says what the step
@@ -119,7 +121,9 @@ test.describe('hermiq#140: the Hydra Triage flow seeds on a clean install', () =
 		expect(flows.status(), 'the flow store must be readable').toBe(200)
 
 		const body = await flows.json().catch(() => null)
-		const results = (body?.results ?? body?.data ?? []) as Array<Record<string, unknown>>
+		const results = (body?.results ?? body?.data ?? []) as Array<
+			Record<string, unknown>
+		>
 		const names = results.map((f) => String(f.name ?? ''))
 
 		expect(

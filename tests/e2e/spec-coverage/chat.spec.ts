@@ -28,7 +28,16 @@
  */
 
 import { test, expect, type Page } from '@playwright/test'
-import { TEST_PREFIX, appRoot, cleanupFamily, dismissTour, harvestToken, jsonHeaders, resolveRegisterSchema, seedAgent } from './_fixtures'
+import {
+	TEST_PREFIX,
+	appRoot,
+	cleanupFamily,
+	dismissTour,
+	harvestToken,
+	jsonHeaders,
+	resolveRegisterSchema,
+	seedAgent,
+} from './_fixtures'
 
 /**
  * Collect app-level console errors, filtering known benign noise.
@@ -43,7 +52,11 @@ function collectConsoleErrors(page: Page): string[] {
 			return
 		}
 		const text = msg.text()
-		if (/favicon|manifest\.json|the server responded with a status of 404|user_status|Failed to load resource/i.test(text)) {
+		if (
+			/favicon|manifest\.json|the server responded with a status of 404|user_status|Failed to load resource/i.test(
+				text,
+			)
+		) {
 			return
 		}
 		// Only hermiq's own failures may fail a hermiq test — Nextcloud hosts
@@ -52,7 +65,8 @@ function collectConsoleErrors(page: Page): string[] {
 		// dashboard-and-agents.spec.ts. Errors with no attributable script are
 		// kept, so raw console.error from application code still counts.
 		const source = `${msg.location()?.url || ''} ${text}`
-		const foreignApp = source.match(/\/custom_apps\/([^/]+)\//)?.[1]
+		const foreignApp =
+			source.match(/\/custom_apps\/([^/]+)\//)?.[1]
 			|| source.match(/\/apps\/([^/]+)\/js\//)?.[1]
 		if (foreignApp !== undefined && foreignApp !== 'hermiq') {
 			return
@@ -72,8 +86,9 @@ function collectConsoleErrors(page: Page): string[] {
  * confirmed and is not the cause.
  */
 test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
-
-	test('chat page renders: conversation list column + thread empty state, composer absent without a conversation', async ({ page }) => {
+	test('chat page renders: conversation list column + thread empty state, composer absent without a conversation', async ({
+		page,
+	}) => {
 		const errors = collectConsoleErrors(page)
 
 		const root = await appRoot(page)
@@ -89,35 +104,54 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 		// such row (15 on the dev instance) and dies on strict mode — a failure
 		// about seed data, not about the surface under test.
 		await expect(
-			page.locator('.chat-page__list').getByRole('button', { name: 'New conversation', exact: true }),
+			page
+				.locator('.chat-page__list')
+				.getByRole('button', { name: 'New conversation', exact: true }),
 		).toBeVisible()
 		// Active/Archive list tabs.
 		await expect(page.getByText('Active', { exact: true }).first()).toBeVisible()
-		await expect(page.getByText('Archive', { exact: true }).first()).toBeVisible()
+		await expect(
+			page.getByText('Archive', { exact: true }).first(),
+		).toBeVisible()
 
 		// The list column settles into a coherent state: loading spinner gone,
 		// then EITHER conversation rows OR the empty-state note — never neither.
-		await expect(page.locator('.chat-page__list-state')).toBeHidden({ timeout: 20_000 })
+		await expect(page.locator('.chat-page__list-state')).toBeHidden({
+			timeout: 20_000,
+		})
 		const rows = page.locator('.chat-page__row')
-		const emptyNote = page.getByText('No conversations yet. Start one to chat with an agent.')
+		const emptyNote = page.getByText(
+			'No conversations yet. Start one to chat with an agent.',
+		)
 		await expect(rows.first().or(emptyNote)).toBeVisible({ timeout: 15_000 })
 
 		// No active conversation on entry → the thread column shows the
 		// agent-selector empty state, and the composer (message input + Send)
 		// is intentionally NOT rendered — coherent with "nothing to send to".
-		await expect(page.getByRole('heading', { name: 'Start a conversation' })).toBeVisible()
+		await expect(
+			page.getByRole('heading', { name: 'Start a conversation' }),
+		).toBeVisible()
 		await expect(page.locator('.chat-page__composer')).toHaveCount(0)
-		await expect(page.getByRole('button', { name: 'Send message' })).toHaveCount(0)
+		await expect(page.getByRole('button', { name: 'Send message' })).toHaveCount(
+			0,
+		)
 
-		expect(errors, `Unexpected console errors: ${errors.join(' | ')}`).toHaveLength(0)
+		expect(
+			errors,
+			`Unexpected console errors: ${errors.join(' | ')}`,
+		).toHaveLength(0)
 	})
 
-	test('with a seeded agent: start conversation, Send disabled/enabled coherent with input, optimistic bubble + honest turn outcome', async ({ page }) => {
+	test('with a seeded agent: start conversation, Send disabled/enabled coherent with input, optimistic bubble + honest turn outcome', async ({
+		page,
+	}) => {
 		// Seed a minimal agent through the OpenRegister objects API (register
 		// 'hermiq', schema 'agent' — name is the only required property).
 		const token = await harvestToken(page)
 		await resolveRegisterSchema(page.request, token, 'agent')
-		const agent = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-chat-agent` })
+		const agent = await seedAgent(page.request, token, {
+			name: `${TEST_PREFIX}-chat-agent`,
+		})
 
 		const root = await appRoot(page)
 
@@ -128,12 +162,17 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 			await expect(page.locator('.chat-page')).toBeVisible({ timeout: 15_000 })
 
 			// The seeded agent appears in the selector; start a conversation.
-			const card = page.locator('.agent-selector__card').filter({ hasText: agent.name })
+			const card = page
+				.locator('.agent-selector__card')
+				.filter({ hasText: agent.name })
 			await expect(card).toBeVisible({ timeout: 20_000 })
 			// Capture the created conversation uuid from the POST response so
 			// the test can clean it up afterwards.
-			const createResponse = page.waitForResponse((res) =>
-				res.url().includes('/apps/hermiq/api/conversations') && res.request().method() === 'POST')
+			const createResponse = page.waitForResponse(
+				(res) =>
+					res.url().includes('/apps/hermiq/api/conversations')
+					&& res.request().method() === 'POST',
+			)
 			await card.getByRole('button', { name: 'Start conversation' }).click()
 			const created = await (await createResponse).json().catch(() => ({}))
 			conversationUuid = String(created.uuid ?? created.id ?? '')
@@ -158,16 +197,21 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 			// Send. The optimistic user bubble MUST render immediately —
 			// that is pure frontend state, independent of any LLM backend.
 			await send.click()
-			const userBubble = page.locator('.chat-page__message--user').filter({ hasText: 'Hello from the e2e suite' })
+			const userBubble = page
+				.locator('.chat-page__message--user')
+				.filter({ hasText: 'Hello from the e2e suite' })
 			await expect(userBubble.first()).toBeVisible({ timeout: 10_000 })
 
 			// The turn must SETTLE honestly: either an assistant message
 			// (working backend) or the composer's error note card (no LLM
 			// configured — sendError). A silent hang is the only failure.
 			const assistantBubble = page.locator('.chat-page__message--assistant')
-			const errorNote = composer.locator('.notecard, [class*="note-card"], .notecard--error')
+			const errorNote = composer
+				.locator('.notecard, [class*="note-card"], .notecard--error')
 				.or(composer.getByRole('alert'))
-			await expect(assistantBubble.first().or(errorNote.first())).toBeVisible({ timeout: 90_000 })
+			await expect(assistantBubble.first().or(errorNote.first())).toBeVisible({
+				timeout: 90_000,
+			})
 
 			// Whatever the outcome, the composer must be usable again
 			// (sending=false re-enables the input) — no stuck spinner.
@@ -176,12 +220,22 @@ test.describe('hermiq chat surface (UI mechanics, no LLM required)', () => {
 			// Cleanup: archive + permanently delete the conversation, then the
 			// seeded agent family (best-effort; never masks the test result).
 			if (conversationUuid) {
-				await page.request.delete(`/index.php/apps/hermiq/api/conversations/${conversationUuid}`, {
-					headers: jsonHeaders(token),
-				}).catch(() => null)
-				await page.request.delete(`/index.php/apps/hermiq/api/conversations/${conversationUuid}/permanent`, {
-					headers: jsonHeaders(token),
-				}).catch(() => null)
+				await page.request
+					.delete(
+						`/index.php/apps/hermiq/api/conversations/${conversationUuid}`,
+						{
+							headers: jsonHeaders(token),
+						},
+					)
+					.catch(() => null)
+				await page.request
+					.delete(
+						`/index.php/apps/hermiq/api/conversations/${conversationUuid}/permanent`,
+						{
+							headers: jsonHeaders(token),
+						},
+					)
+					.catch(() => null)
 			}
 			await cleanupFamily(page.request, token, 'agent').catch(() => {})
 		}

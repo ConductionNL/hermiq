@@ -48,9 +48,10 @@ webpackConfig.entry = {
 const localLib = process.env.LOCAL_LIB_PATH
 	? path.resolve(process.env.LOCAL_LIB_PATH)
 	: path.resolve(__dirname, '../nextcloud-vue/src')
-const useLocalLib = process.env.USE_LOCAL_LIB === 'false'
-	? false
-	: (Boolean(process.env.LOCAL_LIB_PATH) && fs.existsSync(localLib))
+const useLocalLib =
+	process.env.USE_LOCAL_LIB === 'false'
+		? false
+		: Boolean(process.env.LOCAL_LIB_PATH) && fs.existsSync(localLib)
 
 // Extend the base resolve config (preserves defaults from @nextcloud/webpack-vue-config)
 webpackConfig.resolve = webpackConfig.resolve || {}
@@ -75,18 +76,30 @@ webpackConfig.resolve.alias = {
 	// CnAppRoot render nothing at all — silently, with zero console errors.
 	// One ABSOLUTE file so the app and the library share ONE Vue copy (dual copies
 	// = two currentRenderingInstance states → CnAppRoot null crash).
-	vue$: path.resolve(__dirname, 'node_modules/vue/dist/vue.runtime.esm-bundler.js'),
+	vue$: path.resolve(
+		__dirname,
+		'node_modules/vue/dist/vue.runtime.esm-bundler.js',
+	),
 	pinia$: path.resolve(__dirname, 'node_modules/pinia'),
 	// Dedupe vue-router to ONE copy (absolute file): the aliased lib worktree ships
 	// its own vue-router, and a per-importer resolve gives @nextcloud/vue's
 	// RouterLink a different router instance than app.use(router) provided.
-	'vue-router$': path.resolve(__dirname, 'node_modules/vue-router/dist/vue-router.mjs'),
+	'vue-router$': path.resolve(
+		__dirname,
+		'node_modules/vue-router/dist/vue-router.mjs',
+	),
 	// @nextcloud/vue v9 is ESM-only (exports '.' -> ./dist/index.mjs, no main/module),
 	// so a directory alias can't resolve it — point at the explicit entry file.
-	'@nextcloud/vue$': path.resolve(__dirname, 'node_modules/@nextcloud/vue/dist/index.mjs'),
+	'@nextcloud/vue$': path.resolve(
+		__dirname,
+		'node_modules/@nextcloud/vue/dist/index.mjs',
+	),
 	// @nextcloud/dialogs v6 ships its stylesheet at dist/style.css via the exports
 	// map; the aliased lib imports '@nextcloud/dialogs/style.css' — resolve it here.
-	'@nextcloud/dialogs/style.css$': path.resolve(__dirname, 'node_modules/@nextcloud/dialogs/dist/style.css'),
+	'@nextcloud/dialogs/style.css$': path.resolve(
+		__dirname,
+		'node_modules/@nextcloud/dialogs/dist/style.css',
+	),
 	'@nextcloud/dialogs': path.resolve(__dirname, 'node_modules/@nextcloud/dialogs'),
 	// Force the lib's transitive @nextcloud/axios import to resolve to
 	// the app's installed copy. Without the `$` exact-match suffix,
@@ -129,7 +142,9 @@ webpackConfig.plugins = [
 	new VueLoaderPlugin(),
 	new NodePolyfillPlugin({ additionalAliases: ['process'] }),
 	new webpack.DefinePlugin({ appName: JSON.stringify(appId) }),
-	new webpack.DefinePlugin({ appVersion: JSON.stringify(process.env.npm_package_version) }),
+	new webpack.DefinePlugin({
+		appVersion: JSON.stringify(process.env.npm_package_version),
+	}),
 	// Vue 3 esm-bundler feature flags (tree-shaking hints). __VUE_OPTIONS_API__
 	// MUST stay true — the app and @nextcloud/vue are Options-API based, and
 	// @vue/compat requires it during the straddle.

@@ -37,7 +37,12 @@
 			</label>
 
 			<p class="skill-import__note">
-				{{ t('hermiq', 'Skills installed from a hub or another organisation start quarantined and must be approved before an agent can use them.') }}
+				{{
+					t(
+						'hermiq',
+						'Skills installed from a hub or another organisation start quarantined and must be approved before an agent can use them.',
+					)
+				}}
 			</p>
 
 			<div class="skill-import__actions">
@@ -83,7 +88,8 @@ export default {
 			importText: '',
 			busy: false,
 			error: '',
-			placeholder: '---\nname: My Skill\ndescription: What it does\n---\n# My Skill\n\nInstructions…',
+			placeholder:
+				'---\nname: My Skill\ndescription: What it does\n---\n# My Skill\n\nInstructions…',
 		}
 	},
 
@@ -113,7 +119,10 @@ export default {
 				this.$emit('imported')
 				this.$emit('close')
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not import the skill')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not import the skill')
 			} finally {
 				this.busy = false
 			}

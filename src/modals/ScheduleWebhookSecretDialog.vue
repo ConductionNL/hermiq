@@ -30,7 +30,12 @@
 
 			<template v-if="revealedSecret">
 				<NcNoteCard type="warning">
-					{{ t('hermiq', 'This secret is shown only once. Copy it now — it cannot be displayed again.') }}
+					{{
+						t(
+							'hermiq',
+							'This secret is shown only once. Copy it now — it cannot be displayed again.',
+						)
+					}}
 				</NcNoteCard>
 
 				<NcTextField
@@ -40,7 +45,13 @@
 					@focus="selectAll" />
 
 				<p class="schedule-webhook-secret-dialog__hint">
-					{{ t('hermiq', 'The receiving endpoint verifies deliveries using the {header} header (sha256=&lt;hex hmac&gt;).', { header: 'X-Hermiq-Signature' }) }}
+					{{
+						t(
+							'hermiq',
+							'The receiving endpoint verifies deliveries using the {header} header (sha256=&lt;hex hmac&gt;).',
+							{ header: 'X-Hermiq-Signature' },
+						)
+					}}
 				</p>
 
 				<div class="schedule-webhook-secret-dialog__actions">
@@ -57,11 +68,23 @@
 			</template>
 
 			<template v-else>
-				<p v-if="status.configured" class="schedule-webhook-secret-dialog__hint">
-					{{ t('hermiq', 'A signing secret is configured for this schedule.') }}
+				<p
+					v-if="status.configured"
+					class="schedule-webhook-secret-dialog__hint">
+					{{
+						t(
+							'hermiq',
+							'A signing secret is configured for this schedule.',
+						)
+					}}
 				</p>
 				<p v-else class="schedule-webhook-secret-dialog__hint">
-					{{ t('hermiq', 'No signing secret is configured yet — webhook deliveries will fail until one is minted.') }}
+					{{
+						t(
+							'hermiq',
+							'No signing secret is configured yet — webhook deliveries will fail until one is minted.',
+						)
+					}}
 				</p>
 
 				<div class="schedule-webhook-secret-dialog__actions">
@@ -152,7 +175,9 @@ export default {
 		 * @return {Promise<void>}
 		 */
 		async loadStatus() {
-			this.status = await getScheduleWebhookSecretStatus(this.scheduleId).catch(() => ({ configured: false }))
+			this.status = await getScheduleWebhookSecretStatus(
+				this.scheduleId,
+			).catch(() => ({ configured: false }))
 		},
 
 		/**
@@ -178,7 +203,12 @@ export default {
 				await navigator.clipboard.writeText(this.revealedSecret)
 				showSuccess(this.t('hermiq', 'Secret copied to clipboard.'))
 			} catch (e) {
-				showError(this.t('hermiq', 'Could not copy automatically — select and copy the value manually.'))
+				showError(
+					this.t(
+						'hermiq',
+						'Could not copy automatically — select and copy the value manually.',
+					),
+				)
 			}
 		},
 
@@ -195,7 +225,9 @@ export default {
 				this.revealedSecret = result.secret
 				this.status = { configured: true, rotatedAt: result.rotatedAt }
 			} catch (e) {
-				this.error = e?.response?.data?.error || this.t('hermiq', 'Could not mint webhook secret')
+				this.error =
+					e?.response?.data?.error
+					|| this.t('hermiq', 'Could not mint webhook secret')
 			} finally {
 				this.busy = false
 			}
@@ -215,7 +247,9 @@ export default {
 				this.revealedSecret = result.secret
 				this.status = { configured: true, rotatedAt: result.rotatedAt }
 			} catch (e) {
-				this.error = e?.response?.data?.error || this.t('hermiq', 'Could not rotate webhook secret')
+				this.error =
+					e?.response?.data?.error
+					|| this.t('hermiq', 'Could not rotate webhook secret')
 			} finally {
 				this.busy = false
 			}
@@ -234,7 +268,9 @@ export default {
 				this.revealedSecret = ''
 				showSuccess(this.t('hermiq', 'Webhook secret revoked.'))
 			} catch (e) {
-				this.error = e?.response?.data?.error || this.t('hermiq', 'Could not revoke webhook secret')
+				this.error =
+					e?.response?.data?.error
+					|| this.t('hermiq', 'Could not revoke webhook secret')
 			} finally {
 				this.busy = false
 			}

@@ -27,11 +27,19 @@
 				{{ t('hermiq', 'AI features') }}
 			</h2>
 			<p class="ai-feature-register__intro">
-				{{ t('hermiq', 'The design-time inventory of high-risk AI features this platform provides. A feature can only be enabled after the Data Protection Officer has acknowledged it.') }}
+				{{
+					t(
+						'hermiq',
+						'The design-time inventory of high-risk AI features this platform provides. A feature can only be enabled after the Data Protection Officer has acknowledged it.',
+					)
+				}}
 			</p>
 		</div>
 
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'AI features error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'AI features error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -43,7 +51,12 @@
 			<NcEmptyContent
 				v-if="!loading && features.length === 0"
 				:name="t('hermiq', 'No AI features yet')"
-				:description="t('hermiq', 'AI features are registered by the platform and appear here once seeded.')">
+				:description="
+					t(
+						'hermiq',
+						'AI features are registered by the platform and appear here once seeded.',
+					)
+				">
 				<template #icon>
 					<AiIcon :size="20" />
 				</template>
@@ -72,9 +85,15 @@
 				</template>
 				<template #column-acknowledged="{ row }">
 					<span v-if="row.acknowledged" class="ai-feature-register__ack">
-						{{ t('hermiq', 'Acknowledged by {uid}', { uid: row.dpoAckBy || t('hermiq', 'DPO') }) }}
+						{{
+							t('hermiq', 'Acknowledged by {uid}', {
+								uid: row.dpoAckBy || t('hermiq', 'DPO'),
+							})
+						}}
 					</span>
-					<span v-else class="ai-feature-register__ack ai-feature-register__ack--missing">
+					<span
+						v-else
+						class="ai-feature-register__ack ai-feature-register__ack--missing">
 						{{ t('hermiq', 'Not acknowledged') }}
 					</span>
 				</template>
@@ -90,13 +109,19 @@
 						<NcButton
 							type="secondary"
 							:disabled="busy || row.acknowledged"
-							:aria-label="t('hermiq', 'Acknowledge this AI feature as DPO')"
+							:aria-label="
+								t('hermiq', 'Acknowledge this AI feature as DPO')
+							"
 							@click="doAcknowledge(row.feature)">
 							{{ t('hermiq', 'Acknowledge (DPO)') }}
 						</NcButton>
 						<NcButton
 							type="primary"
-							:disabled="busy || !row.acknowledged || row.lifecycle === 'enabled'"
+							:disabled="
+								busy
+								|| !row.acknowledged
+								|| row.lifecycle === 'enabled'
+							"
 							:aria-label="t('hermiq', 'Enable this AI feature')"
 							@click="doEnable(row.feature)">
 							{{ t('hermiq', 'Enable') }}
@@ -112,19 +137,39 @@
 						     OpenCatalogi (the fleet publication leaf) is absent; publish disabled
 						     with an explained tooltip when the readiness gate would fail. -->
 						<NcButton
-							v-if="isAdmin && opencatalogiAvailable && row.algoritmeregisterStatus !== 'gepubliceerd'"
+							v-if="
+								isAdmin
+								&& opencatalogiAvailable
+								&& row.algoritmeregisterStatus !== 'gepubliceerd'
+							"
 							type="secondary"
 							:disabled="busy || !publishReady(row)"
-							:title="publishReady(row) ? '' : publishBlockedReason(row)"
-							:aria-label="t('hermiq', 'Publish this AI feature to the Algoritmeregister')"
+							:title="
+								publishReady(row) ? '' : publishBlockedReason(row)
+							"
+							:aria-label="
+								t(
+									'hermiq',
+									'Publish this AI feature to the Algoritmeregister',
+								)
+							"
 							@click="doPublish(row.feature)">
 							{{ t('hermiq', 'Publish to Algoritmeregister') }}
 						</NcButton>
 						<NcButton
-							v-if="isAdmin && opencatalogiAvailable && row.algoritmeregisterStatus === 'gepubliceerd'"
+							v-if="
+								isAdmin
+								&& opencatalogiAvailable
+								&& row.algoritmeregisterStatus === 'gepubliceerd'
+							"
 							type="tertiary"
 							:disabled="busy"
-							:aria-label="t('hermiq', 'Withdraw this AI feature from the Algoritmeregister')"
+							:aria-label="
+								t(
+									'hermiq',
+									'Withdraw this AI feature from the Algoritmeregister',
+								)
+							"
 							@click="doWithdraw(row.feature)">
 							{{ t('hermiq', 'Withdraw from Algoritmeregister') }}
 						</NcButton>
@@ -142,7 +187,14 @@ import { loadState } from '@nextcloud/initial-state'
 // The AI sparkles, not a robot — the single mark for "the model" across the
 // nav, the launcher hex and the chat empty state.
 import AiIcon from 'vue-material-design-icons/Creation.vue'
-import { acknowledgeAiFeature, disableAiFeature, enableAiFeature, listAiFeatures, publishAiFeature, withdrawAiFeature } from '../api/aiFeatures.js'
+import {
+	acknowledgeAiFeature,
+	disableAiFeature,
+	enableAiFeature,
+	listAiFeatures,
+	publishAiFeature,
+	withdrawAiFeature,
+} from '../api/aiFeatures.js'
 
 /** The Algoritmekader fields mandatory to publish (mirrors AlgoritmekaderMapper::MANDATORY_FIELDS). */
 const MANDATORY_ALGORITMEKADER_FIELDS = [
@@ -174,7 +226,8 @@ export default {
 			error: '',
 			// Server-provided capability flags (loadState — never a DOM read, ADR-004).
 			isAdmin: loadState('hermiq', 'is_admin', false) === true,
-			opencatalogiAvailable: loadState('hermiq', 'opencatalogi_available', false) === true,
+			opencatalogiAvailable:
+				loadState('hermiq', 'opencatalogi_available', false) === true,
 		}
 	},
 
@@ -191,8 +244,14 @@ export default {
 				{ key: 'name', label: this.t('hermiq', 'Name') },
 				{ key: 'riskCategory', label: this.t('hermiq', 'Risk category') },
 				{ key: 'lifecycle', label: this.t('hermiq', 'State') },
-				{ key: 'acknowledged', label: this.t('hermiq', 'DPO acknowledgement') },
-				{ key: 'algoritmeregister', label: this.t('hermiq', 'Algoritmeregister') },
+				{
+					key: 'acknowledged',
+					label: this.t('hermiq', 'DPO acknowledgement'),
+				},
+				{
+					key: 'algoritmeregister',
+					label: this.t('hermiq', 'Algoritmeregister'),
+				},
 			]
 		},
 
@@ -211,7 +270,8 @@ export default {
 				lifecycle: feature.lifecycle || 'disabled',
 				acknowledged: Boolean(feature.dpoAckAt),
 				dpoAckBy: feature.dpoAckBy || '',
-				algoritmeregisterStatus: feature.algoritmeregisterStatus || 'niet-gepubliceerd',
+				algoritmeregisterStatus:
+					feature.algoritmeregisterStatus || 'niet-gepubliceerd',
 				feature,
 			}))
 		},
@@ -233,7 +293,10 @@ export default {
 			try {
 				this.features = await listAiFeatures()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}
@@ -322,7 +385,9 @@ export default {
 			}
 			for (const field of MANDATORY_ALGORITMEKADER_FIELDS) {
 				const value = feature[field]
-				const present = Array.isArray(value) ? value.length > 0 : Boolean(value)
+				const present = Array.isArray(value)
+					? value.length > 0
+					: Boolean(value)
 				if (!present) {
 					missing.push(field)
 				}
@@ -361,9 +426,16 @@ export default {
 			} catch (e) {
 				const missing = e?.response?.data?.missing
 				if (Array.isArray(missing) && missing.length > 0) {
-					this.error = this.t('hermiq', 'Cannot publish yet — missing: {conditions}', { conditions: missing.join(', ') })
+					this.error = this.t(
+						'hermiq',
+						'Cannot publish yet — missing: {conditions}',
+						{ conditions: missing.join(', ') },
+					)
 				} else {
-					this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+					this.error =
+						e?.response?.data?.error
+						|| e?.message
+						|| this.t('hermiq', 'Unknown error')
 				}
 			} finally {
 				this.busy = false
@@ -385,7 +457,10 @@ export default {
 				await withdrawAiFeature(feature.uuid)
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -404,7 +479,10 @@ export default {
 				await acknowledgeAiFeature(feature.slug)
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -423,7 +501,10 @@ export default {
 				await enableAiFeature(feature.uuid)
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -442,7 +523,10 @@ export default {
 				await disableAiFeature(feature.uuid)
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
