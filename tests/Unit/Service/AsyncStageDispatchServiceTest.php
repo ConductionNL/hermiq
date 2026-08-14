@@ -46,6 +46,35 @@ class ExposedAsyncStageDispatchService extends AsyncStageDispatchService {
 	public function mapAcceptedPublic(string $body): array {
 		return $this->mapAccepted(body: $body);
 	}//end mapAcceptedPublic()
+
+	/**
+	 * The canned response the next runner call returns.
+	 *
+	 * @var mixed
+	 */
+	public mixed $nextResponse = null;
+
+	/**
+	 * The route the last call used, so the handle can be asserted on the wire.
+	 *
+	 * @var string
+	 */
+	public string $lastRoute = '';
+
+	/**
+	 * Answer from the canned response instead of reaching AppAPI.
+	 *
+	 * @param string $route The route.
+	 * @param string $method The method.
+	 * @param array $params The params.
+	 * @param string|null $uid The user.
+	 *
+	 * @return mixed The canned response.
+	 */
+	protected function callRunner(string $route, string $method, array $params, ?string $uid): mixed {
+		$this->lastRoute = $route;
+		return $this->nextResponse;
+	}//end callRunner()
 }//end class
 
 /**
@@ -149,6 +178,156 @@ final class AsyncStageDispatchServiceTest extends TestCase {
 
 		$this->service->collect(jobId: '   ');
 	}//end testCollectingWithoutAHandleIsRefused()
+
+	/**
+	 * Build a stub HTTP response with the given status and body.
+	 *
+	 * @param int $status The status code.
+	 * @param string $body The body.
+	 *
+	 * @return object The response double.
+	 */
+	private function response(int $status, string $body): object {
+		return new class($status, $body) {
+
+			/**
+			 * @param int $status The status.
+			 * @param string $body The body.
+			 */
+			public function __construct(private int $status, private string $body) {
+			}
+
+			/**
+			 * @return int The status.
+			 */
+			public function getStatusCode(): int {
+				return $this->status;
+			}
+
+			/**
+			 * @return string The body.
+			 */
+			public function getBody(): string {
+				return $this->body;
+			}
+		};
+	}//end response()
+
+	/**
+	 * A finished stage is `done`, and a NON-ZERO exit is a verdict, not an error.
+	 *
+	 * @return void
+	 */
+	public function testADoneJobCarriesItsExitCodeThrough(): void {
+		$this->service->nextResponse = $this->response(
+			200,
+			(string)json_encode(['status' => 'done', 'result' => ['exitCode' => 1, 'output' => 'gates found 3 issues']])
+		);
+
+		$state = $this->service->collect(jobId: 'larpingapp-327-code-review');
+
+		$this->assertSame(expected: 'done', actual: $state['status']);
+		$this->assertSame(
+			expected: 1,
+			actual: $state['result']['exitCode'],
+			message: 'a stage that ran and exited non-zero is a RESULT the gate must read, not a transport failure'
+		);
+		$this->assertStringContainsString(
+			needle: 'jobId=larpingapp-327-code-review',
+			haystack: $this->service->lastRoute,
+			message: 'the handle must reach the runner on the wire, or a later tick collects nothing'
+		);
+	}//end testADoneJobCarriesItsExitCodeThrough()
+
+	/**
+	 * A refused stage is `failed`, keeps its code, and carries NO result.
+	 *
+	 * This is the confusion that matters most: a refused push read as a
+	 * completed stage turns the scope fence advisory.
+	 *
+	 * @return void
+	 */
+	public function testAFailedJobKeepsItsCodeAndCarriesNoResult(): void {
+		$this->service->nextResponse = $this->response(
+			200,
+			(string)json_encode([
+				'status' => 'failed',
+				'error' => 'push refused: "README.md" is outside the scope this issue declared',
+				'code' => 'scope_violation',
+			])
+		);
+
+		$state = $this->service->collect(jobId: 'j1');
+
+		$this->assertSame(expected: 'failed', actual: $state['status']);
+		$this->assertSame(expected: 'scope_violation', actual: $state['code']);
+		$this->assertArrayNotHasKey(
+			key: 'result',
+			array: $state,
+			message: 'a refusal must carry nothing a caller could read as a completed stage'
+		);
+	}//end testAFailedJobKeepsItsCodeAndCarriesNoResult()
+
+	/**
+	 * A job this runner does not have is `unknown` — and that is TERMINAL.
+	 *
+	 * The registry is in memory, so a restart loses every job. A poller that
+	 * cannot tell "lost" from "not finished yet" waits forever.
+	 *
+	 * @return void
+	 */
+	public function testAnUnknownJobIsReportedAsSuchRatherThanAsRunning(): void {
+		$this->service->nextResponse = $this->response(200, (string)json_encode(['status' => 'unknown']));
+
+		$this->assertSame(
+			expected: 'unknown',
+			actual: $this->service->collect(jobId: 'gone')['status'],
+			message: 'a lost job must never be reported as still running'
+		);
+	}//end testAnUnknownJobIsReportedAsSuchRatherThanAsRunning()
+
+	/**
+	 * An unreachable ExApp is a refusal, not an empty answer.
+	 *
+	 * AppAPI never throws — failure is the RETURN VALUE, and it is an array.
+	 *
+	 * @return void
+	 */
+	public function testAnUnreachableRunnerIsRefused(): void {
+		$this->service->nextResponse = ['error' => 'not found'];
+
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessageMatches(regularExpression: '/could not reach/');
+
+		$this->service->collect(jobId: 'j1');
+	}//end testAnUnreachableRunnerIsRefused()
+
+	/**
+	 * A body that is not a job state at all is refused rather than guessed at.
+	 *
+	 * @return void
+	 */
+	public function testABodyThatIsNotAJobStateIsRefused(): void {
+		$this->service->nextResponse = $this->response(200, '<html>gateway timeout</html>');
+
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessageMatches(regularExpression: '/not a job state/');
+
+		$this->service->collect(jobId: 'j1');
+	}//end testABodyThatIsNotAJobStateIsRefused()
+
+	/**
+	 * A non-2xx answer is a refusal carrying the runner's own reason.
+	 *
+	 * @return void
+	 */
+	public function testANonSuccessStatusIsRefused(): void {
+		$this->service->nextResponse = $this->response(500, (string)json_encode(['error' => 'runner exploded']));
+
+		$this->expectException(exception: RuntimeException::class);
+
+		$this->service->collect(jobId: 'j1');
+	}//end testANonSuccessStatusIsRefused()
 
 	/**
 	 * The async surface is SEPARATE from the synchronous one.

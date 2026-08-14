@@ -113,17 +113,10 @@ class AsyncStageDispatchService extends StageDispatchService {
 		// behaviour and cannot be made to produce two payload shapes.
 		$params['async'] = true;
 
-		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
-			self::RUNNER_EXAPP_ID,
-			self::RUNNER_ROUTE,
-			$uid,
-			'POST',
-			$params,
-			// Seconds, not minutes: this call returns as soon as the stage is
-			// ACCEPTED. Waiting the stage's own ceiling here would reintroduce
-			// exactly the blocking this class exists to remove.
-			['timeout' => self::TRANSPORT_SLACK_SECONDS]
-		);
+		// Seconds, not minutes: this call returns as soon as the stage is
+		// ACCEPTED. Waiting the stage's own ceiling here would reintroduce
+		// exactly the blocking this class exists to remove.
+		$result = $this->callRunner(route: self::RUNNER_ROUTE, method: 'POST', params: $params, uid: $uid);
 
 		$this->assertReachable(result: $result);
 		$this->assertAccepted(result: $result, what: 'start the stage');
@@ -160,13 +153,11 @@ class AsyncStageDispatchService extends StageDispatchService {
 			throw new RuntimeException('Cannot collect a stage without a job id.');
 		}
 
-		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
-			self::RUNNER_EXAPP_ID,
-			self::RUNNER_ROUTE . '?jobId=' . rawurlencode($jobId),
-			$uid,
-			'GET',
-			[],
-			['timeout' => self::TRANSPORT_SLACK_SECONDS]
+		$result = $this->callRunner(
+			route: self::RUNNER_ROUTE . '?jobId=' . rawurlencode($jobId),
+			method: 'GET',
+			params: [],
+			uid: $uid
 		);
 
 		$this->assertReachable(result: $result);
@@ -221,6 +212,38 @@ class AsyncStageDispatchService extends StageDispatchService {
 
 		return ['job' => ['id' => $jobId, 'status' => (string)($decoded['status'] ?? 'running')]];
 	}//end mapAccepted()
+
+	/**
+	 * The one place this class talks to the runner.
+	 *
+	 * A SEAM, and it earns its keep: `collect()`'s job is to keep `done`,
+	 * `failed` and `unknown` apart, and that mapping is the most consequential
+	 * logic in the file — a `failed` read as a `done` turns a refused push into
+	 * a completed stage, and an `unknown` read as `running` parks a flow
+	 * forever on a result that no longer exists. None of it was reachable in a
+	 * test, because the transport is a STATIC resolve in the middle of the
+	 * method. Overriding one method is what makes the mapping assertable
+	 * without asserting anything about AppAPI.
+	 *
+	 * @param string $route The ExApp route, query string included.
+	 * @param string $method The HTTP method.
+	 * @param array $params The request parameters.
+	 * @param string|null $uid The acting user's UID.
+	 *
+	 * @return mixed The response, or an array when the ExApp is unreachable.
+	 *
+	 * @SuppressWarnings(PHPMD.StaticAccess) AppAPI is resolved lazily, as `dispatch()` does.
+	 */
+	protected function callRunner(string $route, string $method, array $params, ?string $uid): mixed {
+		return Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
+			self::RUNNER_EXAPP_ID,
+			$route,
+			$uid,
+			$method,
+			$params,
+			['timeout' => self::TRANSPORT_SLACK_SECONDS]
+		);
+	}//end callRunner()
 
 	/**
 	 * AppAPI never throws — failure is the RETURN VALUE. Check that first.
