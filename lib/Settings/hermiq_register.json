@@ -616,19 +616,19 @@
                         "title": "Purpose",
                         "description": "Algoritmekader: the purpose of the algorithm — why the public body deploys it. Mandatory only to publish to the Algoritmeregister."
                     },
-                    "wettelijkeGrondslag": {
+                    "statutoryBasis": {
                         "type": "string",
                         "title": "Legal basis",
                         "description": "Algoritmekader: the legal basis for using the algorithm. Mandatory only to publish."
                     },
-                    "impacttoetsen": {
+                    "impactAssessments": {
                         "type": "array",
                         "title": "Impact assessments",
                         "description": "Algoritmekader: the impact assessments performed (IAMA / DPIA / FRAIA) with a reference to each. Mandatory only to publish.",
                         "items": {
                             "type": "object",
                             "properties": {
-                                "soort": {
+                                "kind": {
                                     "type": "string",
                                     "enum": [
                                         "IAMA",
@@ -638,7 +638,7 @@
                                     "title": "Type",
                                     "description": "Which impact assessment was performed."
                                 },
-                                "referentie": {
+                                "reference": {
                                     "type": "string",
                                     "title": "Reference",
                                     "description": "A reference (document id / URL) to the completed assessment."
@@ -651,17 +651,17 @@
                         "title": "Data sources",
                         "description": "Algoritmekader: the data sources and data categories the algorithm uses. Mandatory only to publish."
                     },
-                    "menselijkeTussenkomst": {
+                    "humanIntervention": {
                         "type": "string",
                         "title": "Human oversight",
                         "description": "Algoritmekader: the human-oversight arrangement (links to the human-approval gate). Mandatory only to publish."
                     },
-                    "verantwoordelijke": {
+                    "responsible": {
                         "type": "object",
                         "title": "Responsible party",
                         "description": "Algoritmekader: the responsible organisation and its contact. Mandatory only to publish.",
                         "properties": {
-                            "organisatie": {
+                            "organisation": {
                                 "type": "string",
                                 "title": "Organisation",
                                 "description": "The owning public organisation."

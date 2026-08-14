@@ -61,11 +61,11 @@ class AlgoritmekaderMapper {
 	 */
 	public const MANDATORY_FIELDS = [
 		'doel',
-		'wettelijkeGrondslag',
-		'impacttoetsen',
+		'statutoryBasis',
+		'impactAssessments',
 		'dataBronnen',
-		'menselijkeTussenkomst',
-		'verantwoordelijke',
+		'humanIntervention',
+		'responsible',
 		'publicatiecategorie',
 	];
 
@@ -127,28 +127,28 @@ class AlgoritmekaderMapper {
 	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 	 */
 	public function map(array $feature): array {
-		$verantwoordelijke = [];
-		if (is_array(($feature['verantwoordelijke'] ?? null)) === true) {
-			$verantwoordelijke = $feature['verantwoordelijke'];
+		$responsible = [];
+		if (is_array(($feature['responsible'] ?? null)) === true) {
+			$responsible = $feature['responsible'];
 		}
 
-		$impacttoetsen = [];
-		if (is_array(($feature['impacttoetsen'] ?? null)) === true) {
-			$impacttoetsen = array_values($feature['impacttoetsen']);
+		$impactAssessments = [];
+		if (is_array(($feature['impactAssessments'] ?? null)) === true) {
+			$impactAssessments = array_values($feature['impactAssessments']);
 		}
 
 		return [
 			'title' => (string)($feature['name'] ?? ($feature['slug'] ?? '')),
 			'summary' => (string)($feature['doel'] ?? ''),
 			'description' => (string)($feature['description'] ?? ''),
-			'organization' => (string)($verantwoordelijke['organisatie'] ?? ''),
+			'organization' => (string)($responsible['organisation'] ?? ''),
 			'algoritmekader' => [
 				'doel' => (string)($feature['doel'] ?? ''),
-				'wettelijkeGrondslag' => (string)($feature['wettelijkeGrondslag'] ?? ''),
-				'impacttoetsen' => $impacttoetsen,
+				'statutoryBasis' => (string)($feature['statutoryBasis'] ?? ''),
+				'impactAssessments' => $impactAssessments,
 				'dataBronnen' => (string)($feature['dataBronnen'] ?? ''),
-				'menselijkeTussenkomst' => (string)($feature['menselijkeTussenkomst'] ?? ''),
-				'verantwoordelijke' => $verantwoordelijke,
+				'humanIntervention' => (string)($feature['humanIntervention'] ?? ''),
+				'responsible' => $responsible,
 				'publicatiecategorie' => (string)($feature['publicatiecategorie'] ?? ''),
 				'riskCategory' => (string)($feature['riskCategory'] ?? ''),
 			],
