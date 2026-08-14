@@ -49,11 +49,11 @@ class AlgoritmekaderMapperTest extends TestCase {
 			'dpoAckBy' => 'dpo',
 			'dpoAckAt' => '2026-07-07T10:00:00+00:00',
 			'doel' => 'Automate casework triage.',
-			'wettelijkeGrondslag' => 'Art. 6 AVG.',
-			'impacttoetsen' => [['soort' => 'DPIA', 'referentie' => 'DPIA-2026-01']],
+			'statutoryBasis' => 'Art. 6 AVG.',
+			'impactAssessments' => [['kind' => 'DPIA', 'reference' => 'DPIA-2026-01']],
 			'dataBronnen' => 'Case register.',
-			'menselijkeTussenkomst' => 'Human approval gate before any action.',
-			'verantwoordelijke' => ['organisatie' => 'Gemeente Zeist', 'contact' => 'privacy@zeist.nl'],
+			'humanIntervention' => 'Human approval gate before any action.',
+			'responsible' => ['organisation' => 'Gemeente Zeist', 'contact' => 'privacy@zeist.nl'],
 			'publicatiecategorie' => 'Impactful algorithm',
 		];
 
@@ -130,10 +130,10 @@ class AlgoritmekaderMapperTest extends TestCase {
 	 */
 	public function testMissingLegalBasisIsNamed(): void {
 		$feature = $this->readyFeature();
-		unset($feature['wettelijkeGrondslag']);
+		unset($feature['statutoryBasis']);
 
 		$failing = (new AlgoritmekaderMapper())->assessReadiness($feature);
-		$this->assertContains('wettelijkeGrondslag', $failing);
+		$this->assertContains('statutoryBasis', $failing);
 
 	}//end testMissingLegalBasisIsNamed()
 
@@ -146,9 +146,9 @@ class AlgoritmekaderMapperTest extends TestCase {
 	 */
 	public function testEmptyImpactAssessmentsIsMissing(): void {
 		$feature = $this->readyFeature();
-		$feature['impacttoetsen'] = [];
+		$feature['impactAssessments'] = [];
 
-		$this->assertContains('impacttoetsen', (new AlgoritmekaderMapper())->assessReadiness($feature));
+		$this->assertContains('impactAssessments', (new AlgoritmekaderMapper())->assessReadiness($feature));
 
 	}//end testEmptyImpactAssessmentsIsMissing()
 
@@ -179,9 +179,9 @@ class AlgoritmekaderMapperTest extends TestCase {
 
 		$this->assertSame('Autonomous agent run', $mapped['title']);
 		$this->assertSame('Gemeente Zeist', $mapped['organization']);
-		$this->assertSame('Art. 6 AVG.', $mapped['algoritmekader']['wettelijkeGrondslag']);
+		$this->assertSame('Art. 6 AVG.', $mapped['algoritmekader']['statutoryBasis']);
 		$this->assertSame('high', $mapped['algoritmekader']['riskCategory']);
-		$this->assertCount(1, $mapped['algoritmekader']['impacttoetsen']);
+		$this->assertCount(1, $mapped['algoritmekader']['impactAssessments']);
 		$this->assertSame('hermiq', $mapped['source']['app']);
 		$this->assertSame('autonomous-agent-run', $mapped['source']['slug']);
 

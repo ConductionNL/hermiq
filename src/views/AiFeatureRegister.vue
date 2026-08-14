@@ -199,11 +199,11 @@ import {
 /** The Algoritmekader fields mandatory to publish (mirrors AlgoritmekaderMapper::MANDATORY_FIELDS). */
 const MANDATORY_ALGORITMEKADER_FIELDS = [
 	'doel',
-	'wettelijkeGrondslag',
-	'impacttoetsen',
+	'statutoryBasis',
+	'impactAssessments',
 	'dataBronnen',
-	'menselijkeTussenkomst',
-	'verantwoordelijke',
+	'humanIntervention',
+	'responsible',
 	'publicatiecategorie',
 ]
 

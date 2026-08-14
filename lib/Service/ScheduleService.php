@@ -1265,7 +1265,7 @@ class ScheduleService {
 	private function runDue(ObjectEntity $schedule, DateTimeImmutable $now): void {
 		$data = $schedule->getObject();
 
-		$occurrence = $this->beginOccurrence(schedule: $schedule, data: $data, now: $now);
+		$occurrence = $this->startOccurrence(schedule: $schedule, data: $data, now: $now);
 		$data = $occurrence['data'];
 		$attemptNumber = $occurrence['attemptNumber'];
 		$deferDisable = $occurrence['deferDisable'];
@@ -1368,15 +1368,15 @@ class ScheduleService {
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
 	 */
-	private function beginOccurrence(ObjectEntity $schedule, array $data, DateTimeImmutable $now): array {
+	private function startOccurrence(ObjectEntity $schedule, array $data, DateTimeImmutable $now): array {
 		$retryEnabled = (($data['retryEnabled'] ?? false) === true);
 		$existingRetryState = $this->normaliseRetryState(raw: ($data['retryState'] ?? null));
 
 		if ($retryEnabled === true && $existingRetryState !== null) {
-			return $this->beginRetryAttempt(data: $data, retryEnabled: $retryEnabled, retryState: $existingRetryState);
+			return $this->startRetryAttempt(data: $data, retryEnabled: $retryEnabled, retryState: $existingRetryState);
 		}
 
-		return $this->beginFreshOccurrence(schedule: $schedule, data: $data, now: $now, retryEnabled: $retryEnabled);
+		return $this->startFreshOccurrence(schedule: $schedule, data: $data, now: $now, retryEnabled: $retryEnabled);
 	}//end beginOccurrence()
 
 	/**
@@ -1393,7 +1393,7 @@ class ScheduleService {
 	 *
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-per-schedule-opt-in-bounded-retry-with-exponential-backoff-mvp
 	 */
-	private function beginRetryAttempt(array $data, bool $retryEnabled, array $retryState): array {
+	private function startRetryAttempt(array $data, bool $retryEnabled, array $retryState): array {
 		$isOnce = ((string)($data['kind'] ?? '') === 'once');
 		$repeat = $this->normaliseRepeat(repeat: ($data['repeat'] ?? []));
 		$limitReached = ($repeat['times'] > 0 && $repeat['completed'] >= $repeat['times']);
@@ -1427,7 +1427,7 @@ class ScheduleService {
 	 *
 	 * @spec openspec/specs/agent-schedule/spec.md#requirement-dead-letter-state-after-retries-are-exhausted-with-manual-re-run-mvp
 	 */
-	private function beginFreshOccurrence(ObjectEntity $schedule, array $data, DateTimeImmutable $now, bool $retryEnabled): array {
+	private function startFreshOccurrence(ObjectEntity $schedule, array $data, DateTimeImmutable $now, bool $retryEnabled): array {
 		$kind = (string)($data['kind'] ?? '');
 		$isOnce = ($kind === 'once');
 		$owner = (string)($schedule->getOwner() ?? '');
