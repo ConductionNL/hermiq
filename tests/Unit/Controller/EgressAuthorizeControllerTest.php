@@ -27,6 +27,7 @@ use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
+use OCP\Security\Bruteforce\IThrottler;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -43,6 +44,16 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	 *
 	 * @return WebResearchEgressGuard
 	 */
+	/**
+	 * A throttler that records nothing — these tests assert HTTP outcomes, not
+	 * brute-force bookkeeping.
+	 *
+	 * @return IThrottler
+	 */
+	private function throttlerStub(): IThrottler {
+		return $this->createMock(IThrottler::class);
+	}//end throttlerStub()
+
 	private function guard(): WebResearchEgressGuard {
 		return new class extends WebResearchEgressGuard {
 			protected function resolveAddresses(string $host): array {
@@ -83,16 +94,21 @@ final class EgressAuthorizeControllerTest extends TestCase {
 			}
 		);
 
-		return new class($request, $tokens, $this->guard(), $settings, new NullLogger(), $body) extends EgressAuthorizeController {
+		// NOTE the 5th argument. It used to be a NullLogger that the 4-parameter
+		// parent constructor silently DISCARDED — PHP ignores extra positional
+		// arguments to user-defined functions. Adding $throttler as a real 5th
+		// parameter made that stray argument bind, so it now has to be the
+		// thing the parent actually expects.
+		return new class($request, $tokens, $this->guard(), $settings, $this->throttlerStub(), $body) extends EgressAuthorizeController {
 			public function __construct(
 				$request,
 				$tokens,
 				$guard,
 				$settings,
-				$logger,
+				$throttler,
 				private string $rawBody,
 			) {
-				parent::__construct($request, $tokens, $guard, $settings, $logger);
+				parent::__construct($request, $tokens, $guard, $settings, $throttler);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;

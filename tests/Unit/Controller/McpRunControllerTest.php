@@ -32,6 +32,7 @@ use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IRequest;
+use OCP\Security\Bruteforce\IThrottler;
 use OCP\IUser;
 use OCP\IUserManager;
 use OCP\IUserSession;
@@ -125,7 +126,7 @@ final class McpRunControllerTest extends TestCase {
 		$userManager->method('get')->willReturn($user);
 		$userSession = $this->createMock(IUserSession::class);
 
-		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, new NullLogger(), $body) extends McpRunController {
+		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->createMock(IThrottler::class), new NullLogger(), $body) extends McpRunController {
 			// phpcs:ignore
 			public function __construct(
 				$request,
@@ -137,10 +138,11 @@ final class McpRunControllerTest extends TestCase {
 				$search,
 				$userManager,
 				$userSession,
+				$throttler,
 				$logger,
 				private string $rawBody,
 			) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $logger);
+				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $logger);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;
