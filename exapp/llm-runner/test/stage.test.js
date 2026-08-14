@@ -43,7 +43,12 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const { runStage, isAllowedCommand, ALLOWED_COMMANDS } = require('../src/stage')
+const {
+	runStage,
+	isAllowedCommand,
+	ALLOWED_COMMANDS,
+	STAGE_CREDENTIAL_KEYS,
+} = require('../src/stage')
 
 /**
  * Build a bare repo whose default branch is `main` and which ALSO has a
@@ -697,4 +702,84 @@ test('an aliased path still cannot escape the clone', async () => {
 	} finally {
 		fs.rmSync(root, { recursive: true, force: true })
 	}
+})
+
+// ── The model credential is scoped to the COMMAND that needs it ──────────
+
+test('a stage whose command is not on the credential list gets no model token', async () => {
+	// THE SECURITY PROPERTY OF THE WHOLE CHANGE. `/stage` can now carry a model
+	// credential, and the thing that keeps that from being "every stage holds an
+	// Anthropic token" is that the allowlist is keyed on the command's own
+	// binary. A gate run has no business holding one.
+	//
+	// Asserted by OBSERVING THE CHILD ENVIRONMENT rather than by inspecting the
+	// map: a test that read `STAGE_CREDENTIAL_KEYS` would pass just as happily if
+	// the merge below ignored it.
+	const { remote, root } = makeRemote()
+
+	try {
+		const work = path.join(root, 'work')
+		const env = {
+			...process.env,
+			GIT_AUTHOR_NAME: 'test',
+			GIT_AUTHOR_EMAIL: 't@example.invalid',
+			GIT_COMMITTER_NAME: 'test',
+			GIT_COMMITTER_EMAIL: 't@example.invalid',
+		}
+
+		execFileSync('git', ['checkout', '--quiet', 'development'], {
+			cwd: work,
+			env,
+		})
+		fs.writeFileSync(
+			path.join(work, 'probe.sh'),
+			'#!/bin/sh\necho "OAT=${CLAUDE_CODE_OAUTH_TOKEN:-unset}"\necho "KEY=${ANTHROPIC_API_KEY:-unset}"\nexit 0\n',
+			{ mode: 0o755 },
+		)
+		execFileSync('git', ['add', '-A'], { cwd: work, env })
+		execFileSync('git', ['commit', '--quiet', '-m', 'probe creds'], {
+			cwd: work,
+			env,
+		})
+		execFileSync('git', ['push', '--quiet', remote, 'development'], {
+			cwd: work,
+			env,
+		})
+
+		const result = await runStage({
+			repo: remote,
+			ref: 'development',
+			command: ['./probe.sh'],
+			credentialEnv: {
+				CLAUDE_CODE_OAUTH_TOKEN: 'oat-MUST-NOT-LEAK',
+				ANTHROPIC_API_KEY: 'sk-MUST-NOT-LEAK',
+			},
+			timeoutMs: 120000,
+		})
+
+		assert.match(
+			result.output,
+			/OAT=unset/,
+			'a non-claude command received the subscription token',
+		)
+		assert.match(
+			result.output,
+			/KEY=unset/,
+			'a non-claude command received the API key',
+		)
+		assert.doesNotMatch(result.output, /MUST-NOT-LEAK/)
+	} finally {
+		fs.rmSync(root, { recursive: true, force: true })
+	}
+})
+
+test('claude is the only command declared to receive a model credential', () => {
+	// A structural companion to the behavioural test above. If a second command
+	// is ever added here it should be a deliberate act with its own reasoning,
+	// not something that arrives with an unrelated change.
+	assert.deepStrictEqual(Object.keys(STAGE_CREDENTIAL_KEYS), ['claude'])
+	assert.deepStrictEqual(STAGE_CREDENTIAL_KEYS.claude, [
+		'CLAUDE_CODE_OAUTH_TOKEN',
+		'ANTHROPIC_API_KEY',
+	])
 })

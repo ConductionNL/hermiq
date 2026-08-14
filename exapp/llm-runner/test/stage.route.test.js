@@ -106,6 +106,11 @@ test('every field the body carries reaches the workload', async () => {
 			// `runToken` would leave the clone with no per-run identity and the
 			// governed proxy would deny it `no_run_token`.
 			runToken: 'run-token-not-a-secret-in-this-test',
+			// The model credential. A route that dropped this would leave a
+			// build stage's `claude` with no token, and the CLI's own error
+			// ("no credential") points at the sidecar rather than at the route
+			// that swallowed it.
+			credentialEnv: { CLAUDE_CODE_OAUTH_TOKEN: 'oat-not-a-real-token' },
 			push: {
 				branch: 'feature/493/x',
 				issue: 493,
@@ -165,6 +170,11 @@ test('every field the body carries reaches the workload', async () => {
 		got.runToken,
 		'run-token-not-a-secret-in-this-test',
 		'runToken was dropped by the route',
+	)
+	assert.deepStrictEqual(
+		got.credentialEnv,
+		{ CLAUDE_CODE_OAUTH_TOKEN: 'oat-not-a-real-token' },
+		'credentialEnv was dropped by the route',
 	)
 	assert.deepStrictEqual(
 		got.push,

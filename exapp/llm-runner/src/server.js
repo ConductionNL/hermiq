@@ -238,6 +238,7 @@ async function handleStage(req, res, rawBody) {
 		env,
 		runToken,
 		push,
+		credentialEnv,
 	} = payload
 
 	// The repo and ref are safe to log — they are how an operator finds this run
@@ -272,6 +273,7 @@ async function handleStage(req, res, rawBody) {
 			env,
 			runToken,
 			push,
+			credentialEnv,
 		})
 		log(
 			'info',
