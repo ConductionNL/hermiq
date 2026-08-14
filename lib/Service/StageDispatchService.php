@@ -44,21 +44,26 @@ class StageDispatchService {
 	 *
 	 * @var string
 	 */
-	private const APP_API_PUBLIC_FUNCTIONS = 'OCA\\AppAPI\\PublicFunctions';
+	// PROTECTED, not private: `AsyncStageDispatchService` extends this to add
+	// the start/collect pair, and it must address the SAME ExApp on the SAME
+	// route with the SAME ceilings. Copying these into the subclass would let
+	// the two halves of one transport drift apart silently — the async path
+	// could end up pointed at a route the sync path no longer uses.
+	protected const APP_API_PUBLIC_FUNCTIONS = 'OCA\\AppAPI\\PublicFunctions';
 
 	/**
 	 * App id of the runner ExApp.
 	 *
 	 * @var string
 	 */
-	private const RUNNER_EXAPP_ID = 'hermiq-llm-runner';
+	protected const RUNNER_EXAPP_ID = 'hermiq-llm-runner';
 
 	/**
 	 * The runner's stage route.
 	 *
 	 * @var string
 	 */
-	private const RUNNER_ROUTE = '/stage';
+	protected const RUNNER_ROUTE = '/stage';
 
 	/**
 	 * Default ceiling for one stage, in milliseconds.
@@ -68,7 +73,7 @@ class StageDispatchService {
 	 *
 	 * @var int
 	 */
-	private const DEFAULT_STAGE_TIMEOUT_MS = (30 * 60 * 1000);
+	protected const DEFAULT_STAGE_TIMEOUT_MS = (30 * 60 * 1000);
 
 	/**
 	 * Seconds added to the runner's own ceiling for the AppAPI request.
@@ -80,7 +85,7 @@ class StageDispatchService {
 	 *
 	 * @var int
 	 */
-	private const TRANSPORT_SLACK_SECONDS = 60;
+	protected const TRANSPORT_SLACK_SECONDS = 60;
 
 	/**
 	 * Constructor.
@@ -755,4 +760,6 @@ class StageDispatchService {
 
 		return $result;
 	}//end mapResult()
+
+
 }//end class

@@ -65,6 +65,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
+use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\Hermiq\Service\StageDispatchService;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCP\IL10N;
@@ -90,6 +91,12 @@ class HermiqWorkloadNode implements IFlowNode {
 		private readonly StageDispatchService $stages,
 		private readonly IL10N $l10n,
 		private readonly IURLGenerator $urls,
+		// ADDED LAST, and deliberately. Three unit tests construct this node
+		// POSITIONALLY; slotting a parameter in ahead of an existing one
+		// silently rebinds that argument to a value of the wrong type — which
+		// is the same trap OpenRegister's own FlowEngine constructor documents,
+		// and it cost 41 test errors here the first time this went in second.
+		private readonly ?AsyncStageDispatchService $asyncStages = null,
 	) {
 	}//end __construct()
 
@@ -292,6 +299,11 @@ class HermiqWorkloadNode implements IFlowNode {
 		// shipped before this behaves exactly as it did.
 		$pushCredentialId = trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json));
 
+		// ASYNC is a whole second transport; see dispatchAsyncFor().
+		if (($config['async'] ?? false) === true) {
+			return $this->dispatchAsyncFor($config, $json, $owner, $credentialId, $pushCredentialId);
+		}
+
 		$result = $this->stages->dispatch(
 			repo: $this->render(template: (string)$config['repo'], json: $json),
 			ref: $this->render(template: (string)$config['ref'], json: $json),
@@ -322,7 +334,21 @@ class HermiqWorkloadNode implements IFlowNode {
 			// clones the tree, this one lets the command talk to a model. A
 			// stage that names none runs without one, which is every stage that
 			// existed before this key.
-			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
+			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
+			// ASYNC. The stage is STARTED and a handle comes back, instead of
+			// the run holding the queue worker for the whole thing.
+			//
+			// `FlowRunWorker` advances queued runs serially in one PHP process,
+			// so a synchronous stage blocks every other flow in that pass —
+			// including the lock reaper that exists to clean up after stuck
+			// work — and it makes a slot pool decorative, because N slots
+			// cannot produce N agents while the thing holding a slot occupies
+			// the only worker.
+			//
+			// ⚠️ The result shape CHANGES with this flag, deliberately: an
+			// async dispatch writes `job: {id, status}` and NO `exitCode`, so
+			// nothing downstream can read an acknowledgement as a verdict. Pair
+			// it with a wait and a `hermiq.workload-collect`.
 		);
 
 		return $this->attribute(
@@ -333,6 +359,70 @@ class HermiqWorkloadNode implements IFlowNode {
 		);
 
 	}//end dispatchFor()
+
+	/**
+	 * Start the stage and return a handle, instead of waiting for it.
+	 *
+	 * `FlowRunWorker` advances queued runs serially in one PHP process, so a
+	 * synchronous stage holds the only worker for its whole duration and a slot
+	 * pool cannot exceed one agent however many slots it declares. Pair this
+	 * with an `openregister.wait` and a `hermiq.workload-collect`.
+	 *
+	 * Extracted from `dispatchFor()` because inlining it took that method to
+	 * 136 lines against a 100 threshold, and phpmd was right: a reader cannot
+	 * hold that much at once, and this branch is a second transport rather than
+	 * a variation on the first.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $json The item's record.
+	 * @param string $owner The resolved run owner.
+	 * @param string $credentialId The rendered broker credential.
+	 * @param string $pushCredentialId The rendered injectable push credential.
+	 *
+	 * @return array The handle, attributed.
+	 *
+	 * @throws UnexpectedValueException When no async transport is available.
+	 */
+	private function dispatchAsyncFor(
+		array $config,
+		array $json,
+		string $owner,
+		string $credentialId,
+		string $pushCredentialId,
+	): array {
+		if ($this->asyncStages === null) {
+			// Refuse rather than silently running synchronously: a step that
+			// asked for a handle and got a blocking call back would hold the
+			// queue worker for its whole duration while the flow waits for a
+			// `job` key that never arrives.
+			throw new UnexpectedValueException(
+				$this->l10n->t('This step asks for an asynchronous dispatch, but no async transport is available.')
+			);
+		}
+
+		return $this->attribute(
+			result: $this->asyncStages->dispatchAsync(
+				repo: $this->render(template: (string)($config['repo'] ?? ''), json: $json),
+				ref: $this->render(template: (string)($config['ref'] ?? ''), json: $json),
+				command: array_map(
+					fn (string $argument): string => $this->render(template: $argument, json: $json),
+					array_values((array)($config['command'] ?? []))
+				),
+				uid: $owner,
+				credentialId: $credentialId,
+				timeoutMs: (int)($config['timeoutMs'] ?? 0),
+				toolRepo: $this->render(template: (string)($config['toolRepo'] ?? ''), json: $json),
+				toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
+				push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
+				pushCredentialId: $pushCredentialId,
+				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
+			),
+			owner: $owner,
+			credentialId: $credentialId,
+			pushCredentialId: $pushCredentialId
+		);
+	}//end dispatchAsyncFor()
+
 
 	/**
 	 * Record who ran a stage and on whose credential, ON the result.
