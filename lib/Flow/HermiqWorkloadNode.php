@@ -245,22 +245,18 @@ class HermiqWorkloadNode implements IFlowNode {
 	}//end execute()
 
 	/**
-	 * Turn ONE item into one stage call, and attribute the result.
+	 * Render the TWO forge credentials, which could never have been one.
 	 *
-	 * Split out of `execute()` so the loop states what it does — one stage per
-	 * item, attributed — while the rendering and credential decisions, which are
-	 * where every defect in this node has been, sit together and can be read in
-	 * one piece.
+	 * The reasoning is long and belongs with the concept rather than in the
+	 * middle of a dispatch; it is kept verbatim below as line comments,
+	 * because one of them contains a path that would close this block.
 	 *
 	 * @param array $config The step configuration.
 	 * @param array $json The item's record.
-	 * @param string $owner The resolved run owner.
 	 *
-	 * @return array The stage result, with attribution added.
-	 *
-	 * @throws Throwable When the workload could not be run.
+	 * @return array{0: string, 1: string} The clone credential, then the push credential.
 	 */
-	private function dispatchFor(array $config, array $json, string $owner): array {
+	private function credentialsFor(array $config, array $json): array {
 		// RENDERED, like every other configured value, and rendered PER ITEM
 		// because a fan-out may carry a different credential per repository.
 		//
@@ -271,8 +267,6 @@ class HermiqWorkloadNode implements IFlowNode {
 		// not found` — which reads as a missing credential rather than an
 		// unrendered placeholder. It took a logging fix in OpenRegister
 		// (openregister#2245) to see the id it was actually given.
-		$credentialId = trim($this->render(template: (string)($config['credentialId'] ?? ''), json: $json));
-
 		// THE SECOND CREDENTIAL, and why one could never have done both jobs.
 		//
 		// `credentialId` is spent on the broker's SERVER-SIDE calls — the tool
@@ -297,7 +291,31 @@ class HermiqWorkloadNode implements IFlowNode {
 		//
 		// Absent, it falls back to `credentialId`, so every read-only stage that
 		// shipped before this behaves exactly as it did.
-		$pushCredentialId = trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json));
+
+		return [
+			trim($this->render(template: (string)($config['credentialId'] ?? ''), json: $json)),
+			trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json)),
+		];
+	}//end credentialsFor()
+
+	/**
+	 * Turn ONE item into one stage call, and attribute the result.
+	 *
+	 * Split out of `execute()` so the loop states what it does — one stage per
+	 * item, attributed — while the rendering and credential decisions, which are
+	 * where every defect in this node has been, sit together and can be read in
+	 * one piece.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $json The item's record.
+	 * @param string $owner The resolved run owner.
+	 *
+	 * @return array The stage result, with attribution added.
+	 *
+	 * @throws Throwable When the workload could not be run.
+	 */
+	private function dispatchFor(array $config, array $json, string $owner): array {
+		[$credentialId, $pushCredentialId] = $this->credentialsFor(config: $config, json: $json);
 
 		// ASYNC is a whole second transport; see dispatchAsyncFor().
 		if (($config['async'] ?? false) === true) {
