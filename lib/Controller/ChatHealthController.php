@@ -33,6 +33,7 @@ namespace OCA\Hermiq\Controller;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Llm\LlmSettingsHandler;
 use OCP\AppFramework\Controller;
+use OCP\AppFramework\Http\Attribute\AnonRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use Psr\Log\LoggerInterface;
@@ -82,6 +83,10 @@ class ChatHealthController extends Controller {
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
+	// Generous: monitoring polls this on a short interval, and a ceiling that
+	// trips on a normal probe cadence turns the health check into the outage it
+	// was meant to detect.
+	#[AnonRateLimit(limit: 240, period: 60)]
 	public function health(): JSONResponse {
 		try {
 			$llmConfig = $this->llmSettings->getLLMSettingsOnly();
