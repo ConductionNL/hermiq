@@ -25,12 +25,11 @@ namespace OCA\OpenRegister\Service\Integration;
 /**
  * Minimal IntegrationProvider interface stub for standalone unit runs.
  */
-interface IntegrationProvider
-{
-    /**
-     * Stable id used to address this integration.
-     *
-     * @return string
-     */
-    public function getId(): string;
+interface IntegrationProvider {
+	/**
+	 * Stable id used to address this integration.
+	 *
+	 * @return string
+	 */
+	public function getId(): string;
 }//end interface

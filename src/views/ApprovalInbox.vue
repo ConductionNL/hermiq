@@ -28,7 +28,10 @@
 			<KillSwitchToggle />
 		</div>
 
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not load approvals')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Could not load approvals')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -39,7 +42,9 @@
 		<NcEmptyContent
 			v-else-if="approvals.length === 0"
 			:name="t('hermiq', 'No approvals waiting')"
-			:description="t('hermiq', 'Runs that need your approval will appear here.')">
+			:description="
+				t('hermiq', 'Runs that need your approval will appear here.')
+			">
 			<template #icon>
 				<CheckDecagram :size="20" />
 			</template>
@@ -61,7 +66,9 @@
 						{{ t('hermiq', 'Requested') }}
 					</th>
 					<th scope="col">
-						<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
+						<span class="hidden-visually">{{
+							t('hermiq', 'Actions')
+						}}</span>
 					</th>
 				</tr>
 			</thead>
@@ -164,10 +171,15 @@ export default {
 					this.agentStore.fetchCollection('agent'),
 				])
 				this.approvals = Array.isArray(approvals) ? approvals : []
-				this.scheduleMap = this.byUuid(Array.isArray(schedules) ? schedules : [])
+				this.scheduleMap = this.byUuid(
+					Array.isArray(schedules) ? schedules : [],
+				)
 				this.agentMap = this.byUuid(Array.isArray(agents) ? agents : [])
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}
@@ -242,7 +254,10 @@ export default {
 				await approveApproval(approval.id)
 				await this.load()
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.actioningId = ''
 			}

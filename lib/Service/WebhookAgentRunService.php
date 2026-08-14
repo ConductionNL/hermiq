@@ -55,7 +55,6 @@ namespace OCA\Hermiq\Service;
 
 use DateTimeImmutable;
 use DateTimeZone;
-use OCA\Hermiq\Service\AgentVersionService;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AgentMapper;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -71,498 +70,479 @@ use Throwable;
  *
  * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
-class WebhookAgentRunService
-{
+class WebhookAgentRunService {
 
-    /**
-     * OpenRegister register slug that holds Hermiq objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * OpenRegister schema slug for agent objects (agent-engine-port).
-     *
-     * @var string
-     */
-    private const AGENT_SCHEMA = 'agent';
+	/**
+	 * OpenRegister schema slug for agent objects (agent-engine-port).
+	 *
+	 * @var string
+	 */
+	private const AGENT_SCHEMA = 'agent';
 
-    /**
-     * Constructor.
-     *
-     * @param ObjectService       $objectService       Resolves the Agent ObjectEntity to audit against
-     *                                                 (AuditTrailMapper requires an ObjectEntity, not
-     *                                                 the plain Doctrine `Agent` entity).
-     * @param AgentMapper         $agentMapper         Resolves the OR-native `Agent` entity, for its
-     *                                                 `owner`/`organisation` getters.
-     * @param LoggerInterface     $logger              Logs gate skips + run failures (never fatal).
-     * @param AuditTrailMapper    $auditTrailMapper    OR audit write-path for the redacted per-run entry.
-     * @param RedactionService    $redactionService    Masks secrets/PII before ANY persisted write.
-     * @param ScheduleService     $scheduleService     Reused kill-switch check (isOrganisationEngaged) AND
-     *                                                 the reused agent-turn dispatch (runAgentAsOwner) —
-     *                                                 the SAME ScheduleService/Engine path a scheduled or
-     *                                                 flow-triggered run uses.
-     * @param ApprovalService     $approvalService     Reused human-approval gate.
-     * @param BudgetService       $budgetService       Reused budget hard-cap gate + soft-threshold warning.
-     * @param AgentVersionService $agentVersionService Resolves the executing agent's current version
-     *                                                 identifier, pinned onto the run-audit context
-     *                                                 (agent-versioning).
-     * @param SkillVersionService $skillVersionService Resolves the exposed skills' version identifiers,
-     *                                                 pinned onto the run-audit context
-     *                                                 (skill-self-improvement) — never fatal to the run.
-     *
-     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
-     *   a distinct injected collaborator, not a logic-bearing argument list.
-     */
-    public function __construct(
-        private readonly ObjectService $objectService,
-        private readonly AgentMapper $agentMapper,
-        private readonly LoggerInterface $logger,
-        private readonly AuditTrailMapper $auditTrailMapper,
-        private readonly RedactionService $redactionService,
-        private readonly ScheduleService $scheduleService,
-        private readonly ApprovalService $approvalService,
-        private readonly BudgetService $budgetService,
-        private readonly AgentVersionService $agentVersionService,
-        private readonly SkillVersionService $skillVersionService,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ObjectService $objectService Resolves the Agent ObjectEntity to audit against
+	 *                                     (AuditTrailMapper requires an ObjectEntity, not
+	 *                                     the plain Doctrine `Agent` entity).
+	 * @param AgentMapper $agentMapper Resolves the OR-native `Agent` entity, for its
+	 *                                 `owner`/`organisation` getters.
+	 * @param LoggerInterface $logger Logs gate skips + run failures (never fatal).
+	 * @param AuditTrailMapper $auditTrailMapper OR audit write-path for the redacted per-run entry.
+	 * @param RedactionService $redactionService Masks secrets/PII before ANY persisted write.
+	 * @param ScheduleService $scheduleService Reused kill-switch check (isOrganisationEngaged) AND
+	 *                                         the reused agent-turn dispatch (runAgentAsOwner) —
+	 *                                         the SAME ScheduleService/Engine path a scheduled or
+	 *                                         flow-triggered run uses.
+	 * @param ApprovalService $approvalService Reused human-approval gate.
+	 * @param BudgetService $budgetService Reused budget hard-cap gate + soft-threshold warning.
+	 * @param AgentVersionService $agentVersionService Resolves the executing agent's current version
+	 *                                                 identifier, pinned onto the run-audit context
+	 *                                                 (agent-versioning).
+	 * @param SkillVersionService $skillVersionService Resolves the exposed skills' version identifiers,
+	 *                                                 pinned onto the run-audit context
+	 *                                                 (skill-self-improvement) — never fatal to the run.
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is
+	 *   a distinct injected collaborator, not a logic-bearing argument list.
+	 */
+	public function __construct(
+		private readonly ObjectService $objectService,
+		private readonly AgentMapper $agentMapper,
+		private readonly LoggerInterface $logger,
+		private readonly AuditTrailMapper $auditTrailMapper,
+		private readonly RedactionService $redactionService,
+		private readonly ScheduleService $scheduleService,
+		private readonly ApprovalService $approvalService,
+		private readonly BudgetService $budgetService,
+		private readonly AgentVersionService $agentVersionService,
+		private readonly SkillVersionService $skillVersionService,
+	) {
+	}//end __construct()
 
-    /**
-     * Run one webhook-triggered agent-run request, applying the synchronous
-     * oversight gates first — mirrors `FlowAgentRunService::run()`'s contract:
-     * never throws, returns whether the agent actually ran.
-     *
-     * @param array<string,mixed> $context            The webhook trigger context
-     *                                                (agentId/payload/correlationId/
-     *                                                requiresApproval/reviewer/reviewerType).
-     * @param bool                $bypassApprovalGate When true, skip the requiresApproval gate for
-     *                                                this authorised occurrence (an approval-run).
-     *
-     * @return bool Whether the agent run actually executed (false when gated/skipped/failed).
-     *
-     * @SuppressWarnings(PHPMD.BooleanArgumentFlag) The bypass is a genuine two-mode
-     *   authorisation input (normal dispatch vs. an already-approved occurrence),
-     *   mirroring FlowAgentRunService::run()'s identical parameter.
-     *
-     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
-     */
-    public function run(array $context, bool $bypassApprovalGate=false): bool
-    {
-        try {
-            return $this->dispatch(context: $context, bypassApprovalGate: $bypassApprovalGate);
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                'Hermiq webhook-agent run failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-            return false;
-        }
+	/**
+	 * Run one webhook-triggered agent-run request, applying the synchronous
+	 * oversight gates first — mirrors `FlowAgentRunService::run()`'s contract:
+	 * never throws, returns whether the agent actually ran.
+	 *
+	 * @param array<string,mixed> $context The webhook trigger context
+	 *                                     (agentId/payload/correlationId/
+	 *                                     requiresApproval/reviewer/reviewerType).
+	 * @param bool $bypassApprovalGate When true, skip the requiresApproval gate for
+	 *                                 this authorised occurrence (an approval-run).
+	 *
+	 * @return bool Whether the agent run actually executed (false when gated/skipped/failed).
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) The bypass is a genuine two-mode
+	 *   authorisation input (normal dispatch vs. an already-approved occurrence),
+	 *   mirroring FlowAgentRunService::run()'s identical parameter.
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+	 */
+	public function run(array $context, bool $bypassApprovalGate = false): bool {
+		try {
+			return $this->dispatch(context: $context, bypassApprovalGate: $bypassApprovalGate);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq webhook-agent run failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return false;
+		}
 
-    }//end run()
+	}//end run()
 
-    /**
-     * Resolve the agent (both representations — see class docblock) and apply
-     * GATE 1 (kill-switch), GATE 2 (budget hard cap) and GATE 3 (human approval)
-     * before ever invoking the agent.
-     *
-     * @param array<string,mixed> $context            The webhook trigger context.
-     * @param bool                $bypassApprovalGate Skip the requiresApproval gate (approval-run).
-     *
-     * @return bool Whether the agent run executed.
-     *
-     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
-     */
-    private function dispatch(array $context, bool $bypassApprovalGate): bool
-    {
-        $agentId = (string) ($context['agentId'] ?? '');
-        if ($agentId === '') {
-            $this->logger->warning('Hermiq webhook-agent run missing agentId; skipping.');
-            return false;
-        }
+	/**
+	 * Resolve the agent (both representations — see class docblock) and apply
+	 * GATE 1 (kill-switch), GATE 2 (budget hard cap) and GATE 3 (human approval)
+	 * before ever invoking the agent.
+	 *
+	 * @param array<string,mixed> $context The webhook trigger context.
+	 * @param bool $bypassApprovalGate Skip the requiresApproval gate (approval-run).
+	 *
+	 * @return bool Whether the agent run executed.
+	 *
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
+	 */
+	private function dispatch(array $context, bool $bypassApprovalGate): bool {
+		$agentId = (string)($context['agentId'] ?? '');
+		if ($agentId === '') {
+			$this->logger->warning('Hermiq webhook-agent run missing agentId; skipping.');
+			return false;
+		}
 
-        $resolved = $this->resolveAgentAndObject(agentId: $agentId);
-        if ($resolved === null) {
-            return false;
-        }
+		$resolved = $this->resolveAgentAndObject(agentId: $agentId);
+		if ($resolved === null) {
+			return false;
+		}
 
-        $agent        = $resolved['agent'];
-        $agentObject  = $resolved['agentObject'];
-        $organisation = (string) ($agent->getOrganisation() ?? '');
+		$agent = $resolved['agent'];
+		$agentObject = $resolved['agentObject'];
+		$organisation = (string)($agent->getOrganisation() ?? '');
 
-        // GATE 1 — KILL-SWITCH (same TenantControl data source ScheduleService reads).
-        if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
-            $this->writeRunAudit(agentObject: $agentObject, status: 'skipped_killswitch', summary: '', context: $context);
-            return false;
-        }
+		// GATE 1 — KILL-SWITCH (same TenantControl data source ScheduleService reads).
+		if ($organisation !== '' && $this->scheduleService->isOrganisationEngaged(organisation: $organisation) === true) {
+			$this->writeRunAudit(agentObject: $agentObject, status: 'skipped_killswitch', summary: '', context: $context);
+			return false;
+		}
 
-        // GATE 2 — BUDGET HARD CAP (cost-guardrails). Mirrors FlowAgentRunService's
-        // identical gate: the soft-threshold check is unconditional (never fatal), and the
-        // hard-cap block applies even to an authorised approval-bypass occurrence.
-        if ($this->isBudgetBlocked(organisation: $organisation, agentId: $agentId) === true) {
-            $this->writeRunAudit(agentObject: $agentObject, status: 'skipped_budget', summary: '', context: $context);
-            return false;
-        }
+		// GATE 2 — BUDGET HARD CAP (cost-guardrails). Mirrors FlowAgentRunService's
+		// identical gate: the soft-threshold check is unconditional (never fatal), and the
+		// hard-cap block applies even to an authorised approval-bypass occurrence.
+		if ($this->isBudgetBlocked(organisation: $organisation, agentId: $agentId) === true) {
+			$this->writeRunAudit(agentObject: $agentObject, status: 'skipped_budget', summary: '', context: $context);
+			return false;
+		}
 
-        // GATE 3 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not
-        // run: ensure a single pending Approval (idempotent) and mark awaiting_approval.
-        if ($this->applyApprovalGate(agent: $agent, agentObject: $agentObject, context: $context, bypassApprovalGate: $bypassApprovalGate) === true) {
-            return false;
-        }
+		// GATE 3 — HUMAN APPROVAL (Art. 14). A gated, unauthorised occurrence does not
+		// run: ensure a single pending Approval (idempotent) and mark awaiting_approval.
+		if ($this->applyApprovalGate(agent: $agent, agentObject: $agentObject, context: $context, bypassApprovalGate: $bypassApprovalGate) === true) {
+			return false;
+		}
 
-        $owner = (string) ($agent->getOwner() ?? '');
-        if ($owner === '') {
-            $this->logger->warning(
-                sprintf('Hermiq webhook-agent run: agent "%s" has no owner to act as; skipping.', $agentId)
-            );
-            return false;
-        }
+		$owner = (string)($agent->getOwner() ?? '');
+		if ($owner === '') {
+			$this->logger->warning(
+				sprintf('Hermiq webhook-agent run: agent "%s" has no owner to act as; skipping.', $agentId)
+			);
+			return false;
+		}
 
-        return $this->runAgentAndAudit(agentObject: $agentObject, context: $context, owner: $owner, organisation: $organisation);
+		return $this->runAgentAndAudit(agentObject: $agentObject, context: $context, owner: $owner, organisation: $organisation);
+	}//end dispatch()
 
-    }//end dispatch()
+	/**
+	 * Run the agent turn (via ScheduleService::runAgentAsOwner — the same
+	 * ScheduleService/Engine path a scheduled or flow-triggered run uses) and
+	 * write the redacted per-run audit entry against the Agent's ObjectEntity.
+	 *
+	 * @param ObjectEntity $agentObject The Agent's ObjectEntity (audit target).
+	 * @param array<string,mixed> $context The webhook trigger context.
+	 * @param string $owner The agent's owner (acting-user impersonation target).
+	 * @param string $organisation The agent's organisation — threaded to
+	 *                             `runAgentAsOwner()` so its defense-in-depth
+	 *                             output-filter re-check resolves the correct
+	 *                             GuardrailPolicy (agent-guardrails).
+	 *
+	 * @return bool Whether the run completed successfully.
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+	 * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
+	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+	 */
+	private function runAgentAndAudit(ObjectEntity $agentObject, array $context, string $owner, string $organisation = ''): bool {
+		$agentId = (string)($context['agentId'] ?? '');
+		$prompt = $this->buildPrompt(context: $context);
 
-    /**
-     * Run the agent turn (via ScheduleService::runAgentAsOwner — the same
-     * ScheduleService/Engine path a scheduled or flow-triggered run uses) and
-     * write the redacted per-run audit entry against the Agent's ObjectEntity.
-     *
-     * @param ObjectEntity        $agentObject  The Agent's ObjectEntity (audit target).
-     * @param array<string,mixed> $context      The webhook trigger context.
-     * @param string              $owner        The agent's owner (acting-user impersonation target).
-     * @param string              $organisation The agent's organisation — threaded to
-     *                                          `runAgentAsOwner()` so its defense-in-depth
-     *                                          output-filter re-check resolves the correct
-     *                                          GuardrailPolicy (agent-guardrails).
-     *
-     * @return bool Whether the run completed successfully.
-     *
-     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
-     * @spec openspec/changes/archive/2026-07-13-agent-guardrails/tasks.md#task-4-wire-input-output-filters-into-scheduleservice-runagentasowner
-     * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
-     */
-    private function runAgentAndAudit(ObjectEntity $agentObject, array $context, string $owner, string $organisation=''): bool
-    {
-        $agentId = (string) ($context['agentId'] ?? '');
-        $prompt  = $this->buildPrompt(context: $context);
+		$startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+		$status = 'ok';
+		$summary = '';
 
-        $startedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-        $status    = 'ok';
-        $summary   = '';
+		try {
+			// Reused verbatim — same impersonation + feature-flagged engine branch
+			// (OR ChatService / in-app Engine) a scheduled or flow-triggered run
+			// dispatches through, including tenant-model-policy enforcement (the
+			// Agent's own `organisation` is resolved INSIDE this call chain — no
+			// separate organisation parameter needs threading through here).
+			$summary = $this->scheduleService->runAgentAsOwner(
+				owner: $owner,
+				agentId: $agentId,
+				prompt: $prompt,
+				organisation: $organisation,
+				anchor: $agentObject
+			);
+		} catch (Throwable $e) {
+			$status = 'error';
+			$summary = 'error: ' . $e->getMessage();
+			$this->logger->warning(
+				sprintf('Hermiq webhook-agent run failed for agent %s: %s', $agentId, $e->getMessage()),
+				['exception' => $e]
+			);
+		}//end try
 
-        try {
-            // Reused verbatim — same impersonation + feature-flagged engine branch
-            // (OR ChatService / in-app Engine) a scheduled or flow-triggered run
-            // dispatches through, including tenant-model-policy enforcement (the
-            // Agent's own `organisation` is resolved INSIDE this call chain — no
-            // separate organisation parameter needs threading through here).
-            $summary = $this->scheduleService->runAgentAsOwner(
-                owner: $owner,
-                agentId: $agentId,
-                prompt: $prompt,
-                organisation: $organisation,
-                anchor: $agentObject
-            );
-        } catch (Throwable $e) {
-            $status  = 'error';
-            $summary = 'error: '.$e->getMessage();
-            $this->logger->warning(
-                sprintf('Hermiq webhook-agent run failed for agent %s: %s', $agentId, $e->getMessage()),
-                ['exception' => $e]
-            );
-        }//end try
+		$this->writeRunAudit(agentObject: $agentObject, status: $status, summary: $summary, context: $context, startedAt: $startedAt);
 
-        $this->writeRunAudit(agentObject: $agentObject, status: $status, summary: $summary, context: $context, startedAt: $startedAt);
+		return $status === 'ok';
+	}//end runAgentAndAudit()
 
-        return $status === 'ok';
+	/**
+	 * Build the agent's run input from the webhook trigger context. There is no
+	 * separate "configured prompt" field on `AgentWebhook` — the payload IS the
+	 * input (design.md's Trade-offs) — so the RAW (unredacted) payload is folded
+	 * in verbatim; redacting it here would defeat the endpoint's purpose.
+	 *
+	 * @param array<string,mixed> $context The webhook trigger context.
+	 *
+	 * @return string The prompt handed to ScheduleService::runAgentAsOwner().
+	 *
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
+	 */
+	private function buildPrompt(array $context): string {
+		$payload = $context['payload'] ?? [];
+		if (is_array($payload) === false) {
+			$payload = [];
+		}
 
-    }//end runAgentAndAudit()
+		$json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		if ($json === false) {
+			$json = '{}';
+		}
 
-    /**
-     * Build the agent's run input from the webhook trigger context. There is no
-     * separate "configured prompt" field on `AgentWebhook` — the payload IS the
-     * input (design.md's Trade-offs) — so the RAW (unredacted) payload is folded
-     * in verbatim; redacting it here would defeat the endpoint's purpose.
-     *
-     * @param array<string,mixed> $context The webhook trigger context.
-     *
-     * @return string The prompt handed to ScheduleService::runAgentAsOwner().
-     *
-     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
-     */
-    private function buildPrompt(array $context): string
-    {
-        $payload = $context['payload'] ?? [];
-        if (is_array($payload) === false) {
-            $payload = [];
-        }
+		return sprintf("Webhook payload:\n%s", $json);
+	}//end buildPrompt()
 
-        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        if ($json === false) {
-            $json = '{}';
-        }
+	/**
+	 * A copy of the webhook context with its `payload` redacted — used ONLY for
+	 * what gets PERSISTED (a pending Approval's stored `webhookContext`, or the
+	 * audit entry's context — see writeRunAudit()) — never for what is handed to
+	 * the agent itself (buildPrompt() reads the RAW context).
+	 *
+	 * @param array<string,mixed> $context The raw webhook trigger context.
+	 *
+	 * @return array<string,mixed> The context with a redacted `payload`.
+	 *
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
+	 */
+	private function redactedContext(array $context): array {
+		$safe = $context;
+		$safe['payload'] = $this->redactedPayload(context: $context);
 
-        return sprintf("Webhook payload:\n%s", $json);
+		return $safe;
+	}//end redactedContext()
 
-    }//end buildPrompt()
+	/**
+	 * The webhook payload, JSON-encoded, redacted, and decoded back to an array
+	 * where possible (falling back to a `_redacted` wrapper string when the
+	 * redacted text is no longer valid JSON — redaction masks values in place,
+	 * so this should not normally happen, but a persisted record must never be
+	 * an unparsed, partially-redacted blob passed off as structured data).
+	 *
+	 * @param array<string,mixed> $context The raw webhook trigger context.
+	 *
+	 * @return array<string,mixed> The redacted payload.
+	 *
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
+	 */
+	private function redactedPayload(array $context): array {
+		$payload = $context['payload'] ?? [];
+		if (is_array($payload) === false) {
+			$payload = [];
+		}
 
-    /**
-     * A copy of the webhook context with its `payload` redacted — used ONLY for
-     * what gets PERSISTED (a pending Approval's stored `webhookContext`, or the
-     * audit entry's context — see writeRunAudit()) — never for what is handed to
-     * the agent itself (buildPrompt() reads the RAW context).
-     *
-     * @param array<string,mixed> $context The raw webhook trigger context.
-     *
-     * @return array<string,mixed> The context with a redacted `payload`.
-     *
-     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
-     */
-    private function redactedContext(array $context): array
-    {
-        $safe            = $context;
-        $safe['payload'] = $this->redactedPayload(context: $context);
+		$json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+		if ($json === false) {
+			$json = '{}';
+		}
 
-        return $safe;
+		$redactedJson = $this->redactionService->redact($json);
+		$decoded = json_decode($redactedJson, true);
+		if (is_array($decoded) === true) {
+			return $decoded;
+		}
 
-    }//end redactedContext()
+		return ['_redacted' => $redactedJson];
+	}//end redactedPayload()
 
-    /**
-     * The webhook payload, JSON-encoded, redacted, and decoded back to an array
-     * where possible (falling back to a `_redacted` wrapper string when the
-     * redacted text is no longer valid JSON — redaction masks values in place,
-     * so this should not normally happen, but a persisted record must never be
-     * an unparsed, partially-redacted blob passed off as structured data).
-     *
-     * @param array<string,mixed> $context The raw webhook trigger context.
-     *
-     * @return array<string,mixed> The redacted payload.
-     *
-     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
-     */
-    private function redactedPayload(array $context): array
-    {
-        $payload = $context['payload'] ?? [];
-        if (is_array($payload) === false) {
-            $payload = [];
-        }
+	/**
+	 * Resolve BOTH agent representations (design.md Decision 4) — the OR-native
+	 * `Agent` (owner/organisation) and the hermiq-register `agent` ObjectEntity
+	 * (the audit target) — collapsed into one early-return helper so
+	 * `dispatch()` itself only has ONE failure branch to handle for either.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return array{agent:Agent, agentObject:ObjectEntity}|null Both representations,
+	 *                                                           or null when either
+	 *                                                           is unresolvable.
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+	 */
+	private function resolveAgentAndObject(string $agentId): ?array {
+		$agent = $this->resolveAgent(agentId: $agentId);
+		if ($agent === null) {
+			$this->logger->warning(
+				sprintf('Hermiq webhook-agent run: agent "%s" could not be resolved; skipping.', $agentId)
+			);
+			return null;
+		}
 
-        $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        if ($json === false) {
-            $json = '{}';
-        }
+		$agentObject = $this->objectService->find(
+			id: $agentId,
+			register: self::REGISTER_SLUG,
+			schema: self::AGENT_SCHEMA,
+			_rbac: false,
+			_multitenancy: false
+		);
 
-        $redactedJson = $this->redactionService->redact($json);
-        $decoded      = json_decode($redactedJson, true);
-        if (is_array($decoded) === true) {
-            return $decoded;
-        }
+		if (($agentObject instanceof ObjectEntity) === false) {
+			$this->logger->warning(
+				sprintf('Hermiq webhook-agent run: agent object %s not found; skipping.', $agentId)
+			);
+			return null;
+		}
 
-        return ['_redacted' => $redactedJson];
+		return ['agent' => $agent, 'agentObject' => $agentObject];
+	}//end resolveAgentAndObject()
 
-    }//end redactedPayload()
+	/**
+	 * GATE 2 — BUDGET HARD CAP (cost-guardrails), extracted so `dispatch()` has
+	 * a single conditional to handle. The soft-threshold check is unconditional
+	 * (never fatal) and runs every time this is called; the hard-cap block
+	 * applies even to an authorised approval-bypass occurrence — mirrors
+	 * `FlowAgentRunService`'s identical gate.
+	 *
+	 * @param string $organisation The agent's organisation.
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return bool True when the run must be blocked (budget hard cap reached).
+	 *
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
+	 */
+	private function isBudgetBlocked(string $organisation, string $agentId): bool {
+		try {
+			$this->budgetService->checkAndDeliverWarnings(organisation: $organisation, agentId: $agentId);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq webhook-agent budget soft-threshold check failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
 
-    /**
-     * Resolve BOTH agent representations (design.md Decision 4) — the OR-native
-     * `Agent` (owner/organisation) and the hermiq-register `agent` ObjectEntity
-     * (the audit target) — collapsed into one early-return helper so
-     * `dispatch()` itself only has ONE failure branch to handle for either.
-     *
-     * @param string $agentId The agent UUID.
-     *
-     * @return array{agent:Agent, agentObject:ObjectEntity}|null Both representations,
-     *                                                           or null when either
-     *                                                           is unresolvable.
-     *
-     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
-     */
-    private function resolveAgentAndObject(string $agentId): ?array
-    {
-        $agent = $this->resolveAgent(agentId: $agentId);
-        if ($agent === null) {
-            $this->logger->warning(
-                sprintf('Hermiq webhook-agent run: agent "%s" could not be resolved; skipping.', $agentId)
-            );
-            return null;
-        }
+		return $this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true;
+	}//end isBudgetBlocked()
 
-        $agentObject = $this->objectService->find(
-            id: $agentId,
-            register: self::REGISTER_SLUG,
-            schema: self::AGENT_SCHEMA,
-            _rbac: false,
-            _multitenancy: false
-        );
+	/**
+	 * GATE 3 — HUMAN APPROVAL (Art. 14), extracted so `dispatch()` has a single
+	 * conditional to handle. A gated, unauthorised occurrence does not run:
+	 * ensures a single pending Approval (idempotent, with a REDACTED payload —
+	 * redaction-before-persist) and marks `awaiting_approval`.
+	 *
+	 * @param Agent $agent The resolved OR-native agent.
+	 * @param ObjectEntity $agentObject The Agent's ObjectEntity (audit target).
+	 * @param array<string,mixed> $context The webhook trigger context.
+	 * @param bool $bypassApprovalGate Skip the gate (an authorised approval-run).
+	 *
+	 * @return bool True when the run was gated (must not proceed); false to continue.
+	 *
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
+	 */
+	private function applyApprovalGate(Agent $agent, ObjectEntity $agentObject, array $context, bool $bypassApprovalGate): bool {
+		$requiresApproval = (bool)($context['requiresApproval'] ?? false);
+		if ($bypassApprovalGate === true || $requiresApproval === false) {
+			return false;
+		}
 
-        if (($agentObject instanceof ObjectEntity) === false) {
-            $this->logger->warning(
-                sprintf('Hermiq webhook-agent run: agent object %s not found; skipping.', $agentId)
-            );
-            return null;
-        }
+		$owner = (string)($agent->getOwner() ?? '');
 
-        return ['agent' => $agent, 'agentObject' => $agentObject];
+		try {
+			// REDACTION-BEFORE-PERSIST: the Approval's stored webhookContext gets the
+			// redacted payload, never the raw one (payload-redaction requirement).
+			$this->approvalService->ensurePendingApprovalForWebhookRun(
+				context: $this->redactedContext(context: $context),
+				agentOwner: $owner
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq webhook-agent approval gate setup failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
 
-    }//end resolveAgentAndObject()
+		$this->writeRunAudit(agentObject: $agentObject, status: 'awaiting_approval', summary: '', context: $context);
+		return true;
+	}//end applyApprovalGate()
 
-    /**
-     * GATE 2 — BUDGET HARD CAP (cost-guardrails), extracted so `dispatch()` has
-     * a single conditional to handle. The soft-threshold check is unconditional
-     * (never fatal) and runs every time this is called; the hard-cap block
-     * applies even to an authorised approval-bypass occurrence — mirrors
-     * `FlowAgentRunService`'s identical gate.
-     *
-     * @param string $organisation The agent's organisation.
-     * @param string $agentId      The agent UUID.
-     *
-     * @return bool True when the run must be blocked (budget hard cap reached).
-     *
-     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
-     */
-    private function isBudgetBlocked(string $organisation, string $agentId): bool
-    {
-        try {
-            $this->budgetService->checkAndDeliverWarnings(organisation: $organisation, agentId: $agentId);
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                'Hermiq webhook-agent budget soft-threshold check failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-        }
+	/**
+	 * Resolve the OR-native `Agent` entity by uuid.
+	 *
+	 * @param string $agentId The agent UUID.
+	 *
+	 * @return Agent|null The resolved agent, or null when unresolvable.
+	 *
+	 * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+	 */
+	private function resolveAgent(string $agentId): ?Agent {
+		if ($agentId === '') {
+			return null;
+		}
 
-        return $this->budgetService->isBlocked(organisation: $organisation, agentId: $agentId) === true;
+		try {
+			return $this->agentMapper->findByUuid($agentId);
+		} catch (Throwable $e) {
+			return null;
+		}
 
-    }//end isBudgetBlocked()
+	}//end resolveAgent()
 
-    /**
-     * GATE 3 — HUMAN APPROVAL (Art. 14), extracted so `dispatch()` has a single
-     * conditional to handle. A gated, unauthorised occurrence does not run:
-     * ensures a single pending Approval (idempotent, with a REDACTED payload —
-     * redaction-before-persist) and marks `awaiting_approval`.
-     *
-     * @param Agent               $agent              The resolved OR-native agent.
-     * @param ObjectEntity        $agentObject        The Agent's ObjectEntity (audit target).
-     * @param array<string,mixed> $context            The webhook trigger context.
-     * @param bool                $bypassApprovalGate Skip the gate (an authorised approval-run).
-     *
-     * @return bool True when the run was gated (must not proceed); false to continue.
-     *
-     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-a-triggered-run-reuses-the-existing-governed-dispatch-rails
-     */
-    private function applyApprovalGate(Agent $agent, ObjectEntity $agentObject, array $context, bool $bypassApprovalGate): bool
-    {
-        $requiresApproval = (bool) ($context['requiresApproval'] ?? false);
-        if ($bypassApprovalGate === true || $requiresApproval === false) {
-            return false;
-        }
+	/**
+	 * Write a redacted, explicit per-run AuditTrail entry against the Agent's
+	 * ObjectEntity — mirrors ScheduleService/FlowAgentRunService's
+	 * redaction-before-persist contract. Non-fatal by design.
+	 *
+	 * @param ObjectEntity $agentObject The Agent's ObjectEntity (audit target).
+	 * @param string $status The run outcome (ok|error|skipped_killswitch|
+	 *                       skipped_budget|awaiting_approval).
+	 * @param string $summary The raw run output/error (redacted here).
+	 * @param array<string,mixed> $context The webhook trigger context (for agentId/
+	 *                                     correlationId diagnostics + the redacted payload).
+	 * @param DateTimeImmutable|null $startedAt When the agent turn began, if it ran (UTC).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
+	 */
+	private function writeRunAudit(
+		ObjectEntity $agentObject,
+		string $status,
+		string $summary,
+		array $context,
+		?DateTimeImmutable $startedAt = null,
+	): void {
+		try {
+			$endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
+			$started = ($startedAt ?? $endedAt);
+			$agentId = (string)($context['agentId'] ?? '');
 
-        $owner = (string) ($agent->getOwner() ?? '');
+			$auditContext = [
+				'status' => $status,
+				'agentId' => $agentId,
+				'correlationId' => (string)($context['correlationId'] ?? ''),
+				'startedAt' => $started->format('c'),
+				'endedAt' => $endedAt->format('c'),
+				// REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write.
+				'summary' => $this->redactionService->redact($summary),
+				'payload' => $this->redactedPayload(context: $context),
+				// Agent-versioning: the version of the agent config that actually ran
+				// this occurrence (null when unresolvable — never fatal to the run).
+				'agentVersion' => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
+				// Skill-self-improvement: which skills the run-loop seam exposed and
+				// each one's pinned version as of run start (never fatal).
+				'skillsUsed' => $this->scheduleService->getLastRunSkillsUsed(),
+				'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $this->scheduleService->getLastRunSkillsUsed()),
+			];
 
-        try {
-            // REDACTION-BEFORE-PERSIST: the Approval's stored webhookContext gets the
-            // redacted payload, never the raw one (payload-redaction requirement).
-            $this->approvalService->ensurePendingApprovalForWebhookRun(
-                context: $this->redactedContext(context: $context),
-                agentOwner: $owner
-            );
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                'Hermiq webhook-agent approval gate setup failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-        }
+			$this->auditTrailMapper->createAuditTrailEntry(
+				object: $agentObject,
+				action: 'agent-run',
+				context: $auditContext
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				sprintf(
+					'Hermiq could not write webhook-agent run audit for agent %s: %s',
+					(string)$agentObject->getUuid(),
+					$e->getMessage()
+				),
+				['exception' => $e]
+			);
+		}//end try
 
-        $this->writeRunAudit(agentObject: $agentObject, status: 'awaiting_approval', summary: '', context: $context);
-        return true;
-
-    }//end applyApprovalGate()
-
-    /**
-     * Resolve the OR-native `Agent` entity by uuid.
-     *
-     * @param string $agentId The agent UUID.
-     *
-     * @return Agent|null The resolved agent, or null when unresolvable.
-     *
-     * @spec openspec/changes/archive/2026-07-12-agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
-     */
-    private function resolveAgent(string $agentId): ?Agent
-    {
-        if ($agentId === '') {
-            return null;
-        }
-
-        try {
-            return $this->agentMapper->findByUuid($agentId);
-        } catch (Throwable $e) {
-            return null;
-        }
-
-    }//end resolveAgent()
-
-    /**
-     * Write a redacted, explicit per-run AuditTrail entry against the Agent's
-     * ObjectEntity — mirrors ScheduleService/FlowAgentRunService's
-     * redaction-before-persist contract. Non-fatal by design.
-     *
-     * @param ObjectEntity           $agentObject The Agent's ObjectEntity (audit target).
-     * @param string                 $status      The run outcome (ok|error|skipped_killswitch|
-     *                                            skipped_budget|awaiting_approval).
-     * @param string                 $summary     The raw run output/error (redacted here).
-     * @param array<string,mixed>    $context     The webhook trigger context (for agentId/
-     *                                            correlationId diagnostics + the redacted payload).
-     * @param DateTimeImmutable|null $startedAt   When the agent turn began, if it ran (UTC).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/agent-webhook-trigger/spec.md#requirement-the-webhook-payload-becomes-run-input-redacted-before-persistence
-     */
-    private function writeRunAudit(
-        ObjectEntity $agentObject,
-        string $status,
-        string $summary,
-        array $context,
-        ?DateTimeImmutable $startedAt=null
-    ): void {
-        try {
-            $endedAt = new DateTimeImmutable('now', new DateTimeZone('UTC'));
-            $started = ($startedAt ?? $endedAt);
-            $agentId = (string) ($context['agentId'] ?? '');
-
-            $auditContext = [
-                'status'        => $status,
-                'agentId'       => $agentId,
-                'correlationId' => (string) ($context['correlationId'] ?? ''),
-                'startedAt'     => $started->format('c'),
-                'endedAt'       => $endedAt->format('c'),
-                // REDACTION-BEFORE-PERSIST: mask secrets/PII before the append-only write.
-                'summary'       => $this->redactionService->redact($summary),
-                'payload'       => $this->redactedPayload(context: $context),
-                // Agent-versioning: the version of the agent config that actually ran
-                // this occurrence (null when unresolvable — never fatal to the run).
-                'agentVersion'  => $this->agentVersionService->currentVersionId(agentUuid: $agentId),
-                // Skill-self-improvement: which skills the run-loop seam exposed and
-                // each one's pinned version as of run start (never fatal).
-                'skillsUsed'    => $this->scheduleService->getLastRunSkillsUsed(),
-                'skillVersions' => $this->skillVersionService->pinsFor(skillUuids: $this->scheduleService->getLastRunSkillsUsed()),
-            ];
-
-            $this->auditTrailMapper->createAuditTrailEntry(
-                object: $agentObject,
-                action: 'agent-run',
-                context: $auditContext
-            );
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                sprintf(
-                    'Hermiq could not write webhook-agent run audit for agent %s: %s',
-                    (string) $agentObject->getUuid(),
-                    $e->getMessage()
-                ),
-                ['exception' => $e]
-            );
-        }//end try
-
-    }//end writeRunAudit()
+	}//end writeRunAudit()
 }//end class

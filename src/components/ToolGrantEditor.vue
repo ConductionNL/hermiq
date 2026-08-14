@@ -30,7 +30,10 @@
 			{{ t('hermiq', 'Tool grants') }}
 		</h3>
 
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not load the tool catalogue')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Could not load the tool catalogue')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -44,14 +47,24 @@
 			</NcNoteCard>
 
 			<p class="tool-grants__hint">
-				{{ t('hermiq', 'A schema wildcard ({app}.{schema}.*) grants read verbs only (search, get). Write and destructive tools (create, update, delete) must be named explicitly, or granted with the :write modifier ({app}.{schema}.*:write).') }}
+				{{
+					t(
+						'hermiq',
+						'A schema wildcard ({app}.{schema}.*) grants read verbs only (search, get). Write and destructive tools (create, update, delete) must be named explicitly, or granted with the :write modifier ({app}.{schema}.*:write).',
+					)
+				}}
 			</p>
 
 			<NcSelect
 				v-model="draftGrants"
 				class="tool-grants__select"
 				:input-label="t('hermiq', 'Grants')"
-				:placeholder="t('hermiq', 'Add a grant — an exact tool id, a {app}.{schema}.* wildcard, or a {app}.{schema}.*:write modifier')"
+				:placeholder="
+					t(
+						'hermiq',
+						'Add a grant — an exact tool id, a {app}.{schema}.* wildcard, or a {app}.{schema}.*:write modifier',
+					)
+				"
 				:options="grantSuggestions"
 				:disabled="!canEdit || saving"
 				:multiple="true"
@@ -84,7 +97,12 @@
 			<NcEmptyContent
 				v-if="!catalog.tools.length"
 				:name="t('hermiq', 'No tools discovered')"
-				:description="t('hermiq', 'No app has exposed any MCP tool to this instance yet.')">
+				:description="
+					t(
+						'hermiq',
+						'No app has exposed any MCP tool to this instance yet.',
+					)
+				">
 				<template #icon>
 					<ToolboxOutline :size="20" />
 				</template>
@@ -109,7 +127,11 @@
 					<span class="tool-grants__count">
 						{{ n('hermiq', '%n tool', '%n tools', visibleTools.length) }}
 						<template v-if="filter !== ''">
-							{{ t('hermiq', 'of {total}', { total: catalog.tools.length }) }}
+							{{
+								t('hermiq', 'of {total}', {
+									total: catalog.tools.length,
+								})
+							}}
 						</template>
 					</span>
 				</div>
@@ -146,14 +168,24 @@
 						<tbody>
 							<tr v-for="tool in visibleTools" :key="tool.id">
 								<td>
-									<span class="tool-grants__id">{{ tool.id }}</span>
-									<span v-if="tool.description" class="tool-grants__desc">{{ tool.description }}</span>
+									<span class="tool-grants__id">{{
+										tool.id
+									}}</span>
+									<span
+										v-if="tool.description"
+										class="tool-grants__desc"
+										>{{ tool.description }}</span
+									>
 								</td>
 								<td>
-									<span :class="scopeBadgeClass(tool)">{{ scopeLabel(tool) }}</span>
+									<span :class="scopeBadgeClass(tool)">{{
+										scopeLabel(tool)
+									}}</span>
 								</td>
 								<td>
-									<span v-if="tool.granted" class="tool-grants__badge tool-grants__badge--granted">
+									<span
+										v-if="tool.granted"
+										class="tool-grants__badge tool-grants__badge--granted">
 										{{ t('hermiq', 'Granted') }}
 									</span>
 									<span
@@ -161,7 +193,9 @@
 										class="tool-grants__badge tool-grants__badge--explicit">
 										{{ t('hermiq', 'Requires explicit grant') }}
 									</span>
-									<span v-else class="tool-grants__badge tool-grants__badge--denied">
+									<span
+										v-else
+										class="tool-grants__badge tool-grants__badge--denied">
 										{{ t('hermiq', 'Not granted') }}
 									</span>
 								</td>
@@ -195,7 +229,14 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcEmptyContent,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+	NcTextField,
+} from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import ToolboxOutline from 'vue-material-design-icons/ToolboxOutline.vue'
@@ -256,9 +297,10 @@ export default {
 			if (needle === '') {
 				return tools
 			}
-			return tools.filter((tool) =>
-				tool.id.toLowerCase().includes(needle)
-				|| (tool.description || '').toLowerCase().includes(needle),
+			return tools.filter(
+				(tool) =>
+					tool.id.toLowerCase().includes(needle)
+					|| (tool.description || '').toLowerCase().includes(needle),
 			)
 		},
 
@@ -271,7 +313,9 @@ export default {
 			if (this.draftGrants.length !== this.savedGrants.length) {
 				return true
 			}
-			return this.draftGrants.some((grant, index) => grant !== this.savedGrants[index])
+			return this.draftGrants.some(
+				(grant, index) => grant !== this.savedGrants[index],
+			)
 		},
 
 		/**
@@ -341,10 +385,16 @@ export default {
 					.map((tool) => tool.grantedBy)
 				// The authoritative grant list is whatever produced the annotations —
 				// dedupe the grantedBy entries rather than reconstructing the ids.
-				this.savedGrants = [...new Set(granted)].filter((grant) => !grant.startsWith('('))
+				this.savedGrants = [...new Set(granted)].filter(
+					(grant) => !grant.startsWith('('),
+				)
 				this.draftGrants = [...this.savedGrants]
 			} catch (error) {
-				this.error = (error.response && error.response.data && error.response.data.error) || error.message
+				this.error =
+					(error.response
+						&& error.response.data
+						&& error.response.data.error)
+					|| error.message
 			} finally {
 				this.loading = false
 			}
@@ -363,7 +413,12 @@ export default {
 				this.$emit('saved', [...this.draftGrants])
 				await this.load()
 			} catch (error) {
-				showError((error.response && error.response.data && error.response.data.error) || error.message)
+				showError(
+					(error.response
+						&& error.response.data
+						&& error.response.data.error)
+						|| error.message,
+				)
 			} finally {
 				this.saving = false
 			}
@@ -431,7 +486,9 @@ export default {
 		 * @return {string} The label.
 		 */
 		scopeLabel(tool) {
-			return tool.destructiveHint ? this.t('hermiq', 'Write') : this.t('hermiq', 'Read')
+			return tool.destructiveHint
+				? this.t('hermiq', 'Write')
+				: this.t('hermiq', 'Read')
 		},
 	},
 }

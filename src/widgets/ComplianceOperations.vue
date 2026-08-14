@@ -24,7 +24,12 @@
 		<NcEmptyContent
 			v-if="!canManage"
 			:name="t('hermiq', 'Organisation admins only')"
-			:description="t('hermiq', 'Compliance operations are available to organisation owners and instance admins.')">
+			:description="
+				t(
+					'hermiq',
+					'Compliance operations are available to organisation owners and instance admins.',
+				)
+			">
 			<template #icon>
 				<ShieldIcon :size="20" />
 			</template>
@@ -43,11 +48,18 @@
 					</NcButton>
 				</div>
 
-				<NcNoteCard v-if="incidentError" type="error" :heading="t('hermiq', 'Incident error')">
+				<NcNoteCard
+					v-if="incidentError"
+					type="error"
+					:heading="t('hermiq', 'Incident error')">
 					{{ incidentError }}
 				</NcNoteCard>
 
-				<p v-if="!incidentsLoading && incidents.length === 0 && !incidentError" class="compliance-operations__note">
+				<p
+					v-if="
+						!incidentsLoading && incidents.length === 0 && !incidentError
+					"
+					class="compliance-operations__note">
 					{{ t('hermiq', 'No incidents recorded yet.') }}
 				</p>
 
@@ -56,18 +68,24 @@
 				</div>
 
 				<ul v-else class="compliance-operations__incident-list">
-					<li v-for="incident in incidents" :key="incident.uuid" class="compliance-operations__incident">
+					<li
+						v-for="incident in incidents"
+						:key="incident.uuid"
+						class="compliance-operations__incident">
 						<p class="compliance-operations__incident-description">
 							{{ incident.description }}
 						</p>
 						<p class="compliance-operations__note">
-							<strong>{{ t('hermiq', 'Impact') }}:</strong> {{ incident.impact }}
+							<strong>{{ t('hermiq', 'Impact') }}:</strong>
+							{{ incident.impact }}
 						</p>
 						<p class="compliance-operations__note">
-							<strong>{{ t('hermiq', 'Actions taken') }}:</strong> {{ incident.actionsTaken }}
+							<strong>{{ t('hermiq', 'Actions taken') }}:</strong>
+							{{ incident.actionsTaken }}
 						</p>
 						<p class="compliance-operations__note">
-							{{ formatDate(incident.createdAt) }} — {{ incident.createdBy }}
+							{{ formatDate(incident.createdAt) }} —
+							{{ incident.createdBy }}
 						</p>
 					</li>
 				</ul>
@@ -78,9 +96,17 @@
 					{{ t('hermiq', 'EU AI Act audit export') }}
 				</h3>
 				<p class="compliance-operations__note">
-					{{ t('hermiq', 'Download your organisation\'s governance records (runs, decisions) from the hash-chained audit trail — scoped to your tenant, produced entirely on this instance.') }}
+					{{
+						t(
+							'hermiq',
+							"Download your organisation's governance records (runs, decisions) from the hash-chained audit trail — scoped to your tenant, produced entirely on this instance.",
+						)
+					}}
 				</p>
-				<NcNoteCard v-if="auditError" type="error" :heading="t('hermiq', 'Audit export error')">
+				<NcNoteCard
+					v-if="auditError"
+					type="error"
+					:heading="t('hermiq', 'Audit export error')">
 					{{ auditError }}
 				</NcNoteCard>
 				<NcButton
@@ -93,8 +119,17 @@
 					</template>
 					{{ t('hermiq', 'Export AI Act audit trail') }}
 				</NcButton>
-				<p v-if="lastExportCount !== null" class="compliance-operations__export-result">
-					{{ n('hermiq', 'Exported %n record.', 'Exported %n records.', lastExportCount) }}
+				<p
+					v-if="lastExportCount !== null"
+					class="compliance-operations__export-result">
+					{{
+						n(
+							'hermiq',
+							'Exported %n record.',
+							'Exported %n records.',
+							lastExportCount,
+						)
+					}}
 				</p>
 			</section>
 
@@ -106,10 +141,18 @@
 					{{ t('hermiq', 'Retention') }}
 				</h3>
 				<p class="compliance-operations__note">
-					{{ t('hermiq', 'How long your organisation states it keeps governance records for (EU AI Act Art. 12), at least 6 months. This is a stated policy, not automated deletion.') }}
+					{{
+						t(
+							'hermiq',
+							'How long your organisation states it keeps governance records for (EU AI Act Art. 12), at least 6 months. This is a stated policy, not automated deletion.',
+						)
+					}}
 				</p>
 
-				<NcNoteCard v-if="retentionError" type="error" :heading="t('hermiq', 'Retention error')">
+				<NcNoteCard
+					v-if="retentionError"
+					type="error"
+					:heading="t('hermiq', 'Retention error')">
 					{{ retentionError }}
 				</NcNoteCard>
 
@@ -118,7 +161,10 @@
 						v-model="retentionDraft"
 						type="number"
 						:label="t('hermiq', 'Retention period (months)')" />
-					<NcButton type="primary" :disabled="retentionSaving" @click="saveRetention">
+					<NcButton
+						type="primary"
+						:disabled="retentionSaving"
+						@click="saveRetention">
 						{{ t('hermiq', 'Save') }}
 					</NcButton>
 				</div>
@@ -133,7 +179,13 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcEmptyContent,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcTextField,
+} from '@nextcloud/vue'
 import { loadState } from '@nextcloud/initial-state'
 import { showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
@@ -201,7 +253,10 @@ export default {
 				this.lastExportCount = data.recordCount || 0
 				this.downloadJson(data, 'hermiq-ai-act-audit.json')
 			} catch (e) {
-				this.auditError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.auditError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.exporting = false
 			}
@@ -215,7 +270,9 @@ export default {
 		 * @return {void}
 		 */
 		downloadJson(data, filename) {
-			const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+			const blob = new Blob([JSON.stringify(data, null, 2)], {
+				type: 'application/json',
+			})
 			const url = URL.createObjectURL(blob)
 			const a = document.createElement('a')
 			a.href = url
@@ -252,7 +309,10 @@ export default {
 				const data = await getIncidents()
 				this.incidents = Array.isArray(data.incidents) ? data.incidents : []
 			} catch (e) {
-				this.incidentError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.incidentError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.incidentsLoading = false
 			}
@@ -279,7 +339,10 @@ export default {
 				const data = await getRetention()
 				this.retentionDraft = data.retentionMonths || 6
 			} catch (e) {
-				this.retentionError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.retentionError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			}
 		},
 
@@ -297,7 +360,12 @@ export default {
 				this.retentionDraft = data.retentionMonths
 				showSuccess(this.t('hermiq', 'Retention period saved.'))
 			} catch (e) {
-				this.retentionError = e?.response?.data?.error || this.t('hermiq', 'Retention period must be at least 6 months.')
+				this.retentionError =
+					e?.response?.data?.error
+					|| this.t(
+						'hermiq',
+						'Retention period must be at least 6 months.',
+					)
 				await this.loadRetention()
 			} finally {
 				this.retentionSaving = false

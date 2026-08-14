@@ -49,334 +49,321 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
  */
-class SkillMaturityControllerTest extends TestCase
-{
+class SkillMaturityControllerTest extends TestCase {
 
-    /**
-     * A user session that resolves to $uid, or null (unauthenticated) when $uid is null.
-     *
-     * @param string|null $uid The UID, or null for no user.
-     *
-     * @return IUserSession
-     */
-    private function session(?string $uid): IUserSession
-    {
-        $session = $this->createMock(IUserSession::class);
-        if ($uid === null) {
-            $session->method('getUser')->willReturn(null);
-            return $session;
-        }
+	/**
+	 * A user session that resolves to $uid, or null (unauthenticated) when $uid is null.
+	 *
+	 * @param string|null $uid The UID, or null for no user.
+	 *
+	 * @return IUserSession
+	 */
+	private function session(?string $uid): IUserSession {
+		$session = $this->createMock(IUserSession::class);
+		if ($uid === null) {
+			$session->method('getUser')->willReturn(null);
+			return $session;
+		}
 
-        $user = $this->createMock(IUser::class);
-        $user->method('getUID')->willReturn($uid);
-        $session->method('getUser')->willReturn($user);
-        return $session;
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$session->method('getUser')->willReturn($user);
+		return $session;
+	}//end session()
 
-    }//end session()
+	/**
+	 * A Skill ObjectEntity owned by the given uid.
+	 *
+	 * @param string $owner The owner uid.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function skill(string $owner): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('skill-uuid');
+		$entity->setOwner($owner);
+		$entity->setObject(['name' => 'a-skill']);
+		return $entity;
+	}//end skill()
 
-    /**
-     * A Skill ObjectEntity owned by the given uid.
-     *
-     * @param string $owner The owner uid.
-     *
-     * @return ObjectEntity
-     */
-    private function skill(string $owner): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('skill-uuid');
-        $entity->setOwner($owner);
-        $entity->setObject(['name' => 'a-skill']);
-        return $entity;
+	/**
+	 * Build the controller under test.
+	 *
+	 * @param IUserSession $session The user session.
+	 * @param SkillService|null $skillService The skill read path.
+	 * @param SkillMaturityService|null $maturityService The maturity service.
+	 * @param ActionAuthService|null $actionAuth The action authorization service.
+	 *
+	 * @return SkillMaturityController
+	 */
+	private function controller(
+		IUserSession $session,
+		?SkillService $skillService = null,
+		?SkillMaturityService $maturityService = null,
+		?ActionAuthService $actionAuth = null,
+		bool $callerIsAdmin = false,
+	): SkillMaturityController {
+		if ($skillService === null) {
+			$skillService = $this->createMock(SkillService::class);
+		}
 
-    }//end skill()
+		if ($maturityService === null) {
+			$maturityService = $this->createMock(SkillMaturityService::class);
+		}
 
-    /**
-     * Build the controller under test.
-     *
-     * @param IUserSession              $session         The user session.
-     * @param SkillService|null         $skillService    The skill read path.
-     * @param SkillMaturityService|null $maturityService The maturity service.
-     * @param ActionAuthService|null    $actionAuth      The action authorization service.
-     *
-     * @return SkillMaturityController
-     */
-    private function controller(
-        IUserSession $session,
-        ?SkillService $skillService=null,
-        ?SkillMaturityService $maturityService=null,
-        ?ActionAuthService $actionAuth=null,
-        bool $callerIsAdmin=false
-    ): SkillMaturityController {
-        if ($skillService === null) {
-            $skillService = $this->createMock(SkillService::class);
-        }
+		if ($actionAuth === null) {
+			$actionAuth = $this->createMock(ActionAuthService::class);
+		}
 
-        if ($maturityService === null) {
-            $maturityService = $this->createMock(SkillMaturityService::class);
-        }
+		$groupManager = $this->createMock(IGroupManager::class);
+		$groupManager->method('isAdmin')->willReturn($callerIsAdmin);
 
-        if ($actionAuth === null) {
-            $actionAuth = $this->createMock(ActionAuthService::class);
-        }
+		return new SkillMaturityController(
+			$this->createMock(IRequest::class),
+			$skillService,
+			$maturityService,
+			$actionAuth,
+			new SeedCustodyService(groupManager: $groupManager),
+			$session,
+			$this->createMock(LoggerInterface::class)
+		);
 
-        $groupManager = $this->createMock(IGroupManager::class);
-        $groupManager->method('isAdmin')->willReturn($callerIsAdmin);
+	}//end controller()
 
-        return new SkillMaturityController(
-            $this->createMock(IRequest::class),
-            $skillService,
-            $maturityService,
-            $actionAuth,
-            new SeedCustodyService(groupManager: $groupManager),
-            $session,
-            $this->createMock(LoggerInterface::class)
-        );
+	/**
+	 * Unauthenticated callers get 401 on both endpoints.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+	 */
+	public function testUnauthenticatedIs401(): void {
+		$controller = $this->controller(session: $this->session(null));
 
-    }//end controller()
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->qualify('skill-uuid')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->attestL4('skill-uuid')->getStatus());
 
-    /**
-     * Unauthenticated callers get 401 on both endpoints.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
-     */
-    public function testUnauthenticatedIs401(): void
-    {
-        $controller = $this->controller(session: $this->session(null));
+	}//end testUnauthenticatedIs401()
 
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->qualify('skill-uuid')->getStatus());
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->attestL4('skill-uuid')->getStatus());
+	/**
+	 * Qualifying a missing skill is 404.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+	 */
+	public function testQualifyMissingSkillIs404(): void {
+		$skillService = $this->createMock(SkillService::class);
+		$skillService->method('getSkill')->willReturn(null);
 
-    }//end testUnauthenticatedIs401()
+		$controller = $this->controller(session: $this->session('alice'), skillService: $skillService);
 
-    /**
-     * Qualifying a missing skill is 404.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
-     */
-    public function testQualifyMissingSkillIs404(): void
-    {
-        $skillService = $this->createMock(SkillService::class);
-        $skillService->method('getSkill')->willReturn(null);
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->qualify('missing')->getStatus());
 
-        $controller = $this->controller(session: $this->session('alice'), skillService: $skillService);
+	}//end testQualifyMissingSkillIs404()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->qualify('missing')->getStatus());
+	/**
+	 * A non-owner qualifying another user's skill gets 404 — never 403 — and the
+	 * maturity service is never invoked (the skill stays unchanged).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+	 */
+	public function testQualifyByNonOwnerIs404NotForbidden(): void {
+		$skillService = $this->createMock(SkillService::class);
+		$skillService->method('getSkill')->willReturn($this->skill(owner: 'alice'));
 
-    }//end testQualifyMissingSkillIs404()
+		$maturityService = $this->createMock(SkillMaturityService::class);
+		$maturityService->expects($this->never())->method('qualify');
 
-    /**
-     * A non-owner qualifying another user's skill gets 404 — never 403 — and the
-     * maturity service is never invoked (the skill stays unchanged).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
-     */
-    public function testQualifyByNonOwnerIs404NotForbidden(): void
-    {
-        $skillService = $this->createMock(SkillService::class);
-        $skillService->method('getSkill')->willReturn($this->skill(owner: 'alice'));
+		$controller = $this->controller(
+			session: $this->session('bob'),
+			skillService: $skillService,
+			maturityService: $maturityService
+		);
 
-        $maturityService = $this->createMock(SkillMaturityService::class);
-        $maturityService->expects($this->never())->method('qualify');
+		$response = $controller->qualify('skill-uuid');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+		$this->assertNotSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 
-        $controller = $this->controller(
-            session: $this->session('bob'),
-            skillService: $skillService,
-            maturityService: $maturityService
-        );
+	}//end testQualifyByNonOwnerIs404NotForbidden()
 
-        $response = $controller->qualify('skill-uuid');
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
-        $this->assertNotSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+	/**
+	 * The owner's qualify call delegates to the maturity service and returns its
+	 * scorecard payload.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+	 */
+	public function testQualifyByOwnerReturnsScorecard(): void {
+		$skill = $this->skill(owner: 'alice');
+		$skillService = $this->createMock(SkillService::class);
+		$skillService->method('getSkill')->willReturn($skill);
 
-    }//end testQualifyByNonOwnerIs404NotForbidden()
+		$payload = [
+			'skillId' => 'skill-uuid',
+			'maturityLevel' => 2,
+			'targetLevel' => 3,
+			'scorecard' => [],
+		];
 
-    /**
-     * The owner's qualify call delegates to the maturity service and returns its
-     * scorecard payload.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
-     */
-    public function testQualifyByOwnerReturnsScorecard(): void
-    {
-        $skill        = $this->skill(owner: 'alice');
-        $skillService = $this->createMock(SkillService::class);
-        $skillService->method('getSkill')->willReturn($skill);
+		$maturityService = $this->createMock(SkillMaturityService::class);
+		$maturityService->expects($this->once())
+			->method('qualify')
+			->with($skill)
+			->willReturn($payload);
 
-        $payload = [
-            'skillId'       => 'skill-uuid',
-            'maturityLevel' => 2,
-            'targetLevel'   => 3,
-            'scorecard'     => [],
-        ];
+		$controller = $this->controller(
+			session: $this->session('alice'),
+			skillService: $skillService,
+			maturityService: $maturityService
+		);
 
-        $maturityService = $this->createMock(SkillMaturityService::class);
-        $maturityService->expects($this->once())
-            ->method('qualify')
-            ->with($skill)
-            ->willReturn($payload);
+		$response = $controller->qualify('skill-uuid');
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame($payload, $response->getData());
 
-        $controller = $this->controller(
-            session: $this->session('alice'),
-            skillService: $skillService,
-            maturityService: $maturityService
-        );
+	}//end testQualifyByOwnerReturnsScorecard()
 
-        $response = $controller->qualify('skill-uuid');
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame($payload, $response->getData());
+	/**
+	 * Seed custodianship: an instance admin qualifies a system-seeded skill
+	 * (owner `__system__` — no human owner exists for seeds), while a
+	 * non-admin still gets 404 and a HUMAN-owned skill stays closed to admins.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
+	 */
+	public function testQualifySystemSeededSkillIsAdminCustodied(): void {
+		$seeded = $this->skill(owner: SeedCustodyService::SYSTEM_OWNER);
+		$skillService = $this->createMock(SkillService::class);
+		$skillService->method('getSkill')->willReturn($seeded);
 
-    }//end testQualifyByOwnerReturnsScorecard()
+		$maturityService = $this->createMock(SkillMaturityService::class);
+		$maturityService->method('qualify')->willReturn(['scorecard' => []]);
 
-    /**
-     * Seed custodianship: an instance admin qualifies a system-seeded skill
-     * (owner `__system__` — no human owner exists for seeds), while a
-     * non-admin still gets 404 and a HUMAN-owned skill stays closed to admins.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-the-qualify-endpoint-is-owner-guarded-and-returns-a-scorecard
-     */
-    public function testQualifySystemSeededSkillIsAdminCustodied(): void
-    {
-        $seeded       = $this->skill(owner: SeedCustodyService::SYSTEM_OWNER);
-        $skillService = $this->createMock(SkillService::class);
-        $skillService->method('getSkill')->willReturn($seeded);
+		// Admin caller: custodian-owner of the seed → 200.
+		$admin = $this->controller(
+			session: $this->session('admin'),
+			skillService: $skillService,
+			maturityService: $maturityService,
+			callerIsAdmin: true
+		);
+		$this->assertSame(Http::STATUS_OK, $admin->qualify('skill-uuid')->getStatus());
 
-        $maturityService = $this->createMock(SkillMaturityService::class);
-        $maturityService->method('qualify')->willReturn(['scorecard' => []]);
+		// Non-admin caller: still 404 on the seed.
+		$nonAdmin = $this->controller(
+			session: $this->session('bob'),
+			skillService: $skillService,
+			maturityService: $maturityService
+		);
+		$this->assertSame(Http::STATUS_NOT_FOUND, $nonAdmin->qualify('skill-uuid')->getStatus());
 
-        // Admin caller: custodian-owner of the seed → 200.
-        $admin = $this->controller(
-            session: $this->session('admin'),
-            skillService: $skillService,
-            maturityService: $maturityService,
-            callerIsAdmin: true
-        );
-        $this->assertSame(Http::STATUS_OK, $admin->qualify('skill-uuid')->getStatus());
+		// A HUMAN-owned skill is NOT opened to admins by the custodian rule.
+		$humanOwnedService = $this->createMock(SkillService::class);
+		$humanOwnedService->method('getSkill')->willReturn($this->skill(owner: 'alice'));
+		$adminOnHuman = $this->controller(
+			session: $this->session('admin'),
+			skillService: $humanOwnedService,
+			maturityService: $maturityService,
+			callerIsAdmin: true
+		);
+		$this->assertSame(Http::STATUS_NOT_FOUND, $adminOnHuman->qualify('skill-uuid')->getStatus());
 
-        // Non-admin caller: still 404 on the seed.
-        $nonAdmin = $this->controller(
-            session: $this->session('bob'),
-            skillService: $skillService,
-            maturityService: $maturityService
-        );
-        $this->assertSame(Http::STATUS_NOT_FOUND, $nonAdmin->qualify('skill-uuid')->getStatus());
+	}//end testQualifySystemSeededSkillIsAdminCustodied()
 
-        // A HUMAN-owned skill is NOT opened to admins by the custodian rule.
-        $humanOwnedService = $this->createMock(SkillService::class);
-        $humanOwnedService->method('getSkill')->willReturn($this->skill(owner: 'alice'));
-        $adminOnHuman = $this->controller(
-            session: $this->session('admin'),
-            skillService: $humanOwnedService,
-            maturityService: $maturityService,
-            callerIsAdmin: true
-        );
-        $this->assertSame(Http::STATUS_NOT_FOUND, $adminOnHuman->qualify('skill-uuid')->getStatus());
+	/**
+	 * Attesting an invisible skill is 404 BEFORE the action check — the action matrix
+	 * is never consulted, so a 403 can never confirm existence.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-l4-is-human-attested-only-behind-action-authorization
+	 */
+	public function testAttestInvisibleSkillIs404BeforeActionCheck(): void {
+		$skillService = $this->createMock(SkillService::class);
+		$skillService->method('getSkill')->willReturn(null);
 
-    }//end testQualifySystemSeededSkillIsAdminCustodied()
+		$actionAuth = $this->createMock(ActionAuthService::class);
+		$actionAuth->expects($this->never())->method('requireAction');
 
-    /**
-     * Attesting an invisible skill is 404 BEFORE the action check — the action matrix
-     * is never consulted, so a 403 can never confirm existence.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-l4-is-human-attested-only-behind-action-authorization
-     */
-    public function testAttestInvisibleSkillIs404BeforeActionCheck(): void
-    {
-        $skillService = $this->createMock(SkillService::class);
-        $skillService->method('getSkill')->willReturn(null);
+		$controller = $this->controller(
+			session: $this->session('noor'),
+			skillService: $skillService,
+			actionAuth: $actionAuth
+		);
 
-        $actionAuth = $this->createMock(ActionAuthService::class);
-        $actionAuth->expects($this->never())->method('requireAction');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->attestL4('missing')->getStatus());
 
-        $controller = $this->controller(
-            session: $this->session('noor'),
-            skillService: $skillService,
-            actionAuth: $actionAuth
-        );
+	}//end testAttestInvisibleSkillIs404BeforeActionCheck()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->attestL4('missing')->getStatus());
+	/**
+	 * A caller without the skill.attest-maturity action gets 403 and the skill is
+	 * unchanged — the attest stamp is never invoked.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-l4-is-human-attested-only-behind-action-authorization
+	 */
+	public function testAttestWithoutActionIs403AndSkillUnchanged(): void {
+		$skillService = $this->createMock(SkillService::class);
+		$skillService->method('getSkill')->willReturn($this->skill(owner: 'alice'));
 
-    }//end testAttestInvisibleSkillIs404BeforeActionCheck()
+		$actionAuth = $this->createMock(ActionAuthService::class);
+		$actionAuth->method('requireAction')
+			->willThrowException(new OCSForbiddenException("Action 'skill.attest-maturity' requires admin rights"));
 
-    /**
-     * A caller without the skill.attest-maturity action gets 403 and the skill is
-     * unchanged — the attest stamp is never invoked.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-l4-is-human-attested-only-behind-action-authorization
-     */
-    public function testAttestWithoutActionIs403AndSkillUnchanged(): void
-    {
-        $skillService = $this->createMock(SkillService::class);
-        $skillService->method('getSkill')->willReturn($this->skill(owner: 'alice'));
+		$maturityService = $this->createMock(SkillMaturityService::class);
+		$maturityService->expects($this->never())->method('attestL4');
 
-        $actionAuth = $this->createMock(ActionAuthService::class);
-        $actionAuth->method('requireAction')
-            ->willThrowException(new OCSForbiddenException("Action 'skill.attest-maturity' requires admin rights"));
+		$controller = $this->controller(
+			session: $this->session('bob'),
+			skillService: $skillService,
+			maturityService: $maturityService,
+			actionAuth: $actionAuth
+		);
 
-        $maturityService = $this->createMock(SkillMaturityService::class);
-        $maturityService->expects($this->never())->method('attestL4');
+		$this->assertSame(Http::STATUS_FORBIDDEN, $controller->attestL4('skill-uuid')->getStatus());
 
-        $controller = $this->controller(
-            session: $this->session('bob'),
-            skillService: $skillService,
-            maturityService: $maturityService,
-            actionAuth: $actionAuth
-        );
+	}//end testAttestWithoutActionIs403AndSkillUnchanged()
 
-        $this->assertSame(Http::STATUS_FORBIDDEN, $controller->attestL4('skill-uuid')->getStatus());
+	/**
+	 * An authorized curator's attest call stamps with the CALLER's uid and returns the
+	 * refreshed scorecard.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-l4-is-human-attested-only-behind-action-authorization
+	 */
+	public function testAttestByAuthorizedCuratorDelegates(): void {
+		$skill = $this->skill(owner: 'alice');
+		$skillService = $this->createMock(SkillService::class);
+		$skillService->method('getSkill')->willReturn($skill);
 
-    }//end testAttestWithoutActionIs403AndSkillUnchanged()
+		$payload = [
+			'skillId' => 'skill-uuid',
+			'maturityLevel' => 4,
+			'targetLevel' => 5,
+			'scorecard' => [],
+		];
 
-    /**
-     * An authorized curator's attest call stamps with the CALLER's uid and returns the
-     * refreshed scorecard.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-l4-is-human-attested-only-behind-action-authorization
-     */
-    public function testAttestByAuthorizedCuratorDelegates(): void
-    {
-        $skill        = $this->skill(owner: 'alice');
-        $skillService = $this->createMock(SkillService::class);
-        $skillService->method('getSkill')->willReturn($skill);
+		$maturityService = $this->createMock(SkillMaturityService::class);
+		$maturityService->expects($this->once())
+			->method('attestL4')
+			->with($skill, 'noor', '')
+			->willReturn($payload);
 
-        $payload = [
-            'skillId'       => 'skill-uuid',
-            'maturityLevel' => 4,
-            'targetLevel'   => 5,
-            'scorecard'     => [],
-        ];
+		$controller = $this->controller(
+			session: $this->session('noor'),
+			skillService: $skillService,
+			maturityService: $maturityService
+		);
 
-        $maturityService = $this->createMock(SkillMaturityService::class);
-        $maturityService->expects($this->once())
-            ->method('attestL4')
-            ->with($skill, 'noor', '')
-            ->willReturn($payload);
+		$response = $controller->attestL4('skill-uuid');
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame($payload, $response->getData());
 
-        $controller = $this->controller(
-            session: $this->session('noor'),
-            skillService: $skillService,
-            maturityService: $maturityService
-        );
-
-        $response = $controller->attestL4('skill-uuid');
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame($payload, $response->getData());
-
-    }//end testAttestByAuthorizedCuratorDelegates()
+	}//end testAttestByAuthorizedCuratorDelegates()
 }//end class

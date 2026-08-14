@@ -42,101 +42,95 @@ use Psr\Log\LoggerInterface;
 /**
  * @covers \OCA\Hermiq\Service\Talk\TalkSessionRoom
  */
-class TalkSessionRoomOptInTest extends TestCase
-{
+class TalkSessionRoomOptInTest extends TestCase {
 
-    private TalkAgentBinding&MockObject $agentBinding;
+	private TalkAgentBinding&MockObject $agentBinding;
 
-    private ContainerInterface&MockObject $container;
+	private ContainerInterface&MockObject $container;
 
-    private TalkBotInstaller&MockObject $installer;
+	private TalkBotInstaller&MockObject $installer;
 
-    /**
-     * Build the service with a Talk bridge that reports available.
-     *
-     * @param bool $agentOptedIn Whether the agent has talkEnabled.
-     *
-     * @return TalkSessionRoom The service.
-     */
-    private function service(bool $agentOptedIn): TalkSessionRoom
-    {
-        $bridge = $this->createMock(TalkBridge::class);
-        $bridge->method('isAvailable')->willReturn(true);
+	/**
+	 * Build the service with a Talk bridge that reports available.
+	 *
+	 * @param bool $agentOptedIn Whether the agent has talkEnabled.
+	 *
+	 * @return TalkSessionRoom The service.
+	 */
+	private function service(bool $agentOptedIn): TalkSessionRoom {
+		$bridge = $this->createMock(TalkBridge::class);
+		$bridge->method('isAvailable')->willReturn(true);
 
-        $this->agentBinding = $this->createMock(TalkAgentBinding::class);
-        $this->agentBinding->method('isAgentTalkEnabled')->willReturn($agentOptedIn);
+		$this->agentBinding = $this->createMock(TalkAgentBinding::class);
+		$this->agentBinding->method('isAgentTalkEnabled')->willReturn($agentOptedIn);
 
-        $this->container = $this->createMock(ContainerInterface::class);
-        $this->installer = $this->createMock(TalkBotInstaller::class);
+		$this->container = $this->createMock(ContainerInterface::class);
+		$this->installer = $this->createMock(TalkBotInstaller::class);
 
-        return new TalkSessionRoom(
-            $this->container,
-            $this->createMock(IUserManager::class),
-            $this->createMock(ObjectService::class),
-            $bridge,
-            $this->installer,
-            $this->agentBinding,
-            $this->createMock(TalkRoomGrouping::class),
-            $this->createMock(LoggerInterface::class)
-        );
+		return new TalkSessionRoom(
+			$this->container,
+			$this->createMock(IUserManager::class),
+			$this->createMock(ObjectService::class),
+			$bridge,
+			$this->installer,
+			$this->agentBinding,
+			$this->createMock(TalkRoomGrouping::class),
+			$this->createMock(LoggerInterface::class)
+		);
 
-    }//end service()
+	}//end service()
 
-    /**
-     * 🔴 The regression this file exists for.
-     *
-     * A Talk-disabled agent must get NO room — and spreed must not even be
-     * reached, since asking it to make a room is the bug.
-     */
-    public function testNoRoomIsCreatedForATalkDisabledAgent(): void
-    {
-        $service = $this->service(agentOptedIn: false);
-        $this->container->expects($this->never())->method('get');
-        $this->installer->expects($this->never())->method('enableInRoom');
+	/**
+	 * 🔴 The regression this file exists for.
+	 *
+	 * A Talk-disabled agent must get NO room — and spreed must not even be
+	 * reached, since asking it to make a room is the bug.
+	 */
+	public function testNoRoomIsCreatedForATalkDisabledAgent(): void {
+		$service = $this->service(agentOptedIn: false);
+		$this->container->expects($this->never())->method('get');
+		$this->installer->expects($this->never())->method('enableInRoom');
 
-        $this->assertNull($service->createForSession('A session', 'alice', 'agent-1'));
+		$this->assertNull($service->createForSession('A session', 'alice', 'agent-1'));
 
-    }//end testNoRoomIsCreatedForATalkDisabledAgent()
+	}//end testNoRoomIsCreatedForATalkDisabledAgent()
 
-    /**
-     * The opt-in is checked before anything else, so an unreadable agent — which
-     * `isAgentTalkEnabled()` reports as false — also yields no room rather than
-     * a half-built one.
-     */
-    public function testAnUnreadableAgentYieldsNoRoom(): void
-    {
-        $service = $this->service(agentOptedIn: false);
+	/**
+	 * The opt-in is checked before anything else, so an unreadable agent — which
+	 * `isAgentTalkEnabled()` reports as false — also yields no room rather than
+	 * a half-built one.
+	 */
+	public function testAnUnreadableAgentYieldsNoRoom(): void {
+		$service = $this->service(agentOptedIn: false);
 
-        $this->assertNull($service->createForSession('A session', 'alice', 'unknown-agent'));
+		$this->assertNull($service->createForSession('A session', 'alice', 'unknown-agent'));
 
-    }//end testAnUnreadableAgentYieldsNoRoom()
+	}//end testAnUnreadableAgentYieldsNoRoom()
 
-    /**
-     * Guard clauses that predate the opt-in check still hold: no owner and no
-     * agent are both "no room", and neither may reach the agent lookup.
-     */
-    public function testMissingOwnerOrAgentYieldsNoRoom(): void
-    {
-        $service = $this->service(agentOptedIn: true);
+	/**
+	 * Guard clauses that predate the opt-in check still hold: no owner and no
+	 * agent are both "no room", and neither may reach the agent lookup.
+	 */
+	public function testMissingOwnerOrAgentYieldsNoRoom(): void {
+		$service = $this->service(agentOptedIn: true);
 
-        $this->assertNull($service->createForSession('A session', '', 'agent-1'));
-        $this->assertNull($service->createForSession('A session', 'alice', ''));
+		$this->assertNull($service->createForSession('A session', '', 'agent-1'));
+		$this->assertNull($service->createForSession('A session', 'alice', ''));
 
-    }//end testMissingOwnerOrAgentYieldsNoRoom()
+	}//end testMissingOwnerOrAgentYieldsNoRoom()
 
-    /**
-     * An opted-in agent gets past the guard and reaches spreed — proving the
-     * guard is the discriminator and not an unconditional refusal, which would
-     * make the test above pass for the wrong reason.
-     */
-    public function testAnOptedInAgentReachesSpreed(): void
-    {
-        $service = $this->service(agentOptedIn: true);
+	/**
+	 * An opted-in agent gets past the guard and reaches spreed — proving the
+	 * guard is the discriminator and not an unconditional refusal, which would
+	 * make the test above pass for the wrong reason.
+	 */
+	public function testAnOptedInAgentReachesSpreed(): void {
+		$service = $this->service(agentOptedIn: true);
 
-        // No user resolves, so creation stops right after the guard — but the
-        // guard itself is proven passed because we got to that point at all.
-        $this->assertNull($service->createForSession('A session', 'alice', 'agent-1'));
-        $this->addToAssertionCount(1);
+		// No user resolves, so creation stops right after the guard — but the
+		// guard itself is proven passed because we got to that point at all.
+		$this->assertNull($service->createForSession('A session', 'alice', 'agent-1'));
+		$this->addToAssertionCount(1);
 
-    }//end testAnOptedInAgentReachesSpreed()
+	}//end testAnOptedInAgentReachesSpreed()
 }//end class

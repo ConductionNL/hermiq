@@ -43,162 +43,155 @@ use Throwable;
  *
  * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
  */
-class SeedAiFeatures implements IRepairStep
-{
+class SeedAiFeatures implements IRepairStep {
 
-    /**
-     * OpenRegister register slug that holds Hermiq objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * Schema slug for AiFeature objects.
-     *
-     * @var string
-     */
-    private const AIFEATURE_SCHEMA = 'agentaifeature';
+	/**
+	 * Schema slug for AiFeature objects.
+	 *
+	 * @var string
+	 */
+	private const AIFEATURE_SCHEMA = 'agentaifeature';
 
-    /**
-     * Constructor.
-     *
-     * @param ContainerInterface $container Server container for lazy ObjectService resolution.
-     * @param LoggerInterface    $logger    PSR-3 logger.
-     */
-    public function __construct(
-        private readonly ContainerInterface $container,
-        private readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ContainerInterface $container Server container for lazy ObjectService resolution.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		private readonly ContainerInterface $container,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Repair-step name.
-     *
-     * @return string
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
-     */
-    public function getName(): string
-    {
-        return 'Seed AI-feature governance register (ai-feature-governance-register)';
+	/**
+	 * Repair-step name.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 */
+	public function getName(): string {
+		return 'Seed AI-feature governance register (ai-feature-governance-register)';
+	}//end getName()
 
-    }//end getName()
+	/**
+	 * Seed the AiFeature objects that do not yet exist (by slug).
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 */
+	public function run(IOutput $output): void {
+		try {
+			$objectService = $this->container->get(ObjectService::class);
+		} catch (Throwable $e) {
+			$output->warning('OpenRegister not available — skipping AI-feature seed.');
+			$this->logger->warning('[hermiq] AiFeature seed skipped: ' . $e->getMessage());
+			return;
+		}
 
-    /**
-     * Seed the AiFeature objects that do not yet exist (by slug).
-     *
-     * @param IOutput $output Repair output channel.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
-     */
-    public function run(IOutput $output): void
-    {
-        try {
-            $objectService = $this->container->get(ObjectService::class);
-        } catch (Throwable $e) {
-            $output->warning('OpenRegister not available — skipping AI-feature seed.');
-            $this->logger->warning('[hermiq] AiFeature seed skipped: '.$e->getMessage());
-            return;
-        }
+		$seeded = 0;
+		foreach ($this->seedFeatures() as $feature) {
+			try {
+				if ($this->slugExists(objectService: $objectService, slug: $feature['slug']) === true) {
+					continue;
+				}
 
-        $seeded = 0;
-        foreach ($this->seedFeatures() as $feature) {
-            try {
-                if ($this->slugExists(objectService: $objectService, slug: $feature['slug']) === true) {
-                    continue;
-                }
+				$objectService->saveObject(
+					object: $feature,
+					register: self::REGISTER_SLUG,
+					schema: self::AIFEATURE_SCHEMA,
+					_rbac: false,
+					_multitenancy: false
+				);
+				$seeded++;
+			} catch (Throwable $e) {
+				$output->warning('Could not seed AI feature "' . $feature['slug'] . '": ' . $e->getMessage());
+				$this->logger->error('[hermiq] AiFeature seed failed for ' . $feature['slug'] . ': ' . $e->getMessage());
+			}//end try
+		}//end foreach
 
-                $objectService->saveObject(
-                    object: $feature,
-                    register: self::REGISTER_SLUG,
-                    schema: self::AIFEATURE_SCHEMA,
-                    _rbac: false,
-                    _multitenancy: false
-                );
-                $seeded++;
-            } catch (Throwable $e) {
-                $output->warning('Could not seed AI feature "'.$feature['slug'].'": '.$e->getMessage());
-                $this->logger->error('[hermiq] AiFeature seed failed for '.$feature['slug'].': '.$e->getMessage());
-            }//end try
-        }//end foreach
+		$output->info('AI-feature seed complete (' . $seeded . ' new).');
 
-        $output->info('AI-feature seed complete ('.$seeded.' new).');
+	}//end run()
 
-    }//end run()
+	/**
+	 * The realistic AiFeature seed payloads.
+	 *
+	 * @return array<int, array<string, mixed>> The seed objects.
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 */
+	private function seedFeatures(): array {
+		return [
+			[
+				'slug' => 'autonomous-agent-run',
+				'name' => 'Autonomous agent run',
+				'description' => 'An agent runs autonomously on a schedule and may act without a per-run human prompt.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				'slug' => 'skill-code-execution',
+				'name' => 'Skill code execution',
+				'description' => 'An installed skill executes code as part of an agent run.',
+				'riskCategory' => 'high',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+			[
+				'slug' => 'chat-companion',
+				'name' => 'Chat companion',
+				'description' => 'A conversational assistant that answers user questions with limited autonomy.',
+				'riskCategory' => 'limited',
+				'lifecycle' => 'disabled',
+				'tenantId' => '',
+			],
+		];
 
-    /**
-     * The realistic AiFeature seed payloads.
-     *
-     * @return array<int, array<string, mixed>> The seed objects.
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
-     */
-    private function seedFeatures(): array
-    {
-        return [
-            [
-                'slug'         => 'autonomous-agent-run',
-                'name'         => 'Autonomous agent run',
-                'description'  => 'An agent runs autonomously on a schedule and may act without a per-run human prompt.',
-                'riskCategory' => 'high',
-                'lifecycle'    => 'disabled',
-                'tenantId'     => '',
-            ],
-            [
-                'slug'         => 'skill-code-execution',
-                'name'         => 'Skill code execution',
-                'description'  => 'An installed skill executes code as part of an agent run.',
-                'riskCategory' => 'high',
-                'lifecycle'    => 'disabled',
-                'tenantId'     => '',
-            ],
-            [
-                'slug'         => 'chat-companion',
-                'name'         => 'Chat companion',
-                'description'  => 'A conversational assistant that answers user questions with limited autonomy.',
-                'riskCategory' => 'limited',
-                'lifecycle'    => 'disabled',
-                'tenantId'     => '',
-            ],
-        ];
+	}//end seedFeatures()
 
-    }//end seedFeatures()
+	/**
+	 * Whether an AiFeature with the given slug already exists (system context, no RBAC).
+	 *
+	 * @param ObjectService $objectService The OpenRegister object service.
+	 * @param string $slug The feature slug.
+	 *
+	 * @return bool True when a matching object exists.
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
+	 */
+	private function slugExists(ObjectService $objectService, string $slug): bool {
+		$objects = $objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema(self::AIFEATURE_SCHEMA)
+			->findAll(
+				config: ['filters' => ['slug' => $slug], 'limit' => 200],
+				_rbac: false,
+				_multitenancy: false
+			);
 
-    /**
-     * Whether an AiFeature with the given slug already exists (system context, no RBAC).
-     *
-     * @param ObjectService $objectService The OpenRegister object service.
-     * @param string        $slug          The feature slug.
-     *
-     * @return bool True when a matching object exists.
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
-     */
-    private function slugExists(ObjectService $objectService, string $slug): bool
-    {
-        $objects = $objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::AIFEATURE_SCHEMA)
-            ->findAll(
-                config: ['filters' => ['slug' => $slug], 'limit' => 200],
-                _rbac: false,
-                _multitenancy: false
-            );
+		foreach ($objects as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
 
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
-            }
+			if ((string)($object->getObject()['slug'] ?? '') === $slug) {
+				return true;
+			}
+		}
 
-            if ((string) ($object->getObject()['slug'] ?? '') === $slug) {
-                return true;
-            }
-        }
-
-        return false;
-
-    }//end slugExists()
+		return false;
+	}//end slugExists()
 }//end class

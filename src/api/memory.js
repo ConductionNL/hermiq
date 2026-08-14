@@ -56,7 +56,10 @@ export async function getMemory(agentId) {
  * @return {Promise<object>} The updated Memory payload.
  */
 export async function addMemory(agentId, text) {
-	const response = await axios.post(generateUrl(`${AGENTS_BASE}/${agentId}/memory`), { text })
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/memory`),
+		{ text },
+	)
 	return response.data
 }
 
@@ -69,7 +72,10 @@ export async function addMemory(agentId, text) {
  */
 export async function consolidateMemory(agentId, entries = null) {
 	const body = Array.isArray(entries) ? { entries } : {}
-	const response = await axios.post(generateUrl(`${AGENTS_BASE}/${agentId}/memory/consolidate`), body)
+	const response = await axios.post(
+		generateUrl(`${AGENTS_BASE}/${agentId}/memory/consolidate`),
+		body,
+	)
 	return response.data
 }
 
@@ -80,6 +86,8 @@ export async function consolidateMemory(agentId, entries = null) {
  * @return {Promise<Array<object>>} The UserProfile objects.
  */
 export async function listUserProfiles(agentId) {
-	const response = await axios.get(generateUrl(`${AGENTS_BASE}/${agentId}/user-profiles`))
+	const response = await axios.get(
+		generateUrl(`${AGENTS_BASE}/${agentId}/user-profiles`),
+	)
 	return toList(response.data)
 }

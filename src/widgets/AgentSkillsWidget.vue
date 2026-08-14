@@ -39,11 +39,21 @@
 			</div>
 		</div>
 
-		<p v-if="!loading && installedSkills.length === 0" class="agent-skills-widget__empty-hint">
-			{{ t('hermiq', 'No skills installed yet. Attach one to give this agent extra capabilities.') }}
+		<p
+			v-if="!loading && installedSkills.length === 0"
+			class="agent-skills-widget__empty-hint">
+			{{
+				t(
+					'hermiq',
+					'No skills installed yet. Attach one to give this agent extra capabilities.',
+				)
+			}}
 		</p>
 		<ul v-else class="agent-skills-widget__list">
-			<li v-for="skill in installedSkills" :key="skill.value" class="agent-skills-widget__item">
+			<li
+				v-for="skill in installedSkills"
+				:key="skill.value"
+				class="agent-skills-widget__item">
 				<span class="agent-skills-widget__name">{{ skill.label }}</span>
 				<NcButton
 					type="tertiary"
@@ -104,9 +114,13 @@ export default {
 		 * @return {Array<object>} The installed-skill options.
 		 */
 		installedSkills() {
-			const installed = Array.isArray(this.agent && this.agent.skillInstalls) ? this.agent.skillInstalls : []
+			const installed = Array.isArray(this.agent && this.agent.skillInstalls)
+				? this.agent.skillInstalls
+				: []
 			return installed.map((uuid) => {
-				const match = this.skills.find((skill) => (skill.uuid || skill.id) === uuid)
+				const match = this.skills.find(
+					(skill) => (skill.uuid || skill.id) === uuid,
+				)
 				return { label: (match && match.name) || uuid, value: uuid }
 			})
 		},
@@ -117,10 +131,15 @@ export default {
 		 * @return {Array<object>} The attachable-skill options.
 		 */
 		attachableSkillOptions() {
-			const installed = Array.isArray(this.agent && this.agent.skillInstalls) ? this.agent.skillInstalls : []
+			const installed = Array.isArray(this.agent && this.agent.skillInstalls)
+				? this.agent.skillInstalls
+				: []
 			return this.skills
 				.filter((skill) => !installed.includes(skill.uuid || skill.id))
-				.map((skill) => ({ label: skill.name || skill.uuid || skill.id, value: skill.uuid || skill.id }))
+				.map((skill) => ({
+					label: skill.name || skill.uuid || skill.id,
+					value: skill.uuid || skill.id,
+				}))
 		},
 	},
 

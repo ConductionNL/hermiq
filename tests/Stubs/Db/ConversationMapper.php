@@ -24,18 +24,16 @@ namespace OCA\OpenRegister\Db;
 /**
  * Minimal ConversationMapper stub for standalone unit runs.
  */
-class ConversationMapper
-{
+class ConversationMapper {
 
-    /**
-     * Insert a conversation.
-     *
-     * @param Conversation $entity The conversation entity.
-     *
-     * @return Conversation
-     */
-    public function insert(Conversation $entity): Conversation
-    {
-        return $entity;
-    }//end insert()
+	/**
+	 * Insert a conversation.
+	 *
+	 * @param Conversation $entity The conversation entity.
+	 *
+	 * @return Conversation
+	 */
+	public function insert(Conversation $entity): Conversation {
+		return $entity;
+	}//end insert()
 }//end class

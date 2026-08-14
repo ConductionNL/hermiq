@@ -3,11 +3,7 @@
   - SPDX-License-Identifier: EUPL-1.2
 -->
 <template>
-	<NcModal
-		:show="show"
-		size="large"
-		:name="heading"
-		@close="$emit('close')">
+	<NcModal :show="show" size="large" :name="heading" @close="$emit('close')">
 		<div class="run-log" data-testid="flow-run-log">
 			<h2 class="run-log__title">
 				{{ heading }}
@@ -19,7 +15,11 @@
 
 			<template v-else>
 				<p class="run-log__hint">
-					{{ t('hermiq', 'Status: {status}', { status: detail.status || '—' }) }}
+					{{
+						t('hermiq', 'Status: {status}', {
+							status: detail.status || '—',
+						})
+					}}
 				</p>
 
 				<NcNoteCard v-if="detail.error" type="error">
@@ -27,22 +27,39 @@
 				</NcNoteCard>
 
 				<p v-if="log.length === 0" class="run-log__hint">
-					{{ t('hermiq', 'This run recorded no steps. A run that was refused before it started has no step log — the reason is on the run itself.') }}
+					{{
+						t(
+							'hermiq',
+							'This run recorded no steps. A run that was refused before it started has no step log — the reason is on the run itself.',
+						)
+					}}
 				</p>
 
 				<ol v-else class="run-log__steps">
-					<li v-for="(entry, index) in log" :key="index" class="run-log__step">
+					<li
+						v-for="(entry, index) in log"
+						:key="index"
+						class="run-log__step">
 						<button
 							class="run-log__step-head"
 							:aria-expanded="openStep === index ? 'true' : 'false'"
 							@click="openStep = openStep === index ? -1 : index">
-							<span :class="`run-log__status run-log__status--${entry.status || 'unknown'}`">
+							<span
+								:class="`run-log__status run-log__status--${entry.status || 'unknown'}`">
 								{{ entry.status || t('hermiq', 'unknown') }}
 							</span>
-							<span class="run-log__step-name">{{ entry.transition || '—' }}</span>
-							<span class="run-log__step-type">{{ entry.type || '' }}</span>
-							<span v-if="entry.durationMs !== undefined" class="run-log__step-ms">
-								{{ t('hermiq', '{ms} ms', { ms: entry.durationMs }) }}
+							<span class="run-log__step-name">{{
+								entry.transition || '—'
+							}}</span>
+							<span class="run-log__step-type">{{
+								entry.type || ''
+							}}</span>
+							<span
+								v-if="entry.durationMs !== undefined"
+								class="run-log__step-ms">
+								{{
+									t('hermiq', '{ms} ms', { ms: entry.durationMs })
+								}}
 							</span>
 						</button>
 
@@ -62,7 +79,9 @@
 								an author's in-progress flow to show them a record
 								they wanted to glance at.
 							-->
-							<div v-if="(actions[index] || []).length > 0" class="run-log__actions">
+							<div
+								v-if="(actions[index] || []).length > 0"
+								class="run-log__actions">
 								<a
 									v-for="action in actions[index]"
 									:key="action.href"
@@ -77,25 +96,48 @@
 							<template v-if="entry.input">
 								<h3 class="run-log__subtitle">
 									{{ t('hermiq', 'Received') }}
-									<span v-if="entry.input.truncated" class="run-log__sampled">
-										{{ t('hermiq', 'sample of {count}', { count: entry.input.count }) }}
+									<span
+										v-if="entry.input.truncated"
+										class="run-log__sampled">
+										{{
+											t('hermiq', 'sample of {count}', {
+												count: entry.input.count,
+											})
+										}}
 									</span>
 								</h3>
-								<pre class="run-log__json">{{ pretty(entry.input) }}</pre>
+								<pre class="run-log__json">{{
+									pretty(entry.input)
+								}}</pre>
 							</template>
 
 							<template v-if="entry.output">
 								<h3 class="run-log__subtitle">
 									{{ t('hermiq', 'Returned') }}
-									<span v-if="entry.output.truncated" class="run-log__sampled">
-										{{ t('hermiq', 'sample of {count}', { count: entry.output.count }) }}
+									<span
+										v-if="entry.output.truncated"
+										class="run-log__sampled">
+										{{
+											t('hermiq', 'sample of {count}', {
+												count: entry.output.count,
+											})
+										}}
 									</span>
 								</h3>
-								<pre class="run-log__json">{{ pretty(entry.output) }}</pre>
+								<pre class="run-log__json">{{
+									pretty(entry.output)
+								}}</pre>
 							</template>
 
-							<p v-if="!entry.input && !entry.output" class="run-log__hint">
-								{{ t('hermiq', 'This step recorded no payload. Steps that stopped, suspended or failed before running record their reason instead.') }}
+							<p
+								v-if="!entry.input && !entry.output"
+								class="run-log__hint">
+								{{
+									t(
+										'hermiq',
+										'This step recorded no payload. Steps that stopped, suspended or failed before running record their reason instead.',
+									)
+								}}
 							</p>
 						</div>
 					</li>
@@ -125,7 +167,7 @@ import { useFlowEditorStore } from '../../store/flowEditor.js'
  * a JSON payload: the pane is narrower than most single lines of it. This is
  * where a run is actually read.
  *
- * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+ * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
  */
 export default {
 	name: 'RunLogModal',
@@ -169,7 +211,7 @@ export default {
 		detail() {
 			const id = this.editor.logModalRunId
 
-			return id === null ? null : (this.editor.runDetail[id] || null)
+			return id === null ? null : this.editor.runDetail[id] || null
 		},
 
 		/**
@@ -239,17 +281,19 @@ export default {
 		 */
 		async loadActions() {
 			const found = {}
-			await Promise.all(this.log.map(async (entry, index) => {
-				try {
-					const { data } = await axios.post(
-						generateUrl('/apps/openregister/api/flow/log-actions'),
-						{ entry },
-					)
-					found[index] = data?.results || []
-				} catch (e) {
-					found[index] = []
-				}
-			}))
+			await Promise.all(
+				this.log.map(async (entry, index) => {
+					try {
+						const { data } = await axios.post(
+							generateUrl('/apps/openregister/api/flow/log-actions'),
+							{ entry },
+						)
+						found[index] = data?.results || []
+					} catch (e) {
+						found[index] = []
+					}
+				}),
+			)
 			this.actions = found
 		},
 	},

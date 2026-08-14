@@ -28,6 +28,5 @@ use Exception;
 /**
  * Minimal stub of the spreed RoomNotFoundException.
  */
-class RoomNotFoundException extends Exception
-{
+class RoomNotFoundException extends Exception {
 }//end class

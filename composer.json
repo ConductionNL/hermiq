@@ -1,103 +1,104 @@
 {
-	"name": "conductionnl/hermiq",
-	"description": "Schedule autonomous AI agents in Nextcloud",
-	"license": "EUPL-1.2",
-	"authors": [
-		{
-			"name": "Conduction b.v.",
-			"email": "info@conduction.nl",
-			"homepage": "https://conduction.nl"
-		}
-	],
-	"autoload": {
-		"psr-4": {
-			"OCA\\Hermiq\\": "lib/"
-		}
-	},
-	"repositories": [
-		{
-			"type": "vcs",
-			"url": "https://github.com/theodo-group/LLPhant"
-		}
-	],
-	"require": {
-		"php": "^8.3",
-		"cweagans/composer-patches": "^1.7",
-		"dragonmantank/cron-expression": "^3.6",
-		"theodo-group/llphant": "^0.9.3"
-	},
-	"require-dev": {
-		"cyclonedx/cyclonedx-php-composer": "^6.2",
-		"edgedesign/phpqa": "^1.27",
-		"nextcloud/coding-standard": "^1.4",
-		"nextcloud/ocp": "^31.0",
-		"phpcsstandards/phpcsextra": "^1.4",
-		"phpmd/phpmd": "^2.15",
-		"phpmetrics/phpmetrics": "^2.8",
-		"phpstan/phpstan": "^1.10",
-		"phpunit/phpunit": "^10.5",
-		"roave/security-advisories": "dev-latest",
-		"squizlabs/php_codesniffer": "^3.9",
-		"vimeo/psalm": "^5.26"
-	},
-	"scripts": {
-		"lint": "find . -name \\*.php -not -path './vendor/*' -not -path './build/*' -print0 | xargs -0 -n1 php -l",
-		"cs:check": "./vendor/bin/phpcs --standard=phpcs.xml",
-		"cs:fix": "./vendor/bin/phpcbf --standard=phpcs.xml",
-		"phpcs": "./vendor/bin/phpcs --standard=phpcs.xml",
-		"phpcs:fix": "./vendor/bin/phpcbf --standard=phpcs.xml",
-		"phpcs:output": "./vendor/bin/phpcs --standard=phpcs.xml --report=json lib/ 2>/dev/null | tail -1 > phpcs-output.json",
-		"phpmd": "E=0; ./vendor/bin/phpmd lib text phpmd.xml || E=$?; ./vendor/bin/phpmd lib text phpmd-unusedparams.xml || E=$?; exit $E",
-		"phpmetrics": "./vendor/bin/phpmetrics --report-html=phpmetrics lib/",
-		"psalm": "./vendor/bin/psalm --threads=1 --no-cache",
-		"phpstan": "./vendor/bin/phpstan analyse --memory-limit=1G",
-		"test:unit": "./vendor/bin/phpunit --colors=always",
-		"test:all": "./vendor/bin/phpunit --colors=always",
-		"check": "E=0; for CMD in lint phpcs psalm test:unit; do echo; echo \"=== $CMD ===\"; composer $CMD || E=1; done; echo; if [ $E -eq 0 ]; then echo \"ALL CHECKS PASSED\"; else echo \"SOME CHECKS FAILED (see above)\"; fi; exit $E",
-		"check:full": "E=0; for CMD in lint phpcs psalm phpstan test:all; do echo; echo \"=== $CMD ===\"; composer $CMD || E=1; done; echo; if [ $E -eq 0 ]; then echo \"ALL CHECKS PASSED\"; else echo \"SOME CHECKS FAILED (see above)\"; fi; exit $E",
-		"check:strict": "E=0; for CMD in lint phpcs phpmd psalm phpstan test:all; do echo; echo \"=== $CMD ===\"; composer $CMD || E=1; done; echo; if [ $E -eq 0 ]; then echo \"ALL CHECKS PASSED\"; else echo \"SOME CHECKS FAILED (see above)\"; fi; exit $E",
-		"fix": [
-			"@cs:fix"
-		],
-		"phpqa": "./vendor/bin/phpqa --report --analyzedDirs lib --buildDir phpqa",
-		"phpqa:full": "./vendor/bin/phpqa --report --analyzedDirs lib --buildDir phpqa --tools phpcs:0,phpmd:0,phploc:0,phpmetrics,phpcpd:0,parallel-lint:0",
-		"phpqa:ci": "./vendor/bin/phpqa --report --analyzedDirs lib --buildDir phpqa --tools phpcs,phpmd,phploc,phpmetrics,phpcpd,parallel-lint",
-		"qa:check": [
-			"@phpqa"
-		],
-		"qa:full": [
-			"@phpqa:full"
-		],
-		"test:coverage": "./vendor/bin/phpunit --coverage-html=coverage/html --coverage-clover=coverage/clover.xml --colors=always",
-		"quality:score": [
-			"@quality:phpcs-score",
-			"@quality:phpmd-score",
-			"@quality:psalm-score",
-			"@quality:phpstan-score"
-		],
-		"post-install-cmd": [
-			"git config core.hooksPath .githooks || true"
-		]
-	},
-	"config": {
-		"allow-plugins": {
-			"dealerdirect/phpcodesniffer-composer-installer": true,
-			"cyclonedx/cyclonedx-php-composer": true,
-			"cweagans/composer-patches": true
-		},
-		"optimize-autoloader": true,
-		"sort-packages": true,
-		"platform": {
-			"php": "8.3"
-		}
-	},
-	"extra": {
-		"composer-exit-on-patch-failure": true,
-		"patches": {
-			"theodo-group/llphant": {
-				"Forward think:false + keep_alive:-1 to the Ollama API (qwen3 ~5x speedup, no idle-unload wedge) — drop when LLPhant adds a per-call keep_alive/think model option": "patches/llphant-ollama-think-keepalive.patch",
-				"Capture Ollama token/latency usage on OllamaChat::$lastUsage so the Engine can record per-run cost (run-analytics) — drop when LLPhant exposes response usage": "patches/llphant-ollama-usage-capture.patch"
-			}
-		}
-	}
+    "name": "conductionnl/hermiq",
+    "description": "Schedule autonomous AI agents in Nextcloud",
+    "license": "EUPL-1.2",
+    "authors": [
+        {
+            "name": "Conduction b.v.",
+            "email": "info@conduction.nl",
+            "homepage": "https://conduction.nl"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "OCA\\Hermiq\\": "lib/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/theodo-group/LLPhant"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "cweagans/composer-patches": "^1.7",
+        "dragonmantank/cron-expression": "^3.6",
+        "theodo-group/llphant": "^0.9.3"
+    },
+    "require-dev": {
+        "conduction/coding-standard": "^1.0",
+        "conduction/hydra-gates": "^1.0",
+        "cyclonedx/cyclonedx-php-composer": "^6.2",
+        "edgedesign/phpqa": "^1.27",
+        "nextcloud/ocp": "^34.0",
+        "phpcsstandards/phpcsextra": "^1.4",
+        "phpmd/phpmd": "^2.15",
+        "phpmetrics/phpmetrics": "^2.8",
+        "phpstan/phpstan": "^1.10",
+        "phpunit/phpunit": "^10.5",
+        "roave/security-advisories": "dev-latest",
+        "squizlabs/php_codesniffer": "^3.9",
+        "vimeo/psalm": "^5.26"
+    },
+    "scripts": {
+        "lint": "find . -name \\*.php -not -path './vendor/*' -not -path './build/*' -print0 | xargs -0 -n1 php -l",
+        "cs:check": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "phpcs": "./vendor/bin/phpcs --standard=phpcs.xml",
+        "phpcs:fix": "./vendor/bin/phpcbf --standard=phpcs.xml",
+        "phpcs:output": "./vendor/bin/phpcs --standard=phpcs.xml --report=json lib/ 2>/dev/null | tail -1 > phpcs-output.json",
+        "phpmd": "E=0; ./vendor/bin/phpmd lib text phpmd.xml || E=$?; ./vendor/bin/phpmd lib text vendor/conduction/hydra-gates/quality-config/phpmd-unusedparams.xml || E=$?; exit $E",
+        "phpmetrics": "./vendor/bin/phpmetrics --report-html=phpmetrics lib/",
+        "psalm": "./vendor/bin/psalm --threads=1 --no-cache",
+        "phpstan": "./vendor/bin/phpstan analyse --memory-limit=1G",
+        "test:unit": "./vendor/bin/phpunit --colors=always",
+        "test:all": "./vendor/bin/phpunit --colors=always",
+        "check": "E=0; for CMD in lint phpcs psalm test:unit; do echo; echo \"=== $CMD ===\"; composer $CMD || E=1; done; echo; if [ $E -eq 0 ]; then echo \"ALL CHECKS PASSED\"; else echo \"SOME CHECKS FAILED (see above)\"; fi; exit $E",
+        "check:full": "E=0; for CMD in lint phpcs psalm phpstan test:all; do echo; echo \"=== $CMD ===\"; composer $CMD || E=1; done; echo; if [ $E -eq 0 ]; then echo \"ALL CHECKS PASSED\"; else echo \"SOME CHECKS FAILED (see above)\"; fi; exit $E",
+        "check:strict": "E=0; for CMD in lint phpcs phpmd psalm phpstan test:all; do echo; echo \"=== $CMD ===\"; composer $CMD || E=1; done; echo; if [ $E -eq 0 ]; then echo \"ALL CHECKS PASSED\"; else echo \"SOME CHECKS FAILED (see above)\"; fi; exit $E",
+        "fix": [
+            "@cs:fix"
+        ],
+        "phpqa": "./vendor/bin/phpqa --report --analyzedDirs lib --buildDir phpqa",
+        "phpqa:full": "./vendor/bin/phpqa --report --analyzedDirs lib --buildDir phpqa --tools phpcs:0,phpmd:0,phploc:0,phpmetrics,phpcpd:0,parallel-lint:0",
+        "phpqa:ci": "./vendor/bin/phpqa --report --analyzedDirs lib --buildDir phpqa --tools phpcs,phpmd,phploc,phpmetrics,phpcpd,parallel-lint",
+        "qa:check": [
+            "@phpqa"
+        ],
+        "qa:full": [
+            "@phpqa:full"
+        ],
+        "test:coverage": "./vendor/bin/phpunit --coverage-html=coverage/html --coverage-clover=coverage/clover.xml --colors=always",
+        "quality:score": [
+            "@quality:phpcs-score",
+            "@quality:phpmd-score",
+            "@quality:psalm-score",
+            "@quality:phpstan-score"
+        ],
+        "post-install-cmd": [
+            "git config core.hooksPath .githooks || true"
+        ]
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "cyclonedx/cyclonedx-php-composer": true,
+            "cweagans/composer-patches": true
+        },
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "platform": {
+            "php": "8.3"
+        }
+    },
+    "extra": {
+        "composer-exit-on-patch-failure": true,
+        "patches": {
+            "theodo-group/llphant": {
+                "Forward think:false + keep_alive:-1 to the Ollama API (qwen3 ~5x speedup, no idle-unload wedge) \u2014 drop when LLPhant adds a per-call keep_alive/think model option": "patches/llphant-ollama-think-keepalive.patch",
+                "Capture Ollama token/latency usage on OllamaChat::$lastUsage so the Engine can record per-run cost (run-analytics) \u2014 drop when LLPhant exposes response usage": "patches/llphant-ollama-usage-capture.patch"
+            }
+        }
+    }
 }

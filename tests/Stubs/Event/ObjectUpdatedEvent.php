@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal OpenRegister ObjectUpdatedEvent stub for standalone unit runs
  * and static analysis.
@@ -25,42 +26,37 @@ use OCP\EventDispatcher\Event;
 /**
  * Minimal ObjectUpdatedEvent stub.
  */
-class ObjectUpdatedEvent extends Event
-{
+class ObjectUpdatedEvent extends Event {
 
-    /**
-     * Constructor.
-     *
-     * @param ObjectEntity      $newObject The object after the update.
-     * @param ObjectEntity|null $oldObject The object before the update, when known.
-     */
-    public function __construct(
-        private readonly ObjectEntity $newObject,
-        private readonly ?ObjectEntity $oldObject=null
-    ) {
-        parent::__construct();
+	/**
+	 * Constructor.
+	 *
+	 * @param ObjectEntity $newObject The object after the update.
+	 * @param ObjectEntity|null $oldObject The object before the update, when known.
+	 */
+	public function __construct(
+		private readonly ObjectEntity $newObject,
+		private readonly ?ObjectEntity $oldObject = null,
+	) {
+		parent::__construct();
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * The object after the update.
-     *
-     * @return ObjectEntity The new object.
-     */
-    public function getNewObject(): ObjectEntity
-    {
-        return $this->newObject;
+	/**
+	 * The object after the update.
+	 *
+	 * @return ObjectEntity The new object.
+	 */
+	public function getNewObject(): ObjectEntity {
+		return $this->newObject;
+	}//end getNewObject()
 
-    }//end getNewObject()
-
-    /**
-     * The object before the update, when known.
-     *
-     * @return ObjectEntity|null The old object.
-     */
-    public function getOldObject(): ?ObjectEntity
-    {
-        return $this->oldObject;
-
-    }//end getOldObject()
+	/**
+	 * The object before the update, when known.
+	 *
+	 * @return ObjectEntity|null The old object.
+	 */
+	public function getOldObject(): ?ObjectEntity {
+		return $this->oldObject;
+	}//end getOldObject()
 }//end class

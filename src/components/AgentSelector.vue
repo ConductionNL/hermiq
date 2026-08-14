@@ -28,7 +28,12 @@
 		<NcEmptyContent
 			v-else-if="agents.length === 0"
 			:name="t('hermiq', 'No agents available')"
-			:description="t('hermiq', 'You need an agent to start a conversation. Create one in the Agents page.')">
+			:description="
+				t(
+					'hermiq',
+					'You need an agent to start a conversation. Create one in the Agents page.',
+				)
+			">
 			<template #icon>
 				<Creation :size="20" />
 			</template>
@@ -57,12 +62,20 @@
 					</div>
 				</div>
 
-				<div v-if="agent.model || (agent.tools && agent.tools.length)" class="agent-selector__meta">
-					<span v-if="agent.model" class="agent-selector__chip">{{ agent.model }}</span>
-					<span v-if="agent.tools && agent.tools.length" class="agent-selector__chip">
+				<div
+					v-if="agent.model || (agent.tools && agent.tools.length)"
+					class="agent-selector__meta">
+					<span v-if="agent.model" class="agent-selector__chip">{{
+						agent.model
+					}}</span>
+					<span
+						v-if="agent.tools && agent.tools.length"
+						class="agent-selector__chip">
 						{{ n('hermiq', '%n tool', '%n tools', agent.tools.length) }}
 					</span>
-					<span v-else class="agent-selector__chip">{{ t('hermiq', 'All tools') }}</span>
+					<span v-else class="agent-selector__chip">{{
+						t('hermiq', 'All tools')
+					}}</span>
 				</div>
 
 				<NcButton
@@ -71,7 +84,9 @@
 					:disabled="!!startingId"
 					@click="$emit('start', agent)">
 					<template #icon>
-						<NcLoadingIcon v-if="startingId === (agent.id || agent.uuid)" :size="20" />
+						<NcLoadingIcon
+							v-if="startingId === (agent.id || agent.uuid)"
+							:size="20" />
 						<MessagePlus v-else :size="20" />
 					</template>
 					{{ t('hermiq', 'Start conversation') }}

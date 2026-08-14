@@ -28,15 +28,34 @@
 			<!-- Char-budget bar + consolidation nudge -->
 			<section class="agent-memory-panel__budget">
 				<div class="agent-memory-panel__budget-head">
-					<span class="agent-memory-panel__budget-label">{{ t('hermiq', 'Memory budget') }}</span>
-					<span class="agent-memory-panel__budget-count">{{ charCount }} / {{ charBudget }} {{ t('hermiq', 'characters') }}</span>
+					<span class="agent-memory-panel__budget-label">{{
+						t('hermiq', 'Memory budget')
+					}}</span>
+					<span class="agent-memory-panel__budget-count"
+						>{{ charCount }} / {{ charBudget }}
+						{{ t('hermiq', 'characters') }}</span
+					>
 				</div>
-				<div class="agent-memory-panel__budget-bar" :class="{ 'agent-memory-panel__budget-bar--over': memory.needsConsolidation }">
-					<div class="agent-memory-panel__budget-fill" :style="{ width: budgetPct + '%' }" />
+				<div
+					class="agent-memory-panel__budget-bar"
+					:class="{
+						'agent-memory-panel__budget-bar--over':
+							memory.needsConsolidation,
+					}">
+					<div
+						class="agent-memory-panel__budget-fill"
+						:style="{ width: budgetPct + '%' }" />
 				</div>
-				<div v-if="memory.needsConsolidation" class="agent-memory-panel__nudge">
+				<div
+					v-if="memory.needsConsolidation"
+					class="agent-memory-panel__nudge">
 					<AlertIcon :size="18" class="agent-memory-panel__nudge-icon" />
-					<span>{{ t('hermiq', 'Over budget — consolidation suggested. No entries were dropped.') }}</span>
+					<span>{{
+						t(
+							'hermiq',
+							'Over budget — consolidation suggested. No entries were dropped.',
+						)
+					}}</span>
 					<NcButton
 						type="secondary"
 						:disabled="busy"
@@ -74,7 +93,9 @@
 				<NcEmptyContent
 					v-if="entries.length === 0"
 					:name="t('hermiq', 'No memory yet')"
-					:description="t('hermiq', 'Facts the agent remembers will appear here.')">
+					:description="
+						t('hermiq', 'Facts the agent remembers will appear here.')
+					">
 					<template #icon>
 						<BrainIcon :size="20" />
 					</template>
@@ -84,16 +105,28 @@
 						v-for="(entry, i) in entries"
 						:key="i"
 						class="agent-memory-panel__entry"
-						:class="{ 'agent-memory-panel__entry--forgotten': isForgotten(entry) }">
-						<span class="agent-memory-panel__entry-text">{{ entry.text }}</span>
+						:class="{
+							'agent-memory-panel__entry--forgotten':
+								isForgotten(entry),
+						}">
+						<span class="agent-memory-panel__entry-text">{{
+							entry.text
+						}}</span>
 						<span
 							v-if="isForgotten(entry)"
 							class="agent-memory-panel__entry-forgotten"
-							:title="t('hermiq', 'The agent retracted this fact — it is excluded from recall but kept for audit history.')">
+							:title="
+								t(
+									'hermiq',
+									'The agent retracted this fact — it is excluded from recall but kept for audit history.',
+								)
+							">
 							<EyeOffIcon :size="14" />
 							{{ t('hermiq', 'Forgotten') }}
 						</span>
-						<span class="agent-memory-panel__entry-date">{{ formatDate(entry.createdAt) }}</span>
+						<span class="agent-memory-panel__entry-date">{{
+							formatDate(entry.createdAt)
+						}}</span>
 					</li>
 				</ul>
 			</section>
@@ -102,7 +135,13 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcEmptyContent,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcTextField,
+} from '@nextcloud/vue'
 import AlertIcon from 'vue-material-design-icons/AlertOutline.vue'
 import BrainIcon from 'vue-material-design-icons/Brain.vue'
 import EyeOffIcon from 'vue-material-design-icons/EyeOffOutline.vue'
@@ -159,7 +198,7 @@ export default {
 		 */
 		charCount() {
 			return this.entries
-				.filter(e => !this.isForgotten(e))
+				.filter((e) => !this.isForgotten(e))
 				.reduce((sum, e) => sum + String(e.text || '').length, 0)
 		},
 
@@ -181,7 +220,10 @@ export default {
 			if (this.charBudget <= 0) {
 				return 0
 			}
-			return Math.min(100, Math.round((this.charCount / this.charBudget) * 100))
+			return Math.min(
+				100,
+				Math.round((this.charCount / this.charBudget) * 100),
+			)
 		},
 	},
 
@@ -202,16 +244,27 @@ export default {
 		 */
 		async load() {
 			if (!this.agentId) {
-				this.memory = { entries: [], charBudget: 8000, needsConsolidation: false }
+				this.memory = {
+					entries: [],
+					charBudget: 8000,
+					needsConsolidation: false,
+				}
 				return
 			}
 			this.loading = true
 			this.error = ''
 			try {
 				const memory = await getMemory(this.agentId)
-				this.memory = memory || { entries: [], charBudget: 8000, needsConsolidation: false }
+				this.memory = memory || {
+					entries: [],
+					charBudget: 8000,
+					needsConsolidation: false,
+				}
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}
@@ -233,7 +286,10 @@ export default {
 				this.memory = await addMemory(this.agentId, text)
 				this.newEntry = ''
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}
@@ -253,7 +309,10 @@ export default {
 			try {
 				this.memory = await consolidateMemory(this.agentId)
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.busy = false
 			}

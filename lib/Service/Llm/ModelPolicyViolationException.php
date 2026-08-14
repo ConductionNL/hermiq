@@ -37,6 +37,5 @@ use RuntimeException;
  *
  * @spec openspec/changes/tenant-model-policy/specs/tenant-model-policy/spec.md#requirement-run-time-enforcement-of-the-effective-model-policy
  */
-class ModelPolicyViolationException extends RuntimeException
-{
+class ModelPolicyViolationException extends RuntimeException {
 }//end class

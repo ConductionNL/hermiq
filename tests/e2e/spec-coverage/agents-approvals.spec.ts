@@ -30,7 +30,15 @@
  */
 
 import { test, expect } from '@playwright/test'
-import { TEST_PREFIX, appRoot, cleanupFamily, dismissTour, harvestToken, resolveRegisterSchema, seedAgent } from './_fixtures'
+import {
+	TEST_PREFIX,
+	appRoot,
+	cleanupFamily,
+	dismissTour,
+	harvestToken,
+	resolveRegisterSchema,
+	seedAgent,
+} from './_fixtures'
 
 /*
  * 🔴 Every navigation below goes through `appRoot(page)` rather than a literal
@@ -47,8 +55,9 @@ import { TEST_PREFIX, appRoot, cleanupFamily, dismissTour, harvestToken, resolve
  * cause. See `appRoot()` in _fixtures.ts.
  */
 test.describe('hermiq agents + approvals', () => {
-
-	test('Agents index renders: page identity, resolved route, Add button, rows or empty state', async ({ page }) => {
+	test('Agents index renders: page identity, resolved route, Add button, rows or empty state', async ({
+		page,
+	}) => {
 		const root = await appRoot(page)
 		await page.goto(`${root}/agents`, { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
@@ -61,42 +70,60 @@ test.describe('hermiq agents + approvals', () => {
 
 		// CnIndexPage renders no heading — assert the Add button instead
 		// (default label "Add {schema.title}" → matches /^Add\b/).
-		await expect(page.getByRole('button', { name: /^Add\b/i }).first()).toBeVisible({ timeout: 10_000 })
+		await expect(
+			page.getByRole('button', { name: /^Add\b/i }).first(),
+		).toBeVisible({ timeout: 10_000 })
 
 		// The list settles into rows or an explicit empty state — the page
 		// must render real content either way.
 		const rendered = await indexPage.innerHTML()
-		expect(rendered.length, 'AgentCatalog rendered no content').toBeGreaterThan(100)
+		expect(rendered.length, 'AgentCatalog rendered no content').toBeGreaterThan(
+			100,
+		)
 	})
 
-	test('Agent detail renders the seeded agent (API-seeded via OpenRegister)', async ({ page }) => {
+	test('Agent detail renders the seeded agent (API-seeded via OpenRegister)', async ({
+		page,
+	}) => {
 		const token = await harvestToken(page)
 		await resolveRegisterSchema(page.request, token, 'agent')
-		const agent = await seedAgent(page.request, token, { name: `${TEST_PREFIX}-detail-agent` })
+		const agent = await seedAgent(page.request, token, {
+			name: `${TEST_PREFIX}-detail-agent`,
+		})
 
 		const root = await appRoot(page)
 
 		try {
-			await page.goto(`${root}/agents/${agent.id}`, { waitUntil: 'domcontentloaded' })
+			await page.goto(`${root}/agents/${agent.id}`, {
+				waitUntil: 'domcontentloaded',
+			})
 			await dismissTour(page)
 
 			// The detail page mounts as the AgentDetail manifest page and stays
 			// on the parameterised route.
 			const detailPage = page.locator('[data-testid-page-id="AgentDetail"]')
 			await expect(detailPage).toBeVisible({ timeout: 15_000 })
-			expect(new URL(page.url()).pathname).toContain(`${root}/agents/${agent.id}`)
+			expect(new URL(page.url()).pathname).toContain(
+				`${root}/agents/${agent.id}`,
+			)
 
 			// The seeded agent's data actually hydrates the grid — its name
 			// must appear somewhere on the page (data widget / header).
-			await expect(detailPage.getByText(agent.name).first()).toBeVisible({ timeout: 20_000 })
+			await expect(detailPage.getByText(agent.name).first()).toBeVisible({
+				timeout: 20_000,
+			})
 		} finally {
 			await cleanupFamily(page.request, token, 'agent').catch(() => {})
 		}
 	})
 
-	test('Agent detail for a nonexistent id shows a graceful state, not a crash', async ({ page }) => {
+	test('Agent detail for a nonexistent id shows a graceful state, not a crash', async ({
+		page,
+	}) => {
 		const root = await appRoot(page)
-		await page.goto(`${root}/agents/00000000-0000-0000-0000-000000000000`, { waitUntil: 'domcontentloaded' })
+		await page.goto(`${root}/agents/00000000-0000-0000-0000-000000000000`, {
+			waitUntil: 'domcontentloaded',
+		})
 		await dismissTour(page)
 
 		// The page must still mount (no unhandled error / blank screen) —
@@ -105,22 +132,31 @@ test.describe('hermiq agents + approvals', () => {
 		const detailPage = page.locator('[data-testid-page-id="AgentDetail"]')
 		await expect(detailPage).toBeVisible({ timeout: 15_000 })
 		const rendered = await detailPage.innerHTML()
-		expect(rendered.length, 'AgentDetail rendered nothing for a missing agent').toBeGreaterThan(100)
+		expect(
+			rendered.length,
+			'AgentDetail rendered nothing for a missing agent',
+		).toBeGreaterThan(100)
 	})
 
-	test('Approvals inbox renders: heading + table or empty state, no error card', async ({ page }) => {
+	test('Approvals inbox renders: heading + table or empty state, no error card', async ({
+		page,
+	}) => {
 		const root = await appRoot(page)
 		await page.goto(`${root}/approvals`, { waitUntil: 'domcontentloaded' })
 		await dismissTour(page)
 
 		// ApprovalInbox is a type:"custom" page with its own h2 heading.
-		await expect(page.locator('.approval-inbox')).toBeVisible({ timeout: 15_000 })
+		await expect(page.locator('.approval-inbox')).toBeVisible({
+			timeout: 15_000,
+		})
 		await expect(page.getByRole('heading', { name: 'Approvals' })).toBeVisible()
 
 		// The inbox settles into a coherent state: loading gone, then EITHER
 		// the approvals table OR the explicit empty state — an error note card
 		// ("Could not load approvals") is a real failure.
-		await expect(page.locator('.approval-inbox__loading')).toBeHidden({ timeout: 20_000 })
+		await expect(page.locator('.approval-inbox__loading')).toBeHidden({
+			timeout: 20_000,
+		})
 		const table = page.locator('.approval-inbox__table')
 		const empty = page.getByText('No approvals waiting')
 		await expect(table.or(empty).first()).toBeVisible({ timeout: 15_000 })

@@ -43,259 +43,244 @@ use RuntimeException;
  *
  * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-2-agentwebhookcontroller-session-authenticated-owner-guarded-crud
  */
-class AgentWebhookControllerTest extends TestCase
-{
+class AgentWebhookControllerTest extends TestCase {
 
-    /**
-     * Mock ObjectService.
-     *
-     * @var ObjectService&\PHPUnit\Framework\MockObject\MockObject
-     */
-    private ObjectService $objectService;
+	/**
+	 * Mock ObjectService.
+	 *
+	 * @var ObjectService&\PHPUnit\Framework\MockObject\MockObject
+	 */
+	private ObjectService $objectService;
 
-    /**
-     * Mock WebhookSecretService.
-     *
-     * @var WebhookSecretService&\PHPUnit\Framework\MockObject\MockObject
-     */
-    private WebhookSecretService $webhookSecretService;
+	/**
+	 * Mock WebhookSecretService.
+	 *
+	 * @var WebhookSecretService&\PHPUnit\Framework\MockObject\MockObject
+	 */
+	private WebhookSecretService $webhookSecretService;
 
-    /**
-     * Build an agent ObjectEntity owned by $owner.
-     *
-     * @param string $owner The owner UID.
-     *
-     * @return ObjectEntity
-     */
-    private function agent(string $owner): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('agent-1');
-        $entity->setOwner($owner);
-        $entity->setObject(['name' => 'Support triage']);
-        return $entity;
+	/**
+	 * Build an agent ObjectEntity owned by $owner.
+	 *
+	 * @param string $owner The owner UID.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function agent(string $owner): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('agent-1');
+		$entity->setOwner($owner);
+		$entity->setObject(['name' => 'Support triage']);
+		return $entity;
+	}//end agent()
 
-    }//end agent()
+	/**
+	 * Build the controller with the given collaborators.
+	 *
+	 * @param IUserSession $userSession The user session.
+	 *
+	 * @return AgentWebhookController
+	 */
+	private function controller(IUserSession $userSession): AgentWebhookController {
+		return new AgentWebhookController(
+			$this->createMock(IRequest::class),
+			$this->objectService,
+			$userSession,
+			$this->webhookSecretService,
+			$this->createMock(LoggerInterface::class)
+		);
 
-    /**
-     * Build the controller with the given collaborators.
-     *
-     * @param IUserSession $userSession The user session.
-     *
-     * @return AgentWebhookController
-     */
-    private function controller(IUserSession $userSession): AgentWebhookController
-    {
-        return new AgentWebhookController(
-            $this->createMock(IRequest::class),
-            $this->objectService,
-            $userSession,
-            $this->webhookSecretService,
-            $this->createMock(LoggerInterface::class)
-        );
+	}//end controller()
 
-    }//end controller()
+	/**
+	 * A session with the given (or no) user.
+	 *
+	 * @param string|null $uid The UID, or null for unauthenticated.
+	 *
+	 * @return IUserSession
+	 */
+	private function session(?string $uid): IUserSession {
+		$session = $this->createMock(IUserSession::class);
+		if ($uid === null) {
+			$session->method('getUser')->willReturn(null);
+			return $session;
+		}
 
-    /**
-     * A session with the given (or no) user.
-     *
-     * @param string|null $uid The UID, or null for unauthenticated.
-     *
-     * @return IUserSession
-     */
-    private function session(?string $uid): IUserSession
-    {
-        $session = $this->createMock(IUserSession::class);
-        if ($uid === null) {
-            $session->method('getUser')->willReturn(null);
-            return $session;
-        }
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$session->method('getUser')->willReturn($user);
+		return $session;
+	}//end session()
 
-        $user = $this->createMock(IUser::class);
-        $user->method('getUID')->willReturn($uid);
-        $session->method('getUser')->willReturn($user);
-        return $session;
+	/**
+	 * Wire fresh mocks before each test.
+	 *
+	 * @return void
+	 */
+	protected function setUp(): void {
+		parent::setUp();
+		$this->objectService = $this->createMock(ObjectService::class);
+		$this->webhookSecretService = $this->createMock(WebhookSecretService::class);
 
-    }//end session()
+	}//end setUp()
 
-    /**
-     * Wire fresh mocks before each test.
-     *
-     * @return void
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->objectService        = $this->createMock(ObjectService::class);
-        $this->webhookSecretService = $this->createMock(WebhookSecretService::class);
+	/**
+	 * An unauthenticated caller gets 401 on every endpoint.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testUnauthenticatedGets401(): void {
+		$controller = $this->controller($this->session(null));
 
-    }//end setUp()
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->create('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->rotate('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->revoke('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->patch('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->show('agent-1')->getStatus());
 
-    /**
-     * An unauthenticated caller gets 401 on every endpoint.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
-     */
-    public function testUnauthenticatedGets401(): void
-    {
-        $controller = $this->controller($this->session(null));
+	}//end testUnauthenticatedGets401()
 
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->create('agent-1')->getStatus());
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->rotate('agent-1')->getStatus());
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->revoke('agent-1')->getStatus());
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->patch('agent-1')->getStatus());
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->show('agent-1')->getStatus());
+	/**
+	 * A non-owner gets 404 (never 403) for every endpoint, so they cannot
+	 * confirm the agent's existence — mirrors RunNowController's IDOR guard.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testNonOwnerGets404OnEveryEndpoint(): void {
+		$this->objectService->method('find')->willReturn($this->agent('alice'));
+		$this->webhookSecretService->expects($this->never())->method('create');
+		$this->webhookSecretService->expects($this->never())->method('rotate');
+		$this->webhookSecretService->expects($this->never())->method('revoke');
+		$this->webhookSecretService->expects($this->never())->method('patch');
 
-    }//end testUnauthenticatedGets401()
+		$controller = $this->controller($this->session('mallory'));
 
-    /**
-     * A non-owner gets 404 (never 403) for every endpoint, so they cannot
-     * confirm the agent's existence — mirrors RunNowController's IDOR guard.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
-     */
-    public function testNonOwnerGets404OnEveryEndpoint(): void
-    {
-        $this->objectService->method('find')->willReturn($this->agent('alice'));
-        $this->webhookSecretService->expects($this->never())->method('create');
-        $this->webhookSecretService->expects($this->never())->method('rotate');
-        $this->webhookSecretService->expects($this->never())->method('revoke');
-        $this->webhookSecretService->expects($this->never())->method('patch');
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->rotate('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->revoke('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->patch('agent-1')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('agent-1')->getStatus());
 
-        $controller = $this->controller($this->session('mallory'));
+	}//end testNonOwnerGets404OnEveryEndpoint()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('agent-1')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->rotate('agent-1')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->revoke('agent-1')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->patch('agent-1')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('agent-1')->getStatus());
+	/**
+	 * An unknown agent id gets 404 on every endpoint.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testUnknownAgentGets404(): void {
+		$this->objectService->method('find')->willReturn(null);
 
-    }//end testNonOwnerGets404OnEveryEndpoint()
+		$controller = $this->controller($this->session('alice'));
 
-    /**
-     * An unknown agent id gets 404 on every endpoint.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
-     */
-    public function testUnknownAgentGets404(): void
-    {
-        $this->objectService->method('find')->willReturn(null);
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
 
-        $controller = $this->controller($this->session('alice'));
+	}//end testUnknownAgentGets404()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
+	/**
+	 * A THROWING agent lookup gets the same 404, not a 500.
+	 *
+	 * `ObjectService::find()` documents `@throws Exception If the object is not
+	 * found`, and every endpoint here calls `loadOwnedAgent()` OUTSIDE its own
+	 * try block — so before the fix the throw escaped to the dispatcher as a
+	 * framework 500 with a stack trace on a `#[NoAdminRequired]` route, on the
+	 * routes that mint and reveal a webhook secret.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testThrowingAgentLookupGets404(): void {
+		$this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
 
-    }//end testUnknownAgentGets404()
+		$controller = $this->controller($this->session('alice'));
 
-    /**
-     * A THROWING agent lookup gets the same 404, not a 500.
-     *
-     * `ObjectService::find()` documents `@throws Exception If the object is not
-     * found`, and every endpoint here calls `loadOwnedAgent()` OUTSIDE its own
-     * try block — so before the fix the throw escaped to the dispatcher as a
-     * framework 500 with a stack trace on a `#[NoAdminRequired]` route, on the
-     * routes that mint and reveal a webhook secret.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
-     */
-    public function testThrowingAgentLookupGets404(): void
-    {
-        $this->objectService->method('find')->willThrowException(new DoesNotExistException('no such object'));
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
+		$this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
 
-        $controller = $this->controller($this->session('alice'));
+	}//end testThrowingAgentLookupGets404()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->create('nope')->getStatus());
-        $this->assertSame(Http::STATUS_NOT_FOUND, $controller->show('nope')->getStatus());
+	/**
+	 * The owner can create a webhook: 201 with the plaintext secret.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testOwnerCanCreateWebhook(): void {
+		$this->objectService->method('find')->willReturn($this->agent('alice'));
+		$webhookObject = new ObjectEntity();
+		$webhookObject->setObject(['enabled' => true, 'secretPrefix' => 'hwh_ab12']);
+		$this->webhookSecretService->method('create')
+			->with('agent-1', 'alice')
+			->willReturn(['secret' => 'hwh_plaintext', 'object' => $webhookObject]);
+		$this->webhookSecretService->method('status')->willReturn(['configured' => true, 'enabled' => true]);
 
-    }//end testThrowingAgentLookupGets404()
+		$response = $this->controller($this->session('alice'))->create('agent-1');
 
-    /**
-     * The owner can create a webhook: 201 with the plaintext secret.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
-     */
-    public function testOwnerCanCreateWebhook(): void
-    {
-        $this->objectService->method('find')->willReturn($this->agent('alice'));
-        $webhookObject = new ObjectEntity();
-        $webhookObject->setObject(['enabled' => true, 'secretPrefix' => 'hwh_ab12']);
-        $this->webhookSecretService->method('create')
-            ->with('agent-1', 'alice')
-            ->willReturn(['secret' => 'hwh_plaintext', 'object' => $webhookObject]);
-        $this->webhookSecretService->method('status')->willReturn(['configured' => true, 'enabled' => true]);
+		$this->assertSame(Http::STATUS_CREATED, $response->getStatus());
+		$this->assertSame('hwh_plaintext', $response->getData()['secret']);
 
-        $response = $this->controller($this->session('alice'))->create('agent-1');
+	}//end testOwnerCanCreateWebhook()
 
-        $this->assertSame(Http::STATUS_CREATED, $response->getStatus());
-        $this->assertSame('hwh_plaintext', $response->getData()['secret']);
+	/**
+	 * A create request when a webhook already exists gets 409, instructing the
+	 * caller to rotate instead.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testCreateConflictsWhenWebhookAlreadyExists(): void {
+		$this->objectService->method('find')->willReturn($this->agent('alice'));
+		$this->webhookSecretService->method('create')->willThrowException(new RuntimeException('exists'));
 
-    }//end testOwnerCanCreateWebhook()
+		$response = $this->controller($this->session('alice'))->create('agent-1');
 
-    /**
-     * A create request when a webhook already exists gets 409, instructing the
-     * caller to rotate instead.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
-     */
-    public function testCreateConflictsWhenWebhookAlreadyExists(): void
-    {
-        $this->objectService->method('find')->willReturn($this->agent('alice'));
-        $this->webhookSecretService->method('create')->willThrowException(new RuntimeException('exists'));
+		$this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
 
-        $response = $this->controller($this->session('alice'))->create('agent-1');
+	}//end testCreateConflictsWhenWebhookAlreadyExists()
 
-        $this->assertSame(Http::STATUS_CONFLICT, $response->getStatus());
+	/**
+	 * Rotating a non-configured webhook returns 404.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testRotateWithoutExistingWebhookReturns404(): void {
+		$this->objectService->method('find')->willReturn($this->agent('alice'));
+		$this->webhookSecretService->method('findForAgent')->willReturn(null);
 
-    }//end testCreateConflictsWhenWebhookAlreadyExists()
+		$response = $this->controller($this->session('alice'))->rotate('agent-1');
 
-    /**
-     * Rotating a non-configured webhook returns 404.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
-     */
-    public function testRotateWithoutExistingWebhookReturns404(): void
-    {
-        $this->objectService->method('find')->willReturn($this->agent('alice'));
-        $this->webhookSecretService->method('findForAgent')->willReturn(null);
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-        $response = $this->controller($this->session('alice'))->rotate('agent-1');
+	}//end testRotateWithoutExistingWebhookReturns404()
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+	/**
+	 * show() reports {configured:false} when no webhook exists yet, for the owner.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
+	 */
+	public function testShowReportsUnconfiguredForOwnerWithNoWebhook(): void {
+		$this->objectService->method('find')->willReturn($this->agent('alice'));
+		$this->webhookSecretService->method('findForAgent')->willReturn(null);
+		$this->webhookSecretService->method('status')->with(null)->willReturn(['configured' => false]);
 
-    }//end testRotateWithoutExistingWebhookReturns404()
+		$response = $this->controller($this->session('alice'))->show('agent-1');
 
-    /**
-     * show() reports {configured:false} when no webhook exists yet, for the owner.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/specs/agent-webhook-trigger/spec.md#requirement-a-per-agent-webhook-secret-can-be-created-rotated-and-revoked
-     */
-    public function testShowReportsUnconfiguredForOwnerWithNoWebhook(): void
-    {
-        $this->objectService->method('find')->willReturn($this->agent('alice'));
-        $this->webhookSecretService->method('findForAgent')->willReturn(null);
-        $this->webhookSecretService->method('status')->with(null)->willReturn(['configured' => false]);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['configured' => false], $response->getData());
 
-        $response = $this->controller($this->session('alice'))->show('agent-1');
-
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame(['configured' => false], $response->getData());
-
-    }//end testShowReportsUnconfiguredForOwnerWithNoWebhook()
+	}//end testShowReportsUnconfiguredForOwnerWithNoWebhook()
 }//end class

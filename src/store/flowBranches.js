@@ -54,20 +54,20 @@ export function branchesOfNode(node) {
 		return []
 	}
 
-	const rules = ((node.config || {}).rules) || []
+	const rules = (node.config || {}).rules || []
 	if (!Array.isArray(rules)) {
 		return []
 	}
 
 	const names = []
 	rules.forEach((rule) => {
-		const output = String(((rule || {}).output) ?? '').trim()
+		const output = String((rule || {}).output ?? '').trim()
 		if (output !== '' && !names.includes(output)) {
 			names.push(output)
 		}
 	})
 
-	const fallback = String(((node.config || {}).default) ?? '').trim()
+	const fallback = String((node.config || {}).default ?? '').trim()
 	if (fallback !== '' && !names.includes(fallback)) {
 		names.push(fallback)
 	}
@@ -113,12 +113,12 @@ export function branchOfPort(portId) {
  */
 export function orphanedBranchEdgeIds(nodes, edges) {
 	const branches = {}
-	for (const node of (nodes || [])) {
+	for (const node of nodes || []) {
 		branches[node.id] = branchesOfNode(node)
 	}
 
 	const orphans = []
-	for (const edge of (edges || [])) {
+	for (const edge of edges || []) {
 		const exit = String((edge || {}).fromExit || '').trim()
 		if (exit === '') {
 			continue

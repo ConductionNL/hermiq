@@ -51,285 +51,274 @@ use Throwable;
  *
  * @spec openspec/changes/agent-versioning/tasks.md#task-2-agentversioncontroller-routes-owner-scoped-readrollback-endpoints
  */
-class AgentVersionController extends Controller
-{
+class AgentVersionController extends Controller {
 
-    /**
-     * OpenRegister register slug that holds Hermiq agent-engine objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq agent-engine objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * OpenRegister schema slug for agent objects.
-     *
-     * @var string
-     */
-    private const AGENT_SCHEMA = 'agent';
+	/**
+	 * OpenRegister schema slug for agent objects.
+	 *
+	 * @var string
+	 */
+	private const AGENT_SCHEMA = 'agent';
 
-    /**
-     * Constructor.
-     *
-     * @param IRequest            $request             The request object.
-     * @param ObjectService       $objectService       OpenRegister object read (owner/access guard).
-     * @param AgentVersionService $agentVersionService Reads/diffs/rolls back the agent's version history.
-     * @param IUserSession        $userSession         Resolves the requesting user.
-     * @param LoggerInterface     $logger              PSR-3 logger.
-     *
-     * @spec openspec/specs/agent-versioning/spec.md
-     */
-    public function __construct(
-        IRequest $request,
-        private readonly ObjectService $objectService,
-        private readonly AgentVersionService $agentVersionService,
-        private readonly IUserSession $userSession,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object.
+	 * @param ObjectService $objectService OpenRegister object read (owner/access guard).
+	 * @param AgentVersionService $agentVersionService Reads/diffs/rolls back the agent's version history.
+	 * @param IUserSession $userSession Resolves the requesting user.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 *
+	 * @spec openspec/specs/agent-versioning/spec.md
+	 */
+	public function __construct(
+		IRequest $request,
+		private readonly ObjectService $objectService,
+		private readonly AgentVersionService $agentVersionService,
+		private readonly IUserSession $userSession,
+		private readonly LoggerInterface $logger,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
+	}//end __construct()
 
-    /**
-     * List an agent's version history (newest-first).
-     *
-     * @param string $id The Agent UUID.
-     *
-     * @return JSONResponse The version list, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
-     */
-    public function index(string $id): JSONResponse
-    {
-        $userId = (string) $this->userSession->getUser()?->getUID();
+	/**
+	 * List an agent's version history (newest-first).
+	 *
+	 * @param string $id The Agent UUID.
+	 *
+	 * @return JSONResponse The version list, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+	 */
+	public function index(string $id): JSONResponse {
+		$userId = (string)$this->userSession->getUser()?->getUID();
 
-        $agent = $this->loadAccessibleAgent(id: $id, userId: $userId);
-        if ($agent === null) {
-            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
-        }
+		$agent = $this->loadAccessibleAgent(id: $id, userId: $userId);
+		if ($agent === null) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        try {
-            $versions = $this->agentVersionService->listVersions(agentUuid: $id);
-            return new JSONResponse(['results' => $versions, 'total' => count($versions)]);
-        } catch (Throwable $e) {
-            $this->logger->error(
-                'Hermiq agent-version list failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-            return new JSONResponse(['error' => 'Could not load version history'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }//end try
+		try {
+			$versions = $this->agentVersionService->listVersions(agentUuid: $id);
+			return new JSONResponse(['results' => $versions, 'total' => count($versions)]);
+		} catch (Throwable $e) {
+			$this->logger->error(
+				'Hermiq agent-version list failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return new JSONResponse(['error' => 'Could not load version history'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}//end try
 
-    }//end index()
+	}//end index()
 
-    /**
-     * Diff two of an agent's versions across the versioned-config field set.
-     *
-     * @param string $id The Agent UUID.
-     *
-     * @return JSONResponse The diff, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
-     */
-    public function diff(string $id): JSONResponse
-    {
-        $userId = (string) $this->userSession->getUser()?->getUID();
+	/**
+	 * Diff two of an agent's versions across the versioned-config field set.
+	 *
+	 * @param string $id The Agent UUID.
+	 *
+	 * @return JSONResponse The diff, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/agent-versioning/spec.md#requirement-diff-two-agent-versions-across-the-versioned-config-field-set
+	 */
+	public function diff(string $id): JSONResponse {
+		$userId = (string)$this->userSession->getUser()?->getUID();
 
-        $agent = $this->loadAccessibleAgent(id: $id, userId: $userId);
-        if ($agent === null) {
-            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
-        }
+		$agent = $this->loadAccessibleAgent(id: $id, userId: $userId);
+		if ($agent === null) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        $from = (string) $this->request->getParam('from', '');
-        $to   = (string) $this->request->getParam('to', '');
-        if ($from === '' || $to === '') {
-            return new JSONResponse(['error' => 'from and to are required'], Http::STATUS_BAD_REQUEST);
-        }
+		$from = (string)$this->request->getParam('from', '');
+		$to = (string)$this->request->getParam('to', '');
+		if ($from === '' || $to === '') {
+			return new JSONResponse(['error' => 'from and to are required'], Http::STATUS_BAD_REQUEST);
+		}
 
-        try {
-            $diff = $this->agentVersionService->diff(agentUuid: $id, fromId: $from, toId: $to);
-            return new JSONResponse(['results' => $diff]);
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                'Hermiq agent-version diff failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-            return new JSONResponse(['error' => 'Could not diff the requested versions'], Http::STATUS_BAD_REQUEST);
-        }//end try
+		try {
+			$diff = $this->agentVersionService->diff(agentUuid: $id, fromId: $from, toId: $to);
+			return new JSONResponse(['results' => $diff]);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq agent-version diff failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return new JSONResponse(['error' => 'Could not diff the requested versions'], Http::STATUS_BAD_REQUEST);
+		}//end try
 
-    }//end diff()
+	}//end diff()
 
-    /**
-     * Roll an agent back to a previous version's config values (owner-only).
-     *
-     * @param string $id        The Agent UUID.
-     * @param string $versionId The target version's AuditTrail entry UUID.
-     *
-     * @return JSONResponse The updated agent, or an error status.
-     *
-     * @NoAdminRequired
-     * @NoCSRFRequired
-     *
-     * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
-     */
-    public function rollback(string $id, string $versionId): JSONResponse
-    {
-        $userId = (string) $this->userSession->getUser()?->getUID();
+	/**
+	 * Roll an agent back to a previous version's config values (owner-only).
+	 *
+	 * @param string $id The Agent UUID.
+	 * @param string $versionId The target version's AuditTrail entry UUID.
+	 *
+	 * @return JSONResponse The updated agent, or an error status.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
+	 */
+	public function rollback(string $id, string $versionId): JSONResponse {
+		$userId = (string)$this->userSession->getUser()?->getUID();
 
-        $agent = $this->objectService->find(
-            id: $id,
-            register: self::REGISTER_SLUG,
-            schema: self::AGENT_SCHEMA
-        );
-        if (($agent instanceof ObjectEntity) === false) {
-            return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
-        }
+		$agent = $this->objectService->find(
+			id: $id,
+			register: self::REGISTER_SLUG,
+			schema: self::AGENT_SCHEMA
+		);
+		if (($agent instanceof ObjectEntity) === false) {
+			return new JSONResponse(['error' => 'Agent not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        // Owner-only modification guard (gate-7) — mirrors AgentsController::update().
-        if ($this->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
-            return new JSONResponse(
-                ['error' => 'You do not have permission to roll back this agent'],
-                Http::STATUS_FORBIDDEN
-            );
-        }
+		// Owner-only modification guard (gate-7) — mirrors AgentsController::update().
+		if ($this->canUserModifyAgent(agent: $agent, userId: $userId) === false) {
+			return new JSONResponse(
+				['error' => 'You do not have permission to roll back this agent'],
+				Http::STATUS_FORBIDDEN
+			);
+		}
 
-        try {
-            $updated = $this->agentVersionService->rollback(agentUuid: $id, versionId: $versionId);
-            return new JSONResponse($this->serializeAgent(agent: $updated));
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                'Hermiq agent-version rollback failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-            return new JSONResponse(['error' => 'Could not roll back to the requested version'], Http::STATUS_BAD_REQUEST);
-        }//end try
+		try {
+			$updated = $this->agentVersionService->rollback(agentUuid: $id, versionId: $versionId);
+			return new JSONResponse($this->serializeAgent(agent: $updated));
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq agent-version rollback failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return new JSONResponse(['error' => 'Could not roll back to the requested version'], Http::STATUS_BAD_REQUEST);
+		}//end try
 
-    }//end rollback()
+	}//end rollback()
 
-    /**
-     * Load an agent only when it exists AND the requesting user may read it
-     * (gate-7 no-admin-idor) — a 404 either way, so a non-owner cannot even
-     * confirm a private agent exists.
-     *
-     * @param string $id     The Agent UUID.
-     * @param string $userId The requesting user's UID.
-     *
-     * @return ObjectEntity|null The accessible agent, or null.
-     *
-     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
-     */
-    private function loadAccessibleAgent(string $id, string $userId): ?ObjectEntity
-    {
-        try {
-            $agent = $this->objectService->find(
-                id: $id,
-                register: self::REGISTER_SLUG,
-                schema: self::AGENT_SCHEMA
-            );
-        } catch (Throwable $e) {
-            // `ObjectService::find()` documents `@throws Exception If the object
-            // is not found`, and every caller invokes this helper OUTSIDE its own
-            // try block — so an unhandled throw escapes to the dispatcher as a
-            // framework 500 with a stack trace on a #[NoAdminRequired] route. An
-            // agent that cannot be loaded is, to a caller, not accessible, which
-            // is exactly what null already means here.
-            $this->logger->warning(
-                'Hermiq agent lookup failed for '.$id.': '.$e->getMessage(),
-                ['exception' => $e]
-            );
-            return null;
-        }//end try
+	/**
+	 * Load an agent only when it exists AND the requesting user may read it
+	 * (gate-7 no-admin-idor) — a 404 either way, so a non-owner cannot even
+	 * confirm a private agent exists.
+	 *
+	 * @param string $id The Agent UUID.
+	 * @param string $userId The requesting user's UID.
+	 *
+	 * @return ObjectEntity|null The accessible agent, or null.
+	 *
+	 * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+	 */
+	private function loadAccessibleAgent(string $id, string $userId): ?ObjectEntity {
+		try {
+			$agent = $this->objectService->find(
+				id: $id,
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA
+			);
+		} catch (Throwable $e) {
+			// `ObjectService::find()` documents `@throws Exception If the object
+			// is not found`, and every caller invokes this helper OUTSIDE its own
+			// try block — so an unhandled throw escapes to the dispatcher as a
+			// framework 500 with a stack trace on a #[NoAdminRequired] route. An
+			// agent that cannot be loaded is, to a caller, not accessible, which
+			// is exactly what null already means here.
+			$this->logger->warning(
+				'Hermiq agent lookup failed for ' . $id . ': ' . $e->getMessage(),
+				['exception' => $e]
+			);
+			return null;
+		}//end try
 
-        if (($agent instanceof ObjectEntity) === false) {
-            return null;
-        }
+		if (($agent instanceof ObjectEntity) === false) {
+			return null;
+		}
 
-        if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
-            return null;
-        }
+		if ($this->canUserAccessAgent(agent: $agent, userId: $userId) === false) {
+			return null;
+		}
 
-        return $agent;
+		return $agent;
+	}//end loadAccessibleAgent()
 
-    }//end loadAccessibleAgent()
+	/**
+	 * Whether the user may read an agent's version history: non-private agents
+	 * are open to the organisation, private agents only to their owner or an
+	 * explicitly invited user — mirrors `AgentsController::canUserAccessAgent()`.
+	 *
+	 * @param ObjectEntity $agent Agent object.
+	 * @param string $userId Nextcloud user id.
+	 *
+	 * @return bool True when the user may access the agent's version history.
+	 *
+	 * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
+	 */
+	private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool {
+		$data = $agent->getObject();
+		$isPrivate = ($data['isPrivate'] ?? null);
 
-    /**
-     * Whether the user may read an agent's version history: non-private agents
-     * are open to the organisation, private agents only to their owner or an
-     * explicitly invited user — mirrors `AgentsController::canUserAccessAgent()`.
-     *
-     * @param ObjectEntity $agent  Agent object.
-     * @param string       $userId Nextcloud user id.
-     *
-     * @return bool True when the user may access the agent's version history.
-     *
-     * @spec openspec/specs/agent-versioning/spec.md#requirement-list-an-agents-version-history
-     */
-    private function canUserAccessAgent(ObjectEntity $agent, string $userId): bool
-    {
-        $data      = $agent->getObject();
-        $isPrivate = ($data['isPrivate'] ?? null);
+		if ($isPrivate === false || $isPrivate === null) {
+			return true;
+		}
 
-        if ($isPrivate === false || $isPrivate === null) {
-            return true;
-        }
+		if ($agent->getOwner() === $userId) {
+			return true;
+		}
 
-        if ($agent->getOwner() === $userId) {
-            return true;
-        }
+		$invitedUsers = ($data['invitedUsers'] ?? []);
+		if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
+			return true;
+		}
 
-        $invitedUsers = ($data['invitedUsers'] ?? []);
-        if (is_array($invitedUsers) === true && in_array($userId, $invitedUsers, true) === true) {
-            return true;
-        }
+		return false;
+	}//end canUserAccessAgent()
 
-        return false;
+	/**
+	 * Whether the user may roll back an agent: owner-only — mirrors
+	 * `AgentsController::canUserModifyAgent()`.
+	 *
+	 * @param ObjectEntity $agent Agent object.
+	 * @param string $userId Nextcloud user id.
+	 *
+	 * @return bool True when the user may roll back the agent.
+	 *
+	 * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
+	 */
+	private function canUserModifyAgent(ObjectEntity $agent, string $userId): bool {
+		return $agent->getOwner() === $userId && $userId !== '';
+	}//end canUserModifyAgent()
 
-    }//end canUserAccessAgent()
+	/**
+	 * Serialize an agent object to the OR-compatible response shape — mirrors
+	 * `AgentsController::serializeAgent()`.
+	 *
+	 * @param ObjectEntity $agent The agent object.
+	 *
+	 * @return array<string, mixed> Serialized agent.
+	 *
+	 * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
+	 */
+	private function serializeAgent(ObjectEntity $agent): array {
+		return array_merge(
+			$agent->getObject(),
+			[
+				'id' => $agent->getUuid(),
+				'uuid' => $agent->getUuid(),
+				'owner' => $agent->getOwner(),
+				'organisation' => $agent->getOrganisation(),
+				'created' => $agent->getCreated()?->format('c'),
+				'updated' => $agent->getUpdated()?->format('c'),
+			]
+		);
 
-    /**
-     * Whether the user may roll back an agent: owner-only — mirrors
-     * `AgentsController::canUserModifyAgent()`.
-     *
-     * @param ObjectEntity $agent  Agent object.
-     * @param string       $userId Nextcloud user id.
-     *
-     * @return bool True when the user may roll back the agent.
-     *
-     * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
-     */
-    private function canUserModifyAgent(ObjectEntity $agent, string $userId): bool
-    {
-        return $agent->getOwner() === $userId && $userId !== '';
-
-    }//end canUserModifyAgent()
-
-    /**
-     * Serialize an agent object to the OR-compatible response shape — mirrors
-     * `AgentsController::serializeAgent()`.
-     *
-     * @param ObjectEntity $agent The agent object.
-     *
-     * @return array<string, mixed> Serialized agent.
-     *
-     * @spec openspec/specs/agent-versioning/spec.md#requirement-roll-back-an-agent-to-a-previous-version-without-mutating-history
-     */
-    private function serializeAgent(ObjectEntity $agent): array
-    {
-        return array_merge(
-            $agent->getObject(),
-            [
-                'id'           => $agent->getUuid(),
-                'uuid'         => $agent->getUuid(),
-                'owner'        => $agent->getOwner(),
-                'organisation' => $agent->getOrganisation(),
-                'created'      => $agent->getCreated()?->format('c'),
-                'updated'      => $agent->getUpdated()?->format('c'),
-            ]
-        );
-
-    }//end serializeAgent()
+	}//end serializeAgent()
 }//end class

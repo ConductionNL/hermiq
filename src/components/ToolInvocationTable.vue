@@ -26,7 +26,10 @@
 			{{ t('hermiq', 'Tool activity (oversight)') }}
 		</h3>
 
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not load tool activity')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Could not load tool activity')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -36,7 +39,12 @@
 
 		<template v-else-if="data">
 			<NcNoteCard v-if="!data.available" type="warning">
-				{{ t('hermiq', 'Reduced detail: OpenRegister has not recorded per-invocation MCP audit entries on this instance yet, so this view falls back to the coarser run audit log. Tool ids, argument digests and touched objects are not available for these rows.') }}
+				{{
+					t(
+						'hermiq',
+						'Reduced detail: OpenRegister has not recorded per-invocation MCP audit entries on this instance yet, so this view falls back to the coarser run audit log. Tool ids, argument digests and touched objects are not available for these rows.',
+					)
+				}}
 			</NcNoteCard>
 
 			<div class="tool-oversight__meta">
@@ -44,13 +52,19 @@
 					{{ retentionLabel }}
 				</p>
 				<div class="tool-oversight__exports">
-					<NcButton type="tertiary" :disabled="!data.rows.length" @click="exportAs('csv')">
+					<NcButton
+						type="tertiary"
+						:disabled="!data.rows.length"
+						@click="exportAs('csv')">
 						<template #icon>
 							<Download :size="20" />
 						</template>
 						{{ t('hermiq', 'Export CSV') }}
 					</NcButton>
-					<NcButton type="tertiary" :disabled="!data.rows.length" @click="exportAs('json')">
+					<NcButton
+						type="tertiary"
+						:disabled="!data.rows.length"
+						@click="exportAs('json')">
 						<template #icon>
 							<Download :size="20" />
 						</template>
@@ -62,7 +76,12 @@
 			<NcEmptyContent
 				v-if="!data.rows.length"
 				:name="t('hermiq', 'No invocations recorded yet')"
-				:description="t('hermiq', 'This agent has not invoked any tool yet. Rows appear here once it does.')">
+				:description="
+					t(
+						'hermiq',
+						'This agent has not invoked any tool yet. Rows appear here once it does.',
+					)
+				">
 				<template #icon>
 					<History :size="20" />
 				</template>
@@ -100,22 +119,39 @@
 						</tr>
 					</thead>
 					<tbody>
-						<tr v-for="(row, index) in data.rows" :key="`${row.at}-${index}`">
+						<tr
+							v-for="(row, index) in data.rows"
+							:key="`${row.at}-${index}`">
 							<td>{{ formatDate(row.at) }}</td>
 							<td>
-								<span v-if="row.toolId" class="tool-oversight__id">{{ row.toolId }}</span>
-								<span v-else class="tool-oversight__unavailable">{{ t('hermiq', 'not recorded') }}</span>
+								<span v-if="row.toolId" class="tool-oversight__id">{{
+									row.toolId
+								}}</span>
+								<span v-else class="tool-oversight__unavailable">{{
+									t('hermiq', 'not recorded')
+								}}</span>
 							</td>
 							<td>{{ row.actingUser || '—' }}</td>
 							<td>
-								<code v-if="row.paramsDigest" class="tool-oversight__digest">{{ shortDigest(row.paramsDigest) }}</code>
-								<span v-else class="tool-oversight__unavailable">{{ t('hermiq', 'not recorded') }}</span>
+								<code
+									v-if="row.paramsDigest"
+									class="tool-oversight__digest"
+									>{{ shortDigest(row.paramsDigest) }}</code
+								>
+								<span v-else class="tool-oversight__unavailable">{{
+									t('hermiq', 'not recorded')
+								}}</span>
 							</td>
 							<td>
-								<span :class="resultClass(row)">{{ resultLabel(row) }}</span>
+								<span :class="resultClass(row)">{{
+									resultLabel(row)
+								}}</span>
 							</td>
 							<td>
-								<span v-if="row.dataTouched && row.dataTouched.length">{{ row.dataTouched.join(', ') }}</span>
+								<span
+									v-if="row.dataTouched && row.dataTouched.length"
+									>{{ row.dataTouched.join(', ') }}</span
+								>
 								<span v-else>—</span>
 							</td>
 						</tr>
@@ -130,7 +166,10 @@
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import Download from 'vue-material-design-icons/Download.vue'
 import History from 'vue-material-design-icons/History.vue'
-import { getToolInvocations, toolInvocationsExportUrl } from '../api/toolOversight.js'
+import {
+	getToolInvocations,
+	toolInvocationsExportUrl,
+} from '../api/toolOversight.js'
 
 export default {
 	name: 'ToolInvocationTable',
@@ -173,7 +212,13 @@ export default {
 		 * @return {string} The retention label.
 		 */
 		retentionLabel() {
-			return this.t('hermiq', 'Retention: {retention}', { retention: this.data.retention }, undefined, { escape: false })
+			return this.t(
+				'hermiq',
+				'Retention: {retention}',
+				{ retention: this.data.retention },
+				undefined,
+				{ escape: false },
+			)
 		},
 	},
 
@@ -198,7 +243,11 @@ export default {
 			try {
 				this.data = await getToolInvocations(this.agentId)
 			} catch (error) {
-				this.error = (error.response && error.response.data && error.response.data.error) || error.message
+				this.error =
+					(error.response
+						&& error.response.data
+						&& error.response.data.error)
+					|| error.message
 			} finally {
 				this.loading = false
 			}
@@ -255,7 +304,9 @@ export default {
 				return String(summary.status)
 			}
 			if (typeof summary.count === 'number') {
-				return this.t('hermiq', '{count} result(s)', { count: summary.count })
+				return this.t('hermiq', '{count} result(s)', {
+					count: summary.count,
+				})
 			}
 			if (summary.id) {
 				return this.t('hermiq', 'Object {id}', { id: summary.id })

@@ -68,446 +68,429 @@ use Throwable;
  *
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
  */
-class SkillDraftController extends Controller
-{
+class SkillDraftController extends Controller {
 
-    /**
-     * The ADR-023 action gating the review verb set (accept / edit-content /
-     * reject), surfaced in the action matrix beside `skill.approve-quarantined`.
-     *
-     * @var string
-     */
-    private const REVIEW_ACTION = 'skill.review-draft';
+	/**
+	 * The ADR-023 action gating the review verb set (accept / edit-content /
+	 * reject), surfaced in the action matrix beside `skill.approve-quarantined`.
+	 *
+	 * @var string
+	 */
+	private const REVIEW_ACTION = 'skill.review-draft';
 
-    /**
-     * Constructor.
-     *
-     * @param IRequest                  $request         The request object.
-     * @param SkillService              $skillService    Tenant-scoped skill visibility reads.
-     * @param SkillConsolidationService $consolidation   The draft pipeline owner.
-     * @param ApprovalService           $approvalService The ONE human-decision surface.
-     * @param SkillVersionService       $versionService  Post-accept version id resolution.
-     * @param ActionAuthService         $actionAuth      ADR-023 action authorization.
-     * @param SeedCustodyService        $seedCustody     Owner-or-seed-custodian check.
-     * @param IUserSession              $userSession     Resolves the requesting user.
-     * @param LoggerInterface           $logger          PSR-3 logger.
-     *
-     * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
-     *   distinct injected collaborator, not a logic-bearing argument list.
-     */
-    public function __construct(
-        IRequest $request,
-        private readonly SkillService $skillService,
-        private readonly SkillConsolidationService $consolidation,
-        private readonly ApprovalService $approvalService,
-        private readonly SkillVersionService $versionService,
-        private readonly ActionAuthService $actionAuth,
-        private readonly SeedCustodyService $seedCustody,
-        private readonly IUserSession $userSession,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object.
+	 * @param SkillService $skillService Tenant-scoped skill visibility reads.
+	 * @param SkillConsolidationService $consolidation The draft pipeline owner.
+	 * @param ApprovalService $approvalService The ONE human-decision surface.
+	 * @param SkillVersionService $versionService Post-accept version id resolution.
+	 * @param ActionAuthService $actionAuth ADR-023 action authorization.
+	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check.
+	 * @param IUserSession $userSession Resolves the requesting user.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
+	 *   distinct injected collaborator, not a logic-bearing argument list.
+	 */
+	public function __construct(
+		IRequest $request,
+		private readonly SkillService $skillService,
+		private readonly SkillConsolidationService $consolidation,
+		private readonly ApprovalService $approvalService,
+		private readonly SkillVersionService $versionService,
+		private readonly ActionAuthService $actionAuth,
+		private readonly SeedCustodyService $seedCustody,
+		private readonly IUserSession $userSession,
+		private readonly LoggerInterface $logger,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
+	}//end __construct()
 
-    /**
-     * Manual trigger (c): propose a consolidation draft for an owned skill. The
-     * kill-switch, budget and one-open-draft gates apply exactly as in the job; an
-     * existing open draft returns 200 with a pointer to it.
-     *
-     * @param string $id The Skill UUID.
-     *
-     * @return JSONResponse The created (or already-open) draft, or a structured error.
-     *
-     * @NoAdminRequired
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
-     */
-    public function propose(string $id): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * Manual trigger (c): propose a consolidation draft for an owned skill. The
+	 * kill-switch, budget and one-open-draft gates apply exactly as in the job; an
+	 * existing open draft returns 200 with a pointer to it.
+	 *
+	 * @param string $id The Skill UUID.
+	 *
+	 * @return JSONResponse The created (or already-open) draft, or a structured error.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
+	 */
+	public function propose(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        $skill = $this->loadOwnedSkill(skillId: $id, uid: $user->getUID());
-        if ($skill === null) {
-            // 404 (never 403) so a non-owner cannot even confirm the skill exists.
-            return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
-        }
+		$skill = $this->loadOwnedSkill(skillId: $id, uid: $user->getUID());
+		if ($skill === null) {
+			// 404 (never 403) so a non-owner cannot even confirm the skill exists.
+			return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        try {
-            $result = $this->consolidation->proposeForSkill(skill: $skill, trigger: 'manual');
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq manual propose failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Propose failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+		try {
+			$result = $this->consolidation->proposeForSkill(skill: $skill, trigger: 'manual');
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq manual propose failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Propose failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 
-        $status = (string) $result['status'];
-        if ($status === 'blocked_killswitch' || $status === 'blocked_budget') {
-            // Structured 429-style block: the gate is evidence, never bypassed.
-            return new JSONResponse(['error' => $status], Http::STATUS_TOO_MANY_REQUESTS);
-        }
+		$status = (string)$result['status'];
+		if ($status === 'blocked_killswitch' || $status === 'blocked_budget') {
+			// Structured 429-style block: the gate is evidence, never bypassed.
+			return new JSONResponse(['error' => $status], Http::STATUS_TOO_MANY_REQUESTS);
+		}
 
-        if ($result['draft'] === null) {
-            return new JSONResponse(['error' => $status], Http::STATUS_UNPROCESSABLE_ENTITY);
-        }
+		if ($result['draft'] === null) {
+			return new JSONResponse(['error' => $status], Http::STATUS_UNPROCESSABLE_ENTITY);
+		}
 
-        return new JSONResponse(
-            [
-                'status' => $status,
-                'draft'  => $this->shape(object: $result['draft']),
-            ]
-        );
+		return new JSONResponse(
+			[
+				'status' => $status,
+				'draft' => $this->shape(object: $result['draft']),
+			]
+		);
 
-    }//end propose()
+	}//end propose()
 
-    /**
-     * The skill's drafts, newest first (the SkillDetail review surface's list).
-     *
-     * @param string $id The Skill UUID.
-     *
-     * @return JSONResponse The drafts, or 404.
-     *
-     * @NoAdminRequired
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
-     */
-    public function index(string $id): JSONResponse
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * The skill's drafts, newest first (the SkillDetail review surface's list).
+	 *
+	 * @param string $id The Skill UUID.
+	 *
+	 * @return JSONResponse The drafts, or 404.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
+	 */
+	public function index(string $id): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        $skill = $this->loadVisibleSkill(skillId: $id);
-        if ($skill === null) {
-            return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
-        }
+		$skill = $this->loadVisibleSkill(skillId: $id);
+		if ($skill === null) {
+			return new JSONResponse(['error' => 'Skill not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        $drafts = array_map(
-            fn (ObjectEntity $draft): array => $this->shape(object: $draft),
-            $this->consolidation->draftsForSkill(skillId: $id)
-        );
+		$drafts = array_map(
+			fn (ObjectEntity $draft): array => $this->shape(object: $draft),
+			$this->consolidation->draftsForSkill(skillId: $id)
+		);
 
-        return new JSONResponse(['results' => $drafts]);
+		return new JSONResponse(['results' => $drafts]);
+	}//end index()
 
-    }//end index()
+	/**
+	 * Edit-then-accept content update — available ONLY through this SkillDetail
+	 * surface (editing needs the surface): replaces the draft's proposed content,
+	 * records `editedBeforeAccept` + the editor, INVALIDATES the stored scan and
+	 * eval evidence and re-runs pre-qualification. Until re-qualification passes,
+	 * the linked Approval is not approvable from ANY surface.
+	 *
+	 * @param string $id The SkillDraft UUID.
+	 *
+	 * @return JSONResponse The re-qualified draft, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+	 */
+	public function content(string $id): JSONResponse {
+		$guarded = $this->loadGuardedDraft(draftId: $id);
+		if (($guarded instanceof JSONResponse) === true) {
+			return $guarded;
+		}
 
-    /**
-     * Edit-then-accept content update — available ONLY through this SkillDetail
-     * surface (editing needs the surface): replaces the draft's proposed content,
-     * records `editedBeforeAccept` + the editor, INVALIDATES the stored scan and
-     * eval evidence and re-runs pre-qualification. Until re-qualification passes,
-     * the linked Approval is not approvable from ANY surface.
-     *
-     * @param string $id The SkillDraft UUID.
-     *
-     * @return JSONResponse The re-qualified draft, or an error status.
-     *
-     * @NoAdminRequired
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
-     */
-    public function content(string $id): JSONResponse
-    {
-        $guarded = $this->loadGuardedDraft(draftId: $id);
-        if (($guarded instanceof JSONResponse) === true) {
-            return $guarded;
-        }
+		[$draft, $user] = $guarded;
 
-        [$draft, $user] = $guarded;
+		$frontmatter = $this->request->getParam('frontmatter');
+		$body = $this->request->getParam('body');
+		$files = $this->request->getParam('files');
 
-        $frontmatter = $this->request->getParam('frontmatter');
-        $body        = $this->request->getParam('body');
-        $files       = $this->request->getParam('files');
+		if (is_string($frontmatter) === false) {
+			$frontmatter = null;
+		}
 
-        if (is_string($frontmatter) === false) {
-            $frontmatter = null;
-        }
+		if (is_string($body) === false) {
+			$body = null;
+		}
 
-        if (is_string($body) === false) {
-            $body = null;
-        }
+		if (is_array($files) === false) {
+			$files = null;
+		}
 
-        if (is_array($files) === false) {
-            $files = null;
-        }
+		try {
+			$updated = $this->consolidation->editDraftContent(
+				draft: $draft,
+				frontmatter: $frontmatter,
+				body: $body,
+				files: $files,
+				editorUid: $user->getUID()
+			);
+		} catch (InvalidArgumentException $e) {
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq draft content edit failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Edit failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 
-        try {
-            $updated = $this->consolidation->editDraftContent(
-                draft: $draft,
-                frontmatter: $frontmatter,
-                body: $body,
-                files: $files,
-                editorUid: $user->getUID()
-            );
-        } catch (InvalidArgumentException $e) {
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_CONFLICT);
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq draft content edit failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Edit failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+		return new JSONResponse($this->shape(object: $updated));
+	}//end content()
 
-        return new JSONResponse($this->shape(object: $updated));
+	/**
+	 * Accept a draft — decides by transitioning the draft's linked `Approval` to
+	 * `approved`: the apply step lives on THAT transition (identical to a generic-
+	 * inbox approval), which writes the new skill version and stamps
+	 * `lastAcceptedVersionAt`. The response carries the new version id.
+	 *
+	 * @param string $id The SkillDraft UUID.
+	 *
+	 * @return JSONResponse The decision outcome, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+	 */
+	public function accept(string $id): JSONResponse {
+		$guarded = $this->loadGuardedDraft(draftId: $id);
+		if (($guarded instanceof JSONResponse) === true) {
+			return $guarded;
+		}
 
-    }//end content()
+		[$draft, $user] = $guarded;
 
-    /**
-     * Accept a draft — decides by transitioning the draft's linked `Approval` to
-     * `approved`: the apply step lives on THAT transition (identical to a generic-
-     * inbox approval), which writes the new skill version and stamps
-     * `lastAcceptedVersionAt`. The response carries the new version id.
-     *
-     * @param string $id The SkillDraft UUID.
-     *
-     * @return JSONResponse The decision outcome, or an error status.
-     *
-     * @NoAdminRequired
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
-     */
-    public function accept(string $id): JSONResponse
-    {
-        $guarded = $this->loadGuardedDraft(draftId: $id);
-        if (($guarded instanceof JSONResponse) === true) {
-            return $guarded;
-        }
+		$data = $draft->getObject();
+		$approval = $this->approvalService->loadApproval(uuid: (string)($data['approvalId'] ?? ''));
+		if ($approval === null) {
+			return new JSONResponse(['error' => 'The draft has no pending approval'], Http::STATUS_CONFLICT);
+		}
 
-        [$draft, $user] = $guarded;
+		try {
+			$outcome = $this->approvalService->approve(approval: $approval, deciderUid: $user->getUID());
+		} catch (DoesNotExistException $e) {
+			// The approval/draft/skill vanished or fell out of the caller's scope
+			// between the guard and the transition — 404, not a raw 500 on the
+			// defended path (gate-49 / opencatalogi#86 lesson).
+			return new JSONResponse(['error' => 'Draft approval not found'], Http::STATUS_NOT_FOUND);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq draft accept failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Accept failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}
 
-        $data     = $draft->getObject();
-        $approval = $this->approvalService->loadApproval(uuid: (string) ($data['approvalId'] ?? ''));
-        if ($approval === null) {
-            return new JSONResponse(['error' => 'The draft has no pending approval'], Http::STATUS_CONFLICT);
-        }
+		if ((string)$outcome['status'] !== 'approved') {
+			// The transition was refused (e.g. edited draft awaiting re-qualification)
+			// or the Approval was already decided — nothing was applied here.
+			return new JSONResponse(
+				[
+					'error' => 'not_approvable',
+					'status' => (string)$outcome['status'],
+				],
+				Http::STATUS_CONFLICT
+			);
+		}
 
-        try {
-            $outcome = $this->approvalService->approve(approval: $approval, deciderUid: $user->getUID());
-        } catch (DoesNotExistException $e) {
-            // The approval/draft/skill vanished or fell out of the caller's scope
-            // between the guard and the transition — 404, not a raw 500 on the
-            // defended path (gate-49 / opencatalogi#86 lesson).
-            return new JSONResponse(['error' => 'Draft approval not found'], Http::STATUS_NOT_FOUND);
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq draft accept failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Accept failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }
+		$skillId = (string)($data['skillId'] ?? '');
 
-        if ((string) $outcome['status'] !== 'approved') {
-            // The transition was refused (e.g. edited draft awaiting re-qualification)
-            // or the Approval was already decided — nothing was applied here.
-            return new JSONResponse(
-                [
-                    'error'  => 'not_approvable',
-                    'status' => (string) $outcome['status'],
-                ],
-                Http::STATUS_CONFLICT
-            );
-        }
+		return new JSONResponse(
+			[
+				'status' => 'accepted',
+				'versionId' => (string)($this->versionService->currentVersionId(skillUuid: $skillId) ?? ''),
+				'draft' => $this->shapeCurrent(draftId: $id),
+			]
+		);
 
-        $skillId = (string) ($data['skillId'] ?? '');
+	}//end accept()
 
-        return new JSONResponse(
-            [
-                'status'    => 'accepted',
-                'versionId' => (string) ($this->versionService->currentVersionId(skillUuid: $skillId) ?? ''),
-                'draft'     => $this->shapeCurrent(draftId: $id),
-            ]
-        );
+	/**
+	 * Reject a draft — records any curator-marked bad learnings on the DRAFT
+	 * (`rejectedLearningRefs`, never an edit to `learnings.md`), then decides by
+	 * transitioning the linked `Approval` to `denied` (the same reconcile path an
+	 * inbox denial runs). Marked entries never drive the skill's next proposal.
+	 *
+	 * @param string $id The SkillDraft UUID.
+	 *
+	 * @return JSONResponse The decision outcome, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+	 */
+	public function reject(string $id): JSONResponse {
+		$guarded = $this->loadGuardedDraft(draftId: $id);
+		if (($guarded instanceof JSONResponse) === true) {
+			return $guarded;
+		}
 
-    }//end accept()
+		[$draft, $user] = $guarded;
 
-    /**
-     * Reject a draft — records any curator-marked bad learnings on the DRAFT
-     * (`rejectedLearningRefs`, never an edit to `learnings.md`), then decides by
-     * transitioning the linked `Approval` to `denied` (the same reconcile path an
-     * inbox denial runs). Marked entries never drive the skill's next proposal.
-     *
-     * @param string $id The SkillDraft UUID.
-     *
-     * @return JSONResponse The decision outcome, or an error status.
-     *
-     * @NoAdminRequired
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
-     */
-    public function reject(string $id): JSONResponse
-    {
-        $guarded = $this->loadGuardedDraft(draftId: $id);
-        if (($guarded instanceof JSONResponse) === true) {
-            return $guarded;
-        }
+		$note = trim((string)$this->request->getParam('note', ''));
+		$refs = $this->request->getParam('rejectedLearningRefs', []);
+		if (is_array($refs) === false) {
+			$refs = [];
+		}
 
-        [$draft, $user] = $guarded;
+		try {
+			if ($refs !== []) {
+				$draft = $this->consolidation->markRejectedLearningRefs(draft: $draft, refs: $refs);
+			}
 
-        $note = trim((string) $this->request->getParam('note', ''));
-        $refs = $this->request->getParam('rejectedLearningRefs', []);
-        if (is_array($refs) === false) {
-            $refs = [];
-        }
+			$approval = $this->approvalService->loadApproval(uuid: (string)($draft->getObject()['approvalId'] ?? ''));
+			if ($approval !== null) {
+				$this->approvalService->deny(approval: $approval, deciderUid: $user->getUID(), reason: $note);
+			}
 
-        try {
-            if ($refs !== []) {
-                $draft = $this->consolidation->markRejectedLearningRefs(draft: $draft, refs: $refs);
-            }
+			if ($approval === null) {
+				// No Approval yet (e.g. draft still proposed) — settle the draft
+				// directly through the same reconcile path a denial runs.
+				$this->consolidation->rejectDraftByDecision(
+					draftId: $id,
+					deciderUid: $user->getUID(),
+					note: $note,
+					refs: $refs
+				);
+			}
+		} catch (DoesNotExistException $e) {
+			// The approval/draft vanished or fell out of the caller's scope between
+			// the guard and the transition — 404, not a raw 500 (gate-49).
+			return new JSONResponse(['error' => 'Draft approval not found'], Http::STATUS_NOT_FOUND);
+		} catch (Throwable $e) {
+			$this->logger->error('Hermiq draft reject failed: ' . $e->getMessage(), ['exception' => $e]);
+			return new JSONResponse(['error' => 'Reject failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
+		}//end try
 
-            $approval = $this->approvalService->loadApproval(uuid: (string) ($draft->getObject()['approvalId'] ?? ''));
-            if ($approval !== null) {
-                $this->approvalService->deny(approval: $approval, deciderUid: $user->getUID(), reason: $note);
-            }
+		return new JSONResponse(
+			[
+				'status' => 'rejected',
+				'draft' => $this->shapeCurrent(draftId: $id),
+			]
+		);
 
-            if ($approval === null) {
-                // No Approval yet (e.g. draft still proposed) — settle the draft
-                // directly through the same reconcile path a denial runs.
-                $this->consolidation->rejectDraftByDecision(
-                    draftId: $id,
-                    deciderUid: $user->getUID(),
-                    note: $note,
-                    refs: $refs
-                );
-            }
-        } catch (DoesNotExistException $e) {
-            // The approval/draft vanished or fell out of the caller's scope between
-            // the guard and the transition — 404, not a raw 500 (gate-49).
-            return new JSONResponse(['error' => 'Draft approval not found'], Http::STATUS_NOT_FOUND);
-        } catch (Throwable $e) {
-            $this->logger->error('Hermiq draft reject failed: '.$e->getMessage(), ['exception' => $e]);
-            return new JSONResponse(['error' => 'Reject failed'], Http::STATUS_INTERNAL_SERVER_ERROR);
-        }//end try
+	}//end reject()
 
-        return new JSONResponse(
-            [
-                'status' => 'rejected',
-                'draft'  => $this->shapeCurrent(draftId: $id),
-            ]
-        );
+	/**
+	 * Shared guard for the decision endpoints: resolve the draft, resolve its skill
+	 * WITHIN the caller's visibility (404 — never 403 — on any miss, BEFORE the
+	 * action check so existence never leaks), then require `skill.review-draft`
+	 * (403 leaves everything unchanged).
+	 *
+	 * @param string $draftId The SkillDraft UUID.
+	 *
+	 * @return JSONResponse|array{0: ObjectEntity, 1: \OCP\IUser} The error response,
+	 *                                                            or the [draft, user] pair.
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+	 */
+	private function loadGuardedDraft(string $draftId): JSONResponse|array {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
 
-    }//end reject()
+		$draft = $this->consolidation->getDraft(draftId: $draftId);
+		if ($draft === null) {
+			return new JSONResponse(['error' => 'Draft not found'], Http::STATUS_NOT_FOUND);
+		}
 
-    /**
-     * Shared guard for the decision endpoints: resolve the draft, resolve its skill
-     * WITHIN the caller's visibility (404 — never 403 — on any miss, BEFORE the
-     * action check so existence never leaks), then require `skill.review-draft`
-     * (403 leaves everything unchanged).
-     *
-     * @param string $draftId The SkillDraft UUID.
-     *
-     * @return JSONResponse|array{0: ObjectEntity, 1: \OCP\IUser} The error response,
-     *         or the [draft, user] pair.
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
-     */
-    private function loadGuardedDraft(string $draftId): JSONResponse|array
-    {
-        $user = $this->userSession->getUser();
-        if ($user === null) {
-            return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-        }
+		// Visibility through the SKILL (tenant-scoped read): an invisible skill makes
+		// the draft invisible too — 404 BEFORE the action check.
+		$skill = $this->loadVisibleSkill(skillId: (string)($draft->getObject()['skillId'] ?? ''));
+		if ($skill === null) {
+			return new JSONResponse(['error' => 'Draft not found'], Http::STATUS_NOT_FOUND);
+		}
 
-        $draft = $this->consolidation->getDraft(draftId: $draftId);
-        if ($draft === null) {
-            return new JSONResponse(['error' => 'Draft not found'], Http::STATUS_NOT_FOUND);
-        }
+		try {
+			$this->actionAuth->requireAction(user: $user, action: self::REVIEW_ACTION);
+		} catch (OCSForbiddenException $e) {
+			// Draft, Approval and skill are untouched — nothing was written.
+			return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
+		}
 
-        // Visibility through the SKILL (tenant-scoped read): an invisible skill makes
-        // the draft invisible too — 404 BEFORE the action check.
-        $skill = $this->loadVisibleSkill(skillId: (string) ($draft->getObject()['skillId'] ?? ''));
-        if ($skill === null) {
-            return new JSONResponse(['error' => 'Draft not found'], Http::STATUS_NOT_FOUND);
-        }
+		return [$draft, $user];
+	}//end loadGuardedDraft()
 
-        try {
-            $this->actionAuth->requireAction(user: $user, action: self::REVIEW_ACTION);
-        } catch (OCSForbiddenException $e) {
-            // Draft, Approval and skill are untouched — nothing was written.
-            return new JSONResponse(['error' => $e->getMessage()], Http::STATUS_FORBIDDEN);
-        }
+	/**
+	 * Load the skill only if the given user OWNS it (IDOR guard, mirrors
+	 * `SkillMaturityController::loadOwnedSkill()`).
+	 *
+	 * @param string $skillId The Skill UUID.
+	 * @param string $uid The requesting user's UID.
+	 *
+	 * @return ObjectEntity|null The owned skill, or null when absent/not owned.
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
+	 */
+	private function loadOwnedSkill(string $skillId, string $uid): ?ObjectEntity {
+		$skill = $this->loadVisibleSkill(skillId: $skillId);
+		if ($skill === null) {
+			return null;
+		}
 
-        return [$draft, $user];
+		if ($this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $uid) === false) {
+			return null;
+		}
 
-    }//end loadGuardedDraft()
+		return $skill;
+	}//end loadOwnedSkill()
 
-    /**
-     * Load the skill only if the given user OWNS it (IDOR guard, mirrors
-     * `SkillMaturityController::loadOwnedSkill()`).
-     *
-     * @param string $skillId The Skill UUID.
-     * @param string $uid     The requesting user's UID.
-     *
-     * @return ObjectEntity|null The owned skill, or null when absent/not owned.
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-consolidation-proposes-a-draft-version-and-never-edits-the-active-skill
-     */
-    private function loadOwnedSkill(string $skillId, string $uid): ?ObjectEntity
-    {
-        $skill = $this->loadVisibleSkill(skillId: $skillId);
-        if ($skill === null) {
-            return null;
-        }
+	/**
+	 * Load the skill within the caller's RBAC visibility (the review actions are
+	 * gated separately by the action matrix).
+	 *
+	 * @param string $skillId The Skill UUID.
+	 *
+	 * @return ObjectEntity|null The visible skill, or null when absent/invisible.
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+	 */
+	private function loadVisibleSkill(string $skillId): ?ObjectEntity {
+		try {
+			return $this->skillService->getSkill(skillId: $skillId);
+		} catch (Throwable $e) {
+			return null;
+		}
 
-        if ($this->seedCustody->actsAsOwner(owner: $skill->getOwner(), uid: $uid) === false) {
-            return null;
-        }
+	}//end loadVisibleSkill()
 
-        return $skill;
+	/**
+	 * Shape a draft ObjectEntity into a UUID + payload response map.
+	 *
+	 * @param ObjectEntity $object The draft object.
+	 *
+	 * @return array<string, mixed> The response payload.
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
+	 */
+	private function shape(ObjectEntity $object): array {
+		$data = $object->getObject();
+		$data['uuid'] = (string)$object->getUuid();
+		return $data;
+	}//end shape()
 
-    }//end loadOwnedSkill()
+	/**
+	 * Re-read and shape a draft's CURRENT state (post-decision responses reflect the
+	 * settled draft, not the pre-decision snapshot).
+	 *
+	 * @param string $draftId The SkillDraft UUID.
+	 *
+	 * @return array<string, mixed>|null The shaped draft, or null when gone.
+	 *
+	 * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
+	 */
+	private function shapeCurrent(string $draftId): ?array {
+		$draft = $this->consolidation->getDraft(draftId: $draftId);
+		if ($draft === null) {
+			return null;
+		}
 
-    /**
-     * Load the skill within the caller's RBAC visibility (the review actions are
-     * gated separately by the action matrix).
-     *
-     * @param string $skillId The Skill UUID.
-     *
-     * @return ObjectEntity|null The visible skill, or null when absent/invisible.
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
-     */
-    private function loadVisibleSkill(string $skillId): ?ObjectEntity
-    {
-        try {
-            return $this->skillService->getSkill(skillId: $skillId);
-        } catch (Throwable $e) {
-            return null;
-        }
-
-    }//end loadVisibleSkill()
-
-    /**
-     * Shape a draft ObjectEntity into a UUID + payload response map.
-     *
-     * @param ObjectEntity $object The draft object.
-     *
-     * @return array<string, mixed> The response payload.
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-the-skilldetail-review-surface-presents-diff-provenance-and-verdicts-with-three-actions
-     */
-    private function shape(ObjectEntity $object): array
-    {
-        $data         = $object->getObject();
-        $data['uuid'] = (string) $object->getUuid();
-        return $data;
-
-    }//end shape()
-
-    /**
-     * Re-read and shape a draft's CURRENT state (post-decision responses reflect the
-     * settled draft, not the pre-decision snapshot).
-     *
-     * @param string $draftId The SkillDraft UUID.
-     *
-     * @return array<string, mixed>|null The shaped draft, or null when gone.
-     *
-     * @spec openspec/specs/skill-self-improvement/spec.md#requirement-draft-acceptance-runs-through-the-approval-state-machine-behind-action-authorization
-     */
-    private function shapeCurrent(string $draftId): ?array
-    {
-        $draft = $this->consolidation->getDraft(draftId: $draftId);
-        if ($draft === null) {
-            return null;
-        }
-
-        return $this->shape(object: $draft);
-
-    }//end shapeCurrent()
+		return $this->shape(object: $draft);
+	}//end shapeCurrent()
 }//end class

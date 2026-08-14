@@ -18,43 +18,83 @@
 
 		<template v-else>
 			<NcNoteCard v-if="!status.talkAvailable" type="warning">
-				{{ t('hermiq', 'Nextcloud Talk is not installed on this instance, so agents cannot be reached from a conversation. Everything else in Hermiq is unaffected.') }}
+				{{
+					t(
+						'hermiq',
+						'Nextcloud Talk is not installed on this instance, so agents cannot be reached from a conversation. Everything else in Hermiq is unaffected.',
+					)
+				}}
 			</NcNoteCard>
 
 			<template v-else>
 				<NcNoteCard v-if="!status.botInstalled" type="warning">
-					{{ t('hermiq', 'The Hermiq bot is not registered with Talk. It is normally registered automatically when the app is installed or upgraded.') }}
+					{{
+						t(
+							'hermiq',
+							'The Hermiq bot is not registered with Talk. It is normally registered automatically when the app is installed or upgraded.',
+						)
+					}}
 				</NcNoteCard>
 				<NcNoteCard v-else type="success">
-					{{ t('hermiq', 'The Hermiq bot is registered. It answers only in conversations where a moderator has enabled it AND an opted-in agent is bound below.') }}
+					{{
+						t(
+							'hermiq',
+							'The Hermiq bot is registered. It answers only in conversations where a moderator has enabled it AND an opted-in agent is bound below.',
+						)
+					}}
 				</NcNoteCard>
 
 				<dl class="talk-bridge-settings__facts">
 					<dt>{{ t('hermiq', 'Bot address') }}</dt>
-					<dd><code>{{ status.botUrl }}</code></dd>
+					<dd>
+						<code>{{ status.botUrl }}</code>
+					</dd>
 
 					<dt>{{ t('hermiq', 'Reply delivery') }}</dt>
 					<dd>
 						<span v-if="status.handOffPath === 'triggered'">
-							{{ t('hermiq', 'Immediate — a runner picks each turn up as it arrives.') }}
+							{{
+								t(
+									'hermiq',
+									'Immediate — a runner picks each turn up as it arrives.',
+								)
+							}}
 						</span>
 						<span v-else>
-							{{ t('hermiq', 'Background jobs — replies arrive on the next background-job run, so how quickly people get an answer depends on how often this instance runs them.') }}
+							{{
+								t(
+									'hermiq',
+									'Background jobs — replies arrive on the next background-job run, so how quickly people get an answer depends on how often this instance runs them.',
+								)
+							}}
 						</span>
 					</dd>
 
 					<dt>{{ t('hermiq', 'Sidebar grouping') }}</dt>
 					<dd>
-						{{ status.groupingEnabled
-							? t('hermiq', 'Agent rooms are filed under a personal “Hermiq” tag for each participant.')
-							: t('hermiq', 'Unavailable — this version of Talk does not support conversation tags.') }}
+						{{
+							status.groupingEnabled
+								? t(
+										'hermiq',
+										'Agent rooms are filed under a personal “Hermiq” tag for each participant.',
+									)
+								: t(
+										'hermiq',
+										'Unavailable — this version of Talk does not support conversation tags.',
+									)
+						}}
 					</dd>
 				</dl>
 
 				<h4>{{ t('hermiq', 'Conversations') }}</h4>
 
 				<NcNoteCard v-if="!status.rooms.length" type="info">
-					{{ t('hermiq', 'No conversation is bound to an agent yet. Bind one below using its Talk conversation token.') }}
+					{{
+						t(
+							'hermiq',
+							'No conversation is bound to an agent yet. Bind one below using its Talk conversation token.',
+						)
+					}}
 				</NcNoteCard>
 
 				<table v-else class="talk-bridge-settings__rooms">
@@ -64,27 +104,48 @@
 							<th scope="col">{{ t('hermiq', 'Agent') }}</th>
 							<th scope="col">{{ t('hermiq', 'Status') }}</th>
 							<th scope="col">
-								<span class="hidden-visually">{{ t('hermiq', 'Actions') }}</span>
+								<span class="hidden-visually">{{
+									t('hermiq', 'Actions')
+								}}</span>
 							</th>
 						</tr>
 					</thead>
 					<tbody>
 						<tr v-for="room in status.rooms" :key="room.token">
-							<td>{{ room.name }}<br><code>{{ room.token }}</code></td>
+							<td>
+								{{ room.name }}<br /><code>{{ room.token }}</code>
+							</td>
 							<td>{{ room.agentName || room.agentId }}</td>
 							<td>
-								<span v-if="!room.botEnabled" class="talk-bridge-settings__warn">
-									{{ t('hermiq', 'The bot is not enabled in this conversation, so nothing will answer here.') }}
+								<span
+									v-if="!room.botEnabled"
+									class="talk-bridge-settings__warn">
+									{{
+										t(
+											'hermiq',
+											'The bot is not enabled in this conversation, so nothing will answer here.',
+										)
+									}}
 								</span>
-								<span v-else-if="!room.agentActive" class="talk-bridge-settings__warn">
-									{{ t('hermiq', 'The bound agent is missing or has not opted in to Talk, so nothing will answer here.') }}
+								<span
+									v-else-if="!room.agentActive"
+									class="talk-bridge-settings__warn">
+									{{
+										t(
+											'hermiq',
+											'The bound agent is missing or has not opted in to Talk, so nothing will answer here.',
+										)
+									}}
 								</span>
 								<span v-else class="talk-bridge-settings__ok">
 									{{ t('hermiq', 'Answering') }}
 								</span>
 							</td>
 							<td>
-								<NcButton type="tertiary" :disabled="saving" @click="unbind(room.token)">
+								<NcButton
+									type="tertiary"
+									:disabled="saving"
+									@click="unbind(room.token)">
 									{{ t('hermiq', 'Unbind') }}
 								</NcButton>
 							</td>
@@ -100,7 +161,9 @@
 					<NcTextField
 						:value.sync="newAgentId"
 						:label="t('hermiq', 'Agent UUID')"
-						:placeholder="t('hermiq', 'The agent to answer in that conversation')" />
+						:placeholder="
+							t('hermiq', 'The agent to answer in that conversation')
+						" />
 					<NcButton type="primary" :disabled="!canBind" @click="bind">
 						{{ t('hermiq', 'Bind') }}
 					</NcButton>
@@ -153,7 +216,11 @@ export default {
 		 * @return {boolean} True when both fields are filled and no save is in flight.
 		 */
 		canBind() {
-			return this.newToken.trim() !== '' && this.newAgentId.trim() !== '' && !this.saving
+			return (
+				this.newToken.trim() !== ''
+				&& this.newAgentId.trim() !== ''
+				&& !this.saving
+			)
 		},
 	},
 
@@ -173,7 +240,10 @@ export default {
 			try {
 				this.status = await getTalkBridgeStatus()
 			} catch (e) {
-				this.error = this.t('hermiq', 'Could not read the Talk bridge configuration.')
+				this.error = this.t(
+					'hermiq',
+					'Could not read the Talk bridge configuration.',
+				)
 			} finally {
 				this.loading = false
 			}
@@ -188,7 +258,10 @@ export default {
 			this.saving = true
 			this.error = ''
 			try {
-				this.status = await bindTalkRoom(this.newToken.trim(), this.newAgentId.trim())
+				this.status = await bindTalkRoom(
+					this.newToken.trim(),
+					this.newAgentId.trim(),
+				)
 				this.newToken = ''
 				this.newAgentId = ''
 			} catch (e) {

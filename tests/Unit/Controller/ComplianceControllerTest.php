@@ -43,296 +43,280 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/compliance-control-packs/tasks.md#task-5-compliancecontroller-routes-action-auth-gating
  */
-class ComplianceControllerTest extends TestCase
-{
+class ComplianceControllerTest extends TestCase {
 
-    /**
-     * A session with the given (or no) user.
-     *
-     * @param string|null $uid The UID, or null for unauthenticated.
-     *
-     * @return IUserSession
-     */
-    private function session(?string $uid): IUserSession
-    {
-        $session = $this->createMock(IUserSession::class);
-        if ($uid === null) {
-            $session->method('getUser')->willReturn(null);
-            return $session;
-        }
+	/**
+	 * A session with the given (or no) user.
+	 *
+	 * @param string|null $uid The UID, or null for unauthenticated.
+	 *
+	 * @return IUserSession
+	 */
+	private function session(?string $uid): IUserSession {
+		$session = $this->createMock(IUserSession::class);
+		if ($uid === null) {
+			$session->method('getUser')->willReturn(null);
+			return $session;
+		}
 
-        $user = $this->createMock(IUser::class);
-        $user->method('getUID')->willReturn($uid);
-        $session->method('getUser')->willReturn($user);
-        return $session;
+		$user = $this->createMock(IUser::class);
+		$user->method('getUID')->willReturn($uid);
+		$session->method('getUser')->willReturn($user);
+		return $session;
+	}//end session()
 
-    }//end session()
+	/**
+	 * An OrganisationMapper resolving every uid to the given organisation.
+	 *
+	 * @param string $organisation The organisation to resolve to.
+	 *
+	 * @return OrganisationMapper
+	 */
+	private function organisationMapper(string $organisation = 'org-a'): OrganisationMapper {
+		$mapper = $this->createMock(OrganisationMapper::class);
+		$mapper->method('getActiveOrganisationWithFallback')->willReturn($organisation);
+		return $mapper;
+	}//end organisationMapper()
 
-    /**
-     * An OrganisationMapper resolving every uid to the given organisation.
-     *
-     * @param string $organisation The organisation to resolve to.
-     *
-     * @return OrganisationMapper
-     */
-    private function organisationMapper(string $organisation='org-a'): OrganisationMapper
-    {
-        $mapper = $this->createMock(OrganisationMapper::class);
-        $mapper->method('getActiveOrganisationWithFallback')->willReturn($organisation);
-        return $mapper;
+	/**
+	 * An ActionAuthService that allows or denies every action uniformly.
+	 *
+	 * @param bool $allowed Whether every requireAction()/can() call should pass.
+	 *
+	 * @return ActionAuthService
+	 */
+	private function actionAuth(bool $allowed): ActionAuthService {
+		$service = $this->createMock(ActionAuthService::class);
+		if ($allowed === false) {
+			$service->method('requireAction')->willThrowException(new OCSForbiddenException('Forbidden'));
+			$service->method('can')->willReturn(false);
+			return $service;
+		}
 
-    }//end organisationMapper()
+		$service->method('requireAction');
+		$service->method('can')->willReturn(true);
+		return $service;
+	}//end actionAuth()
 
-    /**
-     * An ActionAuthService that allows or denies every action uniformly.
-     *
-     * @param bool $allowed Whether every requireAction()/can() call should pass.
-     *
-     * @return ActionAuthService
-     */
-    private function actionAuth(bool $allowed): ActionAuthService
-    {
-        $service = $this->createMock(ActionAuthService::class);
-        if ($allowed === false) {
-            $service->method('requireAction')->willThrowException(new OCSForbiddenException('Forbidden'));
-            $service->method('can')->willReturn(false);
-            return $service;
-        }
+	/**
+	 * Build the controller with the given collaborators.
+	 *
+	 * @param ComplianceService $complianceService The compliance service.
+	 * @param IUserSession $session The user session.
+	 * @param ActionAuthService $actionAuth The action-auth gate.
+	 * @param OrganisationMapper|null $organisationMapper Optional custom mapper.
+	 *
+	 * @return ComplianceController
+	 */
+	private function controller(
+		ComplianceService $complianceService,
+		IUserSession $session,
+		ActionAuthService $actionAuth,
+		?OrganisationMapper $organisationMapper = null,
+	): ComplianceController {
+		return new ComplianceController(
+			$this->createMock(IRequest::class),
+			$complianceService,
+			$session,
+			$actionAuth,
+			($organisationMapper ?? $this->organisationMapper()),
+			$this->createMock(LoggerInterface::class)
+		);
 
-        $service->method('requireAction');
-        $service->method('can')->willReturn(true);
-        return $service;
+	}//end controller()
 
-    }//end actionAuth()
+	/**
+	 * dashboard() refuses an unauthenticated caller with 401.
+	 *
+	 * @return void
+	 */
+	public function testDashboardRefusesUnauthenticated(): void {
+		$response = $this->controller(
+			$this->createMock(ComplianceService::class),
+			$this->session(null),
+			$this->actionAuth(allowed: true)
+		)->dashboard();
 
-    /**
-     * Build the controller with the given collaborators.
-     *
-     * @param ComplianceService  $complianceService The compliance service.
-     * @param IUserSession       $session           The user session.
-     * @param ActionAuthService  $actionAuth        The action-auth gate.
-     * @param OrganisationMapper|null $organisationMapper Optional custom mapper.
-     *
-     * @return ComplianceController
-     */
-    private function controller(
-        ComplianceService $complianceService,
-        IUserSession $session,
-        ActionAuthService $actionAuth,
-        ?OrganisationMapper $organisationMapper=null
-    ): ComplianceController {
-        return new ComplianceController(
-            $this->createMock(IRequest::class),
-            $complianceService,
-            $session,
-            $actionAuth,
-            ($organisationMapper ?? $this->organisationMapper()),
-            $this->createMock(LoggerInterface::class)
-        );
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
-    }//end controller()
+	}//end testDashboardRefusesUnauthenticated()
 
-    /**
-     * dashboard() refuses an unauthenticated caller with 401.
-     *
-     * @return void
-     */
-    public function testDashboardRefusesUnauthenticated(): void
-    {
-        $response = $this->controller(
-            $this->createMock(ComplianceService::class),
-            $this->session(null),
-            $this->actionAuth(allowed: true)
-        )->dashboard();
+	/**
+	 * dashboard() refuses a caller lacking compliance.view-dashboard with 403.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
+	 */
+	public function testDashboardRefusesUnauthorizedWith403(): void {
+		$response = $this->controller(
+			$this->createMock(ComplianceService::class),
+			$this->session('bob'),
+			$this->actionAuth(allowed: false)
+		)->dashboard();
 
-        $this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 
-    }//end testDashboardRefusesUnauthenticated()
+	}//end testDashboardRefusesUnauthorizedWith403()
 
-    /**
-     * dashboard() refuses a caller lacking compliance.view-dashboard with 403.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
-     */
-    public function testDashboardRefusesUnauthorizedWith403(): void
-    {
-        $response = $this->controller(
-            $this->createMock(ComplianceService::class),
-            $this->session('bob'),
-            $this->actionAuth(allowed: false)
-        )->dashboard();
+	/**
+	 * dashboard() returns the computed dashboard for an authorized caller.
+	 *
+	 * @return void
+	 */
+	public function testDashboardReturnsPayloadForAuthorizedCaller(): void {
+		$service = $this->createMock(ComplianceService::class);
+		$service->method('dashboard')->with('org-a')->willReturn(['frameworks' => [], 'gaps' => []]);
 
-        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+		$response = $this->controller(
+			$service,
+			$this->session('admin'),
+			$this->actionAuth(allowed: true)
+		)->dashboard();
 
-    }//end testDashboardRefusesUnauthorizedWith403()
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame(['frameworks' => [], 'gaps' => []], $response->getData());
 
-    /**
-     * dashboard() returns the computed dashboard for an authorized caller.
-     *
-     * @return void
-     */
-    public function testDashboardReturnsPayloadForAuthorizedCaller(): void
-    {
-        $service = $this->createMock(ComplianceService::class);
-        $service->method('dashboard')->with('org-a')->willReturn(['frameworks' => [], 'gaps' => []]);
+	}//end testDashboardReturnsPayloadForAuthorizedCaller()
 
-        $response = $this->controller(
-            $service,
-            $this->session('admin'),
-            $this->actionAuth(allowed: true)
-        )->dashboard();
+	/**
+	 * export() refuses a caller lacking compliance.export-pack with 403.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
+	 */
+	public function testExportRefusesUnauthorizedWith403(): void {
+		$response = $this->controller(
+			$this->createMock(ComplianceService::class),
+			$this->session('bob'),
+			$this->actionAuth(allowed: false)
+		)->export();
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-        $this->assertSame(['frameworks' => [], 'gaps' => []], $response->getData());
+		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
 
-    }//end testDashboardReturnsPayloadForAuthorizedCaller()
+	}//end testExportRefusesUnauthorizedWith403()
 
-    /**
-     * export() refuses a caller lacking compliance.export-pack with 403.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
-     */
-    public function testExportRefusesUnauthorizedWith403(): void
-    {
-        $response = $this->controller(
-            $this->createMock(ComplianceService::class),
-            $this->session('bob'),
-            $this->actionAuth(allowed: false)
-        )->export();
+	/**
+	 * export() returns the auditor's pack for an authorized caller.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-auditors-pack-export-extends-the-existing-art-12-export
+	 */
+	public function testExportReturnsAuditorPack(): void {
+		$service = $this->createMock(ComplianceService::class);
+		$service->method('auditorPack')->with('org-a')->willReturn(['auditTrail' => [], 'complianceCoverage' => [], 'generatedAt' => 'now']);
 
-        $this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
+		$response = $this->controller(
+			$service,
+			$this->session('admin'),
+			$this->actionAuth(allowed: true)
+		)->export();
 
-    }//end testExportRefusesUnauthorizedWith403()
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 
-    /**
-     * export() returns the auditor's pack for an authorized caller.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-the-auditors-pack-export-extends-the-existing-art-12-export
-     */
-    public function testExportReturnsAuditorPack(): void
-    {
-        $service = $this->createMock(ComplianceService::class);
-        $service->method('auditorPack')->with('org-a')->willReturn(['auditTrail' => [], 'complianceCoverage' => [], 'generatedAt' => 'now']);
+	}//end testExportReturnsAuditorPack()
 
-        $response = $this->controller(
-            $service,
-            $this->session('admin'),
-            $this->actionAuth(allowed: true)
-        )->export();
+	/**
+	 * factsheet() returns 404 (not 403) when the agent does not exist.
+	 *
+	 * @return void
+	 */
+	public function testFactsheetRefusesMissingAgentWith404(): void {
+		$service = $this->createMock(ComplianceService::class);
+		$service->method('findAgent')->willReturn(null);
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$response = $this->controller(
+			$service,
+			$this->session('bob'),
+			$this->actionAuth(allowed: false)
+		)->factsheet('missing-agent');
 
-    }//end testExportReturnsAuditorPack()
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-    /**
-     * factsheet() returns 404 (not 403) when the agent does not exist.
-     *
-     * @return void
-     */
-    public function testFactsheetRefusesMissingAgentWith404(): void
-    {
-        $service = $this->createMock(ComplianceService::class);
-        $service->method('findAgent')->willReturn(null);
+	}//end testFactsheetRefusesMissingAgentWith404()
 
-        $response = $this->controller(
-            $service,
-            $this->session('bob'),
-            $this->actionAuth(allowed: false)
-        )->factsheet('missing-agent');
+	/**
+	 * factsheet() refuses a non-owner, non-authorized caller with 404 (anti-probing
+	 * — never 403, per the requirement's IDOR guard).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
+	 */
+	public function testFactsheetRefusesNonOwnerNonAuthorizedWith404(): void {
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-1');
+		$agent->setOwner('alice');
+		$agent->setObject(['actingUser' => '']);
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+		$service = $this->createMock(ComplianceService::class);
+		$service->method('findAgent')->willReturn($agent);
+		$service->expects($this->never())->method('factsheet');
 
-    }//end testFactsheetRefusesMissingAgentWith404()
+		$response = $this->controller(
+			$service,
+			$this->session('bob'),
+			$this->actionAuth(allowed: false)
+		)->factsheet('agent-1');
 
-    /**
-     * factsheet() refuses a non-owner, non-authorized caller with 404 (anti-probing
-     * — never 403, per the requirement's IDOR guard).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
-     */
-    public function testFactsheetRefusesNonOwnerNonAuthorizedWith404(): void
-    {
-        $agent = new ObjectEntity();
-        $agent->setUuid('agent-1');
-        $agent->setOwner('alice');
-        $agent->setObject(['actingUser' => '']);
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
-        $service = $this->createMock(ComplianceService::class);
-        $service->method('findAgent')->willReturn($agent);
-        $service->expects($this->never())->method('factsheet');
+	}//end testFactsheetRefusesNonOwnerNonAuthorizedWith404()
 
-        $response = $this->controller(
-            $service,
-            $this->session('bob'),
-            $this->actionAuth(allowed: false)
-        )->factsheet('agent-1');
+	/**
+	 * factsheet() is returned to the agent's own owner.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
+	 */
+	public function testFactsheetReturnedToOwner(): void {
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-1');
+		$agent->setOwner('alice');
+		$agent->setObject(['actingUser' => '']);
 
-        $this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+		$service = $this->createMock(ComplianceService::class);
+		$service->method('findAgent')->willReturn($agent);
+		$service->method('factsheet')->with('agent-1')->willReturn(['agent' => ['id' => 'agent-1']]);
 
-    }//end testFactsheetRefusesNonOwnerNonAuthorizedWith404()
+		$response = $this->controller(
+			$service,
+			$this->session('alice'),
+			$this->actionAuth(allowed: false)
+		)->factsheet('agent-1');
 
-    /**
-     * factsheet() is returned to the agent's own owner.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-an-ai-factsheet-summarises-an-agents-governance-lifecycle
-     */
-    public function testFactsheetReturnedToOwner(): void
-    {
-        $agent = new ObjectEntity();
-        $agent->setUuid('agent-1');
-        $agent->setOwner('alice');
-        $agent->setObject(['actingUser' => '']);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 
-        $service = $this->createMock(ComplianceService::class);
-        $service->method('findAgent')->willReturn($agent);
-        $service->method('factsheet')->with('agent-1')->willReturn(['agent' => ['id' => 'agent-1']]);
+	}//end testFactsheetReturnedToOwner()
 
-        $response = $this->controller(
-            $service,
-            $this->session('alice'),
-            $this->actionAuth(allowed: false)
-        )->factsheet('agent-1');
+	/**
+	 * factsheet() is returned to a DPO/admin holding compliance.view-factsheet even
+	 * though they are neither the owner nor the actingUser.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
+	 */
+	public function testFactsheetReturnedToAuthorizedNonOwner(): void {
+		$agent = new ObjectEntity();
+		$agent->setUuid('agent-1');
+		$agent->setOwner('alice');
+		$agent->setObject(['actingUser' => '']);
 
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$service = $this->createMock(ComplianceService::class);
+		$service->method('findAgent')->willReturn($agent);
+		$service->method('factsheet')->with('agent-1')->willReturn(['agent' => ['id' => 'agent-1']]);
 
-    }//end testFactsheetReturnedToOwner()
+		$response = $this->controller(
+			$service,
+			$this->session('dpo-carol'),
+			$this->actionAuth(allowed: true)
+		)->factsheet('agent-1');
 
-    /**
-     * factsheet() is returned to a DPO/admin holding compliance.view-factsheet even
-     * though they are neither the owner nor the actingUser.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/compliance-control-packs/spec.md#requirement-dashboard-export-and-factsheet-access-are-restricted-by-role-and-ownership
-     */
-    public function testFactsheetReturnedToAuthorizedNonOwner(): void
-    {
-        $agent = new ObjectEntity();
-        $agent->setUuid('agent-1');
-        $agent->setOwner('alice');
-        $agent->setObject(['actingUser' => '']);
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 
-        $service = $this->createMock(ComplianceService::class);
-        $service->method('findAgent')->willReturn($agent);
-        $service->method('factsheet')->with('agent-1')->willReturn(['agent' => ['id' => 'agent-1']]);
-
-        $response = $this->controller(
-            $service,
-            $this->session('dpo-carol'),
-            $this->actionAuth(allowed: true)
-        )->factsheet('agent-1');
-
-        $this->assertSame(Http::STATUS_OK, $response->getStatus());
-
-    }//end testFactsheetReturnedToAuthorizedNonOwner()
+	}//end testFactsheetReturnedToAuthorizedNonOwner()
 }//end class

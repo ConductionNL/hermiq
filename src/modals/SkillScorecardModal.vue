@@ -30,8 +30,14 @@
 
 			<div class="skill-scorecard-modal__summary">
 				<SkillMaturityDots :value="result.maturityLevel" />
-				<span v-if="result.targetLevel" class="skill-scorecard-modal__target">
-					{{ t('hermiq', 'Target: {level}', { level: 'L' + result.targetLevel }) }}
+				<span
+					v-if="result.targetLevel"
+					class="skill-scorecard-modal__target">
+					{{
+						t('hermiq', 'Target: {level}', {
+							level: 'L' + result.targetLevel,
+						})
+					}}
 				</span>
 			</div>
 
@@ -51,13 +57,22 @@
 						</td>
 						<td>
 							<span class="skill-scorecard-modal__status">
-								<CheckBold v-if="entry.passed" :size="16" aria-hidden="true" />
+								<CheckBold
+									v-if="entry.passed"
+									:size="16"
+									aria-hidden="true" />
 								<CloseThick v-else :size="16" aria-hidden="true" />
-								<span>{{ entry.passed ? t('hermiq', 'Passed') : t('hermiq', 'Not passed') }}</span>
+								<span>{{
+									entry.passed
+										? t('hermiq', 'Passed')
+										: t('hermiq', 'Not passed')
+								}}</span>
 							</span>
 						</td>
 						<td>
-							<ul v-if="entry.reasons.length > 0" class="skill-scorecard-modal__reasons">
+							<ul
+								v-if="entry.reasons.length > 0"
+								class="skill-scorecard-modal__reasons">
 								<li v-for="reason in entry.reasons" :key="reason">
 									{{ t('hermiq', reason) }}
 								</li>

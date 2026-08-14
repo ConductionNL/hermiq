@@ -32,168 +32,158 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
  */
-class AlgoritmekaderMapperTest extends TestCase
-{
+class AlgoritmekaderMapperTest extends TestCase {
 
-    /**
-     * A fully publish-ready AiFeature payload.
-     *
-     * @return array<string, mixed>
-     */
-    private function readyFeature(): array
-    {
-        return [
-            'slug'                  => 'autonomous-agent-run',
-            'name'                  => 'Autonomous agent run',
-            'description'           => 'Runs agents on a schedule.',
-            'riskCategory'          => 'high',
-            'lifecycle'             => 'enabled',
-            'dpoAckBy'              => 'dpo',
-            'dpoAckAt'              => '2026-07-07T10:00:00+00:00',
-            'doel'                  => 'Automate casework triage.',
-            'wettelijkeGrondslag'   => 'Art. 6 AVG.',
-            'impacttoetsen'         => [['soort' => 'DPIA', 'referentie' => 'DPIA-2026-01']],
-            'dataBronnen'           => 'Case register.',
-            'menselijkeTussenkomst' => 'Human approval gate before any action.',
-            'verantwoordelijke'     => ['organisatie' => 'Gemeente Zeist', 'contact' => 'privacy@zeist.nl'],
-            'publicatiecategorie'   => 'Impactful algorithm',
-        ];
+	/**
+	 * A fully publish-ready AiFeature payload.
+	 *
+	 * @return array<string, mixed>
+	 */
+	private function readyFeature(): array {
+		return [
+			'slug' => 'autonomous-agent-run',
+			'name' => 'Autonomous agent run',
+			'description' => 'Runs agents on a schedule.',
+			'riskCategory' => 'high',
+			'lifecycle' => 'enabled',
+			'dpoAckBy' => 'dpo',
+			'dpoAckAt' => '2026-07-07T10:00:00+00:00',
+			'doel' => 'Automate casework triage.',
+			'wettelijkeGrondslag' => 'Art. 6 AVG.',
+			'impacttoetsen' => [['soort' => 'DPIA', 'referentie' => 'DPIA-2026-01']],
+			'dataBronnen' => 'Case register.',
+			'menselijkeTussenkomst' => 'Human approval gate before any action.',
+			'verantwoordelijke' => ['organisatie' => 'Gemeente Zeist', 'contact' => 'privacy@zeist.nl'],
+			'publicatiecategorie' => 'Impactful algorithm',
+		];
 
-    }//end readyFeature()
+	}//end readyFeature()
 
-    /**
-     * A ready feature passes every condition.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
-     */
-    public function testReadyFeatureIsReady(): void
-    {
-        $mapper = new AlgoritmekaderMapper();
-        $this->assertSame([], $mapper->assessReadiness($this->readyFeature()));
+	/**
+	 * A ready feature passes every condition.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 */
+	public function testReadyFeatureIsReady(): void {
+		$mapper = new AlgoritmekaderMapper();
+		$this->assertSame([], $mapper->assessReadiness($this->readyFeature()));
 
-    }//end testReadyFeatureIsReady()
+	}//end testReadyFeatureIsReady()
 
-    /**
-     * A limited-risk feature is refused as out of scope (only high risk publishes).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
-     */
-    public function testLimitedRiskIsRefused(): void
-    {
-        $feature = $this->readyFeature();
-        $feature['riskCategory'] = 'limited';
+	/**
+	 * A limited-risk feature is refused as out of scope (only high risk publishes).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 */
+	public function testLimitedRiskIsRefused(): void {
+		$feature = $this->readyFeature();
+		$feature['riskCategory'] = 'limited';
 
-        $mapper  = new AlgoritmekaderMapper();
-        $failing = $mapper->assessReadiness($feature);
+		$mapper = new AlgoritmekaderMapper();
+		$failing = $mapper->assessReadiness($feature);
 
-        $this->assertNotEmpty($failing);
-        $this->assertContains('riskCategory', $failing);
+		$this->assertNotEmpty($failing);
+		$this->assertContains('riskCategory', $failing);
 
-    }//end testLimitedRiskIsRefused()
+	}//end testLimitedRiskIsRefused()
 
-    /**
-     * A not-enabled feature is refused.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
-     */
-    public function testNotEnabledIsRefused(): void
-    {
-        $feature = $this->readyFeature();
-        $feature['lifecycle'] = 'disabled';
+	/**
+	 * A not-enabled feature is refused.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 */
+	public function testNotEnabledIsRefused(): void {
+		$feature = $this->readyFeature();
+		$feature['lifecycle'] = 'disabled';
 
-        $this->assertContains('lifecycle', (new AlgoritmekaderMapper())->assessReadiness($feature));
+		$this->assertContains('lifecycle', (new AlgoritmekaderMapper())->assessReadiness($feature));
 
-    }//end testNotEnabledIsRefused()
+	}//end testNotEnabledIsRefused()
 
-    /**
-     * A feature the DPO has not acknowledged is refused.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
-     */
-    public function testUnacknowledgedIsRefused(): void
-    {
-        $feature = $this->readyFeature();
-        unset($feature['dpoAckBy'], $feature['dpoAckAt']);
+	/**
+	 * A feature the DPO has not acknowledged is refused.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 */
+	public function testUnacknowledgedIsRefused(): void {
+		$feature = $this->readyFeature();
+		unset($feature['dpoAckBy'], $feature['dpoAckAt']);
 
-        $this->assertContains('dpoAcknowledgement', (new AlgoritmekaderMapper())->assessReadiness($feature));
+		$this->assertContains('dpoAcknowledgement', (new AlgoritmekaderMapper())->assessReadiness($feature));
 
-    }//end testUnacknowledgedIsRefused()
+	}//end testUnacknowledgedIsRefused()
 
-    /**
-     * A missing mandatory Algoritmekader field is named in the failing conditions.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
-     */
-    public function testMissingLegalBasisIsNamed(): void
-    {
-        $feature = $this->readyFeature();
-        unset($feature['wettelijkeGrondslag']);
+	/**
+	 * A missing mandatory Algoritmekader field is named in the failing conditions.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 */
+	public function testMissingLegalBasisIsNamed(): void {
+		$feature = $this->readyFeature();
+		unset($feature['wettelijkeGrondslag']);
 
-        $failing = (new AlgoritmekaderMapper())->assessReadiness($feature);
-        $this->assertContains('wettelijkeGrondslag', $failing);
+		$failing = (new AlgoritmekaderMapper())->assessReadiness($feature);
+		$this->assertContains('wettelijkeGrondslag', $failing);
 
-    }//end testMissingLegalBasisIsNamed()
+	}//end testMissingLegalBasisIsNamed()
 
-    /**
-     * An empty impacttoetsen array counts as missing (non-empty required).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
-     */
-    public function testEmptyImpactAssessmentsIsMissing(): void
-    {
-        $feature = $this->readyFeature();
-        $feature['impacttoetsen'] = [];
+	/**
+	 * An empty impacttoetsen array counts as missing (non-empty required).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 */
+	public function testEmptyImpactAssessmentsIsMissing(): void {
+		$feature = $this->readyFeature();
+		$feature['impacttoetsen'] = [];
 
-        $this->assertContains('impacttoetsen', (new AlgoritmekaderMapper())->assessReadiness($feature));
+		$this->assertContains('impacttoetsen', (new AlgoritmekaderMapper())->assessReadiness($feature));
 
-    }//end testEmptyImpactAssessmentsIsMissing()
+	}//end testEmptyImpactAssessmentsIsMissing()
 
-    /**
-     * A blank string mandatory field counts as missing.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
-     */
-    public function testBlankMandatoryFieldIsMissing(): void
-    {
-        $feature = $this->readyFeature();
-        $feature['doel'] = '   ';
+	/**
+	 * A blank string mandatory field counts as missing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-gated-to-impactful-enabled-dpo-acknowledged-fully-described-features
+	 */
+	public function testBlankMandatoryFieldIsMissing(): void {
+		$feature = $this->readyFeature();
+		$feature['doel'] = '   ';
 
-        $this->assertContains('doel', (new AlgoritmekaderMapper())->assessReadiness($feature));
+		$this->assertContains('doel', (new AlgoritmekaderMapper())->assessReadiness($feature));
 
-    }//end testBlankMandatoryFieldIsMissing()
+	}//end testBlankMandatoryFieldIsMissing()
 
-    /**
-     * The mapping produces the Algoritmekader publication shape with the metadata carried.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function testMapProducesAlgoritmekaderShape(): void
-    {
-        $mapped = (new AlgoritmekaderMapper())->map($this->readyFeature());
+	/**
+	 * The mapping produces the Algoritmekader publication shape with the metadata carried.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function testMapProducesAlgoritmekaderShape(): void {
+		$mapped = (new AlgoritmekaderMapper())->map($this->readyFeature());
 
-        $this->assertSame('Autonomous agent run', $mapped['title']);
-        $this->assertSame('Gemeente Zeist', $mapped['organization']);
-        $this->assertSame('Art. 6 AVG.', $mapped['algoritmekader']['wettelijkeGrondslag']);
-        $this->assertSame('high', $mapped['algoritmekader']['riskCategory']);
-        $this->assertCount(1, $mapped['algoritmekader']['impacttoetsen']);
-        $this->assertSame('hermiq', $mapped['source']['app']);
-        $this->assertSame('autonomous-agent-run', $mapped['source']['slug']);
+		$this->assertSame('Autonomous agent run', $mapped['title']);
+		$this->assertSame('Gemeente Zeist', $mapped['organization']);
+		$this->assertSame('Art. 6 AVG.', $mapped['algoritmekader']['wettelijkeGrondslag']);
+		$this->assertSame('high', $mapped['algoritmekader']['riskCategory']);
+		$this->assertCount(1, $mapped['algoritmekader']['impacttoetsen']);
+		$this->assertSame('hermiq', $mapped['source']['app']);
+		$this->assertSame('autonomous-agent-run', $mapped['source']['slug']);
 
-    }//end testMapProducesAlgoritmekaderShape()
+	}//end testMapProducesAlgoritmekaderShape()
 }//end class

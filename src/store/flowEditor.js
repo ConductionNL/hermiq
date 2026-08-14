@@ -58,7 +58,11 @@
 
 import { defineStore } from 'pinia'
 import { useAgentStore } from './store.js'
-import { branchOfPort, branchesOfNode, orphanedBranchEdgeIds } from './flowBranches.js'
+import {
+	branchOfPort,
+	branchesOfNode,
+	orphanedBranchEdgeIds,
+} from './flowBranches.js'
 import {
 	createFlow,
 	getFlow,
@@ -186,8 +190,8 @@ function catalogueEntry(catalogue, type) {
 		return undefined
 	}
 
-	return (catalogue || []).find((candidate) =>
-		candidate.id === id || (candidate.aliases || []).includes(id),
+	return (catalogue || []).find(
+		(candidate) => candidate.id === id || (candidate.aliases || []).includes(id),
 	)
 }
 
@@ -279,7 +283,10 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @return {Array<string>} The node ids the run touched.
 		 */
 		replayedNodeIds: (state) => {
-			const detail = state.replayRunId === null ? null : state.runDetail[state.replayRunId]
+			const detail =
+				state.replayRunId === null
+					? null
+					: state.runDetail[state.replayRunId]
 
 			return (detail?.log || [])
 				.map((entry) => entry.transition)
@@ -316,7 +323,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 */
 		canvasEdges: (state) => {
 			const lines = []
-			for (const edge of (state.flow.edges || [])) {
+			for (const edge of state.flow.edges || []) {
 				for (const source of edge.from) {
 					for (const target of edge.to) {
 						lines.push({
@@ -342,7 +349,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 */
 		branchesByNode: (state) => {
 			const map = {}
-			for (const node of (state.flow.nodes || [])) {
+			for (const node of state.flow.nodes || []) {
 				map[node.id] = branchesOfNode(node)
 			}
 
@@ -369,7 +376,8 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
-		orphanedBranchEdgeIds: (state) => orphanedBranchEdgeIds(state.flow.nodes || [], state.flow.edges || []),
+		orphanedBranchEdgeIds: (state) =>
+			orphanedBranchEdgeIds(state.flow.nodes || [], state.flow.edges || []),
 
 		/**
 		 * @param {object} state The flow-editor store state.
@@ -380,7 +388,11 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				return null
 			}
 
-			return (state.flow.nodes || []).find((node) => node.id === state.selectedNodeId) || null
+			return (
+				(state.flow.nodes || []).find(
+					(node) => node.id === state.selectedNodeId,
+				) || null
+			)
 		},
 
 		/**
@@ -392,7 +404,11 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				return null
 			}
 
-			return (state.flow.edges || []).find((edge) => edge.id === state.selectedEdgeId) || null
+			return (
+				(state.flow.edges || []).find(
+					(edge) => edge.id === state.selectedEdgeId,
+				) || null
+			)
 		},
 
 		/**
@@ -458,7 +474,8 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {object} state The flow-editor store state.
 		 * @return {Function} `(type: string) => object|undefined`.
 		 */
-		catalogueEntryFor: (state) => (type) => catalogueEntry(state.nodeCatalog, type),
+		catalogueEntryFor: (state) => (type) =>
+			catalogueEntry(state.nodeCatalog, type),
 
 		/**
 		 * What this flow is missing to be runnable at all: a trigger, an end.
@@ -481,7 +498,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @spec openspec/specs/flow-canvas/spec.md#requirement-a-flow-must-have-a-trigger-and-an-end
 		 */
 		missingEnds() {
-			const nodes = (this.flow.nodes || [])
+			const nodes = this.flow.nodes || []
 			if (nodes.length === 0) {
 				return { trigger: false, end: false }
 			}
@@ -504,13 +521,15 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 
 		startNodeIds: (state) => {
 			const places = (state.flow.nodes || []).map((node) => node.id)
-			const declared = endpointList(state.flow.initial).filter((id) => places.includes(id))
+			const declared = endpointList(state.flow.initial).filter((id) =>
+				places.includes(id),
+			)
 			if (declared.length > 0) {
 				return declared
 			}
 
 			const targeted = new Set()
-			for (const edge of (state.flow.edges || [])) {
+			for (const edge of state.flow.edges || []) {
 				edge.to.forEach((id) => targeted.add(id))
 			}
 
@@ -527,7 +546,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 */
 		endNodeIds: (state) => {
 			const leaving = new Set()
-			for (const edge of (state.flow.edges || [])) {
+			for (const edge of state.flow.edges || []) {
 				edge.from.forEach((id) => leaving.add(id))
 			}
 
@@ -545,7 +564,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 */
 		markingByNode: (state) => {
 			const out = {}
-			for (const place of (state.lastRun?.marking || [])) {
+			for (const place of state.lastRun?.marking || []) {
 				out[String(place)] = true
 			}
 
@@ -566,7 +585,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 */
 		resultByEdge: (state) => {
 			const out = {}
-			for (const entry of (state.lastRun?.log || [])) {
+			for (const entry of state.lastRun?.log || []) {
 				const name = entry.transition || entry.edge || entry.step
 				if (name) {
 					out[String(name)] = entry
@@ -590,11 +609,14 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {object} state The flow-editor store state.
 		 * @return {Array<object>} `{id, label, maxTokens}` per agent.
 		 */
-		agentOptions: (state) => state.agents.map((agent) => ({
-			id: agent['@self']?.id || agent.id,
-			label: agent.name || agent['@self']?.id || agent.id,
-			maxTokens: agent.maxTokens ?? null,
-		})).filter((option) => option.id),
+		agentOptions: (state) =>
+			state.agents
+				.map((agent) => ({
+					id: agent['@self']?.id || agent.id,
+					label: agent.name || agent['@self']?.id || agent.id,
+					maxTokens: agent.maxTokens ?? null,
+				}))
+				.filter((option) => option.id),
 
 		/**
 		 * The document sent to save and to validate.
@@ -774,7 +796,9 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				...emptyFlow(),
 				...copy,
 				nodes: Array.isArray(copy.nodes) ? copy.nodes : [],
-				edges: (Array.isArray(copy.edges) ? copy.edges : []).map(normaliseEdge),
+				edges: (Array.isArray(copy.edges) ? copy.edges : []).map(
+					normaliseEdge,
+				),
 			}
 			this.dirty = false
 		},
@@ -815,7 +839,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				name: this.nodeTypeLabel(type) || `Step ${index + 1}`,
 				config: {},
 				x: x === null ? 80 : x,
-				y: y === null ? (60 + index * 170) : y,
+				y: y === null ? 60 + index * 170 : y,
 			}
 
 			this.flow.nodes = [...this.nodes, node]
@@ -945,7 +969,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {string} uuid The run uuid.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		async openRunLog(uuid) {
 			this.logModalRunId = uuid
@@ -966,7 +990,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {string} nodeId The node whose payload to show.
 		 * @return {Promise<void>}
 		 *
-		 * @spec openspec/specs/flow-engine/spec.md#requirement-a-run-records-what-each-node-received-returned-and-logged
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		async openStepPayload(nodeId) {
 			if (!nodeId) {
@@ -1149,7 +1173,8 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			// it. Seeded from the entry points the store already derives, so
 			// the drawing agrees with what the engine calls a start.
 			const column = new Map()
-			const seeds = this.startNodeIds.length > 0 ? this.startNodeIds : [nodes[0].id]
+			const seeds =
+				this.startNodeIds.length > 0 ? this.startNodeIds : [nodes[0].id]
 			const queue = seeds.map((id) => ({ id, depth: 0 }))
 			let guard = nodes.length * nodes.length
 
@@ -1161,7 +1186,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				}
 
 				column.set(id, depth)
-				for (const next of (outgoing.get(id) || [])) {
+				for (const next of outgoing.get(id) || []) {
 					queue.push({ id: next, depth: depth + 1 })
 				}
 			}
@@ -1187,8 +1212,8 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 
 				return {
 					...node,
-					x: MARGIN + (col * COLUMN_WIDTH),
-					y: MARGIN + (row * ROW_HEIGHT),
+					x: MARGIN + col * COLUMN_WIDTH,
+					y: MARGIN + row * ROW_HEIGHT,
 				}
 			})
 			this.dirty = true
@@ -1218,7 +1243,10 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				// first says "this flow has never run", which is a fact about
 				// the flow, and the second says nothing about it at all.
 				this.runs = []
-				this.runsError = e?.response?.data?.error || e?.message || 'Could not load the run history'
+				this.runsError =
+					e?.response?.data?.error
+					|| e?.message
+					|| 'Could not load the run history'
 			} finally {
 				this.runsLoading = false
 			}
@@ -1247,7 +1275,10 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			}
 
 			try {
-				this.runDetail = { ...this.runDetail, [uuid]: await getFlowRun(uuid) }
+				this.runDetail = {
+					...this.runDetail,
+					[uuid]: await getFlowRun(uuid),
+				}
 			} catch (e) {
 				this.runDetail = { ...this.runDetail, [uuid]: null }
 			}
@@ -1267,7 +1298,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			const annotation = {
 				id: `note-${Date.now().toString(36)}-${list.length}`,
 				x: x === null ? 80 : x,
-				y: y === null ? (60 + list.length * 40) : y,
+				y: y === null ? 60 + list.length * 40 : y,
 				text: '',
 			}
 
@@ -1286,7 +1317,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 */
 		setAnnotationText(id, text) {
 			this.flow.annotations = (this.flow.annotations || []).map((note) =>
-				(note.id === id ? { ...note, text } : note),
+				note.id === id ? { ...note, text } : note,
 			)
 			this.dirty = true
 		},
@@ -1304,7 +1335,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 */
 		moveAnnotation({ id, x, y }) {
 			this.flow.annotations = (this.flow.annotations || []).map((note) =>
-				(note.id === id ? { ...note, x, y } : note),
+				note.id === id ? { ...note, x, y } : note,
 			)
 			this.dirty = true
 		},
@@ -1323,7 +1354,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 */
 		resizeAnnotation({ id, width, height }) {
 			this.flow.annotations = (this.flow.annotations || []).map((note) =>
-				(note.id === id ? { ...note, width, height } : note),
+				note.id === id ? { ...note, width, height } : note,
 			)
 			this.dirty = true
 		},
@@ -1337,7 +1368,9 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		removeAnnotation(id) {
-			this.flow.annotations = (this.flow.annotations || []).filter((note) => note.id !== id)
+			this.flow.annotations = (this.flow.annotations || []).filter(
+				(note) => note.id !== id,
+			)
 			this.dirty = true
 		},
 
@@ -1452,10 +1485,11 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			// legitimately lead to the same node — "passed" and "failed" both
 			// ending at `done` is ordinary — and keying the duplicate check on
 			// from/to alone silently refused the second one.
-			const exists = this.edges.some((edge) =>
-				edge.from.includes(source)
-				&& edge.to.includes(target)
-				&& String(edge.fromExit || '') === fromExit,
+			const exists = this.edges.some(
+				(edge) =>
+					edge.from.includes(source)
+					&& edge.to.includes(target)
+					&& String(edge.fromExit || '') === fromExit,
 			)
 			if (exists) {
 				return
@@ -1524,7 +1558,10 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		removeNode(id) {
 			this.flow.nodes = this.nodes.filter((node) => node.id !== id)
 			this.flow.edges = this.edges.filter((edge) => {
-				return edge.from.includes(id) === false && edge.to.includes(id) === false
+				return (
+					edge.from.includes(id) === false
+					&& edge.to.includes(id) === false
+				)
 			})
 			this.clearSelection()
 			this.dirty = true
@@ -1699,10 +1736,10 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 			const named = String(subject?.uuid || '') !== ''
 			const payload = named
 				? {
-					uuid: subject.uuid,
-					register: subject.register,
-					schema: subject.schema,
-				}
+						uuid: subject.uuid,
+						register: subject.register,
+						schema: subject.schema,
+					}
 				: {}
 
 			// Synchronous: the response IS the finished run, log and all, so

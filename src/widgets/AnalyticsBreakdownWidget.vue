@@ -25,20 +25,33 @@
 				<NcEmptyContent
 					v-if="statusRows.length === 0"
 					:name="t('hermiq', 'No runs yet')"
-					:description="t('hermiq', 'Run metrics will appear once agents have run.')">
+					:description="
+						t('hermiq', 'Run metrics will appear once agents have run.')
+					">
 					<template #icon>
 						<ChartIcon :size="20" />
 					</template>
 				</NcEmptyContent>
 				<ul v-else class="analytics-breakdown__list">
-					<li v-for="row in statusRows" :key="row.status" class="analytics-breakdown__row">
-						<span class="analytics-breakdown__status" :class="`analytics-breakdown__status--${row.status}`">{{ row.status }}</span>
-						<span class="analytics-breakdown__count">{{ row.count }}</span>
+					<li
+						v-for="row in statusRows"
+						:key="row.status"
+						class="analytics-breakdown__row">
+						<span
+							class="analytics-breakdown__status"
+							:class="`analytics-breakdown__status--${row.status}`"
+							>{{ row.status }}</span
+						>
+						<span class="analytics-breakdown__count">{{
+							row.count
+						}}</span>
 					</li>
 				</ul>
 			</section>
 
-			<section v-if="metrics.perAgent && metrics.perAgent.length > 0" class="analytics-breakdown__section">
+			<section
+				v-if="metrics.perAgent && metrics.perAgent.length > 0"
+				class="analytics-breakdown__section">
 				<h3 class="analytics-breakdown__subhead">
 					{{ t('hermiq', 'Per agent') }}
 				</h3>
@@ -66,11 +79,27 @@
 				</table>
 			</section>
 
-			<p v-if="metrics.tokens && metrics.tokens.available" class="analytics-breakdown__seam">
-				{{ t('hermiq', 'Tokens: {prompt} prompt + {completion} completion, recorded from OpenRegister run-cost.', { prompt: metrics.tokens.prompt, completion: metrics.tokens.completion }) }}
+			<p
+				v-if="metrics.tokens && metrics.tokens.available"
+				class="analytics-breakdown__seam">
+				{{
+					t(
+						'hermiq',
+						'Tokens: {prompt} prompt + {completion} completion, recorded from OpenRegister run-cost.',
+						{
+							prompt: metrics.tokens.prompt,
+							completion: metrics.tokens.completion,
+						},
+					)
+				}}
 			</p>
 			<p v-else class="analytics-breakdown__seam">
-				{{ t('hermiq', 'Token usage will appear here once an agent run records it (OpenRegister run-cost).') }}
+				{{
+					t(
+						'hermiq',
+						'Token usage will appear here once an agent run records it (OpenRegister run-cost).',
+					)
+				}}
 			</p>
 		</template>
 	</div>
@@ -109,7 +138,9 @@ export default {
 		 */
 		statusRows() {
 			const b = this.metrics.statusBreakdown || {}
-			return Object.keys(b).map((status) => ({ status, count: b[status] })).sort((a, x) => x.count - a.count)
+			return Object.keys(b)
+				.map((status) => ({ status, count: b[status] }))
+				.sort((a, x) => x.count - a.count)
 		},
 	},
 
@@ -136,7 +167,10 @@ export default {
 				this.metrics = metrics
 				this.agents = Array.isArray(agents) ? agents : []
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}

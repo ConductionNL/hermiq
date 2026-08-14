@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal OpenRegister IShareableConfigType stub for standalone unit runs
  * and static analysis.
@@ -25,44 +26,43 @@ namespace OCA\OpenRegister\Service\Config;
 /**
  * Minimal IShareableConfigType stub.
  */
-interface IShareableConfigType
-{
-    /**
-     * The stable type id (e.g. `openregister.flows`).
-     *
-     * @return string The id.
-     */
-    public function getId(): string;
+interface IShareableConfigType {
+	/**
+	 * The stable type id (e.g. `openregister.flows`).
+	 *
+	 * @return string The id.
+	 */
+	public function getId(): string;
 
-    /**
-     * The human name shown when sharing or browsing.
-     *
-     * @return string The display name.
-     */
-    public function getDisplayName(): string;
+	/**
+	 * The human name shown when sharing or browsing.
+	 *
+	 * @return string The display name.
+	 */
+	public function getDisplayName(): string;
 
-    /**
-     * The GitHub topic a published config of this type is tagged with.
-     *
-     * @return string The discovery topic.
-     */
-    public function getTopic(): string;
+	/**
+	 * The GitHub topic a published config of this type is tagged with.
+	 *
+	 * @return string The discovery topic.
+	 */
+	public function getTopic(): string;
 
-    /**
-     * Package a selection of this type's configuration into a portable bundle.
-     *
-     * @param array $selection What to share, in the type's own terms.
-     *
-     * @return array The portable bundle: `{type, version, ...content}`.
-     */
-    public function serialise(array $selection): array;
+	/**
+	 * Package a selection of this type's configuration into a portable bundle.
+	 *
+	 * @param array $selection What to share, in the type's own terms.
+	 *
+	 * @return array The portable bundle: `{type, version, ...content}`.
+	 */
+	public function serialise(array $selection): array;
 
-    /**
-     * Apply a bundle of this type to this instance.
-     *
-     * @param array $bundle A bundle previously produced by a type of this id.
-     *
-     * @return array The install result (e.g. `{installed: [...]}`).
-     */
-    public function deserialise(array $bundle): array;
+	/**
+	 * Apply a bundle of this type to this instance.
+	 *
+	 * @param array $bundle A bundle previously produced by a type of this id.
+	 *
+	 * @return array The install result (e.g. `{installed: [...]}`).
+	 */
+	public function deserialise(array $bundle): array;
 }//end interface

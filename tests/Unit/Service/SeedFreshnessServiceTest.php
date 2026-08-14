@@ -38,215 +38,205 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
  */
-class SeedFreshnessServiceTest extends TestCase
-{
+class SeedFreshnessServiceTest extends TestCase {
 
-    /**
-     * The service under test.
-     *
-     * @var SeedFreshnessService
-     */
-    private SeedFreshnessService $service;
+	/**
+	 * The service under test.
+	 *
+	 * @var SeedFreshnessService
+	 */
+	private SeedFreshnessService $service;
 
-    /**
-     * Set up the service.
-     *
-     * @return void
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->service = new SeedFreshnessService();
+	/**
+	 * Set up the service.
+	 *
+	 * @return void
+	 */
+	protected function setUp(): void {
+		parent::setUp();
+		$this->service = new SeedFreshnessService();
 
-    }//end setUp()
+	}//end setUp()
 
-    /**
-     * An ObjectEntity with the given owner and payload.
-     *
-     * @param string|null          $owner   The stored owner uid.
-     * @param array<string, mixed> $payload The object payload.
-     *
-     * @return ObjectEntity
-     */
-    private function object(?string $owner, array $payload): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('uuid-1');
-        $entity->setOwner($owner);
-        $entity->setObject($payload);
+	/**
+	 * An ObjectEntity with the given owner and payload.
+	 *
+	 * @param string|null $owner The stored owner uid.
+	 * @param array<string, mixed> $payload The object payload.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function object(?string $owner, array $payload): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('uuid-1');
+		$entity->setOwner($owner);
+		$entity->setObject($payload);
 
-        return $entity;
+		return $entity;
+	}//end object()
 
-    }//end object()
+	/**
+	 * stampFresh() stamps a parseable ISO-8601 `lastActivityAt` on a creation payload
+	 * and leaves every other field alone.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public function testStampFreshStampsLastActivityAtAtCreation(): void {
+		$seed = [
+			'name' => 'tender-summary',
+			'state' => 'active',
+		];
 
-    /**
-     * stampFresh() stamps a parseable ISO-8601 `lastActivityAt` on a creation payload
-     * and leaves every other field alone.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public function testStampFreshStampsLastActivityAtAtCreation(): void
-    {
-        $seed = [
-            'name'  => 'tender-summary',
-            'state' => 'active',
-        ];
+		$stamped = $this->service->stampFresh(seed: $seed);
 
-        $stamped = $this->service->stampFresh(seed: $seed);
+		$this->assertSame('tender-summary', $stamped['name']);
+		$this->assertSame('active', $stamped['state']);
+		$this->assertArrayHasKey('lastActivityAt', $stamped);
 
-        $this->assertSame('tender-summary', $stamped['name']);
-        $this->assertSame('active', $stamped['state']);
-        $this->assertArrayHasKey('lastActivityAt', $stamped);
+		$parsed = new DateTimeImmutable((string)$stamped['lastActivityAt']);
+		$this->assertEqualsWithDelta(time(), $parsed->getTimestamp(), 60);
 
-        $parsed = new DateTimeImmutable((string) $stamped['lastActivityAt']);
-        $this->assertEqualsWithDelta(time(), $parsed->getTimestamp(), 60);
+	}//end testStampFreshStampsLastActivityAtAtCreation()
 
-    }//end testStampFreshStampsLastActivityAtAtCreation()
+	/**
+	 * A re-run refreshes a STALE `__system__` seed back to active: fresh
+	 * `lastActivityAt`, `staleSince` dropped, content untouched.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public function testRefreshFlipsStaleSystemSeedBackToActive(): void {
+		$skill = $this->object(
+			'__system__',
+			[
+				'name' => 'woo-request-triage',
+				'body' => 'Seeded body.',
+				'state' => 'stale',
+				'lastActivityAt' => '2025-01-01 00:00:00',
+				'staleSince' => '2025-06-01 00:00:00',
+			]
+		);
 
-    /**
-     * A re-run refreshes a STALE `__system__` seed back to active: fresh
-     * `lastActivityAt`, `staleSince` dropped, content untouched.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public function testRefreshFlipsStaleSystemSeedBackToActive(): void
-    {
-        $skill = $this->object(
-            '__system__',
-            [
-                'name'           => 'woo-request-triage',
-                'body'           => 'Seeded body.',
-                'state'          => 'stale',
-                'lastActivityAt' => '2025-01-01 00:00:00',
-                'staleSince'     => '2025-06-01 00:00:00',
-            ]
-        );
+		$refreshed = $this->service->refreshedPayload(skill: $skill);
 
-        $refreshed = $this->service->refreshedPayload(skill: $skill);
+		$this->assertNotNull($refreshed);
+		$this->assertSame('active', $refreshed['state']);
+		$this->assertSame('Seeded body.', $refreshed['body']);
+		$this->assertArrayNotHasKey('staleSince', $refreshed);
 
-        $this->assertNotNull($refreshed);
-        $this->assertSame('active', $refreshed['state']);
-        $this->assertSame('Seeded body.', $refreshed['body']);
-        $this->assertArrayNotHasKey('staleSince', $refreshed);
+		$parsed = new DateTimeImmutable((string)$refreshed['lastActivityAt']);
+		$this->assertEqualsWithDelta(time(), $parsed->getTimestamp(), 60);
 
-        $parsed = new DateTimeImmutable((string) $refreshed['lastActivityAt']);
-        $this->assertEqualsWithDelta(time(), $parsed->getTimestamp(), 60);
+	}//end testRefreshFlipsStaleSystemSeedBackToActive()
 
-    }//end testRefreshFlipsStaleSystemSeedBackToActive()
+	/**
+	 * A re-run refreshes an ACTIVE `__system__` seed's `lastActivityAt` and keeps it
+	 * active — the staleness clock restarts on every repair run.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public function testRefreshRestampsActiveSystemSeed(): void {
+		$skill = $this->object(
+			'__system__',
+			[
+				'name' => 'tender-summary',
+				'state' => 'active',
+				'lastActivityAt' => '2025-01-01 00:00:00',
+			]
+		);
 
-    /**
-     * A re-run refreshes an ACTIVE `__system__` seed's `lastActivityAt` and keeps it
-     * active — the staleness clock restarts on every repair run.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public function testRefreshRestampsActiveSystemSeed(): void
-    {
-        $skill = $this->object(
-            '__system__',
-            [
-                'name'           => 'tender-summary',
-                'state'          => 'active',
-                'lastActivityAt' => '2025-01-01 00:00:00',
-            ]
-        );
+		$refreshed = $this->service->refreshedPayload(skill: $skill);
 
-        $refreshed = $this->service->refreshedPayload(skill: $skill);
+		$this->assertNotNull($refreshed);
+		$this->assertSame('active', $refreshed['state']);
+		$this->assertNotSame('2025-01-01 00:00:00', (string)$refreshed['lastActivityAt']);
 
-        $this->assertNotNull($refreshed);
-        $this->assertSame('active', $refreshed['state']);
-        $this->assertNotSame('2025-01-01 00:00:00', (string) $refreshed['lastActivityAt']);
+	}//end testRefreshRestampsActiveSystemSeed()
 
-    }//end testRefreshRestampsActiveSystemSeed()
+	/**
+	 * An ARCHIVED `__system__` seed is NEVER touched — archiving is a curator
+	 * decision and it wins; a quarantined seed likewise.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public function testRefreshNeverTouchesArchivedOrQuarantinedSeed(): void {
+		$archived = $this->object(
+			'__system__',
+			['name' => 'tender-summary', 'state' => 'archived', 'archivedAt' => '2025-06-01 00:00:00']
+		);
+		$this->assertNull($this->service->refreshedPayload(skill: $archived));
 
-    /**
-     * An ARCHIVED `__system__` seed is NEVER touched — archiving is a curator
-     * decision and it wins; a quarantined seed likewise.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public function testRefreshNeverTouchesArchivedOrQuarantinedSeed(): void
-    {
-        $archived = $this->object(
-            '__system__',
-            ['name' => 'tender-summary', 'state' => 'archived', 'archivedAt' => '2025-06-01 00:00:00']
-        );
-        $this->assertNull($this->service->refreshedPayload(skill: $archived));
+		$quarantined = $this->object(
+			'__system__',
+			['name' => 'tender-summary', 'state' => 'quarantined']
+		);
+		$this->assertNull($this->service->refreshedPayload(skill: $quarantined));
 
-        $quarantined = $this->object(
-            '__system__',
-            ['name' => 'tender-summary', 'state' => 'quarantined']
-        );
-        $this->assertNull($this->service->refreshedPayload(skill: $quarantined));
+	}//end testRefreshNeverTouchesArchivedOrQuarantinedSeed()
 
-    }//end testRefreshNeverTouchesArchivedOrQuarantinedSeed()
+	/**
+	 * A HUMAN-created skill is NEVER touched, whatever its state — its lifecycle
+	 * belongs to its owner, not to the seed repair step.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public function testRefreshNeverTouchesHumanCreatedSkills(): void {
+		$activeHuman = $this->object(
+			'alice',
+			['name' => 'my-own-skill', 'state' => 'active', 'lastActivityAt' => '2025-01-01 00:00:00']
+		);
+		$this->assertNull($this->service->refreshedPayload(skill: $activeHuman));
 
-    /**
-     * A HUMAN-created skill is NEVER touched, whatever its state — its lifecycle
-     * belongs to its owner, not to the seed repair step.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public function testRefreshNeverTouchesHumanCreatedSkills(): void
-    {
-        $activeHuman = $this->object(
-            'alice',
-            ['name' => 'my-own-skill', 'state' => 'active', 'lastActivityAt' => '2025-01-01 00:00:00']
-        );
-        $this->assertNull($this->service->refreshedPayload(skill: $activeHuman));
+		$staleHuman = $this->object(
+			'alice',
+			['name' => 'my-own-skill', 'state' => 'stale', 'staleSince' => '2025-06-01 00:00:00']
+		);
+		$this->assertNull($this->service->refreshedPayload(skill: $staleHuman));
 
-        $staleHuman = $this->object(
-            'alice',
-            ['name' => 'my-own-skill', 'state' => 'stale', 'staleSince' => '2025-06-01 00:00:00']
-        );
-        $this->assertNull($this->service->refreshedPayload(skill: $staleHuman));
+		$ownerless = $this->object(
+			null,
+			['name' => 'my-own-skill', 'state' => 'stale']
+		);
+		$this->assertNull($this->service->refreshedPayload(skill: $ownerless));
 
-        $ownerless = $this->object(
-            null,
-            ['name' => 'my-own-skill', 'state' => 'stale']
-        );
-        $this->assertNull($this->service->refreshedPayload(skill: $ownerless));
+	}//end testRefreshNeverTouchesHumanCreatedSkills()
 
-    }//end testRefreshNeverTouchesHumanCreatedSkills()
+	/**
+	 * The refreshed payload strips OR envelope keys and normalises remaining
+	 * lifecycle date fields to ISO-8601 (the space-separated re-save gotcha).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
+	 */
+	public function testRefreshStripsEnvelopeKeysAndNormalisesDates(): void {
+		$skill = $this->object(
+			'__system__',
+			[
+				'id' => 42,
+				'uuid' => 'uuid-1',
+				'@self' => ['register' => 'hermiq'],
+				'name' => 'tender-summary',
+				'state' => 'active',
+				'lastActivityAt' => '2025-01-01 00:00:00',
+			]
+		);
 
-    /**
-     * The refreshed payload strips OR envelope keys and normalises remaining
-     * lifecycle date fields to ISO-8601 (the space-separated re-save gotcha).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-maturity/spec.md#requirement-seeded-example-skills-demonstrate-distinct-maturity-levels
-     */
-    public function testRefreshStripsEnvelopeKeysAndNormalisesDates(): void
-    {
-        $skill = $this->object(
-            '__system__',
-            [
-                'id'             => 42,
-                'uuid'           => 'uuid-1',
-                '@self'          => ['register' => 'hermiq'],
-                'name'           => 'tender-summary',
-                'state'          => 'active',
-                'lastActivityAt' => '2025-01-01 00:00:00',
-            ]
-        );
+		$refreshed = $this->service->refreshedPayload(skill: $skill);
 
-        $refreshed = $this->service->refreshedPayload(skill: $skill);
+		$this->assertNotNull($refreshed);
+		$this->assertArrayNotHasKey('id', $refreshed);
+		$this->assertArrayNotHasKey('uuid', $refreshed);
+		$this->assertArrayNotHasKey('@self', $refreshed);
 
-        $this->assertNotNull($refreshed);
-        $this->assertArrayNotHasKey('id', $refreshed);
-        $this->assertArrayNotHasKey('uuid', $refreshed);
-        $this->assertArrayNotHasKey('@self', $refreshed);
-
-    }//end testRefreshStripsEnvelopeKeysAndNormalisesDates()
+	}//end testRefreshStripsEnvelopeKeysAndNormalisesDates()
 }//end class

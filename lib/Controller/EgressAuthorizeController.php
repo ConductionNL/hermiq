@@ -63,113 +63,107 @@ use OCP\IRequest;
  *
  * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
-class EgressAuthorizeController extends Controller
-{
-    /**
-     * Constructor.
-     *
-     * @param IRequest                   $request         The request object.
-     * @param RunTokenService            $runTokenService Verifies the per-run bearer token
-     *                                                    (the SAME token Endpoint 1 uses).
-     * @param WebResearchEgressGuard     $guard           THE shared egress policy source (public,
-     *                                                    dependency-free — no second allowlist).
-     * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
-     *                                                    knobs `hermiq.webFetch` reads.
-     */
-    public function __construct(
-        IRequest $request,
-        private readonly RunTokenService $runTokenService,
-        private readonly WebResearchEgressGuard $guard,
-        private readonly WebResearchSettingsHandler $settingsHandler
-    ) {
-        parent::__construct(appName: Application::APP_ID, request: $request);
+class EgressAuthorizeController extends Controller {
+	/**
+	 * Constructor.
+	 *
+	 * @param IRequest $request The request object.
+	 * @param RunTokenService $runTokenService Verifies the per-run bearer token
+	 *                                         (the SAME token Endpoint 1 uses).
+	 * @param WebResearchEgressGuard $guard THE shared egress policy source (public,
+	 *                                      dependency-free — no second allowlist).
+	 * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
+	 *                                                    knobs `hermiq.webFetch` reads.
+	 */
+	public function __construct(
+		IRequest $request,
+		private readonly RunTokenService $runTokenService,
+		private readonly WebResearchEgressGuard $guard,
+		private readonly WebResearchSettingsHandler $settingsHandler,
+	) {
+		parent::__construct(appName: Application::APP_ID, request: $request);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * Decide whether the run identified by the bearer token may reach `host:port`.
-     *
-     * Fails closed: no/invalid token → 401 before any policy evaluation; a missing
-     * host → 400; every other outcome is a 200 with `{allowed, code, message}`
-     * copied straight from `WebResearchEgressGuard::assertSafe()`. `allowed: true`
-     * is the ONLY permit signal.
-     *
-     * @return JSONResponse The verdict, or a 400/401 error.
-     *
-     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
-     * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-one-policy-source-governs-both-layers
-     */
-    #[PublicPage]
-    #[NoCSRFRequired]
-    public function authorize(): JSONResponse
-    {
-        // AUTH FIRST — the per-run token is the authorization. A missing/invalid/
-        // expired/consumed token is rejected before any policy is evaluated.
-        $binding = $this->runTokenService->verify(token: $this->bearerToken());
-        if ($binding === null) {
-            return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
-        }
+	/**
+	 * Decide whether the run identified by the bearer token may reach `host:port`.
+	 *
+	 * Fails closed: no/invalid token → 401 before any policy evaluation; a missing
+	 * host → 400; every other outcome is a 200 with `{allowed, code, message}`
+	 * copied straight from `WebResearchEgressGuard::assertSafe()`. `allowed: true`
+	 * is the ONLY permit signal.
+	 *
+	 * @return JSONResponse The verdict, or a 400/401 error.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-one-policy-source-governs-both-layers
+	 */
+	#[PublicPage]
+	#[NoCSRFRequired]
+	public function authorize(): JSONResponse {
+		// AUTH FIRST — the per-run token is the authorization. A missing/invalid/
+		// expired/consumed token is rejected before any policy is evaluated.
+		$binding = $this->runTokenService->verify(token: $this->bearerToken());
+		if ($binding === null) {
+			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
+		}
 
-        $body = json_decode($this->readRawBody(), true);
-        if (is_array($body) === false) {
-            return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
-        }
+		$body = json_decode($this->readRawBody(), true);
+		if (is_array($body) === false) {
+			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+		}
 
-        $host = trim((string) ($body['host'] ?? ''));
-        $port = (int) ($body['port'] ?? 0);
-        if ($host === '' || $port <= 0) {
-            return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
-        }
+		$host = trim((string)($body['host'] ?? ''));
+		$port = (int)($body['port'] ?? 0);
+		if ($host === '' || $port <= 0) {
+			return new JSONResponse(['error' => 'invalid_request'], Http::STATUS_BAD_REQUEST);
+		}
 
-        $config  = $this->settingsHandler->getWebResearchSettingsOnly();
-        $verdict = $this->guard->assertSafe(
-            url: 'https://'.$host.':'.$port.'/',
-            isAdminConfiguredEndpoint: false,
-            allowlist: (array) ($config['fetchAllowlist'] ?? []),
-            denylist: (array) ($config['fetchDenylist'] ?? []),
-            allowInsecureHttp: (bool) ($config['allowInsecureHttp'] ?? false)
-        );
+		$config = $this->settingsHandler->getWebResearchSettingsOnly();
+		$verdict = $this->guard->assertSafe(
+			url: 'https://' . $host . ':' . $port . '/',
+			isAdminConfiguredEndpoint: false,
+			allowlist: (array)($config['fetchAllowlist'] ?? []),
+			denylist: (array)($config['fetchDenylist'] ?? []),
+			allowInsecureHttp: (bool)($config['allowInsecureHttp'] ?? false)
+		);
 
-        return new JSONResponse(
-            [
-                'allowed' => $verdict['allowed'],
-                'code'    => $verdict['code'],
-                'message' => $verdict['message'],
-            ]
-        );
+		return new JSONResponse(
+			[
+				'allowed' => $verdict['allowed'],
+				'code' => $verdict['code'],
+				'message' => $verdict['message'],
+			]
+		);
 
-    }//end authorize()
+	}//end authorize()
 
-    /**
-     * Extract the bearer token from the `Authorization` header. Never logged.
-     *
-     * @return string The token, or '' when absent/malformed.
-     */
-    private function bearerToken(): string
-    {
-        $header = (string) $this->request->getHeader('Authorization');
-        if (stripos($header, 'Bearer ') !== 0) {
-            return '';
-        }
+	/**
+	 * Extract the bearer token from the `Authorization` header. Never logged.
+	 *
+	 * @return string The token, or '' when absent/malformed.
+	 */
+	private function bearerToken(): string {
+		$header = (string)$this->request->getHeader('Authorization');
+		if (stripos($header, 'Bearer ') !== 0) {
+			return '';
+		}
 
-        return trim(substr($header, 7));
+		return trim(substr($header, 7));
+	}//end bearerToken()
 
-    }//end bearerToken()
+	/**
+	 * Read the raw POST body. Indirected (mirrors `WebhookTriggerController`) so
+	 * tests can override it without stubbing `php://input`.
+	 *
+	 * @return string The raw request body, or '' when unreadable.
+	 */
+	protected function readRawBody(): string {
+		$body = file_get_contents('php://input');
+		if ($body === false) {
+			return '';
+		}
 
-    /**
-     * Read the raw POST body. Indirected (mirrors `WebhookTriggerController`) so
-     * tests can override it without stubbing `php://input`.
-     *
-     * @return string The raw request body, or '' when unreadable.
-     */
-    protected function readRawBody(): string
-    {
-        $body = file_get_contents('php://input');
-        if ($body === false) {
-            return '';
-        }
-
-        return $body;
-
-    }//end readRawBody()
+		return $body;
+	}//end readRawBody()
 }//end class

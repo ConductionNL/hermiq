@@ -100,7 +100,9 @@ function mount(el, props) {
 	if (el === undefined || el === null || mountedApps.has(el) === true) {
 		return
 	}
-	const app = createApp(componentForSurface(props && props.surface), { ...(props || {}) })
+	const app = createApp(componentForSurface(props && props.surface), {
+		...(props || {}),
+	})
 	app.mount(el)
 	mountedApps.set(el, app)
 }

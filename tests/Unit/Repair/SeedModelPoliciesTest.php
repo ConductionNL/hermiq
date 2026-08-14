@@ -42,141 +42,135 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
  */
-class SeedModelPoliciesTest extends TestCase
-{
-    /**
-     * A container resolving TenantModelPolicyService/OrganisationMapper to the
-     * given fixtures.
-     *
-     * @param TenantModelPolicyService $policyService The policy service double.
-     * @param array<int, string>       $orgUuids      Organisation UUIDs findAll() returns.
-     *
-     * @return ContainerInterface
-     */
-    private function container(TenantModelPolicyService $policyService, array $orgUuids): ContainerInterface
-    {
-        $orgMapper = $this->createMock(originalClassName: OrganisationMapper::class);
-        $orgs      = array_map(
-            callback: function (string $uuid) {
-                // Real entity, not a mock: the real Organisation resolves
-                // getUuid() via Entity magic, unmockable under a server tree.
-                $org = new Organisation();
-                $org->setUuid($uuid);
-                return $org;
-            },
-            array: $orgUuids
-        );
-        $orgMapper->method('findAll')->willReturn($orgs);
+class SeedModelPoliciesTest extends TestCase {
+	/**
+	 * A container resolving TenantModelPolicyService/OrganisationMapper to the
+	 * given fixtures.
+	 *
+	 * @param TenantModelPolicyService $policyService The policy service double.
+	 * @param array<int, string> $orgUuids Organisation UUIDs findAll() returns.
+	 *
+	 * @return ContainerInterface
+	 */
+	private function container(TenantModelPolicyService $policyService, array $orgUuids): ContainerInterface {
+		$orgMapper = $this->createMock(originalClassName: OrganisationMapper::class);
+		$orgs = array_map(
+			callback: function (string $uuid) {
+				// Real entity, not a mock: the real Organisation resolves
+				// getUuid() via Entity magic, unmockable under a server tree.
+				$org = new Organisation();
+				$org->setUuid($uuid);
+				return $org;
+			},
+			array: $orgUuids
+		);
+		$orgMapper->method('findAll')->willReturn($orgs);
 
-        $container = $this->createMock(originalClassName: ContainerInterface::class);
-        $container->method('get')->willReturnCallback(
-            callback: function (string $class) use ($policyService, $orgMapper) {
-                return match ($class) {
-                    TenantModelPolicyService::class => $policyService,
-                    OrganisationMapper::class => $orgMapper,
-                    default => throw new \RuntimeException("Unexpected service: {$class}"),
-                };
-            }
-        );
+		$container = $this->createMock(originalClassName: ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			callback: function (string $class) use ($policyService, $orgMapper) {
+				return match ($class) {
+					TenantModelPolicyService::class => $policyService,
+					OrganisationMapper::class => $orgMapper,
+					default => throw new \RuntimeException("Unexpected service: {$class}"),
+				};
+			}
+		);
 
-        return $container;
+		return $container;
+	}//end container()
 
-    }//end container()
+	/**
+	 * With an organisation present and no existing policies, both seed rows are
+	 * created — and the sample org policy's defaultModel is a {provider, model}
+	 * object (never a bare model string, which the service rejects).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+	 */
+	public function testSeedsBothPoliciesWithObjectShapedDefaultModel(): void {
+		$policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
+		$policyService->method('getForOrganisation')->willReturn(null);
 
-    /**
-     * With an organisation present and no existing policies, both seed rows are
-     * created — and the sample org policy's defaultModel is a {provider, model}
-     * object (never a bare model string, which the service rejects).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
-     */
-    public function testSeedsBothPoliciesWithObjectShapedDefaultModel(): void
-    {
-        $policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
-        $policyService->method('getForOrganisation')->willReturn(null);
+		$upserted = [];
+		$policyService->method('upsertForOrganisation')->willReturnCallback(
+			callback: function (string $organisation, array $payload) use (&$upserted): array {
+				$upserted[] = ['organisation' => $organisation, 'payload' => $payload];
+				return $payload;
+			}
+		);
 
-        $upserted = [];
-        $policyService->method('upsertForOrganisation')->willReturnCallback(
-            callback: function (string $organisation, array $payload) use (&$upserted): array {
-                $upserted[] = ['organisation' => $organisation, 'payload' => $payload];
-                return $payload;
-            }
-        );
+		$step = new SeedModelPolicies(
+			container: $this->container(policyService: $policyService, orgUuids: ['org-a']),
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+		);
 
-        $step = new SeedModelPolicies(
-            container: $this->container(policyService: $policyService, orgUuids: ['org-a']),
-            logger: $this->createMock(originalClassName: LoggerInterface::class),
-        );
+		$step->run(output: $this->createMock(originalClassName: IOutput::class));
 
-        $step->run(output: $this->createMock(originalClassName: IOutput::class));
+		$this->assertCount(2, $upserted, 'Instance default + sample org policy must both be created.');
 
-        $this->assertCount(2, $upserted, 'Instance default + sample org policy must both be created.');
+		$this->assertSame('', $upserted[0]['organisation']);
+		$this->assertNull($upserted[0]['payload']['defaultModel']);
 
-        $this->assertSame('', $upserted[0]['organisation']);
-        $this->assertNull($upserted[0]['payload']['defaultModel']);
+		$this->assertSame('org-a', $upserted[1]['organisation']);
+		$this->assertSame(
+			['provider' => 'ollama', 'model' => 'qwen2.5'],
+			$upserted[1]['payload']['defaultModel'],
+			'The sample defaultModel must be a {provider, model} object the service accepts.'
+		);
 
-        $this->assertSame('org-a', $upserted[1]['organisation']);
-        $this->assertSame(
-            ['provider' => 'ollama', 'model' => 'qwen2.5'],
-            $upserted[1]['payload']['defaultModel'],
-            'The sample defaultModel must be a {provider, model} object the service accepts.'
-        );
+	}//end testSeedsBothPoliciesWithObjectShapedDefaultModel()
 
-    }//end testSeedsBothPoliciesWithObjectShapedDefaultModel()
+	/**
+	 * With no OpenRegister organisation yet, only the instance default is seeded;
+	 * the sample org policy is deferred (never fabricated into a bogus tenant).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+	 */
+	public function testDefersSampleOrgPolicyWhenNoOrganisationExists(): void {
+		$policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
+		$policyService->method('getForOrganisation')->willReturn(null);
 
-    /**
-     * With no OpenRegister organisation yet, only the instance default is seeded;
-     * the sample org policy is deferred (never fabricated into a bogus tenant).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
-     */
-    public function testDefersSampleOrgPolicyWhenNoOrganisationExists(): void
-    {
-        $policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
-        $policyService->method('getForOrganisation')->willReturn(null);
+		$organisations = [];
+		$policyService->method('upsertForOrganisation')->willReturnCallback(
+			callback: function (string $organisation, array $payload) use (&$organisations): array {
+				$organisations[] = $organisation;
+				return $payload;
+			}
+		);
 
-        $organisations = [];
-        $policyService->method('upsertForOrganisation')->willReturnCallback(
-            callback: function (string $organisation, array $payload) use (&$organisations): array {
-                $organisations[] = $organisation;
-                return $payload;
-            }
-        );
+		$step = new SeedModelPolicies(
+			container: $this->container(policyService: $policyService, orgUuids: []),
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+		);
 
-        $step = new SeedModelPolicies(
-            container: $this->container(policyService: $policyService, orgUuids: []),
-            logger: $this->createMock(originalClassName: LoggerInterface::class),
-        );
+		$step->run(output: $this->createMock(originalClassName: IOutput::class));
 
-        $step->run(output: $this->createMock(originalClassName: IOutput::class));
+		$this->assertSame([''], $organisations, 'Only the instance default may be seeded.');
 
-        $this->assertSame([''], $organisations, 'Only the instance default may be seeded.');
+	}//end testDefersSampleOrgPolicyWhenNoOrganisationExists()
 
-    }//end testDefersSampleOrgPolicyWhenNoOrganisationExists()
+	/**
+	 * An existing policy is never overwritten — admin edits survive upgrades.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
+	 */
+	public function testNeverOverwritesAnExistingPolicy(): void {
+		$policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
+		$policyService->method('getForOrganisation')->willReturn(new ObjectEntity());
+		$policyService->expects($this->never())->method('upsertForOrganisation');
 
-    /**
-     * An existing policy is never overwritten — admin edits survive upgrades.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/tenant-model-policy/tasks.md#task-9-seed-data
-     */
-    public function testNeverOverwritesAnExistingPolicy(): void
-    {
-        $policyService = $this->createMock(originalClassName: TenantModelPolicyService::class);
-        $policyService->method('getForOrganisation')->willReturn(new ObjectEntity());
-        $policyService->expects($this->never())->method('upsertForOrganisation');
+		$step = new SeedModelPolicies(
+			container: $this->container(policyService: $policyService, orgUuids: ['org-a']),
+			logger: $this->createMock(originalClassName: LoggerInterface::class),
+		);
 
-        $step = new SeedModelPolicies(
-            container: $this->container(policyService: $policyService, orgUuids: ['org-a']),
-            logger: $this->createMock(originalClassName: LoggerInterface::class),
-        );
+		$step->run(output: $this->createMock(originalClassName: IOutput::class));
 
-        $step->run(output: $this->createMock(originalClassName: IOutput::class));
-
-    }//end testNeverOverwritesAnExistingPolicy()
+	}//end testNeverOverwritesAnExistingPolicy()
 }//end class

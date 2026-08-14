@@ -35,11 +35,18 @@ const EVALS_BASE = '/apps/hermiq/api/evals'
  * @return {Promise<object>} { evalRunId, status, passRate, regressionGateResult, previousPassRate }.
  */
 export async function runEval(datasetId, agentId, options = {}) {
-	const response = await axios.post(generateUrl(`${EVALS_BASE}/${datasetId}/run`), {
-		agentId,
-		...(options.agentVersionId ? { agentVersionId: options.agentVersionId } : {}),
-		...(options.regressionThresholdPercent != null ? { regressionThresholdPercent: options.regressionThresholdPercent } : {}),
-		...(options.baseline === true ? { baseline: true } : {}),
-	})
+	const response = await axios.post(
+		generateUrl(`${EVALS_BASE}/${datasetId}/run`),
+		{
+			agentId,
+			...(options.agentVersionId
+				? { agentVersionId: options.agentVersionId }
+				: {}),
+			...(options.regressionThresholdPercent != null
+				? { regressionThresholdPercent: options.regressionThresholdPercent }
+				: {}),
+			...(options.baseline === true ? { baseline: true } : {}),
+		},
+	)
 	return response.data
 }

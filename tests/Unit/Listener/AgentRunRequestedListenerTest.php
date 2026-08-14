@@ -40,130 +40,124 @@ use RuntimeException;
  *
  * @spec openspec/changes/flow-agent-listener/tasks.md#1-listener-and-queued-job
  */
-class AgentRunRequestedListenerTest extends TestCase
-{
+class AgentRunRequestedListenerTest extends TestCase {
 
-    /**
-     * Build an AgentRunRequestedEvent with the given overrides.
-     *
-     * @param array<string,mixed> $overrides Field overrides.
-     *
-     * @return AgentRunRequestedEvent
-     */
-    private function event(array $overrides=[]): AgentRunRequestedEvent
-    {
-        $defaults = [
-            'subjectUuid'      => 'obj-1',
-            'subjectRegister'  => '1',
-            'subjectSchema'    => '10',
-            'agent'            => 'agent-uuid-1',
-            'skill'            => null,
-            'prompt'           => 'Classify this',
-            'resultField'      => 'categorySlug',
-            'requiresApproval' => false,
-            'mode'             => 'async',
-            'flowName'         => 'classify-tender',
-        ];
-        $data = array_merge($defaults, $overrides);
+	/**
+	 * Build an AgentRunRequestedEvent with the given overrides.
+	 *
+	 * @param array<string,mixed> $overrides Field overrides.
+	 *
+	 * @return AgentRunRequestedEvent
+	 */
+	private function event(array $overrides = []): AgentRunRequestedEvent {
+		$defaults = [
+			'subjectUuid' => 'obj-1',
+			'subjectRegister' => '1',
+			'subjectSchema' => '10',
+			'agent' => 'agent-uuid-1',
+			'skill' => null,
+			'prompt' => 'Classify this',
+			'resultField' => 'categorySlug',
+			'requiresApproval' => false,
+			'mode' => 'async',
+			'flowName' => 'classify-tender',
+		];
+		$data = array_merge($defaults, $overrides);
 
-        return new AgentRunRequestedEvent(
-            subjectUuid: $data['subjectUuid'],
-            subjectRegister: $data['subjectRegister'],
-            subjectSchema: $data['subjectSchema'],
-            agent: $data['agent'],
-            skill: $data['skill'],
-            prompt: $data['prompt'],
-            resultField: $data['resultField'],
-            requiresApproval: $data['requiresApproval'],
-            mode: $data['mode'],
-            flowName: $data['flowName']
-        );
+		return new AgentRunRequestedEvent(
+			subjectUuid: $data['subjectUuid'],
+			subjectRegister: $data['subjectRegister'],
+			subjectSchema: $data['subjectSchema'],
+			agent: $data['agent'],
+			skill: $data['skill'],
+			prompt: $data['prompt'],
+			resultField: $data['resultField'],
+			requiresApproval: $data['requiresApproval'],
+			mode: $data['mode'],
+			flowName: $data['flowName']
+		);
 
-    }//end event()
+	}//end event()
 
-    /**
-     * An unrelated event is ignored entirely.
-     *
-     * @return void
-     */
-    public function testIgnoresUnrelatedEvent(): void
-    {
-        $jobList = $this->createMock(IJobList::class);
-        $jobList->expects($this->never())->method('add');
+	/**
+	 * An unrelated event is ignored entirely.
+	 *
+	 * @return void
+	 */
+	public function testIgnoresUnrelatedEvent(): void {
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->expects($this->never())->method('add');
 
-        $listener = new AgentRunRequestedListener($jobList, $this->createMock(LoggerInterface::class));
-        $listener->handle($this->createMock(Event::class));
+		$listener = new AgentRunRequestedListener($jobList, $this->createMock(LoggerInterface::class));
+		$listener->handle($this->createMock(Event::class));
 
-        $this->addToAssertionCount(1);
+		$this->addToAssertionCount(1);
 
-    }//end testIgnoresUnrelatedEvent()
+	}//end testIgnoresUnrelatedEvent()
 
-    /**
-     * mode=async enqueues AgentRunRequestedJob with the event's flattened payload.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
-     */
-    public function testAsyncModeEnqueuesJobWithPayload(): void
-    {
-        $jobList = $this->createMock(IJobList::class);
-        $jobList->expects($this->once())
-            ->method('add')
-            ->with(
-                AgentRunRequestedJob::class,
-                $this->callback(function (array $payload): bool {
-                    return $payload['agent'] === 'agent-uuid-1'
-                        && $payload['resultField'] === 'categorySlug'
-                        && $payload['mode'] === 'async';
-                })
-            );
+	/**
+	 * mode=async enqueues AgentRunRequestedJob with the event's flattened payload.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
+	 */
+	public function testAsyncModeEnqueuesJobWithPayload(): void {
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->expects($this->once())
+			->method('add')
+			->with(
+				AgentRunRequestedJob::class,
+				$this->callback(function (array $payload): bool {
+					return $payload['agent'] === 'agent-uuid-1'
+						&& $payload['resultField'] === 'categorySlug'
+						&& $payload['mode'] === 'async';
+				})
+			);
 
-        $listener = new AgentRunRequestedListener($jobList, $this->createMock(LoggerInterface::class));
-        $listener->handle($this->event());
+		$listener = new AgentRunRequestedListener($jobList, $this->createMock(LoggerInterface::class));
+		$listener->handle($this->event());
 
-    }//end testAsyncModeEnqueuesJobWithPayload()
+	}//end testAsyncModeEnqueuesJobWithPayload()
 
-    /**
-     * An unsupported mode (e.g. "sync") is logged and never enqueued.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
-     */
-    public function testUnsupportedModeIsSkippedAndLogged(): void
-    {
-        $jobList = $this->createMock(IJobList::class);
-        $jobList->expects($this->never())->method('add');
+	/**
+	 * An unsupported mode (e.g. "sync") is logged and never enqueued.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
+	 */
+	public function testUnsupportedModeIsSkippedAndLogged(): void {
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->expects($this->never())->method('add');
 
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->once())->method('warning');
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning');
 
-        $listener = new AgentRunRequestedListener($jobList, $logger);
-        $listener->handle($this->event(['mode' => 'sync']));
+		$listener = new AgentRunRequestedListener($jobList, $logger);
+		$listener->handle($this->event(['mode' => 'sync']));
 
-    }//end testUnsupportedModeIsSkippedAndLogged()
+	}//end testUnsupportedModeIsSkippedAndLogged()
 
-    /**
-     * A job-list failure is caught and logged — the listener never throws into
-     * OpenRegister's dispatchTyped() call.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
-     */
-    public function testJobListFailureIsCaughtAndLogged(): void
-    {
-        $jobList = $this->createMock(IJobList::class);
-        $jobList->method('add')->willThrowException(new RuntimeException('queue down'));
+	/**
+	 * A job-list failure is caught and logged — the listener never throws into
+	 * OpenRegister's dispatchTyped() call.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/flow-agent-listener/tasks.md#task-1-2
+	 */
+	public function testJobListFailureIsCaughtAndLogged(): void {
+		$jobList = $this->createMock(IJobList::class);
+		$jobList->method('add')->willThrowException(new RuntimeException('queue down'));
 
-        $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->once())->method('warning');
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning');
 
-        $listener = new AgentRunRequestedListener($jobList, $logger);
-        $listener->handle($this->event());
+		$listener = new AgentRunRequestedListener($jobList, $logger);
+		$listener->handle($this->event());
 
-        $this->addToAssertionCount(1);
+		$this->addToAssertionCount(1);
 
-    }//end testJobListFailureIsCaughtAndLogged()
+	}//end testJobListFailureIsCaughtAndLogged()
 }//end class

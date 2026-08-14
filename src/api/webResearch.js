@@ -17,7 +17,9 @@ import { generateUrl } from '@nextcloud/router'
  * @return {Promise<object>} The masked `hermiq.webResearch` config.
  */
 export async function getWebResearchSettings() {
-	const { data } = await axios.get(generateUrl('/apps/hermiq/api/settings/web-research'))
+	const { data } = await axios.get(
+		generateUrl('/apps/hermiq/api/settings/web-research'),
+	)
 	return data
 }
 

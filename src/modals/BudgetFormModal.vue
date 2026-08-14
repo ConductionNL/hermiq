@@ -23,7 +23,10 @@
 		size="normal"
 		@update:open="$emit('close')">
 		<div class="budget-form">
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not save budget')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not save budget')">
 				{{ error }}
 			</NcNoteCard>
 
@@ -69,7 +72,12 @@
 					placeholder="" />
 			</div>
 			<p class="budget-form__hint">
-				{{ t('hermiq', 'At least one of token limit or EUR limit is required.') }}
+				{{
+					t(
+						'hermiq',
+						'At least one of token limit or EUR limit is required.',
+					)
+				}}
 			</p>
 
 			<NcTextField
@@ -87,10 +95,7 @@
 			<NcButton :disabled="saving" @click="$emit('close')">
 				{{ t('hermiq', 'Cancel') }}
 			</NcButton>
-			<NcButton
-				type="primary"
-				:disabled="saving || !canSave"
-				@click="save">
+			<NcButton type="primary" :disabled="saving || !canSave" @click="save">
 				<template v-if="saving" #icon>
 					<NcLoadingIcon :size="20" />
 				</template>
@@ -101,7 +106,15 @@
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcDialog, NcLoadingIcon, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcDialog,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+	NcTextField,
+} from '@nextcloud/vue'
 import { createBudget, updateBudget } from '../api/budgets.js'
 
 export default {
@@ -171,7 +184,9 @@ export default {
 		 * @return {string} The localised heading.
 		 */
 		heading() {
-			return this.isEdit ? this.t('hermiq', 'Edit budget') : this.t('hermiq', 'Create budget')
+			return this.isEdit
+				? this.t('hermiq', 'Edit budget')
+				: this.t('hermiq', 'Create budget')
 		},
 
 		/**
@@ -181,7 +196,8 @@ export default {
 		 * @return {boolean}
 		 */
 		canSave() {
-			const hasLimit = (this.form.tokenLimit !== '' && this.form.tokenLimit !== null)
+			const hasLimit =
+				(this.form.tokenLimit !== '' && this.form.tokenLimit !== null)
 				|| (this.form.eurLimit !== '' && this.form.eurLimit !== null)
 			const hasAgent = this.form.scope !== 'agent' || !!this.form.agentId
 			return hasLimit && hasAgent
@@ -192,7 +208,11 @@ export default {
 		 */
 		scopeOption: {
 			get() {
-				return this.scopeOptions.find((option) => option.value === this.form.scope) || this.scopeOptions[0]
+				return (
+					this.scopeOptions.find(
+						(option) => option.value === this.form.scope,
+					) || this.scopeOptions[0]
+				)
 			},
 			set(option) {
 				this.form.scope = option ? option.value : 'organisation'
@@ -204,7 +224,11 @@ export default {
 		 */
 		periodOption: {
 			get() {
-				return this.periodOptions.find((option) => option.value === this.form.period) || this.periodOptions[2]
+				return (
+					this.periodOptions.find(
+						(option) => option.value === this.form.period,
+					) || this.periodOptions[2]
+				)
 			},
 			set(option) {
 				this.form.period = option ? option.value : 'monthly'
@@ -297,11 +321,17 @@ export default {
 				const payload = this.buildPayload()
 				const saved = this.isEdit
 					? await updateBudget(this.budget.id, payload)
-					: await createBudget({ ...payload, organisation: this.organisation })
+					: await createBudget({
+							...payload,
+							organisation: this.organisation,
+						})
 				this.$emit('saved', saved)
 				this.$emit('close')
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.saving = false
 			}

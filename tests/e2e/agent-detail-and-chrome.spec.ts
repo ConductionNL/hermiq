@@ -47,7 +47,7 @@ const NC_PASS = process.env.NC_PASS || 'admin'
 async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 	await userField.fill(NC_USER)
@@ -68,13 +68,17 @@ async function login(page: Page): Promise<void> {
 async function dismissOnboarding(page: Page): Promise<void> {
 	const modal = page.locator('[data-testid="cn-modal"]')
 	for (let attempt = 0; attempt < 6; attempt++) {
-		if (await modal.isVisible().catch(() => false) === false) {
+		if ((await modal.isVisible().catch(() => false)) === false) {
 			await page.waitForTimeout(600)
-			if (await modal.isVisible().catch(() => false) === false) {
+			if ((await modal.isVisible().catch(() => false)) === false) {
 				break
 			}
 		}
-		await modal.first().getByRole('button', { name: 'Close' }).click({ timeout: 2_000 }).catch(() => {})
+		await modal
+			.first()
+			.getByRole('button', { name: 'Close' })
+			.click({ timeout: 2_000 })
+			.catch(() => {})
 		await page.keyboard.press('Escape').catch(() => {})
 		await page.waitForTimeout(700)
 	}
@@ -93,7 +97,10 @@ async function dismissOnboarding(page: Page): Promise<void> {
  * @param page The Playwright page.
  * @param target The locator to click.
  */
-async function clickPastOverlays(page: Page, target: ReturnType<Page['locator']>): Promise<void> {
+async function clickPastOverlays(
+	page: Page,
+	target: ReturnType<Page['locator']>,
+): Promise<void> {
 	let lastError: unknown = null
 	for (let attempt = 0; attempt < 5; attempt++) {
 		await dismissOnboarding(page)
@@ -120,10 +127,14 @@ async function clickPastOverlays(page: Page, target: ReturnType<Page['locator']>
  */
 async function richestAgentId(page: Page): Promise<string | null> {
 	return await page.evaluate(async () => {
-		const token = (window as unknown as { OC: { requestToken: string } }).OC.requestToken
-		const res = await fetch('/apps/openregister/api/objects/hermiq/agent?_limit=50', {
-			headers: { requesttoken: token },
-		})
+		const token = (window as unknown as { OC: { requestToken: string } }).OC
+			.requestToken
+		const res = await fetch(
+			'/apps/openregister/api/objects/hermiq/agent?_limit=50',
+			{
+				headers: { requesttoken: token },
+			},
+		)
 		if (!res.ok) {
 			return null
 		}
@@ -131,7 +142,9 @@ async function richestAgentId(page: Page): Promise<string | null> {
 		const list: Array<Record<string, unknown>> = body.results || body
 		const ranked = list
 			.map((o) => ({
-				id: String((o['@self'] as Record<string, unknown>)?.id ?? o.id ?? ''),
+				id: String(
+					(o['@self'] as Record<string, unknown>)?.id ?? o.id ?? '',
+				),
 				fields: Object.keys(o).filter((k) => !k.startsWith('@')).length,
 			}))
 			.filter((o) => o.id !== '')
@@ -141,12 +154,16 @@ async function richestAgentId(page: Page): Promise<string | null> {
 }
 
 test.describe('hermiq regression: agent detail grid + app chrome', () => {
-	test('every AgentDetail widget fits the grid cell the manifest gives it (agent-detail-redesign)', async ({ page }) => {
+	test('every AgentDetail widget fits the grid cell the manifest gives it (agent-detail-redesign)', async ({
+		page,
+	}) => {
 		await login(page)
 		const agentId = await richestAgentId(page)
 		test.skip(agentId === null, 'instance has no hermiq agents to open')
 
-		await page.goto(`/apps/hermiq/agents/${agentId}`, { waitUntil: 'domcontentloaded' })
+		await page.goto(`/apps/hermiq/agents/${agentId}`, {
+			waitUntil: 'domcontentloaded',
+		})
 		await dismissOnboarding(page)
 
 		const cells = page.locator('.grid-stack-item')
@@ -160,7 +177,11 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 			await page.waitForTimeout(1_000)
 			const signature = await page.evaluate(() =>
 				[...document.querySelectorAll('.grid-stack-item')]
-					.map((el) => el.querySelector('.grid-stack-item-content')?.scrollHeight ?? 0)
+					.map(
+						(el) =>
+							el.querySelector('.grid-stack-item-content')
+								?.scrollHeight ?? 0,
+					)
 					.join(','),
 			)
 			if (signature === previous && signature.includes(',')) {
@@ -172,9 +193,12 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 		const measured = await page.evaluate(() =>
 			[...document.querySelectorAll('.grid-stack-item')].map((el) => {
 				const inner = el.querySelector('.grid-stack-item-content')
-				const header = inner?.querySelector('.cn-widget-wrapper__title, .cn-detail-page__widget-title')
+				const header = inner?.querySelector(
+					'.cn-widget-wrapper__title, .cn-detail-page__widget-title',
+				)
 				return {
-					name: header?.textContent?.trim()
+					name:
+						header?.textContent?.trim()
 						|| (inner as HTMLElement)?.innerText?.split('\n')[0]
 						|| '(unlabelled)',
 					cell: Math.round(el.getBoundingClientRect().height),
@@ -185,12 +209,18 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 
 		// The manifest declares 11 widgets; a smaller number means the grid did
 		// not finish materialising and the fit assertion below would be vacuous.
-		expect(measured.length, 'AgentDetail should render its full widget grid').toBe(11)
+		expect(
+			measured.length,
+			'AgentDetail should render its full widget grid',
+		).toBe(11)
 
 		const overflowing = measured
 			.filter((m) => m.content > m.cell)
 			.map((m) => `${m.name}: ${m.content}px of content in a ${m.cell}px cell`)
-		expect(overflowing, `Widgets overflow their grid cells: ${overflowing.join(' | ')}`).toEqual([])
+		expect(
+			overflowing,
+			`Widgets overflow their grid cells: ${overflowing.join(' | ')}`,
+		).toEqual([])
 
 		// No widget type resolved to nothing. A missing registry type renders the
 		// "Widget not available" placeholder, which FITS its cell happily and so
@@ -198,14 +228,20 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 		await expect(page.locator('.cn-dashboard-page__unknown')).toHaveCount(0)
 	})
 
-	test('the KPI tiles render their label once, not twice (showTitle)', async ({ page }) => {
+	test('the KPI tiles render their label once, not twice (showTitle)', async ({
+		page,
+	}) => {
 		await login(page)
 		const agentId = await richestAgentId(page)
 		test.skip(agentId === null, 'instance has no hermiq agents to open')
 
-		await page.goto(`/apps/hermiq/agents/${agentId}`, { waitUntil: 'domcontentloaded' })
+		await page.goto(`/apps/hermiq/agents/${agentId}`, {
+			waitUntil: 'domcontentloaded',
+		})
 		await dismissOnboarding(page)
-		await expect(page.locator('.grid-stack-item').first()).toBeVisible({ timeout: 30_000 })
+		await expect(page.locator('.grid-stack-item').first()).toBeVisible({
+			timeout: 30_000,
+		})
 		await page.waitForTimeout(3_000)
 
 		// A stat renderer draws its own label from content.label, so the wrapper
@@ -226,7 +262,9 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 					const inner = el.querySelector('.grid-stack-item-content')
 					return {
 						text: (inner as HTMLElement)?.innerText?.trim() ?? '',
-						headers: inner?.querySelectorAll('.cn-widget-wrapper__title').length ?? 0,
+						headers:
+							inner?.querySelectorAll('.cn-widget-wrapper__title')
+								.length ?? 0,
 					}
 				}),
 		)
@@ -234,18 +272,28 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 		// Guard the selector itself: if no stat tile matched, every assertion in
 		// the loop below would be skipped and the test would report green while
 		// checking nothing.
-		expect(kpis.length, 'no stat tiles matched — the showTitle assertions would be vacuous').toBe(4)
+		expect(
+			kpis.length,
+			'no stat tiles matched — the showTitle assertions would be vacuous',
+		).toBe(4)
 
 		for (const kpi of kpis) {
-			expect(kpi.headers, `KPI tile "${kpi.text.split('\n')[0]}" still renders a wrapper header`).toBe(0)
+			expect(
+				kpi.headers,
+				`KPI tile "${kpi.text.split('\n')[0]}" still renders a wrapper header`,
+			).toBe(0)
 			// The label must appear exactly once in the tile's text.
 			const label = kpi.text.split('\n')[0]
 			const occurrences = kpi.text.split(label).length - 1
-			expect(occurrences, `KPI label "${label}" appears ${occurrences}x`).toBe(1)
+			expect(occurrences, `KPI label "${label}" appears ${occurrences}x`).toBe(
+				1,
+			)
 		}
 	})
 
-	test('every nav entry renders a real icon, and Tenant ops sits under Settings (ADR-077)', async ({ page }) => {
+	test('every nav entry renders a real icon, and Tenant ops sits under Settings (ADR-077)', async ({
+		page,
+	}) => {
 		await login(page)
 		await page.goto('/apps/hermiq/', { waitUntil: 'domcontentloaded' })
 		await dismissOnboarding(page)
@@ -264,7 +312,10 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 		const tenantOps = nav.getByRole('link', { name: 'Tenant ops' })
 		await expect(tenantOps).toBeHidden()
 
-		await clickPastOverlays(page, nav.getByTestId('cn-nav-settings').getByRole('button'))
+		await clickPastOverlays(
+			page,
+			nav.getByTestId('cn-nav-settings').getByRole('button'),
+		)
 		await expect(tenantOps).toBeVisible({ timeout: 10_000 })
 
 		// An MDI name the app never registered renders NOTHING — no fallback
@@ -282,17 +333,29 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 				.filter((row) => row.label !== '' && !row.renders)
 				.map((row) => row.label),
 		)
-		expect(iconless, `Nav entries render no icon: ${iconless.join(', ')}`).toEqual([])
+		expect(
+			iconless,
+			`Nav entries render no icon: ${iconless.join(', ')}`,
+		).toEqual([])
 
 		// The two entries this change re-pointed, by rendered icon class.
-		const iconFor = async (label: string) => await page.evaluate((wanted) => {
-			const link = [...document.querySelectorAll('.app-navigation__content a')]
-				.find((a) => (a as HTMLElement).innerText.trim().split('\n')[0] === wanted)
-			const icon = link?.querySelector('.material-design-icon')
-			return icon
-				? [...icon.classList].find((c) => c.endsWith('-icon') && c !== 'material-design-icon') ?? null
-				: null
-		}, label)
+		const iconFor = async (label: string) =>
+			await page.evaluate((wanted) => {
+				const link = [
+					...document.querySelectorAll('.app-navigation__content a'),
+				].find(
+					(a) =>
+						(a as HTMLElement).innerText.trim().split('\n')[0]
+						=== wanted,
+				)
+				const icon = link?.querySelector('.material-design-icon')
+				return icon
+					? ([...icon.classList].find(
+							(c) =>
+								c.endsWith('-icon') && c !== 'material-design-icon',
+						) ?? null)
+					: null
+			}, label)
 
 		// One mark per meaning: the AI sparkles (Creation) denote "an agent", so
 		// they belong on Agents. Chat had carried them, which read as "AI chat"
@@ -303,7 +366,9 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 		expect(await iconFor('Chat')).toBe('message-text-outline-icon')
 	})
 
-	test('chat shows the real user avatar for user turns and the AI mark for the agent', async ({ page }) => {
+	test('chat shows the real user avatar for user turns and the AI mark for the agent', async ({
+		page,
+	}) => {
 		await login(page)
 		await page.goto('/apps/hermiq/chat', { waitUntil: 'domcontentloaded' })
 		await dismissOnboarding(page)
@@ -344,9 +409,13 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 		let found = false
 		for (let index = 0; index < candidates && found === false; index++) {
 			if (index > 0) {
-				await page.goto('/apps/hermiq/chat', { waitUntil: 'domcontentloaded' })
+				await page.goto('/apps/hermiq/chat', {
+					waitUntil: 'domcontentloaded',
+				})
 				await dismissOnboarding(page)
-				await expect(conversations.nth(index)).toBeVisible({ timeout: 30_000 })
+				await expect(conversations.nth(index)).toBeVisible({
+					timeout: 30_000,
+				})
 			}
 			await clickPastOverlays(page, conversations.nth(index))
 			// waitFor, NOT isVisible: `isVisible()` resolves IMMEDIATELY — it does
@@ -355,7 +424,8 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 			// fetch had painted a single bubble, and reported false for every
 			// candidate — "no user turn in the first 8 conversations" against a
 			// page whose very first thread has one.
-			found = await userTurn.waitFor({ state: 'visible', timeout: 15_000 })
+			found = await userTurn
+				.waitFor({ state: 'visible', timeout: 15_000 })
 				.then(() => true)
 				.catch(() => false)
 		}
@@ -369,19 +439,34 @@ test.describe('hermiq regression: agent detail grid + app chrome', () => {
 			return {
 				// NcAvatar renders .avatardiv; the placeholder icon it replaced was
 				// AccountCircle, so its absence is the other half of the check.
-				userAvatars: main?.querySelectorAll('.chat-page__message--user .avatardiv').length ?? 0,
-				accountCircles: main?.querySelectorAll('.account-circle-icon').length ?? 0,
+				userAvatars:
+					main?.querySelectorAll('.chat-page__message--user .avatardiv')
+						.length ?? 0,
+				accountCircles:
+					main?.querySelectorAll('.account-circle-icon').length ?? 0,
 				// One mark per meaning: the assistant turn carries the AI sparkles
 				// (Creation), the same mark the Agents nav entry uses. The robot is
 				// gone from the app entirely.
-				aiMarks: main?.querySelectorAll('.chat-page__message--assistant .creation-icon').length ?? 0,
+				aiMarks:
+					main?.querySelectorAll(
+						'.chat-page__message--assistant .creation-icon',
+					).length ?? 0,
 				robots: main?.querySelectorAll('.robot-icon').length ?? 0,
 			}
 		})
 
-		expect(avatars.accountCircles, 'chat still renders the generic AccountCircle placeholder').toBe(0)
+		expect(
+			avatars.accountCircles,
+			'chat still renders the generic AccountCircle placeholder',
+		).toBe(0)
 		expect(avatars.robots, 'chat still renders the retired robot mark').toBe(0)
-		expect(avatars.userAvatars, 'no real user avatar rendered for the user turn').toBeGreaterThan(0)
-		expect(avatars.aiMarks, 'no AI mark rendered for the agent turn').toBeGreaterThan(0)
+		expect(
+			avatars.userAvatars,
+			'no real user avatar rendered for the user turn',
+		).toBeGreaterThan(0)
+		expect(
+			avatars.aiMarks,
+			'no AI mark rendered for the agent turn',
+		).toBeGreaterThan(0)
 	})
 })

@@ -29,7 +29,10 @@
 -->
 <template>
 	<div class="eval-run-panel-widget">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Evaluations error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Evaluations error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -61,7 +64,12 @@
 				{{ t('hermiq', 'Paired baseline (with vs without skills)') }}
 			</NcCheckboxRadioSwitch>
 			<p v-if="!hasLinkedSkills" class="eval-run-panel-widget__hint">
-				{{ t('hermiq', 'Link a skill to this dataset to enable paired baseline runs.') }}
+				{{
+					t(
+						'hermiq',
+						'Link a skill to this dataset to enable paired baseline runs.',
+					)
+				}}
 			</p>
 			<p v-else-if="baseline" class="eval-run-panel-widget__hint">
 				{{ costNote }}
@@ -77,7 +85,11 @@
 						<th scope="col">{{ t('hermiq', 'Baseline') }}</th>
 						<th scope="col">{{ t('hermiq', 'Regression gate') }}</th>
 						<th scope="col">{{ t('hermiq', 'Status') }}</th>
-						<th scope="col"><span class="hidden-visually">{{ t('hermiq', 'Details') }}</span></th>
+						<th scope="col">
+							<span class="hidden-visually">{{
+								t('hermiq', 'Details')
+							}}</span>
+						</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -92,8 +104,16 @@
 								<span v-else>—</span>
 							</td>
 							<td>
-								<span :class="['eval-run-panel-widget__badge', regressionBadgeClass(runRow.regressionGateResult)]">
-									{{ regressionLabel(runRow.regressionGateResult) }}
+								<span
+									:class="[
+										'eval-run-panel-widget__badge',
+										regressionBadgeClass(
+											runRow.regressionGateResult,
+										),
+									]">
+									{{
+										regressionLabel(runRow.regressionGateResult)
+									}}
 								</span>
 							</td>
 							<td>{{ statusLabel(runRow.status) }}</td>
@@ -101,9 +121,17 @@
 								<NcButton
 									v-if="runRow.baselineMode"
 									type="tertiary"
-									:aria-label="t('hermiq', 'Toggle paired run details')"
-									@click="toggleExpanded(runRow.id || runRow.uuid)">
-									{{ expandedRunId === (runRow.id || runRow.uuid) ? t('hermiq', 'Hide details') : t('hermiq', 'Details') }}
+									:aria-label="
+										t('hermiq', 'Toggle paired run details')
+									"
+									@click="
+										toggleExpanded(runRow.id || runRow.uuid)
+									">
+									{{
+										expandedRunId === (runRow.id || runRow.uuid)
+											? t('hermiq', 'Hide details')
+											: t('hermiq', 'Details')
+									}}
 								</NcButton>
 							</td>
 						</tr>
@@ -112,37 +140,75 @@
 								<h4 class="eval-run-panel-widget__details-title">
 									{{ pairedModeLabel(runRow.attributionMode) }}
 								</h4>
-								<table class="eval-run-panel-widget__table eval-run-panel-widget__skill-table">
+								<table
+									class="eval-run-panel-widget__table eval-run-panel-widget__skill-table">
 									<thead>
 										<tr>
-											<th scope="col">{{ t('hermiq', 'Skill') }}</th>
-											<th scope="col">{{ t('hermiq', 'With skill') }}</th>
-											<th scope="col">{{ t('hermiq', 'Without skill') }}</th>
-											<th scope="col">{{ t('hermiq', 'Baseline delta') }}</th>
+											<th scope="col">
+												{{ t('hermiq', 'Skill') }}
+											</th>
+											<th scope="col">
+												{{ t('hermiq', 'With skill') }}
+											</th>
+											<th scope="col">
+												{{ t('hermiq', 'Without skill') }}
+											</th>
+											<th scope="col">
+												{{ t('hermiq', 'Baseline delta') }}
+											</th>
 										</tr>
 									</thead>
 									<tbody>
-										<tr v-for="entry in (runRow.skillResults || [])" :key="entry.skillId">
+										<tr
+											v-for="entry in runRow.skillResults
+											|| []"
+											:key="entry.skillId">
 											<td>{{ skillName(entry.skillId) }}</td>
-											<td>{{ passRateLabel(entry.passRateWith) }}</td>
-											<td>{{ passRateLabel(entry.passRateWithout) }}</td>
-											<td>{{ deltaLabel(entry.baselineDelta) }}</td>
+											<td>
+												{{
+													passRateLabel(entry.passRateWith)
+												}}
+											</td>
+											<td>
+												{{
+													passRateLabel(
+														entry.passRateWithout,
+													)
+												}}
+											</td>
+											<td>
+												{{ deltaLabel(entry.baselineDelta) }}
+											</td>
 										</tr>
 									</tbody>
 								</table>
 								<div class="eval-run-panel-widget__halves">
 									<div class="eval-run-panel-widget__half">
-										<h5>{{ t('hermiq', 'With skills — per case') }}</h5>
+										<h5>
+											{{
+												t('hermiq', 'With skills — per case')
+											}}
+										</h5>
 										<ol class="eval-run-panel-widget__case-list">
-											<li v-for="caseResult in (runRow.results || [])" :key="'w' + caseResult.caseIndex">
+											<li
+												v-for="caseResult in runRow.results
+												|| []"
+												:key="'w' + caseResult.caseIndex">
 												{{ caseOutcomeLabel(caseResult) }}
 											</li>
 										</ol>
 									</div>
-									<div v-for="half in withoutHalves(runRow)" :key="half.key" class="eval-run-panel-widget__half">
+									<div
+										v-for="half in withoutHalves(runRow)"
+										:key="half.key"
+										class="eval-run-panel-widget__half">
 										<h5>{{ half.title }}</h5>
 										<ol class="eval-run-panel-widget__case-list">
-											<li v-for="caseResult in half.results" :key="half.key + caseResult.caseIndex">
+											<li
+												v-for="caseResult in half.results"
+												:key="
+													half.key + caseResult.caseIndex
+												">
 												{{ caseOutcomeLabel(caseResult) }}
 											</li>
 										</ol>
@@ -161,11 +227,21 @@
 </template>
 
 <script>
-import { NcButton, NcCheckboxRadioSwitch, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcCheckboxRadioSwitch,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+} from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { runEval } from '../api/evals.js'
 import { listSkills } from '../api/skills.js'
-import { useAgentStore, useEvalDatasetStore, useEvalRunStore } from '../store/store.js'
+import {
+	useAgentStore,
+	useEvalDatasetStore,
+	useEvalRunStore,
+} from '../store/store.js'
 
 export default {
 	name: 'EvalRunPanelWidget',
@@ -209,7 +285,7 @@ export default {
 		 */
 		agentOptions() {
 			return this.agents.map((agent) => ({
-				label: agent.name || (agent.uuid || agent.id),
+				label: agent.name || agent.uuid || agent.id,
 				value: agent.uuid || agent.id,
 			}))
 		},
@@ -222,7 +298,9 @@ export default {
 		 */
 		linkedSkillIds() {
 			const refs = this.dataset?.skillRefs
-			return Array.isArray(refs) ? refs.filter((ref) => typeof ref === 'string' && ref !== '') : []
+			return Array.isArray(refs)
+				? refs.filter((ref) => typeof ref === 'string' && ref !== '')
+				: []
 		},
 
 		/**
@@ -241,7 +319,9 @@ export default {
 		 * @return {string} joint|per-skill.
 		 */
 		selectedAgentMode() {
-			const agent = this.agents.find((entry) => (entry.uuid || entry.id) === this.selectedAgent?.value)
+			const agent = this.agents.find(
+				(entry) => (entry.uuid || entry.id) === this.selectedAgent?.value,
+			)
 			return agent?.evalBaselineMode === 'per-skill' ? 'per-skill' : 'joint'
 		},
 
@@ -255,9 +335,16 @@ export default {
 		costNote() {
 			if (this.selectedAgentMode === 'per-skill') {
 				const count = this.linkedSkillIds.length
-				return this.t('hermiq', 'Per-skill baseline: every case runs {times} times (one without-half per linked skill) — about {times}x the token cost of a normal run, counted against the same budgets.', { times: count + 1 })
+				return this.t(
+					'hermiq',
+					'Per-skill baseline: every case runs {times} times (one without-half per linked skill) — about {times}x the token cost of a normal run, counted against the same budgets.',
+					{ times: count + 1 },
+				)
 			}
-			return this.t('hermiq', 'Joint baseline: every case runs twice (all linked skills detached together) — about 2x the token cost of a normal run, counted against the same budgets. Link one skill per dataset for the cleanest attribution.')
+			return this.t(
+				'hermiq',
+				'Joint baseline: every case runs twice (all linked skills detached together) — about 2x the token cost of a normal run, counted against the same budgets. Link one skill per dataset for the cleanest attribution.',
+			)
 		},
 	},
 
@@ -290,7 +377,9 @@ export default {
 				const [agents, runs, dataset, skills] = await Promise.all([
 					this.agentStore.fetchCollection('agent').catch(() => []),
 					this.runStore.fetchCollection('evalrun').catch(() => []),
-					this.datasetStore.fetchObject('evaldataset', this.datasetId).catch(() => null),
+					this.datasetStore
+						.fetchObject('evaldataset', this.datasetId)
+						.catch(() => null),
 					listSkills().catch(() => []),
 				])
 				this.agents = Array.isArray(agents) ? agents : []
@@ -298,10 +387,17 @@ export default {
 				this.skills = Array.isArray(skills) ? skills : []
 				this.runs = (Array.isArray(runs) ? runs : [])
 					.filter((runRow) => runRow.datasetId === this.datasetId)
-					.sort((a, b) => String(b.startedAt || '').localeCompare(String(a.startedAt || '')))
+					.sort((a, b) =>
+						String(b.startedAt || '').localeCompare(
+							String(a.startedAt || ''),
+						),
+					)
 					.slice(0, 10)
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			}
 		},
 
@@ -317,13 +413,24 @@ export default {
 			}
 			this.running = true
 			try {
-				const outcome = await runEval(this.datasetId, this.selectedAgent.value, {
-					baseline: this.baseline && this.hasLinkedSkills,
-				})
-				showSuccess(this.t('hermiq', 'Eval run complete: {rate} passed.', { rate: this.passRateLabel(outcome.passRate) }))
+				const outcome = await runEval(
+					this.datasetId,
+					this.selectedAgent.value,
+					{
+						baseline: this.baseline && this.hasLinkedSkills,
+					},
+				)
+				showSuccess(
+					this.t('hermiq', 'Eval run complete: {rate} passed.', {
+						rate: this.passRateLabel(outcome.passRate),
+					}),
+				)
 				await this.load()
 			} catch (e) {
-				showError(e?.response?.data?.error || this.t('hermiq', 'The eval run failed.'))
+				showError(
+					e?.response?.data?.error
+						|| this.t('hermiq', 'The eval run failed.'),
+				)
 			} finally {
 				this.running = false
 			}
@@ -352,15 +459,19 @@ export default {
 			if (runRow.attributionMode === 'per-skill') {
 				return (runRow.skillResults || []).map((entry) => ({
 					key: 'wo-' + entry.skillId,
-					title: this.t('hermiq', 'Without {skill} — per case', { skill: this.skillName(entry.skillId) }),
+					title: this.t('hermiq', 'Without {skill} — per case', {
+						skill: this.skillName(entry.skillId),
+					}),
 					results: entry.baselineResults || [],
 				}))
 			}
-			return [{
-				key: 'wo-joint',
-				title: this.t('hermiq', 'Without skills — per case'),
-				results: runRow.baselineResults || [],
-			}]
+			return [
+				{
+					key: 'wo-joint',
+					title: this.t('hermiq', 'Without skills — per case'),
+					results: runRow.baselineResults || [],
+				},
+			]
 		},
 
 		/**
@@ -371,7 +482,9 @@ export default {
 		 * @return {string} The display name.
 		 */
 		skillName(skillId) {
-			const match = this.skills.find((skill) => (skill.uuid || skill.id) === skillId)
+			const match = this.skills.find(
+				(skill) => (skill.uuid || skill.id) === skillId,
+			)
 			return (match && match.name) || skillId
 		},
 
@@ -401,7 +514,10 @@ export default {
 			if (mode === 'per-skill') {
 				return this.t('hermiq', 'Paired baseline — per-skill marginals')
 			}
-			return this.t('hermiq', 'Paired baseline — joint contribution of the linked set')
+			return this.t(
+				'hermiq',
+				'Paired baseline — joint contribution of the linked set',
+			)
 		},
 
 		/**

@@ -42,51 +42,49 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-the-bot-listener-never-runs-an-agent-turn-inline
  */
-class TalkTurnJob extends QueuedJob
-{
-    /**
-     * Constructor.
-     *
-     * @param ITimeFactory    $time            Core time factory required by QueuedJob.
-     * @param TalkTurnService $talkTurnService The service holding all turn logic.
-     */
-    public function __construct(
-        ITimeFactory $time,
-        private readonly TalkTurnService $talkTurnService,
-    ) {
-        parent::__construct(time: $time);
-    }//end __construct()
+class TalkTurnJob extends QueuedJob {
+	/**
+	 * Constructor.
+	 *
+	 * @param ITimeFactory $time Core time factory required by QueuedJob.
+	 * @param TalkTurnService $talkTurnService The service holding all turn logic.
+	 */
+	public function __construct(
+		ITimeFactory $time,
+		private readonly TalkTurnService $talkTurnService,
+	) {
+		parent::__construct(time: $time);
+	}//end __construct()
 
-    /**
-     * Run the queued turn.
-     *
-     * @param mixed $argument The enqueued argument shape.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
-     */
-    protected function run($argument): void
-    {
-        if (is_array($argument) === false) {
-            return;
-        }
+	/**
+	 * Run the queued turn.
+	 *
+	 * @param mixed $argument The enqueued argument shape.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 */
+	protected function run($argument): void {
+		if (is_array($argument) === false) {
+			return;
+		}
 
-        $conversationUuid = (string) ($argument['conversationUuid'] ?? '');
-        $speakerUid       = (string) ($argument['speakerUid'] ?? '');
-        $message          = (string) ($argument['message'] ?? '');
-        $roomToken        = (string) ($argument['roomToken'] ?? '');
+		$conversationUuid = (string)($argument['conversationUuid'] ?? '');
+		$speakerUid = (string)($argument['speakerUid'] ?? '');
+		$message = (string)($argument['message'] ?? '');
+		$roomToken = (string)($argument['roomToken'] ?? '');
 
-        if ($conversationUuid === '' || $speakerUid === '' || $roomToken === '' || $message === '') {
-            return;
-        }
+		if ($conversationUuid === '' || $speakerUid === '' || $roomToken === '' || $message === '') {
+			return;
+		}
 
-        $this->talkTurnService->runTurn(
-            conversationUuid: $conversationUuid,
-            speakerUid: $speakerUid,
-            message: $message,
-            roomToken: $roomToken
-        );
+		$this->talkTurnService->runTurn(
+			conversationUuid: $conversationUuid,
+			speakerUid: $speakerUid,
+			message: $message,
+			roomToken: $roomToken
+		);
 
-    }//end run()
+	}//end run()
 }//end class

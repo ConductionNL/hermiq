@@ -41,40 +41,38 @@ use OCP\BackgroundJob\QueuedJob;
  *
  * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
  */
-class WebhookAgentRunJob extends QueuedJob
-{
-    /**
-     * Constructor.
-     *
-     * @param ITimeFactory           $time            Time factory for the base job.
-     * @param WebhookAgentRunService $webhookAgentRun Runs the governed dispatch.
-     */
-    public function __construct(
-        ITimeFactory $time,
-        private readonly WebhookAgentRunService $webhookAgentRun,
-    ) {
-        parent::__construct(time: $time);
-    }//end __construct()
+class WebhookAgentRunJob extends QueuedJob {
+	/**
+	 * Constructor.
+	 *
+	 * @param ITimeFactory $time Time factory for the base job.
+	 * @param WebhookAgentRunService $webhookAgentRun Runs the governed dispatch.
+	 */
+	public function __construct(
+		ITimeFactory $time,
+		private readonly WebhookAgentRunService $webhookAgentRun,
+	) {
+		parent::__construct(time: $time);
+	}//end __construct()
 
-    /**
-     * Run the job: delegate the whole governed dispatch to WebhookAgentRunService.
-     *
-     * @param mixed $argument The webhook trigger context (scalar/array-only —
-     *                        `IJobList` argument storage is a JSON round-trip,
-     *                        not a compile-time-guaranteed array).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
-     */
-    protected function run($argument): void
-    {
-        $context = $argument;
-        if (is_array($context) === false) {
-            $context = [];
-        }
+	/**
+	 * Run the job: delegate the whole governed dispatch to WebhookAgentRunService.
+	 *
+	 * @param mixed $argument The webhook trigger context (scalar/array-only —
+	 *                        `IJobList` argument storage is a JSON round-trip,
+	 *                        not a compile-time-guaranteed array).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-webhook-trigger/tasks.md#task-4-webhookagentrunjob-webhookagentrunservice-governed-dispatch
+	 */
+	protected function run($argument): void {
+		$context = $argument;
+		if (is_array($context) === false) {
+			$context = [];
+		}
 
-        $this->webhookAgentRun->run(context: $context);
+		$this->webhookAgentRun->run(context: $context);
 
-    }//end run()
+	}//end run()
 }//end class

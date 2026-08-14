@@ -29,13 +29,21 @@
 			<NcEmptyContent
 				v-else-if="notAvailable"
 				:name="t('hermiq', 'Factsheet not available')"
-				:description="t('hermiq', 'You do not have access to this agent\'s compliance factsheet.')">
+				:description="
+					t(
+						'hermiq',
+						'You do not have access to this agent\'s compliance factsheet.',
+					)
+				">
 				<template #icon>
 					<ShieldIcon :size="20" />
 				</template>
 			</NcEmptyContent>
 
-			<NcNoteCard v-else-if="error" type="error" :heading="t('hermiq', 'Could not load factsheet')">
+			<NcNoteCard
+				v-else-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not load factsheet')">
 				{{ error }}
 			</NcNoteCard>
 
@@ -44,9 +52,18 @@
 					<h4>{{ factsheet.agent.name }}</h4>
 					<dl class="agent-factsheet-dialog__fields">
 						<dt>{{ t('hermiq', 'Provider / model') }}</dt>
-						<dd>{{ factsheet.agent.provider || '—' }} / {{ factsheet.agent.model || '—' }}</dd>
+						<dd>
+							{{ factsheet.agent.provider || '—' }} /
+							{{ factsheet.agent.model || '—' }}
+						</dd>
 						<dt>{{ t('hermiq', 'Tools') }}</dt>
-						<dd>{{ factsheet.agent.tools.length > 0 ? factsheet.agent.tools.join(', ') : t('hermiq', 'No tools') }}</dd>
+						<dd>
+							{{
+								factsheet.agent.tools.length > 0
+									? factsheet.agent.tools.join(', ')
+									: t('hermiq', 'No tools')
+							}}
+						</dd>
 						<dt>{{ t('hermiq', 'Owner') }}</dt>
 						<dd>{{ factsheet.agent.owner || '—' }}</dd>
 						<dt>{{ t('hermiq', 'Acting user') }}</dt>
@@ -56,7 +73,9 @@
 					</dl>
 				</section>
 
-				<section v-if="factsheet.aiFeature" class="agent-factsheet-dialog__section">
+				<section
+					v-if="factsheet.aiFeature"
+					class="agent-factsheet-dialog__section">
 					<h5>{{ t('hermiq', 'AI feature governance') }}</h5>
 					<span
 						class="agent-factsheet-dialog__risk"
@@ -64,35 +83,52 @@
 						{{ factsheet.aiFeature.riskCategory }}
 					</span>
 					<p class="agent-factsheet-dialog__note">
-						{{ t('hermiq', 'Lifecycle') }}: {{ factsheet.aiFeature.lifecycle || '—' }}
+						{{ t('hermiq', 'Lifecycle') }}:
+						{{ factsheet.aiFeature.lifecycle || '—' }}
 						<template v-if="factsheet.aiFeature.dpoAckBy">
-							— {{ t('hermiq', 'DPO-acknowledged by') }} {{ factsheet.aiFeature.dpoAckBy }} ({{ formatDate(factsheet.aiFeature.dpoAckAt) }})
+							— {{ t('hermiq', 'DPO-acknowledged by') }}
+							{{ factsheet.aiFeature.dpoAckBy }} ({{
+								formatDate(factsheet.aiFeature.dpoAckAt)
+							}})
 						</template>
 					</p>
 				</section>
 				<p v-else class="agent-factsheet-dialog__note">
-					{{ t('hermiq', 'This agent is not registered as an AI feature.') }}
+					{{
+						t('hermiq', 'This agent is not registered as an AI feature.')
+					}}
 				</p>
 
 				<section class="agent-factsheet-dialog__section">
 					<h5>{{ t('hermiq', 'Approval decision history') }}</h5>
-					<p v-if="factsheet.approvals.length === 0" class="agent-factsheet-dialog__note">
+					<p
+						v-if="factsheet.approvals.length === 0"
+						class="agent-factsheet-dialog__note">
 						{{ t('hermiq', 'No approval decisions recorded yet.') }}
 					</p>
 					<ul v-else class="agent-factsheet-dialog__list">
-						<li v-for="(approval, index) in factsheet.approvals" :key="index">
-							{{ approval.status }} — {{ approval.decidedBy || '—' }} ({{ formatDate(approval.decidedAt) }})
+						<li
+							v-for="(approval, index) in factsheet.approvals"
+							:key="index">
+							{{ approval.status }} —
+							{{ approval.decidedBy || '—' }} ({{
+								formatDate(approval.decidedAt)
+							}})
 						</li>
 					</ul>
 				</section>
 
 				<section class="agent-factsheet-dialog__section">
 					<h5>{{ t('hermiq', 'Linked incidents') }}</h5>
-					<p v-if="factsheet.incidents.length === 0" class="agent-factsheet-dialog__note">
+					<p
+						v-if="factsheet.incidents.length === 0"
+						class="agent-factsheet-dialog__note">
 						{{ t('hermiq', 'No linked incidents.') }}
 					</p>
 					<ul v-else class="agent-factsheet-dialog__list">
-						<li v-for="(incident, index) in factsheet.incidents" :key="index">
+						<li
+							v-for="(incident, index) in factsheet.incidents"
+							:key="index">
 							{{ incident.description }} — {{ incident.impact }}
 						</li>
 					</ul>
@@ -109,7 +145,13 @@
 </template>
 
 <script>
-import { NcButton, NcDialog, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcDialog,
+	NcEmptyContent,
+	NcLoadingIcon,
+	NcNoteCard,
+} from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getAgentFactsheet } from '../api/compliance.js'
 
@@ -205,7 +247,10 @@ export default {
 				if (e?.response?.status === 404) {
 					this.notAvailable = true
 				} else {
-					this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+					this.error =
+						e?.response?.data?.error
+						|| e?.message
+						|| this.t('hermiq', 'Unknown error')
 				}
 			} finally {
 				this.loading = false

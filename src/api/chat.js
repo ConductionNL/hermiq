@@ -54,7 +54,11 @@ const CONVERSATIONS_BASE = '/apps/hermiq/api/conversations'
  * @param {number} [options.offset] Page offset (default 0).
  * @return {Promise<{results: Array<object>, total: number}>} The page envelope.
  */
-export async function listConversations({ archived = false, limit = 50, offset = 0 } = {}) {
+export async function listConversations({
+	archived = false,
+	limit = 50,
+	offset = 0,
+} = {}) {
 	const response = await axios.get(generateUrl(CONVERSATIONS_BASE), {
 		params: { _deleted: archived ? 'true' : 'false', limit, offset },
 	})
@@ -85,9 +89,12 @@ export async function getConversation(uuid) {
  * @return {Promise<{results: Array<object>, total: number}>} The page envelope.
  */
 export async function listMessages(uuid, { limit = 50, offset = 0 } = {}) {
-	const response = await axios.get(generateUrl(`${CONVERSATIONS_BASE}/${uuid}/messages`), {
-		params: { limit, offset },
-	})
+	const response = await axios.get(
+		generateUrl(`${CONVERSATIONS_BASE}/${uuid}/messages`),
+		{
+			params: { limit, offset },
+		},
+	)
 	return {
 		results: Array.isArray(response.data?.results) ? response.data.results : [],
 		total: response.data?.total ?? 0,
@@ -119,7 +126,10 @@ export async function createConversation(agentUuid, title) {
  * @return {Promise<object>} The updated conversation.
  */
 export async function renameConversation(uuid, title) {
-	const response = await axios.patch(generateUrl(`${CONVERSATIONS_BASE}/${uuid}`), { title })
+	const response = await axios.patch(
+		generateUrl(`${CONVERSATIONS_BASE}/${uuid}`),
+		{ title },
+	)
 	return response.data
 }
 
@@ -144,7 +154,9 @@ export async function archiveConversation(uuid) {
  * @return {Promise<object>} The restored conversation.
  */
 export async function restoreConversation(uuid) {
-	const response = await axios.post(generateUrl(`${CONVERSATIONS_BASE}/${uuid}/restore`))
+	const response = await axios.post(
+		generateUrl(`${CONVERSATIONS_BASE}/${uuid}/restore`),
+	)
 	return response.data
 }
 
@@ -155,7 +167,9 @@ export async function restoreConversation(uuid) {
  * @return {Promise<object>} The confirmation envelope.
  */
 export async function deleteConversationPermanent(uuid) {
-	const response = await axios.delete(generateUrl(`${CONVERSATIONS_BASE}/${uuid}/permanent`))
+	const response = await axios.delete(
+		generateUrl(`${CONVERSATIONS_BASE}/${uuid}/permanent`),
+	)
 	return response.data
 }
 
@@ -175,7 +189,14 @@ export async function deleteConversationPermanent(uuid) {
  * @return {Promise<object>} The engine result ({message, messageId, sources, usage,
  *   conversation}).
  */
-export async function sendChatMessage({ message, conversationUuid, agentUuid, views, tools, ragSettings }) {
+export async function sendChatMessage({
+	message,
+	conversationUuid,
+	agentUuid,
+	views,
+	tools,
+	ragSettings,
+}) {
 	const payload = { message }
 	if (conversationUuid) {
 		payload.conversation = conversationUuid
@@ -189,7 +210,8 @@ export async function sendChatMessage({ message, conversationUuid, agentUuid, vi
 		payload.tools = tools
 	}
 	if (ragSettings && typeof ragSettings === 'object') {
-		const { includeObjects, includeFiles, numSourcesFiles, numSourcesObjects } = ragSettings
+		const { includeObjects, includeFiles, numSourcesFiles, numSourcesObjects } =
+			ragSettings
 		if (includeObjects !== undefined) {
 			payload.includeObjects = includeObjects
 		}
@@ -216,7 +238,6 @@ export async function sendChatMessage({ message, conversationUuid, agentUuid, vi
  * POST /send would duplicate the user message, so no fallback.
  */
 export class ChatStreamError extends Error {
-
 	/**
 	 * @param {string} message Human-readable error message.
 	 * @param {object} [options] Error options.
@@ -229,7 +250,6 @@ export class ChatStreamError extends Error {
 		this.transport = transport
 		this.code = code
 	}
-
 }
 
 /**
@@ -285,7 +305,10 @@ function parseSseFrame(frame) {
  *   (caller falls back to sendChatMessage()); transport=false on a terminal
  *   `error` event (no fallback — the turn failed server-side).
  */
-export async function streamChatMessage({ message, conversationUuid, agentUuid }, handlers = {}) {
+export async function streamChatMessage(
+	{ message, conversationUuid, agentUuid },
+	handlers = {},
+) {
 	const body = { message }
 	if (conversationUuid) {
 		body.conversationUuid = conversationUuid
@@ -305,11 +328,16 @@ export async function streamChatMessage({ message, conversationUuid, agentUuid }
 			body: JSON.stringify(body),
 		})
 	} catch (e) {
-		throw new ChatStreamError(e?.message || 'Stream connection failed', { transport: true })
+		throw new ChatStreamError(e?.message || 'Stream connection failed', {
+			transport: true,
+		})
 	}
 
 	if (!response.ok || !response.body) {
-		throw new ChatStreamError(`Stream endpoint returned HTTP ${response.status}`, { transport: true })
+		throw new ChatStreamError(
+			`Stream endpoint returned HTTP ${response.status}`,
+			{ transport: true },
+		)
 	}
 
 	const reader = response.body.getReader()
@@ -324,24 +352,24 @@ export async function streamChatMessage({ message, conversationUuid, agentUuid }
 			return
 		}
 		switch (frame.event) {
-		case 'token':
-			handlers.onToken?.(frame.data.delta || '')
-			break
-		case 'tool_call':
-			handlers.onToolCall?.(frame.data)
-			break
-		case 'tool_result':
-			handlers.onToolResult?.(frame.data)
-			break
-		case 'heartbeat':
-			handlers.onHeartbeat?.()
-			break
-		case 'final':
-			finalPayload = frame.data
-			break
-		case 'error':
-			errorPayload = frame.data
-			break
+			case 'token':
+				handlers.onToken?.(frame.data.delta || '')
+				break
+			case 'tool_call':
+				handlers.onToolCall?.(frame.data)
+				break
+			case 'tool_result':
+				handlers.onToolResult?.(frame.data)
+				break
+			case 'heartbeat':
+				handlers.onHeartbeat?.()
+				break
+			case 'final':
+				finalPayload = frame.data
+				break
+			case 'error':
+				errorPayload = frame.data
+				break
 		}
 	}
 
@@ -361,7 +389,9 @@ export async function streamChatMessage({ message, conversationUuid, agentUuid }
 			}
 		}
 	} catch (e) {
-		throw new ChatStreamError(e?.message || 'Stream connection dropped', { transport: true })
+		throw new ChatStreamError(e?.message || 'Stream connection dropped', {
+			transport: true,
+		})
 	}
 
 	// Flush a trailing frame that arrived without the final blank line.
@@ -379,7 +409,9 @@ export async function streamChatMessage({ message, conversationUuid, agentUuid }
 	if (finalPayload === null) {
 		// The stream ended without a terminal event — treat as a transport
 		// failure so the caller retries over POST /send (ADR-034 ladder).
-		throw new ChatStreamError('Stream ended without a terminal event', { transport: true })
+		throw new ChatStreamError('Stream ended without a terminal event', {
+			transport: true,
+		})
 	}
 
 	return finalPayload
@@ -395,13 +427,19 @@ export async function streamChatMessage({ message, conversationUuid, agentUuid }
  * @param {string} [options.comment] Optional free-text elaboration.
  * @return {Promise<object>} The stored feedback.
  */
-export async function sendMessageFeedback(conversationUuid, messageId, { type, comment }) {
+export async function sendMessageFeedback(
+	conversationUuid,
+	messageId,
+	{ type, comment },
+) {
 	const payload = { type }
 	if (comment) {
 		payload.comment = comment
 	}
 	const response = await axios.post(
-		generateUrl(`${CONVERSATIONS_BASE}/${conversationUuid}/messages/${messageId}/feedback`),
+		generateUrl(
+			`${CONVERSATIONS_BASE}/${conversationUuid}/messages/${messageId}/feedback`,
+		),
 		payload,
 	)
 	return response.data

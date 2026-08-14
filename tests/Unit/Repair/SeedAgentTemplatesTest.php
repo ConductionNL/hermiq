@@ -38,206 +38,196 @@ use RuntimeException;
  *
  * @spec openspec/changes/agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
  */
-class SeedAgentTemplatesTest extends TestCase
-{
+class SeedAgentTemplatesTest extends TestCase {
 
-    /**
-     * A stateful ObjectService test double keyed by schema, recording every
-     * saveObject() call (mirrors SeedComplianceControlsTest's precedent).
-     *
-     * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
-     *
-     * @return ObjectService
-     */
-    private function objectService(array $bySchema): ObjectService
-    {
-        return new class ($bySchema) extends ObjectService {
-            private ?string $schema = null;
+	/**
+	 * A stateful ObjectService test double keyed by schema, recording every
+	 * saveObject() call (mirrors SeedComplianceControlsTest's precedent).
+	 *
+	 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
+	 *
+	 * @return ObjectService
+	 */
+	private function objectService(array $bySchema): ObjectService {
+		return new class($bySchema) extends ObjectService {
+			private ?string $schema = null;
 
-            /**
-             * @var array<int, array{schema: string, object: array}>
-             */
-            public array $saved = [];
+			/**
+			 * @var array<int, array{schema: string, object: array}>
+			 */
+			public array $saved = [];
 
-            /**
-             * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
-             */
-            public function __construct(private array $bySchema)
-            {
-            }
+			/**
+			 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
+			 */
+			public function __construct(
+				private array $bySchema,
+			) {
+			}
 
-            public function setRegister(mixed $register): static
-            {
-                return $this;
-            }
+			public function setRegister(mixed $register): static {
+				return $this;
+			}
 
-            public function setSchema(mixed $schema): static
-            {
-                $this->schema = (string) $schema;
-                return $this;
-            }
+			public function setSchema(mixed $schema): static {
+				$this->schema = (string)$schema;
+				return $this;
+			}
 
-            public function findAll(array $config=[], bool $_rbac=true, bool $_multitenancy=true): array
-            {
-                return ($this->bySchema[$this->schema] ?? []);
-            }
+			public function findAll(array $config = [], bool $_rbac = true, bool $_multitenancy = true): array {
+				return ($this->bySchema[$this->schema] ?? []);
+			}
 
-            public function saveObject(
-                array | ObjectEntity $object,
-                ?array $extend=[],
-                mixed $register=null,
-                mixed $schema=null,
-                ?string $uuid=null,
-                bool $_rbac=true,
-                bool $_multitenancy=true,
-                bool $silent=false,
-                ?array $uploadedFiles=null,
-                ?\OCP\IUser $currentUser=null,
-                // openregister#2211 (insert-only saves) added this. A double that
-                // drifts from the real signature is a FATAL, not a failed
-                // assertion: PHP refuses to declare the class and the whole
-                // suite dies before it runs.
-                bool $failIfExists=false
-            ): ObjectEntity {
-                $payload = is_array($object) ? $object : $object->getObject();
-                $this->saved[] = ['schema' => (string) $schema, 'object' => $payload];
+			public function saveObject(
+				array|ObjectEntity $object,
+				?array $extend = [],
+				mixed $register = null,
+				mixed $schema = null,
+				?string $uuid = null,
+				bool $_rbac = true,
+				bool $_multitenancy = true,
+				bool $silent = false,
+				bool $_validation = true,
+				?array $uploadedFiles = null,
+				?\OCP\IUser $currentUser = null,
+				// openregister#2211 (insert-only saves) added this. A double that
+				// drifts from the real signature is a FATAL, not a failed
+				// assertion: PHP refuses to declare the class and the whole
+				// suite dies before it runs.
+				bool $failIfExists = false,
+			): ObjectEntity {
+				$payload = is_array($object) ? $object : $object->getObject();
+				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload];
 
-                $entity = new ObjectEntity();
-                $entity->setUuid('new-'.count($this->saved));
-                $entity->setObject($payload);
-                return $entity;
-            }
-        };
+				$entity = new ObjectEntity();
+				$entity->setUuid('new-' . count($this->saved));
+				$entity->setObject($payload);
+				return $entity;
+			}
+		};
 
-    }//end objectService()
+	}//end objectService()
 
-    /**
-     * An object with the given payload.
-     *
-     * @param string               $uuid    The uuid.
-     * @param array<string, mixed> $payload The payload.
-     *
-     * @return ObjectEntity
-     */
-    private function object(string $uuid, array $payload): ObjectEntity
-    {
-        $e = new ObjectEntity();
-        $e->setUuid($uuid);
-        $e->setObject($payload);
-        return $e;
+	/**
+	 * An object with the given payload.
+	 *
+	 * @param string $uuid The uuid.
+	 * @param array<string, mixed> $payload The payload.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function object(string $uuid, array $payload): ObjectEntity {
+		$e = new ObjectEntity();
+		$e->setUuid($uuid);
+		$e->setObject($payload);
+		return $e;
+	}//end object()
 
-    }//end object()
+	/**
+	 * A container resolving ObjectService to the given double.
+	 *
+	 * @param ObjectService $objectService The object service double.
+	 *
+	 * @return ContainerInterface
+	 */
+	private function container(ObjectService $objectService): ContainerInterface {
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $class) => match ($class) {
+				ObjectService::class => $objectService,
+				default => throw new RuntimeException("Unexpected service: {$class}"),
+			}
+		);
 
-    /**
-     * A container resolving ObjectService to the given double.
-     *
-     * @param ObjectService $objectService The object service double.
-     *
-     * @return ContainerInterface
-     */
-    private function container(ObjectService $objectService): ContainerInterface
-    {
-        $container = $this->createMock(ContainerInterface::class);
-        $container->method('get')->willReturnCallback(
-            static fn (string $class) => match ($class) {
-                ObjectService::class => $objectService,
-                default => throw new RuntimeException("Unexpected service: {$class}"),
-            }
-        );
+		return $container;
+	}//end container()
 
-        return $container;
+	/**
+	 * A fresh install seeds all 5 starter templates, each active/local.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-a-fresh-install-ships-seeded-starter-templates
+	 */
+	public function testFreshInstallSeedsFiveTemplates(): void {
+		$objectService = $this->objectService(['agenttemplate' => []]);
 
-    }//end container()
+		$step = new SeedAgentTemplates(
+			container: $this->container(objectService: $objectService),
+			logger: $this->createMock(LoggerInterface::class),
+		);
 
-    /**
-     * A fresh install seeds all 5 starter templates, each active/local.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-a-fresh-install-ships-seeded-starter-templates
-     */
-    public function testFreshInstallSeedsFiveTemplates(): void
-    {
-        $objectService = $this->objectService(['agenttemplate' => []]);
+		$step->run(output: $this->createMock(IOutput::class));
 
-        $step = new SeedAgentTemplates(
-            container: $this->container(objectService: $objectService),
-            logger: $this->createMock(LoggerInterface::class),
-        );
+		$this->assertCount(5, $objectService->saved);
 
-        $step->run(output: $this->createMock(IOutput::class));
+		$names = array_map(static fn (array $s) => $s['object']['name'], $objectService->saved);
+		$this->assertSame(
+			[
+				'Morning briefing',
+				'Inbox triage',
+				'Website/monitor watcher',
+				'Weekly report',
+				'Meeting-notes summariser',
+			],
+			array_values($names)
+		);
 
-        $this->assertCount(5, $objectService->saved);
+		foreach ($objectService->saved as $entry) {
+			$this->assertSame('active', $entry['object']['state']);
+			$this->assertSame('local', $entry['object']['source']);
+		}
 
-        $names = array_map(static fn (array $s) => $s['object']['name'], $objectService->saved);
-        $this->assertSame(
-            [
-                'Morning briefing',
-                'Inbox triage',
-                'Website/monitor watcher',
-                'Weekly report',
-                'Meeting-notes summariser',
-            ],
-            array_values($names)
-        );
+	}//end testFreshInstallSeedsFiveTemplates()
 
-        foreach ($objectService->saved as $entry) {
-            $this->assertSame('active', $entry['object']['state']);
-            $this->assertSame('local', $entry['object']['source']);
-        }
+	/**
+	 * A re-run does not duplicate an already-seeded template (matched by name) and
+	 * preserves an admin's edit to it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-a-fresh-install-ships-seeded-starter-templates
+	 */
+	public function testReRunIsIdempotentAndPreservesEdits(): void {
+		$edited = $this->object(
+			'existing-1',
+			['name' => 'Morning briefing', 'systemPrompt' => 'An admin edited this prompt.', 'state' => 'active', 'source' => 'local']
+		);
 
-    }//end testFreshInstallSeedsFiveTemplates()
+		$objectService = $this->objectService(['agenttemplate' => [$edited]]);
 
-    /**
-     * A re-run does not duplicate an already-seeded template (matched by name) and
-     * preserves an admin's edit to it.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/agent-template-gallery/spec.md#requirement-a-fresh-install-ships-seeded-starter-templates
-     */
-    public function testReRunIsIdempotentAndPreservesEdits(): void
-    {
-        $edited = $this->object(
-            'existing-1',
-            ['name' => 'Morning briefing', 'systemPrompt' => 'An admin edited this prompt.', 'state' => 'active', 'source' => 'local']
-        );
+		$step = new SeedAgentTemplates(
+			container: $this->container(objectService: $objectService),
+			logger: $this->createMock(LoggerInterface::class),
+		);
 
-        $objectService = $this->objectService(['agenttemplate' => [$edited]]);
+		$step->run(output: $this->createMock(IOutput::class));
 
-        $step = new SeedAgentTemplates(
-            container: $this->container(objectService: $objectService),
-            logger: $this->createMock(LoggerInterface::class),
-        );
+		// Morning briefing already exists — skipped; the remaining 4 are seeded.
+		$this->assertCount(4, $objectService->saved);
 
-        $step->run(output: $this->createMock(IOutput::class));
+		$names = array_map(static fn (array $s) => $s['object']['name'], $objectService->saved);
+		$this->assertNotContains('Morning briefing', $names);
 
-        // Morning briefing already exists — skipped; the remaining 4 are seeded.
-        $this->assertCount(4, $objectService->saved);
+	}//end testReRunIsIdempotentAndPreservesEdits()
 
-        $names = array_map(static fn (array $s) => $s['object']['name'], $objectService->saved);
-        $this->assertNotContains('Morning briefing', $names);
+	/**
+	 * The step no-ops gracefully (never throws) when OpenRegister is not available.
+	 *
+	 * @return void
+	 */
+	public function testNoopsWhenOpenRegisterUnavailable(): void {
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willThrowException(new RuntimeException('OpenRegister not installed'));
 
-    }//end testReRunIsIdempotentAndPreservesEdits()
+		$step = new SeedAgentTemplates(container: $container, logger: $this->createMock(LoggerInterface::class));
 
-    /**
-     * The step no-ops gracefully (never throws) when OpenRegister is not available.
-     *
-     * @return void
-     */
-    public function testNoopsWhenOpenRegisterUnavailable(): void
-    {
-        $container = $this->createMock(ContainerInterface::class);
-        $container->method('get')->willThrowException(new RuntimeException('OpenRegister not installed'));
+		$output = $this->createMock(IOutput::class);
+		$output->expects($this->once())->method('warning');
 
-        $step = new SeedAgentTemplates(container: $container, logger: $this->createMock(LoggerInterface::class));
+		$step->run(output: $output);
 
-        $output = $this->createMock(IOutput::class);
-        $output->expects($this->once())->method('warning');
+		$this->addToAssertionCount(1);
 
-        $step->run(output: $output);
-
-        $this->addToAssertionCount(1);
-
-    }//end testNoopsWhenOpenRegisterUnavailable()
+	}//end testNoopsWhenOpenRegisterUnavailable()
 }//end class

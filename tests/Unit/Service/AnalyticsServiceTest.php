@@ -35,211 +35,200 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/run-analytics/tasks.md#task-4-1
  */
-class AnalyticsServiceTest extends TestCase
-{
+class AnalyticsServiceTest extends TestCase {
 
-    /**
-     * A schedule ObjectEntity with a uuid + agentId.
-     *
-     * @param string $uuid    The schedule uuid.
-     * @param string $agentId The bound agent uuid.
-     *
-     * @return ObjectEntity
-     */
-    private function schedule(string $uuid, string $agentId): ObjectEntity
-    {
-        $e = new ObjectEntity();
-        $e->setUuid($uuid);
-        $e->setObject(['agentId' => $agentId]);
-        return $e;
+	/**
+	 * A schedule ObjectEntity with a uuid + agentId.
+	 *
+	 * @param string $uuid The schedule uuid.
+	 * @param string $agentId The bound agent uuid.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function schedule(string $uuid, string $agentId): ObjectEntity {
+		$e = new ObjectEntity();
+		$e->setUuid($uuid);
+		$e->setObject(['agentId' => $agentId]);
+		return $e;
+	}//end schedule()
 
-    }//end schedule()
+	/**
+	 * A run AuditTrail entry.
+	 *
+	 * @param string $objectUuid The owning schedule uuid.
+	 * @param string $status The run status.
+	 * @param int $durationMs The run duration in ms.
+	 * @param string $agentId The agent uuid.
+	 *
+	 * @return AuditTrail
+	 */
+	private function runEntry(string $objectUuid, string $status, int $durationMs, string $agentId): AuditTrail {
+		$a = new AuditTrail();
+		$a->setAction('run');
+		$a->setObjectUuid($objectUuid);
+		$a->setChanged(['status' => $status, 'durationMs' => $durationMs, 'agentId' => $agentId]);
+		return $a;
+	}//end runEntry()
 
-    /**
-     * A run AuditTrail entry.
-     *
-     * @param string $objectUuid The owning schedule uuid.
-     * @param string $status     The run status.
-     * @param int    $durationMs The run duration in ms.
-     * @param string $agentId    The agent uuid.
-     *
-     * @return AuditTrail
-     */
-    private function runEntry(string $objectUuid, string $status, int $durationMs, string $agentId): AuditTrail
-    {
-        $a = new AuditTrail();
-        $a->setAction('run');
-        $a->setObjectUuid($objectUuid);
-        $a->setChanged(['status' => $status, 'durationMs' => $durationMs, 'agentId' => $agentId]);
-        return $a;
+	/**
+	 * Build the service with fixed schedules + run entries.
+	 *
+	 * @param array<int, ObjectEntity> $schedules The caller's schedules.
+	 * @param array<int, AuditTrail> $runs All run audit entries.
+	 *
+	 * @return AnalyticsService
+	 */
+	private function service(array $schedules, array $runs): AnalyticsService {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturn($schedules);
 
-    }//end runEntry()
+		$mapper = $this->createMock(AuditTrailMapper::class);
+		$mapper->method('findAll')->willReturn($runs);
 
-    /**
-     * Build the service with fixed schedules + run entries.
-     *
-     * @param array<int, ObjectEntity> $schedules The caller's schedules.
-     * @param array<int, AuditTrail>   $runs      All run audit entries.
-     *
-     * @return AnalyticsService
-     */
-    private function service(array $schedules, array $runs): AnalyticsService
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('setRegister')->willReturnSelf();
-        $objectService->method('setSchema')->willReturnSelf();
-        $objectService->method('findAll')->willReturn($schedules);
+		return new AnalyticsService($objectService, $mapper);
+	}//end service()
 
-        $mapper = $this->createMock(AuditTrailMapper::class);
-        $mapper->method('findAll')->willReturn($runs);
+	/**
+	 * Aggregation computes success rate, status breakdown, latency and per-agent counts,
+	 * and excludes runs outside the caller's schedule set.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/run-analytics/tasks.md#task-1-3
+	 */
+	public function testAggregatesAndScopesToCallersSchedules(): void {
+		$schedules = [
+			$this->schedule('s1', 'agentA'),
+			$this->schedule('s2', 'agentB'),
+		];
+		$runs = [
+			$this->runEntry('s1', 'ok', 100, 'agentA'),
+			$this->runEntry('s1', 'ok', 300, 'agentA'),
+			$this->runEntry('s1', 'error', 200, 'agentA'),
+			$this->runEntry('s2', 'ok', 400, 'agentB'),
+			// Belongs to a schedule NOT in the caller's set — MUST be excluded.
+			$this->runEntry('s3-foreign', 'ok', 999, 'agentX'),
+		];
 
-        return new AnalyticsService($objectService, $mapper);
+		$m = $this->service($schedules, $runs)->computeAnalytics();
 
-    }//end service()
+		$this->assertSame(4, $m['totalRuns']);
+		$this->assertSame(3, $m['successRuns']);
+		$this->assertSame(75.0, $m['successRate']);
+		$this->assertSame(['ok' => 3, 'error' => 1], $m['statusBreakdown']);
+		// Latency avg over 100,300,200,400 = 250.
+		$this->assertSame(250, $m['latency']['avgMs']);
+		$this->assertSame(100, $m['latency']['minMs']);
+		$this->assertSame(400, $m['latency']['maxMs']);
+		// The seconds figure the Dashboard's declarative latency tile renders.
+		$this->assertSame(0.3, $m['latency']['avgSeconds']);
 
-    /**
-     * Aggregation computes success rate, status breakdown, latency and per-agent counts,
-     * and excludes runs outside the caller's schedule set.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/run-analytics/tasks.md#task-1-3
-     */
-    public function testAggregatesAndScopesToCallersSchedules(): void
-    {
-        $schedules = [
-            $this->schedule('s1', 'agentA'),
-            $this->schedule('s2', 'agentB'),
-        ];
-        $runs = [
-            $this->runEntry('s1', 'ok', 100, 'agentA'),
-            $this->runEntry('s1', 'ok', 300, 'agentA'),
-            $this->runEntry('s1', 'error', 200, 'agentA'),
-            $this->runEntry('s2', 'ok', 400, 'agentB'),
-            // Belongs to a schedule NOT in the caller's set — MUST be excluded.
-            $this->runEntry('s3-foreign', 'ok', 999, 'agentX'),
-        ];
+		$perAgent = [];
+		foreach ($m['perAgent'] as $row) {
+			$perAgent[$row['agentId']] = $row;
+		}
 
-        $m = $this->service($schedules, $runs)->computeAnalytics();
+		$this->assertSame(3, $perAgent['agentA']['runs']);
+		$this->assertSame(2, $perAgent['agentA']['success']);
+		$this->assertSame(1, $perAgent['agentB']['runs']);
+		$this->assertArrayNotHasKey('agentX', $perAgent);
 
-        $this->assertSame(4, $m['totalRuns']);
-        $this->assertSame(3, $m['successRuns']);
-        $this->assertSame(75.0, $m['successRate']);
-        $this->assertSame(['ok' => 3, 'error' => 1], $m['statusBreakdown']);
-        // Latency avg over 100,300,200,400 = 250.
-        $this->assertSame(250, $m['latency']['avgMs']);
-        $this->assertSame(100, $m['latency']['minMs']);
-        $this->assertSame(400, $m['latency']['maxMs']);
-        // The seconds figure the Dashboard's declarative latency tile renders.
-        $this->assertSame(0.3, $m['latency']['avgSeconds']);
+		// No run entry carried usage in this fixture → tokens unavailable (not
+		// fabricated). The total is NULL rather than 0 so a consumer that reads
+		// it without checking `available` cannot print a confident "0 tokens".
+		$this->assertFalse($m['tokens']['available']);
+		$this->assertNull($m['tokens']['total']);
 
-        $perAgent = [];
-        foreach ($m['perAgent'] as $row) {
-            $perAgent[$row['agentId']] = $row;
-        }
+	}//end testAggregatesAndScopesToCallersSchedules()
 
-        $this->assertSame(3, $perAgent['agentA']['runs']);
-        $this->assertSame(2, $perAgent['agentA']['success']);
-        $this->assertSame(1, $perAgent['agentB']['runs']);
-        $this->assertArrayNotHasKey('agentX', $perAgent);
+	/**
+	 * Scoping to one agent limits the schedule set (and thus the runs) to that agent.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/run-analytics/tasks.md#task-1-1
+	 */
+	public function testAgentScopeFiltersSchedules(): void {
+		$schedules = [
+			$this->schedule('s1', 'agentA'),
+			$this->schedule('s2', 'agentB'),
+		];
+		$runs = [
+			$this->runEntry('s1', 'ok', 100, 'agentA'),
+			$this->runEntry('s2', 'ok', 100, 'agentB'),
+		];
 
-        // No run entry carried usage in this fixture → tokens unavailable (not
-        // fabricated). The total is NULL rather than 0 so a consumer that reads
-        // it without checking `available` cannot print a confident "0 tokens".
-        $this->assertFalse($m['tokens']['available']);
-        $this->assertNull($m['tokens']['total']);
+		$m = $this->service($schedules, $runs)->computeAnalytics(agentId: 'agentA');
 
-    }//end testAggregatesAndScopesToCallersSchedules()
+		$this->assertSame('agent', $m['scope']);
+		$this->assertSame('agentA', $m['agentId']);
+		// Only s1 (agentA) is in scope → only its one run counts.
+		$this->assertSame(1, $m['totalRuns']);
 
-    /**
-     * Scoping to one agent limits the schedule set (and thus the runs) to that agent.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/run-analytics/tasks.md#task-1-1
-     */
-    public function testAgentScopeFiltersSchedules(): void
-    {
-        $schedules = [
-            $this->schedule('s1', 'agentA'),
-            $this->schedule('s2', 'agentB'),
-        ];
-        $runs = [
-            $this->runEntry('s1', 'ok', 100, 'agentA'),
-            $this->runEntry('s2', 'ok', 100, 'agentB'),
-        ];
+	}//end testAgentScopeFiltersSchedules()
 
-        $m = $this->service($schedules, $runs)->computeAnalytics(agentId: 'agentA');
+	/**
+	 * No schedules → zeroed metrics, not an error.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/run-analytics/tasks.md#task-1-3
+	 */
+	public function testNoSchedulesYieldsZeroMetrics(): void {
+		$m = $this->service([], [])->computeAnalytics();
 
-        $this->assertSame('agent', $m['scope']);
-        $this->assertSame('agentA', $m['agentId']);
-        // Only s1 (agentA) is in scope → only its one run counts.
-        $this->assertSame(1, $m['totalRuns']);
+		$this->assertSame(0, $m['totalRuns']);
+		$this->assertSame(0.0, $m['successRate']);
+		$this->assertNull($m['latency']['avgMs']);
+		$this->assertNull($m['latency']['avgSeconds']);
 
-    }//end testAgentScopeFiltersSchedules()
+	}//end testNoSchedulesYieldsZeroMetrics()
 
-    /**
-     * No schedules → zeroed metrics, not an error.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/run-analytics/tasks.md#task-1-3
-     */
-    public function testNoSchedulesYieldsZeroMetrics(): void
-    {
-        $m = $this->service([], [])->computeAnalytics();
+	/**
+	 * A dry-run/replay preview entry (`dryRun: true`) is excluded entirely from
+	 * the status/success-rate breakdown, latency, per-agent counts, and this
+	 * aggregate's own token total — a preview must never inflate an agent's
+	 * real metrics (run-replay-and-dry-run). BudgetService's spend total is a
+	 * separate service/read path, unaffected by this exclusion.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
+	 */
+	public function testDryRunEntriesAreExcludedFromTheBreakdown(): void {
+		$schedules = [$this->schedule('s1', 'agentA')];
 
-        $this->assertSame(0, $m['totalRuns']);
-        $this->assertSame(0.0, $m['successRate']);
-        $this->assertNull($m['latency']['avgMs']);
-        $this->assertNull($m['latency']['avgSeconds']);
+		$realRun = $this->runEntry('s1', 'ok', 100, 'agentA');
 
-    }//end testNoSchedulesYieldsZeroMetrics()
+		$dryRun = new AuditTrail();
+		$dryRun->setAction('run');
+		$dryRun->setObjectUuid('s1');
+		$dryRun->setChanged(
+			[
+				'status' => 'ok',
+				'durationMs' => 999999,
+				'agentId' => 'agentA',
+				'dryRun' => true,
+				'usage' => ['promptTokens' => 500, 'completionTokens' => 500],
+			]
+		);
 
-    /**
-     * A dry-run/replay preview entry (`dryRun: true`) is excluded entirely from
-     * the status/success-rate breakdown, latency, per-agent counts, and this
-     * aggregate's own token total — a preview must never inflate an agent's
-     * real metrics (run-replay-and-dry-run). BudgetService's spend total is a
-     * separate service/read path, unaffected by this exclusion.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/run-replay-and-dry-run/specs/run-replay-and-dry-run/spec.md#requirement-dry-run-neutralises-side-effecting-tool-calls
-     */
-    public function testDryRunEntriesAreExcludedFromTheBreakdown(): void
-    {
-        $schedules = [$this->schedule('s1', 'agentA')];
+		$m = $this->service($schedules, [$realRun, $dryRun])->computeAnalytics();
 
-        $realRun = $this->runEntry('s1', 'ok', 100, 'agentA');
+		$this->assertSame(1, $m['totalRuns'], 'The dry-run entry must not be counted.');
+		$this->assertSame(1, $m['successRuns']);
+		$this->assertSame(['ok' => 1], $m['statusBreakdown']);
+		$this->assertSame(100, $m['latency']['maxMs'], "The dry-run's 999999ms duration must not skew latency.");
+		$this->assertFalse($m['tokens']['available'], "The dry-run's token usage must not appear in this aggregate's own total.");
 
-        $dryRun = new AuditTrail();
-        $dryRun->setAction('run');
-        $dryRun->setObjectUuid('s1');
-        $dryRun->setChanged(
-            [
-                'status'      => 'ok',
-                'durationMs'  => 999999,
-                'agentId'     => 'agentA',
-                'dryRun'      => true,
-                'usage'       => ['promptTokens' => 500, 'completionTokens' => 500],
-            ]
-        );
+		$perAgent = [];
+		foreach ($m['perAgent'] as $row) {
+			$perAgent[$row['agentId']] = $row;
+		}
 
-        $m = $this->service($schedules, [$realRun, $dryRun])->computeAnalytics();
+		$this->assertSame(1, $perAgent['agentA']['runs']);
 
-        $this->assertSame(1, $m['totalRuns'], 'The dry-run entry must not be counted.');
-        $this->assertSame(1, $m['successRuns']);
-        $this->assertSame(['ok' => 1], $m['statusBreakdown']);
-        $this->assertSame(100, $m['latency']['maxMs'], "The dry-run's 999999ms duration must not skew latency.");
-        $this->assertFalse($m['tokens']['available'], "The dry-run's token usage must not appear in this aggregate's own total.");
-
-        $perAgent = [];
-        foreach ($m['perAgent'] as $row) {
-            $perAgent[$row['agentId']] = $row;
-        }
-
-        $this->assertSame(1, $perAgent['agentA']['runs']);
-
-    }//end testDryRunEntriesAreExcludedFromTheBreakdown()
+	}//end testDryRunEntriesAreExcludedFromTheBreakdown()
 }//end class

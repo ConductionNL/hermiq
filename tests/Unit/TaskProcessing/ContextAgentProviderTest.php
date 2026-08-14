@@ -33,66 +33,62 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
  */
-class ContextAgentProviderTest extends TestCase
-{
-    /**
-     * The provider reports the contextagent interaction task-type id.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
-     */
-    public function testTaskTypeId(): void
-    {
-        $provider = new ContextAgentProvider($this->createMock(ContextAgentInteractionService::class));
-        $this->assertSame(ContextAgentInteraction::ID, $provider->getTaskTypeId());
-        $this->assertSame('core:contextagent:interaction', $provider->getTaskTypeId());
-    }//end testTaskTypeId()
+class ContextAgentProviderTest extends TestCase {
+	/**
+	 * The provider reports the contextagent interaction task-type id.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-1
+	 */
+	public function testTaskTypeId(): void {
+		$provider = new ContextAgentProvider($this->createMock(ContextAgentInteractionService::class));
+		$this->assertSame(ContextAgentInteraction::ID, $provider->getTaskTypeId());
+		$this->assertSame('core:contextagent:interaction', $provider->getTaskTypeId());
+	}//end testTaskTypeId()
 
-    /**
-     * process() parses the input and forwards it to the interaction service,
-     * returning the service's result verbatim.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
-     */
-    public function testProcessForwardsToService(): void
-    {
-        $expected = ['output' => 'hi', 'conversation_token' => 'conv-1', 'actions' => '{}'];
+	/**
+	 * process() parses the input and forwards it to the interaction service,
+	 * returning the service's result verbatim.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 */
+	public function testProcessForwardsToService(): void {
+		$expected = ['output' => 'hi', 'conversation_token' => 'conv-1', 'actions' => '{}'];
 
-        $service = $this->createMock(ContextAgentInteractionService::class);
-        $service->expects($this->once())
-            ->method('interact')
-            ->with('bob', 'hello', 1, 'conv-1')
-            ->willReturn($expected);
+		$service = $this->createMock(ContextAgentInteractionService::class);
+		$service->expects($this->once())
+			->method('interact')
+			->with('bob', 'hello', 1, 'conv-1')
+			->willReturn($expected);
 
-        $provider = new ContextAgentProvider($service);
-        $result   = $provider->process(
-            'bob',
-            ['input' => 'hello', 'confirmation' => 1, 'conversation_token' => 'conv-1'],
-            static fn (float $p): bool => true
-        );
+		$provider = new ContextAgentProvider($service);
+		$result = $provider->process(
+			'bob',
+			['input' => 'hello', 'confirmation' => 1, 'conversation_token' => 'conv-1'],
+			static fn (float $p): bool => true
+		);
 
-        $this->assertSame($expected, $result);
-    }//end testProcessForwardsToService()
+		$this->assertSame($expected, $result);
+	}//end testProcessForwardsToService()
 
-    /**
-     * An absent confirmation slot is forwarded as null (not answering a prior request).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
-     */
-    public function testProcessTreatsAbsentConfirmationAsNull(): void
-    {
-        $service = $this->createMock(ContextAgentInteractionService::class);
-        $service->expects($this->once())
-            ->method('interact')
-            ->with('bob', 'hello', null, '')
-            ->willReturn(['output' => 'x', 'conversation_token' => 'c', 'actions' => '{}']);
+	/**
+	 * An absent confirmation slot is forwarded as null (not answering a prior request).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/contextagent-provider/tasks.md#task-1-2
+	 */
+	public function testProcessTreatsAbsentConfirmationAsNull(): void {
+		$service = $this->createMock(ContextAgentInteractionService::class);
+		$service->expects($this->once())
+			->method('interact')
+			->with('bob', 'hello', null, '')
+			->willReturn(['output' => 'x', 'conversation_token' => 'c', 'actions' => '{}']);
 
-        $provider = new ContextAgentProvider($service);
-        $provider->process('bob', ['input' => 'hello'], static fn (float $p): bool => true);
-    }//end testProcessTreatsAbsentConfirmationAsNull()
+		$provider = new ContextAgentProvider($service);
+		$provider->process('bob', ['input' => 'hello'], static fn (float $p): bool => true);
+	}//end testProcessTreatsAbsentConfirmationAsNull()
 }//end class

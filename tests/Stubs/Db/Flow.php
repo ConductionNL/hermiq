@@ -72,48 +72,45 @@ use DateTime;
  * @method DateTime|null getUpdated()
  * @method void setUpdated(?DateTime $updated)
  */
-class Flow
-{
-    /**
-     * Values written through the magic setters.
-     *
-     * @var array<string, mixed>
-     */
-    private array $magicValues = [];
+class Flow {
+	/**
+	 * Values written through the magic setters.
+	 *
+	 * @var array<string, mixed>
+	 */
+	private array $magicValues = [];
 
-    /**
-     * Serve the magic accessors the real Entity provides via __call.
-     *
-     * 🔴 This STORES what it is given, and the previous version did not — it
-     * returned null for everything, setter and getter alike.
-     *
-     * A stub that silently discards every write makes an entire class of test
-     * impossible to write: "the seed sets the organisation on the flow" could
-     * only ever read back null, so the assertion looks broken and the tempting
-     * conclusion is that the production code is fine. hermiq#140 is precisely a
-     * bug about a field not being set, and this stub would have hidden the fix
-     * as readily as the bug.
-     *
-     * Round-tripping is also what the real `Entity::__call` does, so this is a
-     * stub becoming more faithful, not a convenience.
-     *
-     * @param string $name      The accessor name.
-     * @param array  $arguments The accessor arguments.
-     *
-     * @return mixed The property value, or null for a setter.
-     */
-    public function __call(string $name, array $arguments)
-    {
-        if (str_starts_with($name, 'set') === true) {
-            $this->magicValues[lcfirst(substr($name, 3))] = ($arguments[0] ?? null);
-            return null;
-        }
+	/**
+	 * Serve the magic accessors the real Entity provides via __call.
+	 *
+	 * 🔴 This STORES what it is given, and the previous version did not — it
+	 * returned null for everything, setter and getter alike.
+	 *
+	 * A stub that silently discards every write makes an entire class of test
+	 * impossible to write: "the seed sets the organisation on the flow" could
+	 * only ever read back null, so the assertion looks broken and the tempting
+	 * conclusion is that the production code is fine. hermiq#140 is precisely a
+	 * bug about a field not being set, and this stub would have hidden the fix
+	 * as readily as the bug.
+	 *
+	 * Round-tripping is also what the real `Entity::__call` does, so this is a
+	 * stub becoming more faithful, not a convenience.
+	 *
+	 * @param string $name The accessor name.
+	 * @param array $arguments The accessor arguments.
+	 *
+	 * @return mixed The property value, or null for a setter.
+	 */
+	public function __call(string $name, array $arguments) {
+		if (str_starts_with($name, 'set') === true) {
+			$this->magicValues[lcfirst(substr($name, 3))] = ($arguments[0] ?? null);
+			return null;
+		}
 
-        if (str_starts_with($name, 'get') === true) {
-            return ($this->magicValues[lcfirst(substr($name, 3))] ?? null);
-        }
+		if (str_starts_with($name, 'get') === true) {
+			return ($this->magicValues[lcfirst(substr($name, 3))] ?? null);
+		}
 
-        return null;
-
-    }//end __call()
+		return null;
+	}//end __call()
 }//end class

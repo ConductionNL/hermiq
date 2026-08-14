@@ -48,7 +48,13 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcLoadingIcon,
+	NcModal,
+	NcNoteCard,
+	NcTextField,
+} from '@nextcloud/vue'
 import { renameConversation } from '../api/chat.js'
 
 export default {
@@ -107,11 +113,17 @@ export default {
 			this.saving = true
 			this.error = ''
 			try {
-				const updated = await renameConversation(this.conversation.uuid, this.title.trim())
+				const updated = await renameConversation(
+					this.conversation.uuid,
+					this.title.trim(),
+				)
 				this.$emit('saved', updated)
 				this.$emit('close')
 			} catch (e) {
-				this.error = e?.response?.data?.message || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.message
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.saving = false
 			}

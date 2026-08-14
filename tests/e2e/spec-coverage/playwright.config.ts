@@ -66,13 +66,22 @@ export default defineConfig({
 	// tally and the artifacts that explain it.
 	globalTimeout: 38 * 60_000,
 	reporter: [
-		['html', { open: 'never', outputFolder: path.join(E2E_ROOT, 'playwright-report') }],
+		[
+			'html',
+			{
+				open: 'never',
+				outputFolder: path.join(E2E_ROOT, 'playwright-report'),
+			},
+		],
 		['list'],
 	],
 	outputDir: path.join(E2E_ROOT, 'test-results'),
 
 	use: {
-		baseURL: process.env.NEXTCLOUD_URL || process.env.BASE_URL || 'http://localhost:8080',
+		baseURL:
+			process.env.NEXTCLOUD_URL
+			|| process.env.BASE_URL
+			|| 'http://localhost:8080',
 		storageState: path.join(E2E_ROOT, '.auth', 'admin.json'),
 		// `on-first-retry` writes a trace only when a retry actually happens, so
 		// the trace artifact is a function of `retries`. Off CI `retries` is 0

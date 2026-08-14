@@ -52,10 +52,17 @@
 			<NcEmptyContent
 				v-else-if="runs.length === 0"
 				:name="t('hermiq', 'No runs yet')"
-				:description="t('hermiq', 'Runs triggered on this object will appear here.')" />
+				:description="
+					t('hermiq', 'Runs triggered on this object will appear here.')
+				" />
 			<ul v-else class="cn-agent-runs-widget__list">
-				<li v-for="(run, idx) in runs" :key="idx" class="cn-agent-runs-widget__item">
-					<span class="cn-agent-runs-widget__status" :class="`cn-agent-runs-widget__status--${run.status}`">
+				<li
+					v-for="(run, idx) in runs"
+					:key="idx"
+					class="cn-agent-runs-widget__item">
+					<span
+						class="cn-agent-runs-widget__status"
+						:class="`cn-agent-runs-widget__status--${run.status}`">
 						{{ statusLabel(run.status) }}
 					</span>
 					<span class="cn-agent-runs-widget__meta">
@@ -72,7 +79,13 @@
 import { generateUrl } from '@nextcloud/router'
 import { getRequestToken } from '@nextcloud/auth'
 import { translate as t } from '@nextcloud/l10n'
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcEmptyContent,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcSelect,
+} from '@nextcloud/vue'
 
 export default {
 	name: 'CnAgentRunsWidget',
@@ -98,7 +111,12 @@ export default {
 		}
 	},
 	watch: {
-		objectId: { immediate: true, handler() { this.refresh() } },
+		objectId: {
+			immediate: true,
+			handler() {
+				this.refresh()
+			},
+		},
 	},
 	methods: {
 		t,
@@ -131,9 +149,14 @@ export default {
 					return
 				}
 				const body = await res.json()
-				const list = Array.isArray(body) ? body : (body?.results || body?.agents || [])
+				const list = Array.isArray(body)
+					? body
+					: body?.results || body?.agents || []
 				this.agents = list
-					.map((a) => ({ id: a.uuid || a.id, label: a.name || a.title || a.uuid || a.id }))
+					.map((a) => ({
+						id: a.uuid || a.id,
+						label: a.name || a.title || a.uuid || a.id,
+					}))
 					.filter((a) => a.id)
 			} catch (e) {
 				// Non-fatal: the run affordance simply has no agents to offer.
@@ -144,18 +167,30 @@ export default {
 		async loadHistory() {
 			this.loadingHistory = true
 			try {
-				const url = generateUrl('/apps/openregister/api/objects/{register}/{schema}/{id}/audit-trails', {
-					register: this.register, schema: this.schema, id: this.objectId,
+				const url = generateUrl(
+					'/apps/openregister/api/objects/{register}/{schema}/{id}/audit-trails',
+					{
+						register: this.register,
+						schema: this.schema,
+						id: this.objectId,
+					},
+				)
+				const res = await fetch(url, {
+					headers: { requesttoken: getRequestToken() },
 				})
-				const res = await fetch(url, { headers: { requesttoken: getRequestToken() } })
 				if (!res.ok) {
 					this.runs = []
 					return
 				}
 				const body = await res.json()
-				const entries = Array.isArray(body) ? body : (body?.results || [])
+				const entries = Array.isArray(body) ? body : body?.results || []
 				this.runs = entries
-					.filter((e) => (e.action === 'agent-run') || (e?.context?.status !== undefined && e?.action === 'agent-run'))
+					.filter(
+						(e) =>
+							e.action === 'agent-run'
+							|| (e?.context?.status !== undefined
+								&& e?.action === 'agent-run'),
+					)
 					.map((e) => this.toRun(e))
 			} catch (e) {
 				this.runs = []
@@ -169,7 +204,7 @@ export default {
 			return {
 				status: ctx.status || 'ok',
 				summary: ctx.summary || '',
-				when: (when ? new Date(when).toLocaleString() : ''),
+				when: when ? new Date(when).toLocaleString() : '',
 			}
 		},
 		async runAgent() {
@@ -179,23 +214,37 @@ export default {
 			this.dispatching = true
 			this.notice = ''
 			try {
-				const url = generateUrl('/apps/hermiq/api/agents/{id}/run-on-object', { id: this.selectedAgent.id })
+				const url = generateUrl(
+					'/apps/hermiq/api/agents/{id}/run-on-object',
+					{ id: this.selectedAgent.id },
+				)
 				const res = await fetch(url, {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json', requesttoken: getRequestToken() },
-					body: JSON.stringify({ register: this.register, schema: this.schema, objectId: this.objectId }),
+					headers: {
+						'Content-Type': 'application/json',
+						requesttoken: getRequestToken(),
+					},
+					body: JSON.stringify({
+						register: this.register,
+						schema: this.schema,
+						objectId: this.objectId,
+					}),
 				})
 				const body = await res.json().catch(() => ({}))
 				if (res.status === 202) {
 					this.noticeType = 'success'
-					this.notice = t('hermiq', 'Run queued. It will appear in the history shortly.')
+					this.notice = t(
+						'hermiq',
+						'Run queued. It will appear in the history shortly.',
+					)
 					await this.loadHistory()
 				} else if (res.status === 404) {
 					this.noticeType = 'error'
 					this.notice = t('hermiq', 'Object or agent not found.')
 				} else {
 					this.noticeType = 'error'
-					this.notice = body?.error || t('hermiq', 'Could not start the run.')
+					this.notice =
+						body?.error || t('hermiq', 'Could not start the run.')
 				}
 			} catch (e) {
 				this.noticeType = 'error'
@@ -209,15 +258,63 @@ export default {
 </script>
 
 <style scoped>
-.cn-agent-runs-widget { display: flex; flex-direction: column; gap: 12px; padding: 8px 4px; }
-.cn-agent-runs-widget__run { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-.cn-agent-runs-widget__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.cn-agent-runs-widget__item { display: flex; gap: 8px; align-items: baseline; }
-.cn-agent-runs-widget__status { font-weight: 600; font-size: 0.85em; padding: 2px 6px; border-radius: var(--border-radius, 4px); background: var(--color-background-hover); white-space: nowrap; }
-.cn-agent-runs-widget__status--ok { color: var(--color-success); }
-.cn-agent-runs-widget__status--error { color: var(--color-error); }
+.cn-agent-runs-widget {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 8px 4px;
+}
+
+.cn-agent-runs-widget__run {
+	display: flex;
+	gap: 8px;
+	align-items: flex-end;
+	flex-wrap: wrap;
+}
+
+.cn-agent-runs-widget__list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.cn-agent-runs-widget__item {
+	display: flex;
+	gap: 8px;
+	align-items: baseline;
+}
+
+.cn-agent-runs-widget__status {
+	font-weight: 600;
+	font-size: 0.85em;
+	padding: 2px 6px;
+	border-radius: var(--border-radius, 4px);
+	background: var(--color-background-hover);
+	white-space: nowrap;
+}
+
+.cn-agent-runs-widget__status--ok {
+	color: var(--color-success);
+}
+
+.cn-agent-runs-widget__status--error {
+	color: var(--color-error);
+}
+
 .cn-agent-runs-widget__status--skipped_killswitch,
-.cn-agent-runs-widget__status--skipped_budget { color: var(--color-warning); }
-.cn-agent-runs-widget__status--awaiting_approval { color: var(--color-primary-element); }
-.cn-agent-runs-widget__meta { color: var(--color-text-maxcontrast); font-size: 0.9em; }
+.cn-agent-runs-widget__status--skipped_budget {
+	color: var(--color-warning);
+}
+
+.cn-agent-runs-widget__status--awaiting_approval {
+	color: var(--color-primary-element);
+}
+
+.cn-agent-runs-widget__meta {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+}
 </style>

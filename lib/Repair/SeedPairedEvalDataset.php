@@ -50,205 +50,198 @@ use Throwable;
  *
  * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
  */
-class SeedPairedEvalDataset implements IRepairStep
-{
+class SeedPairedEvalDataset implements IRepairStep {
 
-    /**
-     * OpenRegister register slug that holds Hermiq objects.
-     *
-     * @var string
-     */
-    private const REGISTER_SLUG = 'hermiq';
+	/**
+	 * OpenRegister register slug that holds Hermiq objects.
+	 *
+	 * @var string
+	 */
+	private const REGISTER_SLUG = 'hermiq';
 
-    /**
-     * Schema slug for EvalDataset objects.
-     *
-     * @var string
-     */
-    private const DATASET_SCHEMA = 'evaldataset';
+	/**
+	 * Schema slug for EvalDataset objects.
+	 *
+	 * @var string
+	 */
+	private const DATASET_SCHEMA = 'evaldataset';
 
-    /**
-     * Schema slug for Skill objects (namespaced to avoid a cross-app slug collision).
-     *
-     * @var string
-     */
-    private const SKILL_SCHEMA = 'agentskill';
+	/**
+	 * Schema slug for Skill objects (namespaced to avoid a cross-app slug collision).
+	 *
+	 * @var string
+	 */
+	private const SKILL_SCHEMA = 'agentskill';
 
-    /**
-     * The seeded dataset's name (idempotency key).
-     *
-     * @var string
-     */
-    private const DATASET_NAME = 'woo-triage-paired-eval';
+	/**
+	 * The seeded dataset's name (idempotency key).
+	 *
+	 * @var string
+	 */
+	private const DATASET_NAME = 'woo-triage-paired-eval';
 
-    /**
-     * The linked skill's name, resolved to its uuid at seed time.
-     *
-     * @var string
-     */
-    private const LINKED_SKILL_NAME = 'woo-request-triage';
+	/**
+	 * The linked skill's name, resolved to its uuid at seed time.
+	 *
+	 * @var string
+	 */
+	private const LINKED_SKILL_NAME = 'woo-request-triage';
 
-    /**
-     * Constructor.
-     *
-     * @param ContainerInterface $container Server container for lazy ObjectService resolution
-     *                                      (OpenRegister may not be installed yet).
-     * @param LoggerInterface    $logger    PSR-3 logger.
-     */
-    public function __construct(
-        private readonly ContainerInterface $container,
-        private readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * @param ContainerInterface $container Server container for lazy ObjectService resolution
+	 *                                      (OpenRegister may not be installed yet).
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		private readonly ContainerInterface $container,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Repair-step name.
-     *
-     * @return string
-     *
-     * @spec exclude Trivial IRepairStep display-name accessor; no behavioural spec.
-     */
-    public function getName(): string
-    {
-        return 'Seed paired eval dataset (skill-evals)';
+	/**
+	 * Repair-step name.
+	 *
+	 * @return string
+	 *
+	 * @spec exclude Trivial IRepairStep display-name accessor; no behavioural spec.
+	 */
+	public function getName(): string {
+		return 'Seed paired eval dataset (skill-evals)';
+	}//end getName()
 
-    }//end getName()
+	/**
+	 * Seed the dataset when absent (matched by name); an existing seed — including
+	 * one an admin has since edited — is left untouched. Skipped with a log line
+	 * when the `woo-request-triage` skill cannot be resolved by name.
+	 *
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
+	 */
+	public function run(IOutput $output): void {
+		try {
+			$objectService = $this->container->get(ObjectService::class);
+		} catch (Throwable $e) {
+			$output->warning('OpenRegister not available — skipping paired eval dataset seed.');
+			$this->logger->warning('[hermiq] paired eval dataset seed skipped: ' . $e->getMessage());
+			return;
+		}
 
-    /**
-     * Seed the dataset when absent (matched by name); an existing seed — including
-     * one an admin has since edited — is left untouched. Skipped with a log line
-     * when the `woo-request-triage` skill cannot be resolved by name.
-     *
-     * @param IOutput $output Repair output channel.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
-     */
-    public function run(IOutput $output): void
-    {
-        try {
-            $objectService = $this->container->get(ObjectService::class);
-        } catch (Throwable $e) {
-            $output->warning('OpenRegister not available — skipping paired eval dataset seed.');
-            $this->logger->warning('[hermiq] paired eval dataset seed skipped: '.$e->getMessage());
-            return;
-        }
+		try {
+			if ($this->findByName(objectService: $objectService, schema: self::DATASET_SCHEMA, name: self::DATASET_NAME) !== null) {
+				$output->info(self::DATASET_NAME . ' seed already present — skipped.');
+				return;
+			}
 
-        try {
-            if ($this->findByName(objectService: $objectService, schema: self::DATASET_SCHEMA, name: self::DATASET_NAME) !== null) {
-                $output->info(self::DATASET_NAME.' seed already present — skipped.');
-                return;
-            }
+			$skill = $this->findByName(objectService: $objectService, schema: self::SKILL_SCHEMA, name: self::LINKED_SKILL_NAME);
+			if ($skill === null) {
+				$output->info(self::LINKED_SKILL_NAME . ' skill not found — paired eval dataset seed skipped.');
+				$this->logger->info('[hermiq] paired eval dataset seed skipped: ' . self::LINKED_SKILL_NAME . ' skill absent.');
+				return;
+			}
 
-            $skill = $this->findByName(objectService: $objectService, schema: self::SKILL_SCHEMA, name: self::LINKED_SKILL_NAME);
-            if ($skill === null) {
-                $output->info(self::LINKED_SKILL_NAME.' skill not found — paired eval dataset seed skipped.');
-                $this->logger->info('[hermiq] paired eval dataset seed skipped: '.self::LINKED_SKILL_NAME.' skill absent.');
-                return;
-            }
+			$objectService->saveObject(
+				object: $this->seedDataset(linkedSkillUuid: (string)$skill->getUuid()),
+				register: self::REGISTER_SLUG,
+				schema: self::DATASET_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
+			$output->info(self::DATASET_NAME . ' seed complete.');
+		} catch (Throwable $e) {
+			$output->warning('Could not seed ' . self::DATASET_NAME . ' dataset: ' . $e->getMessage());
+			$this->logger->error('[hermiq] ' . self::DATASET_NAME . ' seed failed: ' . $e->getMessage());
+		}//end try
 
-            $objectService->saveObject(
-                object: $this->seedDataset(linkedSkillUuid: (string) $skill->getUuid()),
-                register: self::REGISTER_SLUG,
-                schema: self::DATASET_SCHEMA,
-                _rbac: false,
-                _multitenancy: false
-            );
-            $output->info(self::DATASET_NAME.' seed complete.');
-        } catch (Throwable $e) {
-            $output->warning('Could not seed '.self::DATASET_NAME.' dataset: '.$e->getMessage());
-            $this->logger->error('[hermiq] '.self::DATASET_NAME.' seed failed: '.$e->getMessage());
-        }//end try
+	}//end run()
 
-    }//end run()
+	/**
+	 * The seed EvalDataset payload — three municipality-context cases, ONE linked
+	 * skill (clean attribution), no run and no evidence (ADR-060). Public + static
+	 * so tests can assert the seed's shape against the schema.
+	 *
+	 * @param string $linkedSkillUuid The `woo-request-triage` skill's uuid, resolved at seed time.
+	 *
+	 * @return array<string, mixed> The EvalDataset object payload.
+	 *
+	 * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
+	 */
+	public static function seedDataset(string $linkedSkillUuid): array {
+		$description = 'Paired baseline eval for the woo-request-triage skill — measures the skill\'s '
+			. 'marginal contribution on realistic WOO intake prompts.';
 
-    /**
-     * The seed EvalDataset payload — three municipality-context cases, ONE linked
-     * skill (clean attribution), no run and no evidence (ADR-060). Public + static
-     * so tests can assert the seed's shape against the schema.
-     *
-     * @param string $linkedSkillUuid The `woo-request-triage` skill's uuid, resolved at seed time.
-     *
-     * @return array<string, mixed> The EvalDataset object payload.
-     *
-     * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
-     */
-    public static function seedDataset(string $linkedSkillUuid): array
-    {
-        $description = 'Paired baseline eval for the woo-request-triage skill — measures the skill\'s '
-            .'marginal contribution on realistic WOO intake prompts.';
+		$triagePrompt = 'Er is een Woo-verzoek binnengekomen over de kapvergunningen in het Vondelpark; '
+			. 'wat is de eerste triagestap?';
 
-        $triagePrompt = 'Er is een Woo-verzoek binnengekomen over de kapvergunningen in het Vondelpark; '
-            .'wat is de eerste triagestap?';
+		$routingPrompt = 'Een inwoner vraagt om alle documenten over de aanbesteding van het nieuwe '
+			. 'zwembad. Routeer dit verzoek.';
 
-        $routingPrompt = 'Een inwoner vraagt om alle documenten over de aanbesteding van het nieuwe '
-            .'zwembad. Routeer dit verzoek.';
+		$rubricPrompt = 'Triageer dit Woo-verzoek: alle e-mails van de afdeling Vergunningen over de '
+			. 'dakopbouw aan de Voorbeeldstraat 1.';
 
-        $rubricPrompt = 'Triageer dit Woo-verzoek: alle e-mails van de afdeling Vergunningen over de '
-            .'dakopbouw aan de Voorbeeldstraat 1.';
+		$rubric = 'Score 1 when the answer names routing, deadline (4 weken), and an exemption '
+			. 'pre-check per the woo-request-triage procedure; 0 otherwise.';
 
-        $rubric = 'Score 1 when the answer names routing, deadline (4 weken), and an exemption '
-            .'pre-check per the woo-request-triage procedure; 0 otherwise.';
+		return [
+			'name' => self::DATASET_NAME,
+			'description' => $description,
+			'skillRefs' => [$linkedSkillUuid],
+			'cases' => [
+				[
+					'prompt' => $triagePrompt,
+					'expectationType' => 'contains',
+					'expectedSubstring' => 'termijn',
+				],
+				[
+					'prompt' => $routingPrompt,
+					'expectationType' => 'notContains',
+					'expectedSubstring' => 'klacht',
+				],
+				[
+					'prompt' => $rubricPrompt,
+					'expectationType' => 'rubric',
+					'rubric' => $rubric,
+					'rubricPassThreshold' => 0.7,
+				],
+			],
+		];
 
-        return [
-            'name'        => self::DATASET_NAME,
-            'description' => $description,
-            'skillRefs'   => [$linkedSkillUuid],
-            'cases'       => [
-                [
-                    'prompt'            => $triagePrompt,
-                    'expectationType'   => 'contains',
-                    'expectedSubstring' => 'termijn',
-                ],
-                [
-                    'prompt'            => $routingPrompt,
-                    'expectationType'   => 'notContains',
-                    'expectedSubstring' => 'klacht',
-                ],
-                [
-                    'prompt'              => $rubricPrompt,
-                    'expectationType'     => 'rubric',
-                    'rubric'              => $rubric,
-                    'rubricPassThreshold' => 0.7,
-                ],
-            ],
-        ];
+	}//end seedDataset()
 
-    }//end seedDataset()
+	/**
+	 * Find an object by exact name in the given schema (system context, no RBAC),
+	 * or null when absent.
+	 *
+	 * @param ObjectService $objectService The OpenRegister object service.
+	 * @param string $schema The schema slug to search.
+	 * @param string $name The exact object name.
+	 *
+	 * @return ObjectEntity|null The matching object, or null.
+	 */
+	private function findByName(ObjectService $objectService, string $schema, string $name): ?ObjectEntity {
+		$objects = $objectService
+			->setRegister(self::REGISTER_SLUG)
+			->setSchema($schema)
+			->findAll(
+				config: ['filters' => ['name' => $name], 'limit' => 50],
+				_rbac: false,
+				_multitenancy: false
+			);
 
-    /**
-     * Find an object by exact name in the given schema (system context, no RBAC),
-     * or null when absent.
-     *
-     * @param ObjectService $objectService The OpenRegister object service.
-     * @param string        $schema        The schema slug to search.
-     * @param string        $name          The exact object name.
-     *
-     * @return ObjectEntity|null The matching object, or null.
-     */
-    private function findByName(ObjectService $objectService, string $schema, string $name): ?ObjectEntity
-    {
-        $objects = $objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema($schema)
-            ->findAll(
-                config: ['filters' => ['name' => $name], 'limit' => 50],
-                _rbac: false,
-                _multitenancy: false
-            );
+		foreach ($objects as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
 
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
-            }
+			if ((string)($object->getObject()['name'] ?? '') === $name) {
+				return $object;
+			}
+		}
 
-            if ((string) ($object->getObject()['name'] ?? '') === $name) {
-                return $object;
-            }
-        }
-
-        return null;
-
-    }//end findByName()
+		return null;
+	}//end findByName()
 }//end class

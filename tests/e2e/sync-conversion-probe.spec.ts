@@ -35,7 +35,7 @@ async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 
@@ -51,7 +51,9 @@ async function login(page: Page): Promise<void> {
  * @param page The logged-in Playwright page.
  */
 async function firstAgentUuid(page: Page): Promise<string | null> {
-	const response = await page.request.get('/index.php/apps/openregister/api/objects/hermiq/agent?_limit=1')
+	const response = await page.request.get(
+		'/index.php/apps/openregister/api/objects/hermiq/agent?_limit=1',
+	)
 	if (!response.ok()) {
 		return null
 	}
@@ -65,11 +67,18 @@ test.describe('dead .sync conversion probe (Vue 3 two-way bindings)', () => {
 		await login(page)
 	})
 
-	test('ScheduleFormModal: name typing enables Save, approval switch reveals reviewer, save round-trips', async ({ page }) => {
+	test('ScheduleFormModal: name typing enables Save, approval switch reveals reviewer, save round-trips', async ({
+		page,
+	}) => {
 		const agentUuid = await firstAgentUuid(page)
-		test.skip(agentUuid === null, 'No agent exists on this instance to attach a schedule to.')
+		test.skip(
+			agentUuid === null,
+			'No agent exists on this instance to attach a schedule to.',
+		)
 
-		await page.goto(`/apps/hermiq/agents/${agentUuid}`, { waitUntil: 'domcontentloaded' })
+		await page.goto(`/apps/hermiq/agents/${agentUuid}`, {
+			waitUntil: 'domcontentloaded',
+		})
 
 		// The run-operations widget offers Attach (no schedule yet) or Edit (existing).
 		const attach = page.getByRole('button', { name: 'Attach schedule' })
@@ -108,14 +117,22 @@ test.describe('dead .sync conversion probe (Vue 3 two-way bindings)', () => {
 		await expect(modal).toBeHidden({ timeout: 15_000 })
 
 		// Round-trip: reopen — the persisted schedule carries the typed values.
-		await expect(page.getByRole('button', { name: 'Edit schedule' }).first()).toBeVisible({ timeout: 15_000 })
+		await expect(
+			page.getByRole('button', { name: 'Edit schedule' }).first(),
+		).toBeVisible({ timeout: 15_000 })
 		await page.getByRole('button', { name: 'Edit schedule' }).first().click()
 		await expect(modal).toBeVisible({ timeout: 10_000 })
-		await expect(modal.getByLabel('Name', { exact: true })).toHaveValue(probeName)
-		await expect(modal.getByLabel('Prompt', { exact: true })).toHaveValue(promptProbe)
+		await expect(modal.getByLabel('Name', { exact: true })).toHaveValue(
+			probeName,
+		)
+		await expect(modal.getByLabel('Prompt', { exact: true })).toHaveValue(
+			promptProbe,
+		)
 	})
 
-	test('LlmProviderModal: Ollama URL + model NcTextFields round-trip through save', async ({ page }) => {
+	test('LlmProviderModal: Ollama URL + model NcTextFields round-trip through save', async ({
+		page,
+	}) => {
 		await page.goto('/settings/admin/hermiq', { waitUntil: 'domcontentloaded' })
 
 		await page.getByRole('button', { name: 'Configure provider' }).click()
@@ -139,7 +156,12 @@ test.describe('dead .sync conversion probe (Vue 3 two-way bindings)', () => {
 		// Round-trip: the saved config repopulates the reopened modal.
 		await page.getByRole('button', { name: 'Configure provider' }).click()
 		await expect(modal).toBeVisible({ timeout: 15_000 })
-		await expect(modal.getByLabel('Ollama URL', { exact: true })).toHaveValue(urlProbe, { timeout: 15_000 })
-		await expect(modal.getByLabel('Model', { exact: true })).toHaveValue(modelProbe)
+		await expect(modal.getByLabel('Ollama URL', { exact: true })).toHaveValue(
+			urlProbe,
+			{ timeout: 15_000 },
+		)
+		await expect(modal.getByLabel('Model', { exact: true })).toHaveValue(
+			modelProbe,
+		)
 	})
 })

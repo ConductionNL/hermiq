@@ -56,167 +56,160 @@ use Throwable;
  *
  * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */
-class TalkTurnDispatcher
-{
+class TalkTurnDispatcher {
 
-    /**
-     * Core's triggerable-provider interface, referenced BY NAME.
-     *
-     * Deliberately a string rather than an `instanceof` on the imported
-     * interface: `ITriggerableProvider` ships in the Nextcloud 34 runtime but
-     * is absent from the OCP package this app pins, and from older Nextcloud
-     * releases altogether. `is_a()` with a string degrades to false where the
-     * interface does not exist, which is exactly the fallback behaviour wanted,
-     * whereas importing it would tie the app to a newer OCP for no gain.
-     *
-     * @var string
-     */
-    private const TRIGGERABLE_PROVIDER = 'OCP\\TaskProcessing\\ITriggerableProvider';
+	/**
+	 * Core's triggerable-provider interface, referenced BY NAME.
+	 *
+	 * Deliberately a string rather than an `instanceof` on the imported
+	 * interface: `ITriggerableProvider` ships in the Nextcloud 34 runtime but
+	 * is absent from the OCP package this app pins, and from older Nextcloud
+	 * releases altogether. `is_a()` with a string degrades to false where the
+	 * interface does not exist, which is exactly the fallback behaviour wanted,
+	 * whereas importing it would tie the app to a newer OCP for no gain.
+	 *
+	 * @var string
+	 */
+	private const TRIGGERABLE_PROVIDER = 'OCP\\TaskProcessing\\ITriggerableProvider';
 
-    /**
-     * Constructor.
-     *
-     * The TaskProcessing manager is optional so the dispatcher still
-     * constructs (and falls back to the queue) on an instance where it cannot
-     * be resolved.
-     *
-     * @param IJobList                    $jobList     The background job list (fallback path).
-     * @param LoggerInterface             $logger      PSR-3 logger.
-     * @param ITaskProcessingManager|null $taskManager Core TaskProcessing manager (fast path).
-     */
-    public function __construct(
-        private readonly IJobList $jobList,
-        private readonly LoggerInterface $logger,
-        private readonly ?ITaskProcessingManager $taskManager=null,
-    ) {
-    }//end __construct()
+	/**
+	 * Constructor.
+	 *
+	 * The TaskProcessing manager is optional so the dispatcher still
+	 * constructs (and falls back to the queue) on an instance where it cannot
+	 * be resolved.
+	 *
+	 * @param IJobList $jobList The background job list (fallback path).
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 * @param ITaskProcessingManager|null $taskManager Core TaskProcessing manager (fast path).
+	 */
+	public function __construct(
+		private readonly IJobList $jobList,
+		private readonly LoggerInterface $logger,
+		private readonly ?ITaskProcessingManager $taskManager = null,
+	) {
+	}//end __construct()
 
-    /**
-     * Hand the turn off for execution outside this request.
-     *
-     * @param string $conversationUuid The bound conversation.
-     * @param string $speakerUid       The uid whose turn this is.
-     * @param string $message          The message text.
-     * @param string $roomToken        The room to answer in.
-     *
-     * @return string The path taken: `triggered` or `queued`.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
-     */
-    public function dispatch(string $conversationUuid, string $speakerUid, string $message, string $roomToken): string
-    {
-        $argument = [
-            'conversationUuid' => $conversationUuid,
-            'speakerUid'       => $speakerUid,
-            'message'          => $message,
-            'roomToken'        => $roomToken,
-        ];
+	/**
+	 * Hand the turn off for execution outside this request.
+	 *
+	 * @param string $conversationUuid The bound conversation.
+	 * @param string $speakerUid The uid whose turn this is.
+	 * @param string $message The message text.
+	 * @param string $roomToken The room to answer in.
+	 *
+	 * @return string The path taken: `triggered` or `queued`.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 */
+	public function dispatch(string $conversationUuid, string $speakerUid, string $message, string $roomToken): string {
+		$argument = [
+			'conversationUuid' => $conversationUuid,
+			'speakerUid' => $speakerUid,
+			'message' => $message,
+			'roomToken' => $roomToken,
+		];
 
-        // The queued job is the durable hand-off and today it is the ONLY one
-        // that actually executes a turn: the fast path needs a registered
-        // ITriggerableProvider that pulls Hermiq turns, and no such runner
-        // ships yet (hermiq's existing TaskProcessing providers are all
-        // ISynchronousProvider, which core runs on the same cron tick).
-        //
-        // `triggerFastPath()` is the seam that activates when one does. It is
-        // deliberately a nudge only — the queued job stays the durable record
-        // either way, so a turn can never be lost between the two mechanisms.
-        $this->jobList->add(TalkTurnJob::class, $argument);
+		// The queued job is the durable hand-off and today it is the ONLY one
+		// that actually executes a turn: the fast path needs a registered
+		// ITriggerableProvider that pulls Hermiq turns, and no such runner
+		// ships yet (hermiq's existing TaskProcessing providers are all
+		// ISynchronousProvider, which core runs on the same cron tick).
+		//
+		// `triggerFastPath()` is the seam that activates when one does. It is
+		// deliberately a nudge only — the queued job stays the durable record
+		// either way, so a turn can never be lost between the two mechanisms.
+		$this->jobList->add(TalkTurnJob::class, $argument);
 
-        if ($this->triggerFastPath() === true) {
-            return 'triggered';
-        }
+		if ($this->triggerFastPath() === true) {
+			return 'triggered';
+		}
 
-        return 'queued';
+		return 'queued';
+	}//end dispatch()
 
-    }//end dispatch()
+	/**
+	 * Nudge a triggerable runner so the queued turn is picked up immediately.
+	 *
+	 * Returns false — the honest answer — whenever no triggerable provider is
+	 * registered, which is the case on every instance until such a runner
+	 * ships. Callers use the result for reporting only; the turn is already
+	 * durably enqueued by the time this runs.
+	 *
+	 * @return bool True when a triggerable runner was actually nudged.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 */
+	private function triggerFastPath(): bool {
+		if ($this->taskManager === null) {
+			return false;
+		}
 
-    /**
-     * Nudge a triggerable runner so the queued turn is picked up immediately.
-     *
-     * Returns false — the honest answer — whenever no triggerable provider is
-     * registered, which is the case on every instance until such a runner
-     * ships. Callers use the result for reporting only; the turn is already
-     * durably enqueued by the time this runs.
-     *
-     * @return bool True when a triggerable runner was actually nudged.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
-     */
-    private function triggerFastPath(): bool
-    {
-        if ($this->taskManager === null) {
-            return false;
-        }
+		$triggered = false;
 
-        $triggered = false;
+		try {
+			foreach ($this->taskManager->getProviders() as $provider) {
+				if (is_a($provider, self::TRIGGERABLE_PROVIDER) === false) {
+					continue;
+				}
 
-        try {
-            foreach ($this->taskManager->getProviders() as $provider) {
-                if (is_a($provider, self::TRIGGERABLE_PROVIDER) === false) {
-                    continue;
-                }
+				// Called dynamically because ITriggerableProvider is absent from
+				// the pinned OCP (see TRIGGERABLE_PROVIDER). The is_a() check
+				// above is what guarantees the method exists here.
+				$trigger = [$provider, 'trigger'];
+				if (is_callable($trigger) === true) {
+					$trigger();
+					$triggered = true;
+				}
+			}
+		} catch (Throwable $e) {
+			// A runner that cannot be nudged is not an error: the queued job
+			// still carries the turn.
+			$this->logger->debug(
+				message: '[TalkTurnDispatcher] Could not nudge a triggerable runner; the queued turn stands',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'error' => $e->getMessage(),
+				]
+			);
+		}//end try
 
-                // Called dynamically because ITriggerableProvider is absent from
-                // the pinned OCP (see TRIGGERABLE_PROVIDER). The is_a() check
-                // above is what guarantees the method exists here.
-                $trigger = [$provider, 'trigger'];
-                if (is_callable($trigger) === true) {
-                    $trigger();
-                    $triggered = true;
-                }
-            }
-        } catch (Throwable $e) {
-            // A runner that cannot be nudged is not an error: the queued job
-            // still carries the turn.
-            $this->logger->debug(
-                message: '[TalkTurnDispatcher] Could not nudge a triggerable runner; the queued turn stands',
-                context: [
-                    'file'  => __FILE__,
-                    'line'  => __LINE__,
-                    'error' => $e->getMessage(),
-                ]
-            );
-        }//end try
+		return $triggered;
+	}//end triggerFastPath()
 
-        return $triggered;
+	/**
+	 * Whether a triggerable TaskProcessing provider is registered.
+	 *
+	 * Only `ITriggerableProvider` counts: an `ISynchronousProvider` is run by
+	 * core's own QueuedJob and so is no faster than the fallback.
+	 *
+	 * @return bool True when a triggerable provider is available.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
+	 */
+	public function hasTriggerableProvider(): bool {
+		if ($this->taskManager === null) {
+			return false;
+		}
 
-    }//end triggerFastPath()
+		try {
+			foreach ($this->taskManager->getProviders() as $provider) {
+				if (is_a($provider, self::TRIGGERABLE_PROVIDER) === true) {
+					return true;
+				}
+			}
+		} catch (Throwable $e) {
+			$this->logger->debug(
+				message: '[TalkTurnDispatcher] Could not enumerate TaskProcessing providers; using the queued fallback',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'error' => $e->getMessage(),
+				]
+			);
+		}
 
-    /**
-     * Whether a triggerable TaskProcessing provider is registered.
-     *
-     * Only `ITriggerableProvider` counts: an `ISynchronousProvider` is run by
-     * core's own QueuedJob and so is no faster than the fallback.
-     *
-     * @return bool True when a triggerable provider is available.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
-     */
-    public function hasTriggerableProvider(): bool
-    {
-        if ($this->taskManager === null) {
-            return false;
-        }
-
-        try {
-            foreach ($this->taskManager->getProviders() as $provider) {
-                if (is_a($provider, self::TRIGGERABLE_PROVIDER) === true) {
-                    return true;
-                }
-            }
-        } catch (Throwable $e) {
-            $this->logger->debug(
-                message: '[TalkTurnDispatcher] Could not enumerate TaskProcessing providers; using the queued fallback',
-                context: [
-                    'file'  => __FILE__,
-                    'line'  => __LINE__,
-                    'error' => $e->getMessage(),
-                ]
-            );
-        }
-
-        return false;
-
-    }//end hasTriggerableProvider()
+		return false;
+	}//end hasTriggerableProvider()
 }//end class

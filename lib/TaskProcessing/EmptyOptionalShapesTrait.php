@@ -33,117 +33,108 @@ namespace OCA\Hermiq\TaskProcessing;
  *
  * @spec openspec/changes/taskprocessing-provide-text2text/tasks.md#task-1-1
  */
-trait EmptyOptionalShapesTrait
-{
-    /**
-     * Optional input shape (none).
-     *
-     * @return array
-     *
-     * @psalm-return array<never, never>
-     *
-     * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
-     */
-    public function getOptionalInputShape(): array
-    {
-        return [];
-    }//end getOptionalInputShape()
+trait EmptyOptionalShapesTrait {
+	/**
+	 * Optional input shape (none).
+	 *
+	 * @return array
+	 *
+	 * @psalm-return array<never, never>
+	 *
+	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
+	 */
+	public function getOptionalInputShape(): array {
+		return [];
+	}//end getOptionalInputShape()
 
-    /**
-     * Optional output shape (none).
-     *
-     * @return array
-     *
-     * @psalm-return array<never, never>
-     *
-     * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
-     */
-    public function getOptionalOutputShape(): array
-    {
-        return [];
-    }//end getOptionalOutputShape()
+	/**
+	 * Optional output shape (none).
+	 *
+	 * @return array
+	 *
+	 * @psalm-return array<never, never>
+	 *
+	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
+	 */
+	public function getOptionalOutputShape(): array {
+		return [];
+	}//end getOptionalOutputShape()
 
-    /**
-     * Enum options for input shape slots (none).
-     *
-     * @return array
-     *
-     * @psalm-return array<never, never>
-     *
-     * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
-     */
-    public function getInputShapeEnumValues(): array
-    {
-        return [];
-    }//end getInputShapeEnumValues()
+	/**
+	 * Enum options for input shape slots (none).
+	 *
+	 * @return array
+	 *
+	 * @psalm-return array<never, never>
+	 *
+	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
+	 */
+	public function getInputShapeEnumValues(): array {
+		return [];
+	}//end getInputShapeEnumValues()
 
-    /**
-     * Defaults for input shape slots (none).
-     *
-     * @return array
-     *
-     * @psalm-return array<never, never>
-     *
-     * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
-     */
-    public function getInputShapeDefaults(): array
-    {
-        return [];
-    }//end getInputShapeDefaults()
+	/**
+	 * Defaults for input shape slots (none).
+	 *
+	 * @return array
+	 *
+	 * @psalm-return array<never, never>
+	 *
+	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
+	 */
+	public function getInputShapeDefaults(): array {
+		return [];
+	}//end getInputShapeDefaults()
 
-    /**
-     * Enum options for optional input shape slots (none).
-     *
-     * @return array
-     *
-     * @psalm-return array<never, never>
-     *
-     * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
-     */
-    public function getOptionalInputShapeEnumValues(): array
-    {
-        return [];
-    }//end getOptionalInputShapeEnumValues()
+	/**
+	 * Enum options for optional input shape slots (none).
+	 *
+	 * @return array
+	 *
+	 * @psalm-return array<never, never>
+	 *
+	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
+	 */
+	public function getOptionalInputShapeEnumValues(): array {
+		return [];
+	}//end getOptionalInputShapeEnumValues()
 
-    /**
-     * Defaults for optional input shape slots (none).
-     *
-     * @return array
-     *
-     * @psalm-return array<never, never>
-     *
-     * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
-     */
-    public function getOptionalInputShapeDefaults(): array
-    {
-        return [];
-    }//end getOptionalInputShapeDefaults()
+	/**
+	 * Defaults for optional input shape slots (none).
+	 *
+	 * @return array
+	 *
+	 * @psalm-return array<never, never>
+	 *
+	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
+	 */
+	public function getOptionalInputShapeDefaults(): array {
+		return [];
+	}//end getOptionalInputShapeDefaults()
 
-    /**
-     * Enum options for output shape slots (none).
-     *
-     * @return array
-     *
-     * @psalm-return array<never, never>
-     *
-     * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
-     */
-    public function getOutputShapeEnumValues(): array
-    {
-        return [];
-    }//end getOutputShapeEnumValues()
+	/**
+	 * Enum options for output shape slots (none).
+	 *
+	 * @return array
+	 *
+	 * @psalm-return array<never, never>
+	 *
+	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
+	 */
+	public function getOutputShapeEnumValues(): array {
+		return [];
+	}//end getOutputShapeEnumValues()
 
-    /**
-     * Enum options for optional output shape slots (none).
-     *
-     * @return array
-     *
-     * @psalm-return array<never, never>
-     *
-     * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
-     */
-    public function getOptionalOutputShapeEnumValues(): array
-    {
-        return [];
-    }//end getOptionalOutputShapeEnumValues()
+	/**
+	 * Enum options for optional output shape slots (none).
+	 *
+	 * @return array
+	 *
+	 * @psalm-return array<never, never>
+	 *
+	 * @spec exclude Empty framework-shape accessor (no optional/enum slots); no behavioural spec.
+	 */
+	public function getOptionalOutputShapeEnumValues(): array {
+		return [];
+	}//end getOptionalOutputShapeEnumValues()
 }//end trait

@@ -96,7 +96,8 @@ function roleOfNodeType(catalog, type) {
  * @return {number} How many nodes are triggers.
  */
 function triggerNodeCount(nodes, catalog) {
-	return nodes.filter((node) => roleOfNodeType(catalog, node.type) === 'trigger').length
+	return nodes.filter((node) => roleOfNodeType(catalog, node.type) === 'trigger')
+		.length
 }
 
 console.log('triggerNodeCount — asks the engine, does not guess from the id')
@@ -107,20 +108,28 @@ console.log('triggerNodeCount — asks the engine, does not guess from the id')
 	// fails against the previous implementation.
 	const foreignTrigger = [{ id: 'n1', type: 'acme.on-invoice-paid' }]
 	const catalog = [{ id: 'acme.on-invoice-paid', role: 'trigger' }]
-	assert(triggerNodeCount(foreignTrigger, catalog) === 1,
-		'a trigger whose id does not spell "trigger" is counted, because the catalogue says role=trigger')
+	assert(
+		triggerNodeCount(foreignTrigger, catalog) === 1,
+		'a trigger whose id does not spell "trigger" is counted, because the catalogue says role=trigger',
+	)
 
 	// The inverse. Without this, an implementation that counted every node
 	// would satisfy the line above.
 	const stepOnly = [{ id: 'n1', type: 'acme.render-pdf' }]
-	assert(triggerNodeCount(stepOnly, [{ id: 'acme.render-pdf', role: 'step' }]) === 0,
-		'a step is not counted, so the figure is not simply the node total')
+	assert(
+		triggerNodeCount(stepOnly, [{ id: 'acme.render-pdf', role: 'step' }]) === 0,
+		'a step is not counted, so the figure is not simply the node total',
+	)
 
 	// A node the catalogue calls a step must NOT be rescued by its id. This is
 	// the direction that keeps `role` authoritative rather than advisory.
 	const misleadingId = [{ id: 'n1', type: 'acme.trigger-lookalike' }]
-	assert(triggerNodeCount(misleadingId, [{ id: 'acme.trigger-lookalike', role: 'step' }]) === 0,
-		'the published role beats the id: a "trigger-" id declared a step is not counted')
+	assert(
+		triggerNodeCount(misleadingId, [
+			{ id: 'acme.trigger-lookalike', role: 'step' },
+		]) === 0,
+		'the published role beats the id: a "trigger-" id declared a step is not counted',
+	)
 }
 
 console.log('triggerNodeCount — the naming-convention fallback still answers')
@@ -128,26 +137,42 @@ console.log('triggerNodeCount — the naming-convention fallback still answers')
 	// The catalogue has not loaded yet. Degrading to "everything is a step"
 	// here would draw a trigger as an ordinary node for the first frames.
 	const builtin = [{ id: 'n1', type: 'openregister.trigger-object' }]
-	assert(triggerNodeCount(builtin, []) === 1,
-		'with no catalogue, an openregister.trigger-* node still counts')
+	assert(
+		triggerNodeCount(builtin, []) === 1,
+		'with no catalogue, an openregister.trigger-* node still counts',
+	)
 
-	assert(triggerNodeCount([{ id: 'n1', type: 'openregister.end' }], []) === 0,
-		'with no catalogue, an end node is not mistaken for a trigger')
+	assert(
+		triggerNodeCount([{ id: 'n1', type: 'openregister.end' }], []) === 0,
+		'with no catalogue, an end node is not mistaken for a trigger',
+	)
 }
 
 console.log('the shipped code matches what this spec asserts against')
 {
 	const sidebar = fs.readFileSync(SIDEBAR, 'utf8')
-	assert(/triggerNodeCount\(\)\s*\{[\s\S]{0,220}roleOfNodeType\(node\.type\)\s*===\s*'trigger'/.test(sidebar),
-		'FlowSidebar.triggerNodeCount resolves the role through the store, not a substring of the id')
-	assert(!/triggerNodeCount\(\)\s*\{[\s\S]{0,220}includes\('\.trigger-'\)/.test(sidebar),
-		'FlowSidebar.triggerNodeCount no longer substring-matches the type id')
+	assert(
+		/triggerNodeCount\(\)\s*\{[\s\S]{0,220}roleOfNodeType\(node\.type\)\s*===\s*'trigger'/.test(
+			sidebar,
+		),
+		'FlowSidebar.triggerNodeCount resolves the role through the store, not a substring of the id',
+	)
+	assert(
+		!/triggerNodeCount\(\)\s*\{[\s\S]{0,220}includes\('\.trigger-'\)/.test(
+			sidebar,
+		),
+		'FlowSidebar.triggerNodeCount no longer substring-matches the type id',
+	)
 
 	const store = fs.readFileSync(STORE, 'utf8')
-	assert(/roleOfNodeType:\s*\(state\)\s*=>\s*\(type\)\s*=>/.test(store),
-		'the store still exposes roleOfNodeType for the sidebar to call')
-	assert(/entry\s*!==\s*undefined\s*&&\s*entry\.role/.test(store),
-		'the store still prefers the published role over the naming convention')
+	assert(
+		/roleOfNodeType:\s*\(state\)\s*=>\s*\(type\)\s*=>/.test(store),
+		'the store still exposes roleOfNodeType for the sidebar to call',
+	)
+	assert(
+		/entry\s*!==\s*undefined\s*&&\s*entry\.role/.test(store),
+		'the store still prefers the published role over the naming convention',
+	)
 }
 
 if (failures > 0) {

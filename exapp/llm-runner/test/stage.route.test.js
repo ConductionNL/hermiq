@@ -23,16 +23,16 @@
  * @copyright 2026 Conduction B.V.
  */
 
-'use strict';
+'use strict'
 
 // Set before the server module reads it at load time.
-process.env.APP_SECRET = process.env.APP_SECRET || 'route-test-secret';
-process.env.APP_ID = process.env.APP_ID || 'hermiq-llm-runner';
+process.env.APP_SECRET = process.env.APP_SECRET || 'route-test-secret'
+process.env.APP_ID = process.env.APP_ID || 'hermiq-llm-runner'
 
-const test = require('node:test');
-const assert = require('node:assert');
-const path = require('path');
-const Module = require('module');
+const test = require('node:test')
+const assert = require('node:assert')
+const path = require('path')
+const Module = require('module')
 
 /**
  * Load `server.js` with its stage workload replaced by a recorder.
@@ -44,137 +44,180 @@ const Module = require('module');
  * @returns {{handleStage: Function, calls: Array}} The captured calls.
  */
 function loadServerWithStubbedStage() {
-    const stagePath = require.resolve('../src/stage');
-    const serverPath = require.resolve('../src/server');
-    const calls = [];
+	const stagePath = require.resolve('../src/stage')
+	const serverPath = require.resolve('../src/server')
+	const calls = []
 
-    delete require.cache[stagePath];
-    delete require.cache[serverPath];
+	delete require.cache[stagePath]
+	delete require.cache[serverPath]
 
-    const original = Module._load;
-    Module._load = function patched(request, parent, isMain) {
-        if (parent && parent.filename === serverPath && request === './stage') {
-            return {
-                runStage: async (args) => {
-                    calls.push(args);
+	const original = Module._load
+	Module._load = function patched(request, parent, isMain) {
+		if (parent && parent.filename === serverPath && request === './stage') {
+			return {
+				runStage: async (args) => {
+					calls.push(args)
 
-                    return { exitCode: 0, output: '', ref: args.ref };
-                },
-            };
-        }
+					return { exitCode: 0, output: '', ref: args.ref }
+				},
+			}
+		}
 
-        return original.apply(this, [request, parent, isMain]);
-    };
+		return original.apply(this, [request, parent, isMain])
+	}
 
-    let server;
-    try {
-        server = require('../src/server');
-    } finally {
-        Module._load = original;
-        delete require.cache[serverPath];
-        delete require.cache[stagePath];
-    }
+	let server
+	try {
+		server = require('../src/server')
+	} finally {
+		Module._load = original
+		delete require.cache[serverPath]
+		delete require.cache[stagePath]
+	}
 
-    return { server, calls };
+	return { server, calls }
 }
 
 test('every field the body carries reaches the workload', async () => {
-    const { server, calls } = loadServerWithStubbedStage();
+	const { server, calls } = loadServerWithStubbedStage()
 
-    // No conditional skip. An earlier version of this test returned early when
-    // the handler was not exported, which made it pass while asserting nothing —
-    // the same shape of false coverage that let the dropped field through in the
-    // first place. If the seam is not reachable, this test must FAIL and say so.
-    assert.strictEqual(
-        typeof server.handleStage,
-        'function',
-        'handleStage is not exported, so the route boundary cannot be tested at all'
-    );
+	// No conditional skip. An earlier version of this test returned early when
+	// the handler was not exported, which made it pass while asserting nothing —
+	// the same shape of false coverage that let the dropped field through in the
+	// first place. If the seam is not reachable, this test must FAIL and say so.
+	assert.strictEqual(
+		typeof server.handleStage,
+		'function',
+		'handleStage is not exported, so the route boundary cannot be tested at all',
+	)
 
-    const body = Buffer.from(JSON.stringify({
-        repo: 'https://example.test/target',
-        ref: 'development',
-        toolRepo: 'https://example.test/tool',
-        toolRef: 'main',
-        command: ['scripts/run-hydra-gates.sh', '--scope-to-diff'],
-        timeoutMs: 1000,
-        // The two fields that decide whether a stage may WRITE and whether it
-        // has an identity to get out with. A route that dropped `push` would
-        // silently downgrade a builder to a read-only gating stage, which looks
-        // like a stage that simply found nothing to do; a route that dropped
-        // `runToken` would leave the clone with no per-run identity and the
-        // governed proxy would deny it `no_run_token`.
-        runToken: 'run-token-not-a-secret-in-this-test',
-        push: {
-            branch: 'feature/493/x',
-            issue: 493,
-            scope: ['lib'],
-            allowedRepo: 'https://example.test/target',
-        },
-    }));
+	const body = Buffer.from(
+		JSON.stringify({
+			repo: 'https://example.test/target',
+			ref: 'development',
+			toolRepo: 'https://example.test/tool',
+			toolRef: 'main',
+			command: ['scripts/run-hydra-gates.sh', '--scope-to-diff'],
+			timeoutMs: 1000,
+			// The two fields that decide whether a stage may WRITE and whether it
+			// has an identity to get out with. A route that dropped `push` would
+			// silently downgrade a builder to a read-only gating stage, which looks
+			// like a stage that simply found nothing to do; a route that dropped
+			// `runToken` would leave the clone with no per-run identity and the
+			// governed proxy would deny it `no_run_token`.
+			runToken: 'run-token-not-a-secret-in-this-test',
+			// The model credential. A route that dropped this would leave a
+			// build stage's `claude` with no token, and the CLI's own error
+			// ("no credential") points at the sidecar rather than at the route
+			// that swallowed it.
+			credentialEnv: { CLAUDE_CODE_OAUTH_TOKEN: 'oat-not-a-real-token' },
+			push: {
+				branch: 'feature/493/x',
+				issue: 493,
+				scope: ['lib'],
+				allowedRepo: 'https://example.test/target',
+			},
+		}),
+	)
 
-    // Auth runs FIRST, before the body is parsed and long before anything is
-    // cloned — so an unauthenticated request never reaches the workload and
-    // this test would assert nothing. AppAPI 34's scheme is
-    // base64(`userId:secret`), verified against APP_SECRET.
-    const headers = {
-        'ex-app-id': process.env.APP_ID,
-        'authorization-app-api': Buffer.from(`admin:${process.env.APP_SECRET}`).toString('base64'),
-    };
+	// Auth runs FIRST, before the body is parsed and long before anything is
+	// cloned — so an unauthenticated request never reaches the workload and
+	// this test would assert nothing. AppAPI 34's scheme is
+	// base64(`userId:secret`), verified against APP_SECRET.
+	const headers = {
+		'ex-app-id': process.env.APP_ID,
+		'authorization-app-api': Buffer.from(
+			`admin:${process.env.APP_SECRET}`,
+		).toString('base64'),
+	}
 
-    const res = {
-        statusCode: 0,
-        body: '',
-        writeHead(status) { this.statusCode = status; },
-        setHeader() {},
-        end(b) { this.body = b; },
-    };
-    await server.handleStage({ headers, method: 'POST', url: '/stage' }, res, body);
+	const res = {
+		statusCode: 0,
+		body: '',
+		writeHead(status) {
+			this.statusCode = status
+		},
+		setHeader() {},
+		end(b) {
+			this.body = b
+		},
+	}
+	await server.handleStage({ headers, method: 'POST', url: '/stage' }, res, body)
 
-    assert.strictEqual(res.statusCode, 200, `route rejected the request: ${res.body}`);
+	assert.strictEqual(
+		res.statusCode,
+		200,
+		`route rejected the request: ${res.body}`,
+	)
 
-    assert.strictEqual(calls.length, 1, 'the workload was not reached');
-    const got = calls[0];
+	assert.strictEqual(calls.length, 1, 'the workload was not reached')
+	const got = calls[0]
 
-    // The four that a destructuring filter can silently drop.
-    assert.strictEqual(got.repo, 'https://example.test/target');
-    assert.strictEqual(got.ref, 'development');
-    assert.strictEqual(got.toolRepo, 'https://example.test/tool', 'toolRepo was dropped by the route');
-    assert.strictEqual(got.toolRef, 'main', 'toolRef was dropped by the route');
-    assert.deepStrictEqual(got.command, ['scripts/run-hydra-gates.sh', '--scope-to-diff']);
-    assert.strictEqual(got.runToken, 'run-token-not-a-secret-in-this-test', 'runToken was dropped by the route');
-    assert.deepStrictEqual(
-        got.push,
-        {
-            branch: 'feature/493/x',
-            issue: 493,
-            scope: ['lib'],
-            allowedRepo: 'https://example.test/target',
-        },
-        'push was dropped or reshaped by the route'
-    );
-});
+	// The four that a destructuring filter can silently drop.
+	assert.strictEqual(got.repo, 'https://example.test/target')
+	assert.strictEqual(got.ref, 'development')
+	assert.strictEqual(
+		got.toolRepo,
+		'https://example.test/tool',
+		'toolRepo was dropped by the route',
+	)
+	assert.strictEqual(got.toolRef, 'main', 'toolRef was dropped by the route')
+	assert.deepStrictEqual(got.command, [
+		'scripts/run-hydra-gates.sh',
+		'--scope-to-diff',
+	])
+	assert.strictEqual(
+		got.runToken,
+		'run-token-not-a-secret-in-this-test',
+		'runToken was dropped by the route',
+	)
+	assert.deepStrictEqual(
+		got.credentialEnv,
+		{ CLAUDE_CODE_OAUTH_TOKEN: 'oat-not-a-real-token' },
+		'credentialEnv was dropped by the route',
+	)
+	assert.deepStrictEqual(
+		got.push,
+		{
+			branch: 'feature/493/x',
+			issue: 493,
+			scope: ['lib'],
+			allowedRepo: 'https://example.test/target',
+		},
+		'push was dropped or reshaped by the route',
+	)
+})
 
 test('the route forwards exactly the fields the workload accepts, and no more', () => {
-    // A structural check that needs no HTTP: the two lists must agree, so a
-    // field added to one and not the other is caught even when no test happens
-    // to exercise it. This is the generalisation of the bug — the specific
-    // field was `toolRepo`, the class is "the boundary has its own list".
-    const fs = require('fs');
-    const serverSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'server.js'), 'utf8');
-    const stageSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'stage.js'), 'utf8');
+	// A structural check that needs no HTTP: the two lists must agree, so a
+	// field added to one and not the other is caught even when no test happens
+	// to exercise it. This is the generalisation of the bug — the specific
+	// field was `toolRepo`, the class is "the boundary has its own list".
+	const fs = require('fs')
+	const serverSrc = fs.readFileSync(
+		path.join(__dirname, '..', 'src', 'server.js'),
+		'utf8',
+	)
+	const stageSrc = fs.readFileSync(
+		path.join(__dirname, '..', 'src', 'stage.js'),
+		'utf8',
+	)
 
-    const accepted = (stageSrc.match(/async function runStage\(\{([^}]*)\}/) || [])[1];
-    assert.ok(accepted, 'could not read runStage signature');
+	const accepted = (stageSrc.match(/async function runStage\(\{([^}]*)\}/)
+		|| [])[1]
+	assert.ok(accepted, 'could not read runStage signature')
 
-    const fields = accepted.split(',').map((s) => s.trim()).filter(Boolean);
-    assert.ok(fields.length >= 8, 'runStage signature looks unexpectedly small');
+	const fields = accepted
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean)
+	assert.ok(fields.length >= 8, 'runStage signature looks unexpectedly small')
 
-    for (const field of fields) {
-        assert.ok(
-            new RegExp(`\\b${field}\\b`).test(serverSrc),
-            `runStage accepts "${field}" but the /stage route never mentions it — `
-            + 'the route destructures a fixed list, so an unmentioned field is silently dropped'
-        );
-    }
-});
+	for (const field of fields) {
+		assert.ok(
+			new RegExp(`\\b${field}\\b`).test(serverSrc),
+			`runStage accepts "${field}" but the /stage route never mentions it — `
+				+ 'the route destructures a fixed list, so an unmentioned field is silently dropped',
+		)
+	}
+})

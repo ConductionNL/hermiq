@@ -19,7 +19,10 @@
 		size="normal"
 		@update:open="$emit('close')">
 		<div class="create-incident-dialog">
-			<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Could not create incident')">
+			<NcNoteCard
+				v-if="error"
+				type="error"
+				:heading="t('hermiq', 'Could not create incident')">
 				{{ error }}
 			</NcNoteCard>
 
@@ -33,7 +36,9 @@
 			<NcTextArea
 				v-model="form.impact"
 				:label="t('hermiq', 'Impact')"
-				:placeholder="t('hermiq', 'Who or what was affected, and how severely?')"
+				:placeholder="
+					t('hermiq', 'Who or what was affected, and how severely?')
+				"
 				required
 				resize="vertical" />
 
@@ -58,10 +63,7 @@
 			<NcButton :disabled="saving" @click="$emit('close')">
 				{{ t('hermiq', 'Cancel') }}
 			</NcButton>
-			<NcButton
-				type="primary"
-				:disabled="saving || !canSave"
-				@click="save">
+			<NcButton type="primary" :disabled="saving || !canSave" @click="save">
 				<template v-if="saving" #icon>
 					<NcLoadingIcon :size="20" />
 				</template>
@@ -72,7 +74,14 @@
 </template>
 
 <script>
-import { NcButton, NcDialog, NcLoadingIcon, NcNoteCard, NcTextArea, NcTextField } from '@nextcloud/vue'
+import {
+	NcButton,
+	NcDialog,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
 import { createIncident } from '../api/tenantOps.js'
 
 export default {
@@ -124,9 +133,11 @@ export default {
 		 * @return {boolean}
 		 */
 		canSave() {
-			return this.form.description.trim() !== ''
+			return (
+				this.form.description.trim() !== ''
 				&& this.form.impact.trim() !== ''
 				&& this.form.actionsTaken.trim() !== ''
+			)
 		},
 	},
 
@@ -190,7 +201,10 @@ export default {
 				this.$emit('created', created)
 				this.$emit('close')
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.saving = false
 			}

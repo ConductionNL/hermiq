@@ -45,7 +45,7 @@ async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 
@@ -94,33 +94,49 @@ test.describe('skill provenance (skill-install-idempotency)', () => {
 	})
 
 	// @e2e skills-marketplace::a-quarantined-skill-shows-its-state-and-the-reason
-	test('a quarantined skill shows that it awaits review and why', async ({ page }) => {
+	test('a quarantined skill shows that it awaits review and why', async ({
+		page,
+	}) => {
 		const skills = await fetchSkills(page)
 		const quarantined = skills.find(
-			(s) => s.state === 'quarantined' && typeof s.quarantineReason === 'string' && s.quarantineReason !== '',
+			(s) =>
+				s.state === 'quarantined'
+				&& typeof s.quarantineReason === 'string'
+				&& s.quarantineReason !== '',
 		)
 
-		test.skip(!quarantined, 'no quarantined skill with a recorded reason on this instance')
+		test.skip(
+			!quarantined,
+			'no quarantined skill with a recorded reason on this instance',
+		)
 
 		await openSkill(page, quarantined!.id as string)
 
 		const card = page.locator('.skill-provenance')
 		await expect(card.getByText('Awaiting review').first()).toBeVisible()
-		await expect(card.getByText('Quarantined — awaiting review').first()).toBeVisible()
+		await expect(
+			card.getByText('Quarantined — awaiting review').first(),
+		).toBeVisible()
 
 		// The REASON itself, not merely the fact of quarantine — the reason is the
 		// part that tells a reviewer what changed under an earlier approval.
-		await expect(card.getByText(quarantined!.quarantineReason as string).first()).toBeVisible()
+		await expect(
+			card.getByText(quarantined!.quarantineReason as string).first(),
+		).toBeVisible()
 
 		// Read-only by contract: the card reports state, it never changes it.
 		await expect(card.getByRole('button')).toHaveCount(0)
 	})
 
 	// @e2e skills-marketplace::an-installed-skill-shows-where-it-came-from-and-when-it-was-refreshed
-	test('a bundle-installed skill shows its source url and last refresh', async ({ page }) => {
+	test('a bundle-installed skill shows its source url and last refresh', async ({
+		page,
+	}) => {
 		const skills = await fetchSkills(page)
 		const installed = skills.find(
-			(s) => typeof s.sourceUrl === 'string' && (s.sourceUrl as string).startsWith('http'),
+			(s) =>
+				typeof s.sourceUrl === 'string'
+				&& (s.sourceUrl as string).startsWith('http'),
 		)
 
 		test.skip(!installed, 'no bundle-installed skill on this instance')
@@ -136,13 +152,17 @@ test.describe('skill provenance (skill-install-idempotency)', () => {
 		await expect(link).toHaveAttribute('href', installed!.sourceUrl as string)
 
 		// A refreshed skill shows a real timestamp, never the "—" placeholder.
-		await expect(card.getByText('Last updated from source').first()).toBeVisible()
+		await expect(
+			card.getByText('Last updated from source').first(),
+		).toBeVisible()
 		const facts = await card.innerText()
 		expect(facts).not.toContain('Last updated from source\n—')
 	})
 
 	// @e2e skills-marketplace::the-learnings-notice-appears-only-when-learnings-are-ahead-of-the-source
-	test('the learnings notice appears only when local learnings are ahead', async ({ page }) => {
+	test('the learnings notice appears only when local learnings are ahead', async ({
+		page,
+	}) => {
 		// Four round-trips against the instance (baseline load, PATCH, reload,
 		// restore) rather than the single load the other two tests make, so this one
 		// needs headroom the default per-test budget does not give it.
@@ -150,7 +170,9 @@ test.describe('skill provenance (skill-install-idempotency)', () => {
 
 		const skills = await fetchSkills(page)
 		const target = skills.find(
-			(s) => typeof s.sourceUpdatedAt === 'string' && (s.sourceUpdatedAt as string) !== '',
+			(s) =>
+				typeof s.sourceUpdatedAt === 'string'
+				&& (s.sourceUpdatedAt as string) !== '',
 		)
 
 		test.skip(!target, 'no skill carrying a sourceUpdatedAt on this instance')
@@ -160,40 +182,61 @@ test.describe('skill provenance (skill-install-idempotency)', () => {
 
 		// BASELINE: learnings are not ahead, so the notice must be absent.
 		await openSkill(page, uuid)
-		await expect(page.locator('.skill-provenance').getByText('Local learnings are ahead of the source')).toHaveCount(0)
+		await expect(
+			page
+				.locator('.skill-provenance')
+				.getByText('Local learnings are ahead of the source'),
+		).toHaveCount(0)
 
 		// Push lastAcceptedVersionAt PAST sourceUpdatedAt through OpenRegister's real
 		// PATCH endpoint, so the condition the card tests is genuinely satisfied
 		// rather than simulated. PATCH rather than PUT: OR's save is PUT-semantic and
 		// would drop every property this body omits.
-		const ahead = new Date(new Date(target!.sourceUpdatedAt as string).getTime() + 3_600_000).toISOString()
+		const ahead = new Date(
+			new Date(target!.sourceUpdatedAt as string).getTime() + 3_600_000,
+		).toISOString()
 
-		const patch = async (when: string): Promise<number> => await page.evaluate(
-			async ([id, value]) => {
-				const res = await fetch(`/index.php/apps/openregister/api/objects/hermiq/agentskill/${id}`, {
-					method: 'PATCH',
-					headers: {
-						'Content-Type': 'application/json',
-						requesttoken: (window as any).OC?.requestToken || '',
-					},
-					body: JSON.stringify({ lastAcceptedVersionAt: value }),
-				})
-				return res.status
-			},
-			[uuid, when] as const,
-		)
+		const patch = async (when: string): Promise<number> =>
+			await page.evaluate(
+				async ([id, value]) => {
+					const res = await fetch(
+						`/index.php/apps/openregister/api/objects/hermiq/agentskill/${id}`,
+						{
+							method: 'PATCH',
+							headers: {
+								'Content-Type': 'application/json',
+								requesttoken: (window as any).OC?.requestToken || '',
+							},
+							body: JSON.stringify({ lastAcceptedVersionAt: value }),
+						},
+					)
+					return res.status
+				},
+				[uuid, when] as const,
+			)
 
 		const wrote = await patch(ahead)
 
 		// FAIL, never skip. A skip here would leave the baseline assertion above as the
 		// whole test — and a card that can NEVER render the warning would pass it.
-		expect(wrote, 'could not set lastAcceptedVersionAt via the OpenRegister PATCH endpoint').toBeLessThan(400)
+		expect(
+			wrote,
+			'could not set lastAcceptedVersionAt via the OpenRegister PATCH endpoint',
+		).toBeLessThan(400)
 
 		try {
 			await openSkill(page, uuid)
 			const card = page.locator('.skill-provenance')
-			await expect(card.getByText('Local learnings are ahead of the source').first()).toBeVisible()
-			await expect(card.getByText('the incoming learnings file is not applied', { exact: false }).first()).toBeVisible()
+			await expect(
+				card.getByText('Local learnings are ahead of the source').first(),
+			).toBeVisible()
+			await expect(
+				card
+					.getByText('the incoming learnings file is not applied', {
+						exact: false,
+					})
+					.first(),
+			).toBeVisible()
 		} finally {
 			// Restore, so the suite is re-runnable and leaves no state behind.
 			await patch(originalAccepted)

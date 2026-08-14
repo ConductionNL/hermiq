@@ -45,7 +45,8 @@ const NC_PASS = process.env.NC_PASS || 'admin'
 const STAMP = `e2e${Date.now().toString(36)}`
 
 /** Everything the test creates, torn down in afterAll. */
-const made: { flow?: string, register?: number, schema?: number, source?: string } = {}
+const made: { flow?: string; register?: number; schema?: number; source?: string } =
+	{}
 
 /**
  * Authenticated API helper bound to the Nextcloud OCS surface.
@@ -68,13 +69,14 @@ async function api(
 		headers: {
 			'OCS-APIRequest': 'true',
 			'Content-Type': 'application/json',
-			Authorization: 'Basic ' + Buffer.from(`${NC_USER}:${NC_PASS}`).toString('base64'),
+			Authorization:
+				'Basic ' + Buffer.from(`${NC_USER}:${NC_PASS}`).toString('base64'),
 		},
 		data: data === undefined ? undefined : JSON.stringify(data),
 	})
 
 	try {
-		return await response.json() as Record<string, unknown>
+		return (await response.json()) as Record<string, unknown>
 	} catch {
 		return null
 	}
@@ -93,11 +95,15 @@ async function api(
 async function dismissOnboarding(page: Page): Promise<void> {
 	const modal = page.locator('[data-testid="cn-modal"]')
 	for (let attempt = 0; attempt < 5; attempt++) {
-		if (await modal.isVisible().catch(() => false) === false) {
+		if ((await modal.isVisible().catch(() => false)) === false) {
 			return
 		}
 
-		await modal.first().getByRole('button', { name: 'Close' }).click({ timeout: 2_000 }).catch(() => {})
+		await modal
+			.first()
+			.getByRole('button', { name: 'Close' })
+			.click({ timeout: 2_000 })
+			.catch(() => {})
 		await page.keyboard.press('Escape').catch(() => {})
 		await page.waitForTimeout(600)
 	}
@@ -107,14 +113,23 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 	test.describe.configure({ mode: 'serial' })
 
 	test.beforeAll(async ({ playwright }) => {
-		const request = await playwright.request.newContext({ baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080' })
+		const request = await playwright.request.newContext({
+			baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080',
+		})
 
 		// A register + schema of its own, so teardown is total: dropping the
 		// register takes the objects' shard table with it, leaving nothing to
 		// find later in a dev database.
-		const register = await api(request, 'POST', '/apps/openregister/api/registers', {
-			title: `flow-e2e-${STAMP}`, slug: `flow-e2e-${STAMP}`, description: 'flow execution e2e',
-		})
+		const register = await api(
+			request,
+			'POST',
+			'/apps/openregister/api/registers',
+			{
+				title: `flow-e2e-${STAMP}`,
+				slug: `flow-e2e-${STAMP}`,
+				description: 'flow execution e2e',
+			},
+		)
 		made.register = register?.id as number
 
 		const schema = await api(request, 'POST', '/apps/openregister/api/schemas', {
@@ -123,16 +138,27 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 			properties: { name: { type: 'string' }, status: { type: 'string' } },
 		})
 		made.schema = schema?.id as number
-		await api(request, 'PUT', `/apps/openregister/api/registers/${made.register}`, { schemas: [made.schema] })
+		await api(
+			request,
+			'PUT',
+			`/apps/openregister/api/registers/${made.register}`,
+			{ schemas: [made.schema] },
+		)
 
-		const source = await api(request, 'POST', '/apps/openregister/api/objects/openconnector/source', {
-			name: `flow-e2e-src-${STAMP}`,
-			location: 'https://jsonplaceholder.typicode.com',
-			type: 'api',
-			isEnabled: true,
-			version: '1.0.0',
-		})
-		made.source = ((source?.['@self'] as Record<string, unknown>)?.id ?? source?.id) as string
+		const source = await api(
+			request,
+			'POST',
+			'/apps/openregister/api/objects/openconnector/source',
+			{
+				name: `flow-e2e-src-${STAMP}`,
+				location: 'https://jsonplaceholder.typicode.com',
+				type: 'api',
+				isEnabled: true,
+				version: '1.0.0',
+			},
+		)
+		made.source = ((source?.['@self'] as Record<string, unknown>)?.id
+			?? source?.id) as string
 
 		// The flow under test: fetch, fan out, write. Authored through the API
 		// because this spec is about EXECUTION — authoring is what the builder
@@ -146,8 +172,20 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 			executionMode: 'async',
 			nodes: [
 				{ id: 't1', type: 'openregister.trigger-manual', config: {} },
-				{ id: 'call1', type: 'openconnector.source-call', config: { method: 'GET', source: made.source, endpoint: '/users?_limit=3' } },
-				{ id: 'x1', type: 'openregister.explode', config: { path: 'response.body', as: 'item', keepRecord: false } },
+				{
+					id: 'call1',
+					type: 'openconnector.source-call',
+					config: {
+						method: 'GET',
+						source: made.source,
+						endpoint: '/users?_limit=3',
+					},
+				},
+				{
+					id: 'x1',
+					type: 'openregister.explode',
+					config: { path: 'response.body', as: 'item', keepRecord: false },
+				},
 				{
 					id: 'w1',
 					type: 'openregister.object-write',
@@ -155,7 +193,10 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 						register: String(made.register),
 						schema: String(made.schema),
 						operation: 'create',
-						fields: { name: '{{ item.name }}', status: 'created-by-ui-run' },
+						fields: {
+							name: '{{ item.name }}',
+							status: 'created-by-ui-run',
+						},
 					},
 				},
 				{ id: 'e1', type: 'openregister.end', config: {} },
@@ -169,12 +210,17 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		})
 		made.flow = flow?.uuid as string
 
-		expect(made.flow, 'fixture flow was not created — the test would assert nothing').toBeTruthy()
+		expect(
+			made.flow,
+			'fixture flow was not created — the test would assert nothing',
+		).toBeTruthy()
 		await request.dispose()
 	})
 
 	test.afterAll(async ({ playwright }) => {
-		const request = await playwright.request.newContext({ baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080' })
+		const request = await playwright.request.newContext({
+			baseURL: process.env.NEXTCLOUD_URL || 'http://localhost:8080',
+		})
 
 		// Flow first: deleting it cascades its runs, steps and state, so the
 		// order is what keeps the dev database clean rather than merely smaller.
@@ -187,39 +233,73 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		// no bulk delete — only one object at a time. Without this the fixture
 		// register survives every run and the dev database fills up quietly.
 		if (made.register && made.schema) {
-			const objects = await api(request, 'GET', `/apps/openregister/api/objects/${made.register}/${made.schema}?_limit=500`)
-			const rows = (Array.isArray(objects?.results) ? objects.results : []) as Array<Record<string, unknown>>
+			const objects = await api(
+				request,
+				'GET',
+				`/apps/openregister/api/objects/${made.register}/${made.schema}?_limit=500`,
+			)
+			const rows = (
+				Array.isArray(objects?.results) ? objects.results : []
+			) as Array<Record<string, unknown>>
 			for (const row of rows) {
-				const id = ((row['@self'] as Record<string, unknown>)?.id ?? row.id) as string
+				const id = ((row['@self'] as Record<string, unknown>)?.id
+					?? row.id) as string
 				if (id) {
-					await api(request, 'DELETE', `/apps/openregister/api/objects/${made.register}/${made.schema}/${id}`)
+					await api(
+						request,
+						'DELETE',
+						`/apps/openregister/api/objects/${made.register}/${made.schema}/${id}`,
+					)
 				}
 			}
 		}
 
 		if (made.schema) {
-			await api(request, 'DELETE', `/apps/openregister/api/schemas/${made.schema}`)
+			await api(
+				request,
+				'DELETE',
+				`/apps/openregister/api/schemas/${made.schema}`,
+			)
 		}
 
 		if (made.register) {
-			await api(request, 'DELETE', `/apps/openregister/api/registers/${made.register}`)
+			await api(
+				request,
+				'DELETE',
+				`/apps/openregister/api/registers/${made.register}`,
+			)
 		}
 
 		if (made.source) {
-			await api(request, 'DELETE', `/apps/openregister/api/objects/openconnector/source/${made.source}`)
+			await api(
+				request,
+				'DELETE',
+				`/apps/openregister/api/objects/openconnector/source/${made.source}`,
+			)
 		}
 
 		await request.dispose()
 	})
 
-	test('pressing Run in the canvas executes the flow and writes real objects', async ({ page, request }) => {
+	test('pressing Run in the canvas executes the flow and writes real objects', async ({
+		page,
+		request,
+	}) => {
 		// Nothing yet — captured so the assertion is a DELTA. An absolute count
 		// would pass on a register that happened to be populated already.
-		const before = await api(request, 'GET', `/apps/openregister/api/objects/${made.register}/${made.schema}?_limit=100`)
-		const beforeCount = Array.isArray(before?.results) ? (before.results as unknown[]).length : 0
+		const before = await api(
+			request,
+			'GET',
+			`/apps/openregister/api/objects/${made.register}/${made.schema}?_limit=100`,
+		)
+		const beforeCount = Array.isArray(before?.results)
+			? (before.results as unknown[]).length
+			: 0
 		expect(beforeCount, 'fixture register should start empty').toBe(0)
 
-		await page.goto(`/apps/hermiq/flows/${made.flow}`, { waitUntil: 'domcontentloaded' })
+		await page.goto(`/apps/hermiq/flows/${made.flow}`, {
+			waitUntil: 'domcontentloaded',
+		})
 		await dismissOnboarding(page)
 
 		// Run lives on the sidebar's "Flow" TAB, and the canvas opens on the
@@ -237,7 +317,9 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 
 		// The dialog's own Run. This flow fetches its own work, so it needs no
 		// subject object — the dialog must allow running with none.
-		const dialog = page.locator('[data-testid="cn-modal"], .modal-container').last()
+		const dialog = page
+			.locator('[data-testid="cn-modal"], .modal-container')
+			.last()
 		const confirm = dialog.getByRole('button', { name: /^Run$/ })
 		await expect(confirm).toBeEnabled({ timeout: 15_000 })
 		await confirm.click()
@@ -259,15 +341,24 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 
 		for (let attempt = 0; attempt < 90; attempt++) {
 			await page.waitForTimeout(1_000)
-			runs = await api(request, 'GET', `/apps/openregister/api/flow-runs?flowId=${made.flow}`)
-			list = (Array.isArray(runs?.results) ? runs.results : []) as Array<Record<string, unknown>>
+			runs = await api(
+				request,
+				'GET',
+				`/apps/openregister/api/flow-runs?flowId=${made.flow}`,
+			)
+			list = (Array.isArray(runs?.results) ? runs.results : []) as Array<
+				Record<string, unknown>
+			>
 			latest = list[list.length - 1]
 			if (latest !== undefined && terminal.includes(String(latest.status))) {
 				break
 			}
 		}
 
-		expect(list.length, 'pressing Run recorded no run — the button is not wired to the engine').toBeGreaterThan(0)
+		expect(
+			list.length,
+			'pressing Run recorded no run — the button is not wired to the engine',
+		).toBeGreaterThan(0)
 		expect(
 			terminal,
 			`the run never settled — still ${String(latest?.status)}`,
@@ -285,13 +376,25 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 
 		// The claim that matters: real rows, written by the engine, because a
 		// human pressed a button in a browser.
-		const after = await api(request, 'GET', `/apps/openregister/api/objects/${made.register}/${made.schema}?_limit=100`)
-		const written = (Array.isArray(after?.results) ? after.results : []) as Array<Record<string, unknown>>
-		expect(written.length, 'the run reported success but wrote nothing').toBeGreaterThan(0)
+		const after = await api(
+			request,
+			'GET',
+			`/apps/openregister/api/objects/${made.register}/${made.schema}?_limit=100`,
+		)
+		const written = (
+			Array.isArray(after?.results) ? after.results : []
+		) as Array<Record<string, unknown>>
+		expect(
+			written.length,
+			'the run reported success but wrote nothing',
+		).toBeGreaterThan(0)
 		expect(written.every((o) => o.status === 'created-by-ui-run')).toBe(true)
 	})
 
-	test('pressing Save keeps every node\'s type — the editor must not disarm the flow', async ({ page, request }) => {
+	test("pressing Save keeps every node's type — the editor must not disarm the flow", async ({
+		page,
+		request,
+	}) => {
 		// A DESTRUCTIVE save is the failure this pins. `flowDocument` used to
 		// `delete place.type` and `delete place.config` on the way out — the
 		// PRE-inversion model, where a transition was the action and a place was
@@ -303,25 +406,47 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		// It cannot be caught by reading the canvas — the editor still holds the
 		// types in memory and draws them correctly after saving. Only the stored
 		// document shows it, which is why this asserts through the API.
-		const before = await api(request, 'GET', `/apps/openregister/api/flows/${made.flow}`)
-		const typesBefore = ((before?.nodes ?? []) as Array<Record<string, unknown>>).map((n) => n.type)
-		expect(typesBefore.filter(Boolean).length, 'fixture flow should start fully typed').toBe(5)
+		const before = await api(
+			request,
+			'GET',
+			`/apps/openregister/api/flows/${made.flow}`,
+		)
+		const typesBefore = (
+			(before?.nodes ?? []) as Array<Record<string, unknown>>
+		).map((n) => n.type)
+		expect(
+			typesBefore.filter(Boolean).length,
+			'fixture flow should start fully typed',
+		).toBe(5)
 
-		await page.goto(`/apps/hermiq/flows/${made.flow}`, { waitUntil: 'domcontentloaded' })
+		await page.goto(`/apps/hermiq/flows/${made.flow}`, {
+			waitUntil: 'domcontentloaded',
+		})
 		await dismissOnboarding(page)
 
-		const save = page.locator('.flow-builder__verbs').getByRole('button', { name: 'Save' })
+		const save = page
+			.locator('.flow-builder__verbs')
+			.getByRole('button', { name: 'Save' })
 		await expect(save).toBeEnabled({ timeout: 30_000 })
 		await save.click()
 		await page.waitForTimeout(4_000)
 
-		const after = await api(request, 'GET', `/apps/openregister/api/flows/${made.flow}`)
-		const typesAfter = ((after?.nodes ?? []) as Array<Record<string, unknown>>).map((n) => n.type)
+		const after = await api(
+			request,
+			'GET',
+			`/apps/openregister/api/flows/${made.flow}`,
+		)
+		const typesAfter = (
+			(after?.nodes ?? []) as Array<Record<string, unknown>>
+		).map((n) => n.type)
 
 		expect(
 			typesAfter,
-			'saving from the editor changed the nodes\' types — a save must never disarm a flow',
+			"saving from the editor changed the nodes' types — a save must never disarm a flow",
 		).toEqual(typesBefore)
-		expect(typesAfter.filter(Boolean).length, 'a node lost its type on save').toBe(5)
+		expect(
+			typesAfter.filter(Boolean).length,
+			'a node lost its type on save',
+		).toBe(5)
 	})
 })

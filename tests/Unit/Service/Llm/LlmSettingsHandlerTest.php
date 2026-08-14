@@ -32,239 +32,229 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
  */
-class LlmSettingsHandlerTest extends TestCase
-{
+class LlmSettingsHandlerTest extends TestCase {
 
-    /**
-     * An IAppConfig mock whose `hermiq.llm` value is the given string and whose
-     * writes are captured into $written.
-     *
-     * @param string      $stored  The stored JSON (empty = unset).
-     * @param string|null $written Out-param: the last written value.
-     *
-     * @return IAppConfig
-     */
-    private function appConfig(string $stored, ?string &$written=null): IAppConfig
-    {
-        $config = $this->createMock(IAppConfig::class);
-        $config->method('getValueString')->willReturnCallback(
-            function (string $app, string $key, string $default='') use ($stored): string {
-                $this->assertSame('hermiq', $app);
-                $this->assertSame('llm', $key);
-                if ($stored === '') {
-                    return $default;
-                }
+	/**
+	 * An IAppConfig mock whose `hermiq.llm` value is the given string and whose
+	 * writes are captured into $written.
+	 *
+	 * @param string $stored The stored JSON (empty = unset).
+	 * @param string|null $written Out-param: the last written value.
+	 *
+	 * @return IAppConfig
+	 */
+	private function appConfig(string $stored, ?string &$written = null): IAppConfig {
+		$config = $this->createMock(IAppConfig::class);
+		$config->method('getValueString')->willReturnCallback(
+			function (string $app, string $key, string $default = '') use ($stored): string {
+				$this->assertSame('hermiq', $app);
+				$this->assertSame('llm', $key);
+				if ($stored === '') {
+					return $default;
+				}
 
-                return $stored;
-            }
-        );
-        $config->method('setValueString')->willReturnCallback(
-            function (string $app, string $key, string $value) use (&$written): bool {
-                $this->assertSame('hermiq', $app);
-                $this->assertSame('llm', $key);
-                $written = $value;
-                return true;
-            }
-        );
-        return $config;
+				return $stored;
+			}
+		);
+		$config->method('setValueString')->willReturnCallback(
+			function (string $app, string $key, string $value) use (&$written): bool {
+				$this->assertSame('hermiq', $app);
+				$this->assertSame('llm', $key);
+				$written = $value;
+				return true;
+			}
+		);
+		return $config;
+	}//end appConfig()
 
-    }//end appConfig()
+	/**
+	 * An unset key returns the full default configuration shape.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 */
+	public function testDefaultsWhenUnset(): void {
+		$handler = new LlmSettingsHandler($this->appConfig(''));
+		$settings = $handler->getLLMSettingsOnly();
 
-    /**
-     * An unset key returns the full default configuration shape.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-     */
-    public function testDefaultsWhenUnset(): void
-    {
-        $handler  = new LlmSettingsHandler($this->appConfig(''));
-        $settings = $handler->getLLMSettingsOnly();
+		$this->assertFalse($settings['enabled']);
+		$this->assertNull($settings['chatProvider']);
+		$this->assertSame('http://localhost:11434', $settings['ollamaConfig']['url']);
+		$this->assertSame('https://api.fireworks.ai/inference/v1', $settings['fireworksConfig']['baseUrl']);
+		$this->assertSame('php', $settings['vectorConfig']['backend']);
+		$this->assertSame('_embedding_', $settings['vectorConfig']['solrField']);
+		$this->assertArrayHasKey('openaiConfig', $settings);
 
-        $this->assertFalse($settings['enabled']);
-        $this->assertNull($settings['chatProvider']);
-        $this->assertSame('http://localhost:11434', $settings['ollamaConfig']['url']);
-        $this->assertSame('https://api.fireworks.ai/inference/v1', $settings['fireworksConfig']['baseUrl']);
-        $this->assertSame('php', $settings['vectorConfig']['backend']);
-        $this->assertSame('_embedding_', $settings['vectorConfig']['solrField']);
-        $this->assertArrayHasKey('openaiConfig', $settings);
+	}//end testDefaultsWhenUnset()
 
-    }//end testDefaultsWhenUnset()
+	/**
+	 * A stored config missing `enabled`/`vectorConfig` gets them backfilled.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 */
+	public function testBackfillsMissingFieldsOnDecode(): void {
+		$stored = json_encode(
+			[
+				'chatProvider' => 'ollama',
+				'ollamaConfig' => ['url' => 'http://ollama:11434', 'chatModel' => 'qwen3'],
+			]
+		);
 
-    /**
-     * A stored config missing `enabled`/`vectorConfig` gets them backfilled.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-     */
-    public function testBackfillsMissingFieldsOnDecode(): void
-    {
-        $stored = json_encode(
-            [
-                'chatProvider' => 'ollama',
-                'ollamaConfig' => ['url' => 'http://ollama:11434', 'chatModel' => 'qwen3'],
-            ]
-        );
+		$handler = new LlmSettingsHandler($this->appConfig($stored));
+		$settings = $handler->getLLMSettingsOnly();
 
-        $handler  = new LlmSettingsHandler($this->appConfig($stored));
-        $settings = $handler->getLLMSettingsOnly();
+		$this->assertFalse($settings['enabled']);
+		$this->assertSame('ollama', $settings['chatProvider']);
+		$this->assertSame('php', $settings['vectorConfig']['backend']);
+		$this->assertSame('_embedding_', $settings['vectorConfig']['solrField']);
 
-        $this->assertFalse($settings['enabled']);
-        $this->assertSame('ollama', $settings['chatProvider']);
-        $this->assertSame('php', $settings['vectorConfig']['backend']);
-        $this->assertSame('_embedding_', $settings['vectorConfig']['solrField']);
+	}//end testBackfillsMissingFieldsOnDecode()
 
-    }//end testBackfillsMissingFieldsOnDecode()
+	/**
+	 * Updating merges with the stored config (PATCH semantics) and persists
+	 * the full shape, keeping untouched sub-blocks intact.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
+	 */
+	public function testUpdateMergesPatchStyle(): void {
+		$stored = json_encode(
+			[
+				'enabled' => true,
+				'chatProvider' => 'openai',
+				'openaiConfig' => [
+					'credentialId' => 'cred-uuid-openai',
+					'model' => null,
+					'chatModel' => 'gpt-4o-mini',
+					'organizationId' => '',
+				],
+			]
+		);
 
-    /**
-     * Updating merges with the stored config (PATCH semantics) and persists
-     * the full shape, keeping untouched sub-blocks intact.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-2-1
-     */
-    public function testUpdateMergesPatchStyle(): void
-    {
-        $stored = json_encode(
-            [
-                'enabled'      => true,
-                'chatProvider' => 'openai',
-                'openaiConfig' => [
-                    'credentialId'   => 'cred-uuid-openai',
-                    'model'          => null,
-                    'chatModel'      => 'gpt-4o-mini',
-                    'organizationId' => '',
-                ],
-            ]
-        );
+		$written = null;
+		$handler = new LlmSettingsHandler($this->appConfig($stored, $written));
+		$result = $handler->updateLLMSettingsOnly(['chatProvider' => 'nextcloud']);
 
-        $written = null;
-        $handler = new LlmSettingsHandler($this->appConfig($stored, $written));
-        $result  = $handler->updateLLMSettingsOnly(['chatProvider' => 'nextcloud']);
+		// The new provider is applied; the untouched credential reference survives.
+		$this->assertSame('nextcloud', $result['chatProvider']);
+		$this->assertSame('cred-uuid-openai', $result['openaiConfig']['credentialId']);
+		$this->assertTrue($result['enabled']);
 
-        // The new provider is applied; the untouched credential reference survives.
-        $this->assertSame('nextcloud', $result['chatProvider']);
-        $this->assertSame('cred-uuid-openai', $result['openaiConfig']['credentialId']);
-        $this->assertTrue($result['enabled']);
+		// And the same merged shape was persisted.
+		$this->assertNotNull($written);
+		$persisted = json_decode($written, true);
+		$this->assertSame('nextcloud', $persisted['chatProvider']);
+		$this->assertSame('cred-uuid-openai', $persisted['openaiConfig']['credentialId']);
 
-        // And the same merged shape was persisted.
-        $this->assertNotNull($written);
-        $persisted = json_decode($written, true);
-        $this->assertSame('nextcloud', $persisted['chatProvider']);
-        $this->assertSame('cred-uuid-openai', $persisted['openaiConfig']['credentialId']);
+	}//end testUpdateMergesPatchStyle()
 
-    }//end testUpdateMergesPatchStyle()
+	/**
+	 * A submitted `apiKey` is never carried into the persisted blob.
+	 *
+	 * The keys used to live here in CLEARTEXT — not merely app-held, but unencrypted in
+	 * `oc_appconfig`, printed verbatim by `occ config:app:get hermiq llm`. Hermiq holds no
+	 * LLM key now, so a client that still sends one must not have it written.
+	 *
+	 * @return void
+	 */
+	public function testASubmittedApiKeyIsNeverPersisted(): void {
+		$stored = json_encode(['enabled' => true, 'chatProvider' => 'openai', 'openaiConfig' => []]);
 
-    /**
-     * A submitted `apiKey` is never carried into the persisted blob.
-     *
-     * The keys used to live here in CLEARTEXT — not merely app-held, but unencrypted in
-     * `oc_appconfig`, printed verbatim by `occ config:app:get hermiq llm`. Hermiq holds no
-     * LLM key now, so a client that still sends one must not have it written.
-     *
-     * @return void
-     */
-    public function testASubmittedApiKeyIsNeverPersisted(): void
-    {
-        $stored = json_encode(['enabled' => true, 'chatProvider' => 'openai', 'openaiConfig' => []]);
+		$written = null;
+		$handler = new LlmSettingsHandler($this->appConfig($stored, $written));
 
-        $written = null;
-        $handler = new LlmSettingsHandler($this->appConfig($stored, $written));
+		$handler->updateLLMSettingsOnly(
+			[
+				'openaiConfig' => [
+					'apiKey' => 'sk-MUST-NOT-BE-STORED',
+					'credentialId' => 'cred-uuid-openai',
+				],
+			]
+		);
 
-        $handler->updateLLMSettingsOnly(
-            [
-                'openaiConfig' => [
-                    'apiKey'       => 'sk-MUST-NOT-BE-STORED',
-                    'credentialId' => 'cred-uuid-openai',
-                ],
-            ]
-        );
+		$this->assertNotNull($written);
+		$this->assertStringNotContainsString('sk-MUST-NOT-BE-STORED', (string)$written);
 
-        $this->assertNotNull($written);
-        $this->assertStringNotContainsString('sk-MUST-NOT-BE-STORED', (string) $written);
+		$persisted = json_decode((string)$written, true);
+		$this->assertArrayNotHasKey('apiKey', $persisted['openaiConfig']);
+		$this->assertSame('cred-uuid-openai', $persisted['openaiConfig']['credentialId']);
 
-        $persisted = json_decode((string) $written, true);
-        $this->assertArrayNotHasKey('apiKey', $persisted['openaiConfig']);
-        $this->assertSame('cred-uuid-openai', $persisted['openaiConfig']['credentialId']);
+	}//end testASubmittedApiKeyIsNeverPersisted()
 
-    }//end testASubmittedApiKeyIsNeverPersisted()
+	/**
+	 * The allowed chatProvider list carries the additive `nextcloud` and `anthropic`
+	 * values alongside OR's original three.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
+	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 */
+	public function testNextcloudIsAnAllowedChatProvider(): void {
+		$this->assertSame(
+			['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'],
+			LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS
+		);
 
-    /**
-     * The allowed chatProvider list carries the additive `nextcloud` and `anthropic`
-     * values alongside OR's original three.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
-     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-     */
-    public function testNextcloudIsAnAllowedChatProvider(): void
-    {
-        $this->assertSame(
-            ['openai', 'ollama', 'fireworks', 'nextcloud', 'anthropic'],
-            LlmSettingsHandler::ALLOWED_CHAT_PROVIDERS
-        );
+	}//end testNextcloudIsAnAllowedChatProvider()
 
-    }//end testNextcloudIsAnAllowedChatProvider()
+	/**
+	 * An unset key returns a full anthropicConfig sub-block with api_key/organisation
+	 * defaults (anthropic-agent-provider).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 */
+	public function testAnthropicConfigDefaults(): void {
+		$handler = new LlmSettingsHandler($this->appConfig(''));
+		$settings = $handler->getLLMSettingsOnly();
 
-    /**
-     * An unset key returns a full anthropicConfig sub-block with api_key/organisation
-     * defaults (anthropic-agent-provider).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-     */
-    public function testAnthropicConfigDefaults(): void
-    {
-        $handler  = new LlmSettingsHandler($this->appConfig(''));
-        $settings = $handler->getLLMSettingsOnly();
+		$this->assertSame('', $settings['anthropicConfig']['credentialId']);
+		$this->assertSame('api_key', $settings['anthropicConfig']['authMode']);
+		$this->assertSame('organisation', $settings['anthropicConfig']['scope']);
+		$this->assertSame('https://api.anthropic.com/v1', $settings['anthropicConfig']['baseUrl']);
 
-        $this->assertSame('', $settings['anthropicConfig']['credentialId']);
-        $this->assertSame('api_key', $settings['anthropicConfig']['authMode']);
-        $this->assertSame('organisation', $settings['anthropicConfig']['scope']);
-        $this->assertSame('https://api.anthropic.com/v1', $settings['anthropicConfig']['baseUrl']);
+	}//end testAnthropicConfigDefaults()
 
-    }//end testAnthropicConfigDefaults()
+	/**
+	 * Saving an anthropicConfig merges credentialId/chatModel/authMode/scope like the
+	 * other provider blocks, and never persists a submitted secret.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
+	 */
+	public function testUpdateMergesAnthropicConfig(): void {
+		$stored = json_encode(['enabled' => true, 'chatProvider' => 'openai']);
 
-    /**
-     * Saving an anthropicConfig merges credentialId/chatModel/authMode/scope like the
-     * other provider blocks, and never persists a submitted secret.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/anthropic-agent-provider/specs/anthropic-agent-provider/spec.md#requirement-anthropic-is-a-selectable-chat-provider
-     */
-    public function testUpdateMergesAnthropicConfig(): void
-    {
-        $stored = json_encode(['enabled' => true, 'chatProvider' => 'openai']);
+		$written = null;
+		$handler = new LlmSettingsHandler($this->appConfig($stored, $written));
+		$result = $handler->updateLLMSettingsOnly(
+			[
+				'chatProvider' => 'anthropic',
+				'anthropicConfig' => [
+					'credentialId' => 'cred-uuid-anthropic',
+					'chatModel' => 'claude-opus-4-8',
+					'authMode' => 'oauth',
+					'scope' => 'personal',
+				],
+			]
+		);
 
-        $written = null;
-        $handler = new LlmSettingsHandler($this->appConfig($stored, $written));
-        $result  = $handler->updateLLMSettingsOnly(
-            [
-                'chatProvider'    => 'anthropic',
-                'anthropicConfig' => [
-                    'credentialId' => 'cred-uuid-anthropic',
-                    'chatModel'    => 'claude-opus-4-8',
-                    'authMode'     => 'oauth',
-                    'scope'        => 'personal',
-                ],
-            ]
-        );
+		$this->assertSame('anthropic', $result['chatProvider']);
+		$this->assertSame('cred-uuid-anthropic', $result['anthropicConfig']['credentialId']);
+		$this->assertSame('claude-opus-4-8', $result['anthropicConfig']['chatModel']);
+		$this->assertSame('oauth', $result['anthropicConfig']['authMode']);
+		$this->assertSame('personal', $result['anthropicConfig']['scope']);
 
-        $this->assertSame('anthropic', $result['chatProvider']);
-        $this->assertSame('cred-uuid-anthropic', $result['anthropicConfig']['credentialId']);
-        $this->assertSame('claude-opus-4-8', $result['anthropicConfig']['chatModel']);
-        $this->assertSame('oauth', $result['anthropicConfig']['authMode']);
-        $this->assertSame('personal', $result['anthropicConfig']['scope']);
+		$this->assertNotNull($written);
+		$persisted = json_decode((string)$written, true);
+		$this->assertSame('cred-uuid-anthropic', $persisted['anthropicConfig']['credentialId']);
 
-        $this->assertNotNull($written);
-        $persisted = json_decode((string) $written, true);
-        $this->assertSame('cred-uuid-anthropic', $persisted['anthropicConfig']['credentialId']);
-
-    }//end testUpdateMergesAnthropicConfig()
+	}//end testUpdateMergesAnthropicConfig()
 }//end class

@@ -46,103 +46,99 @@ use Throwable;
  *
  * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
  */
-class TalkApprovalNotifier
-{
-    /**
-     * Constructor.
-     *
-     * @param TalkBridge          $bridge          Talk availability and bot posting.
-     * @param TalkAgentBinding    $agentBinding    Resolves the agent's bound room.
-     * @param TalkApprovalBinding $approvalBinding Records which message carries the request.
-     * @param LoggerInterface     $logger          PSR-3 logger.
-     */
-    public function __construct(
-        private readonly TalkBridge $bridge,
-        private readonly TalkAgentBinding $agentBinding,
-        private readonly TalkApprovalBinding $approvalBinding,
-        private readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+class TalkApprovalNotifier {
+	/**
+	 * Constructor.
+	 *
+	 * @param TalkBridge $bridge Talk availability and bot posting.
+	 * @param TalkAgentBinding $agentBinding Resolves the agent's bound room.
+	 * @param TalkApprovalBinding $approvalBinding Records which message carries the request.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		private readonly TalkBridge $bridge,
+		private readonly TalkAgentBinding $agentBinding,
+		private readonly TalkApprovalBinding $approvalBinding,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * Post an approval request into the agent's room, if it has one.
-     *
-     * Best-effort throughout: an approval MUST be raised whether or not this
-     * succeeds, because the inbox is the authoritative surface.
-     *
-     * @param ObjectEntity $approval    The pending approval.
-     * @param string       $displayName What the approval is about, for the message.
-     *
-     * @return bool True when the request was posted and bound.
-     *
-     * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
-     */
-    public function postRequest(ObjectEntity $approval, string $displayName): bool
-    {
-        try {
-            if ($this->bridge->isAvailable() === false) {
-                return false;
-            }
+	/**
+	 * Post an approval request into the agent's room, if it has one.
+	 *
+	 * Best-effort throughout: an approval MUST be raised whether or not this
+	 * succeeds, because the inbox is the authoritative surface.
+	 *
+	 * @param ObjectEntity $approval The pending approval.
+	 * @param string $displayName What the approval is about, for the message.
+	 *
+	 * @return bool True when the request was posted and bound.
+	 *
+	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-an-approval-request-posted-to-talk-records-where-it-landed
+	 */
+	public function postRequest(ObjectEntity $approval, string $displayName): bool {
+		try {
+			if ($this->bridge->isAvailable() === false) {
+				return false;
+			}
 
-            $agentId = (string) ($approval->getObject()['agentId'] ?? '');
-            if ($agentId === '') {
-                return false;
-            }
+			$agentId = (string)($approval->getObject()['agentId'] ?? '');
+			if ($agentId === '') {
+				return false;
+			}
 
-            $roomToken = $this->agentBinding->roomForAgent(agentId: $agentId);
-            if ($roomToken === null) {
-                // No room bound to this agent — the notification and inbox
-                // still carry the request. Not an error.
-                return false;
-            }
+			$roomToken = $this->agentBinding->roomForAgent(agentId: $agentId);
+			if ($roomToken === null) {
+				// No room bound to this agent — the notification and inbox
+				// still carry the request. Not an error.
+				return false;
+			}
 
-            // Under the agent's OWN bot: an approval request asks a person to
-            // judge THIS agent's run, so it must be signed by it. Posting as the
-            // shared bot rendered it as a bare `bot-<hash>-bot` actor id in a
-            // room where the shared bot is not enabled — observed live.
-            $messageId = $this->bridge->postToRoomReturningId(
-                roomToken: $roomToken,
-                message: $this->requestText(displayName: $displayName),
-                agentId: $agentId
-            );
+			// Under the agent's OWN bot: an approval request asks a person to
+			// judge THIS agent's run, so it must be signed by it. Posting as the
+			// shared bot rendered it as a bare `bot-<hash>-bot` actor id in a
+			// room where the shared bot is not enabled — observed live.
+			$messageId = $this->bridge->postToRoomReturningId(
+				roomToken: $roomToken,
+				message: $this->requestText(displayName: $displayName),
+				agentId: $agentId
+			);
 
-            if ($messageId === null) {
-                return false;
-            }
+			if ($messageId === null) {
+				return false;
+			}
 
-            return $this->approvalBinding->bind(
-                approval: $approval,
-                roomToken: $roomToken,
-                messageId: $messageId
-            );
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                message: '[TalkApprovalNotifier] Could not post the approval request to Talk (the approval is unaffected)',
-                context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
-            );
-            return false;
-        }//end try
+			return $this->approvalBinding->bind(
+				approval: $approval,
+				roomToken: $roomToken,
+				messageId: $messageId
+			);
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[TalkApprovalNotifier] Could not post the approval request to Talk (the approval is unaffected)',
+				context: ['file' => __FILE__, 'line' => __LINE__, 'error' => $e->getMessage()]
+			);
+			return false;
+		}//end try
 
-    }//end postRequest()
+	}//end postRequest()
 
-    /**
-     * The request message.
-     *
-     * States both emoji explicitly. A reviewer who has to guess which reaction
-     * means what will open the inbox instead, which defeats the point.
-     *
-     * @param string $displayName What the approval is about.
-     *
-     * @return string The message body.
-     *
-     * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
-     */
-    private function requestText(string $displayName): string
-    {
-        $body = "React 👍 to approve or 👎 to deny. Only the reviewer's reaction counts, "
-            ."and a decision cannot be undone.";
+	/**
+	 * The request message.
+	 *
+	 * States both emoji explicitly. A reviewer who has to guess which reaction
+	 * means what will open the inbox instead, which defeats the point.
+	 *
+	 * @param string $displayName What the approval is about.
+	 *
+	 * @return string The message body.
+	 *
+	 * @spec openspec/changes/talk-approval-reactions/specs/talk-approval-reactions/spec.md#requirement-a-reviewers-reaction-decides-the-approval
+	 */
+	private function requestText(string $displayName): string {
+		$body = "React 👍 to approve or 👎 to deny. Only the reviewer's reaction counts, "
+			. 'and a decision cannot be undone.';
 
-        return sprintf("⏸️ **Approval needed** for “%s”.\n\n%s", $displayName, $body);
-
-    }//end requestText()
+		return sprintf("⏸️ **Approval needed** for “%s”.\n\n%s", $displayName, $body);
+	}//end requestText()
 }//end class

@@ -37,109 +37,103 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
  */
-class PublicationGatewayTest extends TestCase
-{
+class PublicationGatewayTest extends TestCase {
 
-    /**
-     * `isAvailable` reflects whether OpenCatalogi is installed.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function testIsAvailableReflectsAppManager(): void
-    {
-        $appManager = $this->createMock(IAppManager::class);
-        $appManager->method('isInstalled')->with('opencatalogi')->willReturn(true);
+	/**
+	 * `isAvailable` reflects whether OpenCatalogi is installed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function testIsAvailableReflectsAppManager(): void {
+		$appManager = $this->createMock(IAppManager::class);
+		$appManager->method('isInstalled')->with('opencatalogi')->willReturn(true);
 
-        $gateway = new PublicationGateway($appManager, $this->createMock(ObjectService::class));
-        $this->assertTrue($gateway->isAvailable());
+		$gateway = new PublicationGateway($appManager, $this->createMock(ObjectService::class));
+		$this->assertTrue($gateway->isAvailable());
 
-    }//end testIsAvailableReflectsAppManager()
+	}//end testIsAvailableReflectsAppManager()
 
-    /**
-     * When OpenCatalogi is present, publish delegates to OpenRegister and returns the ref.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function testPublishDelegatesWhenAvailable(): void
-    {
-        $appManager = $this->createMock(IAppManager::class);
-        $appManager->method('isInstalled')->willReturn(true);
+	/**
+	 * When OpenCatalogi is present, publish delegates to OpenRegister and returns the ref.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function testPublishDelegatesWhenAvailable(): void {
+		$appManager = $this->createMock(IAppManager::class);
+		$appManager->method('isInstalled')->willReturn(true);
 
-        $saved = new ObjectEntity();
-        $saved->setUuid('pub-42');
+		$saved = new ObjectEntity();
+		$saved->setUuid('pub-42');
 
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->expects($this->once())->method('saveObject')->willReturn($saved);
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->once())->method('saveObject')->willReturn($saved);
 
-        $gateway = new PublicationGateway($appManager, $objectService);
-        $ref     = $gateway->publish(['title' => 'Autonomous agent run']);
+		$gateway = new PublicationGateway($appManager, $objectService);
+		$ref = $gateway->publish(['title' => 'Autonomous agent run']);
 
-        $this->assertSame('pub-42', $ref);
+		$this->assertSame('pub-42', $ref);
 
-    }//end testPublishDelegatesWhenAvailable()
+	}//end testPublishDelegatesWhenAvailable()
 
-    /**
-     * When OpenCatalogi is absent, publish fails closed (null) and never touches OpenRegister.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function testPublishUnavailableWhenAbsent(): void
-    {
-        $appManager = $this->createMock(IAppManager::class);
-        $appManager->method('isInstalled')->willReturn(false);
+	/**
+	 * When OpenCatalogi is absent, publish fails closed (null) and never touches OpenRegister.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function testPublishUnavailableWhenAbsent(): void {
+		$appManager = $this->createMock(IAppManager::class);
+		$appManager->method('isInstalled')->willReturn(false);
 
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->expects($this->never())->method('saveObject');
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->never())->method('saveObject');
 
-        $gateway = new PublicationGateway($appManager, $objectService);
-        $this->assertNull($gateway->publish(['title' => 'x']));
+		$gateway = new PublicationGateway($appManager, $objectService);
+		$this->assertNull($gateway->publish(['title' => 'x']));
 
-    }//end testPublishUnavailableWhenAbsent()
+	}//end testPublishUnavailableWhenAbsent()
 
-    /**
-     * Withdraw fails closed (false) and never touches OpenRegister when OpenCatalogi is absent.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function testWithdrawUnavailableWhenAbsent(): void
-    {
-        $appManager = $this->createMock(IAppManager::class);
-        $appManager->method('isInstalled')->willReturn(false);
+	/**
+	 * Withdraw fails closed (false) and never touches OpenRegister when OpenCatalogi is absent.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function testWithdrawUnavailableWhenAbsent(): void {
+		$appManager = $this->createMock(IAppManager::class);
+		$appManager->method('isInstalled')->willReturn(false);
 
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->expects($this->never())->method('saveObject');
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->never())->method('saveObject');
 
-        $gateway = new PublicationGateway($appManager, $objectService);
-        $this->assertFalse($gateway->withdraw('pub-42'));
+		$gateway = new PublicationGateway($appManager, $objectService);
+		$this->assertFalse($gateway->withdraw('pub-42'));
 
-    }//end testWithdrawUnavailableWhenAbsent()
+	}//end testWithdrawUnavailableWhenAbsent()
 
-    /**
-     * Withdraw requests unpublication through the shared write-path when available.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
-     */
-    public function testWithdrawDelegatesWhenAvailable(): void
-    {
-        $appManager = $this->createMock(IAppManager::class);
-        $appManager->method('isInstalled')->willReturn(true);
+	/**
+	 * Withdraw requests unpublication through the shared write-path when available.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
+	 */
+	public function testWithdrawDelegatesWhenAvailable(): void {
+		$appManager = $this->createMock(IAppManager::class);
+		$appManager->method('isInstalled')->willReturn(true);
 
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('find')->willReturn(null);
-        $objectService->expects($this->once())->method('saveObject')->willReturn(new ObjectEntity());
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willReturn(null);
+		$objectService->expects($this->once())->method('saveObject')->willReturn(new ObjectEntity());
 
-        $gateway = new PublicationGateway($appManager, $objectService);
-        $this->assertTrue($gateway->withdraw('pub-42'));
+		$gateway = new PublicationGateway($appManager, $objectService);
+		$this->assertTrue($gateway->withdraw('pub-42'));
 
-    }//end testWithdrawDelegatesWhenAvailable()
+	}//end testWithdrawDelegatesWhenAvailable()
 }//end class

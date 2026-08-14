@@ -80,12 +80,12 @@ async function dismissFirstRun(page: Page): Promise<void> {
 		// intercept every later click — which surfaces as "the canvas node is
 		// not clickable" and reads as a canvas defect.
 		await dialog.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
-		if (await dialog.count() === 0) {
+		if ((await dialog.count()) === 0) {
 			continue
 		}
 
 		const close = dialog.getByRole('button', { name: /^close$/i }).first()
-		if (await close.count() > 0) {
+		if ((await close.count()) > 0) {
 			await close.click()
 		} else {
 			await page.keyboard.press('Escape')
@@ -96,7 +96,11 @@ async function dismissFirstRun(page: Page): Promise<void> {
 
 	// Nothing modal may remain: any leftover overlay intercepts pointer events
 	// and would make an unrelated assertion fail for an unrelated reason.
-	await page.locator('.modal-mask').first().waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {})
+	await page
+		.locator('.modal-mask')
+		.first()
+		.waitFor({ state: 'hidden', timeout: 10000 })
+		.catch(() => {})
 }
 
 /**
@@ -125,7 +129,10 @@ async function openFlow(page: Page, id: string): Promise<void> {
 	// Canvas first, then the dialogs: a node renders underneath a modal, so
 	// waiting on it is what proves the app has booted far enough for the
 	// first-run dialogs to have mounted and be dismissable.
-	await page.locator('.cn-graph-canvas__node').first().waitFor({ state: 'visible' })
+	await page
+		.locator('.cn-graph-canvas__node')
+		.first()
+		.waitFor({ state: 'visible' })
 	await dismissFirstRun(page)
 }
 
@@ -142,7 +149,9 @@ test.describe('flow builder — the node is the action', () => {
 	})
 
 	// @e2e flow-canvas::a-migrated-flow-shows-what-each-node-does
-	test('every card names the STEP it runs, and none says "No step type"', async ({ page }) => {
+	test('every card names the STEP it runs, and none says "No step type"', async ({
+		page,
+	}) => {
 		await openFlow(page, SEQUENCER)
 
 		const steps = await page.locator('.flow-builder__node-step').allInnerTexts()
@@ -175,7 +184,9 @@ test.describe('flow builder — the node is the action', () => {
 		// threw `Cannot read properties of undefined (reading 'trim')`, which
 		// reads like the app rendered nothing when in fact it rendered
 		// everything.
-		const labels = await page.locator('.flow-builder__step-text').allTextContents()
+		const labels = await page
+			.locator('.flow-builder__step-text')
+			.allTextContents()
 		expect(labels).toHaveLength(16)
 
 		for (const label of labels) {
@@ -194,15 +205,26 @@ test.describe('flow builder — the node is the action', () => {
 
 		const ports = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document.querySelectorAll('.cn-graph-canvas__node').forEach((wrapper) => {
-				const label = wrapper.querySelector('.flow-builder__node-label')?.textContent?.trim() ?? ''
-				const sides: string[] = []
-				wrapper.querySelectorAll('.cn-graph-canvas__handle').forEach((handle) => {
-					const kind = handle.classList.contains('cn-graph-canvas__handle--in') ? 'in' : 'out'
-					sides.push(kind)
+			document
+				.querySelectorAll('.cn-graph-canvas__node')
+				.forEach((wrapper) => {
+					const label =
+						wrapper
+							.querySelector('.flow-builder__node-label')
+							?.textContent?.trim() ?? ''
+					const sides: string[] = []
+					wrapper
+						.querySelectorAll('.cn-graph-canvas__handle')
+						.forEach((handle) => {
+							const kind = handle.classList.contains(
+								'cn-graph-canvas__handle--in',
+							)
+								? 'in'
+								: 'out'
+							sides.push(kind)
+						})
+					read[label] = sides
 				})
-				read[label] = sides
-			})
 
 			return read
 		})
@@ -218,7 +240,9 @@ test.describe('flow builder — the node is the action', () => {
 		// `stop-idle` and `stop-full` are a terminal TYPE and carry no flag.
 		for (const sink of SINK_NODES) {
 			expect(ports[sink], `${sink} should have ports`).toBeDefined()
-			expect(ports[sink], `${sink} must not offer an out-port`).not.toContain('out')
+			expect(ports[sink], `${sink} must not offer an out-port`).not.toContain(
+				'out',
+			)
 			expect(ports[sink], `${sink} still receives`).toContain('in')
 		}
 	})
@@ -229,14 +253,21 @@ test.describe('flow builder — the node is the action', () => {
 
 		const branches = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document.querySelectorAll('.cn-graph-canvas__node').forEach((wrapper) => {
-				const label = wrapper.querySelector('.flow-builder__node-label')?.textContent?.trim() ?? ''
-				const names: string[] = []
-				wrapper.querySelectorAll('.cn-graph-canvas__handle--out').forEach((handle) => {
-					names.push(handle.getAttribute('aria-label') ?? '')
+			document
+				.querySelectorAll('.cn-graph-canvas__node')
+				.forEach((wrapper) => {
+					const label =
+						wrapper
+							.querySelector('.flow-builder__node-label')
+							?.textContent?.trim() ?? ''
+					const names: string[] = []
+					wrapper
+						.querySelectorAll('.cn-graph-canvas__handle--out')
+						.forEach((handle) => {
+							names.push(handle.getAttribute('aria-label') ?? '')
+						})
+					read[label] = names
 				})
-				read[label] = names
-			})
 
 			return read
 		})
@@ -247,7 +278,9 @@ test.describe('flow builder — the node is the action', () => {
 		// configuration.
 		for (const gate of ROUTE_NODES) {
 			expect(branches[gate], `${gate} should be on the canvas`).toBeDefined()
-			expect(branches[gate].length, `${gate} should expose two branches`).toBe(2)
+			expect(branches[gate].length, `${gate} should expose two branches`).toBe(
+				2,
+			)
 		}
 
 		// The branch names are the ones the ENGINE reads (`rules[].output` and
@@ -259,7 +292,9 @@ test.describe('flow builder — the node is the action', () => {
 	})
 
 	// @e2e flow-canvas::two-branches-of-one-gate-reach-the-same-node
-	test('a branch port carries its branch into the connection', async ({ page }) => {
+	test('a branch port carries its branch into the connection', async ({
+		page,
+	}) => {
 		await openFlow(page, SEQUENCER)
 
 		// The canvas names a branch port `out:<branch>`. That id is what the
@@ -268,14 +303,21 @@ test.describe('flow builder — the node is the action', () => {
 		// produces an identical edge and the choice the author made is lost.
 		const portIds = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document.querySelectorAll('.cn-graph-canvas__node').forEach((wrapper) => {
-				const label = wrapper.querySelector('.flow-builder__node-label')?.textContent?.trim() ?? ''
-				const ids: string[] = []
-				wrapper.querySelectorAll('.cn-graph-canvas__handle--out').forEach((handle) => {
-					ids.push(handle.getAttribute('aria-label') ?? '')
+			document
+				.querySelectorAll('.cn-graph-canvas__node')
+				.forEach((wrapper) => {
+					const label =
+						wrapper
+							.querySelector('.flow-builder__node-label')
+							?.textContent?.trim() ?? ''
+					const ids: string[] = []
+					wrapper
+						.querySelectorAll('.cn-graph-canvas__handle--out')
+						.forEach((handle) => {
+							ids.push(handle.getAttribute('aria-label') ?? '')
+						})
+					read[label] = ids
 				})
-				read[label] = ids
-			})
 
 			return read
 		})
@@ -305,7 +347,9 @@ test.describe('flow builder — the node is the action', () => {
 		// stretched it to 16x34 — a bar, which reads as a slot rather than a
 		// connection point, and made two ports on one side touch.
 		const size = await page.evaluate(() => {
-			const handle = document.querySelector('.cn-graph-canvas__handle') as HTMLElement | null
+			const handle = document.querySelector(
+				'.cn-graph-canvas__handle',
+			) as HTMLElement | null
 
 			return handle ? { w: handle.offsetWidth, h: handle.offsetHeight } : null
 		})
@@ -348,9 +392,10 @@ test.describe('flow builder — chrome and links', () => {
 		// button label alone would pass even while the canvas sat pinned at 1,
 		// which is exactly what it did when the consumer never bound `zoom` and
 		// the wheel's `update:zoom` went nowhere.
-		const scale = async () => await page.locator('.cn-graph-canvas__world').evaluate((el) => {
-			return new DOMMatrix(getComputedStyle(el).transform).a
-		})
+		const scale = async () =>
+			await page.locator('.cn-graph-canvas__world').evaluate((el) => {
+				return new DOMMatrix(getComputedStyle(el).transform).a
+			})
 
 		expect(await scale()).toBeCloseTo(1, 2)
 
@@ -374,7 +419,9 @@ test.describe('flow builder — chrome and links', () => {
 		// among them. The manifest has no redirect field, so the old paths are
 		// declared as extra pages onto the same components. This asserts the old
 		// link still WORKS, which a route table alone would not show.
-		await page.goto(`/apps/hermiq/graphs/${SEQUENCER}`, { waitUntil: 'domcontentloaded' })
+		await page.goto(`/apps/hermiq/graphs/${SEQUENCER}`, {
+			waitUntil: 'domcontentloaded',
+		})
 		await dismissFirstRun(page)
 
 		await expect(page.locator('.cn-graph-canvas__node').first()).toBeVisible()
@@ -386,7 +433,9 @@ test.describe('flow builder — chrome and links', () => {
 		await expect(page.locator('.app-sidebar')).toBeVisible()
 	})
 
-	test('lists flows from the native flow store, not an object mirror', async ({ page }) => {
+	test('lists flows from the native flow store, not an object mirror', async ({
+		page,
+	}) => {
 		// The list used to be a `type:index` over `hermiq/agentflow` — a
 		// duplicate of the native rows the engine runs, free to drift, and it
 		// had: the mirror held 14 flows where the store holds 13.
@@ -398,15 +447,20 @@ test.describe('flow builder — chrome and links', () => {
 		// origin, and `page.evaluate` before the first goto runs on about:blank
 		// where there is none to resolve against.
 		const flows = await page.evaluate(async () => {
-			const response = await fetch('/apps/openregister/api/flows?app=hermiq&limit=100', {
-				headers: { 'OCS-APIRequest': 'true' },
-			})
+			const response = await fetch(
+				'/apps/openregister/api/flows?app=hermiq&limit=100',
+				{
+					headers: { 'OCS-APIRequest': 'true' },
+				},
+			)
 
 			return await response.json()
 		})
 
 		// Every row on screen is a row in the native store.
-		const names: string[] = flows.results.map((flow: { name: string }) => flow.name)
+		const names: string[] = flows.results.map(
+			(flow: { name: string }) => flow.name,
+		)
 		expect(names).toContain('Hydra sequencer')
 		expect(flows.total).toBe(flows.results.length)
 	})

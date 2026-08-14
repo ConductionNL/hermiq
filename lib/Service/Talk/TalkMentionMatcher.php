@@ -44,96 +44,89 @@ namespace OCA\Hermiq\Service\Talk;
  *
  * @psalm-api
  */
-class TalkMentionMatcher
-{
-    /**
-     * Whether the text addresses any of the given names.
-     *
-     * @param string        $content The DECODED message text — not the raw
-     *                               envelope, which also carries the mention
-     *                               parameters and would match a message that
-     *                               merely quotes the name.
-     * @param array<string> $names   Candidate names, most specific first.
-     *
-     * @return bool True when one of the names is addressed.
-     *
-     * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
-     */
-    public function matchesAny(string $content, array $names): bool
-    {
-        foreach ($names as $name) {
-            if ($this->matches(content: $content, name: $name) === true) {
-                return true;
-            }
-        }
+class TalkMentionMatcher {
+	/**
+	 * Whether the text addresses any of the given names.
+	 *
+	 * @param string $content The DECODED message text — not the raw
+	 *                        envelope, which also carries the mention
+	 *                        parameters and would match a message that
+	 *                        merely quotes the name.
+	 * @param array<string> $names Candidate names, most specific first.
+	 *
+	 * @return bool True when one of the names is addressed.
+	 *
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
+	 */
+	public function matchesAny(string $content, array $names): bool {
+		foreach ($names as $name) {
+			if ($this->matches(content: $content, name: $name) === true) {
+				return true;
+			}
+		}
 
-        return false;
+		return false;
+	}//end matchesAny()
 
-    }//end matchesAny()
+	/**
+	 * Whether the text addresses one name.
+	 *
+	 * @param string $content The decoded message text.
+	 * @param string $name The name to look for.
+	 *
+	 * @return bool True when the name is addressed.
+	 *
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
+	 */
+	public function matches(string $content, string $name): bool {
+		$needle = trim($name);
+		if ($needle === '' || $content === '') {
+			return false;
+		}
 
-    /**
-     * Whether the text addresses one name.
-     *
-     * @param string $content The decoded message text.
-     * @param string $name    The name to look for.
-     *
-     * @return bool True when the name is addressed.
-     *
-     * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
-     */
-    public function matches(string $content, string $name): bool
-    {
-        $needle = trim($name);
-        if ($needle === '' || $content === '') {
-            return false;
-        }
+		$position = stripos($content, '@' . $needle);
+		if ($position === false) {
+			return false;
+		}
 
-        $position = stripos($content, '@'.$needle);
-        if ($position === false) {
-            return false;
-        }
+		// The match must END at a word boundary. Without this, an agent named
+		// "Release" would be addressed by "@Release Notes Agent", which is aimed
+		// at a different agent entirely.
+		$after = substr($content, ($position + strlen($needle) + 1), 1);
 
-        // The match must END at a word boundary. Without this, an agent named
-        // "Release" would be addressed by "@Release Notes Agent", which is aimed
-        // at a different agent entirely.
-        $after = substr($content, ($position + strlen($needle) + 1), 1);
+		return ($after === '' || preg_match('/[\p{L}\p{N}_-]/u', $after) !== 1);
+	}//end matches()
 
-        return ($after === '' || preg_match('/[\p{L}\p{N}_-]/u', $after) !== 1);
+	/**
+	 * Whether any rendered mention parameter names one of the targets.
+	 *
+	 * A rendered mention arrives as a payload parameter rather than literal
+	 * text. Bots are NOT a source in spreed's collaborator search, so `@` never
+	 * autocompletes an agent and this path fires only when a human's display
+	 * name happens to equal the agent's — kept because it costs nothing and
+	 * would otherwise be a silent gap if spreed ever starts offering bots.
+	 *
+	 * @param array $parameters The payload's `object.parameters`.
+	 * @param array<string> $names Candidate names.
+	 *
+	 * @return bool True when a parameter names one of the targets.
+	 *
+	 * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
+	 */
+	public function matchesParameters(array $parameters, array $names): bool {
+		foreach ($parameters as $parameter) {
+			if (is_array($parameter) === false) {
+				continue;
+			}
 
-    }//end matches()
+			$parameterName = (string)($parameter['name'] ?? '');
+			foreach ($names as $name) {
+				if ($parameterName !== '' && strcasecmp($parameterName, $name) === 0) {
+					return true;
+				}
+			}
+		}
 
-    /**
-     * Whether any rendered mention parameter names one of the targets.
-     *
-     * A rendered mention arrives as a payload parameter rather than literal
-     * text. Bots are NOT a source in spreed's collaborator search, so `@` never
-     * autocompletes an agent and this path fires only when a human's display
-     * name happens to equal the agent's — kept because it costs nothing and
-     * would otherwise be a silent gap if spreed ever starts offering bots.
-     *
-     * @param array         $parameters The payload's `object.parameters`.
-     * @param array<string> $names      Candidate names.
-     *
-     * @return bool True when a parameter names one of the targets.
-     *
-     * @spec openspec/specs/talk-chat-bridge/spec.md#requirement-the-agent-responds-only-when-addressed-in-a-group-room
-     */
-    public function matchesParameters(array $parameters, array $names): bool
-    {
-        foreach ($parameters as $parameter) {
-            if (is_array($parameter) === false) {
-                continue;
-            }
-
-            $parameterName = (string) ($parameter['name'] ?? '');
-            foreach ($names as $name) {
-                if ($parameterName !== '' && strcasecmp($parameterName, $name) === 0) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-
-    }//end matchesParameters()
+		return false;
+	}//end matchesParameters()
 }//end class

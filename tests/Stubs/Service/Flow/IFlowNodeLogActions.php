@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal OpenRegister IFlowNodeLogActions stub for standalone unit runs and static analysis.
  *
@@ -25,14 +26,13 @@ namespace OCA\OpenRegister\Service\Flow;
 /**
  * Minimal IFlowNodeLogActions stub.
  */
-interface IFlowNodeLogActions
-{
-    /**
-     * The links this log entry earns.
-     *
-     * @param array<string, mixed> $entry One entry from the run's log.
-     *
-     * @return array<int, array{label: string, href: string, icon?: string}> The links.
-     */
-    public function logActions(array $entry): array;
+interface IFlowNodeLogActions {
+	/**
+	 * The links this log entry earns.
+	 *
+	 * @param array<string, mixed> $entry One entry from the run's log.
+	 *
+	 * @return array<int, array{label: string, href: string, icon?: string}> The links.
+	 */
+	public function logActions(array $entry): array;
 }//end interface

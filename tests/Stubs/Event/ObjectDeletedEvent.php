@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal OpenRegister ObjectDeletedEvent stub for standalone unit runs
  * and static analysis.
@@ -20,28 +21,26 @@ use OCP\EventDispatcher\Event;
 /**
  * Minimal ObjectDeletedEvent stub.
  */
-class ObjectDeletedEvent extends Event
-{
+class ObjectDeletedEvent extends Event {
 
-    /**
-     * Constructor.
-     *
-     * @param ObjectEntity $object The deleted object.
-     */
-    public function __construct(private readonly ObjectEntity $object)
-    {
-        parent::__construct();
+	/**
+	 * Constructor.
+	 *
+	 * @param ObjectEntity $object The deleted object.
+	 */
+	public function __construct(
+		private readonly ObjectEntity $object,
+	) {
+		parent::__construct();
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * The deleted object.
-     *
-     * @return ObjectEntity The object.
-     */
-    public function getObject(): ObjectEntity
-    {
-        return $this->object;
-
-    }//end getObject()
+	/**
+	 * The deleted object.
+	 *
+	 * @return ObjectEntity The object.
+	 */
+	public function getObject(): ObjectEntity {
+		return $this->object;
+	}//end getObject()
 }//end class

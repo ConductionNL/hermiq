@@ -21,20 +21,30 @@
 			<NcNoteCard v-if="installError" type="error">
 				{{ installError }}
 			</NcNoteCard>
-			<NcSelect v-model="selectedAgent"
+			<NcSelect
+				v-model="selectedAgent"
 				:options="agentOptions"
 				:input-label="t('hermiq', 'Agent')"
 				:loading="loadingAgents"
 				:placeholder="t('hermiq', 'Select agent')"
 				label="label" />
-			<p v-if="!loadingAgents && agentOptions.length === 0" class="skill-install-modal__hint">
-				{{ t('hermiq', 'No agents yet. Create one under Agents, then reopen this dialog.') }}
+			<p
+				v-if="!loadingAgents && agentOptions.length === 0"
+				class="skill-install-modal__hint">
+				{{
+					t(
+						'hermiq',
+						'No agents yet. Create one under Agents, then reopen this dialog.',
+					)
+				}}
 			</p>
 			<NcButton
 				type="primary"
 				:disabled="installing || !canInstall"
 				@click="doInstall">
-				{{ installing ? t('hermiq', 'Installing…') : t('hermiq', 'Install') }}
+				{{
+					installing ? t('hermiq', 'Installing…') : t('hermiq', 'Install')
+				}}
 			</NcButton>
 		</div>
 	</NcModal>
@@ -144,7 +154,10 @@ export default {
 				await installSkill(this.skillId, this.selectedAgent.value)
 				this.$emit('installed')
 			} catch (e) {
-				this.installError = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.installError =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.installing = false
 			}

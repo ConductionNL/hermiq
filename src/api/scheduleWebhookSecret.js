@@ -24,7 +24,9 @@ const SCHEDULES_BASE = '/apps/hermiq/api/schedules'
  * @return {Promise<object>} The status payload.
  */
 export async function getScheduleWebhookSecretStatus(scheduleId) {
-	const response = await axios.get(generateUrl(`${SCHEDULES_BASE}/${scheduleId}/webhook-secret`))
+	const response = await axios.get(
+		generateUrl(`${SCHEDULES_BASE}/${scheduleId}/webhook-secret`),
+	)
 	return response.data
 }
 
@@ -36,7 +38,9 @@ export async function getScheduleWebhookSecretStatus(scheduleId) {
  * @return {Promise<object>} The created status payload plus a one-time `secret`.
  */
 export async function mintScheduleWebhookSecret(scheduleId) {
-	const response = await axios.post(generateUrl(`${SCHEDULES_BASE}/${scheduleId}/webhook-secret`))
+	const response = await axios.post(
+		generateUrl(`${SCHEDULES_BASE}/${scheduleId}/webhook-secret`),
+	)
 	return response.data
 }
 
@@ -48,7 +52,9 @@ export async function mintScheduleWebhookSecret(scheduleId) {
  * @return {Promise<object>} The updated status payload plus a one-time `secret`.
  */
 export async function rotateScheduleWebhookSecret(scheduleId) {
-	const response = await axios.post(generateUrl(`${SCHEDULES_BASE}/${scheduleId}/webhook-secret/rotate`))
+	const response = await axios.post(
+		generateUrl(`${SCHEDULES_BASE}/${scheduleId}/webhook-secret/rotate`),
+	)
 	return response.data
 }
 
@@ -59,6 +65,8 @@ export async function rotateScheduleWebhookSecret(scheduleId) {
  * @return {Promise<object>} The updated status payload (never a secret).
  */
 export async function revokeScheduleWebhookSecret(scheduleId) {
-	const response = await axios.post(generateUrl(`${SCHEDULES_BASE}/${scheduleId}/webhook-secret/revoke`))
+	const response = await axios.post(
+		generateUrl(`${SCHEDULES_BASE}/${scheduleId}/webhook-secret/revoke`),
+	)
 	return response.data
 }

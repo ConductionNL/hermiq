@@ -35,163 +35,155 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
  */
-class AiFeatureDpoAckGuardTest extends TestCase
-{
+class AiFeatureDpoAckGuardTest extends TestCase {
 
-    /**
-     * Mock IAppConfig.
-     *
-     * @var IAppConfig&MockObject
-     */
-    private IAppConfig $appConfig;
+	/**
+	 * Mock IAppConfig.
+	 *
+	 * @var IAppConfig&MockObject
+	 */
+	private IAppConfig $appConfig;
 
-    /**
-     * The guard under test.
-     *
-     * @var AiFeatureDpoAckGuard
-     */
-    private AiFeatureDpoAckGuard $guard;
+	/**
+	 * The guard under test.
+	 *
+	 * @var AiFeatureDpoAckGuard
+	 */
+	private AiFeatureDpoAckGuard $guard;
 
-    /**
-     * Wire the guard with a mocked IAppConfig.
-     *
-     * @return void
-     */
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->appConfig = $this->createMock(IAppConfig::class);
-        $this->guard     = new AiFeatureDpoAckGuard($this->appConfig);
+	/**
+	 * Wire the guard with a mocked IAppConfig.
+	 *
+	 * @return void
+	 */
+	protected function setUp(): void {
+		parent::setUp();
+		$this->appConfig = $this->createMock(IAppConfig::class);
+		$this->guard = new AiFeatureDpoAckGuard($this->appConfig);
 
-    }//end setUp()
+	}//end setUp()
 
-    /**
-     * An acknowledged feature (non-empty IAppConfig value) allows the transition.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
-     */
-    public function testAcknowledgedAllows(): void
-    {
-        $this->appConfig->method('getValueString')
-            ->with('hermiq', 'dpo_ack.acme.autonomous-agent-run', '')
-            ->willReturn('dpo@2026-07-05T00:00:00+00:00');
+	/**
+	 * An acknowledged feature (non-empty IAppConfig value) allows the transition.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
+	 */
+	public function testAcknowledgedAllows(): void {
+		$this->appConfig->method('getValueString')
+			->with('hermiq', 'dpo_ack.acme.autonomous-agent-run', '')
+			->willReturn('dpo@2026-07-05T00:00:00+00:00');
 
-        $result = $this->guard->check(
-            ['slug' => 'autonomous-agent-run', 'tenantId' => 'acme'],
-            'enable',
-            'dpo'
-        );
+		$result = $this->guard->check(
+			['slug' => 'autonomous-agent-run', 'tenantId' => 'acme'],
+			'enable',
+			'dpo'
+		);
 
-        $this->assertTrue($result->isAllowed());
+		$this->assertTrue($result->isAllowed());
 
-    }//end testAcknowledgedAllows()
+	}//end testAcknowledgedAllows()
 
-    /**
-     * A not-acknowledged feature (empty IAppConfig value) denies the transition.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
-     */
-    public function testNotAcknowledgedDenies(): void
-    {
-        $this->appConfig->method('getValueString')->willReturn('');
+	/**
+	 * A not-acknowledged feature (empty IAppConfig value) denies the transition.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
+	 */
+	public function testNotAcknowledgedDenies(): void {
+		$this->appConfig->method('getValueString')->willReturn('');
 
-        $result = $this->guard->check(
-            ['slug' => 'autonomous-agent-run', 'tenantId' => 'acme'],
-            'enable',
-            'dpo'
-        );
+		$result = $this->guard->check(
+			['slug' => 'autonomous-agent-run', 'tenantId' => 'acme'],
+			'enable',
+			'dpo'
+		);
 
-        $this->assertFalse($result->isAllowed());
-        $this->assertNotNull($result->getMessage());
+		$this->assertFalse($result->isAllowed());
+		$this->assertNotNull($result->getMessage());
 
-    }//end testNotAcknowledgedDenies()
+	}//end testNotAcknowledgedDenies()
 
-    /**
-     * A missing slug denies the transition (fail-closed) without reading config.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
-     */
-    public function testMissingSlugDenies(): void
-    {
-        $this->appConfig->expects($this->never())->method('getValueString');
+	/**
+	 * A missing slug denies the transition (fail-closed) without reading config.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
+	 */
+	public function testMissingSlugDenies(): void {
+		$this->appConfig->expects($this->never())->method('getValueString');
 
-        $result = $this->guard->check(['tenantId' => 'acme'], 'enable', 'dpo');
+		$result = $this->guard->check(['tenantId' => 'acme'], 'enable', 'dpo');
 
-        $this->assertFalse($result->isAllowed());
+		$this->assertFalse($result->isAllowed());
 
-    }//end testMissingSlugDenies()
+	}//end testMissingSlugDenies()
 
-    /**
-     * The tenant-scoped key is used when tenantId is present.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
-     */
-    public function testTenantScopedKey(): void
-    {
-        $this->appConfig->expects($this->once())
-            ->method('getValueString')
-            ->with('hermiq', 'dpo_ack.acme.chat-companion', '')
-            ->willReturn('dpo@now');
+	/**
+	 * The tenant-scoped key is used when tenantId is present.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
+	 */
+	public function testTenantScopedKey(): void {
+		$this->appConfig->expects($this->once())
+			->method('getValueString')
+			->with('hermiq', 'dpo_ack.acme.chat-companion', '')
+			->willReturn('dpo@now');
 
-        $result = $this->guard->check(
-            ['slug' => 'chat-companion', 'tenantId' => 'acme'],
-            'enable',
-            'dpo'
-        );
+		$result = $this->guard->check(
+			['slug' => 'chat-companion', 'tenantId' => 'acme'],
+			'enable',
+			'dpo'
+		);
 
-        $this->assertTrue($result->isAllowed());
+		$this->assertTrue($result->isAllowed());
 
-    }//end testTenantScopedKey()
+	}//end testTenantScopedKey()
 
-    /**
-     * The legacy unscoped key is used when no tenant is present (tenantId / tenant_id absent).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
-     */
-    public function testLegacyUnscopedKey(): void
-    {
-        $this->appConfig->expects($this->once())
-            ->method('getValueString')
-            ->with('hermiq', 'dpo_ack.chat-companion', '')
-            ->willReturn('dpo@now');
+	/**
+	 * The legacy unscoped key is used when no tenant is present (tenantId / tenant_id absent).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
+	 */
+	public function testLegacyUnscopedKey(): void {
+		$this->appConfig->expects($this->once())
+			->method('getValueString')
+			->with('hermiq', 'dpo_ack.chat-companion', '')
+			->willReturn('dpo@now');
 
-        $result = $this->guard->check(['slug' => 'chat-companion'], 'enable', 'dpo');
+		$result = $this->guard->check(['slug' => 'chat-companion'], 'enable', 'dpo');
 
-        $this->assertTrue($result->isAllowed());
+		$this->assertTrue($result->isAllowed());
 
-    }//end testLegacyUnscopedKey()
+	}//end testLegacyUnscopedKey()
 
-    /**
-     * The legacy `tenant_id` key is honoured as a fallback for the tenant scope.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
-     */
-    public function testLegacyTenantIdFallback(): void
-    {
-        $this->appConfig->expects($this->once())
-            ->method('getValueString')
-            ->with('hermiq', 'dpo_ack.acme.chat-companion', '')
-            ->willReturn('dpo@now');
+	/**
+	 * The legacy `tenant_id` key is honoured as a fallback for the tenant scope.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
+	 */
+	public function testLegacyTenantIdFallback(): void {
+		$this->appConfig->expects($this->once())
+			->method('getValueString')
+			->with('hermiq', 'dpo_ack.acme.chat-companion', '')
+			->willReturn('dpo@now');
 
-        $result = $this->guard->check(
-            ['slug' => 'chat-companion', 'tenant_id' => 'acme'],
-            'enable',
-            'dpo'
-        );
+		$result = $this->guard->check(
+			['slug' => 'chat-companion', 'tenant_id' => 'acme'],
+			'enable',
+			'dpo'
+		);
 
-        $this->assertTrue($result->isAllowed());
+		$this->assertTrue($result->isAllowed());
 
-    }//end testLegacyTenantIdFallback()
+	}//end testLegacyTenantIdFallback()
 }//end class

@@ -62,11 +62,18 @@ interface Manifest {
  */
 function loadManifest(): Manifest {
 	const srcDir = path.resolve(__dirname, '..', '..', '..', 'src')
-	const manifest = JSON.parse(fs.readFileSync(path.join(srcDir, 'manifest.json'), 'utf-8')) as Manifest
+	const manifest = JSON.parse(
+		fs.readFileSync(path.join(srcDir, 'manifest.json'), 'utf-8'),
+	) as Manifest
 	const fragmentsDir = path.join(srcDir, 'manifest.d')
 	if (fs.existsSync(fragmentsDir)) {
-		for (const file of fs.readdirSync(fragmentsDir).filter((f) => f.endsWith('.json')).sort()) {
-			const fragment = JSON.parse(fs.readFileSync(path.join(fragmentsDir, file), 'utf-8')) as Partial<Manifest>
+		for (const file of fs
+			.readdirSync(fragmentsDir)
+			.filter((f) => f.endsWith('.json'))
+			.sort()) {
+			const fragment = JSON.parse(
+				fs.readFileSync(path.join(fragmentsDir, file), 'utf-8'),
+			) as Partial<Manifest>
 			if (Array.isArray(fragment.pages)) {
 				manifest.pages.push(...fragment.pages)
 			}
@@ -145,7 +152,9 @@ const IGNORED_CONSOLE_PATTERNS: RegExp[] = [
  * @return The owning app id, or null.
  */
 function owningApp(url: string): string | null {
-	return url.match(/\/(?:custom_)?apps(?:-extra|-external)?\/([^/]+)\//)?.[1] ?? null
+	return (
+		url.match(/\/(?:custom_)?apps(?:-extra|-external)?\/([^/]+)\//)?.[1] ?? null
+	)
 }
 
 /**
@@ -202,16 +211,20 @@ function attachConsoleSpy(page: Page): { errors: string[] } {
  * --------------------------------------------------------------------- */
 
 test.describe('manifest pages — schema-driven render', () => {
-
 	test('manifest sanity: page partition covers every declared page', () => {
 		// If this fails the manifest changed shape and the smoke loop below
 		// is silently under-covering — fail loudly instead.
 		expect(MANIFEST.pages.length, 'manifest declares pages').toBeGreaterThan(0)
 		expect(SMOKE_PAGES.length + PARAM_PAGES.length).toBe(MANIFEST.pages.length)
-		expect(SMOKE_PAGES.length, 'non-parameterised pages to smoke').toBeGreaterThan(0)
+		expect(
+			SMOKE_PAGES.length,
+			'non-parameterised pages to smoke',
+		).toBeGreaterThan(0)
 	})
 
-	test('SPA shell is served with every webpack chunk the mount depends on', async ({ page }) => {
+	test('SPA shell is served with every webpack chunk the mount depends on', async ({
+		page,
+	}) => {
 		// Deployment-level assertion that needs NO rendered app DOM, so it is
 		// verifiable against the currently-deployed bundle. templates/index.php
 		// registers three chunks in dependency order; the main entry's
@@ -222,7 +235,11 @@ test.describe('manifest pages — schema-driven render', () => {
 		const res = await page.request.get(`${root}/`, { failOnStatusCode: false })
 		expect(res.ok(), `SPA shell HTTP ${res.status()}`).toBeTruthy()
 		const html = await res.text()
-		for (const chunk of ['hermiq-shared-vendor', 'hermiq-shared-nc-vue', 'hermiq-main']) {
+		for (const chunk of [
+			'hermiq-shared-vendor',
+			'hermiq-shared-nc-vue',
+			'hermiq-main',
+		]) {
 			expect(html, `SPA shell must load the ${chunk} chunk`).toContain(chunk)
 		}
 	})
@@ -240,24 +257,42 @@ test.describe('manifest pages — schema-driven render', () => {
 			const root = await rootUrl(page)
 			// HISTORY mode → PATH-form deep link. `domcontentloaded`, not
 			// `networkidle` — NC's notification poll never goes idle.
-			await page.goto(`${root}${pg.route}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+			await page.goto(`${root}${pg.route}`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 30_000,
+			})
 
 			// The Nextcloud SPA shell mounts inside #app-content.
-			await expect(page.locator('#app-content, [data-cy=app-content], .app-content').first()).toBeVisible({ timeout: 15_000 })
+			await expect(
+				page
+					.locator('#app-content, [data-cy=app-content], .app-content')
+					.first(),
+			).toBeVisible({ timeout: 15_000 })
 
 			// Route identity: the router must still be ON the requested route.
 			// A redirect back to the default page (greenwash mode) changes the
 			// pathname and must fail the smoke test.
-			expect(new URL(page.url()).pathname, `${pg.id} was redirected away from ${pg.route}`).toContain(pg.route)
+			expect(
+				new URL(page.url()).pathname,
+				`${pg.id} was redirected away from ${pg.route}`,
+			).toContain(pg.route)
 
 			// CnPageRenderer should have resolved the route to *some* page
 			// component. Verify anything rendered beyond the loading spinner.
-			const renderedContent = await page.locator('#app-content, .app-content').first().innerHTML()
-			expect(renderedContent.length, `${pg.id} (${pg.route}) rendered no content inside app-content`).toBeGreaterThan(100)
+			const renderedContent = await page
+				.locator('#app-content, .app-content')
+				.first()
+				.innerHTML()
+			expect(
+				renderedContent.length,
+				`${pg.id} (${pg.route}) rendered no content inside app-content`,
+			).toBeGreaterThan(100)
 
 			// No fatal console errors during initial mount.
-			expect(errors, `${pg.id} (${pg.route}) emitted console errors: ${errors.join(' | ')}`).toEqual([])
+			expect(
+				errors,
+				`${pg.id} (${pg.route}) emitted console errors: ${errors.join(' | ')}`,
+			).toEqual([])
 		})
 	}
-
 })

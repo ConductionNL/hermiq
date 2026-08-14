@@ -30,37 +30,34 @@ use OCP\EventDispatcher\Event;
 /**
  * Minimal RegisterLeafProvidersEvent stub for standalone unit runs.
  */
-class RegisterLeafProvidersEvent extends Event
-{
+class RegisterLeafProvidersEvent extends Event {
 
-    /**
-     * @var array<int, array{descriptor: LeafDescriptor, provider: ?IntegrationProvider}>
-     */
-    private array $leaves = [];
+	/**
+	 * @var array<int, array{descriptor: LeafDescriptor, provider: ?IntegrationProvider}>
+	 */
+	private array $leaves = [];
 
-    /**
-     * Contribute a leaf.
-     *
-     * @param LeafDescriptor           $descriptor The leaf declaration.
-     * @param IntegrationProvider|null $provider   The data provider, or null.
-     *
-     * @return void
-     */
-    public function registerLeaf(LeafDescriptor $descriptor, ?IntegrationProvider $provider=null): void
-    {
-        $this->leaves[] = [
-            'descriptor' => $descriptor,
-            'provider'   => $provider,
-        ];
-    }//end registerLeaf()
+	/**
+	 * Contribute a leaf.
+	 *
+	 * @param LeafDescriptor $descriptor The leaf declaration.
+	 * @param IntegrationProvider|null $provider The data provider, or null.
+	 *
+	 * @return void
+	 */
+	public function registerLeaf(LeafDescriptor $descriptor, ?IntegrationProvider $provider = null): void {
+		$this->leaves[] = [
+			'descriptor' => $descriptor,
+			'provider' => $provider,
+		];
+	}//end registerLeaf()
 
-    /**
-     * Every leaf contributed during this dispatch.
-     *
-     * @return array<int, array{descriptor: LeafDescriptor, provider: ?IntegrationProvider}>
-     */
-    public function getLeaves(): array
-    {
-        return $this->leaves;
-    }//end getLeaves()
+	/**
+	 * Every leaf contributed during this dispatch.
+	 *
+	 * @return array<int, array{descriptor: LeafDescriptor, provider: ?IntegrationProvider}>
+	 */
+	public function getLeaves(): array {
+		return $this->leaves;
+	}//end getLeaves()
 }//end class

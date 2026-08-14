@@ -25,93 +25,86 @@ namespace OCA\OpenRegister\Db;
 /**
  * Minimal Organisation stub for standalone unit runs.
  */
-class Organisation
-{
+class Organisation {
 
-    /**
-     * The organisation UUID.
-     *
-     * @var string|null
-     */
-    private ?string $uuid = null;
+	/**
+	 * The organisation UUID.
+	 *
+	 * @var string|null
+	 */
+	private ?string $uuid = null;
 
-    /**
-     * The organisation display name.
-     *
-     * @var string|null
-     */
-    private ?string $name = null;
+	/**
+	 * The organisation display name.
+	 *
+	 * @var string|null
+	 */
+	private ?string $name = null;
 
-    /**
-     * The owning user id.
-     *
-     * @var string|null
-     */
-    private ?string $owner = null;
+	/**
+	 * The owning user id.
+	 *
+	 * @var string|null
+	 */
+	private ?string $owner = null;
 
-    /**
-     * Get the organisation UUID.
-     *
-     * @return string|null
-     */
-    public function getUuid(): ?string
-    {
-        return $this->uuid;
-    }//end getUuid()
+	/**
+	 * Get the organisation UUID.
+	 *
+	 * @return string|null
+	 */
+	public function getUuid(): ?string {
+		return $this->uuid;
+	}//end getUuid()
 
-    /**
-     * Get the organisation display name.
-     *
-     * @return string|null
-     */
-    public function getName(): ?string
-    {
-        return $this->name;
-    }//end getName()
+	/**
+	 * Get the organisation display name.
+	 *
+	 * @return string|null
+	 */
+	public function getName(): ?string {
+		return $this->name;
+	}//end getName()
 
-    /**
-     * Get the owning user id.
-     *
-     * @return string|null
-     */
-    public function getOwner(): ?string
-    {
-        return $this->owner;
-    }//end getOwner()
+	/**
+	 * Get the owning user id.
+	 *
+	 * @return string|null
+	 */
+	public function getOwner(): ?string {
+		return $this->owner;
+	}//end getOwner()
 
-    /**
-     * Set the organisation UUID (mirrors the real Entity's magic setter).
-     *
-     * @param string|null $uuid The UUID.
-     *
-     * @return void
-     */
-    public function setUuid(?string $uuid): void
-    {
-        $this->uuid = $uuid;
-    }//end setUuid()
+	/**
+	 * Set the organisation UUID (mirrors the real Entity's magic setter).
+	 *
+	 * @param string|null $uuid The UUID.
+	 *
+	 * @return void
+	 */
+	public function setUuid(?string $uuid): void {
+		$this->uuid = $uuid;
+	}//end setUuid()
 
-    /**
-     * Set the organisation display name (mirrors the real Entity's magic setter).
-     *
-     * @param string|null $name The name.
-     *
-     * @return void
-     */
-    public function setName(?string $name): void
-    {
-        $this->name = $name;
-    }//end setName()
+	/**
+	 * Set the organisation display name (mirrors the real Entity's magic setter).
+	 *
+	 * @param string|null $name The name.
+	 *
+	 * @return void
+	 */
+	public function setName(?string $name): void {
+		$this->name = $name;
+	}//end setName()
 
-    /**
-     * Set the owning user id (mirrors the real Entity's magic setter).
-     *
-     * @param string|null $owner The owner uid.
-     *
-     * @return void
-     */
-    public function setOwner(?string $owner): void
-    {
-        $this->owner = $owner;
-    }//end setOwner()
+	/**
+	 * Set the owning user id (mirrors the real Entity's magic setter).
+	 *
+	 * @param string|null $owner The owner uid.
+	 *
+	 * @return void
+	 */
+	public function setOwner(?string $owner): void {
+		$this->owner = $owner;
+	}//end setOwner()
 }//end class

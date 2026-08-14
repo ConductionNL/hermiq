@@ -32,135 +32,129 @@ use PHPUnit\Framework\TestCase;
  *
  * @spec openspec/changes/run-trace-observability/tasks.md#task-1-runtracecollector-ordered-in-memory-step-recorder
  */
-class RunTraceCollectorTest extends TestCase
-{
+class RunTraceCollectorTest extends TestCase {
 
-    /**
-     * A single start/end pair yields one fully-populated step.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-     */
-    public function testSingleStepIsRecordedWithComputedFields(): void
-    {
-        $collector = new RunTraceCollector();
+	/**
+	 * A single start/end pair yields one fully-populated step.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 */
+	public function testSingleStepIsRecordedWithComputedFields(): void {
+		$collector = new RunTraceCollector();
 
-        $token = $collector->startStep(type: 'tool', name: 'openregister.searchObjects');
-        usleep(1000);
-        $collector->endStep(token: $token, outcome: 'ok');
+		$token = $collector->startStep(type: 'tool', name: 'openregister.searchObjects');
+		usleep(1000);
+		$collector->endStep(token: $token, outcome: 'ok');
 
-        $steps = $collector->toArray();
-        $this->assertCount(1, $steps);
+		$steps = $collector->toArray();
+		$this->assertCount(1, $steps);
 
-        $step = $steps[0];
-        $this->assertSame(0, $step['seq']);
-        $this->assertSame('tool', $step['type']);
-        $this->assertSame('openregister.searchObjects', $step['name']);
-        $this->assertSame('ok', $step['outcome']);
-        $this->assertNotEmpty($step['startedAt']);
-        $this->assertNotEmpty($step['endedAt']);
-        // ISO-8601 with an offset, per design.md's response shape.
-        $this->assertMatchesRegularExpression(
-            '~^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$~',
-            $step['startedAt']
-        );
-        $this->assertGreaterThanOrEqual(0, $step['durationMs']);
+		$step = $steps[0];
+		$this->assertSame(0, $step['seq']);
+		$this->assertSame('tool', $step['type']);
+		$this->assertSame('openregister.searchObjects', $step['name']);
+		$this->assertSame('ok', $step['outcome']);
+		$this->assertNotEmpty($step['startedAt']);
+		$this->assertNotEmpty($step['endedAt']);
+		// ISO-8601 with an offset, per design.md's response shape.
+		$this->assertMatchesRegularExpression(
+			'~^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$~',
+			$step['startedAt']
+		);
+		$this->assertGreaterThanOrEqual(0, $step['durationMs']);
 
-    }//end testSingleStepIsRecordedWithComputedFields()
+	}//end testSingleStepIsRecordedWithComputedFields()
 
-    /**
-     * Three sequential (non-overlapping) steps are returned in the order they
-     * were started, with seq 0..2.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-     */
-    public function testSequentialStepsPreserveOrderAndSeq(): void
-    {
-        $collector = new RunTraceCollector();
+	/**
+	 * Three sequential (non-overlapping) steps are returned in the order they
+	 * were started, with seq 0..2.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 */
+	public function testSequentialStepsPreserveOrderAndSeq(): void {
+		$collector = new RunTraceCollector();
 
-        $a = $collector->startStep(type: 'context', name: 'Context retrieval');
-        $collector->endStep(token: $a, outcome: 'ok');
+		$a = $collector->startStep(type: 'context', name: 'Context retrieval');
+		$collector->endStep(token: $a, outcome: 'ok');
 
-        $b = $collector->startStep(type: 'history', name: 'History build');
-        $collector->endStep(token: $b, outcome: 'ok');
+		$b = $collector->startStep(type: 'history', name: 'History build');
+		$collector->endStep(token: $b, outcome: 'ok');
 
-        $c = $collector->startStep(type: 'llm', name: 'LLM generation');
-        $collector->endStep(token: $c, outcome: 'ok');
+		$c = $collector->startStep(type: 'llm', name: 'LLM generation');
+		$collector->endStep(token: $c, outcome: 'ok');
 
-        $steps = $collector->toArray();
-        $this->assertCount(3, $steps);
-        $this->assertSame(['context', 'history', 'llm'], array_column($steps, 'type'));
-        $this->assertSame([0, 1, 2], array_column($steps, 'seq'));
+		$steps = $collector->toArray();
+		$this->assertCount(3, $steps);
+		$this->assertSame(['context', 'history', 'llm'], array_column($steps, 'type'));
+		$this->assertSame([0, 1, 2], array_column($steps, 'seq'));
 
-    }//end testSequentialStepsPreserveOrderAndSeq()
+	}//end testSequentialStepsPreserveOrderAndSeq()
 
-    /**
-     * A step that is started but ends only AFTER a nested step both starts and
-     * ends completes AFTER the nested step in the timeline — the ordering an
-     * `llm` step wrapping a `tool` call relies on (design.md's documented
-     * `context, history, tool, llm, delivery` example order).
-     *
-     * @return void
-     *
-     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-     */
-    public function testNestedStepCompletesBeforeItsEnclosingStep(): void
-    {
-        $collector = new RunTraceCollector();
+	/**
+	 * A step that is started but ends only AFTER a nested step both starts and
+	 * ends completes AFTER the nested step in the timeline — the ordering an
+	 * `llm` step wrapping a `tool` call relies on (design.md's documented
+	 * `context, history, tool, llm, delivery` example order).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 */
+	public function testNestedStepCompletesBeforeItsEnclosingStep(): void {
+		$collector = new RunTraceCollector();
 
-        $llmToken  = $collector->startStep(type: 'llm', name: 'LLM generation');
-        $toolToken = $collector->startStep(type: 'tool', name: 'openregister.searchObjects');
-        $collector->endStep(token: $toolToken, outcome: 'ok');
-        $collector->endStep(token: $llmToken, outcome: 'ok');
+		$llmToken = $collector->startStep(type: 'llm', name: 'LLM generation');
+		$toolToken = $collector->startStep(type: 'tool', name: 'openregister.searchObjects');
+		$collector->endStep(token: $toolToken, outcome: 'ok');
+		$collector->endStep(token: $llmToken, outcome: 'ok');
 
-        $steps = $collector->toArray();
-        $this->assertSame(['tool', 'llm'], array_column($steps, 'type'));
-        $this->assertSame([0, 1], array_column($steps, 'seq'));
+		$steps = $collector->toArray();
+		$this->assertSame(['tool', 'llm'], array_column($steps, 'type'));
+		$this->assertSame([0, 1], array_column($steps, 'seq'));
 
-    }//end testNestedStepCompletesBeforeItsEnclosingStep()
+	}//end testNestedStepCompletesBeforeItsEnclosingStep()
 
-    /**
-     * An unknown/stale end token is silently ignored — never throws, never
-     * corrupts already-recorded steps.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-     */
-    public function testUnknownEndTokenIsIgnoredDefensively(): void
-    {
-        $collector = new RunTraceCollector();
+	/**
+	 * An unknown/stale end token is silently ignored — never throws, never
+	 * corrupts already-recorded steps.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 */
+	public function testUnknownEndTokenIsIgnoredDefensively(): void {
+		$collector = new RunTraceCollector();
 
-        $token = $collector->startStep(type: 'tool', name: 'a.tool');
-        $collector->endStep(token: $token, outcome: 'ok');
+		$token = $collector->startStep(type: 'tool', name: 'a.tool');
+		$collector->endStep(token: $token, outcome: 'ok');
 
-        // Ending the SAME token again (already consumed) and an entirely
-        // fabricated token must both be no-ops.
-        $collector->endStep(token: $token, outcome: 'error');
-        $collector->endStep(token: 9999, outcome: 'error');
+		// Ending the SAME token again (already consumed) and an entirely
+		// fabricated token must both be no-ops.
+		$collector->endStep(token: $token, outcome: 'error');
+		$collector->endStep(token: 9999, outcome: 'error');
 
-        $steps = $collector->toArray();
-        $this->assertCount(1, $steps, 'A stale/unknown token must never add or mutate a step.');
-        $this->assertSame('ok', $steps[0]['outcome'], 'The original recorded outcome must be untouched.');
+		$steps = $collector->toArray();
+		$this->assertCount(1, $steps, 'A stale/unknown token must never add or mutate a step.');
+		$this->assertSame('ok', $steps[0]['outcome'], 'The original recorded outcome must be untouched.');
 
-    }//end testUnknownEndTokenIsIgnoredDefensively()
+	}//end testUnknownEndTokenIsIgnoredDefensively()
 
-    /**
-     * A fresh collector with no steps returns an empty array (never null,
-     * never a fatal error) — the shape Engine::processMessage() falls back to
-     * when no collector is supplied at all.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
-     */
-    public function testEmptyCollectorReturnsEmptyArray(): void
-    {
-        $collector = new RunTraceCollector();
-        $this->assertSame([], $collector->toArray());
+	/**
+	 * A fresh collector with no steps returns an empty array (never null,
+	 * never a fatal error) — the shape Engine::processMessage() falls back to
+	 * when no collector is supplied at all.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
+	 */
+	public function testEmptyCollectorReturnsEmptyArray(): void {
+		$collector = new RunTraceCollector();
+		$this->assertSame([], $collector->toArray());
 
-    }//end testEmptyCollectorReturnsEmptyArray()
+	}//end testEmptyCollectorReturnsEmptyArray()
 }//end class

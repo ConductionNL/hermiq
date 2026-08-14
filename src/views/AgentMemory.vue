@@ -47,7 +47,12 @@
 		<NcEmptyContent
 			v-else-if="!selectedAgent"
 			:name="t('hermiq', 'Select an agent')"
-			:description="t('hermiq', 'Choose an agent to view and curate its long-term memory.')">
+			:description="
+				t(
+					'hermiq',
+					'Choose an agent to view and curate its long-term memory.',
+				)
+			">
 			<template #icon>
 				<BrainIcon :size="20" />
 			</template>
@@ -118,13 +123,18 @@ export default {
 				const agents = await this.agentStore.fetchCollection('agent')
 				this.agents = Array.isArray(agents) ? agents : []
 				if (this.agentStore.errors?.agent) {
-					this.error = this.agentStore.errors.agent.message || this.t('hermiq', 'Unknown error')
+					this.error =
+						this.agentStore.errors.agent.message
+						|| this.t('hermiq', 'Unknown error')
 				}
 				if (this.agentOptions.length > 0) {
 					this.selectedAgent = this.agentOptions[0]
 				}
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Unknown error')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Unknown error')
 			} finally {
 				this.loading = false
 			}

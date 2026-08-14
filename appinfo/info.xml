@@ -42,18 +42,19 @@
           with this version of the server`, measured in both stable31 cells of
           run 31490144919.
         -->
-        <nextcloud min-version="32" max-version="34"/>
         <php min-version="8.3"/>
+        <nextcloud min-version="32" max-version="34"/>
     </dependencies>
 
-    <navigations>
-        <navigation>
-            <id>hermiq</id>
-            <name>Hermiq</name>
-            <route>hermiq.dashboard.page</route>
-            <icon>app.svg</icon>
-        </navigation>
-    </navigations>
+    <!-- @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2 -->
+    <!-- @spec openspec/changes/skills-marketplace/tasks.md#task-3-1 -->
+    <!-- Single <background-jobs> block only — a second block causes an NC upgrade 500. -->
+    <background-jobs>
+        <job>OCA\Hermiq\Cron\ScheduleTask</job>
+        <job>OCA\Hermiq\Cron\SkillCuratorTask</job>
+        <job>OCA\Hermiq\Cron\SkillLearningsPromotionTask</job>
+        <job>OCA\Hermiq\Cron\SkillConsolidationTask</job>
+    </background-jobs>
 
     <!-- @spec openspec/architecture/adr-023-action-authorization.md -->
     <!--
@@ -68,32 +69,6 @@
       ReflectionException on a stale-OpenRegister fleet instance.
     -->
     <repair-steps>
-        <install>
-            <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
-            <step>OCA\Hermiq\Repair\InitializeSettings</step>
-            <step>OCA\Hermiq\Repair\InitializeActions</step>
-            <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
-            <step>OCA\Hermiq\Repair\SeedBudgets</step>
-            <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
-            <step>OCA\Hermiq\Repair\SeedIncidents</step>
-            <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
-            <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
-            <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
-            <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
-            <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
-            <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
-            <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
-            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
-            <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
-                 flow first means an operator enabling it finds the agent already
-                 there. Both are idempotent by name, so the order only affects a
-                 first install. -->
-            <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
-            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
-            <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
-            <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
-            <step>OCA\Hermiq\Repair\InstallTalkBot</step>
-        </install>
         <post-migration>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
             <step>OCA\Hermiq\Repair\InitializeSettings</step>
@@ -125,6 +100,32 @@
                  enable it per conversation AND the agent must be Talk-enabled. -->
             <step>OCA\Hermiq\Repair\InstallTalkBot</step>
         </post-migration>
+        <install>
+            <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
+            <step>OCA\Hermiq\Repair\InitializeSettings</step>
+            <step>OCA\Hermiq\Repair\InitializeActions</step>
+            <step>OCA\Hermiq\Repair\SeedAiFeatures</step>
+            <step>OCA\Hermiq\Repair\SeedBudgets</step>
+            <step>OCA\Hermiq\Repair\SeedModelPolicies</step>
+            <step>OCA\Hermiq\Repair\SeedIncidents</step>
+            <step>OCA\Hermiq\Repair\SeedCourseRecommendationFeature</step>
+            <step>OCA\Hermiq\Repair\SeedComplianceControls</step>
+            <step>OCA\Hermiq\Repair\SeedAgentTemplates</step>
+            <step>OCA\Hermiq\Repair\SeedSkillCreator</step>
+            <step>OCA\Hermiq\Repair\SeedMaturityExampleSkills</step>
+            <step>OCA\Hermiq\Repair\SeedPairedEvalDataset</step>
+            <step>OCA\Hermiq\Repair\SeedSkillDraftExample</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-7-seed-the-triage-agentflow -->
+            <!-- Flow BEFORE agent: the agent step names the agent, so seeding the
+                 flow first means an operator enabling it finds the agent already
+                 there. Both are idempotent by name, so the order only affects a
+                 first install. -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
+            <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
+            <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
+            <step>OCA\Hermiq\Repair\InstallTalkBot</step>
+        </install>
     </repair-steps>
 
     <settings>
@@ -132,13 +133,12 @@
         <admin-section>OCA\Hermiq\Sections\SettingsSection</admin-section>
     </settings>
 
-    <!-- @spec openspec/changes/agent-schedule-dispatcher/tasks.md#task-1-2 -->
-    <!-- @spec openspec/changes/skills-marketplace/tasks.md#task-3-1 -->
-    <!-- Single <background-jobs> block only — a second block causes an NC upgrade 500. -->
-    <background-jobs>
-        <job>OCA\Hermiq\Cron\ScheduleTask</job>
-        <job>OCA\Hermiq\Cron\SkillCuratorTask</job>
-        <job>OCA\Hermiq\Cron\SkillLearningsPromotionTask</job>
-        <job>OCA\Hermiq\Cron\SkillConsolidationTask</job>
-    </background-jobs>
+    <navigations>
+        <navigation>
+            <id>hermiq</id>
+            <name>Hermiq</name>
+            <route>hermiq.dashboard.page</route>
+            <icon>app.svg</icon>
+        </navigation>
+    </navigations>
 </info>

@@ -43,58 +43,56 @@ use Throwable;
  *
  * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
  */
-class SkillLearningsCaptureJob extends QueuedJob
-{
-    /**
-     * Constructor.
-     *
-     * @param ITimeFactory                 $time           Time factory for the base job.
-     * @param SkillLearningsCaptureService $captureService Runs the capture pass (idempotent,
-     *                                                     budget-gated, redaction-inherited).
-     * @param LoggerInterface              $logger         PSR-3 logger (catch-all diagnostics).
-     */
-    public function __construct(
-        ITimeFactory $time,
-        private readonly SkillLearningsCaptureService $captureService,
-        private readonly LoggerInterface $logger,
-    ) {
-        parent::__construct(time: $time);
-    }//end __construct()
+class SkillLearningsCaptureJob extends QueuedJob {
+	/**
+	 * Constructor.
+	 *
+	 * @param ITimeFactory $time Time factory for the base job.
+	 * @param SkillLearningsCaptureService $captureService Runs the capture pass (idempotent,
+	 *                                                     budget-gated, redaction-inherited).
+	 * @param LoggerInterface $logger PSR-3 logger (catch-all diagnostics).
+	 */
+	public function __construct(
+		ITimeFactory $time,
+		private readonly SkillLearningsCaptureService $captureService,
+		private readonly LoggerInterface $logger,
+	) {
+		parent::__construct(time: $time);
+	}//end __construct()
 
-    /**
-     * Run the job: delegate the capture pass to SkillLearningsCaptureService inside a
-     * catch-all — a capture error of ANY kind is logged and swallowed; it can never
-     * fail or delay anything (the run it observes is already complete and persisted).
-     * The service records the pass's token usage through the same `action='run'`
-     * audit channel `BudgetService` aggregates (`runType: 'skill-capture'`).
-     *
-     * @param mixed $argument The capture payload ({runId, scheduleUuid, agentId,
-     *                        skillIds, organisation, evalFail?}). Defensively checked:
-     *                        `IJobList` argument storage is a JSON round-trip, not a
-     *                        compile-time-guaranteed array.
-     *
-     * @return void
-     *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-budget-gated-and-budget-counted
-     */
-    protected function run($argument): void
-    {
-        $payload = $argument;
-        if (is_array($payload) === false) {
-            $payload = [];
-        }
+	/**
+	 * Run the job: delegate the capture pass to SkillLearningsCaptureService inside a
+	 * catch-all — a capture error of ANY kind is logged and swallowed; it can never
+	 * fail or delay anything (the run it observes is already complete and persisted).
+	 * The service records the pass's token usage through the same `action='run'`
+	 * audit channel `BudgetService` aggregates (`runType: 'skill-capture'`).
+	 *
+	 * @param mixed $argument The capture payload ({runId, scheduleUuid, agentId,
+	 *                        skillIds, organisation, evalFail?}). Defensively checked:
+	 *                        `IJobList` argument storage is a JSON round-trip, not a
+	 *                        compile-time-guaranteed array.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-failure-isolated-from-the-run
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-capture-is-budget-gated-and-budget-counted
+	 */
+	protected function run($argument): void {
+		$payload = $argument;
+		if (is_array($payload) === false) {
+			$payload = [];
+		}
 
-        try {
-            $this->captureService->captureForRun(args: $payload);
-        } catch (Throwable $e) {
-            // Best-effort by contract: log and swallow — never rethrow into the
-            // background-job pass.
-            $this->logger->warning(
-                'Hermiq learnings capture job failed: '.$e->getMessage(),
-                ['exception' => $e]
-            );
-        }
+		try {
+			$this->captureService->captureForRun(args: $payload);
+		} catch (Throwable $e) {
+			// Best-effort by contract: log and swallow — never rethrow into the
+			// background-job pass.
+			$this->logger->warning(
+				'Hermiq learnings capture job failed: ' . $e->getMessage(),
+				['exception' => $e]
+			);
+		}
 
-    }//end run()
+	}//end run()
 }//end class

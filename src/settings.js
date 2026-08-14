@@ -15,7 +15,11 @@
 // "before the app boots" config (e.g. an app's OR register binding).
 
 import { createApp } from 'vue'
-import { translate as t, translatePlural as n, loadTranslations } from '@nextcloud/l10n'
+import {
+	translate as t,
+	translatePlural as n,
+	loadTranslations,
+} from '@nextcloud/l10n'
 import pinia from './pinia.js'
 import AdminRoot from './views/AdminRoot.vue'
 

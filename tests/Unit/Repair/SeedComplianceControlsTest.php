@@ -36,186 +36,177 @@ use Psr\Log\LoggerInterface;
  *
  * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
  */
-class SeedComplianceControlsTest extends TestCase
-{
+class SeedComplianceControlsTest extends TestCase {
 
-    /**
-     * A stateful ObjectService test double keyed by schema, recording every
-     * saveObject() call (mirrors SeedBudgetsTest/SeedAiFeatures's precedent).
-     *
-     * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
-     *
-     * @return ObjectService
-     */
-    private function objectService(array $bySchema): ObjectService
-    {
-        return new class ($bySchema) extends ObjectService {
-            private ?string $schema = null;
+	/**
+	 * A stateful ObjectService test double keyed by schema, recording every
+	 * saveObject() call (mirrors SeedBudgetsTest/SeedAiFeatures's precedent).
+	 *
+	 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
+	 *
+	 * @return ObjectService
+	 */
+	private function objectService(array $bySchema): ObjectService {
+		return new class($bySchema) extends ObjectService {
+			private ?string $schema = null;
 
-            /**
-             * @var array<int, array{schema: string, object: array}>
-             */
-            public array $saved = [];
+			/**
+			 * @var array<int, array{schema: string, object: array}>
+			 */
+			public array $saved = [];
 
-            /**
-             * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
-             */
-            public function __construct(private array $bySchema)
-            {
-            }
+			/**
+			 * @param array<string, array<int, ObjectEntity>> $bySchema Schema slug → objects.
+			 */
+			public function __construct(
+				private array $bySchema,
+			) {
+			}
 
-            public function setRegister(mixed $register): static
-            {
-                return $this;
-            }
+			public function setRegister(mixed $register): static {
+				return $this;
+			}
 
-            public function setSchema(mixed $schema): static
-            {
-                $this->schema = (string) $schema;
-                return $this;
-            }
+			public function setSchema(mixed $schema): static {
+				$this->schema = (string)$schema;
+				return $this;
+			}
 
-            public function findAll(array $config=[], bool $_rbac=true, bool $_multitenancy=true): array
-            {
-                return ($this->bySchema[$this->schema] ?? []);
-            }
+			public function findAll(array $config = [], bool $_rbac = true, bool $_multitenancy = true): array {
+				return ($this->bySchema[$this->schema] ?? []);
+			}
 
-            public function saveObject(
-                array | ObjectEntity $object,
-                ?array $extend=[],
-                mixed $register=null,
-                mixed $schema=null,
-                ?string $uuid=null,
-                bool $_rbac=true,
-                bool $_multitenancy=true,
-                bool $silent=false,
-                ?array $uploadedFiles=null,
-                ?\OCP\IUser $currentUser=null,
-                // openregister#2211 (insert-only saves) added this. A double that
-                // drifts from the real signature is a FATAL, not a failed
-                // assertion: PHP refuses to declare the class and the whole
-                // suite dies before it runs.
-                bool $failIfExists=false
-            ): ObjectEntity {
-                $payload = is_array($object) ? $object : $object->getObject();
-                $this->saved[] = ['schema' => (string) $schema, 'object' => $payload];
+			public function saveObject(
+				array|ObjectEntity $object,
+				?array $extend = [],
+				mixed $register = null,
+				mixed $schema = null,
+				?string $uuid = null,
+				bool $_rbac = true,
+				bool $_multitenancy = true,
+				bool $silent = false,
+				bool $_validation = true,
+				?array $uploadedFiles = null,
+				?\OCP\IUser $currentUser = null,
+				// openregister#2211 (insert-only saves) added this. A double that
+				// drifts from the real signature is a FATAL, not a failed
+				// assertion: PHP refuses to declare the class and the whole
+				// suite dies before it runs.
+				bool $failIfExists = false,
+			): ObjectEntity {
+				$payload = is_array($object) ? $object : $object->getObject();
+				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload];
 
-                $entity = new ObjectEntity();
-                $entity->setUuid('new-'.count($this->saved));
-                $entity->setObject($payload);
-                return $entity;
-            }
-        };
+				$entity = new ObjectEntity();
+				$entity->setUuid('new-' . count($this->saved));
+				$entity->setObject($payload);
+				return $entity;
+			}
+		};
 
-    }//end objectService()
+	}//end objectService()
 
-    /**
-     * An object with the given payload.
-     *
-     * @param string               $uuid    The uuid.
-     * @param array<string, mixed> $payload The payload.
-     *
-     * @return ObjectEntity
-     */
-    private function object(string $uuid, array $payload): ObjectEntity
-    {
-        $e = new ObjectEntity();
-        $e->setUuid($uuid);
-        $e->setObject($payload);
-        return $e;
+	/**
+	 * An object with the given payload.
+	 *
+	 * @param string $uuid The uuid.
+	 * @param array<string, mixed> $payload The payload.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function object(string $uuid, array $payload): ObjectEntity {
+		$e = new ObjectEntity();
+		$e->setUuid($uuid);
+		$e->setObject($payload);
+		return $e;
+	}//end object()
 
-    }//end object()
+	/**
+	 * A container resolving ObjectService to the given double.
+	 *
+	 * @param ObjectService $objectService The object service double.
+	 *
+	 * @return ContainerInterface
+	 */
+	private function container(ObjectService $objectService): ContainerInterface {
+		$container = $this->createMock(ContainerInterface::class);
+		$container->method('get')->willReturnCallback(
+			static fn (string $class) => match ($class) {
+				ObjectService::class => $objectService,
+				default => throw new \RuntimeException("Unexpected service: {$class}"),
+			}
+		);
 
-    /**
-     * A container resolving ObjectService to the given double.
-     *
-     * @param ObjectService $objectService The object service double.
-     *
-     * @return ContainerInterface
-     */
-    private function container(ObjectService $objectService): ContainerInterface
-    {
-        $container = $this->createMock(ContainerInterface::class);
-        $container->method('get')->willReturnCallback(
-            static fn (string $class) => match ($class) {
-                ObjectService::class => $objectService,
-                default => throw new \RuntimeException("Unexpected service: {$class}"),
-            }
-        );
+		return $container;
+	}//end container()
 
-        return $container;
+	/**
+	 * A fresh install seeds all 3 ControlFramework rows and all 10 Control rows.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+	 */
+	public function testFreshInstallSeedsFrameworksAndControls(): void {
+		$objectService = $this->objectService(['agentcontrolframework' => [], 'agentcompliancecontrol' => []]);
 
-    }//end container()
+		$step = new SeedComplianceControls(
+			container: $this->container(objectService: $objectService),
+			logger: $this->createMock(LoggerInterface::class),
+		);
 
-    /**
-     * A fresh install seeds all 3 ControlFramework rows and all 10 Control rows.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
-     */
-    public function testFreshInstallSeedsFrameworksAndControls(): void
-    {
-        $objectService = $this->objectService(['agentcontrolframework' => [], 'agentcompliancecontrol' => []]);
+		$step->run(output: $this->createMock(IOutput::class));
 
-        $step = new SeedComplianceControls(
-            container: $this->container(objectService: $objectService),
-            logger: $this->createMock(LoggerInterface::class),
-        );
+		$frameworks = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcontrolframework');
+		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
-        $step->run(output: $this->createMock(IOutput::class));
+		$this->assertCount(3, $frameworks, 'EU AI Act, ISO/IEC 42001, and NIST AI RMF must all be seeded.');
+		$this->assertCount(10, $controls, 'All 10 seeded controls must be created.');
 
-        $frameworks = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcontrolframework');
-        $controls   = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
+		$slugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
+		$this->assertSame(['eu-ai-act', 'iso-42001', 'nist-ai-rmf'], array_values($slugs));
 
-        $this->assertCount(3, $frameworks, 'EU AI Act, ISO/IEC 42001, and NIST AI RMF must all be seeded.');
-        $this->assertCount(10, $controls, 'All 10 seeded controls must be created.');
+	}//end testFreshInstallSeedsFrameworksAndControls()
 
-        $slugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
-        $this->assertSame(['eu-ai-act', 'iso-42001', 'nist-ai-rmf'], array_values($slugs));
+	/**
+	 * A re-run does not duplicate an already-seeded framework (matched by slug) or
+	 * control (matched by frameworkSlug+controlId).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
+	 */
+	public function testReRunIsIdempotent(): void {
+		$existingFramework = $this->object('fw-eu', ['slug' => 'eu-ai-act', 'name' => 'EU AI Act']);
+		$existingControl = $this->object('ctrl-1', ['frameworkSlug' => 'eu-ai-act', 'controlId' => 'art.12']);
 
-    }//end testFreshInstallSeedsFrameworksAndControls()
+		$objectService = $this->objectService(
+			[
+				'agentcontrolframework' => [$existingFramework],
+				'agentcompliancecontrol' => [$existingControl],
+			]
+		);
 
-    /**
-     * A re-run does not duplicate an already-seeded framework (matched by slug) or
-     * control (matched by frameworkSlug+controlId).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
-     */
-    public function testReRunIsIdempotent(): void
-    {
-        $existingFramework = $this->object('fw-eu', ['slug' => 'eu-ai-act', 'name' => 'EU AI Act']);
-        $existingControl   = $this->object('ctrl-1', ['frameworkSlug' => 'eu-ai-act', 'controlId' => 'art.12']);
+		$step = new SeedComplianceControls(
+			container: $this->container(objectService: $objectService),
+			logger: $this->createMock(LoggerInterface::class),
+		);
 
-        $objectService = $this->objectService(
-            [
-                'agentcontrolframework'  => [$existingFramework],
-                'agentcompliancecontrol' => [$existingControl],
-            ]
-        );
+		$step->run(output: $this->createMock(IOutput::class));
 
-        $step = new SeedComplianceControls(
-            container: $this->container(objectService: $objectService),
-            logger: $this->createMock(LoggerInterface::class),
-        );
+		$frameworks = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcontrolframework');
+		$controls = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
 
-        $step->run(output: $this->createMock(IOutput::class));
+		// The eu-ai-act framework and its art.12 control are skipped (already exist);
+		// the remaining 2 frameworks and 9 controls are still created.
+		$this->assertCount(2, $frameworks);
+		$this->assertCount(9, $controls);
 
-        $frameworks = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcontrolframework');
-        $controls   = array_filter($objectService->saved, static fn (array $s) => $s['schema'] === 'agentcompliancecontrol');
+		$newFrameworkSlugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
+		$this->assertNotContains('eu-ai-act', $newFrameworkSlugs);
 
-        // The eu-ai-act framework and its art.12 control are skipped (already exist);
-        // the remaining 2 frameworks and 9 controls are still created.
-        $this->assertCount(2, $frameworks);
-        $this->assertCount(9, $controls);
+		$newControlIds = array_map(static fn (array $s) => $s['object']['controlId'], $controls);
+		$this->assertNotContains('art.12', $newControlIds);
 
-        $newFrameworkSlugs = array_map(static fn (array $s) => $s['object']['slug'], $frameworks);
-        $this->assertNotContains('eu-ai-act', $newFrameworkSlugs);
-
-        $newControlIds = array_map(static fn (array $s) => $s['object']['controlId'], $controls);
-        $this->assertNotContains('art.12', $newControlIds);
-
-    }//end testReRunIsIdempotent()
+	}//end testReRunIsIdempotent()
 }//end class

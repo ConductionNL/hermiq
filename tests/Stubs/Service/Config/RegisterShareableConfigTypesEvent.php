@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Minimal OpenRegister RegisterShareableConfigTypesEvent stub for standalone unit
  * runs and static analysis.
@@ -27,37 +28,33 @@ use OCP\EventDispatcher\Event;
 /**
  * Minimal RegisterShareableConfigTypesEvent stub.
  */
-class RegisterShareableConfigTypesEvent extends Event
-{
+class RegisterShareableConfigTypesEvent extends Event {
 
-    /**
-     * Contributed configuration types.
-     *
-     * @var array<int, IShareableConfigType>
-     */
-    private array $types = [];
+	/**
+	 * Contributed configuration types.
+	 *
+	 * @var array<int, IShareableConfigType>
+	 */
+	private array $types = [];
 
-    /**
-     * Contribute a shareable configuration type.
-     *
-     * @param IShareableConfigType $type The type.
-     *
-     * @return void
-     */
-    public function registerType(IShareableConfigType $type): void
-    {
-        $this->types[] = $type;
+	/**
+	 * Contribute a shareable configuration type.
+	 *
+	 * @param IShareableConfigType $type The type.
+	 *
+	 * @return void
+	 */
+	public function registerType(IShareableConfigType $type): void {
+		$this->types[] = $type;
 
-    }//end registerType()
+	}//end registerType()
 
-    /**
-     * Every contributed configuration type.
-     *
-     * @return array<int, IShareableConfigType> The types.
-     */
-    public function getTypes(): array
-    {
-        return $this->types;
-
-    }//end getTypes()
+	/**
+	 * Every contributed configuration type.
+	 *
+	 * @return array<int, IShareableConfigType> The types.
+	 */
+	public function getTypes(): array {
+		return $this->types;
+	}//end getTypes()
 }//end class

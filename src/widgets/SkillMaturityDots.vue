@@ -99,7 +99,9 @@ export default {
 		 * @return {string} The aria label.
 		 */
 		ariaLabel() {
-			return this.t('hermiq', 'Maturity level {level} of 7', { level: this.level })
+			return this.t('hermiq', 'Maturity level {level} of 7', {
+				level: this.level,
+			})
 		},
 	},
 }

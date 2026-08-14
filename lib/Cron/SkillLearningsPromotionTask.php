@@ -41,41 +41,39 @@ use OCP\BackgroundJob\TimedJob;
  *
  * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
  */
-class SkillLearningsPromotionTask extends TimedJob
-{
-    /**
-     * Constructor.
-     *
-     * @param ITimeFactory                   $time             Time factory for TimedJob scheduling.
-     * @param SkillLearningsPromotionService $promotionService Service that promotes/expires candidates.
-     */
-    public function __construct(
-        ITimeFactory $time,
-        private readonly SkillLearningsPromotionService $promotionService,
-    ) {
-        parent::__construct(time: $time);
+class SkillLearningsPromotionTask extends TimedJob {
+	/**
+	 * Constructor.
+	 *
+	 * @param ITimeFactory $time Time factory for TimedJob scheduling.
+	 * @param SkillLearningsPromotionService $promotionService Service that promotes/expires candidates.
+	 */
+	public function __construct(
+		ITimeFactory $time,
+		private readonly SkillLearningsPromotionService $promotionService,
+	) {
+		parent::__construct(time: $time);
 
-        // Learnings are a slow loop by design — run daily; parallel runs disallowed
-        // (the SkillCuratorTask pattern).
-        $this->setInterval(seconds: 86400);
-        $this->setAllowParallelRuns(allow: false);
+		// Learnings are a slow loop by design — run daily; parallel runs disallowed
+		// (the SkillCuratorTask pattern).
+		$this->setInterval(seconds: 86400);
+		$this->setAllowParallelRuns(allow: false);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * Execute one promotion pass (per-skill isolation lives in the service).
-     *
-     * @param mixed $argument The (unused) background-job argument.
-     *
-     * @return void
-     *
-     * @phpstan-param mixed $argument
-     *
-     * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
-     */
-    public function run(mixed $argument): void
-    {
-        $this->promotionService->promoteAll();
+	/**
+	 * Execute one promotion pass (per-skill isolation lives in the service).
+	 *
+	 * @param mixed $argument The (unused) background-job argument.
+	 *
+	 * @return void
+	 *
+	 * @phpstan-param mixed $argument
+	 *
+	 * @spec openspec/specs/skill-learnings/spec.md#requirement-promotion-is-a-mechanical-two-stage-background-pass
+	 */
+	public function run(mixed $argument): void {
+		$this->promotionService->promoteAll();
 
-    }//end run()
+	}//end run()
 }//end class

@@ -36,165 +36,154 @@ use Psr\Log\LoggerInterface;
 /**
  * @covers \OCA\Hermiq\Service\Talk\TalkRoomBinding
  */
-class TalkRoomBindingSyncTest extends TestCase
-{
+class TalkRoomBindingSyncTest extends TestCase {
 
-    private ObjectService&MockObject $objectService;
+	private ObjectService&MockObject $objectService;
 
-    private TalkRoomBinding $binding;
+	private TalkRoomBinding $binding;
 
-    /**
-     * The payload handed to saveObject(), or null when nothing was written.
-     *
-     * @var array<string,mixed>|null
-     */
-    private ?array $saved = null;
+	/**
+	 * The payload handed to saveObject(), or null when nothing was written.
+	 *
+	 * @var array<string,mixed>|null
+	 */
+	private ?array $saved = null;
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+	protected function setUp(): void {
+		parent::setUp();
 
-        $this->saved         = null;
-        $this->objectService = $this->createMock(ObjectService::class);
-        // Variadic on purpose. The real saveObject() takes
-        // (object, extend, register, schema, uuid, ...) and the caller uses
-        // NAMED arguments, so a callback that redeclares a plausible-looking
-        // positional signature binds $register to $extend and silently records
-        // nothing — which reads as "no write happened" and would have made the
-        // assertions below pass for the wrong reason.
-        $this->objectService->method('saveObject')->willReturnCallback(
-            function (mixed ...$args): ObjectEntity {
-                $this->saved = $args[0];
-                $entity      = new ObjectEntity();
-                $entity->setUuid('conv-1');
-                $entity->setObject($args[0]);
+		$this->saved = null;
+		$this->objectService = $this->createMock(ObjectService::class);
+		// Variadic on purpose. The real saveObject() takes
+		// (object, extend, register, schema, uuid, ...) and the caller uses
+		// NAMED arguments, so a callback that redeclares a plausible-looking
+		// positional signature binds $register to $extend and silently records
+		// nothing — which reads as "no write happened" and would have made the
+		// assertions below pass for the wrong reason.
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (mixed ...$args): ObjectEntity {
+				$this->saved = $args[0];
+				$entity = new ObjectEntity();
+				$entity->setUuid('conv-1');
+				$entity->setObject($args[0]);
 
-                return $entity;
-            }
-        );
+				return $entity;
+			}
+		);
 
-        $this->binding = new TalkRoomBinding(
-            $this->objectService,
-            $this->createMock(LoggerInterface::class)
-        );
+		$this->binding = new TalkRoomBinding(
+			$this->objectService,
+			$this->createMock(LoggerInterface::class)
+		);
 
-    }//end setUp()
+	}//end setUp()
 
-    /**
-     * A bound session with the given roster.
-     *
-     * @param array<int,string> $participants The stored roster.
-     *
-     * @return ObjectEntity The session.
-     */
-    private function session(array $participants): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('conv-1');
-        $entity->setObject(
-            [
-                'title'         => 'Talk conversation',
-                'userId'        => 'alice',
-                'agentId'       => 'agent-1',
-                'talkRoomToken' => 'room-1',
-                'participants'  => $participants,
-            ]
-        );
+	/**
+	 * A bound session with the given roster.
+	 *
+	 * @param array<int,string> $participants The stored roster.
+	 *
+	 * @return ObjectEntity The session.
+	 */
+	private function session(array $participants): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('conv-1');
+		$entity->setObject(
+			[
+				'title' => 'Talk conversation',
+				'userId' => 'alice',
+				'agentId' => 'agent-1',
+				'talkRoomToken' => 'room-1',
+				'participants' => $participants,
+			]
+		);
 
-        return $entity;
+		return $entity;
+	}//end session()
 
-    }//end session()
+	/**
+	 * A user invited after the bind lands on the roster — the case that decides
+	 * whether their first message is accepted or refused.
+	 */
+	public function testALateJoinerIsAddedToTheRoster(): void {
+		$this->binding->syncParticipants($this->session([]), ['alice', 'bob']);
 
-    /**
-     * A user invited after the bind lands on the roster — the case that decides
-     * whether their first message is accepted or refused.
-     */
-    public function testALateJoinerIsAddedToTheRoster(): void
-    {
-        $this->binding->syncParticipants($this->session([]), ['alice', 'bob']);
+		$this->assertNotNull($this->saved, 'A changed roster must be written.');
+		$this->assertSame(['bob'], $this->saved['participants']);
 
-        $this->assertNotNull($this->saved, 'A changed roster must be written.');
-        $this->assertSame(['bob'], $this->saved['participants']);
+	}//end testALateJoinerIsAddedToTheRoster()
 
-    }//end testALateJoinerIsAddedToTheRoster()
+	/**
+	 * The owner is implicit and stays OFF the roster, so a sync must not start
+	 * listing them — the roster means "in addition to the owner".
+	 */
+	public function testTheOwnerIsNeverAddedToTheRoster(): void {
+		$this->binding->syncParticipants($this->session([]), ['alice']);
 
-    /**
-     * The owner is implicit and stays OFF the roster, so a sync must not start
-     * listing them — the roster means "in addition to the owner".
-     */
-    public function testTheOwnerIsNeverAddedToTheRoster(): void
-    {
-        $this->binding->syncParticipants($this->session([]), ['alice']);
+		$this->assertNull($this->saved, 'Owner-only membership is no change at all.');
 
-        $this->assertNull($this->saved, 'Owner-only membership is no change at all.');
+	}//end testTheOwnerIsNeverAddedToTheRoster()
 
-    }//end testTheOwnerIsNeverAddedToTheRoster()
+	/**
+	 * Someone who LEFT the room loses their turn rights by the same path. The
+	 * roster is the permission, so this direction matters as much as adding.
+	 */
+	public function testAUserWhoLeftTheRoomIsRemoved(): void {
+		$this->binding->syncParticipants($this->session(['bob', 'carol']), ['alice', 'bob']);
 
-    /**
-     * Someone who LEFT the room loses their turn rights by the same path. The
-     * roster is the permission, so this direction matters as much as adding.
-     */
-    public function testAUserWhoLeftTheRoomIsRemoved(): void
-    {
-        $this->binding->syncParticipants($this->session(['bob', 'carol']), ['alice', 'bob']);
+		$this->assertNotNull($this->saved);
+		$this->assertSame(['bob'], $this->saved['participants']);
 
-        $this->assertNotNull($this->saved);
-        $this->assertSame(['bob'], $this->saved['participants']);
+	}//end testAUserWhoLeftTheRoomIsRemoved()
 
-    }//end testAUserWhoLeftTheRoomIsRemoved()
+	/**
+	 * An unchanged roster costs a comparison, not a write — this runs on every
+	 * inbound turn.
+	 */
+	public function testAnUnchangedRosterIsNotWritten(): void {
+		$this->binding->syncParticipants($this->session(['bob']), ['alice', 'bob']);
 
-    /**
-     * An unchanged roster costs a comparison, not a write — this runs on every
-     * inbound turn.
-     */
-    public function testAnUnchangedRosterIsNotWritten(): void
-    {
-        $this->binding->syncParticipants($this->session(['bob']), ['alice', 'bob']);
+		$this->assertNull($this->saved, 'No write when membership did not move.');
 
-        $this->assertNull($this->saved, 'No write when membership did not move.');
+	}//end testAnUnchangedRosterIsNotWritten()
 
-    }//end testAnUnchangedRosterIsNotWritten()
+	/**
+	 * Order must not count as a change, or every turn would write.
+	 */
+	public function testRosterOrderIsNotAChange(): void {
+		$this->binding->syncParticipants($this->session(['carol', 'bob']), ['bob', 'carol', 'alice']);
 
-    /**
-     * Order must not count as a change, or every turn would write.
-     */
-    public function testRosterOrderIsNotAChange(): void
-    {
-        $this->binding->syncParticipants($this->session(['carol', 'bob']), ['bob', 'carol', 'alice']);
+		$this->assertNull($this->saved);
 
-        $this->assertNull($this->saved);
+	}//end testRosterOrderIsNotAChange()
 
-    }//end testRosterOrderIsNotAChange()
+	/**
+	 * 🔴 saveObject() is PUT-semantic: every field must be carried forward, or
+	 * writing the roster silently deletes the rest of the session.
+	 */
+	public function testTheWholePayloadIsCarriedForward(): void {
+		$this->binding->syncParticipants($this->session([]), ['alice', 'bob']);
 
-    /**
-     * 🔴 saveObject() is PUT-semantic: every field must be carried forward, or
-     * writing the roster silently deletes the rest of the session.
-     */
-    public function testTheWholePayloadIsCarriedForward(): void
-    {
-        $this->binding->syncParticipants($this->session([]), ['alice', 'bob']);
+		$this->assertNotNull($this->saved);
+		$this->assertSame('Talk conversation', $this->saved['title']);
+		$this->assertSame('alice', $this->saved['userId']);
+		$this->assertSame('agent-1', $this->saved['agentId']);
+		$this->assertSame('room-1', $this->saved['talkRoomToken']);
 
-        $this->assertNotNull($this->saved);
-        $this->assertSame('Talk conversation', $this->saved['title']);
-        $this->assertSame('alice', $this->saved['userId']);
-        $this->assertSame('agent-1', $this->saved['agentId']);
-        $this->assertSame('room-1', $this->saved['talkRoomToken']);
+	}//end testTheWholePayloadIsCarriedForward()
 
-    }//end testTheWholePayloadIsCarriedForward()
+	/**
+	 * A sync failure must cost nothing: the caller is mid-turn, and the session
+	 * it was handed is still perfectly usable.
+	 */
+	public function testAFailedSyncReturnsTheSessionUnchanged(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('saveObject')->willThrowException(new \RuntimeException('db down'));
 
-    /**
-     * A sync failure must cost nothing: the caller is mid-turn, and the session
-     * it was handed is still perfectly usable.
-     */
-    public function testAFailedSyncReturnsTheSessionUnchanged(): void
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('saveObject')->willThrowException(new \RuntimeException('db down'));
+		$binding = new TalkRoomBinding($objectService, $this->createMock(LoggerInterface::class));
+		$session = $this->session([]);
 
-        $binding = new TalkRoomBinding($objectService, $this->createMock(LoggerInterface::class));
-        $session = $this->session([]);
+		$this->assertSame($session, $binding->syncParticipants($session, ['alice', 'bob']));
 
-        $this->assertSame($session, $binding->syncParticipants($session, ['alice', 'bob']));
-
-    }//end testAFailedSyncReturnsTheSessionUnchanged()
+	}//end testAFailedSyncReturnsTheSessionUnchanged()
 }//end class

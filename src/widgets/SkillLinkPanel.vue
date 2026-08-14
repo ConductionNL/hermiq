@@ -20,7 +20,10 @@
 -->
 <template>
 	<div class="skill-link-panel">
-		<NcNoteCard v-if="error" type="error" :heading="t('hermiq', 'Skill link error')">
+		<NcNoteCard
+			v-if="error"
+			type="error"
+			:heading="t('hermiq', 'Skill link error')">
 			{{ error }}
 		</NcNoteCard>
 
@@ -45,14 +48,29 @@
 			</NcButton>
 		</div>
 		<p class="skill-link-panel__hint">
-			{{ t('hermiq', 'Linked skills are measured by paired baseline runs. Link one skill per dataset for the cleanest attribution.') }}
+			{{
+				t(
+					'hermiq',
+					'Linked skills are measured by paired baseline runs. Link one skill per dataset for the cleanest attribution.',
+				)
+			}}
 		</p>
 
-		<p v-if="!loading && linkedSkills.length === 0" class="skill-link-panel__empty-hint">
-			{{ t('hermiq', 'No skills linked yet. Link one to enable paired baseline runs.') }}
+		<p
+			v-if="!loading && linkedSkills.length === 0"
+			class="skill-link-panel__empty-hint">
+			{{
+				t(
+					'hermiq',
+					'No skills linked yet. Link one to enable paired baseline runs.',
+				)
+			}}
 		</p>
 		<ul v-else class="skill-link-panel__list">
-			<li v-for="skill in linkedSkills" :key="skill.value" class="skill-link-panel__item">
+			<li
+				v-for="skill in linkedSkills"
+				:key="skill.value"
+				class="skill-link-panel__item">
 				<span class="skill-link-panel__name">{{ skill.label }}</span>
 				<NcButton
 					type="tertiary"
@@ -117,7 +135,9 @@ export default {
 		 */
 		linkedSkillIds() {
 			const refs = this.dataset?.skillRefs
-			return Array.isArray(refs) ? refs.filter((ref) => typeof ref === 'string' && ref !== '') : []
+			return Array.isArray(refs)
+				? refs.filter((ref) => typeof ref === 'string' && ref !== '')
+				: []
 		},
 
 		/**
@@ -129,7 +149,9 @@ export default {
 		 */
 		linkedSkills() {
 			return this.linkedSkillIds.map((uuid) => {
-				const match = this.skills.find((skill) => (skill.uuid || skill.id) === uuid)
+				const match = this.skills.find(
+					(skill) => (skill.uuid || skill.id) === uuid,
+				)
 				return { label: (match && match.name) || uuid, value: uuid }
 			})
 		},
@@ -143,8 +165,13 @@ export default {
 		linkableSkillOptions() {
 			return this.skills
 				.filter((skill) => (skill.state || 'active') === 'active')
-				.filter((skill) => !this.linkedSkillIds.includes(skill.uuid || skill.id))
-				.map((skill) => ({ label: skill.name || skill.uuid || skill.id, value: skill.uuid || skill.id }))
+				.filter(
+					(skill) => !this.linkedSkillIds.includes(skill.uuid || skill.id),
+				)
+				.map((skill) => ({
+					label: skill.name || skill.uuid || skill.id,
+					value: skill.uuid || skill.id,
+				}))
 		},
 	},
 
@@ -177,7 +204,10 @@ export default {
 				this.dataset = dataset || null
 				this.skills = Array.isArray(skills) ? skills : []
 			} catch (e) {
-				this.error = e?.response?.data?.error || e?.message || this.t('hermiq', 'Could not load the dataset.')
+				this.error =
+					e?.response?.data?.error
+					|| e?.message
+					|| this.t('hermiq', 'Could not load the dataset.')
 			} finally {
 				this.loading = false
 			}
@@ -232,7 +262,9 @@ export default {
 			}
 			this.busy = true
 			try {
-				await this.saveRefs(this.linkedSkillIds.filter((uuid) => uuid !== skillUuid))
+				await this.saveRefs(
+					this.linkedSkillIds.filter((uuid) => uuid !== skillUuid),
+				)
 				showSuccess(this.t('hermiq', 'Skill unlinked.'))
 			} catch (e) {
 				showError(this.t('hermiq', 'Could not unlink the skill.'))

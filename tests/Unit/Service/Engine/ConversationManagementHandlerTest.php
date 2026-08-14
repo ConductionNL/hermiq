@@ -38,289 +38,277 @@ use Psr\Log\NullLogger;
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
  */
-class ConversationManagementHandlerTest extends TestCase
-{
+class ConversationManagementHandlerTest extends TestCase {
 
-    /**
-     * A ProviderFactory mock resolved to the Fireworks direct-HTTP path whose
-     * generation returns $generated (the simplest driver to fake — no LLPhant
-     * chat instance to stub).
-     *
-     * @param string $generated The text the "LLM" returns.
-     *
-     * @return ProviderFactory
-     */
-    private function providerFactoryReturning(string $generated): ProviderFactory
-    {
-        $factory = $this->createMock(ProviderFactory::class);
-        $factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
-        $factory->method('createChatDriver')->willReturn(
-            new ChatDriver(
-                provider: 'fireworks',
-                chat: null,
-                model: 'test-model',
-                credentialId: 'cred-uuid-fireworks',
-                baseUrl: 'https://api.fireworks.ai/inference/v1'
-            )
-        );
-        $factory->method('callFireworksChat')->willReturn($generated);
-        return $factory;
+	/**
+	 * A ProviderFactory mock resolved to the Fireworks direct-HTTP path whose
+	 * generation returns $generated (the simplest driver to fake — no LLPhant
+	 * chat instance to stub).
+	 *
+	 * @param string $generated The text the "LLM" returns.
+	 *
+	 * @return ProviderFactory
+	 */
+	private function providerFactoryReturning(string $generated): ProviderFactory {
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => 'fireworks']);
+		$factory->method('createChatDriver')->willReturn(
+			new ChatDriver(
+				provider: 'fireworks',
+				chat: null,
+				model: 'test-model',
+				credentialId: 'cred-uuid-fireworks',
+				baseUrl: 'https://api.fireworks.ai/inference/v1'
+			)
+		);
+		$factory->method('callFireworksChat')->willReturn($generated);
+		return $factory;
+	}//end providerFactoryReturning()
 
-    }//end providerFactoryReturning()
+	/**
+	 * A Conversation ObjectEntity.
+	 *
+	 * @param array<string, mixed> $payload The conversation payload.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function conversation(array $payload): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('conv-1');
+		$entity->setObject($payload);
+		return $entity;
+	}//end conversation()
 
-    /**
-     * A Conversation ObjectEntity.
-     *
-     * @param array<string, mixed> $payload The conversation payload.
-     *
-     * @return ObjectEntity
-     */
-    private function conversation(array $payload): ObjectEntity
-    {
-        $entity = new ObjectEntity();
-        $entity->setUuid('conv-1');
-        $entity->setObject($payload);
-        return $entity;
+	/**
+	 * The LLM-generated title is trimmed of quotes and length-capped at 60 chars.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testGenerateTitleTrimsAndCaps(): void {
+		$long = '"' . str_repeat('An extremely descriptive conversation title ', 3) . '"';
+		$handler = new ConversationManagementHandler(
+			$this->createMock(ObjectService::class),
+			$this->providerFactoryReturning($long),
+			new NullLogger()
+		);
 
-    }//end conversation()
+		$title = $handler->generateConversationTitle(firstMessage: 'Tell me about leave policy');
 
-    /**
-     * The LLM-generated title is trimmed of quotes and length-capped at 60 chars.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     */
-    public function testGenerateTitleTrimsAndCaps(): void
-    {
-        $long    = '"'.str_repeat('An extremely descriptive conversation title ', 3).'"';
-        $handler = new ConversationManagementHandler(
-            $this->createMock(ObjectService::class),
-            $this->providerFactoryReturning($long),
-            new NullLogger()
-        );
+		$this->assertStringNotContainsString('"', $title);
+		$this->assertLessThanOrEqual(60, strlen($title));
+		$this->assertStringEndsWith('...', $title);
 
-        $title = $handler->generateConversationTitle(firstMessage: 'Tell me about leave policy');
+	}//end testGenerateTitleTrimsAndCaps()
 
-        $this->assertStringNotContainsString('"', $title);
-        $this->assertLessThanOrEqual(60, strlen($title));
-        $this->assertStringEndsWith('...', $title);
+	/**
+	 * When no provider is available the fallback title (word-boundary truncation
+	 * of the message) is used instead of an exception.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testGenerateTitleFallsBackWhenProviderUnavailable(): void {
+		$factory = $this->createMock(ProviderFactory::class);
+		$factory->method('getLlmConfig')->willReturn(['chatProvider' => null]);
+		$factory->method('createChatDriver')->willThrowException(
+			new ProviderUnavailableException('Chat provider is not configured', 503)
+		);
 
-    }//end testGenerateTitleTrimsAndCaps()
+		$handler = new ConversationManagementHandler(
+			$this->createMock(ObjectService::class),
+			$factory,
+			new NullLogger()
+		);
 
-    /**
-     * When no provider is available the fallback title (word-boundary truncation
-     * of the message) is used instead of an exception.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     */
-    public function testGenerateTitleFallsBackWhenProviderUnavailable(): void
-    {
-        $factory = $this->createMock(ProviderFactory::class);
-        $factory->method('getLlmConfig')->willReturn(['chatProvider' => null]);
-        $factory->method('createChatDriver')->willThrowException(
-            new ProviderUnavailableException('Chat provider is not configured', 503)
-        );
+		$message = 'What is the maximum number of vacation days an employee can carry over into the next year?';
+		$title = $handler->generateConversationTitle(firstMessage: $message);
 
-        $handler = new ConversationManagementHandler(
-            $this->createMock(ObjectService::class),
-            $factory,
-            new NullLogger()
-        );
+		$this->assertStringEndsWith('...', $title);
+		$this->assertLessThanOrEqual(63, strlen($title));
+		$this->assertStringStartsWith('What is the maximum', $title);
 
-        $message = 'What is the maximum number of vacation days an employee can carry over into the next year?';
-        $title   = $handler->generateConversationTitle(firstMessage: $message);
+	}//end testGenerateTitleFallsBackWhenProviderUnavailable()
 
-        $this->assertStringEndsWith('...', $title);
-        $this->assertLessThanOrEqual(63, strlen($title));
-        $this->assertStringStartsWith('What is the maximum', $title);
+	/**
+	 * ensureUniqueTitle appends the next free numeric suffix when the base title
+	 * (and numbered variants) already exist for this user + agent.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testEnsureUniqueTitleAppendsNextSuffix(): void {
+		$existing = [
+			$this->conversation(['title' => 'Leave policy', 'userId' => 'alice', 'agentId' => 'agent-1']),
+			$this->conversation(['title' => 'Leave policy (2)', 'userId' => 'alice', 'agentId' => 'agent-1']),
+			$this->conversation(['title' => 'Unrelated', 'userId' => 'alice', 'agentId' => 'agent-1']),
+		];
 
-    }//end testGenerateTitleFallsBackWhenProviderUnavailable()
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturnCallback(
+			function (array $config) use ($existing): array {
+				$this->assertSame('alice', $config['filters']['userId']);
+				$this->assertSame('agent-1', $config['filters']['agentId']);
+				return $existing;
+			}
+		);
 
-    /**
-     * ensureUniqueTitle appends the next free numeric suffix when the base title
-     * (and numbered variants) already exist for this user + agent.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     */
-    public function testEnsureUniqueTitleAppendsNextSuffix(): void
-    {
-        $existing = [
-            $this->conversation(['title' => 'Leave policy', 'userId' => 'alice', 'agentId' => 'agent-1']),
-            $this->conversation(['title' => 'Leave policy (2)', 'userId' => 'alice', 'agentId' => 'agent-1']),
-            $this->conversation(['title' => 'Unrelated', 'userId' => 'alice', 'agentId' => 'agent-1']),
-        ];
+		$handler = new ConversationManagementHandler(
+			$objectService,
+			$this->createMock(ProviderFactory::class),
+			new NullLogger()
+		);
 
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('setRegister')->willReturnSelf();
-        $objectService->method('setSchema')->willReturnSelf();
-        $objectService->method('findAll')->willReturnCallback(
-            function (array $config) use ($existing): array {
-                $this->assertSame('alice', $config['filters']['userId']);
-                $this->assertSame('agent-1', $config['filters']['agentId']);
-                return $existing;
-            }
-        );
+		$unique = $handler->ensureUniqueTitle(baseTitle: 'Leave policy', userId: 'alice', agentId: 'agent-1');
+		$this->assertSame('Leave policy (3)', $unique);
 
-        $handler = new ConversationManagementHandler(
-            $objectService,
-            $this->createMock(ProviderFactory::class),
-            new NullLogger()
-        );
+	}//end testEnsureUniqueTitleAppendsNextSuffix()
 
-        $unique = $handler->ensureUniqueTitle(baseTitle: 'Leave policy', userId: 'alice', agentId: 'agent-1');
-        $this->assertSame('Leave policy (3)', $unique);
+	/**
+	 * A base title with no existing collision passes through unchanged.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testEnsureUniqueTitlePassesThroughWhenFree(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturn([]);
 
-    }//end testEnsureUniqueTitleAppendsNextSuffix()
+		$handler = new ConversationManagementHandler(
+			$objectService,
+			$this->createMock(ProviderFactory::class),
+			new NullLogger()
+		);
 
-    /**
-     * A base title with no existing collision passes through unchanged.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     */
-    public function testEnsureUniqueTitlePassesThroughWhenFree(): void
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('setRegister')->willReturnSelf();
-        $objectService->method('setSchema')->willReturnSelf();
-        $objectService->method('findAll')->willReturn([]);
+		$this->assertSame(
+			'Fresh title',
+			$handler->ensureUniqueTitle(baseTitle: 'Fresh title', userId: 'alice', agentId: 'agent-1')
+		);
 
-        $handler = new ConversationManagementHandler(
-            $objectService,
-            $this->createMock(ProviderFactory::class),
-            new NullLogger()
-        );
+	}//end testEnsureUniqueTitlePassesThroughWhenFree()
 
-        $this->assertSame(
-            'Fresh title',
-            $handler->ensureUniqueTitle(baseTitle: 'Fresh title', userId: 'alice', agentId: 'agent-1')
-        );
+	/**
+	 * Below the token threshold summarisation is a no-op (no fetch, no save).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testCheckAndSummarizeNoOpUnderThreshold(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->never())->method('findAll');
+		$objectService->expects($this->never())->method('saveObject');
 
-    }//end testEnsureUniqueTitlePassesThroughWhenFree()
+		$handler = new ConversationManagementHandler(
+			$objectService,
+			$this->createMock(ProviderFactory::class),
+			new NullLogger()
+		);
 
-    /**
-     * Below the token threshold summarisation is a no-op (no fetch, no save).
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     */
-    public function testCheckAndSummarizeNoOpUnderThreshold(): void
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->expects($this->never())->method('findAll');
-        $objectService->expects($this->never())->method('saveObject');
+		$handler->checkAndSummarize(
+			conversation: $this->conversation(['metadata' => ['token_count' => 100]])
+		);
 
-        $handler = new ConversationManagementHandler(
-            $objectService,
-            $this->createMock(ProviderFactory::class),
-            new NullLogger()
-        );
+		// Reaching this point without any interaction is the assertion (mock
+		// expectations above enforce it).
+		$this->addToAssertionCount(1);
 
-        $handler->checkAndSummarize(
-            conversation: $this->conversation(['metadata' => ['token_count' => 100]])
-        );
+	}//end testCheckAndSummarizeNoOpUnderThreshold()
 
-        // Reaching this point without any interaction is the assertion (mock
-        // expectations above enforce it).
-        $this->addToAssertionCount(1);
+	/**
+	 * Over the threshold, older messages are summarised and the summary +
+	 * bookkeeping persisted on the conversation metadata.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testCheckAndSummarizePersistsSummary(): void {
+		// 12 messages: the newest 10 are kept, the oldest 2 summarised.
+		$messages = [];
+		for ($i = 1; $i <= 12; $i++) {
+			$entity = new ObjectEntity();
+			$entity->setUuid('msg-' . $i);
+			$entity->setObject(
+				[
+					'conversationId' => 'conv-1',
+					'role' => (($i % 2) === 1) ? 'user' : 'assistant',
+					'content' => 'Turn ' . $i,
+				]
+			);
+			$messages[] = $entity;
+		}
 
-    }//end testCheckAndSummarizeNoOpUnderThreshold()
+		$savedPayload = null;
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('setRegister')->willReturnSelf();
+		$objectService->method('setSchema')->willReturnSelf();
+		$objectService->method('findAll')->willReturn($messages);
+		$objectService->method('saveObject')->willReturnCallback(
+			function (array $object, ?array $extend = [], mixed $register = null, mixed $schema = null, ?string $uuid = null) use (&$savedPayload): ObjectEntity {
+				$savedPayload = ['object' => $object, 'uuid' => $uuid];
+				return new ObjectEntity();
+			}
+		);
 
-    /**
-     * Over the threshold, older messages are summarised and the summary +
-     * bookkeeping persisted on the conversation metadata.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     */
-    public function testCheckAndSummarizePersistsSummary(): void
-    {
-        // 12 messages: the newest 10 are kept, the oldest 2 summarised.
-        $messages = [];
-        for ($i = 1; $i <= 12; $i++) {
-            $entity = new ObjectEntity();
-            $entity->setUuid('msg-'.$i);
-            $entity->setObject(
-                [
-                    'conversationId' => 'conv-1',
-                    'role'           => (($i % 2) === 1) ? 'user' : 'assistant',
-                    'content'        => 'Turn '.$i,
-                ]
-            );
-            $messages[] = $entity;
-        }
+		$handler = new ConversationManagementHandler(
+			$objectService,
+			$this->providerFactoryReturning('Old turns summarised.'),
+			new NullLogger()
+		);
 
-        $savedPayload  = null;
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->method('setRegister')->willReturnSelf();
-        $objectService->method('setSchema')->willReturnSelf();
-        $objectService->method('findAll')->willReturn($messages);
-        $objectService->method('saveObject')->willReturnCallback(
-            function (array $object, ?array $extend=[], mixed $register=null, mixed $schema=null, ?string $uuid=null) use (&$savedPayload): ObjectEntity {
-                $savedPayload = ['object' => $object, 'uuid' => $uuid];
-                return new ObjectEntity();
-            }
-        );
+		$handler->checkAndSummarize(
+			conversation: $this->conversation(['metadata' => ['token_count' => 5000]])
+		);
 
-        $handler = new ConversationManagementHandler(
-            $objectService,
-            $this->providerFactoryReturning('Old turns summarised.'),
-            new NullLogger()
-        );
+		$this->assertNotNull($savedPayload);
+		$this->assertSame('conv-1', $savedPayload['uuid']);
+		$metadata = $savedPayload['object']['metadata'];
+		$this->assertSame('Old turns summarised.', $metadata['summary']);
+		$this->assertSame(2, $metadata['summarized_messages']);
+		// The timestamp is ISO-8601 (sanitised save contract).
+		$this->assertStringContainsString('T', $metadata['last_summary_at']);
 
-        $handler->checkAndSummarize(
-            conversation: $this->conversation(['metadata' => ['token_count' => 5000]])
-        );
+	}//end testCheckAndSummarizePersistsSummary()
 
-        $this->assertNotNull($savedPayload);
-        $this->assertSame('conv-1', $savedPayload['uuid']);
-        $metadata = $savedPayload['object']['metadata'];
-        $this->assertSame('Old turns summarised.', $metadata['summary']);
-        $this->assertSame(2, $metadata['summarized_messages']);
-        // The timestamp is ISO-8601 (sanitised save contract).
-        $this->assertStringContainsString('T', $metadata['last_summary_at']);
+	/**
+	 * A summary from less than an hour ago suppresses re-summarisation.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testCheckAndSummarizeThrottledWithinAnHour(): void {
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->never())->method('findAll');
+		$objectService->expects($this->never())->method('saveObject');
 
-    }//end testCheckAndSummarizePersistsSummary()
+		$handler = new ConversationManagementHandler(
+			$objectService,
+			$this->createMock(ProviderFactory::class),
+			new NullLogger()
+		);
 
-    /**
-     * A summary from less than an hour ago suppresses re-summarisation.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
-     */
-    public function testCheckAndSummarizeThrottledWithinAnHour(): void
-    {
-        $objectService = $this->createMock(ObjectService::class);
-        $objectService->expects($this->never())->method('findAll');
-        $objectService->expects($this->never())->method('saveObject');
+		$handler->checkAndSummarize(
+			conversation: $this->conversation(
+				[
+					'metadata' => [
+						'token_count' => 5000,
+						'last_summary_at' => (new \DateTime('-10 minutes'))->format('c'),
+					],
+				]
+			)
+		);
 
-        $handler = new ConversationManagementHandler(
-            $objectService,
-            $this->createMock(ProviderFactory::class),
-            new NullLogger()
-        );
+		$this->addToAssertionCount(1);
 
-        $handler->checkAndSummarize(
-            conversation: $this->conversation(
-                [
-                    'metadata' => [
-                        'token_count'     => 5000,
-                        'last_summary_at' => (new \DateTime('-10 minutes'))->format('c'),
-                    ],
-                ]
-            )
-        );
-
-        $this->addToAssertionCount(1);
-
-    }//end testCheckAndSummarizeThrottledWithinAnHour()
+	}//end testCheckAndSummarizeThrottledWithinAnHour()
 }//end class

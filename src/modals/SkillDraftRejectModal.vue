@@ -33,7 +33,12 @@
 
 			<template v-if="learningRefs.length > 0">
 				<p class="skill-draft-reject__hint">
-					{{ t('hermiq', 'Mark learnings entries that led the proposal astray — marked entries will not drive the next proposal.') }}
+					{{
+						t(
+							'hermiq',
+							'Mark learnings entries that led the proposal astray — marked entries will not drive the next proposal.',
+						)
+					}}
 				</p>
 				<ul class="skill-draft-reject__refs">
 					<li v-for="ref in learningRefs" :key="ref">
@@ -47,11 +52,16 @@
 			</template>
 
 			<div class="skill-draft-reject__actions">
-				<NcButton type="error"
+				<NcButton
+					type="error"
 					:disabled="busy"
 					:aria-label="t('hermiq', 'Confirm the rejection')"
 					@click="$emit('reject', { note, rejectedLearningRefs: marked })">
-					{{ busy ? t('hermiq', 'Rejecting…') : t('hermiq', 'Reject draft') }}
+					{{
+						busy
+							? t('hermiq', 'Rejecting…')
+							: t('hermiq', 'Reject draft')
+					}}
 				</NcButton>
 				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}

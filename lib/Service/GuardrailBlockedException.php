@@ -42,32 +42,30 @@ use Exception;
  *
  * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md#requirement-input-is-filtered-before-every-llm-turn
  */
-class GuardrailBlockedException extends Exception
-{
-    /**
-     * Constructor.
-     *
-     * @param string $reason The filter's short reason code (`prompt_injection`|`sensitive_content`).
-     */
-    public function __construct(private readonly string $reason)
-    {
-        parent::__construct(
-            message: "Message blocked by guardrail policy ({$reason})",
-            code: 422
-        );
+class GuardrailBlockedException extends Exception {
+	/**
+	 * Constructor.
+	 *
+	 * @param string $reason The filter's short reason code (`prompt_injection`|`sensitive_content`).
+	 */
+	public function __construct(
+		private readonly string $reason,
+	) {
+		parent::__construct(
+			message: "Message blocked by guardrail policy ({$reason})",
+			code: 422
+		);
 
-    }//end __construct()
+	}//end __construct()
 
-    /**
-     * The filter's short reason code.
-     *
-     * @return string
-     *
-     * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md
-     */
-    public function getReason(): string
-    {
-        return $this->reason;
-
-    }//end getReason()
+	/**
+	 * The filter's short reason code.
+	 *
+	 * @return string
+	 *
+	 * @spec openspec/changes/agent-guardrails/specs/agent-guardrails/spec.md
+	 */
+	public function getReason(): string {
+		return $this->reason;
+	}//end getReason()
 }//end class

@@ -44,65 +44,61 @@ use Throwable;
  *
  * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
  */
-class InstallTalkBot implements IRepairStep
-{
-    /**
-     * Constructor.
-     *
-     * @param TalkBotInstaller $installer Installs the bot through spreed's lifecycle.
-     * @param LoggerInterface  $logger    PSR-3 logger.
-     */
-    public function __construct(
-        private readonly TalkBotInstaller $installer,
-        private readonly LoggerInterface $logger,
-    ) {
-    }//end __construct()
+class InstallTalkBot implements IRepairStep {
+	/**
+	 * Constructor.
+	 *
+	 * @param TalkBotInstaller $installer Installs the bot through spreed's lifecycle.
+	 * @param LoggerInterface $logger PSR-3 logger.
+	 */
+	public function __construct(
+		private readonly TalkBotInstaller $installer,
+		private readonly LoggerInterface $logger,
+	) {
+	}//end __construct()
 
-    /**
-     * The repair step's human-readable name.
-     *
-     * @return string The step name.
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
-     */
-    public function getName(): string
-    {
-        return 'Register the Hermiq Talk bot';
+	/**
+	 * The repair step's human-readable name.
+	 *
+	 * @return string The step name.
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+	 */
+	public function getName(): string {
+		return 'Register the Hermiq Talk bot';
+	}//end getName()
 
-    }//end getName()
+	/**
+	 * Run the step.
+	 *
+	 * Never throws: Talk is an optional runtime dependency, so a failure here
+	 * must not be able to break an install or upgrade.
+	 *
+	 * @param IOutput $output Migration output channel.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
+	 */
+	public function run(IOutput $output): void {
+		try {
+			if ($this->installer->install() === true) {
+				$output->info('Hermiq Talk bot registered — enable it per conversation in Talk.');
+				return;
+			}
 
-    /**
-     * Run the step.
-     *
-     * Never throws: Talk is an optional runtime dependency, so a failure here
-     * must not be able to break an install or upgrade.
-     *
-     * @param IOutput $output Migration output channel.
-     *
-     * @return void
-     *
-     * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-hermiq-registers-as-an-in-process-talk-bot
-     */
-    public function run(IOutput $output): void
-    {
-        try {
-            if ($this->installer->install() === true) {
-                $output->info('Hermiq Talk bot registered — enable it per conversation in Talk.');
-                return;
-            }
+			$output->info('Talk is not available — skipping the Hermiq Talk bot registration.');
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				message: '[InstallTalkBot] Could not register the Hermiq Talk bot',
+				context: [
+					'file' => __FILE__,
+					'line' => __LINE__,
+					'error' => $e->getMessage(),
+				]
+			);
+			$output->warning('Could not register the Hermiq Talk bot: ' . $e->getMessage());
+		}//end try
 
-            $output->info('Talk is not available — skipping the Hermiq Talk bot registration.');
-        } catch (Throwable $e) {
-            $this->logger->warning(
-                message: '[InstallTalkBot] Could not register the Hermiq Talk bot',
-                context: [
-                    'file'  => __FILE__,
-                    'line'  => __LINE__,
-                    'error' => $e->getMessage(),
-                ]
-            );
-            $output->warning('Could not register the Hermiq Talk bot: '.$e->getMessage());
-        }//end try
-
-    }//end run()
+	}//end run()
 }//end class

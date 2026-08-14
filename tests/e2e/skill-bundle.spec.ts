@@ -43,7 +43,7 @@ async function login(page: Page): Promise<void> {
 	await page.goto('/login', { waitUntil: 'domcontentloaded' })
 
 	const userField = page.locator('#user')
-	if (await userField.count() === 0) {
+	if ((await userField.count()) === 0) {
 		return
 	}
 
@@ -62,15 +62,21 @@ async function login(page: Page): Promise<void> {
  * @return The status and parsed body.
  */
 async function post(page: Page, route: string, body: Record<string, unknown>) {
-	return page.evaluate(async ({ r, b }) => {
-		const res = await fetch(r, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json', 'OCS-APIRequest': 'true' },
-			body: JSON.stringify(b),
-			credentials: 'same-origin',
-		})
-		return { status: res.status, json: await res.json().catch(() => null) }
-	}, { r: route, b: body })
+	return page.evaluate(
+		async ({ r, b }) => {
+			const res = await fetch(r, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'OCS-APIRequest': 'true',
+				},
+				body: JSON.stringify(b),
+				credentials: 'same-origin',
+			})
+			return { status: res.status, json: await res.json().catch(() => null) }
+		},
+		{ r: route, b: body },
+	)
 }
 
 test.describe('skill-bundle-publish — contract', () => {
@@ -89,26 +95,42 @@ test.describe('skill-bundle-publish — contract', () => {
 	})
 
 	test('coordinates are validated before any GitHub call', async ({ page }) => {
-		const badRef = await post(page, INSTALL, { owner: 'acme', repo: 'demo', ref: 'bad ref with spaces' })
+		const badRef = await post(page, INSTALL, {
+			owner: 'acme',
+			repo: 'demo',
+			ref: 'bad ref with spaces',
+		})
 		expect(badRef.status).toBe(400)
 		expect(badRef.json?.error).toBe('invalid_ref')
 
-		const noSkills = await post(page, PUBLISH, { owner: 'acme', repo: 'demo', skillIds: [] })
+		const noSkills = await post(page, PUBLISH, {
+			owner: 'acme',
+			repo: 'demo',
+			skillIds: [],
+		})
 		expect(noSkills.status).toBe(400)
 		expect(noSkills.json?.error).toBe('skillIds must be a non-empty array')
 
 		const badVisibility = await post(page, PUBLISH, {
-			owner: 'acme', repo: 'demo', skillIds: ['x'], visibility: 'secret',
+			owner: 'acme',
+			repo: 'demo',
+			skillIds: ['x'],
+			visibility: 'secret',
 		})
 		expect(badVisibility.status).toBe(400)
 		expect(badVisibility.json?.error).toBe('invalid_visibility')
 	})
 
-	test('a repository without the manifest is refused, not mis-parsed', async ({ page }) => {
+	test('a repository without the manifest is refused, not mis-parsed', async ({
+		page,
+	}) => {
 		// A real, reachable public repository that is NOT a bundle. The failure mode
 		// this guards against is installing it as an empty/partial skill set while
 		// reporting success.
-		const result = await post(page, INSTALL, { owner: 'ConductionNL', repo: 'openbuild' })
+		const result = await post(page, INSTALL, {
+			owner: 'ConductionNL',
+			repo: 'openbuild',
+		})
 
 		expect(result.status).toBe(404)
 		expect(result.json?.error).toBe('not_a_bundle')

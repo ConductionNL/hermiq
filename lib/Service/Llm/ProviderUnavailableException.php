@@ -36,6 +36,5 @@ use RuntimeException;
  *
  * @spec openspec/changes/agent-engine-port/tasks.md#task-2-2
  */
-class ProviderUnavailableException extends RuntimeException
-{
+class ProviderUnavailableException extends RuntimeException {
 }//end class
