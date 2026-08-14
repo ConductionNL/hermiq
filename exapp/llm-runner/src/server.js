@@ -27,6 +27,7 @@ const auth = require('./auth')
 const { getProvider } = require('./providers')
 const { run } = require('./runner')
 const { runStage } = require('./stage')
+const jobs = require('./jobs')
 
 const HOST = process.env.RUNNER_HOST || '0.0.0.0'
 const PORT = Number(process.env.RUNNER_PORT || process.env.APP_PORT || '9000')
@@ -239,6 +240,7 @@ async function handleStage(req, res, rawBody) {
 		runToken,
 		push,
 		credentialEnv,
+		async: wantsAsync,
 	} = payload
 
 	// The repo and ref are safe to log — they are how an operator finds this run
@@ -257,6 +259,48 @@ async function handleStage(req, res, rawBody) {
 			+ `command=${Array.isArray(command) ? command[0] : '(none)'} `
 			+ `push=${push && typeof push === 'object' ? `${push.branch} (issue ${push.issue})` : '(none)'}`,
 	)
+
+	// ASYNC: hand back a handle and let the caller go.
+	//
+	// A stage is minutes long and OpenRegister's FlowRunWorker advances queued
+	// runs SERIALLY in one process, so a synchronous stage blocks every other
+	// flow in that pass — including the lock reaper that exists to clean up
+	// after stuck work. It also makes hydra's slot pool decorative: four slots
+	// cannot produce four agents while the thing holding a slot occupies the
+	// only worker.
+	//
+	// ⚠️ THE WORK IS STARTED HERE, NOT BY THE POLLER. `runStage()` is invoked
+	// exactly as in the synchronous path and its promise is handed to the
+	// registry unawaited. A design where the first poll starts the work would
+	// make "dispatched" mean nothing until someone asked again, which is the
+	// kind of gap that reads as a slow stage rather than as a stage that never
+	// began.
+	//
+	// 202, not 200: the request was accepted, the stage has NOT finished, and a
+	// caller that reads only the status must not be able to mistake the two.
+	if (wantsAsync === true) {
+		const jobId = jobs.start(
+			runStage({
+				repo,
+				ref,
+				command,
+				toolRepo,
+				toolRef,
+				toolTarball,
+				collect,
+				forgeToken,
+				forgeUser,
+				timeoutMs,
+				env,
+				runToken,
+				push,
+				credentialEnv,
+			}),
+		)
+		log('info', `/stage accepted async job=${jobId} repo=${repo} ref=${ref}`)
+		sendJson(res, 202, { jobId, status: jobs.RUNNING })
+		return
+	}
 
 	try {
 		const result = await runStage({
@@ -355,7 +399,10 @@ function handleEnabled(req, res, rawBody) {
 const server = http.createServer((req, res) => {
 	// AppAPI health probe — no auth, invokes no CLI.
 	if (req.method === 'GET' && req.url === '/heartbeat') {
-		sendJson(res, 200, { status: 'ok' })
+		// Job counts ride along: "is anything in flight" is the first question
+		// asked of a runner whose flows look stalled, and it is otherwise
+		// invisible from outside the process.
+		sendJson(res, 200, { status: 'ok', jobs: jobs.stats() })
 		return
 	}
 
@@ -381,6 +428,48 @@ const server = http.createServer((req, res) => {
 					sendJson(res, 413, { error: err.message })
 				}
 			})
+		return
+	}
+
+	// Collect an async stage. GET, because asking is not doing — a poller that
+	// could accidentally re-dispatch by retrying is a poller that duplicates
+	// pushes.
+	if (req.method === 'GET' && req.url.split('?')[0] === '/stage') {
+		const verdict = auth.verify(lowerHeaders(req.headers), Buffer.alloc(0))
+		if (!verdict.ok) {
+			log('warn', `/stage poll rejected: ${verdict.reason}`)
+			sendJson(res, verdict.status, { error: 'unauthorised' })
+			return
+		}
+
+		const jobId = new URL(req.url, 'http://localhost').searchParams.get('jobId') || ''
+		if (jobId === '') {
+			sendJson(res, 400, { error: 'jobId is required' })
+			return
+		}
+
+		const state = jobs.get(jobId)
+
+		// 200 for every ANSWERABLE state, including `failed` and `unknown`.
+		// The HTTP status says whether the question was answered; the body says
+		// what happened to the stage. Conflating the two is how a poller ends
+		// up treating a transport hiccup as a verdict.
+		//
+		// ⚠️ `unknown` IS TERMINAL and must be handled as such by the caller.
+		// The registry is in this process's memory, so a runner restart loses
+		// every job. Reporting that as `running` would hang a flow forever
+		// waiting for a result that no longer exists.
+		if (state.status === jobs.DONE) {
+			log('info', `/stage collected job=${jobId} exit=${state.result?.exitCode}`)
+			jobs.forget(jobId)
+		} else if (state.status === jobs.FAILED) {
+			log('warn', `/stage collected job=${jobId} FAILED${state.code ? ` (${state.code})` : ''}: ${state.error}`)
+			jobs.forget(jobId)
+		} else if (state.status === jobs.UNKNOWN) {
+			log('warn', `/stage poll for unknown job=${jobId} — restarted runner, or a result that aged out`)
+		}
+
+		sendJson(res, 200, state)
 		return
 	}
 

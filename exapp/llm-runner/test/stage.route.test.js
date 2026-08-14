@@ -221,3 +221,48 @@ test('the route forwards exactly the fields the workload accepts, and no more', 
 		)
 	}
 })
+
+test('async: the route accepts a handle-returning dispatch and still reaches the workload', async () => {
+	const { server, calls } = loadServerWithStubbedStage()
+
+	const body = Buffer.from(
+		JSON.stringify({
+			repo: 'https://example.test/target',
+			ref: 'development',
+			toolRepo: 'https://example.test/tool',
+			command: ['scripts/run-hydra-gates.sh'],
+			async: true,
+		}),
+	)
+	const headers = {
+		'ex-app-id': process.env.APP_ID,
+		'authorization-app-api': Buffer.from(
+			`admin:${process.env.APP_SECRET}`,
+		).toString('base64'),
+	}
+
+	const res = {
+		statusCode: 0,
+		body: '',
+		writeHead(status) { this.statusCode = status },
+		setHeader() {},
+		end(payload) { this.body = payload || '' },
+	}
+
+	await server.handleStage({ headers, method: 'POST', url: '/stage' }, res, body)
+
+	// 202, not 200. The request was ACCEPTED; the stage has not finished, and a
+	// caller reading only the status must not be able to confuse the two.
+	assert.strictEqual(res.statusCode, 202, 'an accepted async dispatch answers 202')
+
+	const parsed = JSON.parse(res.body)
+	assert.match(parsed.jobId, /^[0-9a-f-]{36}$/, 'a handle comes back to poll with')
+	assert.strictEqual(parsed.status, 'running')
+
+	// The whole point of the earlier route bug: a field that exists on both
+	// sides of this boundary and not IN it is silently dropped. Async must not
+	// become a path where the workload is never actually started.
+	assert.strictEqual(calls.length, 1, 'the workload was dispatched by the ROUTE, not deferred to the first poll')
+	assert.strictEqual(calls[0].repo, 'https://example.test/target')
+	assert.strictEqual(calls[0].toolRepo, 'https://example.test/tool')
+})
