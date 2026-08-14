@@ -38,7 +38,6 @@
 // See: https://codeberg.org/Conduction/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
-import QuotaStatWidget from './widgets/QuotaStatWidget.vue'
 import EmailField from './formFields/EmailField.vue'
 import Chat from './views/Chat.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
@@ -241,8 +240,10 @@ export default {
 	/**
 	 * Tenant ops — EU AI Act audit export + org-level operational sections
 	 * (multi-tenant-ops). Standard nav page, capability-gated to org owners/admins.
-	 * Per-org quota usage moved to the Dashboard (dashboard-org-widgets) — see
-	 * "quota-stat" below.
+	 * Per-org quota usage moved to the Dashboard (dashboard-org-widgets) and is
+	 * no longer a registry widget at all — as of 2026-08-13 both quota tiles are
+	 * declarative `type:"stat"` entries in the manifest using CnStatWidget's
+	 * `limitField`, and QuotaStatWidget.vue is deleted.
 	 */
 	TenantOps: {
 		kind: 'page',
@@ -282,29 +283,6 @@ export default {
 	FlowSidebar: {
 		kind: 'page',
 		component: FlowSidebar,
-	},
-
-	/**
-	 * Quota usage — ONE organisation quota tile, `content.metric` choosing
-	 * Schedules or Agents-in-use (dashboard-org-widgets, relocated off
-	 * TenantOps.vue). The Dashboard places it twice; both placements resolve
-	 * here, and each tile fills a dashboard card instead of drawing its own
-	 * cards inside one (the well-in-a-well the predecessor produced).
-	 */
-	'quota-stat': {
-		kind: 'widget',
-		component: QuotaStatWidget,
-		defaultSize: { w: 3, h: 2 },
-		minSize: { w: 2, h: 1 },
-		maxSize: { w: 6, h: 2 },
-		allowedSlots: ['body'],
-		propsSchema: {
-			type: 'object',
-			properties: {
-				metric: { type: 'string', enum: ['schedules', 'agents'] },
-			},
-		},
-		_note: 'The quota\'s atLimit is derived by TenantOpsService::quotaStatus() from a configured limit compared against a derived (distinct-agentId) count, not a plain OR object-count aggregate — stats-block can only bind a dataSource to an object-count query, so a custom fetch widget is required (ADR-049), mirroring analytics-breakdown. It also stays custom rather than becoming a declarative `type:"stat"` tile because the tile is capability-gated on can_manage_killswitch (loadState) and shows count-against-limit, neither of which a declarative KPI expresses.',
 	},
 
 	// -------------------------------------------------------------------------

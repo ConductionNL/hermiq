@@ -4,11 +4,42 @@
  * Hermiq AnalyticsService.
  *
  * The read-only run-analytics surface (run-analytics). It computes success rate, latency,
- * status breakdown and per-agent metrics directly from Hermiq's `action='run'`
- * OpenRegister AuditTrail entries — no separate analytics store, no ETL (ADR-004
- * governance, ADR-001 Option C+). Tenant scope is the caller's own schedules: the metrics
- * only ever aggregate run entries that belong to a schedule the caller may see, so no
- * cross-tenant run data leaks.
+ * status breakdown and per-agent metrics directly from Hermiq's run-shaped OpenRegister
+ * AuditTrail entries — no separate analytics store, no ETL (ADR-004 governance, ADR-001
+ * Option C+).
+ *
+ * WHAT COUNTS AS A RUN (analytics-run-scope). Hermiq invokes an agent through TWO
+ * channels, and each writes its own audit action against a DIFFERENT object:
+ *
+ *   - `action='run'`       — ScheduleService::writeRunAudit(), written on the Schedule.
+ *   - `action='agent-run'` — FlowAgentRunService::writeRunAudit(), written on the object
+ *                            whose flow triggered the agent. That object routinely lives
+ *                            in ANOTHER register than hermiq's.
+ *
+ * Both channels are counted. The predecessor read only `action='run'` AND keyed the whole
+ * aggregation on the caller's LIVE Schedule set — every run entry whose `object_uuid` was
+ * not a currently-visible, not-soft-deleted Schedule was dropped, and when that set was
+ * empty the aggregation was skipped wholesale and every metric returned a confident zero.
+ * That made the surface wrong in two directions at once: flow-driven runs were invisible
+ * no matter what, and DELETING A SCHEDULE silently erased its runs from history even
+ * though the append-only audit entries were all still there. Observed 2026-08-13 on the
+ * dev instance: 36 real `run` entries on disk, all six Schedules soft-deleted, dashboard
+ * reporting `totalRuns: 0`.
+ *
+ * TENANT SCOPE is therefore keyed on the AGENT, not on the schedule. Every run entry from
+ * both channels records `agentId` in its context; an entry is counted only when that agent
+ * is in the caller's own visible agent set, which is resolved through the SAME ObjectService
+ * RBAC + multitenancy the rest of this service reads under. An agent the caller may not see
+ * contributes nothing, so no cross-tenant run data leaks — and the boundary now matches what
+ * the number actually claims to be ("runs my agents did") instead of standing in for it.
+ * An entry carrying no `agentId` at all is not a run (ScheduleService::writeOffboardingAudit()
+ * writes one such `action='run'` entry per offboarding pause) and is skipped.
+ *
+ * KNOWN GAP, deliberately not papered over: the visible set ASKS for soft-deleted agents
+ * and OpenRegister does not return them on any read path this service can use — see
+ * loadVisibleAgents() for the two levers that were measured and found ineffective. So a
+ * run whose agent has since been deleted is still not counted. Deleting a SCHEDULE no
+ * longer erases history; deleting an AGENT still does.
  *
  * LLM token usage is recorded per run when OpenRegister's ChatService reports it (run-cost
  * recording): ScheduleService copies the `usage` from the agent-run result into the run
@@ -56,25 +87,29 @@ class AnalyticsService
     private const REGISTER_SLUG = 'hermiq';
 
     /**
-     * Schema slug for schedule objects.
-     *
-     * @var string
-     */
-    private const SCHEDULE_SCHEMA = 'schedule';
-
-    /**
-     * Agent schema slug — read only to label the `perAgent` aggregate.
+     * Agent schema slug — the tenant boundary AND the `perAgent` labels.
      *
      * @var string
      */
     private const AGENT_SCHEMA = 'agent';
 
     /**
-     * The audit action written per run by ScheduleService.
+     * The audit actions that represent an agent run, as ONE comma-joined filter value.
+     *
+     * AuditTrailMapper::findAll() turns a comma-bearing filter value into a SQL `IN`
+     * (see its filter loop), so both run channels come back from a single query rather
+     * than two passes that would then need merging and re-sorting.
      *
      * @var string
      */
-    private const RUN_ACTION = 'run';
+    private const RUN_ACTIONS = 'run,agent-run';
+
+    /**
+     * Page size for the visible-agent scan (paged to exhaustion, never a cap).
+     *
+     * @var integer
+     */
+    private const AGENT_PAGE_SIZE = 500;
 
     /**
      * The status value that counts as a successful run.
@@ -86,7 +121,7 @@ class AnalyticsService
     /**
      * Constructor.
      *
-     * @param ObjectService    $objectService    OpenRegister object read (tenant-scoped schedule set).
+     * @param ObjectService    $objectService    OpenRegister object read (tenant-scoped agent set).
      * @param AuditTrailMapper $auditTrailMapper OpenRegister audit read (run entries).
      */
     public function __construct(
@@ -111,13 +146,10 @@ class AnalyticsService
      */
     public function computeAnalytics(?string $agentId=null): array
     {
-        // Tenant boundary: the caller's own schedules (RBAC + multitenancy ON). The run
-        // entries we aggregate are limited to these schedules, so another org's runs can
-        // never be counted.
-        $scheduleUuidToAgent = $this->loadScheduleUuidToAgent(agentId: $agentId);
-
-        // Display names for the `perAgent` aggregate (see loadAgentNames()).
-        $agentNames = $this->loadAgentNames();
+        // Tenant boundary AND `perAgent` labels in one read: agent UUID → display name,
+        // RBAC + multitenancy ON (see loadVisibleAgents()). A run whose agent is absent
+        // from this map is not the caller's to see and is never counted.
+        $visibleAgents = $this->loadVisibleAgents(agentId: $agentId);
 
         $totalRuns        = 0;
         $successRuns      = 0;
@@ -128,16 +160,25 @@ class AnalyticsService
         $completionTokens = 0;
         $tokensRecorded   = false;
 
-        if ($scheduleUuidToAgent !== []) {
-            $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTION]);
+        if ($visibleAgents !== []) {
+            // Deliberately unlimited: a truncating limit would turn every metric on this
+            // page into a floor silently indistinguishable from a total. The filter is
+            // already narrow (two actions), and the per-row tenant check below is what
+            // bounds the result to the caller.
+            $logs = $this->auditTrailMapper->findAll(filters: ['action' => self::RUN_ACTIONS]);
 
             foreach ($logs as $log) {
-                $objectUuid = (string) $log->getObjectUuid();
-                if (isset($scheduleUuidToAgent[$objectUuid]) === false) {
+                $context = ($log->getChanged() ?? []);
+
+                // TENANT BOUNDARY. The run's agent — not the object the entry hangs on —
+                // decides whether this run is the caller's to count. `agent-run` entries
+                // hang on the flow's triggering object, which routinely lives in another
+                // register entirely, so `object_uuid` cannot serve as the scope key for
+                // both channels; `agentId` is recorded by both writers and can.
+                $runAgent = trim((string) ($context['agentId'] ?? ''));
+                if ($runAgent === '' || isset($visibleAgents[$runAgent]) === false) {
                     continue;
                 }
-
-                $context = ($log->getChanged() ?? []);
 
                 // Run-replay-and-dry-run: a dry-run/replay preview must never inflate the
                 // agent's real status/success-rate breakdown (or this aggregate's own
@@ -149,8 +190,7 @@ class AnalyticsService
                     continue;
                 }
 
-                $status   = (string) ($context['status'] ?? 'unknown');
-                $runAgent = (string) ($context['agentId'] ?? $scheduleUuidToAgent[$objectUuid]);
+                $status = (string) ($context['status'] ?? 'unknown');
 
                 $totalRuns++;
                 if ($status === self::STATUS_OK) {
@@ -172,7 +212,13 @@ class AnalyticsService
                 }
 
                 if (isset($perAgent[$runAgent]) === false) {
-                    $label = ($agentNames[$runAgent] ?? $runAgent);
+                    // Fall back to the UUID only when the agent carries no name — a bar
+                    // chart labelled with UUIDs is unreadable, but a blank label is worse.
+                    $label = $visibleAgents[$runAgent];
+                    if ($label === '') {
+                        $label = $runAgent;
+                    }
+
                     $perAgent[$runAgent] = ['agentId' => $runAgent, 'name' => $label, 'runs' => 0, 'success' => 0];
                 }
 
@@ -207,76 +253,99 @@ class AnalyticsService
     }//end computeAnalytics()
 
     /**
-     * Load the caller's schedule UUIDs mapped to their agentId (tenant-scoped).
+     * Load the caller's visible agent UUIDs mapped to their display name.
      *
-     * @param string|null $agentId Optional agent UUID filter.
+     * This map is BOTH the tenant boundary and the `perAgent` labelling. It is read
+     * through ObjectService with RBAC and multitenancy left ON, so an agent the caller
+     * may not see never enters the map and its runs are therefore never counted.
      *
-     * @return array<string, string> Map of schedule UUID → agentId.
+     * WHY searchObjectsPaginated() rather than the findAll() the rest of this service
+     * used: findAll() has no way to include soft-deleted objects — it hands the get
+     * handler no deleted flag at all — while searchObjectsPaginated() takes an explicit
+     * `deleted` parameter that reaches the query handler. Soft-deleted agents MUST be in
+     * the map: their runs are real, recorded history, and deleting the agent afterwards
+     * should no more erase them than deleting a schedule should (which is the bug this
+     * whole method replaces).
+     *
+     * setRegister()/setSchema() resolve the slug REGISTER-SCOPED (ObjectService::setSchema
+     * tries findBySlugInIds() against the current register before the global lookup), which
+     * matters here: `agent` is a slug hermiq shares with openbuild on a shared instance, and
+     * a global resolution would scope this boundary to the wrong app's schema entirely.
+     *
+     * @param string|null $agentId Optional agent UUID to narrow the map to a single agent.
+     *
+     * @return array<string, string> Map of agent UUID → display name (name may be '').
      */
-    private function loadScheduleUuidToAgent(?string $agentId): array
+    private function loadVisibleAgents(?string $agentId): array
     {
-        $objects = $this->objectService
+        $scoped = $this->objectService
             ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::SCHEDULE_SCHEMA)
-            ->findAll(config: ['limit' => 1000]);
+            ->setSchema(self::AGENT_SCHEMA);
 
-        $map = [];
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
+        $agents = [];
+        $offset = 0;
+
+        // PAGED TO EXHAUSTION, not capped. A fixed limit here would silently shrink the
+        // tenant boundary as an org's agent count grew, and a run dropped for being past
+        // page one is indistinguishable from a run that never happened. The loop reads the
+        // reported `total` and stops when it has seen every row (or when a page comes back
+        // empty, which also terminates a backend that under-reports the total).
+        do {
+            $result = $scoped->searchObjectsPaginated(
+                query: [
+                    '_limit'  => self::AGENT_PAGE_SIZE,
+                    '_offset' => $offset,
+                    // ASKS for soft-deleted agents; at HEAD, OpenRegister does not
+                    // deliver them on this path. Both levers were measured on the dev
+                    // instance 2026-08-13 and BOTH are ineffective here:
+                    //
+                    //   - the `deleted:` parameter of searchObjectsPaginated() is
+                    //     decorative — it is threaded down two layers and then never
+                    //     handed to the mapper, surviving only as an echo in
+                    //     `$result['@self']['deleted']`.
+                    //   - `_includeDeleted` DOES reach MagicSearchHandler, but only the
+                    //     COUNT query honours it: on hermiq/agent it moved `total` from
+                    //     22 to 106 while `results` stayed the same 22 live rows, and no
+                    //     soft-deleted agent came back at any limit.
+                    //
+                    // CONSEQUENCE, stated rather than hidden: a run whose agent has since
+                    // been deleted is NOT counted, because its agent cannot enter the
+                    // visibility map. 8 of the 36 run entries on the dev instance are in
+                    // that state. Deleting a SCHEDULE no longer erases history (the bug
+                    // this method replaces); deleting an AGENT still does, and will keep
+                    // doing so until the OpenRegister read path returns soft-deleted rows.
+                    // The flag stays so this scan widens by itself once OR is fixed.
+                    '_includeDeleted' => true,
+                ]
+            );
+
+            $page = ($result['results'] ?? []);
+            foreach ($page as $object) {
+                if (($object instanceof ObjectEntity) === false) {
+                    continue;
+                }
+
+                $uuid = (string) $object->getUuid();
+
+                // Narrowing to one agent happens HERE, against the visible set, rather
+                // than by trusting the caller-supplied id: an agentId the caller may not
+                // see simply finds no match and yields an empty map, so the agent-scoped
+                // detail page cannot be used to read another tenant's run metrics.
+                if ($agentId !== null && $agentId !== '' && $uuid !== $agentId) {
+                    continue;
+                }
+
+                $data          = $object->getObject();
+                $agents[$uuid] = trim((string) ($data['name'] ?? ''));
             }
 
-            $data          = $object->getObject();
-            $scheduleAgent = (string) ($data['agentId'] ?? '');
+            $offset += self::AGENT_PAGE_SIZE;
+            $total   = (int) ($result['total'] ?? 0);
+        } while ($page !== [] && $offset < $total);
 
-            if ($agentId !== null && $agentId !== '' && $scheduleAgent !== $agentId) {
-                continue;
-            }
+        return $agents;
 
-            $map[(string) $object->getUuid()] = $scheduleAgent;
-        }
-
-        return $map;
-
-    }//end loadScheduleUuidToAgent()
-
-    /**
-     * Load agent UUID → display name for the caller's tenant.
-     *
-     * Read-only labelling for the `perAgent` aggregate: the run AuditTrail records an
-     * agentId and nothing else, and a bar chart labelled with UUIDs is unreadable. The
-     * lookup is tenant-scoped by the same ObjectService RBAC as every other read here,
-     * so an agent the caller cannot see simply does not appear in the map and its runs
-     * fall back to the id.
-     *
-     * @return array<string, string> Map of agent UUID → name.
-     */
-    private function loadAgentNames(): array
-    {
-        $objects = $this->objectService
-            ->setRegister(self::REGISTER_SLUG)
-            ->setSchema(self::AGENT_SCHEMA)
-            ->findAll(config: ['limit' => 1000]);
-
-        $names = [];
-        foreach ($objects as $object) {
-            if (($object instanceof ObjectEntity) === false) {
-                continue;
-            }
-
-            $data = $object->getObject();
-            $name = trim((string) ($data['name'] ?? ''));
-
-            if ($name === '') {
-                continue;
-            }
-
-            $names[(string) $object->getUuid()] = $name;
-        }
-
-        return $names;
-
-    }//end loadAgentNames()
+    }//end loadVisibleAgents()
 
     /**
      * A percentage rate rounded to one decimal (0 when the denominator is 0).
