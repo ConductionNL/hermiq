@@ -165,9 +165,9 @@ final class AsyncStageDispatchServiceTest extends TestCase {
 	 *
 	 * This is the whole point of the key: the flow engine suspends a run exactly
 	 * once, so a run whose stage is still going must END and let a later tick
-	 * collect — and that tick has only the issue to work from. A uuid would be
-	 * lost with the run, and there is nowhere to park one (the lock row's schema
-	 * has no free property; flow-state does `claim` and `release` only).
+	 * collect — and that tick has only the issue to work from, so a uuid would
+	 * be lost with the run that received it. A rebuildable key needs nothing
+	 * stored, and so survives a marker write that never happened.
 	 *
 	 * @return void
 	 */

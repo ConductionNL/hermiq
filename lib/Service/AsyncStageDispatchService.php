@@ -207,11 +207,15 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * tick starts from the ISSUE, not from the item, so a random uuid dies with
 	 * the run that received it.
 	 *
-	 * There is nowhere to park one either, and both places were checked: the
-	 * lock row's schema declares seven properties and none of them is free, and
-	 * `FlowStateNode` supports `claim` and `release` and nothing else. So the
-	 * handle is made rebuildable instead of stored — `<repo>-<issue>-<stage>`,
-	 * which any tick can reconstruct from the issue in front of it.
+	 * So the handle is made rebuildable rather than stored —
+	 * `<repo>-<issue>-<stage>`, which any tick can reconstruct from the issue in
+	 * front of it.
+	 *
+	 * A derivable key is not the only option — the lock row's schema does have
+	 * free text fields — but it is the one that cannot go stale: nothing is
+	 * written, so nothing has to be reaped, and a handle stays reconstructible
+	 * even when the write that was supposed to record it never happened. That
+	 * last case is a stage running with nothing able to collect it.
 	 *
 	 * Extracted from `dispatchAsync()` so this is reachable without a network
 	 * round trip. A field that only a live dispatch can exercise is a field that

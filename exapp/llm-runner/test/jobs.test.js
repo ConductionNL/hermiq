@@ -158,8 +158,7 @@ test('a caller-supplied key becomes the handle, so it can be rebuilt later', asy
 	// The flow engine suspends a run exactly once — WaitNode passes straight
 	// through on the way back in — so a run whose stage is still going has to
 	// end and let a later tick collect. That tick starts from the issue, not
-	// from the item, and there is nowhere to park a random uuid: the lock row's
-	// schema has no free field and flow-state supports only claim and release.
+	// from the item, so a random uuid dies with the run that received it.
 	//
 	// A derivable key removes the need to store anything at all.
 	const key = 'larpingapp-327-code-review'

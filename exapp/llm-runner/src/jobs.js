@@ -98,9 +98,8 @@ function start(promise, key) {
 	// through on the way back in, so a run that finds its stage still running
 	// cannot wait again — it has to end and let a later tick collect. That tick
 	// starts from the issue, not from the item, so a random uuid would be lost
-	// with the run that received it, and there is nowhere to park one: the lock
-	// row's schema has no free field and flow-state supports only claim and
-	// release.
+	// with the run that received it. A key the tick can rebuild needs nothing
+	// stored, and so cannot go stale or be missed by a write that failed.
 	//
 	// So the key is `<repo>-<issue>-<stage>`, which any tick can rebuild from
 	// the issue it is looking at. Same stage, same key, no storage.
