@@ -69,6 +69,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @param array $push Push declaration, or [] for a read-only stage.
 	 * @param string $pushCredentialId The injectable forge credential, or ''.
 	 * @param string $llmCredentialId The injectable model credential, or ''.
+	 * @param string $jobKey A caller-derived handle, or '' for a generated uuid.
+	 * @param array $collect Artefacts to read back out of the clone, or [].
 	 *
 	 * @return array{job: array{id: string, status: string}} The handle.
 	 *
@@ -91,6 +93,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 		array $push = [],
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
+		string $jobKey = '',
+		array $collect = [],
 	): array {
 		$ceiling = ($timeoutMs > 0) ? $timeoutMs : self::DEFAULT_STAGE_TIMEOUT_MS;
 
@@ -105,13 +109,16 @@ class AsyncStageDispatchService extends StageDispatchService {
 			toolRef: $toolRef,
 			push: $push,
 			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId
+			llmCredentialId: $llmCredentialId,
+			collect: $collect
 		);
 
 		// The one field that differs from a synchronous dispatch. Added HERE
 		// rather than inside `buildParams()` so the shared builder keeps one
 		// behaviour and cannot be made to produce two payload shapes.
 		$params['async'] = true;
+
+		$params = $this->withJobKey(params: $params, jobKey: $jobKey);
 
 		// Seconds, not minutes: this call returns as soon as the stage is
 		// ACCEPTED. Waiting the stage's own ceiling here would reintroduce
@@ -212,6 +219,35 @@ class AsyncStageDispatchService extends StageDispatchService {
 
 		return ['job' => ['id' => $jobId, 'status' => (string)($decoded['status'] ?? 'running')]];
 	}//end mapAccepted()
+
+	/**
+	 * Put a DERIVABLE handle on the payload, when the caller has one.
+	 *
+	 * The flow engine suspends a run exactly once — `WaitNode` passes straight
+	 * through on the way back in — so a run that finds its stage still going
+	 * cannot wait again. It has to end and let a later tick collect, and that
+	 * tick starts from the ISSUE, not from the item, so a random uuid dies with
+	 * the run that received it.
+	 *
+	 * A derivable key is not the only option — the lock row's schema does have
+	 * free text fields — but it is the one that cannot go stale: nothing is
+	 * written, so nothing has to be reaped, and the handle stays reconstructible
+	 * even when the write that was supposed to record it never happened. That
+	 * last case is a stage running with nothing able to collect it.
+	 *
+	 * @param array $params The payload built for the runner.
+	 * @param string $jobKey The caller's key, or '' to let the runner generate one.
+	 *
+	 * @return array The payload, with `jobKey` set only when one was supplied.
+	 */
+	protected function withJobKey(array $params, string $jobKey): array {
+		$jobKey = trim($jobKey);
+		if ($jobKey !== '') {
+			$params['jobKey'] = $jobKey;
+		}
+
+		return $params;
+	}//end withJobKey()
 
 	/**
 	 * The one place this class talks to the runner.

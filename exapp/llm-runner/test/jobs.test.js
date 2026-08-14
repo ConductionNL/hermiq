@@ -153,3 +153,30 @@ test('stats count what is in flight', async () => {
 	await settle()
 	jobs.forget(running)
 })
+
+test('a caller-supplied key becomes the handle, so it can be rebuilt later', async () => {
+	// The flow engine suspends a run exactly once — WaitNode passes straight
+	// through on the way back in — so a run whose stage is still going has to
+	// end and let a later tick collect. That tick starts from the issue, not
+	// from the item, so a random uuid dies with the run that received it.
+	//
+	// A derivable key removes the need to store anything at all.
+	const key = 'larpingapp-327-code-review'
+	const id = jobs.start(Promise.resolve({ exitCode: 0 }), key)
+
+	assert.strictEqual(id, key, 'the supplied key IS the handle')
+	await new Promise((resolve) => setImmediate(resolve))
+	assert.strictEqual(
+		jobs.get(key).status,
+		'done',
+		'a later tick that rebuilds the same key finds the same job',
+	)
+	jobs.forget(key)
+})
+
+test('without a key the handle is still a uuid', async () => {
+	const id = jobs.start(Promise.resolve({ exitCode: 0 }))
+	assert.match(id, /^[0-9a-f-]{36}$/, 'the uuid path is unchanged for callers that supply nothing')
+	await new Promise((resolve) => setImmediate(resolve))
+	jobs.forget(id)
+})

@@ -164,7 +164,7 @@ class StageDispatchService {
 	 *                                container. Empty means the stage runs without a model,
 	 *                                which is every stage that shipped before this parameter.
 	 *
-	 * @return array{exitCode: int, output: string, ref: string} The stage result.
+	 * @return array{exitCode: int, output: string, ref: string, files?: array} The stage result.
 	 *
 	 * @throws RuntimeException When the stage could not be run.
 	 *
@@ -193,6 +193,7 @@ class StageDispatchService {
 		array $push = [],
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
+		array $collect = [],
 	): array {
 		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
 		if ($timeoutMs > 0) {
@@ -210,7 +211,8 @@ class StageDispatchService {
 			toolRef: $toolRef,
 			push: $push,
 			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId
+			llmCredentialId: $llmCredentialId,
+			collect: $collect
 		);
 
 		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
@@ -408,6 +410,7 @@ class StageDispatchService {
 		array $push = [],
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
+		array $collect = [],
 	): array {
 		$params = [
 			'repo' => $repo,
@@ -424,6 +427,20 @@ class StageDispatchService {
 		// exactly as read-only as it has always been.
 		if ($push !== []) {
 			$params['push'] = $push;
+		}
+
+		// WHAT THE STAGE PRODUCES, not just what it printed. A reviewer that
+		// crashed, ran out of turns, or answered in prose exits 0 exactly like
+		// one that reviewed — the artefact it was asked to write is the only
+		// thing that tells them apart, so a flow that judges on the exit code
+		// judges nothing.
+		//
+		// The runner has supported this all along; nothing ever sent it. The
+		// flow declared `collect`, the node dropped it, and `stage.files` was
+		// therefore always absent — which the verdict step read as `missing`
+		// and blocked on. Correct refusals, for a reason that was never true.
+		if ($collect !== []) {
+			$params['collect'] = $collect;
 		}
 
 		$params = $this->withToolTree(
@@ -748,6 +765,14 @@ class StageDispatchService {
 			'output' => (string)($decoded['output'] ?? ''),
 			'ref' => (string)($decoded['ref'] ?? ''),
 		];
+
+		// The collected artefacts, kept under the key the runner used. Dropping
+		// them here would make `collect` a no-op that still looks like it works:
+		// the runner reads the files, returns them, and the mapper quietly
+		// discards them one step before the only consumer.
+		if (is_array(($decoded['files'] ?? null)) === true) {
+			$result['files'] = $decoded['files'];
+		}
 
 		if (is_array(($decoded['push'] ?? null)) === true) {
 			$result['push'] = [

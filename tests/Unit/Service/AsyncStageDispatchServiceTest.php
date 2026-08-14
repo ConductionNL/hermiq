@@ -48,6 +48,16 @@ class ExposedAsyncStageDispatchService extends AsyncStageDispatchService {
 	}//end mapAcceptedPublic()
 
 	/**
+	 * @param array $params The payload.
+	 * @param string $jobKey The key.
+	 *
+	 * @return array The payload with the key applied.
+	 */
+	public function withJobKeyPublic(array $params, string $jobKey): array {
+		return $this->withJobKey(params: $params, jobKey: $jobKey);
+	}//end withJobKeyPublic()
+
+	/**
 	 * The canned response the next runner call returns.
 	 *
 	 * @var mixed
@@ -392,6 +402,45 @@ final class AsyncStageDispatchServiceTest extends TestCase {
 			command: ['claude', '-p', 'review']
 		);
 	}//end testARefusedDispatchThrowsRatherThanReturningNoHandle()
+
+	/**
+	 * A supplied key reaches the payload, so a later tick can rebuild the handle.
+	 *
+	 * The flow engine suspends a run exactly once, so a run whose stage is still
+	 * going must END and let a later tick collect — and that tick has only the
+	 * issue to work from, so a uuid would be lost with the run that received it.
+	 * A rebuildable key needs nothing stored, and so survives a marker write
+	 * that never happened.
+	 *
+	 * @return void
+	 */
+	public function testASuppliedKeyBecomesTheHandleOnThePayload(): void {
+		$this->assertSame(
+			expected: 'larpingapp-327-code-review',
+			actual: ($this->service->withJobKeyPublic(
+				params: ['repo' => 'x'],
+				jobKey: 'larpingapp-327-code-review'
+			)['jobKey'] ?? null),
+			message: 'a key that never reaches the payload leaves the stage uncollectable by a later tick'
+		);
+	}//end testASuppliedKeyBecomesTheHandleOnThePayload()
+
+	/**
+	 * No key means NO field, rather than an empty one.
+	 *
+	 * A blank `jobKey` would make the runner key a job on '', so two concurrent
+	 * stages would collide on one handle and each would collect the other's
+	 * verdict.
+	 *
+	 * @return void
+	 */
+	public function testAnAbsentKeyLeavesThePayloadUntouched(): void {
+		$this->assertArrayNotHasKey(
+			key: 'jobKey',
+			array: $this->service->withJobKeyPublic(params: ['repo' => 'x'], jobKey: '   '),
+			message: 'an empty key must be absent, not blank — a blank one collides across stages'
+		);
+	}//end testAnAbsentKeyLeavesThePayloadUntouched()
 
 	/**
 	 * The async surface is SEPARATE from the synchronous one.
