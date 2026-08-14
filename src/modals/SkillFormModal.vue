@@ -128,7 +128,7 @@
 				v-model="form.frontmatter"
 				:label="t('hermiq', 'Frontmatter (YAML)')"
 				:placeholder="
-					t('hermiq', 'name: my-skill, description: …, version: 0.1.0')
+					t('hermiq', 'name: my-skill, description: …, version: 0.1.0')
 				"
 				resize="vertical" />
 

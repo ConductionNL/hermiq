@@ -209,6 +209,9 @@
     }
   },
   "src/modals/SkillFormModal.vue": {
+    "@nextcloud/l10n-non-breaking-space": {
+      "count": 1
+    },
     "@nextcloud/no-deprecated-library-props": {
       "count": 4
     }
