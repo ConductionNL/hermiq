@@ -85,6 +85,7 @@ class ExposedStageDispatchService extends StageDispatchService {
 		string $credentialId = '',
 		string $toolRepo = '',
 		string $pushCredentialId = '',
+		string $llmCredentialId = '',
 	): array {
 		return $this->buildParams(
 			repo: $repo,
@@ -96,7 +97,8 @@ class ExposedStageDispatchService extends StageDispatchService {
 			toolRepo: $toolRepo,
 			toolRef: '',
 			push: $push,
-			pushCredentialId: $pushCredentialId
+			pushCredentialId: $pushCredentialId,
+			llmCredentialId: $llmCredentialId
 		);
 
 	}//end buildParamsPublic()
@@ -453,5 +455,55 @@ class StageDispatchServiceTest extends TestCase {
 		);
 
 	}//end testAReadOnlyStageResultHasNoPushKey()
+
+	// ── The model credential (exapp-stage-workload) ──────────────────────
+
+	/**
+	 * A stage that names no model credential gets none.
+	 *
+	 * This is every stage that existed before the parameter, so it is the arm
+	 * that proves the addition is opt-in rather than ambient. Without it, a test
+	 * asserting the token IS forwarded would pass just as happily against an
+	 * implementation that forwarded it unconditionally.
+	 *
+	 * @return void
+	 */
+	public function testAStageThatNamesNoModelCredentialCarriesNone(): void {
+		$params = $this->service->buildParamsPublic(
+			repo: 'https://example.invalid/target',
+			ref: 'development',
+			command: ['scripts/run-hydra-gates.sh'],
+			ceiling: 1000
+		);
+
+		$this->assertArrayNotHasKey('credentialEnv', $params);
+
+	}//end testAStageThatNamesNoModelCredentialCarriesNone()
+
+	/**
+	 * A named model credential reaches the runner under the key the CLI reads.
+	 *
+	 * The key matters as much as the value: the runner drops anything the
+	 * command's own allowlist does not name, so a token forwarded under the
+	 * wrong key is silently discarded and the CLI reports having no credential.
+	 *
+	 * @return void
+	 */
+	public function testANamedModelCredentialIsForwardedAsCredentialEnv(): void {
+		$params = $this->service->buildParamsPublic(
+			repo: 'https://example.invalid/target',
+			ref: 'development',
+			command: ['claude', '-p', 'do the thing'],
+			ceiling: 1000,
+			llmCredentialId: 'anthropic-cli-uuid'
+		);
+
+		$this->assertSame(
+			['CLAUDE_CODE_OAUTH_TOKEN' => 'resolved-token'],
+			($params['credentialEnv'] ?? null)
+		);
+		$this->assertSame('anthropic-cli-uuid', ($this->service->brokerCalls['inject'] ?? null));
+
+	}//end testANamedModelCredentialIsForwardedAsCredentialEnv()
 
 }//end class

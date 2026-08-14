@@ -470,6 +470,31 @@ class StageDispatchService {
 			}
 		}//end if
 
+		$params = $this->withModelCredential(
+			params: $params,
+			uid: $uid,
+			llmCredentialId: $llmCredentialId
+		);
+
+		return $params;
+	}//end buildParams()
+
+	/**
+	 * Attach the model credential, when the stage's command is one that talks to a model.
+	 *
+	 * Extracted from buildParams() because that method crossed the length gate,
+	 * and this is the arm that can be lifted out whole: it is one decision with
+	 * one input and one effect.
+	 *
+	 * @param array $params The stage payload so far.
+	 * @param string|null $uid The acting user.
+	 * @param string $llmCredentialId The injectable model credential, or '' for none.
+	 *
+	 * @return array The payload, with `credentialEnv` when one resolved.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
+	 */
+	private function withModelCredential(array $params, ?string $uid, string $llmCredentialId): array {
 		// THE MODEL CREDENTIAL — the other half of an agent that has a tree.
 		//
 		// `/run` has been able to give `claude -p` a token since the anthropic
@@ -487,18 +512,21 @@ class StageDispatchService {
 		// The resolvable shape is `anthropic-cli`, whose secret is a Claude Max
 		// subscription token, which is why the env key is the one the CLI reads.
 		//
-		// A null is a ROUTING signal, exactly as it is for the forge token above:
-		// a stage whose command needs no model is a normal stage, and failing
-		// here would refuse one that has everything it needs.
-		if ($llmCredentialId !== '') {
-			$llmToken = $this->resolveForgeToken(credentialId: $llmCredentialId, uid: $uid);
-			if ($llmToken !== null) {
-				$params['credentialEnv'] = ['CLAUDE_CODE_OAUTH_TOKEN' => $llmToken];
-			}
+		// A null is a ROUTING signal, exactly as it is for the forge token in
+		// buildParams(): a stage whose command needs no model is a normal stage,
+		// and failing here would refuse one that has everything it needs.
+		if ($llmCredentialId === '') {
+			return $params;
+		}
+
+		$llmToken = $this->resolveForgeToken(credentialId: $llmCredentialId, uid: $uid);
+		if ($llmToken !== null) {
+			$params['credentialEnv'] = ['CLAUDE_CODE_OAUTH_TOKEN' => $llmToken];
 		}
 
 		return $params;
-	}//end buildParams()
+
+	}//end withModelCredential()
 
 	/**
 	 * Fetch a tool tree as a base64 archive through the broker.
