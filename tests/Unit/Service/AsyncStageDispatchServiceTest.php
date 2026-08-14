@@ -62,6 +62,13 @@ class ExposedAsyncStageDispatchService extends AsyncStageDispatchService {
 	public string $lastRoute = '';
 
 	/**
+	 * The params the last call sent, so the payload can be asserted.
+	 *
+	 * @var array
+	 */
+	public array $lastParams = [];
+
+	/**
 	 * Answer from the canned response instead of reaching AppAPI.
 	 *
 	 * @param string $route The route.
@@ -72,7 +79,8 @@ class ExposedAsyncStageDispatchService extends AsyncStageDispatchService {
 	 * @return mixed The canned response.
 	 */
 	protected function callRunner(string $route, string $method, array $params, ?string $uid): mixed {
-		$this->lastRoute = $route;
+		$this->lastRoute  = $route;
+		$this->lastParams = $params;
 		return $this->nextResponse;
 	}//end callRunner()
 }//end class
@@ -328,6 +336,62 @@ final class AsyncStageDispatchServiceTest extends TestCase {
 
 		$this->service->collect(jobId: 'j1');
 	}//end testANonSuccessStatusIsRefused()
+
+	/**
+	 * An async dispatch is ACCEPTED, and says so in a shape with no verdict in it.
+	 *
+	 * The payload must carry `async: true` — without it the runner holds the
+	 * call open for the whole stage, which is the blocking this class exists to
+	 * remove, and the flow would suspend on a wait for work that had already
+	 * finished somewhere else.
+	 *
+	 * @return void
+	 */
+	public function testAnAsyncDispatchIsAcceptedAndAsksForAsync(): void {
+		$this->service->nextResponse = $this->response(
+			202,
+			(string)json_encode(['jobId' => 'j-42', 'status' => 'running'])
+		);
+
+		$handle = $this->service->dispatchAsync(
+			repo: 'https://github.com/ConductionNL/larpingapp',
+			ref: 'feature/327/hydra-build',
+			command: ['claude', '-p', 'review']
+		);
+
+		$this->assertSame(expected: 'j-42', actual: $handle['job']['id']);
+		$this->assertArrayNotHasKey(
+			key: 'exitCode',
+			array: $handle,
+			message: 'an acknowledgement must not carry the field a verdict is read from'
+		);
+		$this->assertTrue(
+			condition: ($this->service->lastParams['async'] ?? false),
+			message: 'without async:true the runner holds the call open for the whole stage'
+		);
+	}//end testAnAsyncDispatchIsAcceptedAndAsksForAsync()
+
+	/**
+	 * A dispatch the runner refuses is an exception, not an empty handle.
+	 *
+	 * A dispatch whose handle was lost is a stage running somewhere with
+	 * nothing able to collect it — worse than one that never started, because
+	 * it holds a slot and spends a model budget while being invisible.
+	 *
+	 * @return void
+	 */
+	public function testARefusedDispatchThrowsRatherThanReturningNoHandle(): void {
+		$this->service->nextResponse = $this->response(503, (string)json_encode(['error' => 'no capacity']));
+
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessageMatches(regularExpression: '/could not start the stage/');
+
+		$this->service->dispatchAsync(
+			repo: 'https://github.com/ConductionNL/larpingapp',
+			ref: 'main',
+			command: ['claude', '-p', 'review']
+		);
+	}//end testARefusedDispatchThrowsRatherThanReturningNoHandle()
 
 	/**
 	 * The async surface is SEPARATE from the synchronous one.
