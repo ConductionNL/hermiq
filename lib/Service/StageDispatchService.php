@@ -149,6 +149,15 @@ class StageDispatchService {
 	 *                                 The two are mutually exclusive, so a stage that fetches a
 	 *                                 private tool tree AND pushes needs both. Empty falls back
 	 *                                 to `$credentialId`.
+	 * @param string $llmCredentialId The INJECTABLE credential for a model, when the stage's
+	 *                                command is one that talks to one. Distinct from both of
+	 *                                the above because it is a different vendor entirely: the
+	 *                                forge token clones, this one lets `claude` answer. Only an
+	 *                                `inject_only` credential resolves — `resolveInjectable()`
+	 *                                returns null for a host-locked proxy entry by design — so
+	 *                                this cannot be used to pull a proxied secret into the
+	 *                                container. Empty means the stage runs without a model,
+	 *                                which is every stage that shipped before this parameter.
 	 *
 	 * @return array{exitCode: int, output: string, ref: string} The stage result.
 	 *
@@ -178,6 +187,7 @@ class StageDispatchService {
 		string $toolRef = '',
 		array $push = [],
 		string $pushCredentialId = '',
+		string $llmCredentialId = '',
 	): array {
 		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
 		if ($timeoutMs > 0) {
@@ -194,7 +204,8 @@ class StageDispatchService {
 			toolRepo: $toolRepo,
 			toolRef: $toolRef,
 			push: $push,
-			pushCredentialId: $pushCredentialId
+			pushCredentialId: $pushCredentialId,
+			llmCredentialId: $llmCredentialId
 		);
 
 		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
@@ -391,6 +402,7 @@ class StageDispatchService {
 		string $toolRef,
 		array $push = [],
 		string $pushCredentialId = '',
+		string $llmCredentialId = '',
 	): array {
 		$params = [
 			'repo' => $repo,
@@ -458,8 +470,63 @@ class StageDispatchService {
 			}
 		}//end if
 
+		$params = $this->withModelCredential(
+			params: $params,
+			uid: $uid,
+			llmCredentialId: $llmCredentialId
+		);
+
 		return $params;
 	}//end buildParams()
+
+	/**
+	 * Attach the model credential, when the stage's command is one that talks to a model.
+	 *
+	 * Extracted from buildParams() because that method crossed the length gate,
+	 * and this is the arm that can be lifted out whole: it is one decision with
+	 * one input and one effect.
+	 *
+	 * @param array $params The stage payload so far.
+	 * @param string|null $uid The acting user.
+	 * @param string $llmCredentialId The injectable model credential, or '' for none.
+	 *
+	 * @return array The payload, with `credentialEnv` when one resolved.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
+	 */
+	private function withModelCredential(array $params, ?string $uid, string $llmCredentialId): array {
+		// THE MODEL CREDENTIAL — the other half of an agent that has a tree.
+		//
+		// `/run` has been able to give `claude -p` a token since the anthropic
+		// provider shipped (`ProviderFactory::…` sends `credentialEnv`, and the
+		// runner filters it through `selectCredentialEnv()`), but that path has
+		// no repository. `/stage` clones one and could not call a model. The two
+		// halves existed in separate endpoints, which is why hydra's build stage
+		// could lint a checkout and never author a change in it.
+		//
+		// 🔑 ONLY AN INJECT-ONLY CREDENTIAL CAN ARRIVE HERE, and that is the
+		// guard rather than a limitation. `resolveInjectable()` returns null for
+		// a host-locked PROXY credential by design, so pointing this at the
+		// `anthropic` API-key entry yields nothing and the stage runs without a
+		// model — it cannot be used to smuggle a proxied secret into a container.
+		// The resolvable shape is `anthropic-cli`, whose secret is a Claude Max
+		// subscription token, which is why the env key is the one the CLI reads.
+		//
+		// A null is a ROUTING signal, exactly as it is for the forge token in
+		// buildParams(): a stage whose command needs no model is a normal stage,
+		// and failing here would refuse one that has everything it needs.
+		if ($llmCredentialId === '') {
+			return $params;
+		}
+
+		$llmToken = $this->resolveForgeToken(credentialId: $llmCredentialId, uid: $uid);
+		if ($llmToken !== null) {
+			$params['credentialEnv'] = ['CLAUDE_CODE_OAUTH_TOKEN' => $llmToken];
+		}
+
+		return $params;
+
+	}//end withModelCredential()
 
 	/**
 	 * Fetch a tool tree as a base64 archive through the broker.

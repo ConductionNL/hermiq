@@ -47,6 +47,7 @@ const os = require('os')
 const path = require('path')
 
 const { assertPushAllowed, PushRefused } = require('./pushGuard')
+const { selectCredentialEnv } = require('./runner')
 
 const DEFAULT_STAGE_TIMEOUT_MS = Number(
 	process.env.RUNNER_STAGE_TIMEOUT_MS || String(30 * 60 * 1000),
@@ -134,11 +135,43 @@ function buildEgressProxyEnv(runToken) {
  * @type {Array<string>}
  */
 const ALLOWED_COMMANDS = (
-	process.env.RUNNER_STAGE_COMMANDS || 'scripts/run-hydra-gates.sh'
+	process.env.RUNNER_STAGE_COMMANDS || 'scripts/run-hydra-gates.sh,claude'
 )
 	.split(',')
 	.map((s) => s.trim())
 	.filter((s) => s !== '')
+
+/**
+ * Which credential env keys each allowed command may receive.
+ *
+ * A stage's command gets a vendor credential ONLY if it is named here, and only
+ * the keys listed against it. An unlisted command — including every command an
+ * operator adds to `RUNNER_STAGE_COMMANDS` — receives nothing, which is the safe
+ * default and the reason this is an allowlist rather than a flag.
+ *
+ * 🔑 WHY `claude` IS ON IT, and what that grants. `claude` is in this image and
+ * `api.anthropic.com` is already an allowed host, because `/run` has run
+ * `claude -p` as the anthropic provider's CLI since it shipped. What `/stage`
+ * adds is a REPOSITORY: the same CLI, in a tree that has been cloned, so it can
+ * read and edit the code it is reasoning about instead of being handed excerpts
+ * in a prompt.
+ *
+ * That is a real grant and it is worth naming plainly: a flow that can invoke
+ * this can send arbitrary prompts to a model on this credential's billing, and
+ * can edit files in the scratch checkout. It cannot push them — the push phase
+ * is separate, runs after the command, and holds the forge token the command
+ * child is explicitly denied (see `commandEnv` below).
+ *
+ * ⚠️ `CLAUDE_CODE_OAUTH_TOKEN` and `ANTHROPIC_API_KEY` are both listed because
+ * the catalogue has both shapes: a Claude Max subscription token (`anthropic-cli`,
+ * inject-only) and an API key (`anthropic`). The runner does not choose between
+ * them; it forwards whichever the caller resolved and drops anything else.
+ *
+ * @type {Object<string, Array<string>>}
+ */
+const STAGE_CREDENTIAL_KEYS = {
+	claude: ['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY'],
+}
 
 /**
  * Remove a scratch tree, best effort.
@@ -685,6 +718,7 @@ async function runStage({
 	env,
 	runToken,
 	push,
+	credentialEnv,
 }) {
 	if (typeof repo !== 'string' || repo === '') {
 		throw new Error('a stage needs a repo')
@@ -850,6 +884,32 @@ async function runStage({
 			delete commandEnv.GIT_ASKPASS
 		}
 
+		// A VENDOR CREDENTIAL, SCOPED TO THE COMMAND THAT NEEDS IT.
+		//
+		// `/run` has had this channel since the anthropic provider shipped —
+		// `selectCredentialEnv()` filters a caller-supplied map down to the keys
+		// that provider declares, and drops the rest silently. `/stage` had no
+		// equivalent, so a stage could clone a repository but never call a model:
+		// the two halves of an agent existed in separate endpoints.
+		//
+		// 🔑 THE ALLOWLIST IS PER COMMAND, not per stage. A gates run has no
+		// business holding a model token, and `STAGE_CREDENTIAL_KEYS` says so by
+		// keying on the command's own binary — an unlisted command gets `[]` and
+		// nothing is merged. That is the same reasoning as `ALLOWED_COMMANDS`
+		// above: a flow is authored data, so what it can reach is decided here
+		// and not by what it asks for.
+		//
+		// Reusing `selectCredentialEnv()` rather than filtering inline is
+		// deliberate: it is the reviewed filter, and a second copy is a second
+		// place for the drop-unknown-keys rule to be forgotten.
+		Object.assign(
+			commandEnv,
+			selectCredentialEnv(
+				{ credentialKeys: STAGE_CREDENTIAL_KEYS[path.basename(bin)] || [] },
+				credentialEnv,
+			),
+		)
+
 		// The command is resolved inside the TOOL tree when there is one, and
 		// runs with the TARGET as its working directory. A bare name (`sh`)
 		// stays a PATH lookup — only a repo-relative path is rebased, which is
@@ -914,6 +974,7 @@ module.exports = {
 	runStage,
 	isAllowedCommand,
 	ALLOWED_COMMANDS,
+	STAGE_CREDENTIAL_KEYS,
 	buildEgressProxyEnv,
 	changedFiles,
 }

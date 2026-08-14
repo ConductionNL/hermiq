@@ -316,7 +316,13 @@ class HermiqWorkloadNode implements IFlowNode {
 			// it is exactly as read-only as every stage that shipped before this
 			// key existed.
 			push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
-			pushCredentialId: $pushCredentialId
+			pushCredentialId: $pushCredentialId,
+			// THE MODEL CREDENTIAL. A third credential rather than a reuse of
+			// either above, because it is a different vendor: the forge token
+			// clones the tree, this one lets the command talk to a model. A
+			// stage that names none runs without one, which is every stage that
+			// existed before this key.
+			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
 		);
 
 		return $this->attribute(
