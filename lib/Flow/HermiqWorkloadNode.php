@@ -245,22 +245,18 @@ class HermiqWorkloadNode implements IFlowNode {
 	}//end execute()
 
 	/**
-	 * Turn ONE item into one stage call, and attribute the result.
+	 * Render the TWO forge credentials, which could never have been one.
 	 *
-	 * Split out of `execute()` so the loop states what it does — one stage per
-	 * item, attributed — while the rendering and credential decisions, which are
-	 * where every defect in this node has been, sit together and can be read in
-	 * one piece.
+	 * The reasoning is long and belongs with the concept rather than in the
+	 * middle of a dispatch; it is kept verbatim below as line comments,
+	 * because one of them contains a path that would close this block.
 	 *
 	 * @param array $config The step configuration.
 	 * @param array $json The item's record.
-	 * @param string $owner The resolved run owner.
 	 *
-	 * @return array The stage result, with attribution added.
-	 *
-	 * @throws Throwable When the workload could not be run.
+	 * @return array{0: string, 1: string} The clone credential, then the push credential.
 	 */
-	private function dispatchFor(array $config, array $json, string $owner): array {
+	private function credentialsFor(array $config, array $json): array {
 		// RENDERED, like every other configured value, and rendered PER ITEM
 		// because a fan-out may carry a different credential per repository.
 		//
@@ -271,8 +267,6 @@ class HermiqWorkloadNode implements IFlowNode {
 		// not found` — which reads as a missing credential rather than an
 		// unrendered placeholder. It took a logging fix in OpenRegister
 		// (openregister#2245) to see the id it was actually given.
-		$credentialId = trim($this->render(template: (string)($config['credentialId'] ?? ''), json: $json));
-
 		// THE SECOND CREDENTIAL, and why one could never have done both jobs.
 		//
 		// `credentialId` is spent on the broker's SERVER-SIDE calls — the tool
@@ -297,7 +291,31 @@ class HermiqWorkloadNode implements IFlowNode {
 		//
 		// Absent, it falls back to `credentialId`, so every read-only stage that
 		// shipped before this behaves exactly as it did.
-		$pushCredentialId = trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json));
+
+		return [
+			trim($this->render(template: (string)($config['credentialId'] ?? ''), json: $json)),
+			trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json)),
+		];
+	}//end credentialsFor()
+
+	/**
+	 * Turn ONE item into one stage call, and attribute the result.
+	 *
+	 * Split out of `execute()` so the loop states what it does — one stage per
+	 * item, attributed — while the rendering and credential decisions, which are
+	 * where every defect in this node has been, sit together and can be read in
+	 * one piece.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $json The item's record.
+	 * @param string $owner The resolved run owner.
+	 *
+	 * @return array The stage result, with attribution added.
+	 *
+	 * @throws Throwable When the workload could not be run.
+	 */
+	private function dispatchFor(array $config, array $json, string $owner): array {
+		[$credentialId, $pushCredentialId] = $this->credentialsFor(config: $config, json: $json);
 
 		// ASYNC is a whole second transport; see dispatchAsyncFor().
 		if (($config['async'] ?? false) === true) {
@@ -335,6 +353,7 @@ class HermiqWorkloadNode implements IFlowNode {
 			// stage that names none runs without one, which is every stage that
 			// existed before this key.
 			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
+			collect: $this->collectFor(config: $config),
 			// ASYNC. The stage is STARTED and a handle comes back, instead of
 			// the run holding the queue worker for the whole thing.
 			//
@@ -359,6 +378,33 @@ class HermiqWorkloadNode implements IFlowNode {
 		);
 
 	}//end dispatchFor()
+
+	/**
+	 * What the stage PRODUCED, read out of the clone before it is discarded.
+	 *
+	 * A reviewer that crashed, ran out of turns, or answered in prose exits 0
+	 * exactly like one that reviewed — the artefact is the only thing that
+	 * tells them apart, which is why a verdict step reads a file rather than an
+	 * exit code.
+	 *
+	 * Both transports call this, because a stage that produced a verdict must
+	 * hand it back whichever one carried it; an async path that quietly dropped
+	 * it would judge on nothing.
+	 *
+	 * ⚠️ USE THE ALIAS FORM. `["hydra-verdict.json"]` keys the file by its own
+	 * path, and a flow addresses data with a DOTTED path, so
+	 * `files.hydra-verdict.json` splits in the wrong places and is unreachable
+	 * — the artefact arrives and the consumer still cannot see it.
+	 * `{verdict: "hydra-verdict.json"}` yields `files.verdict`, which a flow
+	 * can walk.
+	 *
+	 * @param array $config The step configuration.
+	 *
+	 * @return array The collect declaration, or [] when the stage produces nothing.
+	 */
+	private function collectFor(array $config): array {
+		return (array)($config['collect'] ?? []);
+	}//end collectFor()
 
 	/**
 	 * Start the stage and return a handle, instead of waiting for it.
@@ -415,7 +461,9 @@ class HermiqWorkloadNode implements IFlowNode {
 				toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
 				push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
 				pushCredentialId: $pushCredentialId,
-				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
+				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
+				jobKey: trim($this->render(template: (string)($config['jobKey'] ?? ''), json: $json)),
+				collect: $this->collectFor(config: $config)
 			),
 			owner: $owner,
 			credentialId: $credentialId,
