@@ -50,6 +50,15 @@ class ExposedAsyncStageDispatchService extends AsyncStageDispatchService {
 
 /**
  * @covers \OCA\Hermiq\Service\AsyncStageDispatchService
+ *
+ * `@uses`, not `@covers`, and the distinction is enforced: PHPUnit runs with
+ * `beStrictAboutCoverageMetadata`, so a test that EXECUTES a class it has not
+ * declared is risky and fails the cell. Constructing the subject unavoidably
+ * runs its parent's constructor and the run-token service — used, not under
+ * test.
+ *
+ * @uses \OCA\Hermiq\Service\Llm\RunTokenService
+ * @uses \OCA\Hermiq\Service\StageDispatchService
  */
 final class AsyncStageDispatchServiceTest extends TestCase {
 
