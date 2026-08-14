@@ -142,6 +142,42 @@ RUN git clone --depth 1 --branch "${HYDRA_GATES_REF}" \
     # build fails here rather than shipping an image that exits 99 in production.
     && test -f /usr/local/lib/hydra-gates/hydra-gates/scripts/run-hydra-gates.sh
 
+# THE MANIFEST GATES NEED `ajv`, AND NOTHING WAS INSTALLING IT.
+#
+# `check_manifest.js` does `require('ajv/dist/2020')` (plus `ajv-formats`) and
+# resolves it from the SUBJECT first — the app repo that owns the manifest, then
+# cwd, then its own tree. That is the right order for a developer running the
+# gates inside an app that has done `npm ci`. A hydra stage is not that: it
+# clones the app and runs the gates directly, never installing app node modules,
+# so ajv is nowhere on any of the three search paths.
+#
+# 🔴 The gate refuses to run fail-open when it cannot resolve ajv — correctly —
+# which means it FAILS. Measured on a real build (portaliq#111, PR #112):
+#
+#     [gate-53] effective-manifest-crossref: FAIL — ajv not resolvable from
+#     /usr/local/lib/hydra-gates/hydra-gates/scripts/lib — refusing to run
+#     fail-open (set NODE_PATH or install ajv)
+#
+# That was the ONLY failing gate, so the run exited 1 on a clean implementation.
+# Every app carrying a `src/manifest.json` was therefore unable to reach
+# `build:pass` at all — not because of its code, but because of this image.
+#
+# Installed at BUILD time for the same reason the gates themselves are: the
+# runtime filesystem is read-only and npm cannot even write its logs there.
+#
+# 🔑 The prefix places `node_modules` at `/usr/local/lib/hydra-gates/`, one
+# directory ABOVE the gate package, so Node's ordinary upward walk from
+# `…/hydra-gates/scripts/lib/` finds it without NODE_PATH. Anchoring it inside
+# the package would work too, but this survives the package being replaced by a
+# newer clone.
+RUN npm install --no-save --no-audit --no-fund \
+        --prefix /usr/local/lib/hydra-gates ajv ajv-formats \
+    # Prove the resolution the gate actually performs, from the directory the
+    # gate actually runs in. `npm install` succeeding says the tarballs landed;
+    # it does not say a require() from that path finds them.
+    && cd /usr/local/lib/hydra-gates/hydra-gates/scripts/lib \
+    && node -e "require('ajv/dist/2020'); require('ajv-formats')"
+
 # Persistent-storage / scratch dir owned by the runtime user.
 RUN mkdir -p /app/scratch && chmod +x /app/deploy/*.sh && chown -R node:node /app
 
