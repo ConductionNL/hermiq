@@ -299,17 +299,9 @@ class HermiqWorkloadNode implements IFlowNode {
 		// shipped before this behaves exactly as it did.
 		$pushCredentialId = trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json));
 
-		// ASYNC is its own method: dispatchFor() was 136 lines and phpmd was
-		// right that a reader cannot hold that much at once. The branch is a
-		// whole second transport, not a variation on this one.
+		// ASYNC is a whole second transport; see dispatchAsyncFor().
 		if (($config['async'] ?? false) === true) {
-			return $this->dispatchAsyncFor(
-				config: $config,
-				json: $json,
-				owner: $owner,
-				credentialId: $credentialId,
-				pushCredentialId: $pushCredentialId
-			);
+			return $this->dispatchAsyncFor($config, $json, $owner, $credentialId, $pushCredentialId);
 		}
 
 		$result = $this->stages->dispatch(
@@ -375,6 +367,11 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * synchronous stage holds the only worker for its whole duration and a slot
 	 * pool cannot exceed one agent however many slots it declares. Pair this
 	 * with an `openregister.wait` and a `hermiq.workload-collect`.
+	 *
+	 * Extracted from `dispatchFor()` because inlining it took that method to
+	 * 136 lines against a 100 threshold, and phpmd was right: a reader cannot
+	 * hold that much at once, and this branch is a second transport rather than
+	 * a variation on the first.
 	 *
 	 * @param array $config The step configuration.
 	 * @param array $json The item's record.
