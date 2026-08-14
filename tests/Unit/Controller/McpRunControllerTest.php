@@ -104,6 +104,23 @@ final class McpRunControllerTest extends TestCase {
 	 *
 	 * @return McpRunController
 	 */
+	/**
+	 * Set by a test that asserts on brute-force bookkeeping; otherwise every
+	 * controller gets a fresh do-nothing throttler.
+	 *
+	 * @var IThrottler|null
+	 */
+	private ?IThrottler $throttlerOverride = null;
+
+	/**
+	 * The throttler to build the controller with.
+	 *
+	 * @return IThrottler
+	 */
+	private function throttlerFor(): IThrottler {
+		return ($this->throttlerOverride ?? $this->createMock(IThrottler::class));
+	}//end throttlerFor()
+
 	private function controller(
 		string $auth,
 		string $body,
@@ -126,7 +143,7 @@ final class McpRunControllerTest extends TestCase {
 		$userManager->method('get')->willReturn($user);
 		$userSession = $this->createMock(IUserSession::class);
 
-		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->createMock(IThrottler::class), new NullLogger(), $body) extends McpRunController {
+		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->throttlerFor(), new NullLogger(), $body) extends McpRunController {
 			// phpcs:ignore
 			public function __construct(
 				$request,
@@ -196,6 +213,63 @@ final class McpRunControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->handle()->getStatus());
 
 	}//end testMissingTokenIsRejected()
+
+	/**
+	 * A rejected run token is RECORDED, under the SAME action as
+	 * EgressAuthorizeController — one token space, one counter, so an attacker
+	 * cannot halve the cost by alternating between the two endpoints.
+	 *
+	 * @return void
+	 */
+	public function testARejectedTokenIsRegisteredUnderTheSharedAction(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->once())
+			->method('registerAttempt')
+			->with('hermiq_run_token', $this->anything());
+		$this->throttlerOverride = $throttler;
+
+		$controller = $this->controller(
+			'',
+			'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}',
+			$this->tokens('good'),
+			$this->createMock(ObjectService::class),
+			$this->createMock(ToolRegistryFacade::class),
+			$this->createMock(ToolLoop::class),
+			$this->createMock(ToolSearchService::class)
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->handle()->getStatus());
+
+	}//end testARejectedTokenIsRegisteredUnderTheSharedAction()
+
+	/**
+	 * A throttler that BLOWS UP must not change the answer.
+	 *
+	 * Brute-force bookkeeping is not the endpoint's job — if the counter fails
+	 * (cache down, backend gone), the caller must still get the fail-closed 401
+	 * rather than a 500 that leaks an internal fault and, worse, distinguishes
+	 * a bad token from a broken cache.
+	 *
+	 * @return void
+	 */
+	public function testAFailingThrottlerStillYieldsTheFailClosed401(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->method('registerAttempt')->willThrowException(new \RuntimeException('cache down'));
+		$this->throttlerOverride = $throttler;
+
+		$controller = $this->controller(
+			'',
+			'{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}',
+			$this->tokens('good'),
+			$this->createMock(ObjectService::class),
+			$this->createMock(ToolRegistryFacade::class),
+			$this->createMock(ToolLoop::class),
+			$this->createMock(ToolSearchService::class)
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->handle()->getStatus());
+
+	}//end testAFailingThrottlerStillYieldsTheFailClosed401()
 
 	/**
 	 * `initialize` returns the protocol/capabilities/serverInfo and an Mcp-Session-Id header.

@@ -221,6 +221,31 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end testAnAcceptedTokenRegistersNothing()
 
 	/**
+	 * A throttler that BLOWS UP must not change the answer.
+	 *
+	 * If the counter fails (cache down, backend gone) the caller still gets the
+	 * fail-closed 401 rather than a 500 — which would both leak an internal
+	 * fault and let an attacker distinguish a bad token from a broken cache.
+	 *
+	 * @return void
+	 */
+	public function testAFailingThrottlerStillYieldsTheFailClosed401(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->method('registerAttempt')->willThrowException(new \RuntimeException('cache down'));
+		$this->throttlerOverride = $throttler;
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'',
+			'{"host":"api.anthropic.com","port":443}'
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->authorize()->getStatus());
+
+	}//end testAFailingThrottlerStillYieldsTheFailClosed401()
+
+	/**
 	 * A missing host → 400.
 	 *
 	 * @return void
