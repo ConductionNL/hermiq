@@ -176,7 +176,11 @@ test('a caller-supplied key becomes the handle, so it can be rebuilt later', asy
 
 test('without a key the handle is still a uuid', async () => {
 	const id = jobs.start(Promise.resolve({ exitCode: 0 }))
-	assert.match(id, /^[0-9a-f-]{36}$/, 'the uuid path is unchanged for callers that supply nothing')
+	assert.match(
+		id,
+		/^[0-9a-f-]{36}$/,
+		'the uuid path is unchanged for callers that supply nothing',
+	)
 	await new Promise((resolve) => setImmediate(resolve))
 	jobs.forget(id)
 })

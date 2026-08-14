@@ -211,12 +211,9 @@ test('the scratch tree is removed after a successful run AND after a failed one'
 	// interference between tests.
 	const scratch = () =>
 		new Set(
-			fs
-				.readdirSync(os.tmpdir())
-				.filter((n) => n.startsWith('hydra-stage-')),
+			fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith('hydra-stage-')),
 		)
-	const leaked = (before) =>
-		[...scratch()].filter((n) => before.has(n) === false)
+	const leaked = (before) => [...scratch()].filter((n) => before.has(n) === false)
 
 	try {
 		const before = scratch()

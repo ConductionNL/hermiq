@@ -103,7 +103,10 @@ function start(promise, key) {
 	//
 	// So the key is `<repo>-<issue>-<stage>`, which any tick can rebuild from
 	// the issue it is looking at. Same stage, same key, no storage.
-	const id = (typeof key === 'string' && key.trim() !== '') ? key.trim() : crypto.randomUUID()
+	const id =
+		typeof key === 'string' && key.trim() !== ''
+			? key.trim()
+			: crypto.randomUUID()
 	const job = {
 		status: RUNNING,
 		startedAt: Date.now(),

@@ -335,17 +335,7 @@ class HermiqWorkloadNode implements IFlowNode {
 			// stage that names none runs without one, which is every stage that
 			// existed before this key.
 			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
-			// WHAT THE STAGE PRODUCED, read back out of the clone before it is
-			// discarded. A reviewer that crashed, ran out of turns, or answered
-			// in prose exits 0 exactly like one that reviewed — the artefact is
-			// the only thing that tells them apart.
-			//
-			// ⚠️ USE THE ALIAS FORM. `["hydra-verdict.json"]` keys the file by
-			// its own path, and a flow addresses data with a DOTTED path, so
-			// `files.hydra-verdict.json` splits in the wrong places and is
-			// unreachable. `{verdict: "hydra-verdict.json"}` yields
-			// `files.verdict`, which a flow can walk.
-			collect: (array)($config['collect'] ?? []),
+			collect: $this->collectFor(config: $config),
 			// ASYNC. The stage is STARTED and a handle comes back, instead of
 			// the run holding the queue worker for the whole thing.
 			//
@@ -370,6 +360,33 @@ class HermiqWorkloadNode implements IFlowNode {
 		);
 
 	}//end dispatchFor()
+
+	/**
+	 * What the stage PRODUCED, read out of the clone before it is discarded.
+	 *
+	 * A reviewer that crashed, ran out of turns, or answered in prose exits 0
+	 * exactly like one that reviewed — the artefact is the only thing that
+	 * tells them apart, which is why a verdict step reads a file rather than an
+	 * exit code.
+	 *
+	 * Both transports call this, because a stage that produced a verdict must
+	 * hand it back whichever one carried it; an async path that quietly dropped
+	 * it would judge on nothing.
+	 *
+	 * ⚠️ USE THE ALIAS FORM. `["hydra-verdict.json"]` keys the file by its own
+	 * path, and a flow addresses data with a DOTTED path, so
+	 * `files.hydra-verdict.json` splits in the wrong places and is unreachable
+	 * — the artefact arrives and the consumer still cannot see it.
+	 * `{verdict: "hydra-verdict.json"}` yields `files.verdict`, which a flow
+	 * can walk.
+	 *
+	 * @param array $config The step configuration.
+	 *
+	 * @return array The collect declaration, or [] when the stage produces nothing.
+	 */
+	private function collectFor(array $config): array {
+		return (array)($config['collect'] ?? []);
+	}//end collectFor()
 
 	/**
 	 * Start the stage and return a handle, instead of waiting for it.
@@ -428,10 +445,7 @@ class HermiqWorkloadNode implements IFlowNode {
 				pushCredentialId: $pushCredentialId,
 				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
 				jobKey: trim($this->render(template: (string)($config['jobKey'] ?? ''), json: $json)),
-				// The same artefacts the synchronous path collects. A stage that
-				// produced a verdict must hand it back whichever transport
-				// carried it, or the async path silently judges on nothing.
-				collect: (array)($config['collect'] ?? [])
+				collect: $this->collectFor(config: $config)
 			),
 			owner: $owner,
 			credentialId: $credentialId,
