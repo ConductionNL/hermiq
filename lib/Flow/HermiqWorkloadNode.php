@@ -299,42 +299,13 @@ class HermiqWorkloadNode implements IFlowNode {
 		// shipped before this behaves exactly as it did.
 		$pushCredentialId = trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json));
 
-		// ASYNC: start the stage and return a HANDLE instead of holding the run
-		// open for it. Two METHODS rather than a flag, because the return SHAPE
-		// differs — an accepted dispatch has no exit code, and a caller reading
-		// one off an acknowledgement would read "accepted" as "exited 0".
-		//
-		// `FlowRunWorker` advances queued runs serially in one PHP process, so a
-		// synchronous stage holds the only worker for its whole duration and a
-		// slot pool cannot exceed one agent however many slots it declares.
+		// ASYNC is its own method: dispatchFor() was 136 lines and phpmd was
+		// right that a reader cannot hold that much at once. The branch is a
+		// whole second transport, not a variation on this one.
 		if (($config['async'] ?? false) === true) {
-			if ($this->asyncStages === null) {
-				// Refuse rather than silently running the stage synchronously:
-				// a step that asked for a handle and got a blocking call back
-				// would hold the queue worker for its whole duration while the
-				// flow waits for a `job` key that never arrives.
-				throw new UnexpectedValueException(
-					$this->l10n->t('This step asks for an asynchronous dispatch, but no async transport is available.')
-				);
-			}
-
-			return $this->attribute(
-				result: $this->asyncStages->dispatchAsync(
-					repo: $this->render(template: (string)($config['repo'] ?? ''), json: $json),
-					ref: $this->render(template: (string)($config['ref'] ?? ''), json: $json),
-					command: array_map(
-						fn (string $argument): string => $this->render(template: $argument, json: $json),
-						array_values((array)($config['command'] ?? []))
-					),
-					uid: $owner,
-					credentialId: $credentialId,
-					timeoutMs: (int)($config['timeoutMs'] ?? 0),
-					toolRepo: $this->render(template: (string)($config['toolRepo'] ?? ''), json: $json),
-					toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
-					push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
-					pushCredentialId: $pushCredentialId,
-					llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
-				),
+			return $this->dispatchAsyncFor(
+				config: $config,
+				json: $json,
 				owner: $owner,
 				credentialId: $credentialId,
 				pushCredentialId: $pushCredentialId
@@ -396,6 +367,65 @@ class HermiqWorkloadNode implements IFlowNode {
 		);
 
 	}//end dispatchFor()
+
+	/**
+	 * Start the stage and return a handle, instead of waiting for it.
+	 *
+	 * `FlowRunWorker` advances queued runs serially in one PHP process, so a
+	 * synchronous stage holds the only worker for its whole duration and a slot
+	 * pool cannot exceed one agent however many slots it declares. Pair this
+	 * with an `openregister.wait` and a `hermiq.workload-collect`.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $json The item's record.
+	 * @param string $owner The resolved run owner.
+	 * @param string $credentialId The rendered broker credential.
+	 * @param string $pushCredentialId The rendered injectable push credential.
+	 *
+	 * @return array The handle, attributed.
+	 *
+	 * @throws UnexpectedValueException When no async transport is available.
+	 */
+	private function dispatchAsyncFor(
+		array $config,
+		array $json,
+		string $owner,
+		string $credentialId,
+		string $pushCredentialId,
+	): array {
+		if ($this->asyncStages === null) {
+			// Refuse rather than silently running synchronously: a step that
+			// asked for a handle and got a blocking call back would hold the
+			// queue worker for its whole duration while the flow waits for a
+			// `job` key that never arrives.
+			throw new UnexpectedValueException(
+				$this->l10n->t('This step asks for an asynchronous dispatch, but no async transport is available.')
+			);
+		}
+
+		return $this->attribute(
+			result: $this->asyncStages->dispatchAsync(
+				repo: $this->render(template: (string)($config['repo'] ?? ''), json: $json),
+				ref: $this->render(template: (string)($config['ref'] ?? ''), json: $json),
+				command: array_map(
+					fn (string $argument): string => $this->render(template: $argument, json: $json),
+					array_values((array)($config['command'] ?? []))
+				),
+				uid: $owner,
+				credentialId: $credentialId,
+				timeoutMs: (int)($config['timeoutMs'] ?? 0),
+				toolRepo: $this->render(template: (string)($config['toolRepo'] ?? ''), json: $json),
+				toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
+				push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
+				pushCredentialId: $pushCredentialId,
+				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
+			),
+			owner: $owner,
+			credentialId: $credentialId,
+			pushCredentialId: $pushCredentialId
+		);
+	}//end dispatchAsyncFor()
+
 
 	/**
 	 * Record who ran a stage and on whose credential, ON the result.

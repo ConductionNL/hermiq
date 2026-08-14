@@ -178,7 +178,7 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 			// The stage result is published under the SAME shape a synchronous
 			// step produces, so a downstream gate reading `stage.exitCode` does
 			// not care which transport delivered it.
-			if (($state['status'] ?? '') === 'done' && isset($state['result']) === true) {
+			if ($state['status'] === 'done' && isset($state['result']) === true) {
 				$stageKey = trim((string)($config['stageOutput'] ?? 'stage'));
 				$json[($stageKey === '' ? 'stage' : $stageKey)] = $state['result'];
 				unset($state['result']);

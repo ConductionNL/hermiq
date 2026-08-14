@@ -244,9 +244,13 @@ test('async: the route accepts a handle-returning dispatch and still reaches the
 	const res = {
 		statusCode: 0,
 		body: '',
-		writeHead(status) { this.statusCode = status },
+		writeHead(status) {
+			this.statusCode = status
+		},
 		setHeader() {},
-		end(payload) { this.body = payload || '' },
+		end(payload) {
+			this.body = payload || ''
+		},
 	}
 
 	await server.handleStage({ headers, method: 'POST', url: '/stage' }, res, body)
@@ -262,7 +266,11 @@ test('async: the route accepts a handle-returning dispatch and still reaches the
 	// The whole point of the earlier route bug: a field that exists on both
 	// sides of this boundary and not IN it is silently dropped. Async must not
 	// become a path where the workload is never actually started.
-	assert.strictEqual(calls.length, 1, 'the workload was dispatched by the ROUTE, not deferred to the first poll')
+	assert.strictEqual(
+		calls.length,
+		1,
+		'the workload was dispatched by the ROUTE, not deferred to the first poll',
+	)
 	assert.strictEqual(calls[0].repo, 'https://example.test/target')
 	assert.strictEqual(calls[0].toolRepo, 'https://example.test/tool')
 })
