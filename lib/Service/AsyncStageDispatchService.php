@@ -70,6 +70,7 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @param string $pushCredentialId The injectable forge credential, or ''.
 	 * @param string $llmCredentialId The injectable model credential, or ''.
 	 * @param string $jobKey A caller-derived handle, or '' for a generated uuid.
+	 * @param array $collect Artefacts to read back out of the clone, or [].
 	 *
 	 * @return array{job: array{id: string, status: string}} The handle.
 	 *
@@ -93,6 +94,7 @@ class AsyncStageDispatchService extends StageDispatchService {
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
 		string $jobKey = '',
+		array $collect = [],
 	): array {
 		$ceiling = ($timeoutMs > 0) ? $timeoutMs : self::DEFAULT_STAGE_TIMEOUT_MS;
 
@@ -107,7 +109,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 			toolRef: $toolRef,
 			push: $push,
 			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId
+			llmCredentialId: $llmCredentialId,
+			collect: $collect
 		);
 
 		// The one field that differs from a synchronous dispatch. Added HERE
