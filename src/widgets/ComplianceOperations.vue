@@ -43,7 +43,7 @@
 					<h3 class="compliance-operations__subhead">
 						{{ t('hermiq', 'Incidents') }}
 					</h3>
-					<NcButton type="secondary" @click="showIncidentDialog = true">
+					<NcButton variant="secondary" @click="showIncidentDialog = true">
 						{{ t('hermiq', 'Open incident') }}
 					</NcButton>
 				</div>
@@ -110,7 +110,7 @@
 					{{ auditError }}
 				</NcNoteCard>
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="exporting"
 					:aria-label="t('hermiq', 'Export AI Act audit trail')"
 					@click="exportAudit">
@@ -162,7 +162,7 @@
 						type="number"
 						:label="t('hermiq', 'Retention period (months)')" />
 					<NcButton
-						type="primary"
+						variant="primary"
 						:disabled="retentionSaving"
 						@click="saveRetention">
 						{{ t('hermiq', 'Save') }}
@@ -179,6 +179,8 @@
 </template>
 
 <script>
+import { showSuccess } from '@nextcloud/dialogs'
+import { loadState } from '@nextcloud/initial-state'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -186,16 +188,14 @@ import {
 	NcNoteCard,
 	NcTextField,
 } from '@nextcloud/vue'
-import { loadState } from '@nextcloud/initial-state'
-import { showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
+import CreateIncidentDialog from '../dialogs/CreateIncidentDialog.vue'
 import {
 	getAuditExport,
 	getIncidents,
 	getRetention,
 	setRetention,
 } from '../api/tenantOps.js'
-import CreateIncidentDialog from '../dialogs/CreateIncidentDialog.vue'
 
 export default {
 	name: 'ComplianceOperations',

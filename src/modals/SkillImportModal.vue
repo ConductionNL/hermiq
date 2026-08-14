@@ -11,7 +11,7 @@
   refreshes the list) and `close` to dismiss.
 -->
 <template>
-	<NcModal size="normal" :can-close="!busy" @close="$emit('close')">
+	<NcModal size="normal" :canClose="!busy" @close="$emit('close')">
 		<div class="skill-import">
 			<h2 class="skill-import__title">
 				{{ t('hermiq', 'Import a skill') }}
@@ -46,17 +46,20 @@
 			</p>
 
 			<div class="skill-import__actions">
-				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
+				<NcButton
+					variant="tertiary"
+					:disabled="busy"
+					@click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('hub')">
 					{{ t('hermiq', 'Install from hub (quarantine)') }}
 				</NcButton>
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('direct')">
 					<template v-if="busy" #icon>

@@ -39,7 +39,7 @@
 				</NcNoteCard>
 
 				<NcTextField
-					:model-value="revealedSecret"
+					:modelValue="revealedSecret"
 					readonly
 					:label="t('hermiq', 'Secret')"
 					@focus="selectAll" />
@@ -55,7 +55,7 @@
 				</p>
 
 				<div class="schedule-webhook-secret-dialog__actions">
-					<NcButton type="primary" @click="copy">
+					<NcButton variant="primary" @click="copy">
 						<template #icon>
 							<ContentCopy :size="20" />
 						</template>
@@ -90,7 +90,7 @@
 				<div class="schedule-webhook-secret-dialog__actions">
 					<NcButton
 						v-if="!status.configured"
-						type="primary"
+						variant="primary"
 						:disabled="busy"
 						@click="mint">
 						{{ t('hermiq', 'Mint secret') }}
@@ -99,7 +99,7 @@
 						<NcButton :disabled="busy" @click="rotate">
 							{{ t('hermiq', 'Rotate secret') }}
 						</NcButton>
-						<NcButton type="error" :disabled="busy" @click="revoke">
+						<NcButton variant="error" :disabled="busy" @click="revoke">
 							{{ t('hermiq', 'Revoke secret') }}
 						</NcButton>
 					</template>
@@ -113,14 +113,14 @@
 </template>
 
 <script>
-import { NcButton, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { NcButton, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import ContentCopy from 'vue-material-design-icons/ContentCopy.vue'
 import {
 	getScheduleWebhookSecretStatus,
 	mintScheduleWebhookSecret,
-	rotateScheduleWebhookSecret,
 	revokeScheduleWebhookSecret,
+	rotateScheduleWebhookSecret,
 } from '../api/scheduleWebhookSecret.js'
 
 export default {
@@ -140,6 +140,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The schedule UUID whose webhook secret is managed. */
 		scheduleId: {
 			type: String,

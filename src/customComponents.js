@@ -24,12 +24,6 @@
 //
 // See hydra ADR-036 for the v2 registry design.
 
-import ApprovalInbox from './views/ApprovalInbox.vue'
-import AgentMemory from './views/AgentMemory.vue'
-import TenantOps from './views/TenantOps.vue'
-import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
-import McpTools from './views/McpTools.vue'
-import ComplianceDashboard from './views/ComplianceDashboard.vue'
 import AgentFormModal from './modals/AgentFormModal.vue'
 // Skill form (skill-form-slot, hermiq-skill-markdown-authoring): resolved by
 // SkillsCatalog's top-level `slots.form-dialog` -> "SkillFormModal", so
@@ -37,6 +31,12 @@ import AgentFormModal from './modals/AgentFormModal.vue'
 // (CnMarkdownEditor body, files editor) in place of the generic schema-driven
 // create/edit dialog — the skills analogue of AgentFormModal above.
 import SkillFormModal from './modals/SkillFormModal.vue'
+import AgentMemory from './views/AgentMemory.vue'
+import ApprovalInbox from './views/ApprovalInbox.vue'
+import ComplianceDashboard from './views/ComplianceDashboard.vue'
+import GuardrailPolicySettings from './views/GuardrailPolicySettings.vue'
+import McpTools from './views/McpTools.vue'
+import TenantOps from './views/TenantOps.vue'
 // NOTE — Features & Roadmap is NOT registered here, deliberately. The
 // manifest page `FeaturesRoadmap` is `type: "roadmap"`, a BUILT-IN page type
 // that CnPageRenderer resolves from `defaultPageTypes` (→ the lib's

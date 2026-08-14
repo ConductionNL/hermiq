@@ -21,9 +21,9 @@
 		</p>
 		<NcSelect
 			class="talk-delivery__select"
-			:input-label="t('hermiq', 'Default delivery room')"
+			:inputLabel="t('hermiq', 'Default delivery room')"
 			:options="options"
-			:model-value="selected"
+			:modelValue="selected"
 			:loading="loading"
 			:clearable="false"
 			label="name"
@@ -36,7 +36,7 @@
 				:label="t('hermiq', 'Create a new room')"
 				:placeholder="t('hermiq', 'e.g. Hermiq')" />
 			<NcButton
-				type="secondary"
+				variant="secondary"
 				:disabled="creating || newName.trim() === ''"
 				@click="onCreate">
 				<template v-if="creating" #icon>

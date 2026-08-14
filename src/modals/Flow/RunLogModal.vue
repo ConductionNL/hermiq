@@ -145,7 +145,7 @@
 			</template>
 
 			<div class="run-log__footer">
-				<NcButton type="primary" @click="$emit('close')">
+				<NcButton variant="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Close') }}
 				</NcButton>
 			</div>
@@ -154,10 +154,10 @@
 </template>
 
 <script>
-import { NcButton, NcModal, NcNoteCard } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
 import { translate as t } from '@nextcloud/l10n'
+import { generateUrl } from '@nextcloud/router'
+import { NcButton, NcModal, NcNoteCard } from '@nextcloud/vue'
 import { useFlowEditorStore } from '../../store/flowEditor.js'
 
 /**

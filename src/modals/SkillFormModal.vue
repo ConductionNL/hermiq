@@ -101,7 +101,7 @@
 					"
 					resize="vertical" />
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:disabled="pasteBusy || !pasteText.trim()"
 					@click="importPastedPackage">
 					<template v-if="pasteBusy" #icon>
@@ -128,7 +128,7 @@
 				v-model="form.frontmatter"
 				:label="t('hermiq', 'Frontmatter (YAML)')"
 				:placeholder="
-					t('hermiq', 'name: my-skill, description: …, version: 0.1.0')
+					t('hermiq', 'name: my-skill, description: …, version: 0.1.0')
 				"
 				resize="vertical" />
 
@@ -161,12 +161,12 @@
 				class="skill-form__file">
 				<div class="skill-form__file-head">
 					<NcTextField
-						:model-value="file.name"
+						:modelValue="file.name"
 						:label="t('hermiq', 'File name')"
 						:placeholder="t('hermiq', 'reference.md')"
 						@update:modelValue="renameFile(index, $event)" />
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:aria-label="t('hermiq', 'Remove file')"
 						@click="removeFile(index)">
 						{{ t('hermiq', 'Remove') }}
@@ -190,7 +190,7 @@
 					:label="t('hermiq', 'New file name')"
 					:placeholder="t('hermiq', 'reference.md')" />
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:disabled="!newFileName.trim()"
 					@click="addFile">
 					{{ t('hermiq', 'Add file') }}
@@ -202,7 +202,7 @@
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="saving || !form.name.trim()"
 					@click="save">
 					<template v-if="saving" #icon>
@@ -216,6 +216,7 @@
 </template>
 
 <script>
+import { CnMarkdownEditor } from '@conduction/nextcloud-vue'
 import {
 	NcButton,
 	NcLoadingIcon,
@@ -224,7 +225,6 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
-import { CnMarkdownEditor } from '@conduction/nextcloud-vue'
 import { importSkill, installFromSource, updateSkill } from '../api/skills.js'
 
 export default {
@@ -246,6 +246,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/**
 		 * The item being edited, or null in create mode (agent-form-slot
 		 * parity): supplied by CnIndexPage's `#form-dialog` scoped slot
@@ -256,6 +257,7 @@ export default {
 			type: Object,
 			default: null,
 		},
+
 		/**
 		 * Closes the host dialog (agent-form-slot parity): the `close`
 		 * binding from CnIndexPage's `#form-dialog` scoped slot. Called in
@@ -265,6 +267,7 @@ export default {
 			type: Function,
 			default: null,
 		},
+
 		/**
 		 * The effective JSON schema driving the form (agent-form-slot
 		 * parity): the `schema` binding from CnIndexPage's `#form-dialog`
@@ -276,6 +279,7 @@ export default {
 			type: Object,
 			default: null,
 		},
+
 		/**
 		 * hermiq-skill-conversational-authoring: pre-fill `body` when opened
 		 * fresh (no `item`) — used by the chat "Save as skill" seam to seed
@@ -286,6 +290,7 @@ export default {
 			type: String,
 			default: '',
 		},
+
 		/**
 		 * hermiq-skill-conversational-authoring: where a newly CREATED skill
 		 * lands. `'active'` (default) is the catalog-authoring path

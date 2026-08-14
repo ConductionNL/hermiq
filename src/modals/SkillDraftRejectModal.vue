@@ -43,7 +43,7 @@
 				<ul class="skill-draft-reject__refs">
 					<li v-for="ref in learningRefs" :key="ref">
 						<NcCheckboxRadioSwitch
-							:model-value="marked.includes(ref)"
+							:modelValue="marked.includes(ref)"
 							@update:modelValue="toggle(ref, $event)">
 							<code>{{ ref }}</code>
 						</NcCheckboxRadioSwitch>
@@ -53,7 +53,7 @@
 
 			<div class="skill-draft-reject__actions">
 				<NcButton
-					type="error"
+					variant="error"
 					:disabled="busy"
 					:aria-label="t('hermiq', 'Confirm the rejection')"
 					@click="$emit('reject', { note, rejectedLearningRefs: marked })">
@@ -63,7 +63,10 @@
 							: t('hermiq', 'Reject draft')
 					}}
 				</NcButton>
-				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
+				<NcButton
+					variant="tertiary"
+					:disabled="busy"
+					@click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 			</div>
@@ -89,6 +92,7 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+
 		/** Whether the rejection is in flight. */
 		busy: {
 			type: Boolean,

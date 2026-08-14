@@ -16,13 +16,13 @@
 		:objects="rows"
 		:loading="editor.loading"
 		:selectable="false"
-		:show-view-action="false"
-		:show-edit-action="false"
+		:showViewAction="false"
+		:showEditAction="false"
 		:actions="rowActions"
-		row-click-to-view
-		@row-click="open">
+		rowClickToView
+		@rowClick="open">
 		<template #header-actions>
-			<NcButton type="primary" @click="$router.push('/flows/new')">
+			<NcButton variant="primary" @click="$router.push('/flows/new')">
 				<template #icon>
 					<Plus :size="20" />
 				</template>
@@ -33,8 +33,8 @@
 </template>
 
 <script>
-import { NcButton } from '@nextcloud/vue'
 import { CnIndexPage } from '@conduction/nextcloud-vue'
+import { NcButton } from '@nextcloud/vue'
 import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import { useFlowEditorStore } from '../store/flowEditor.js'

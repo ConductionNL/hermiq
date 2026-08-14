@@ -14,14 +14,14 @@
 // because the Nextcloud admin section is the canonical place for
 // "before the app boots" config (e.g. an app's OR register binding).
 
-import { createApp } from 'vue'
 import {
-	translate as t,
-	translatePlural as n,
 	loadTranslations,
+	translatePlural as n,
+	translate as t,
 } from '@nextcloud/l10n'
-import pinia from './pinia.js'
+import { createApp } from 'vue'
 import AdminRoot from './views/AdminRoot.vue'
+import pinia from './pinia.js'
 
 // Vue 3 (ADR-066): mirror main.js — global t/n move from Vue.mixin to
 // app.config.globalProperties, and pinia installs via app.use instead of

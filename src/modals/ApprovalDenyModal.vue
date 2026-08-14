@@ -40,7 +40,7 @@
 				<NcButton :disabled="saving" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
-				<NcButton type="error" :disabled="saving" @click="confirm">
+				<NcButton variant="error" :disabled="saving" @click="confirm">
 					<template v-if="saving" #icon>
 						<NcLoadingIcon :size="20" />
 					</template>
@@ -78,6 +78,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The pending approval being denied, or null. */
 		approval: {
 			type: Object,

@@ -24,7 +24,7 @@
 			<NcSelect
 				v-model="selectedAgent"
 				:options="agentOptions"
-				:input-label="t('hermiq', 'Agent')"
+				:inputLabel="t('hermiq', 'Agent')"
 				:loading="loadingAgents"
 				:placeholder="t('hermiq', 'Select agent')"
 				label="label" />
@@ -39,7 +39,7 @@
 				}}
 			</p>
 			<NcButton
-				type="primary"
+				variant="primary"
 				:disabled="installing || !canInstall"
 				@click="doInstall">
 				{{

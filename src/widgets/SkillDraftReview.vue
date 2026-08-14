@@ -115,10 +115,8 @@
 					<li
 						v-for="(line, index) in diffLines"
 						:key="index"
-						:class="[
-							'skill-draft-review__diff-line',
-							'skill-draft-review__diff-line--' + line.kind,
-						]">
+						class="skill-draft-review__diff-line"
+						:class="['skill-draft-review__diff-line--' + line.kind]">
 						<span
 							class="skill-draft-review__diff-marker"
 							:aria-label="
@@ -165,14 +163,17 @@
 				  in it ("Edit, then accept" vs "Edit the draft before accepting").
 				-->
 				<div class="skill-draft-review__actions">
-					<NcButton type="primary" :disabled="busy" @click="doAccept">
+					<NcButton variant="primary" :disabled="busy" @click="doAccept">
 						{{ busy ? t('hermiq', 'Working…') : t('hermiq', 'Accept') }}
 					</NcButton>
-					<NcButton type="secondary" :disabled="busy" @click="openEditor">
+					<NcButton
+						variant="secondary"
+						:disabled="busy"
+						@click="openEditor">
 						{{ t('hermiq', 'Edit, then accept') }}
 					</NcButton>
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:disabled="busy"
 						@click="showReject = true">
 						{{ t('hermiq', 'Reject') }}
@@ -201,7 +202,7 @@
 					}}
 				</p>
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:disabled="busy"
 					:aria-label="t('hermiq', 'Propose an improvement draft now')"
 					@click="doPropose">
@@ -219,7 +220,7 @@
 
 		<SkillDraftRejectModal
 			v-if="showReject"
-			:learning-refs="learningRefs"
+			:learningRefs="learningRefs"
 			:busy="busy"
 			@reject="doReject"
 			@close="showReject = false" />
@@ -229,6 +230,8 @@
 <script>
 import { emit } from '@nextcloud/event-bus'
 import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import SkillDraftEditModal from '../modals/SkillDraftEditModal.vue'
+import SkillDraftRejectModal from '../modals/SkillDraftRejectModal.vue'
 import {
 	acceptSkillDraft,
 	listSkillDrafts,
@@ -236,8 +239,6 @@ import {
 	rejectSkillDraft,
 	updateSkillDraftContent,
 } from '../api/skills.js'
-import SkillDraftEditModal from '../modals/SkillDraftEditModal.vue'
-import SkillDraftRejectModal from '../modals/SkillDraftRejectModal.vue'
 import { useSkillStore } from '../store/store.js'
 
 export default {

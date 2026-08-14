@@ -88,16 +88,19 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The Agent UUID whose versions are being compared. */
 		agentId: {
 			type: String,
 			required: true,
 		},
+
 		/** The "before" version id. */
 		fromId: {
 			type: String,
 			default: '',
 		},
+
 		/** The "after" version id. */
 		toId: {
 			type: String,

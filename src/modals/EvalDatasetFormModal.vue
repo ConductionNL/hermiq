@@ -43,7 +43,7 @@
 				<div class="eval-form__case-head">
 					<strong>{{ t('hermiq', 'Case {n}', { n: index + 1 }) }}</strong>
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:aria-label="t('hermiq', 'Remove case')"
 						@click="removeCase(index)">
 						{{ t('hermiq', 'Remove') }}
@@ -60,12 +60,12 @@
 
 				<div class="eval-form__field">
 					<NcSelect
-						:model-value="expectationOptionFor(evalCase)"
-						:input-label="t('hermiq', 'Expectation')"
+						:modelValue="expectationOptionFor(evalCase)"
+						:inputLabel="t('hermiq', 'Expectation')"
 						:options="expectationOptions"
 						:clearable="false"
 						label="label"
-						track-by="value"
+						trackBy="value"
 						@update:modelValue="
 							(opt) => setExpectation(evalCase, opt)
 						" />
@@ -102,7 +102,7 @@
 					resize="vertical" />
 			</div>
 
-			<NcButton type="secondary" @click="addCase">
+			<NcButton variant="secondary" @click="addCase">
 				{{ t('hermiq', 'Add case') }}
 			</NcButton>
 
@@ -111,7 +111,7 @@
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="saving || !form.name || form.cases.length === 0"
 					@click="save">
 					<template v-if="saving" #icon>
@@ -155,6 +155,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The dataset being edited, or null when creating a new one. */
 		dataset: {
 			type: Object,

@@ -1,6 +1,6 @@
+import { getRequestToken } from '@nextcloud/auth'
 // SPDX-License-Identifier: EUPL-1.2
 import { defineStore } from 'pinia'
-import { getRequestToken } from '@nextcloud/auth'
 
 /**
  * Generic OpenRegister object store.

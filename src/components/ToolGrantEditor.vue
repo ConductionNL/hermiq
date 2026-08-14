@@ -58,7 +58,7 @@
 			<NcSelect
 				v-model="draftGrants"
 				class="tool-grants__select"
-				:input-label="t('hermiq', 'Grants')"
+				:inputLabel="t('hermiq', 'Grants')"
 				:placeholder="
 					t(
 						'hermiq',
@@ -69,11 +69,11 @@
 				:disabled="!canEdit || saving"
 				:multiple="true"
 				:taggable="true"
-				:close-on-select="false" />
+				:closeOnSelect="false" />
 
 			<div class="tool-grants__actions">
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="!canEdit || saving || !dirty"
 					@click="save">
 					<template #icon>
@@ -83,7 +83,7 @@
 					{{ t('hermiq', 'Save grants') }}
 				</NcButton>
 				<NcButton
-					type="tertiary"
+					variant="tertiary"
 					:disabled="!canEdit || saving || !dirty"
 					@click="reset">
 					{{ t('hermiq', 'Reset') }}
@@ -203,14 +203,14 @@
 								<td>
 									<NcButton
 										v-if="!tool.granted"
-										type="tertiary"
+										variant="tertiary"
 										:disabled="!canEdit || saving"
 										@click="grantExact(tool)">
 										{{ t('hermiq', 'Grant') }}
 									</NcButton>
 									<NcButton
 										v-else-if="isExactlyGranted(tool)"
-										type="tertiary"
+										variant="tertiary"
 										:disabled="!canEdit || saving"
 										@click="revokeExact(tool)">
 										{{ t('hermiq', 'Revoke') }}
@@ -229,6 +229,7 @@
 </template>
 
 <script>
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -237,7 +238,6 @@ import {
 	NcSelect,
 	NcTextField,
 } from '@nextcloud/vue'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import ToolboxOutline from 'vue-material-design-icons/ToolboxOutline.vue'
 import { getToolCatalog, updateToolGrants } from '../api/toolOversight.js'
@@ -262,6 +262,7 @@ export default {
 			type: String,
 			required: true,
 		},
+
 		/** Whether the current user may edit (owner-only; the server enforces it too). */
 		canEdit: {
 			type: Boolean,
@@ -364,6 +365,7 @@ export default {
 			handler() {
 				this.load()
 			},
+
 			immediate: true,
 		},
 	},

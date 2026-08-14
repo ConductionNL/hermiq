@@ -43,7 +43,10 @@
 				<NcButton :disabled="deleting" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
-				<NcButton type="error" :disabled="deleting" @click="confirmDelete">
+				<NcButton
+					variant="error"
+					:disabled="deleting"
+					@click="confirmDelete">
 					<template #icon>
 						<NcLoadingIcon v-if="deleting" :size="20" />
 						<Delete v-else :size="20" />
@@ -77,6 +80,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The (archived) conversation to delete permanently. */
 		conversation: {
 			type: Object,

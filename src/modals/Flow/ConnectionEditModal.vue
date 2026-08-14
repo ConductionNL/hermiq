@@ -20,15 +20,15 @@
 				</p>
 
 				<NcTextField
-					:model-value="edge.title || ''"
+					:modelValue="edge.title || ''"
 					:label="t('hermiq', 'Title')"
 					:placeholder="
 						t('hermiq', 'The words on the line, e.g. “approved”')
 					"
-					@update:model-value="editor.setEdgeField('title', $event)" />
+					@update:modelValue="editor.setEdgeField('title', $event)" />
 
 				<NcTextArea
-					:model-value="edge.description || ''"
+					:modelValue="edge.description || ''"
 					:label="t('hermiq', 'Description')"
 					:placeholder="
 						t(
@@ -37,12 +37,12 @@
 						)
 					"
 					rows="3"
-					@update:model-value="
+					@update:modelValue="
 						editor.setEdgeField('description', $event)
 					" />
 
 				<NcTextArea
-					:model-value="edge.notes || ''"
+					:modelValue="edge.notes || ''"
 					:label="t('hermiq', 'Notes')"
 					:placeholder="
 						t(
@@ -51,7 +51,7 @@
 						)
 					"
 					rows="4"
-					@update:model-value="editor.setEdgeField('notes', $event)" />
+					@update:modelValue="editor.setEdgeField('notes', $event)" />
 
 				<!--
 					How the line is DRAWN. None of these reach the engine: it
@@ -69,13 +69,13 @@
 
 				<div class="connection-edit__row">
 					<NcSelect
-						:model-value="option(LINE_STYLES, edge.lineStyle || 'solid')"
-						:input-label="t('hermiq', 'Line')"
+						:modelValue="option(LINE_STYLES, edge.lineStyle || 'solid')"
+						:inputLabel="t('hermiq', 'Line')"
 						:options="LINE_STYLES"
 						:clearable="false"
 						label="label"
-						track-by="value"
-						@update:model-value="
+						trackBy="value"
+						@update:modelValue="
 							editor.setEdgeField(
 								'lineStyle',
 								$event ? $event.value : 'solid',
@@ -83,13 +83,13 @@
 						" />
 
 					<NcSelect
-						:model-value="option(WIDTHS, String(edge.width || 2))"
-						:input-label="t('hermiq', 'Thickness')"
+						:modelValue="option(WIDTHS, String(edge.width || 2))"
+						:inputLabel="t('hermiq', 'Thickness')"
 						:options="WIDTHS"
 						:clearable="false"
 						label="label"
-						track-by="value"
-						@update:model-value="
+						trackBy="value"
+						@update:modelValue="
 							editor.setEdgeField(
 								'width',
 								$event ? Number($event.value) : 2,
@@ -99,13 +99,13 @@
 
 				<div class="connection-edit__row">
 					<NcSelect
-						:model-value="option(MARKERS, edge.startMarker || 'none')"
-						:input-label="t('hermiq', 'Start symbol')"
+						:modelValue="option(MARKERS, edge.startMarker || 'none')"
+						:inputLabel="t('hermiq', 'Start symbol')"
 						:options="MARKERS"
 						:clearable="false"
 						label="label"
-						track-by="value"
-						@update:model-value="
+						trackBy="value"
+						@update:modelValue="
 							editor.setEdgeField(
 								'startMarker',
 								$event ? $event.value : 'none',
@@ -113,13 +113,13 @@
 						" />
 
 					<NcSelect
-						:model-value="option(MARKERS, edge.endMarker || 'arrow')"
-						:input-label="t('hermiq', 'End symbol')"
+						:modelValue="option(MARKERS, edge.endMarker || 'arrow')"
+						:inputLabel="t('hermiq', 'End symbol')"
 						:options="MARKERS"
 						:clearable="false"
 						label="label"
-						track-by="value"
-						@update:model-value="
+						trackBy="value"
+						@update:modelValue="
 							editor.setEdgeField(
 								'endMarker',
 								$event ? $event.value : 'arrow',
@@ -150,7 +150,7 @@
 							editor.setEdgeField('colour', $event.target.value)
 						" />
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						@click="editor.setEdgeField('colour', '')">
 						{{ t('hermiq', 'Use theme colour') }}
 					</NcButton>
@@ -158,13 +158,13 @@
 			</template>
 
 			<div class="connection-edit__actions">
-				<NcButton type="error" @click="onRemove">
+				<NcButton variant="error" @click="onRemove">
 					<template #icon>
 						<Delete :size="20" />
 					</template>
 					{{ t('hermiq', 'Remove connection') }}
 				</NcButton>
-				<NcButton type="primary" @click="$emit('close')">
+				<NcButton variant="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Done') }}
 				</NcButton>
 			</div>
@@ -173,9 +173,9 @@
 </template>
 
 <script>
+import { translate as t } from '@nextcloud/l10n'
 import { NcButton, NcModal, NcSelect, NcTextArea, NcTextField } from '@nextcloud/vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
-import { translate as t } from '@nextcloud/l10n'
 import { useFlowEditorStore } from '../../store/flowEditor.js'
 
 /**
@@ -227,11 +227,13 @@ export default {
 				{ label: t('hermiq', 'Dashed'), value: 'dashed' },
 				{ label: t('hermiq', 'Dotted'), value: 'dotted' },
 			],
+
 			WIDTHS: [
 				{ label: t('hermiq', 'Thin'), value: '1' },
 				{ label: t('hermiq', 'Normal'), value: '2' },
 				{ label: t('hermiq', 'Thick'), value: '4' },
 			],
+
 			MARKERS: [
 				{ label: t('hermiq', 'None'), value: 'none' },
 				{ label: t('hermiq', 'Arrow'), value: 'arrow' },

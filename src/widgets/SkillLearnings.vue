@@ -89,8 +89,8 @@
 </template>
 
 <script>
-import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
+import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import { useSkillStore } from '../store/store.js'

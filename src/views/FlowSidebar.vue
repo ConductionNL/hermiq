@@ -31,12 +31,12 @@
 				<div class="flow-sidebar__palette-filters">
 					<NcTextField
 						class="flow-sidebar__palette-search"
-						:model-value="nodeSearch"
+						:modelValue="nodeSearch"
 						:label="t('hermiq', 'Search nodes')"
-						trailing-button-icon="close"
-						:show-trailing-button="nodeSearch !== ''"
-						@update:model-value="nodeSearch = $event"
-						@trailing-button-click="nodeSearch = ''">
+						trailingButtonIcon="close"
+						:showTrailingButton="nodeSearch !== ''"
+						@update:modelValue="nodeSearch = $event"
+						@trailingButtonClick="nodeSearch = ''">
 						<Magnify :size="16" />
 					</NcTextField>
 
@@ -50,9 +50,9 @@
 						class="flow-sidebar__palette-type"
 						:options="roleOptions"
 						:clearable="false"
-						:input-label="t('hermiq', 'Type')"
+						:inputLabel="t('hermiq', 'Type')"
 						label="label"
-						track-by="value" />
+						trackBy="value" />
 				</div>
 
 				<p v-if="paletteTypes.length === 0" class="flow-sidebar__hint">
@@ -127,7 +127,7 @@
 								type.provider
 							}}</span>
 							<NcButton
-								type="secondary"
+								variant="secondary"
 								@click="editor.addNode(type.id)">
 								{{ t('hermiq', 'Add to flow') }}
 							</NcButton>
@@ -172,7 +172,7 @@
 					nothing about the flow.
 				-->
 				<NcButton
-					type="tertiary"
+					variant="tertiary"
 					:disabled="!editor.flow.id"
 					@click="editor.loadRuns()">
 					<template #icon>
@@ -337,7 +337,7 @@
 										}}</pre>
 
 										<NcButton
-											type="tertiary"
+											variant="tertiary"
 											@click="
 												editor.openStepPayload(
 													entry.transition
@@ -355,7 +355,7 @@
 							</p>
 
 							<NcButton
-								type="tertiary"
+								variant="tertiary"
 								@click="editor.openRunLog(run.uuid || run.id)">
 								{{ t('hermiq', 'Open full log') }}
 							</NcButton>
@@ -425,14 +425,14 @@
 				</NcNoteCard>
 
 				<NcTextField
-					:model-value="editor.flow.name"
+					:modelValue="editor.flow.name"
 					:label="t('hermiq', 'Name')"
 					required
-					@update:model-value="editor.setFlowField('name', $event)" />
+					@update:modelValue="editor.setFlowField('name', $event)" />
 				<NcTextField
-					:model-value="editor.flow.description || ''"
+					:modelValue="editor.flow.description || ''"
 					:label="t('hermiq', 'Description')"
-					@update:model-value="
+					@update:modelValue="
 						editor.setFlowField('description', $event)
 					" />
 
@@ -483,7 +483,7 @@
 				     to still be auditable months later. Empty means the
 				     instance default — NOT "keep forever". -->
 				<NcTextField
-					:model-value="
+					:modelValue="
 						editor.flow.retentionDays === null
 						|| editor.flow.retentionDays === undefined
 							? ''
@@ -492,7 +492,7 @@
 					type="number"
 					:label="t('hermiq', 'Keep run logs for (days)')"
 					:placeholder="t('hermiq', 'Instance default')"
-					@update:model-value="
+					@update:modelValue="
 						editor.setFlowField(
 							'retentionDays',
 							$event === '' ? null : Number($event),
@@ -500,17 +500,17 @@
 					" />
 
 				<NcSelect
-					:model-value="editor.flow.executionMode || 'async'"
+					:modelValue="editor.flow.executionMode || 'async'"
 					:options="executionModes"
-					:input-label="t('hermiq', 'Execution')"
-					@update:model-value="
+					:inputLabel="t('hermiq', 'Execution')"
+					@update:modelValue="
 						editor.setFlowField('executionMode', $event)
 					" />
 
 				<NcCheckboxRadioSwitch
-					:model-value="editor.flow.enabled === true"
+					:modelValue="editor.flow.enabled === true"
 					type="switch"
-					@update:model-value="editor.setFlowField('enabled', $event)">
+					@update:modelValue="editor.setFlowField('enabled', $event)">
 					{{ t('hermiq', 'Enabled') }}
 				</NcCheckboxRadioSwitch>
 
@@ -531,6 +531,7 @@
 </template>
 
 <script>
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import {
 	NcAppSidebar,
 	NcAppSidebarTab,
@@ -541,7 +542,6 @@ import {
 	NcSelect,
 	NcTextField,
 } from '@nextcloud/vue'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import Cog from 'vue-material-design-icons/Cog.vue'
 import History from 'vue-material-design-icons/History.vue'
 import Magnify from 'vue-material-design-icons/Magnify.vue'
@@ -841,7 +841,7 @@ export default {
 		 *
 		 * @param {string|null} id The newly selected place id.
 		 */
-		'editor.selectedNodeId'(id) {
+		'editor.selectedNodeId': function (id) {
 			if (id !== null) {
 				this.activeTab = 'nodes'
 			}
@@ -856,7 +856,7 @@ export default {
 		 *
 		 * @param {string|null} id The newly selected step id.
 		 */
-		'editor.selectedEdgeId'(id) {
+		'editor.selectedEdgeId': function (id) {
 			if (id !== null) {
 				this.activeTab = 'step'
 			}

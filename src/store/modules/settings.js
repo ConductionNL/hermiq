@@ -1,7 +1,7 @@
+import { getRequestToken } from '@nextcloud/auth'
+import { generateUrl } from '@nextcloud/router'
 // SPDX-License-Identifier: EUPL-1.2
 import { defineStore } from 'pinia'
-import { generateUrl } from '@nextcloud/router'
-import { getRequestToken } from '@nextcloud/auth'
 
 export const useSettingsStore = defineStore('settings', {
 	state: () => ({

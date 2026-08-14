@@ -143,7 +143,7 @@
 							</td>
 							<td>
 								<NcButton
-									type="tertiary"
+									variant="tertiary"
 									:disabled="saving"
 									@click="unbind(room.token)">
 									{{ t('hermiq', 'Unbind') }}
@@ -155,16 +155,16 @@
 
 				<div class="talk-bridge-settings__bind">
 					<NcTextField
-						:value.sync="newToken"
+						v-model="newToken"
 						:label="t('hermiq', 'Talk conversation token')"
 						:placeholder="t('hermiq', 'e.g. a1b2c3d4')" />
 					<NcTextField
-						:value.sync="newAgentId"
+						v-model="newAgentId"
 						:label="t('hermiq', 'Agent UUID')"
 						:placeholder="
 							t('hermiq', 'The agent to answer in that conversation')
 						" />
-					<NcButton type="primary" :disabled="!canBind" @click="bind">
+					<NcButton variant="primary" :disabled="!canBind" @click="bind">
 						{{ t('hermiq', 'Bind') }}
 					</NcButton>
 				</div>

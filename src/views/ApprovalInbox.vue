@@ -84,7 +84,7 @@
 					<td>{{ formatDate(approval.requestedAt) }}</td>
 					<td class="approval-inbox__row-actions">
 						<NcButton
-							type="primary"
+							variant="primary"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Approve run')"
 							@click="approve(approval)">
@@ -94,7 +94,7 @@
 							{{ t('hermiq', 'Approve') }}
 						</NcButton>
 						<NcButton
-							type="error"
+							variant="error"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Deny run')"
 							@click="openDeny(approval)">
@@ -116,10 +116,10 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
+import KillSwitchToggle from '../components/KillSwitchToggle.vue'
+import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import { approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
-import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
-import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 
 export default {
 	name: 'ApprovalInbox',

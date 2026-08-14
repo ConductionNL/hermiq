@@ -53,7 +53,7 @@
 				</p>
 				<div class="tool-oversight__exports">
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:disabled="!data.rows.length"
 						@click="exportAs('csv')">
 						<template #icon>
@@ -62,7 +62,7 @@
 						{{ t('hermiq', 'Export CSV') }}
 					</NcButton>
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:disabled="!data.rows.length"
 						@click="exportAs('json')">
 						<template #icon>
@@ -227,6 +227,7 @@ export default {
 			handler() {
 				this.load()
 			},
+
 			immediate: true,
 		},
 	},

@@ -67,8 +67,8 @@
 				:columns="columns"
 				:rows="rows"
 				:loading="loading"
-				row-key="id"
-				:empty-text="t('hermiq', 'No AI features yet')">
+				rowKey="id"
+				:emptyText="t('hermiq', 'No AI features yet')">
 				<template #column-riskCategory="{ row }">
 					<span
 						class="ai-feature-register__risk"
@@ -107,7 +107,7 @@
 				<template #row-actions="{ row }">
 					<div class="ai-feature-register__actions">
 						<NcButton
-							type="secondary"
+							variant="secondary"
 							:disabled="busy || row.acknowledged"
 							:aria-label="
 								t('hermiq', 'Acknowledge this AI feature as DPO')
@@ -116,7 +116,7 @@
 							{{ t('hermiq', 'Acknowledge (DPO)') }}
 						</NcButton>
 						<NcButton
-							type="primary"
+							variant="primary"
 							:disabled="
 								busy
 								|| !row.acknowledged
@@ -127,7 +127,7 @@
 							{{ t('hermiq', 'Enable') }}
 						</NcButton>
 						<NcButton
-							type="tertiary"
+							variant="tertiary"
 							:disabled="busy || row.lifecycle !== 'enabled'"
 							:aria-label="t('hermiq', 'Disable this AI feature')"
 							@click="doDisable(row.feature)">
@@ -142,7 +142,7 @@
 								&& opencatalogiAvailable
 								&& row.algoritmeregisterStatus !== 'gepubliceerd'
 							"
-							type="secondary"
+							variant="secondary"
 							:disabled="busy || !publishReady(row)"
 							:title="
 								publishReady(row) ? '' : publishBlockedReason(row)
@@ -162,7 +162,7 @@
 								&& opencatalogiAvailable
 								&& row.algoritmeregisterStatus === 'gepubliceerd'
 							"
-							type="tertiary"
+							variant="tertiary"
 							:disabled="busy"
 							:aria-label="
 								t(
@@ -181,9 +181,9 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
 import { loadState } from '@nextcloud/initial-state'
+import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 // The AI sparkles, not a robot — the single mark for "the model" across the
 // nav, the launcher hex and the chat empty state.
 import AiIcon from 'vue-material-design-icons/Creation.vue'

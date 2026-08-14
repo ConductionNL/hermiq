@@ -63,7 +63,7 @@
 			<NcButton :disabled="saving" @click="$emit('close')">
 				{{ t('hermiq', 'Cancel') }}
 			</NcButton>
-			<NcButton type="primary" :disabled="saving || !canSave" @click="save">
+			<NcButton variant="primary" :disabled="saving || !canSave" @click="save">
 				<template v-if="saving" #icon>
 					<NcLoadingIcon :size="20" />
 				</template>
@@ -102,11 +102,13 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Optional agent UUID to preselect (e.g. opened from an agent/run context). */
 		defaultAgentId: {
 			type: String,
 			default: '',
 		},
+
 		/** Optional run (AuditTrail entry) uuids to preselect. */
 		defaultRunIds: {
 			type: Array,

@@ -38,13 +38,13 @@
 		</div>
 
 		<template #actions>
-			<NcButton type="tertiary" @click="copy">
+			<NcButton variant="tertiary" @click="copy">
 				<template #icon>
 					<ContentCopy :size="20" />
 				</template>
 				{{ t('hermiq', 'Copy JSON') }}
 			</NcButton>
-			<NcButton type="primary" @click="$emit('close')">
+			<NcButton variant="primary" @click="$emit('close')">
 				{{ t('hermiq', 'Close') }}
 			</NcButton>
 		</template>
@@ -52,8 +52,8 @@
 </template>
 
 <script>
-import { NcButton, NcDialog, NcNoteCard } from '@nextcloud/vue'
 import { showSuccess } from '@nextcloud/dialogs'
+import { NcButton, NcDialog, NcNoteCard } from '@nextcloud/vue'
 import ContentCopy from 'vue-material-design-icons/ContentCopy.vue'
 
 /**
@@ -79,6 +79,7 @@ export default {
 			type: String,
 			default: '',
 		},
+
 		/** The step's trace entry. */
 		result: {
 			type: Object,

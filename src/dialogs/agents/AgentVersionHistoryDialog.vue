@@ -48,7 +48,7 @@
 					:key="version.id"
 					class="agent-version-history-dialog__row">
 					<NcCheckboxRadioSwitch
-						:model-value="isSelected(version.id)"
+						:modelValue="isSelected(version.id)"
 						:aria-label="
 							t('hermiq', 'Select version from {date} to compare', {
 								date: formatDate(version.timestamp),
@@ -89,13 +89,13 @@
 								}}
 							</span>
 							<NcButton
-								type="tertiary"
+								variant="tertiary"
 								:disabled="rollingBackId !== null"
 								@click="confirmingId = null">
 								{{ t('hermiq', 'Cancel') }}
 							</NcButton>
 							<NcButton
-								type="error"
+								variant="error"
 								:disabled="rollingBackId !== null"
 								@click="performRollback(version)">
 								<template v-if="rollingBackId === version.id" #icon>
@@ -106,7 +106,7 @@
 						</span>
 						<NcButton
 							v-else
-							type="tertiary"
+							variant="tertiary"
 							:disabled="rollingBackId !== null"
 							:aria-label="t('hermiq', 'Roll back to this version')"
 							@click="confirmingId = version.id">
@@ -119,9 +119,9 @@
 
 		<AgentVersionDiffDialog
 			:show="showDiff"
-			:agent-id="resolvedAgentId"
-			:from-id="diffFromId"
-			:to-id="diffToId"
+			:agentId="resolvedAgentId"
+			:fromId="diffFromId"
+			:toId="diffToId"
 			@close="showDiff = false" />
 
 		<template #actions>
@@ -129,7 +129,7 @@
 				{{ t('hermiq', 'Close') }}
 			</NcButton>
 			<NcButton
-				type="primary"
+				variant="primary"
 				:disabled="selected.length !== 2"
 				@click="compare">
 				{{ t('hermiq', 'Compare selected') }}
@@ -140,6 +140,7 @@
 
 <script>
 import { getCurrentUser } from '@nextcloud/auth'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -147,10 +148,9 @@ import {
 	NcLoadingIcon,
 	NcNoteCard,
 } from '@nextcloud/vue'
-import { showError, showSuccess } from '@nextcloud/dialogs'
+import AgentVersionDiffDialog from './AgentVersionDiffDialog.vue'
 import { listAgentVersions, rollbackAgentVersion } from '../../api/agents.js'
 import { useAgentStore } from '../../store/store.js'
-import AgentVersionDiffDialog from './AgentVersionDiffDialog.vue'
 
 export default {
 	name: 'AgentVersionHistoryDialog',
@@ -170,6 +170,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/**
 		 * The Agent UUID whose version history is shown. Optional — when
 		 * opened as the registry `agent-version-history` open-modal target
@@ -182,6 +183,7 @@ export default {
 			type: String,
 			default: '',
 		},
+
 		/**
 		 * Whether the current user may roll back this agent (owner-only).
 		 * `null` (default) means "auto-resolve": self-fetch the agent and

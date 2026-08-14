@@ -36,7 +36,7 @@
 		<!-- Conversation list column -->
 		<aside class="chat-page__list">
 			<div class="chat-page__list-head">
-				<NcButton type="primary" wide @click="newConversation">
+				<NcButton variant="primary" wide @click="newConversation">
 					<template #icon>
 						<Plus :size="20" />
 					</template>
@@ -44,22 +44,22 @@
 				</NcButton>
 				<div class="chat-page__tabs">
 					<NcCheckboxRadioSwitch
-						:button-variant="true"
-						:model-value="showArchive ? 'archive' : 'active'"
+						:buttonVariant="true"
+						:modelValue="showArchive ? 'archive' : 'active'"
 						value="active"
 						name="chat_list_tab"
 						type="radio"
-						button-variant-grouped="horizontal"
+						buttonVariantGrouped="horizontal"
 						@update:modelValue="setArchiveTab(false)">
 						{{ t('hermiq', 'Active') }}
 					</NcCheckboxRadioSwitch>
 					<NcCheckboxRadioSwitch
-						:button-variant="true"
-						:model-value="showArchive ? 'archive' : 'active'"
+						:buttonVariant="true"
+						:modelValue="showArchive ? 'archive' : 'active'"
 						value="archive"
 						name="chat_list_tab"
 						type="radio"
-						button-variant-grouped="horizontal"
+						buttonVariantGrouped="horizontal"
 						@update:modelValue="setArchiveTab(true)">
 						{{ t('hermiq', 'Archive') }}
 					</NcCheckboxRadioSwitch>
@@ -104,7 +104,7 @@
 					<div class="chat-page__row-actions">
 						<template v-if="!showArchive">
 							<NcButton
-								type="tertiary"
+								variant="tertiary"
 								:aria-label="t('hermiq', 'Archive conversation')"
 								@click="archive(conversation)">
 								<template #icon>
@@ -114,7 +114,7 @@
 						</template>
 						<template v-else>
 							<NcButton
-								type="tertiary"
+								variant="tertiary"
 								:aria-label="t('hermiq', 'Restore conversation')"
 								@click="restore(conversation)">
 								<template #icon>
@@ -122,7 +122,7 @@
 								</template>
 							</NcButton>
 							<NcButton
-								type="tertiary"
+								variant="tertiary"
 								:aria-label="t('hermiq', 'Delete permanently')"
 								@click="openDelete(conversation)">
 								<template #icon>
@@ -144,7 +144,7 @@
 				</h2>
 				<div v-if="activeConversation" class="chat-page__header-actions">
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:aria-label="t('hermiq', 'Rename conversation')"
 						@click="showRename = true">
 						<template #icon>
@@ -152,7 +152,7 @@
 						</template>
 					</NcButton>
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						:aria-label="t('hermiq', 'Chat settings')"
 						@click="showSettings = true">
 						<template #icon>
@@ -180,7 +180,7 @@
 					:agents="agents"
 					:loading="agentsLoading"
 					:error="agentsError"
-					:starting-id="startingId"
+					:startingId="startingId"
 					@start="startWithAgent" />
 			</div>
 
@@ -203,10 +203,10 @@
 							<NcAvatar
 								v-if="message.role === 'user'"
 								:user="currentUserId"
-								:display-name="currentUserName"
+								:displayName="currentUserName"
 								:size="30"
-								:disable-menu="true"
-								:disable-tooltip="true" />
+								:disableMenu="true"
+								:disableTooltip="true" />
 							<Creation v-else :size="30" />
 						</div>
 						<div class="chat-page__bubble">
@@ -263,7 +263,7 @@
 								"
 								class="chat-page__feedback">
 								<NcButton
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="t('hermiq', 'Helpful')"
 									:class="{
 										'chat-page__feedback--active-positive':
@@ -275,7 +275,7 @@
 									</template>
 								</NcButton>
 								<NcButton
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="t('hermiq', 'Not helpful')"
 									:class="{
 										'chat-page__feedback--active-negative':
@@ -290,7 +290,7 @@
 								     (e.g. a SKILL.md drafted by the seeded skill-creator skill) into a
 								     reviewable Skill via the pre-filled authoring modal. -->
 								<NcButton
-									type="tertiary"
+									variant="tertiary"
 									:aria-label="t('hermiq', 'Save as skill')"
 									@click="openSaveAsSkill(message)">
 									<template #icon>
@@ -320,7 +320,7 @@
 										message.feedbackComment = $event.target.value
 									" />
 								<NcButton
-									type="secondary"
+									variant="secondary"
 									:disabled="
 										!message.feedbackComment
 										|| !message.feedbackComment.trim()
@@ -395,7 +395,7 @@
 							@keydown.enter.exact.prevent="handleSend"
 							@input="autoResize" />
 						<NcButton
-							type="primary"
+							variant="primary"
 							:disabled="!currentMessage.trim() || sending"
 							:aria-label="t('hermiq', 'Send message')"
 							@click="handleSend">
@@ -430,8 +430,8 @@
 			@deleted="onDeleted" />
 		<ChatSettingsModal
 			:show="showSettings"
-			:available-views="availableViews"
-			:available-tools="availableTools"
+			:availableViews="availableViews"
+			:availableTools="availableTools"
 			:value="settings"
 			@input="settings = $event"
 			@close="showSettings = false" />
@@ -441,14 +441,17 @@
 		     message, saving through the quarantine review path (source: local). -->
 		<SkillFormModal
 			:show="showSaveAsSkill"
-			:initial-body="saveAsSkillBody"
-			save-target="quarantine"
+			:initialBody="saveAsSkillBody"
+			saveTarget="quarantine"
 			@close="showSaveAsSkill = false"
 			@saved="onSkillSaved" />
 	</div>
 </template>
 
 <script>
+import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
+import { getCurrentUser } from '@nextcloud/auth'
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import {
 	NcAvatar,
 	NcButton,
@@ -456,13 +459,14 @@ import {
 	NcLoadingIcon,
 	NcNoteCard,
 } from '@nextcloud/vue'
-import { showError, showSuccess } from '@nextcloud/dialogs'
-import { SAFE_MARKDOWN_DOMPURIFY_CONFIG } from '@conduction/nextcloud-vue'
-import { getCurrentUser } from '@nextcloud/auth'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
 import Archive from 'vue-material-design-icons/Archive.vue'
 import CogOutline from 'vue-material-design-icons/CogOutline.vue'
+// The assistant is drawn with the AI sparkles, not a robot — the same mark as
+// the launcher hex and the chat empty state, so "this came from the model"
+// reads identically wherever it appears.
+import Creation from 'vue-material-design-icons/Creation.vue'
 import CubeOutline from 'vue-material-design-icons/CubeOutline.vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
 import FileDocument from 'vue-material-design-icons/FileDocument.vue'
@@ -472,13 +476,14 @@ import Pencil from 'vue-material-design-icons/Pencil.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import PuzzlePlusOutline from 'vue-material-design-icons/PuzzlePlusOutline.vue'
 import Restore from 'vue-material-design-icons/Restore.vue'
-// The assistant is drawn with the AI sparkles, not a robot — the same mark as
-// the launcher hex and the chat empty state, so "this came from the model"
-// reads identically wherever it appears.
-import Creation from 'vue-material-design-icons/Creation.vue'
 import Send from 'vue-material-design-icons/Send.vue'
 import ThumbDown from 'vue-material-design-icons/ThumbDown.vue'
 import ThumbUp from 'vue-material-design-icons/ThumbUp.vue'
+import AgentSelector from '../components/AgentSelector.vue'
+import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
+import ConversationDeleteModal from '../modals/ConversationDeleteModal.vue'
+import ConversationRenameModal from '../modals/ConversationRenameModal.vue'
+import SkillFormModal from '../modals/SkillFormModal.vue'
 import {
 	archiveConversation,
 	ChatStreamError,
@@ -492,11 +497,6 @@ import {
 	streamChatMessage,
 } from '../api/chat.js'
 import { useAgentStore } from '../store/store.js'
-import AgentSelector from '../components/AgentSelector.vue'
-import ChatSettingsModal from '../modals/ChatSettingsModal.vue'
-import ConversationDeleteModal from '../modals/ConversationDeleteModal.vue'
-import ConversationRenameModal from '../modals/ConversationRenameModal.vue'
-import SkillFormModal from '../modals/SkillFormModal.vue'
 
 export default {
 	name: 'Chat',
@@ -731,9 +731,11 @@ export default {
 				views: views.map((view) =>
 					typeof view === 'string' ? view : view.uuid,
 				),
+
 				tools: tools.map((tool) =>
 					typeof tool === 'string' ? tool : tool.uuid,
 				),
+
 				includeObjects: agent.searchObjects ?? true,
 				includeFiles: agent.searchFiles ?? true,
 				numSourcesObjects: agent.ragNumSources ?? 5,

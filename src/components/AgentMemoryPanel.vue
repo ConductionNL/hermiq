@@ -57,7 +57,7 @@
 						)
 					}}</span>
 					<NcButton
-						type="secondary"
+						variant="secondary"
 						:disabled="busy"
 						:aria-label="t('hermiq', 'Consolidate memory')"
 						@click="consolidate">
@@ -77,7 +77,7 @@
 					:disabled="busy"
 					@keydown.enter="addFact" />
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="busy || !newEntry.trim()"
 					:aria-label="t('hermiq', 'Add fact')"
 					@click="addFact">

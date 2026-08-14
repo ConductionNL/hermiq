@@ -15,10 +15,10 @@
 
 			<template v-if="node">
 				<NcTextField
-					:model-value="node.name || ''"
+					:modelValue="node.name || ''"
 					:label="t('hermiq', 'Name')"
 					:placeholder="node.id"
-					@update:model-value="editor.setNodeName($event)" />
+					@update:modelValue="editor.setNodeName($event)" />
 
 				<!-- The engine's catalogue, and nothing else. A node type the
 				     engine does not know resolves to nothing, runs, and reports
@@ -26,12 +26,12 @@
 				     list. An empty picker says the catalogue could not be read. -->
 				<NcSelect
 					v-if="typeOptions.length > 0"
-					:model-value="selectedType"
+					:modelValue="selectedType"
 					:options="typeOptions"
 					label="label"
-					:input-label="t('hermiq', 'Node type')"
+					:inputLabel="t('hermiq', 'Node type')"
 					:placeholder="t('hermiq', 'Pick what this node does')"
-					@update:model-value="
+					@update:modelValue="
 						editor.setNodeType($event ? $event.id : '')
 					" />
 				<p v-else class="node-edit__hint">
@@ -52,32 +52,32 @@
 				     output / expectJson. -->
 				<template v-if="node.type === 'hermiq.agent-step'">
 					<NcSelect
-						:model-value="selectedAgent"
+						:modelValue="selectedAgent"
 						:options="editor.agentOptions"
 						label="label"
-						:input-label="t('hermiq', 'Agent')"
+						:inputLabel="t('hermiq', 'Agent')"
 						:placeholder="t('hermiq', 'Pick an agent')"
-						@update:model-value="
+						@update:modelValue="
 							editor.setNodeConfig('agentId', $event ? $event.id : '')
 						" />
 					<NcTextArea
-						:model-value="config.prompt || ''"
+						:modelValue="config.prompt || ''"
 						:label="t('hermiq', 'Prompt')"
 						:placeholder="t('hermiq', 'Supports {{state}} placeholders')"
-						@update:model-value="
+						@update:modelValue="
 							editor.setNodeConfig('prompt', $event)
 						" />
 					<NcTextField
-						:model-value="config.output || ''"
+						:modelValue="config.output || ''"
 						:label="t('hermiq', 'Store answer as')"
 						:placeholder="t('hermiq', 'result')"
-						@update:model-value="
+						@update:modelValue="
 							editor.setNodeConfig('output', $event)
 						" />
 					<NcCheckboxRadioSwitch
-						:model-value="config.expectJson === true"
+						:modelValue="config.expectJson === true"
 						type="switch"
-						@update:model-value="
+						@update:modelValue="
 							editor.setNodeConfig('expectJson', $event)
 						">
 						{{ t('hermiq', 'Answer must be JSON') }}
@@ -105,19 +105,19 @@
 						}}
 					</p>
 					<NcTextArea
-						:model-value="rawConfig"
+						:modelValue="rawConfig"
 						:label="t('hermiq', 'Configuration (JSON)')"
 						:error="rawConfigError !== ''"
-						:helper-text="rawConfigError"
+						:helperText="rawConfigError"
 						rows="10"
-						@update:model-value="onRawConfig" />
+						@update:modelValue="onRawConfig" />
 				</template>
 
 				<!-- Notes ride on the NODE, next to what it does, rather than in
 				     a tab of their own: a note about a step is unreadable when it
 				     is filed somewhere other than the step. -->
 				<NcTextArea
-					:model-value="node.notes || ''"
+					:modelValue="node.notes || ''"
 					:label="t('hermiq', 'Notes')"
 					:placeholder="
 						t(
@@ -126,17 +126,17 @@
 						)
 					"
 					rows="4"
-					@update:model-value="editor.setNodeField('notes', $event)" />
+					@update:modelValue="editor.setNodeField('notes', $event)" />
 			</template>
 
 			<div class="node-edit__actions">
-				<NcButton type="error" @click="onRemove">
+				<NcButton variant="error" @click="onRemove">
 					<template #icon>
 						<Delete :size="20" />
 					</template>
 					{{ t('hermiq', 'Remove node') }}
 				</NcButton>
-				<NcButton type="primary" @click="$emit('close')">
+				<NcButton variant="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Done') }}
 				</NcButton>
 			</div>
@@ -145,6 +145,7 @@
 </template>
 
 <script>
+import { translate as t } from '@nextcloud/l10n'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -154,7 +155,6 @@ import {
 	NcTextField,
 } from '@nextcloud/vue'
 import Delete from 'vue-material-design-icons/Delete.vue'
-import { translate as t } from '@nextcloud/l10n'
 import { useFlowEditorStore } from '../../store/flowEditor.js'
 
 /**
@@ -334,7 +334,7 @@ export default {
 		 *
 		 * @return {void}
 		 */
-		'editor.selectedNodeId'() {
+		'editor.selectedNodeId': function () {
 			this.rawConfigDraft = null
 			this.rawConfigError = ''
 		},

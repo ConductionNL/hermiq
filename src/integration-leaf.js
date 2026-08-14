@@ -35,9 +35,9 @@
  * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-agent-integration-leaf-registration
  */
 
-import { createApp } from 'vue'
 import { registerIntegration } from '@conduction/nextcloud-vue'
 import { translate as t } from '@nextcloud/l10n'
+import { createApp } from 'vue'
 import CnAgentChatTab from './components/CnAgentChatTab/CnAgentChatTab.vue'
 import CnAgentRunsWidget from './components/CnAgentRunsWidget/CnAgentRunsWidget.vue'
 

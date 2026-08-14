@@ -1,0 +1,198 @@
+{
+  "src/api/evals.js": {
+    "eqeqeq": {
+      "count": 1
+    }
+  },
+  "src/api/flows.js": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/components/CnAgentChatTab/CnAgentChatTab.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/components/CnAgentRunsWidget/CnAgentRunsWidget.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/components/ToolGrantEditor.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/components/settings/TalkBridgeSettings.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/dialogs/RunFlowDialog.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/dialogs/StepResultDialog.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/dialogs/agents/AgentVersionDiffDialog.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/dialogs/agents/AgentVersionHistoryDialog.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "vue/custom-event-name-casing": {
+      "count": 1
+    }
+  },
+  "src/modals/AgentFormModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/modals/AgentTemplatePublishModal.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/Flow/NodeEditModal.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/modals/Flow/RunLogModal.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/LlmProviderModal.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/modals/ScheduleWebhookSecretDialog.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/SkillGithubPublishModal.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/SkillImportModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/SkillInstallModal.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/TemplateImportModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/WebResearchSettingsModal.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    },
+    "vue/no-useless-v-bind": {
+      "count": 1
+    }
+  },
+  "src/modals/WebhookSecretDialog.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/store/flowEditor.js": {
+    "no-console": {
+      "count": 2
+    },
+    "no-unused-vars": {
+      "count": 4
+    }
+  },
+  "src/store/modules/object.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/store/modules/settings.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/views/AdminRoot.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/views/Chat.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 9
+    },
+    "vue/multi-word-component-names": {
+      "count": 1
+    }
+  },
+  "src/views/FlowBuilder.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/views/TenantOps.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/widgets/AgentEvalBaselineWidget.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/widgets/AgentRunHistoryWidget.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/widgets/AgentRunOperationsWidget.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 5
+    }
+  },
+  "src/widgets/AgentSkillsWidget.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/widgets/AgentTemplateGithubStore.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/widgets/SkillLinkPanel.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  }
+}

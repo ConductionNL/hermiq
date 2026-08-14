@@ -94,20 +94,20 @@
 					<div class="skill-eval-evidence__run-form">
 						<NcSelect
 							v-model="selectedDataset"
-							:input-label="t('hermiq', 'Dataset')"
+							:inputLabel="t('hermiq', 'Dataset')"
 							:options="datasetOptions"
 							label="label"
-							track-by="value"
+							trackBy="value"
 							:placeholder="t('hermiq', 'Select a linked dataset')" />
 						<NcSelect
 							v-model="selectedAgent"
-							:input-label="t('hermiq', 'Agent')"
+							:inputLabel="t('hermiq', 'Agent')"
 							:options="agentOptions"
 							label="label"
-							track-by="value"
+							trackBy="value"
 							:placeholder="t('hermiq', 'Select an agent')" />
 						<NcButton
-							type="primary"
+							variant="primary"
 							:disabled="running || !selectedDataset || !selectedAgent"
 							@click="runPaired">
 							<template v-if="running" #icon>
@@ -126,8 +126,8 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { NcButton, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { runEval } from '../api/evals.js'
 import {
 	useAgentStore,

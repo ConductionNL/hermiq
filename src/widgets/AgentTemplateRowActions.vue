@@ -75,7 +75,7 @@
 					)
 				}}
 			</p>
-			<NcButton type="primary" @click="openInstantiatedAgent">
+			<NcButton variant="primary" @click="openInstantiatedAgent">
 				{{ t('hermiq', 'Open agent') }}
 			</NcButton>
 		</NcNoteCard>
@@ -83,7 +83,7 @@
 		<div class="agent-template-row-actions__buttons">
 			<NcButton
 				v-if="row.state === 'active'"
-				type="primary"
+				variant="primary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Use this template')"
 				@click="doInstantiate">
@@ -91,21 +91,21 @@
 			</NcButton>
 			<NcButton
 				v-if="row.state === 'quarantined'"
-				type="secondary"
+				variant="secondary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Approve quarantined template')"
 				@click="doApprove">
 				{{ t('hermiq', 'Approve') }}
 			</NcButton>
 			<NcButton
-				type="tertiary"
+				variant="tertiary"
 				:aria-label="t('hermiq', 'Export template')"
 				@click="doExport">
 				{{ t('hermiq', 'Export') }}
 			</NcButton>
 			<NcButton
 				v-if="row.state === 'active'"
-				type="tertiary"
+				variant="tertiary"
 				:aria-label="t('hermiq', 'Publish to GitHub')"
 				@click="openPublishModal">
 				{{ t('hermiq', 'Publish to GitHub') }}
@@ -114,20 +114,20 @@
 
 		<AgentTemplateExportModal
 			v-if="showExport"
-			:exported-package="exportedPackage"
+			:exportedPackage="exportedPackage"
 			@close="showExport = false" />
 
 		<AgentTemplatePublishModal
 			v-if="showPublish"
-			:template-id="templateId()"
+			:templateId="templateId()"
 			@close="showPublish = false"
 			@published="onPublished" />
 	</div>
 </template>
 
 <script>
-import { NcButton, NcNoteCard } from '@nextcloud/vue'
 import { emit } from '@nextcloud/event-bus'
+import { NcButton, NcNoteCard } from '@nextcloud/vue'
 import AgentTemplateExportModal from '../modals/AgentTemplateExportModal.vue'
 import AgentTemplatePublishModal from '../modals/AgentTemplatePublishModal.vue'
 import {

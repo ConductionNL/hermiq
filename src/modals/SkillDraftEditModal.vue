@@ -44,7 +44,7 @@
 
 			<div class="skill-draft-edit__actions">
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="busy || body.trim() === ''"
 					:aria-label="t('hermiq', 'Save the edited draft and re-qualify')"
 					@click="$emit('save', { body })">
@@ -54,7 +54,10 @@
 							: t('hermiq', 'Save and re-qualify')
 					}}
 				</NcButton>
-				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
+				<NcButton
+					variant="tertiary"
+					:disabled="busy"
+					@click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 			</div>
@@ -79,6 +82,7 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		/** Whether a save is in flight. */
 		busy: {
 			type: Boolean,

@@ -41,7 +41,7 @@
 				<NcCheckboxRadioSwitch
 					v-for="view in availableViews"
 					:key="view.uuid"
-					:model-value="value.views.includes(view.uuid)"
+					:modelValue="value.views.includes(view.uuid)"
 					@update:modelValue="toggle('views', view.uuid)">
 					{{ view.name }}
 				</NcCheckboxRadioSwitch>
@@ -61,7 +61,7 @@
 				<NcCheckboxRadioSwitch
 					v-for="tool in availableTools"
 					:key="tool.uuid"
-					:model-value="value.tools.includes(tool.uuid)"
+					:modelValue="value.tools.includes(tool.uuid)"
 					@update:modelValue="toggle('tools', tool.uuid)">
 					{{ tool.name }}
 				</NcCheckboxRadioSwitch>
@@ -79,26 +79,26 @@
 					}}
 				</p>
 				<NcCheckboxRadioSwitch
-					:model-value="value.includeObjects"
+					:modelValue="value.includeObjects"
 					@update:modelValue="set('includeObjects', $event)">
 					{{ t('hermiq', 'Search in objects') }}
 				</NcCheckboxRadioSwitch>
 				<NcCheckboxRadioSwitch
-					:model-value="value.includeFiles"
+					:modelValue="value.includeFiles"
 					@update:modelValue="set('includeFiles', $event)">
 					{{ t('hermiq', 'Search in files') }}
 				</NcCheckboxRadioSwitch>
 
 				<div class="chat-settings__row">
 					<NcTextField
-						:model-value="String(value.numSourcesObjects)"
+						:modelValue="String(value.numSourcesObjects)"
 						type="number"
 						:label="t('hermiq', 'Object sources')"
 						@update:modelValue="
 							setNumber('numSourcesObjects', $event)
 						" />
 					<NcTextField
-						:model-value="String(value.numSourcesFiles)"
+						:modelValue="String(value.numSourcesFiles)"
 						type="number"
 						:label="t('hermiq', 'File sources')"
 						@update:modelValue="setNumber('numSourcesFiles', $event)" />
@@ -114,7 +114,7 @@
 			</section>
 
 			<div class="chat-settings__actions">
-				<NcButton type="primary" @click="$emit('close')">
+				<NcButton variant="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Close') }}
 				</NcButton>
 			</div>
@@ -146,16 +146,19 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The agent's selectable views ({uuid, name}). */
 		availableViews: {
 			type: Array,
 			default: () => [],
 		},
+
 		/** The agent's selectable tools ({uuid, name}). */
 		availableTools: {
 			type: Array,
 			default: () => [],
 		},
+
 		/**
 		 * The settings state (v-model): {views: string[], tools: string[],
 		 * includeObjects, includeFiles, numSourcesObjects, numSourcesFiles}.

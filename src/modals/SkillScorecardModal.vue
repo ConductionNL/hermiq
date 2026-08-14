@@ -83,7 +83,7 @@
 			</table>
 
 			<div class="skill-scorecard-modal__footer">
-				<NcButton type="primary" @click="$emit('close')">
+				<NcButton variant="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Close') }}
 				</NcButton>
 			</div>
@@ -114,6 +114,7 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		/** The qualified skill's display name (subtitle). */
 		skillName: {
 			type: String,

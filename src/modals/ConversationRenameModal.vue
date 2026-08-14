@@ -34,7 +34,7 @@
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="saving || !title.trim()"
 					@click="save">
 					<template v-if="saving" #icon>
@@ -74,6 +74,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The conversation being renamed. */
 		conversation: {
 			type: Object,

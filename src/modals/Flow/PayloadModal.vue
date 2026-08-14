@@ -62,7 +62,7 @@
 			</template>
 
 			<div class="payload__actions">
-				<NcButton type="primary" @click="$emit('close')">
+				<NcButton variant="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Close') }}
 				</NcButton>
 			</div>
@@ -71,8 +71,8 @@
 </template>
 
 <script>
+import { translatePlural as n, translate as t } from '@nextcloud/l10n'
 import { NcButton, NcModal, NcNoteCard } from '@nextcloud/vue'
-import { translate as t, translatePlural as n } from '@nextcloud/l10n'
 import { useFlowEditorStore } from '../../store/flowEditor.js'
 
 /**
