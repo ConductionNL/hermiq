@@ -202,12 +202,24 @@ test('an explicit sha checks out too', async () => {
 
 test('the scratch tree is removed after a successful run AND after a failed one', async () => {
 	const { remote, root } = makeRemote()
-	const count = () =>
-		fs.readdirSync(os.tmpdir()).filter((n) => n.startsWith('hydra-stage-'))
-			.length
+
+	// A SET, not a count. The property under test is "this run left nothing
+	// behind", and a count cannot express it: another test's leftover makes
+	// `before` non-zero, and anything that later removes that leftover makes
+	// the count SHRINK, failing an equality assertion with `0 !== 1` — a
+	// message that reads like a cleanup bug in the code under test when it is
+	// interference between tests.
+	const scratch = () =>
+		new Set(
+			fs
+				.readdirSync(os.tmpdir())
+				.filter((n) => n.startsWith('hydra-stage-')),
+		)
+	const leaked = (before) =>
+		[...scratch()].filter((n) => before.has(n) === false)
 
 	try {
-		const before = count()
+		const before = scratch()
 
 		await runStage({
 			repo: remote,
@@ -215,9 +227,9 @@ test('the scratch tree is removed after a successful run AND after a failed one'
 			command: ['./probe.sh'],
 			timeoutMs: 120000,
 		})
-		assert.strictEqual(
-			count(),
-			before,
+		assert.deepStrictEqual(
+			leaked(before),
+			[],
 			'scratch left behind after a successful run',
 		)
 
@@ -234,9 +246,9 @@ test('the scratch tree is removed after a successful run AND after a failed one'
 				}),
 			/clone failed/,
 		)
-		assert.strictEqual(
-			count(),
-			before,
+		assert.deepStrictEqual(
+			leaked(before),
+			[],
 			'scratch left behind after a failed clone',
 		)
 	} finally {
