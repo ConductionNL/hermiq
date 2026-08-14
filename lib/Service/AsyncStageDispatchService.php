@@ -69,6 +69,7 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @param array $push Push declaration, or [] for a read-only stage.
 	 * @param string $pushCredentialId The injectable forge credential, or ''.
 	 * @param string $llmCredentialId The injectable model credential, or ''.
+	 * @param string $jobKey A caller-derived handle, or '' for a generated uuid.
 	 *
 	 * @return array{job: array{id: string, status: string}} The handle.
 	 *
@@ -91,6 +92,7 @@ class AsyncStageDispatchService extends StageDispatchService {
 		array $push = [],
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
+		string $jobKey = '',
 	): array {
 		$ceiling = ($timeoutMs > 0) ? $timeoutMs : self::DEFAULT_STAGE_TIMEOUT_MS;
 
@@ -112,6 +114,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 		// rather than inside `buildParams()` so the shared builder keeps one
 		// behaviour and cannot be made to produce two payload shapes.
 		$params['async'] = true;
+
+		$params = $this->withJobKey(params: $params, jobKey: $jobKey);
 
 		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
 			self::RUNNER_EXAPP_ID,
@@ -193,6 +197,40 @@ class AsyncStageDispatchService extends StageDispatchService {
 
 		return $state;
 	}//end collect()
+
+	/**
+	 * Put a DERIVABLE handle on the payload, when the caller has one.
+	 *
+	 * The flow engine suspends a run exactly once — `WaitNode` passes straight
+	 * through on the way back in — so a run that finds its stage still going
+	 * cannot wait again. It has to end and let a later tick collect, and that
+	 * tick starts from the ISSUE, not from the item, so a random uuid dies with
+	 * the run that received it.
+	 *
+	 * There is nowhere to park one either, and both places were checked: the
+	 * lock row's schema declares seven properties and none of them is free, and
+	 * `FlowStateNode` supports `claim` and `release` and nothing else. So the
+	 * handle is made rebuildable instead of stored — `<repo>-<issue>-<stage>`,
+	 * which any tick can reconstruct from the issue in front of it.
+	 *
+	 * Extracted from `dispatchAsync()` so this is reachable without a network
+	 * round trip. A field that only a live dispatch can exercise is a field that
+	 * gets silently dropped at this boundary — which has already happened here
+	 * once.
+	 *
+	 * @param array $params The payload built for the runner.
+	 * @param string $jobKey The caller's key, or '' to let the runner generate one.
+	 *
+	 * @return array The payload, with `jobKey` set only when one was supplied.
+	 */
+	protected function withJobKey(array $params, string $jobKey): array {
+		$jobKey = trim($jobKey);
+		if ($jobKey !== '') {
+			$params['jobKey'] = $jobKey;
+		}
+
+		return $params;
+	}//end withJobKey()
 
 	/**
 	 * Map the 202 that acknowledges a started stage.

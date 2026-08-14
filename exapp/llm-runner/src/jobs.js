@@ -83,13 +83,28 @@ function prune() {
  * would turn one failed stage into an outage for every other job in flight.
  *
  * @param {Promise<object>} promise The work already started by the caller.
+ * @param {string} [key] A caller-supplied id, so the handle can be rebuilt
+ *                       later without having been stored. Falls back to a uuid.
  *
  * @returns {string} The job id to poll with.
  */
-function start(promise) {
+function start(promise, key) {
 	prune()
 
-	const id = crypto.randomUUID()
+	// A CALLER-SUPPLIED KEY MAKES THE HANDLE DERIVABLE, which is what lets a
+	// flow collect a stage it did not dispatch.
+	//
+	// The flow engine suspends a run exactly once: `WaitNode` passes straight
+	// through on the way back in, so a run that finds its stage still running
+	// cannot wait again — it has to end and let a later tick collect. That tick
+	// starts from the issue, not from the item, so a random uuid would be lost
+	// with the run that received it, and there is nowhere to park one: the lock
+	// row's schema has no free field and flow-state supports only claim and
+	// release.
+	//
+	// So the key is `<repo>-<issue>-<stage>`, which any tick can rebuild from
+	// the issue it is looking at. Same stage, same key, no storage.
+	const id = (typeof key === 'string' && key.trim() !== '') ? key.trim() : crypto.randomUUID()
 	const job = {
 		status: RUNNING,
 		startedAt: Date.now(),

@@ -46,6 +46,16 @@ class ExposedAsyncStageDispatchService extends AsyncStageDispatchService {
 	public function mapAcceptedPublic(string $body): array {
 		return $this->mapAccepted(body: $body);
 	}//end mapAcceptedPublic()
+
+	/**
+	 * @param array $params The payload.
+	 * @param string $jobKey The key.
+	 *
+	 * @return array The payload with the key applied.
+	 */
+	public function withJobKeyPublic(array $params, string $jobKey): array {
+		return $this->withJobKey(params: $params, jobKey: $jobKey);
+	}//end withJobKeyPublic()
 }//end class
 
 /**
@@ -149,6 +159,47 @@ final class AsyncStageDispatchServiceTest extends TestCase {
 
 		$this->service->collect(jobId: '   ');
 	}//end testCollectingWithoutAHandleIsRefused()
+
+	/**
+	 * A supplied key reaches the payload, so a later tick can rebuild the handle.
+	 *
+	 * This is the whole point of the key: the flow engine suspends a run exactly
+	 * once, so a run whose stage is still going must END and let a later tick
+	 * collect — and that tick has only the issue to work from. A uuid would be
+	 * lost with the run, and there is nowhere to park one (the lock row's schema
+	 * has no free property; flow-state does `claim` and `release` only).
+	 *
+	 * @return void
+	 */
+	public function testASuppliedKeyBecomesTheHandleOnThePayload(): void {
+		$params = $this->service->withJobKeyPublic(
+			params: ['repo' => 'x'],
+			jobKey: 'larpingapp-327-code-review'
+		);
+
+		$this->assertSame(
+			expected: 'larpingapp-327-code-review',
+			actual: ($params['jobKey'] ?? null),
+			message: 'a key that never reaches the payload leaves the stage uncollectable by a later tick'
+		);
+	}//end testASuppliedKeyBecomesTheHandleOnThePayload()
+
+	/**
+	 * No key means NO field, rather than an empty one.
+	 *
+	 * An empty `jobKey` in the payload would make the runner key a job on '',
+	 * so two concurrent stages would collide on one handle and each would
+	 * collect the other's verdict.
+	 *
+	 * @return void
+	 */
+	public function testAnAbsentKeyLeavesThePayloadUntouched(): void {
+		$this->assertArrayNotHasKey(
+			key: 'jobKey',
+			array: $this->service->withJobKeyPublic(params: ['repo' => 'x'], jobKey: '   '),
+			message: 'an empty key must be absent, not blank — a blank one collides across stages'
+		);
+	}//end testAnAbsentKeyLeavesThePayloadUntouched()
 
 	/**
 	 * The async surface is SEPARATE from the synchronous one.

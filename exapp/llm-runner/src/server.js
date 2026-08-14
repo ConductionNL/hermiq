@@ -241,6 +241,7 @@ async function handleStage(req, res, rawBody) {
 		push,
 		credentialEnv,
 		async: wantsAsync,
+		jobKey,
 	} = payload
 
 	// The repo and ref are safe to log — they are how an operator finds this run
@@ -296,6 +297,7 @@ async function handleStage(req, res, rawBody) {
 				push,
 				credentialEnv,
 			}),
+			jobKey,
 		)
 		log('info', `/stage accepted async job=${jobId} repo=${repo} ref=${ref}`)
 		sendJson(res, 202, { jobId, status: jobs.RUNNING })

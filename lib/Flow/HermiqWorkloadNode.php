@@ -415,7 +415,8 @@ class HermiqWorkloadNode implements IFlowNode {
 				toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
 				push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
 				pushCredentialId: $pushCredentialId,
-				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
+				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
+				jobKey: trim($this->render(template: (string)($config['jobKey'] ?? ''), json: $json))
 			),
 			owner: $owner,
 			credentialId: $credentialId,
