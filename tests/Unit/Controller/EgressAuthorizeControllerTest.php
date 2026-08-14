@@ -45,12 +45,24 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	 * @return WebResearchEgressGuard
 	 */
 	/**
-	 * A throttler that records nothing — these tests assert HTTP outcomes, not
-	 * brute-force bookkeeping.
+	 * Set by a test that wants to assert on brute-force bookkeeping; otherwise
+	 * every controller gets a fresh do-nothing throttler.
+	 *
+	 * @var IThrottler|null
+	 */
+	private ?IThrottler $throttlerOverride = null;
+
+	/**
+	 * A throttler that records nothing — most tests here assert HTTP outcomes,
+	 * not brute-force bookkeeping.
 	 *
 	 * @return IThrottler
 	 */
 	private function throttlerStub(): IThrottler {
+		if ($this->throttlerOverride !== null) {
+			return $this->throttlerOverride;
+		}
+
 		return $this->createMock(IThrottler::class);
 	}//end throttlerStub()
 
@@ -156,6 +168,57 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
 
 	}//end testMissingTokenIsRejected()
+
+	/**
+	 * A rejected run token is RECORDED with the brute-force throttler.
+	 *
+	 * The 401 above is not evidence of this: an endpoint can refuse correctly
+	 * and still count nothing, which is precisely the shape ADR-082 exists to
+	 * catch — a counter that is never incremented backs a limiter that never
+	 * fires.
+	 *
+	 * @return void
+	 */
+	public function testARejectedTokenIsRegisteredWithTheThrottler(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->once())
+			->method('registerAttempt')
+			->with('hermiq_run_token', $this->anything());
+		$this->throttlerOverride = $throttler;
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => [], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'',
+			'{"host":"api.anthropic.com","port":443}'
+		);
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $controller->authorize()->getStatus());
+
+	}//end testARejectedTokenIsRegisteredWithTheThrottler()
+
+	/**
+	 * The control for the test above. A VALID token must record NOTHING —
+	 * otherwise the counter would throttle legitimate runs, and the assertion
+	 * above would be satisfied by a controller that registers unconditionally.
+	 *
+	 * @return void
+	 */
+	public function testAnAcceptedTokenRegistersNothing(): void {
+		$throttler = $this->createMock(IThrottler::class);
+		$throttler->expects($this->never())->method('registerAttempt');
+		$this->throttlerOverride = $throttler;
+
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"api.anthropic.com","port":443}'
+		);
+
+		$this->assertSame(Http::STATUS_OK, $controller->authorize()->getStatus());
+
+	}//end testAnAcceptedTokenRegistersNothing()
 
 	/**
 	 * A missing host → 400.
