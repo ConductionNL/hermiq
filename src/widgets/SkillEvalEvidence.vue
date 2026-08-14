@@ -107,7 +107,7 @@
 							trackBy="value"
 							:placeholder="t('hermiq', 'Select an agent')" />
 						<NcButton
-							variant="primary"
+							type="primary"
 							:disabled="running || !selectedDataset || !selectedAgent"
 							@click="runPaired">
 							<template v-if="running" #icon>

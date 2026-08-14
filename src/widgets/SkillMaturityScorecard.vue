@@ -42,7 +42,7 @@
 				</span>
 				<div class="skill-maturity-scorecard__actions">
 					<NcButton
-						variant="secondary"
+						type="secondary"
 						:disabled="qualifying"
 						:aria-label="t('hermiq', 'Qualify skill')"
 						@click="doQualify">
@@ -126,7 +126,7 @@
 							)
 						" />
 					<NcButton
-						variant="primary"
+						type="primary"
 						:disabled="attesting"
 						:aria-label="t('hermiq', 'Attest maturity level 4')"
 						@click="doAttest">

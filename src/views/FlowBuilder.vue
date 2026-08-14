@@ -179,7 +179,7 @@
 							)
 						" />
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						class="flow-builder__annotation-remove"
 						:aria-label="t('hermiq', 'Remove note')"
 						@mousedown.stop
@@ -323,7 +323,7 @@
 				role="group"
 				:aria-label="t('hermiq', 'Flow actions')">
 				<NcButton
-					variant="primary"
+					type="primary"
 					:disabled="editor.saving || !editor.flow.name"
 					@click="onSave">
 					<template #icon>
@@ -333,7 +333,7 @@
 					{{ t('hermiq', 'Save') }}
 				</NcButton>
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="!editor.flow.id"
 					@click="editor.showRun = true">
 					<template #icon>
@@ -341,14 +341,14 @@
 					</template>
 					{{ t('hermiq', 'Run…') }}
 				</NcButton>
-				<NcButton variant="secondary" @click="editor.validate()">
+				<NcButton type="secondary" @click="editor.validate()">
 					<template #icon>
 						<CheckDecagram :size="20" />
 					</template>
 					{{ t('hermiq', 'Check') }}
 				</NcButton>
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="editor.nodes.length === 0"
 					:aria-label="t('hermiq', 'Auto sort')"
 					@click="editor.autoSort()">
@@ -363,7 +363,7 @@
 				role="group"
 				:aria-label="t('hermiq', 'Zoom')">
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="zoom <= minZoom"
 					:aria-label="t('hermiq', 'Zoom out')"
 					@click="zoomBy(-zoomStep)">
@@ -372,13 +372,13 @@
 					</template>
 				</NcButton>
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:aria-label="t('hermiq', 'Reset zoom to 100%')"
 					@click="zoom = 1">
 					{{ zoomPercent }}
 				</NcButton>
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="zoom >= maxZoom"
 					:aria-label="t('hermiq', 'Zoom in')"
 					@click="zoomBy(zoomStep)">
@@ -401,7 +401,7 @@
 			<NcButton
 				v-if="!editor.sidebarOpen"
 				class="flow-builder__sidebar-toggle"
-				variant="secondary"
+				type="secondary"
 				:aria-label="t('hermiq', 'Open the flow sidebar')"
 				@click="editor.sidebarOpen = true">
 				<template #icon>

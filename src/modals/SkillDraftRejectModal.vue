@@ -53,7 +53,7 @@
 
 			<div class="skill-draft-reject__actions">
 				<NcButton
-					variant="error"
+					type="error"
 					:disabled="busy"
 					:aria-label="t('hermiq', 'Confirm the rejection')"
 					@click="$emit('reject', { note, rejectedLearningRefs: marked })">
@@ -63,10 +63,7 @@
 							: t('hermiq', 'Reject draft')
 					}}
 				</NcButton>
-				<NcButton
-					variant="tertiary"
-					:disabled="busy"
-					@click="$emit('close')">
+				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 			</div>

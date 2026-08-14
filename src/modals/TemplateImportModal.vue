@@ -50,14 +50,11 @@
 			</p>
 
 			<div class="template-import__actions">
-				<NcButton
-					variant="tertiary"
-					:disabled="busy"
-					@click="$emit('close')">
+				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('org')">
 					{{
@@ -65,7 +62,7 @@
 					}}
 				</NcButton>
 				<NcButton
-					variant="primary"
+					type="primary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('local')">
 					<template v-if="busy" #icon>

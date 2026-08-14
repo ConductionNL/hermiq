@@ -134,7 +134,7 @@
 					<NcButton @click="$emit('close')">
 						{{ t('hermiq', 'Cancel') }}
 					</NcButton>
-					<NcButton variant="primary" :disabled="saving" @click="save">
+					<NcButton type="primary" :disabled="saving" @click="save">
 						<template v-if="saving" #icon>
 							<NcLoadingIcon :size="20" />
 						</template>

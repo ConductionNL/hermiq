@@ -28,7 +28,7 @@
 					trackBy="value"
 					:placeholder="t('hermiq', 'Select a skill to attach')" />
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="skillBusy || !skillToAttach"
 					@click="attachSkill">
 					<template v-if="skillBusy" #icon>
@@ -56,7 +56,7 @@
 				class="agent-skills-widget__item">
 				<span class="agent-skills-widget__name">{{ skill.label }}</span>
 				<NcButton
-					variant="tertiary"
+					type="tertiary"
 					:disabled="skillBusy"
 					:aria-label="t('hermiq', 'Detach skill')"
 					@click="detachSkill(skill.value)">

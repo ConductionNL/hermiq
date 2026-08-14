@@ -163,17 +163,14 @@
 				  in it ("Edit, then accept" vs "Edit the draft before accepting").
 				-->
 				<div class="skill-draft-review__actions">
-					<NcButton variant="primary" :disabled="busy" @click="doAccept">
+					<NcButton type="primary" :disabled="busy" @click="doAccept">
 						{{ busy ? t('hermiq', 'Working…') : t('hermiq', 'Accept') }}
 					</NcButton>
-					<NcButton
-						variant="secondary"
-						:disabled="busy"
-						@click="openEditor">
+					<NcButton type="secondary" :disabled="busy" @click="openEditor">
 						{{ t('hermiq', 'Edit, then accept') }}
 					</NcButton>
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						:disabled="busy"
 						@click="showReject = true">
 						{{ t('hermiq', 'Reject') }}
@@ -202,7 +199,7 @@
 					}}
 				</p>
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="busy"
 					:aria-label="t('hermiq', 'Propose an improvement draft now')"
 					@click="doPropose">

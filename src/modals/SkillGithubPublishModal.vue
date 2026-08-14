@@ -55,7 +55,7 @@
 				}}
 			</p>
 			<NcButton
-				variant="primary"
+				type="primary"
 				:disabled="githubPublishing || !canGithubPublish"
 				@click="doGithubPublish">
 				{{

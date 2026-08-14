@@ -46,7 +46,7 @@
 				trackBy="value"
 				:placeholder="t('hermiq', 'Select an agent')" />
 			<NcButton
-				variant="primary"
+				type="primary"
 				:disabled="running || !selectedAgent"
 				@click="run">
 				<template v-if="running" #icon>
@@ -120,7 +120,7 @@
 							<td>
 								<NcButton
 									v-if="runRow.baselineMode"
-									variant="tertiary"
+									type="tertiary"
 									:aria-label="
 										t('hermiq', 'Toggle paired run details')
 									"

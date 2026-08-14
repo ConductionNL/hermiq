@@ -127,7 +127,7 @@
 								type.provider
 							}}</span>
 							<NcButton
-								variant="secondary"
+								type="secondary"
 								@click="editor.addNode(type.id)">
 								{{ t('hermiq', 'Add to flow') }}
 							</NcButton>
@@ -172,7 +172,7 @@
 					nothing about the flow.
 				-->
 				<NcButton
-					variant="tertiary"
+					type="tertiary"
 					:disabled="!editor.flow.id"
 					@click="editor.loadRuns()">
 					<template #icon>
@@ -337,7 +337,7 @@
 										}}</pre>
 
 										<NcButton
-											variant="tertiary"
+											type="tertiary"
 											@click="
 												editor.openStepPayload(
 													entry.transition
@@ -355,7 +355,7 @@
 							</p>
 
 							<NcButton
-								variant="tertiary"
+								type="tertiary"
 								@click="editor.openRunLog(run.uuid || run.id)">
 								{{ t('hermiq', 'Open full log') }}
 							</NcButton>

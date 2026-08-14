@@ -34,7 +34,7 @@
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					variant="primary"
+					type="primary"
 					:disabled="saving || !title.trim()"
 					@click="save">
 					<template v-if="saving" #icon>

@@ -101,7 +101,7 @@
 					"
 					resize="vertical" />
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="pasteBusy || !pasteText.trim()"
 					@click="importPastedPackage">
 					<template v-if="pasteBusy" #icon>
@@ -166,7 +166,7 @@
 						:placeholder="t('hermiq', 'reference.md')"
 						@update:modelValue="renameFile(index, $event)" />
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						:aria-label="t('hermiq', 'Remove file')"
 						@click="removeFile(index)">
 						{{ t('hermiq', 'Remove') }}
@@ -190,7 +190,7 @@
 					:label="t('hermiq', 'New file name')"
 					:placeholder="t('hermiq', 'reference.md')" />
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="!newFileName.trim()"
 					@click="addFile">
 					{{ t('hermiq', 'Add file') }}
@@ -202,7 +202,7 @@
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					variant="primary"
+					type="primary"
 					:disabled="saving || !form.name.trim()"
 					@click="save">
 					<template v-if="saving" #icon>

@@ -50,7 +50,7 @@
 						:label="t('hermiq', 'Broker credential ID')"
 						:placeholder="t('hermiq', 'github credential UUID')" />
 					<NcButton
-						variant="secondary"
+						type="secondary"
 						:disabled="busy || republishCredentialId.trim() === ''"
 						:aria-label="
 							t(
@@ -110,7 +110,7 @@
 					<div class="skill-version-history__row-actions">
 						<NcButton
 							v-if="index !== 0"
-							variant="tertiary"
+							type="tertiary"
 							:disabled="busy"
 							:aria-label="
 								t(
@@ -123,7 +123,7 @@
 						</NcButton>
 						<NcButton
 							v-if="index !== 0"
-							variant="tertiary"
+							type="tertiary"
 							:disabled="busy"
 							:aria-label="t('hermiq', 'Roll back to this version')"
 							@click="doRollback(version.id)">

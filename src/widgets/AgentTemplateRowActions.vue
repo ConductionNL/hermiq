@@ -75,7 +75,7 @@
 					)
 				}}
 			</p>
-			<NcButton variant="primary" @click="openInstantiatedAgent">
+			<NcButton type="primary" @click="openInstantiatedAgent">
 				{{ t('hermiq', 'Open agent') }}
 			</NcButton>
 		</NcNoteCard>
@@ -83,7 +83,7 @@
 		<div class="agent-template-row-actions__buttons">
 			<NcButton
 				v-if="row.state === 'active'"
-				variant="primary"
+				type="primary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Use this template')"
 				@click="doInstantiate">
@@ -91,21 +91,21 @@
 			</NcButton>
 			<NcButton
 				v-if="row.state === 'quarantined'"
-				variant="secondary"
+				type="secondary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Approve quarantined template')"
 				@click="doApprove">
 				{{ t('hermiq', 'Approve') }}
 			</NcButton>
 			<NcButton
-				variant="tertiary"
+				type="tertiary"
 				:aria-label="t('hermiq', 'Export template')"
 				@click="doExport">
 				{{ t('hermiq', 'Export') }}
 			</NcButton>
 			<NcButton
 				v-if="row.state === 'active'"
-				variant="tertiary"
+				type="tertiary"
 				:aria-label="t('hermiq', 'Publish to GitHub')"
 				@click="openPublishModal">
 				{{ t('hermiq', 'Publish to GitHub') }}

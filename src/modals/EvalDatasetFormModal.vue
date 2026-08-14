@@ -43,7 +43,7 @@
 				<div class="eval-form__case-head">
 					<strong>{{ t('hermiq', 'Case {n}', { n: index + 1 }) }}</strong>
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						:aria-label="t('hermiq', 'Remove case')"
 						@click="removeCase(index)">
 						{{ t('hermiq', 'Remove') }}
@@ -102,7 +102,7 @@
 					resize="vertical" />
 			</div>
 
-			<NcButton variant="secondary" @click="addCase">
+			<NcButton type="secondary" @click="addCase">
 				{{ t('hermiq', 'Add case') }}
 			</NcButton>
 
@@ -111,7 +111,7 @@
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					variant="primary"
+					type="primary"
 					:disabled="saving || !form.name || form.cases.length === 0"
 					@click="save">
 					<template v-if="saving" #icon>

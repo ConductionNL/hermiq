@@ -83,7 +83,7 @@
 			</table>
 
 			<div class="skill-scorecard-modal__footer">
-				<NcButton variant="primary" @click="$emit('close')">
+				<NcButton type="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Close') }}
 				</NcButton>
 			</div>

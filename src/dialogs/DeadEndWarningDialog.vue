@@ -50,7 +50,7 @@
 		</div>
 
 		<template #actions>
-			<NcButton variant="primary" @click="$emit('close')">
+			<NcButton type="primary" @click="$emit('close')">
 				{{ t('hermiq', 'Got it') }}
 			</NcButton>
 		</template>

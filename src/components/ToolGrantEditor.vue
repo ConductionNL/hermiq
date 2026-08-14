@@ -73,7 +73,7 @@
 
 			<div class="tool-grants__actions">
 				<NcButton
-					variant="primary"
+					type="primary"
 					:disabled="!canEdit || saving || !dirty"
 					@click="save">
 					<template #icon>
@@ -83,7 +83,7 @@
 					{{ t('hermiq', 'Save grants') }}
 				</NcButton>
 				<NcButton
-					variant="tertiary"
+					type="tertiary"
 					:disabled="!canEdit || saving || !dirty"
 					@click="reset">
 					{{ t('hermiq', 'Reset') }}
@@ -203,14 +203,14 @@
 								<td>
 									<NcButton
 										v-if="!tool.granted"
-										variant="tertiary"
+										type="tertiary"
 										:disabled="!canEdit || saving"
 										@click="grantExact(tool)">
 										{{ t('hermiq', 'Grant') }}
 									</NcButton>
 									<NcButton
 										v-else-if="isExactlyGranted(tool)"
-										variant="tertiary"
+										type="tertiary"
 										:disabled="!canEdit || saving"
 										@click="revokeExact(tool)">
 										{{ t('hermiq', 'Revoke') }}

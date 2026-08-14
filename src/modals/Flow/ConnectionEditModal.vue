@@ -150,7 +150,7 @@
 							editor.setEdgeField('colour', $event.target.value)
 						" />
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						@click="editor.setEdgeField('colour', '')">
 						{{ t('hermiq', 'Use theme colour') }}
 					</NcButton>
@@ -158,13 +158,13 @@
 			</template>
 
 			<div class="connection-edit__actions">
-				<NcButton variant="error" @click="onRemove">
+				<NcButton type="error" @click="onRemove">
 					<template #icon>
 						<Delete :size="20" />
 					</template>
 					{{ t('hermiq', 'Remove connection') }}
 				</NcButton>
-				<NcButton variant="primary" @click="$emit('close')">
+				<NcButton type="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Done') }}
 				</NcButton>
 			</div>

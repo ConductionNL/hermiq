@@ -38,13 +38,13 @@
 		</div>
 
 		<template #actions>
-			<NcButton variant="tertiary" @click="copy">
+			<NcButton type="tertiary" @click="copy">
 				<template #icon>
 					<ContentCopy :size="20" />
 				</template>
 				{{ t('hermiq', 'Copy JSON') }}
 			</NcButton>
-			<NcButton variant="primary" @click="$emit('close')">
+			<NcButton type="primary" @click="$emit('close')">
 				{{ t('hermiq', 'Close') }}
 			</NcButton>
 		</template>

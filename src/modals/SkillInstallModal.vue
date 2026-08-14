@@ -39,7 +39,7 @@
 				}}
 			</p>
 			<NcButton
-				variant="primary"
+				type="primary"
 				:disabled="installing || !canInstall"
 				@click="doInstall">
 				{{

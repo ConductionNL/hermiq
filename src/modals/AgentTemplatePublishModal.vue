@@ -57,7 +57,7 @@
 				}}
 			</p>
 			<NcButton
-				variant="primary"
+				type="primary"
 				:disabled="publishing || !canPublish"
 				@click="doPublish">
 				{{

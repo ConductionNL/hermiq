@@ -36,7 +36,7 @@
 		<!-- Conversation list column -->
 		<aside class="chat-page__list">
 			<div class="chat-page__list-head">
-				<NcButton variant="primary" wide @click="newConversation">
+				<NcButton type="primary" wide @click="newConversation">
 					<template #icon>
 						<Plus :size="20" />
 					</template>
@@ -104,7 +104,7 @@
 					<div class="chat-page__row-actions">
 						<template v-if="!showArchive">
 							<NcButton
-								variant="tertiary"
+								type="tertiary"
 								:aria-label="t('hermiq', 'Archive conversation')"
 								@click="archive(conversation)">
 								<template #icon>
@@ -114,7 +114,7 @@
 						</template>
 						<template v-else>
 							<NcButton
-								variant="tertiary"
+								type="tertiary"
 								:aria-label="t('hermiq', 'Restore conversation')"
 								@click="restore(conversation)">
 								<template #icon>
@@ -122,7 +122,7 @@
 								</template>
 							</NcButton>
 							<NcButton
-								variant="tertiary"
+								type="tertiary"
 								:aria-label="t('hermiq', 'Delete permanently')"
 								@click="openDelete(conversation)">
 								<template #icon>
@@ -144,7 +144,7 @@
 				</h2>
 				<div v-if="activeConversation" class="chat-page__header-actions">
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						:aria-label="t('hermiq', 'Rename conversation')"
 						@click="showRename = true">
 						<template #icon>
@@ -152,7 +152,7 @@
 						</template>
 					</NcButton>
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						:aria-label="t('hermiq', 'Chat settings')"
 						@click="showSettings = true">
 						<template #icon>
@@ -263,7 +263,7 @@
 								"
 								class="chat-page__feedback">
 								<NcButton
-									variant="tertiary"
+									type="tertiary"
 									:aria-label="t('hermiq', 'Helpful')"
 									:class="{
 										'chat-page__feedback--active-positive':
@@ -275,7 +275,7 @@
 									</template>
 								</NcButton>
 								<NcButton
-									variant="tertiary"
+									type="tertiary"
 									:aria-label="t('hermiq', 'Not helpful')"
 									:class="{
 										'chat-page__feedback--active-negative':
@@ -290,7 +290,7 @@
 								     (e.g. a SKILL.md drafted by the seeded skill-creator skill) into a
 								     reviewable Skill via the pre-filled authoring modal. -->
 								<NcButton
-									variant="tertiary"
+									type="tertiary"
 									:aria-label="t('hermiq', 'Save as skill')"
 									@click="openSaveAsSkill(message)">
 									<template #icon>
@@ -320,7 +320,7 @@
 										message.feedbackComment = $event.target.value
 									" />
 								<NcButton
-									variant="secondary"
+									type="secondary"
 									:disabled="
 										!message.feedbackComment
 										|| !message.feedbackComment.trim()
@@ -395,7 +395,7 @@
 							@keydown.enter.exact.prevent="handleSend"
 							@input="autoResize" />
 						<NcButton
-							variant="primary"
+							type="primary"
 							:disabled="!currentMessage.trim() || sending"
 							:aria-label="t('hermiq', 'Send message')"
 							@click="handleSend">

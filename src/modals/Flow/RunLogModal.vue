@@ -145,7 +145,7 @@
 			</template>
 
 			<div class="run-log__footer">
-				<NcButton variant="primary" @click="$emit('close')">
+				<NcButton type="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Close') }}
 				</NcButton>
 			</div>

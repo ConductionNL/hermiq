@@ -84,7 +84,7 @@
 					<td>{{ formatDate(approval.requestedAt) }}</td>
 					<td class="approval-inbox__row-actions">
 						<NcButton
-							variant="primary"
+							type="primary"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Approve run')"
 							@click="approve(approval)">
@@ -94,7 +94,7 @@
 							{{ t('hermiq', 'Approve') }}
 						</NcButton>
 						<NcButton
-							variant="error"
+							type="error"
 							:disabled="actioningId === approval.id"
 							:aria-label="t('hermiq', 'Deny run')"
 							@click="openDeny(approval)">

@@ -107,7 +107,7 @@
 				<template #row-actions="{ row }">
 					<div class="ai-feature-register__actions">
 						<NcButton
-							variant="secondary"
+							type="secondary"
 							:disabled="busy || row.acknowledged"
 							:aria-label="
 								t('hermiq', 'Acknowledge this AI feature as DPO')
@@ -116,7 +116,7 @@
 							{{ t('hermiq', 'Acknowledge (DPO)') }}
 						</NcButton>
 						<NcButton
-							variant="primary"
+							type="primary"
 							:disabled="
 								busy
 								|| !row.acknowledged
@@ -127,7 +127,7 @@
 							{{ t('hermiq', 'Enable') }}
 						</NcButton>
 						<NcButton
-							variant="tertiary"
+							type="tertiary"
 							:disabled="busy || row.lifecycle !== 'enabled'"
 							:aria-label="t('hermiq', 'Disable this AI feature')"
 							@click="doDisable(row.feature)">
@@ -142,7 +142,7 @@
 								&& opencatalogiAvailable
 								&& row.algoritmeregisterStatus !== 'gepubliceerd'
 							"
-							variant="secondary"
+							type="secondary"
 							:disabled="busy || !publishReady(row)"
 							:title="
 								publishReady(row) ? '' : publishBlockedReason(row)
@@ -162,7 +162,7 @@
 								&& opencatalogiAvailable
 								&& row.algoritmeregisterStatus === 'gepubliceerd'
 							"
-							variant="tertiary"
+							type="tertiary"
 							:disabled="busy"
 							:aria-label="
 								t(

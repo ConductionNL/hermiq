@@ -55,7 +55,7 @@
 				</p>
 
 				<div class="schedule-webhook-secret-dialog__actions">
-					<NcButton variant="primary" @click="copy">
+					<NcButton type="primary" @click="copy">
 						<template #icon>
 							<ContentCopy :size="20" />
 						</template>
@@ -90,7 +90,7 @@
 				<div class="schedule-webhook-secret-dialog__actions">
 					<NcButton
 						v-if="!status.configured"
-						variant="primary"
+						type="primary"
 						:disabled="busy"
 						@click="mint">
 						{{ t('hermiq', 'Mint secret') }}
@@ -99,7 +99,7 @@
 						<NcButton :disabled="busy" @click="rotate">
 							{{ t('hermiq', 'Rotate secret') }}
 						</NcButton>
-						<NcButton variant="error" :disabled="busy" @click="revoke">
+						<NcButton type="error" :disabled="busy" @click="revoke">
 							{{ t('hermiq', 'Revoke secret') }}
 						</NcButton>
 					</template>

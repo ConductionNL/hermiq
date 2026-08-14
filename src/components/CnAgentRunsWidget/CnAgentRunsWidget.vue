@@ -31,7 +31,7 @@
 				:placeholder="t('hermiq', 'Select an agent')"
 				data-testid="cn-agent-runs-widget-agent" />
 			<NcButton
-				variant="primary"
+				type="primary"
 				:disabled="!selectedAgent || dispatching"
 				data-testid="cn-agent-runs-widget-run"
 				@click="runAgent">

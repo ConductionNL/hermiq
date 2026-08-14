@@ -103,7 +103,7 @@
 							)
 						}}
 					</p>
-					<NcButton variant="secondary" @click="showSetup = true">
+					<NcButton type="secondary" @click="showSetup = true">
 						{{ t('hermiq', 'Run setup wizard') }}
 					</NcButton>
 				</NcAppSettingsSection>

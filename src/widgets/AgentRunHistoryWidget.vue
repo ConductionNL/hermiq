@@ -83,7 +83,7 @@
 							<td>{{ shortVersionLabel(run.agentVersion) }}</td>
 							<td class="agent-run-history-widget__row-actions">
 								<NcButton
-									variant="tertiary"
+									type="tertiary"
 									:aria-label="
 										t('hermiq', 'View this run\'s step timeline')
 									"
@@ -96,7 +96,7 @@
 								</NcButton>
 								<NcButton
 									v-if="run.status === 'dead_letter'"
-									variant="tertiary"
+									type="tertiary"
 									:disabled="running"
 									:aria-label="
 										t(
@@ -108,7 +108,7 @@
 									{{ t('hermiq', 'Re-run') }}
 								</NcButton>
 								<NcButton
-									variant="tertiary"
+									type="tertiary"
 									:disabled="replayingRunId === run.id"
 									:aria-label="
 										t(
@@ -204,7 +204,7 @@
 										</li>
 									</ol>
 									<NcButton
-										variant="tertiary"
+										type="tertiary"
 										@click="downloadTrace(run)">
 										{{ t('hermiq', 'Download trace (JSON)') }}
 									</NcButton>
@@ -219,9 +219,7 @@
 									<strong>{{
 										t('hermiq', 'Replay preview')
 									}}</strong>
-									<NcButton
-										variant="tertiary"
-										@click="dismissReplay">
+									<NcButton type="tertiary" @click="dismissReplay">
 										{{ t('hermiq', 'Dismiss') }}
 									</NcButton>
 								</div>

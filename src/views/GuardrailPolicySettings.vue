@@ -75,7 +75,7 @@
 			<div
 				v-if="!creatingPolicy && organisationOptions.length > 0"
 				class="guardrail-policy-settings__actions">
-				<NcButton variant="primary" @click="startCreateGuardrailPolicy">
+				<NcButton type="primary" @click="startCreateGuardrailPolicy">
 					<template #icon>
 						<PlusIcon :size="20" />
 					</template>
@@ -86,7 +86,7 @@
 			<div v-if="creatingPolicy" class="guardrail-policy-settings__policy">
 				<div class="guardrail-policy-settings__policy-head">
 					<strong>{{ t('hermiq', 'New guardrail policy') }}</strong>
-					<NcButton variant="tertiary" @click="creatingPolicy = false">
+					<NcButton type="tertiary" @click="creatingPolicy = false">
 						{{ t('hermiq', 'Cancel') }}
 					</NcButton>
 				</div>
@@ -160,7 +160,7 @@
 						resize="vertical" />
 					<div class="guardrail-policy-settings__actions">
 						<NcButton
-							variant="primary"
+							type="primary"
 							:disabled="guardrailPolicySaving"
 							@click="saveNewGuardrailPolicy">
 							{{ t('hermiq', 'Create policy') }}
@@ -180,7 +180,7 @@
 							: t('hermiq', 'Instance default')
 					}}</strong>
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						@click="toggleGuardrailPolicyEdit(policy)">
 						{{
 							editingGuardrailPolicyId === policy.id
@@ -254,7 +254,7 @@
 						resize="vertical" />
 					<div class="guardrail-policy-settings__actions">
 						<NcButton
-							variant="primary"
+							type="primary"
 							:disabled="guardrailPolicySaving"
 							@click="saveGuardrailPolicy(policy)">
 							{{ t('hermiq', 'Save policy') }}

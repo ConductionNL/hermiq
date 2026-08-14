@@ -62,7 +62,7 @@
 			</template>
 
 			<div class="payload__actions">
-				<NcButton variant="primary" @click="$emit('close')">
+				<NcButton type="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Close') }}
 				</NcButton>
 			</div>

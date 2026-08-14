@@ -122,7 +122,7 @@
 				</NcNoteCard>
 				<NcButton
 					v-else
-					variant="primary"
+					type="primary"
 					:disabled="installingId === cardKey(card)"
 					@click="doInstall(card)">
 					{{

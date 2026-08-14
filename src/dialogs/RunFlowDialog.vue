@@ -73,10 +73,10 @@
 		</div>
 
 		<template #actions>
-			<NcButton variant="tertiary" :disabled="running" @click="$emit('close')">
+			<NcButton type="tertiary" :disabled="running" @click="$emit('close')">
 				{{ t('hermiq', 'Cancel') }}
 			</NcButton>
-			<NcButton variant="primary" :disabled="running || !canRun" @click="run">
+			<NcButton type="primary" :disabled="running || !canRun" @click="run">
 				<template #icon>
 					<NcLoadingIcon v-if="running" :size="20" />
 					<Play v-else :size="20" />

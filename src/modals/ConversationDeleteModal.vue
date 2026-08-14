@@ -43,10 +43,7 @@
 				<NcButton :disabled="deleting" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
-				<NcButton
-					variant="error"
-					:disabled="deleting"
-					@click="confirmDelete">
+				<NcButton type="error" :disabled="deleting" @click="confirmDelete">
 					<template #icon>
 						<NcLoadingIcon v-if="deleting" :size="20" />
 						<Delete v-else :size="20" />

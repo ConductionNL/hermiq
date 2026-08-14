@@ -46,20 +46,17 @@
 			</p>
 
 			<div class="skill-import__actions">
-				<NcButton
-					variant="tertiary"
-					:disabled="busy"
-					@click="$emit('close')">
+				<NcButton type="tertiary" :disabled="busy" @click="$emit('close')">
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					variant="secondary"
+					type="secondary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('hub')">
 					{{ t('hermiq', 'Install from hub (quarantine)') }}
 				</NcButton>
 				<NcButton
-					variant="primary"
+					type="primary"
 					:disabled="busy || importText.trim() === ''"
 					@click="run('direct')">
 					<template v-if="busy" #icon>

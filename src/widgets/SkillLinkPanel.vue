@@ -38,7 +38,7 @@
 				trackBy="value"
 				:placeholder="t('hermiq', 'Select a skill to link')" />
 			<NcButton
-				variant="secondary"
+				type="secondary"
 				:disabled="busy || !skillToLink"
 				@click="linkSkill">
 				<template v-if="busy" #icon>
@@ -73,7 +73,7 @@
 				class="skill-link-panel__item">
 				<span class="skill-link-panel__name">{{ skill.label }}</span>
 				<NcButton
-					variant="tertiary"
+					type="tertiary"
 					:disabled="busy"
 					:aria-label="t('hermiq', 'Unlink skill')"
 					@click="unlinkSkill(skill.value)">

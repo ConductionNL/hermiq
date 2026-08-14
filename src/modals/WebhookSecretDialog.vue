@@ -50,7 +50,7 @@
 			</p>
 
 			<div class="webhook-secret-dialog__actions">
-				<NcButton variant="primary" @click="copy">
+				<NcButton type="primary" @click="copy">
 					<template #icon>
 						<ContentCopy :size="20" />
 					</template>

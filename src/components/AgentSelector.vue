@@ -38,7 +38,7 @@
 				<Creation :size="20" />
 			</template>
 			<template #action>
-				<NcButton variant="primary" @click="$router.push('/agents')">
+				<NcButton type="primary" @click="$router.push('/agents')">
 					{{ t('hermiq', 'Go to agents') }}
 				</NcButton>
 			</template>
@@ -79,7 +79,7 @@
 				</div>
 
 				<NcButton
-					variant="primary"
+					type="primary"
 					wide
 					:disabled="!!startingId"
 					@click="$emit('start', agent)">

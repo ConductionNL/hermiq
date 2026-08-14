@@ -53,7 +53,7 @@
 						{{ t('hermiq', 'Dry run') }}
 					</NcButton>
 					<NcButton
-						variant="primary"
+						type="primary"
 						:disabled="!schedule || running || dryRunning"
 						@click="runNow">
 						<template #icon>
@@ -91,7 +91,7 @@
 				:heading="t('hermiq', 'The last run reported an error')">
 				{{ runError }}
 				<template #action>
-					<NcButton variant="tertiary" @click="runError = ''">
+					<NcButton type="tertiary" @click="runError = ''">
 						{{ t('hermiq', 'Dismiss') }}
 					</NcButton>
 				</template>
@@ -134,7 +134,7 @@
 		<section v-if="previewResult" class="agent-run-ops-widget__section">
 			<div class="agent-run-ops-widget__section-head">
 				<h4>{{ t('hermiq', 'Dry-run preview') }}</h4>
-				<NcButton variant="tertiary" @click="previewResult = null">
+				<NcButton type="tertiary" @click="previewResult = null">
 					{{ t('hermiq', 'Dismiss') }}
 				</NcButton>
 			</div>
@@ -200,7 +200,7 @@
 						</NcButton>
 						<NcButton
 							v-if="webhookStatus.enabled"
-							variant="error"
+							type="error"
 							:disabled="webhookBusy"
 							@click="revokeWebhook">
 							{{ t('hermiq', 'Revoke') }}

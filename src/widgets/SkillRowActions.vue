@@ -58,42 +58,42 @@
 		<div class="skill-row-actions__buttons">
 			<NcButton
 				v-if="row.state === 'quarantined'"
-				variant="secondary"
+				type="secondary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Approve quarantined skill')"
 				@click="doApprove">
 				{{ t('hermiq', 'Approve') }}
 			</NcButton>
 			<NcButton
-				variant="tertiary"
+				type="tertiary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Qualify skill maturity')"
 				@click="doQualify">
 				{{ t('hermiq', 'Qualify') }}
 			</NcButton>
 			<NcButton
-				variant="tertiary"
+				type="tertiary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Export skill')"
 				@click="doExport">
 				{{ t('hermiq', 'Export') }}
 			</NcButton>
 			<NcButton
-				variant="tertiary"
+				type="tertiary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Publish skill to a hub')"
 				@click="doPublish">
 				{{ t('hermiq', 'Publish') }}
 			</NcButton>
 			<NcButton
-				variant="tertiary"
+				type="tertiary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Publish skill to GitHub')"
 				@click="openGithubPublishModal">
 				{{ t('hermiq', 'Publish to GitHub') }}
 			</NcButton>
 			<NcButton
-				variant="tertiary"
+				type="tertiary"
 				:disabled="busy"
 				:aria-label="t('hermiq', 'Install on agent')"
 				@click="openInstallModal">

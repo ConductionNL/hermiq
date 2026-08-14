@@ -55,7 +55,7 @@
 					<h3 class="tenant-ops__subhead">
 						{{ t('hermiq', 'Cost guardrails') }}
 					</h3>
-					<NcButton variant="secondary" @click="openCreateBudget">
+					<NcButton type="secondary" @click="openCreateBudget">
 						{{ t('hermiq', 'Add budget') }}
 					</NcButton>
 				</div>
@@ -134,14 +134,10 @@
 							{{ t('hermiq', 'Soft threshold crossed') }}
 						</span>
 						<div class="tenant-ops__card-actions">
-							<NcButton
-								variant="tertiary"
-								@click="openEditBudget(entry)">
+							<NcButton type="tertiary" @click="openEditBudget(entry)">
 								{{ t('hermiq', 'Edit') }}
 							</NcButton>
-							<NcButton
-								variant="tertiary"
-								@click="removeBudget(entry)">
+							<NcButton type="tertiary" @click="removeBudget(entry)">
 								{{ t('hermiq', 'Delete') }}
 							</NcButton>
 						</div>
@@ -190,9 +186,7 @@
 									)
 								: t('hermiq', 'Instance default')
 						}}</strong>
-						<NcButton
-							variant="tertiary"
-							@click="togglePolicyEdit(policy)">
+						<NcButton type="tertiary" @click="togglePolicyEdit(policy)">
 							{{
 								editingPolicyId === policy.id
 									? t('hermiq', 'Cancel')
@@ -220,7 +214,7 @@
 							placeholder="qwen2.5" />
 						<div class="tenant-ops__card-actions">
 							<NcButton
-								variant="primary"
+								type="primary"
 								:disabled="policySaving"
 								@click="savePolicy(policy)">
 								{{ t('hermiq', 'Save policy') }}
@@ -270,7 +264,7 @@
 					<template #row-actions="{ row }">
 						<div class="tenant-ops__review-actions">
 							<NcButton
-								variant="tertiary"
+								type="tertiary"
 								:disabled="reviewBusyUuid === row.uuid"
 								@click="markReviewed(row)">
 								{{ t('hermiq', 'Mark reviewed') }}
@@ -284,7 +278,7 @@
 										t('hermiq', 'New acting user id')
 									" />
 								<NcButton
-									variant="secondary"
+									type="secondary"
 									:disabled="
 										!reassignDrafts[row.uuid]
 										|| reviewBusyUuid === row.uuid

@@ -43,7 +43,7 @@
 					<h3 class="compliance-operations__subhead">
 						{{ t('hermiq', 'Incidents') }}
 					</h3>
-					<NcButton variant="secondary" @click="showIncidentDialog = true">
+					<NcButton type="secondary" @click="showIncidentDialog = true">
 						{{ t('hermiq', 'Open incident') }}
 					</NcButton>
 				</div>
@@ -110,7 +110,7 @@
 					{{ auditError }}
 				</NcNoteCard>
 				<NcButton
-					variant="primary"
+					type="primary"
 					:disabled="exporting"
 					:aria-label="t('hermiq', 'Export AI Act audit trail')"
 					@click="exportAudit">
@@ -162,7 +162,7 @@
 						type="number"
 						:label="t('hermiq', 'Retention period (months)')" />
 					<NcButton
-						variant="primary"
+						type="primary"
 						:disabled="retentionSaving"
 						@click="saveRetention">
 						{{ t('hermiq', 'Save') }}

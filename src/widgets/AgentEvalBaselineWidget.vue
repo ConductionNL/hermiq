@@ -42,7 +42,7 @@
 			<NcPopover class="agent-eval-baseline__info" :focusTrap="false">
 				<template #trigger>
 					<NcButton
-						variant="tertiary"
+						type="tertiary"
 						:aria-label="
 							t('hermiq', 'What does the eval baseline mode change?')
 						">
@@ -56,7 +56,7 @@
 				</p>
 			</NcPopover>
 			<NcButton
-				variant="secondary"
+				type="secondary"
 				:disabled="saving || loading || !isDirty"
 				@click="save">
 				<template v-if="saving" #icon>

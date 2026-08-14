@@ -36,7 +36,7 @@
 				:label="t('hermiq', 'Create a new room')"
 				:placeholder="t('hermiq', 'e.g. Hermiq')" />
 			<NcButton
-				variant="secondary"
+				type="secondary"
 				:disabled="creating || newName.trim() === ''"
 				@click="onCreate">
 				<template v-if="creating" #icon>

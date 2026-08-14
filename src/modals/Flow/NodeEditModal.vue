@@ -130,13 +130,13 @@
 			</template>
 
 			<div class="node-edit__actions">
-				<NcButton variant="error" @click="onRemove">
+				<NcButton type="error" @click="onRemove">
 					<template #icon>
 						<Delete :size="20" />
 					</template>
 					{{ t('hermiq', 'Remove node') }}
 				</NcButton>
-				<NcButton variant="primary" @click="$emit('close')">
+				<NcButton type="primary" @click="$emit('close')">
 					{{ t('hermiq', 'Done') }}
 				</NcButton>
 			</div>

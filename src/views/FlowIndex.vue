@@ -22,7 +22,7 @@
 		rowClickToView
 		@rowClick="open">
 		<template #header-actions>
-			<NcButton variant="primary" @click="$router.push('/flows/new')">
+			<NcButton type="primary" @click="$router.push('/flows/new')">
 				<template #icon>
 					<Plus :size="20" />
 				</template>

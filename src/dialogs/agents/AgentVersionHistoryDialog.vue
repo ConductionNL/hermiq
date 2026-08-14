@@ -89,13 +89,13 @@
 								}}
 							</span>
 							<NcButton
-								variant="tertiary"
+								type="tertiary"
 								:disabled="rollingBackId !== null"
 								@click="confirmingId = null">
 								{{ t('hermiq', 'Cancel') }}
 							</NcButton>
 							<NcButton
-								variant="error"
+								type="error"
 								:disabled="rollingBackId !== null"
 								@click="performRollback(version)">
 								<template v-if="rollingBackId === version.id" #icon>
@@ -106,7 +106,7 @@
 						</span>
 						<NcButton
 							v-else
-							variant="tertiary"
+							type="tertiary"
 							:disabled="rollingBackId !== null"
 							:aria-label="t('hermiq', 'Roll back to this version')"
 							@click="confirmingId = version.id">
@@ -129,7 +129,7 @@
 				{{ t('hermiq', 'Close') }}
 			</NcButton>
 			<NcButton
-				variant="primary"
+				type="primary"
 				:disabled="selected.length !== 2"
 				@click="compare">
 				{{ t('hermiq', 'Compare selected') }}

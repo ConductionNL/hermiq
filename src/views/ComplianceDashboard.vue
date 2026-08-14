@@ -145,7 +145,7 @@
 						}}
 					</p>
 					<NcButton
-						variant="primary"
+						type="primary"
 						:disabled="exporting"
 						:aria-label="t('hermiq', 'Export auditor\'s pack')"
 						@click="exportPack">
