@@ -90,7 +90,14 @@ function start(promise) {
 	prune()
 
 	const id = crypto.randomUUID()
-	const job = { status: RUNNING, startedAt: Date.now(), endedAt: null, result: null, error: null, code: null }
+	const job = {
+		status: RUNNING,
+		startedAt: Date.now(),
+		endedAt: null,
+		result: null,
+		error: null,
+		code: null,
+	}
 	jobs.set(id, job)
 
 	promise.then(

@@ -65,6 +65,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
+use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\Hermiq\Service\StageDispatchService;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCP\IL10N;
@@ -90,6 +91,12 @@ class HermiqWorkloadNode implements IFlowNode {
 		private readonly StageDispatchService $stages,
 		private readonly IL10N $l10n,
 		private readonly IURLGenerator $urls,
+		// ADDED LAST, and deliberately. Three unit tests construct this node
+		// POSITIONALLY; slotting a parameter in ahead of an existing one
+		// silently rebinds that argument to a value of the wrong type — which
+		// is the same trap OpenRegister's own FlowEngine constructor documents,
+		// and it cost 41 test errors here the first time this went in second.
+		private readonly ?AsyncStageDispatchService $asyncStages = null,
 	) {
 	}//end __construct()
 
@@ -292,6 +299,48 @@ class HermiqWorkloadNode implements IFlowNode {
 		// shipped before this behaves exactly as it did.
 		$pushCredentialId = trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json));
 
+		// ASYNC: start the stage and return a HANDLE instead of holding the run
+		// open for it. Two METHODS rather than a flag, because the return SHAPE
+		// differs — an accepted dispatch has no exit code, and a caller reading
+		// one off an acknowledgement would read "accepted" as "exited 0".
+		//
+		// `FlowRunWorker` advances queued runs serially in one PHP process, so a
+		// synchronous stage holds the only worker for its whole duration and a
+		// slot pool cannot exceed one agent however many slots it declares.
+		if (($config['async'] ?? false) === true) {
+			if ($this->asyncStages === null) {
+				// Refuse rather than silently running the stage synchronously:
+				// a step that asked for a handle and got a blocking call back
+				// would hold the queue worker for its whole duration while the
+				// flow waits for a `job` key that never arrives.
+				throw new UnexpectedValueException(
+					$this->l10n->t('This step asks for an asynchronous dispatch, but no async transport is available.')
+				);
+			}
+
+			return $this->attribute(
+				result: $this->asyncStages->dispatchAsync(
+					repo: $this->render(template: (string)($config['repo'] ?? ''), json: $json),
+					ref: $this->render(template: (string)($config['ref'] ?? ''), json: $json),
+					command: array_map(
+						fn (string $argument): string => $this->render(template: $argument, json: $json),
+						array_values((array)($config['command'] ?? []))
+					),
+					uid: $owner,
+					credentialId: $credentialId,
+					timeoutMs: (int)($config['timeoutMs'] ?? 0),
+					toolRepo: $this->render(template: (string)($config['toolRepo'] ?? ''), json: $json),
+					toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
+					push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
+					pushCredentialId: $pushCredentialId,
+					llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
+				),
+				owner: $owner,
+				credentialId: $credentialId,
+				pushCredentialId: $pushCredentialId
+			);
+		}
+
 		$result = $this->stages->dispatch(
 			repo: $this->render(template: (string)$config['repo'], json: $json),
 			ref: $this->render(template: (string)$config['ref'], json: $json),
@@ -337,7 +386,6 @@ class HermiqWorkloadNode implements IFlowNode {
 			// async dispatch writes `job: {id, status}` and NO `exitCode`, so
 			// nothing downstream can read an acknowledgement as a verdict. Pair
 			// it with a wait and a `hermiq.workload-collect`.
-			async: ($config['async'] ?? false) === true
 		);
 
 		return $this->attribute(

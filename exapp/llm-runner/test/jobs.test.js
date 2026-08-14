@@ -40,17 +40,33 @@ const settle = () => new Promise((resolve) => setImmediate(resolve))
 
 test('a handle comes back immediately, while the work is still running', async () => {
 	let finish
-	const id = jobs.start(new Promise((resolve) => { finish = resolve }))
+	const id = jobs.start(
+		new Promise((resolve) => {
+			finish = resolve
+		}),
+	)
 
-	assert.match(id, /^[0-9a-f-]{36}$/, 'the handle is a uuid the caller can poll with')
-	assert.strictEqual(jobs.get(id).status, 'running', 'work in flight reads as running')
+	assert.match(
+		id,
+		/^[0-9a-f-]{36}$/,
+		'the handle is a uuid the caller can poll with',
+	)
+	assert.strictEqual(
+		jobs.get(id).status,
+		'running',
+		'work in flight reads as running',
+	)
 
 	finish({ exitCode: 0, output: 'ok' })
 	await settle()
 
 	const done = jobs.get(id)
 	assert.strictEqual(done.status, 'done')
-	assert.strictEqual(done.result.exitCode, 0, 'the workload result is carried through verbatim')
+	assert.strictEqual(
+		done.result.exitCode,
+		0,
+		'the workload result is carried through verbatim',
+	)
 })
 
 test('a refused push stays FAILED and never becomes a done result', async () => {
@@ -58,18 +74,34 @@ test('a refused push stays FAILED and never becomes a done result', async () => 
 	// this so a caller reading only the status cannot record a refused push as
 	// a completed stage; the async path has to preserve that or the fence
 	// becomes advisory.
-	const refusal = Object.assign(new Error('push refused: "README.md" is outside the scope this issue declared'), {
-		name: 'PushRefused',
-		code: 'scope_violation',
-	})
+	const refusal = Object.assign(
+		new Error(
+			'push refused: "README.md" is outside the scope this issue declared',
+		),
+		{
+			name: 'PushRefused',
+			code: 'scope_violation',
+		},
+	)
 
 	const id = jobs.start(Promise.reject(refusal))
 	await settle()
 
 	const state = jobs.get(id)
-	assert.strictEqual(state.status, 'failed', 'a refusal is a FAILED job, not a done one')
-	assert.strictEqual(state.code, 'scope_violation', 'the stable refusal code survives, so a consumer need not match prose')
-	assert.ok(state.result === undefined, 'a failed job carries no result a caller could mistake for success')
+	assert.strictEqual(
+		state.status,
+		'failed',
+		'a refusal is a FAILED job, not a done one',
+	)
+	assert.strictEqual(
+		state.code,
+		'scope_violation',
+		'the stable refusal code survives, so a consumer need not match prose',
+	)
+	assert.ok(
+		state.result === undefined,
+		'a failed job carries no result a caller could mistake for success',
+	)
 })
 
 test('an id the process does not have is UNKNOWN, and terminal', async () => {
@@ -88,7 +120,11 @@ test('a collected job is forgotten, and asking twice says so', async () => {
 
 	assert.strictEqual(jobs.get(id).status, 'done')
 	assert.strictEqual(jobs.forget(id), true)
-	assert.strictEqual(jobs.get(id).status, 'unknown', 'after collection the handle is spent, and says so terminally')
+	assert.strictEqual(
+		jobs.get(id).status,
+		'unknown',
+		'after collection the handle is spent, and says so terminally',
+	)
 })
 
 test('a rejected job does not take the process down', async () => {
@@ -104,7 +140,11 @@ test('a rejected job does not take the process down', async () => {
 
 test('stats count what is in flight', async () => {
 	let finish
-	const running = jobs.start(new Promise((resolve) => { finish = resolve }))
+	const running = jobs.start(
+		new Promise((resolve) => {
+			finish = resolve
+		}),
+	)
 	const s = jobs.stats()
 
 	assert.ok(s.running >= 1, 'a job in flight is visible in the heartbeat')

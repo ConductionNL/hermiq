@@ -442,7 +442,8 @@ const server = http.createServer((req, res) => {
 			return
 		}
 
-		const jobId = new URL(req.url, 'http://localhost').searchParams.get('jobId') || ''
+		const jobId =
+			new URL(req.url, 'http://localhost').searchParams.get('jobId') || ''
 		if (jobId === '') {
 			sendJson(res, 400, { error: 'jobId is required' })
 			return
@@ -460,13 +461,22 @@ const server = http.createServer((req, res) => {
 		// every job. Reporting that as `running` would hang a flow forever
 		// waiting for a result that no longer exists.
 		if (state.status === jobs.DONE) {
-			log('info', `/stage collected job=${jobId} exit=${state.result?.exitCode}`)
+			log(
+				'info',
+				`/stage collected job=${jobId} exit=${state.result?.exitCode}`,
+			)
 			jobs.forget(jobId)
 		} else if (state.status === jobs.FAILED) {
-			log('warn', `/stage collected job=${jobId} FAILED${state.code ? ` (${state.code})` : ''}: ${state.error}`)
+			log(
+				'warn',
+				`/stage collected job=${jobId} FAILED${state.code ? ` (${state.code})` : ''}: ${state.error}`,
+			)
 			jobs.forget(jobId)
 		} else if (state.status === jobs.UNKNOWN) {
-			log('warn', `/stage poll for unknown job=${jobId} — restarted runner, or a result that aged out`)
+			log(
+				'warn',
+				`/stage poll for unknown job=${jobId} — restarted runner, or a result that aged out`,
+			)
 		}
 
 		sendJson(res, 200, state)

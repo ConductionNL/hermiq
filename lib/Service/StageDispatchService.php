@@ -44,21 +44,26 @@ class StageDispatchService {
 	 *
 	 * @var string
 	 */
-	private const APP_API_PUBLIC_FUNCTIONS = 'OCA\\AppAPI\\PublicFunctions';
+	// PROTECTED, not private: `AsyncStageDispatchService` extends this to add
+	// the start/collect pair, and it must address the SAME ExApp on the SAME
+	// route with the SAME ceilings. Copying these into the subclass would let
+	// the two halves of one transport drift apart silently — the async path
+	// could end up pointed at a route the sync path no longer uses.
+	protected const APP_API_PUBLIC_FUNCTIONS = 'OCA\\AppAPI\\PublicFunctions';
 
 	/**
 	 * App id of the runner ExApp.
 	 *
 	 * @var string
 	 */
-	private const RUNNER_EXAPP_ID = 'hermiq-llm-runner';
+	protected const RUNNER_EXAPP_ID = 'hermiq-llm-runner';
 
 	/**
 	 * The runner's stage route.
 	 *
 	 * @var string
 	 */
-	private const RUNNER_ROUTE = '/stage';
+	protected const RUNNER_ROUTE = '/stage';
 
 	/**
 	 * Default ceiling for one stage, in milliseconds.
@@ -68,7 +73,7 @@ class StageDispatchService {
 	 *
 	 * @var int
 	 */
-	private const DEFAULT_STAGE_TIMEOUT_MS = (30 * 60 * 1000);
+	protected const DEFAULT_STAGE_TIMEOUT_MS = (30 * 60 * 1000);
 
 	/**
 	 * Seconds added to the runner's own ceiling for the AppAPI request.
@@ -80,7 +85,7 @@ class StageDispatchService {
 	 *
 	 * @var int
 	 */
-	private const TRANSPORT_SLACK_SECONDS = 60;
+	protected const TRANSPORT_SLACK_SECONDS = 60;
 
 	/**
 	 * Constructor.
@@ -188,7 +193,6 @@ class StageDispatchService {
 		array $push = [],
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
-		bool $async = false,
 	): array {
 		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
 		if ($timeoutMs > 0) {
@@ -206,8 +210,7 @@ class StageDispatchService {
 			toolRef: $toolRef,
 			push: $push,
 			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId,
-			async: $async
+			llmCredentialId: $llmCredentialId
 		);
 
 		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
@@ -251,46 +254,8 @@ class StageDispatchService {
 		}
 
 		// Check 3 — only now is the body a stage result.
-		//
-		// ⚠️ An ASYNC dispatch is answered 202 with a HANDLE, not a result, so
-		// it must be mapped before `mapResult()` — which would reject it for
-		// having no `exitCode`, correctly, since it is not a stage result and
-		// must never be mistaken for one.
-		if ($async === true) {
-			return $this->mapAccepted(body: (string)$result->getBody());
-		}
-
 		return $this->mapResult(body: (string)$result->getBody());
 	}//end dispatch()
-
-	/**
-	 * Map the 202 that acknowledges an async dispatch.
-	 *
-	 * Deliberately a DIFFERENT shape from a stage result — `job`, not
-	 * `exitCode` — so nothing downstream can read an acknowledgement as an
-	 * outcome. A stage that has been accepted has produced no verdict at all,
-	 * and the two must not share a field.
-	 *
-	 * @param string $body The response body.
-	 *
-	 * @return array{job: array{id: string, status: string}} The handle.
-	 *
-	 * @throws RuntimeException When the body carries no usable handle.
-	 */
-	protected function mapAccepted(string $body): array {
-		$decoded = json_decode($body, true);
-		$jobId = trim((string)($decoded['jobId'] ?? ''));
-
-		if (is_array($decoded) === false || $jobId === '') {
-			// Fail loudly. A dispatch whose handle was lost is a stage running
-			// somewhere with nothing able to collect it — worse than one that
-			// never started, because it consumes a slot and a model budget
-			// while being invisible.
-			throw new RuntimeException('The runner accepted the stage but returned no job id to collect it with.');
-		}
-
-		return ['job' => ['id' => $jobId, 'status' => (string)($decoded['status'] ?? 'running')]];
-	}//end mapAccepted()
 
 	/**
 	 * Mint the per-run token a stage needs to get out through the governed proxy.
@@ -443,7 +408,6 @@ class StageDispatchService {
 		array $push = [],
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
-		bool $async = false,
 	): array {
 		$params = [
 			'repo' => $repo,
@@ -516,13 +480,6 @@ class StageDispatchService {
 			uid: $uid,
 			llmCredentialId: $llmCredentialId
 		);
-
-		// Only present when asked for, so a synchronous dispatch sends exactly
-		// the payload it always did. The runner treats the key's ABSENCE as
-		// synchronous, which is what every existing caller relies on.
-		if ($async === true) {
-			$params['async'] = true;
-		}
 
 		return $params;
 	}//end buildParams()
@@ -804,80 +761,5 @@ class StageDispatchService {
 		return $result;
 	}//end mapResult()
 
-	/**
-	 * Collect an async stage by its handle.
-	 *
-	 * The other half of `dispatch(async: true)`. The runner holds the job in
-	 * memory and this asks what became of it, so the flow can suspend between
-	 * the two and stop occupying the queue worker for the whole stage.
-	 *
-	 * ⚠️ THE THREE TERMINAL ANSWERS ARE NOT INTERCHANGEABLE, and a caller that
-	 * collapses them re-opens the hole the synchronous path is built to avoid:
-	 *
-	 *   done     the stage RAN. `result` carries the exit code, which may be
-	 *            non-zero — that is a stage that ran and failed.
-	 *   failed   the stage could NOT be carried out. A refused push lands
-	 *            here, carrying `code`, and must never be read as a completed
-	 *            stage with an unlucky field.
-	 *   unknown  this runner has no such job. It restarted, or the result aged
-	 *            out. TERMINAL — never "still running". A poller that waits on
-	 *            it waits forever.
-	 *
-	 * @param string $jobId The handle returned by an async dispatch.
-	 * @param string|null $uid The acting user's UID.
-	 *
-	 * @return array{status: string, result?: array, error?: string, code?: string} The job state.
-	 *
-	 * @throws RuntimeException When the runner cannot be reached or answers nonsense.
-	 */
-	public function collect(string $jobId, ?string $uid = null): array {
-		$jobId = trim($jobId);
-		if ($jobId === '') {
-			throw new RuntimeException('Cannot collect a stage without a job id.');
-		}
 
-		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
-			self::RUNNER_EXAPP_ID,
-			self::RUNNER_ROUTE . '?jobId=' . rawurlencode($jobId),
-			$uid,
-			'GET',
-			[],
-			['timeout' => self::TRANSPORT_SLACK_SECONDS]
-		);
-
-		// Same three checks, same order, same reasons as `dispatch()`.
-		if (is_array($result) === true) {
-			throw new RuntimeException(
-				'The workload could not reach the "' . self::RUNNER_EXAPP_ID . '" ExApp while collecting.'
-			);
-		}
-
-		$status = $result->getStatusCode();
-		if ($status < 200 || $status > 299) {
-			throw new RuntimeException(
-				'The runner could not answer for job ' . $jobId . ': ' . $this->reasonFrom(body: (string)$result->getBody())
-			);
-		}
-
-		$decoded = json_decode((string)$result->getBody(), true);
-		if (is_array($decoded) === false || array_key_exists('status', $decoded) === false) {
-			throw new RuntimeException('The runner answered with something that is not a job state.');
-		}
-
-		$state = ['status' => (string)$decoded['status']];
-
-		if ($state['status'] === 'done') {
-			// Re-use the SAME mapper the synchronous path uses, so an async
-			// result and a sync one are indistinguishable downstream. Two
-			// mappers for one shape is how they drift.
-			$state['result'] = $this->mapResult(body: json_encode(($decoded['result'] ?? [])));
-		}
-
-		if ($state['status'] === 'failed') {
-			$state['error'] = (string)($decoded['error'] ?? 'the stage could not be carried out');
-			$state['code'] = (string)($decoded['code'] ?? '');
-		}
-
-		return $state;
-	}//end collect()
 }//end class

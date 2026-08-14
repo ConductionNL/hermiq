@@ -56,7 +56,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
-use OCA\Hermiq\Service\StageDispatchService;
+use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCP\IL10N;
 use OCP\IURLGenerator;
@@ -71,12 +71,12 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 	/**
 	 * Constructor.
 	 *
-	 * @param StageDispatchService $stages The transport.
+	 * @param AsyncStageDispatchService $stages The transport.
 	 * @param IL10N $l10n For palette strings.
 	 * @param IURLGenerator $urls For the palette icon.
 	 */
 	public function __construct(
-		private readonly StageDispatchService $stages,
+		private readonly AsyncStageDispatchService $stages,
 		private readonly IL10N $l10n,
 		private readonly IURLGenerator $urls,
 	) {
@@ -212,9 +212,9 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 
 		return (string)preg_replace_callback(
 			'/\{\{\s*([A-Za-z0-9_.]+)\s*\}\}/',
-			static function (array $m) use ($json): string {
+			static function (array $match) use ($json): string {
 				$cursor = $json;
-				foreach (explode('.', $m[1]) as $segment) {
+				foreach (explode('.', $match[1]) as $segment) {
 					if (is_array($cursor) === false || array_key_exists($segment, $cursor) === false) {
 						return '';
 					}
