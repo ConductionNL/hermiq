@@ -61,6 +61,21 @@ class ExposedStageDispatchService extends StageDispatchService {
 	}//end reasonFromPublic()
 
 	/**
+	 * Expose the async acknowledgement mapper.
+	 *
+	 * `mapAccepted()` is the seam where a 202 becomes a HANDLE rather than a
+	 * result. It has to be reachable on its own: the shape it must NOT produce
+	 * is a stage result, and only a direct test can assert that.
+	 *
+	 * @param string $body The body.
+	 *
+	 * @return array The mapped handle.
+	 */
+	public function mapAcceptedPublic(string $body): array {
+		return $this->mapAccepted(body: $body);
+	}//end mapAcceptedPublic()
+
+	/**
 	 * Expose the payload builder.
 	 *
 	 * `buildParams()` is where the run token and the push declaration are put
@@ -86,6 +101,7 @@ class ExposedStageDispatchService extends StageDispatchService {
 		string $toolRepo = '',
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
+		bool $async = false,
 	): array {
 		return $this->buildParams(
 			repo: $repo,
@@ -98,7 +114,8 @@ class ExposedStageDispatchService extends StageDispatchService {
 			toolRef: '',
 			push: $push,
 			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId
+			llmCredentialId: $llmCredentialId,
+			async: $async
 		);
 
 	}//end buildParamsPublic()
@@ -505,5 +522,106 @@ class StageDispatchServiceTest extends TestCase {
 		$this->assertSame('anthropic-cli-uuid', ($this->service->brokerCalls['inject'] ?? null));
 
 	}//end testANamedModelCredentialIsForwardedAsCredentialEnv()
+
+
+	/**
+	 * An async dispatch is acknowledged with a HANDLE, never a result.
+	 *
+	 * The shapes are deliberately disjoint. A 202 says the stage was accepted
+	 * and has produced no verdict at all; if it shared a field with a stage
+	 * result, a gate reading `exitCode` would treat "accepted" as "exited 0"
+	 * — the single most dangerous confusion this transport can make.
+	 *
+	 * @return void
+	 */
+	public function testAnAcceptedAsyncDispatchMapsToAHandleAndNotAResult(): void {
+		$mapped = $this->service->mapAcceptedPublic(
+			body: json_encode(['jobId' => '11111111-2222-4333-8444-555555555555', 'status' => 'running'])
+		);
+
+		$this->assertSame(expected: '11111111-2222-4333-8444-555555555555', actual: $mapped['job']['id']);
+		$this->assertSame(expected: 'running', actual: $mapped['job']['status']);
+		$this->assertArrayNotHasKey(
+			key: 'exitCode',
+			array: $mapped,
+			message: 'an acknowledgement must not carry the field a verdict is read from'
+		);
+	}//end testAnAcceptedAsyncDispatchMapsToAHandleAndNotAResult()
+
+	/**
+	 * A 202 with no job id is a stage running with nothing able to collect it.
+	 *
+	 * Worse than a stage that never started: it holds a slot and spends a model
+	 * budget while being invisible. So it throws rather than returning an empty
+	 * handle that a later collect would report as `unknown`.
+	 *
+	 * @return void
+	 */
+	public function testAnAcknowledgementWithoutAJobIdIsRefused(): void {
+		$this->expectException(exception: RuntimeException::class);
+		$this->expectExceptionMessageMatches(regularExpression: '/no job id/');
+
+		$this->service->mapAcceptedPublic(body: json_encode(['status' => 'running']));
+	}//end testAnAcknowledgementWithoutAJobIdIsRefused()
+
+	/**
+	 * The async flag reaches the payload, and only when asked for.
+	 *
+	 * `buildParams()` is an allowlist, and this codebase has already paid for a
+	 * field that existed on both sides of that boundary and not IN it
+	 * (`toolRepo`, one whole release). The absent-by-default half matters just
+	 * as much: every existing caller must keep sending exactly the payload it
+	 * always did.
+	 *
+	 * @return void
+	 */
+	public function testTheAsyncFlagCrossesTheParameterBoundaryAndOnlyWhenSet(): void {
+		// The ABSENT-by-default half, at the payload builder.
+		$without = $this->service->buildParamsPublic(
+			repo: 'https://example.test/t',
+			ref: 'development',
+			command: ['scripts/run-hydra-gates.sh'],
+			ceiling: 1000
+		);
+		$this->assertArrayNotHasKey(
+			key: 'async',
+			array: $without,
+			message: 'a synchronous dispatch must send the payload it always sent'
+		);
+
+		$with = $this->service->buildParamsPublic(
+			repo: 'https://example.test/t',
+			ref: 'development',
+			command: ['scripts/run-hydra-gates.sh'],
+			ceiling: 1000,
+			async: true
+		);
+		$this->assertTrue(
+			condition: ($with['async'] ?? false),
+			message: 'the async flag must reach the runner, or the stage runs synchronously and blocks the worker'
+		);
+
+		// ⚠️ AND THE BOUNDARY THE ABOVE CANNOT SEE.
+		//
+		// `buildParamsPublic()` calls `buildParams()` DIRECTLY, so it proves
+		// the builder honours the flag and says nothing about whether
+		// `dispatch()` ever passes it. Measured: deleting `async: $async` from
+		// that call site left this test green — the flag would have been
+		// dropped between the two, which is the exact shape `toolRepo` failed
+		// in for a whole release, and the reason that comment exists.
+		//
+		// Reaching `dispatch()` itself means standing up AppAPI, so the seam is
+		// asserted on the SOURCE instead — the same technique the runner's
+		// route test uses for its own allowlist.
+		$source = file_get_contents(__DIR__ . '/../../../lib/Service/StageDispatchService.php');
+		$call = preg_match('/\$params\s*=\s*\$this->buildParams\((.*?)\);/s', (string)$source, $m) === 1 ? $m[1] : '';
+
+		$this->assertNotSame(expected: '', actual: $call, message: 'could not find the buildParams call in dispatch()');
+		$this->assertStringContainsString(
+			needle: 'async:',
+			haystack: $call,
+			message: 'dispatch() does not pass async to buildParams — the flag exists on both sides of the boundary and not IN it'
+		);
+	}//end testTheAsyncFlagCrossesTheParameterBoundaryAndOnlyWhenSet()
 
 }//end class

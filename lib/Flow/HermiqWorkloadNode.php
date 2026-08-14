@@ -322,7 +322,22 @@ class HermiqWorkloadNode implements IFlowNode {
 			// clones the tree, this one lets the command talk to a model. A
 			// stage that names none runs without one, which is every stage that
 			// existed before this key.
-			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
+			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
+			// ASYNC. The stage is STARTED and a handle comes back, instead of
+			// the run holding the queue worker for the whole thing.
+			//
+			// `FlowRunWorker` advances queued runs serially in one PHP process,
+			// so a synchronous stage blocks every other flow in that pass —
+			// including the lock reaper that exists to clean up after stuck
+			// work — and it makes a slot pool decorative, because N slots
+			// cannot produce N agents while the thing holding a slot occupies
+			// the only worker.
+			//
+			// ⚠️ The result shape CHANGES with this flag, deliberately: an
+			// async dispatch writes `job: {id, status}` and NO `exitCode`, so
+			// nothing downstream can read an acknowledgement as a verdict. Pair
+			// it with a wait and a `hermiq.workload-collect`.
+			async: ($config['async'] ?? false) === true
 		);
 
 		return $this->attribute(
