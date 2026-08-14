@@ -116,10 +116,10 @@
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
+import KillSwitchToggle from '../components/KillSwitchToggle.vue'
+import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
 import { approveApproval, listPendingApprovals } from '../api/approvals.js'
 import { useAgentStore, useScheduleStore } from '../store/store.js'
-import ApprovalDenyModal from '../modals/ApprovalDenyModal.vue'
-import KillSwitchToggle from '../components/KillSwitchToggle.vue'
 
 export default {
 	name: 'ApprovalInbox',

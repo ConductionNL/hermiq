@@ -179,6 +179,8 @@
 </template>
 
 <script>
+import { showSuccess } from '@nextcloud/dialogs'
+import { loadState } from '@nextcloud/initial-state'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -186,16 +188,14 @@ import {
 	NcNoteCard,
 	NcTextField,
 } from '@nextcloud/vue'
-import { loadState } from '@nextcloud/initial-state'
-import { showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
+import CreateIncidentDialog from '../dialogs/CreateIncidentDialog.vue'
 import {
 	getAuditExport,
 	getIncidents,
 	getRetention,
 	setRetention,
 } from '../api/tenantOps.js'
-import CreateIncidentDialog from '../dialogs/CreateIncidentDialog.vue'
 
 export default {
 	name: 'ComplianceOperations',

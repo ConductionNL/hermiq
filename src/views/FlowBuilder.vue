@@ -9,21 +9,21 @@
 			ref="graph"
 			:nodes="nodesWithPorts"
 			:edges="editor.canvasEdges"
-			:selected-node-id="editor.selectedNodeId"
-			:node-width="nodeWidth"
-			:node-height="nodeHeight"
+			:selectedNodeId="editor.selectedNodeId"
+			:nodeWidth="nodeWidth"
+			:nodeHeight="nodeHeight"
 			:zoom="zoom"
-			:min-zoom="minZoom"
-			:max-zoom="maxZoom"
-			@update:zoom="zoom = $event"
-			@node-select="onCanvasSelect($event)"
-			@canvas-click="onCanvasClick"
-			@node-move="onCanvasMove($event)"
-			show-grid
+			:minZoom="minZoom"
+			:maxZoom="maxZoom"
+			showGrid
 			resizable
+			@update:zoom="zoom = $event"
+			@nodeSelect="onCanvasSelect($event)"
+			@canvasClick="onCanvasClick"
+			@nodeMove="onCanvasMove($event)"
 			@connect="editor.connect($event)"
-			@canvas-drop="onCanvasDrop"
-			@node-resize="onCanvasResize($event)"
+			@canvasDrop="onCanvasDrop"
+			@nodeResize="onCanvasResize($event)"
 			@contextmenu.prevent="onCanvasContext">
 			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
 			     in one direction, which a plain line does not convey. The line
@@ -542,31 +542,31 @@
 
 		<DeadEndWarningDialog
 			v-if="editor.deadEnds.length > 0"
-			:node-ids="editor.deadEnds"
+			:nodeIds="editor.deadEnds"
 			@close="editor.deadEnds = []" />
 	</div>
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon } from '@nextcloud/vue'
 import { CnGraphCanvas } from '@conduction/nextcloud-vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { NcButton, NcEmptyContent, NcLoadingIcon } from '@nextcloud/vue'
+import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
+import Close from 'vue-material-design-icons/Close.vue'
+import ContentSave from 'vue-material-design-icons/ContentSave.vue'
 import DockRight from 'vue-material-design-icons/DockRight.vue'
 import Minus from 'vue-material-design-icons/Minus.vue'
+import Play from 'vue-material-design-icons/Play.vue'
 import Plus from 'vue-material-design-icons/Plus.vue'
 import Sitemap from 'vue-material-design-icons/Sitemap.vue'
-import Close from 'vue-material-design-icons/Close.vue'
-import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
-import ConnectionEditModal from '../modals/Flow/ConnectionEditModal.vue'
-import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
-import CheckDecagram from 'vue-material-design-icons/CheckDecagram.vue'
-import ContentSave from 'vue-material-design-icons/ContentSave.vue'
-import PayloadModal from '../modals/Flow/PayloadModal.vue'
-import Play from 'vue-material-design-icons/Play.vue'
 import SortVariant from 'vue-material-design-icons/SortVariant.vue'
-import RunLogModal from '../modals/Flow/RunLogModal.vue'
+import DeadEndWarningDialog from '../dialogs/DeadEndWarningDialog.vue'
 import RunFlowDialog from '../dialogs/RunFlowDialog.vue'
 import StepResultDialog from '../dialogs/StepResultDialog.vue'
+import ConnectionEditModal from '../modals/Flow/ConnectionEditModal.vue'
+import NodeEditModal from '../modals/Flow/NodeEditModal.vue'
+import PayloadModal from '../modals/Flow/PayloadModal.vue'
+import RunLogModal from '../modals/Flow/RunLogModal.vue'
 import { ANNOTATION_ID_PREFIX, useFlowEditorStore } from '../store/flowEditor.js'
 
 /**
@@ -994,7 +994,7 @@ export default {
 
 			// `none` is a real choice and must beat the fallback: an author who
 			// removed the arrowhead did not ask for the default back.
-			if (name && Object.prototype.hasOwnProperty.call(markers, name)) {
+			if (name && Object.hasOwn(markers, name)) {
 				return markers[name] === null ? null : `url(#${markers[name]})`
 			}
 

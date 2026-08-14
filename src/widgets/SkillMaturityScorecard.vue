@@ -149,9 +149,9 @@
 import { NcButton, NcLoadingIcon, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import CheckBold from 'vue-material-design-icons/CheckBold.vue'
 import CloseThick from 'vue-material-design-icons/CloseThick.vue'
+import SkillMaturityDots from './SkillMaturityDots.vue'
 import { attestSkillL4, qualifySkill } from '../api/skills.js'
 import { useSkillStore } from '../store/store.js'
-import SkillMaturityDots from './SkillMaturityDots.vue'
 
 export default {
 	name: 'SkillMaturityScorecard',

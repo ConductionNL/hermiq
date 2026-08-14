@@ -63,11 +63,11 @@
 				<div v-if="organisations.length > 1" class="tenant-ops__org-picker">
 					<NcSelect
 						v-model="orgOption"
-						:input-label="t('hermiq', 'Organisation')"
+						:inputLabel="t('hermiq', 'Organisation')"
 						:options="orgOptions"
 						:clearable="false"
 						label="label"
-						track-by="value" />
+						trackBy="value" />
 				</div>
 
 				<NcNoteCard
@@ -251,8 +251,8 @@
 					:columns="reviewColumns"
 					:rows="reviewRows"
 					:loading="reviewLoading"
-					row-key="uuid"
-					:empty-text="t('hermiq', 'No agents yet.')">
+					rowKey="uuid"
+					:emptyText="t('hermiq', 'No agents yet.')">
 					<template #column-reassignmentFlag="{ row }">
 						<span
 							v-if="row.reassignmentFlag"
@@ -273,7 +273,7 @@
 								<NcTextField
 									v-model="reassignDrafts[row.uuid]"
 									class="tenant-ops__reassign-input"
-									:input-label="t('hermiq', 'New acting user id')"
+									:inputLabel="t('hermiq', 'New acting user id')"
 									:placeholder="
 										t('hermiq', 'New acting user id')
 									" />
@@ -303,6 +303,9 @@
 </template>
 
 <script>
+import { CnDataTable } from '@conduction/nextcloud-vue'
+import { showError, showSuccess } from '@nextcloud/dialogs'
+import { loadState } from '@nextcloud/initial-state'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -312,15 +315,12 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
-import { CnDataTable } from '@conduction/nextcloud-vue'
-import { loadState } from '@nextcloud/initial-state'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
-import { attestReviewed, getAccessReview, reassignAgent } from '../api/tenantOps.js'
+import BudgetFormModal from '../modals/BudgetFormModal.vue'
 import { deleteBudget, getBudgetStatus, listBudgets } from '../api/budgets.js'
 import { listModelPolicies, updateModelPolicy } from '../api/modelPolicy.js'
+import { attestReviewed, getAccessReview, reassignAgent } from '../api/tenantOps.js'
 import { organisationLabel } from '../utils/organisationLabel.js'
-import BudgetFormModal from '../modals/BudgetFormModal.vue'
 
 export default {
 	name: 'TenantOps',
@@ -392,6 +392,7 @@ export default {
 					) || this.orgOptions[0]
 				)
 			},
+
 			set(option) {
 				this.selectedOrg = option ? option.value : ''
 				this.loadBudgets()
@@ -607,6 +608,7 @@ export default {
 							: entry.provider,
 					)
 					.join('\n'),
+
 				defaultModel: policy.defaultModel || '',
 			}
 			this.editingPolicyId = policy.id

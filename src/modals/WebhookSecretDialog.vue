@@ -34,7 +34,7 @@
 			</NcNoteCard>
 
 			<NcTextField
-				:model-value="secret"
+				:modelValue="secret"
 				readonly
 				:label="t('hermiq', 'Secret')"
 				@focus="selectAll" />
@@ -65,8 +65,8 @@
 </template>
 
 <script>
-import { NcButton, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { NcButton, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import ContentCopy from 'vue-material-design-icons/ContentCopy.vue'
 
 export default {
@@ -86,6 +86,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The plaintext secret to reveal once, or '' when none is pending. */
 		secret: {
 			type: String,

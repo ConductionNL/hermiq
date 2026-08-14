@@ -78,6 +78,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The pending approval being denied, or null. */
 		approval: {
 			type: Object,

@@ -12,7 +12,7 @@
  */
 
 import axios from '@nextcloud/axios'
-import { generateUrl, generateOcsUrl } from '@nextcloud/router'
+import { generateOcsUrl, generateUrl } from '@nextcloud/router'
 
 /** Talk group-conversation type (spreed Room::TYPE_GROUP). */
 const ROOM_TYPE_GROUP = 2

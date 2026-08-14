@@ -38,18 +38,18 @@
 				<div class="web-research__field">
 					<NcSelect
 						v-model="selectedProvider"
-						:input-label="t('hermiq', 'Search provider')"
+						:inputLabel="t('hermiq', 'Search provider')"
 						:options="providerOptions"
 						:clearable="false"
 						label="label"
-						track-by="value" />
+						trackBy="value" />
 				</div>
 
 				<template v-if="providerValue">
 					<NcTextField
 						v-model="form.searchEndpoint"
 						:label="t('hermiq', 'Search endpoint')"
-						:placeholder="'https://searxng.internal:8080'" />
+						placeholder="https://searxng.internal:8080" />
 
 					<template v-if="providerValue === 'generic-json'">
 						<NcTextField
@@ -73,7 +73,7 @@
 					<NcSelect
 						v-model="searchCredential"
 						:options="credentialOptions"
-						:input-label="t('hermiq', 'API credential (optional)')"
+						:inputLabel="t('hermiq', 'API credential (optional)')"
 						:loading="loadingCredentials"
 						:placeholder="t('hermiq', 'None — no authentication')"
 						label="label" />
@@ -151,6 +151,8 @@
 </template>
 
 <script>
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -160,8 +162,6 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
-import { generateUrl } from '@nextcloud/router'
-import axios from '@nextcloud/axios'
 import {
 	getWebResearchSettings,
 	patchWebResearchSettings,
@@ -218,6 +218,7 @@ export default {
 					label: this.t('hermiq', 'Generic JSON search API'),
 				},
 			],
+
 			form: {
 				searchEndpoint: '',
 				allowInsecureHttp: false,
@@ -242,6 +243,7 @@ export default {
 		providerValue() {
 			return this.selectedProvider ? this.selectedProvider.value : null
 		},
+
 		/**
 		 * The broker credentials pickable for a search backend.
 		 *
@@ -308,14 +310,17 @@ export default {
 						(config.searchFieldMapping
 							&& config.searchFieldMapping.resultsPath)
 						|| 'results',
+
 					titleField:
 						(config.searchFieldMapping
 							&& config.searchFieldMapping.titleField)
 						|| 'title',
+
 					urlField:
 						(config.searchFieldMapping
 							&& config.searchFieldMapping.urlField)
 						|| 'url',
+
 					snippetField:
 						(config.searchFieldMapping
 							&& config.searchFieldMapping.snippetField)

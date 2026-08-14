@@ -39,20 +39,20 @@
 
 			<NcSelect
 				v-if="candidates.length > 0"
-				:model-value="selectedCandidate"
+				:modelValue="selectedCandidate"
 				:options="candidates"
 				:loading="loadingCandidates"
 				label="label"
-				:input-label="t('hermiq', 'Test against object')"
-				@update:model-value="onCandidate" />
+				:inputLabel="t('hermiq', 'Test against object')"
+				@update:modelValue="onCandidate" />
 
 			<NcTextField
-				:model-value="subjectUuid"
+				:modelValue="subjectUuid"
 				:label="t('hermiq', 'Subject object UUID')"
 				:placeholder="
 					t('hermiq', 'Pick above, paste a UUID, or leave empty')
 				"
-				@update:model-value="subjectUuid = $event" />
+				@update:modelValue="subjectUuid = $event" />
 
 			<!-- Says which of the two runs is about to happen, so "Run" with an
 			     empty form is a deliberate choice rather than a hope. -->
@@ -88,6 +88,9 @@
 </template>
 
 <script>
+import { CnRegisterSchemaSelect } from '@conduction/nextcloud-vue'
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcDialog,
@@ -96,9 +99,6 @@ import {
 	NcSelect,
 	NcTextField,
 } from '@nextcloud/vue'
-import { CnRegisterSchemaSelect } from '@conduction/nextcloud-vue'
-import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
 import Play from 'vue-material-design-icons/Play.vue'
 import { useFlowEditorStore } from '../store/flowEditor.js'
 

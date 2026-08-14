@@ -27,7 +27,7 @@
 				:loading="loadingAgents"
 				:disabled="dispatching"
 				label="label"
-				:input-label="t('hermiq', 'Agent')"
+				:inputLabel="t('hermiq', 'Agent')"
 				:placeholder="t('hermiq', 'Select an agent')"
 				data-testid="cn-agent-runs-widget-agent" />
 			<NcButton
@@ -76,9 +76,9 @@
 </template>
 
 <script>
-import { generateUrl } from '@nextcloud/router'
 import { getRequestToken } from '@nextcloud/auth'
 import { translate as t } from '@nextcloud/l10n'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -98,6 +98,7 @@ export default {
 		/** The object id (sidebar context). */
 		objectId: { type: String, default: '' },
 	},
+
 	data() {
 		return {
 			agents: [],
@@ -110,6 +111,7 @@ export default {
 			noticeType: 'success',
 		}
 	},
+
 	watch: {
 		objectId: {
 			immediate: true,
@@ -118,6 +120,7 @@ export default {
 			},
 		},
 	},
+
 	methods: {
 		t,
 		statusLabel(status) {
@@ -130,12 +133,14 @@ export default {
 			}
 			return map[status] || status
 		},
+
 		async refresh() {
 			if (this.objectId === '') {
 				return
 			}
 			await Promise.all([this.loadAgents(), this.loadHistory()])
 		},
+
 		async loadAgents() {
 			if (this.agents.length > 0) {
 				return
@@ -164,6 +169,7 @@ export default {
 				this.loadingAgents = false
 			}
 		},
+
 		async loadHistory() {
 			this.loadingHistory = true
 			try {
@@ -198,6 +204,7 @@ export default {
 				this.loadingHistory = false
 			}
 		},
+
 		toRun(entry) {
 			const ctx = entry.context || entry.changed || {}
 			const when = ctx.endedAt || entry.created || entry.timestamp || ''
@@ -207,6 +214,7 @@ export default {
 				when: when ? new Date(when).toLocaleString() : '',
 			}
 		},
+
 		async runAgent() {
 			if (!this.selectedAgent || this.dispatching) {
 				return

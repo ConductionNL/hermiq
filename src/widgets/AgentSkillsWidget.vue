@@ -20,12 +20,12 @@
 			<div class="agent-skills-widget__attach">
 				<NcSelect
 					v-model="skillToAttach"
-					:input-label="t('hermiq', 'Attach a skill')"
+					:inputLabel="t('hermiq', 'Attach a skill')"
 					:options="attachableSkillOptions"
 					:loading="loading"
 					:disabled="skillBusy || attachableSkillOptions.length === 0"
 					label="label"
-					track-by="value"
+					trackBy="value"
 					:placeholder="t('hermiq', 'Select a skill to attach')" />
 				<NcButton
 					type="secondary"
@@ -71,8 +71,8 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcSelect } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { NcButton, NcLoadingIcon, NcSelect } from '@nextcloud/vue'
 import Close from 'vue-material-design-icons/Close.vue'
 import { installSkill, listSkills, uninstallSkill } from '../api/skills.js'
 import { useAgentStore } from '../store/store.js'

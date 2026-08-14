@@ -16,7 +16,7 @@
   @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agentdetail-renders-as-a-detail-type-widget-grid
 -->
 <template>
-	<AgentMemoryPanel :agent-id="agentId" />
+	<AgentMemoryPanel :agentId="agentId" />
 </template>
 
 <script>

@@ -104,44 +104,44 @@
 		<SkillScorecardModal
 			v-if="scorecardResult"
 			:result="scorecardResult"
-			:skill-name="row.name || ''"
+			:skillName="row.name || ''"
 			@close="scorecardResult = null" />
 
 		<SkillExportModal
 			v-if="showExport"
-			:exported-package="exportedPackage"
+			:exportedPackage="exportedPackage"
 			@close="showExport = false" />
 
 		<SkillInstallModal
 			v-if="showInstall"
-			:skill-id="skillId()"
+			:skillId="skillId()"
 			@installed="onInstalled"
 			@close="showInstall = false" />
 
 		<SkillGithubPublishModal
 			v-if="showGithubPublish"
-			:skill-id="skillId()"
+			:skillId="skillId()"
 			@published="onGithubPublished"
 			@close="showGithubPublish = false" />
 	</div>
 </template>
 
 <script>
-import { NcButton, NcNoteCard } from '@nextcloud/vue'
 import { emit } from '@nextcloud/event-bus'
+import { NcButton, NcNoteCard } from '@nextcloud/vue'
+import SkillExportModal from '../modals/SkillExportModal.vue'
+import SkillGithubPublishModal from '../modals/SkillGithubPublishModal.vue'
+import SkillInstallModal from '../modals/SkillInstallModal.vue'
+// skill-maturity: the post-qualify scorecard, its own file per the
+// modal-isolation rule — as are the export, install and GitHub-publish
+// modals below.
+import SkillScorecardModal from '../modals/SkillScorecardModal.vue'
 import {
 	approveSkill,
 	exportSkill,
 	publishSkill,
 	qualifySkill,
 } from '../api/skills.js'
-// skill-maturity: the post-qualify scorecard, its own file per the
-// modal-isolation rule — as are the export, install and GitHub-publish
-// modals below.
-import SkillScorecardModal from '../modals/SkillScorecardModal.vue'
-import SkillExportModal from '../modals/SkillExportModal.vue'
-import SkillInstallModal from '../modals/SkillInstallModal.vue'
-import SkillGithubPublishModal from '../modals/SkillGithubPublishModal.vue'
 
 export default {
 	name: 'SkillRowActions',

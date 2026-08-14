@@ -40,16 +40,19 @@ export default {
 			type: [Number, String],
 			default: 0,
 		},
+
 		/** The full row object (unused; part of the cell-widget contract). */
 		row: {
 			type: Object,
 			default: () => ({}),
 		},
+
 		/** The schema property definition (unused; cell-widget contract). */
 		property: {
 			type: Object,
 			default: () => ({}),
 		},
+
 		/** The formatter-shaped value (unused; cell-widget contract). */
 		formatted: {
 			type: [Number, String],

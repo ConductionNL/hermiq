@@ -101,9 +101,9 @@
 </template>
 
 <script>
-import { generateUrl } from '@nextcloud/router'
 import { getRequestToken } from '@nextcloud/auth'
 import { translate as t } from '@nextcloud/l10n'
+import { generateUrl } from '@nextcloud/router'
 import { NcButton, NcLoadingIcon, NcNoteCard, NcTextArea } from '@nextcloud/vue'
 import { buildAgentContext } from '../../utils/agentContext.js'
 
@@ -120,6 +120,7 @@ export default {
 		/** The object type label (sidebar context). */
 		objectType: { type: String, default: '' },
 	},
+
 	data() {
 		return {
 			messages: [],
@@ -135,6 +136,7 @@ export default {
 			contextResolved: false,
 		}
 	},
+
 	computed: {
 		/**
 		 * Whether the schema's `x-openregister-agent-context` allowlist resolved to at
@@ -147,6 +149,7 @@ export default {
 			return Object.keys(this.boundedContext || {}).length > 0
 		},
 	},
+
 	watch: {
 		objectId: {
 			immediate: true,
@@ -155,11 +158,13 @@ export default {
 			},
 		},
 	},
+
 	methods: {
 		t,
 		roleLabel(role) {
 			return role === 'user' ? t('hermiq', 'You') : t('hermiq', 'Agent')
 		},
+
 		async reset() {
 			this.messages = []
 			this.draft = ''
@@ -173,6 +178,7 @@ export default {
 			}
 			await this.loadBoundedContext()
 		},
+
 		/**
 		 * Resolve the object + its schema and build the fail-closed bounded context.
 		 * Any failure leaves an EMPTY context — the safe default — never the object.
@@ -196,6 +202,7 @@ export default {
 				this.contextResolved = true
 			}
 		},
+
 		async fetchObject() {
 			const url = generateUrl(
 				'/apps/openregister/api/objects/{register}/{schema}/{id}',
@@ -215,6 +222,7 @@ export default {
 			// OR returns either the object directly or `{ '@self': …, ...properties }`.
 			return body && typeof body === 'object' ? body : {}
 		},
+
 		async fetchSchema() {
 			const url = generateUrl('/apps/openregister/api/schemas/{id}', {
 				id: this.schema,
@@ -228,6 +236,7 @@ export default {
 			const body = await res.json()
 			return body && typeof body === 'object' ? body : {}
 		},
+
 		async send() {
 			const message = this.draft.trim()
 			if (message === '' || this.sending) {

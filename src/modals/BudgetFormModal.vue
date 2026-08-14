@@ -33,12 +33,12 @@
 			<div class="budget-form__field">
 				<NcSelect
 					v-model="scopeOption"
-					:input-label="t('hermiq', 'Scope')"
+					:inputLabel="t('hermiq', 'Scope')"
 					:options="scopeOptions"
 					:clearable="false"
 					:disabled="isEdit"
 					label="label"
-					track-by="value" />
+					trackBy="value" />
 			</div>
 
 			<NcTextField
@@ -52,11 +52,11 @@
 			<div class="budget-form__field">
 				<NcSelect
 					v-model="periodOption"
-					:input-label="t('hermiq', 'Period')"
+					:inputLabel="t('hermiq', 'Period')"
 					:options="periodOptions"
 					:clearable="false"
 					label="label"
-					track-by="value" />
+					trackBy="value" />
 			</div>
 
 			<div class="budget-form__row">
@@ -136,11 +136,13 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The organisation this budget belongs to (required to create). */
 		organisation: {
 			type: String,
 			required: true,
 		},
+
 		/** The budget being edited, or null when creating. */
 		budget: {
 			type: Object,
@@ -159,6 +161,7 @@ export default {
 				{ label: this.t('hermiq', 'Organisation'), value: 'organisation' },
 				{ label: this.t('hermiq', 'Agent'), value: 'agent' },
 			],
+
 			periodOptions: [
 				{ label: this.t('hermiq', 'Daily'), value: 'daily' },
 				{ label: this.t('hermiq', 'Weekly'), value: 'weekly' },
@@ -214,6 +217,7 @@ export default {
 					) || this.scopeOptions[0]
 				)
 			},
+
 			set(option) {
 				this.form.scope = option ? option.value : 'organisation'
 			},
@@ -230,6 +234,7 @@ export default {
 					) || this.periodOptions[2]
 				)
 			},
+
 			set(option) {
 				this.form.period = option ? option.value : 'monthly'
 			},

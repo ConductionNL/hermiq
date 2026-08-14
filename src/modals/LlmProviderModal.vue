@@ -39,11 +39,11 @@
 				<div class="llm-provider__field">
 					<NcSelect
 						v-model="selectedProvider"
-						:input-label="t('hermiq', 'Provider')"
+						:inputLabel="t('hermiq', 'Provider')"
 						:options="providerOptions"
 						:clearable="false"
 						label="label"
-						track-by="value" />
+						trackBy="value" />
 				</div>
 
 				<!-- OpenAI -->
@@ -51,7 +51,7 @@
 					<NcTextField
 						v-model="form.openaiConfig.chatModel"
 						:label="t('hermiq', 'Model')"
-						:placeholder="'gpt-4o-mini'" />
+						placeholder="gpt-4o-mini" />
 					<!--
 						The API-key field is gone. Hermiq no longer holds the key — it picks a
 						credential from the broker, and OpenRegister injects the secret
@@ -60,7 +60,7 @@
 					<NcSelect
 						v-model="openaiCredential"
 						:options="credentialsFor('openai')"
-						:input-label="t('hermiq', 'API credential')"
+						:inputLabel="t('hermiq', 'API credential')"
 						:loading="loadingCredentials"
 						:placeholder="t('hermiq', 'Select a credential')"
 						label="label" />
@@ -74,11 +74,11 @@
 					<NcTextField
 						v-model="form.ollamaConfig.url"
 						:label="t('hermiq', 'Ollama URL')"
-						:placeholder="'http://localhost:11434'" />
+						placeholder="http://localhost:11434" />
 					<NcTextField
 						v-model="form.ollamaConfig.chatModel"
 						:label="t('hermiq', 'Model')"
-						:placeholder="'llama3'" />
+						placeholder="llama3" />
 				</template>
 
 				<!-- Fireworks -->
@@ -86,15 +86,15 @@
 					<NcTextField
 						v-model="form.fireworksConfig.baseUrl"
 						:label="t('hermiq', 'Base URL')"
-						:placeholder="'https://api.fireworks.ai/inference/v1'" />
+						placeholder="https://api.fireworks.ai/inference/v1" />
 					<NcTextField
 						v-model="form.fireworksConfig.chatModel"
 						:label="t('hermiq', 'Model')"
-						:placeholder="'accounts/fireworks/models/llama-v3p1-8b-instruct'" />
+						placeholder="accounts/fireworks/models/llama-v3p1-8b-instruct" />
 					<NcSelect
 						v-model="fireworksCredential"
 						:options="credentialsFor('fireworks')"
-						:input-label="t('hermiq', 'API credential')"
+						:inputLabel="t('hermiq', 'API credential')"
 						:loading="loadingCredentials"
 						:placeholder="t('hermiq', 'Select a credential')"
 						label="label" />
@@ -108,7 +108,7 @@
 					<NcTextField
 						v-model="form.anthropicConfig.chatModel"
 						:label="t('hermiq', 'Model')"
-						:placeholder="'claude-opus-4-8'" />
+						placeholder="claude-opus-4-8" />
 					<p class="llm-provider-modal__hint">
 						{{
 							t(
@@ -120,14 +120,14 @@
 					<NcSelect
 						v-model="anthropicAuthMode"
 						:options="authModeOptions"
-						:input-label="t('hermiq', 'Authentication')"
+						:inputLabel="t('hermiq', 'Authentication')"
 						:clearable="false"
 						label="label"
-						track-by="value" />
+						trackBy="value" />
 					<NcSelect
 						v-model="anthropicCredential"
 						:options="credentialsFor(anthropicCredentialProviderId)"
-						:input-label="
+						:inputLabel="
 							anthropicAuthModeValue === 'oauth'
 								? t(
 										'hermiq',
@@ -192,6 +192,8 @@
 </template>
 
 <script>
+import axios from '@nextcloud/axios'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcLoadingIcon,
@@ -200,8 +202,6 @@ import {
 	NcSelect,
 	NcTextField,
 } from '@nextcloud/vue'
-import { generateUrl } from '@nextcloud/router'
-import axios from '@nextcloud/axios'
 import { getLlmSettings, patchLlmSettings } from '../api/llm.js'
 
 export default {
@@ -250,6 +250,7 @@ export default {
 				{ value: 'api_key', label: 'API key' },
 				{ value: 'oauth', label: 'Claude Max subscription (OAuth)' },
 			],
+
 			providerOptions: [
 				{ value: 'openai', label: 'OpenAI' },
 				{ value: 'anthropic', label: 'Anthropic (Claude)' },
@@ -260,6 +261,7 @@ export default {
 					label: 'Nextcloud Assistant (TaskProcessing)',
 				},
 			],
+
 			form: {
 				openaiConfig: { chatModel: '', credentialId: '' },
 				ollamaConfig: { url: '', chatModel: '' },
@@ -284,6 +286,7 @@ export default {
 		providerValue() {
 			return this.selectedProvider ? this.selectedProvider.value : null
 		},
+
 		/**
 		 * Whether a credential is selected for each provider.
 		 *
@@ -299,6 +302,7 @@ export default {
 		openaiHasCredential() {
 			return this.openaiCredential !== null
 		},
+
 		/**
 		 * @return {boolean} True when Fireworks has a credential selected.
 		 *
@@ -307,6 +311,7 @@ export default {
 		fireworksHasCredential() {
 			return this.fireworksCredential !== null
 		},
+
 		/**
 		 * The bare authMode string of the currently-selected Anthropic auth option.
 		 *

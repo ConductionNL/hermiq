@@ -98,10 +98,10 @@
 
 <script>
 import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
-import MessagePlus from 'vue-material-design-icons/MessagePlus.vue'
 // Agents carry the AI sparkles, not a robot — one mark for "the model", used
 // identically in the nav, the launcher hex and the chat empty state.
 import Creation from 'vue-material-design-icons/Creation.vue'
+import MessagePlus from 'vue-material-design-icons/MessagePlus.vue'
 
 export default {
 	name: 'AgentSelector',
@@ -121,16 +121,19 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+
 		/** Whether the agent list is loading. */
 		loading: {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Load error message, if any. */
 		error: {
 			type: String,
 			default: '',
 		},
+
 		/** The id of the agent a conversation is being started with, if any. */
 		startingId: {
 			type: String,

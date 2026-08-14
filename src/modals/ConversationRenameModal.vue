@@ -74,6 +74,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The conversation being renamed. */
 		conversation: {
 			type: Object,

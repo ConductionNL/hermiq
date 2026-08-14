@@ -71,11 +71,11 @@
 			<div class="schedule-form__field">
 				<NcSelect
 					v-model="kindOption"
-					:input-label="t('hermiq', 'Trigger')"
+					:inputLabel="t('hermiq', 'Trigger')"
 					:options="kindOptions"
 					:clearable="false"
 					label="label"
-					track-by="value" />
+					trackBy="value" />
 			</div>
 
 			<NcTextField
@@ -106,11 +106,11 @@
 			<div class="schedule-form__field">
 				<NcSelect
 					v-model="deliverOption"
-					:input-label="t('hermiq', 'Deliver output to')"
+					:inputLabel="t('hermiq', 'Deliver output to')"
 					:options="deliverOptions"
 					:clearable="false"
 					label="label"
-					track-by="value" />
+					trackBy="value" />
 			</div>
 
 			<NcTextField
@@ -167,11 +167,11 @@
 				<div class="schedule-form__field">
 					<NcSelect
 						v-model="reviewerTypeOption"
-						:input-label="t('hermiq', 'Reviewer type')"
+						:inputLabel="t('hermiq', 'Reviewer type')"
 						:options="reviewerTypeOptions"
 						:clearable="false"
 						label="label"
-						track-by="value" />
+						trackBy="value" />
 				</div>
 
 				<NcTextField
@@ -232,7 +232,7 @@
 		<ScheduleWebhookSecretDialog
 			v-if="schedule && schedule.id"
 			:show="showWebhookSecretDialog"
-			:schedule-id="schedule.id"
+			:scheduleId="schedule.id"
 			@close="showWebhookSecretDialog = false" />
 	</NcModal>
 </template>
@@ -248,9 +248,9 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
-import { useScheduleStore } from '../store/store.js'
-import { getBudgetEstimate } from '../api/budgets.js'
 import ScheduleWebhookSecretDialog from './ScheduleWebhookSecretDialog.vue'
+import { getBudgetEstimate } from '../api/budgets.js'
+import { useScheduleStore } from '../store/store.js'
 
 export default {
 	name: 'ScheduleFormModal',
@@ -273,11 +273,13 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The agent UUID this schedule runs. */
 		agentId: {
 			type: String,
 			required: true,
 		},
+
 		/** The schedule being edited, or null when attaching a new one. */
 		schedule: {
 			type: Object,
@@ -301,6 +303,7 @@ export default {
 				{ label: this.t('hermiq', 'Interval'), value: 'interval' },
 				{ label: this.t('hermiq', 'Cron'), value: 'cron' },
 			],
+
 			deliverOptions: [
 				{ label: this.t('hermiq', 'Nextcloud Talk'), value: 'talk' },
 				{ label: this.t('hermiq', 'Notification'), value: 'notification' },
@@ -310,6 +313,7 @@ export default {
 				{ label: this.t('hermiq', 'Email'), value: 'email' },
 				{ label: this.t('hermiq', 'Webhook'), value: 'webhook' },
 			],
+
 			reviewerTypeOptions: [
 				{ label: this.t('hermiq', 'User'), value: 'user' },
 				{ label: this.t('hermiq', 'Group'), value: 'group' },
@@ -340,6 +344,7 @@ export default {
 					) || this.kindOptions[0]
 				)
 			},
+
 			set(option) {
 				this.form.kind = option ? option.value : 'once'
 			},
@@ -356,6 +361,7 @@ export default {
 					) || this.deliverOptions[2]
 				)
 			},
+
 			set(option) {
 				this.form.deliver = option ? option.value : 'none'
 			},
@@ -372,6 +378,7 @@ export default {
 					) || this.reviewerTypeOptions[0]
 				)
 			},
+
 			set(option) {
 				this.form.reviewerType = option ? option.value : 'user'
 			},
@@ -457,6 +464,7 @@ export default {
 				enabled: source.enabled !== false,
 				repeatTimes:
 					source.repeat && source.repeat.times ? source.repeat.times : '',
+
 				requiresApproval: source.requiresApproval === true,
 				reviewer: source.reviewer || '',
 				reviewerType: source.reviewerType || 'user',

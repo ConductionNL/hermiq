@@ -30,12 +30,12 @@
 		<div class="skill-link-panel__attach">
 			<NcSelect
 				v-model="skillToLink"
-				:input-label="t('hermiq', 'Link a skill')"
+				:inputLabel="t('hermiq', 'Link a skill')"
 				:options="linkableSkillOptions"
 				:loading="loading"
 				:disabled="busy || linkableSkillOptions.length === 0"
 				label="label"
-				track-by="value"
+				trackBy="value"
 				:placeholder="t('hermiq', 'Select a skill to link')" />
 			<NcButton
 				type="secondary"
@@ -88,8 +88,8 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { NcButton, NcLoadingIcon, NcNoteCard, NcSelect } from '@nextcloud/vue'
 import Close from 'vue-material-design-icons/Close.vue'
 import { listSkills } from '../api/skills.js'
 import { useEvalDatasetStore } from '../store/store.js'

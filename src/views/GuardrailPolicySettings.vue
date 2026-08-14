@@ -92,9 +92,9 @@
 				</div>
 				<div class="guardrail-policy-settings__policy-edit">
 					<NcSelect
-						:model-value="selectedCreateOrganisation"
+						:modelValue="selectedCreateOrganisation"
 						:options="organisationOptions"
-						:input-label="t('hermiq', 'Applies to')"
+						:inputLabel="t('hermiq', 'Applies to')"
 						:clearable="false"
 						@update:modelValue="
 							(option) => {
@@ -102,14 +102,14 @@
 							}
 						" />
 					<NcSelect
-						:model-value="
+						:modelValue="
 							guardrailActionOption(
 								guardrailPolicyDraft.inputPiiAction,
 								piiActionOptions,
 							)
 						"
 						:options="piiActionOptions"
-						:input-label="t('hermiq', 'Input: PII/secret action')"
+						:inputLabel="t('hermiq', 'Input: PII/secret action')"
 						:clearable="false"
 						@update:modelValue="
 							(option) => {
@@ -119,14 +119,14 @@
 							}
 						" />
 					<NcSelect
-						:model-value="
+						:modelValue="
 							guardrailActionOption(
 								guardrailPolicyDraft.inputPromptInjectionAction,
 								injectionActionOptions,
 							)
 						"
 						:options="injectionActionOptions"
-						:input-label="t('hermiq', 'Input: prompt-injection action')"
+						:inputLabel="t('hermiq', 'Input: prompt-injection action')"
 						:clearable="false"
 						@update:modelValue="
 							(option) => {
@@ -135,14 +135,14 @@
 							}
 						" />
 					<NcSelect
-						:model-value="
+						:modelValue="
 							guardrailActionOption(
 								guardrailPolicyDraft.outputPiiAction,
 								piiActionOptions,
 							)
 						"
 						:options="piiActionOptions"
-						:input-label="t('hermiq', 'Output: PII/secret action')"
+						:inputLabel="t('hermiq', 'Output: PII/secret action')"
 						:clearable="false"
 						@update:modelValue="
 							(option) => {
@@ -196,14 +196,14 @@
 				</p>
 				<div v-else class="guardrail-policy-settings__policy-edit">
 					<NcSelect
-						:model-value="
+						:modelValue="
 							guardrailActionOption(
 								guardrailPolicyDraft.inputPiiAction,
 								piiActionOptions,
 							)
 						"
 						:options="piiActionOptions"
-						:input-label="t('hermiq', 'Input: PII/secret action')"
+						:inputLabel="t('hermiq', 'Input: PII/secret action')"
 						:clearable="false"
 						@update:modelValue="
 							(option) => {
@@ -213,14 +213,14 @@
 							}
 						" />
 					<NcSelect
-						:model-value="
+						:modelValue="
 							guardrailActionOption(
 								guardrailPolicyDraft.inputPromptInjectionAction,
 								injectionActionOptions,
 							)
 						"
 						:options="injectionActionOptions"
-						:input-label="t('hermiq', 'Input: prompt-injection action')"
+						:inputLabel="t('hermiq', 'Input: prompt-injection action')"
 						:clearable="false"
 						@update:modelValue="
 							(option) => {
@@ -229,14 +229,14 @@
 							}
 						" />
 					<NcSelect
-						:model-value="
+						:modelValue="
 							guardrailActionOption(
 								guardrailPolicyDraft.outputPiiAction,
 								piiActionOptions,
 							)
 						"
 						:options="piiActionOptions"
-						:input-label="t('hermiq', 'Output: PII/secret action')"
+						:inputLabel="t('hermiq', 'Output: PII/secret action')"
 						:clearable="false"
 						@update:modelValue="
 							(option) => {
@@ -267,6 +267,8 @@
 </template>
 
 <script>
+import { showError, showSuccess } from '@nextcloud/dialogs'
+import { loadState } from '@nextcloud/initial-state'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -274,10 +276,8 @@ import {
 	NcSelect,
 	NcTextArea,
 } from '@nextcloud/vue'
-import { loadState } from '@nextcloud/initial-state'
-import { showError, showSuccess } from '@nextcloud/dialogs'
-import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import PlusIcon from 'vue-material-design-icons/Plus.vue'
+import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import {
 	createGuardrailPolicy,
 	listGuardrailPolicies,
@@ -314,6 +314,7 @@ export default {
 				outputPiiAction: 'off',
 				toolPolicyText: '',
 			},
+
 			guardrailPolicySaving: false,
 			// Create-mode state: the "New guardrail policy" flow. `creatingPolicy`
 			// toggles the create form; `createOrganisation` is the target org
@@ -573,13 +574,16 @@ export default {
 			this.guardrailPolicyDraft = {
 				inputPiiAction:
 					(policy.inputFilters && policy.inputFilters.piiAction) || 'off',
+
 				inputPromptInjectionAction:
 					(policy.inputFilters
 						&& policy.inputFilters.promptInjectionAction)
 					|| 'off',
+
 				outputPiiAction:
 					(policy.outputFilters && policy.outputFilters.piiAction)
 					|| 'off',
+
 				toolPolicyText: toolPolicy
 					.map((entry) => `${entry.toolId}: ${entry.classification}`)
 					.join('\n'),

@@ -31,11 +31,11 @@
 		<div v-if="organisations.length > 1" class="kill-switch__org">
 			<NcSelect
 				v-model="orgOption"
-				:input-label="t('hermiq', 'Organisation')"
+				:inputLabel="t('hermiq', 'Organisation')"
 				:options="orgOptions"
 				:clearable="false"
 				label="label"
-				track-by="value" />
+				trackBy="value" />
 		</div>
 
 		<NcNoteCard
@@ -47,7 +47,7 @@
 
 		<div class="kill-switch__row">
 			<NcCheckboxRadioSwitch
-				:model-value="engaged"
+				:modelValue="engaged"
 				:disabled="loading || saving"
 				type="switch"
 				@update:modelValue="onToggle">
@@ -67,13 +67,13 @@
 </template>
 
 <script>
+import { loadState } from '@nextcloud/initial-state'
 import {
 	NcCheckboxRadioSwitch,
 	NcLoadingIcon,
 	NcNoteCard,
 	NcSelect,
 } from '@nextcloud/vue'
-import { loadState } from '@nextcloud/initial-state'
 import AlertOctagon from 'vue-material-design-icons/AlertOctagon.vue'
 import { getKillSwitch, toggleKillSwitch } from '../api/approvals.js'
 
@@ -128,6 +128,7 @@ export default {
 					) || this.orgOptions[0]
 				)
 			},
+
 			set(option) {
 				this.selectedOrg = option ? option.value : ''
 				this.load()

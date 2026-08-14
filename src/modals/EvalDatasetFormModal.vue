@@ -60,12 +60,12 @@
 
 				<div class="eval-form__field">
 					<NcSelect
-						:model-value="expectationOptionFor(evalCase)"
-						:input-label="t('hermiq', 'Expectation')"
+						:modelValue="expectationOptionFor(evalCase)"
+						:inputLabel="t('hermiq', 'Expectation')"
 						:options="expectationOptions"
 						:clearable="false"
 						label="label"
-						track-by="value"
+						trackBy="value"
 						@update:modelValue="
 							(opt) => setExpectation(evalCase, opt)
 						" />
@@ -155,6 +155,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The dataset being edited, or null when creating a new one. */
 		dataset: {
 			type: Object,

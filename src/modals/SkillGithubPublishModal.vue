@@ -33,14 +33,14 @@
 			<NcSelect
 				v-model="githubPublishVisibility"
 				:options="visibilityOptions"
-				:input-label="t('hermiq', 'Visibility')"
+				:inputLabel="t('hermiq', 'Visibility')"
 				:clearable="false"
 				label="label"
-				track-by="value" />
+				trackBy="value" />
 			<NcSelect
 				v-model="githubPublishCredential"
 				:options="githubCredentials"
-				:input-label="t('hermiq', 'GitHub credential')"
+				:inputLabel="t('hermiq', 'GitHub credential')"
 				:loading="loadingGithubCredentials"
 				:placeholder="t('hermiq', 'Select a credential')"
 				label="label" />
@@ -69,9 +69,9 @@
 </template>
 
 <script>
-import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { publishSkillToGithub } from '../api/skills.js'
 
 export default {
@@ -103,10 +103,12 @@ export default {
 				owner: '',
 				repo: '',
 			},
+
 			githubPublishVisibility: {
 				label: this.t('hermiq', 'Private'),
 				value: 'private',
 			},
+
 			githubPublishCredential: null,
 			githubCredentialsList: [],
 			loadingGithubCredentials: false,

@@ -15,7 +15,7 @@
   @spec openspec/changes/agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
 -->
 <template>
-	<NcModal size="normal" :can-close="!busy" @close="$emit('close')">
+	<NcModal size="normal" :canClose="!busy" @close="$emit('close')">
 		<div class="template-import">
 			<h2 class="template-import__title">
 				{{ t('hermiq', 'Import an agent template') }}

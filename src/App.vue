@@ -20,16 +20,16 @@
 <template>
 	<div class="hermiq-root">
 		<CnAppRoot
-			:ai-companion="true"
+			:aiCompanion="true"
 			:manifest="manifest"
-			:custom-components="customComponents"
-			:page-types="pageTypes"
+			:customComponents="customComponents"
+			:pageTypes="pageTypes"
 			:registry="registry"
-			:cell-widgets="cellWidgets"
-			app-id="hermiq"
+			:cellWidgets="cellWidgets"
+			appId="hermiq"
 			:translate="translateForApp"
 			:permissions="permissions"
-			:requires-apps="[]">
+			:requiresApps="[]">
 			<!--
 			  This app provides `objectSidebarState`, which makes CnAppRoot defer its
 			  own CnObjectSidebar auto-mount to us — so this slot MUST render it.
@@ -43,11 +43,11 @@
 					v-if="objectSidebarState.active"
 					:title="objectSidebarState.title"
 					:subtitle="objectSidebarState.subtitle"
-					:object-type="objectSidebarState.objectType"
-					:object-id="objectSidebarState.objectId"
+					:objectType="objectSidebarState.objectType"
+					:objectId="objectSidebarState.objectId"
 					:register="objectSidebarState.register"
 					:schema="objectSidebarState.schema"
-					:hidden-tabs="objectSidebarState.hiddenTabs"
+					:hiddenTabs="objectSidebarState.hiddenTabs"
 					:tabs="objectSidebarState.tabs"
 					:open="objectSidebarState.open"
 					@update:open="objectSidebarState.open = $event" />
@@ -112,41 +112,41 @@
 					:name="t('hermiq', 'Credentials')">
 					<CnCredentials
 						scope="personal"
-						app-id="hermiq"
-						:app-name="t('hermiq', 'Hermiq')"
-						:app-credentials="appCredentials" />
+						appId="hermiq"
+						:appName="t('hermiq', 'Hermiq')"
+						:appCredentials="appCredentials" />
 				</NcAppSettingsSection>
 			</template>
 		</CnAppRoot>
 
 		<CnSetupWizard
 			v-if="showSetup"
-			app-id="hermiq"
+			appId="hermiq"
 			:steps="setupSteps"
-			:dialog-title="t('hermiq', 'Set up Hermiq')"
+			:dialogTitle="t('hermiq', 'Set up Hermiq')"
 			@complete="showSetup = false"
 			@close="showSetup = false" />
 	</div>
 </template>
 
 <script>
-import { reactive } from 'vue'
-import { translate as ncT } from '@nextcloud/l10n'
-import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
 import {
 	CnAppRoot,
+	CnCredentials,
 	CnObjectSidebar,
 	CnSetupWizard,
-	CnCredentials,
 } from '@conduction/nextcloud-vue'
+import { translate as ncT } from '@nextcloud/l10n'
+import { NcAppSettingsSection, NcButton } from '@nextcloud/vue'
+import { reactive } from 'vue'
 import TalkDeliverySettings from './components/TalkDeliverySettings.vue'
+// skill-maturity: the SkillsCatalog maturityLevel column's dots badge, resolved
+// via CnAppRoot's cellWidgets registry (manifest column `widget: "maturity-dots"`).
+import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
 // Provider-credential declarations for the CnCredentials settings surface.
 // Lives beside the manifest (not inside it): the app-manifest v2 schema has no
 // root `credentials` block, and the declaration is consumed only by this shell.
 import credentialDeclarations from './credentials.json'
-// skill-maturity: the SkillsCatalog maturityLevel column's dots badge, resolved
-// via CnAppRoot's cellWidgets registry (manifest column `widget: "maturity-dots"`).
-import SkillMaturityDots from './widgets/SkillMaturityDots.vue'
 
 export default {
 	name: 'App',
@@ -188,6 +188,7 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		/**
 		 * Registry of consumer-injected components used by:
 		 *   - `type: "custom"` pages (`page.component`)
@@ -199,6 +200,7 @@ export default {
 			type: Object,
 			default: () => ({}),
 		},
+
 		/**
 		 * Page-type registry — `{ index, detail, dashboard, settings, ... }`.
 		 * Wired through to descendant `CnPageRenderer` instances via
@@ -208,6 +210,7 @@ export default {
 			type: Object,
 			default: null,
 		},
+
 		/**
 		 * v2 five-kind component registry — `{ "<key>": { kind, component, ...metadata } }`.
 		 * Introduced by hydra ADR-036; passed through to CnAppRoot which provides

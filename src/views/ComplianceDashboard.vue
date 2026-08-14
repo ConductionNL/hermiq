@@ -78,8 +78,8 @@
 					<CnDataTable
 						:columns="controlColumns"
 						:rows="framework.controls"
-						row-key="controlId"
-						:empty-text="
+						rowKey="controlId"
+						:emptyText="
 							t('hermiq', 'No controls seeded for this framework yet.')
 						">
 						<template #column-status="{ row }">
@@ -161,8 +161,8 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
+import { NcButton, NcEmptyContent, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import ShieldIcon from 'vue-material-design-icons/ShieldLockOutline.vue'
 import { getComplianceDashboard, getComplianceExport } from '../api/compliance.js'
 

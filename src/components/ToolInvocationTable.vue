@@ -227,6 +227,7 @@ export default {
 			handler() {
 				this.load()
 			},
+
 			immediate: true,
 		},
 	},

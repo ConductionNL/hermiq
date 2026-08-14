@@ -48,8 +48,8 @@
 </template>
 
 <script>
-import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { loadState } from '@nextcloud/initial-state'
+import { NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { getQuota } from '../api/tenantOps.js'
 
 export default {
