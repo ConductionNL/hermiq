@@ -35,7 +35,7 @@
   "dependencies": {
     "@babel/core": "^7.29.0",
     "@babel/preset-env": "^7.29.5",
-    "@conduction/nextcloud-vue": "2.2.0-vue3.16",
+    "@conduction/nextcloud-vue": "^2.3.0",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.5.2",
     "@nextcloud/dialogs": "^6.0.0",
@@ -66,9 +66,6 @@
     },
     "@toast-ui/editor": {
       "dompurify": "^3.4.13"
-    },
-    "@conduction/nextcloud-vue": {
-      "eslint": "$eslint"
     }
   },
   "devDependencies": {
