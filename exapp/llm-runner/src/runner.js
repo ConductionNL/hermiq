@@ -287,10 +287,10 @@ function probeUrl(url) {
 			reject(
 				new Error(
 					`refusing to spawn: the governed MCP endpoint ${url} is unreachable from the `
-					+ `runner container (${err.message}). The CLI would have started WITHOUT Hermiq's `
-					+ 'tools and answered as if they did not exist. This is usually Nextcloud\'s '
-					+ 'published URL not resolving inside the container — set the `mcp_run_base_url` '
-					+ 'app config to the container-facing origin (e.g. http://nextcloud).',
+						+ `runner container (${err.message}). The CLI would have started WITHOUT Hermiq's `
+						+ "tools and answered as if they did not exist. This is usually Nextcloud's "
+						+ 'published URL not resolving inside the container — set the `mcp_run_base_url` '
+						+ 'app config to the container-facing origin (e.g. http://nextcloud).',
 				),
 			)
 		})
@@ -323,11 +323,25 @@ function run({ provider, model, messages, credentialEnv, mcpConfig, runToken }) 
 	// looks successful and is silently tool-less, which is worse than a refusal.
 	if (mcpConfig && typeof mcpConfig === 'object') {
 		return assertMcpEndpointReachable(mcpConfig).then(() =>
-			spawnTurn({ provider, model, messages, credentialEnv, mcpConfig, runToken }),
+			spawnTurn({
+				provider,
+				model,
+				messages,
+				credentialEnv,
+				mcpConfig,
+				runToken,
+			}),
 		)
 	}
 
-	return spawnTurn({ provider, model, messages, credentialEnv, mcpConfig, runToken })
+	return spawnTurn({
+		provider,
+		model,
+		messages,
+		credentialEnv,
+		mcpConfig,
+		runToken,
+	})
 }
 
 /**
@@ -337,7 +351,14 @@ function run({ provider, model, messages, credentialEnv, mcpConfig, runToken }) 
  * @param {object} args Same arguments as {@link run}.
  * @returns {Promise<{text: string, toolCalls: Array, usage: object}>} Result.
  */
-function spawnTurn({ provider, model, messages, credentialEnv, mcpConfig, runToken }) {
+function spawnTurn({
+	provider,
+	model,
+	messages,
+	credentialEnv,
+	mcpConfig,
+	runToken,
+}) {
 	return new Promise((resolve, reject) => {
 		const prompt = buildPrompt(messages)
 

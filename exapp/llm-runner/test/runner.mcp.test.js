@@ -274,7 +274,9 @@ test('run() writes a 0600 MCP file, keeps the token off argv, and cleans up', ()
 				provider: providers.getProvider('anthropic'),
 				model: 'claude-opus-4-8',
 				messages: [{ role: 'user', content: 'hi' }],
-				credentialEnv: { CLAUDE_CODE_OAUTH_TOKEN: 'oat-SUBSCRIPTION-TOKEN-xyz' },
+				credentialEnv: {
+					CLAUDE_CODE_OAUTH_TOKEN: 'oat-SUBSCRIPTION-TOKEN-xyz',
+				},
 				mcpConfig: mcpConfigFor(mcp.url),
 			})
 		} finally {

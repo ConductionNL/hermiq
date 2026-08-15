@@ -118,7 +118,10 @@ test('a refused connection is a REFUSAL to spawn, not a degraded turn', async ()
 
 test('an unresolvable host is refused rather than silently tool-less', async () => {
 	await assert.rejects(
-		() => assertMcpEndpointReachable(config('http://no-such-host.invalid/api/mcp-run')),
+		() =>
+			assertMcpEndpointReachable(
+				config('http://no-such-host.invalid/api/mcp-run'),
+			),
 		/refusing to spawn/,
 	)
 })
