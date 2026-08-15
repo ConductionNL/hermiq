@@ -57,6 +57,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Mail\IMailer;
 use PHPUnit\Framework\TestCase;
+use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -90,6 +91,7 @@ class HermiqToolProviderTest extends TestCase {
 		?WebFetchService $webFetchService = null,
 		?DelegationService $delegationService = null,
 		?NcNativeWriteService $writeService = null,
+		?MailReadService $mailReadService = null,
 	): HermiqToolProvider {
 		$session = $this->createMock(IUserSession::class);
 		if ($uid === null) {
@@ -114,6 +116,7 @@ class HermiqToolProviderTest extends TestCase {
 			$webFetchService ?? $this->createMock(WebFetchService::class),
 			$delegationService ?? $this->createMock(DelegationService::class),
 			$writeService ?? $this->createMock(NcNativeWriteService::class),
+			$mailReadService ?? $this->createMock(MailReadService::class),
 			$this->createMock(LoggerInterface::class)
 		);
 
@@ -193,6 +196,46 @@ class HermiqToolProviderTest extends TestCase {
 	}//end testWriteToolsAreUnreachableWithoutAnAuthenticatedUser()
 
 	/**
+	 * Each mail read tool dispatches to its own MailReadService method with the
+	 * acting user's uid — never a caller-supplied one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/nc-mail-read-tools/specs/nc-native-tools/spec.md#requirement-mail-reading-is-exposed-read-only-and-scoped-to-the-acting-user
+	 */
+	public function testMailToolsDispatchToTheMailReadService(): void {
+		$mail = $this->createMock(MailReadService::class);
+		$mail->expects($this->once())->method('listAccounts')->with('alice')->willReturn(['accounts' => []]);
+		$mail->expects($this->once())->method('listMessages')->with('alice', $this->anything())->willReturn(['messages' => []]);
+		$mail->expects($this->once())->method('readMessage')->with('alice', $this->anything())->willReturn(['body' => 'x']);
+
+		$provider = $this->provider('alice', null, null, null, null, null, null, $mail);
+
+		$this->assertSame(['accounts' => []], $provider->invokeTool('hermiq.listMailAccounts', []));
+		$this->assertSame(['messages' => []], $provider->invokeTool('hermiq.listMailMessages', ['mailboxId' => 1]));
+		$this->assertSame(['body' => 'x'], $provider->invokeTool('hermiq.readMailMessage', ['id' => 1]));
+
+	}//end testMailToolsDispatchToTheMailReadService()
+
+	/**
+	 * No mail tool is reachable without an authenticated user.
+	 *
+	 * @return void
+	 */
+	public function testMailToolsAreUnreachableWithoutAnAuthenticatedUser(): void {
+		$mail = $this->createMock(MailReadService::class);
+		$mail->expects($this->never())->method('listAccounts');
+		$mail->expects($this->never())->method('readMessage');
+
+		$provider = $this->provider(null, null, null, null, null, null, null, $mail);
+
+		foreach (['hermiq.listMailAccounts', 'hermiq.listMailMessages', 'hermiq.readMailMessage'] as $toolId) {
+			$this->assertSame('unauthenticated', $provider->invokeTool($toolId, [])['error']['code']);
+		}
+
+	}//end testMailToolsAreUnreachableWithoutAnAuthenticatedUser()
+
+	/**
 	 * getAppId is the hermiq app slug and every tool id is namespaced by it.
 	 *
 	 * @return void
@@ -211,9 +254,11 @@ class HermiqToolProviderTest extends TestCase {
 		// + hermiq.webSearch/webFetch (web-research-tool)
 		// + hermiq.delegateAgent (sub-agent-delegation)
 		// + hermiq.createCalendarEvent/upsertContact/listNotes/createNote/updateNote
-		//   (nc-native-write-tools),
+		//   (nc-native-write-tools)
+		// + hermiq.listMailAccounts/listMailMessages/readMailMessage
+		//   (nc-mail-read-tools),
 		// all registered through this same provider.
-		$this->assertCount(19, $tools);
+		$this->assertCount(22, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -279,10 +324,16 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listNotes' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.createNote' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.updateNote' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
+			// nc-mail-read-tools. Honestly read-only — which is exactly why the
+			// write default-deny does NOT protect them, and why MailReadService
+			// carries an AI-feature gate instead.
+			'hermiq.listMailAccounts' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.listMailMessages' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.readMailMessage' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(19, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(22, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -338,6 +389,13 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.listNotes' => ToolReachResolver::REACH_USER,
 			'hermiq.createNote' => ToolReachResolver::REACH_USER,
 			'hermiq.updateNote' => ToolReachResolver::REACH_USER,
+			// `user`, honestly: reading changes nothing and sends nothing out. The
+			// new exposure is the INFERENCE path — the body reaches whatever engine
+			// the run uses — which the reach axis cannot express and the
+			// AI-feature gate governs instead.
+			'hermiq.listMailAccounts' => ToolReachResolver::REACH_USER,
+			'hermiq.listMailMessages' => ToolReachResolver::REACH_USER,
+			'hermiq.readMailMessage' => ToolReachResolver::REACH_USER,
 		];
 
 		$tools = $this->provider('alice')->getTools();
