@@ -1,60 +1,60 @@
-# hermiq speech sidecars — Whisper (STT) and Kokoro (TTS).
+# hermiq speech sidecar — ONE container for both speech-to-text and text-to-speech.
 #
-# ⚠️ THERE IS DELIBERATELY NO DOCKERFILE HERE, AND THAT IS THE POINT.
+# ⚠️ THERE IS DELIBERATELY NO DOCKERFILE HERE, AND ONLY ONE SERVICE.
 #
-# An earlier draft of speech-services planned a bespoke Python sidecar. It should
-# not exist. Both upstream projects already publish maintained images that expose
-# **OpenAI-compatible HTTP APIs** — `/v1/audio/transcriptions` and
-# `/v1/audio/speech` — so Hermiq's side is a TaskProcessing provider making an
-# HTTP call, not an ML runtime we would be signing up to maintain, patch and
-# rebuild on every torch CVE.
+# An earlier draft planned a bespoke Python sidecar; a second draft ran Whisper
+# and Kokoro as two containers. Both are replaced by Speaches, which serves
+# faster-whisper (STT) and Kokoro/Piper (TTS) behind ONE OpenAI-compatible API:
+# `/v1/audio/transcriptions` and `/v1/audio/speech`. It describes itself as
+# "Ollama, but for TTS/STT models", which is the right mental model — including
+# on-demand model load/unload with a configurable TTL.
 #
-# What we would have hand-rolled is exactly what these images already are, minus
-# the maintenance.
+# What we would have hand-rolled is exactly what this already is, minus the
+# maintenance: we would have owned a torch/ONNX image and rebuilt it on every CVE.
+# Hermiq's side stays a TaskProcessing provider making an HTTP call.
 #
-# ⚠️ NEITHER IS VENDOR-OFFICIAL, because no vendor-official image exists: OpenAI
-# ships the Whisper *model*, not a server; hexgrad ships Kokoro *weights*, not a
-# service. These are the best-maintained community wrappers. That is precisely
-# why the digest pins below are not optional — see PIN, and the same PA3 note
+# ⚠️ WHY NOT FOLD THIS INTO `hermiq-llm-runner` — the answer is not "tidiness":
+#
+#   - That image is **Node 22**. These are Python ML workloads. Consolidating
+#     means carrying a second language runtime plus torch in an image whose whole
+#     point is a small, auditable CLI transport.
+#   - Its hardened posture is **no default route, egress only through a proxy that
+#     asks Hermiq's PDP per connection** (see llm-runner/deploy/docker-compose.yml).
+#     A model server must reach HuggingFace to fetch weights on first use — so
+#     folding them together either punches a hole in that jail or breaks model
+#     loading. The postures are incompatible, not merely different.
+#   - Lifecycles differ: a CLI turn is burst work; a speech model wants GB of
+#     weights resident. One OOM in transcription would take the LLM transport
+#     down with it.
+#   - A torch CVE would force a rebuild-and-redeploy of the LLM transport, and
+#     vice versa. Coupling them makes both harder to patch.
+#
+# Ollama itself cannot host these either: it has no audio input path, and neither
+# Whisper nor Kokoro is a GGUF LLM.
+#
+# ⚠️ NOT VENDOR-OFFICIAL, because no vendor-official image exists: OpenAI ships
+# the Whisper *model*, hexgrad ships Kokoro *weights*; neither ships a service.
+# That is exactly why the digest pin below is not optional — same PA3 note
 # `llm-runner/Dockerfile` carries: a floating tag lets a poisoned upstream
 # rebuild propagate on the next `docker compose pull`.
-#
-# Ollama is NOT used here and cannot be: it has no audio input path at all, and
-# neither Whisper nor Kokoro is a GGUF LLM. `hermiq-llm-runner` is separately a
-# Node CLI transport, so it is not a home for these either.
 #
 # SPDX-License-Identifier: EUPL-1.2
 # Copyright 2026 Conduction B.V.
 
 services:
-  # ---------------------------------------------------------------------------
-  # Speech-to-text. faster-whisper (CTranslate2) behind an OpenAI-compatible API.
-  # ---------------------------------------------------------------------------
-  hermiq-stt:
-    image: fedirz/faster-whisper-server:latest-cpu@sha256:760e5e43d427dc6cfbbc4731934b908b7de9c7e6d5309c6a1f0c8c923a5b6030
-    container_name: hermiq-stt
+  hermiq-speech:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+    container_name: hermiq-speech
     restart: unless-stopped
     environment:
-      # large-v3-turbo: 809M params, 2-5x faster than large-v3 with minimal
-      # accuracy loss. It excludes the TRANSLATION task, so "transcribe this
-      # Polish call into English" is two steps, not one — which is a feature
-      # here, because it makes the translation visible and auditable instead of
-      # folded invisibly into transcription.
-      #
-      # ⚠️ THE REPO ID IS `deepdml/...`, NOT `Systran/...`. Systran publishes the
-      # large-v3 CTranslate2 conversion but NOT a turbo one, and HuggingFace
-      # answers a non-existent repo with **401 Unauthorized**, not 404 — it will
-      # not leak whether a repo exists. So a wrong id here does not look like a
-      # typo in the logs; it looks like an auth problem, and the container simply
-      # crash-loops on LocalEntryNotFoundError while the network is provably fine.
-      - WHISPER__MODEL=deepdml/faster-whisper-large-v3-turbo-ct2
-      # Keep the model resident; a cold load on every call dominates latency.
+      # Keep a loaded model resident; a cold load on every call dominates latency.
+      # Speaches unloads after this TTL — -1 disables unloading.
       - WHISPER__TTL=-1
       - ENABLE_UI=false
     volumes:
-      # Persist weights so a container restart is not a multi-GB re-download,
-      # and so an air-gapped instance keeps working.
-      - hermiq-speech-models:/root/.cache/huggingface
+      # Persist weights so a restart is not a multi-GB re-download, and so an
+      # air-gapped instance keeps working once primed.
+      - hermiq-speech-models:/home/ubuntu/.cache/huggingface
     ports:
       - '127.0.0.1:8000:8000'
     cap_drop:
@@ -62,10 +62,10 @@ services:
     security_opt:
       - no-new-privileges:true
     healthcheck:
-      # ⚠️ NOT curl — this image does not ship it, so a curl-based check reports
-      # `unhealthy` forever while the service is provably fine (GET /health
-      # returns 200 from the host). A healthcheck that can never pass is worse
-      # than none: it trains everyone to ignore the column.
+      # ⚠️ NOT curl — these images do not reliably ship it, and a curl-based check
+      # reports `unhealthy` forever while the service is provably fine. A check
+      # that can never pass is worse than none: it trains everyone to ignore the
+      # column.
       test:
         - CMD
         - python3
@@ -73,31 +73,34 @@ services:
         - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=5).status==200 else 1)"
       interval: 30s
       timeout: 10s
-      # First call lazily downloads ~1.6 GB of weights, so the container is
-      # legitimately unhealthy for a while on a cold volume.
+      # The first call for a given model lazily fetches its weights (~1.6 GB for
+      # whisper turbo), so the container is legitimately unhealthy for a while on
+      # a cold volume.
       start_period: 15m
       retries: 5
 
-  # ---------------------------------------------------------------------------
-  # Text-to-speech. Kokoro-82M behind an OpenAI-compatible API.
-  # ---------------------------------------------------------------------------
-  hermiq-tts:
-    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest@sha256:fa52dce920c3610c78fccde4f6fa064fb092ae95018cf42b42d84d876655e8d9
-    container_name: hermiq-tts
-    restart: unless-stopped
-    volumes:
-      - hermiq-speech-models:/app/models
-    ports:
-      - '127.0.0.1:8880:8880'
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    healthcheck:
-      test: ['CMD-SHELL', 'curl -fsS http://localhost:8880/health || exit 1']
-      interval: 30s
-      timeout: 5s
-      retries: 5
-
 volumes:
+  # ⚠️ USE A FRESH VOLUME, never one an earlier speech container wrote to.
+  # Speaches runs as `ubuntu` (uid 1000). The single-purpose Whisper/Kokoro
+  # images run as root and cache under a different path, so a reused volume
+  # leaves root-owned directories that Speaches cannot write — and the failure
+  # surfaces as a bare `500 Internal Server Error` on model install, with the
+  # actual `PermissionError` only visible in the container log.
   hermiq-speech-models:
+
+# ---------------------------------------------------------------------------
+# PRIMING — required, and different from the single-purpose images.
+#
+# Speaches does NOT lazily download a model on first use; it 404s with
+# "Model '<id>' is not installed locally". Install both before first use:
+#
+#   curl -X POST http://127.0.0.1:8000/v1/models/deepdml/faster-whisper-large-v3-turbo-ct2
+#   curl -X POST http://127.0.0.1:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX
+#
+# `GET /v1/registry?task=text-to-speech` lists valid ids — worth consulting,
+# since a wrong id fails the same way a missing one does.
+#
+# Verified end to end on this compose: Kokoro synthesised "One sidecar now
+# serves both directions." and Whisper large-v3-turbo transcribed it back word
+# for word, both inside this one container, with no audio leaving the instance.
+# ---------------------------------------------------------------------------
