@@ -192,11 +192,7 @@ function validateRegister(file, errors, warnings) {
 			xKeys.filter((k) => k !== 'x-openregister-seed').length > 0
 			|| (s.authorization && typeof s.authorization === 'object'),
 		)
-		if (
-			props.length > 0
-			&& props.length <= 3
-			&& declaresSomething === false
-		) {
+		if (props.length > 0 && props.length <= 3 && declaresSomething === false) {
 			warnings.push(
 				`${at}: only ${props.length} properties and no x-openregister-* declarations — verify this isn't a stub left by a bad merge`,
 			)
