@@ -207,6 +207,25 @@ class FacadeToolInvoker {
 	private const WEB_RESEARCH_TOOL_IDS = ['hermiq.webSearch', 'hermiq.webFetch'];
 
 	/**
+	 * The NC-native write tools that need the run's agent identity injected, for
+	 * the SAME reason `MEMORY_TOOL_IDS` does: the ADR-088 mark records WHICH agent
+	 * authored the artefact, and that identity must come from the run — never from
+	 * a value the LLM could supply for itself.
+	 *
+	 * The note tools are deliberately ABSENT. A note is marked with a system tag,
+	 * and a tag is a shared label that cannot carry per-agent data — so there is
+	 * nothing for an injected agent id to do there, and injecting it anyway would
+	 * imply an attribution the artefact does not actually carry. For notes the
+	 * agent attribution lives only in the trace step, beside the file id.
+	 *
+	 * @var array<int, string>
+	 */
+	private const ARTEFACT_WRITE_TOOL_IDS = [
+		'hermiq.createCalendarEvent',
+		'hermiq.upsertContact',
+	];
+
+	/**
 	 * The maximum characters of a `webSearch` query recorded as its trace target —
 	 * a defensive bound against trace bloat, not a spec requirement (a search query
 	 * is not itself a URL, so there is no host+path to reduce it to).
@@ -1145,7 +1164,10 @@ class FacadeToolInvoker {
 		}
 
 		$toolId = $this->resolveToolId(name: $name);
-		if (in_array($toolId, self::MEMORY_TOOL_IDS, true) === false && $toolId !== self::DELEGATE_AGENT_TOOL_ID) {
+		if (in_array($toolId, self::MEMORY_TOOL_IDS, true) === false
+			&& in_array($toolId, self::ARTEFACT_WRITE_TOOL_IDS, true) === false
+			&& $toolId !== self::DELEGATE_AGENT_TOOL_ID
+		) {
 			return $arguments;
 		}
 
@@ -1222,7 +1244,11 @@ class FacadeToolInvoker {
 				$outcome = $outcomeOverride;
 			}
 
-			$this->trace->endStep(token: $traceToken, outcome: $outcome, extra: $this->traceExtraFor(name: $name, arguments: $arguments));
+			$this->trace->endStep(
+				token: $traceToken,
+				outcome: $outcome,
+				extra: $this->traceExtraFor(name: $name, arguments: $arguments, result: $envelope['result'])
+			);
 		}
 
 		$this->channel?->emitToolResult(
@@ -1248,24 +1274,75 @@ class FacadeToolInvoker {
 	 *
 	 * @param string $name The LLPhant-side function name.
 	 * @param array<string, mixed> $arguments Decoded arguments object.
+	 * @param mixed $result The facade's decoded tool result, from which an
+	 *                      `artefact` descriptor is lifted when the tool produced
+	 *                      one (ADR-088) — read from the RESULT because a newly
+	 *                      created artefact has no id until the write returns.
 	 *
-	 * @return array<string, mixed> `['target' => string]`, or `[]`.
+	 * @return array<string, mixed> `['target' => string]` and/or `['artefact' => ...]`, or `[]`.
 	 *
 	 * @spec openspec/changes/web-research-tool/specs/run-audit-log/spec.md#requirement-every-run-and-tool-call-is-audited-mvp
 	 */
-	private function traceExtraFor(string $name, array $arguments): array {
+	private function traceExtraFor(string $name, array $arguments, mixed $result = null): array {
 		$toolId = $this->resolveToolId(name: $name);
+
+		// ADR-088 §3: a write must be recorded with the identity of the artefact
+		// it produced, or the oversight surface can say a tool succeeded without
+		// saying on WHAT — a record an overseer cannot follow to the thing that
+		// changed. Read from the RESULT, not the arguments, because the id of a
+		// newly created artefact does not exist until the write returns.
+		//
+		// Deliberately app-agnostic: any tool from any app that returns an
+		// `artefact` descriptor gets it recorded, so DocuDesk's document tools
+		// need no change here. Only `type` and `id` are lifted, and only as
+		// scalars — the no-content rule is enforced by the shape, not by trusting
+		// each tool to omit content.
+		$artefact = $this->resolveArtefactDescriptor(result: $result);
+
 		if (in_array($toolId, self::WEB_RESEARCH_TOOL_IDS, true) === false) {
-			return [];
+			return $artefact;
 		}
 
 		$target = $this->resolveWebResearchTarget(toolId: $toolId, arguments: $arguments);
 		if ($target === null) {
+			return $artefact;
+		}
+
+		return array_merge($artefact, ['target' => $target]);
+	}//end traceExtraFor()
+
+	/**
+	 * Lift an `artefact` descriptor out of a tool result for the audit record.
+	 *
+	 * Returns `['artefact' => ['type' => string, 'id' => string]]` when the result
+	 * carries one, `[]` otherwise. Non-scalar members are dropped rather than
+	 * stringified, so a tool cannot smuggle a body into the trace by nesting it
+	 * under a key this method reads.
+	 *
+	 * @param mixed $result The facade's decoded tool result.
+	 *
+	 * @return array<string, mixed> The trace extra fragment.
+	 *
+	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
+	 */
+	private function resolveArtefactDescriptor(mixed $result): array {
+		if (is_array($result) === false || isset($result['artefact']) === false) {
 			return [];
 		}
 
-		return ['target' => $target];
-	}//end traceExtraFor()
+		$artefact = $result['artefact'];
+		if (is_array($artefact) === false) {
+			return [];
+		}
+
+		$type = ($artefact['type'] ?? null);
+		$id = ($artefact['id'] ?? null);
+		if (is_scalar($type) === false || is_scalar($id) === false) {
+			return [];
+		}
+
+		return ['artefact' => ['type' => (string)$type, 'id' => (string)$id]];
+	}//end resolveArtefactDescriptor()
 
 	/**
 	 * Reduce a web-research tool call's arguments to its auditable target:
