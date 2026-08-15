@@ -177,12 +177,25 @@ function validateRegister(file, errors, warnings) {
 				`${at}: "properties" is empty — schema looks clobbered (a merge may have replaced it with a stub)`,
 			)
 		// "too thin to be real" heuristic: a schema that declares a lifecycle/calc/notif/agg
-		// elsewhere but here has ≤3 properties and no x-openregister-* at all is suspect.
+		// elsewhere but here has ≤3 properties and nothing else declared at all is suspect.
+		//
+		// `authorization` counts. It used not to, and that was an incentive in
+		// the wrong direction: removing a bogus `x-openregister: { publicRead }`
+		// block — not part of OpenRegister's schema contract, read by nothing —
+		// made this warning fire, so the tooling rewarded keeping it.
+		//
+		// Boolean() is load-bearing: `s.authorization && …` yields `undefined`
+		// when the key is absent, and `undefined === false` is FALSE, which
+		// silently disables the whole heuristic.
 		const xKeys = Object.keys(s).filter((k) => k.startsWith('x-openregister'))
+		const declaresSomething = Boolean(
+			xKeys.filter((k) => k !== 'x-openregister-seed').length > 0
+			|| (s.authorization && typeof s.authorization === 'object'),
+		)
 		if (
 			props.length > 0
 			&& props.length <= 3
-			&& xKeys.filter((k) => k !== 'x-openregister-seed').length === 0
+			&& declaresSomething === false
 		) {
 			warnings.push(
 				`${at}: only ${props.length} properties and no x-openregister-* declarations — verify this isn't a stub left by a bad merge`,
