@@ -37,6 +37,7 @@ use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
@@ -349,6 +350,7 @@ class ToolGrantResolverTest extends TestCase {
 			$this->createMock(WebFetchService::class),
 			$this->createMock(DelegationService::class),
 			$this->createMock(NcNativeWriteService::class),
+			$this->createMock(MailReadService::class),
 			$this->createMock(LoggerInterface::class)
 		);
 
@@ -414,12 +416,20 @@ class ToolGrantResolverTest extends TestCase {
 				'hermiq.listCalendarEvents',
 				'hermiq.listDeckBoards',
 				'hermiq.listFiles',
+				// nc-mail-read-tools are honestly read-only, so they survive an
+				// empty grant. That is exactly why MailReadService carries its own
+				// AI-feature gate: the write default-deny below does NOT protect
+				// them, and a tool grant alone must not authorise reading a
+				// user's correspondence into a model.
+				'hermiq.listMailAccounts',
+				'hermiq.listMailMessages',
 				// nc-native-write-tools added five tools; only this one survives an
 				// empty grant. The other four (createCalendarEvent, upsertContact,
 				// createNote, updateNote) are write-classified and therefore
 				// default-denied — this list is the receipt for that.
 				'hermiq.listNotes',
 				'hermiq.readFile',
+				'hermiq.readMailMessage',
 				'hermiq.recallMemory',
 				'hermiq.searchContacts',
 				'hermiq.searchTools',
