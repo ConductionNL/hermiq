@@ -37,6 +37,7 @@ use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCP\App\IAppManager;
@@ -347,6 +348,7 @@ class ToolGrantResolverTest extends TestCase {
 			$this->createMock(WebSearchClient::class),
 			$this->createMock(WebFetchService::class),
 			$this->createMock(DelegationService::class),
+			$this->createMock(NcNativeWriteService::class),
 			$this->createMock(LoggerInterface::class)
 		);
 
@@ -412,6 +414,11 @@ class ToolGrantResolverTest extends TestCase {
 				'hermiq.listCalendarEvents',
 				'hermiq.listDeckBoards',
 				'hermiq.listFiles',
+				// nc-native-write-tools added five tools; only this one survives an
+				// empty grant. The other four (createCalendarEvent, upsertContact,
+				// createNote, updateNote) are write-classified and therefore
+				// default-denied — this list is the receipt for that.
+				'hermiq.listNotes',
 				'hermiq.readFile',
 				'hermiq.recallMemory',
 				'hermiq.searchContacts',

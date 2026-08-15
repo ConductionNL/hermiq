@@ -57,6 +57,7 @@ use OCP\IUser;
 use OCP\IUserSession;
 use OCP\Mail\IMailer;
 use PHPUnit\Framework\TestCase;
+use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -77,6 +78,7 @@ class HermiqToolProviderTest extends TestCase {
 	 * @param WebSearchClient|null $webSearchClient A specific WebSearchClient double, or a plain mock.
 	 * @param WebFetchService|null $webFetchService A specific WebFetchService double, or a plain mock.
 	 * @param DelegationService|null $delegationService A specific DelegationService double, or a plain mock.
+	 * @param NcNativeWriteService|null $writeService A specific NcNativeWriteService double, or a plain mock.
 	 *
 	 * @return HermiqToolProvider
 	 */
@@ -87,6 +89,7 @@ class HermiqToolProviderTest extends TestCase {
 		?WebSearchClient $webSearchClient = null,
 		?WebFetchService $webFetchService = null,
 		?DelegationService $delegationService = null,
+		?NcNativeWriteService $writeService = null,
 	): HermiqToolProvider {
 		$session = $this->createMock(IUserSession::class);
 		if ($uid === null) {
@@ -110,6 +113,7 @@ class HermiqToolProviderTest extends TestCase {
 			$webSearchClient ?? $this->createMock(WebSearchClient::class),
 			$webFetchService ?? $this->createMock(WebFetchService::class),
 			$delegationService ?? $this->createMock(DelegationService::class),
+			$writeService ?? $this->createMock(NcNativeWriteService::class),
 			$this->createMock(LoggerInterface::class)
 		);
 
@@ -132,9 +136,11 @@ class HermiqToolProviderTest extends TestCase {
 		// progressive-disclosure meta-tool) + hermiq.recommendCourses (ai-course-recommendations)
 		// + hermiq.rememberMemory/recallMemory/forgetMemory (agent-memory-tools)
 		// + hermiq.webSearch/webFetch (web-research-tool)
-		// + hermiq.delegateAgent (sub-agent-delegation),
+		// + hermiq.delegateAgent (sub-agent-delegation)
+		// + hermiq.createCalendarEvent/upsertContact/listNotes/createNote/updateNote
+		//   (nc-native-write-tools),
 		// all registered through this same provider.
-		$this->assertCount(14, $tools);
+		$this->assertCount(19, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -191,10 +197,19 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.webSearch' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.webFetch' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.delegateAgent' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+			// nc-native-write-tools, appended by getTools(). createCalendarEvent is
+			// destructive because attendees trigger iMIP invitations that cannot be
+			// recalled, and updateNote is destructive because Notes keeps no version
+			// history — neither deletes anything, and both are irreversible.
+			'hermiq.createCalendarEvent' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.upsertContact' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.listNotes' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			'hermiq.createNote' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
+			'hermiq.updateNote' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'update'],
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(14, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(19, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -243,6 +258,13 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.webSearch' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.webFetch' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.delegateAgent' => ToolReachResolver::REACH_INSTANCE,
+			// `external`, not `user`: an event with attendees dispatches iMIP
+			// invitations to third parties, so its blast radius leaves the instance.
+			'hermiq.createCalendarEvent' => ToolReachResolver::REACH_EXTERNAL,
+			'hermiq.upsertContact' => ToolReachResolver::REACH_USER,
+			'hermiq.listNotes' => ToolReachResolver::REACH_USER,
+			'hermiq.createNote' => ToolReachResolver::REACH_USER,
+			'hermiq.updateNote' => ToolReachResolver::REACH_USER,
 		];
 
 		$tools = $this->provider('alice')->getTools();

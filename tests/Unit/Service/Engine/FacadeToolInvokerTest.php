@@ -703,4 +703,103 @@ class FacadeToolInvokerTest extends TestCase {
 		$this->assertArrayNotHasKey('target', $steps[0]);
 
 	}//end testNonWebResearchToolStepCarriesNoTargetKey()
+
+	/**
+	 * ADR-088 §3: a write records the identity of the artefact it produced, so an
+	 * overseer can follow the record to the thing that changed. Without this the
+	 * trace can say `createNote` succeeded but not on what.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
+	 */
+	public function testWriteStepRecordsTheArtefactIdentity(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturn(
+			[
+				'result' => [
+					'created' => true,
+					'title' => 'Groceries',
+					'artefact' => ['type' => 'note', 'id' => '4711'],
+				],
+				'isError' => false,
+			]
+		);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			trace: $trace,
+			mcpIdByName: ['hermiq_createNote' => 'hermiq.createNote']
+		);
+
+		$invoker->hermiq_createNote(title: 'Groceries');
+
+		$steps = $trace->toArray();
+		$this->assertSame(['type' => 'note', 'id' => '4711'], $steps[0]['artefact']);
+
+	}//end testWriteStepRecordsTheArtefactIdentity()
+
+	/**
+	 * The artefact descriptor carries identity ONLY. A tool cannot smuggle content
+	 * into the audit trail by nesting it under the key the recorder reads — the
+	 * shape enforces the no-content rule rather than trusting each tool to honour it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
+	 */
+	public function testArtefactDescriptorWithNonScalarMembersIsNotRecorded(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturn(
+			[
+				'result' => [
+					'artefact' => [
+						'type' => 'note',
+						'id' => ['nested' => 'the entire note body'],
+					],
+				],
+				'isError' => false,
+			]
+		);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			trace: $trace,
+			mcpIdByName: ['hermiq_createNote' => 'hermiq.createNote']
+		);
+
+		$invoker->hermiq_createNote(title: 'x');
+
+		$steps = $trace->toArray();
+		$this->assertArrayNotHasKey('artefact', $steps[0]);
+
+	}//end testArtefactDescriptorWithNonScalarMembersIsNotRecorded()
+
+	/**
+	 * A tool that produces no artefact records no artefact key — zero behaviour
+	 * change for every pre-existing tool.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-write-is-recorded-with-the-objects-identity-and-without-its-content
+	 */
+	public function testNonArtefactToolStepCarriesNoArtefactKey(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->method('invokeTool')->willReturn(['result' => ['entries' => []], 'isError' => false]);
+
+		$trace = new RunTraceCollector();
+		$invoker = new FacadeToolInvoker(
+			facade: $facade,
+			trace: $trace,
+			mcpIdByName: ['hermiq_listFiles' => 'hermiq.listFiles']
+		);
+
+		$invoker->hermiq_listFiles(path: '/');
+
+		$steps = $trace->toArray();
+		$this->assertArrayNotHasKey('artefact', $steps[0]);
+
+	}//end testNonArtefactToolStepCarriesNoArtefactKey()
 }//end class
