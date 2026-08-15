@@ -5,6 +5,13 @@ Notes as a new subsystem. The existing IDOR requirement and the
 route-remote-calls-through-OpenConnector requirement are unchanged and apply to
 every tool added here.
 
+E2E note: three scenarios are browser-observable and live in
+`tests/e2e/spec-coverage/nc-native-write-tools.spec.ts` — the grant surface, the
+classification round-trip and default-deny. The rest are guards *inside* a
+service, reached only by an agent tool call; there is no page on which a refused
+address book or an unwritable calendar becomes visible, so they carry a
+reason-bearing `@e2e exclude` and are covered by unit tests instead.
+
 ## ADDED Requirements
 
 ### Requirement: Calendar and Contacts expose create/update verbs, scoped to the acting user
@@ -18,15 +25,21 @@ targeted.
 - **WHEN** the agent creates a calendar event in a calendar U owns and can write to
 - **THEN** the event MUST be created
 
+@e2e exclude The happy path needs an agent run that actually selects and calls the tool, which requires a live model; the calendar write itself is covered by CalendarWriteServiceTest against an ICalendarManager double.
+
 #### Scenario: The target calendar is not writable
 - **WHEN** the target is a subscription or a read-only share
 - **THEN** the system MUST refuse with a structured error
 - **AND** the system MUST NOT create the event elsewhere
 
+@e2e exclude A service-internal guard with no browser surface — the refusal never renders anywhere. Covered by CalendarWriteServiceTest::testReadOnlyCalendarIsRefused.
+
 #### Scenario: An agent selects one of its user's own address books
 - **GIVEN** the acting user owns several address books
 - **WHEN** a contact upsert supplies the id of one of them
 - **THEN** the contact MUST be written to that address book
+
+@e2e exclude Requires a live agent run to invoke the tool; the address-book selection is covered by ContactWriteServiceTest::testContactIsWrittenWithTheAgentAuthoredProperty.
 
 #### Scenario: An agent targets another user's address book or the system address book
 - **WHEN** a contact upsert targets an address book the acting user does not own,
@@ -36,11 +49,15 @@ targeted.
 - **AND** the refusal MUST hold even when the agent's grant would otherwise permit
   that argument value — grant narrowing MUST NOT substitute for the ownership guard
 
+@e2e exclude A service-internal ownership guard with no rendered surface. Covered by three ContactWriteServiceTest cases (system book, shared book, unknown id), each asserting createOrUpdate is never reached.
+
 #### Scenario: An operator wants an agent confined to one address book
 - **WHEN** the contact upsert tool is granted with an argument-scoped constraint on
   the target address book
 - **THEN** an invocation naming any other address book MUST be refused before the
   write is attempted
+
+@e2e exclude Argument-scoped grant enforcement lives in FacadeToolInvoker and is already covered end-to-end by the hydra-console-agent-leaves suite that introduced the form; this change adds no new enforcement path.
 
 ### Requirement: Calendar event creation supports attendees and is classified destructive
 Because creating an event with attendees dispatches invitation messages to them, the
@@ -55,20 +72,28 @@ addresses.
 - **AND** the invocation record MUST capture the number of attendees
 - **AND** the invocation record MUST NOT capture their addresses
 
+@e2e exclude Asserting this live would dispatch real invitation emails to real addresses from CI. Covered by CalendarWriteServiceTest::testAttendeesAreAcceptedAndOnlyCounted, which also asserts the addresses are absent from the returned payload.
+
 #### Scenario: An operator inspects the tool before granting it
 - **WHEN** the calendar-event creation tool is shown in the tool catalogue
 - **THEN** it MUST be classified as destructive
 - **AND** its description MUST state, in its first sentence, that creating an event
   with attendees sends invitations to them
 
+@e2e tests/e2e/spec-coverage/nc-native-write-tools.spec.ts
+
 #### Scenario: The tool is granted
 - **WHEN** an operator grants the calendar-event creation tool
 - **THEN** the tool MUST NOT be reachable without an explicit exact-id grant
 - **AND** an invocation MUST pass the approval gate before the event is created
 
+@e2e tests/e2e/spec-coverage/nc-native-write-tools.spec.ts
+
 #### Scenario: An event is created with no attendees
 - **WHEN** an event creation request carries no attendees
 - **THEN** no invitation message MUST be dispatched to any address
+
+@e2e exclude Proving a negative about outbound mail needs an SMTP sink rather than a browser. Covered by CalendarWriteServiceTest, where addAttendee is asserted never called.
 
 ### Requirement: Notes is exposed as an optional NC-native subsystem
 The system MUST expose list, create and update tools for Notes, resolving the
@@ -80,10 +105,14 @@ tools MUST return a structured error and MUST NOT throw.
 - **THEN** the tool MUST return a structured error identifying the missing app
 - **AND** the agent run MUST continue
 
+@e2e exclude The CI instance has no Notes app, so this is the path every unit run already takes; covered by NotesWriteServiceTest::testUnresolvableNotesReturnsStructuredErrorForEveryTool. Uninstalling an app mid-suite to assert it in a browser would destabilise every other spec.
+
 #### Scenario: An agent targets a note it does not own
 - **WHEN** an update targets a note belonging to another user
 - **THEN** the system MUST refuse
 - **AND** the note's content MUST NOT be returned
+
+@e2e exclude The guard is NotesService::get() being scoped to the acting uid, so another user's id resolves to not-found rather than to their note; covered by NotesWriteServiceTest. No browser surface exists for a refused note lookup.
 
 ### Requirement: Every object an agent writes is marked as agent-authored
 The system MUST mark each object it creates or updates as agent-authored, using the
@@ -97,19 +126,27 @@ as the write, and a write whose mark cannot be applied MUST report failure.
 - **THEN** the stored object MUST carry a property identifying it as agent-authored
 - **AND** that property MUST survive export and synchronisation of the object
 
+@e2e exclude Asserting the stored vCard/iCalendar bytes needs a CardDAV/CalDAV fetch, not a page. Covered by CalendarWriteServiceTest and ContactWriteServiceTest, which both assert the X- property is present in the payload actually handed to the store.
+
 #### Scenario: An agent creates or updates a note
 - **WHEN** the note is written
 - **THEN** the underlying file MUST carry the agent-authored system tag
+
+@e2e exclude Requires the Notes app, which CI does not install. Covered by NotesWriteServiceTest::testCreateNoteWritesContentAndMarksTheFile, which asserts markFile is called with the note's own file id.
 
 #### Scenario: The mark cannot be applied
 - **GIVEN** the object was written
 - **WHEN** applying the mark fails
 - **THEN** the operation MUST report failure rather than success
 
+@e2e exclude Forcing a system-tag write to fail in a live instance is not reproducible from a browser. Covered by AgentArtefactMarkerTest (the throw) and NotesWriteServiceTest::testMarkingFailureIsReportedAsAFailedWrite (the caller reporting failure).
+
 #### Scenario: A capability cannot mark what it writes
 - **WHEN** a proposed write capability has no available marking mechanism for its
   object type
 - **THEN** that capability MUST NOT be exposed as a write tool
+
+@e2e exclude A design constraint on future changes rather than runtime behaviour; there is nothing to execute. Enforced at review time and recorded in ADR-088 §6.
 
 ### Requirement: Every write is recorded with the object's identity, and without its content
 The system MUST record each write with the identity of the object written (file id,
@@ -122,6 +159,8 @@ no event description, no note body.
 - **THEN** each write MUST identify the object it wrote and the agent that wrote it
 - **AND** the record MUST NOT contain the object's field values
 
+@e2e exclude Populating the oversight table needs a completed agent run against a live model. Covered by FacadeToolInvokerTest, which asserts the artefact descriptor reaches the trace step and that a non-scalar member is dropped rather than recorded.
+
 ### Requirement: No NC-native tool deletes user data
 No tool in this capability may delete a calendar event, contact, note, file or
 message.
@@ -129,6 +168,8 @@ message.
 #### Scenario: The tool surface is audited for delete verbs
 - **WHEN** the NC-native tool surface is enumerated
 - **THEN** no tool MUST offer a delete operation
+
+@e2e exclude A structural property of the code, asserted structurally: NotesWriteServiceTest::testNoWriteServiceExposesADeleteVerb reflects over all three services' method names. A browser can only observe the tools that exist, never prove the absence of one.
 
 ### Requirement: Every write tool declares honest hints and is default-denied
 Each write tool MUST declare a `scope` of `create` or `update`,
@@ -142,12 +183,18 @@ write classification.
 - **WHEN** its resolved tool set is computed
 - **THEN** no write tool from this capability MUST appear in it
 
+@e2e tests/e2e/spec-coverage/nc-native-write-tools.spec.ts
+
 #### Scenario: An operator reviews an agent's available tools
 - **WHEN** the per-agent tool catalogue is requested
 - **THEN** every write tool from this capability MUST be listed with its write
   classification
 - **AND** the operator MUST be able to grant or withhold each tool individually
 
+@e2e tests/e2e/spec-coverage/nc-native-write-tools.spec.ts
+
 #### Scenario: A granted write tool is invoked
 - **WHEN** an agent invokes a granted write tool for the first time
 - **THEN** the invocation MUST pass through the approval gate before any data is written
+
+@e2e exclude The approval gate lives in FacadeToolInvoker and is covered by its existing suite; this change adds no new gate path, only tools that classify into the existing one.
