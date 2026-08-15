@@ -1,0 +1,103 @@
+# hermiq speech sidecars — Whisper (STT) and Kokoro (TTS).
+#
+# ⚠️ THERE IS DELIBERATELY NO DOCKERFILE HERE, AND THAT IS THE POINT.
+#
+# An earlier draft of speech-services planned a bespoke Python sidecar. It should
+# not exist. Both upstream projects already publish maintained images that expose
+# **OpenAI-compatible HTTP APIs** — `/v1/audio/transcriptions` and
+# `/v1/audio/speech` — so Hermiq's side is a TaskProcessing provider making an
+# HTTP call, not an ML runtime we would be signing up to maintain, patch and
+# rebuild on every torch CVE.
+#
+# What we would have hand-rolled is exactly what these images already are, minus
+# the maintenance.
+#
+# ⚠️ NEITHER IS VENDOR-OFFICIAL, because no vendor-official image exists: OpenAI
+# ships the Whisper *model*, not a server; hexgrad ships Kokoro *weights*, not a
+# service. These are the best-maintained community wrappers. That is precisely
+# why the digest pins below are not optional — see PIN, and the same PA3 note
+# `llm-runner/Dockerfile` carries: a floating tag lets a poisoned upstream
+# rebuild propagate on the next `docker compose pull`.
+#
+# Ollama is NOT used here and cannot be: it has no audio input path at all, and
+# neither Whisper nor Kokoro is a GGUF LLM. `hermiq-llm-runner` is separately a
+# Node CLI transport, so it is not a home for these either.
+#
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Conduction B.V.
+
+services:
+  # ---------------------------------------------------------------------------
+  # Speech-to-text. faster-whisper (CTranslate2) behind an OpenAI-compatible API.
+  # ---------------------------------------------------------------------------
+  hermiq-stt:
+    image: fedirz/faster-whisper-server:latest-cpu@sha256:760e5e43d427dc6cfbbc4731934b908b7de9c7e6d5309c6a1f0c8c923a5b6030
+    container_name: hermiq-stt
+    restart: unless-stopped
+    environment:
+      # large-v3-turbo: 809M params, 2-5x faster than large-v3 with minimal
+      # accuracy loss. It excludes the TRANSLATION task, so "transcribe this
+      # Polish call into English" is two steps, not one — which is a feature
+      # here, because it makes the translation visible and auditable instead of
+      # folded invisibly into transcription.
+      #
+      # ⚠️ THE REPO ID IS `deepdml/...`, NOT `Systran/...`. Systran publishes the
+      # large-v3 CTranslate2 conversion but NOT a turbo one, and HuggingFace
+      # answers a non-existent repo with **401 Unauthorized**, not 404 — it will
+      # not leak whether a repo exists. So a wrong id here does not look like a
+      # typo in the logs; it looks like an auth problem, and the container simply
+      # crash-loops on LocalEntryNotFoundError while the network is provably fine.
+      - WHISPER__MODEL=deepdml/faster-whisper-large-v3-turbo-ct2
+      # Keep the model resident; a cold load on every call dominates latency.
+      - WHISPER__TTL=-1
+      - ENABLE_UI=false
+    volumes:
+      # Persist weights so a container restart is not a multi-GB re-download,
+      # and so an air-gapped instance keeps working.
+      - hermiq-speech-models:/root/.cache/huggingface
+    ports:
+      - '127.0.0.1:8000:8000'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      # ⚠️ NOT curl — this image does not ship it, so a curl-based check reports
+      # `unhealthy` forever while the service is provably fine (GET /health
+      # returns 200 from the host). A healthcheck that can never pass is worse
+      # than none: it trains everyone to ignore the column.
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=5).status==200 else 1)"
+      interval: 30s
+      timeout: 10s
+      # First call lazily downloads ~1.6 GB of weights, so the container is
+      # legitimately unhealthy for a while on a cold volume.
+      start_period: 15m
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Text-to-speech. Kokoro-82M behind an OpenAI-compatible API.
+  # ---------------------------------------------------------------------------
+  hermiq-tts:
+    image: ghcr.io/remsky/kokoro-fastapi-cpu:latest@sha256:fa52dce920c3610c78fccde4f6fa064fb092ae95018cf42b42d84d876655e8d9
+    container_name: hermiq-tts
+    restart: unless-stopped
+    volumes:
+      - hermiq-speech-models:/app/models
+    ports:
+      - '127.0.0.1:8880:8880'
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -fsS http://localhost:8880/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  hermiq-speech-models:
