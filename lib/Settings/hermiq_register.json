@@ -1924,11 +1924,6 @@
                 "required": [
                     "name"
                 ],
-                "authorization": {
-                    "read": [
-                        "authenticated"
-                    ]
-                },
                 "properties": {
                     "name": {
                         "type": "string",
