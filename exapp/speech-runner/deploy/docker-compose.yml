@@ -18,16 +18,25 @@
 #   - That image is **Node 22**. These are Python ML workloads. Consolidating
 #     means carrying a second language runtime plus torch in an image whose whole
 #     point is a small, auditable CLI transport.
-#   - Its hardened posture is **no default route, egress only through a proxy that
-#     asks Hermiq's PDP per connection** (see llm-runner/deploy/docker-compose.yml).
-#     A model server must reach HuggingFace to fetch weights on first use — so
-#     folding them together either punches a hole in that jail or breaks model
-#     loading. The postures are incompatible, not merely different.
 #   - Lifecycles differ: a CLI turn is burst work; a speech model wants GB of
 #     weights resident. One OOM in transcription would take the LLM transport
 #     down with it.
 #   - A torch CVE would force a rebuild-and-redeploy of the LLM transport, and
 #     vice versa. Coupling them makes both harder to patch.
+#
+# ⚠️ AN EARLIER VERSION OF THIS FILE ALSO CLAIMED THE HARDENED POSTURES WERE
+# "INCOMPATIBLE" BECAUSE A MODEL SERVER MUST REACH HUGGINGFACE. THAT WAS WRONG,
+# and it proved too much — Ollama downloads models too and is perfectly happy
+# behind a locked-down runtime. The distinction the argument missed is
+# **provisioning-time vs runtime**: weights are fetched ONCE by an operator, and
+# after that the service needs no egress at all. Measured on this compose: with
+# the container detached from every network and HF_HUB_OFFLINE=1, Kokoro
+# synthesised and faster-whisper transcribed, both entirely from cache.
+#
+# So the reasons above are the real ones. Egress is not among them — and the
+# no-egress runtime this makes possible is a STRONGER guarantee than the spec's
+# "no audio leaves the instance" had before, which was asserted rather than
+# enforced.
 #
 # Ollama itself cannot host these either: it has no audio input path, and neither
 # Whisper nor Kokoro is a GGUF LLM.
@@ -51,6 +60,21 @@ services:
       # Speaches unloads after this TTL — -1 disables unloading.
       - WHISPER__TTL=-1
       - ENABLE_UI=false
+      # 🔴 REQUIRED for the no-egress runtime posture, and cached weights are NOT
+      # enough on their own. Without it, huggingface_hub still attempts a network
+      # check when a model loads and BLOCKS until it times out — the request
+      # hangs rather than failing fast, so a network-isolated container looks
+      # broken rather than offline. Measured: network detached and this UNSET, a
+      # synthesis call timed out; the same call with it SET returned audio from
+      # cache.
+      #
+      # ⚠️ When diagnosing a slow call here, read the container log before
+      # concluding "blocked". A detached transcription looked like a network hang
+      # and was not: the log showed `Processing audio with duration ...`, the VAD
+      # filter and segment processing — it had loaded from cache and was simply
+      # slow on CPU, while the client gave up. A timeout is not evidence about
+      # the network.
+      - HF_HUB_OFFLINE=1
     volumes:
       # Persist weights so a restart is not a multi-GB re-download, and so an
       # air-gapped instance keeps working once primed.
