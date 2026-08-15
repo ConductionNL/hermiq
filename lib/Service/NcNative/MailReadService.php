@@ -421,11 +421,16 @@ class MailReadService {
 	/**
 	 * Resolve one of Mail's internal services, or null when absent/drifted.
 	 *
+	 * `protected` so tests can substitute doubles. Mail is resolved by hard-coded
+	 * class name, which makes every happy path unreachable on any environment
+	 * without the Mail app — including CI. Leaving it private would make "read a
+	 * message" permanently untested rather than merely untestable there.
+	 *
 	 * @param string $key The MAIL_CLASSES key.
 	 *
 	 * @return object|null The service, or null.
 	 */
-	private function mail(string $key): ?object {
+	protected function mail(string $key): ?object {
 		$class = (self::MAIL_CLASSES[$key] ?? '');
 		if ($class === '' || class_exists($class) === false) {
 			return null;
