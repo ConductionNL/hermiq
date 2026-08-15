@@ -250,9 +250,14 @@ class NotesWriteService {
 	/**
 	 * Resolve the Notes app's service, or null when Notes is absent or has drifted.
 	 *
+	 * `protected` so tests can substitute a double. Notes is resolved by hard-coded
+	 * class name, which means the success paths are unreachable on any environment
+	 * where Notes is not installed — including CI. Leaving it private would make
+	 * "create a note" permanently untested rather than merely untestable here.
+	 *
 	 * @return object|null The Notes service, or null.
 	 */
-	private function notesService(): ?object {
+	protected function notesService(): ?object {
 		if (class_exists(self::NOTES_SERVICE) === false) {
 			return null;
 		}

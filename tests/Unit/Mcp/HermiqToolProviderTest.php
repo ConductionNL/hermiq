@@ -120,6 +120,79 @@ class HermiqToolProviderTest extends TestCase {
 	}//end provider()
 
 	/**
+	 * Each nc-native-write tool id dispatches to its own write-service method,
+	 * with the acting user's uid — never a caller-supplied one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-calendar-and-contacts-expose-createupdate-verbs-scoped-to-the-acting-user
+	 */
+	public function testWriteToolsDispatchToTheWriteService(): void {
+		$writeService = $this->createMock(NcNativeWriteService::class);
+		$writeService->expects($this->once())
+			->method('createCalendarEvent')
+			->with('alice', $this->anything(), '')
+			->willReturn(['created' => true]);
+		$writeService->expects($this->once())
+			->method('upsertContact')
+			->with('alice', $this->anything(), '')
+			->willReturn(['saved' => true]);
+		$writeService->expects($this->once())->method('listNotes')->with('alice')->willReturn(['notes' => []]);
+		$writeService->expects($this->once())->method('createNote')->with('alice', $this->anything())->willReturn(['created' => true]);
+		$writeService->expects($this->once())->method('updateNote')->with('alice', $this->anything())->willReturn(['updated' => true]);
+
+		$provider = $this->provider('alice', null, null, null, null, null, $writeService);
+
+		$this->assertSame(['created' => true], $provider->invokeTool('hermiq.createCalendarEvent', ['summary' => 'x']));
+		$this->assertSame(['saved' => true], $provider->invokeTool('hermiq.upsertContact', ['name' => 'Jansen']));
+		$this->assertSame(['notes' => []], $provider->invokeTool('hermiq.listNotes', []));
+		$this->assertSame(['created' => true], $provider->invokeTool('hermiq.createNote', ['title' => 'x']));
+		$this->assertSame(['updated' => true], $provider->invokeTool('hermiq.updateNote', ['id' => 1]));
+
+	}//end testWriteToolsDispatchToTheWriteService()
+
+	/**
+	 * The run-injected agentId reaches the calendar and contact writes, so the
+	 * ADR-088 mark records an identity the model could not have supplied itself.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/nc-native-write-tools/specs/nc-native-tools/spec.md#requirement-every-object-an-agent-writes-is-marked-as-agent-authored
+	 */
+	public function testRunInjectedAgentIdReachesTheMarkedWrites(): void {
+		$writeService = $this->createMock(NcNativeWriteService::class);
+		$writeService->expects($this->once())
+			->method('createCalendarEvent')
+			->with('alice', $this->anything(), 'agent-7')
+			->willReturn(['created' => true]);
+
+		$provider = $this->provider('alice', null, null, null, null, null, $writeService);
+
+		$provider->invokeTool('hermiq.createCalendarEvent', ['summary' => 'x', 'agentId' => 'agent-7']);
+
+	}//end testRunInjectedAgentIdReachesTheMarkedWrites()
+
+	/**
+	 * An unauthenticated session cannot reach any write tool.
+	 *
+	 * @return void
+	 */
+	public function testWriteToolsAreUnreachableWithoutAnAuthenticatedUser(): void {
+		$writeService = $this->createMock(NcNativeWriteService::class);
+		$writeService->expects($this->never())->method('createCalendarEvent');
+		$writeService->expects($this->never())->method('upsertContact');
+		$writeService->expects($this->never())->method('createNote');
+
+		$provider = $this->provider(null, null, null, null, null, null, $writeService);
+
+		foreach (['hermiq.createCalendarEvent', 'hermiq.upsertContact', 'hermiq.createNote'] as $toolId) {
+			$result = $provider->invokeTool($toolId, []);
+			$this->assertSame('unauthenticated', $result['error']['code']);
+		}
+
+	}//end testWriteToolsAreUnreachableWithoutAnAuthenticatedUser()
+
+	/**
 	 * getAppId is the hermiq app slug and every tool id is namespaced by it.
 	 *
 	 * @return void
