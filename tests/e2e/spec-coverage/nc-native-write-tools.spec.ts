@@ -83,14 +83,18 @@ test.describe('nc-native-write-tools: grant surface and default-deny', () => {
 		await page.close()
 	})
 
-	test('every write tool is offered in Tool governance with its honest classification', async ({ page }) => {
+	test('every write tool is offered in Tool governance with its honest classification', async ({
+		page,
+	}) => {
 		const root = await appRoot(page)
 		await page.goto(`${root}/agents/${agentId}`)
 		await dismissTour(page)
 
 		// The section exists at all — if the heading moved, the assertions below
 		// could pass against some other list and prove nothing.
-		await expect(page.getByRole('heading', { name: /tool governance/i })).toBeVisible()
+		await expect(
+			page.getByRole('heading', { name: /tool governance/i }),
+		).toBeVisible()
 
 		const body = page.locator('body')
 		for (const tool of WRITE_TOOLS) {
@@ -102,7 +106,10 @@ test.describe('nc-native-write-tools: grant surface and default-deny', () => {
 		// destructive tool as an ordinary one.
 		const text = (await body.innerText()).toLowerCase()
 		const calendarIdx = text.indexOf('hermiq.createcalendarevent')
-		expect(calendarIdx, 'the calendar tool must appear in the grant surface').toBeGreaterThan(-1)
+		expect(
+			calendarIdx,
+			'the calendar tool must appear in the grant surface',
+		).toBeGreaterThan(-1)
 
 		// The description has to lead with the outbound effect, because that is
 		// the only place an operator learns a calendar grant can email strangers.
@@ -112,7 +119,9 @@ test.describe('nc-native-write-tools: grant surface and default-deny', () => {
 		expect(text).toContain('requires explicit grant')
 	})
 
-	test('an agent with no explicit grant resolves none of the four write tools', async ({ page }) => {
+	test('an agent with no explicit grant resolves none of the four write tools', async ({
+		page,
+	}) => {
 		// The RESOLVED catalogue for this agent — not the instance-wide tool list.
 		// Registration and reachability are different questions, and only the
 		// second one is a security property.
@@ -124,14 +133,16 @@ test.describe('nc-native-write-tools: grant surface and default-deny', () => {
 
 		const payload = await response.json()
 		const tools: Record<string, unknown>[] = payload.tools ?? []
-		const byId = new Map(tools.map(t => [String(t.id), t]))
+		const byId = new Map(tools.map((t) => [String(t.id), t]))
 
 		// The seeded agent has an empty grant list, so default-deny is what
 		// decides this. Every write tool must be withheld.
 		for (const denied of MUST_BE_DENIED) {
 			const entry = byId.get(denied)
 			expect(entry, `${denied} must appear in the catalogue`).toBeTruthy()
-			expect(entry?.granted, `${denied} must not be granted by default`).toBe(false)
+			expect(entry?.granted, `${denied} must not be granted by default`).toBe(
+				false,
+			)
 			expect(
 				entry?.requiresExplicitGrant,
 				`${denied} must announce that it needs an explicit grant`,
@@ -142,11 +153,14 @@ test.describe('nc-native-write-tools: grant surface and default-deny', () => {
 		// pass for the wrong reason — a broken catalogue looks identical to a
 		// correctly-strict one. listNotes is read-only and MUST survive.
 		const listNotes = byId.get('hermiq.listNotes')
-		expect(listNotes, 'hermiq.listNotes must appear in the catalogue').toBeTruthy()
+		expect(
+			listNotes,
+			'hermiq.listNotes must appear in the catalogue',
+		).toBeTruthy()
 		expect(
 			listNotes?.requiresExplicitGrant,
 			'listNotes is read-only and must NOT require an explicit grant — without this the '
-			+ 'default-deny assertions above could pass simply because nothing resolved at all',
+				+ 'default-deny assertions above could pass simply because nothing resolved at all',
 		).toBe(false)
 
 		// The classification survived the Hermiq → OpenRegister → Hermiq round trip.
