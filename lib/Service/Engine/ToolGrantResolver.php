@@ -21,7 +21,8 @@
  *   an agent 81 tools / ~101,000 tokens on every turn — over half a 200K context
  *   window — and 89% of agents on the instance were taking it because nobody had
  *   filled the field in. It also widened by itself as apps were installed, which is
- *   a grant nobody made. Set `HERMIQ_LEGACY_UNSCOPED_TOOLS=1` to restore it.
+ *   a grant nobody made. THERE IS NO OVERRIDE — an unconfigured agent is
+ *   unconfigured, and configuring it is the only way to give it tools.
  * - `{app}.{tool}?arg=value&other=in:a,b,c` — an ARGUMENT-SCOPED grant
  *   (hydra-console-agent-leaves): the exact id BEFORE the `?`, narrowed by one or
  *   more constraints on the arguments the tool is invoked with. `key=value` PINS
@@ -244,13 +245,14 @@ class ToolGrantResolver {
 			// meaning "may use everything discovered on the instance" is a grant
 			// nobody made, widening automatically as apps are installed.
 			//
-			// `HERMIQ_LEGACY_UNSCOPED_TOOLS=1` restores the old behaviour for an
-			// operator who depended on it. It is an escape hatch, not a setting:
-			// the message tells them to configure the agent instead.
-			if (getenv('HERMIQ_LEGACY_UNSCOPED_TOOLS') === '1') {
-				return $this->applyDefaultDeny(ids: $catalogIds, descriptorsById: $descriptorsById);
-			}
-
+			// THERE IS NO OVERRIDE, deliberately. An earlier revision of this
+			// change shipped `HERMIQ_LEGACY_UNSCOPED_TOOLS=1` as an escape hatch.
+			// From a security-by-design position that hatch was the defect rather
+			// than the mitigation: it is invisible (nothing in the product shows
+			// it is set, so an agent's true capability cannot be read from the
+			// agent) and it is unscoped (setting it to unblock ONE agent widens
+			// every unconfigured agent on the instance).
+			//
 			// Text-only, NOT an error. `resolvesToNothing()` deliberately still
 			// returns false for this case, because ToolLoop THROWS on it: routing
 			// unconfigured agents through that would have turned a tool-scoping
@@ -928,31 +930,6 @@ class ToolGrantResolver {
 	}//end schemaVerbIds()
 
 	/**
-	 * Strip an id list down to those that need NO explicit grant, using each
-	 * id's own descriptor (hints and reach, when set) — see `requiresGrant()`.
-	 *
-	 * @param array<int, string> $ids Candidate ids.
-	 * @param array<string, array<string, mixed>> $descriptorsById Every candidate's descriptor, keyed by id.
-	 *
-	 * @return array<int, string>
-	 *
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
-	 */
-	private function applyDefaultDeny(array $ids, array $descriptorsById): array {
-		$out = [];
-		foreach ($ids as $id) {
-			$descriptor = ($descriptorsById[$id] ?? null);
-			if (self::requiresGrant(id: $id, descriptor: $descriptor) === true) {
-				continue;
-			}
-
-			$out[] = $id;
-		}
-
-		return $out;
-	}//end applyDefaultDeny()
-
-	/**
 	 * Whether a grant string uses the `{app}.{schema}.*` (optionally `:write`) form.
 	 *
 	 * @param string $grant The grant entry.
@@ -965,9 +942,9 @@ class ToolGrantResolver {
 
 	/**
 	 * Index every descriptor by its whitelist-matchable id: the dotted `mcpId`
-	 * when present (MCP-bridged/derived tools), else the bare `name` — so
-	 * `applyDefaultDeny()` can classify each id from its OWN descriptor's hints
-	 * (hermiq-prefer-tool-hints), not the id text alone.
+	 * when present (MCP-bridged/derived tools), else the bare `name` — so a grant
+	 * is classified from its OWN descriptor's hints (hermiq-prefer-tool-hints),
+	 * not from the id text alone.
 	 *
 	 * @param array<int, mixed> $catalog Descriptor list. Typed loosely on purpose: these cross
 	 *                                   the OpenRegister tool-facade boundary, so each entry is

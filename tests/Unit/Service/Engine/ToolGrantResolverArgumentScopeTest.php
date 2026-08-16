@@ -452,27 +452,21 @@ class ToolGrantResolverArgumentScopeTest extends TestCase {
 	}//end testRegressionExplicitVerbSubsetPassesThroughVerbatim()
 
 	/**
-	 * An empty grant list still means "all discovered tools, default-denied".
+	 * An empty grant list yields nothing, and argument scoping does not change that.
+	 *
+	 * Was `testRegressionEmptyGrantListStillMeansAllDefaultDenied`. Empty grants
+	 * meant "all, default-denied" until 2026-08-16; they now mean NO TOOLS, and
+	 * the regression worth guarding is that the argument-constraint parser does
+	 * not reintroduce a grant where none was made.
 	 *
 	 * @return void
-	 *
-	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools
 	 */
-	public function testRegressionEmptyGrantListStillMeansAllDefaultDenied(): void {
-		// Retained as a REGRESSION test for the legacy path, which is now opt-in.
-		// The unflagged behaviour (empty grants -> no tools) is asserted in
-		// ToolGrantResolverTest::testEmptyGrantsResolveToNoToolsAtAll().
-		putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS=1');
-		$resolver = new ToolGrantResolver();
+	public function testEmptyGrantListYieldsNothingEvenWithArgumentScoping(): void {
+		$resolved = (new ToolGrantResolver())->resolve(grants: [], catalog: $this->catalog());
 
-		$this->assertSame(
-			['hydra.finding.search', 'hydra.finding.get'],
-			$resolver->resolve(grants: [], catalog: $this->catalog())
-		);
+		$this->assertSame([], $resolved);
 
-			putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS');
-
-	}//end testRegressionEmptyGrantListStillMeansAllDefaultDenied()
+	}//end testEmptyGrantListYieldsNothingEvenWithArgumentScoping()
 
 	/**
 	 * The no-tools sentinel is still recognised, still resolves to nothing, and is
