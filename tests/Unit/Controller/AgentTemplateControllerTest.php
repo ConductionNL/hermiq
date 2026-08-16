@@ -130,8 +130,13 @@ class AgentTemplateControllerTest extends TestCase {
 	 * @param GitHubTemplateCatalogService|null $catalog An optional GitHub catalog service mock.
 	 * @param GitHubTemplatePushService|null $push An optional GitHub push service mock.
 	 * @param ObjectEntity|null $agent The agent the export guard resolves.
+	 * @param ObjectService|null $objectService The OpenRegister object service the ownership
+	 *   guard reads and `destroy()` deletes through; defaults to a bare mock.
 	 *
 	 * @return AgentTemplateController
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Test factory: one optional parameter per
+	 *   injected collaborator the cases under test need to steer.
 	 */
 	private function controller(
 		AgentTemplateService $service,
@@ -142,6 +147,7 @@ class AgentTemplateControllerTest extends TestCase {
 		?GitHubTemplateCatalogService $catalog = null,
 		?GitHubTemplatePushService $push = null,
 		?ObjectEntity $agent = null,
+		?ObjectService $objectService = null,
 	): AgentTemplateController {
 		return new AgentTemplateController(
 			($request ?? $this->request()),
@@ -155,7 +161,8 @@ class AgentTemplateControllerTest extends TestCase {
 			// REAL guards over mocked lookups: the predicates under test are the
 			// production ones, not doubles shaped to what the caller expects.
 			new SeedCustodyService($this->createMock(IGroupManager::class)),
-			$this->agentAccess(($agent ?? $this->agent('alice')))
+			$this->agentAccess(($agent ?? $this->agent('alice'))),
+			($objectService ?? $this->createMock(ObjectService::class))
 		);
 
 	}//end controller()
@@ -756,14 +763,21 @@ class AgentTemplateControllerTest extends TestCase {
 	 */
 	public function testUpdateIsRefusedForANonOwner(): void {
 		$service = $this->createMock(AgentTemplateService::class);
-		$service->method('get')->willReturn($this->ownedTemplate('alice'));
 		$service->expects($this->never())->method('update');
+
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willReturn($this->ownedTemplate('alice'));
 
 		$response = $this->controller(
 			$service,
 			$this->createMock(ActionAuthService::class),
 			$this->session('mallory'),
-			$this->request(['description' => 'HIJACKED'])
+			$this->request(['description' => 'HIJACKED']),
+			null,
+			null,
+			null,
+			null,
+			$objectService
 		)->update('template-1');
 
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
@@ -780,13 +794,21 @@ class AgentTemplateControllerTest extends TestCase {
 	 */
 	public function testDestroyIsRefusedForANonOwner(): void {
 		$service = $this->createMock(AgentTemplateService::class);
-		$service->method('get')->willReturn($this->ownedTemplate('alice'));
-		$service->expects($this->never())->method('delete');
+
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willReturn($this->ownedTemplate('alice'));
+		$objectService->expects($this->never())->method('deleteObject');
 
 		$response = $this->controller(
 			$service,
 			$this->createMock(ActionAuthService::class),
-			$this->session('mallory')
+			$this->session('mallory'),
+			null,
+			null,
+			null,
+			null,
+			null,
+			$objectService
 		)->destroy('template-1');
 
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
@@ -803,15 +825,22 @@ class AgentTemplateControllerTest extends TestCase {
 	 */
 	public function testOwnerCanStillUpdateAndDeleteTheirTemplate(): void {
 		$service = $this->createMock(AgentTemplateService::class);
-		$service->method('get')->willReturn($this->ownedTemplate('alice'));
 		$service->method('update')->willReturn($this->ownedTemplate('alice'));
-		$service->method('delete')->willReturn(true);
+
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->method('find')->willReturn($this->ownedTemplate('alice'));
+		$objectService->expects($this->once())->method('deleteObject')->willReturn(true);
 
 		$controller = $this->controller(
 			$service,
 			$this->createMock(ActionAuthService::class),
 			$this->session('alice'),
-			$this->request(['description' => 'a legitimate edit'])
+			$this->request(['description' => 'a legitimate edit']),
+			null,
+			null,
+			null,
+			null,
+			$objectService
 		);
 
 		$this->assertSame(Http::STATUS_OK, $controller->update('template-1')->getStatus());
