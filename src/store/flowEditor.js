@@ -59,6 +59,7 @@
 import { defineStore } from 'pinia'
 import {
 	createFlow,
+	getFlow,
 	getFlowRun,
 	getNodeCatalog,
 	listFlowRuns,
@@ -690,7 +691,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 
 			this.loadAgents()
 			this.loadNodeCatalog()
-			this.open(id)
+			await this.open(id)
 		},
 
 		/**
@@ -734,10 +735,25 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		/**
 		 * Put the flow named by the route onto the canvas.
 		 *
+		 * FETCHES ON A LIST MISS. `this.flows` is loaded from
+		 * `/api/flows?app=hermiq`, which is a SUBSET of the flows a user can
+		 * reach a link to: the Dashboard's "Running flows" widget lists runs
+		 * across every flow on the instance and routes by the run's flowId, so
+		 * it routinely links to a flow this app's list does not carry. Measured
+		 * 2026-08-13: `app=hermiq` returned 16 of 33 flows, and opening
+		 * `zz-builder-harness` (not among them) rendered "No nodes yet" while
+		 * `GET /api/flows/{id}` returned its 4 nodes perfectly well.
+		 *
+		 * The old code returned silently on a miss, which is the actual defect:
+		 * it left the previous (empty) flow on the canvas, so a flow that could
+		 * not be FOUND was indistinguishable from a flow that was EMPTY — and
+		 * the empty state confidently told the operator to start adding nodes
+		 * to a flow that already had four.
+		 *
 		 * @param {string} id The route id.
-		 * @return {void}
+		 * @return {Promise<void>}
 		 */
-		open(id) {
+		async open(id) {
 			this.selectedNodeId = null
 			this.selectedEdgeId = null
 			this.lastRun = null
@@ -749,8 +765,29 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 				return
 			}
 
-			const match = this.flows.find((flow) => String(flow.id) === String(id))
+			let match = this.flows.find((flow) => String(flow.id) === String(id))
+
 			if (!match) {
+				// Not in this app's list — ask for it directly before concluding
+				// anything about it. `loading` is set so the canvas shows
+				// "Loading flow…" rather than flashing the empty state, which
+				// would repeat the same wrong claim while the fetch is in flight.
+				this.loading = true
+				try {
+					match = await getFlow(id)
+				} catch (e) {
+					console.error('hermiq: could not load flow ' + id, e)
+					this.flow = { ...emptyFlow() }
+					this.dirty = false
+					return
+				} finally {
+					this.loading = false
+				}
+			}
+
+			if (!match) {
+				this.flow = { ...emptyFlow() }
+				this.dirty = false
 				return
 			}
 
