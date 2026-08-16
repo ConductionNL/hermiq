@@ -77,16 +77,20 @@ class GuardrailPolicyControllerEffectiveScopeTest extends TestCase {
 			// satisfies the call in both environments and needs neither.
 			$entity = new class ($owner) extends Organisation {
 				/**
-				 * @param string $owner The owning uid.
+				 * NOT named $owner: the parent declares that property as
+				 * PROTECTED, and a child may not narrow it to private — PHP
+				 * refuses at class load with "Access level must be protected".
+				 *
+				 * @param string $ownerUid The owning uid.
 				 */
-				public function __construct(private string $owner) {
+				public function __construct(private string $ownerUid) {
 				}
 
 				/**
 				 * @return string|null
 				 */
 				public function getOwner(): ?string {
-					return $this->owner;
+					return $this->ownerUid;
 				}
 			};
 			$mapper->method('findByUuid')->willReturn($entity);
