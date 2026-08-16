@@ -103,6 +103,21 @@ function openFileId() {
 }
 
 /**
+ * The Nextcloud app whose page this is, from the URL.
+ *
+ * There is no DOM signal for it on Nextcloud 34 — no `OC.appName`, no body
+ * class, no meta tag (all three were checked). The path is what remains, and it
+ * is reliable: every app page is served under `/apps/<id>/`.
+ *
+ * @return {string} The app id, or 'unknown' when the path names none.
+ */
+function currentAppId() {
+	const match = window.location.pathname.match(/(?:^|\/)apps\/([^/]+)/)
+
+	return match ? match[1] : 'unknown'
+}
+
+/**
  * Mount the companion into its own container appended to the body.
  *
  * A dedicated container rather than an existing element: the host page belongs to
@@ -134,10 +149,24 @@ function mount() {
 		render: () => h(CnAiCompanion, {
 			chatAppId: 'hermiq',
 			position: 'bottom-right',
-			// Carried so the assistant can be asked about the document on screen
-			// without the user pasting an id. Absent on pages that are not showing
-			// a file, which is most of them.
-			...(fileId !== null ? { contextFileId: fileId } : {}),
+			// WHAT THE USER IS LOOKING AT — without this the agent is blind.
+			//
+			// nc-vue resolves the page context by injection from a CnAppRoot
+			// ancestor. Mounted standalone on a page belonging to another app
+			// there is no such ancestor, so it falls back to a default whose
+			// `appId` is the literal string 'unknown'. Measured: asked to change
+			// a word in the document on screen, the agent replied "I don't have
+			// a clear app context (it's showing as unknown)" and refused —
+			// correctly, since it genuinely could not tell what "this document"
+			// meant.
+			//
+			// This mount is the one place that DOES know, so it says so.
+			context: {
+				appId: currentAppId(),
+				pageKind: fileId !== null ? 'file' : 'custom',
+				route: { path: window.location.pathname },
+				...(fileId !== null ? { fileId } : {}),
+			},
 		}),
 	}).mount(root)
 }
