@@ -41,6 +41,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -53,12 +55,27 @@ use Throwable;
  */
 class SkillBundleInstaller {
 	/**
+	 * Register slug for Agent objects — matches AgentsController::REGISTER_SLUG.
+	 *
+	 * @var string
+	 */
+	private const AGENT_REGISTER_SLUG = 'hermiq';
+
+	/**
+	 * Schema slug for Agent objects — matches AgentsController::AGENT_SCHEMA.
+	 *
+	 * @var string
+	 */
+	private const AGENT_SCHEMA = 'agent';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param GitHubTemplateCatalogService $catalogService Bundle fetch.
 	 * @param SkillBundleSerializer $bundleSerializer Bundle parse.
 	 * @param SkillMarketplaceService $marketplaceService Per-skill install.
 	 * @param SkillIdentityResolver $identityResolver Canonical skill identity.
+	 * @param ObjectService $objectService OpenRegister object read/write, for the agents channel — same concrete dependency AgentsController uses for this register/schema.
 	 * @param LoggerInterface $logger PSR logger.
 	 *
 	 * @return void
@@ -68,6 +85,7 @@ class SkillBundleInstaller {
 		private readonly SkillBundleSerializer $bundleSerializer,
 		private readonly SkillMarketplaceService $marketplaceService,
 		private readonly SkillIdentityResolver $identityResolver,
+		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -114,6 +132,9 @@ class SkillBundleInstaller {
 			repo: $repo
 		);
 
+		$agents = $this->bundleSerializer->agentsFromBundle(files: $bundle['files']);
+		$agentResult = $this->installAgents(parsed: $agents);
+
 		return [
 			'installed' => $result['counts']['installed'],
 			'updated' => $result['counts']['updated'],
@@ -126,9 +147,102 @@ class SkillBundleInstaller {
 			// would claim a precise "one skill dropped" that nobody measured.
 			'truncated' => $bundle['truncated'],
 			'skills' => $result['outcomes'],
+			'agents' => $agentResult['outcomes'],
 		];
 
 	}//end installFromRepo()
+
+	/**
+	 * Install every agent of an already-parsed bundle.
+	 *
+	 * An agent is a reasoning persona with real operational authority (tools,
+	 * approval gates) — unlike a skill, this installer never OVERWRITES one that
+	 * already exists by name: a live-tuned agent's prompt/tools are exactly the
+	 * kind of hand edit a silent re-import must not clobber. An existing match
+	 * is reported `unchanged`; only a genuinely new name is created.
+	 *
+	 * @param array<int,array<string,mixed>> $parsed The parsed bundle agents.
+	 *
+	 * @return array{outcomes:array<int,array<string,mixed>>,counts:array<string,int>}
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function installAgents(array $parsed): array {
+		$outcomes = [];
+		$counts = ['installed' => 0, 'unchanged' => 0, 'failed' => 0];
+
+		foreach ($parsed as $agent) {
+			$name = (string)($agent['name'] ?? ($agent['bundleName'] ?? ''));
+			if ($name === '') {
+				$outcomes[] = ['name' => $name, 'outcome' => 'failed'];
+				$counts['failed']++;
+				continue;
+			}
+
+			try {
+				if ($this->agentExists(name: $name) === true) {
+					$outcomes[] = ['name' => $name, 'outcome' => 'unchanged'];
+					$counts['unchanged']++;
+					continue;
+				}
+
+				$payload = $agent;
+				unset($payload['bundleName']);
+
+				$this->objectService->saveObject(
+					object: $payload,
+					register: self::AGENT_REGISTER_SLUG,
+					schema: self::AGENT_SCHEMA
+				);
+
+				$outcomes[] = ['name' => $name, 'outcome' => 'installed'];
+				$counts['installed']++;
+			} catch (Throwable $e) {
+				$this->logger->error(
+					'Hermiq bundle install: agent "' . $name . '" failed: ' . $e->getMessage(),
+					['exception' => $e]
+				);
+				$outcomes[] = ['name' => $name, 'outcome' => 'failed'];
+				$counts['failed']++;
+			}//end try
+		}//end foreach
+
+		return ['outcomes' => $outcomes, 'counts' => $counts];
+	}//end installAgents()
+
+	/**
+	 * Whether an Agent with this name already exists on this instance.
+	 *
+	 * System-context lookup (no RBAC/multitenancy scoping) — same shape as
+	 * {@see \OCA\Hermiq\Repair\SeedHydraTriageAgent::agentExists()}, which this
+	 * mirrors rather than reimplements independently.
+	 *
+	 * @param string $name The agent's `name` property.
+	 *
+	 * @return bool True when a matching object exists.
+	 */
+	private function agentExists(string $name): bool {
+		$objects = $this->objectService
+			->setRegister(self::AGENT_REGISTER_SLUG)
+			->setSchema(self::AGENT_SCHEMA)
+			->findAll(
+				config: ['filters' => ['name' => $name], 'limit' => 50],
+				_rbac: false,
+				_multitenancy: false
+			);
+
+		foreach ($objects as $object) {
+			if (($object instanceof ObjectEntity) === false) {
+				continue;
+			}
+
+			if ((string)($object->getObject()['name'] ?? '') === $name) {
+				return true;
+			}
+		}
+
+		return false;
+	}//end agentExists()
 
 	/**
 	 * Install every skill of an already-parsed bundle.

@@ -244,6 +244,64 @@ testInstallFromSourceUnknownSourceDefaultsToHub.
 - THEN the source MUST default to `hub` (the existing safe fallback), and the skill MUST
   still land `quarantined`
 
+### Requirement: A skill bundle MAY additionally carry agent definitions
+
+A skill bundle repository (`hermiq-skills.json` + `skills/<name>/…`) MUST be extendable
+with a sibling `agents[]` manifest section + `agents/<name>.json` files, so a virtual
+app whose functionality lives in Hermiq AGENTS (reasoning personas with tools/prompts —
+not documentation skills) can still be exported and reinstalled through the same
+GitHub-backed bundle mechanism OpenBuild uses for its `skills` channel. This closes a
+gap where an app's most operationally critical content (its agents) was invisible to
+every export path: neither the connectors channel (OpenConnector-shaped) nor the
+existing skills channel (SKILL.md-shaped) had anywhere to put an agent.
+
+`SkillBundleSerializer::toBundle()`/`fromBundle()`/`agentsFromBundle()` MUST treat a
+1.0 bundle (no `agents` key) as valid and agent-less — this is purely additive, and
+`FORMAT_VERSION` only bumped its MINOR component (1.0 → 1.1) for exactly that reason.
+`SkillBundleInstaller::installAgents()` MUST NOT overwrite an existing agent matched by
+`name` — an agent's live-tuned prompt/tools are hand-authored content a silent
+re-import must not clobber, unlike a skill (which the existing install path DOES
+update). Publishing agents MUST go through the same modifiable-agent authorization
+`collectPublishableAgentPayloads()` already applies to `update()` elsewhere on
+`SkillController` — a caller without edit rights on an agent must not be able to
+publish its prompt out from under its owner.
+
+@e2e exclude bundle (de)serialization and idempotent-agent-upsert are unit-level
+properties with no distinct UI surface beyond the existing bundle-publish/
+bundle-install screens already covered — see SkillBundleSerializerTest below.
+
+#### Scenario: A bundle with both skills and agents installs both
+
+- GIVEN a GitHub repository whose `hermiq-skills.json` manifest declares both `skills[]`
+  and `agents[]`, each with matching `skills/<name>/` or `agents/<name>.json` content
+- WHEN `SkillBundleInstaller::installFromRepo()` runs
+- THEN every skill MUST install through the unchanged per-skill quarantine path, AND
+  every agent MUST be created (if no agent of that `name` already exists) via
+  `ObjectService::saveObject()` against the `hermiq`/`agent` register/schema
+
+#### Scenario: Reinstalling a bundle never overwrites an existing agent
+
+- GIVEN an agent named "Hydra Triage" already exists on this instance, hand-tuned since
+  its last import
+- WHEN a bundle also declaring an agent named "Hydra Triage" is installed again
+- THEN the existing agent's `prompt`/`tools`/other fields MUST be left unchanged, and the
+  outcome MUST report `unchanged` for that agent, never `installed` or a silent overwrite
+
+#### Scenario: A 1.0 bundle with no agents key still installs its skills
+
+- GIVEN a bundle published before this requirement existed (no `agents` key in its manifest)
+- WHEN it is installed
+- THEN every skill MUST install exactly as before, and `agentsFromBundle()` MUST return an
+  empty array rather than treating the bundle as unparseable
+
+Covered by SkillBundleSerializerTest (testAgentRoundTripsThroughBundle,
+testLegacyBundleWithNoAgentsKeyParsesAsAgentless,
+testDuplicateAgentFileNameIsDroppedNotOverwritten). `SkillBundleInstaller`'s
+idempotent-upsert behaviour (never overwriting an existing agent) has no
+dedicated unit test yet — verified instead via the live clean-install cycle
+this requirement was built to pass; a `SkillBundleInstallerTest` is follow-up
+work, not fabricated here.
+
 ## User Stories
 
 - As an org admin, I want to share skills across tenants within my organisation so that teams don't duplicate work.

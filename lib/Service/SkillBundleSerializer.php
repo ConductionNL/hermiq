@@ -63,11 +63,34 @@ class SkillBundleSerializer {
 	public const SKILLS_PREFIX = 'skills/';
 
 	/**
-	 * The bundle layout version stamped on every emitted manifest.
+	 * The directory every bundled agent lives under. Sibling to SKILLS_PREFIX —
+	 * an agent is one JSON object (name/description/prompt/tools/…), not a
+	 * SKILL.md-plus-auxiliary-files package, so it gets a single file rather
+	 * than a per-entry directory.
 	 *
 	 * @var string
 	 */
-	public const FORMAT_VERSION = '1.0';
+	public const AGENTS_PREFIX = 'agents/';
+
+	/**
+	 * The bundle layout version stamped on every emitted manifest. Bumped to
+	 * 1.1 with the addition of `agents[]` — a 1.0 reader ignores an unknown
+	 * manifest key, so this stays a MINOR bump (majorOf() gates on the major
+	 * component only, so 1.0 bundles still parse under 1.1 code unchanged).
+	 *
+	 * @var string
+	 */
+	public const FORMAT_VERSION = '1.1';
+
+	/**
+	 * Maximum agents in one bundle — much smaller than MAX_SKILLS: an agent is a
+	 * reasoning persona with real operational authority (tools, approval gates),
+	 * not a documentation package, so a large count is itself a signal something
+	 * is wrong rather than a legitimate large set to accommodate.
+	 *
+	 * @var int
+	 */
+	public const MAX_AGENTS = 64;
 
 	/**
 	 * Maximum skills in one bundle (design.md §Security 3 — fan-out bound).
@@ -106,7 +129,7 @@ class SkillBundleSerializer {
 	}//end __construct()
 
 	/**
-	 * Build a bundle tree from a set of skills.
+	 * Build a bundle tree from a set of skills, and optionally agents.
 	 *
 	 * @param array $skills The skill payloads (each needs `name`, `frontmatter`,
 	 *                      `body` and optionally `files`). Typed loosely because
@@ -118,12 +141,20 @@ class SkillBundleSerializer {
 	 *                            what happened on the first real bundle, where a
 	 *                            64-skill cap silently discarded 30 of hydra's 94
 	 *                            while the API reported all 94 as published.
+	 * @param array $agents The agent payloads (each needs `name`; every other
+	 *                      field — description/prompt/tools/model/… — is opaque
+	 *                      to this class and carried through verbatim). Empty by
+	 *                      default: a bundle with no agents is a normal, valid
+	 *                      skills-only bundle (backward compatible with every
+	 *                      caller that predates this parameter).
+	 * @param array|null $droppedAgents OUT: every agent this call did NOT
+	 *                                  bundle, same shape as `$dropped`.
 	 *
 	 * @return array<string, string> The `path => contents` bundle tree.
 	 *
 	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
 	 */
-	public function toBundle(array $skills, ?array &$dropped = null): array {
+	public function toBundle(array $skills, ?array &$dropped = null, array $agents = [], ?array &$droppedAgents = null): array {
 		$tree = [];
 		$entries = [];
 		$dropped = [];
@@ -170,9 +201,53 @@ class SkillBundleSerializer {
 			];
 		}//end foreach
 
+		$agentEntries = [];
+		$droppedAgents = [];
+		$usedAgentNames = [];
+
+		foreach ($agents as $agent) {
+			if (is_array($agent) === false) {
+				continue;
+			}
+
+			$rawName = (string)($agent['name'] ?? '');
+			$name = $this->normaliseName(name: $rawName);
+			if ($name === null) {
+				$this->reject(what: $rawName, why: 'not a valid bundled agent name');
+				$droppedAgents[] = ['name' => $rawName, 'reason' => 'invalid_name'];
+				continue;
+			}
+
+			if (count($agentEntries) >= self::MAX_AGENTS) {
+				$this->reject(what: $name, why: 'bundle agent cap of ' . self::MAX_AGENTS . ' reached');
+				$droppedAgents[] = ['name' => $name, 'reason' => 'cap_reached'];
+				continue;
+			}
+
+			if (isset($usedAgentNames[$name]) === true) {
+				$this->reject(what: $rawName, why: 'agent file name "' . $name . '" already taken in this bundle');
+				$droppedAgents[] = ['name' => $rawName, 'reason' => 'duplicate_directory_name'];
+				continue;
+			}
+
+			$usedAgentNames[$name] = true;
+
+			// The whole payload is opaque data to this class — verbatim through,
+			// same as a skill's frontmatter/body. Only `uuid`/OR envelope fields
+			// are stripped: a bundle installed onto a DIFFERENT instance must get
+			// a fresh identity, not silently collide with (or overwrite) whatever
+			// already holds that uuid there.
+			$payload = $agent;
+			unset($payload['uuid'], $payload['id'], $payload['@self']);
+			$tree[self::AGENTS_PREFIX . $name . '.json'] = (json_encode($payload, (JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . "\n");
+
+			$agentEntries[] = ['name' => $name];
+		}//end foreach
+
 		$manifest = [
 			'formatVersion' => self::FORMAT_VERSION,
 			'skills' => $entries,
+			'agents' => $agentEntries,
 		];
 
 		return array_merge(
@@ -233,6 +308,64 @@ class SkillBundleSerializer {
 
 		return $skills;
 	}//end fromBundle()
+
+	/**
+	 * Parse a bundle tree's AGENTS back into payloads.
+	 *
+	 * Separate method rather than folding into `fromBundle()`'s return shape,
+	 * so every existing caller of `fromBundle()` (skills-only) is unaffected —
+	 * this is purely additive. Returns an empty array for a 1.0 bundle (no
+	 * `agents` manifest key) or one with no declared agents; both are valid.
+	 *
+	 * @param array<string, string> $files The `path => contents` repository tree.
+	 *
+	 * @return array<int, array<string, mixed>> One parsed agent payload per entry.
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function agentsFromBundle(array $files): array {
+		$declaredNames = $this->readAgentManifest(files: $files);
+		if ($declaredNames === null) {
+			return [];
+		}
+
+		$agents = [];
+		foreach ($declaredNames as $declared) {
+			$name = $this->normaliseName(name: $declared);
+			if ($name === null) {
+				$this->reject(what: $declared, why: 'manifest agent name is not a safe bundled agent name');
+				continue;
+			}
+
+			if (count($agents) >= self::MAX_AGENTS) {
+				$this->reject(what: $name, why: 'bundle agent cap of ' . self::MAX_AGENTS . ' reached');
+				continue;
+			}
+
+			$path = self::AGENTS_PREFIX . $name . '.json';
+			$raw = ($files[$path] ?? null);
+			if (is_string($raw) === false || $raw === '') {
+				$this->reject(what: $name, why: 'declared in the manifest but ' . $path . ' is missing');
+				continue;
+			}
+
+			$decoded = json_decode($raw, true);
+			if (is_array($decoded) === false) {
+				$this->reject(what: $name, why: $path . ' is not valid JSON');
+				continue;
+			}
+
+			if ((string)($decoded['name'] ?? '') === '') {
+				$decoded['name'] = $name;
+			}
+
+			$decoded['bundleName'] = $name;
+
+			$agents[] = $decoded;
+		}//end foreach
+
+		return $agents;
+	}//end agentsFromBundle()
 
 	/**
 	 * Collect one bundled skill's own entries, stripped of its `skills/<name>/`
@@ -327,6 +460,47 @@ class SkillBundleSerializer {
 
 		return $names;
 	}//end readManifest()
+
+	/**
+	 * Read + validate the manifest, returning the declared AGENT names.
+	 *
+	 * Sibling to {@see readManifest()} — same version-gate, same shape — kept
+	 * separate because the two lists are independently declared in the
+	 * manifest (`skills[]` / `agents[]`) and a caller may want only one.
+	 *
+	 * @param array<string, string> $files The repository tree.
+	 *
+	 * @return array<int, string>|null The declared names, or null when the manifest itself is absent/unsupported.
+	 */
+	private function readAgentManifest(array $files): ?array {
+		$raw = ($files[self::MANIFEST_FILE] ?? null);
+		if (is_string($raw) === false || $raw === '') {
+			return null;
+		}
+
+		$decoded = json_decode($raw, true);
+		if (is_array($decoded) === false) {
+			return null;
+		}
+
+		$version = (string)($decoded['formatVersion'] ?? '');
+		if ($this->majorOf(version: $version) !== $this->majorOf(version: self::FORMAT_VERSION)) {
+			$this->reject(what: $version, why: 'unsupported bundle formatVersion');
+			return null;
+		}
+
+		$names = [];
+		foreach ((array)($decoded['agents'] ?? []) as $entry) {
+			if (is_array($entry) === true) {
+				$names[] = (string)($entry['name'] ?? '');
+				continue;
+			}
+
+			$names[] = (string)$entry;
+		}
+
+		return $names;
+	}//end readAgentManifest()
 
 	/**
 	 * The major component of a dotted version string.

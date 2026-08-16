@@ -630,8 +630,17 @@ class SkillController extends Controller {
 		}
 
 		$skillIds = $this->request->getParam('skillIds');
-		if (is_array($skillIds) === false || $skillIds === []) {
-			return new JSONResponse(['error' => 'skillIds must be a non-empty array'], Http::STATUS_BAD_REQUEST);
+		$agentIds = $this->request->getParam('agentIds');
+		if (is_array($agentIds) === false) {
+			$agentIds = [];
+		}
+
+		if (is_array($skillIds) === false) {
+			$skillIds = [];
+		}
+
+		if ($skillIds === [] && $agentIds === []) {
+			return new JSONResponse(['error' => 'skillIds or agentIds must be a non-empty array'], Http::STATUS_BAD_REQUEST);
 		}
 
 		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
@@ -643,8 +652,15 @@ class SkillController extends Controller {
 		$payloads = $collected['payloads'];
 		$outcomes = $collected['outcomes'];
 
-		if ($payloads === []) {
-			return new JSONResponse(['error' => 'no_publishable_skills', 'skills' => $outcomes], Http::STATUS_BAD_REQUEST);
+		$collectedAgents = $this->collectPublishableAgentPayloads(agentIds: $agentIds, userId: $user->getUID());
+		$agentPayloads = $collectedAgents['payloads'];
+		$agentOutcomes = $collectedAgents['outcomes'];
+
+		if ($payloads === [] && $agentPayloads === []) {
+			return new JSONResponse(
+				['error' => 'no_publishable_content', 'skills' => $outcomes, 'agents' => $agentOutcomes],
+				Http::STATUS_BAD_REQUEST
+			);
 		}
 
 		try {
@@ -653,7 +669,8 @@ class SkillController extends Controller {
 			// first real bundle claimed 94 while shipping 64 — the response must be
 			// built from what was SERIALISED, not from what was requested.
 			$dropped = [];
-			$tree = $this->bundleSerializer->toBundle(skills: $payloads, dropped: $dropped);
+			$droppedAgents = [];
+			$tree = $this->bundleSerializer->toBundle(skills: $payloads, dropped: $dropped, agents: $agentPayloads, droppedAgents: $droppedAgents);
 
 			$result = $this->pushService->publishBundle(
 				files: $tree,
@@ -669,6 +686,7 @@ class SkillController extends Controller {
 		}
 
 		$reconciled = $this->reconcileOutcomes(outcomes: $outcomes, dropped: $dropped);
+		$reconciledAgents = $this->reconcileOutcomes(outcomes: $agentOutcomes, dropped: $droppedAgents);
 
 		return new JSONResponse(
 			[
@@ -677,8 +695,11 @@ class SkillController extends Controller {
 				'created' => $result['created'],
 				'published' => $reconciled['published'],
 				'dropped' => count($dropped),
-				'truncated' => ($dropped !== []),
+				'truncated' => ($dropped !== [] || $droppedAgents !== []),
 				'skills' => $reconciled['outcomes'],
+				'agentsPublished' => $reconciledAgents['published'],
+				'agentsDropped' => count($droppedAgents),
+				'agents' => $reconciledAgents['outcomes'],
 			],
 			Http::STATUS_OK
 		);
@@ -855,6 +876,54 @@ class SkillController extends Controller {
 
 		return ['payloads' => $payloads, 'outcomes' => $outcomes];
 	}//end collectPublishablePayloads()
+
+	/**
+	 * Resolve `agentIds[]` into publishable agent payloads (skill-bundle-publish
+	 * §agents extension). Sibling to {@see collectPublishablePayloads()}.
+	 *
+	 * Gated on {@see AgentAccessService::loadModifiableAgent()} — the same
+	 * predicate `update()` uses elsewhere on this controller for skills — because
+	 * an agent's prompt/tools are exactly the kind of content a caller without
+	 * edit rights must not be able to publish out from under its owner.
+	 *
+	 * @param array<int,mixed> $agentIds The requested agent uuids.
+	 * @param string $userId The acting user, for the modifiable-agent check.
+	 *
+	 * @return array{payloads:array<int,array<string,mixed>>,outcomes:array<int,array<string,mixed>>}
+	 */
+	private function collectPublishableAgentPayloads(array $agentIds, string $userId): array {
+		$payloads = [];
+		$outcomes = [];
+
+		foreach ($agentIds as $agentId) {
+			$id = (string)$agentId;
+
+			try {
+				$agent = $this->agentAccess->loadModifiableAgent(agentId: $id, userId: $userId);
+			} catch (Throwable $e) {
+				$this->logger->error(
+					'Hermiq bundle publish: resolving agent "' . $id . '" failed: ' . $e->getMessage(),
+					['exception' => $e]
+				);
+				$outcomes[] = ['name' => $id, 'outcome' => 'failed'];
+				continue;
+			}
+
+			if ($agent === null) {
+				$outcomes[] = ['name' => $id, 'outcome' => 'not_found'];
+				continue;
+			}
+
+			$object = $agent->getObject();
+			$payloads[] = $object;
+			$outcomes[] = [
+				'name' => (string)($object['name'] ?? ''),
+				'outcome' => 'published',
+			];
+		}//end foreach
+
+		return ['payloads' => $payloads, 'outcomes' => $outcomes];
+	}//end collectPublishableAgentPayloads()
 
 	/**
 	 * Reconcile the per-skill outcomes against what the serialiser actually

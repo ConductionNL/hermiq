@@ -418,4 +418,98 @@ class SkillBundleSerializerTest extends TestCase {
 		$this->assertSame('invalid_name', $dropped[0]['reason']);
 
 	}//end testInvalidNameIsReportedAsDropped()
+
+	/**
+	 * An agent round-trips through toBundle()/agentsFromBundle() with its
+	 * arbitrary fields (prompt/tools/anything) intact, and the identity fields
+	 * an installed-elsewhere agent must NOT collide on are stripped.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testAgentRoundTripsThroughBundle(): void {
+		$serializer = $this->serializer();
+
+		$tree = $serializer->toBundle(
+			skills: [],
+			agents: [
+				[
+					'uuid' => 'should-not-survive',
+					'id' => 'should-not-survive-either',
+					'name' => 'Hydra Triage',
+					'description' => 'Reads pipeline state.',
+					'prompt' => 'You are the triage agent.',
+					'tools' => ['hydra.change.*', 'hydra.cycle.*'],
+					'requiresApproval' => true,
+				],
+			]
+		);
+
+		$this->assertArrayHasKey('agents/hydra-triage.json', $tree);
+
+		$agents = $serializer->agentsFromBundle(files: $tree);
+		$this->assertCount(1, $agents);
+		$this->assertSame('Hydra Triage', $agents[0]['name']);
+		$this->assertSame('You are the triage agent.', $agents[0]['prompt']);
+		$this->assertSame(['hydra.change.*', 'hydra.cycle.*'], $agents[0]['tools']);
+		$this->assertTrue($agents[0]['requiresApproval']);
+		$this->assertArrayNotHasKey('uuid', $agents[0], 'a fresh install must get a fresh identity, never reuse the source uuid');
+		$this->assertArrayNotHasKey('id', $agents[0]);
+
+	}//end testAgentRoundTripsThroughBundle()
+
+	/**
+	 * A 1.0-shaped bundle (no `agents` manifest key at all) is still valid and
+	 * agent-less — the MINOR version bump must not break every bundle published
+	 * before this requirement existed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#scenario-a-10-bundle-with-no-agents-key-still-installs-its-skills
+	 */
+	public function testLegacyBundleWithNoAgentsKeyParsesAsAgentless(): void {
+		$serializer = $this->serializer();
+
+		$legacyManifest = [
+			'formatVersion' => '1.0',
+			'skills' => [['name' => 'good-skill']],
+		];
+		$files = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode($legacyManifest),
+			'skills/good-skill/SKILL.md' => "---\nname: good-skill\n---\nbody\n",
+		];
+
+		$this->assertSame([], $serializer->agentsFromBundle(files: $files));
+		$this->assertCount(1, $serializer->fromBundle(files: $files), 'skills must still install from a pre-agents bundle');
+
+	}//end testLegacyBundleWithNoAgentsKeyParsesAsAgentless()
+
+	/**
+	 * Two agents whose names sanitise to the same file name: the second is
+	 * dropped and reported, never silently overwriting the first — the same
+	 * guarantee `toBundle()` already gives skills.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testDuplicateAgentFileNameIsDroppedNotOverwritten(): void {
+		$serializer = $this->serializer();
+
+		$droppedAgents = [];
+		$serializer->toBundle(
+			skills: [],
+			dropped: $dropped,
+			agents: [
+				['name' => 'Hydra Triage', 'prompt' => 'first'],
+				['name' => 'hydra-triage', 'prompt' => 'second'],
+			],
+			droppedAgents: $droppedAgents
+		);
+
+		$this->assertCount(1, $droppedAgents);
+		$this->assertSame('duplicate_directory_name', $droppedAgents[0]['reason']);
+
+	}//end testDuplicateAgentFileNameIsDroppedNotOverwritten()
 }//end class
