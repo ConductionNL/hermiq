@@ -1,0 +1,72 @@
+# hermiq-runner (combined) — ONE sidecar serving both the LLM CLI transport and
+# speech (STT + TTS).
+#
+# Replaces the two-sidecar split. Every structural objection to combining them
+# turned out not to hold:
+#
+#   - "The model server needs egress, the runner is jailed" — WRONG, and it
+#     proved too much (Ollama downloads models too). Weights are fetched ONCE at
+#     provisioning; after that the service needs no route at all. Measured.
+#   - "One OOM in transcription kills the LLM transport" — an orchestration
+#     concern, answered by a memory limit, not by a second image.
+#   - "A torch CVE forces a rebuild of the transport" — true, and the price of
+#     one container. Accepted deliberately rather than argued away.
+#
+# What remains is that this image carries two language runtimes. That is image
+# hygiene, not architecture.
+#
+# ⚠️ BASED ON SPEACHES, NOT ON node:22 — the direction matters. Adding Node to a
+# Python/ML base is a package install; adding torch + CUDA-capable wheels to a
+# Node base means owning the ML dependency tree ourselves, which is exactly the
+# maintenance we avoided by not writing a bespoke sidecar in the first place.
+#
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Conduction B.V.
+
+# Pin by digest in production (PA3 — a floating tag lets a poisoned upstream
+# rebuild propagate on the next CI run). This is the digest verified locally.
+FROM ghcr.io/speaches-ai/speaches:latest-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+
+USER root
+
+# --- Node 22, for the vendor LLM CLIs -----------------------------------------
+# NodeSource rather than Ubuntu's archive: the distro node is too old for the
+# CLIs, and a wrong-major node fails at runtime rather than at build time.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl gnupg jq \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# --- The vendor CLIs ----------------------------------------------------------
+# Grok is deliberately absent: xAI ships no verified official CLI on npm, and
+# installing a guessed package would be wrong. A deployer mounts one and sets
+# RUNNER_GROK_BIN.
+RUN npm install -g --no-fund --no-audit \
+        @anthropic-ai/claude-code \
+        @openai/codex \
+    && claude --version || true
+
+# --- The runner ---------------------------------------------------------------
+WORKDIR /app
+COPY package.json ./
+COPY src/ ./src/
+COPY deploy/ ./deploy/
+
+# --- Both services under one PID 1 --------------------------------------------
+# ⚠️ A shell `&` background job would make the container "healthy" while one of
+# the two servers was dead, because PID 1 would be the shell and would not exit.
+# This entrypoint exits if EITHER dies, so the restart policy can do its job —
+# a half-dead sidecar that still answers /health is the failure mode that gets
+# noticed a week later.
+COPY deploy/combined-entrypoint.sh /usr/local/bin/combined-entrypoint.sh
+RUN chmod +x /usr/local/bin/combined-entrypoint.sh \
+    && chown -R ubuntu:ubuntu /app
+
+# 8000 speech (OpenAI-compatible), 9000 LLM CLI transport.
+EXPOSE 8000 9000
+
+USER ubuntu
+
+ENTRYPOINT ["/usr/local/bin/combined-entrypoint.sh"]

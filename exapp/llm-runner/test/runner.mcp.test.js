@@ -90,18 +90,61 @@ function withStub(fn) {
 	})
 }
 
-const MCP_CONFIG = {
-	mcpServers: {
-		hermiq: {
-			type: 'http',
-			url: 'https://nc.example/apps/hermiq/api/mcp/run',
-			headers: {
-				Authorization: `Bearer ${RUN_TOKEN}`,
-				'OCS-APIRequest': 'true',
+/**
+ * A loopback stand-in for Hermiq's MCP endpoint, started for the tests that
+ * actually call `run()`.
+ *
+ * `run()` now PREFLIGHTS the endpoint before spawning (see
+ * `assertMcpEndpointReachable`), because an unreachable one produces a run that
+ * looks successful and is silently tool-less. So a governed-turn test can no
+ * longer point at an unresolvable placeholder host: doing so would exercise the
+ * refusal path instead of the argv/file assertions it is written for, and the
+ * failure would look like a regression in the flags.
+ *
+ * It answers 401 on purpose — the probe carries no bearer token, and "reachable
+ * but rejecting" is precisely the state a correctly-configured instance is in.
+ *
+ * @returns {Promise<{url: string, close: Function}>} The stub's URL and a closer.
+ */
+function startMcpStub() {
+	const httpMod = require('http')
+	return new Promise((resolve) => {
+		const server = httpMod.createServer((req, res) => {
+			res.writeHead(401)
+			res.end()
+		})
+		server.listen(0, '127.0.0.1', () => {
+			const { port } = server.address()
+			resolve({
+				url: `http://127.0.0.1:${port}/apps/hermiq/api/mcp/run`,
+				close: () => new Promise((done) => server.close(done)),
+			})
+		})
+	})
+}
+
+/**
+ * Build the governed config against a given endpoint URL.
+ *
+ * @param {string} url The endpoint URL.
+ * @returns {object} The `{mcpServers:{...}}` config.
+ */
+function mcpConfigFor(url) {
+	return {
+		mcpServers: {
+			hermiq: {
+				type: 'http',
+				url,
+				headers: {
+					Authorization: `Bearer ${RUN_TOKEN}`,
+					'OCS-APIRequest': 'true',
+				},
 			},
 		},
-	},
+	}
 }
+
+const MCP_CONFIG = mcpConfigFor('https://nc.example/apps/hermiq/api/mcp/run')
 
 // ---------------------------------------------------------------------------
 // Pure argv assembly (no spawn) — a regression breaks the build.
@@ -221,13 +264,24 @@ test('assertGovernedArgs accepts a complete governed argv', () => {
 
 test('run() writes a 0600 MCP file, keeps the token off argv, and cleans up', () => {
 	return withStub(async ({ providers, runner, log }) => {
-		const result = await runner.run({
-			provider: providers.getProvider('anthropic'),
-			model: 'claude-opus-4-8',
-			messages: [{ role: 'user', content: 'hi' }],
-			credentialEnv: { CLAUDE_CODE_OAUTH_TOKEN: 'oat-SUBSCRIPTION-TOKEN-xyz' },
-			mcpConfig: MCP_CONFIG,
-		})
+		// Reachable endpoint: this test is about the file mode, the argv and the
+		// cleanup, not about the preflight. A placeholder host would be refused
+		// before any of that ran.
+		const mcp = await startMcpStub()
+		let result
+		try {
+			result = await runner.run({
+				provider: providers.getProvider('anthropic'),
+				model: 'claude-opus-4-8',
+				messages: [{ role: 'user', content: 'hi' }],
+				credentialEnv: {
+					CLAUDE_CODE_OAUTH_TOKEN: 'oat-SUBSCRIPTION-TOKEN-xyz',
+				},
+				mcpConfig: mcpConfigFor(mcp.url),
+			})
+		} finally {
+			await mcp.close()
+		}
 		assert.strictEqual(result.text, 'stub governed completion')
 
 		const logged = fs.readFileSync(log, 'utf8')

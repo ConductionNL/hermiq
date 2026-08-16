@@ -1,0 +1,183 @@
+# hermiq speech sidecar — ONE container for both speech-to-text and text-to-speech.
+#
+# ⚠️ THERE IS DELIBERATELY NO DOCKERFILE HERE, AND ONLY ONE SERVICE.
+#
+# An earlier draft planned a bespoke Python sidecar; a second draft ran Whisper
+# and Kokoro as two containers. Both are replaced by Speaches, which serves
+# faster-whisper (STT) and Kokoro/Piper (TTS) behind ONE OpenAI-compatible API:
+# `/v1/audio/transcriptions` and `/v1/audio/speech`. It describes itself as
+# "Ollama, but for TTS/STT models", which is the right mental model — including
+# on-demand model load/unload with a configurable TTL.
+#
+# What we would have hand-rolled is exactly what this already is, minus the
+# maintenance: we would have owned a torch/ONNX image and rebuilt it on every CVE.
+# Hermiq's side stays a TaskProcessing provider making an HTTP call.
+#
+# ⚠️ WHY NOT FOLD THIS INTO `hermiq-llm-runner` — the answer is not "tidiness":
+#
+#   - That image is **Node 22**. These are Python ML workloads. Consolidating
+#     means carrying a second language runtime plus torch in an image whose whole
+#     point is a small, auditable CLI transport.
+#   - Lifecycles differ: a CLI turn is burst work; a speech model wants GB of
+#     weights resident. One OOM in transcription would take the LLM transport
+#     down with it.
+#   - A torch CVE would force a rebuild-and-redeploy of the LLM transport, and
+#     vice versa. Coupling them makes both harder to patch.
+#
+# ⚠️ AN EARLIER VERSION OF THIS FILE ALSO CLAIMED THE HARDENED POSTURES WERE
+# "INCOMPATIBLE" BECAUSE A MODEL SERVER MUST REACH HUGGINGFACE. THAT WAS WRONG,
+# and it proved too much — Ollama downloads models too and is perfectly happy
+# behind a locked-down runtime. The distinction the argument missed is
+# **provisioning-time vs runtime**: weights are fetched ONCE by an operator, and
+# after that the service needs no egress at all. Measured on this compose: with
+# the container detached from every network and HF_HUB_OFFLINE=1, Kokoro
+# synthesised and faster-whisper transcribed, both entirely from cache.
+#
+# So the reasons above are the real ones. Egress is not among them — and the
+# no-egress runtime this makes possible is a STRONGER guarantee than the spec's
+# "no audio leaves the instance" had before, which was asserted rather than
+# enforced.
+#
+# Ollama itself cannot host these either: it has no audio input path, and neither
+# Whisper nor Kokoro is a GGUF LLM.
+#
+# ⚠️ NOT VENDOR-OFFICIAL, because no vendor-official image exists: OpenAI ships
+# the Whisper *model*, hexgrad ships Kokoro *weights*; neither ships a service.
+# That is exactly why the digest pin below is not optional — same PA3 note
+# `llm-runner/Dockerfile` carries: a floating tag lets a poisoned upstream
+# rebuild propagate on the next `docker compose pull`.
+#
+# SPDX-License-Identifier: EUPL-1.2
+# Copyright 2026 Conduction B.V.
+
+services:
+  hermiq-speech:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+    container_name: hermiq-speech
+    restart: unless-stopped
+    environment:
+      # Keep a loaded model resident; a cold load on every call dominates latency.
+      # Speaches unloads after this TTL — -1 disables unloading.
+      - WHISPER__TTL=-1
+      - ENABLE_UI=false
+      # 🔴 REQUIRED for the no-egress runtime posture, and cached weights are NOT
+      # enough on their own. Without it, huggingface_hub still attempts a network
+      # check when a model loads and BLOCKS until it times out — the request
+      # hangs rather than failing fast, so a network-isolated container looks
+      # broken rather than offline. Measured: network detached and this UNSET, a
+      # synthesis call timed out; the same call with it SET returned audio from
+      # cache.
+      #
+      # ⚠️ When diagnosing a slow call here, read the container log before
+      # concluding "blocked". A detached transcription looked like a network hang
+      # and was not: the log showed `Processing audio with duration ...`, the VAD
+      # filter and segment processing — it had loaded from cache and was simply
+      # slow on CPU, while the client gave up. A timeout is not evidence about
+      # the network.
+      - HF_HUB_OFFLINE=1
+    volumes:
+      # Persist weights so a restart is not a multi-GB re-download, and so an
+      # air-gapped instance keeps working once primed.
+      - hermiq-speech-models:/home/ubuntu/.cache/huggingface
+    ports:
+      - '127.0.0.1:8000:8000'
+    networks:
+      # `internal: true` ⇒ Docker installs NO gateway, so this container has no
+      # route off the host at all. Same single line that jails llm-runner.
+      - speech-jailed
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # Bound the blast radius of a model load rather than letting one OOM take the
+    # host down. Tune to the largest model you prime.
+    mem_limit: 6g
+    healthcheck:
+      # ⚠️ NOT curl — these images do not reliably ship it, and a curl-based check
+      # reports `unhealthy` forever while the service is provably fine. A check
+      # that can never pass is worse than none: it trains everyone to ignore the
+      # column.
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health',timeout=5).status==200 else 1)"
+      interval: 30s
+      timeout: 10s
+      # The first call for a given model lazily fetches its weights (~1.6 GB for
+      # whisper turbo), so the container is legitimately unhealthy for a while on
+      # a cold volume.
+      start_period: 15m
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # PRIMER — a short-lived, `--profile prime` container that is the ONLY thing
+  # here allowed off the host, and only while an operator runs it.
+  #
+  # ⚠️ IT DOES NOT USE HERMIQ'S EGRESS PROXY, and that is deliberate rather than
+  # an oversight. That proxy is RUN-SCOPED: it requires a run token in
+  # `Proxy-Authorization`, forwards it to the PDP as a bearer token, and denies
+  # with `no_run_token` otherwise (egress-proxy/proxy.js). Fetching model weights
+  # is operator provisioning, not an agent run — there is no run to attribute it
+  # to, and inventing one to satisfy the proxy would make the audit trail lie
+  # about who reached HuggingFace and why.
+  #
+  #   docker compose --profile prime run --rm speech-primer
+  #
+  # After this, the serving container needs NO route at all — which is a stronger
+  # posture than llm-runner's, since that one needs the proxy continuously.
+  # ---------------------------------------------------------------------------
+  speech-primer:
+    image: ghcr.io/speaches-ai/speaches:latest-cpu@sha256:21e3df06d842fb7802ab470dd77c25f0e8c0d22950e8d8c6ae886e851af53ef8
+    profiles: ['prime']
+    volumes:
+      - hermiq-speech-models:/home/ubuntu/.cache/huggingface
+    networks:
+      # The one component with egress, and only for the duration of the command.
+      - speech-egress
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        uvicorn --factory --host 0.0.0.0 speaches.main:create_app &
+        until python3 -c "import urllib.request;urllib.request.urlopen('http://localhost:8000/health',timeout=2)" 2>/dev/null; do sleep 2; done
+        for m in deepdml/faster-whisper-large-v3-turbo-ct2 speaches-ai/Kokoro-82M-v1.0-ONNX; do
+          echo "priming $$m"
+          python3 -c "import urllib.request;urllib.request.urlopen(urllib.request.Request('http://localhost:8000/v1/models/$$m',method='POST'),timeout=3600)"
+        done
+        echo "primed"
+
+networks:
+  speech-jailed:
+    # internal: true ⇒ no gateway is installed. This single line is what makes
+    # the serving container unable to reach anything off the host, and it is the
+    # difference between "no audio leaves the instance" being enforced and being
+    # merely asserted.
+    internal: true
+  speech-egress: {}
+
+volumes:
+  # ⚠️ USE A FRESH VOLUME, never one an earlier speech container wrote to.
+  # Speaches runs as `ubuntu` (uid 1000). The single-purpose Whisper/Kokoro
+  # images run as root and cache under a different path, so a reused volume
+  # leaves root-owned directories that Speaches cannot write — and the failure
+  # surfaces as a bare `500 Internal Server Error` on model install, with the
+  # actual `PermissionError` only visible in the container log.
+  hermiq-speech-models:
+
+# ---------------------------------------------------------------------------
+# PRIMING — required, and different from the single-purpose images.
+#
+# Speaches does NOT lazily download a model on first use; it 404s with
+# "Model '<id>' is not installed locally". Install both before first use:
+#
+#   curl -X POST http://127.0.0.1:8000/v1/models/deepdml/faster-whisper-large-v3-turbo-ct2
+#   curl -X POST http://127.0.0.1:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX
+#
+# `GET /v1/registry?task=text-to-speech` lists valid ids — worth consulting,
+# since a wrong id fails the same way a missing one does.
+#
+# Verified end to end on this compose: Kokoro synthesised "One sidecar now
+# serves both directions." and Whisper large-v3-turbo transcribed it back word
+# for word, both inside this one container, with no audio leaving the instance.
+# ---------------------------------------------------------------------------
