@@ -426,7 +426,7 @@ class SkillBundleSerializerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
 	 */
 	public function testAgentRoundTripsThroughBundle(): void {
 		$serializer = $this->serializer();
@@ -466,7 +466,7 @@ class SkillBundleSerializerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#scenario-a-10-bundle-with-no-agents-key-still-installs-its-skills
+	 * @spec openspec/specs/skills-marketplace/spec.md#scenario-a-10-bundle-with-no-agents-key-still-installs-its-skills
 	 */
 	public function testLegacyBundleWithNoAgentsKeyParsesAsAgentless(): void {
 		$serializer = $this->serializer();
@@ -492,7 +492,7 @@ class SkillBundleSerializerTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
 	 */
 	public function testDuplicateAgentFileNameIsDroppedNotOverwritten(): void {
 		$serializer = $this->serializer();

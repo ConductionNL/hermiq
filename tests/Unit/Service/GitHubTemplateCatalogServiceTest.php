@@ -54,6 +54,18 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 	}//end noCacheFactory()
 
 	/**
+	 * A stub ITempManager — none of the existing tests exercise the archive
+	 * fetch path (that needs a real filesystem; covered live, see the
+	 * skill-bundle agents-extension verification notes), so this only needs
+	 * to satisfy the constructor.
+	 *
+	 * @return \OCP\ITempManager
+	 */
+	private function tempManager(): \OCP\ITempManager {
+		return $this->createMock(\OCP\ITempManager::class);
+	}//end tempManager()
+
+	/**
 	 * An IResponse mock with the given status + body.
 	 *
 	 * @param int $status The HTTP status code.
@@ -116,7 +128,8 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$service = new GitHubTemplateCatalogService(
 			$this->clientService([$this->response(200, (string)$searchBody), $this->response(200, (string)$contentsBody)]),
 			$this->noCacheFactory(),
-			new NullLogger()
+			new NullLogger(),
+			$this->tempManager()
 		);
 
 		$result = $service->search(query: null, actingUserId: 'alice');
@@ -148,7 +161,8 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$service = new GitHubTemplateCatalogService(
 			$this->clientService([$this->response(200, (string)$searchBody), $this->response(404, '')]),
 			$this->noCacheFactory(),
-			new NullLogger()
+			new NullLogger(),
+			$this->tempManager()
 		);
 
 		$result = $service->search(query: null, actingUserId: 'alice');
@@ -169,7 +183,8 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$service = new GitHubTemplateCatalogService(
 			$this->clientService([$this->response(403, 'rate limit exceeded')]),
 			$this->noCacheFactory(),
-			new NullLogger()
+			new NullLogger(),
+			$this->tempManager()
 		);
 
 		$result = $service->search(query: null, actingUserId: 'alice');
@@ -192,7 +207,7 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$clientService = $this->createMock(IClientService::class);
 		$clientService->method('newClient')->willReturn($client);
 
-		$service = new GitHubTemplateCatalogService($clientService, $this->noCacheFactory(), new NullLogger());
+		$service = new GitHubTemplateCatalogService($clientService, $this->noCacheFactory(), new NullLogger(), $this->tempManager());
 
 		$this->assertNull($service->fetchTemplateFile(owner: '../evil', repo: 'demo', ref: null, actingUserId: 'alice'));
 		$this->assertNull($service->fetchTemplateFile(owner: 'acme', repo: 'demo', ref: 'bad ref!', actingUserId: 'alice'));
@@ -211,7 +226,8 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$service = new GitHubTemplateCatalogService(
 			$this->clientService([$this->response(200, (string)$contentsBody)]),
 			$this->noCacheFactory(),
-			new NullLogger()
+			new NullLogger(),
+			$this->tempManager()
 		);
 
 		$result = $service->fetchTemplateFile(owner: 'acme', repo: 'demo', ref: null, actingUserId: 'alice');
@@ -227,7 +243,7 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 	 * @return void
 	 */
 	public function testValidRepoEnforcesSafePatterns(): void {
-		$service = new GitHubTemplateCatalogService($this->clientService([]), $this->noCacheFactory(), new NullLogger());
+		$service = new GitHubTemplateCatalogService($this->clientService([]), $this->noCacheFactory(), new NullLogger(), $this->tempManager());
 
 		$this->assertTrue($service->validRepo(owner: 'acme-council', repo: 'demo_template.v2', ref: 'main'));
 		$this->assertFalse($service->validRepo(owner: '../etc/passwd', repo: 'demo', ref: null));
@@ -259,7 +275,7 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$clientService = $this->createMock(IClientService::class);
 		$clientService->method('newClient')->willReturn($client);
 
-		$service = new GitHubTemplateCatalogService($clientService, $cacheFactory, new NullLogger());
+		$service = new GitHubTemplateCatalogService($clientService, $cacheFactory, new NullLogger(), $this->tempManager());
 		$result = $service->search(query: null, actingUserId: 'alice');
 
 		$this->assertSame(GitHubTemplateCatalogService::OUTCOME_OK, $result['outcome']);
@@ -273,7 +289,7 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 	 * @return void
 	 */
 	public function testBrokerAvailabilityIsCheckedAgainstOpenRegister(): void {
-		$service = new GitHubTemplateCatalogService($this->clientService([]), $this->noCacheFactory(), new NullLogger());
+		$service = new GitHubTemplateCatalogService($this->clientService([]), $this->noCacheFactory(), new NullLogger(), $this->tempManager());
 
 		$this->assertTrue($service->isBrokerAvailable());
 
@@ -299,7 +315,8 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$service = new GitHubTemplateCatalogService(
 			$this->clientService([$this->response(200, (string)$searchBody), $this->response(200, (string)$contentsBody)]),
 			$this->noCacheFactory(),
-			new NullLogger()
+			new NullLogger(),
+			$this->tempManager()
 		);
 
 		$result = $service->search(query: null, actingUserId: 'alice');
@@ -341,7 +358,7 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$clientService = $this->createMock(IClientService::class);
 		$clientService->method('newClient')->willReturn($client);
 
-		$service = new GitHubTemplateCatalogService($clientService, $this->noCacheFactory(), new NullLogger());
+		$service = new GitHubTemplateCatalogService($clientService, $this->noCacheFactory(), new NullLogger(), $this->tempManager());
 
 		$result = $service->search(query: null, actingUserId: 'alice', credentialId: null, kind: GitHubTemplateCatalogService::KIND_SKILL);
 
@@ -368,7 +385,7 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$clientService = $this->createMock(IClientService::class);
 		$clientService->method('newClient')->willReturn($client);
 
-		$service = new GitHubTemplateCatalogService($clientService, $this->noCacheFactory(), new NullLogger());
+		$service = new GitHubTemplateCatalogService($clientService, $this->noCacheFactory(), new NullLogger(), $this->tempManager());
 
 		$this->assertNull(
 			$service->fetchPackageFile(
@@ -395,7 +412,8 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 		$service = new GitHubTemplateCatalogService(
 			$this->clientService([$this->response(200, (string)$contentsBody)]),
 			$this->noCacheFactory(),
-			new NullLogger()
+			new NullLogger(),
+			$this->tempManager()
 		);
 
 		$viaTemplate = $service->fetchTemplateFile(owner: 'acme', repo: 'demo', ref: null, actingUserId: 'alice');

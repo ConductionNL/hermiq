@@ -150,6 +150,19 @@ class GitHubTemplateCatalogService {
 	public const BUNDLE_SKILLS_PREFIX = 'skills/';
 
 	/**
+	 * The directory bundled agents live under (skill-bundle §agents extension) —
+	 * mirrors {@see \OCA\Hermiq\Service\SkillBundleSerializer::AGENTS_PREFIX}.
+	 * Without this, a bundle's `agents/*.json` files are never fetched from a
+	 * remote repo at all — only `agentsFromBundle()`'s PARSING was added
+	 * (skill-bundle-publish agents extension); the fetch-side accept filter
+	 * was never taught about this prefix, so it silently collected zero agent
+	 * files on every remote install regardless of how many the bundle declared.
+	 *
+	 * @var string
+	 */
+	public const BUNDLE_AGENTS_PREFIX = 'agents/';
+
+	/**
 	 * Maximum total bytes fetched for one bundle install (design.md §Security 3).
 	 *
 	 * @var int
@@ -259,6 +272,7 @@ class GitHubTemplateCatalogService {
 		private readonly IClientService $clientService,
 		ICacheFactory $cacheFactory,
 		private readonly LoggerInterface $logger,
+		private readonly \OCP\ITempManager $tempManager,
 	) {
 		$cache = null;
 		if ($cacheFactory->isAvailable() === true) {
@@ -592,6 +606,163 @@ class GitHubTemplateCatalogService {
 	}//end collectTreeBlobs()
 
 	/**
+	 * Collect blobs under a prefix via ONE archive download instead of one HTTP
+	 * call per file.
+	 *
+	 * `collectTreeBlobs()` fetches the tree in one call but then GitHub's
+	 * Contents API one file at a time — for a 94-skill bundle that is ~750
+	 * individual broker-mediated round trips. Live-verified: this burns through
+	 * a PAT's rate limit fast enough that a single large bundle install can
+	 * fail partway with a 403, and the caller (which treats a failed fetch as
+	 * "file absent" rather than "fetch failed") reports a clean but wrong
+	 * `0 installed` rather than surfacing the real cause. GitHub's tarball
+	 * endpoint (`GET /repos/{owner}/{repo}/tarball/{ref}`) returns the ENTIRE
+	 * repository content in one request regardless of file count — this is the
+	 * `/repos/*` GET rule already granted to the `github` provider (no new
+	 * broker allow-rule needed), and the 303 it returns carries a
+	 * pre-authorised `codeload.github.com` URL in its own query string, which
+	 * Guzzle follows by default.
+	 *
+	 * Best-effort: returns null on ANY failure (fetch, non-2xx, empty body,
+	 * extraction) so the caller can fall back to {@see collectTreeBlobs()}
+	 * rather than fail the whole install over an optimisation.
+	 *
+	 * @param string $owner Repo owner.
+	 * @param string $repo Repo name.
+	 * @param string|null $ref Optional git ref.
+	 * @param string|null $actingUserId The session UID (broker identity), or null.
+	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * @param callable $accept Predicate deciding whether an archive entry's path (with the
+	 *                         archive's own `{owner}-{repo}-{sha}/` root stripped) is wanted.
+	 *
+	 * @return array<string,string>|null The `path => contents` map, or null when unavailable —
+	 *                                    never partial: an extraction that fails partway is
+	 *                                    discarded whole, so the caller's fallback is a clean
+	 *                                    do-over, not a merge of two partial sets.
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Repo coordinates + broker identity + the filter predicate; each is a distinct input.
+	 */
+	private function fetchArchiveBlobs(
+		string $owner,
+		string $repo,
+		?string $ref,
+		?string $actingUserId,
+		?string $credentialId,
+		callable $accept,
+	): ?array {
+		$treeRef = ($ref ?? 'HEAD');
+		$result = $this->get(
+			path: '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/tarball/' . rawurlencode($treeRef),
+			actingUserId: $actingUserId,
+			credentialId: $credentialId
+		);
+		if ($result['ok'] === false || $result['body'] === '') {
+			return null;
+		}
+
+		if (strlen($result['body']) > self::MAX_BUNDLE_BYTES) {
+			// An archive this large would exceed the bundle bound on extraction
+			// anyway — refuse before writing it to disk rather than after.
+			return null;
+		}
+
+		$archivePath = $this->tempManager->getTemporaryFile('.tar.gz');
+		if ($archivePath === false) {
+			return null;
+		}
+
+		$extractDir = null;
+
+		try {
+			if (file_put_contents($archivePath, $result['body']) === false) {
+				return null;
+			}
+
+			$extractDir = $this->tempManager->getTemporaryFolder();
+			if ($extractDir === false) {
+				return null;
+			}
+
+			$phar = new \PharData($archivePath);
+			$phar->extractTo($extractDir, null, true);
+
+			// GitHub's tarball root is `{owner}-{repo}-{shortsha}/…` — exactly
+			// one top-level directory. Resolved by listing rather than assumed
+			// by name, since the short SHA is not knowable in advance.
+			$roots = array_values(array_filter(
+				scandir($extractDir) ?: [],
+				static fn (string $entry): bool => ($entry !== '.' && $entry !== '..' && is_dir($extractDir . '/' . $entry))
+			));
+			if (count($roots) !== 1) {
+				return null;
+			}
+
+			$root = $extractDir . '/' . $roots[0];
+			$files = [];
+			$iterator = new \RecursiveIteratorIterator(
+				new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+			);
+			foreach ($iterator as $fileInfo) {
+				if ($fileInfo->isFile() === false) {
+					continue;
+				}
+
+				$relative = ltrim(substr($fileInfo->getPathname(), strlen($root)), '/');
+				if ($accept($relative) === false) {
+					continue;
+				}
+
+				$contents = file_get_contents($fileInfo->getPathname());
+				if ($contents === false) {
+					continue;
+				}
+
+				$files[$relative] = $contents;
+			}//end foreach
+
+			return $files;
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'Hermiq GitHub template catalog: archive fetch/extract failed, falling back to per-file fetch: ' . $e->getMessage(),
+				['owner' => $owner, 'repo' => $repo]
+			);
+			return null;
+		} finally {
+			if (file_exists($archivePath) === true) {
+				unlink($archivePath);
+			}
+
+			if ($extractDir !== null && is_dir($extractDir) === true) {
+				$this->removeDirectoryRecursive(path: $extractDir);
+			}
+		}//end try
+	}//end fetchArchiveBlobs()
+
+	/**
+	 * Remove a directory and its contents. PHP has no `rm -rf` built in.
+	 *
+	 * @param string $path Absolute path to remove.
+	 *
+	 * @return void
+	 */
+	private function removeDirectoryRecursive(string $path): void {
+		$iterator = new \RecursiveIteratorIterator(
+			new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+			\RecursiveIteratorIterator::CHILD_FIRST
+		);
+		foreach ($iterator as $fileInfo) {
+			if ($fileInfo->isDir() === true) {
+				rmdir($fileInfo->getPathname());
+				continue;
+			}
+
+			unlink($fileInfo->getPathname());
+		}
+
+		rmdir($path);
+	}//end removeDirectoryRecursive()
+
+	/**
 	 * Fetch a repository's recursive git tree.
 	 *
 	 * @param string $owner Repo owner.
@@ -690,6 +861,42 @@ class GitHubTemplateCatalogService {
 			return null;
 		}
 
+		// Only the manifest, plus blobs under `skills/` or `agents/`, are
+		// wanted; anything else in the repository is ignored, so a bundle can
+		// live alongside unrelated content.
+		$accept = static function (string $path): bool {
+			return $path === self::BUNDLE_MANIFEST_FILE
+				|| str_starts_with($path, self::BUNDLE_SKILLS_PREFIX)
+				|| str_starts_with($path, self::BUNDLE_AGENTS_PREFIX);
+		};
+
+		// ONE archive download beats one HTTP call per file — for a 94-skill
+		// bundle that is ~750 fewer broker round trips (previously ~1 for the
+		// manifest, ~750 more for skills, now 1 total). Live-verified to
+		// matter: per-file fetching burns through a PAT's request budget fast
+		// enough that a single large bundle install can 403 partway through
+		// (GitHub's secondary rate limit / abuse detection on the Contents API
+		// specifically — triggered independently of the primary 5000/hour
+		// quota by request PATTERN, not just count). Tried first, covering the
+		// manifest fetch too, so a bundle install never has to touch the
+		// per-file endpoint at all in the common case.
+		$archiveFiles = $this->fetchArchiveBlobs(
+			owner: $owner,
+			repo: $repo,
+			ref: $ref,
+			actingUserId: $actingUserId,
+			credentialId: $credentialId,
+			accept: $accept
+		);
+
+		if ($archiveFiles !== null && isset($archiveFiles[self::BUNDLE_MANIFEST_FILE]) === true) {
+			return ['files' => $archiveFiles, 'truncated' => false];
+		}
+
+		// Fall back to the proven per-file path — best-effort: any archive
+		// failure (network, extraction, unexpected shape, or a bundle whose
+		// manifest the archive filter somehow missed) degrades gracefully
+		// rather than failing the install outright.
 		$manifest = $this->fetchFileContents(
 			owner: $owner,
 			repo: $repo,
@@ -702,9 +909,8 @@ class GitHubTemplateCatalogService {
 			return null;
 		}
 
-		// Only blobs under `skills/` are wanted; anything else in the repository is
-		// ignored, so a bundle can live alongside unrelated content. The manifest's
-		// own bytes count against the bound because it is part of what was fetched.
+		// The manifest's own bytes count against the bound because it is part
+		// of what was fetched.
 		$collected = $this->collectTreeBlobs(
 			owner: $owner,
 			repo: $repo,
@@ -712,7 +918,8 @@ class GitHubTemplateCatalogService {
 			actingUserId: $actingUserId,
 			credentialId: $credentialId,
 			accept: static function (string $path): bool {
-				return str_starts_with($path, self::BUNDLE_SKILLS_PREFIX);
+				return str_starts_with($path, self::BUNDLE_SKILLS_PREFIX)
+					|| str_starts_with($path, self::BUNDLE_AGENTS_PREFIX);
 			},
 			maxFiles: self::MAX_SKILLS_BLOBS,
 			maxBytes: (self::MAX_BUNDLE_BYTES - strlen($manifest))
@@ -864,6 +1071,19 @@ class GitHubTemplateCatalogService {
 
 		$result = $this->get(path: $apiPath, actingUserId: $actingUserId, credentialId: $credentialId);
 		if ($result['ok'] === false) {
+			// Rate-limit exhaustion specifically flagged: a failed per-file fetch
+			// silently reads to a caller as "file absent", not "fetch failed" —
+			// live-verified this is how a large bundle install came back a clean
+			// but wrong `0 installed` instead of surfacing the real 403. Logged
+			// here, at the one place that knows the real HTTP status, since
+			// nothing downstream can tell the difference once it sees null.
+			if (($result['rateLimited'] ?? false) === true) {
+				$this->logger->warning(
+					'Hermiq GitHub template catalog: rate-limited fetching ' . $apiPath . ' — result will read as "file absent", not "fetch failed".',
+					['status' => ($result['status'] ?? 0)]
+				);
+			}
+
 			return null;
 		}
 

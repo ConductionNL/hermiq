@@ -154,6 +154,7 @@ class SkillControllerTest extends TestCase {
 				$bundle,
 				$marketplace,
 				new SkillIdentityResolver(),
+				$this->createMock(ObjectService::class),
 				$this->createMock(LoggerInterface::class)
 			),
 			// REAL guards over mocked lookups: the predicates under test are the

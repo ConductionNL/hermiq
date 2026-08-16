@@ -775,6 +775,14 @@ class SkillController extends Controller {
 			repo: $repo
 		);
 
+		// This direct HTTP path predates the skill-bundle agents extension and,
+		// unlike ApplicationsController's shop-install -> SkillChannelDelegate ->
+		// SkillBundleInstaller::installFromRepo() route, never called
+		// agentsFromBundle()/installAgents() — a bundle installed straight
+		// through this endpoint silently dropped every agent it declared.
+		$agents = $this->bundleSerializer->agentsFromBundle(files: $bundle['files']);
+		$agentResult = $this->bundleInstaller->installAgents(parsed: $agents);
+
 		return new JSONResponse(
 			[
 				'installed' => $result['counts']['installed'],
@@ -784,6 +792,7 @@ class SkillController extends Controller {
 				'failed' => $result['counts']['failed'],
 				'truncated' => $bundle['truncated'],
 				'skills' => $result['outcomes'],
+				'agents' => $agentResult['outcomes'],
 			],
 			Http::STATUS_OK
 		);
