@@ -45,8 +45,11 @@
 // entire problem this file exists to avoid. And webpack's `publicPath` resolves
 // to `/apps/hermiq/js/` while the app is served from `/custom_apps/hermiq/js/`,
 // so every async request 404s to Nextcloud's HTML error page ("Refused to execute
-// script ... MIME type ('text/html')"). A lazy panel needs the second one fixed
-// too; it is not a one-line change.
+// script ... MIME type ('text/html')"). That one has a known remedy this app is
+// missing — `output.publicPath = 'auto'`, which @nextcloud/webpack-vue-config
+// hardcodes wrongly for a custom_apps install, and which pipelinq and openbuild
+// already set. Setting it changes chunk resolution for `main` and `adminSettings`
+// too, so it needs those pages re-verified; it is not part of this fix.
 import CnAiCompanion from '@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
 import { createApp, h } from 'vue'
 
