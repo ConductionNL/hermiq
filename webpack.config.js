@@ -37,6 +37,14 @@ webpackConfig.entry = {
 		import: path.join(__dirname, 'src', 'integration-leaf.js'),
 		filename: appId + '-agent-leaf.js',
 	},
+	// AI companion attached to EVERY page (companion-everywhere). The office
+	// editors are third-party apps -- onlyoffice, eurooffice, richdocuments --
+	// so there is no CnAppRoot of ours to switch the companion on inside. This
+	// bundle is the only seam that reaches them.
+	companion: {
+		import: path.join(__dirname, 'src', 'companion.js'),
+		filename: appId + '-companion.js',
+	},
 }
 
 // Use local source when available (monorepo dev), otherwise fall back to npm package.
