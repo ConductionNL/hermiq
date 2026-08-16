@@ -58,16 +58,22 @@ class AgentTemplateService {
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
 	 *
+	 * Public because `AgentTemplateController` addresses the same register when it
+	 * reads (ownership guard) and deletes through OpenRegister directly (ADR-022: no
+	 * app-local CRUD wrapper) — the slug is declared once, here.
+	 *
 	 * @var string
 	 */
-	private const REGISTER_SLUG = 'hermiq';
+	public const REGISTER_SLUG = 'hermiq';
 
 	/**
 	 * Schema slug for AgentTemplate objects.
 	 *
+	 * Public for the same reason as REGISTER_SLUG above.
+	 *
 	 * @var string
 	 */
-	private const TEMPLATE_SCHEMA = 'agenttemplate';
+	public const TEMPLATE_SCHEMA = 'agenttemplate';
 
 	/**
 	 * Schema slug for Agent objects (instantiate's write target).
@@ -145,13 +151,19 @@ class AgentTemplateService {
 	/**
 	 * Get a template by UUID (tenant-scoped), or null.
 	 *
+	 * INTERNAL. Private per ADR-022: a public, CRUD-named accessor that only forwards
+	 * to `ObjectService::find()` is a wrapper around capability OpenRegister already
+	 * publishes at `/apps/openregister/api/objects`. It survives as the read every
+	 * lifecycle method below (`update`, `approve`, `instantiate`, `exportTemplate`)
+	 * shares, not as part of this service's API.
+	 *
 	 * @param string $templateId The AgentTemplate UUID.
 	 *
 	 * @return ObjectEntity|null The template, or null when not found/not visible.
 	 *
 	 * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
 	 */
-	public function get(string $templateId): ?ObjectEntity {
+	private function get(string $templateId): ?ObjectEntity {
 		return $this->objectService->find(
 			id: $templateId,
 			register: self::REGISTER_SLUG,
@@ -214,26 +226,6 @@ class AgentTemplateService {
 		);
 
 	}//end update()
-
-	/**
-	 * Delete a template (hard delete — a template is a reusable suggestion, not an
-	 * auditable governance record like a Skill; unlike skills-marketplace's Curator, there
-	 * is no age-based archive lifecycle for templates in this change).
-	 *
-	 * @param string $templateId The AgentTemplate UUID.
-	 *
-	 * @return bool True when deleted.
-	 *
-	 * @spec openspec/changes/agent-template-gallery/tasks.md#task-5-agenttemplatecontroller-routes-adr-023-action-seed
-	 */
-	public function delete(string $templateId): bool {
-		return $this->objectService->deleteObject(
-			uuid: $templateId,
-			register: self::REGISTER_SLUG,
-			schema: self::TEMPLATE_SCHEMA
-		);
-
-	}//end delete()
 
 	/**
 	 * Export an existing Agent to a portable template package — secrets/tenant fields

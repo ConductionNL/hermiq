@@ -397,7 +397,10 @@ return [
         // the literal 'github' path segment must never fall into the {id} matcher.
         ['name' => 'agentTemplate#githubSearch',  'url' => '/api/agent-templates/github/search', 'verb' => 'GET'],
         ['name' => 'agentTemplate#githubInstall', 'url' => '/api/agent-templates/github/install', 'verb' => 'POST'],
-        ['name' => 'agentTemplate#show',    'url' => '/api/agent-templates/{id}', 'verb' => 'GET', 'requirements' => ['id' => '[^/]+']],
+        // No `GET /api/agent-templates/{id}` — reading ONE template is generic OpenRegister
+        // CRUD, which the frontend takes from `/apps/openregister/api/objects?register=hermiq
+        // &schema=agenttemplate` (ADR-022). The route, its controller method and the
+        // `getAgentTemplate()` client helper were removed in 2026-08 with zero call sites.
         ['name' => 'agentTemplate#update',  'url' => '/api/agent-templates/{id}', 'verb' => 'PUT', 'requirements' => ['id' => '[^/]+']],
         ['name' => 'agentTemplate#destroy', 'url' => '/api/agent-templates/{id}', 'verb' => 'DELETE', 'requirements' => ['id' => '[^/]+']],
         [

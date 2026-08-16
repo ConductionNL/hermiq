@@ -77,9 +77,13 @@ class BudgetService {
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
 	 *
+	 * Public because `BudgetController::destroy()` addresses the same register when
+	 * it deletes a Budget through OpenRegister directly (ADR-022: no app-local CRUD
+	 * wrapper) — the slug is declared once, here.
+	 *
 	 * @var string
 	 */
-	private const REGISTER_SLUG = 'hermiq';
+	public const REGISTER_SLUG = 'hermiq';
 
 	/**
 	 * OpenRegister schema slug for Budget objects. Namespaced (`agentbudget`, not
@@ -88,9 +92,11 @@ class BudgetService {
 	 * schema, making every write fail validation against foreign required
 	 * properties (same fix as `agentsession`/`agentskill`).
 	 *
+	 * Public for the same reason as REGISTER_SLUG above.
+	 *
 	 * @var string
 	 */
-	private const BUDGET_SCHEMA = 'agentbudget';
+	public const BUDGET_SCHEMA = 'agentbudget';
 
 	/**
 	 * OpenRegister schema slug for schedule objects.
@@ -629,26 +635,6 @@ class BudgetService {
 
 		return $this->shape(budget: $budget);
 	}//end update()
-
-	/**
-	 * Delete a Budget (admin/owner-gated by the controller).
-	 *
-	 * @param string $budgetId The Budget object UUID.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/changes/archive/2026-07-12-cost-guardrails/tasks.md#task-4-budgetcontroller-routes-crud-status-estimate
-	 */
-	public function delete(string $budgetId): void {
-		$this->objectService->deleteObject(
-			uuid: $budgetId,
-			register: self::REGISTER_SLUG,
-			schema: self::BUDGET_SCHEMA,
-			_rbac: false,
-			_multitenancy: false
-		);
-
-	}//end delete()
 
 	/**
 	 * Shape a Budget ObjectEntity into the API response payload (design.md shape).
