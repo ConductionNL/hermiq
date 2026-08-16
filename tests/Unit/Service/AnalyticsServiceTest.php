@@ -79,10 +79,35 @@ class AnalyticsServiceTest extends TestCase {
 	 * @return AnalyticsService
 	 */
 	private function service(array $schedules, array $runs): AnalyticsService {
+		// The tenant boundary is the set of AGENTS the caller can see, read
+		// through searchObjectsPaginated() and paged to exhaustion — not the
+		// schedule set this helper used to hand to findAll(). Mocking the old
+		// call left $visibleAgents empty, so every run was scoped out and every
+		// count came back 0 while the service was working correctly.
+		//
+		// The agents are derived from the fixtures' own agentIds so each test
+		// still declares its world in one place.
+		$agents = [];
+		foreach ($schedules as $schedule) {
+			$agentId = (string) ($schedule->getObject()['agentId'] ?? '');
+			if ($agentId === '' || isset($agents[$agentId]) === true) {
+				continue;
+			}
+
+			$agent = new ObjectEntity();
+			$agent->setUuid($agentId);
+			$agent->setObject(['name' => $agentId]);
+			$agents[$agentId] = $agent;
+		}
+
+		$page = array_values($agents);
+
 		$objectService = $this->createMock(ObjectService::class);
 		$objectService->method('setRegister')->willReturnSelf();
 		$objectService->method('setSchema')->willReturnSelf();
-		$objectService->method('findAll')->willReturn($schedules);
+		// One full page, then the loop stops because offset has reached total.
+		$objectService->method('searchObjectsPaginated')
+			->willReturn(['results' => $page, 'total' => count($page)]);
 
 		$mapper = $this->createMock(AuditTrailMapper::class);
 		$mapper->method('findAll')->willReturn($runs);
