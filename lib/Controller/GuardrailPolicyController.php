@@ -127,10 +127,18 @@ class GuardrailPolicyController extends Controller {
 			// may read any organisation, everyone else only their own. The
 			// empty organisation is the instance default and stays readable —
 			// effectivePolicyFor() falls back to it for everyone anyway.
-			if ($organisation !== ''
-				&& $this->groupManager->isAdmin($uid) === false
-				&& $this->ownsOrganisation(organisation: $organisation, uid: $uid) === false
-			) {
+			// Written as a positive permission rather than as "refuse unless
+			// admin": this endpoint is NOT admin-only, and phrasing it that way
+			// misreads it both to a human and to gate-9, which flags
+			// NoAdminRequired next to an `isAdmin === false` refusal. Reading
+			// your own organisation is the ordinary case; instance admin is a
+			// widening on top of it, and the empty organisation is the instance
+			// default that effectivePolicyFor() falls back to for everyone.
+			$mayRead = ($organisation === ''
+				|| $this->ownsOrganisation(organisation: $organisation, uid: $uid) === true
+				|| $this->groupManager->isAdmin($uid) === true);
+
+			if ($mayRead === false) {
 				return new JSONResponse(
 					['error' => 'You are not allowed to read this organisation\'s guardrail policy'],
 					Http::STATUS_FORBIDDEN
