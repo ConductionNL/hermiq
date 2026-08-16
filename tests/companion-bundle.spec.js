@@ -2,54 +2,63 @@
  * SPDX-License-Identifier: EUPL-1.2
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  *
- * Guards the shape and size of the always-loaded companion bundle.
+ * Budget guard for the always-loaded AI companion.
  *
- * `hermiq-companion.js` is attached with `\OCP\Util::addInitScript` (Application.php),
- * so it is parsed on EVERY Nextcloud page in the instance — the Files list, another
- * app's settings, a third-party office editor. Nothing about that cost is visible
- * when reading `src/companion.js`, and every way of getting it wrong is silent.
+ * `hermiq-companion.js` is attached with `\OCP\Util::addInitScript`
+ * (Application.php), so it is fetched on EVERY Nextcloud page in the instance —
+ * the Files list, another app's settings, a third-party office editor. A hexagonal
+ * button and a chat panel must not cost what an application costs.
  *
- * The three failure modes this file exists to catch, all of them measured:
+ * ⚠️ THE BUDGET IS MEASURED ON THE WIRE, NOT ON DISK. Nextcloud serves these
+ * gzipped, and the difference is not a rounding error: the panel chunk is 918 KB
+ * on disk and 218 KB over the wire. Asserting the disk size would fail a bundle
+ * that is comfortably within budget, and — worse in the other direction — would
+ * let someone "fix" a red build by shipping something less compressible.
+ * Verified against the running instance with
+ * `curl -H 'Accept-Encoding: gzip' -w '%{size_download}'`.
  *
- *   1. THE BUNDLE MUST BE SELF-CONTAINED. `addInitScript` attaches exactly one
- *      file; there is no PHP `load()` to attach shared chunks first. When the
- *      `companion` entry was left inside the splitChunks cacheGroups, webpack
- *      reported the ENTRYPOINT at 14.1 MiB across three files, of which the page
- *      received one — and the emitted bundle was not a deferred stub, so nothing
- *      announced it. It simply required modules hoisted into a chunk nobody
+ * The other failure modes here, all of them measured and all of them silent:
+ *
+ *   1. THE EAGER BUNDLE MUST BE SELF-CONTAINED. `addInitScript` attaches exactly
+ *      one file and there is no PHP `load()` to attach shared chunks first. With
+ *      the `companion` entry left inside the splitChunks cacheGroups, webpack
+ *      reported the ENTRYPOINT at 14.1 MiB across three files, of which a page
+ *      receives one. The emitted bundle was not a deferred stub, so nothing
+ *      announced it — it simply required modules hoisted into a chunk nobody
  *      loaded.
  *
- *   2. THE IMPORT MUST STAY DEEP. `import { CnAiCompanion } from
- *      '@conduction/nextcloud-vue'` pulls the whole component library, because
- *      webpack.config.js forces `sideEffects: true` over the published dist (it
- *      must — the SFC wrapper attaches the render function as a side effect, and
- *      dropping it renders every component as an empty comment node).
+ *   2. THE SPLIT MUST SURVIVE. The panel is a separate chunk only because
+ *      `src/companion.js` imports it through `defineAsyncComponent`. Collapsing
+ *      that back to a static import re-inlines ~900 KB into the eager file, and
+ *      the page still works — it is just four times heavier for everyone.
  *
- *   3. AN ASYNC BOUNDARY IS NOT A FREE WIN. `defineAsyncComponent` cut the eager
- *      bundle to 89 KB and then failed at runtime twice over: the splitChunks
- *      predicate keys on `chunk.name` and so does not exclude the async chunk,
- *      which put nc-vue back into `hermiq-shared-nc-vue.js`; and webpack's
- *      publicPath is `/apps/hermiq/js/` while the app is served from
- *      `/custom_apps/hermiq/js/`, so the request 404s to Nextcloud's HTML error
- *      page. Both must be fixed before a lazy panel is possible.
+ *   3. THE `@nextcloud/vue` BARREL MUST STAY SHAKEABLE. That package declares no
+ *      `sideEffects` field, so without the rule in webpack.config.js webpack
+ *      cannot drop one unused re-export and the panel ships all 281 modules of it
+ *      (3.17 MB on disk instead of 918 KB) plus vue-datepicker, emoji-mart and
+ *      @ckpack/vue-color behind it.
  *
- * Run after a production build.
+ * Run after a production build: `npm run build && npm run check:companion-bundle`.
  */
 
 const fs = require('fs')
 const path = require('path')
+const zlib = require('zlib')
 
 const JS_DIR = path.join(__dirname, '..', 'js')
-const BUNDLE = path.join(JS_DIR, 'hermiq-companion.js')
+const EAGER = 'hermiq-companion.js'
+const PANEL = 'hermiq-companion-panel.js'
 
-// Measured 3,254,643 bytes at the time of writing. The ceiling is deliberately
-// close: this is a per-page cost, and the point is that a change which inflates
-// it has to be noticed and argued for, not that some round number is safe.
+// The fleet budget for an always-loaded widget. Measured at the time of writing:
+// 33 KB eager + 218 KB panel = 251 KB over the wire.
 //
-// It is NOT a target. 3.1 MiB on every page is still a lot, and the honest reason
-// it is tolerated is that `hermiq-agent-leaf.js` already ships 10.3 MiB the same
-// way. Lowering both is real work that failure mode 3 above describes.
-const MAX_BYTES = 3_400_000
+// The panel counts against it because `defineAsyncComponent` resolves as soon as
+// the component renders — it is off the critical path, not off the page. Moving it
+// behind the FAB click needs a change in @conduction/nextcloud-vue itself
+// (CnAiCompanion instantiates CnAiChatPanel unconditionally, passing `:visible`
+// rather than guarding it with `v-if`), which would drop the per-page cost to the
+// eager 33 KB alone.
+const WIRE_BUDGET = 400 * 1024
 
 let failed = 0
 
@@ -70,46 +79,63 @@ function assert(ok, message) {
 	failed++
 }
 
-if (!fs.existsSync(BUNDLE)) {
-	console.error('hermiq-companion.js not found — run `npm run build` first.')
-	process.exit(1)
+/**
+ * Gzipped size of an emitted asset, which is what the browser actually fetches.
+ *
+ * @param {string} name File name inside js/.
+ * @return {number} Size in bytes after gzip.
+ */
+function wireSize(name) {
+	return zlib.gzipSync(fs.readFileSync(path.join(JS_DIR, name)), { level: 9 }).length
 }
 
-const bytes = fs.statSync(BUNDLE).size
-const source = fs.readFileSync(BUNDLE, 'utf8')
+for (const f of [EAGER, PANEL]) {
+	if (!fs.existsSync(path.join(JS_DIR, f))) {
+		console.error(`${f} not found — run \`npm run build\` first.`)
+		process.exit(1)
+	}
+}
 
-console.log(`companion bundle: ${bytes.toLocaleString()} bytes (ceiling ${MAX_BYTES.toLocaleString()})`)
+const eagerWire = wireSize(EAGER)
+const panelWire = wireSize(PANEL)
+const totalWire = eagerWire + panelWire
+const kb = (n) => (n / 1024).toFixed(1) + ' KB'
+
+console.log(`eager  ${EAGER}: ${kb(eagerWire)} gzipped (${fs.statSync(path.join(JS_DIR, EAGER)).size.toLocaleString()} raw)`)
+console.log(`panel  ${PANEL}: ${kb(panelWire)} gzipped (${fs.statSync(path.join(JS_DIR, PANEL)).size.toLocaleString()} raw)`)
+console.log(`total per page load: ${kb(totalWire)} (budget ${kb(WIRE_BUDGET)})\n`)
 
 assert(
-	bytes <= MAX_BYTES,
-	`eager bundle is within the ceiling (${bytes.toLocaleString()} <= ${MAX_BYTES.toLocaleString()})`,
+	totalWire <= WIRE_BUDGET,
+	`per-page wire cost is within budget (${kb(totalWire)} <= ${kb(WIRE_BUDGET)})`,
 )
 
-// A self-contained bundle never asks for another chunk. `__webpack_require__.e`
-// is webpack's chunk loader; its presence means this bundle defers to a file the
-// page has not been given.
+// The panel must remain a SEPARATE chunk. If it collapses back into the eager
+// file the total above can still pass, so assert the split itself.
 assert(
-	/__webpack_require__\.e\(/.test(source) === false
-		&& /\.e\(["'](hermiq-shared|hermiq-hermiq)/.test(source) === false,
-	'bundle loads no additional chunks (nothing attaches them on a foreign page)',
+	fs.existsSync(path.join(JS_DIR, PANEL)),
+	'the chat panel is still split into its own chunk (defineAsyncComponent intact)',
 )
 
-// The shared chunks are the specific ones that are not on a foreign page.
 assert(
-	source.includes('hermiq-shared-nc-vue') === false
-		&& source.includes('hermiq-shared-vendor') === false,
-	'bundle does not reference hermiq-shared-nc-vue / hermiq-shared-vendor',
+	eagerWire <= 100 * 1024,
+	`the eager bundle is the hex and its glue, not the panel (${kb(eagerWire)} <= 100.0 KB)`,
 )
 
-// Nothing else may be emitted for this entry: one file is what PHP attaches.
-const companionAssets = fs
-	.readdirSync(JS_DIR)
-	.filter((f) => f.startsWith('hermiq-companion') || f.includes('companion-panel'))
-	.filter((f) => f.endsWith('.js'))
+const eagerSource = fs.readFileSync(path.join(JS_DIR, EAGER), 'utf8')
 
+// A self-contained entry never expects a chunk the page was not given. Async
+// chunks it fetches ITSELF are fine — publicPath is 'auto', so they resolve.
 assert(
-	companionAssets.length === 1 && companionAssets[0] === 'hermiq-companion.js',
-	`exactly one companion JS asset is emitted (found: ${companionAssets.join(', ') || 'none'})`,
+	eagerSource.includes('hermiq-shared-nc-vue') === false
+		&& eagerSource.includes('hermiq-shared-vendor') === false,
+	'eager bundle does not reference hermiq-shared-nc-vue / hermiq-shared-vendor',
+)
+
+// Guards failure mode 3: if the barrel rule is dropped, the panel roughly triples.
+assert(
+	panelWire <= 300 * 1024,
+	`the @nextcloud/vue barrel is still being tree-shaken (panel ${kb(panelWire)} <= 300.0 KB)`,
 )
 
 if (failed > 0) {

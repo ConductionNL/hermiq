@@ -50,8 +50,14 @@
 // hardcodes wrongly for a custom_apps install, and which pipelinq and openbuild
 // already set. Setting it changes chunk resolution for `main` and `adminSettings`
 // too, so it needs those pages re-verified; it is not part of this fix.
-import CnAiCompanion from '@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
-import { createApp, h } from 'vue'
+import { createApp, defineAsyncComponent, h } from 'vue'
+
+const CnAiCompanion = defineAsyncComponent(() =>
+	import(
+		/* webpackChunkName: "companion-panel" */
+		'@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
+	),
+)
 
 /**
  * The Hermiq app's own pages already render a companion via CnAppRoot.

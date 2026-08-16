@@ -104,6 +104,22 @@ if (useLocalLib) {
 	}
 }
 
+// `@nextcloud/webpack-vue-config` hardcodes `output.publicPath` to
+// `/apps/<appName>/js/` (its webpack.config.js line 31). A custom_apps install is
+// served from `/custom_apps/<appName>/js/`, so every runtime-resolved chunk URL
+// 404s — and Nextcloud routes a 404 to index.php, so the browser receives HTML
+// where it expected JavaScript: "Refused to execute script ... MIME type
+// ('text/html')". Any `import()` in this app was therefore unloadable, which is
+// why the companion could not be split until now.
+//
+// `'auto'` makes webpack derive the base from the executing script's own URL at
+// runtime, so it is correct under both layouts. pipelinq and openbuild already set
+// it for exactly this reason.
+webpackConfig.output = {
+	...(webpackConfig.output || {}),
+	publicPath: 'auto',
+}
+
 // Extend the base resolve config (preserves defaults from @nextcloud/webpack-vue-config)
 webpackConfig.resolve = webpackConfig.resolve || {}
 // NOTE: deliberately NO `resolve.modules = [<app>/node_modules, 'node_modules']`.
@@ -181,6 +197,25 @@ webpackConfig.module.rules.push({
 webpackConfig.module.rules.push({
 	test: /[\\/]node_modules[\\/]@conduction[\\/]nextcloud-vue[\\/]dist[\\/]/,
 	sideEffects: true,
+})
+
+// `@nextcloud/vue@9` declares NO `sideEffects` field, so webpack must assume every
+// module in it may have side effects and cannot drop a single unused re-export from
+// its barrel. Everything importing `{ NcButton } from '@nextcloud/vue'` therefore
+// ships the whole library — measured in the companion's chunk: 2,157,453 bytes
+// across 281 modules of @nextcloud/vue, for the ten components the AI chat actually
+// uses, dragging in @vuepic/vue-datepicker, emoji-mart, @ckpack/vue-color and
+// date-fns behind it.
+//
+// This is scoped to the BARREL FILE ONLY, deliberately. Marking the whole package
+// side-effect-free would also license webpack to drop a component module whose
+// import exists for its side effect — a stylesheet, a directive registration — and
+// that failure is silent: the component still renders, unstyled. `index.mjs` is
+// pure re-exports, so dropping unused ones from it is safe, and the component
+// modules that survive keep their own side effects.
+webpackConfig.module.rules.push({
+	test: /[\\/]node_modules[\\/]@nextcloud[\\/]vue[\\/]dist[\\/]index\.mjs$/,
+	sideEffects: false,
 })
 
 // Replace plugins to avoid duplicate VueLoaderPlugin (base config also registers one).
