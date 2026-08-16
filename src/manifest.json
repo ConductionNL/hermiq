@@ -838,18 +838,40 @@
 					},
 					{
 						"id": "quota-schedules",
-						"type": "custom",
+						"type": "stat",
 						"title": "Schedules quota",
 						"content": {
-							"metric": "schedules"
+							"_note": "dashboard-org-widgets (2026-08-13): was a type:custom QuotaStatWidget.vue, which drew a bare value + label and so did not read as a KPI beside the four stat tiles above it — different component, different visual language. CnStatWidget gained `limitField` (nc-vue 2.2.0-vue3.18) precisely so a quota can be expressed as a capacity pair declaratively, and the custom widget was deleted. `limitField` rather than a hardcoded 100: the ceiling is an appConfig value (TenantOpsService::quotaStatus reads `scheduleQuota`), so duplicating it in the manifest would silently drift the moment an admin changed it. The at-limit warning tint is now CnStatWidget's, derived from value >= limit, replacing the widget's own `atLimit` styling.",
+							"label": "Schedules",
+							"icon": "Calendar",
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/tenant-ops/quota"
+							},
+							"valueField": "schedules.count",
+							"limitField": "schedules.limit"
 						}
 					},
 					{
 						"id": "quota-agents",
-						"type": "custom",
+						"type": "stat",
 						"title": "Agents quota",
 						"content": {
-							"metric": "agents"
+							"_note": "Sibling of quota-schedules — see its note. `agents.count` is agents in use ACROSS THE ORG'S SCHEDULES (TenantOpsService counts distinct agentIds on live schedules), not the agent inventory, which is why it can read 0 while agents exist.",
+							"label": "Agents in use",
+							"icon": "AccountGroup",
+							"format": {
+								"style": "decimal",
+								"decimals": 0
+							},
+							"endpointSource": {
+								"url": "/apps/hermiq/api/tenant-ops/quota"
+							},
+							"valueField": "agents.count",
+							"limitField": "agents.limit"
 						}
 					},
 					{
@@ -1007,11 +1029,9 @@
 					}
 				]
 			},
-			"_note": "Single dashboard (/analytics merged in and dropped). Custom widgets MUST be declared as config.widgets type:'custom' + config.layout + a TOP-LEVEL slots map ('widget-<id>' -> registry key) — the decidesk pattern. A top-level widgets[] instead makes CnPageRenderer mount a bare CnWidgetGrid and skip CnDashboardPage, so no page header renders and nothing carries the 56px nav-toggle clearance. Each KPI is its OWN type:'stat' tile (procest Dashboard shape) rather than one custom widget drawing four cards inside a card — a dashboard tile is already a card, so a widget that draws its own is a well inside a well. The four stat tiles read the SAME /api/analytics endpoint and useEndpointSource dedupes them to ONE request per render pass. The two quota tiles share the 'quota-stat' registry widget and differ only by content.metric; they stay custom because the tile is capability-gated (can_manage_killswitch) and shows count-against-limit. 'running-flows' is the shared nc-vue flow-runs widget over OpenRegister's one flow engine — no hermiq code behind it. dashboard-redesign (2026-08-04): the grid did not close — the bottom row was two gridWidth-3 quota tiles, leaving 6 of 12 columns empty as a visibly ragged edge — and the page carried none of the affordances procest's Dashboard has. Now 12 rows with ZERO unfilled cells: 4 KPI tiles, then analytics-breakdown beside a new 'runs-by-agent' bar chart, then running-flows beside a new 'recent-agents' object-table, then the two quota tiles re-spanned to 6 each. Added config.headerActions (New agent / Browse templates / Refresh) and a drilldown `route` on the total-runs tile, both straight off the procest shape. The chart reads perAgent via endpointSource's array-of-points mode; statusBreakdown CANNOT be charted declaratively (it is a dynamic-keyed map, which fits neither endpointSource mapping mode) and deliberately stays on the existing custom widget beside it. AnalyticsService now enriches perAgent with `name` — the aggregate carried only agentId, and a chart labelled with UUIDs is unreadable; AnalyticsBreakdownWidget prefers that same server-side name over its client-side store lookup, which only ever resolved agents the session had already fetched. This instance has zero runs, so the chart was verified by a positive control: the endpoint was intercepted with a synthetic perAgent payload and the chart rendered 6 bars across 3 name-labelled categories with a Runs/Successful legend.",
+			"_note": "Single dashboard (/analytics merged in and dropped). Custom widgets MUST be declared as config.widgets type:'custom' + config.layout + a TOP-LEVEL slots map ('widget-<id>' -> registry key) — the decidesk pattern. A top-level widgets[] instead makes CnPageRenderer mount a bare CnWidgetGrid and skip CnDashboardPage, so no page header renders and nothing carries the 56px nav-toggle clearance. Each KPI is its OWN type:'stat' tile (procest Dashboard shape) rather than one custom widget drawing four cards inside a card — a dashboard tile is already a card, so a widget that draws its own is a well inside a well. The four stat tiles read the SAME /api/analytics endpoint and useEndpointSource dedupes them to ONE request per render pass. The two quota tiles are type:'stat' as of 2026-08-13 — see their own _note. They were custom for two reasons and both are now gone: CnStatWidget could not express a count-against-limit until it gained `limitField` (nc-vue 2.2.0-vue3.18), and the widget carried a `can_manage_killswitch` display gate. THAT GATE IS DELIBERATELY NOT REPRODUCED: CnDashboardPage does not filter widgets by `permission` (verified at HEAD — the key exists in the manifest schema for menu entries, and the dashboard never reads it), so declaring one would be a gate that does not gate. The gate was display-only in any case: GET /api/tenant-ops/quota is #[NoAdminRequired], so the numbers were already reachable by any authenticated caller and hiding the tile never protected them. The visible change is that a non-manager now SEES the two tiles. 'running-flows' is the shared nc-vue flow-runs widget over OpenRegister's one flow engine — no hermiq code behind it. dashboard-redesign (2026-08-04): the grid did not close — the bottom row was two gridWidth-3 quota tiles, leaving 6 of 12 columns empty as a visibly ragged edge — and the page carried none of the affordances procest's Dashboard has. Now 12 rows with ZERO unfilled cells: 4 KPI tiles, then analytics-breakdown beside a new 'runs-by-agent' bar chart, then running-flows beside a new 'recent-agents' object-table, then the two quota tiles re-spanned to 6 each. Added config.headerActions (New agent / Browse templates / Refresh) and a drilldown `route` on the total-runs tile, both straight off the procest shape. The chart reads perAgent via endpointSource's array-of-points mode; statusBreakdown CANNOT be charted declaratively (it is a dynamic-keyed map, which fits neither endpointSource mapping mode) and deliberately stays on the existing custom widget beside it. AnalyticsService now enriches perAgent with `name` — the aggregate carried only agentId, and a chart labelled with UUIDs is unreadable; AnalyticsBreakdownWidget prefers that same server-side name over its client-side store lookup, which only ever resolved agents the session had already fetched. This instance has zero runs, so the chart was verified by a positive control: the endpoint was intercepted with a synthetic perAgent payload and the chart rendered 6 bars across 3 name-labelled categories with a Runs/Successful legend.",
 			"slots": {
-				"widget-analytics-breakdown": "analytics-breakdown",
-				"widget-quota-schedules": "quota-stat",
-				"widget-quota-agents": "quota-stat"
+				"widget-analytics-breakdown": "analytics-breakdown"
 			}
 		},
 		{
