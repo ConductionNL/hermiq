@@ -262,10 +262,28 @@ class ToolGrantResolver {
 			return [];
 		}
 
+		// A tool has two names; canonicalise to the one the catalogue leads with.
+		//
+		// `McpProviderBridge` emits a dotted `mcpId` (`pipelinq.lead.get`) and an
+		// underscored `name` alias (`pipelinq_lead_get`), and the agent editor's
+		// own endpoint shows an operator the UNDERSCORED one. `expandGrant()`
+		// returns an exact grant verbatim, so an underscored grant stayed
+		// underscored and every downstream comparison against a dotted catalogue
+		// id missed — the tool-catalogue annotation reported ZERO granted tools
+		// for an agent that had just been given three (measured 2026-08-17).
+		//
+		// Mapping both aliases onto the descriptor's primary id here means the
+		// rest of the system sees exactly one id space, whichever form the
+		// operator wrote.
+		$canonical = [];
+		foreach ($descriptorsById as $id => $descriptor) {
+			$canonical[$id] = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? $id));
+		}
+
 		$resolved = [];
 		foreach ($cleanGrants as $grant) {
 			foreach ($this->expandGrant(grant: $grant, catalogIds: $catalogIds) as $id) {
-				$resolved[$id] = true;
+				$resolved[($canonical[$id] ?? $id)] = true;
 			}
 		}
 
@@ -959,9 +977,31 @@ class ToolGrantResolver {
 				continue;
 			}
 
-			$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
-			if (is_string($id) === true && $id !== '' && isset($byId[$id]) === false) {
-				$byId[$id] = $descriptor;
+			// ⚠️ INDEX BOTH FORMS. A tool has two names and an operator is shown
+			// the wrong one.
+			//
+			// `McpProviderBridge` emits `mcpId` as the dotted raw id
+			// (`pipelinq.lead.get`) and `name` as an underscored alias
+			// (`pipelinq_lead_get`), because some models reject dots in a
+			// function name. `ToolRegistryFacade::functionIsWhitelisted()`
+			// already accepts EITHER — but this resolver preferred `mcpId` and
+			// indexed only that, so a grant written in the underscored form
+			// matched nothing.
+			//
+			// That is not a hypothetical: the agent editor's own endpoint
+			// (`AgentsController::tools()` → hermiq's ToolRegistry) returns the
+			// UNDERSCORED name, so an operator copying an id from the UI writes a
+			// grant that resolves to zero tools. Measured 2026-08-17: an agent
+			// granted five underscored ids reported it had no tools whatsoever,
+			// and the failure is silent — `resolvesToNothing()` fires only when
+			// EVERY grant misses, so a half-underscored list degrades quietly.
+			//
+			// Indexing both keys the resolver to the same id space the facade
+			// enforces, which is the only way the two cannot drift.
+			foreach ([($descriptor['mcpId'] ?? null), ($descriptor['name'] ?? null)] as $id) {
+				if (is_string($id) === true && $id !== '' && isset($byId[$id]) === false) {
+					$byId[$id] = $descriptor;
+				}
 			}
 		}
 

@@ -98,6 +98,7 @@ use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -281,6 +282,49 @@ class HermiqToolProvider implements IMcpToolProvider {
 			'destructiveHint' => false,
 			'idempotentHint' => true,
 			'scope' => 'read',
+		],
+		[
+			'id' => Application::APP_ID . '.listAvailableTools',
+			// Reads the instance catalogue and the agent's own grants; writes nothing.
+			'reach' => ToolReachResolver::REACH_SELF,
+			'name' => 'List available tools',
+			'description' => 'Discover capabilities that exist on this instance but are NOT granted to you, so you '
+				. 'can ask for one instead of telling the user it does not exist. Returns metadata only — id, what '
+				. 'it does, which app provides it, whether it reads or writes, and whether you already hold it. '
+				. 'A tool listed here but not held CANNOT be called until an access request is granted; use '
+				. 'requestToolAccess for that. Unlike searchTools, which only sees what you already have.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => ['query' => ['type' => 'string', 'description' => 'Keyword(s) describing the capability you need.']],
+				'required' => [],
+			],
+			'readOnlyHint' => true,
+			'destructiveHint' => false,
+			'idempotentHint' => true,
+			'scope' => 'read',
+		],
+		[
+			'id' => Application::APP_ID . '.requestToolAccess',
+			// Writes an AccessRequest object and notifies the agent's owner.
+			'reach' => ToolReachResolver::REACH_USER,
+			'name' => 'Request tool access',
+			'description' => 'Ask the user who owns you for permission to use a tool you do not hold. Raises a '
+				. 'request they must approve — it does NOT grant anything, and the tool stays uncallable until they '
+				. 'say yes. Give an honest, specific reason: it is shown to them beside the tool\'s identity and '
+				. 'reach, and it is what they decide on. One pending request per tool; a refusal stands until they '
+				. 'reopen it.',
+			'inputSchema' => [
+				'type' => 'object',
+				'properties' => [
+					'toolId' => ['type' => 'string', 'description' => 'The tool id exactly as listAvailableTools returned it.'],
+					'reason' => ['type' => 'string', 'description' => 'Why you need it, for the human deciding.'],
+				],
+				'required' => ['toolId', 'reason'],
+			],
+			'readOnlyHint' => false,
+			'destructiveHint' => false,
+			'idempotentHint' => true,
+			'scope' => 'write',
 		],
 		[
 			'id' => Application::APP_ID . '.recommendCourses',
@@ -520,6 +564,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly DelegationService $delegationService,
 		private readonly NcNativeWriteService $writeService,
 		private readonly MailReadService $mailReadService,
+		private readonly ToolAccessRequestService $accessRequests,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -626,6 +671,19 @@ class HermiqToolProvider implements IMcpToolProvider {
 					return $this->webFetch(url: (string)($arguments['url'] ?? ''));
 				case Application::APP_ID . '.delegateAgent':
 					return $this->delegateAgent(arguments: $arguments);
+				case Application::APP_ID . '.listAvailableTools':
+					return $this->accessRequests->listAvailable(
+						uid: $uid,
+						agentId: $agentId,
+						query: (string)($arguments['query'] ?? '')
+					);
+				case Application::APP_ID . '.requestToolAccess':
+					return $this->accessRequests->request(
+						uid: $uid,
+						agentId: $agentId,
+						toolId: (string)($arguments['toolId'] ?? ''),
+						reason: (string)($arguments['reason'] ?? '')
+					);
 				case Application::APP_ID . '.searchTools':
 					// Defensive fallback only — the Hermiq engine short-circuits this
 					// call directly to ToolSearchService before it ever reaches the
