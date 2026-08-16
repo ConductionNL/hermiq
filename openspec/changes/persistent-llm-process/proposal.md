@@ -4,35 +4,79 @@ kind: code
 
 ## Why
 
-Every chat turn spawns a fresh `claude` CLI process. Measured 2026-08-16 inside
-`hermiq-llm-runner`, six consecutive `claude --version` invocations:
+Every chat turn spawns a fresh `claude` CLI process, and **that costs ~5 s, not the
+~340 ms this proposal originally claimed.**
+
+### ⚠️ The original figure was measured with the wrong instrument
+
+The first version of this document said "~950 ms cold, ~340 ms warm" on the strength
+of six `claude --version` invocations. **`--version` short-circuits before the CLI
+does any of the work a turn needs** — it never reads config, never resolves a
+credential, never constructs an MCP client. Re-measured 2026-08-16 in
+`hermiq-llm-runner`:
 
 ```
-949 ms   366   350   320   353   340
+node -e "0"          79 ms      the runtime floor
+claude --version    292 ms      what this proposal used to quote
+claude --help       730 ms      more of the bundle, still no session
+real session init  ~4000 ms     OBSERVED end-to-end (see below)
+claude binary  311,175,440 bytes (a 297 MB module tree to parse)
 ```
 
-**~950 ms cold, ~340 ms warm — and the warm figure recurs on every turn**, because
-each `/run` spawns a new process. Against a 250 ms harness budget that is over on its
-own, before the model, the MCP handshake or Nextcloud are counted.
+The honest number comes from the Apache access log, which timestamps every MCP
+packet the CLI sends back into Nextcloud. For a single-tool turn:
 
-A warm-up at session start is worth ~600 ms **once**. It cannot touch the ~340 ms,
-which is process spawn: Node runtime start, module graph load, config and credential
-resolution, MCP client construction. Only keeping a process alive removes it.
+```
+t+0.0s   POST /api/chat/send starts
+t+4.0s   first MCP POST            <- 4s before the CLI makes ANY contact
+t+5.0s   handshake done            <- 4 requests (one of them a wasted GET -> 401)
+t+10.0s  readDocument tool call    <- 5s of model inference to decide
+t+14.6s  turn ends                 <- 4.6s of model inference on the result
+```
+
+**~5 s per turn is harness**: ~4 s of CLI session init plus ~1 s of MCP handshake.
+The tool execution itself is **sub-second** — it was never the expensive part.
+
+### What this changes about the case for pooling
+
+| Component | Was claimed | Measured |
+|---|---|---|
+| `claude` process start | ~340 ms/turn | **~4 s/turn** |
+| MCP `initialize` + `tools/list` | ~1000–1200 ms | ~1 s/turn (4 HTTP requests) |
+| Hermiq engine orchestration | — | **~0–10 ms** (not a target) |
+| Nextcloud request | ~46 ms | ~110 ms session-auth (not a target) |
+| Model inference | ~2.2 s | ~5 s **per tool round trip** (not recoverable) |
+
+The recoverable slice is therefore **~5 s of every turn, not ~340 ms** — an order of
+magnitude larger than the case this change was originally argued on, and the largest
+single cost in the stack that engineering can remove. A persistent process holding an
+initialised MCP client removes both halves at once.
+
+⚠️ Two measurement rules this episode earns, because both were violated here:
+**`--version` is not a session**, and **the number that matters is the one observed
+end-to-end, not the one a convenient sub-command reports.**
 
 ### Where it sits in the whole cost
 
 | Component | Measured | Fixed by this change? |
 |---|---|---|
-| `claude` process spawn | ~340 ms/turn | **yes** |
-| MCP `initialize` | ~1000–1200 ms | partly — a live session need not re-handshake |
-| MCP `tools/list` | ~960–990 ms | partly — same |
-| Nextcloud request | ~46 ms | no, and it does not need to be |
-| Model inference | ~2.2 s | no |
+| `claude` session init | **~4 s/turn** | **yes — this is the prize** |
+| MCP handshake (4 HTTP requests) | ~1 s/turn | **yes** — a live session need not re-handshake |
+| — of which a `GET /api/mcp/run` → **401** | 1 wasted round trip, every turn | incidental; fix separately |
+| Tool execution itself | **< 1 s** | no, and it never needed to be |
+| Nextcloud request | ~110 ms (session auth) | no |
+| Hermiq engine orchestration | ~0–10 ms | no — already free |
+| Model inference | ~5 s **per tool round trip** | no — inherent to agentic tool use |
 
-The handshake numbers are the interesting part: they are per-`/run` today **because
-the process is per-`/run`**. A persistent process holding an initialised MCP client
-removes the spawn *and* the re-handshake, which together are ~2.4 s of the ~4.1 s
-harness overhead.
+The handshake is per-`/run` today **because the process is per-`/run`**. A persistent
+process holding an initialised MCP client removes the session init *and* the
+re-handshake — together ~5 s of a ~14 s single-tool turn, i.e. **more than a third of
+the wall clock, before the model has done anything different.**
+
+What it does NOT remove is the extra inference pass each tool result requires: a
+turn that calls one tool runs the model twice, a turn that calls two runs it three
+times, at ~5 s each. That is the shape of agentic tool use, not overhead, and no
+amount of pooling touches it.
 
 ## What Changes
 
@@ -77,10 +121,14 @@ observe is a governance hole, not a caching optimisation.
 ## Impact
 
 - **Code**: `exapp/llm-runner` — process pool, lifecycle, health, invalidation.
-- **Expected saving**: ~340 ms/turn spawn, plus up to ~2 s of re-handshake where a
-  live MCP client can be retained. Neither is measured yet; both are the point of the
-  change and MUST be measured before the change is called done.
-- **Not in scope**: the model's own ~2.2 s, and Nextcloud's ~46 ms.
+- **Expected saving**: **~5 s/turn** — ~4 s of `claude` session init plus ~1 s of MCP
+  re-handshake. Both are now measured end-to-end (request start → first MCP packet in
+  the Apache access log), not inferred from a sub-command. The change MUST be
+  re-measured the same way before it is called done: the acceptance test is the
+  request-start-to-first-MCP-packet gap, because that is the interval this change
+  exists to collapse.
+- **Not in scope**: the model's ~5 s per tool round trip, Nextcloud's ~110 ms, and
+  Hermiq's ~0–10 ms of orchestration. None of the three is the problem.
 
 ## Sequencing
 
