@@ -43,15 +43,77 @@ Rough split of the ~8 s, and the honesty caveat matters here:
 **We did not instrument inside that 8 s**, so the split above is reasoning, not
 measurement. Do not quote a breakdown of it as fact.
 
-## Where the 4 seconds probably goes
+## Where the 4 seconds goes — now measured
 
-Most likely the **tool-list injection**: 120 tools' names, descriptions and JSON
-schemas are serialised into the model's context on every turn. That is a large
-prompt prefix before a single user token is considered.
+The hypothesis was right, and the size of it is the story.
 
-**This is a hypothesis, not a measurement.** Testing it means running the same
-prompt with a deliberately reduced tool set and comparing — which has not been
-done. If someone wants the real answer, that is the experiment.
+| Component | Measured | Against a 250 ms budget |
+|---|---|---|
+| `claude` CLI process startup (`--version`, no inference, no MCP) | **408–563 ms** | **2× over, on its own** |
+| MCP `initialize` | **1221–1651 ms** | 5–6× over |
+| MCP `tools/list` | **1199–1417 ms** | 5× over |
+| Nextcloud bare request (`status.php`) | 46–48 ms | within |
+
+That is roughly **3.1 s** before the model has seen a single user token, against a
+budget of 250 ms. The remaining ~1 s of the 4.1 s gap is the model working through
+a far larger prompt — see below.
+
+### The tool payload is the cause
+
+```
+122 tools
+433,198 bytes of JSON schema
+≈ 108,299 tokens  ->  54% of a 200K context window
+```
+
+**Over half the context window is spent on tool definitions before the user says
+anything**, and it is re-sent every turn.
+
+It is not spread evenly. Four apps account for 92 % of it:
+
+| App | Bytes | ~Tokens | Share | Tools |
+|---|---|---|---|---|
+| **shillinq** | **229,138** | 57,284 | **53 %** | 24 |
+| openconnector | 69,234 | 17,308 | 16 % | 16 |
+| docudesk | 51,281 | 12,820 | 12 % | 23 |
+| pipelinq | 47,954 | 11,988 | 11 % | 9 |
+
+Two single tools are worse than most whole apps:
+
+```
+38,561 B  shillinq.ARInvoice.search
+36,505 B  shillinq.ARInvoice.get
+```
+
+`shillinq.ARInvoice.search` costs **~9,600 tokens by itself** — more than the entire
+`hermiq` tool set (22 tools, 12,751 B). These are schema-derived CRUD tools, and the
+derivation inlines every property of the underlying OpenRegister schema into the
+tool's JSON schema.
+
+### What would actually help
+
+Ordered by effect, and none of it has been implemented:
+
+1. **Scope tools per agent.** A document-editing agent needs `docudesk`, not
+   `shillinq`'s invoice ledger. A docudesk-only agent would carry **12 %** of the
+   current payload.
+2. **Cap or summarise derived schemas.** A `search` tool does not need every
+   property of the object inlined; it needs the filterable ones. The two ARInvoice
+   tools alone are 17 % of the payload.
+3. **Cache the handshake.** `initialize` + `tools/list` is ~2.6 s of the ~3.1 s and
+   the registry does not change between turns.
+
+**None of these is measured as a fix.** They are the three places the bytes are, in
+the order the bytes are there. Anyone implementing one should re-run the numbers
+rather than trust this list.
+
+### Honesty note on an earlier attempt
+
+The first attempt at these figures timed hermiq's own MCP endpoint with basic auth
+and produced a confident ~760 ms for `tools/list`. That endpoint requires a bearer
+token: the calls were being **rejected**, and 760 ms was the cost of an auth failure,
+not of tool discovery. The 25-byte response body is what gave it away. Check the
+payload size before believing a latency number.
 
 ## What this is NOT
 
