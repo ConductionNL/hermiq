@@ -31,6 +31,7 @@ use OCA\Hermiq\Service\BudgetService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\Organisation;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Db\DoesNotExistException;
 use OCP\AppFramework\Http;
 use OCP\IGroupManager;
@@ -127,6 +128,8 @@ class BudgetControllerTest extends TestCase {
 	 * @param IRequest|null $request Optional request (defaults to empty params).
 	 * @param IGroupManager|null $groupManager Optional group manager (defaults to non-admin).
 	 * @param OrganisationMapper|null $orgMapper Optional org mapper (defaults to unknown org).
+	 * @param ObjectService|null $objectService Optional OpenRegister object service (destroy()'s
+	 *   delete path); defaults to a bare mock that records nothing.
 	 *
 	 * @return BudgetController
 	 */
@@ -136,6 +139,7 @@ class BudgetControllerTest extends TestCase {
 		?IRequest $request = null,
 		?IGroupManager $groupManager = null,
 		?OrganisationMapper $orgMapper = null,
+		?ObjectService $objectService = null,
 	): BudgetController {
 		return new BudgetController(
 			$request ?? $this->request(),
@@ -143,6 +147,7 @@ class BudgetControllerTest extends TestCase {
 			$session,
 			$groupManager ?? $this->groupManager(false),
 			$orgMapper ?? $this->orgMapper(null),
+			$objectService ?? $this->createMock(ObjectService::class),
 			$this->createMock(LoggerInterface::class)
 		);
 
@@ -433,9 +438,18 @@ class BudgetControllerTest extends TestCase {
 	public function testDestroyNotFound(): void {
 		$service = $this->createMock(BudgetService::class);
 		$service->method('findById')->willReturn(null);
-		$service->expects($this->never())->method('delete');
 
-		$response = $this->controller($service, $this->session('alice'))->destroy('missing-id');
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->never())->method('deleteObject');
+
+		$response = $this->controller(
+			$service,
+			$this->session('alice'),
+			$this->request(),
+			$this->groupManager(false),
+			$this->orgMapper(null),
+			$objectService
+		)->destroy('missing-id');
 
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
@@ -455,14 +469,17 @@ class BudgetControllerTest extends TestCase {
 
 		$service = $this->createMock(BudgetService::class);
 		$service->method('findById')->willReturn($existing);
-		$service->expects($this->never())->method('delete');
+
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->never())->method('deleteObject');
 
 		$response = $this->controller(
 			$service,
 			$this->session('bob'),
 			$this->request(),
 			$this->groupManager(false),
-			$this->orgMapper('alice')
+			$this->orgMapper('alice'),
+			$objectService
 		)->destroy('b1');
 
 		$this->assertSame(Http::STATUS_FORBIDDEN, $response->getStatus());
@@ -482,14 +499,20 @@ class BudgetControllerTest extends TestCase {
 
 		$service = $this->createMock(BudgetService::class);
 		$service->method('findById')->willReturn($existing);
-		$service->expects($this->once())->method('delete')->with('b1');
+
+		$objectService = $this->createMock(ObjectService::class);
+		$objectService->expects($this->once())
+			->method('deleteObject')
+			->with('b1', BudgetService::REGISTER_SLUG, BudgetService::BUDGET_SCHEMA, false, false)
+			->willReturn(true);
 
 		$response = $this->controller(
 			$service,
 			$this->session('alice'),
 			$this->request(),
 			$this->groupManager(false),
-			$this->orgMapper('alice')
+			$this->orgMapper('alice'),
+			$objectService
 		)->destroy('b1');
 
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());

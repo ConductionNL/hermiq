@@ -67,6 +67,7 @@ use OCA\Hermiq\Service\GitHubTemplatePushService;
 use OCA\Hermiq\Service\SeedCustodyService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -86,8 +87,8 @@ use Throwable;
  *   SkillController's (index/export/install) + SkillMarketplaceController's
  *   (installFromSource/approve) combined route surface, one method per HTTP endpoint.
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)   One injected collaborator per seam
- *   (template service, action auth, org mapper, GitHub catalog + push) plus the HTTP
- *   response/exception types every endpoint returns.
+ *   (template service, action auth, org mapper, GitHub catalog + push, OpenRegister
+ *   object service) plus the HTTP response/exception types every endpoint returns.
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small per-endpoint
  *   guard-and-delegate methods across the full CRUD + gallery + GitHub route surface,
  *   not one tangled algorithm.
@@ -124,6 +125,9 @@ class AgentTemplateController extends Controller {
 	 * @param GitHubTemplatePushService $pushService GitHub publish (agent-template-github-store).
 	 * @param SeedCustodyService $seedCustody Owner-or-seed-custodian check (update/destroy guard).
 	 * @param AgentAccessService $agentAccess Per-agent authorization (export guard).
+	 * @param ObjectService $objectService OpenRegister object read/write — the ownership guard
+	 *   reads, and `destroy()` deletes, through OpenRegister directly (ADR-022/ADR-083: no
+	 *   app-local CRUD wrapper).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
 	 *   distinct injected collaborator, not a logic-bearing argument list.
@@ -139,6 +143,7 @@ class AgentTemplateController extends Controller {
 		private readonly GitHubTemplatePushService $pushService,
 		private readonly SeedCustodyService $seedCustody,
 		private readonly AgentAccessService $agentAccess,
+		private readonly ObjectService $objectService,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -167,37 +172,6 @@ class AgentTemplateController extends Controller {
 		}
 
 	}//end index()
-
-	/**
-	 * Get a single template.
-	 *
-	 * @param string $id The AgentTemplate UUID.
-	 *
-	 * @return JSONResponse The template, or an error status.
-	 *
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 *
-	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
-	 */
-	public function show(string $id): JSONResponse {
-		if ($this->userSession->getUser() === null) {
-			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
-		}
-
-		try {
-			$template = $this->templateService->get(templateId: $id);
-			if ($template === null) {
-				return new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
-			}
-
-			return new JSONResponse($this->shape(object: $template));
-		} catch (Throwable $e) {
-			$this->logger->error('Hermiq agent-template show failed: ' . $e->getMessage(), ['exception' => $e]);
-			return new JSONResponse(['error' => 'Could not load the agent template'], Http::STATUS_INTERNAL_SERVER_ERROR);
-		}
-
-	}//end show()
 
 	/**
 	 * Author a new template directly — always `active`/`local`, never scanned.
@@ -282,7 +256,14 @@ class AgentTemplateController extends Controller {
 		}
 
 		try {
-			$this->templateService->delete(templateId: $id);
+			// Deleted through OpenRegister directly (ADR-022): a per-schema `delete()`
+			// wrapper on AgentTemplateService added nothing but a second name for this
+			// call. The authority to run it is the ownership guard four lines up.
+			$this->objectService->deleteObject(
+				uuid: $id,
+				register: AgentTemplateService::REGISTER_SLUG,
+				schema: AgentTemplateService::TEMPLATE_SCHEMA
+			);
 			return new JSONResponse([]);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq agent-template delete failed: ' . $e->getMessage(), ['exception' => $e]);
@@ -732,7 +713,14 @@ class AgentTemplateController extends Controller {
 		}
 
 		try {
-			$template = $this->templateService->get(templateId: $templateId);
+			// Read through OpenRegister directly (ADR-022/ADR-083) — the tenant-scoped
+			// read defaults `_rbac`/`_multitenancy` to TRUE, so a template outside the
+			// caller's tenant never reaches the ownership comparison below.
+			$template = $this->objectService->find(
+				id: $templateId,
+				register: AgentTemplateService::REGISTER_SLUG,
+				schema: AgentTemplateService::TEMPLATE_SCHEMA
+			);
 		} catch (Throwable $e) {
 			// `ObjectService::find()` throws when the object is absent and this
 			// guard runs OUTSIDE the caller's try block — an escape would be a
