@@ -19,7 +19,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+ * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
  */
 
 declare(strict_types=1);
@@ -41,7 +41,7 @@ use RuntimeException;
 /**
  * Tests for the deferred conversation-title writer.
  *
- * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+ * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
  */
 class ConversationTitleWriterTest extends TestCase {
 
@@ -169,7 +169,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
 	public function testTheOwnerIsImpersonatedAroundGenerationAndTheWriteThenReleased(): void {
 		$objectService = $this->objectService(
@@ -214,7 +214,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
 	public function testTheSessionIsReleasedEvenWhenTheWriteThrows(): void {
 		$objectService = $this->objectService(
@@ -249,7 +249,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
 	public function testAConversationOwnedBySomeoneElseIsNotTitled(): void {
 		$objectService = $this->objectService(
@@ -275,7 +275,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
 	public function testAnUnresolvableOwnerIsSkippedWithoutTouchingTheSession(): void {
 		$objectService = $this->createMock(ObjectService::class);
@@ -305,7 +305,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
 	public function testTitleWriteCarriesTheWholeObjectForward(): void {
 		$conversation = $this->conversation(
@@ -355,7 +355,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
 	public function testTheConversationsOrganisationIsPassedToGeneration(): void {
 		$conversation = $this->conversation(
@@ -391,7 +391,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
 	 */
 	public function testAUserTitledConversationIsLeftAlone(): void {
 		$conversation = $this->conversation(
@@ -425,7 +425,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
 	 */
 	public function testTheLowercasePlaceholderIsRecognisedAsUntitled(): void {
 		$conversation = $this->conversation(
@@ -458,7 +458,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
 	 */
 	public function testAFailedGenerationIsSwallowedAndWritesNothing(): void {
 		$conversation = $this->conversation(
@@ -489,7 +489,7 @@ class ConversationTitleWriterTest extends TestCase {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
 	 */
 	public function testAMissingConversationIsANoOp(): void {
 		$objectService = $this->objectService(null);
