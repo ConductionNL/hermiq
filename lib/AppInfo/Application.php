@@ -40,6 +40,8 @@ use OCA\Hermiq\TaskProcessing\AudioToTextProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextProvider;
 use OCA\Hermiq\TaskProcessing\TextToSpeechProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
+use OCA\Hermiq\Tenant\ManageableOrganisations;
+use OCA\Hermiq\Tenant\OpenRegisterManageableOrganisations;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
 use OCA\OpenRegister\Event\ObjectDeletedEvent;
@@ -95,6 +97,16 @@ class Application extends App implements IBootstrap {
 		// runtime — Nextcloud does not auto-load an app's vendor/autoload.php.
 		// Mirrors openregister/openconnector (ADR-002 dispatcher chain).
 		include_once __DIR__ . '/../../vendor/autoload.php';
+
+		// ADR-040 prelude. `Coordinator::registerApps()` registers ONE app's
+		// autoloader and then immediately calls that app's register(), walking
+		// the alphabetically sorted enabled-app list. `hermiq` sorts before
+		// `openregister`, so without this line every `class_exists('OCA\
+		// OpenRegister\…')` probe below answers FALSE on a healthy instance and
+		// the flow-node / agent-leaf / shareable-config plumbing is skipped in
+		// silence. Returns false (never throws) when OpenRegister really is
+		// absent, and the guards below then do the right thing.
+		OpenRegisterAutoloader::register();
 
 		// Flow-triggered agent runs (SPECTR-NEXTCLOUD-PLAN.md §5.2, ADR-041): a
 		// declarative `x-openregister-flows` action of `type: "agent"` dispatches
@@ -214,6 +226,18 @@ class Application extends App implements IBootstrap {
 		// delivery channel and the Talk fallback both raise notifications that this
 		// INotifier turns into localised bell-menu entries. See lib/Notification/Notifier.php.
 		$context->registerNotifierService(Notifier::class);
+
+		// ADR-083 rule 3: the dashboard is the app's DEFAULT ROUTE, so it depends on
+		// hermiq's own ManageableOrganisations contract instead of OpenRegister's
+		// OrganisationMapper. The binding names the implementation here, at the
+		// composition root; the implementation itself takes only core services and
+		// reaches OpenRegister behind an isInstalled() guard, so the container can
+		// build the controller — and the start screen can render — on an instance
+		// where OpenRegister is absent.
+		$context->registerServiceAlias(
+			ManageableOrganisations::class,
+			OpenRegisterManageableOrganisations::class
+		);
 
 		// NC-native agent tools (nc-native-tools): expose Files/Contacts/Calendar/Deck/email
 		// to the agent runtime as an IMcpToolProvider. OpenRegister's McpToolsService

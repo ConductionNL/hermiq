@@ -25,7 +25,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
-use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\Hermiq\Tenant\ManageableOrganisations;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http\TemplateResponse;
@@ -33,7 +33,6 @@ use OCP\AppFramework\Services\IInitialState;
 use OCP\IGroupManager;
 use OCP\IRequest;
 use OCP\IUserSession;
-use Throwable;
 
 /**
  * Controller for the main Hermiq dashboard page.
@@ -51,7 +50,11 @@ class DashboardController extends Controller {
 	 * @param IInitialState $initialState Provides the kill-switch capability to the SPA (human-approval-gate-ui).
 	 * @param IUserSession $userSession Resolves the current user.
 	 * @param IGroupManager $groupManager Instance-admin check.
-	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (tenant scope).
+	 * @param ManageableOrganisations $organisations Tenant-scope lookup. A hermiq
+	 *   contract, NOT OpenRegister's mapper: ADR-083 rule 3 requires the default
+	 *   route to stay core-only so an instance without OpenRegister still reaches
+	 *   a start screen that explains itself. The OpenRegister reach lives behind
+	 *   an availability guard in OpenRegisterManageableOrganisations.
 	 * @param IAppManager $appManager Runtime app availability (OpenCatalogi publication seam).
 	 *
 	 * @return void
@@ -61,7 +64,7 @@ class DashboardController extends Controller {
 		private readonly IInitialState $initialState,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
-		private readonly OrganisationMapper $organisationMapper,
+		private readonly ManageableOrganisations $organisations,
 		private readonly IAppManager $appManager,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
@@ -120,37 +123,12 @@ class DashboardController extends Controller {
 			// carry in `_organisation`), NOT an NC group. An instance admin governs
 			// every organisation; a plain user manages only the organisations they
 			// own (Organisation.owner). Members without ownership cannot halt runs.
-			$orgs = [];
-			try {
-				if ($isAdmin === true) {
-					$orgs = $this->organisationMapper->findAll(limit: 500);
-				}
-
-				if ($isAdmin === false) {
-					$orgs = $this->organisationMapper->findByUserId($uid);
-				}
-			} catch (Throwable $e) {
-				// A read failure degrades to "no manageable organisation" — the toggle
-				// endpoint remains the real authorization boundary regardless.
-				$orgs = [];
-			}//end try
-
-			foreach ($orgs as $org) {
-				if ($isAdmin === false && (string)($org->getOwner() ?? '') !== $uid) {
-					continue;
-				}
-
-				$uuid = (string)$org->getUuid();
-				$name = (string)($org->getName() ?? '');
-				if ($name === '') {
-					$name = $uuid;
-				}
-
-				$organisations[] = [
-					'id' => $uuid,
-					'label' => $name,
-				];
-			}//end foreach
+			//
+			// Resolved through hermiq's own ManageableOrganisations contract so this
+			// controller — the app's DEFAULT ROUTE — names no OpenRegister type and
+			// stays constructable without it (ADR-083 rule 3). The implementation
+			// never throws; an unavailable store answers with an empty list.
+			$organisations = $this->organisations->forUser(userId: $uid, isAdmin: $isAdmin);
 
 			if ($isAdmin === true || $organisations !== []) {
 				$canManage = true;
