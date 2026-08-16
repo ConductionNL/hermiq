@@ -69,8 +69,26 @@ class GuardrailPolicyControllerEffectiveScopeTest extends TestCase {
 		if ($owner === null) {
 			$mapper->method('findByUuid')->willThrowException(new \RuntimeException('nope'));
 		} else {
-			$entity = $this->createMock(Organisation::class);
-			$entity->method('getOwner')->willReturn($owner);
+			// NOT a mock. getOwner() is DECLARED on the standalone stub and MAGIC
+			// (Entity::__call) on the real openregister Organisation that CI
+			// loads, and the two need opposite PHPUnit doubles: createMock()
+			// cannot configure a magic method, addMethods() cannot add a
+			// declared one. An anonymous subclass that declares getOwner()
+			// satisfies the call in both environments and needs neither.
+			$entity = new class ($owner) extends Organisation {
+				/**
+				 * @param string $owner The owning uid.
+				 */
+				public function __construct(private string $owner) {
+				}
+
+				/**
+				 * @return string|null
+				 */
+				public function getOwner(): ?string {
+					return $this->owner;
+				}
+			};
 			$mapper->method('findByUuid')->willReturn($entity);
 		}
 
