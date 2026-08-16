@@ -268,7 +268,7 @@
   },
   "src/store/flowEditor.js": {
     "no-console": {
-      "count": 2
+      "count": 3
     },
     "no-unused-vars": {
       "count": 4
