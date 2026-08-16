@@ -34,7 +34,7 @@ use PHPUnit\Framework\TestCase;
 class StreamYieldChannelTest extends TestCase {
 
 	/**
-	 * All four event kinds reach their registered callbacks with their payloads.
+	 * All three event kinds reach their registered callbacks with their payloads.
 	 *
 	 * @return void
 	 *
@@ -46,7 +46,6 @@ class StreamYieldChannelTest extends TestCase {
 		$tokens = [];
 		$toolCalls = [];
 		$results = [];
-		$heartbeats = 0;
 
 		$channel->onToken(function (string $delta) use (&$tokens): void {
 			$tokens[] = $delta;
@@ -57,24 +56,40 @@ class StreamYieldChannelTest extends TestCase {
 		$channel->onToolResult(function (array $payload) use (&$results): void {
 			$results[] = $payload;
 		});
-		$channel->onHeartbeat(function () use (&$heartbeats): void {
-			$heartbeats++;
-		});
 
 		$channel->emitToken(delta: 'Hel');
 		$channel->emitToken(delta: 'lo');
 		$channel->emitToolCall(payload: ['toolId' => 't1', 'arguments' => ['a' => 1]]);
 		$channel->emitToolResult(payload: ['toolId' => 't1', 'result' => ['ok' => true], 'isError' => false]);
-		$channel->emitHeartbeat();
 
 		$this->assertSame(['Hel', 'lo'], $tokens);
 		$this->assertCount(1, $toolCalls);
 		$this->assertSame('t1', $toolCalls[0]['toolId']);
 		$this->assertCount(1, $results);
 		$this->assertFalse($results[0]['isError']);
-		$this->assertSame(1, $heartbeats);
 
 	}//end testForwardsAllEventKinds()
+
+	/**
+	 * The channel exposes no heartbeat pub/sub: the SSE keepalive is the
+	 * controller's own clock (`forwardWithHeartbeat()` plus the frame sent
+	 * right after the headers), never a producer-side emit.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-1-1
+	 */
+	public function testChannelExposesNoHeartbeatPubSub(): void {
+		$this->assertFalse(
+			condition: method_exists(StreamYieldChannel::class, 'onHeartbeat'),
+			message: 'StreamYieldChannel must not expose a heartbeat consumer half.'
+		);
+		$this->assertFalse(
+			condition: method_exists(StreamYieldChannel::class, 'emitHeartbeat'),
+			message: 'StreamYieldChannel must not expose a heartbeat producer half.'
+		);
+
+	}//end testChannelExposesNoHeartbeatPubSub()
 
 	/**
 	 * Multiple callbacks per event type fire in registration order; a callback
