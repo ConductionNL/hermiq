@@ -16,9 +16,12 @@
  *   only (`search`, `get`) found in the catalog — default-deny on writes.
  * - `{app}.{schema}.*:write` — the same wildcard, but also expands the schema's
  *   write verbs (`create`, `update`, `delete`) found in the catalog.
- * - `[]` (empty `Agent.tools`) — unchanged "all discovered tools allowed", EXCEPT
- *   default-deny still strips every id `isWriteOrDestructive()` resolves to
- *   write/destructive (see below) from the result.
+ * - `[]` / unset `Agent.tools` — **NO TOOLS**. This used to mean "all discovered
+ *   tools allowed, minus write/destructive". Measured 2026-08-16 that default gave
+ *   an agent 81 tools / ~101,000 tokens on every turn — over half a 200K context
+ *   window — and 89% of agents on the instance were taking it because nobody had
+ *   filled the field in. It also widened by itself as apps were installed, which is
+ *   a grant nobody made. Set `HERMIQ_LEGACY_UNSCOPED_TOOLS=1` to restore it.
  * - `{app}.{tool}?arg=value&other=in:a,b,c` — an ARGUMENT-SCOPED grant
  *   (hydra-console-agent-leaves): the exact id BEFORE the `?`, narrowed by one or
  *   more constraints on the arguments the tool is invoked with. `key=value` PINS
@@ -115,14 +118,16 @@ class ToolGrantResolver {
 	/**
 	 * The grant entry meaning "this agent is INTENTIONALLY tool-less".
 	 *
-	 * An empty `Agent.tools` already means the opposite ("all discovered tools,
-	 * default-denied"), so there is no way to spell "no tools" by omission — this
-	 * sentinel is it. Recognising it explicitly is what lets a deliberate
-	 * no-tools agent be told apart from an agent whose grants resolve to zero by
-	 * ACCIDENT (a typo, or an id from a stale catalog). Both end up with an empty
-	 * function list; only the second is a defect, and `resolvesToNothing()` is how
-	 * callers tell them apart instead of silently treating a broken agent as a
-	 * chat-only one.
+	 * Since an empty `Agent.tools` now ALSO yields no tools, this sentinel is no
+	 * longer the only way to spell "tool-less". It remains meaningful as an
+	 * explicit DECLARATION: it says a human decided this agent has no tools, where
+	 * an empty list only says nobody has decided anything yet.
+	 *
+	 * What it still does is separate a deliberate no-tools agent from one whose
+	 * grants resolve to zero by ACCIDENT (a typo, an id from a stale catalog).
+	 * Both end up with an empty function list; only the second is a defect, and
+	 * `resolvesToNothing()` is how callers tell them apart instead of silently
+	 * treating a broken agent as a chat-only one.
 	 *
 	 * @var string
 	 */
@@ -216,10 +221,43 @@ class ToolGrantResolver {
 		$cleanGrants = $this->sanitizeGrants(grants: $grants);
 
 		if ($cleanGrants === []) {
-			// "All discovered tools allowed" (legacy default) — default-deny still
-			// strips every id `isWriteOrDestructive()` resolves to write/destructive
-			// (hints first, verb-suffix fallback, fail-closed on anything else).
-			return $this->applyDefaultDeny(ids: $catalogIds, descriptorsById: $descriptorsById);
+			// AN AGENT WITH NO CONFIGURED TOOLS GETS NONE.
+			//
+			// This used to fall through to "all discovered tools allowed", relying
+			// on `applyDefaultDeny()` to strip the write verbs. Measured on the
+			// development instance 2026-08-16, that default was neither small nor
+			// rare:
+			//
+			//   full catalog                       122 tools  433,198 B  ~108,300 tok
+			//   what the legacy default yielded      81 tools  403,904 B  ~101,000 tok
+			//   an agent with 10 explicit grants     10 tools    7,777 B  ~  1,900 tok
+			//   an agent with  3 explicit grants      3 tools    2,412 B  ~    600 tok
+			//
+			// 89 of 111 agents had `tools` NULL and 10 more had `[]` — 89% of them
+			// took this branch and received ~101,000 tokens of tool definitions on
+			// every turn, over half a 200K context window, before the user said
+			// anything. The write-verb strip barely helped: write tools are the
+			// CHEAP ones (no outputSchema), so denying them removed 7% of the bytes
+			// while leaving the expensive read verbs in place.
+			//
+			// Deny is also the safer direction on its own terms. "Unconfigured"
+			// meaning "may use everything discovered on the instance" is a grant
+			// nobody made, widening automatically as apps are installed.
+			//
+			// `HERMIQ_LEGACY_UNSCOPED_TOOLS=1` restores the old behaviour for an
+			// operator who depended on it. It is an escape hatch, not a setting:
+			// the message tells them to configure the agent instead.
+			if (getenv('HERMIQ_LEGACY_UNSCOPED_TOOLS') === '1') {
+				return $this->applyDefaultDeny(ids: $catalogIds, descriptorsById: $descriptorsById);
+			}
+
+			// Text-only, NOT an error. `resolvesToNothing()` deliberately still
+			// returns false for this case, because ToolLoop THROWS on it: routing
+			// unconfigured agents through that would have turned a tool-scoping
+			// change into 99 broken agents. An agent with no tools is a legitimate
+			// conversational agent; an agent whose CONFIGURED grants resolve to
+			// nothing is broken, and only the second is an exception.
+			return [];
 		}
 
 		$resolved = [];

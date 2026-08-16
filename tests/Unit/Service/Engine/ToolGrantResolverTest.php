@@ -177,19 +177,61 @@ class ToolGrantResolverTest extends TestCase {
 	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-1
 	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
 	 */
-	public function testEmptyGrantsAllowsAllExceptDerivedWritesAndFailsClosedOnHintlessNonDerivedIds(): void {
+	public function testEmptyGrantsResolveToNoToolsAtAll(): void {
 		$resolver = new ToolGrantResolver();
 		$resolved = $resolver->resolve(grants: [], catalog: $this->catalog());
 
-		sort($resolved);
 		$this->assertSame(
-			['pipelinq.lead.get', 'pipelinq.lead.search'],
+			[],
 			$resolved,
-			'create/update/delete derived ids must be stripped; the hint-less non-derived hand-written id'
-			. ' must ALSO be stripped now (fail closed on an unclassifiable id).'
+			'An agent with no configured tools gets NONE. This previously returned every '
+			. 'read tool in the catalog: measured 2026-08-16 that was 81 tools / ~101,000 '
+			. 'tokens per turn, taken by 89% of agents because nobody had filled the field in.'
 		);
 
-	}//end testEmptyGrantsAllowsAllExceptDerivedWritesAndFailsClosedOnHintlessNonDerivedIds()
+	}//end testEmptyGrantsResolveToNoToolsAtAll()
+
+	/**
+	 * The legacy escape hatch still works, for an operator who depended on it.
+	 *
+	 * @return void
+	 */
+	public function testLegacyFlagRestoresTheOldUnscopedBehaviour(): void {
+		putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS=1');
+		try {
+			$resolved = (new ToolGrantResolver())->resolve(grants: [], catalog: $this->catalog());
+			sort($resolved);
+			$this->assertSame(
+				['pipelinq.lead.get', 'pipelinq.lead.search'],
+				$resolved,
+				'with the flag set, empty grants still yield the read verbs and still strip writes'
+			);
+		} finally {
+			putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS');
+		}
+
+	}//end testLegacyFlagRestoresTheOldUnscopedBehaviour()
+
+	/**
+	 * An unconfigured agent is tool-less but NOT "broken" — ToolLoop throws on
+	 * `resolvesToNothing()`, so routing unconfigured agents through it would have
+	 * turned a scoping change into 99 failing agents on this instance alone.
+	 *
+	 * @return void
+	 */
+	public function testAnUnconfiguredAgentIsToollessButNotReportedAsBroken(): void {
+		$resolver = new ToolGrantResolver();
+
+		$this->assertFalse(
+			$resolver->resolvesToNothing(grants: [], resolvedTools: []),
+			'no tools configured is a legitimate conversational agent, not a defect'
+		);
+		$this->assertTrue(
+			$resolver->resolvesToNothing(grants: ['pipelinq.typo.get'], resolvedTools: []),
+			'grants that were CONFIGURED and resolved to nothing are still a defect'
+		);
+
+	}//end testAnUnconfiguredAgentIsToollessButNotReportedAsBroken()
 
 	/**
 	 * An empty `Agent.tools` resolution classifies each id from its OWN
@@ -210,6 +252,12 @@ class ToolGrantResolverTest extends TestCase {
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-hint-less-curated-tool-fails-closed-to-external
 	 */
 	public function testEmptyGrantsClassifiesCuratedToolsFromHints(): void {
+		// Empty grants no longer mean "everything" -- they now mean NO TOOLS. The
+		// default-deny CLASSIFICATION this test exercises still exists and still
+		// matters; it is just reached only through the legacy flag now. Opting in
+		// here keeps the classification coverage without pretending an
+		// unconfigured agent gets the catalog.
+		putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS=1');
 		$resolver = new ToolGrantResolver();
 		$catalog = [
 			['name' => 'pipelinq_createLead', 'mcpId' => 'pipelinq.createLead', 'destructiveHint' => true],
@@ -229,6 +277,8 @@ class ToolGrantResolverTest extends TestCase {
 			'destructiveHint:true must be stripped even though the id is a curated 2-segment id;'
 			. ' readOnlyHint:true + reach:user must survive.'
 		);
+
+			putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS');
 
 	}//end testEmptyGrantsClassifiesCuratedToolsFromHints()
 
@@ -407,6 +457,12 @@ class ToolGrantResolverTest extends TestCase {
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-an-egress-read-tool-becomes-gated
 	 */
 	public function testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed(): void {
+		// Empty grants no longer mean "everything" -- they now mean NO TOOLS. The
+		// default-deny CLASSIFICATION this test exercises still exists and still
+		// matters; it is just reached only through the legacy flag now. Opting in
+		// here keeps the classification coverage without pretending an
+		// unconfigured agent gets the catalog.
+		putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS=1');
 		$resolver = new ToolGrantResolver();
 		$resolved = $resolver->resolve(grants: [], catalog: $this->hermiqCatalog());
 
@@ -465,6 +521,8 @@ class ToolGrantResolverTest extends TestCase {
 				. 'axes have been conflated and the test above no longer proves anything about reach.'
 			);
 		}
+
+			putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS');
 
 	}//end testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed()
 

@@ -123,7 +123,7 @@ class ToolLoopTest extends TestCase {
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
 	 */
-	public function testEmptyWhitelistAllowsAllTools(): void {
+	public function testEmptyWhitelistYieldsNoToolsAtAll(): void {
 		$all = [
 			['name' => 'decidesk_listMeetings', 'mcpId' => 'decidesk.meeting.search', 'description' => 'List', 'parameters' => []],
 			['name' => 'openregister_search', 'mcpId' => 'openregister.schemas.search', 'description' => 'Search', 'parameters' => []],
@@ -136,9 +136,14 @@ class ToolLoopTest extends TestCase {
 			->willReturn($all);
 
 		$loop = $this->loop(facade: $facade);
-		$this->assertSame($all, $loop->listAgentFunctions(agent: $this->agent(tools: [])));
 
-	}//end testEmptyWhitelistAllowsAllTools()
+		// An agent with no configured tools gets NONE. This asserted `$all` until
+		// 2026-08-16, when the measurement showed that default handing 89% of
+		// agents ~101,000 tokens of tool definitions per turn -- over half a 200K
+		// context window -- purely because nobody had filled the field in.
+		$this->assertSame([], $loop->listAgentFunctions(agent: $this->agent(tools: [])));
+
+	}//end testEmptyWhitelistYieldsNoToolsAtAll()
 
 	/**
 	 * A non-empty whitelist is passed through to listTools(); bare legacy ids
@@ -376,6 +381,10 @@ class ToolLoopTest extends TestCase {
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-hint-less-curated-tool-fails-closed-to-external
 	 */
 	public function testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall(): void {
+		// Empty grants now mean NO TOOLS. The default-deny POST-FILTERING this test
+		// exercises still exists and still matters -- it is just reached through
+		// the legacy flag now rather than by leaving an agent unconfigured.
+		putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS=1');
 		$catalog = [
 			['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search'],
 			['name' => 'pipelinq_lead_delete', 'mcpId' => 'pipelinq.lead.delete'],
@@ -400,6 +409,8 @@ class ToolLoopTest extends TestCase {
 			. ' hermiq.pingWebhook carries the SAME read hint with NO reach and must be stripped'
 			. ' — that difference is the reach axis doing its only job.'
 		);
+
+			putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS');
 
 	}//end testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall()
 

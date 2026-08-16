@@ -459,12 +459,18 @@ class ToolGrantResolverArgumentScopeTest extends TestCase {
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-tool-governance/spec.md#requirement-schema-scoped-whitelist-grants-with-default-deny-for-writedestructive-tools
 	 */
 	public function testRegressionEmptyGrantListStillMeansAllDefaultDenied(): void {
+		// Retained as a REGRESSION test for the legacy path, which is now opt-in.
+		// The unflagged behaviour (empty grants -> no tools) is asserted in
+		// ToolGrantResolverTest::testEmptyGrantsResolveToNoToolsAtAll().
+		putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS=1');
 		$resolver = new ToolGrantResolver();
 
 		$this->assertSame(
 			['hydra.finding.search', 'hydra.finding.get'],
 			$resolver->resolve(grants: [], catalog: $this->catalog())
 		);
+
+			putenv('HERMIQ_LEGACY_UNSCOPED_TOOLS');
 
 	}//end testRegressionEmptyGrantListStillMeansAllDefaultDenied()
 
