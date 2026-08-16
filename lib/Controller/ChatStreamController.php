@@ -272,7 +272,7 @@ class ChatStreamController extends Controller {
 			$this->emitSseEvent(eventType: 'heartbeat', payload: ['ts' => gmdate('c')]);
 			$this->lastEventAt = $this->now();
 
-			// Build the streaming channel and register four callbacks. Each
+			// Build the streaming channel and register three callbacks. Each
 			// callback funnels through `forwardWithHeartbeat()` which checks
 			// wall-clock since the last emit and interleaves a `heartbeat`
 			// frame when more than 15s have elapsed (ADR-034 design D3). When
@@ -299,13 +299,10 @@ class ChatStreamController extends Controller {
 					payload: $payload
 				)
 			);
-			$channel->onHeartbeat(
-				callback: fn () => $this->forwardWithHeartbeat(
-					eventType: 'heartbeat',
-					payload: ['ts' => gmdate('c')]
-				)
-			);
-
+			// There is deliberately no `onHeartbeat` registration: the channel
+			// has no heartbeat pub/sub, because no producer moment exists that
+			// `forwardWithHeartbeat()` above does not already cover. See the
+			// note at the foot of StreamYieldChannel.
 			$result = $this->engine->processMessage(
 				conversationId: (string)$conversation->getUuid(),
 				userId: $userId,

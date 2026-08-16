@@ -266,76 +266,22 @@ class MemoryService {
 
 	}//end consolidateMemory()
 
-	/**
-	 * Start a conversation Session for an agent.
+	/*
+	 * NO SESSION WRITE PATH HERE.
 	 *
-	 * @param string $agentId The agent UUID.
-	 * @param string $title The session title.
+	 * This service used to carry `startSession()` and `recordTurn()`, which
+	 * persisted `agentsession` / `agentsessionturn` objects. Neither ever had
+	 * a caller, and adding one would have double-written every chat turn:
+	 * Hermiq already records turns durably through
+	 * `Engine\MessageHistoryHandler::storeMessage()`, on the live chat path.
 	 *
-	 * @return ObjectEntity The persisted Session object.
-	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-4
+	 * The read half below (`listSessions()`, `recallSessions()`) is retained
+	 * because it is routed and live — `GET /api/agents/{agentId}/sessions`,
+	 * `GET /api/agents/{agentId}/recall` and the `recall` MCP tool all query
+	 * it. Pointing that recall at the conversation/message store instead of
+	 * the never-populated session store is a design change, not dead-code
+	 * removal, and is tracked separately.
 	 */
-	public function startSession(string $agentId, string $title): ObjectEntity {
-		$now = $this->now();
-		return $this->objectService->saveObject(
-			object: [
-				'agentId' => $agentId,
-				'title' => $title,
-				'startedAt' => $now,
-				'lastActivityAt' => $now,
-			],
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA
-		);
-
-	}//end startSession()
-
-	/**
-	 * Record a SessionTurn and touch the parent Session's last-activity timestamp.
-	 *
-	 * @param string $sessionId The parent Session UUID.
-	 * @param string $agentId The agent UUID (denormalised for recall filtering).
-	 * @param string $role The turn role (user|assistant|system|tool).
-	 * @param string $content The turn content.
-	 *
-	 * @return ObjectEntity The persisted SessionTurn object.
-	 *
-	 * @spec openspec/changes/agent-memory/tasks.md#task-2-4
-	 */
-	public function recordTurn(string $sessionId, string $agentId, string $role, string $content): ObjectEntity {
-		$now = $this->now();
-		$turn = $this->objectService->saveObject(
-			object: [
-				'sessionId' => $sessionId,
-				'agentId' => $agentId,
-				'role' => $role,
-				'content' => $content,
-				'createdAt' => $now,
-			],
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_TURN_SCHEMA
-		);
-
-		// Fetch by UUID via find() (a uuid is metadata, not an object-property filter).
-		$session = $this->objectService->find(
-			id: $sessionId,
-			register: self::REGISTER_SLUG,
-			schema: self::SESSION_SCHEMA
-		);
-		if ($session !== null) {
-			$data = $session->getObject();
-			$data['lastActivityAt'] = $now;
-			$this->objectService->saveObject(
-				object: $data,
-				register: self::REGISTER_SLUG,
-				schema: self::SESSION_SCHEMA,
-				uuid: (string)$session->getUuid()
-			);
-		}
-
-		return $turn;
-	}//end recordTurn()
 
 	/**
 	 * List an agent's Sessions, scoped to the caller's tenant AND to the caller's OWN
