@@ -31,9 +31,10 @@
                     "deliver",
                     "enabled"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "name": {
@@ -265,9 +266,10 @@
                     "status",
                     "requestedAt"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "status": {
@@ -458,9 +460,10 @@
                     "enabled",
                     "createdAt"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "agentId": {
@@ -539,9 +542,10 @@
                     "slug",
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "x-openregister-lifecycle": {
                     "property": "lifecycle",
@@ -706,9 +710,10 @@
                 "required": [
                     "engaged"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "engaged": {
@@ -752,9 +757,10 @@
                 "required": [
                     "allowed"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "allowed": {
@@ -825,9 +831,10 @@
                 "required": [
                     "enabled"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "inputFilters": {
@@ -922,9 +929,10 @@
                     "scope",
                     "period"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "scope": {
@@ -1003,9 +1011,10 @@
                 "required": [
                     "agentId"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "agentId": {
@@ -1074,9 +1083,10 @@
                 "required": [
                     "agentId"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "agentId": {
@@ -1150,9 +1160,10 @@
                 "required": [
                     "agentId"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "agentId": {
@@ -1192,9 +1203,10 @@
                 "required": [
                     "sessionId"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "sessionId": {
@@ -1249,9 +1261,10 @@
                 "required": [
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "name": {
@@ -1660,9 +1673,10 @@
                 "required": [
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "name": {
@@ -1698,9 +1712,10 @@
                 "required": [
                     "skillId"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "skillId": {
@@ -1909,10 +1924,6 @@
                 "required": [
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
-                },
                 "properties": {
                     "name": {
                         "type": "string",
@@ -2160,9 +2171,10 @@
                 "required": [
                     "agentId"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "title": {
@@ -2220,9 +2232,10 @@
                     "conversationId",
                     "role"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "conversationId": {
@@ -2316,9 +2329,10 @@
                     "userId",
                     "type"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "messageId": {
@@ -2379,9 +2393,10 @@
                 "required": [
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "name": {
@@ -2520,9 +2535,10 @@
                     "impact",
                     "actionsTaken"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "description": {
@@ -2581,9 +2597,10 @@
                     "slug",
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "slug": {
@@ -2627,9 +2644,10 @@
                     "title",
                     "evidenceSource"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "frameworkSlug": {
@@ -2691,9 +2709,10 @@
                     "sourceApp",
                     "status"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "learnerId": {
@@ -2876,9 +2895,10 @@
                 "required": [
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "name": {
@@ -3106,9 +3126,10 @@
                 "required": [
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "name": {
@@ -3205,9 +3226,10 @@
                     "datasetId",
                     "agentId"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "datasetId": {
@@ -3471,9 +3493,10 @@
                 "required": [
                     "name"
                 ],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "name": {
@@ -3557,9 +3580,10 @@
                 "description": "A record of one agent-graph run: ordered node steps, state checkpoints, status and usage.",
                 "type": "object",
                 "required": [],
-                "x-openregister": {
-                    "publicRead": false,
-                    "publicWrite": false
+                "authorization": {
+                    "read": [
+                        "authenticated"
+                    ]
                 },
                 "properties": {
                     "agentflow": {

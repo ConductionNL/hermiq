@@ -241,6 +241,41 @@ This must **fail** with a DNS error. If it succeeds, the container is not on the
 internal network and "no audio leaves the instance" is an assertion rather than a
 guarantee.
 
+### 6. Point the governed MCP endpoint at the CONTAINER-facing origin
+
+Required for any tool-using turn on `executionMode: cli`. Skipping it is the one
+misconfiguration on this page that produces **no error anywhere**.
+
+```bash
+occ config:app:set hermiq mcp_run_base_url --value="http://nextcloud"
+```
+
+Use whatever host resolves to Nextcloud *from inside the runner container* —
+usually the compose service name, matching AppAPI's daemon `nextcloud_url`.
+Confirm it before believing it:
+
+```bash
+docker exec hermiq-llm-runner curl -s -o /dev/null -w '%{http_code}\n' \
+  --max-time 8 http://nextcloud/status.php     # expect 200
+```
+
+**Why this is not optional.** `ProviderFactory::buildGovernedMcpConfig()` resolves
+the endpoint with `linkToRouteAbsolute()`, which returns the URL Nextcloud
+publishes to **browsers**. On a stock dev instance that is `http://localhost:8080`
+— and inside the runner container, `localhost` is the container itself.
+
+What that looked like when it happened (2026-08-15, hours to diagnose): the CLI
+connected to nothing, `tools/list` never served Hermiq's tools, and the run exited
+**0 with an empty stderr**. The model answered confidently, describing its own
+built-in CLI tools, while every Hermiq tool was silently absent. Nothing in the
+log said so.
+
+Since #318 the runner **preflights** the endpoint and refuses to spawn when it is
+unreachable, naming this config key in the error — a governed turn that cannot
+reach its governance is not degraded, it is ungoverned. The preflight accepts any
+HTTP answer including 401/403, because it carries no bearer token: it asks whether
+a connection can be made, not whether the run is authorised.
+
 ## Known limits
 
 - **CONNECT proxying is `host:port`, not URL.** The PDP authorises a host, not a

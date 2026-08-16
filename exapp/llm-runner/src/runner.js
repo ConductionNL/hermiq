@@ -22,6 +22,8 @@
 
 const { spawn } = require('child_process')
 const fs = require('fs')
+const http = require('http')
+const https = require('https')
 const os = require('os')
 const path = require('path')
 
@@ -188,6 +190,116 @@ function assertGovernedArgs(args) {
 }
 
 /**
+ * How long the governed-MCP reachability preflight waits for a response.
+ *
+ * Deliberately short. This is a same-instance call — Hermiq is a container away —
+ * so anything slower than a couple of seconds is a misconfiguration, not load,
+ * and the turn is better refused than run tool-less.
+ *
+ * @type {number}
+ */
+const MCP_PREFLIGHT_TIMEOUT_MS = Number(
+	process.env.RUNNER_MCP_PREFLIGHT_TIMEOUT_MS || '4000',
+)
+
+/**
+ * Prove the governed MCP endpoint is actually reachable from INSIDE this
+ * container before spawning the CLI.
+ *
+ * WHY THIS EXISTS (measured 2026-08-15, cost hours to diagnose)
+ * ------------------------------------------------------------
+ * `buildGovernedMcpConfig()` resolves the endpoint with
+ * `linkToRouteAbsolute()`, which returns the URL Nextcloud publishes to
+ * BROWSERS. On a stock dev instance that is `http://localhost:8080`, and inside
+ * this container `localhost` is the container itself. The CLI then fails to
+ * connect to the MCP server and — this is the whole problem — carries on:
+ * `tools/list` never returns Hermiq's tools, the model reports "I don't have
+ * that tool", and the run exits 0 with an empty stderr. Every layer looks
+ * healthy. The observed symptom was a model confidently describing its own
+ * built-in CLI tools while every Hermiq tool was silently absent.
+ *
+ * That is the same failure mode `assertGovernedArgs()` already refuses for a
+ * wrong flag, arriving through a different door. A governed turn that cannot
+ * reach its governance is not a degraded turn, it is an UNGOVERNED one, so it
+ * is refused here rather than run.
+ *
+ * ANY HTTP response counts as reachable — including 401/403/405. The endpoint
+ * authenticates the per-run bearer token, and this probe deliberately does not
+ * carry it: what is under test is whether a connection can be established at
+ * all, not whether this run is authorised. Only DNS failure, connection refusal
+ * and timeout are treated as unreachable.
+ *
+ * @param {object} mcpConfig The governed `{mcpServers: {...}}` config.
+ * @returns {Promise<void>} Resolves when reachable; rejects with an actionable message.
+ */
+function assertMcpEndpointReachable(mcpConfig) {
+	const servers = (mcpConfig && mcpConfig.mcpServers) || {}
+	const urls = Object.values(servers)
+		.map((s) => (s && typeof s.url === 'string' ? s.url : ''))
+		.filter((u) => u !== '')
+
+	if (urls.length === 0) {
+		return Promise.resolve()
+	}
+
+	return Promise.all(urls.map((url) => probeUrl(url))).then(() => undefined)
+}
+
+/**
+ * Open one connection to `url` and resolve if the server answers at all.
+ *
+ * @param {string} url The endpoint to probe.
+ * @returns {Promise<void>} Resolves when the host answers; rejects otherwise.
+ */
+function probeUrl(url) {
+	return new Promise((resolve, reject) => {
+		let parsed
+		try {
+			parsed = new URL(url)
+		} catch {
+			reject(
+				new Error(
+					`refusing to spawn: governed MCP endpoint "${url}" is not a valid URL`,
+				),
+			)
+			return
+		}
+
+		const transport = parsed.protocol === 'https:' ? https : http
+		const req = transport.request(
+			url,
+			{ method: 'HEAD', timeout: MCP_PREFLIGHT_TIMEOUT_MS },
+			(res) => {
+				res.resume()
+				resolve()
+			},
+		)
+
+		req.on('timeout', () => {
+			req.destroy(
+				new Error(
+					`governed MCP endpoint ${url} did not answer within ${MCP_PREFLIGHT_TIMEOUT_MS}ms`,
+				),
+			)
+		})
+
+		req.on('error', (err) => {
+			reject(
+				new Error(
+					`refusing to spawn: the governed MCP endpoint ${url} is unreachable from the `
+						+ `runner container (${err.message}). The CLI would have started WITHOUT Hermiq's `
+						+ "tools and answered as if they did not exist. This is usually Nextcloud's "
+						+ 'published URL not resolving inside the container — set the `mcp_run_base_url` '
+						+ 'app config to the container-facing origin (e.g. http://nextcloud).',
+				),
+			)
+		})
+
+		req.end()
+	})
+}
+
+/**
  * Run one LLM turn through the given provider's CLI.
  *
  * @param {object} args Arguments.
@@ -206,6 +318,47 @@ function assertGovernedArgs(args) {
  * @returns {Promise<{text: string, toolCalls: Array, usage: object}>} Result.
  */
 function run({ provider, model, messages, credentialEnv, mcpConfig, runToken }) {
+	// A governed turn proves it can REACH its governance before it spawns. See
+	// assertMcpEndpointReachable() — an unreachable endpoint produces a run that
+	// looks successful and is silently tool-less, which is worse than a refusal.
+	if (mcpConfig && typeof mcpConfig === 'object') {
+		return assertMcpEndpointReachable(mcpConfig).then(() =>
+			spawnTurn({
+				provider,
+				model,
+				messages,
+				credentialEnv,
+				mcpConfig,
+				runToken,
+			}),
+		)
+	}
+
+	return spawnTurn({
+		provider,
+		model,
+		messages,
+		credentialEnv,
+		mcpConfig,
+		runToken,
+	})
+}
+
+/**
+ * Spawn the provider CLI for one turn. The unchanged body of `run()`; split out
+ * so the governed preflight can gate it without nesting the whole executor.
+ *
+ * @param {object} args Same arguments as {@link run}.
+ * @returns {Promise<{text: string, toolCalls: Array, usage: object}>} Result.
+ */
+function spawnTurn({
+	provider,
+	model,
+	messages,
+	credentialEnv,
+	mcpConfig,
+	runToken,
+}) {
 	return new Promise((resolve, reject) => {
 		const prompt = buildPrompt(messages)
 
@@ -390,5 +543,6 @@ module.exports = {
 	selectCredentialEnv,
 	redact,
 	assertGovernedArgs,
+	assertMcpEndpointReachable,
 	buildEgressProxyEnv,
 }

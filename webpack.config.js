@@ -48,10 +48,53 @@ webpackConfig.entry = {
 const localLib = process.env.LOCAL_LIB_PATH
 	? path.resolve(process.env.LOCAL_LIB_PATH)
 	: path.resolve(__dirname, '../nextcloud-vue/src')
-const useLocalLib =
+let useLocalLib =
 	process.env.USE_LOCAL_LIB === 'false'
 		? false
 		: Boolean(process.env.LOCAL_LIB_PATH) && fs.existsSync(localLib)
+
+// Requiring LOCAL_LIB_PATH already makes this opt-in — the bare sibling is never
+// picked up by accident, which is the failure other apps in the fleet had. What
+// was missing is any check on WHICH source the developer pointed at: an explicit
+// LOCAL_LIB_PATH was trusted on the strength of being explicit.
+//
+// So the target must also satisfy this app's declared range, and the check fails
+// CLOSED. Note a version-agnostic check would not have helped here: a "is it the
+// Vue 3 line?" test passes for a sibling that is Vue 3 and still the wrong
+// version — the sibling declares `vue: ^3.5.0` while being 2.0.5 against a
+// declared ^2.3.0.
+if (useLocalLib) {
+	let localVersion = 'unreadable'
+	let satisfied = false
+	try {
+		// eslint-disable-next-line n/no-extraneous-require
+		const semver = require('semver')
+		const required =
+			require('./package.json').dependencies['@conduction/nextcloud-vue']
+		localVersion = String(
+			JSON.parse(
+				fs.readFileSync(
+					path.resolve(localLib, '..', 'package.json'),
+					'utf8',
+				),
+			).version || '',
+		)
+		satisfied = semver.satisfies(localVersion, required, {
+			includePrerelease: true,
+		})
+	} catch (e) {
+		satisfied = false
+	}
+
+	if (!satisfied) {
+		// eslint-disable-next-line no-console
+		console.warn(
+			`[hermiq] IGNORING LOCAL_LIB_PATH @conduction/nextcloud-vue@${localVersion} — `
+				+ "it does not satisfy this app's declared range. Building against the npm dist.",
+		)
+		useLocalLib = false
+	}
+}
 
 // Extend the base resolve config (preserves defaults from @nextcloud/webpack-vue-config)
 webpackConfig.resolve = webpackConfig.resolve || {}
