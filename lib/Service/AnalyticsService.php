@@ -141,6 +141,12 @@ class AnalyticsService
      * audit-trail rows (status/usage/duration/agent buckets); splitting the pass would
      * iterate the same rows multiple times.
      * @SuppressWarnings(PHPMD.NPathComplexity)      Same single-pass aggregation rationale.
+     * @SuppressWarnings(PHPMD.ExcessiveMethodLength) Same rationale again, and the same
+     * trade: the length is seven metric buckets filled from one loop over the rows. Each
+     * bucket could be its own method, but only by handing every one of them the same row
+     * and iterating seven times, or by threading seven accumulators through seven calls.
+     * The tenant check that bounds the whole thing lives in this method too, and moving
+     * it away from the loop it guards is the change most likely to break it quietly.
      *
      * @spec openspec/changes/run-analytics/tasks.md#task-1-3
      */
