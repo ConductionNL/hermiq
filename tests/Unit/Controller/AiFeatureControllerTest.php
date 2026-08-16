@@ -416,7 +416,7 @@ class AiFeatureControllerTest extends TestCase {
 		$service->expects($this->never())->method('recordPublication');
 
 		$mapper = $this->createMock(AlgoritmekaderMapper::class);
-		$mapper->method('assessReadiness')->willReturn(['wettelijkeGrondslag']);
+		$mapper->method('assessReadiness')->willReturn(['statutoryBasis']);
 
 		$gateway = $this->createMock(PublicationGateway::class);
 		$gateway->expects($this->never())->method('publish');
@@ -425,7 +425,7 @@ class AiFeatureControllerTest extends TestCase {
 			->publishToAlgoritmeregister('feat-1');
 
 		$this->assertSame(Http::STATUS_UNPROCESSABLE_ENTITY, $response->getStatus());
-		$this->assertSame(['wettelijkeGrondslag'], $response->getData()['missing']);
+		$this->assertSame(['statutoryBasis'], $response->getData()['missing']);
 
 	}//end testPublishRefusedWhenNotReady()
 

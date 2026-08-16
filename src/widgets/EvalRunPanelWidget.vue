@@ -40,10 +40,10 @@
 			<NcSelect
 				v-model="selectedAgent"
 				class="eval-run-panel-widget__agent-picker"
-				:input-label="t('hermiq', 'Agent')"
+				:inputLabel="t('hermiq', 'Agent')"
 				:options="agentOptions"
 				label="label"
-				track-by="value"
+				trackBy="value"
 				:placeholder="t('hermiq', 'Select an agent')" />
 			<NcButton
 				type="primary"
@@ -105,8 +105,8 @@
 							</td>
 							<td>
 								<span
+									class="eval-run-panel-widget__badge"
 									:class="[
-										'eval-run-panel-widget__badge',
 										regressionBadgeClass(
 											runRow.regressionGateResult,
 										),
@@ -227,6 +227,7 @@
 </template>
 
 <script>
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -234,7 +235,6 @@ import {
 	NcNoteCard,
 	NcSelect,
 } from '@nextcloud/vue'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import { runEval } from '../api/evals.js'
 import { listSkills } from '../api/skills.js'
 import {

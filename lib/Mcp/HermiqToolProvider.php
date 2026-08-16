@@ -96,6 +96,8 @@ use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
+use OCA\Hermiq\Service\NcNative\MailReadService;
+use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -487,9 +489,15 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                             all self/cycle/allowlist/depth/fan-out/
 	 *                                             organisation/model-policy/kill-switch/
 	 *                                             budget/approval gating lives there.
+	 * @param NcNativeWriteService $writeService Facade over the Calendar/Contacts/Notes
+	 *                                           write services (nc-native-write-tools) —
+	 *                                           ownership guards, ADR-088 marking and the
+	 *                                           lazy Notes resolution all live there.
+	 * @param MailReadService $mailReadService Read-only mail (nc-mail-read-tools) —
+	 *                                         AI-feature gate and lazy Mail resolution live there.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of ten distinct capabilities.
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of twelve distinct capabilities.
 	 */
 	public function __construct(
 		// Promoted like every other dependency. These two were previously plain
@@ -510,6 +518,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		private readonly WebSearchClient $webSearchClient,
 		private readonly WebFetchService $webFetchService,
 		private readonly DelegationService $delegationService,
+		private readonly NcNativeWriteService $writeService,
+		private readonly MailReadService $mailReadService,
 		private readonly LoggerInterface $logger,
 	) {
 	}//end __construct()
@@ -533,7 +543,14 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 * @spec openspec/changes/nc-native-tools/tasks.md#task-1-1
 	 */
 	public function getTools(): array {
-		return self::TOOL_DESCRIPTORS;
+		// The five nc-native-write-tools descriptors live in their own class so
+		// this one stays inside its length budget. The DI alias stays singular per
+		// ADR-034/035 — this remains the only IMcpToolProvider; it merely merges.
+		return array_merge(
+			self::TOOL_DESCRIPTORS,
+			NcNativeWriteToolDescriptors::ALL,
+			NcMailToolDescriptors::ALL
+		);
 	}//end getTools()
 
 	/**
@@ -559,6 +576,9 @@ class HermiqToolProvider implements IMcpToolProvider {
 		}
 
 		$uid = $user->getUID();
+		// Run-injected by FacadeToolInvoker for the tools whose ADR-088 mark
+		// records an authoring agent; never a value the LLM supplies for itself.
+		$agentId = (string)($arguments['agentId'] ?? '');
 
 		try {
 			switch ($toolId) {
@@ -574,6 +594,24 @@ class HermiqToolProvider implements IMcpToolProvider {
 					return $this->sendMail(user: $user, arguments: $arguments);
 				case Application::APP_ID . '.listDeckBoards':
 					return $this->listDeckBoards();
+				case Application::APP_ID . '.createCalendarEvent':
+					return $this->writeService->createCalendarEvent(uid: $uid, arguments: $arguments, agentId: $agentId);
+				case Application::APP_ID . '.upsertContact':
+					return $this->writeService->upsertContact(uid: $uid, arguments: $arguments, agentId: $agentId);
+				case Application::APP_ID . '.listNotes':
+					return $this->writeService->listNotes(uid: $uid);
+				case Application::APP_ID . '.createNote':
+					// No agentId: a note is marked with a system tag, which cannot
+					// carry per-agent data — attribution lives in the run trace.
+					return $this->writeService->createNote(uid: $uid, arguments: $arguments);
+				case Application::APP_ID . '.updateNote':
+					return $this->writeService->updateNote(uid: $uid, arguments: $arguments);
+				case Application::APP_ID . '.listMailAccounts':
+					return $this->mailReadService->listAccounts(uid: $uid);
+				case Application::APP_ID . '.listMailMessages':
+					return $this->mailReadService->listMessages(uid: $uid, arguments: $arguments);
+				case Application::APP_ID . '.readMailMessage':
+					return $this->mailReadService->readMessage(uid: $uid, arguments: $arguments);
 				case Application::APP_ID . '.recommendCourses':
 					return $this->courseEngine->getOrRegenerate(learnerUid: $uid);
 				case Application::APP_ID . '.rememberMemory':

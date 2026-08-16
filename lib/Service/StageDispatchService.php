@@ -44,21 +44,26 @@ class StageDispatchService {
 	 *
 	 * @var string
 	 */
-	private const APP_API_PUBLIC_FUNCTIONS = 'OCA\\AppAPI\\PublicFunctions';
+	// PROTECTED, not private: `AsyncStageDispatchService` extends this to add
+	// the start/collect pair, and it must address the SAME ExApp on the SAME
+	// route with the SAME ceilings. Copying these into the subclass would let
+	// the two halves of one transport drift apart silently — the async path
+	// could end up pointed at a route the sync path no longer uses.
+	protected const APP_API_PUBLIC_FUNCTIONS = 'OCA\\AppAPI\\PublicFunctions';
 
 	/**
 	 * App id of the runner ExApp.
 	 *
 	 * @var string
 	 */
-	private const RUNNER_EXAPP_ID = 'hermiq-llm-runner';
+	protected const RUNNER_EXAPP_ID = 'hermiq-llm-runner';
 
 	/**
 	 * The runner's stage route.
 	 *
 	 * @var string
 	 */
-	private const RUNNER_ROUTE = '/stage';
+	protected const RUNNER_ROUTE = '/stage';
 
 	/**
 	 * Default ceiling for one stage, in milliseconds.
@@ -68,7 +73,7 @@ class StageDispatchService {
 	 *
 	 * @var int
 	 */
-	private const DEFAULT_STAGE_TIMEOUT_MS = (30 * 60 * 1000);
+	protected const DEFAULT_STAGE_TIMEOUT_MS = (30 * 60 * 1000);
 
 	/**
 	 * Seconds added to the runner's own ceiling for the AppAPI request.
@@ -80,7 +85,7 @@ class StageDispatchService {
 	 *
 	 * @var int
 	 */
-	private const TRANSPORT_SLACK_SECONDS = 60;
+	protected const TRANSPORT_SLACK_SECONDS = 60;
 
 	/**
 	 * Constructor.
@@ -159,7 +164,7 @@ class StageDispatchService {
 	 *                                container. Empty means the stage runs without a model,
 	 *                                which is every stage that shipped before this parameter.
 	 *
-	 * @return array{exitCode: int, output: string, ref: string} The stage result.
+	 * @return array{exitCode: int, output: string, ref: string, files?: array} The stage result.
 	 *
 	 * @throws RuntimeException When the stage could not be run.
 	 *
@@ -188,6 +193,7 @@ class StageDispatchService {
 		array $push = [],
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
+		array $collect = [],
 	): array {
 		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
 		if ($timeoutMs > 0) {
@@ -205,7 +211,8 @@ class StageDispatchService {
 			toolRef: $toolRef,
 			push: $push,
 			pushCredentialId: $pushCredentialId,
-			llmCredentialId: $llmCredentialId
+			llmCredentialId: $llmCredentialId,
+			collect: $collect
 		);
 
 		$result = Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
@@ -403,6 +410,7 @@ class StageDispatchService {
 		array $push = [],
 		string $pushCredentialId = '',
 		string $llmCredentialId = '',
+		array $collect = [],
 	): array {
 		$params = [
 			'repo' => $repo,
@@ -420,6 +428,8 @@ class StageDispatchService {
 		if ($push !== []) {
 			$params['push'] = $push;
 		}
+
+		$params = $this->withCollect(params: $params, collect: $collect);
 
 		$params = $this->withToolTree(
 			params: $params,
@@ -732,6 +742,36 @@ class StageDispatchService {
 	 *
 	 * @throws RuntimeException When the body is not a stage result.
 	 */
+	/**
+	 * Declare WHAT THE STAGE PRODUCES, not just what it printed.
+	 *
+	 * A reviewer that crashed, ran out of turns, or answered in prose exits 0
+	 * exactly like one that reviewed — the artefact it was asked to write is
+	 * the only thing that tells them apart, so a flow judging on the exit code
+	 * judges nothing.
+	 *
+	 * The runner has supported this all along; nothing ever sent it. The flow
+	 * declared `collect`, the node dropped it, and `stage.files` was therefore
+	 * always absent — which the verdict step read as `missing` and blocked on.
+	 * Correct refusals, for a reason that was never true.
+	 *
+	 * Extracted so `buildParams()` stays under the length threshold, and
+	 * because the explanation is longer than the code and belongs with the
+	 * concept rather than in the middle of a payload builder.
+	 *
+	 * @param array $params The payload so far.
+	 * @param array $collect Artefacts to read back out of the clone, or [].
+	 *
+	 * @return array The payload, with `collect` set only when one was declared.
+	 */
+	protected function withCollect(array $params, array $collect): array {
+		if ($collect !== []) {
+			$params['collect'] = $collect;
+		}
+
+		return $params;
+	}//end withCollect()
+
 	protected function mapResult(string $body): array {
 		$decoded = json_decode($body, true);
 		if (is_array($decoded) === false || array_key_exists('exitCode', $decoded) === false) {
@@ -744,6 +784,14 @@ class StageDispatchService {
 			'ref' => (string)($decoded['ref'] ?? ''),
 		];
 
+		// The collected artefacts, kept under the key the runner used. Dropping
+		// them here would make `collect` a no-op that still looks like it works:
+		// the runner reads the files, returns them, and the mapper quietly
+		// discards them one step before the only consumer.
+		if (is_array(($decoded['files'] ?? null)) === true) {
+			$result['files'] = $decoded['files'];
+		}
+
 		if (is_array(($decoded['push'] ?? null)) === true) {
 			$result['push'] = [
 				'pushed' => (bool)($decoded['push']['pushed'] ?? false),
@@ -755,4 +803,6 @@ class StageDispatchService {
 
 		return $result;
 	}//end mapResult()
+
+
 }//end class

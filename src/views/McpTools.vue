@@ -59,8 +59,8 @@
 			:columns="columns"
 			:rows="rows"
 			:loading="loading"
-			row-key="id"
-			:empty-text="t('hermiq', 'No MCP tools available')">
+			rowKey="id"
+			:emptyText="t('hermiq', 'No MCP tools available')">
 			<template #column-source="{ row }">
 				<span class="mcp-tools__source">{{ row.source }}</span>
 			</template>
@@ -69,8 +69,8 @@
 </template>
 
 <script>
-import { NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
+import { NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import ToolboxIcon from 'vue-material-design-icons/ToolboxOutline.vue'
 import { listTools } from '../api/agents.js'
 

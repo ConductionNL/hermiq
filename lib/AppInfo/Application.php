@@ -36,7 +36,9 @@ use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Notification\Notifier;
 use OCA\Hermiq\TaskProcessing\ContextAgentProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextHeadlineProvider;
+use OCA\Hermiq\TaskProcessing\AudioToTextProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextProvider;
+use OCA\Hermiq\TaskProcessing\TextToSpeechProvider;
 use OCA\Hermiq\TaskProcessing\Text2TextSummaryProvider;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCA\OpenRegister\Event\ObjectCreatedEvent;
@@ -230,6 +232,8 @@ class Application extends App implements IBootstrap {
 		// one Hermiq config. The text2text family shares the identical input→output
 		// shape; the contextagent provider is the governed alternative to NC's stock
 		// `context_agent` ExApp (admin picks the preferred provider per task type).
+		$context->registerTaskProcessingProvider(AudioToTextProvider::class);
+		$context->registerTaskProcessingProvider(TextToSpeechProvider::class);
 		$context->registerTaskProcessingProvider(Text2TextProvider::class);
 		$context->registerTaskProcessingProvider(Text2TextSummaryProvider::class);
 		$context->registerTaskProcessingProvider(Text2TextHeadlineProvider::class);

@@ -173,6 +173,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/**
 		 * The agent UUID to load a factsheet for. Optional — when opened as
 		 * the registry `agent-factsheet` open-modal target

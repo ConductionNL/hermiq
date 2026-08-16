@@ -35,14 +35,14 @@
 			<NcSelect
 				v-model="visibility"
 				:options="visibilityOptions"
-				:input-label="t('hermiq', 'Visibility')"
+				:inputLabel="t('hermiq', 'Visibility')"
 				:clearable="false"
 				label="label"
-				track-by="value" />
+				trackBy="value" />
 			<NcSelect
 				v-model="credential"
 				:options="githubCredentials"
-				:input-label="t('hermiq', 'GitHub credential')"
+				:inputLabel="t('hermiq', 'GitHub credential')"
 				:loading="loadingCredentials"
 				:placeholder="t('hermiq', 'Select a credential')"
 				label="label" />
@@ -69,9 +69,9 @@
 </template>
 
 <script>
-import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
+import { NcButton, NcModal, NcNoteCard, NcSelect, NcTextField } from '@nextcloud/vue'
 import { publishAgentTemplateToGithub } from '../api/agentTemplates.js'
 
 export default {
@@ -101,6 +101,7 @@ export default {
 				owner: '',
 				repo: '',
 			},
+
 			visibility: { label: this.t('hermiq', 'Private'), value: 'private' },
 			credential: null,
 			credentials: [],

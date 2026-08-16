@@ -39,7 +39,7 @@
 				</NcNoteCard>
 
 				<NcTextField
-					:model-value="revealedSecret"
+					:modelValue="revealedSecret"
 					readonly
 					:label="t('hermiq', 'Secret')"
 					@focus="selectAll" />
@@ -113,14 +113,14 @@
 </template>
 
 <script>
-import { NcButton, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
+import { NcButton, NcModal, NcNoteCard, NcTextField } from '@nextcloud/vue'
 import ContentCopy from 'vue-material-design-icons/ContentCopy.vue'
 import {
 	getScheduleWebhookSecretStatus,
 	mintScheduleWebhookSecret,
-	rotateScheduleWebhookSecret,
 	revokeScheduleWebhookSecret,
+	rotateScheduleWebhookSecret,
 } from '../api/scheduleWebhookSecret.js'
 
 export default {
@@ -140,6 +140,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The schedule UUID whose webhook secret is managed. */
 		scheduleId: {
 			type: String,

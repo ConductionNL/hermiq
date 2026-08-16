@@ -43,7 +43,7 @@
 				<ul class="skill-draft-reject__refs">
 					<li v-for="ref in learningRefs" :key="ref">
 						<NcCheckboxRadioSwitch
-							:model-value="marked.includes(ref)"
+							:modelValue="marked.includes(ref)"
 							@update:modelValue="toggle(ref, $event)">
 							<code>{{ ref }}</code>
 						</NcCheckboxRadioSwitch>
@@ -89,6 +89,7 @@ export default {
 			type: Array,
 			default: () => [],
 		},
+
 		/** Whether the rejection is in flight. */
 		busy: {
 			type: Boolean,

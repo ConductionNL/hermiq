@@ -37,67 +37,67 @@
 //
 // See: https://codeberg.org/Conduction/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 
-import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
+import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
+import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import EmailField from './formFields/EmailField.vue'
-import Chat from './views/Chat.vue'
-import ApprovalInbox from './views/ApprovalInbox.vue'
+// manifest-driven-pages: header-action modals, now resolved via the
+// registry's open-modal path instead of being embedded page components.
+import AgentFormModal from './modals/AgentFormModal.vue'
+import EvalDatasetFormModal from './modals/EvalDatasetFormModal.vue'
+import TemplateImportModal from './modals/TemplateImportModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
+import ApprovalInbox from './views/ApprovalInbox.vue'
+import Chat from './views/Chat.vue'
 import FlowBuilder from './views/FlowBuilder.vue'
 import FlowIndex from './views/FlowIndex.vue'
 import FlowSidebar from './views/FlowSidebar.vue'
 import TenantOps from './views/TenantOps.vue'
+import AgentEvalBaselineWidget from './widgets/AgentEvalBaselineWidget.vue'
+import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
+import AgentRunHistoryWidget from './widgets/AgentRunHistoryWidget.vue'
+import AgentRunOperationsWidget from './widgets/AgentRunOperationsWidget.vue'
 // manifest-driven-pages: AgentDetail's six extracted content widgets +
 // the agent-memory wrapper (AgentMemoryPanel.vue itself stays unchanged).
 import AgentSkillsWidget from './widgets/AgentSkillsWidget.vue'
-import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
-import AgentRunOperationsWidget from './widgets/AgentRunOperationsWidget.vue'
-import AgentRunHistoryWidget from './widgets/AgentRunHistoryWidget.vue'
-import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
-// manifest-driven-pages: the Store page's (formerly AgentTemplateGallery,
-// hermiq-github-store) row-actions widget + the EvalDatasetDetail page's sole
-// content widget.
-import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
-import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
-// skill-evals: the EvalDatasetDetail page's skill link/unlink panel, the
-// SkillDetail page's L5 eval-evidence card (+ Run paired eval action), and the
-// AgentDetail widget holding evalBaselineMode with its info affordance.
-import SkillLinkPanel from './widgets/SkillLinkPanel.vue'
-import SkillEvalEvidence from './widgets/SkillEvalEvidence.vue'
-import AgentEvalBaselineWidget from './widgets/AgentEvalBaselineWidget.vue'
-// skills-catalog: SkillsCatalog's row-actions widget (Approve/Export/Publish/
-// Publish-to-GitHub/Install), the same pattern as agent-template-row-actions
-// above.
-import SkillRowActions from './widgets/SkillRowActions.vue'
-// skill-maturity: the SkillDetail page's durable maturity scorecard widget
-// (per-level pass/fail + reasons + Qualify + action-gated Attest-L4).
-import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
-// skill-learnings: the SkillDetail page's read-only Learnings card (rendered
-// learnings.md + l6 activity strip; honest empty state; no edit affordance).
-import SkillLearnings from './widgets/SkillLearnings.vue'
-// skill-install-idempotency: the SkillDetail page's origin + review-status card
-// (where the skill came from, when it was last refreshed, why it is quarantined,
-// and whether local learnings are ahead of the source).
-import SkillProvenance from './widgets/SkillProvenance.vue'
-// skill-self-improvement: the SkillDetail draft review surface (side-by-side
-// diff, provenance, verdicts, Accept/Edit/Reject) and the version history +
-// rollback + republish widget.
-import SkillDraftReview from './widgets/SkillDraftReview.vue'
-import SkillVersionHistory from './widgets/SkillVersionHistory.vue'
 // agent-template-github-store: the GitHub-backed store section on the unified
 // Store page (formerly AgentTemplateGallery), resolved via
 // page.slots.below-header. Generalised by hermiq-github-store to discover
 // BOTH agent templates and skills behind a per-kind filter.
 import AgentTemplateGithubStore from './widgets/AgentTemplateGithubStore.vue'
+// manifest-driven-pages: the Store page's (formerly AgentTemplateGallery,
+// hermiq-github-store) row-actions widget + the EvalDatasetDetail page's sole
+// content widget.
+import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
+import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
+import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 // inapp-settings-section: Incidents / EU AI Act audit export / Retention,
 // moved off TenantOps.vue onto the Compliance index page's below-header slot.
 import ComplianceOperations from './widgets/ComplianceOperations.vue'
-// manifest-driven-pages: header-action modals, now resolved via the
-// registry's open-modal path instead of being embedded page components.
-import AgentFormModal from './modals/AgentFormModal.vue'
-import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
-import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
-import TemplateImportModal from './modals/TemplateImportModal.vue'
-import EvalDatasetFormModal from './modals/EvalDatasetFormModal.vue'
+import EvalRunPanelWidget from './widgets/EvalRunPanelWidget.vue'
+// skill-self-improvement: the SkillDetail draft review surface (side-by-side
+// diff, provenance, verdicts, Accept/Edit/Reject) and the version history +
+// rollback + republish widget.
+import SkillDraftReview from './widgets/SkillDraftReview.vue'
+import SkillEvalEvidence from './widgets/SkillEvalEvidence.vue'
+// skill-learnings: the SkillDetail page's read-only Learnings card (rendered
+// learnings.md + l6 activity strip; honest empty state; no edit affordance).
+import SkillLearnings from './widgets/SkillLearnings.vue'
+// skill-evals: the EvalDatasetDetail page's skill link/unlink panel, the
+// SkillDetail page's L5 eval-evidence card (+ Run paired eval action), and the
+// AgentDetail widget holding evalBaselineMode with its info affordance.
+import SkillLinkPanel from './widgets/SkillLinkPanel.vue'
+// skill-maturity: the SkillDetail page's durable maturity scorecard widget
+// (per-level pass/fail + reasons + Qualify + action-gated Attest-L4).
+import SkillMaturityScorecard from './widgets/SkillMaturityScorecard.vue'
+// skill-install-idempotency: the SkillDetail page's origin + review-status card
+// (where the skill came from, when it was last refreshed, why it is quarantined,
+// and whether local learnings are ahead of the source).
+import SkillProvenance from './widgets/SkillProvenance.vue'
+// skills-catalog: SkillsCatalog's row-actions widget (Approve/Export/Publish/
+// Publish-to-GitHub/Install), the same pattern as agent-template-row-actions
+// above.
+import SkillRowActions from './widgets/SkillRowActions.vue'
+import SkillVersionHistory from './widgets/SkillVersionHistory.vue'
 
 export default {
 	// -------------------------------------------------------------------------

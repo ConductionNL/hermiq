@@ -72,10 +72,8 @@
 						<tr>
 							<td>
 								<span
-									:class="[
-										'agent-run-history-widget__badge',
-										statusBadgeClass(run.status),
-									]">
+									class="agent-run-history-widget__badge"
+									:class="[statusBadgeClass(run.status)]">
 									{{ statusLabel(run.status) }}
 								</span>
 							</td>
@@ -195,8 +193,8 @@
 												}}</span
 											>
 											<span
+												class="agent-run-history-widget__badge"
 												:class="[
-													'agent-run-history-widget__badge',
 													step.outcome === 'error'
 														? 'agent-run-history-widget__badge--error'
 														: 'agent-run-history-widget__badge--ok',
@@ -264,8 +262,8 @@
 											>{{ step.name }}</span
 										>
 										<span
+											class="agent-run-history-widget__badge"
 											:class="[
-												'agent-run-history-widget__badge',
 												step.outcome === 'would-have-called'
 													? 'agent-run-history-widget__badge--warn'
 													: step.outcome === 'error'
@@ -303,9 +301,9 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { emit, subscribe, unsubscribe } from '@nextcloud/event-bus'
+import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import Replay from 'vue-material-design-icons/Replay.vue'
 import { getRunTrace, listRuns, replayRun, runScheduleNow } from '../api/agents.js'
 import { useScheduleStore } from '../store/store.js'

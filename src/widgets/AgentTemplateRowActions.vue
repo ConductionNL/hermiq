@@ -114,20 +114,20 @@
 
 		<AgentTemplateExportModal
 			v-if="showExport"
-			:exported-package="exportedPackage"
+			:exportedPackage="exportedPackage"
 			@close="showExport = false" />
 
 		<AgentTemplatePublishModal
 			v-if="showPublish"
-			:template-id="templateId()"
+			:templateId="templateId()"
 			@close="showPublish = false"
 			@published="onPublished" />
 	</div>
 </template>
 
 <script>
-import { NcButton, NcNoteCard } from '@nextcloud/vue'
 import { emit } from '@nextcloud/event-bus'
+import { NcButton, NcNoteCard } from '@nextcloud/vue'
 import AgentTemplateExportModal from '../modals/AgentTemplateExportModal.vue'
 import AgentTemplatePublishModal from '../modals/AgentTemplatePublishModal.vue'
 import {

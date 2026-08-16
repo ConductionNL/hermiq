@@ -77,6 +77,7 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The (archived) conversation to delete permanently. */
 		conversation: {
 			type: Object,

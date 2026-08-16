@@ -45,11 +45,13 @@ export default {
 			type: String,
 			default: '',
 		},
+
 		/** Field label. */
 		label: {
 			type: String,
 			default: 'Email',
 		},
+
 		/** Placeholder text. */
 		placeholder: {
 			type: String,

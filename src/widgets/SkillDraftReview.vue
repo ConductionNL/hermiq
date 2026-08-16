@@ -115,10 +115,8 @@
 					<li
 						v-for="(line, index) in diffLines"
 						:key="index"
-						:class="[
-							'skill-draft-review__diff-line',
-							'skill-draft-review__diff-line--' + line.kind,
-						]">
+						class="skill-draft-review__diff-line"
+						:class="['skill-draft-review__diff-line--' + line.kind]">
 						<span
 							class="skill-draft-review__diff-marker"
 							:aria-label="
@@ -219,7 +217,7 @@
 
 		<SkillDraftRejectModal
 			v-if="showReject"
-			:learning-refs="learningRefs"
+			:learningRefs="learningRefs"
 			:busy="busy"
 			@reject="doReject"
 			@close="showReject = false" />
@@ -229,6 +227,8 @@
 <script>
 import { emit } from '@nextcloud/event-bus'
 import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
+import SkillDraftEditModal from '../modals/SkillDraftEditModal.vue'
+import SkillDraftRejectModal from '../modals/SkillDraftRejectModal.vue'
 import {
 	acceptSkillDraft,
 	listSkillDrafts,
@@ -236,8 +236,6 @@ import {
 	rejectSkillDraft,
 	updateSkillDraftContent,
 } from '../api/skills.js'
-import SkillDraftEditModal from '../modals/SkillDraftEditModal.vue'
-import SkillDraftRejectModal from '../modals/SkillDraftRejectModal.vue'
 import { useSkillStore } from '../store/store.js'
 
 export default {

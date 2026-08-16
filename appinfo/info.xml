@@ -99,6 +99,13 @@
                  and activates nothing on its own: a Talk moderator must still
                  enable it per conversation AND the agent must be Talk-enabled. -->
             <step>OCA\Hermiq\Repair\InstallTalkBot</step>
+            <!--
+                Must run AFTER the register sync that adds the English columns.
+                Covers every renamed property together: a register-scoped step
+                that moved some owners and not others would leave the rest
+                silently reading null.
+            -->
+            <step>OCA\Hermiq\Repair\RenameDutchColumns</step>
         </post-migration>
         <install>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>

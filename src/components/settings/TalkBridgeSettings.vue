@@ -155,11 +155,11 @@
 
 				<div class="talk-bridge-settings__bind">
 					<NcTextField
-						:value.sync="newToken"
+						v-model:value="newToken"
 						:label="t('hermiq', 'Talk conversation token')"
 						:placeholder="t('hermiq', 'e.g. a1b2c3d4')" />
 					<NcTextField
-						:value.sync="newAgentId"
+						v-model:value="newAgentId"
 						:label="t('hermiq', 'Agent UUID')"
 						:placeholder="
 							t('hermiq', 'The agent to answer in that conversation')

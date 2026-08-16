@@ -27,12 +27,12 @@
 			<div class="agent-memory__picker">
 				<NcSelect
 					v-model="selectedAgent"
-					:input-label="t('hermiq', 'Agent')"
+					:inputLabel="t('hermiq', 'Agent')"
 					:options="agentOptions"
 					:clearable="false"
 					:placeholder="t('hermiq', 'Select an agent')"
 					label="label"
-					track-by="value" />
+					trackBy="value" />
 			</div>
 		</div>
 
@@ -58,7 +58,7 @@
 			</template>
 		</NcEmptyContent>
 
-		<AgentMemoryPanel v-else :agent-id="selectedAgent.value" />
+		<AgentMemoryPanel v-else :agentId="selectedAgent.value" />
 	</div>
 </template>
 

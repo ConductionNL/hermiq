@@ -21,9 +21,9 @@
 		</p>
 		<NcSelect
 			class="talk-delivery__select"
-			:input-label="t('hermiq', 'Default delivery room')"
+			:inputLabel="t('hermiq', 'Default delivery room')"
 			:options="options"
-			:model-value="selected"
+			:modelValue="selected"
 			:loading="loading"
 			:clearable="false"
 			label="name"

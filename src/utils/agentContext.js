@@ -107,7 +107,7 @@ export function buildAgentContext(objectData, schema) {
 	const allowlist = normaliseAllowlist(rawSpec)
 	const context = {}
 	for (const [name, caps] of Object.entries(allowlist)) {
-		if (!Object.prototype.hasOwnProperty.call(data, name)) {
+		if (!Object.hasOwn(data, name)) {
 			continue
 		}
 		const value = data[name]

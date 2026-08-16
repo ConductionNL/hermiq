@@ -67,8 +67,8 @@
 				:columns="columns"
 				:rows="rows"
 				:loading="loading"
-				row-key="id"
-				:empty-text="t('hermiq', 'No AI features yet')">
+				rowKey="id"
+				:emptyText="t('hermiq', 'No AI features yet')">
 				<template #column-riskCategory="{ row }">
 					<span
 						class="ai-feature-register__risk"
@@ -181,9 +181,9 @@
 </template>
 
 <script>
-import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 import { CnDataTable } from '@conduction/nextcloud-vue'
 import { loadState } from '@nextcloud/initial-state'
+import { NcButton, NcEmptyContent, NcNoteCard } from '@nextcloud/vue'
 // The AI sparkles, not a robot — the single mark for "the model" across the
 // nav, the launcher hex and the chat empty state.
 import AiIcon from 'vue-material-design-icons/Creation.vue'
@@ -199,11 +199,11 @@ import {
 /** The Algoritmekader fields mandatory to publish (mirrors AlgoritmekaderMapper::MANDATORY_FIELDS). */
 const MANDATORY_ALGORITMEKADER_FIELDS = [
 	'doel',
-	'wettelijkeGrondslag',
-	'impacttoetsen',
+	'statutoryBasis',
+	'impactAssessments',
 	'dataBronnen',
-	'menselijkeTussenkomst',
-	'verantwoordelijke',
+	'humanIntervention',
+	'responsible',
 	'publicatiecategorie',
 ]
 

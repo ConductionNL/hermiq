@@ -39,10 +39,12 @@ class HermiqFlowNodeListener implements IEventListener {
 	 *
 	 * @param HermiqAgentNode $agentNode The agent step node.
 	 * @param HermiqWorkloadNode $workloadNode The workload step node.
+	 * @param HermiqWorkloadCollectNode $collectNode Collects a workload started asynchronously.
 	 */
 	public function __construct(
 		private readonly HermiqAgentNode $agentNode,
 		private readonly HermiqWorkloadNode $workloadNode,
+		private readonly HermiqWorkloadCollectNode $collectNode,
 	) {
 
 	}//end __construct()
@@ -66,6 +68,7 @@ class HermiqFlowNodeListener implements IEventListener {
 
 		$event->registerNode(node: $this->agentNode);
 		$event->registerNode(node: $this->workloadNode);
+		$event->registerNode(node: $this->collectNode);
 
 	}//end handle()
 }//end class

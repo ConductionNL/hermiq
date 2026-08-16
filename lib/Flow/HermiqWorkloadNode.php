@@ -65,6 +65,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Flow;
 
+use OCA\Hermiq\Service\AsyncStageDispatchService;
 use OCA\Hermiq\Service\StageDispatchService;
 use OCA\OpenRegister\Service\Flow\IFlowNode;
 use OCP\IL10N;
@@ -90,6 +91,12 @@ class HermiqWorkloadNode implements IFlowNode {
 		private readonly StageDispatchService $stages,
 		private readonly IL10N $l10n,
 		private readonly IURLGenerator $urls,
+		// ADDED LAST, and deliberately. Three unit tests construct this node
+		// POSITIONALLY; slotting a parameter in ahead of an existing one
+		// silently rebinds that argument to a value of the wrong type — which
+		// is the same trap OpenRegister's own FlowEngine constructor documents,
+		// and it cost 41 test errors here the first time this went in second.
+		private readonly ?AsyncStageDispatchService $asyncStages = null,
 	) {
 	}//end __construct()
 
@@ -238,22 +245,18 @@ class HermiqWorkloadNode implements IFlowNode {
 	}//end execute()
 
 	/**
-	 * Turn ONE item into one stage call, and attribute the result.
+	 * Render the TWO forge credentials, which could never have been one.
 	 *
-	 * Split out of `execute()` so the loop states what it does — one stage per
-	 * item, attributed — while the rendering and credential decisions, which are
-	 * where every defect in this node has been, sit together and can be read in
-	 * one piece.
+	 * The reasoning is long and belongs with the concept rather than in the
+	 * middle of a dispatch; it is kept verbatim below as line comments,
+	 * because one of them contains a path that would close this block.
 	 *
 	 * @param array $config The step configuration.
 	 * @param array $json The item's record.
-	 * @param string $owner The resolved run owner.
 	 *
-	 * @return array The stage result, with attribution added.
-	 *
-	 * @throws Throwable When the workload could not be run.
+	 * @return array{0: string, 1: string} The clone credential, then the push credential.
 	 */
-	private function dispatchFor(array $config, array $json, string $owner): array {
+	private function credentialsFor(array $config, array $json): array {
 		// RENDERED, like every other configured value, and rendered PER ITEM
 		// because a fan-out may carry a different credential per repository.
 		//
@@ -264,8 +267,6 @@ class HermiqWorkloadNode implements IFlowNode {
 		// not found` — which reads as a missing credential rather than an
 		// unrendered placeholder. It took a logging fix in OpenRegister
 		// (openregister#2245) to see the id it was actually given.
-		$credentialId = trim($this->render(template: (string)($config['credentialId'] ?? ''), json: $json));
-
 		// THE SECOND CREDENTIAL, and why one could never have done both jobs.
 		//
 		// `credentialId` is spent on the broker's SERVER-SIDE calls — the tool
@@ -290,7 +291,36 @@ class HermiqWorkloadNode implements IFlowNode {
 		//
 		// Absent, it falls back to `credentialId`, so every read-only stage that
 		// shipped before this behaves exactly as it did.
-		$pushCredentialId = trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json));
+
+		return [
+			trim($this->render(template: (string)($config['credentialId'] ?? ''), json: $json)),
+			trim($this->render(template: (string)($config['pushCredentialId'] ?? ''), json: $json)),
+		];
+	}//end credentialsFor()
+
+	/**
+	 * Turn ONE item into one stage call, and attribute the result.
+	 *
+	 * Split out of `execute()` so the loop states what it does — one stage per
+	 * item, attributed — while the rendering and credential decisions, which are
+	 * where every defect in this node has been, sit together and can be read in
+	 * one piece.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $json The item's record.
+	 * @param string $owner The resolved run owner.
+	 *
+	 * @return array The stage result, with attribution added.
+	 *
+	 * @throws Throwable When the workload could not be run.
+	 */
+	private function dispatchFor(array $config, array $json, string $owner): array {
+		[$credentialId, $pushCredentialId] = $this->credentialsFor(config: $config, json: $json);
+
+		// ASYNC is a whole second transport; see dispatchAsyncFor().
+		if (($config['async'] ?? false) === true) {
+			return $this->dispatchAsyncFor($config, $json, $owner, $credentialId, $pushCredentialId);
+		}
 
 		$result = $this->stages->dispatch(
 			repo: $this->render(template: (string)$config['repo'], json: $json),
@@ -322,7 +352,22 @@ class HermiqWorkloadNode implements IFlowNode {
 			// clones the tree, this one lets the command talk to a model. A
 			// stage that names none runs without one, which is every stage that
 			// existed before this key.
-			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json))
+			llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
+			collect: $this->collectFor(config: $config),
+			// ASYNC. The stage is STARTED and a handle comes back, instead of
+			// the run holding the queue worker for the whole thing.
+			//
+			// `FlowRunWorker` advances queued runs serially in one PHP process,
+			// so a synchronous stage blocks every other flow in that pass —
+			// including the lock reaper that exists to clean up after stuck
+			// work — and it makes a slot pool decorative, because N slots
+			// cannot produce N agents while the thing holding a slot occupies
+			// the only worker.
+			//
+			// ⚠️ The result shape CHANGES with this flag, deliberately: an
+			// async dispatch writes `job: {id, status}` and NO `exitCode`, so
+			// nothing downstream can read an acknowledgement as a verdict. Pair
+			// it with a wait and a `hermiq.workload-collect`.
 		);
 
 		return $this->attribute(
@@ -333,6 +378,99 @@ class HermiqWorkloadNode implements IFlowNode {
 		);
 
 	}//end dispatchFor()
+
+	/**
+	 * What the stage PRODUCED, read out of the clone before it is discarded.
+	 *
+	 * A reviewer that crashed, ran out of turns, or answered in prose exits 0
+	 * exactly like one that reviewed — the artefact is the only thing that
+	 * tells them apart, which is why a verdict step reads a file rather than an
+	 * exit code.
+	 *
+	 * Both transports call this, because a stage that produced a verdict must
+	 * hand it back whichever one carried it; an async path that quietly dropped
+	 * it would judge on nothing.
+	 *
+	 * ⚠️ USE THE ALIAS FORM. `["hydra-verdict.json"]` keys the file by its own
+	 * path, and a flow addresses data with a DOTTED path, so
+	 * `files.hydra-verdict.json` splits in the wrong places and is unreachable
+	 * — the artefact arrives and the consumer still cannot see it.
+	 * `{verdict: "hydra-verdict.json"}` yields `files.verdict`, which a flow
+	 * can walk.
+	 *
+	 * @param array $config The step configuration.
+	 *
+	 * @return array The collect declaration, or [] when the stage produces nothing.
+	 */
+	private function collectFor(array $config): array {
+		return (array)($config['collect'] ?? []);
+	}//end collectFor()
+
+	/**
+	 * Start the stage and return a handle, instead of waiting for it.
+	 *
+	 * `FlowRunWorker` advances queued runs serially in one PHP process, so a
+	 * synchronous stage holds the only worker for its whole duration and a slot
+	 * pool cannot exceed one agent however many slots it declares. Pair this
+	 * with an `openregister.wait` and a `hermiq.workload-collect`.
+	 *
+	 * Extracted from `dispatchFor()` because inlining it took that method to
+	 * 136 lines against a 100 threshold, and phpmd was right: a reader cannot
+	 * hold that much at once, and this branch is a second transport rather than
+	 * a variation on the first.
+	 *
+	 * @param array $config The step configuration.
+	 * @param array $json The item's record.
+	 * @param string $owner The resolved run owner.
+	 * @param string $credentialId The rendered broker credential.
+	 * @param string $pushCredentialId The rendered injectable push credential.
+	 *
+	 * @return array The handle, attributed.
+	 *
+	 * @throws UnexpectedValueException When no async transport is available.
+	 */
+	private function dispatchAsyncFor(
+		array $config,
+		array $json,
+		string $owner,
+		string $credentialId,
+		string $pushCredentialId,
+	): array {
+		if ($this->asyncStages === null) {
+			// Refuse rather than silently running synchronously: a step that
+			// asked for a handle and got a blocking call back would hold the
+			// queue worker for its whole duration while the flow waits for a
+			// `job` key that never arrives.
+			throw new UnexpectedValueException(
+				$this->l10n->t('This step asks for an asynchronous dispatch, but no async transport is available.')
+			);
+		}
+
+		return $this->attribute(
+			result: $this->asyncStages->dispatchAsync(
+				repo: $this->render(template: (string)($config['repo'] ?? ''), json: $json),
+				ref: $this->render(template: (string)($config['ref'] ?? ''), json: $json),
+				command: array_map(
+					fn (string $argument): string => $this->render(template: $argument, json: $json),
+					array_values((array)($config['command'] ?? []))
+				),
+				uid: $owner,
+				credentialId: $credentialId,
+				timeoutMs: (int)($config['timeoutMs'] ?? 0),
+				toolRepo: $this->render(template: (string)($config['toolRepo'] ?? ''), json: $json),
+				toolRef: $this->render(template: (string)($config['toolRef'] ?? ''), json: $json),
+				push: $this->renderPush(push: ($config['push'] ?? []), json: $json),
+				pushCredentialId: $pushCredentialId,
+				llmCredentialId: trim($this->render(template: (string)($config['llmCredentialId'] ?? ''), json: $json)),
+				jobKey: trim($this->render(template: (string)($config['jobKey'] ?? ''), json: $json)),
+				collect: $this->collectFor(config: $config)
+			),
+			owner: $owner,
+			credentialId: $credentialId,
+			pushCredentialId: $pushCredentialId
+		);
+	}//end dispatchAsyncFor()
+
 
 	/**
 	 * Record who ran a stage and on whose credential, ON the result.

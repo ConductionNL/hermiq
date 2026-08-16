@@ -47,16 +47,16 @@
 			<NcSelect
 				v-model="kindFilter"
 				:options="kindOptions"
-				:input-label="t('hermiq', 'Kind')"
+				:inputLabel="t('hermiq', 'Kind')"
 				:clearable="false"
 				label="label"
-				track-by="value"
+				trackBy="value"
 				@update:modelValue="doSearch" />
 			<NcSelect
 				v-if="githubCredentials.length > 0"
 				v-model="selectedCredential"
 				:options="githubCredentials"
-				:input-label="t('hermiq', 'GitHub credential')"
+				:inputLabel="t('hermiq', 'GitHub credential')"
 				:loading="loadingCredentials"
 				:placeholder="t('hermiq', 'Anonymous (no credential)')"
 				label="label"
@@ -137,6 +137,9 @@
 </template>
 
 <script>
+import axios from '@nextcloud/axios'
+import { emit } from '@nextcloud/event-bus'
+import { generateUrl } from '@nextcloud/router'
 import {
 	NcButton,
 	NcEmptyContent,
@@ -145,9 +148,6 @@ import {
 	NcSelect,
 	NcTextField,
 } from '@nextcloud/vue'
-import axios from '@nextcloud/axios'
-import { generateUrl } from '@nextcloud/router'
-import { emit } from '@nextcloud/event-bus'
 import {
 	installGithubTemplate,
 	searchGithubTemplates,
@@ -180,6 +180,7 @@ export default {
 				label: this.t('hermiq', 'All (agent templates + skills)'),
 				value: 'all',
 			},
+
 			cards: [],
 			outcome: 'ok',
 			brokerCredentialAvailable: false,

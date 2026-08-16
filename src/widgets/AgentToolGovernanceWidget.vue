@@ -81,8 +81,8 @@
 			role="tabpanel"
 			:aria-labelledby="`${uid}-tab-grants`">
 			<ToolGrantEditor
-				:agent-id="agentId"
-				:can-edit="isOwner"
+				:agentId="agentId"
+				:canEdit="isOwner"
 				@saved="onGrantsSaved" />
 		</div>
 
@@ -92,7 +92,7 @@
 			class="agent-tool-governance-widget__panel"
 			role="tabpanel"
 			:aria-labelledby="`${uid}-tab-activity`">
-			<ToolInvocationTable :agent-id="agentId" />
+			<ToolInvocationTable :agentId="agentId" />
 		</div>
 	</div>
 </template>

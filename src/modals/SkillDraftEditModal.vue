@@ -79,6 +79,7 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		/** Whether a save is in flight. */
 		busy: {
 			type: Boolean,

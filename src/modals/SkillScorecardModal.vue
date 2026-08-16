@@ -114,6 +114,7 @@ export default {
 			type: Object,
 			required: true,
 		},
+
 		/** The qualified skill's display name (subtitle). */
 		skillName: {
 			type: String,

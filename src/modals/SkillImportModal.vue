@@ -11,7 +11,7 @@
   refreshes the list) and `close` to dismiss.
 -->
 <template>
-	<NcModal size="normal" :can-close="!busy" @close="$emit('close')">
+	<NcModal size="normal" :canClose="!busy" @close="$emit('close')">
 		<div class="skill-import">
 			<h2 class="skill-import__title">
 				{{ t('hermiq', 'Import a skill') }}

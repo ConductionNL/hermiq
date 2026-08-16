@@ -52,10 +52,13 @@ use OCA\Hermiq\Service\WebResearch\WebResearchEgressGuard;
 use OCA\Hermiq\Service\WebResearch\WebResearchSettingsHandler;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\AnonRateLimit;
+use OCP\AppFramework\Http\Attribute\BruteForceProtection;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
+use OCP\Security\Bruteforce\IThrottler;
 
 /**
  * The token-gated egress PDP: answers allow/deny per CONNECT from the shared
@@ -64,6 +67,14 @@ use OCP\IRequest;
  * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
  */
 class EgressAuthorizeController extends Controller {
+
+	/**
+	 * Brute-force throttler action for rejected per-run tokens.
+	 *
+	 * @var string
+	 */
+	private const THROTTLE_ACTION = 'hermiq_run_token';
+
 	/**
 	 * Constructor.
 	 *
@@ -80,6 +91,7 @@ class EgressAuthorizeController extends Controller {
 		private readonly RunTokenService $runTokenService,
 		private readonly WebResearchEgressGuard $guard,
 		private readonly WebResearchSettingsHandler $settingsHandler,
+		private readonly IThrottler $throttler,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 
@@ -100,11 +112,26 @@ class EgressAuthorizeController extends Controller {
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
+	#[AnonRateLimit(limit: 120, period: 60)]
+	#[BruteForceProtection(action: self::THROTTLE_ACTION)]
 	public function authorize(): JSONResponse {
 		// AUTH FIRST — the per-run token is the authorization. A missing/invalid/
 		// expired/consumed token is rejected before any policy is evaluated.
 		$binding = $this->runTokenService->verify(token: $this->bearerToken());
 		if ($binding === null) {
+			// The per-run token IS the authorization, so a failed verify is a
+			// presented-secret failure. Counted here; the enforcing half is the
+			// #[BruteForceProtection] attribute above (ADR-082).
+			try {
+				$this->throttler->registerAttempt(
+					action: self::THROTTLE_ACTION,
+					ip: $this->request->getRemoteAddress()
+				);
+			} catch (\Throwable $throttlerFailure) {
+				// Bookkeeping must not turn a fail-closed 401 into a 500.
+				unset($throttlerFailure);
+			}
+
 			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
 		}
 

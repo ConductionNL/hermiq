@@ -92,11 +92,11 @@
 			<div class="agent-form__field">
 				<NcSelect
 					v-model="providerOption"
-					:input-label="t('hermiq', 'Provider')"
+					:inputLabel="t('hermiq', 'Provider')"
 					:options="providerOptions"
 					:clearable="false"
 					label="label"
-					track-by="value" />
+					trackBy="value" />
 			</div>
 
 			<!--
@@ -113,13 +113,13 @@
 			<div class="agent-form__field">
 				<NcSelect
 					v-model="modelOption"
-					:input-label="t('hermiq', 'Model')"
+					:inputLabel="t('hermiq', 'Model')"
 					:options="modelOptions"
 					:clearable="false"
 					:taggable="true"
-					:create-option="(value) => ({ label: value, value })"
+					:createOption="(value) => ({ label: value, value })"
 					label="label"
-					track-by="value" />
+					trackBy="value" />
 				<p class="agent-form__hint">
 					{{ modelHint }}
 				</p>
@@ -136,24 +136,24 @@
 					v-model="form.temperature"
 					type="number"
 					:label="t('hermiq', 'Temperature (0–2)')"
-					:placeholder="'0.7'" />
+					placeholder="0.7" />
 				<NcTextField
 					v-model="form.maxTokens"
 					type="number"
 					:label="t('hermiq', 'Max tokens per response')"
-					:placeholder="'2048'" />
+					placeholder="2048" />
 			</div>
 
 			<div class="agent-form__field">
 				<NcSelect
 					v-model="form.tools"
-					:input-label="t('hermiq', 'Enabled tools')"
+					:inputLabel="t('hermiq', 'Enabled tools')"
 					:options="toolOptions"
 					:loading="toolsLoading"
 					:multiple="true"
-					:close-on-select="false"
+					:closeOnSelect="false"
 					label="label"
-					track-by="value"
+					trackBy="value"
 					:placeholder="t('hermiq', 'Select tools the agent may use')" />
 				<p class="agent-form__hint">
 					{{ t('hermiq', 'Leave empty to allow every available tool.') }}
@@ -167,13 +167,13 @@
 			<div class="agent-form__field">
 				<NcSelect
 					v-model="form.delegationAllowlist"
-					:input-label="t('hermiq', 'Delegation allowlist')"
+					:inputLabel="t('hermiq', 'Delegation allowlist')"
 					:options="delegationAllowlistOptions"
 					:loading="agentCatalogLoading"
 					:multiple="true"
-					:close-on-select="false"
+					:closeOnSelect="false"
 					label="label"
-					track-by="value"
+					trackBy="value"
 					:placeholder="
 						t('hermiq', 'Select agents this agent may delegate to')
 					" />
@@ -208,7 +208,7 @@
 					v-model="form.ragNumSources"
 					type="number"
 					:label="t('hermiq', 'Number of RAG sources')"
-					:placeholder="'5'" />
+					placeholder="5" />
 			</template>
 
 			<div class="agent-form__actions">
@@ -230,6 +230,7 @@
 </template>
 
 <script>
+import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
 import {
 	NcButton,
 	NcCheckboxRadioSwitch,
@@ -240,12 +241,11 @@ import {
 	NcTextArea,
 	NcTextField,
 } from '@nextcloud/vue'
-import { CnIconPicker, fromOpenGemeenten } from '@conduction/nextcloud-vue'
-import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
 import { listTools } from '../api/agents.js'
 import { getEffectiveModelPolicy } from '../api/modelPolicy.js'
-import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { updateToolGrants } from '../api/toolOversight.js'
+import { OPEN_GEMEENTEN_ICONS } from '../icons/openGemeentenIcons.js'
+import { KNOWN_MODELS, knownModelsFor } from '../llm/knownModels.js'
 import { useAgentStore } from '../store/store.js'
 
 export default {
@@ -269,11 +269,13 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** The agent being edited, or null when creating. */
 		agent: {
 			type: Object,
 			default: null,
 		},
+
 		/**
 		 * The item being edited, or null in create mode (agent-form-slot):
 		 * supplied by CnIndexPage's `#form-dialog` scoped slot ({ show, item,
@@ -285,6 +287,7 @@ export default {
 			type: Object,
 			default: null,
 		},
+
 		/**
 		 * Closes the host dialog (agent-form-slot): the `close` binding from
 		 * CnIndexPage's `#form-dialog` scoped slot. Called in ADDITION to
@@ -295,6 +298,7 @@ export default {
 			type: Function,
 			default: null,
 		},
+
 		/**
 		 * The effective JSON schema driving the form (agent-form-slot): the
 		 * `schema` binding from CnIndexPage's `#form-dialog` scoped slot.
@@ -409,6 +413,7 @@ export default {
 					) || null
 				)
 			},
+
 			set(option) {
 				this.form.provider = option ? option.value : ''
 				// Changing provider invalidates a model outside its allowlist.
@@ -514,6 +519,7 @@ export default {
 					) || null
 				)
 			},
+
 			set(option) {
 				this.form.model = option ? option.value : ''
 			},
@@ -663,6 +669,7 @@ export default {
 				tools: tools.map((tool) => ({ label: tool, value: tool })),
 				delegationAllowlist:
 					this.mapDelegationAllowlistToOptions(delegationAllowlist),
+
 				enableRag: source.enableRag === true,
 				searchObjects: source.searchObjects !== false,
 				searchFiles: source.searchFiles !== false,
@@ -843,9 +850,11 @@ export default {
 						? base.tools
 						: []
 					: this.selectedGrants(),
+
 				delegationAllowlist: (this.form.delegationAllowlist || []).map(
 					(option) => option.value,
 				),
+
 				enableRag: this.form.enableRag,
 				searchObjects: this.form.searchObjects,
 				searchFiles: this.form.searchFiles,

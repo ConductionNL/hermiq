@@ -124,21 +124,21 @@
 			">
 			<CnCredentials
 				scope="organisation"
-				app-id="hermiq"
-				:app-name="t('hermiq', 'Hermiq')"
-				:app-credentials="(manifest && manifest.credentials) || []" />
+				appId="hermiq"
+				:appName="t('hermiq', 'Hermiq')"
+				:appCredentials="(manifest && manifest.credentials) || []" />
 		</NcSettingsSection>
 	</div>
 </template>
 
 <script>
-import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import { CnCredentials } from '@conduction/nextcloud-vue'
+import { NcButton, NcSettingsSection } from '@nextcloud/vue'
 import Cog from 'vue-material-design-icons/Cog.vue'
+import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import LlmProviderModal from '../modals/LlmProviderModal.vue'
 import WebResearchSettingsModal from '../modals/WebResearchSettingsModal.vue'
 import AiFeatureRegister from './AiFeatureRegister.vue'
-import TalkBridgeSettings from '../components/settings/TalkBridgeSettings.vue'
 import { getLlmSettings } from '../api/llm.js'
 import { getWebResearchSettings } from '../api/webResearch.js'
 import manifest from '../manifest.json'
@@ -194,6 +194,7 @@ export default {
 			}
 			return PROVIDER_LABELS[this.chatProvider] || this.chatProvider
 		},
+
 		/**
 		 * Human-readable name of the current search backend, or a "not configured" hint.
 		 *

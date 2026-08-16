@@ -160,8 +160,8 @@
 						step.name
 					}}</span>
 					<span
+						class="agent-run-ops-widget__badge"
 						:class="[
-							'agent-run-ops-widget__badge',
 							step.outcome === 'would-have-called'
 								? 'agent-run-ops-widget__badge--warn'
 								: step.outcome === 'error'
@@ -224,8 +224,8 @@
 					<dt>{{ t('hermiq', 'Status') }}</dt>
 					<dd>
 						<span
+							class="agent-run-ops-widget__badge"
 							:class="[
-								'agent-run-ops-widget__badge',
 								webhookStatus.enabled
 									? 'agent-run-ops-widget__badge--ok'
 									: 'agent-run-ops-widget__badge--error',
@@ -289,7 +289,7 @@
 
 		<ScheduleFormModal
 			:show="showScheduleForm"
-			:agent-id="agentId"
+			:agentId="agentId"
 			:schedule="schedule"
 			@close="showScheduleForm = false"
 			@saved="onScheduleSaved" />
@@ -302,11 +302,13 @@
 </template>
 
 <script>
-import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import { showError, showSuccess } from '@nextcloud/dialogs'
 import { emit } from '@nextcloud/event-bus'
+import { NcButton, NcLoadingIcon, NcNoteCard } from '@nextcloud/vue'
 import BeakerOutline from 'vue-material-design-icons/BeakerOutline.vue'
 import Play from 'vue-material-design-icons/Play.vue'
+import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
+import WebhookSecretDialog from '../modals/WebhookSecretDialog.vue'
 import { dryRunSchedule, runScheduleNow } from '../api/agents.js'
 import { getBudgetEstimate, getBudgetStatus } from '../api/budgets.js'
 import {
@@ -316,8 +318,6 @@ import {
 	rotateWebhookSecret,
 } from '../api/webhooks.js'
 import { useScheduleStore } from '../store/store.js'
-import ScheduleFormModal from '../modals/ScheduleFormModal.vue'
-import WebhookSecretDialog from '../modals/WebhookSecretDialog.vue'
 
 export default {
 	name: 'AgentRunOperationsWidget',

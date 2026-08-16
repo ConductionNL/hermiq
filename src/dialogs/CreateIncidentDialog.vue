@@ -102,11 +102,13 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+
 		/** Optional agent UUID to preselect (e.g. opened from an agent/run context). */
 		defaultAgentId: {
 			type: String,
 			default: '',
 		},
+
 		/** Optional run (AuditTrail entry) uuids to preselect. */
 		defaultRunIds: {
 			type: Array,

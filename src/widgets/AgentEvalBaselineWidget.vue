@@ -33,13 +33,13 @@
 			<NcSelect
 				v-model="selectedMode"
 				class="agent-eval-baseline__select"
-				:input-label="t('hermiq', 'Eval baseline mode')"
+				:inputLabel="t('hermiq', 'Eval baseline mode')"
 				:options="modeOptions"
 				:disabled="saving || loading"
 				label="label"
-				track-by="value"
+				trackBy="value"
 				:clearable="false" />
-			<NcPopover class="agent-eval-baseline__info" :focus-trap="false">
+			<NcPopover class="agent-eval-baseline__info" :focusTrap="false">
 				<template #trigger>
 					<NcButton
 						type="tertiary"
@@ -72,6 +72,7 @@
 </template>
 
 <script>
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import {
 	NcButton,
 	NcLoadingIcon,
@@ -79,7 +80,6 @@ import {
 	NcPopover,
 	NcSelect,
 } from '@nextcloud/vue'
-import { showError, showSuccess } from '@nextcloud/dialogs'
 import InformationOutline from 'vue-material-design-icons/InformationOutline.vue'
 import { useAgentStore } from '../store/store.js'
 
@@ -129,6 +129,7 @@ export default {
 						'hermiq',
 						'Joint (default) — one baseline, ~2x cost',
 					),
+
 					value: 'joint',
 				},
 				{
@@ -136,6 +137,7 @@ export default {
 						'hermiq',
 						'Per-skill — true marginals, (N+1)x cost',
 					),
+
 					value: 'per-skill',
 				},
 			]

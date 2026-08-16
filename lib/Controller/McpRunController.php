@@ -66,6 +66,8 @@ use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\AnonRateLimit;
+use OCP\AppFramework\Http\Attribute\BruteForceProtection;
 use OCP\AppFramework\Http\Attribute\NoCSRFRequired;
 use OCP\AppFramework\Http\Attribute\PublicPage;
 use OCP\AppFramework\Http\JSONResponse;
@@ -73,6 +75,7 @@ use OCP\AppFramework\Http\Response;
 use OCP\IRequest;
 use OCP\IUserManager;
 use OCP\IUserSession;
+use OCP\Security\Bruteforce\IThrottler;
 use Psr\Log\LoggerInterface;
 use stdClass;
 use Throwable;
@@ -91,6 +94,17 @@ use Throwable;
  * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
  */
 class McpRunController extends Controller {
+
+	/**
+	 * Brute-force throttler action for rejected per-run tokens.
+	 *
+	 * Deliberately the SAME action string as EgressAuthorizeController — one
+	 * token space, one counter.
+	 *
+	 * @var string
+	 */
+	private const THROTTLE_ACTION = 'hermiq_run_token';
+
 
 	/**
 	 * OpenRegister register slug that holds Hermiq agent objects.
@@ -141,6 +155,7 @@ class McpRunController extends Controller {
 		private readonly ToolSearchService $toolSearchService,
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
+		private readonly IThrottler $throttler,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
@@ -164,11 +179,25 @@ class McpRunController extends Controller {
 	 */
 	#[PublicPage]
 	#[NoCSRFRequired]
+	#[AnonRateLimit(limit: 240, period: 60)]
+	#[BruteForceProtection(action: self::THROTTLE_ACTION)]
 	public function handle(): Response {
 		// AUTH FIRST — the per-run token is the authorization. Reject before any
 		// body is parsed or any tool is resolved.
 		$binding = $this->runTokenService->verify(token: $this->bearerToken());
 		if ($binding === null) {
+			// Same run-token action as EgressAuthorizeController on purpose: an
+			// attacker guessing run tokens can probe either endpoint, so both
+			// must feed one counter (ADR-082).
+			try {
+				$this->throttler->registerAttempt(
+					action: self::THROTTLE_ACTION,
+					ip: $this->request->getRemoteAddress()
+				);
+			} catch (\Throwable $throttlerFailure) {
+				unset($throttlerFailure);
+			}
+
 			return new JSONResponse(['error' => 'invalid_token'], Http::STATUS_UNAUTHORIZED);
 		}
 

@@ -33,6 +33,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\SettingsService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
+use OCP\AppFramework\Http\Attribute\AnonRateLimit;
 use OCP\AppFramework\Http\JSONResponse;
 use OCP\IRequest;
 use Psr\Log\LoggerInterface;
@@ -76,6 +77,10 @@ class HealthController extends Controller {
 	 *
 	 * @spec openspec/specs/observability/spec.md#REQ-OBS-002
 	 */
+	// Generous: monitoring polls this on a short interval, and a ceiling that
+	// trips on a normal probe cadence turns the health check into the outage it
+	// was meant to detect.
+	#[AnonRateLimit(limit: 240, period: 60)]
 	public function index(): JSONResponse {
 		try {
 			$openRegister = $this->settingsService->isOpenRegisterAvailable();

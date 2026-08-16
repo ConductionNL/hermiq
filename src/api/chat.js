@@ -36,9 +36,9 @@
 // the CSRF requesttoken automatically; the SSE stream uses fetch() (axios
 // cannot consume a streaming body) and attaches the token explicitly.
 
+import { getRequestToken } from '@nextcloud/auth'
 import axios from '@nextcloud/axios'
 import { generateUrl } from '@nextcloud/router'
-import { getRequestToken } from '@nextcloud/auth'
 
 /** Hermiq chat API base path (agent-engine-port routes). */
 const CHAT_BASE = '/apps/hermiq/api/chat'

@@ -57,12 +57,6 @@
 // `canvasEdges`.
 
 import { defineStore } from 'pinia'
-import { useAgentStore } from './store.js'
-import {
-	branchOfPort,
-	branchesOfNode,
-	orphanedBranchEdgeIds,
-} from './flowBranches.js'
 import {
 	createFlow,
 	getFlow,
@@ -74,6 +68,12 @@ import {
 	updateFlow,
 	validateFlow,
 } from '../api/flows.js'
+import {
+	branchesOfNode,
+	branchOfPort,
+	orphanedBranchEdgeIds,
+} from './flowBranches.js'
+import { useAgentStore } from './store.js'
 
 /**
  * A blank flow definition.
@@ -1348,6 +1348,9 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * different boxes.
 		 *
 		 * @param {object} payload `{id, width, height}`.
+		 * @param payload.id
+		 * @param payload.width
+		 * @param payload.height
 		 * @return {void}
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
@@ -1435,6 +1438,9 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * they are drawing, in the same class as `x`/`y`.
 		 *
 		 * @param {object} payload `{id, width, height}`.
+		 * @param payload.id
+		 * @param payload.width
+		 * @param payload.height
 		 * @return {void}
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
