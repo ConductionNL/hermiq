@@ -16,12 +16,12 @@
      appropriate appliesTo.format or appliesTo.property.
   3. The form renderer will auto-bind it to matching properties.
 
-  @spec exclude scaffold example, kept because it is the registry's only
-  form-field and therefore the worked reference for adding one. It pointed at
-  openspec/changes/scaffold-v2/, a change that no longer exists — the archived
-  remove-scaffold-leftovers change took the spec and left this tag dangling.
-  No current requirement describes this component's behaviour, and inventing
-  an anchor to a requirement that does not exist would be worse than saying so.
+  Governed by tests/registry.spec.js, which lists "form-field" in
+  REQUIRED_KINDS — the registry must always carry at least one. No
+  openspec requirement describes it: the tag that used to sit here named
+  openspec/changes/scaffold-v2/, an inherited nextcloud-app-template
+  change deleted in 7654aa5f, and pointing at anything else would name a
+  requirement that does not describe this component.
 -->
 <template>
 	<div class="email-field">

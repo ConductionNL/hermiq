@@ -34,6 +34,7 @@ use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\BudgetService;
 use OCA\OpenRegister\Db\OrganisationMapper;
+use OCA\OpenRegister\Service\ObjectService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;
 use OCP\AppFramework\Http\JSONResponse;
@@ -51,8 +52,8 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
  *   distinct injected collaborator, not a logic-bearing argument list.
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects) One injected collaborator per seam
- *   (budget service, user session, group manager, org mapper, logger) plus the HTTP
- *   response/exception types every endpoint returns.
+ *   (budget service, user session, group manager, org mapper, OpenRegister object
+ *   service, logger) plus the HTTP response/exception types every endpoint returns.
  *
  * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
  */
@@ -65,6 +66,8 @@ class BudgetController extends Controller {
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check.
 	 * @param OrganisationMapper $organisationMapper OpenRegister organisation lookup (owner check).
+	 * @param ObjectService $objectService OpenRegister object write path — `destroy()` deletes the
+	 *   Budget through OpenRegister directly (ADR-022/ADR-083: no app-local CRUD wrapper).
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 */
 	public function __construct(
@@ -73,6 +76,7 @@ class BudgetController extends Controller {
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
 		private readonly OrganisationMapper $organisationMapper,
+		private readonly ObjectService $objectService,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
@@ -276,7 +280,20 @@ class BudgetController extends Controller {
 		}
 
 		try {
-			$this->budgetService->delete(budgetId: $budgetId);
+			// Deleted through OpenRegister directly (ADR-022): a per-schema `delete()`
+			// wrapper on BudgetService added nothing but a second name for this call.
+			// RBAC/multitenancy are opted out here for the same reason the read above
+			// opts out — a Budget belongs to an ORGANISATION, and the instance admin
+			// who may administer it is not necessarily a member of it. The authority
+			// to run this line is the `mayAdminister()` gate four lines up; without
+			// that gate this call would be an IDOR.
+			$this->objectService->deleteObject(
+				uuid: $budgetId,
+				register: BudgetService::REGISTER_SLUG,
+				schema: BudgetService::BUDGET_SCHEMA,
+				_rbac: false,
+				_multitenancy: false
+			);
 			return new JSONResponse(['deleted' => true]);
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq budget delete failed: ' . $e->getMessage(), ['exception' => $e]);

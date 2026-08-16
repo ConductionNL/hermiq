@@ -41,16 +41,9 @@ export async function listAgentTemplates() {
 	return toList(response.data)
 }
 
-/**
- * Get a single agent template.
- *
- * @param {string} id The AgentTemplate UUID.
- * @return {Promise<object>} The template.
- */
-export async function getAgentTemplate(id) {
-	const response = await axios.get(generateUrl(`${TEMPLATES_BASE}/${id}`))
-	return response.data
-}
+// No getAgentTemplate() helper: reading ONE template is generic OpenRegister CRUD and comes
+// from /apps/openregister/api/objects?register=hermiq&schema=agenttemplate via the object
+// store (ADR-022). The Hermiq route it used to call was removed with it.
 
 /**
  * Author a new template directly (always active/local, never scanned).
