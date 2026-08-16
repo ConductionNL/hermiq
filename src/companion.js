@@ -21,29 +21,61 @@
  * @spec openspec/changes/companion-everywhere/specs/companion-everywhere/spec.md
  */
 
-import Vue from 'vue'
-import { CnAiCompanion } from '@conduction/nextcloud-vue'
+// The CnAiCompanion import below is DEEP, not
+// `import { CnAiCompanion } from '@conduction/nextcloud-vue'`, and it is
+// deliberately STATIC. Both are load-bearing, and neither survives being
+// "tidied up", so the reasoning lives here rather than in a commit message.
+//
+// DEEP, because this bundle loads on EVERY Nextcloud page and its size is the
+// whole design constraint. The barrel pulls the entire component library, and not
+// by accident: webpack.config.js forces `sideEffects: true` across the published
+// nc-vue dist — it has to, because the compiled SFC wrapper attaches the render
+// function as a side effect, and tree-shaking that away renders every component
+// as an empty comment node, silently. With side effects on, nothing in an
+// imported module graph can be dropped, so naming one export off the barrel costs
+// all of them. Measured on the emitted entrypoint: barrel + shared chunks =
+// 14.1 MiB across three files, of which PHP attaches one. Deep + self-contained
+// (see the splitChunks predicate in webpack.config.js) = 3.1 MiB in ONE file.
+//
+// ⚠️ STATIC, because `defineAsyncComponent(() => import(...))` was tried and
+// measured: it cuts the eager bundle to 89 KB and then fails at runtime, twice
+// over. The splitChunks predicate has to exclude the async chunk by RUNTIME
+// rather than name, or the panel's nc-vue modules are hoisted straight back into
+// `hermiq-shared-nc-vue.js` — the chunk that is not on a Files page, which is the
+// entire problem this file exists to avoid. And webpack's `publicPath` resolves
+// to `/apps/hermiq/js/` while the app is served from `/custom_apps/hermiq/js/`,
+// so every async request 404s to Nextcloud's HTML error page ("Refused to execute
+// script ... MIME type ('text/html')"). A lazy panel needs the second one fixed
+// too; it is not a one-line change.
+import CnAiCompanion from '@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
+import { createApp, h } from 'vue'
 
 /**
  * The Hermiq app's own pages already render a companion via CnAppRoot.
  *
- * Detected from the body class Nextcloud sets for the active app rather than from
- * the URL: a URL check misses `/index.php/apps/hermiq/...` vs `/apps/hermiq/...`
- * and anything mounted under a sub-path, and the body class is what Nextcloud
- * itself considers the current app.
+ * Detected from the URL. An earlier version of this file read
+ * `document.body.classList.contains('app-hermiq')` on the reasoning that "the body
+ * class is what Nextcloud itself considers the current app" — measured on
+ * Nextcloud 34, `document.body.className` is the EMPTY STRING on every page, and
+ * nothing else in the DOM names the active app either (no `OC.appName`, no
+ * `#content` class, no meta tag). The check could never fire, so the companion
+ * would have mounted a second time on top of the one CnAppRoot already renders.
+ *
+ * The regex covers what the body-class approach was reaching for: `/apps/hermiq`
+ * and `/index.php/apps/hermiq`, the bare app root and any sub-path, and it will
+ * not match a longer app id that merely starts with `hermiq`.
  *
  * @return {boolean} True when this page is one of Hermiq's own.
  */
 function hermiqOwnsThisPage() {
-	return document.body.classList.contains('app-hermiq')
+	return /(^|\/)apps\/hermiq(\/|$)/.test(window.location.pathname)
 }
 
 /**
  * A file-viewing page can tell the companion which document is open.
  *
- * Read from the query string because that is what every office connector uses:
- * `/apps/onlyoffice/{fileId}` puts it in the path, the others use `?fileId=`.
- * Returning null is normal and means "no document context", not an error.
+ * Returning null is normal and means "no document context", not an error — most
+ * pages are not showing a file.
  *
  * @return {number|null} The open file's id, or null.
  */
@@ -54,7 +86,7 @@ function openFileId() {
 	}
 
 	// `/apps/onlyoffice/24753` and `/apps/eurooffice/24753` carry it as the last
-	// path segment.
+	// path segment; `richdocuments` uses the query string handled above.
 	const segments = window.location.pathname.split('/').filter((s) => s !== '')
 	const last = segments[segments.length - 1]
 
@@ -66,6 +98,11 @@ function openFileId() {
  *
  * A dedicated container rather than an existing element: the host page belongs to
  * another app, and writing into its DOM is how one app breaks another's layout.
+ *
+ * `createApp`, not `new Vue` — this app is pure Vue 3 (webpack aliases `vue$` to
+ * `vue.runtime.esm-bundler.js`). The Vue 2 constructor form threw
+ * `TypeError: r.default is not a constructor` on first load, which is also the
+ * proof that this bundle had never been run in a browser before.
  *
  * @return {void}
  */
@@ -84,18 +121,16 @@ function mount() {
 
 	const fileId = openFileId()
 
-	new Vue({
-		render: (h) => h(CnAiCompanion, {
-			props: {
-				chatAppId: 'hermiq',
-				position: 'bottom-right',
-				// Carried so the assistant can be asked about the document on
-				// screen without the user pasting an id. Absent on pages that are
-				// not showing a file, which is most of them.
-				...(fileId !== null ? { contextFileId: fileId } : {}),
-			},
+	createApp({
+		render: () => h(CnAiCompanion, {
+			chatAppId: 'hermiq',
+			position: 'bottom-right',
+			// Carried so the assistant can be asked about the document on screen
+			// without the user pasting an id. Absent on pages that are not showing
+			// a file, which is most of them.
+			...(fileId !== null ? { contextFileId: fileId } : {}),
 		}),
-	}).$mount(root)
+	}).mount(root)
 }
 
 if (document.readyState === 'loading') {

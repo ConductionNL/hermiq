@@ -221,7 +221,7 @@ webpackConfig.plugins = [
 // `Util::addScript` dedupes by (app, file) so eagerly loading every widget
 // still emits each shared chunk exactly once.
 //
-// EXCEPTION — the `agent-leaf` entry is SELF-CONTAINED. Unlike the widgets, it is
+// EXCEPTION — the `agent-leaf` AND `companion` entries are SELF-CONTAINED. Unlike the widgets, they are
 // injected GLOBALLY on every page via `\OCP\Util::addInitScript('hermiq',
 // 'hermiq-agent-leaf')` (Application.php), with NO PHP `load()` to attach the
 // shared chunks first. If splitChunks hoisted its `registerIntegration` /
@@ -233,11 +233,59 @@ webpackConfig.plugins = [
 // from every cacheGroup by making `chunks` a predicate: it inlines its own
 // framework copy (~a few hundred KB, correct for a globally-injected script),
 // while `main` + `adminSettings` still share the extracted chunks as before.
+//
+// `companion` is injected the SAME way (addInitScript, no PHP load()) and was
+// initially left in the cacheGroups, which put it in exactly the position this
+// paragraph warns about. Measured: webpack reported the `companion` ENTRYPOINT
+// at 14.1 MiB across three files, of which PHP attaches one — the other two,
+// hermiq-shared-nc-vue.js and hermiq-shared-vendor.js, are simply not on a Files
+// or office-editor page. The emitted bundle is not a deferred stub (no
+// `__webpack_require__.e`), so nothing announces the problem: it just requires
+// modules that were hoisted into a chunk nobody loaded.
+//
+// Worth recording, because it is the trap under the trap: the FIRST measurement
+// of this bundle read `ls -l js/hermiq-companion.js` and reported 1.79 MB. That
+// is one chunk of a three-chunk entrypoint. The number was off by 8x and looked
+// authoritative — measure the ENTRYPOINT, which is what actually has to arrive.
+// The globally-injected entries and everything they can reach at runtime.
+//
+// Testing `chunk.name` alone is not enough, and this was measured. nc-vue calls
+// `defineAsyncComponent` internally, so the companion's module graph contains
+// async chunks — and an async chunk's `name` is neither 'companion' nor
+// 'agent-leaf', so a name test let splitChunks hoist their nc-vue modules straight
+// back into `hermiq-shared-nc-vue.js`. The emitted bundle then contained
+// `n.e("hermiq-shared-nc-vue")` on paths the FAB and chat panel happen not to
+// take: it rendered, it opened, it fetched nothing extra, and it was still one
+// interaction away from `ChunkLoadError` against a file no page attaches.
+//
+// `chunk.runtime` names the ENTRY a chunk belongs to and is carried by async
+// chunks too, so it covers the whole reachable graph rather than the entry file.
+const SELF_CONTAINED_RUNTIMES = ['agent-leaf', 'companion']
+
+/**
+ * May this chunk take part in the shared cacheGroups?
+ *
+ * @param {object} chunk The webpack chunk.
+ * @return {boolean} False for anything reachable from a globally-injected entry.
+ */
+function isSharedChunkEligible(chunk) {
+	if (SELF_CONTAINED_RUNTIMES.includes(chunk.name)) {
+		return false
+	}
+
+	const runtime = chunk.runtime
+	const runtimes = typeof runtime === 'string'
+		? [runtime]
+		: (runtime ? Array.from(runtime) : [])
+
+	return runtimes.some((r) => SELF_CONTAINED_RUNTIMES.includes(r)) === false
+}
+
 webpackConfig.optimization = {
 	...(webpackConfig.optimization || {}),
 	splitChunks: {
 		...(webpackConfig.optimization?.splitChunks || {}),
-		chunks: (chunk) => chunk.name !== 'agent-leaf',
+		chunks: (chunk) => isSharedChunkEligible(chunk),
 		cacheGroups: {
 			default: false,
 			defaultVendors: false,
