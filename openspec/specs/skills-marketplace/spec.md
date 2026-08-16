@@ -261,10 +261,11 @@ existing skills channel (SKILL.md-shaped) had anywhere to put an agent.
 `SkillBundleInstaller::installAgents()` MUST NOT overwrite an existing agent matched by
 `name` — an agent's live-tuned prompt/tools are hand-authored content a silent
 re-import must not clobber, unlike a skill (which the existing install path DOES
-update). Publishing agents MUST go through the same modifiable-agent authorization
-`collectPublishableAgentPayloads()` already applies to `update()` elsewhere on
-`SkillController` — a caller without edit rights on an agent must not be able to
-publish its prompt out from under its owner.
+update). Publishing agents MUST require only READ access to the agent
+(`AgentAccessService::loadAccessibleAgent()`), not modify rights — publishing
+reads the agent and writes to an external repo, it never changes the live
+object, so gating it on ownership would make any system-owned agent (owner
+`__system__`) permanently unpublishable by any real user.
 
 @e2e exclude bundle (de)serialization and idempotent-agent-upsert are unit-level
 properties with no distinct UI surface beyond the existing bundle-publish/

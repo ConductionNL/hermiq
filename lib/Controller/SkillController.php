@@ -881,13 +881,17 @@ class SkillController extends Controller {
 	 * Resolve `agentIds[]` into publishable agent payloads (skill-bundle-publish
 	 * §agents extension). Sibling to {@see collectPublishablePayloads()}.
 	 *
-	 * Gated on {@see AgentAccessService::loadModifiableAgent()} — the same
-	 * predicate `update()` uses elsewhere on this controller for skills — because
-	 * an agent's prompt/tools are exactly the kind of content a caller without
-	 * edit rights must not be able to publish out from under its owner.
+	 * Gated on {@see AgentAccessService::loadAccessibleAgent()} — READ access,
+	 * not modify. Publishing reads the agent and writes to an external repo; it
+	 * never changes the live object, so the owner-only bar `update()` needs is
+	 * the wrong one here. It would also make system-owned agents (owner
+	 * `__system__`, e.g. hydra's seeded Triage agent) permanently unpublishable
+	 * by any real user, since no user id ever equals `__system__`. Non-private
+	 * agents are org-readable per `canUserAccessAgent()`, matching what any
+	 * caller could already see by opening the agent in the Hermiq UI.
 	 *
 	 * @param array<int,mixed> $agentIds The requested agent uuids.
-	 * @param string $userId The acting user, for the modifiable-agent check.
+	 * @param string $userId The acting user, for the read-access check.
 	 *
 	 * @return array{payloads:array<int,array<string,mixed>>,outcomes:array<int,array<string,mixed>>}
 	 */
@@ -899,7 +903,7 @@ class SkillController extends Controller {
 			$id = (string)$agentId;
 
 			try {
-				$agent = $this->agentAccess->loadModifiableAgent(agentId: $id, userId: $userId);
+				$agent = $this->agentAccess->loadAccessibleAgent(agentId: $id, userId: $userId);
 			} catch (Throwable $e) {
 				$this->logger->error(
 					'Hermiq bundle publish: resolving agent "' . $id . '" failed: ' . $e->getMessage(),
