@@ -36,7 +36,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+ * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
  */
 
 declare(strict_types=1);
@@ -52,7 +52,7 @@ use Throwable;
 /**
  * Names a conversation from its first user message.
  *
- * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+ * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
  */
 class ConversationTitleWriter {
 	use SanitizesForSaveTrait;
@@ -118,7 +118,7 @@ class ConversationTitleWriter {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
 	public function write(string $conversationId, string $userMessage, string $userId): void {
 		$user = null;
@@ -162,7 +162,7 @@ class ConversationTitleWriter {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-the-deferred-title-write-preserves-the-whole-conversation-object
 	 */
 	private function writeAsOwner(string $conversationId, string $userMessage, string $userId): void {
 		try {
@@ -269,7 +269,7 @@ class ConversationTitleWriter {
 	 *
 	 * @return bool True when a title should be generated.
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
 	 */
 	private function needsTitle(array $conversationData): bool {
 		$currentTitle = ($conversationData['title'] ?? null);

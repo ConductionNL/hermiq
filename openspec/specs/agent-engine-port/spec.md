@@ -71,3 +71,66 @@ planting a cleartext key, running the step, and confirming its removal.
 - **THEN** the key is removed from the stored blob
 - **AND** the provider selection, models and Ollama URL are unchanged
 
+
+<!--
+  RESTORED 2026-08-16. These requirements describe shipped behaviour
+  (ConversationTitleJob, ConversationTitleWriter) but had no home: the
+  session-context-performance change was DELETED rather than archived in
+  6cc6f176, taking its spec delta with it, so every @spec tag in that code
+  pointed at a file that no longer existed and gate-46 reported them as
+  dangling. Recovered from 6cc6f176^ and synced here, which is where the
+  delta should have landed when the change closed.
+-->
+
+### Requirement: Conversation-title generation does not block the reply
+The system MUST deliver an agent's reply without waiting for conversation-title generation. Title
+generation MUST NOT run synchronously on the reply path. A conversation without a generated title
+MUST NOT be a failure state — the system already writes a `New conversation` placeholder title
+when a conversation is created.
+
+#### Scenario: A user sends the first message in a conversation
+- GIVEN a new conversation whose title is the placeholder `New conversation`
+- WHEN the user sends their first message
+- THEN the system MUST deliver the reply without waiting for the title to be generated
+- AND the reply's wall time MUST NOT include the title's LLM round-trip
+- AND the generated title MUST arrive afterwards
+
+#### Scenario: Only one CLI process is spawned on the reply path
+- GIVEN one user message
+- WHEN the turn runs
+- THEN exactly one `claude` process MUST be spawned on the reply's critical path
+- AND the title's process MUST NOT be spawned on that path
+
+#### Scenario: Title generation fails
+- GIVEN title generation fails or its provider is unconfigured
+- WHEN the turn completes
+- THEN the reply MUST still have been delivered
+- AND the conversation MUST retain a usable title
+
+### Requirement: The deferred title write preserves the whole conversation object
+The system MUST carry every `Conversation` field forward when writing a generated title, because
+`ObjectService::saveObject()` is PUT-semantic and silently nulls omitted schema properties. A
+title-only write MUST NOT null `userId`, `agentId`, or `metadata`.
+
+#### Scenario: A generated title is written back
+- GIVEN a conversation with a `userId`, an `agentId` and `metadata`
+- WHEN the generated title is written
+- THEN the conversation's `userId`, `agentId` and `metadata` MUST be unchanged
+- AND only the `title` MUST differ
+
+### Requirement: Deferring title generation preserves tenant-model-policy enforcement
+The system MUST pass the conversation's organisation to title generation when it is deferred.
+Passing a null organisation skips tenant-model-policy enforcement — its documented
+backward-compatible default — so a deferred call that drops the organisation MUST NOT occur.
+
+#### Scenario: A title is generated for a conversation in an organisation
+- GIVEN a conversation belonging to an organisation with a model policy
+- WHEN title generation runs off the reply path
+- THEN the system MUST pass that organisation to title generation
+- AND the organisation's model policy MUST be enforced for the title's LLM call
+
+#### Scenario: A model policy would reject the title's model
+- GIVEN an organisation whose model policy rejects the configured background model
+- WHEN deferred title generation runs
+- THEN the policy MUST be enforced exactly as it is on the synchronous path today
+- AND the system MUST NOT silently bypass the policy by passing a null organisation

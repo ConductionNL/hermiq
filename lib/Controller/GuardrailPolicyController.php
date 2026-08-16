@@ -109,7 +109,34 @@ class GuardrailPolicyController extends Controller {
 		}
 
 		try {
-			$organisation = (string)$this->request->getParam('organisation', $this->resolveActiveOrganisation(uid: $user->getUID()));
+			$uid = $user->getUID();
+			$organisation = (string)$this->request->getParam('organisation', $this->resolveActiveOrganisation(uid: $uid));
+
+			// The `organisation` parameter OVERRIDES the caller's own, and the
+			// lookup behind it (GuardrailPolicyService::getForOrganisation)
+			// reads with `_rbac: false, _multitenancy: false` — both guards
+			// off by design, because the write path needs a policy's
+			// organisation before it can decide who may administer it. That
+			// makes this the one place the caller's scope has to be checked,
+			// and it was not: any authenticated user could name any
+			// organisation and read its effective policy — which PII and
+			// prompt-injection filters are off, and which tools are `auto`.
+			// That is another tenant's security posture.
+			//
+			// Same gate index() already applies to the list: an instance admin
+			// may read any organisation, everyone else only their own. The
+			// empty organisation is the instance default and stays readable —
+			// effectivePolicyFor() falls back to it for everyone anyway.
+			if ($organisation !== ''
+				&& $this->groupManager->isAdmin($uid) === false
+				&& $this->ownsOrganisation(organisation: $organisation, uid: $uid) === false
+			) {
+				return new JSONResponse(
+					['error' => 'You are not allowed to read this organisation\'s guardrail policy'],
+					Http::STATUS_FORBIDDEN
+				);
+			}
+
 			return new JSONResponse($this->guardrailPolicy->effectivePolicyFor(organisation: $organisation));
 		} catch (Throwable $e) {
 			$this->logger->error('Hermiq guardrail-policy effective read failed: ' . $e->getMessage(), ['exception' => $e]);

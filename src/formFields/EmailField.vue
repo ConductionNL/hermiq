@@ -16,7 +16,12 @@
      appropriate appliesTo.format or appliesTo.property.
   3. The form renderer will auto-bind it to matching properties.
 
-  @spec openspec/changes/scaffold-v2/specs/scaffold-v2/spec.md
+  @spec exclude scaffold example, kept because it is the registry's only
+  form-field and therefore the worked reference for adding one. It pointed at
+  openspec/changes/scaffold-v2/, a change that no longer exists — the archived
+  remove-scaffold-leftovers change took the spec and left this tag dangling.
+  No current requirement describes this component's behaviour, and inventing
+  an anchor to a requirement that does not exist would be worse than saying so.
 -->
 <template>
 	<div class="email-field">
