@@ -30,7 +30,7 @@
  *
  * @link https://conduction.nl
  *
- * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+ * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
  */
 
 declare(strict_types=1);
@@ -47,7 +47,7 @@ use OCP\BackgroundJob\QueuedJob;
  * A pure wrapper (ADR-002): every decision lives in ConversationTitleWriter, so
  * the same code path is exercised by a test without a job runner.
  *
- * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+ * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
  */
 class ConversationTitleJob extends QueuedJob {
 	/**
@@ -76,7 +76,7 @@ class ConversationTitleJob extends QueuedJob {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/session-context-performance/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
+	 * @spec openspec/specs/agent-engine-port/spec.md#requirement-conversation-title-generation-does-not-block-the-reply
 	 */
 	protected function run($argument): void {
 		$payload = $argument;
