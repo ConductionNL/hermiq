@@ -418,4 +418,290 @@ class SkillBundleSerializerTest extends TestCase {
 		$this->assertSame('invalid_name', $dropped[0]['reason']);
 
 	}//end testInvalidNameIsReportedAsDropped()
+
+	/**
+	 * An agent round-trips through toBundle()/agentsFromBundle() with its
+	 * arbitrary fields (prompt/tools/anything) intact, and the identity fields
+	 * an installed-elsewhere agent must NOT collide on are stripped.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testAgentRoundTripsThroughBundle(): void {
+		$serializer = $this->serializer();
+
+		$tree = $serializer->toBundle(
+			skills: [],
+			agents: [
+				[
+					'uuid' => 'should-not-survive',
+					'id' => 'should-not-survive-either',
+					'name' => 'Hydra Triage',
+					'description' => 'Reads pipeline state.',
+					'prompt' => 'You are the triage agent.',
+					'tools' => ['hydra.change.*', 'hydra.cycle.*'],
+					'requiresApproval' => true,
+				],
+			]
+		);
+
+		$this->assertArrayHasKey('agents/hydra-triage.json', $tree);
+
+		$agents = $serializer->agentsFromBundle(files: $tree);
+		$this->assertCount(1, $agents);
+		$this->assertSame('Hydra Triage', $agents[0]['name']);
+		$this->assertSame('You are the triage agent.', $agents[0]['prompt']);
+		$this->assertSame(['hydra.change.*', 'hydra.cycle.*'], $agents[0]['tools']);
+		$this->assertTrue($agents[0]['requiresApproval']);
+		$this->assertArrayNotHasKey('uuid', $agents[0], 'a fresh install must get a fresh identity, never reuse the source uuid');
+		$this->assertArrayNotHasKey('id', $agents[0]);
+
+	}//end testAgentRoundTripsThroughBundle()
+
+	/**
+	 * A 1.0-shaped bundle (no `agents` manifest key at all) is still valid and
+	 * agent-less — the MINOR version bump must not break every bundle published
+	 * before this requirement existed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#scenario-a-10-bundle-with-no-agents-key-still-installs-its-skills
+	 */
+	public function testLegacyBundleWithNoAgentsKeyParsesAsAgentless(): void {
+		$serializer = $this->serializer();
+
+		$legacyManifest = [
+			'formatVersion' => '1.0',
+			'skills' => [['name' => 'good-skill']],
+		];
+		$files = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode($legacyManifest),
+			'skills/good-skill/SKILL.md' => "---\nname: good-skill\n---\nbody\n",
+		];
+
+		$this->assertSame([], $serializer->agentsFromBundle(files: $files));
+		$this->assertCount(1, $serializer->fromBundle(files: $files), 'skills must still install from a pre-agents bundle');
+
+	}//end testLegacyBundleWithNoAgentsKeyParsesAsAgentless()
+
+	/**
+	 * Two agents whose names sanitise to the same file name: the second is
+	 * dropped and reported, never silently overwriting the first — the same
+	 * guarantee `toBundle()` already gives skills.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testDuplicateAgentFileNameIsDroppedNotOverwritten(): void {
+		$serializer = $this->serializer();
+
+		$droppedAgents = [];
+		$serializer->toBundle(
+			skills: [],
+			dropped: $dropped,
+			agents: [
+				['name' => 'Hydra Triage', 'prompt' => 'first'],
+				['name' => 'hydra-triage', 'prompt' => 'second'],
+			],
+			droppedAgents: $droppedAgents
+		);
+
+		$this->assertCount(1, $droppedAgents);
+		$this->assertSame('duplicate_directory_name', $droppedAgents[0]['reason']);
+
+	}//end testDuplicateAgentFileNameIsDroppedNotOverwritten()
+
+	/**
+	 * An agent DECLARED in the manifest whose file is missing is dropped, and the
+	 * agents that do resolve still install. A manifest is a claim about the tree,
+	 * not proof of it — reading the declaration as the payload would install an
+	 * empty agent under a real name.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testDeclaredAgentWithoutItsFileIsSkipped(): void {
+		$serializer = $this->serializer();
+
+		$files = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode([
+				'formatVersion' => SkillBundleSerializer::FORMAT_VERSION,
+				'skills' => [],
+				'agents' => [['name' => 'ghost'], ['name' => 'real']],
+			]),
+			'agents/real.json' => json_encode(['name' => 'real', 'prompt' => 'here']),
+		];
+
+		$agents = $serializer->agentsFromBundle(files: $files);
+
+		$this->assertCount(1, $agents);
+		$this->assertSame('real', $agents[0]['name']);
+
+	}//end testDeclaredAgentWithoutItsFileIsSkipped()
+
+	/**
+	 * An agent file that is not valid JSON is dropped rather than half-parsed.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testAgentFileThatIsNotJsonIsSkipped(): void {
+		$serializer = $this->serializer();
+
+		$files = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode([
+				'formatVersion' => SkillBundleSerializer::FORMAT_VERSION,
+				'skills' => [],
+				'agents' => [['name' => 'broken']],
+			]),
+			'agents/broken.json' => 'this is not json at all',
+		];
+
+		$this->assertSame([], $serializer->agentsFromBundle(files: $files));
+
+	}//end testAgentFileThatIsNotJsonIsSkipped()
+
+	/**
+	 * An agent file carrying no `name` of its own inherits the manifest name, and
+	 * `bundleName` always records the path component it was read from.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testAgentWithoutAnOwnNameInheritsTheManifestName(): void {
+		$serializer = $this->serializer();
+
+		$files = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode([
+				'formatVersion' => SkillBundleSerializer::FORMAT_VERSION,
+				'skills' => [],
+				'agents' => [['name' => 'triage']],
+			]),
+			'agents/triage.json' => json_encode(['prompt' => 'no name field']),
+		];
+
+		$agents = $serializer->agentsFromBundle(files: $files);
+
+		$this->assertCount(1, $agents);
+		$this->assertSame('triage', $agents[0]['name']);
+		$this->assertSame('triage', $agents[0]['bundleName']);
+
+	}//end testAgentWithoutAnOwnNameInheritsTheManifestName()
+
+	/**
+	 * A manifest that declares agents as bare strings rather than objects is read
+	 * identically — both shapes appear in the wild and the reader accepts either.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testAgentManifestAcceptsBareStringNames(): void {
+		$serializer = $this->serializer();
+
+		$files = [
+			SkillBundleSerializer::MANIFEST_FILE => json_encode([
+				'formatVersion' => SkillBundleSerializer::FORMAT_VERSION,
+				'skills' => [],
+				'agents' => ['triage'],
+			]),
+			'agents/triage.json' => json_encode(['name' => 'triage']),
+		];
+
+		$agents = $serializer->agentsFromBundle(files: $files);
+
+		$this->assertCount(1, $agents);
+		$this->assertSame('triage', $agents[0]['name']);
+
+	}//end testAgentManifestAcceptsBareStringNames()
+
+	/**
+	 * The agent cap bounds a READ as well as a write. A hostile manifest cannot
+	 * make an install unpack an unbounded number of agents by declaring them.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testAgentCapIsEnforcedOnRead(): void {
+		$serializer = $this->serializer();
+
+		$declared = [];
+		$files = [];
+		for ($i = 0; $i < (SkillBundleSerializer::MAX_AGENTS + 5); $i++) {
+			$name = 'agent-' . $i;
+			$declared[] = ['name' => $name];
+			$files['agents/' . $name . '.json'] = json_encode(['name' => $name]);
+		}
+
+		$files[SkillBundleSerializer::MANIFEST_FILE] = json_encode([
+			'formatVersion' => SkillBundleSerializer::FORMAT_VERSION,
+			'skills' => [],
+			'agents' => $declared,
+		]);
+
+		$this->assertCount(SkillBundleSerializer::MAX_AGENTS, $serializer->agentsFromBundle(files: $files));
+
+	}//end testAgentCapIsEnforcedOnRead()
+
+	/**
+	 * The agent cap bounds a WRITE, and everything beyond it is REPORTED dropped
+	 * rather than silently omitted — the exact failure that once let a bundle
+	 * claim 94 published while shipping 64.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testAgentCapOverflowIsReportedNotSilentlyOmitted(): void {
+		$serializer = $this->serializer();
+
+		$agents = [];
+		for ($i = 0; $i < (SkillBundleSerializer::MAX_AGENTS + 3); $i++) {
+			$agents[] = ['name' => 'agent-' . $i];
+		}
+
+		$droppedAgents = [];
+		$tree = $serializer->toBundle(skills: [], agents: $agents, droppedAgents: $droppedAgents);
+
+		$this->assertCount(3, $droppedAgents);
+		$this->assertSame('cap_reached', $droppedAgents[0]['reason']);
+
+		$manifest = json_decode($tree[SkillBundleSerializer::MANIFEST_FILE], true);
+		$this->assertCount(SkillBundleSerializer::MAX_AGENTS, $manifest['agents']);
+
+	}//end testAgentCapOverflowIsReportedNotSilentlyOmitted()
+
+	/**
+	 * A non-array entry in either channel is skipped without disturbing the rest.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testNonArrayEntriesAreSkipped(): void {
+		$serializer = $this->serializer();
+
+		$dropped = [];
+		$droppedAgents = [];
+		$tree = $serializer->toBundle(
+			skills: ['just a string', ['name' => 'good-skill', 'frontmatter' => 'name: good-skill', 'body' => "body\n", 'files' => []]],
+			dropped: $dropped,
+			agents: [null, ['name' => 'triage']],
+			droppedAgents: $droppedAgents
+		);
+
+		$manifest = json_decode($tree[SkillBundleSerializer::MANIFEST_FILE], true);
+
+		$this->assertCount(1, $manifest['agents']);
+		$this->assertCount(1, $manifest['skills']);
+		$this->assertSame([], $dropped, 'a malformed entry is not a DROPPED entry — there was no name to report');
+		$this->assertSame([], $droppedAgents);
+
+	}//end testNonArrayEntriesAreSkipped()
 }//end class

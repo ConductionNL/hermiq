@@ -623,28 +623,30 @@ class SkillController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$owner = (string)($this->request->getParam('owner') ?? '');
-		$repo = (string)($this->request->getParam('repo') ?? '');
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-			return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+		$parsed = $this->parseBundlePublishRequest();
+		if (($parsed['error'] ?? null) instanceof JSONResponse) {
+			return $parsed['error'];
 		}
 
-		$skillIds = $this->request->getParam('skillIds');
-		if (is_array($skillIds) === false || $skillIds === []) {
-			return new JSONResponse(['error' => 'skillIds must be a non-empty array'], Http::STATUS_BAD_REQUEST);
-		}
-
-		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
-		if (in_array($visibility, ['public', 'private'], true) === false) {
-			return new JSONResponse(['error' => 'invalid_visibility'], Http::STATUS_BAD_REQUEST);
-		}
+		$owner = $parsed['owner'];
+		$repo = $parsed['repo'];
+		$skillIds = $parsed['skillIds'];
+		$agentIds = $parsed['agentIds'];
+		$visibility = $parsed['visibility'];
 
 		$collected = $this->collectPublishablePayloads(skillIds: $skillIds);
 		$payloads = $collected['payloads'];
 		$outcomes = $collected['outcomes'];
 
-		if ($payloads === []) {
-			return new JSONResponse(['error' => 'no_publishable_skills', 'skills' => $outcomes], Http::STATUS_BAD_REQUEST);
+		$collectedAgents = $this->collectPublishableAgentPayloads(agentIds: $agentIds, userId: $user->getUID());
+		$agentPayloads = $collectedAgents['payloads'];
+		$agentOutcomes = $collectedAgents['outcomes'];
+
+		if ($payloads === [] && $agentPayloads === []) {
+			return new JSONResponse(
+				['error' => 'no_publishable_content', 'skills' => $outcomes, 'agents' => $agentOutcomes],
+				Http::STATUS_BAD_REQUEST
+			);
 		}
 
 		try {
@@ -653,7 +655,8 @@ class SkillController extends Controller {
 			// first real bundle claimed 94 while shipping 64 — the response must be
 			// built from what was SERIALISED, not from what was requested.
 			$dropped = [];
-			$tree = $this->bundleSerializer->toBundle(skills: $payloads, dropped: $dropped);
+			$droppedAgents = [];
+			$tree = $this->bundleSerializer->toBundle(skills: $payloads, dropped: $dropped, agents: $agentPayloads, droppedAgents: $droppedAgents);
 
 			$result = $this->pushService->publishBundle(
 				files: $tree,
@@ -669,6 +672,7 @@ class SkillController extends Controller {
 		}
 
 		$reconciled = $this->reconcileOutcomes(outcomes: $outcomes, dropped: $dropped);
+		$reconciledAgents = $this->reconcileOutcomes(outcomes: $agentOutcomes, dropped: $droppedAgents);
 
 		return new JSONResponse(
 			[
@@ -677,13 +681,75 @@ class SkillController extends Controller {
 				'created' => $result['created'],
 				'published' => $reconciled['published'],
 				'dropped' => count($dropped),
-				'truncated' => ($dropped !== []),
+				'truncated' => ($dropped !== [] || $droppedAgents !== []),
 				'skills' => $reconciled['outcomes'],
+				'agentsPublished' => $reconciledAgents['published'],
+				'agentsDropped' => count($droppedAgents),
+				'agents' => $reconciledAgents['outcomes'],
 			],
 			Http::STATUS_OK
 		);
 
 	}//end bundlePublish()
+
+	/**
+	 * Read and validate `bundlePublish()`'s request parameters.
+	 *
+	 * Split out so the publish method itself is about publishing. The validation
+	 * is a flat run of independent guards whose branches multiply into the
+	 * publish flow's own — folding them together is what took `bundlePublish()`
+	 * to an NPath of 864 without any of it being publish logic.
+	 *
+	 * Either `skillIds` or `agentIds` may be empty; both empty is the rejection.
+	 * A bundle of only agents and a bundle of only skills are both legitimate.
+	 *
+	 * @return array{error?:JSONResponse,owner:string,repo:string,skillIds:array<int,mixed>,agentIds:array<int,mixed>,visibility:string}
+	 *         The validated request, or a shape carrying `error` — the caller returns that response verbatim.
+	 */
+	private function parseBundlePublishRequest(): array {
+		$reject = static fn (string $code): array => [
+			'error' => new JSONResponse(['error' => $code], Http::STATUS_BAD_REQUEST),
+			'owner' => '',
+			'repo' => '',
+			'skillIds' => [],
+			'agentIds' => [],
+			'visibility' => 'private',
+		];
+
+		$owner = (string)($this->request->getParam('owner') ?? '');
+		$repo = (string)($this->request->getParam('repo') ?? '');
+		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+			return $reject('invalid_repo');
+		}
+
+		$skillIds = $this->request->getParam('skillIds');
+		if (is_array($skillIds) === false) {
+			$skillIds = [];
+		}
+
+		$agentIds = $this->request->getParam('agentIds');
+		if (is_array($agentIds) === false) {
+			$agentIds = [];
+		}
+
+		if ($skillIds === [] && $agentIds === []) {
+			return $reject('skillIds or agentIds must be a non-empty array');
+		}
+
+		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
+		if (in_array($visibility, ['public', 'private'], true) === false) {
+			return $reject('invalid_visibility');
+		}
+
+		return [
+			'owner' => $owner,
+			'repo' => $repo,
+			'skillIds' => $skillIds,
+			'agentIds' => $agentIds,
+			'visibility' => $visibility,
+		];
+
+	}//end parseBundlePublishRequest()
 
 	/**
 	 * Install every skill from a bundle repository (skill-bundle-publish).
@@ -754,6 +820,14 @@ class SkillController extends Controller {
 			repo: $repo
 		);
 
+		// This direct HTTP path predates the skill-bundle agents extension and,
+		// unlike ApplicationsController's shop-install -> SkillChannelDelegate ->
+		// SkillBundleInstaller::installFromRepo() route, never called
+		// agentsFromBundle()/installAgents() — a bundle installed straight
+		// through this endpoint silently dropped every agent it declared.
+		$agents = $this->bundleSerializer->agentsFromBundle(files: $bundle['files']);
+		$agentResult = $this->bundleInstaller->installAgents(parsed: $agents);
+
 		return new JSONResponse(
 			[
 				'installed' => $result['counts']['installed'],
@@ -763,6 +837,7 @@ class SkillController extends Controller {
 				'failed' => $result['counts']['failed'],
 				'truncated' => $bundle['truncated'],
 				'skills' => $result['outcomes'],
+				'agents' => $agentResult['outcomes'],
 			],
 			Http::STATUS_OK
 		);
@@ -855,6 +930,58 @@ class SkillController extends Controller {
 
 		return ['payloads' => $payloads, 'outcomes' => $outcomes];
 	}//end collectPublishablePayloads()
+
+	/**
+	 * Resolve `agentIds[]` into publishable agent payloads (skill-bundle-publish
+	 * §agents extension). Sibling to {@see collectPublishablePayloads()}.
+	 *
+	 * Gated on {@see AgentAccessService::loadAccessibleAgent()} — READ access,
+	 * not modify. Publishing reads the agent and writes to an external repo; it
+	 * never changes the live object, so the owner-only bar `update()` needs is
+	 * the wrong one here. It would also make system-owned agents (owner
+	 * `__system__`, e.g. hydra's seeded Triage agent) permanently unpublishable
+	 * by any real user, since no user id ever equals `__system__`. Non-private
+	 * agents are org-readable per `canUserAccessAgent()`, matching what any
+	 * caller could already see by opening the agent in the Hermiq UI.
+	 *
+	 * @param array<int,mixed> $agentIds The requested agent uuids.
+	 * @param string $userId The acting user, for the read-access check.
+	 *
+	 * @return array{payloads:array<int,array<string,mixed>>,outcomes:array<int,array<string,mixed>>}
+	 */
+	private function collectPublishableAgentPayloads(array $agentIds, string $userId): array {
+		$payloads = [];
+		$outcomes = [];
+
+		foreach ($agentIds as $agentId) {
+			$id = (string)$agentId;
+
+			try {
+				$agent = $this->agentAccess->loadAccessibleAgent(agentId: $id, userId: $userId);
+			} catch (Throwable $e) {
+				$this->logger->error(
+					'Hermiq bundle publish: resolving agent "' . $id . '" failed: ' . $e->getMessage(),
+					['exception' => $e]
+				);
+				$outcomes[] = ['name' => $id, 'outcome' => 'failed'];
+				continue;
+			}
+
+			if ($agent === null) {
+				$outcomes[] = ['name' => $id, 'outcome' => 'not_found'];
+				continue;
+			}
+
+			$object = $agent->getObject();
+			$payloads[] = $object;
+			$outcomes[] = [
+				'name' => (string)($object['name'] ?? ''),
+				'outcome' => 'published',
+			];
+		}//end foreach
+
+		return ['payloads' => $payloads, 'outcomes' => $outcomes];
+	}//end collectPublishableAgentPayloads()
 
 	/**
 	 * Reconcile the per-skill outcomes against what the serialiser actually

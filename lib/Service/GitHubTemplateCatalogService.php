@@ -150,6 +150,19 @@ class GitHubTemplateCatalogService {
 	public const BUNDLE_SKILLS_PREFIX = 'skills/';
 
 	/**
+	 * The directory bundled agents live under (skill-bundle §agents extension) —
+	 * mirrors {@see \OCA\Hermiq\Service\SkillBundleSerializer::AGENTS_PREFIX}.
+	 * Without this, a bundle's `agents/*.json` files are never fetched from a
+	 * remote repo at all — only `agentsFromBundle()`'s PARSING was added
+	 * (skill-bundle-publish agents extension); the fetch-side accept filter
+	 * was never taught about this prefix, so it silently collected zero agent
+	 * files on every remote install regardless of how many the bundle declared.
+	 *
+	 * @var string
+	 */
+	public const BUNDLE_AGENTS_PREFIX = 'agents/';
+
+	/**
 	 * Maximum total bytes fetched for one bundle install (design.md §Security 3).
 	 *
 	 * @var int
@@ -254,11 +267,13 @@ class GitHubTemplateCatalogService {
 	 * @param IClientService $clientService NC HTTP client factory (anonymous calls).
 	 * @param ICacheFactory $cacheFactory NC cache factory (short-TTL server cache).
 	 * @param LoggerInterface $logger PSR logger (secret-free diagnostics only).
+	 * @param GitHubArchiveExtractor $archiveExtractor Unpacks an already-fetched repository tarball.
 	 */
 	public function __construct(
 		private readonly IClientService $clientService,
 		ICacheFactory $cacheFactory,
 		private readonly LoggerInterface $logger,
+		private readonly GitHubArchiveExtractor $archiveExtractor,
 	) {
 		$cache = null;
 		if ($cacheFactory->isAvailable() === true) {
@@ -592,6 +607,72 @@ class GitHubTemplateCatalogService {
 	}//end collectTreeBlobs()
 
 	/**
+	 * Collect blobs under a prefix via ONE archive download instead of one HTTP
+	 * call per file.
+	 *
+	 * `collectTreeBlobs()` fetches the tree in one call but then GitHub's
+	 * Contents API one file at a time — for a 94-skill bundle that is ~750
+	 * individual broker-mediated round trips. Live-verified: this burns through
+	 * a PAT's rate limit fast enough that a single large bundle install can
+	 * fail partway with a 403, and the caller (which treats a failed fetch as
+	 * "file absent" rather than "fetch failed") reports a clean but wrong
+	 * `0 installed` rather than surfacing the real cause. GitHub's tarball
+	 * endpoint (`GET /repos/{owner}/{repo}/tarball/{ref}`) returns the ENTIRE
+	 * repository content in one request regardless of file count — this is the
+	 * `/repos/*` GET rule already granted to the `github` provider (no new
+	 * broker allow-rule needed), and the 303 it returns carries a
+	 * pre-authorised `codeload.github.com` URL in its own query string, which
+	 * Guzzle follows by default.
+	 *
+	 * Best-effort: returns null on ANY failure (fetch, non-2xx, empty body,
+	 * extraction) so the caller can fall back to {@see collectTreeBlobs()}
+	 * rather than fail the whole install over an optimisation.
+	 *
+	 * This method owns only the FETCH — the one part that is an outbound call and
+	 * therefore subject to this class's fixed-host invariant. Unpacking the bytes
+	 * makes no outbound call, so it lives in {@see GitHubArchiveExtractor}.
+	 *
+	 * @param string $owner Repo owner.
+	 * @param string $repo Repo name.
+	 * @param string|null $ref Optional git ref.
+	 * @param string|null $actingUserId The session UID (broker identity), or null.
+	 * @param string|null $credentialId Optional allowed `github` credential.
+	 * @param callable $accept Predicate deciding whether an archive entry's path (with the
+	 *                         archive's own `{owner}-{repo}-{sha}/` root stripped) is wanted.
+	 *
+	 * @return array<string,string>|null The `path => contents` map, or null when unavailable —
+	 *                                    never partial: an extraction that fails partway is
+	 *                                    discarded whole, so the caller's fallback is a clean
+	 *                                    do-over, not a merge of two partial sets.
+	 *
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Repo coordinates + broker identity + the filter predicate; each is a distinct input.
+	 */
+	private function fetchArchiveBlobs(
+		string $owner,
+		string $repo,
+		?string $ref,
+		?string $actingUserId,
+		?string $credentialId,
+		callable $accept,
+	): ?array {
+		$treeRef = ($ref ?? 'HEAD');
+		$result = $this->get(
+			path: '/repos/' . rawurlencode($owner) . '/' . rawurlencode($repo) . '/tarball/' . rawurlencode($treeRef),
+			actingUserId: $actingUserId,
+			credentialId: $credentialId
+		);
+		if ($result['ok'] === false) {
+			return null;
+		}
+
+		return $this->archiveExtractor->extract(
+			body: $result['body'],
+			accept: $accept,
+			maxBytes: self::MAX_BUNDLE_BYTES
+		);
+	}//end fetchArchiveBlobs()
+
+	/**
 	 * Fetch a repository's recursive git tree.
 	 *
 	 * @param string $owner Repo owner.
@@ -690,6 +771,42 @@ class GitHubTemplateCatalogService {
 			return null;
 		}
 
+		// Only the manifest, plus blobs under `skills/` or `agents/`, are
+		// wanted; anything else in the repository is ignored, so a bundle can
+		// live alongside unrelated content.
+		$accept = static function (string $path): bool {
+			return $path === self::BUNDLE_MANIFEST_FILE
+				|| str_starts_with($path, self::BUNDLE_SKILLS_PREFIX)
+				|| str_starts_with($path, self::BUNDLE_AGENTS_PREFIX);
+		};
+
+		// ONE archive download beats one HTTP call per file — for a 94-skill
+		// bundle that is ~750 fewer broker round trips (previously ~1 for the
+		// manifest, ~750 more for skills, now 1 total). Live-verified to
+		// matter: per-file fetching burns through a PAT's request budget fast
+		// enough that a single large bundle install can 403 partway through
+		// (GitHub's secondary rate limit / abuse detection on the Contents API
+		// specifically — triggered independently of the primary 5000/hour
+		// quota by request PATTERN, not just count). Tried first, covering the
+		// manifest fetch too, so a bundle install never has to touch the
+		// per-file endpoint at all in the common case.
+		$archiveFiles = $this->fetchArchiveBlobs(
+			owner: $owner,
+			repo: $repo,
+			ref: $ref,
+			actingUserId: $actingUserId,
+			credentialId: $credentialId,
+			accept: $accept
+		);
+
+		if ($archiveFiles !== null && isset($archiveFiles[self::BUNDLE_MANIFEST_FILE]) === true) {
+			return ['files' => $archiveFiles, 'truncated' => false];
+		}
+
+		// Fall back to the proven per-file path — best-effort: any archive
+		// failure (network, extraction, unexpected shape, or a bundle whose
+		// manifest the archive filter somehow missed) degrades gracefully
+		// rather than failing the install outright.
 		$manifest = $this->fetchFileContents(
 			owner: $owner,
 			repo: $repo,
@@ -702,9 +819,8 @@ class GitHubTemplateCatalogService {
 			return null;
 		}
 
-		// Only blobs under `skills/` are wanted; anything else in the repository is
-		// ignored, so a bundle can live alongside unrelated content. The manifest's
-		// own bytes count against the bound because it is part of what was fetched.
+		// The manifest's own bytes count against the bound because it is part
+		// of what was fetched.
 		$collected = $this->collectTreeBlobs(
 			owner: $owner,
 			repo: $repo,
@@ -712,7 +828,8 @@ class GitHubTemplateCatalogService {
 			actingUserId: $actingUserId,
 			credentialId: $credentialId,
 			accept: static function (string $path): bool {
-				return str_starts_with($path, self::BUNDLE_SKILLS_PREFIX);
+				return str_starts_with($path, self::BUNDLE_SKILLS_PREFIX)
+					|| str_starts_with($path, self::BUNDLE_AGENTS_PREFIX);
 			},
 			maxFiles: self::MAX_SKILLS_BLOBS,
 			maxBytes: (self::MAX_BUNDLE_BYTES - strlen($manifest))
@@ -864,6 +981,23 @@ class GitHubTemplateCatalogService {
 
 		$result = $this->get(path: $apiPath, actingUserId: $actingUserId, credentialId: $credentialId);
 		if ($result['ok'] === false) {
+			// Rate-limit exhaustion specifically flagged: a failed per-file fetch
+			// silently reads to a caller as "file absent", not "fetch failed" —
+			// live-verified this is how a large bundle install came back a clean
+			// but wrong `0 installed` instead of surfacing the real 403. Logged
+			// here, at the one place that knows the real HTTP status, since
+			// nothing downstream can tell the difference once it sees null.
+			// `rateLimited` and `status` are declared members of get()'s return
+			// shape and are always present — a `??` fallback here reads as a
+			// guard against a key that cannot be absent, which is why phpstan
+			// rejects it.
+			if ($result['rateLimited'] === true) {
+				$this->logger->warning(
+					'Hermiq GitHub template catalog: rate-limited fetching ' . $apiPath . ' — result will read as "file absent", not "fetch failed".',
+					['status' => $result['status']]
+				);
+			}
+
 			return null;
 		}
 
