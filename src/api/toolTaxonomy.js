@@ -23,3 +23,23 @@ export async function getToolTaxonomy() {
 
 	return response.data?.results ?? []
 }
+
+/**
+ * The agent's grant strings, exactly as stored.
+ *
+ * 🔴 This is the AUTHORITATIVE list, and reading it from anywhere else destroys
+ * grants. The obvious-looking alternative — reconstructing it from the
+ * catalogue's `grantedBy` annotations — silently drops every grant the
+ * catalogue cannot attribute: measured on a live agent, all 8 of its grants
+ * came back `granted: true` with `grantedBy: null`, so a reconstruction kept
+ * none of them and the next save wrote them away.
+ *
+ * @param {string} agentId The agent UUID.
+ * @return {Promise<Array<string>>} The stored grant strings.
+ */
+export async function getAgentGrants(agentId) {
+	const response = await axios.get(generateUrl(`/apps/hermiq/api/agents/${agentId}`))
+
+	const tools = response.data?.tools
+	return Array.isArray(tools) ? tools : []
+}
