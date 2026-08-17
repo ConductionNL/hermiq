@@ -80,6 +80,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()` exactly, deliberately:
 	 *   the two must accept the same stage, and a bundled array is the shape in which a field
 	 *   has already been silently dropped at this boundary once.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	public function dispatchAsync(
 		string $repo,
@@ -207,6 +209,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @return array{job: array{id: string, status: string}} The handle.
 	 *
 	 * @throws RuntimeException When the body carries no usable handle.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function mapAccepted(string $body): array {
 		$decoded = json_decode($body, true);
