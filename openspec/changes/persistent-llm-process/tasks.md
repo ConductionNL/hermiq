@@ -2,8 +2,8 @@
 
 ## 0. Sequencing and the blocking decision
 
-- [ ] Land `tool-scope-security-default` first
-- [ ] Decide the token strategy (design D0.1) before writing any pool code
+- [x] Land `tool-scope-security-default` first — **satisfied in code** (verified 2026-08-17): `HERMIQ_LEGACY_UNSCOPED_TOOLS` is read nowhere, `applyDefaultDeny()` has no implementation, and `ToolGrantResolver` states "THERE IS NO OVERRIDE, deliberately". That change's own checkboxes lag its code.
+- [ ] Decide the token strategy (design D0.1) — **STILL BLOCKING, and narrowed**: the token is TTL-bounded *and* `consume()`d in a `finally` when the run closes, so a pooled governed process holds a dead token. Option 2 has no mechanism without option 3's unverified config re-read. **Governed pooling is blocked; ungoverned (text-only) pooling is not and can ship first.**
 
 Acceptance criteria:
 - Pooling a process that holds a stale, over-broad tool set is strictly worse than spawning a correct one each time.
@@ -24,7 +24,7 @@ Acceptance criteria:
 
 ## 2. Keep the guarantees a fresh process gave for free
 
-- [ ] Prove no conversation state crosses turns, using a distinctive token
+- [x] Prove no conversation state crosses turns, using a distinctive token — **DONE, and the answer is that it DOES cross** (design D0.05): a second turn recalled the canary `ZARQUON` with no history re-sent. The requirement is therefore to CONTAIN carried state (key the pool by conversation; stop re-sending history on a hit), not to prevent it.
 - [ ] Invalidate an agent's pooled processes when its grants change, immediately — not at idle reap
 - [ ] Reap a process on repeated `api_retry` with `error_status: 401`
 - [ ] Fall back to spawning on any pool miss, unhealthy process, or dispatch failure

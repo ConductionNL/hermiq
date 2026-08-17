@@ -178,6 +178,18 @@ async function handleRun(req, res, rawBody) {
 			toolCalls: result.toolCalls,
 			usage: result.usage,
 		})
+
+		// DEV ONLY, off by default, self-disabling after one run. Runs AFTER the
+		// response so a probe can never delay or alter a served turn. See
+		// poolprobe.js for why it has to borrow a live credential.
+		//
+		// Gated on a FILE rather than an env var so it can be armed on a running
+		// container without recreating it — this instance is shared.
+		if (process.env.RUNNER_POOL_PROBE === '1' || require('fs').existsSync('/tmp/pool-probe-armed')) {
+			require('./poolprobe')
+				.runProbe({ provider, model, credentialEnv, log })
+				.catch((err) => log('error', `POOL PROBE failed: ${err.message}`))
+		}
 	} catch (err) {
 		// err.message is already redacted in runner.js.
 		log('error', `/run failed: ${err.message}`)

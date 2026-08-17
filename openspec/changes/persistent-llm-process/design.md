@@ -62,6 +62,56 @@ process that survives the turn — which is the entire saving this change exists
 Messages are newline-delimited JSON:
 `{"type":"user","message":{"role":"user","content":[{"type":"text","text":"…"}]}}`
 
+### D0.0 — ⚠️ Reaching `init` is NOT answering. Measured 2026-08-17.
+
+The evidence above stops at `init`, and a pool cannot be built on a process that
+has merely *started*. Re-probed against the real binary with a real credential
+(`exapp/llm-runner/src/poolprobe.js`, two turns down one process):
+
+```
+POOL PROBE OK init=1604ms turn1=2948ms turn2=4346ms
+             secondTurnAnswered=true  contextCarried=true
+             turn1="ACK"  turn2="ZARQUON"
+```
+
+| | |
+|---|---|
+| init | 1604 ms (confirms the ~1.7 s above) |
+| turn 1, incl. init | 2948 ms |
+| **turn 2, same process** | **1398 ms** |
+
+**A second turn is answered, and it costs 53% less** because the init is already
+paid. That is the saving, now measured rather than argued.
+
+⚠️ **The first attempt at this probe deadlocked at its 180 s ceiling with
+`init=-1`** — it waited for the `init` event *before* writing turn 1. The CLI does
+not necessarily announce itself before it has input. **"Spawn, then wait to be
+greeted" is a hang, not a protocol**: write the first frame immediately.
+
+### D0.05 — 🔴 CONVERSATION STATE CARRIES ACROSS TURNS, and that decides the key
+
+`contextCarried=true` above is not incidental. Turn 2 asked *"what word did I ask
+you to remember?"* with **no history re-sent**, and the process answered
+`ZARQUON`. The session remembers.
+
+This cuts both ways and constrains the whole design:
+
+- It is **why pooling is cheap** — a pooled turn need not re-send history at all.
+- It is **the leak**. Hermiq flattens and sends the FULL history every turn
+  (`buildPrompt()`), so a pooled process would receive history it already holds,
+  and a process shared between two callers would carry one caller's words into
+  the other's turn.
+
+Therefore **the pool key must be the CONVERSATION, not (agent, user)** as D1
+currently states. A persistent session *is* a conversation; keying any wider
+shares memory across turns that were never meant to see each other. Whichever key
+is chosen, hermiq must stop re-sending history on a pool hit or the model sees it
+twice.
+
+This supersedes D1 and is the reason task 2's "prove no conversation state crosses
+turns" cannot be satisfied as written: **it does cross, by design of the
+transport.** The requirement becomes *contain* it, not *prevent* it.
+
 ### D0.1 — ⚠️ The per-run bearer token is the real blocker, and it needs a decision
 
 `ProviderFactory::mintGovernedRunToken()` mints a token PER RUN, and
@@ -85,6 +135,30 @@ Pooling CANNOT be implemented without resolving this. The options, none free:
 leaving the security contract untouched, and it can ship before the harder question
 is settled. Option 1 is a governance change and belongs in its own proposal with the
 security owner in the room.
+
+#### Verified 2026-08-17 — the token is worse than "short-lived", it is CONSUMED
+
+`RunTokenService` was read rather than assumed:
+
+- **Lifetime**: TTL = `RUNNER_TIMEOUT_MS` (default 120 s) + 30 s slack.
+- **Consumption**: `consume()` is called in a `finally` **when the run closes** —
+  success, error or timeout alike — "so later use is rejected".
+
+So a pooled governed process does not merely hold an *aging* token, it holds a
+**dead** one the moment its first turn ends. Its next tool call fails, and it fails
+as *"the model has no tools"* — the silent shape this codebase has already been
+bitten by twice.
+
+⚠️ **This also undercuts option 2 as written.** "Re-handshake per turn with a fresh
+token" needs the CLI to pick up a *new* token mid-session, which is exactly the
+unverified re-read that option 3 depends on. Options 2 and 3 are not independent:
+without a proven config re-read, option 2 has no mechanism.
+
+**Consequence: governed turns cannot be pooled today.** Ungoverned (text-only)
+turns carry no token and no MCP config and are pooled without touching any of
+this — that is the slice that can ship. Governed pooling is blocked on a
+governance decision (option 1) or a verified re-read (option 3), and should not be
+attempted by inference from either.
 
 ### D0.2 — ⚠️ An auth failure does not fail fast; it backs off for minutes
 
