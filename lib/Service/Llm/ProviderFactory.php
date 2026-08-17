@@ -188,6 +188,19 @@ class ProviderFactory {
 	private const POOL_PROCESS_LIFETIME_SECONDS = 600;
 
 	/**
+	 * How long to wait on a warm-up dispatch, in seconds.
+	 *
+	 * Short on purpose. The runner answers a warm-up as soon as it has SPAWNED
+	 * the process — it does not wait for the CLI to finish initialising — so
+	 * this only bounds the HTTP hop. A warm-up that cannot be dispatched
+	 * promptly is not worth making the caller wait for: the turn behind it works
+	 * either way.
+	 *
+	 * @var int
+	 */
+	private const WARM_TIMEOUT_SECONDS = 10;
+
+	/**
 	 * The personal credential scope — the ONLY scope an `anthropic-cli` (Claude Max/Pro
 	 * subscription) credential may carry, per the Anthropic Terms of Service.
 	 *
@@ -1439,6 +1452,99 @@ class ProviderFactory {
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-the-cli-is-locked-to-hermiqs-governance-by-its-invocation-flags
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
+	/**
+	 * Start the pooled CLI process for a conversation WITHOUT running a turn.
+	 *
+	 * The first question of a conversation is always the slow one, because
+	 * nobody has paid the process start yet — measured on this instance, 11.2s
+	 * for a trivial prompt cold against 3.2s warm. Called when the chat opens or
+	 * an agent is picked, this moves that cost to while the user is still
+	 * typing.
+	 *
+	 * Costs a process start and NOTHING else: no prompt is sent, so there is no
+	 * inference, no tokens and no vendor request. It is not a "hello" turn.
+	 *
+	 * Best-effort by contract — a warm-up that fails must be invisible, because
+	 * the turn that follows works exactly as it does today without it.
+	 *
+	 * @param string      $credentialId The credential to resolve.
+	 * @param string      $model        The model id (part of the pool key).
+	 * @param string|null $agentId      The acting agent's UUID.
+	 * @param string      $conversationId The conversation being opened.
+	 * @param bool        $governed     Whether the agent holds tools, so the
+	 *                    warmed process carries the same governed argv the real
+	 *                    turn will need.
+	 *
+	 * @return bool True when a warm-up was dispatched.
+	 */
+	public function warmAnthropicCli(
+		string $credentialId,
+		string $model,
+		?string $agentId,
+		string $conversationId,
+		bool $governed = true,
+	): bool {
+		$poolKey = $this->poolKeyFor(conversationId: $conversationId, agentId: $agentId, model: $model);
+		if ($poolKey === '') {
+			return false;
+		}
+
+		try {
+			$this->assertCliRunnerAvailable();
+			$uid = $this->currentUid();
+
+			// The warmed process must be built EXACTLY as the first turn will
+			// build it — same governed argv, same token, same mcp config — or it
+			// is a process that turn cannot use and the warm-up is worse than
+			// useless: it occupies a pool slot and saves nothing.
+			$governedMcpConfig = null;
+			if ($governed === true) {
+				$runToken = $this->mintGovernedRunToken(
+					agentId: $agentId,
+					uid: $uid,
+					conversationId: $conversationId,
+					pooled: true
+				);
+				$governedMcpConfig = $this->buildGovernedMcpConfig(runToken: $runToken);
+			} else {
+				$runToken = $this->mintEgressRunToken(agentId: $agentId, uid: $uid);
+			}
+
+			$token = $this->resolveCliToken(credentialId: $credentialId, uid: $uid);
+
+			$this->appApiPublicFunctions()->exAppRequest(
+				self::RUNNER_EXAPP_ID,
+				self::RUNNER_ROUTE,
+				$uid,
+				'POST',
+				[
+					'provider' => 'anthropic',
+					'model' => $model,
+					'messages' => [],
+					'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
+					'mcpConfig' => $governedMcpConfig,
+					'runToken' => $runToken,
+					'poolKey' => $poolKey,
+					'poolLifetimeSeconds' => self::POOL_PROCESS_LIFETIME_SECONDS,
+					'warmOnly' => true,
+				],
+				['timeout' => self::WARM_TIMEOUT_SECONDS]
+			);
+
+			return true;
+		} catch (Throwable $e) {
+			// Silent by design. A failed warm-up costs the user nothing but the
+			// speed-up they would have had.
+			$this->logger->debug(
+				'[ProviderFactory] CLI pool warm-up did not start',
+				['reason' => $e->getMessage()]
+			);
+
+			return false;
+		}//end try
+
+	}//end warmAnthropicCli()
+
 	private function dispatchCliTurn(
 		string $model,
 		array $messageHistory,

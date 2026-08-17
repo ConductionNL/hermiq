@@ -367,6 +367,48 @@ async function dispatch(o) {
 }
 
 /**
+ * Start a process for `key` WITHOUT running a turn on it.
+ *
+ * The saving pooling gives is the process start, and on the first turn of a
+ * conversation nobody has paid it yet — so the first question is always the
+ * slow one (measured: 11.2s cold against 3.2s warm for the same prompt). This
+ * lets the caller pay it while the user is still typing, by opening the chat or
+ * picking an agent.
+ *
+ * Deliberately sends NO user frame: the process is spawned and left waiting on
+ * stdin. That means a warm-up costs process start only — no inference, no
+ * tokens, no vendor request. It is not a "hello" turn.
+ *
+ * @param {object} o Same spawn options as {@link dispatch}.
+ * @returns {{warmed: boolean, reason: string}} What happened, for the caller's log.
+ */
+function warm(o) {
+	const { key, log } = o
+	if (!key) {
+		return { warmed: false, reason: 'no key' }
+	}
+
+	sweep(log)
+
+	if (processes.has(key)) {
+		return { warmed: false, reason: 'already warm' }
+	}
+
+	if (processes.size >= MAX_PROCESSES) {
+		return { warmed: false, reason: 'pool full' }
+	}
+
+	const entry = start({ ...o, lifetimeMs: o.lifetimeMs })
+	if (!entry) {
+		return { warmed: false, reason: 'spawn failed' }
+	}
+
+	log('info', `pool WARMED key=${key.slice(0, 12)} live=${processes.size}`)
+
+	return { warmed: true, reason: 'started' }
+}//end warm()
+
+/**
  * Drop every pooled process for an agent whose capability changed. A warm
  * process holds a tool set fixed at startup, so a revoked tool would stay
  * callable until the process aged out.
@@ -382,4 +424,4 @@ function drainAll(log) {
 	return n
 }
 
-module.exports = { dispatch, stats, drainAll, sweep }
+module.exports = { dispatch, warm, stats, drainAll, sweep }

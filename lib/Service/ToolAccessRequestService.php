@@ -62,6 +62,17 @@ class ToolAccessRequestService {
 	private const MAX_MATCHES = 25;
 
 	/**
+	 * The app reported for tools with no app segment in their id.
+	 *
+	 * OpenRegister's own tools (`get_object`, `search_objects`, `list_registers`)
+	 * are the register/object surface itself rather than any app's, so they get a
+	 * name that says that instead of the first word of the verb.
+	 *
+	 * @var string
+	 */
+	private const CORE_TOOL_APP = 'openregister';
+
+	/**
 	 * Register and schema holding the request records.
 	 *
 	 * @var string
@@ -366,11 +377,25 @@ class ToolAccessRequestService {
 	 * @return string App id, or '' when undeterminable.
 	 */
 	private function appOf(string $toolId): string {
-		foreach (['.', '_'] as $separator) {
-			$position = strpos($toolId, $separator);
-			if ($position !== false && $position > 0) {
-				return substr($toolId, 0, $position);
-			}
+		// ⚠️ Only a DOTTED id names its app. `pipelinq.lead.get` is app-prefixed;
+		// `get_object` and `search_objects` are not — they are OpenRegister's own
+		// unprefixed tools, and splitting them on `_` reported apps called "get",
+		// "create", "update" and "delete" (five tools each, measured 2026-08-17).
+		//
+		// That lands in the one field meant to tell a model WHERE a capability
+		// lives, so a wrong answer here is worse than no answer: an agent looking
+		// for "which app handles objects" was being told "the get app".
+		$position = strpos($toolId, '.');
+		if ($position !== false && $position > 0) {
+			return substr($toolId, 0, $position);
+		}
+
+		// An underscored id is the alias form of a dotted one, so the app is
+		// recoverable only when the catalogue also carries the dotted id. It does
+		// not for OpenRegister's core tools, which genuinely have no app segment —
+		// they are the register/object surface itself.
+		if (str_contains($toolId, '_') === true) {
+			return self::CORE_TOOL_APP;
 		}
 
 		return '';
@@ -448,6 +473,73 @@ class ToolAccessRequestService {
 
 		return null;
 	}//end findRequest()
+
+	/**
+	 * The approvals an agent is currently waiting on, for the chat to show.
+	 *
+	 * Shaped as a GENERIC approval, not as a tool-access request: each item
+	 * carries its own `kind` and its own `resolveUrl`, so the chat posts a
+	 * decision where it is told to rather than knowing how any particular
+	 * approval is resolved. A future approval — fetching a URL, editing a file
+	 * that is not open — supplies its own two fields and needs no change in the
+	 * client at all.
+	 *
+	 * Read-only and safe to call on every turn: it neither creates nor resolves
+	 * anything.
+	 *
+	 * @param string|null $agentId The agent whose pending requests to list.
+	 *
+	 * @return array<int, array<string, mixed>> Pending approvals, oldest first.
+	 */
+	public function pendingApprovals(?string $agentId): array {
+		if ($agentId === null || $agentId === '') {
+			return [];
+		}
+
+		$out = [];
+		try {
+			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
+			$results = $objectService->findAll([
+				'filters' => [
+					'register' => self::REGISTER_SLUG,
+					'schema' => self::REQUEST_SCHEMA,
+					'agentId' => $agentId,
+					'status' => 'pending',
+				],
+			]);
+
+			foreach ($results as $row) {
+				$record = is_array($row) ? $row : $row->jsonSerialize();
+				$id = (string)($record['id'] ?? ($record['@self']['id'] ?? ''));
+				$toolId = (string)($record['toolId'] ?? '');
+				if ($id === '' || $toolId === '') {
+					continue;
+				}
+
+				$out[] = [
+					'id' => $id,
+					'kind' => 'tool-access',
+					// What the owner is deciding, in their words rather than the
+					// model's: the tool's identity and reach are facts, the
+					// reason beside them is agent-authored.
+					'title' => $toolId,
+					'app' => $this->appOf(toolId: $toolId),
+					'reach' => (string)($record['reach'] ?? 'read'),
+					'reason' => (string)($record['reason'] ?? ''),
+					'agentId' => $agentId,
+					'resolveUrl' => '/index.php/apps/hermiq/api/agents/'
+						. rawurlencode($agentId) . '/tool-access-requests/' . rawurlencode($id),
+				];
+			}
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'[ToolAccessRequestService] pending approvals lookup failed: ' . $e->getMessage()
+			);
+		}//end try
+
+		return $out;
+
+	}//end pendingApprovals()
 
 	/**
 	 * Persist a request record.

@@ -40,6 +40,7 @@ use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Engine\ToolGrantResolutionException;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
@@ -149,6 +150,7 @@ class ChatStreamController extends Controller {
 		private readonly LoggerInterface $logger,
 		private readonly IL10N $l10n,
 		private readonly RunStepBus $runStepBus,
+		private readonly ToolAccessRequestService $toolAccessRequestService,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -365,6 +367,12 @@ class ChatStreamController extends Controller {
 				// @phpstan-ignore-next-line -- deliberate defensive fallback, see above.
 				'fullText' => (string)($result['response'] ?? $result['message'] ?? ''),
 				'context' => $context,
+				// Anything now awaiting the owner's decision, so it can be acted
+				// on in the chat rather than on an oversight screen the user
+				// would have to know about and go and find.
+				'pendingApprovals' => $this->toolAccessRequestService->pendingApprovals(
+					agentId: $agentUuid
+				),
 			];
 			$this->emitAndExit(eventType: 'final', payload: $finalPayload);
 		} catch (ToolGrantResolutionException $e) {

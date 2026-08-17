@@ -339,6 +339,7 @@ function run({
 	runToken,
 	poolKey,
 	poolLifetimeSeconds,
+	warmOnly,
 }) {
 	const cold = () =>
 		spawnTurn({ provider, model, messages, credentialEnv, mcpConfig, runToken })
@@ -355,6 +356,22 @@ function run({
 	return preflight.then(() => {
 		if (!poolKey) {
 			return cold()
+		}
+		// WARM ONLY: start the process and answer immediately. The caller is
+		// pre-paying the init while the user types, not asking a question.
+		if (warmOnly === true) {
+			const verdict = tryPooled({
+				provider,
+				model,
+				messages,
+				credentialEnv,
+				mcpConfig,
+				runToken,
+				poolKey,
+				poolLifetimeSeconds,
+				warmOnly: true,
+			})
+			return Promise.resolve({ text: '', toolCalls: [], usage: { warm: verdict } })
 		}
 		return tryPooled({
 			provider,
@@ -388,6 +405,7 @@ function tryPooled({
 	runToken,
 	poolKey,
 	poolLifetimeSeconds,
+	warmOnly,
 }) {
 	let scratch
 	try {
@@ -430,6 +448,22 @@ function tryPooled({
 		const lifetimeMs = Number(poolLifetimeSeconds) > 0
 			? Number(poolLifetimeSeconds) * 1000
 			: 600000
+
+		// Warming uses the IDENTICAL argv, env and mcp config the real turn will,
+		// because the pool is keyed on the assumption that a warmed process is
+		// interchangeable with a freshly spawned one. A warm-up built any other
+		// way would start a process the first turn cannot use.
+		if (warmOnly === true) {
+			return pool.warm({
+				key: poolKey,
+				provider,
+				model,
+				args,
+				childEnv,
+				lifetimeMs,
+				log: poolLog,
+			})
+		}
 
 		const all = buildPrompt(messages)
 		const latest = latestUserText(messages)

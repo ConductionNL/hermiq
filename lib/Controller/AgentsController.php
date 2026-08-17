@@ -78,6 +78,35 @@ class AgentsController extends Controller {
 	private const AGENT_SCHEMA = 'agent';
 
 	/**
+	 * The tool grants a NEW agent starts with.
+	 *
+	 * An agent created with nothing cannot discover that anything exists: with
+	 * no grants it answers "there is no such tool on this instance" — which is
+	 * what it observes, and is wrong. These three let it find what it lacks and
+	 * ask for it, so an operator grows an agent from a conversation instead of
+	 * from the tool picker.
+	 *
+	 * All three are safe to hold by default, which is why THESE three:
+	 * `searchTools` and `listAvailableTools` are `self` reach and return tool
+	 * METADATA only — nothing dispatchable, nothing of the user's — and
+	 * `requestToolAccess` grants nothing by itself; it raises a request its
+	 * owner must approve.
+	 *
+	 * ⚠️ This is a CREATION default, not a resolution fallback. An agent whose
+	 * tools were deliberately emptied keeps nothing: "no tools configured means
+	 * no tools" (ToolGrantResolver) is unchanged, and must stay that way — a
+	 * fallback at resolution time would silently re-grant these to every agent
+	 * an operator had deliberately stripped.
+	 *
+	 * @var array<int, string>
+	 */
+	private const DEFAULT_AGENT_TOOLS = [
+		'hermiq.searchTools',
+		'hermiq.listAvailableTools',
+		'hermiq.requestToolAccess',
+	];
+
+	/**
 	 * Request/metadata keys that must never reach the stored agent payload:
 	 * routing internals, entity identity, timestamps, and the owner/
 	 * organisation pair (assigned by ObjectService — accepting them from the
@@ -284,6 +313,13 @@ class AgentsController extends Controller {
 			if (isset($data['searchObjects']) === false) {
 				// Search objects by default.
 				$data['searchObjects'] = true;
+			}
+
+			// Give a new agent the capability meta-tools so it can build up from
+			// there. Only when `tools` was not supplied at all — an explicit
+			// empty array is a deliberate "no tools" and is respected.
+			if (isset($data['tools']) === false) {
+				$data['tools'] = self::DEFAULT_AGENT_TOOLS;
 			}
 
 			// Create the agent object (uuid/timestamps/owner/organisation are

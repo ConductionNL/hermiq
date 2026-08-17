@@ -137,13 +137,16 @@ async function handleRun(req, res, rawBody) {
 		runToken,
 		poolKey,
 		poolLifetimeSeconds,
+		warmOnly,
 	} = payload
 	const provider = getProvider(providerId)
 	if (!provider) {
 		sendJson(res, 400, { error: `unknown provider '${providerId}'` })
 		return
 	}
-	if (!Array.isArray(messages) || messages.length === 0) {
+	// A warm-up carries no messages by definition — it starts the process and
+	// asks nothing. Every other turn must still bring one.
+	if (warmOnly !== true && (!Array.isArray(messages) || messages.length === 0)) {
 		sendJson(res, 400, { error: 'messages must be a non-empty array' })
 		return
 	}
@@ -169,6 +172,7 @@ async function handleRun(req, res, rawBody) {
 			runToken,
 			poolKey,
 			poolLifetimeSeconds,
+			warmOnly,
 		})
 		// Time inside THIS endpoint, against the CLI's own API time. Anything the
 		// caller measures beyond this is Hermiq-side, not the model's.
