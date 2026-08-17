@@ -432,6 +432,19 @@ class ResponseGenerationHandler {
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
+					// CORRELATION. Without these this line cannot be joined to
+					// anything: the runner logs its own timings and pool hit/miss
+					// against a HASHED pool key, so the two halves of a turn — what
+					// Hermiq measured and what the CLI actually did — could not be
+					// matched up. `turnKey` is the first 12 chars of the same
+					// sha256 the runner prints, which is what makes the join
+					// possible; it is a hash, so it names no user or conversation
+					// in the log.
+					'conversationId' => $conversationId,
+					'agentId' => ($cliAgentId ?? ''),
+					'turnKey' => ($conversationId !== '' && $cliAgentId !== null)
+						? substr(hash('sha256', $conversationId . '|' . $cliAgentId . '|' . $driver->model), 0, 12)
+						: '',
 					'provider' => $driver->provider,
 					'model' => $driver->model,
 					'responseLength' => strlen($response),
