@@ -113,8 +113,20 @@ class ToolAccessRequestService {
 		}
 
 		$held = $this->heldIds(agentId: $agentId, catalog: $catalog);
-		$needle = strtolower(trim($query));
+
+		// Match on WORDS, not on the whole query as one substring. A model asking
+		// for "CRM sales pipeline leads" is describing a capability, not quoting a
+		// tool id, and `str_contains($haystack, 'crm sales pipeline leads')` can
+		// only ever miss. Any token hitting is enough — recall matters more than
+		// precision here, because the caller is choosing from the result rather
+		// than acting on it.
+		$tokens = array_values(array_filter(
+			preg_split('/[^a-z0-9]+/', strtolower(trim($query))) ?: [],
+			static fn(string $t): bool => $t !== '' && strlen($t) > 2
+		));
+
 		$out = [];
+		$matched = 0;
 
 		foreach ($catalog as $descriptor) {
 			$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
@@ -128,7 +140,24 @@ class ToolAccessRequestService {
 
 			$description = (string)($descriptor['description'] ?? '');
 			$haystack = strtolower($id . ' ' . $description);
-			if ($needle !== '' && str_contains($haystack, $needle) === false) {
+			if ($tokens !== []) {
+				$hit = false;
+				foreach ($tokens as $token) {
+					if (str_contains($haystack, $token) === true) {
+						$hit = true;
+						break;
+					}
+				}
+
+				if ($hit === false) {
+					continue;
+				}
+			}
+
+			// Count every match BEFORE the cap, so the caller can be told how much
+			// it is not seeing.
+			$matched++;
+			if (count($out) >= self::MAX_MATCHES) {
 				continue;
 			}
 
@@ -142,14 +171,36 @@ class ToolAccessRequestService {
 				'held' => isset($held[$id]),
 			];
 
-			if (count($out) >= self::MAX_MATCHES) {
-				break;
-			}
 		}//end foreach
+
+		// ⚠️ A TRUNCATED LIST THAT DOES NOT SAY SO READS AS THE WHOLE CATALOGUE.
+		// This capped at 25 and `break`ed, so an unfiltered call returned the first
+		// 25 tools in registration order and looked complete. Measured 2026-08-17:
+		// 184 tools on this instance, of which the first 25 are cms/register/object
+		// tools — so an agent asked for a lead reported "there is no CRM or leads
+		// tool on this instance. I searched." and requested Deck and file tools
+		// instead, while `pipelinq.lead.search` and `pipelinq.lead.get` sat
+		// undisplayed. The model was reasoning correctly from a list that lied.
+		$note = 'A tool with "held": false CANNOT be called. Use requestToolAccess to ask the owner for it.';
+		if ($matched > count($out)) {
+			$note .= sprintf(
+				' ⚠️ SHOWING %d OF %d MATCHING TOOLS (%d total on this instance). This list is'
+				. ' INCOMPLETE — do NOT conclude a capability is absent from it. Call this tool'
+				. ' again with a narrower `query` (e.g. an app name or a noun like "lead",'
+				. ' "client", "invoice") before concluding anything does not exist.',
+				count($out),
+				$matched,
+				count($catalog)
+			);
+		}
 
 		return [
 			'tools' => $out,
-			'note' => 'A tool with "held": false CANNOT be called. Use requestToolAccess to ask the owner for it.',
+			'matched' => $matched,
+			'shown' => count($out),
+			'totalInCatalog' => count($catalog),
+			'truncated' => ($matched > count($out)),
+			'note' => $note,
 		];
 	}//end listAvailable()
 
