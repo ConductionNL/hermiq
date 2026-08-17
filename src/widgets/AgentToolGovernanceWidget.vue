@@ -45,54 +45,47 @@
 			gridHeight could remove. Owning the heading puts it inside this flex
 			column, so the whole widget fits its cell exactly (ADR-062).
 		-->
-		<h3 class="agent-tool-governance-widget__title">
-			{{ t('hermiq', 'Tool governance') }}
-		</h3>
+		<!--
+			Save and Reset live in the TITLE BAR, where every other widget on
+			this page puts its actions, rather than floating above the table.
+			They are the widget's actions, not the table's.
+		-->
+		<div class="agent-tool-governance-widget__titlebar">
+			<h3 class="agent-tool-governance-widget__title">
+				{{ t('hermiq', 'Tool grants') }}
+			</h3>
 
-		<div
-			ref="tablist"
-			class="agent-tool-governance-widget__tablist"
-			role="tablist"
-			:aria-label="t('hermiq', 'Tool governance sections')">
-			<button
-				v-for="(tab, index) in tabs"
-				:id="`${uid}-tab-${tab.id}`"
-				:key="tab.id"
-				type="button"
-				role="tab"
-				class="agent-tool-governance-widget__tab"
-				:class="{
-					'agent-tool-governance-widget__tab--active':
-						activeTab === tab.id,
-				}"
-				:aria-selected="activeTab === tab.id ? 'true' : 'false'"
-				:aria-controls="`${uid}-panel-${tab.id}`"
-				:tabindex="activeTab === tab.id ? 0 : -1"
-				@click="activeTab = tab.id"
-				@keydown="onTabKeydown($event, index)">
-				{{ tab.label }}
-			</button>
+			<div v-if="isOwner" class="agent-tool-governance-widget__actions">
+				<NcButton
+					variant="tertiary"
+					:disabled="!dirty || saving"
+					@click="onReset">
+					{{ t('hermiq', 'Reset') }}
+				</NcButton>
+				<NcButton
+					variant="primary"
+					:disabled="!dirty || saving"
+					@click="onSave">
+					<template #icon>
+						<NcLoadingIcon v-if="saving" :size="20" />
+						<ContentSaveIcon v-else :size="20" />
+					</template>
+					{{ t('hermiq', 'Save') }}
+				</NcButton>
+			</div>
 		</div>
 
-		<div
-			v-show="activeTab === 'grants'"
-			:id="`${uid}-panel-grants`"
-			class="agent-tool-governance-widget__panel"
-			role="tabpanel"
-			:aria-labelledby="`${uid}-tab-grants`">
-			<ToolGrantEditor
+		<p v-if="!isOwner" class="agent-tool-governance-widget__readonly">
+			{{ t('hermiq', 'Only the agent’s owner can change its grants.') }}
+		</p>
+
+		<div class="agent-tool-governance-widget__panel">
+			<ToolGrantMatrix
+				ref="matrix"
 				:agentId="agentId"
 				:canEdit="isOwner"
-				@saved="onGrantsSaved" />
-		</div>
-
-		<div
-			v-show="activeTab === 'activity'"
-			:id="`${uid}-panel-activity`"
-			class="agent-tool-governance-widget__panel"
-			role="tabpanel"
-			:aria-labelledby="`${uid}-tab-activity`">
-			<ToolInvocationTable :agentId="agentId" />
+				:saving="saving"
+				@dirtyChanged="dirty = $event" />
 		</div>
 	</div>
 </template>
@@ -101,10 +94,12 @@
 import { getCurrentUser } from '@nextcloud/auth'
 // Explicit import: `t` is a template-only global here (installed on
 // app.config.globalProperties), so a bare t() inside a computed would be a
-// ReferenceError. The tab labels are built in script, hence the import.
+// ReferenceError.
+import { showError, showSuccess } from '@nextcloud/dialogs'
 import { translate as t } from '@nextcloud/l10n'
-import ToolGrantEditor from '../components/ToolGrantEditor.vue'
-import ToolInvocationTable from '../components/ToolInvocationTable.vue'
+import { NcButton, NcLoadingIcon } from '@nextcloud/vue'
+import ContentSaveIcon from 'vue-material-design-icons/ContentSave.vue'
+import ToolGrantMatrix from '../components/ToolGrantMatrix.vue'
 import { useAgentStore } from '../store/store.js'
 
 let widgetUid = 0
@@ -113,14 +108,17 @@ export default {
 	name: 'AgentToolGovernanceWidget',
 
 	components: {
-		ToolGrantEditor,
-		ToolInvocationTable,
+		ContentSaveIcon,
+		NcButton,
+		NcLoadingIcon,
+		ToolGrantMatrix,
 	},
 
 	data() {
 		return {
 			agent: null,
-			activeTab: 'grants',
+			dirty: false,
+			saving: false,
 			uid: `agent-tool-governance-${++widgetUid}`,
 		}
 	},
@@ -133,18 +131,6 @@ export default {
 		 */
 		agentId() {
 			return this.$route.params.id
-		},
-
-		/**
-		 * The two peer surfaces, in tab order.
-		 *
-		 * @return {Array<{id: string, label: string}>} Tab descriptors.
-		 */
-		tabs() {
-			return [
-				{ id: 'grants', label: t('hermiq', 'Tool grants') },
-				{ id: 'activity', label: t('hermiq', 'Tool activity') },
-			]
 		},
 
 		/**
@@ -181,41 +167,6 @@ export default {
 
 	methods: {
 		/**
-		 * Roving-tabindex keyboard navigation across the tablist (WCAG 2.2 AA /
-		 * APG tabs pattern): arrows move AND activate, Home/End jump to the ends.
-		 *
-		 * @param {KeyboardEvent} event The keydown event.
-		 * @param {number}        index Index of the tab the event fired on.
-		 *
-		 * @return {void}
-		 */
-		onTabKeydown(event, index) {
-			const last = this.tabs.length - 1
-			let next = null
-
-			if (event.key === 'ArrowRight') {
-				next = index === last ? 0 : index + 1
-			} else if (event.key === 'ArrowLeft') {
-				next = index === 0 ? last : index - 1
-			} else if (event.key === 'Home') {
-				next = 0
-			} else if (event.key === 'End') {
-				next = last
-			}
-
-			if (next === null) {
-				return
-			}
-
-			event.preventDefault()
-			this.activeTab = this.tabs[next].id
-			this.$nextTick(() => {
-				const buttons = this.$refs.tablist?.querySelectorAll('[role="tab"]')
-				buttons?.[next]?.focus()
-			})
-		},
-
-		/**
 		 * Load this agent (only used to resolve `owner` for the isOwner gate).
 		 *
 		 * @return {Promise<void>}
@@ -227,13 +178,31 @@ export default {
 		},
 
 		/**
-		 * Reload the agent after tool grants are saved (agent's `tools` display
-		 * on the sibling data widget reflects the change after its own reload).
+		 * Persist the matrix's draft, then refresh the agent so the sibling
+		 * data widget's `tools` display reflects the change.
 		 *
 		 * @return {Promise<void>}
 		 */
-		async onGrantsSaved() {
-			await this.loadAgent()
+		async onSave() {
+			this.saving = true
+			try {
+				await this.$refs.matrix.persist()
+				showSuccess(t('hermiq', 'Tool grants saved'))
+				await this.loadAgent()
+			} catch (error) {
+				showError(error.response?.data?.error ?? error.message)
+			} finally {
+				this.saving = false
+			}
+		},
+
+		/**
+		 * Discard the matrix's unsaved changes.
+		 *
+		 * @return {void}
+		 */
+		onReset() {
+			this.$refs.matrix.reset()
 		},
 	},
 }
@@ -254,46 +223,34 @@ export default {
 	overflow: hidden;
 }
 
-.agent-tool-governance-widget__title {
+/* Title and actions on one row, as every other widget on this page does it.
+   The actions are pushed to the end rather than the title being stretched, so
+   a long translated title does not shove the buttons off the edge. */
+.agent-tool-governance-widget__titlebar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
 	flex: 0 0 auto;
+	margin-bottom: 8px;
+}
+
+.agent-tool-governance-widget__title {
 	font-size: 1rem;
 	font-weight: 600;
-	margin: 0 0 8px;
+	margin: 0;
 }
 
-.agent-tool-governance-widget__tablist {
+.agent-tool-governance-widget__actions {
 	display: flex;
 	gap: 4px;
-	border-bottom: 1px solid var(--color-border);
+	margin-inline-start: auto;
+}
+
+.agent-tool-governance-widget__readonly {
 	flex: 0 0 auto;
-}
-
-.agent-tool-governance-widget__tab {
-	appearance: none;
-	background: transparent;
-	border: none;
-	border-bottom: 2px solid transparent;
-	border-radius: var(--border-radius) var(--border-radius) 0 0;
+	margin: 0 0 8px;
 	color: var(--color-text-maxcontrast);
-	cursor: pointer;
-	font-size: var(--default-font-size);
-	font-weight: 500;
-	padding: 8px 16px;
-}
-
-.agent-tool-governance-widget__tab:hover {
-	background-color: var(--color-background-hover);
-	color: var(--color-main-text);
-}
-
-.agent-tool-governance-widget__tab:focus-visible {
-	outline: 2px solid var(--color-primary-element);
-	outline-offset: -2px;
-}
-
-.agent-tool-governance-widget__tab--active {
-	border-bottom-color: var(--color-primary-element);
-	color: var(--color-main-text);
+	font-size: 0.85em;
 }
 
 /* Each panel owns the remaining height and scrolls internally: both lists are
@@ -306,8 +263,8 @@ export default {
 	padding-top: 12px;
 }
 
-/* The tab label already names the panel (and labels it via aria-labelledby),
-   so the child's own heading would be a visible duplicate. */
+/* The widget's own title bar names this panel, so a child heading would be a
+   visible duplicate. */
 .agent-tool-governance-widget__panel :deep(.tool-grants__title),
 .agent-tool-governance-widget__panel :deep(.tool-oversight__title) {
 	display: none;
