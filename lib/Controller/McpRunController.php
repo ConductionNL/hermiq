@@ -57,6 +57,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
@@ -156,6 +157,7 @@ class McpRunController extends Controller {
 		private readonly IUserManager $userManager,
 		private readonly IUserSession $userSession,
 		private readonly IThrottler $throttler,
+		private readonly RunStepBus $runStepBus,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
@@ -239,7 +241,13 @@ class McpRunController extends Controller {
 		return $this->withImpersonatedUser(
 			userId: $binding['userId'],
 			work: function () use ($id, $method, $params, $binding): Response {
-				return $this->dispatch(id: $id, method: $method, params: $params, agentId: $binding['agentId']);
+				return $this->dispatch(
+					id: $id,
+					method: $method,
+					params: $params,
+					agentId: $binding['agentId'],
+					conversationId: (string)($binding['conversationId'] ?? '')
+				);
 			}
 		);
 
@@ -288,13 +296,13 @@ class McpRunController extends Controller {
 	 *
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-tool-call-is-governed-not-passed-through
 	 */
-	private function dispatch(mixed $id, string $method, array $params, string $agentId): Response {
+	private function dispatch(mixed $id, string $method, array $params, string $agentId, string $conversationId = ''): Response {
 		if ($method === 'tools/list') {
 			return $this->jsonRpcSuccess(id: $id, result: ['tools' => $this->resolveMcpTools(agentId: $agentId)]);
 		}
 
 		if ($method === 'tools/call') {
-			return $this->handleToolCall(id: $id, params: $params, agentId: $agentId);
+			return $this->handleToolCall(id: $id, params: $params, agentId: $agentId, conversationId: $conversationId);
 		}
 
 		return $this->jsonRpcError(
@@ -345,7 +353,7 @@ class McpRunController extends Controller {
 	 *
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-a-governed-refusal-is-visible-to-the-model-not-a-transport-failure
 	 */
-	private function handleToolCall(mixed $id, array $params, string $agentId): Response {
+	private function handleToolCall(mixed $id, array $params, string $agentId, string $conversationId = ''): Response {
 		$name = (string)($params['name'] ?? '');
 		if ($name === '') {
 			return $this->jsonRpcError(id: $id, code: -32602, message: 'Invalid params', status: Http::STATUS_BAD_REQUEST);
@@ -400,6 +408,13 @@ class McpRunController extends Controller {
 				continue;
 			}
 
+			// Record the step so the CHAT can show it. This request is the only
+			// place that knows the tool ran: on this transport the model calls
+			// Hermiq's MCP endpoint, so the turn's own StreamYieldChannel — which
+			// the UI is listening to — is never touched. The run token binds this
+			// request to its conversation, which is what lets the two be joined.
+			$startedAt = microtime(true);
+
 			try {
 				$resultJson = (string)$functionInfo->callWithArguments($arguments);
 			} catch (Throwable $e) {
@@ -408,8 +423,25 @@ class McpRunController extends Controller {
 					context: ['tool' => $name, 'error' => $e->getMessage()]
 				);
 
+				$this->runStepBus->record(
+					conversationId: $conversationId,
+					toolName: $name,
+					arguments: $arguments,
+					result: 'The tool call could not be completed.',
+					durationMs: (int)round((microtime(true) - $startedAt) * 1000),
+					ok: false
+				);
+
 				return $this->jsonRpcSuccess(id: $id, result: $this->toolError(text: 'The tool call could not be completed.'));
 			}
+
+			$this->runStepBus->record(
+				conversationId: $conversationId,
+				toolName: $name,
+				arguments: $arguments,
+				result: $resultJson,
+				durationMs: (int)round((microtime(true) - $startedAt) * 1000)
+			);
 
 			return $this->jsonRpcSuccess(id: $id, result: $this->toolResultFromInvoker(resultJson: $resultJson));
 		}

@@ -38,6 +38,7 @@ namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Engine\ToolGrantResolutionException;
@@ -147,6 +148,7 @@ class ChatStreamController extends Controller {
 		private readonly IDBConnection $db,
 		private readonly LoggerInterface $logger,
 		private readonly IL10N $l10n,
+		private readonly RunStepBus $runStepBus,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
@@ -303,6 +305,10 @@ class ChatStreamController extends Controller {
 			// has no heartbeat pub/sub, because no producer moment exists that
 			// `forwardWithHeartbeat()` above does not already cover. See the
 			// note at the foot of StreamYieldChannel.
+			// Start from an empty bucket so a previous turn's tool calls are
+			// never replayed against this one.
+			$this->runStepBus->clear(conversationId: (string)$conversation->getUuid());
+
 			$result = $this->engine->processMessage(
 				conversationId: (string)$conversation->getUuid(),
 				userId: $userId,
@@ -313,6 +319,40 @@ class ChatStreamController extends Controller {
 				context: $contextArr,
 				channel: $channel
 			);
+
+			// Replay the tool calls this turn made over the governed MCP
+			// transport, as the SAME `tool_call` / `tool_result` events the
+			// in-process path emits above.
+			//
+			// On `executionMode: cli` the model calls Hermiq's MCP endpoint, so
+			// every tool runs in a SEPARATE request and `$channel` never fires —
+			// the UI's whole step display (useAiChatStream -> state.toolCalls ->
+			// CnAiMessageList) sat ready and was never given anything, and a turn
+			// that made five tool calls showed the user one silent minute.
+			//
+			// These arrive after the work rather than during it, because the
+			// bucket can only be read once the turn returns. That is a real
+			// limitation and it is the honest half-step: the steps become
+			// VISIBLE, but not yet live.
+			foreach ($this->runStepBus->drain(conversationId: (string)$conversation->getUuid()) as $step) {
+				$this->forwardWithHeartbeat(
+					eventType: 'tool_call',
+					payload: [
+						'toolId' => (string)($step['toolId'] ?? ''),
+						'name' => (string)($step['name'] ?? ''),
+						'arguments' => ($step['arguments'] ?? []),
+					]
+				);
+				$this->forwardWithHeartbeat(
+					eventType: 'tool_result',
+					payload: [
+						'toolId' => (string)($step['toolId'] ?? ''),
+						'result' => (string)($step['result'] ?? ''),
+						'outcome' => (string)($step['outcome'] ?? 'ok'),
+						'durationMs' => (int)($step['durationMs'] ?? 0),
+					]
+				);
+			}
 
 			// Emit final event with the full assistant text. The `response`/
 			// `message` fallbacks are kept from the OR ground truth so a future

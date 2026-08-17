@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
@@ -129,6 +130,7 @@ class ChatController extends Controller {
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
+		private readonly RunStepBus $runStepBus,
 		private readonly LoggerInterface $logger,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 	) {
@@ -202,6 +204,10 @@ class ChatController extends Controller {
 			// unknown or double-ended tokens, so a step bug cannot fail a turn.
 			$trace = new RunTraceCollector();
 
+			// Start from an empty bucket so a previous turn's steps cannot be
+			// shown against this one.
+			$this->runStepBus->clear(conversationId: (string)$conversation->getUuid());
+
 			$result = $this->engine->processMessage(
 				conversationId: (string)$conversation->getUuid(),
 				userId: $userId,
@@ -215,6 +221,14 @@ class ChatController extends Controller {
 
 			// Add conversation UUID to result for frontend.
 			$result['conversation'] = $conversation->getUuid();
+
+			// The tool calls this turn made over the governed MCP transport.
+			// `CnAiMessageList` already renders `message.toolCalls` with
+			// expand/collapse — it was simply never given any, because those
+			// calls happen in a different request than this one.
+			$result['toolCalls'] = $this->runStepBus->drain(
+				conversationId: (string)$conversation->getUuid()
+			);
 
 			return new JSONResponse(data: $result, statusCode: 200);
 		} catch (Exception $e) {
