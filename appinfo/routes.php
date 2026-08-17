@@ -227,6 +227,15 @@ return [
             'verb'         => 'PUT',
             'requirements' => ['agentId' => '[^/]+'],
         ],
+        // tool-discovery-and-access-requests: the OWNER resolves a request an
+        // agent raised. Owner-only, and a non-owner gets the same 404 as a
+        // missing request so the endpoint cannot be used to probe what exists.
+        [
+            'name'         => 'toolOversight#resolveToolAccessRequest',
+            'url'          => '/api/agents/{agentId}/tool-access-requests/{requestId}',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+', 'requestId' => '[^/]+'],
+        ],
         [
             'name'         => 'toolOversight#toolInvocations',
             'url'          => '/api/agents/{agentId}/tool-invocations',

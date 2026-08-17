@@ -356,6 +356,23 @@ class McpRunController extends Controller {
 			$arguments = [];
 		}
 
+		// WHO IS CALLING, decided here rather than trusted from the model.
+		//
+		// Several tools need the calling agent's identity — memory, and the
+		// tool-access request path, which cannot raise a request "from an agent"
+		// without knowing which. They read it from `arguments['agentId']`, which
+		// on this transport the MODEL would have to supply: it has no way to know
+		// its own uuid, so it sent nothing and the request was refused with "an
+		// access request must come from an agent".
+		//
+		// The token already binds this run to an agent (see the binding above),
+		// so the identity is authoritative here and is stamped in. Overwriting
+		// rather than defaulting is deliberate: a model-supplied agentId would
+		// otherwise let one agent act as another.
+		if ($agentId !== '') {
+			$arguments['agentId'] = $agentId;
+		}
+
 		$agent = $this->loadAgent(agentId: $agentId);
 		$descriptors = $this->resolvedDescriptorsFor(agent: $agent);
 

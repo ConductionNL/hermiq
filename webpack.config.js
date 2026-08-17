@@ -37,6 +37,14 @@ webpackConfig.entry = {
 		import: path.join(__dirname, 'src', 'integration-leaf.js'),
 		filename: appId + '-agent-leaf.js',
 	},
+	// AI companion attached to EVERY page (companion-everywhere). The office
+	// editors are third-party apps -- onlyoffice, eurooffice, richdocuments --
+	// so there is no CnAppRoot of ours to switch the companion on inside. This
+	// bundle is the only seam that reaches them.
+	companion: {
+		import: path.join(__dirname, 'src', 'companion.js'),
+		filename: appId + '-companion.js',
+	},
 }
 
 // Use local source when available (monorepo dev), otherwise fall back to npm package.
@@ -94,6 +102,22 @@ if (useLocalLib) {
 		)
 		useLocalLib = false
 	}
+}
+
+// `@nextcloud/webpack-vue-config` hardcodes `output.publicPath` to
+// `/apps/<appName>/js/` (its webpack.config.js line 31). A custom_apps install is
+// served from `/custom_apps/<appName>/js/`, so every runtime-resolved chunk URL
+// 404s — and Nextcloud routes a 404 to index.php, so the browser receives HTML
+// where it expected JavaScript: "Refused to execute script ... MIME type
+// ('text/html')". Any `import()` in this app was therefore unloadable, which is
+// why the companion could not be split until now.
+//
+// `'auto'` makes webpack derive the base from the executing script's own URL at
+// runtime, so it is correct under both layouts. pipelinq and openbuild already set
+// it for exactly this reason.
+webpackConfig.output = {
+	...(webpackConfig.output || {}),
+	publicPath: 'auto',
 }
 
 // Extend the base resolve config (preserves defaults from @nextcloud/webpack-vue-config)
@@ -175,6 +199,25 @@ webpackConfig.module.rules.push({
 	sideEffects: true,
 })
 
+// `@nextcloud/vue@9` declares NO `sideEffects` field, so webpack must assume every
+// module in it may have side effects and cannot drop a single unused re-export from
+// its barrel. Everything importing `{ NcButton } from '@nextcloud/vue'` therefore
+// ships the whole library — measured in the companion's chunk: 2,157,453 bytes
+// across 281 modules of @nextcloud/vue, for the ten components the AI chat actually
+// uses, dragging in @vuepic/vue-datepicker, emoji-mart, @ckpack/vue-color and
+// date-fns behind it.
+//
+// This is scoped to the BARREL FILE ONLY, deliberately. Marking the whole package
+// side-effect-free would also license webpack to drop a component module whose
+// import exists for its side effect — a stylesheet, a directive registration — and
+// that failure is silent: the component still renders, unstyled. `index.mjs` is
+// pure re-exports, so dropping unused ones from it is safe, and the component
+// modules that survive keep their own side effects.
+webpackConfig.module.rules.push({
+	test: /[\\/]node_modules[\\/]@nextcloud[\\/]vue[\\/]dist[\\/]index\.mjs$/,
+	sideEffects: false,
+})
+
 // Replace plugins to avoid duplicate VueLoaderPlugin (base config also registers one).
 // CRITICAL: re-add the appName / appVersion DefinePlugin entries — without them
 // every @nextcloud/vue widget mount logs `[ERROR] @nextcloud/vue: The library
@@ -213,7 +256,7 @@ webpackConfig.plugins = [
 // `Util::addScript` dedupes by (app, file) so eagerly loading every widget
 // still emits each shared chunk exactly once.
 //
-// EXCEPTION — the `agent-leaf` entry is SELF-CONTAINED. Unlike the widgets, it is
+// EXCEPTION — the `agent-leaf` AND `companion` entries are SELF-CONTAINED. Unlike the widgets, they are
 // injected GLOBALLY on every page via `\OCP\Util::addInitScript('hermiq',
 // 'hermiq-agent-leaf')` (Application.php), with NO PHP `load()` to attach the
 // shared chunks first. If splitChunks hoisted its `registerIntegration` /
@@ -225,11 +268,58 @@ webpackConfig.plugins = [
 // from every cacheGroup by making `chunks` a predicate: it inlines its own
 // framework copy (~a few hundred KB, correct for a globally-injected script),
 // while `main` + `adminSettings` still share the extracted chunks as before.
+//
+// `companion` is injected the SAME way (addInitScript, no PHP load()) and was
+// initially left in the cacheGroups, which put it in exactly the position this
+// paragraph warns about. Measured: webpack reported the `companion` ENTRYPOINT
+// at 14.1 MiB across three files, of which PHP attaches one — the other two,
+// hermiq-shared-nc-vue.js and hermiq-shared-vendor.js, are simply not on a Files
+// or office-editor page. The emitted bundle is not a deferred stub (no
+// `__webpack_require__.e`), so nothing announces the problem: it just requires
+// modules that were hoisted into a chunk nobody loaded.
+//
+// Worth recording, because it is the trap under the trap: the FIRST measurement
+// of this bundle read `ls -l js/hermiq-companion.js` and reported 1.79 MB. That
+// is one chunk of a three-chunk entrypoint. The number was off by 8x and looked
+// authoritative — measure the ENTRYPOINT, which is what actually has to arrive.
+// The globally-injected entries and everything they can reach at runtime.
+//
+// Testing `chunk.name` alone is not enough, and this was measured. nc-vue calls
+// `defineAsyncComponent` internally, so the companion's module graph contains
+// async chunks — and an async chunk's `name` is neither 'companion' nor
+// 'agent-leaf', so a name test let splitChunks hoist their nc-vue modules straight
+// back into `hermiq-shared-nc-vue.js`. The emitted bundle then contained
+// `n.e("hermiq-shared-nc-vue")` on paths the FAB and chat panel happen not to
+// take: it rendered, it opened, it fetched nothing extra, and it was still one
+// interaction away from `ChunkLoadError` against a file no page attaches.
+//
+// `chunk.runtime` names the ENTRY a chunk belongs to and is carried by async
+// chunks too, so it covers the whole reachable graph rather than the entry file.
+const SELF_CONTAINED_RUNTIMES = ['agent-leaf', 'companion']
+
+/**
+ * May this chunk take part in the shared cacheGroups?
+ *
+ * @param {object} chunk The webpack chunk.
+ * @return {boolean} False for anything reachable from a globally-injected entry.
+ */
+function isSharedChunkEligible(chunk) {
+	if (SELF_CONTAINED_RUNTIMES.includes(chunk.name)) {
+		return false
+	}
+
+	const runtime = chunk.runtime
+	const runtimes =
+		typeof runtime === 'string' ? [runtime] : runtime ? Array.from(runtime) : []
+
+	return runtimes.some((r) => SELF_CONTAINED_RUNTIMES.includes(r)) === false
+}
+
 webpackConfig.optimization = {
 	...(webpackConfig.optimization || {}),
 	splitChunks: {
 		...(webpackConfig.optimization?.splitChunks || {}),
-		chunks: (chunk) => chunk.name !== 'agent-leaf',
+		chunks: (chunk) => isSharedChunkEligible(chunk),
 		cacheGroups: {
 			default: false,
 			defaultVendors: false,

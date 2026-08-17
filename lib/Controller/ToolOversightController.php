@@ -41,6 +41,7 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolReachResolver;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -69,6 +70,12 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small guard-and-shape
  *   endpoint methods (catalog, grants, invocations, export) — a governance read/write
  *   surface, not one tangled algorithm.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same shape, measured on length rather
+ *   than branches: the class is one routed endpoint per governance operation, each a
+ *   short guard-then-shape method, and roughly half its lines are the docblocks that
+ *   record WHY each endpoint's auth posture is what it is. Splitting it by line count
+ *   would put sibling endpoints over the same `Agent.tools` field in different files
+ *   and separate those auth rationales from the methods they govern.
  */
 class ToolOversightController extends Controller {
 
@@ -130,6 +137,7 @@ class ToolOversightController extends Controller {
 	 * @param IAppConfig $appConfig Reads `hermiq.tools.disclosureThreshold`.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check for the oversight bypass.
+	 * @param ToolAccessRequestService $accessRequests Raises and announces tool-access requests.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
@@ -146,6 +154,7 @@ class ToolOversightController extends Controller {
 		private readonly IAppConfig $appConfig,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
+		private readonly ToolAccessRequestService $accessRequests,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
@@ -257,6 +266,119 @@ class ToolOversightController extends Controller {
 		}//end try
 
 	}//end toolCatalog()
+
+	/**
+	 * Resolve a pending tool-access request an agent raised.
+	 *
+	 * ⚠️ ONLY THE AGENT'S OWNER. Not admins — an admin can already edit
+	 * `Agent.tools` directly and does not need this path; routing requests to
+	 * them would make them a queue of decisions about agents they never created.
+	 * The refusal deliberately does not reveal whether the request exists.
+	 *
+	 * Granting appends the tool to `Agent.tools` — the SAME field, resolved by
+	 * the SAME `ToolGrantResolver`, so this adds a governed route to changing a
+	 * grant and changes nothing about how a grant is enforced.
+	 *
+	 * @param string $agentId   The agent the request belongs to.
+	 * @param string $requestId The request object's uuid.
+	 *
+	 * @return JSONResponse The resolved request.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, the
+	 *   single 404 that covers "no agent"/"not yours"/"no request", decision-value
+	 *   validation, agent-match check, grants-shape validation) each add a branch
+	 *   on one linear write path.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+	 *   early-return guards multiply paths without nested logic.
+	 */
+	public function resolveToolAccessRequest(string $agentId, string $requestId): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$agent = $this->findAgent(agentId: $agentId);
+
+		// One refusal for "no such agent", "not yours" and "no such request":
+		// a distinct 404 would let a non-owner probe which requests exist.
+		$notYours = new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+		if ($agent === null || $agent->getOwner() !== $user->getUID() || $user->getUID() === '') {
+			return $notYours;
+		}
+
+		$decision = (string)$this->request->getParam('decision', '');
+		if (in_array($decision, ['granted', 'refused'], true) === false) {
+			return new JSONResponse(['error' => "decision must be 'granted' or 'refused'"], Http::STATUS_BAD_REQUEST);
+		}
+
+		try {
+			$requestObject = $this->objectService->find(
+				id: $requestId,
+				register: self::REGISTER_SLUG,
+				schema: 'toolAccessRequest'
+			);
+		} catch (Throwable $e) {
+			return $notYours;
+		}
+
+		// `getObject()`, not `jsonSerialize()`. Two reasons, either sufficient:
+		// the latter is not on the entity's declared surface (phpstan/psalm both
+		// reject it), and it merges a `@self` metadata block plus a top-level
+		// `id` into the payload — which this method writes straight back via
+		// `saveObject()` below, so serialising would persist the metadata as
+		// object properties. Every other read of an OpenRegister object in this
+		// app uses `getObject()`; the keys read here (`agentId`, `toolId`) are
+		// payload properties, which is exactly what it returns.
+		$data = [];
+		if ($requestObject !== null) {
+			$data = $requestObject->getObject();
+		}
+
+		if (($data['agentId'] ?? '') !== $agentId) {
+			return $notYours;
+		}
+
+		$toolId = (string)($data['toolId'] ?? '');
+		if ($decision === 'granted' && $toolId !== '') {
+			$grants = ($agent->getObject()['tools'] ?? []);
+			if (is_array($grants) === false) {
+				$grants = [];
+			}
+
+			if (in_array($toolId, $grants, true) === false) {
+				$grants[] = $toolId;
+			}
+
+			$this->objectService->saveObject(
+				object: $this->grantWritePayload(agent: $agent, grants: $grants),
+				register: self::REGISTER_SLUG,
+				schema: self::AGENT_SCHEMA,
+				uuid: $agentId
+			);
+		}
+
+		$data['status'] = $decision;
+		$data['decidedBy'] = $user->getUID();
+		$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
+
+		$this->objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: 'toolAccessRequest',
+			uuid: $requestId
+		);
+
+		if ($decision === 'granted') {
+			$this->accessRequests->notifyOwner(agentId: $agentId, toolId: $toolId, subject: 'granted');
+		}
+
+		return new JSONResponse(['status' => $decision, 'toolId' => $toolId, 'agentId' => $agentId]);
+
+	}//end resolveToolAccessRequest()
 
 	/**
 	 * Persist the `Agent.tools` grant array (owner-only, single write-path).
