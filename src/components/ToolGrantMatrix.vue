@@ -233,12 +233,18 @@ export default {
 		 * @return {Array<object>} The joined tools.
 		 */
 		tools() {
+			// ⚠️ The two endpoints spell the SAME tool differently: the catalogue
+			// says `decidesk.listOpenActionItems`, the taxonomy says
+			// `decidesk_listOpenActionItems`. Joined on the raw id, 172 of 202
+			// tools missed and landed under "No application" — and the widget
+			// still rendered, which is why this needs a normalised key rather
+			// than an assumption that the ids agree.
 			const taxonomyById = new Map(
-				this.taxonomy.map((entry) => [entry.name, entry]),
+				this.taxonomy.map((entry) => [this.joinKey(entry.name), entry]),
 			)
 
 			return (this.catalog?.tools ?? []).map((tool) => {
-				const taxonomy = taxonomyById.get(tool.id) ?? {}
+				const taxonomy = taxonomyById.get(this.joinKey(tool.id)) ?? {}
 				// A tool granted by something OTHER than its own id is held
 				// through a wildcard or verb subset. That is a different kind of
 				// grant and must not render as an ordinary tick.
@@ -348,6 +354,21 @@ export default {
 	methods: {
 		t,
 		n,
+
+		/**
+		 * The key both endpoints agree on.
+		 *
+		 * `.` and `_` are the same separator wearing different hats —
+		 * `pipelinq.lead.search` and `pipelinq_lead_search` are one tool. Only
+		 * the separator is normalised, deliberately: stripping or lowercasing
+		 * more would start merging tools that genuinely differ.
+		 *
+		 * @param {string} id The tool id in either spelling.
+		 * @return {string} The normalised join key.
+		 */
+		joinKey(id) {
+			return String(id ?? '').replace(/\./g, '_')
+		},
 
 		/**
 		 * Group tools into clusters, rows and verb columns.
