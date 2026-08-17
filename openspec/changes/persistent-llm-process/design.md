@@ -160,6 +160,36 @@ this — that is the slice that can ship. Governed pooling is blocked on a
 governance decision (option 1) or a verified re-read (option 3), and should not be
 attempted by inference from either.
 
+#### Option 3 is DEAD. Measured 2026-08-17: the CLI does not re-read its config.
+
+Probed rather than assumed (`exapp/llm-runner/src/mcpreadprobe.js`): two local MCP
+stub servers exposing differently-named tools, config pointed at A, one turn
+taken, config rewritten to point at B under the live process, second turn taken
+asking for B's tool.
+
+```
+MCP REREAD PROBE OK  swappedAt=7652ms
+  serverA_methods=[initialize|notifications/initialized|tools/list|tools/call|…]
+  serverB_methods=[]
+  REREAD=false
+```
+
+Server A took a full handshake **and a real `tools/call`** — the positive control,
+so the stub is a working MCP server and the discriminator is sound. After the
+swap, server B received **nothing at all**. The config is read once at startup.
+
+Which server was contacted was observed AT THE SERVER, deliberately: a model asked
+"what tools do you have" narrates a plausible answer, and that answer is not
+evidence.
+
+**Therefore option 2 has no mechanism** — its per-turn re-handshake required
+exactly this re-read — **and option 1 is the only route to governed pooling.**
+Decision taken 2026-08-17 by the product owner: **adopt option 1**, the run
+token's lifetime follows the pooled process. The cost is accepted explicitly: this
+widens the window a leaked token is useful in, which is what per-run minting
+existed to narrow. It is bounded by the pool's idle/hard-cap lifetime, so that cap
+IS the token's security parameter and must be set deliberately, not inherited.
+
 ### D0.2 — ⚠️ An auth failure does not fail fast; it backs off for minutes
 
 Observed in the same probe, with a deliberately invalid key:

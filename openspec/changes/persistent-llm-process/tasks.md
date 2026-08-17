@@ -3,7 +3,11 @@
 ## 0. Sequencing and the blocking decision
 
 - [x] Land `tool-scope-security-default` first — **satisfied in code** (verified 2026-08-17): `HERMIQ_LEGACY_UNSCOPED_TOOLS` is read nowhere, `applyDefaultDeny()` has no implementation, and `ToolGrantResolver` states "THERE IS NO OVERRIDE, deliberately". That change's own checkboxes lag its code.
-- [ ] Decide the token strategy (design D0.1) — **STILL BLOCKING, and narrowed**: the token is TTL-bounded *and* `consume()`d in a `finally` when the run closes, so a pooled governed process holds a dead token. Option 2 has no mechanism without option 3's unverified config re-read. **Governed pooling is blocked; ungoverned (text-only) pooling is not and can ship first.**
+- [x] Decide the token strategy (design D0.1) — **DECIDED: option 1.** Measured: the token is TTL-bounded *and* `consume()`d in a `finally` when the run closes; and the CLI does **not** re-read its `--mcp-config` mid-session (`REREAD=false`), which kills options 2 and 3 together. Owner adopted option 1 on 2026-08-17: the token's lifetime follows the pooled process, accepting the widened leak window, bounded by the pool's idle/hard cap.
+
+Acceptance criteria (option 1):
+- The pool's idle/hard cap IS the token's security parameter now. Set it deliberately and state it; a default inherited from something else is how the window silently widens.
+- `consume()` must move from "when the run closes" to "when the process is reaped", or the first pooled turn kills its own token.
 
 Acceptance criteria:
 - Pooling a process that holds a stale, over-broad tool set is strictly worse than spawning a correct one each time.

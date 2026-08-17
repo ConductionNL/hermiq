@@ -190,6 +190,11 @@ async function handleRun(req, res, rawBody) {
 				.runProbe({ provider, model, credentialEnv, log })
 				.catch((err) => log('error', `POOL PROBE failed: ${err.message}`))
 		}
+		if (require('fs').existsSync('/tmp/mcp-reread-probe-armed')) {
+			require('./mcpreadprobe')
+				.runProbe({ provider, model, credentialEnv, log })
+				.catch((err) => log('error', `MCP REREAD PROBE failed: ${err.message}`))
+		}
 	} catch (err) {
 		// err.message is already redacted in runner.js.
 		log('error', `/run failed: ${err.message}`)
