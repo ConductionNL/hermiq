@@ -495,6 +495,7 @@
 			"slots": {
 				"widget-agent-skills": "agent-skills",
 				"widget-agent-tool-governance": "agent-tool-governance",
+				"widget-agent-tool-activity": "agent-tool-activity",
 				"widget-agent-run-operations": "agent-run-operations",
 				"widget-agent-memory": "agent-memory",
 				"widget-agent-run-history": "agent-run-history",
