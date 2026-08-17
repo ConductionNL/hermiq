@@ -13,9 +13,11 @@
 // vue-material-design-icons.
 
 import AccountDetailsOutline from 'vue-material-design-icons/AccountDetailsOutline.vue'
+import AccountGroup from 'vue-material-design-icons/AccountGroup.vue'
 import AlertOctagonOutline from 'vue-material-design-icons/AlertOctagonOutline.vue'
 import BookOpenVariantOutline from 'vue-material-design-icons/BookOpenVariantOutline.vue'
 import Brain from 'vue-material-design-icons/Brain.vue'
+import Calendar from 'vue-material-design-icons/Calendar.vue'
 import CashMultiple from 'vue-material-design-icons/CashMultiple.vue'
 import ChartBar from 'vue-material-design-icons/ChartBar.vue'
 import ChartLine from 'vue-material-design-icons/ChartLine.vue'
@@ -74,9 +76,11 @@ import Webhook from 'vue-material-design-icons/Webhook.vue'
 
 export default {
 	AccountDetailsOutline,
+	AccountGroup,
 	AlertOctagonOutline,
 	BookOpenVariantOutline,
 	Brain,
+	Calendar,
 	CashMultiple,
 	ChartBar,
 	ChartLine,

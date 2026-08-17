@@ -751,31 +751,10 @@ class BudgetServiceTest extends TestCase {
 
 	}//end testUpdateThrowsWhenBudgetMissing()
 
-	/**
-	 * delete() calls through to ObjectService::deleteObject() for the budget schema.
-	 *
-	 * @return void
-	 *
-	 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
-	 */
-	public function testDeleteRemovesTheBudget(): void {
-		$objectService = $this->createMock(ObjectService::class);
-		$objectService->expects($this->once())
-			->method('deleteObject')
-			->with('b1', 'hermiq', 'agentbudget', false, false)
-			->willReturn(true);
-
-		$service = new BudgetService(
-			objectService: $objectService,
-			auditTrailMapper: $this->createMock(AuditTrailMapper::class),
-			appConfig: $this->createMock(IAppConfig::class),
-			organisationMapper: $this->orgMapper('org-owner'),
-			deliveryService: $this->createMock(DeliveryService::class),
-			analyticsService: $this->createMock(AnalyticsService::class),
-			logger: $this->createMock(LoggerInterface::class),
-		);
-
-		$service->delete(budgetId: 'b1');
-
-	}//end testDeleteRemovesTheBudget()
+		// BudgetService::delete() was removed in 69a63a9a as one of three
+	// ObjectService pass-through wrappers (gate-17, ADR-022). Its test outlived
+	// it and failed with "Call to undefined method". The behaviour still has a
+	// home: BudgetController::destroy() deletes through OpenRegister directly,
+	// after findById() and the mayAdminister() check, and that path is covered
+	// by the controller's own tests.
 }//end class
