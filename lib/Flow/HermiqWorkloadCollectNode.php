@@ -171,16 +171,21 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 			// An EMPTY handle is not a job that is still running — it is a
 			// dispatch whose acknowledgement never reached the item, and
 			// answering `running` would park the flow on it forever.
-			$state = $jobId === ''
-				? ['status' => 'unknown', 'error' => 'no job id on the item to collect with']
-				: $this->stages->collect(jobId: $jobId, uid: ($context['triggeredBy'] ?? null));
+			$state = ['status' => 'unknown', 'error' => 'no job id on the item to collect with'];
+			if ($jobId !== '') {
+				$state = $this->stages->collect(jobId: $jobId, uid: ($context['triggeredBy'] ?? null));
+			}
 
 			// The stage result is published under the SAME shape a synchronous
 			// step produces, so a downstream gate reading `stage.exitCode` does
 			// not care which transport delivered it.
 			if ($state['status'] === 'done' && isset($state['result']) === true) {
 				$stageKey = trim((string)($config['stageOutput'] ?? 'stage'));
-				$json[($stageKey === '' ? 'stage' : $stageKey)] = $state['result'];
+				if ($stageKey === '') {
+					$stageKey = 'stage';
+				}
+
+				$json[$stageKey] = $state['result'];
 				unset($state['result']);
 			}
 
@@ -222,7 +227,11 @@ class HermiqWorkloadCollectNode implements IFlowNode {
 					$cursor = $cursor[$segment];
 				}
 
-				return is_scalar($cursor) === true ? (string)$cursor : '';
+				if (is_scalar($cursor) === false) {
+					return '';
+				}
+
+				return (string)$cursor;
 			},
 			$template
 		);

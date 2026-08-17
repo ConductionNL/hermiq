@@ -264,6 +264,32 @@ final class EgressAuthorizeControllerTest extends TestCase {
 	}//end testMissingHostIsBadRequest()
 
 	/**
+	 * A non-positive port is a bad request, and is refused BEFORE any policy runs.
+	 *
+	 * `authorize()` fails closed on `$host === '' || $port <= 0`, but only the
+	 * missing-host half of that condition was pinned. A port of 0 is what an
+	 * absent or non-numeric `port` field casts to, so this is the shape an
+	 * unparsed CONNECT actually arrives in — and it must be refused rather than
+	 * evaluated against the allowlist as `host:0`.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#scenario-the-proxy-denies-a-non-allowlisted-host-at-the-network-layer
+	 */
+	public function testANonPositivePortIsBadRequest(): void {
+		$controller = $this->controller(
+			$this->tokens('good'),
+			$this->settings(['fetchAllowlist' => ['api.anthropic.com'], 'fetchDenylist' => [], 'allowInsecureHttp' => false]),
+			'Bearer good',
+			'{"host":"api.anthropic.com","port":0}'
+		);
+
+		$response = $controller->authorize();
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+
+	}//end testANonPositivePortIsBadRequest()
+
+	/**
 	 * A non-allowlisted host is denied with the guard's own `not_allowlisted` code.
 	 *
 	 * @return void

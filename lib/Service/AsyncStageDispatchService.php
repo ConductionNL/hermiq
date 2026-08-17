@@ -80,6 +80,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()` exactly, deliberately:
 	 *   the two must accept the same stage, and a bundled array is the shape in which a field
 	 *   has already been silently dropped at this boundary once.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	public function dispatchAsync(
 		string $repo,
@@ -96,7 +98,10 @@ class AsyncStageDispatchService extends StageDispatchService {
 		string $jobKey = '',
 		array $collect = [],
 	): array {
-		$ceiling = ($timeoutMs > 0) ? $timeoutMs : self::DEFAULT_STAGE_TIMEOUT_MS;
+		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
+		if ($timeoutMs > 0) {
+			$ceiling = $timeoutMs;
+		}
 
 		$params = $this->buildParams(
 			repo: $repo,
@@ -204,10 +209,15 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @return array{job: array{id: string, status: string}} The handle.
 	 *
 	 * @throws RuntimeException When the body carries no usable handle.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function mapAccepted(string $body): array {
 		$decoded = json_decode($body, true);
-		$jobId = is_array($decoded) === true ? trim((string)($decoded['jobId'] ?? '')) : '';
+		$jobId = '';
+		if (is_array($decoded) === true) {
+			$jobId = trim((string)($decoded['jobId'] ?? ''));
+		}
 
 		if ($jobId === '') {
 			// Fail loudly. A dispatch whose handle was lost is a stage running

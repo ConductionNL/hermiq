@@ -301,6 +301,31 @@ class HermiqWorkloadNodeTest extends TestCase {
 	}//end testAnUnattributableStageIsRefused()
 
 	/**
+	 * An async step without an async transport is REFUSED, not run synchronously.
+	 *
+	 * This pins the safety property `dispatchAsyncFor()` documents but nothing
+	 * exercised: a step that asked for a handle and silently got a blocking call
+	 * back would hold the queue worker for the stage's whole duration while the
+	 * flow waits for a `job` key that never arrives. Falling back to the
+	 * synchronous transport is the one behaviour that must not happen.
+	 *
+	 * @return void
+	 */
+	public function testAnAsyncStepWithoutAnAsyncTransportIsRefused(): void {
+		// The node is built with three positional collaborators, so
+		// `$asyncStages` is null — exactly the deployment this guards.
+		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
+
+		$this->expectException(UnexpectedValueException::class);
+		$node->execute(
+			[['json' => []]],
+			($this->config() + ['async' => true]),
+			['triggeredBy' => 'ruben']
+		);
+
+	}//end testAnAsyncStepWithoutAnAsyncTransportIsRefused()
+
+	/**
 	 * A blank owner is not an owner.
 	 *
 	 * @return void
