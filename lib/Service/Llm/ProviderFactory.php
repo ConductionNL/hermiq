@@ -141,9 +141,20 @@ class ProviderFactory {
 	 * Known limit, recorded not solved: `RUNNER_TIMEOUT_MS` is a container env var Hermiq
 	 * cannot read, so this tracks the runner's DEFAULT rather than its live value.
 	 *
+	 * ⚠️ Raised 120 -> 300 on 2026-08-17 for AGENTIC turns. A turn that answers one
+	 * question by making several tool calls spends roughly 5-10s per round trip, and
+	 * a realistic composite ("quote this client for 5 hours of dev work" — find the
+	 * client, find or create the lead, read the template, price it, write the file)
+	 * needs six or more. Measured: such a turn was cut off at 152s having already
+	 * started its pooled process, and the user saw "could not reach the ExApp",
+	 * which names the wrong cause entirely.
+	 *
+	 * The data is not the constraint — the OpenRegister lookups behind those calls
+	 * measured 176-364ms each. It is the model's own round trips.
+	 *
 	 * @var int
 	 */
-	private const RUNNER_CLI_TIMEOUT_SECONDS = 120;
+	private const RUNNER_CLI_TIMEOUT_SECONDS = 300;
 
 	/**
 	 * Slack (SECONDS) added to the runner's own timeout to form Hermiq's.

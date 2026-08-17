@@ -42,8 +42,15 @@ const MAX_PROCESSES = 8
 /** Idle time after which a process is reaped even if its lifetime remains. */
 const IDLE_REAP_MS = 120000
 
-/** Ceiling on one pooled turn before the process is declared unhealthy. */
-const TURN_TIMEOUT_MS = 180000
+/**
+ * Ceiling on one pooled turn before the process is declared unhealthy.
+ *
+ * Must stay ABOVE Hermiq's own dispatch budget (RUNNER_CLI_TIMEOUT_SECONDS,
+ * currently 300s): if the pool gave up first it would reap a process that is
+ * still working, and the caller would be told the backend was unreachable rather
+ * than that its turn was long.
+ */
+const TURN_TIMEOUT_MS = 330000
 
 /** key -> entry */
 const processes = new Map()
