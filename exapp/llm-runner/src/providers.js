@@ -38,10 +38,24 @@ function parseClaudeJson(stdout) {
 		return { text: stdout.trim(), toolCalls: [], usage: {} }
 	}
 	const text = pickText(parsed, ['result', 'text', 'completion'])
+
+	// The CLI reports its OWN wall time and the part of it spent waiting on the
+	// vendor API. The difference is process start + session init + MCP handshake —
+	// the harness overhead, which is otherwise unmeasurable from outside without
+	// attributing all of it to inference. Carried on `usage` so it reaches
+	// Hermiq's turn timings; absent for CLIs that do not report it.
+	const usage = { ...(parsed.usage || {}) }
+	if (typeof parsed.duration_ms === 'number') {
+		usage.cliDurationMs = parsed.duration_ms
+	}
+	if (typeof parsed.duration_api_ms === 'number') {
+		usage.cliApiMs = parsed.duration_api_ms
+	}
+
 	return {
 		text,
 		toolCalls: pickToolCalls(parsed),
-		usage: parsed.usage || {},
+		usage,
 	}
 }
 

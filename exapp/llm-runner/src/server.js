@@ -156,6 +156,7 @@ async function handleRun(req, res, rawBody) {
 		'info',
 		`/run provider=${providerId} model=${model || '(default)'} messages=${messages.length} governed=${mcpConfig ? 'yes' : 'no'}`,
 	)
+	const handlerStartedAt = Date.now()
 	try {
 		const result = await run({
 			provider,
@@ -165,6 +166,13 @@ async function handleRun(req, res, rawBody) {
 			mcpConfig,
 			runToken,
 		})
+		// Time inside THIS endpoint, against the CLI's own API time. Anything the
+		// caller measures beyond this is Hermiq-side, not the model's.
+		log(
+			'info',
+			`/run served in ${Date.now() - handlerStartedAt}ms `
+				+ `(api=${result?.usage?.cliApiMs ?? -1}ms)`,
+		)
 		sendJson(res, 200, {
 			text: result.text,
 			toolCalls: result.toolCalls,

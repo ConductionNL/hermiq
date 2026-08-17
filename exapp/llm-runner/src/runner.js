@@ -413,6 +413,7 @@ function spawnTurn({
 		Object.assign(childEnv, selectCredentialEnv(provider, credentialEnv))
 
 		let child
+		let spawnedAt = 0
 		try {
 			if (process.env.RUNNER_DEBUG_ARGV === '1') {
 				// eslint-disable-next-line no-console
@@ -427,6 +428,7 @@ function spawnTurn({
 					)
 				}
 			}
+			spawnedAt = Date.now()
 			child = spawn(provider.bin, args, {
 				cwd: scratch,
 				env: childEnv,
@@ -495,7 +497,32 @@ function spawnTurn({
 				return
 			}
 			try {
-				resolve(provider.parse(stdout.toString('utf8')))
+				const result = provider.parse(stdout.toString('utf8'))
+
+				// Our OWN spawn→close wall against the API time the CLI reports.
+				// `overhead` is what the harness costs: process start, session
+				// init, MCP handshake — invisible from outside, where it reads as
+				// inference time. Measured 2026-08-17: api is near-constant
+				// (~2.1-2.7s) while overhead swings 7x with machine load, so this
+				// is the number to watch, not the total.
+				//
+				// NOTE: overhead is deliberately `wall - api`, NOT the CLI's own
+				// `duration_ms - duration_api_ms`. `duration_api_ms` can EXCEED
+				// `duration_ms`, which makes that difference negative and
+				// meaningless. `cli` is logged for reference only.
+				//
+				// Numbers only; no prompt or credential material is logged.
+				const wall = spawnedAt > 0 ? Date.now() - spawnedAt : -1
+				const cliWall = result?.usage?.cliDurationMs ?? -1
+				const api = result?.usage?.cliApiMs ?? -1
+				const overhead = wall >= 0 && api >= 0 ? wall - api : -1
+				// eslint-disable-next-line no-console
+				console.log(
+					`[hermiq-llm-runner] info: turn timing wall=${wall}ms `
+						+ `cli=${cliWall}ms api=${api}ms overhead=${overhead}ms`,
+				)
+
+				resolve(result)
 			} catch (err) {
 				reject(new Error(`failed to parse CLI output: ${err.message}`))
 			}
