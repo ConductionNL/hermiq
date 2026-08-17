@@ -267,12 +267,13 @@ class GitHubTemplateCatalogService {
 	 * @param IClientService $clientService NC HTTP client factory (anonymous calls).
 	 * @param ICacheFactory $cacheFactory NC cache factory (short-TTL server cache).
 	 * @param LoggerInterface $logger PSR logger (secret-free diagnostics only).
+	 * @param GitHubArchiveExtractor $archiveExtractor Unpacks an already-fetched repository tarball.
 	 */
 	public function __construct(
 		private readonly IClientService $clientService,
 		ICacheFactory $cacheFactory,
 		private readonly LoggerInterface $logger,
-		private readonly \OCP\ITempManager $tempManager,
+		private readonly GitHubArchiveExtractor $archiveExtractor,
 	) {
 		$cache = null;
 		if ($cacheFactory->isAvailable() === true) {
@@ -627,6 +628,10 @@ class GitHubTemplateCatalogService {
 	 * extraction) so the caller can fall back to {@see collectTreeBlobs()}
 	 * rather than fail the whole install over an optimisation.
 	 *
+	 * This method owns only the FETCH — the one part that is an outbound call and
+	 * therefore subject to this class's fixed-host invariant. Unpacking the bytes
+	 * makes no outbound call, so it lives in {@see GitHubArchiveExtractor}.
+	 *
 	 * @param string $owner Repo owner.
 	 * @param string $repo Repo name.
 	 * @param string|null $ref Optional git ref.
@@ -656,111 +661,16 @@ class GitHubTemplateCatalogService {
 			actingUserId: $actingUserId,
 			credentialId: $credentialId
 		);
-		if ($result['ok'] === false || $result['body'] === '') {
+		if ($result['ok'] === false) {
 			return null;
 		}
 
-		if (strlen($result['body']) > self::MAX_BUNDLE_BYTES) {
-			// An archive this large would exceed the bundle bound on extraction
-			// anyway — refuse before writing it to disk rather than after.
-			return null;
-		}
-
-		$archivePath = $this->tempManager->getTemporaryFile('.tar.gz');
-		if ($archivePath === false) {
-			return null;
-		}
-
-		$extractDir = null;
-
-		try {
-			if (file_put_contents($archivePath, $result['body']) === false) {
-				return null;
-			}
-
-			$extractDir = $this->tempManager->getTemporaryFolder();
-			if ($extractDir === false) {
-				return null;
-			}
-
-			$phar = new \PharData($archivePath);
-			$phar->extractTo($extractDir, null, true);
-
-			// GitHub's tarball root is `{owner}-{repo}-{shortsha}/…` — exactly
-			// one top-level directory. Resolved by listing rather than assumed
-			// by name, since the short SHA is not knowable in advance.
-			$roots = array_values(array_filter(
-				scandir($extractDir) ?: [],
-				static fn (string $entry): bool => ($entry !== '.' && $entry !== '..' && is_dir($extractDir . '/' . $entry))
-			));
-			if (count($roots) !== 1) {
-				return null;
-			}
-
-			$root = $extractDir . '/' . $roots[0];
-			$files = [];
-			$iterator = new \RecursiveIteratorIterator(
-				new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
-			);
-			foreach ($iterator as $fileInfo) {
-				if ($fileInfo->isFile() === false) {
-					continue;
-				}
-
-				$relative = ltrim(substr($fileInfo->getPathname(), strlen($root)), '/');
-				if ($accept($relative) === false) {
-					continue;
-				}
-
-				$contents = file_get_contents($fileInfo->getPathname());
-				if ($contents === false) {
-					continue;
-				}
-
-				$files[$relative] = $contents;
-			}//end foreach
-
-			return $files;
-		} catch (Throwable $e) {
-			$this->logger->warning(
-				'Hermiq GitHub template catalog: archive fetch/extract failed, falling back to per-file fetch: ' . $e->getMessage(),
-				['owner' => $owner, 'repo' => $repo]
-			);
-			return null;
-		} finally {
-			if (file_exists($archivePath) === true) {
-				unlink($archivePath);
-			}
-
-			if ($extractDir !== null && is_dir($extractDir) === true) {
-				$this->removeDirectoryRecursive(path: $extractDir);
-			}
-		}//end try
-	}//end fetchArchiveBlobs()
-
-	/**
-	 * Remove a directory and its contents. PHP has no `rm -rf` built in.
-	 *
-	 * @param string $path Absolute path to remove.
-	 *
-	 * @return void
-	 */
-	private function removeDirectoryRecursive(string $path): void {
-		$iterator = new \RecursiveIteratorIterator(
-			new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-			\RecursiveIteratorIterator::CHILD_FIRST
+		return $this->archiveExtractor->extract(
+			body: $result['body'],
+			accept: $accept,
+			maxBytes: self::MAX_BUNDLE_BYTES
 		);
-		foreach ($iterator as $fileInfo) {
-			if ($fileInfo->isDir() === true) {
-				rmdir($fileInfo->getPathname());
-				continue;
-			}
-
-			unlink($fileInfo->getPathname());
-		}
-
-		rmdir($path);
-	}//end removeDirectoryRecursive()
+	}//end fetchArchiveBlobs()
 
 	/**
 	 * Fetch a repository's recursive git tree.
@@ -1077,10 +987,14 @@ class GitHubTemplateCatalogService {
 			// but wrong `0 installed` instead of surfacing the real 403. Logged
 			// here, at the one place that knows the real HTTP status, since
 			// nothing downstream can tell the difference once it sees null.
-			if (($result['rateLimited'] ?? false) === true) {
+			// `rateLimited` and `status` are declared members of get()'s return
+			// shape and are always present — a `??` fallback here reads as a
+			// guard against a key that cannot be absent, which is why phpstan
+			// rejects it.
+			if ($result['rateLimited'] === true) {
 				$this->logger->warning(
 					'Hermiq GitHub template catalog: rate-limited fetching ' . $apiPath . ' — result will read as "file absent", not "fetch failed".',
-					['status' => ($result['status'] ?? 0)]
+					['status' => $result['status']]
 				);
 			}
 

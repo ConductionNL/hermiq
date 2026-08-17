@@ -75,7 +75,9 @@ class SkillBundleInstaller {
 	 * @param SkillBundleSerializer $bundleSerializer Bundle parse.
 	 * @param SkillMarketplaceService $marketplaceService Per-skill install.
 	 * @param SkillIdentityResolver $identityResolver Canonical skill identity.
-	 * @param ObjectService $objectService OpenRegister object read/write, for the agents channel — same concrete dependency AgentsController uses for this register/schema.
+	 * @param ObjectService $objectService OpenRegister object read/write, for the agents
+	 *                                     channel — the same concrete dependency
+	 *                                     AgentsController uses for this register/schema.
 	 * @param LoggerInterface $logger PSR logger.
 	 *
 	 * @return void

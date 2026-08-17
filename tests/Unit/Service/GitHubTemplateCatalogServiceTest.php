@@ -26,6 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
+use OCA\Hermiq\Service\GitHubArchiveExtractor;
 use OCA\Hermiq\Service\GitHubTemplateCatalogService;
 use OCP\Http\Client\IClient;
 use OCP\Http\Client\IClientService;
@@ -54,15 +55,19 @@ class GitHubTemplateCatalogServiceTest extends TestCase {
 	}//end noCacheFactory()
 
 	/**
-	 * A stub ITempManager — none of the existing tests exercise the archive
-	 * fetch path (that needs a real filesystem; covered live, see the
-	 * skill-bundle agents-extension verification notes), so this only needs
-	 * to satisfy the constructor.
+	 * An archive extractor that never succeeds, so a test that does not set out
+	 * to exercise the archive shortcut takes the per-file fallback path.
 	 *
-	 * @return \OCP\ITempManager
+	 * The extraction itself is tested as itself in {@see GitHubArchiveExtractorTest},
+	 * against real archive bytes on a real filesystem, rather than inferred here
+	 * through a mocked temp manager.
+	 *
+	 * @return GitHubArchiveExtractor
 	 */
-	private function tempManager(): \OCP\ITempManager {
-		return $this->createMock(\OCP\ITempManager::class);
+	private function tempManager(): GitHubArchiveExtractor {
+		$extractor = $this->createMock(GitHubArchiveExtractor::class);
+		$extractor->method('extract')->willReturn(null);
+		return $extractor;
 	}//end tempManager()
 
 	/**

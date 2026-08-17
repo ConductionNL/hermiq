@@ -623,30 +623,16 @@ class SkillController extends Controller {
 			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
 		}
 
-		$owner = (string)($this->request->getParam('owner') ?? '');
-		$repo = (string)($this->request->getParam('repo') ?? '');
-		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
-			return new JSONResponse(['error' => 'invalid_repo'], Http::STATUS_BAD_REQUEST);
+		$parsed = $this->parseBundlePublishRequest();
+		if (($parsed['error'] ?? null) instanceof JSONResponse) {
+			return $parsed['error'];
 		}
 
-		$skillIds = $this->request->getParam('skillIds');
-		$agentIds = $this->request->getParam('agentIds');
-		if (is_array($agentIds) === false) {
-			$agentIds = [];
-		}
-
-		if (is_array($skillIds) === false) {
-			$skillIds = [];
-		}
-
-		if ($skillIds === [] && $agentIds === []) {
-			return new JSONResponse(['error' => 'skillIds or agentIds must be a non-empty array'], Http::STATUS_BAD_REQUEST);
-		}
-
-		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
-		if (in_array($visibility, ['public', 'private'], true) === false) {
-			return new JSONResponse(['error' => 'invalid_visibility'], Http::STATUS_BAD_REQUEST);
-		}
+		$owner = $parsed['owner'];
+		$repo = $parsed['repo'];
+		$skillIds = $parsed['skillIds'];
+		$agentIds = $parsed['agentIds'];
+		$visibility = $parsed['visibility'];
 
 		$collected = $this->collectPublishablePayloads(skillIds: $skillIds);
 		$payloads = $collected['payloads'];
@@ -705,6 +691,65 @@ class SkillController extends Controller {
 		);
 
 	}//end bundlePublish()
+
+	/**
+	 * Read and validate `bundlePublish()`'s request parameters.
+	 *
+	 * Split out so the publish method itself is about publishing. The validation
+	 * is a flat run of independent guards whose branches multiply into the
+	 * publish flow's own — folding them together is what took `bundlePublish()`
+	 * to an NPath of 864 without any of it being publish logic.
+	 *
+	 * Either `skillIds` or `agentIds` may be empty; both empty is the rejection.
+	 * A bundle of only agents and a bundle of only skills are both legitimate.
+	 *
+	 * @return array{error?:JSONResponse,owner:string,repo:string,skillIds:array<int,mixed>,agentIds:array<int,mixed>,visibility:string}
+	 *         The validated request, or a shape carrying `error` — the caller returns that response verbatim.
+	 */
+	private function parseBundlePublishRequest(): array {
+		$reject = static fn (string $code): array => [
+			'error' => new JSONResponse(['error' => $code], Http::STATUS_BAD_REQUEST),
+			'owner' => '',
+			'repo' => '',
+			'skillIds' => [],
+			'agentIds' => [],
+			'visibility' => 'private',
+		];
+
+		$owner = (string)($this->request->getParam('owner') ?? '');
+		$repo = (string)($this->request->getParam('repo') ?? '');
+		if (preg_match(self::OWNER_REPO_PATTERN, $owner) !== 1 || preg_match(self::OWNER_REPO_PATTERN, $repo) !== 1) {
+			return $reject('invalid_repo');
+		}
+
+		$skillIds = $this->request->getParam('skillIds');
+		if (is_array($skillIds) === false) {
+			$skillIds = [];
+		}
+
+		$agentIds = $this->request->getParam('agentIds');
+		if (is_array($agentIds) === false) {
+			$agentIds = [];
+		}
+
+		if ($skillIds === [] && $agentIds === []) {
+			return $reject('skillIds or agentIds must be a non-empty array');
+		}
+
+		$visibility = (string)($this->request->getParam('visibility') ?? 'private');
+		if (in_array($visibility, ['public', 'private'], true) === false) {
+			return $reject('invalid_visibility');
+		}
+
+		return [
+			'owner' => $owner,
+			'repo' => $repo,
+			'skillIds' => $skillIds,
+			'agentIds' => $agentIds,
+			'visibility' => $visibility,
+		];
+
+	}//end parseBundlePublishRequest()
 
 	/**
 	 * Install every skill from a bundle repository (skill-bundle-publish).

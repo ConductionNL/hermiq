@@ -784,4 +784,237 @@ class SkillControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 
 	}//end testOwnerCanStillUninstallFromTheirAgent()
+
+	/**
+	 * A controller whose agent lookup resolves to $agent (possibly null), so a
+	 * test can exercise the not-found branch that {@see controller()}'s default
+	 * agent cannot reach.
+	 *
+	 * @param IRequest $request The request.
+	 * @param ObjectEntity|null $agent The agent every lookup resolves to, or null for none.
+	 * @param GitHubTemplatePushService|null $push An optional push service mock.
+	 *
+	 * @return SkillController
+	 */
+	private function agentPublishController(
+		IRequest $request,
+		?ObjectEntity $agent,
+		?GitHubTemplatePushService $push = null,
+	): SkillController {
+		$catalog = $this->createMock(GitHubTemplateCatalogService::class);
+		$marketplace = $this->createMock(SkillMarketplaceService::class);
+		$bundle = new SkillBundleSerializer(new SkillSerializer());
+
+		return new SkillController(
+			$request,
+			$this->createMock(SkillService::class),
+			$this->session('alice'),
+			$this->createMock(LoggerInterface::class),
+			$catalog,
+			$marketplace,
+			$bundle,
+			($push ?? $this->createMock(GitHubTemplatePushService::class)),
+			new SkillBundleInstaller(
+				$catalog,
+				$bundle,
+				$marketplace,
+				new SkillIdentityResolver(),
+				$this->createMock(ObjectService::class),
+				$this->createMock(LoggerInterface::class)
+			),
+			new SeedCustodyService($this->createMock(IGroupManager::class)),
+			$this->agentAccess($agent)
+		);
+
+	}//end agentPublishController()
+
+	/**
+	 * A named Agent ObjectEntity, publishable through the agents channel.
+	 *
+	 * @param string $name The agent's name.
+	 *
+	 * @return ObjectEntity
+	 */
+	private function namedAgent(string $name): ObjectEntity {
+		$entity = new ObjectEntity();
+		$entity->setUuid('agent-1');
+		$entity->setOwner('alice');
+		$entity->setObject(['name' => $name, 'prompt' => 'you are ' . $name, 'isPrivate' => false, 'invitedUsers' => []]);
+		return $entity;
+	}//end namedAgent()
+
+	/**
+	 * A request carrying ONLY agentIds publishes a valid agents-only bundle. A
+	 * bundle of only agents and a bundle of only skills are both legitimate, so
+	 * an empty `skillIds` must not be read as an empty request.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testBundlePublishAcceptsAnAgentsOnlyRequest(): void {
+		$captured = null;
+		$push = $this->createMock(GitHubTemplatePushService::class);
+		$push->method('publishBundle')->willReturnCallback(
+			function (array $files) use (&$captured): array {
+				$captured = $files;
+				return ['repoUrl' => 'https://github.com/acme/bundle-repo', 'commitSha' => 'cafe', 'created' => true];
+			}
+		);
+
+		$request = $this->request([
+			'owner' => 'acme',
+			'repo' => 'bundle-repo',
+			'skillIds' => [],
+			'agentIds' => ['agent-1'],
+		]);
+
+		$response = $this->agentPublishController($request, $this->namedAgent('Hydra Triage'), $push)->bundlePublish();
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertSame(1, $data['agentsPublished']);
+		$this->assertSame(0, $data['agentsDropped']);
+		$this->assertSame([['name' => 'Hydra Triage', 'outcome' => 'published']], $data['agents']);
+		$this->assertFalse($data['truncated']);
+
+		$this->assertContains('agents/hydra-triage.json', array_keys($captured ?? []));
+
+	}//end testBundlePublishAcceptsAnAgentsOnlyRequest()
+
+	/**
+	 * An agent the caller cannot read is reported `not_found` rather than
+	 * published, and a request of only unreadable agents never reaches GitHub.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testBundlePublishReportsAnUnreadableAgentAsNotFound(): void {
+		$push = $this->createMock(GitHubTemplatePushService::class);
+		$push->expects($this->never())->method('publishBundle');
+
+		$request = $this->request([
+			'owner' => 'acme',
+			'repo' => 'bundle-repo',
+			'agentIds' => ['agent-1'],
+		]);
+
+		$response = $this->agentPublishController($request, null, $push)->bundlePublish();
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertSame('no_publishable_content', $data['error']);
+		$this->assertSame([['name' => 'agent-1', 'outcome' => 'not_found']], $data['agents']);
+
+	}//end testBundlePublishReportsAnUnreadableAgentAsNotFound()
+
+	/**
+	 * Neither skillIds nor agentIds is a rejection; the message names both.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testBundlePublishRejectsWhenBothSetsAreEmpty(): void {
+		$push = $this->createMock(GitHubTemplatePushService::class);
+		$push->expects($this->never())->method('publishBundle');
+
+		$request = $this->request(['owner' => 'acme', 'repo' => 'bundle-repo', 'skillIds' => [], 'agentIds' => []]);
+		$response = $this->agentPublishController($request, $this->namedAgent('t'), $push)->bundlePublish();
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertStringContainsString('agentIds', $response->getData()['error']);
+
+	}//end testBundlePublishRejectsWhenBothSetsAreEmpty()
+
+	/**
+	 * An unknown visibility is refused before any GitHub call — creating a repo
+	 * with the wrong visibility is not an error a later step can undo.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/contract.md
+	 */
+	public function testBundlePublishRejectsAnUnknownVisibility(): void {
+		$push = $this->createMock(GitHubTemplatePushService::class);
+		$push->expects($this->never())->method('publishBundle');
+
+		$request = $this->request([
+			'owner' => 'acme',
+			'repo' => 'bundle-repo',
+			'agentIds' => ['agent-1'],
+			'visibility' => 'internal',
+		]);
+
+		$response = $this->agentPublishController($request, $this->namedAgent('t'), $push)->bundlePublish();
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertSame('invalid_visibility', $response->getData()['error']);
+
+	}//end testBundlePublishRejectsAnUnknownVisibility()
+
+	/**
+	 * A malformed repo coordinate is refused before any GitHub call.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/skill-bundle-publish/contract.md
+	 */
+	public function testBundlePublishRejectsAMalformedRepoCoordinate(): void {
+		$push = $this->createMock(GitHubTemplatePushService::class);
+		$push->expects($this->never())->method('publishBundle');
+
+		$request = $this->request(['owner' => 'acme/../evil', 'repo' => 'bundle-repo', 'agentIds' => ['agent-1']]);
+		$response = $this->agentPublishController($request, $this->namedAgent('t'), $push)->bundlePublish();
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+		$this->assertSame('invalid_repo', $response->getData()['error']);
+
+	}//end testBundlePublishRejectsAMalformedRepoCoordinate()
+
+	/**
+	 * bundleInstall() installs the agents a bundle declares.
+	 *
+	 * This DIRECT HTTP route predates the agents extension and used to call only
+	 * the skills half, so a bundle installed through this endpoint silently
+	 * dropped every agent it carried while reporting success. The assertion is on
+	 * the `agents` key being populated — a response that simply omitted it looked
+	 * identical to one where the bundle genuinely had none.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-bundle-may-additionally-carry-agent-definitions
+	 */
+	public function testBundleInstallInstallsTheAgentsTheBundleDeclares(): void {
+		$tree = (new SkillBundleSerializer(new SkillSerializer()))->toBundle(
+			skills: [['name' => 'alpha-skill', 'frontmatter' => 'name: alpha-skill', 'body' => "a\n", 'files' => []]],
+			agents: [['name' => 'triage', 'prompt' => 'sort the inbox']]
+		);
+
+		$catalog = $this->createMock(GitHubTemplateCatalogService::class);
+		$catalog->method('fetchBundle')->willReturn(['files' => $tree, 'truncated' => false]);
+
+		$marketplace = $this->createMock(SkillMarketplaceService::class);
+		$marketplace->method('installFromSource')->willReturn($this->skill('quarantined', ['name' => 'alpha-skill']));
+
+		$request = $this->request(['owner' => 'acme', 'repo' => 'bundle-repo']);
+		$response = $this->controller(
+			$this->session('alice'),
+			$request,
+			null,
+			$catalog,
+			$marketplace
+		)->bundleInstall();
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+
+		$data = $response->getData();
+		$this->assertArrayHasKey('agents', $data);
+		$this->assertCount(1, $data['agents']);
+		$this->assertSame('triage', $data['agents'][0]['name']);
+
+	}//end testBundleInstallInstallsTheAgentsTheBundleDeclares()
 }//end class
