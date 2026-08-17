@@ -52,11 +52,12 @@
 // too, so it needs those pages re-verified; it is not part of this fix.
 import { createApp, defineAsyncComponent, h } from 'vue'
 
-const CnAiCompanion = defineAsyncComponent(() =>
-	import(
-		/* webpackChunkName: "companion-panel" */
-		'@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
-	),
+const CnAiCompanion = defineAsyncComponent(
+	() =>
+		import(
+			/* webpackChunkName: "companion-panel" */
+			'@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
+		),
 )
 
 /**
@@ -99,7 +100,7 @@ function openFileId() {
 	const segments = window.location.pathname.split('/').filter((s) => s !== '')
 	const last = segments[segments.length - 1]
 
-	return (/^\d+$/.test(last ?? '') === true) ? Number(last) : null
+	return /^\d+$/.test(last ?? '') === true ? Number(last) : null
 }
 
 /**
@@ -146,28 +147,29 @@ function mount() {
 	const fileId = openFileId()
 
 	createApp({
-		render: () => h(CnAiCompanion, {
-			chatAppId: 'hermiq',
-			position: 'bottom-right',
-			// WHAT THE USER IS LOOKING AT — without this the agent is blind.
-			//
-			// nc-vue resolves the page context by injection from a CnAppRoot
-			// ancestor. Mounted standalone on a page belonging to another app
-			// there is no such ancestor, so it falls back to a default whose
-			// `appId` is the literal string 'unknown'. Measured: asked to change
-			// a word in the document on screen, the agent replied "I don't have
-			// a clear app context (it's showing as unknown)" and refused —
-			// correctly, since it genuinely could not tell what "this document"
-			// meant.
-			//
-			// This mount is the one place that DOES know, so it says so.
-			context: {
-				appId: currentAppId(),
-				pageKind: fileId !== null ? 'file' : 'custom',
-				route: { path: window.location.pathname },
-				...(fileId !== null ? { fileId } : {}),
-			},
-		}),
+		render: () =>
+			h(CnAiCompanion, {
+				chatAppId: 'hermiq',
+				position: 'bottom-right',
+				// WHAT THE USER IS LOOKING AT — without this the agent is blind.
+				//
+				// nc-vue resolves the page context by injection from a CnAppRoot
+				// ancestor. Mounted standalone on a page belonging to another app
+				// there is no such ancestor, so it falls back to a default whose
+				// `appId` is the literal string 'unknown'. Measured: asked to change
+				// a word in the document on screen, the agent replied "I don't have
+				// a clear app context (it's showing as unknown)" and refused —
+				// correctly, since it genuinely could not tell what "this document"
+				// meant.
+				//
+				// This mount is the one place that DOES know, so it says so.
+				context: {
+					appId: currentAppId(),
+					pageKind: fileId !== null ? 'file' : 'custom',
+					route: { path: window.location.pathname },
+					...(fileId !== null ? { fileId } : {}),
+				},
+			}),
 	}).mount(root)
 }
 

@@ -59,6 +59,7 @@ use OCP\Mail\IMailer;
 use PHPUnit\Framework\TestCase;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -117,6 +118,7 @@ class HermiqToolProviderTest extends TestCase {
 			$delegationService ?? $this->createMock(DelegationService::class),
 			$writeService ?? $this->createMock(NcNativeWriteService::class),
 			$mailReadService ?? $this->createMock(MailReadService::class),
+			$this->createMock(ToolAccessRequestService::class),
 			$this->createMock(LoggerInterface::class)
 		);
 
@@ -257,8 +259,10 @@ class HermiqToolProviderTest extends TestCase {
 		//   (nc-native-write-tools)
 		// + hermiq.listMailAccounts/listMailMessages/readMailMessage
 		//   (nc-mail-read-tools),
+		// + hermiq.listAvailableTools/requestToolAccess
+		//   (tool-discovery-and-access-requests),
 		// all registered through this same provider.
-		$this->assertCount(22, $tools);
+		$this->assertCount(24, $tools);
 
 		$ids = array_column($tools, 'id');
 		$this->assertContains('hermiq.listFiles', $ids);
@@ -308,6 +312,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ['readOnlyHint' => false, 'destructiveHint' => true, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.listDeckBoards' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
 			'hermiq.searchTools' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// Discovery reads the catalogue and writes nothing.
+			'hermiq.listAvailableTools' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
+			// `scope: write` and `readOnlyHint: false` — raising a request PERSISTS a
+			// ToolAccessRequest object and notifies the owner. It grants nothing, but
+			// declaring it read-only would hide a write behind the default-deny.
+			'hermiq.requestToolAccess' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'write'],
 			'hermiq.recommendCourses' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'update'],
 			'hermiq.rememberMemory' => ['readOnlyHint' => false, 'destructiveHint' => false, 'idempotentHint' => false, 'scope' => 'create'],
 			'hermiq.recallMemory' => ['readOnlyHint' => true, 'destructiveHint' => false, 'idempotentHint' => true, 'scope' => 'read'],
@@ -333,7 +343,7 @@ class HermiqToolProviderTest extends TestCase {
 		];
 
 		$tools = $this->provider('alice')->getTools();
-		$this->assertCount(22, $tools, 'This test must be updated if a tool is added or removed.');
+		$this->assertCount(24, $tools, 'This test must be updated if a tool is added or removed.');
 
 		$seen = [];
 		foreach ($tools as $tool) {
@@ -375,6 +385,12 @@ class HermiqToolProviderTest extends TestCase {
 			'hermiq.sendMail' => ToolReachResolver::REACH_EXTERNAL,
 			'hermiq.listDeckBoards' => ToolReachResolver::REACH_USER,
 			'hermiq.searchTools' => ToolReachResolver::REACH_SELF,
+			// `self`: reads the instance catalogue and this agent's own grants, and
+			// returns metadata only — nothing dispatchable, nothing outside the agent.
+			'hermiq.listAvailableTools' => ToolReachResolver::REACH_SELF,
+			// `user`, not `self`: it writes a request object and raises a notification
+			// to the agent's OWNER, so its effect lands on a human, not on the agent.
+			'hermiq.requestToolAccess' => ToolReachResolver::REACH_USER,
 			'hermiq.recommendCourses' => ToolReachResolver::REACH_USER,
 			'hermiq.rememberMemory' => ToolReachResolver::REACH_SELF,
 			'hermiq.recallMemory' => ToolReachResolver::REACH_SELF,

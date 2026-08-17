@@ -3690,7 +3690,8 @@
                     "requestedAt": {
                         "type": "string",
                         "format": "date-time",
-                        "title": "Requested at"
+                        "title": "Requested at",
+                        "description": "When the agent raised the request. Set once, at creation, and never rewritten — the age of a pending request is what tells an owner a decision has been waiting."
                     },
                     "decidedBy": {
                         "type": "string",
@@ -3700,7 +3701,8 @@
                     "decidedAt": {
                         "type": "string",
                         "format": "date-time",
-                        "title": "Decided at"
+                        "title": "Decided at",
+                        "description": "When the owner resolved it. Empty while the request is pending; together with decidedBy it is the audit record of who widened the agent's tool grants and when."
                     }
                 }
             }

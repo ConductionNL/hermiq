@@ -70,6 +70,12 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small guard-and-shape
  *   endpoint methods (catalog, grants, invocations, export) — a governance read/write
  *   surface, not one tangled algorithm.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same shape, measured on length rather
+ *   than branches: the class is one routed endpoint per governance operation, each a
+ *   short guard-then-shape method, and roughly half its lines are the docblocks that
+ *   record WHY each endpoint's auth posture is what it is. Splitting it by line count
+ *   would put sibling endpoints over the same `Agent.tools` field in different files
+ *   and separate those auth rationales from the methods they govern.
  */
 class ToolOversightController extends Controller {
 
@@ -131,6 +137,7 @@ class ToolOversightController extends Controller {
 	 * @param IAppConfig $appConfig Reads `hermiq.tools.disclosureThreshold`.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check for the oversight bypass.
+	 * @param ToolAccessRequestService $accessRequests Raises and announces tool-access requests.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
@@ -261,29 +268,6 @@ class ToolOversightController extends Controller {
 	}//end toolCatalog()
 
 	/**
-	 * Persist the `Agent.tools` grant array (owner-only, single write-path).
-	 *
-	 * Deliberately NOT `@NoCSRFRequired` — unlike the two read endpoints, this one
-	 * MUTATES an authorization boundary (which tools an agent may call), so the CSRF
-	 * guard stays ON. `@nextcloud/axios` sends the requesttoken on every request, so
-	 * `src/api/toolOversight.js`'s PUT works unchanged; a cross-site forger cannot
-	 * silently widen an agent's grants.
-	 *
-	 * @param string $agentId Agent UUID.
-	 *
-	 * @return JSONResponse The updated grant array, or an error status.
-	 *
-	 * @NoAdminRequired
-	 *
-	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#put-api-agents-agentid-tool-grants
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, 404,
-	 *   owner-only IDOR check, grants-shape validation, per-entry string filter)
-	 *   each add a branch on one linear write path.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
-	 *   early-return guards multiply paths without nested logic.
-	 */
-	/**
 	 * Resolve a pending tool-access request an agent raised.
 	 *
 	 * ⚠️ ONLY THE AGENT'S OWNER. Not admins — an admin can already edit
@@ -303,6 +287,13 @@ class ToolOversightController extends Controller {
 	 * @NoAdminRequired
 	 *
 	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, the
+	 *   single 404 that covers "no agent"/"not yours"/"no request", decision-value
+	 *   validation, agent-match check, grants-shape validation) each add a branch
+	 *   on one linear write path.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+	 *   early-return guards multiply paths without nested logic.
 	 */
 	public function resolveToolAccessRequest(string $agentId, string $requestId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -334,7 +325,19 @@ class ToolOversightController extends Controller {
 			return $notYours;
 		}
 
-		$data = ($requestObject === null ? [] : $requestObject->jsonSerialize());
+		// `getObject()`, not `jsonSerialize()`. Two reasons, either sufficient:
+		// the latter is not on the entity's declared surface (phpstan/psalm both
+		// reject it), and it merges a `@self` metadata block plus a top-level
+		// `id` into the payload — which this method writes straight back via
+		// `saveObject()` below, so serialising would persist the metadata as
+		// object properties. Every other read of an OpenRegister object in this
+		// app uses `getObject()`; the keys read here (`agentId`, `toolId`) are
+		// payload properties, which is exactly what it returns.
+		$data = [];
+		if ($requestObject !== null) {
+			$data = $requestObject->getObject();
+		}
+
 		if (($data['agentId'] ?? '') !== $agentId) {
 			return $notYours;
 		}
@@ -360,7 +363,7 @@ class ToolOversightController extends Controller {
 
 		$data['status'] = $decision;
 		$data['decidedBy'] = $user->getUID();
-		$data['decidedAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
+		$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
 
 		$this->objectService->saveObject(
 			object: $data,
@@ -377,6 +380,29 @@ class ToolOversightController extends Controller {
 
 	}//end resolveToolAccessRequest()
 
+	/**
+	 * Persist the `Agent.tools` grant array (owner-only, single write-path).
+	 *
+	 * Deliberately NOT `@NoCSRFRequired` — unlike the two read endpoints, this one
+	 * MUTATES an authorization boundary (which tools an agent may call), so the CSRF
+	 * guard stays ON. `@nextcloud/axios` sends the requesttoken on every request, so
+	 * `src/api/toolOversight.js`'s PUT works unchanged; a cross-site forger cannot
+	 * silently widen an agent's grants.
+	 *
+	 * @param string $agentId Agent UUID.
+	 *
+	 * @return JSONResponse The updated grant array, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#put-api-agents-agentid-tool-grants
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, 404,
+	 *   owner-only IDOR check, grants-shape validation, per-entry string filter)
+	 *   each add a branch on one linear write path.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+	 *   early-return guards multiply paths without nested logic.
+	 */
 	public function updateToolGrants(string $agentId): JSONResponse {
 		$user = $this->userSession->getUser();
 		if ($user === null) {

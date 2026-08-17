@@ -38,6 +38,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use DateTime;
+use DateTimeImmutable;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCP\Notification\IManager as INotificationManager;
@@ -47,6 +49,14 @@ use Throwable;
 
 /**
  * Discovery beyond an agent's grants, and the access request that can widen them.
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The count is the SUM over many small
+ *   helpers, not one dense method — every public entry point is under the per-method
+ *   thresholds. Most of the branches are the same defensive shape repeated: OpenRegister
+ *   is a soft runtime dependency here, so each read resolves it through the container and
+ *   treats an absent service as an empty catalogue rather than an error. Collapsing that
+ *   handling is what would make a missing OpenRegister surface as a fatal instead of a
+ *   degraded tool list.
  */
 class ToolAccessRequestService {
 
@@ -105,6 +115,9 @@ class ToolAccessRequestService {
 	 * @param string $query   Optional keyword filter.
 	 *
 	 * @return array<string, mixed> Tool metadata — never anything dispatchable.
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-an-agent-must-be-able-to-discover-tools-it-does-not-hold
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-discovery-must-be-scoped-to-what-the-acting-user-may-see
 	 */
 	public function listAvailable(string $uid, ?string $agentId, string $query = ''): array {
 		$catalog = $this->catalog();
@@ -117,30 +130,12 @@ class ToolAccessRequestService {
 		$out = [];
 
 		foreach ($catalog as $descriptor) {
-			$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
-			if (is_string($id) === false || $id === '') {
+			$row = $this->visibleRow(descriptor: $descriptor, uid: $uid, needle: $needle, held: $held);
+			if ($row === null) {
 				continue;
 			}
 
-			if ($this->userMaySee(uid: $uid, toolId: $id) === false) {
-				continue;
-			}
-
-			$description = (string)($descriptor['description'] ?? '');
-			$haystack = strtolower($id . ' ' . $description);
-			if ($needle !== '' && str_contains($haystack, $needle) === false) {
-				continue;
-			}
-
-			$out[] = [
-				'id' => $id,
-				'description' => $description,
-				'app' => $this->appOf(toolId: $id),
-				// The model needs to know a write is a write BEFORE it argues for
-				// it, and so does the human reading the request afterwards.
-				'reach' => (($descriptor['scope'] ?? 'read') === 'write' || ($descriptor['readOnlyHint'] ?? false) === false) ? 'write' : 'read',
-				'held' => isset($held[$id]),
-			];
+			$out[] = $row;
 
 			if (count($out) >= self::MAX_MATCHES) {
 				break;
@@ -154,6 +149,73 @@ class ToolAccessRequestService {
 	}//end listAvailable()
 
 	/**
+	 * Shape one catalogue descriptor into a listing row, or null if it is filtered out.
+	 *
+	 * Extracted from `listAvailable()` so the per-descriptor identity, visibility
+	 * and keyword filters do not compound with the loop's own bookkeeping — the
+	 * two were one method and the branch count grew with every filter added.
+	 *
+	 * ⚠️ Returning null is the ONLY way this method excludes a tool. A caller that
+	 * treats a falsy return as "include with defaults" would publish tools the
+	 * acting user may not see, which is the disclosure `userMaySee()` prevents.
+	 *
+	 * @param array<string, mixed> $descriptor The catalogue descriptor.
+	 * @param string               $uid        The acting user.
+	 * @param string               $needle     Lower-cased keyword filter, or '' for none.
+	 * @param array<string, mixed> $held       Ids the agent already holds, keyed by id.
+	 *
+	 * @return array<string, mixed>|null The listing row, or null when filtered out.
+	 */
+	private function visibleRow(array $descriptor, string $uid, string $needle, array $held): ?array {
+		$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
+		if (is_string($id) === false || $id === '') {
+			return null;
+		}
+
+		if ($this->userMaySee(uid: $uid, toolId: $id) === false) {
+			return null;
+		}
+
+		$description = (string)($descriptor['description'] ?? '');
+		if ($needle !== '' && str_contains(strtolower($id . ' ' . $description), $needle) === false) {
+			return null;
+		}
+
+		return [
+			'id' => $id,
+			'description' => $description,
+			'app' => $this->appOf(toolId: $id),
+			// The model needs to know a write is a write BEFORE it argues for
+			// it, and so does the human reading the request afterwards.
+			'reach' => $this->reachOf(descriptor: $descriptor),
+			'held' => isset($held[$id]),
+		];
+	}//end visibleRow()
+
+	/**
+	 * Classify a descriptor's reach as 'write' or 'read'.
+	 *
+	 * ⚠️ FAILS TOWARDS 'write'. A descriptor that declares neither `scope` nor
+	 * `readOnlyHint` is reported as a write, because the value is shown to the
+	 * human deciding whether to grant the tool: over-stating reach costs a
+	 * question, under-stating it buys a grant the owner did not mean to give.
+	 *
+	 * @param array<string, mixed> $descriptor The catalogue descriptor.
+	 *
+	 * @return string Either 'write' or 'read'.
+	 */
+	private function reachOf(array $descriptor): string {
+		$declaredWrite = (($descriptor['scope'] ?? 'read') === 'write');
+		$notReadOnly = (($descriptor['readOnlyHint'] ?? false) === false);
+
+		if ($declaredWrite === true || $notReadOnly === true) {
+			return 'write';
+		}
+
+		return 'read';
+	}//end reachOf()
+
+	/**
 	 * Raise an access request. Grants nothing.
 	 *
 	 * @param string      $uid     The acting user.
@@ -162,6 +224,9 @@ class ToolAccessRequestService {
 	 * @param string      $reason  Why — shown to the human who decides.
 	 *
 	 * @return array<string, mixed> The pending request, or an error.
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-an-agent-must-be-able-to-request-access-and-must-not-be-able-to-grant-it
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-requests-must-be-bounded-and-a-refusal-must-persist
 	 */
 	public function request(string $uid, ?string $agentId, string $toolId, string $reason): array {
 		if ($agentId === null || $agentId === '') {
@@ -183,22 +248,27 @@ class ToolAccessRequestService {
 			// A refusal stands. An agent that can re-ask will re-ask, and a
 			// persistent model against a tired human is an approval mechanism
 			// with a known outcome.
+			$message = 'A request for this tool is already pending with the owner.';
+			if ($status === 'refused') {
+				$message = 'This was already refused. Do not ask again — the owner must reopen it.';
+			}
+
 			return [
 				'status' => $status,
-				'message' => $status === 'refused'
-					? 'This was already refused. Do not ask again — the owner must reopen it.'
-					: 'A request for this tool is already pending with the owner.',
+				'message' => $message,
 			];
 		}
 
-		$saved = $this->save([
-			'agentId' => $agentId,
-			'toolId' => $toolId,
-			'reason' => $reason,
-			'status' => 'pending',
-			'requestedBy' => $uid,
-			'requestedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
-		]);
+		$saved = $this->save(
+			data: [
+				'agentId' => $agentId,
+				'toolId' => $toolId,
+				'reason' => $reason,
+				'status' => 'pending',
+				'requestedBy' => $uid,
+				'requestedAt' => (new DateTimeImmutable())->format(DATE_ATOM),
+			]
+		);
 
 		$this->notifyOwner(agentId: $agentId, toolId: $toolId, subject: 'requested');
 
@@ -335,7 +405,11 @@ class ToolAccessRequestService {
 				return [];
 			}
 
-			return is_array($object) ? $object : $object->jsonSerialize();
+			if (is_array($object) === true) {
+				return $object;
+			}
+
+			return $object->jsonSerialize();
 		} catch (Throwable $e) {
 			return [];
 		}
@@ -362,7 +436,11 @@ class ToolAccessRequestService {
 			]);
 
 			foreach ($results as $row) {
-				return is_array($row) ? $row : $row->jsonSerialize();
+				if (is_array($row) === true) {
+					return $row;
+				}
+
+				return $row->jsonSerialize();
 			}
 		} catch (Throwable $e) {
 			$this->logger->warning('[ToolAccessRequestService] request lookup failed: ' . $e->getMessage());
@@ -387,7 +465,11 @@ class ToolAccessRequestService {
 				schema: self::REQUEST_SCHEMA
 			);
 
-			return is_array($saved) ? $saved : $saved->jsonSerialize();
+			if (is_array($saved) === true) {
+				return $saved;
+			}
+
+			return $saved->jsonSerialize();
 		} catch (Throwable $e) {
 			$this->logger->error('[ToolAccessRequestService] could not save request: ' . $e->getMessage());
 
@@ -408,6 +490,8 @@ class ToolAccessRequestService {
 	 * @param string $subject 'requested' or 'granted'.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-the-owner-must-be-notified-when-a-request-is-raised-and-when-access-is-granted
 	 */
 	public function notifyOwner(string $agentId, string $toolId, string $subject): void {
 		$agent = $this->loadAgent(agentId: $agentId);
@@ -418,13 +502,18 @@ class ToolAccessRequestService {
 			return;
 		}
 
+		$subjectKey = 'tool_access_requested';
+		if ($subject === 'granted') {
+			$subjectKey = 'tool_access_granted';
+		}
+
 		try {
 			$notification = $this->notifications->createNotification();
 			$notification->setApp(Application::APP_ID)
 				->setUser($owner)
-				->setDateTime(new \DateTime())
+				->setDateTime(new DateTime())
 				->setObject('toolaccess', $agentId . ':' . $toolId)
-				->setSubject($subject === 'granted' ? 'tool_access_granted' : 'tool_access_requested', [
+				->setSubject($subjectKey, [
 					'agent' => (string)($agent['name'] ?? $agentId),
 					'tool' => $toolId,
 				]);

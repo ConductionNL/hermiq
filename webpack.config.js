@@ -309,9 +309,8 @@ function isSharedChunkEligible(chunk) {
 	}
 
 	const runtime = chunk.runtime
-	const runtimes = typeof runtime === 'string'
-		? [runtime]
-		: (runtime ? Array.from(runtime) : [])
+	const runtimes =
+		typeof runtime === 'string' ? [runtime] : runtime ? Array.from(runtime) : []
 
 	return runtimes.some((r) => SELF_CONTAINED_RUNTIMES.includes(r)) === false
 }

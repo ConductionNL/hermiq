@@ -86,7 +86,8 @@ function assert(ok, message) {
  * @return {number} Size in bytes after gzip.
  */
 function wireSize(name) {
-	return zlib.gzipSync(fs.readFileSync(path.join(JS_DIR, name)), { level: 9 }).length
+	return zlib.gzipSync(fs.readFileSync(path.join(JS_DIR, name)), { level: 9 })
+		.length
 }
 
 for (const f of [EAGER, PANEL]) {
@@ -101,8 +102,12 @@ const panelWire = wireSize(PANEL)
 const totalWire = eagerWire + panelWire
 const kb = (n) => (n / 1024).toFixed(1) + ' KB'
 
-console.log(`eager  ${EAGER}: ${kb(eagerWire)} gzipped (${fs.statSync(path.join(JS_DIR, EAGER)).size.toLocaleString()} raw)`)
-console.log(`panel  ${PANEL}: ${kb(panelWire)} gzipped (${fs.statSync(path.join(JS_DIR, PANEL)).size.toLocaleString()} raw)`)
+console.log(
+	`eager  ${EAGER}: ${kb(eagerWire)} gzipped (${fs.statSync(path.join(JS_DIR, EAGER)).size.toLocaleString()} raw)`,
+)
+console.log(
+	`panel  ${PANEL}: ${kb(panelWire)} gzipped (${fs.statSync(path.join(JS_DIR, PANEL)).size.toLocaleString()} raw)`,
+)
 console.log(`total per page load: ${kb(totalWire)} (budget ${kb(WIRE_BUDGET)})\n`)
 
 assert(

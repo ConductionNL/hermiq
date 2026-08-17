@@ -35,6 +35,7 @@ use OCA\Hermiq\Service\DelegationService;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCP\App\IAppManager;
@@ -178,6 +179,7 @@ class DeckBoardMagicAccessorTest extends TestCase {
 			$this->createMock(DelegationService::class),
 			$this->createMock(NcNativeWriteService::class),
 			$this->createMock(MailReadService::class),
+			$this->createMock(ToolAccessRequestService::class),
 			$this->createMock(LoggerInterface::class)
 		);
 
