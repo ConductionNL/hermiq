@@ -41,6 +41,7 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -187,6 +188,20 @@ class ChatController extends Controller {
 			$this->verifyConversationAccess(conversation: $conversation, userId: $userId);
 
 			// Process message through the in-app Engine (conversation id is the UUID).
+			// Collect the run's step timeline so the chat can SHOW its work.
+			//
+			// `Engine::process()` has always taken a collector and always
+			// returned `steps`, but the chat path never supplied one — so the
+			// field was `[]` on every chat response by construction, and a turn
+			// that made five tool calls looked from the outside like one opaque
+			// pause. The user sees "Thinking…" for a minute with no indication
+			// that anything is happening, which reads as a hang rather than as
+			// work.
+			//
+			// The collector is per-request and is already defensive about
+			// unknown or double-ended tokens, so a step bug cannot fail a turn.
+			$trace = new RunTraceCollector();
+
 			$result = $this->engine->processMessage(
 				conversationId: (string)$conversation->getUuid(),
 				userId: $userId,
@@ -194,7 +209,8 @@ class ChatController extends Controller {
 				selectedViews: $params['selectedViews'],
 				selectedTools: $params['selectedTools'],
 				ragSettings: $params['ragSettings'],
-				context: $params['context']
+				context: $params['context'],
+				trace: $trace
 			);
 
 			// Add conversation UUID to result for frontend.
