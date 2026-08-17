@@ -167,7 +167,7 @@ import {
 import AsteriskIcon from 'vue-material-design-icons/Asterisk.vue'
 import ChevronDownIcon from 'vue-material-design-icons/ChevronDown.vue'
 import { getToolCatalog, updateToolGrants } from '../api/toolOversight.js'
-import { getToolTaxonomy } from '../api/toolTaxonomy.js'
+import { getAgentGrants, getToolTaxonomy } from '../api/toolTaxonomy.js'
 
 let matrixUid = 0
 
@@ -507,7 +507,13 @@ export default {
 		 * @return {boolean} True when drafted.
 		 */
 		isDrafted(id) {
-			return this.draftGrants.includes(id)
+			// Compared on the normalised key, not the raw string: the same grant
+			// is stored as `pipelinq_lead_search` or `pipelinq.lead.search`
+			// depending on who wrote it. A raw comparison leaves a held grant
+			// showing as unticked, which invites the user to "grant" it again
+			// and end up with the same right stored twice in two spellings.
+			const key = this.joinKey(id)
+			return this.draftGrants.some((grant) => this.joinKey(grant) === key)
 		},
 
 		/**
@@ -525,7 +531,12 @@ export default {
 				return
 			}
 
-			this.draftGrants = this.draftGrants.filter((grant) => grant !== id)
+			// Removed on the normalised key so unticking clears the right
+			// whichever spelling it was stored in.
+			const key = this.joinKey(id)
+			this.draftGrants = this.draftGrants.filter(
+				(grant) => this.joinKey(grant) !== key,
+			)
 		},
 
 		/**
@@ -537,23 +548,29 @@ export default {
 			this.loading = true
 			this.error = ''
 			try {
-				const [catalog, taxonomy] = await Promise.all([
+				const [catalog, taxonomy, grants] = await Promise.all([
 					getToolCatalog(this.agentId),
 					getToolTaxonomy(),
+					getAgentGrants(this.agentId),
 				])
 
 				this.catalog = catalog
 				this.taxonomy = taxonomy
 
-				// The authoritative grant list is whatever produced the
-				// annotations — dedupe grantedBy rather than reconstructing ids.
-				const granted = catalog.tools
-					.filter((tool) => tool.granted && tool.grantedBy)
-					.map((tool) => tool.grantedBy)
-
-				this.savedGrants = [...new Set(granted)].filter(
-					(grant) => !grant.startsWith('('),
-				)
+				// 🔴 Read the grants as STORED. Reconstructing them from the
+				// catalogue's `grantedBy` annotations — which is what this did
+				// first — silently drops every grant the catalogue cannot
+				// attribute. Measured on a live agent: all 8 grants came back
+				// `granted: true` with `grantedBy: null`, so the reconstruction
+				// kept none, and saving wrote the survivors only. Opening this
+				// widget and pressing Save destroyed seven grants.
+				//
+				// Save writes back exactly what was read plus the user's edits,
+				// so a grant form this UI cannot render — a wildcard, a verb
+				// subset, an id the catalogue no longer lists — survives
+				// untouched instead of being quietly deleted by a screen that
+				// never showed it.
+				this.savedGrants = [...grants]
 				this.draftGrants = [...this.savedGrants]
 
 				// Open the clusters that already hold something, so the widget
