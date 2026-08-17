@@ -187,6 +187,23 @@ const DISALLOWED_BUILTIN_TOOLS = [
 	'TaskStop',
 	'ScheduleWakeup',
 	'AskUserQuestion',
+	// Added 2026-08-17 after OBSERVING them in a governed turn. Asked to list its
+	// tools, the model returned these alongside the four granted MCP ones — the
+	// denylist's predicted weakness, arrived. `Task` and `TaskOutput`/`TaskStop`
+	// were denied while the Task* CRUD surface that replaced them was not, which is
+	// exactly how a denylist rots: the capability survives a rename.
+	//
+	// `SendMessage` and `ListAgents` are the serious pair. Together they let a
+	// governed agent enumerate other agents and sessions on the host and talk to
+	// them directly — fan-out that never passes a grant, an approval gate or
+	// redaction, which is the whole point of this transport.
+	'TaskCreate',
+	'TaskGet',
+	'TaskList',
+	'TaskUpdate',
+	'SendMessage',
+	'ListAgents',
+	'ReportFindings',
 	// 🔥 NOT denied on purpose: `ToolSearch`.
 	// The CLI DEFERS MCP tools — they are not in the initial toolset and the model
 	// loads them on demand THROUGH ToolSearch. Denying it silently makes every
