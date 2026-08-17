@@ -68,6 +68,7 @@ import AgentTemplateGithubStore from './widgets/AgentTemplateGithubStore.vue'
 // hermiq-github-store) row-actions widget + the EvalDatasetDetail page's sole
 // content widget.
 import AgentTemplateRowActions from './widgets/AgentTemplateRowActions.vue'
+import AgentToolActivityWidget from './widgets/AgentToolActivityWidget.vue'
 import AgentToolGovernanceWidget from './widgets/AgentToolGovernanceWidget.vue'
 import AnalyticsBreakdownWidget from './widgets/AnalyticsBreakdownWidget.vue'
 // inapp-settings-section: Incidents / EU AI Act audit export / Retention,
@@ -312,20 +313,38 @@ export default {
 	},
 
 	/**
-	 * Tool governance — combines the schema-scoped tool-grant editor
-	 * (ToolGrantEditor) and the EU AI Act art.12/14 tool-invocation audit
-	 * table (ToolInvocationTable) for one agent: both read/write surfaces
-	 * over the SAME ADR-063 derived catalogue capability.
+	 * Tool grants — the (cluster, subject, verb) matrix for one agent.
+	 *
+	 * The tool-invocation audit trail used to be this widget's second tab and
+	 * is now its own peer (`agent-tool-activity`): "what MAY this agent do" and
+	 * "what HAS it done" are read at different times by different people, and a
+	 * tab hides whichever one you are not looking at.
 	 */
 	'agent-tool-governance': {
 		kind: 'widget',
 		component: AgentToolGovernanceWidget,
+		defaultSize: { w: 12, h: 6 },
+		minSize: { w: 6, h: 4 },
+		maxSize: { w: 12, h: 12 },
+		allowedSlots: ['body'],
+		propsSchema: { type: 'object', properties: {} },
+		_note: 'A grant matrix over the live ADR-063 catalogue, clustered by owning app and rowed by schema — a bespoke read/write surface no built-in widget (object-list, stats-block) expresses (ADR-049).',
+	},
+
+	/**
+	 * Tool activity — the EU AI Act art.12/14 append-only tool-invocation
+	 * audit table for one agent. Split out of `agent-tool-governance` so the
+	 * audit trail is visible at the same time as the grants that produced it.
+	 */
+	'agent-tool-activity': {
+		kind: 'widget',
+		component: AgentToolActivityWidget,
 		defaultSize: { w: 6, h: 5 },
 		minSize: { w: 4, h: 3 },
 		maxSize: { w: 12, h: 10 },
 		allowedSlots: ['body'],
 		propsSchema: { type: 'object', properties: {} },
-		_note: 'Grants (taggable free-text grammar over a live ADR-063 catalogue) and the append-only tool-invocation audit trail are bespoke read/write surfaces no built-in widget (object-list, stats-block) expresses (ADR-049).',
+		_note: 'An append-only, agent-scoped invocation trail (EU AI Act art.12/14) that no built-in widget expresses (ADR-049).',
 	},
 
 	/**
