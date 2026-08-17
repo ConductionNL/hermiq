@@ -128,11 +128,36 @@ class ToolAccessRequestService {
 		$out = [];
 		$matched = 0;
 
+		// ⚠️ GATE: the same tool id can arrive MORE THAN ONCE.
+		//
+		// Schema-derived tools are emitted per (register, schema) row, and this
+		// instance has duplicate rows from repeated register imports — measured
+		// 2026-08-17: 406 registers including FOUR DocuDesk ones, and schemas like
+		// `huisstijl` and `generatedDocument` present three times each. The result
+		// was 184 catalogue entries for 160 distinct tools, with eight docudesk
+		// tools appearing exactly four times.
+		//
+		// That is not cosmetic here: duplicates consume the MAX_MATCHES budget, so
+		// a caller asking about correspondence could be shown 25 entries covering
+		// barely six distinct capabilities and conclude the rest do not exist.
+		//
+		// Deduplicating by id is deliberately done HERE rather than only fixing the
+		// data: the derivation will re-emit duplicates for any instance whose rows
+		// are duplicated, and discovery must not degrade because of it. First
+		// descriptor for an id wins; they are copies of one another.
+		$seen = [];
+
 		foreach ($catalog as $descriptor) {
 			$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
 			if (is_string($id) === false || $id === '') {
 				continue;
 			}
+
+			if (isset($seen[$id]) === true) {
+				continue;
+			}
+
+			$seen[$id] = true;
 
 			if ($this->userMaySee(uid: $uid, toolId: $id) === false) {
 				continue;
@@ -190,7 +215,7 @@ class ToolAccessRequestService {
 				. ' "client", "invoice") before concluding anything does not exist.',
 				count($out),
 				$matched,
-				count($catalog)
+				count($seen)
 			);
 		}
 
@@ -198,7 +223,9 @@ class ToolAccessRequestService {
 			'tools' => $out,
 			'matched' => $matched,
 			'shown' => count($out),
-			'totalInCatalog' => count($catalog),
+			// Distinct tools, not raw catalogue rows — reporting the row count
+			// would tell the caller this instance has more capabilities than it does.
+			'totalInCatalog' => count($seen),
 			'truncated' => ($matched > count($out)),
 			'note' => $note,
 		];
