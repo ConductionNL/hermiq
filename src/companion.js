@@ -52,6 +52,21 @@
 // too, so it needs those pages re-verified; it is not part of this fix.
 import { createApp, defineAsyncComponent, h } from 'vue'
 
+// The companion must carry its OWN styles. It mounts onto other apps' pages,
+// where nothing of ours is guaranteed to be loaded, and the library's component
+// CSS lives in `dist/nextcloud-vue.css` — NOT in `css/index.css`, which `main.js`
+// imports and which contains neither `cn-ai-chat-window` nor
+// `cn-ai-floating-button` (measured: 0 rules each, against 64 and 18 here).
+//
+// Without this the panel still RENDERS — correct markup, correct class names —
+// and is simply unstyled: `position: static`, transparent, full page width. The
+// floating button looked fine only because some OTHER app on the page happened to
+// ship a copy of this library's CSS, so the companion's appearance depended on
+// which apps a page loads and on THEIR version of the library. That is not a
+// dependency worth having: a page with no such app, or an older one, renders the
+// chat window as a bare block.
+import '@conduction/nextcloud-vue/dist/nextcloud-vue.css'
+
 const CnAiCompanion = defineAsyncComponent(() =>
 	import(
 		/* webpackChunkName: "companion-panel" */
@@ -132,6 +147,22 @@ function currentAppId() {
  */
 function mount() {
 	if (hermiqOwnsThisPage() === true) {
+		return
+	}
+
+	// NEVER mount inside an iframe. The Files app opens an office document by
+	// embedding `/apps/eurooffice/<fileId>` — a FULL Nextcloud page, same-origin —
+	// inside itself, so this script runs twice on one screen and the user sees two
+	// hexes, the inner one clipped by the frame's edge. Measured 2026-08-17: outer
+	// button at (1180, 624), a second one inside a frame 720px tall starting at
+	// y=72.
+	//
+	// The guard is "am I framed", not a URL match, because the duplicate comes from
+	// the embedding rather than from any particular app — anything Nextcloud frames
+	// this way reproduces it. The OUTER page is the one to keep: it owns the whole
+	// viewport so its button is never clipped, and its context describes the page
+	// the user is actually looking at.
+	if (window.self !== window.top) {
 		return
 	}
 
