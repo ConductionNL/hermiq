@@ -306,9 +306,16 @@
 					{
 						"id": "agent-tool-governance",
 						"type": "custom",
-						"title": "Tool governance",
+						"title": "Tool grants",
 						"icon": "ShieldCheckOutline",
-						"_note": "Combines the schema-scoped tool-grant editor and the EU AI Act art.12/14 tool-invocation audit table — two read/write surfaces over the SAME ADR-063 derived catalogue capability (design.md Decision 3). Resolved via page.slots.widget-agent-tool-governance -> agent-tool-governance."
+						"_note": "The (cluster, subject, verb) grant matrix over the ADR-063 derived catalogue, clustered by owning app and rowed by schema. Resolved via page.slots.widget-agent-tool-governance -> agent-tool-governance."
+					},
+					{
+						"id": "agent-tool-activity",
+						"type": "custom",
+						"title": "Tool activity",
+						"icon": "History",
+						"_note": "The EU AI Act art.12/14 tool-invocation audit table. Split out of agent-tool-governance, where it was the second tab: 'what MAY this agent do' and 'what HAS it done' are read at different times by different people, and a tab hides whichever one you are not looking at. Resolved via page.slots.widget-agent-tool-activity -> agent-tool-activity."
 					},
 					{
 						"id": "agent-run-operations",
@@ -431,10 +438,19 @@
 						"showTitle": false
 					},
 					{
+						"id": "11",
+						"widgetId": "agent-tool-activity",
+						"gridX": 0,
+						"gridY": 24,
+						"gridWidth": 12,
+						"gridHeight": 5,
+						"showTitle": false
+					},
+					{
 						"id": "10",
 						"widgetId": "agent-run-history",
 						"gridX": 0,
-						"gridY": 24,
+						"gridY": 29,
 						"gridWidth": 12,
 						"gridHeight": 4,
 						"showTitle": true
