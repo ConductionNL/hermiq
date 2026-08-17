@@ -26,6 +26,19 @@ const http = require('http')
 const https = require('https')
 const os = require('os')
 const path = require('path')
+const pool = require('./pool')
+
+/**
+ * Pool logger. The pool reports occupancy and reap reasons, never content.
+ *
+ * @param {string} level   Log level.
+ * @param {string} message The message.
+ * @returns {void}
+ */
+function poolLog(level, message) {
+	// eslint-disable-next-line no-console
+	console.log(`[hermiq-llm-runner] ${level}: ${message}`)
+}
 
 const DEFAULT_TIMEOUT_MS = Number(process.env.RUNNER_TIMEOUT_MS || '120000')
 const MAX_OUTPUT_BYTES = Number(
@@ -317,31 +330,162 @@ function probeUrl(url) {
  *        every turn, governed or not — the proxy is the container's only route out.
  * @returns {Promise<{text: string, toolCalls: Array, usage: object}>} Result.
  */
-function run({ provider, model, messages, credentialEnv, mcpConfig, runToken }) {
+function run({
+	provider,
+	model,
+	messages,
+	credentialEnv,
+	mcpConfig,
+	runToken,
+	poolKey,
+	poolLifetimeSeconds,
+}) {
+	const cold = () =>
+		spawnTurn({ provider, model, messages, credentialEnv, mcpConfig, runToken })
+
 	// A governed turn proves it can REACH its governance before it spawns. See
 	// assertMcpEndpointReachable() — an unreachable endpoint produces a run that
 	// looks successful and is silently tool-less, which is worse than a refusal.
-	if (mcpConfig && typeof mcpConfig === 'object') {
-		return assertMcpEndpointReachable(mcpConfig).then(() =>
-			spawnTurn({
+	// The pool does not change that: a pooled process talks to the same endpoint,
+	// so the preflight gates both paths.
+	const preflight = mcpConfig && typeof mcpConfig === 'object'
+		? assertMcpEndpointReachable(mcpConfig)
+		: Promise.resolve()
+
+	return preflight.then(() => {
+		if (!poolKey) {
+			return cold()
+		}
+		return tryPooled({
+			provider,
+			model,
+			messages,
+			credentialEnv,
+			mcpConfig,
+			runToken,
+			poolKey,
+			poolLifetimeSeconds,
+		}).then((pooled) => pooled || cold())
+	})
+}
+
+/**
+ * Attempt to serve a turn from the process pool.
+ *
+ * Resolves to null for EVERY pooling failure so `run()` falls back to a one-shot.
+ * A pooled turn must never be a new way for a request to fail — the worst it may
+ * do is decline.
+ *
+ * @param {object} a Same shape as {@link run}, with pool fields required.
+ * @returns {Promise<object|null>} A result, or null to take the cold path.
+ */
+function tryPooled({
+	provider,
+	model,
+	messages,
+	credentialEnv,
+	mcpConfig,
+	runToken,
+	poolKey,
+	poolLifetimeSeconds,
+}) {
+	let scratch
+	try {
+		// The scratch dir backs HOME/TMPDIR and holds the governed mcp.json, so it
+		// must outlive the turn — a pooled process reads neither again, but it is
+		// still its home. pool.js removes the process; the dir goes with the
+		// container. Deliberately NOT cleaned per-turn: doing so would delete the
+		// running process's HOME underneath it.
+		scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'llm-pool-'))
+
+		let mcpConfigPath = null
+		if (mcpConfig && typeof mcpConfig === 'object') {
+			mcpConfigPath = path.join(scratch, 'mcp.json')
+			fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig), { mode: 0o600 })
+			fs.chmodSync(mcpConfigPath, 0o600)
+		}
+
+		const args = provider.args(model, { mcpConfigPath, streamJson: true })
+
+		// Identical assertion to the cold path. A pooled process holds a live token
+		// for its whole life, so an ungoverned argv here would be worse, not better.
+		if (mcpConfigPath !== null) {
+			assertGovernedArgs(args)
+		}
+
+		const childEnv = {
+			PATH: process.env.PATH,
+			HOME: scratch,
+			TMPDIR: scratch,
+			LANG: process.env.LANG || 'C.UTF-8',
+		}
+		for (const name of PASSTHROUGH_ENV) {
+			if (typeof process.env[name] === 'string') {
+				childEnv[name] = process.env[name]
+			}
+		}
+		Object.assign(childEnv, buildEgressProxyEnv(runToken))
+		Object.assign(childEnv, selectCredentialEnv(provider, credentialEnv))
+
+		const lifetimeMs = Number(poolLifetimeSeconds) > 0
+			? Number(poolLifetimeSeconds) * 1000
+			: 600000
+
+		const all = buildPrompt(messages)
+		const latest = latestUserText(messages)
+
+		return pool
+			.dispatch({
+				key: poolKey,
 				provider,
 				model,
-				messages,
-				credentialEnv,
-				mcpConfig,
-				runToken,
-			}),
-		)
+				args,
+				childEnv,
+				prompt: all,
+				latestMessage: latest,
+				lifetimeMs,
+				log: poolLog,
+			})
+			.then((res) => {
+				if (!res) {
+					return null
+				}
+				return { text: res.text, toolCalls: [], usage: res.usage || {} }
+			})
+			.catch(() => null)
+	} catch (err) {
+		poolLog('warn', `pool setup failed: ${err.message} -- falling back`)
+		return Promise.resolve(null)
 	}
+}
 
-	return spawnTurn({
-		provider,
-		model,
-		messages,
-		credentialEnv,
-		mcpConfig,
-		runToken,
-	})
+/**
+ * The newest user message as plain text.
+ *
+ * A pooled process already holds every earlier turn of its conversation, so a
+ * hit sends ONLY this. Sending the flattened history again would show the model
+ * the same exchange twice.
+ *
+ * @param {Array<object>} messages Ordered history.
+ * @returns {string} The last user message's text, or ''.
+ */
+function latestUserText(messages) {
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const m = messages[i]
+		if (!m || m.role !== 'user') {
+			continue
+		}
+		if (typeof m.content === 'string') {
+			return m.content
+		}
+		if (Array.isArray(m.content)) {
+			return m.content
+				.filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+				.map((b) => b.text)
+				.join('\n')
+		}
+	}
+	return ''
 }
 
 /**

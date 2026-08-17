@@ -226,7 +226,14 @@ const PROVIDERS = {
 		// container itself (no default route beyond the egress allowlist, read-only fs,
 		// no mounts, non-root), which is the backstop layer by design.
 		args: (model, options) => {
-			const base = ['-p', '--output-format', 'json']
+			// A POOLED process is driven over stdin for many turns, so it needs the
+			// streaming input format and a streaming result envelope. Everything
+			// below this line — the governance lockdown especially — is identical
+			// either way, because a pooled process is exactly as governed as a
+			// one-shot and must not acquire a weaker argv by taking a new branch.
+			const base = (options && options.streamJson) === true
+				? ['-p', '--input-format', 'stream-json', '--output-format', 'stream-json', '--verbose']
+				: ['-p', '--output-format', 'json']
 			const withModel = model ? base.concat(['--model', model]) : base
 			if (options && options.mcpConfigPath) {
 				return withModel.concat([

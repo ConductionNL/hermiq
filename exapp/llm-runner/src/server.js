@@ -135,6 +135,8 @@ async function handleRun(req, res, rawBody) {
 		credentialEnv,
 		mcpConfig,
 		runToken,
+		poolKey,
+		poolLifetimeSeconds,
 	} = payload
 	const provider = getProvider(providerId)
 	if (!provider) {
@@ -165,6 +167,8 @@ async function handleRun(req, res, rawBody) {
 			credentialEnv,
 			mcpConfig,
 			runToken,
+			poolKey,
+			poolLifetimeSeconds,
 		})
 		// Time inside THIS endpoint, against the CLI's own API time. Anything the
 		// caller measures beyond this is Hermiq-side, not the model's.

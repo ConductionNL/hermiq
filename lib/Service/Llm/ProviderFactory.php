@@ -158,6 +158,25 @@ class ProviderFactory {
 	private const CLI_DISPATCH_TIMEOUT_SLACK_SECONDS = 30;
 
 	/**
+	 * How long a pooled CLI process may live, in seconds, and therefore how long
+	 * its run token stays valid.
+	 *
+	 * ⚠️ THIS IS A SECURITY PARAMETER, not a tuning knob. The CLI reads its
+	 * `--mcp-config` once at startup and never re-reads it (measured 2026-08-17,
+	 * `REREAD=false`), so a pooled process cannot be handed a fresh token — its
+	 * original token must stay valid for as long as the process is reusable. That
+	 * is design D0.1 option 1, adopted deliberately, and it widens the window a
+	 * leaked token is useful in from one turn to this value.
+	 *
+	 * Raising it buys a higher pool hit rate and lengthens that window by exactly
+	 * the same amount. The runner is told this number rather than keeping its own,
+	 * so the process cap and the token TTL cannot drift apart.
+	 *
+	 * @var int
+	 */
+	private const POOL_PROCESS_LIFETIME_SECONDS = 600;
+
+	/**
 	 * The personal credential scope — the ONLY scope an `anthropic-cli` (Claude Max/Pro
 	 * subscription) credential may carry, per the Anthropic Terms of Service.
 	 *
@@ -706,6 +725,7 @@ class ProviderFactory {
 		?callable $toolExecutor = null,
 		string $executionMode = 'http',
 		?string $agentId = null,
+		string $conversationId = '',
 	): string {
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
@@ -716,7 +736,8 @@ class ProviderFactory {
 				model: $model,
 				messageHistory: $messageHistory,
 				functions: $functions,
-				agentId: $agentId
+				agentId: $agentId,
+				conversationId: $conversationId
 			);
 		}
 
@@ -850,9 +871,15 @@ class ProviderFactory {
 		array $messageHistory,
 		array $functions = [],
 		?string $agentId = null,
+		string $conversationId = '',
 	): string {
 		$governedMcpConfig = null;
 		$runToken = null;
+
+		// A turn is POOLABLE only when it belongs to an identified conversation.
+		// Without one there is nothing safe to key a remembering process by, so the
+		// turn takes the cold path — the behaviour that shipped before pooling.
+		$poolKey = $this->poolKeyFor(conversationId: $conversationId, agentId: $agentId, model: $model);
 
 		// 1. Availability — each component named separately, before any secret is touched.
 		$this->assertCliRunnerAvailable();
@@ -883,7 +910,12 @@ class ProviderFactory {
 			// egress-only identity instead. Minting strictly here would 503 every
 			// title generation the moment `executionMode: cli` is switched on.
 			if (empty($functions) === false) {
-				$runToken = $this->mintGovernedRunToken(agentId: $agentId, uid: $uid);
+				$runToken = $this->mintGovernedRunToken(
+					agentId: $agentId,
+					uid: $uid,
+					conversationId: $conversationId,
+					pooled: ($poolKey !== '')
+				);
 				$governedMcpConfig = $this->buildGovernedMcpConfig(runToken: $runToken);
 			}
 
@@ -903,17 +935,64 @@ class ProviderFactory {
 				token: $token,
 				uid: $uid,
 				mcpConfig: $governedMcpConfig,
-				runToken: $runToken
+				runToken: $runToken,
+				poolKey: $poolKey
 			);
 		} finally {
 			// The run token dies with the turn (success, error, or timeout), so a token
 			// outliving its run has no legitimate caller.
-			if ($runToken !== null && $this->runTokenService !== null) {
+			//
+			// EXCEPT on a poolable turn. The CLI reads `--mcp-config` ONCE at startup
+			// and never re-reads it (measured 2026-08-17, `REREAD=false`), so a pooled
+			// process cannot be handed a fresh token: consuming here would kill the
+			// token its own next turn must present, and the failure is silent — the
+			// model simply reports it has no tools.
+			//
+			// This is design D0.1 option 1, adopted deliberately: the token's lifetime
+			// follows the pooled process instead of the turn. The window is bounded by
+			// the pool's idle/hard cap, which is therefore a SECURITY parameter and not
+			// merely a performance one. The token still expires on its own TTL if the
+			// runner never reaps.
+			$consume = ($runToken !== null && $this->runTokenService !== null);
+			if ($consume === true && $poolKey === '') {
 				$this->runTokenService->consume(token: $runToken);
 			}
 		}//end try
 
 	}//end callAnthropicCli()
+
+	/**
+	 * Derive the key a pooled CLI process is reused under, or '' for the cold path.
+	 *
+	 * The key is the CONVERSATION, plus the agent and model whose process it is.
+	 * That is narrower than the (agent, user) key design D1 originally proposed,
+	 * and the narrowing is not caution — it is required. A stream-json process
+	 * REMEMBERS its turns: measured 2026-08-17, a second turn recalled a canary
+	 * word with no history re-sent. Any key wider than one conversation therefore
+	 * carries one conversation's context into another's turn.
+	 *
+	 * The agent is in the key because a process's granted tool set is fixed at
+	 * startup (the CLI never re-reads `--mcp-config`), so two agents must never
+	 * share a process. The model is in the key because it is a startup argument.
+	 *
+	 * An empty conversation id yields '' — no pooling, cold path, previous
+	 * behaviour. That is the correct answer for title generation and any other
+	 * caller with no conversation to belong to.
+	 *
+	 * @param string      $conversationId The conversation UUID, or '' when unknown.
+	 * @param string|null $agentId        The acting agent UUID, or null.
+	 * @param string      $model          The model id (a startup argument).
+	 *
+	 * @return string The pool key, or '' when the turn must not be pooled.
+	 */
+	private function poolKeyFor(string $conversationId, ?string $agentId, string $model): string {
+		if ($conversationId === '' || $agentId === null || $agentId === '') {
+			return '';
+		}
+
+		// Hashed so the key carries no identifier into the runner's logs.
+		return hash('sha256', $conversationId . '|' . $agentId . '|' . $model);
+	}//end poolKeyFor()
 
 	/**
 	 * Mint the per-run token that authenticates the governed MCP + egress endpoints for a
@@ -922,6 +1001,9 @@ class ProviderFactory {
 	 *
 	 * @param string|null $agentId The acting agent's UUID.
 	 * @param string|null $uid The acting user's UID.
+	 * @param string      $conversationId The conversation the run belongs to, or ''.
+	 * @param bool        $pooled Whether the turn may be served by a pooled process,
+	 *                    in which case the token must outlive the turn (D0.1 option 1).
 	 *
 	 * @return string The minted run token (never logged, never on argv).
 	 *
@@ -929,7 +1011,12 @@ class ProviderFactory {
 	 *
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
 	 */
-	private function mintGovernedRunToken(?string $agentId, ?string $uid): string {
+	private function mintGovernedRunToken(
+		?string $agentId,
+		?string $uid,
+		string $conversationId = '',
+		bool $pooled = false,
+	): string {
 		if ($this->runTokenService === null) {
 			throw new ProviderUnavailableException(
 				'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed run-token '
@@ -956,10 +1043,21 @@ class ProviderFactory {
 		}
 
 		try {
+			// A poolable turn's token must stay valid for as long as the process
+			// that holds it can be reused, because the CLI never re-reads the config
+			// it was given at startup. Otherwise the default per-run TTL applies and
+			// the token still dies with the turn.
+			$ttlSeconds = null;
+			if ($pooled === true) {
+				$ttlSeconds = self::POOL_PROCESS_LIFETIME_SECONDS + self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS;
+			}
+
 			return $this->runTokenService->mint(
 				runId: bin2hex(random_bytes(16)),
 				agentId: $agentId,
-				userId: $uid
+				userId: $uid,
+				conversationId: $conversationId,
+				ttlSeconds: $ttlSeconds
 			);
 		} catch (Throwable $e) {
 			$this->logger->error(
@@ -1337,6 +1435,7 @@ class ProviderFactory {
 		?string $uid,
 		?array $mcpConfig = null,
 		string $runToken = '',
+		string $poolKey = '',
 	): string {
 		// `credentialEnv`'s key is EXACTLY the one the runner's anthropic adapter allowlists.
 		// A key outside the allowlist is dropped WITHOUT an error, which would yield an
@@ -1361,6 +1460,20 @@ class ProviderFactory {
 		// is the container's only route out.
 		if ($runToken !== '') {
 			$params['runToken'] = $runToken;
+		}
+
+		// The pool key is the CONVERSATION, never the agent or the user. A
+		// stream-json process REMEMBERS its turns (measured: a second turn recalled
+		// a canary with no history re-sent), so any key wider than one conversation
+		// carries one conversation's context into another's turn. Absent key = the
+		// runner takes the cold path, which is always correct and never pooled.
+		if ($poolKey !== '') {
+			$params['poolKey'] = $poolKey;
+			// Sent rather than configured separately in the runner: this bounds BOTH
+			// the process's reusable life and its token's validity, and the two
+			// drifting apart is precisely the failure that ends in a live process
+			// holding a dead token.
+			$params['poolLifetimeSeconds'] = self::POOL_PROCESS_LIFETIME_SECONDS;
 		}
 
 		$result = $this->appApiPublicFunctions()->exAppRequest(

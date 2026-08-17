@@ -159,6 +159,7 @@ class ResponseGenerationHandler {
 		string $contextPreamble = '',
 		?RunTraceCollector $trace = null,
 		bool $dryRun = false,
+		string $conversationId = '',
 	): string {
 		$startTime = microtime(true);
 		$agentData = [];
@@ -371,7 +372,8 @@ class ResponseGenerationHandler {
 					toolExecutor: $toolExecutor,
 					executionMode: $driver->executionMode,
 					agentId: $cliAgentId,
-					maxTokens: $driver->maxTokens
+					maxTokens: $driver->maxTokens,
+					conversationId: $conversationId
 				);
 				$llmTime = microtime(true) - $llmStartTime;
 
