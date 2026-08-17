@@ -140,6 +140,7 @@ class McpRunController extends Controller {
 	 * @param ToolSearchService $toolSearchService Holds the run's resolved set for the approval gate.
 	 * @param IUserManager $userManager Resolves the token's user to an `IUser`.
 	 * @param IUserSession $userSession Impersonates that user for RBAC on dispatch.
+	 * @param IThrottler $throttler Brute-force protection for run-token authentication.
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a

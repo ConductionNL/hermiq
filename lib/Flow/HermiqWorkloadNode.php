@@ -86,6 +86,9 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * @param StageDispatchService $stages The ExApp stage dispatcher.
 	 * @param IL10N $l10n Translations.
 	 * @param IURLGenerator $urls For the palette icon.
+	 * @param AsyncStageDispatchService|null $asyncStages Optional async dispatcher; added
+	 *                                                    LAST so existing positional
+	 *                                                    construction keeps binding.
 	 */
 	public function __construct(
 		private readonly StageDispatchService $stages,
@@ -319,7 +322,13 @@ class HermiqWorkloadNode implements IFlowNode {
 
 		// ASYNC is a whole second transport; see dispatchAsyncFor().
 		if (($config['async'] ?? false) === true) {
-			return $this->dispatchAsyncFor($config, $json, $owner, $credentialId, $pushCredentialId);
+			return $this->dispatchAsyncFor(
+				config: $config,
+				json: $json,
+				owner: $owner,
+				credentialId: $credentialId,
+				pushCredentialId: $pushCredentialId,
+			);
 		}
 
 		$result = $this->stages->dispatch(
