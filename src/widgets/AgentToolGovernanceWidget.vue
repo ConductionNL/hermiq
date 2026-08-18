@@ -140,6 +140,7 @@ export default {
 		 * The two peer surfaces, in tab order.
 		 *
 		 * @return {Array<{id: string, label: string}>} Tab descriptors.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		tabs() {
 			return [
@@ -238,6 +239,7 @@ export default {
 		 * on the sibling data widget reflects the change after its own reload).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		async onGrantsSaved() {
 			await this.loadAgent()

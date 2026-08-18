@@ -442,6 +442,7 @@ export default {
 		 * @param {string} value The stored action value.
 		 * @param {Array<object>} options The option list to search.
 		 * @return {object} The matching option, or the first option as a fallback.
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		guardrailActionOption(value, options) {
 			return options.find((option) => option.value === value) || options[0]

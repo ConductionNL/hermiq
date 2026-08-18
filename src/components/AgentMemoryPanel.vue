@@ -251,6 +251,7 @@ export default {
 		 * Load the agent's memory.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async load() {
 			if (!this.agentId) {
@@ -335,6 +336,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or a dash.
+		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		formatDate(value) {
 			if (!value) {

@@ -132,6 +132,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 */
 		show(open) {
 			if (open) {
 				this.load()

@@ -236,6 +236,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or a dash.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-2-1
 		 */
 		formatDate(value) {
 			if (!value) {

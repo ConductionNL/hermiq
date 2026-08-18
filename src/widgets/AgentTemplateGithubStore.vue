@@ -237,6 +237,7 @@ export default {
 		 * Whether to show the "add a credential to raise limits" hint.
 		 *
 		 * @return {boolean}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		rateLimitHintVisible() {
 			return (
@@ -316,6 +317,7 @@ export default {
 		 *
 		 * @param {string} kind The discovery kind.
 		 * @return {string}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		kindLabel(kind) {
 			return kind === KIND_SKILL

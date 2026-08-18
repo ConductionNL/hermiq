@@ -145,6 +145,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 */
 		show(open) {
 			if (open) {
 				this.resetForm()
@@ -184,6 +187,7 @@ export default {
 		 * Persist the incident and notify the parent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		async save() {
 			this.saving = true

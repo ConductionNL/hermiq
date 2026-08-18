@@ -271,6 +271,7 @@ export default {
 		 *
 		 * @param {string} value An ISO-8601 timestamp.
 		 * @return {string} The formatted date.
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
 		formatDate(value) {
 			if (!value) {

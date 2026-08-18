@@ -367,6 +367,7 @@ export default {
 		 * The steps of the last dry-run preview.
 		 *
 		 * @return {Array<object>} The preview's ordered steps.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		previewSteps() {
 			if (!this.previewResult) {
@@ -411,6 +412,7 @@ export default {
 		 * Load the attached schedule, cost estimate, budget status and webhook status.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async load() {
 			try {
@@ -535,6 +537,7 @@ export default {
 		 * `would-have-called` rather than invoked.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async dryRun() {
 			if (!this.schedule || !this.schedule.id) {
@@ -612,6 +615,7 @@ export default {
 		 *
 		 * @param {string} type The step type (gate_wait|context|history|llm|tool|delivery).
 		 * @return {string} The localised label.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		stepTypeLabel(type) {
 			const labels = {

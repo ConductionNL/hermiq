@@ -278,6 +278,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The formatted date, or an em dash.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		formatDate(value) {
 			if (!value) {
@@ -302,6 +303,7 @@ export default {
 		 *
 		 * @param {object} row The oversight row.
 		 * @return {string} The result label.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		resultLabel(row) {
 			const summary = row.resultSummary

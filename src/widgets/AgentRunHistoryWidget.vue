@@ -352,6 +352,7 @@ export default {
 		 * The steps of the last replay preview.
 		 *
 		 * @return {Array<object>} The preview's ordered steps.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		replaySteps() {
 			if (!this.replayResult) {
@@ -401,6 +402,7 @@ export default {
 		 * Load the attached schedule and its run history.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		async load() {
 			try {
@@ -586,6 +588,7 @@ export default {
 		 *
 		 * @param {number} ms The duration in milliseconds.
 		 * @return {string} The duration label.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		stepDurationLabel(ms) {
 			if (ms === null || ms === undefined) {

@@ -156,6 +156,9 @@ export default {
 	watch: {
 		objectId: {
 			immediate: true,
+			/**
+			 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+			 */
 			handler() {
 				this.reset()
 			},
@@ -164,6 +167,9 @@ export default {
 
 	methods: {
 		t,
+		/**
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
 		roleLabel(role) {
 			return role === 'user' ? t('hermiq', 'You') : t('hermiq', 'Agent')
 		},

@@ -349,6 +349,9 @@ export default {
 				)
 			},
 
+			/**
+			 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+			 */
 			set(option) {
 				this.form.kind = option ? option.value : 'once'
 			},

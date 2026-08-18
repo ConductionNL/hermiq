@@ -111,6 +111,7 @@ export default {
 		 * The gated schedule's name, for context.
 		 *
 		 * @return {string} The schedule name, or an empty string.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		scheduleName() {
 			return (

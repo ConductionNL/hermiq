@@ -133,6 +133,9 @@ export default {
 				)
 			},
 
+			/**
+			 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-4-1
+			 */
 			set(option) {
 				this.selectedOrg = option ? option.value : ''
 				this.load()
