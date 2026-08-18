@@ -23,6 +23,22 @@
 
 import { createApp, defineAsyncComponent, h } from 'vue'
 
+// 🔴 The component library's compiled stylesheet. Without it `.cn-ai-companion`
+// has NO rules at all: the element measures 0x0 with `position: static`, and
+// the panel inside it falls back to NcAppSidebar's bare default — docked to the
+// left edge at full height instead of the floating bottom-right companion. It
+// still opened, still worked, still passed every DOM assertion; it just looked
+// like a different, older component.
+//
+// `css/index.css` (which main.js imports) does NOT carry these rules — the
+// cn-ai-* styles live only in the compiled bundle, so importing the wrong one
+// looks like a fix and changes nothing.
+//
+// Checked before shipping it to EVERY page in the instance: the file has zero
+// bare element selectors (no `body`, `a`, `table`, `button` rules), so it
+// cannot restyle a host app.
+import '@conduction/nextcloud-vue/dist/nextcloud-vue.css'
+
 // TWO deliberate choices here, both of which exist because this bundle loads on
 // EVERY Nextcloud page in the instance.
 //
@@ -54,15 +70,26 @@ const CnAiCompanion = defineAsyncComponent(() =>
 /**
  * The Hermiq app's own pages already render a companion via CnAppRoot.
  *
- * Detected from the body class Nextcloud sets for the active app rather than from
- * the URL: a URL check misses `/index.php/apps/hermiq/...` vs `/apps/hermiq/...`
- * and anything mounted under a sub-path, and the body class is what Nextcloud
- * itself considers the current app.
+ * 🔴 Checked from the URL **and** the body class, because the body class alone
+ * was wrong. The original version tested only `app-hermiq`, on the reasoning
+ * that it is "what Nextcloud itself considers the current app" — but on this
+ * instance Hermiq's own pages carry an EMPTY body class, so the guard never
+ * fired and a second companion mounted on top of CnAppRoot's. The two launchers
+ * landed at the identical coordinates, which is why it looked like one button
+ * and not like a bug.
+ *
+ * The URL objection in the original comment was that `/index.php/apps/hermiq/…`
+ * and a sub-path install would be missed — both are handled by testing for the
+ * segment anywhere in the path rather than anchoring at the start.
  *
  * @return {boolean} True when this page is one of Hermiq's own.
  */
 function hermiqOwnsThisPage() {
-	return document.body.classList.contains('app-hermiq')
+	if (document.body.classList.contains('app-hermiq') === true) {
+		return true
+	}
+
+	return window.location.pathname.includes('/apps/hermiq')
 }
 
 /**
@@ -121,6 +148,21 @@ function mount() {
 
 	const root = document.createElement('div')
 	root.id = 'hermiq-companion-root'
+
+	// 🔴 Above Nextcloud's header, which sits at z-index 2000.
+	//
+	// Without this the panel renders UNDERNEATH the header and its close button
+	// — which lands at y 8–42, inside the 50px header — is covered by
+	// `.header-start`. `elementFromPoint` at the button's own centre returned
+	// the header, not the button, so the panel could be opened and never
+	// closed. It looked correct in the DOM the whole time: present, visible,
+	// correctly sized. Only a real click found it.
+	//
+	// 2001, not something larger: a genuine modal (Nextcloud uses far higher)
+	// must still win over an assistant panel.
+	root.style.position = 'relative'
+	root.style.zIndex = '2001'
+
 	document.body.appendChild(root)
 
 	const fileId = openFileId()
