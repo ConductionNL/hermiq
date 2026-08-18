@@ -570,6 +570,7 @@ export default {
 		 *
 		 * @param {number} passRate The 0..1 pass rate.
 		 * @return {string} A percentage label.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		passRateLabel(passRate) {
 			if (typeof passRate !== 'number') {
@@ -583,6 +584,7 @@ export default {
 		 *
 		 * @param {string} result The gate result.
 		 * @return {string} The label.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		regressionLabel(result) {
 			if (result === 'failed') {
@@ -600,6 +602,7 @@ export default {
 		 *
 		 * @param {string} result The gate result.
 		 * @return {string} The badge modifier class.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		regressionBadgeClass(result) {
 			if (result === 'failed') {
