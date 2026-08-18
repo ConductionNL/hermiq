@@ -212,6 +212,9 @@ export default {
 		 * Two-way bridge between the `scope` string and the NcSelect option object.
 		 */
 		scopeOption: {
+			/**
+			 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+			 */
 			get() {
 				return (
 					this.scopeOptions.find(
