@@ -104,6 +104,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
+	 */
 	created() {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
