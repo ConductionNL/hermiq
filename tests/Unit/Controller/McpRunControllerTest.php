@@ -22,6 +22,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\McpRunController;
+use OCA\Hermiq\Service\Engine\RunStepBus;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolLoop;
 use OCA\Hermiq\Service\Llm\RunTokenService;
@@ -143,7 +144,7 @@ final class McpRunControllerTest extends TestCase {
 		$userManager->method('get')->willReturn($user);
 		$userSession = $this->createMock(IUserSession::class);
 
-		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->throttlerFor(), new NullLogger(), $body) extends McpRunController {
+		return new class($request, $tokens, $objects, $facade, new ToolGrantResolver(), $toolLoop, $search, $userManager, $userSession, $this->throttlerFor(), $this->createMock(RunStepBus::class), new NullLogger(), $body) extends McpRunController {
 			// phpcs:ignore
 			public function __construct(
 				$request,
@@ -156,10 +157,11 @@ final class McpRunControllerTest extends TestCase {
 				$userManager,
 				$userSession,
 				$throttler,
+				$runStepBus,
 				$logger,
 				private string $rawBody,
 			) {
-				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $logger);
+				parent::__construct($request, $tokens, $objects, $facade, $grant, $toolLoop, $search, $userManager, $userSession, $throttler, $runStepBus, $logger);
 			}
 			protected function readRawBody(): string {
 				return $this->rawBody;

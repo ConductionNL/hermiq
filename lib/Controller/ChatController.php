@@ -41,6 +41,10 @@ namespace OCA\Hermiq\Controller;
 use Exception;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\Engine\RunTraceCollector;
+use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\SanitizesForSaveTrait;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;
@@ -115,6 +119,10 @@ class ChatController extends Controller {
 	 * @param ObjectService $objectService OpenRegister object read/write (single write-path).
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IL10N $l10n Localization service for translations.
+	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
+	 * @param ProviderFactory $providerFactory Pre-warms an agent's pooled CLI process.
+	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's
+	 *                                                 requests for tools it lacks.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 * @param ConversationParticipation $participation Owner-or-listed-participant guard
 	 *                                                 (talk-shared-sessions). Defaulted so every
@@ -128,11 +136,119 @@ class ChatController extends Controller {
 		private readonly ObjectService $objectService,
 		private readonly IUserSession $userSession,
 		private readonly IL10N $l10n,
+		private readonly RunStepBus $runStepBus,
+		private readonly ProviderFactory $providerFactory,
+		private readonly ToolAccessRequestService $accessRequests,
 		private readonly LoggerInterface $logger,
 		private readonly ConversationParticipation $participation = new ConversationParticipation(),
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
 	}//end __construct()
+
+	/**
+	 * Send a chat message in a conversation and get the AI response.
+	 *
+	 * Mirrors OR ChatController::sendMessage(): resolves the conversation
+	 * (existing by UUID, or new against an agent UUID), verifies ownership,
+	 * and delegates to Engine::processMessage(). The conversation UUID is
+	 * echoed back on the result for the frontend.
+	 *
+	 * @return JSONResponse JSON response with AI response or error.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	/**
+	 * Pre-warm an agent's pooled CLI process for a conversation.
+	 *
+	 * Called when the chat OPENS or an agent is picked — not when the first
+	 * question is asked, which is too late to help it. Measured on this
+	 * instance, the first turn of a conversation costs 11.2s for a trivial
+	 * prompt against 3.2s once the process exists; this moves that difference
+	 * to while the user is still typing.
+	 *
+	 * Answers 200 whatever happens. A warm-up is an optimisation the following
+	 * turn does not depend on, so a failure here must be invisible rather than
+	 * something the chat has to handle.
+	 *
+	 * @return JSONResponse `{warmed: bool}`.
+	 *
+	 * @NoAdminRequired
+	 * @NoCSRFRequired
+	 */
+	public function warm(): JSONResponse {
+		try {
+			$userId = $this->requireUserId();
+			$agentUuid = (string)$this->request->getParam('agentUuid');
+			$conversationUuid = (string)$this->request->getParam('conversation');
+			if ($agentUuid === '' || $conversationUuid === '') {
+				return new JSONResponse(data: ['warmed' => false], statusCode: 200);
+			}
+
+			// ⚠️ No null check: `findConversation()` returns a non-nullable
+			// ObjectEntity and THROWS a 404 when the conversation is absent. The
+			// catch below already turns that into the same `warmed: false` this
+			// branch was returning, so the check could never run — and reading
+			// like a handled case is worse than not being there, because the next
+			// person trusts it.
+			$conversation = $this->findConversation(uuid: $conversationUuid);
+
+			$this->verifyConversationAccess(conversation: $conversation, userId: $userId);
+
+			$agent = $this->objectService->find(
+				id: $agentUuid,
+				register: self::REGISTER_SLUG,
+				schema: 'agent'
+			);
+			if ($agent === null) {
+				return new JSONResponse(data: ['warmed' => false], statusCode: 200);
+			}
+
+			$agentData = $agent->getObject();
+
+			// Only the `cli` transport has a process to warm. Every other
+			// provider is a plain HTTP call with nothing to pre-start.
+			$llmConfig = $this->providerFactory->getLlmConfig();
+			$model = $agentData['model'] ?? null;
+			if (is_string($model) === false) {
+				$model = null;
+			}
+
+			$driver = $this->providerFactory->createChatDriver(
+				llmConfig: $llmConfig,
+				agentModel: $model,
+				organisation: null
+			);
+			if ($driver->provider !== 'anthropic' || $driver->executionMode !== 'cli') {
+				return new JSONResponse(data: ['warmed' => false, 'reason' => 'not a cli agent'], statusCode: 200);
+			}
+
+			// Governed matches whether the agent actually holds tools, so the
+			// warmed process carries the same argv the first turn will need.
+			$tools = ($agentData['tools'] ?? []);
+			$governed = (is_array($tools) === true && $tools !== []);
+
+			$warmed = $this->providerFactory->warmAnthropicCli(
+				credentialId: (string)$driver->credentialId,
+				model: (string)$driver->model,
+				agentId: $agentUuid,
+				conversationId: $conversationUuid,
+				governed: $governed
+			);
+
+			return new JSONResponse(data: ['warmed' => $warmed], statusCode: 200);
+		} catch (Exception $e) {
+			$this->logger->debug(
+				message: '[ChatController] Warm-up skipped',
+				context: ['reason' => $e->getMessage()]
+			);
+
+			return new JSONResponse(data: ['warmed' => false], statusCode: 200);
+		}//end try
+
+	}//end warm()
 
 	/**
 	 * Send a chat message in a conversation and get the AI response.
@@ -187,6 +303,24 @@ class ChatController extends Controller {
 			$this->verifyConversationAccess(conversation: $conversation, userId: $userId);
 
 			// Process message through the in-app Engine (conversation id is the UUID).
+			// Collect the run's step timeline so the chat can SHOW its work.
+			//
+			// `Engine::process()` has always taken a collector and always
+			// returned `steps`, but the chat path never supplied one — so the
+			// field was `[]` on every chat response by construction, and a turn
+			// that made five tool calls looked from the outside like one opaque
+			// pause. The user sees "Thinking…" for a minute with no indication
+			// that anything is happening, which reads as a hang rather than as
+			// work.
+			//
+			// The collector is per-request and is already defensive about
+			// unknown or double-ended tokens, so a step bug cannot fail a turn.
+			$trace = new RunTraceCollector();
+
+			// Start from an empty bucket so a previous turn's steps cannot be
+			// shown against this one.
+			$this->runStepBus->clear(conversationId: (string)$conversation->getUuid());
+
 			$result = $this->engine->processMessage(
 				conversationId: (string)$conversation->getUuid(),
 				userId: $userId,
@@ -194,11 +328,28 @@ class ChatController extends Controller {
 				selectedViews: $params['selectedViews'],
 				selectedTools: $params['selectedTools'],
 				ragSettings: $params['ragSettings'],
-				context: $params['context']
+				context: $params['context'],
+				trace: $trace
 			);
 
 			// Add conversation UUID to result for frontend.
 			$result['conversation'] = $conversation->getUuid();
+
+			// The tool calls this turn made over the governed MCP transport.
+			// `CnAiMessageList` already renders `message.toolCalls` with
+			// expand/collapse — it was simply never given any, because those
+			// calls happen in a different request than this one.
+			$result['toolCalls'] = $this->runStepBus->drain(
+				conversationId: (string)$conversation->getUuid()
+			);
+
+			// Anything the agent is now waiting on the owner to decide. Sent on
+			// every turn so an approval raised mid-conversation is actionable
+			// where the user already is, instead of on an oversight screen they
+			// would have to know about and go and find.
+			$result['pendingApprovals'] = $this->accessRequests->pendingApprovals(
+				agentId: $params['agentUuid']
+			);
 
 			return new JSONResponse(data: $result, statusCode: 200);
 		} catch (Exception $e) {

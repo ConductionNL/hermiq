@@ -27,6 +27,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ChatController;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IL10N;
@@ -109,13 +112,22 @@ class ChatControllerTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 
+		// ⚠️ NAMED arguments, not positional. The three collaborators below were
+		// inserted in the MIDDLE of the constructor, and with positional
+		// arguments the logger silently slid into the `$runStepBus` slot — the
+		// suite failed with "must be of type RunStepBus, MockObject_Logger
+		// given", which is the loud version. The quiet version is an argument
+		// that happens to satisfy the next parameter's type.
 		return new ChatController(
-			$this->request,
-			$this->engine,
-			$this->objectService,
-			$this->userSession,
-			$l10n,
-			$this->logger
+			request: $this->request,
+			engine: $this->engine,
+			objectService: $this->objectService,
+			userSession: $this->userSession,
+			l10n: $l10n,
+			runStepBus: $this->createMock(RunStepBus::class),
+			providerFactory: $this->createMock(ProviderFactory::class),
+			accessRequests: $this->createMock(ToolAccessRequestService::class),
+			logger: $this->logger
 		);
 
 	}//end controller()

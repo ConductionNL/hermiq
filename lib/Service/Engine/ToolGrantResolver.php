@@ -16,9 +16,13 @@
  *   only (`search`, `get`) found in the catalog — default-deny on writes.
  * - `{app}.{schema}.*:write` — the same wildcard, but also expands the schema's
  *   write verbs (`create`, `update`, `delete`) found in the catalog.
- * - `[]` (empty `Agent.tools`) — unchanged "all discovered tools allowed", EXCEPT
- *   default-deny still strips every id `isWriteOrDestructive()` resolves to
- *   write/destructive (see below) from the result.
+ * - `[]` / unset `Agent.tools` — **NO TOOLS**. This used to mean "all discovered
+ *   tools allowed, minus write/destructive". Measured 2026-08-16 that default gave
+ *   an agent 81 tools / ~101,000 tokens on every turn — over half a 200K context
+ *   window — and 89% of agents on the instance were taking it because nobody had
+ *   filled the field in. It also widened by itself as apps were installed, which is
+ *   a grant nobody made. THERE IS NO OVERRIDE — an unconfigured agent is
+ *   unconfigured, and configuring it is the only way to give it tools.
  * - `{app}.{tool}?arg=value&other=in:a,b,c` — an ARGUMENT-SCOPED grant
  *   (hydra-console-agent-leaves): the exact id BEFORE the `?`, narrowed by one or
  *   more constraints on the arguments the tool is invoked with. `key=value` PINS
@@ -115,14 +119,16 @@ class ToolGrantResolver {
 	/**
 	 * The grant entry meaning "this agent is INTENTIONALLY tool-less".
 	 *
-	 * An empty `Agent.tools` already means the opposite ("all discovered tools,
-	 * default-denied"), so there is no way to spell "no tools" by omission — this
-	 * sentinel is it. Recognising it explicitly is what lets a deliberate
-	 * no-tools agent be told apart from an agent whose grants resolve to zero by
-	 * ACCIDENT (a typo, or an id from a stale catalog). Both end up with an empty
-	 * function list; only the second is a defect, and `resolvesToNothing()` is how
-	 * callers tell them apart instead of silently treating a broken agent as a
-	 * chat-only one.
+	 * Since an empty `Agent.tools` now ALSO yields no tools, this sentinel is no
+	 * longer the only way to spell "tool-less". It remains meaningful as an
+	 * explicit DECLARATION: it says a human decided this agent has no tools, where
+	 * an empty list only says nobody has decided anything yet.
+	 *
+	 * What it still does is separate a deliberate no-tools agent from one whose
+	 * grants resolve to zero by ACCIDENT (a typo, an id from a stale catalog).
+	 * Both end up with an empty function list; only the second is a defect, and
+	 * `resolvesToNothing()` is how callers tell them apart instead of silently
+	 * treating a broken agent as a chat-only one.
 	 *
 	 * @var string
 	 */
@@ -216,16 +222,68 @@ class ToolGrantResolver {
 		$cleanGrants = $this->sanitizeGrants(grants: $grants);
 
 		if ($cleanGrants === []) {
-			// "All discovered tools allowed" (legacy default) — default-deny still
-			// strips every id `isWriteOrDestructive()` resolves to write/destructive
-			// (hints first, verb-suffix fallback, fail-closed on anything else).
-			return $this->applyDefaultDeny(ids: $catalogIds, descriptorsById: $descriptorsById);
+			// AN AGENT WITH NO CONFIGURED TOOLS GETS NONE.
+			//
+			// This used to fall through to "all discovered tools allowed", relying
+			// on `applyDefaultDeny()` to strip the write verbs. Measured on the
+			// development instance 2026-08-16, that default was neither small nor
+			// rare:
+			//
+			//   full catalog                       122 tools  433,198 B  ~108,300 tok
+			//   what the legacy default yielded      81 tools  403,904 B  ~101,000 tok
+			//   an agent with 10 explicit grants     10 tools    7,777 B  ~  1,900 tok
+			//   an agent with  3 explicit grants      3 tools    2,412 B  ~    600 tok
+			//
+			// 89 of 111 agents had `tools` NULL and 10 more had `[]` — 89% of them
+			// took this branch and received ~101,000 tokens of tool definitions on
+			// every turn, over half a 200K context window, before the user said
+			// anything. The write-verb strip barely helped: write tools are the
+			// CHEAP ones (no outputSchema), so denying them removed 7% of the bytes
+			// while leaving the expensive read verbs in place.
+			//
+			// Deny is also the safer direction on its own terms. "Unconfigured"
+			// meaning "may use everything discovered on the instance" is a grant
+			// nobody made, widening automatically as apps are installed.
+			//
+			// THERE IS NO OVERRIDE, deliberately. An earlier revision of this
+			// change shipped `HERMIQ_LEGACY_UNSCOPED_TOOLS=1` as an escape hatch.
+			// From a security-by-design position that hatch was the defect rather
+			// than the mitigation: it is invisible (nothing in the product shows
+			// it is set, so an agent's true capability cannot be read from the
+			// agent) and it is unscoped (setting it to unblock ONE agent widens
+			// every unconfigured agent on the instance).
+			//
+			// Text-only, NOT an error. `resolvesToNothing()` deliberately still
+			// returns false for this case, because ToolLoop THROWS on it: routing
+			// unconfigured agents through that would have turned a tool-scoping
+			// change into 99 broken agents. An agent with no tools is a legitimate
+			// conversational agent; an agent whose CONFIGURED grants resolve to
+			// nothing is broken, and only the second is an exception.
+			return [];
+		}
+
+		// A tool has two names; canonicalise to the one the catalogue leads with.
+		//
+		// `McpProviderBridge` emits a dotted `mcpId` (`pipelinq.lead.get`) and an
+		// underscored `name` alias (`pipelinq_lead_get`), and the agent editor's
+		// own endpoint shows an operator the UNDERSCORED one. `expandGrant()`
+		// returns an exact grant verbatim, so an underscored grant stayed
+		// underscored and every downstream comparison against a dotted catalogue
+		// id missed — the tool-catalogue annotation reported ZERO granted tools
+		// for an agent that had just been given three (measured 2026-08-17).
+		//
+		// Mapping both aliases onto the descriptor's primary id here means the
+		// rest of the system sees exactly one id space, whichever form the
+		// operator wrote.
+		$canonical = [];
+		foreach ($descriptorsById as $id => $descriptor) {
+			$canonical[$id] = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? $id));
 		}
 
 		$resolved = [];
 		foreach ($cleanGrants as $grant) {
 			foreach ($this->expandGrant(grant: $grant, catalogIds: $catalogIds) as $id) {
-				$resolved[$id] = true;
+				$resolved[($canonical[$id] ?? $id)] = true;
 			}
 		}
 
@@ -890,31 +948,6 @@ class ToolGrantResolver {
 	}//end schemaVerbIds()
 
 	/**
-	 * Strip an id list down to those that need NO explicit grant, using each
-	 * id's own descriptor (hints and reach, when set) — see `requiresGrant()`.
-	 *
-	 * @param array<int, string> $ids Candidate ids.
-	 * @param array<string, array<string, mixed>> $descriptorsById Every candidate's descriptor, keyed by id.
-	 *
-	 * @return array<int, string>
-	 *
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#requirement-default-deny-and-the-approval-gate-key-off-reach-in-union-with-the-existing-rule
-	 */
-	private function applyDefaultDeny(array $ids, array $descriptorsById): array {
-		$out = [];
-		foreach ($ids as $id) {
-			$descriptor = ($descriptorsById[$id] ?? null);
-			if (self::requiresGrant(id: $id, descriptor: $descriptor) === true) {
-				continue;
-			}
-
-			$out[] = $id;
-		}
-
-		return $out;
-	}//end applyDefaultDeny()
-
-	/**
 	 * Whether a grant string uses the `{app}.{schema}.*` (optionally `:write`) form.
 	 *
 	 * @param string $grant The grant entry.
@@ -927,9 +960,9 @@ class ToolGrantResolver {
 
 	/**
 	 * Index every descriptor by its whitelist-matchable id: the dotted `mcpId`
-	 * when present (MCP-bridged/derived tools), else the bare `name` — so
-	 * `applyDefaultDeny()` can classify each id from its OWN descriptor's hints
-	 * (hermiq-prefer-tool-hints), not the id text alone.
+	 * when present (MCP-bridged/derived tools), else the bare `name` — so a grant
+	 * is classified from its OWN descriptor's hints (hermiq-prefer-tool-hints),
+	 * not from the id text alone.
 	 *
 	 * @param array<int, mixed> $catalog Descriptor list. Typed loosely on purpose: these cross
 	 *                                   the OpenRegister tool-facade boundary, so each entry is
@@ -944,9 +977,31 @@ class ToolGrantResolver {
 				continue;
 			}
 
-			$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
-			if (is_string($id) === true && $id !== '' && isset($byId[$id]) === false) {
-				$byId[$id] = $descriptor;
+			// ⚠️ INDEX BOTH FORMS. A tool has two names and an operator is shown
+			// the wrong one.
+			//
+			// `McpProviderBridge` emits `mcpId` as the dotted raw id
+			// (`pipelinq.lead.get`) and `name` as an underscored alias
+			// (`pipelinq_lead_get`), because some models reject dots in a
+			// function name. `ToolRegistryFacade::functionIsWhitelisted()`
+			// already accepts EITHER — but this resolver preferred `mcpId` and
+			// indexed only that, so a grant written in the underscored form
+			// matched nothing.
+			//
+			// That is not a hypothetical: the agent editor's own endpoint
+			// (`AgentsController::tools()` → hermiq's ToolRegistry) returns the
+			// UNDERSCORED name, so an operator copying an id from the UI writes a
+			// grant that resolves to zero tools. Measured 2026-08-17: an agent
+			// granted five underscored ids reported it had no tools whatsoever,
+			// and the failure is silent — `resolvesToNothing()` fires only when
+			// EVERY grant misses, so a half-underscored list degrades quietly.
+			//
+			// Indexing both keys the resolver to the same id space the facade
+			// enforces, which is the only way the two cannot drift.
+			foreach ([($descriptor['mcpId'] ?? null), ($descriptor['name'] ?? null)] as $id) {
+				if (is_string($id) === true && $id !== '' && isset($byId[$id]) === false) {
+					$byId[$id] = $descriptor;
+				}
 			}
 		}
 

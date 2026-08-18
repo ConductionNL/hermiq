@@ -41,6 +41,7 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\Engine\ToolReachResolver;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -130,6 +131,8 @@ class ToolOversightController extends Controller {
 	 * @param IAppConfig $appConfig Reads `hermiq.tools.disclosureThreshold`.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check for the oversight bypass.
+	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's requests
+	 *                                                 for tools it has not been granted.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
@@ -146,6 +149,7 @@ class ToolOversightController extends Controller {
 		private readonly IAppConfig $appConfig,
 		private readonly IUserSession $userSession,
 		private readonly IGroupManager $groupManager,
+		private readonly ToolAccessRequestService $accessRequests,
 		private readonly LoggerInterface $logger,
 	) {
 		parent::__construct(appName: Application::APP_ID, request: $request);
@@ -257,6 +261,185 @@ class ToolOversightController extends Controller {
 		}//end try
 
 	}//end toolCatalog()
+
+	/**
+	 * Persist the `Agent.tools` grant array (owner-only, single write-path).
+	 *
+	 * Deliberately NOT `@NoCSRFRequired` — unlike the two read endpoints, this one
+	 * MUTATES an authorization boundary (which tools an agent may call), so the CSRF
+	 * guard stays ON. `@nextcloud/axios` sends the requesttoken on every request, so
+	 * `src/api/toolOversight.js`'s PUT works unchanged; a cross-site forger cannot
+	 * silently widen an agent's grants.
+	 *
+	 * @param string $agentId Agent UUID.
+	 *
+	 * @return JSONResponse The updated grant array, or an error status.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#put-api-agents-agentid-tool-grants
+	 *
+	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, 404,
+	 *   owner-only IDOR check, grants-shape validation, per-entry string filter)
+	 *   each add a branch on one linear write path.
+	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
+	 *   early-return guards multiply paths without nested logic.
+	 */
+	/**
+	 * Resolve a pending tool-access request an agent raised.
+	 *
+	 * ⚠️ ONLY THE AGENT'S OWNER. Not admins — an admin can already edit
+	 * `Agent.tools` directly and does not need this path; routing requests to
+	 * them would make them a queue of decisions about agents they never created.
+	 * The refusal deliberately does not reveal whether the request exists.
+	 *
+	 * Granting appends the tool to `Agent.tools` — the SAME field, resolved by
+	 * the SAME `ToolGrantResolver`, so this adds a governed route to changing a
+	 * grant and changes nothing about how a grant is enforced.
+	 *
+	 * @param string $agentId   The agent the request belongs to.
+	 * @param string $requestId The request object's uuid.
+	 *
+	 * @return JSONResponse The resolved request.
+	 *
+	 * @NoAdminRequired
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function resolveToolAccessRequest(string $agentId, string $requestId): JSONResponse {
+		$user = $this->userSession->getUser();
+		if ($user === null) {
+			return new JSONResponse(['error' => 'Unauthenticated'], Http::STATUS_UNAUTHORIZED);
+		}
+
+		$agent = $this->findAgent(agentId: $agentId);
+
+		// One refusal for "no such agent", "not yours" and "no such request":
+		// a distinct 404 would let a non-owner probe which requests exist.
+		$notYours = new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
+		if ($this->ownsAgent(agent: $agent, uid: $user->getUID()) === false) {
+			return $notYours;
+		}
+
+		$decision = (string)$this->request->getParam('decision', '');
+		if (in_array($decision, ['granted', 'refused'], true) === false) {
+			return new JSONResponse(['error' => "decision must be 'granted' or 'refused'"], Http::STATUS_BAD_REQUEST);
+		}
+
+		$data = $this->findAccessRequest(requestId: $requestId, agentId: $agentId);
+		if ($data === null) {
+			return $notYours;
+		}
+
+		$toolId = (string)($data['toolId'] ?? '');
+		if ($decision === 'granted' && $toolId !== '') {
+			$this->grantToolTo(agent: $agent, agentId: $agentId, toolId: $toolId);
+		}
+
+		$data['status'] = $decision;
+		$data['decidedBy'] = $user->getUID();
+		$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
+
+		$this->objectService->saveObject(
+			object: $data,
+			register: self::REGISTER_SLUG,
+			schema: 'toolAccessRequest',
+			uuid: $requestId
+		);
+
+		if ($decision === 'granted') {
+			$this->accessRequests->notifyOwner(agentId: $agentId, toolId: $toolId, subject: 'granted');
+		}
+
+		return new JSONResponse(['status' => $decision, 'toolId' => $toolId, 'agentId' => $agentId]);
+
+	}//end resolveToolAccessRequest()
+
+	/**
+	 * Whether this user owns this agent.
+	 *
+	 * ⚠️ An EMPTY uid never owns anything, even an agent whose stored owner is
+	 * also empty. Without that clause the two compare equal and an unowned agent
+	 * becomes everyone's — which is the shape of an authorization bypass rather
+	 * than a missing value.
+	 *
+	 * @param ObjectEntity|null $agent The agent, or null when it does not exist.
+	 * @param string $uid The acting user's id.
+	 *
+	 * @return bool True only when the agent exists and this user owns it.
+	 */
+	private function ownsAgent(?ObjectEntity $agent, string $uid): bool {
+		if ($agent === null || $uid === '') {
+			return false;
+		}
+
+		return ($agent->getOwner() === $uid);
+	}//end ownsAgent()
+
+	/**
+	 * Load an access request, but only if it belongs to this agent.
+	 *
+	 * ⚠️ Returns null for "no such request" AND for "a request that belongs to
+	 * someone else", deliberately — the caller turns both into the same 404 it
+	 * uses for "not your agent". Distinguishing them would let a non-owner probe
+	 * which requests exist by reading the difference between the two answers.
+	 *
+	 * @param string $requestId The request uuid.
+	 * @param string $agentId The agent it must belong to.
+	 *
+	 * @return array<string, mixed>|null The request data, or null when it is not this agent's.
+	 */
+	private function findAccessRequest(string $requestId, string $agentId): ?array {
+		try {
+			$requestObject = $this->objectService->find(
+				id: $requestId,
+				register: self::REGISTER_SLUG,
+				schema: 'toolAccessRequest'
+			);
+		} catch (Throwable $e) {
+			return null;
+		}
+
+		if ($requestObject === null) {
+			return null;
+		}
+
+		$data = $requestObject->jsonSerialize();
+		if (($data['agentId'] ?? '') !== $agentId) {
+			return null;
+		}
+
+		return $data;
+	}//end findAccessRequest()
+
+	/**
+	 * Add one tool to an agent's grant list, idempotently.
+	 *
+	 * @param ObjectEntity $agent The agent object.
+	 * @param string $agentId The agent uuid.
+	 * @param string $toolId The tool to grant.
+	 *
+	 * @return void
+	 */
+	private function grantToolTo(ObjectEntity $agent, string $agentId, string $toolId): void {
+		$grants = ($agent->getObject()['tools'] ?? []);
+		if (is_array($grants) === false) {
+			$grants = [];
+		}
+
+		// Idempotent: approving the same request twice must not list the tool
+		// twice, because the grant list is compared by value elsewhere.
+		if (in_array($toolId, $grants, true) === false) {
+			$grants[] = $toolId;
+		}
+
+		$this->objectService->saveObject(
+			object: $this->grantWritePayload(agent: $agent, grants: $grants),
+			register: self::REGISTER_SLUG,
+			schema: self::AGENT_SCHEMA,
+			uuid: $agentId
+		);
+	}//end grantToolTo()
 
 	/**
 	 * Persist the `Agent.tools` grant array (owner-only, single write-path).

@@ -227,6 +227,15 @@ return [
             'verb'         => 'PUT',
             'requirements' => ['agentId' => '[^/]+'],
         ],
+        // tool-discovery-and-access-requests: the OWNER resolves a request an
+        // agent raised. Owner-only, and a non-owner gets the same 404 as a
+        // missing request so the endpoint cannot be used to probe what exists.
+        [
+            'name'         => 'toolOversight#resolveToolAccessRequest',
+            'url'          => '/api/agents/{agentId}/tool-access-requests/{requestId}',
+            'verb'         => 'POST',
+            'requirements' => ['agentId' => '[^/]+', 'requestId' => '[^/]+'],
+        ],
         [
             'name'         => 'toolOversight#toolInvocations',
             'url'          => '/api/agents/{agentId}/tool-invocations',
@@ -477,6 +486,9 @@ return [
         // Chat: send/history/stats + per-message feedback (messageId is a UUID here,
         // where OR required '\d+').
         ['name' => 'chat#sendMessage',  'url' => '/api/chat/send', 'verb' => 'POST'],
+        // Pre-warm the agent's pooled CLI process when the chat OPENS or the
+        // agent is picked, so the first question does not pay the process start.
+        ['name' => 'chat#warm',         'url' => '/api/chat/warm', 'verb' => 'POST'],
         ['name' => 'chat#getHistory',   'url' => '/api/chat/history', 'verb' => 'GET'],
         ['name' => 'chat#clearHistory', 'url' => '/api/chat/history', 'verb' => 'DELETE'],
         ['name' => 'chat#getChatStats', 'url' => '/api/chat/stats', 'verb' => 'GET'],

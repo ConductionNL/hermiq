@@ -28,6 +28,7 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
@@ -140,7 +141,10 @@ class ToolOversightControllerTest extends TestCase {
 	 * @return ToolOversightController
 	 */
 	private function controller(bool $richAvailable = false): ToolOversightController {
-		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(LoggerInterface::class), $richAvailable) extends ToolOversightController {
+		// ⚠️ `$accessRequests` sits BEFORE the logger in the constructor, so it
+		// goes here and not on the end — appending would put the logger in its
+		// slot and the anonymous class's own `$richAvailable` in the logger's.
+		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), $richAvailable) extends ToolOversightController {
 			/**
 			 * @param bool $richAvailable Forced return value.
 			 */
@@ -153,6 +157,7 @@ class ToolOversightControllerTest extends TestCase {
 				IAppConfig $appConfig,
 				IUserSession $userSession,
 				IGroupManager $groupManager,
+				ToolAccessRequestService $accessRequests,
 				LoggerInterface $logger,
 				private readonly bool $richAvailable,
 			) {
@@ -165,6 +170,7 @@ class ToolOversightControllerTest extends TestCase {
 					$appConfig,
 					$userSession,
 					$groupManager,
+					$accessRequests,
 					$logger
 				);
 			}//end __construct()

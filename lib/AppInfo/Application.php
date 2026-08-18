@@ -168,6 +168,20 @@ class Application extends App implements IBootstrap {
 			\OCP\Util::addInitScript(self::APP_ID, self::APP_ID . '-agent-leaf');
 		}
 
+		// AI companion on EVERY page (companion-everywhere). Until now the chat
+		// existed only inside Hermiq's own Vue app, where CnAppRoot renders it from
+		// `:aiCompanion="true"` -- which put the assistant one navigation away from
+		// the document the user was actually looking at.
+		//
+		// The office editors are THIRD-PARTY apps (onlyoffice, eurooffice,
+		// richdocuments), so there is no CnAppRoot of ours to switch on and no
+		// template of ours to edit. An init script is the only seam that reaches
+		// them, and it is the same one the agent leaf above already uses.
+		//
+		// The bundle itself declines to mount on Hermiq's own pages, where
+		// CnAppRoot already renders a companion.
+		\OCP\Util::addInitScript(self::APP_ID, self::APP_ID . '-companion');
+
 		// Federated configuration sharing: contribute hermiq's skill type to
 		// OpenRegister's shareable-config engine (agent templates ride the schema
 		// marker instead). Guarded on the event class existing so an instance whose

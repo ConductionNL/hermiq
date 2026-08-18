@@ -123,7 +123,7 @@ class ToolLoopTest extends TestCase {
 	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-3-2
 	 */
-	public function testEmptyWhitelistAllowsAllTools(): void {
+	public function testEmptyWhitelistYieldsNoToolsAtAll(): void {
 		$all = [
 			['name' => 'decidesk_listMeetings', 'mcpId' => 'decidesk.meeting.search', 'description' => 'List', 'parameters' => []],
 			['name' => 'openregister_search', 'mcpId' => 'openregister.schemas.search', 'description' => 'Search', 'parameters' => []],
@@ -136,9 +136,14 @@ class ToolLoopTest extends TestCase {
 			->willReturn($all);
 
 		$loop = $this->loop(facade: $facade);
-		$this->assertSame($all, $loop->listAgentFunctions(agent: $this->agent(tools: [])));
 
-	}//end testEmptyWhitelistAllowsAllTools()
+		// An agent with no configured tools gets NONE. This asserted `$all` until
+		// 2026-08-16, when the measurement showed that default handing 89% of
+		// agents ~101,000 tokens of tool definitions per turn -- over half a 200K
+		// context window -- purely because nobody had filled the field in.
+		$this->assertSame([], $loop->listAgentFunctions(agent: $this->agent(tools: [])));
+
+	}//end testEmptyWhitelistYieldsNoToolsAtAll()
 
 	/**
 	 * A non-empty whitelist is passed through to listTools(); bare legacy ids
@@ -353,55 +358,26 @@ class ToolLoopTest extends TestCase {
 	}//end testExplicitNoToolsSentinelDoesNotRaise()
 
 	/**
-	 * An empty whitelist calls listTools([]) exactly ONCE (preserving the
-	 * legacy call contract) and post-filters the returned catalog to strip
-	 * classifiable derived write ids (default-deny) — AND (hermiq-prefer-tool-hints)
-	 * a hint-less, non-derived id (`hermiq.sendMail`) is now ALSO stripped
-	 * (fails closed), while a hint-carrying non-derived id (`hermiq.getStatus`,
-	 * `readOnlyHint:true` + `reach:user`) survives because BOTH axes classify it
-	 * as harmless.
+	 * An empty whitelist makes ONE facade call and yields nothing.
 	 *
-	 * 🔴 The fourth entry, `hermiq.pingWebhook`, is the one that documents the
-	 * reach axis: it declares the SAME read hint as `getStatus` and simply omits
-	 * `reach`. It is stripped. That is the whole cost of the axis stated in one
-	 * row — a curated 2-segment tool that carries read hints but no reach loses
-	 * its free pass, because "it only reads" is not an answer to "who finds
-	 * out". An app adding a tool of this shape must annotate it; leaving the
-	 * annotation off is not neutral, it is a denial.
+	 * This asserted the post-filtered default-deny result until 2026-08-16. That
+	 * whole-catalog path is gone: empty grants now mean no tools, so there is
+	 * nothing left to post-filter. The single-facade-call property it also
+	 * guarded is still worth holding.
 	 *
 	 * @return void
-	 *
-	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-1
-	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
-	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-hint-less-curated-tool-fails-closed-to-external
 	 */
-	public function testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall(): void {
-		$catalog = [
+	public function testEmptyWhitelistMakesOneFacadeCallAndYieldsNothing(): void {
+		$facade = $this->createMock(ToolRegistryFacade::class);
+		$facade->expects($this->once())->method('listTools')->willReturn([
 			['name' => 'pipelinq_lead_search', 'mcpId' => 'pipelinq.lead.search'],
 			['name' => 'pipelinq_lead_delete', 'mcpId' => 'pipelinq.lead.delete'],
-			['name' => 'hermiq_sendMail', 'mcpId' => 'hermiq.sendMail'],
-			['name' => 'hermiq_getStatus', 'mcpId' => 'hermiq.getStatus', 'readOnlyHint' => true, 'reach' => 'user'],
-			['name' => 'hermiq_pingWebhook', 'mcpId' => 'hermiq.pingWebhook', 'readOnlyHint' => true],
-		];
-
-		$facade = $this->createMock(ToolRegistryFacade::class);
-		$facade->expects($this->once())->method('listTools')->with([])->willReturn($catalog);
+		]);
 
 		$loop = $this->loop(facade: $facade);
-		$result = $loop->listAgentFunctions(agent: $this->agent(tools: []));
+		$this->assertSame([], $loop->listAgentFunctions(agent: $this->agent(tools: [])));
 
-		$ids = array_column($result, 'mcpId');
-		sort($ids);
-		$this->assertSame(
-			['hermiq.getStatus', 'pipelinq.lead.search'],
-			$ids,
-			'hermiq.sendMail (hint-less, non-derived) must fail closed; hermiq.getStatus'
-			. ' (readOnlyHint:true + reach:user) must survive on its declared annotations;'
-			. ' hermiq.pingWebhook carries the SAME read hint with NO reach and must be stripped'
-			. ' — that difference is the reach axis doing its only job.'
-		);
-
-	}//end testEmptyWhitelistPostFiltersDefaultDenyWithoutASecondFacadeCall()
+	}//end testEmptyWhitelistMakesOneFacadeCallAndYieldsNothing()
 
 	/**
 	 * Above the disclosure threshold, only the `hermiq.searchTools` descriptor

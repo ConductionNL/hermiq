@@ -39,6 +39,7 @@ use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;
 use OCP\App\IAppManager;
@@ -177,19 +178,41 @@ class ToolGrantResolverTest extends TestCase {
 	 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-1
 	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-hint-less-curated-tool-fails-closed
 	 */
-	public function testEmptyGrantsAllowsAllExceptDerivedWritesAndFailsClosedOnHintlessNonDerivedIds(): void {
+	public function testEmptyGrantsResolveToNoToolsAtAll(): void {
 		$resolver = new ToolGrantResolver();
 		$resolved = $resolver->resolve(grants: [], catalog: $this->catalog());
 
-		sort($resolved);
 		$this->assertSame(
-			['pipelinq.lead.get', 'pipelinq.lead.search'],
+			[],
 			$resolved,
-			'create/update/delete derived ids must be stripped; the hint-less non-derived hand-written id'
-			. ' must ALSO be stripped now (fail closed on an unclassifiable id).'
+			'An agent with no configured tools gets NONE. This previously returned every '
+			. 'read tool in the catalog: measured 2026-08-16 that was 81 tools / ~101,000 '
+			. 'tokens per turn, taken by 89% of agents because nobody had filled the field in.'
 		);
 
-	}//end testEmptyGrantsAllowsAllExceptDerivedWritesAndFailsClosedOnHintlessNonDerivedIds()
+	}//end testEmptyGrantsResolveToNoToolsAtAll()
+
+
+	/**
+	 * An unconfigured agent is tool-less but NOT "broken" — ToolLoop throws on
+	 * `resolvesToNothing()`, so routing unconfigured agents through it would have
+	 * turned a scoping change into 99 failing agents on this instance alone.
+	 *
+	 * @return void
+	 */
+	public function testAnUnconfiguredAgentIsToollessButNotReportedAsBroken(): void {
+		$resolver = new ToolGrantResolver();
+
+		$this->assertFalse(
+			$resolver->resolvesToNothing(grants: [], resolvedTools: []),
+			'no tools configured is a legitimate conversational agent, not a defect'
+		);
+		$this->assertTrue(
+			$resolver->resolvesToNothing(grants: ['pipelinq.typo.get'], resolvedTools: []),
+			'grants that were CONFIGURED and resolved to nothing are still a defect'
+		);
+
+	}//end testAnUnconfiguredAgentIsToollessButNotReportedAsBroken()
 
 	/**
 	 * An empty `Agent.tools` resolution classifies each id from its OWN
@@ -209,28 +232,31 @@ class ToolGrantResolverTest extends TestCase {
 	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-a-hint-less-curated-tool-fails-closed-to-external
 	 */
-	public function testEmptyGrantsClassifiesCuratedToolsFromHints(): void {
-		$resolver = new ToolGrantResolver();
-		$catalog = [
-			['name' => 'pipelinq_createLead', 'mcpId' => 'pipelinq.createLead', 'destructiveHint' => true],
-			[
-				'name' => 'pipelinq_getLeadSummary',
-				'mcpId' => 'pipelinq.getLeadSummary',
-				'readOnlyHint' => true,
-				'reach' => 'user',
-			],
-		];
-
-		$resolved = $resolver->resolve(grants: [], catalog: $catalog);
-
-		$this->assertSame(
-			['pipelinq.getLeadSummary'],
-			$resolved,
-			'destructiveHint:true must be stripped even though the id is a curated 2-segment id;'
-			. ' readOnlyHint:true + reach:user must survive.'
+	public function testCuratedToolsAreClassifiedFromTheirHints(): void {
+		// Classification used to be observed by handing resolve() an empty grant
+		// list and seeing what survived default-deny. Empty grants now mean NO
+		// tools and that path is gone, so the classifier is asserted directly.
+		// It is still live: wildcard expansion and the approval gate both use it.
+		$this->assertTrue(
+			ToolGrantResolver::isWriteOrDestructive(
+				id: 'pipelinq.createLead',
+				descriptor: ['destructiveHint' => true]
+			),
+			'a declared destructiveHint classifies as write/destructive'
+		);
+		$this->assertTrue(
+			ToolGrantResolver::isWriteOrDestructive(id: 'pipelinq.createLead', descriptor: []),
+			'a hint-less, non-derived curated id fails CLOSED'
+		);
+		$this->assertFalse(
+			ToolGrantResolver::isWriteOrDestructive(
+				id: 'pipelinq.listLeads',
+				descriptor: ['readOnlyHint' => true, 'reach' => 'user']
+			),
+			'readOnlyHint + reach:user is readable'
 		);
 
-	}//end testEmptyGrantsClassifiesCuratedToolsFromHints()
+	}//end testCuratedToolsAreClassifiedFromTheirHints()
 
 	/**
 	 * A declared `destructiveHint:true` on a 3-segment derived id overrides a
@@ -351,6 +377,7 @@ class ToolGrantResolverTest extends TestCase {
 			$this->createMock(DelegationService::class),
 			$this->createMock(NcNativeWriteService::class),
 			$this->createMock(MailReadService::class),
+			$this->createMock(ToolAccessRequestService::class),
 			$this->createMock(LoggerInterface::class)
 		);
 
@@ -406,67 +433,29 @@ class ToolGrantResolverTest extends TestCase {
 	 * @spec openspec/specs/agent-tool-governance/spec.md#scenario-a-declared-hint-overrides-a-conflicting-verb-suffix
 	 * @spec openspec/changes/agent-capability-reach/specs/agent-capability-reach/spec.md#scenario-an-egress-read-tool-becomes-gated
 	 */
-	public function testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed(): void {
-		$resolver = new ToolGrantResolver();
-		$resolved = $resolver->resolve(grants: [], catalog: $this->hermiqCatalog());
-
-		sort($resolved);
-		$this->assertSame(
-			[
-				'hermiq.listCalendarEvents',
-				'hermiq.listDeckBoards',
-				'hermiq.listFiles',
-				// nc-mail-read-tools are honestly read-only, so they survive an
-				// empty grant. That is exactly why MailReadService carries its own
-				// AI-feature gate: the write default-deny below does NOT protect
-				// them, and a tool grant alone must not authorise reading a
-				// user's correspondence into a model.
-				'hermiq.listMailAccounts',
-				'hermiq.listMailMessages',
-				// nc-native-write-tools added five tools; only this one survives an
-				// empty grant. The other four (createCalendarEvent, upsertContact,
-				// createNote, updateNote) are write-classified and therefore
-				// default-denied — this list is the receipt for that.
-				'hermiq.listNotes',
-				'hermiq.readFile',
-				'hermiq.readMailMessage',
-				'hermiq.recallMemory',
-				'hermiq.searchContacts',
-				'hermiq.searchTools',
-			],
-			$resolved,
-			'Every readOnlyHint:true/scope:read NC-native tool must be granted by the default-allow'
-			. ' resolution now that they declare hints; sendMail (destructive) and recommendCourses'
-			. ' (scope:update, writes on staleness) must stay stripped.'
+	public function testHermiqNativeToolsClassifyViaDeclaredHintsNotFailClosed(): void {
+		// Same re-pointing as above: assert the classifier, not the removed
+		// whole-catalog path. A hermiq native tool carrying readOnlyHint + reach
+		// must NOT fail closed just because its id is 2-segment.
+		// requiresGrant(), not isWriteOrDestructive(): REACH is what separates
+		// these two, and it is evaluated there. isWriteOrDestructive() calls both
+		// read-only, which is correct and not the distinction under test.
+		$this->assertFalse(
+			ToolGrantResolver::requiresGrant(
+				id: 'hermiq.getStatus',
+				descriptor: ['readOnlyHint' => true, 'reach' => 'user']
+			),
+			'a declared read hint WITH a reach needs no explicit grant'
+		);
+		$this->assertTrue(
+			ToolGrantResolver::requiresGrant(
+				id: 'hermiq.pingWebhook',
+				descriptor: ['readOnlyHint' => true]
+			),
+			'the SAME read hint with NO reach still requires an explicit grant'
 		);
 
-		$this->assertNotContains('hermiq.sendMail', $resolved, 'sendMail is honestly destructive and must stay default-denied.');
-		$this->assertNotContains('hermiq.recommendCourses', $resolved, 'recommendCourses persists on staleness and must stay default-denied.');
-		$this->assertNotContains('hermiq.rememberMemory', $resolved, 'rememberMemory (scope:create) must stay default-denied.');
-		$this->assertNotContains('hermiq.forgetMemory', $resolved, 'forgetMemory (scope:delete) must stay default-denied.');
-
-		// 🔴 The positive control for the reach axis, stated as the property
-		// rather than as two more absent ids: these two are stripped WHILE still
-		// classifying read on the CRUD axis. If someone reverts the union in
-		// `requiresGrant()`, the list assertion above fails — but so would a
-		// dozen unrelated edits, and the failure would read as "list drifted".
-		// This says why they are absent, so the failure names the cause.
-		foreach (['hermiq.webSearch', 'hermiq.webFetch'] as $egressTool) {
-			$this->assertNotContains(
-				$egressTool,
-				$resolved,
-				$egressTool . ' declares scope:read and readOnlyHint:true, and still egresses. It must be '
-				. 'stripped by REACH, not by the CRUD rule — if this fails, the reach clause of '
-				. 'ToolGrantResolver::requiresGrant() has stopped composing.'
-			);
-			$this->assertFalse(
-				ToolGrantResolver::isWriteOrDestructive(id: $egressTool, descriptor: $this->descriptorFor(id: $egressTool)),
-				$egressTool . ' must still classify NON-write on the CRUD axis — if this flips, the two '
-				. 'axes have been conflated and the test above no longer proves anything about reach.'
-			);
-		}
-
-	}//end testHermiqNativeToolsResolveViaDeclaredHintsNotFailClosed()
+	}//end testHermiqNativeToolsClassifyViaDeclaredHintsNotFailClosed()
 
 	/**
 	 * The catalogue descriptor for one hermiq tool id, as the bridge shapes it.
