@@ -65,6 +65,8 @@ final class ToolGrantCodec {
 	 * @param array<string, mixed> $args The argument constraints, if any.
 	 *
 	 * @return string|array<string, mixed> The entry.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-two-constrained-grants-for-one-tool-both-survive
 	 */
 	public static function entryFor(string $id, array $args): string|array {
 		if ($args === []) {
@@ -80,6 +82,8 @@ final class ToolGrantCodec {
 	 * @param string|array<string, mixed> $entry The stored entry.
 	 *
 	 * @return string The grant string.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
 	 */
 	public static function grantStringFor(string|array $entry): string {
 		if (is_string($entry) === true) {
@@ -122,6 +126,8 @@ final class ToolGrantCodec {
 	 * @param string $grant The legacy grant string.
 	 *
 	 * @return array{0: string, 1: string, 2: string, 3: string|array<string, mixed>}
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
 	 */
 	public static function coordinatesFor(string $grant): array {
 		$id = $grant;
@@ -158,6 +164,8 @@ final class ToolGrantCodec {
 	 * @param string $query The part after the `?`.
 	 *
 	 * @return array<string, mixed> The constraints.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
 	 */
 	public static function parseConstraints(string $query): array {
 		$args = [];
@@ -190,6 +198,8 @@ final class ToolGrantCodec {
 	 * @param mixed $entry The stored entry.
 	 *
 	 * @return string|array<string, mixed>|null The clean entry, or null.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 	 */
 	public static function sanitiseEntry(mixed $entry): string|array|null {
 		if (is_string($entry) === true && $entry !== '') {

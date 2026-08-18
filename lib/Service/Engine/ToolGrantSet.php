@@ -159,6 +159,8 @@ final class ToolGrantSet {
 	 * @param array<int, mixed> $ids The stored grant strings.
 	 *
 	 * @return self The grants.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-string-shape-is-still-accepted-and-is-not-silently-rewritten
 	 */
 	public static function fromGrantStrings(array $ids): self {
 		$grants = [];
@@ -196,6 +198,8 @@ final class ToolGrantSet {
 	 * The canonical structured form, for storing on the agent.
 	 *
 	 * @return array<string, array<string, array<string, array<int, string|array<string, mixed>>>>> The structure.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-a-grant-round-trips-without-losing-its-identity
 	 */
 	public function toStored(): array {
 		return $this->grants;
@@ -238,6 +242,8 @@ final class ToolGrantSet {
 	 * @param string $action  The verb.
 	 *
 	 * @return bool True when granted.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 	 */
 	public function has(string $app, string $subject, string $action): bool {
 		return isset($this->grants[$app][$subject][$action]);
@@ -253,6 +259,8 @@ final class ToolGrantSet {
 	 * @param array<string, mixed> $args Optional argument constraints.
 	 *
 	 * @return self A new set including this grant.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-two-constrained-grants-for-one-tool-both-survive
 	 */
 	public function with(string $app, string $subject, string $action, string $toolId, array $args = []): self {
 		$grants = $this->grants;
@@ -276,6 +284,8 @@ final class ToolGrantSet {
 	 * @param string $action  The verb.
 	 *
 	 * @return self A new set without this grant.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 	 */
 	public function without(string $app, string $subject, string $action): self {
 		$grants = $this->grants;
@@ -299,6 +309,8 @@ final class ToolGrantSet {
 	 * Every granted tool id, flat.
 	 *
 	 * @return array<int, string> The ids.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-a-grant-round-trips-without-losing-its-identity
 	 */
 	public function toolIds(): array {
 		$ids = [];

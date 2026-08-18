@@ -157,21 +157,6 @@ class ChatController extends Controller {
 	}//end __construct()
 
 	/**
-	 * Send a chat message in a conversation and get the AI response.
-	 *
-	 * Mirrors OR ChatController::sendMessage(): resolves the conversation
-	 * (existing by UUID, or new against an agent UUID), verifies ownership,
-	 * and delegates to Engine::processMessage(). The conversation UUID is
-	 * echoed back on the result for the frontend.
-	 *
-	 * @return JSONResponse JSON response with AI response or error.
-	 *
-	 * @NoAdminRequired
-	 * @NoCSRFRequired
-	 *
-	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
-	 */
-	/**
 	 * Pre-warm an agent's pooled CLI process for a conversation.
 	 *
 	 * Called when the chat OPENS or an agent is picked — not when the first
@@ -188,6 +173,8 @@ class ChatController extends Controller {
 	 *
 	 * @NoAdminRequired
 	 * @NoCSRFRequired
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-a-failed-warm-up-is-invisible-to-the-chat
 	 */
 	public function warm(): JSONResponse {
 		try {

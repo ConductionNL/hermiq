@@ -95,6 +95,8 @@ export const SPECIAL_VERBS = new Set([
  *
  * @param {string} id The tool id in either spelling.
  * @return {string} The normalised join key.
+ *
+ * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function joinKey(id) {
 	return String(id ?? '').replace(/\./g, '_')
@@ -105,6 +107,8 @@ export function joinKey(id) {
  *
  * @param {string} word The possibly-plural word.
  * @return {string} The singular form.
+ *
+ * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function singularise(word) {
 	if (/[^aeiou]ies$/.test(word) === true) {
@@ -133,6 +137,8 @@ export function singularise(word) {
  * @param {string} verb    The verb as written in the tool id.
  * @param {string} subject The subject the verb acts on.
  * @return {{verb: string, subject: string, specialLabel: string|null}} The classification.
+ *
+ * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function classify(verb, subject) {
 	const canonical = VERB_ALIASES[verb] ?? null
@@ -165,6 +171,8 @@ export function classify(verb, subject) {
  *
  * @param {Array<string>} parts The id split on separators.
  * @return {{verb: string, subject: string}|null} The split, or null when no segment is a verb.
+ *
+ * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function splitOnVerbSegment(parts) {
 	const index = parts.findIndex(
@@ -221,6 +229,8 @@ export function splitOnVerbSegment(parts) {
  * @param {string} id       The tool id, in any of the three spellings.
  * @param {object} taxonomy The taxonomy row for this tool, if any.
  * @return {{verb: string, subject: string, specialLabel: string|null}} The parse.
+ *
+ * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
  */
 export function parseVerbAndSubject(id, taxonomy = {}) {
 	// 🔑 If the producer DECLARED its subject and action, use them. The

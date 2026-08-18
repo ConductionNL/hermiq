@@ -68,12 +68,17 @@ function grantStringFor(entry) {
 	}
 
 	const args = entry?.args
-	if (args === null || typeof args !== 'object' || Object.keys(args).length === 0) {
+	if (
+		args === null
+		|| typeof args !== 'object'
+		|| Object.keys(args).length === 0
+	) {
 		return id
 	}
 
 	const pairs = Object.entries(args).map(
-		([key, value]) => `${key}=${Array.isArray(value) ? `in:${value.join(',')}` : String(value)}`,
+		([key, value]) =>
+			`${key}=${Array.isArray(value) ? `in:${value.join(',')}` : String(value)}`,
 	)
 
 	return `${id}?${pairs.join('&')}`
@@ -107,13 +112,19 @@ export function flattenGrants(tools) {
 
 	const ids = []
 	for (const subjects of Object.values(tools)) {
-		if (subjects === null || typeof subjects !== 'object') { continue }
+		if (subjects === null || typeof subjects !== 'object') {
+			continue
+		}
 		for (const actions of Object.values(subjects)) {
-			if (actions === null || typeof actions !== 'object') { continue }
+			if (actions === null || typeof actions !== 'object') {
+				continue
+			}
 			for (const entries of Object.values(actions)) {
-				for (const entry of (Array.isArray(entries) ? entries : [entries])) {
+				for (const entry of Array.isArray(entries) ? entries : [entries]) {
 					const id = grantStringFor(entry)
-					if (id !== '') { ids.push(id) }
+					if (id !== '') {
+						ids.push(id)
+					}
 				}
 			}
 		}

@@ -270,29 +270,6 @@ class ToolOversightController extends Controller {
 	}//end toolCatalog()
 
 	/**
-	 * Persist the `Agent.tools` grant array (owner-only, single write-path).
-	 *
-	 * Deliberately NOT `@NoCSRFRequired` — unlike the two read endpoints, this one
-	 * MUTATES an authorization boundary (which tools an agent may call), so the CSRF
-	 * guard stays ON. `@nextcloud/axios` sends the requesttoken on every request, so
-	 * `src/api/toolOversight.js`'s PUT works unchanged; a cross-site forger cannot
-	 * silently widen an agent's grants.
-	 *
-	 * @param string $agentId Agent UUID.
-	 *
-	 * @return JSONResponse The updated grant array, or an error status.
-	 *
-	 * @NoAdminRequired
-	 *
-	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/design.md#put-api-agents-agentid-tool-grants
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, 404,
-	 *   owner-only IDOR check, grants-shape validation, per-entry string filter)
-	 *   each add a branch on one linear write path.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
-	 *   early-return guards multiply paths without nested logic.
-	 */
-	/**
 	 * Resolve a pending tool-access request an agent raised.
 	 *
 	 * ⚠️ ONLY THE AGENT'S OWNER. Not admins — an admin can already edit
@@ -339,24 +316,40 @@ class ToolOversightController extends Controller {
 		}
 
 		$toolId = (string)($data['toolId'] ?? '');
-		if ($decision === 'granted' && $toolId !== '') {
-			$this->grantToolTo(agent: $agent, agentId: $agentId, toolId: $toolId);
-		}
 
-		$data['status'] = $decision;
-		$data['decidedBy'] = $user->getUID();
-		$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
+		// From here the method WRITES. Every call below reaches storage or the
+		// notification bus, and an escaping Throwable would leave the caller an
+		// HTML error page in place of the JSON its client parses — so the write
+		// half is translated, while the guards above deliberately are not.
+		try {
+			if ($decision === 'granted' && $toolId !== '') {
+				$this->grantToolTo(agent: $agent, agentId: $agentId, toolId: $toolId);
+			}
 
-		$this->objectService->saveObject(
-			object: $data,
-			register: self::REGISTER_SLUG,
-			schema: 'toolAccessRequest',
-			uuid: $requestId
-		);
+			$data['status'] = $decision;
+			$data['decidedBy'] = $user->getUID();
+			$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
 
-		if ($decision === 'granted') {
-			$this->accessRequests->notifyOwner(agentId: $agentId, toolId: $toolId, subject: 'granted');
-		}
+			$this->objectService->saveObject(
+				object: $data,
+				register: self::REGISTER_SLUG,
+				schema: 'toolAccessRequest',
+				uuid: $requestId
+			);
+
+			if ($decision === 'granted') {
+				$this->accessRequests->notifyOwner(agentId: $agentId, toolId: $toolId, subject: 'granted');
+			}
+		} catch (Throwable $e) {
+			$this->logger->error(
+				'Hermiq tool-access request resolution failed: ' . $e->getMessage(),
+				['exception' => $e, 'agentId' => $agentId, 'requestId' => $requestId]
+			);
+			return new JSONResponse(
+				['error' => 'Could not resolve the tool-access request'],
+				Http::STATUS_INTERNAL_SERVER_ERROR
+			);
+		}//end try
 
 		return new JSONResponse(['status' => $decision, 'toolId' => $toolId, 'agentId' => $agentId]);
 
@@ -427,6 +420,12 @@ class ToolOversightController extends Controller {
 	 * @param string $toolId The tool to grant.
 	 *
 	 * @return void
+	 *
+	 * @throws Throwable When the grant cannot be persisted. Deliberately NOT
+	 *                   translated here: this helper widens an authorization
+	 *                   boundary, so a failed write must not be reported as a
+	 *                   success. The single caller
+	 *                   (`resolveToolAccessRequest()`) turns it into a 500.
 	 */
 	private function grantToolTo(ObjectEntity $agent, string $agentId, string $toolId): void {
 		$grants = ($agent->getObject()['tools'] ?? []);
@@ -496,16 +495,7 @@ class ToolOversightController extends Controller {
 			return new JSONResponse(['error' => 'grants must be an array or a grant structure'], Http::STATUS_BAD_REQUEST);
 		}
 
-		// 🔑 STORED AS A STRUCTURE — app => subject => action => tool id.
-		//
-		// A caller may still PUT the legacy `string[]`; it is normalised here and
-		// written structured, so the shape converges without a migration window
-		// in which some agents are one shape and some the other.
-		//
-		// The tool id is carried, never rebuilt from the coordinates: `hermiq.
-		// listFiles` lives at (hermiq, file, list) and rebuilding gives
-		// `hermiq.file.list`, which is not a tool. See {@see ToolGrantSet}.
-		$grants = ToolGrantSet::fromStored(stored: $rawGrants)->toStored();
+		$grants = $this->storableGrants(rawGrants: $rawGrants);
 
 		// Read the PREVIOUS waiver set before the write, so the audit can say
 		// which waivers were added and which removed rather than only what the
@@ -588,9 +578,9 @@ class ToolOversightController extends Controller {
 	 * survive — the sweep would otherwise silently drop it.
 	 *
 	 * @param ObjectEntity $agent The stored agent.
-	 * @param array<string, mixed> $grants The grants to persist — the structured
-	 *                                     app => subject => action => id form
-	 *                                     produced by {@see ToolGrantSet}.
+	 * @param array<int, string> $grants The grants to persist — the list of
+	 *                                   grant strings `Agent.tools` declares,
+	 *                                   produced by {@see self::storableGrants()}.
 	 *
 	 * @return array<string, mixed> The payload to hand to `saveObject()`.
 	 *
@@ -610,6 +600,37 @@ class ToolOversightController extends Controller {
 
 		return $payload;
 	}//end grantWritePayload()
+
+	/**
+	 * Normalise submitted grants into the shape `Agent.tools` actually declares.
+	 *
+	 * 🔴 A LIST OF GRANT STRINGS, AND THE SCHEMA IS THE REASON.
+	 *
+	 * The structure is real — `ToolGrantSet` is app => subject => action => tool
+	 * id, and consumers read those coordinates instead of splitting an id — but
+	 * it lives in the DOMAIN, not in storage. `Agent.tools` is declared
+	 * `type: array`, and OpenRegister allows exactly ONE type per property: a
+	 * union (`["array","object"]`) is rejected by its importer, and omitting
+	 * `type` defaults the property to `string`, which is worse. Both were tried
+	 * against a live instance.
+	 *
+	 * Writing the structure therefore failed validation on EVERY save —
+	 * `Property 'tools' should be type 'array or null' but is 'object'` — so the
+	 * owner got a 500 on a save that changed nothing. Reads still accept either
+	 * shape ({@see ToolGrantSet::fromStored}), so an agent written structured by
+	 * an earlier build keeps working; only the write converges on the declared
+	 * shape.
+	 *
+	 * @param array<mixed> $rawGrants The submitted grants, in either shape.
+	 *
+	 * @return array<int, string> The grants as the schema declares them.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-the-written-shape-is-the-one-the-schema-declares
+	 */
+	private function storableGrants(array $rawGrants): array {
+		return ToolGrantSet::fromStored(stored: $rawGrants)->toGrantStrings();
+
+	}//end storableGrants()
 
 	/**
 	 * The grant entries in a list that carry a `#noapproval` fragment.

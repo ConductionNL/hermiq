@@ -74,47 +74,94 @@ function check(label, stored, want) {
 }
 
 console.log('\nThe legacy string[] still reads')
-check('a flat list passes through', ['pipelinq.lead.search', 'hermiq.listFiles'],
-	['pipelinq.lead.search', 'hermiq.listFiles'])
+check(
+	'a flat list passes through',
+	['pipelinq.lead.search', 'hermiq.listFiles'],
+	['pipelinq.lead.search', 'hermiq.listFiles'],
+)
 check('empties and non-strings are dropped', ['a.b.c', '', null, 7, {}], ['a.b.c'])
 
 console.log('\nThe structured shape reads — the case that returned [] before')
-check('app → subject → action → id', {
-	pipelinq: { lead: { search: ['pipelinq.lead.search'], get: ['pipelinq.lead.get'] } },
-	hermiq: { file: { list: ['hermiq.listFiles'] } },
-}, ['pipelinq.lead.search', 'pipelinq.lead.get', 'hermiq.listFiles'])
+check(
+	'app → subject → action → id',
+	{
+		pipelinq: {
+			lead: { search: ['pipelinq.lead.search'], get: ['pipelinq.lead.get'] },
+		},
+		hermiq: { file: { list: ['hermiq.listFiles'] } },
+	},
+	['pipelinq.lead.search', 'pipelinq.lead.get', 'hermiq.listFiles'],
+)
 
 // ⚠️ The id is READ, not rebuilt. `hermiq.listFiles` sits at (hermiq, file,
 // list); rebuilding from those coordinates gives `hermiq.file.list`, which is
 // not a tool and would dispatch to nothing.
-check('a hand-written id is read, not rebuilt from its coordinates',
-	{ hermiq: { file: { list: ['hermiq.listFiles'] } } }, ['hermiq.listFiles'])
+check(
+	'a hand-written id is read, not rebuilt from its coordinates',
+	{ hermiq: { file: { list: ['hermiq.listFiles'] } } },
+	['hermiq.listFiles'],
+)
 
-check('a bare id is accepted where a list is expected',
-	{ hermiq: { file: { list: 'hermiq.listFiles' } } }, ['hermiq.listFiles'])
+check(
+	'a bare id is accepted where a list is expected',
+	{ hermiq: { file: { list: 'hermiq.listFiles' } } },
+	['hermiq.listFiles'],
+)
 
 console.log('\n🔴 Constraints are part of the grant and must survive')
-check('a pinned argument round-trips', {
-	openregister: { runFlow: { runFlow: [{ id: 'openregister.runFlow', args: { flowId: 'A' } }] } },
-}, ['openregister.runFlow?flowId=A'])
+check(
+	'a pinned argument round-trips',
+	{
+		openregister: {
+			runFlow: {
+				runFlow: [{ id: 'openregister.runFlow', args: { flowId: 'A' } }],
+			},
+		},
+	},
+	['openregister.runFlow?flowId=A'],
+)
 
-check('a closed value set round-trips', {
-	hermiq: { readFile: { readFile: [{ id: 'hermiq.readFile', args: { path: ['/a', '/b'] } }] } },
-}, ['hermiq.readFile?path=in:/a,/b'])
+check(
+	'a closed value set round-trips',
+	{
+		hermiq: {
+			readFile: {
+				readFile: [{ id: 'hermiq.readFile', args: { path: ['/a', '/b'] } }],
+			},
+		},
+	},
+	['hermiq.readFile?path=in:/a,/b'],
+)
 
-check('two constrained grants for one tool both survive', {
-	openregister: { runFlow: { runFlow: [
-		{ id: 'openregister.runFlow', args: { flowId: 'A' } },
-		{ id: 'openregister.runFlow', args: { flowId: 'B' } },
-	] } },
-}, ['openregister.runFlow?flowId=A', 'openregister.runFlow?flowId=B'])
+check(
+	'two constrained grants for one tool both survive',
+	{
+		openregister: {
+			runFlow: {
+				runFlow: [
+					{ id: 'openregister.runFlow', args: { flowId: 'A' } },
+					{ id: 'openregister.runFlow', args: { flowId: 'B' } },
+				],
+			},
+		},
+	},
+	['openregister.runFlow?flowId=A', 'openregister.runFlow?flowId=B'],
+)
 
-check('a bare grant beside a constrained one keeps both', {
-	openregister: { runFlow: { runFlow: [
-		'openregister.runFlow',
-		{ id: 'openregister.runFlow', args: { flowId: 'A' } },
-	] } },
-}, ['openregister.runFlow', 'openregister.runFlow?flowId=A'])
+check(
+	'a bare grant beside a constrained one keeps both',
+	{
+		openregister: {
+			runFlow: {
+				runFlow: [
+					'openregister.runFlow',
+					{ id: 'openregister.runFlow', args: { flowId: 'A' } },
+				],
+			},
+		},
+	},
+	['openregister.runFlow', 'openregister.runFlow?flowId=A'],
+)
 
 console.log('\nNothing stored means nothing granted')
 for (const empty of [null, undefined, {}, [], 0, 'x']) {
@@ -127,10 +174,18 @@ for (const empty of [null, undefined, {}, [], 0, 'x']) {
 console.log('  ok   null/undefined/{}/[]/0/"x" all flatten to []')
 
 console.log('\nMalformed structures are dropped, never guessed at')
-check('an entry with no id is dropped', {
-	pipelinq: { lead: { search: [{ args: { x: 1 } }, 'pipelinq.lead.search'] } },
-}, ['pipelinq.lead.search'])
-check('a non-object level is skipped', { pipelinq: 'nope', hermiq: { file: null } }, [])
+check(
+	'an entry with no id is dropped',
+	{
+		pipelinq: { lead: { search: [{ args: { x: 1 } }, 'pipelinq.lead.search'] } },
+	},
+	['pipelinq.lead.search'],
+)
+check(
+	'a non-object level is skipped',
+	{ pipelinq: 'nope', hermiq: { file: null } },
+	[],
+)
 
 if (failures > 0) {
 	console.error(`\n${failures} case(s) wrong\n`)

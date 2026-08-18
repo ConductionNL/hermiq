@@ -93,19 +93,6 @@ final class McpRunControllerTest extends TestCase {
 	}//end agent()
 
 	/**
-	 * Build the controller with an overridable raw body and configurable collaborators.
-	 *
-	 * @param string $auth The Authorization header.
-	 * @param string $body The raw JSON-RPC body.
-	 * @param RunTokenService $tokens The token service.
-	 * @param ObjectService $objects The object service.
-	 * @param ToolRegistryFacade $facade The tool facade.
-	 * @param ToolLoop $toolLoop The tool loop.
-	 * @param ToolSearchService $search The tool-search service.
-	 *
-	 * @return McpRunController
-	 */
-	/**
 	 * Set by a test that asserts on brute-force bookkeeping; otherwise every
 	 * controller gets a fresh do-nothing throttler.
 	 *
@@ -122,6 +109,19 @@ final class McpRunControllerTest extends TestCase {
 		return ($this->throttlerOverride ?? $this->createMock(IThrottler::class));
 	}//end throttlerFor()
 
+	/**
+	 * Build the controller with an overridable raw body and configurable collaborators.
+	 *
+	 * @param string $auth The Authorization header.
+	 * @param string $body The raw JSON-RPC body.
+	 * @param RunTokenService $tokens The token service.
+	 * @param ObjectService $objects The object service.
+	 * @param ToolRegistryFacade $facade The tool facade.
+	 * @param ToolLoop $toolLoop The tool loop.
+	 * @param ToolSearchService $search The tool-search service.
+	 *
+	 * @return McpRunController
+	 */
 	private function controller(
 		string $auth,
 		string $body,

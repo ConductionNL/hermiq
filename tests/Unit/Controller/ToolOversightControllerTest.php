@@ -354,15 +354,18 @@ class ToolOversightControllerTest extends TestCase {
 
 		$response = $this->controller()->updateToolGrants('agent-1');
 
-		// 🔑 PERSISTED AS A STRUCTURE, even though the caller sent the legacy
-		// `string[]`. That is the point of the change: the shape converges on
-		// write, so there is never a period in which some agents are one shape
-		// and some the other, and no consumer has to split an id to learn which
-		// app or verb a grant is for.
+		// 🔴 PERSISTED AS A LIST, because the schema is the contract.
+		//
+		// This assertion used to require the structure, and that requirement was
+		// wrong: `Agent.tools` is declared `type: array`, OpenRegister allows
+		// exactly ONE type per property, and a structured write therefore failed
+		// validation on EVERY save — an owner pressing Save on an unchanged
+		// matrix got a 500. Verified live before this was changed. The structure
+		// is the domain model (see ToolGrantSet); the stored shape is the list.
 		$this->assertSame(
-			['pipelinq' => ['lead' => ['*' => ['pipelinq.lead.*'], 'delete' => ['pipelinq.lead.delete']]]],
+			['pipelinq.lead.*', 'pipelinq.lead.delete'],
 			$saved[0]['tools'],
-			'a legacy list sent by a caller must be normalised to the structure before it is stored'
+			'grants must be stored in the shape Agent.tools declares — a list of grant strings'
 		);
 
 		// And the same grants come back out, unchanged in meaning.

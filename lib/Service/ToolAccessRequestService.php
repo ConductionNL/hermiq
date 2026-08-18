@@ -127,6 +127,8 @@ class ToolAccessRequestService {
 	 * @param string $query   Optional keyword filter.
 	 *
 	 * @return array<string, mixed> Tool metadata — never anything dispatchable.
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function listAvailable(string $uid, ?string $agentId, string $query = ''): array {
 		$catalog = $this->catalog();
@@ -340,6 +342,8 @@ class ToolAccessRequestService {
 	 * @param string      $reason  Why — shown to the human who decides.
 	 *
 	 * @return array<string, mixed> The pending request, or an error.
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function request(string $uid, ?string $agentId, string $toolId, string $reason): array {
 		if ($agentId === null || $agentId === '') {
@@ -607,9 +611,21 @@ class ToolAccessRequestService {
 	 * @param string|null $agentId The agent whose pending requests to list.
 	 *
 	 * @return array<int, array<string, mixed>> Pending approvals, oldest first.
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function pendingApprovals(?string $agentId): array {
 		if ($agentId === null || $agentId === '') {
+			return [];
+		}
+
+		// Every request record lives in an OpenRegister register, so without
+		// OpenRegister there is nothing pending — not an error. Asked here
+		// rather than answered by the catch below, because this method is
+		// called on EVERY turn: a per-turn exception is an expensive way to
+		// learn a fact that does not change (ADR-083 rule 1 — the reach is
+		// optional, so availability is established before reaching).
+		if ($this->openRegisterAvailable() === false) {
 			return [];
 		}
 
@@ -659,6 +675,32 @@ class ToolAccessRequestService {
 	}//end pendingApprovals()
 
 	/**
+	 * Whether OpenRegister is installed on this instance.
+	 *
+	 * The dependency is reached through the container rather than injected on
+	 * purpose: injecting it would make this whole service unconstructable on an
+	 * instance without OpenRegister, turning a clean empty result into a 500 —
+	 * which is the failure ADR-083 rule 3 exists to prevent. Establishing
+	 * availability first is what makes the deferred lookup the correct shape
+	 * rather than a hidden hard dependency.
+	 *
+	 * @return bool True when OpenRegister is installed.
+	 */
+	private function openRegisterAvailable(): bool {
+		try {
+			$appManager = $this->container->get(\OCP\App\IAppManager::class);
+			return $appManager->isInstalled('openregister');
+		} catch (Throwable $e) {
+			// Cannot establish availability ⇒ treat it as absent. Reporting
+			// "nothing pending" is correct here; guessing "available" would
+			// only move the failure one line down.
+			unset($e);
+			return false;
+		}//end try
+
+	}//end openRegisterAvailable()
+
+	/**
 	 * Persist a request record.
 	 *
 	 * @param array<string, mixed> $data The record.
@@ -695,6 +737,8 @@ class ToolAccessRequestService {
 	 * @param string $subject 'requested' or 'granted'.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function notifyOwner(string $agentId, string $toolId, string $subject): void {
 		$agent = $this->loadAgent(agentId: $agentId);

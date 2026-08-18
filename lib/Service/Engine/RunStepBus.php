@@ -38,6 +38,7 @@
  * @category  Service
  * @package   OCA\Hermiq\Service\Engine
  * @author    Conduction B.V. <info@conduction.nl>
+ * @copyright 2026 Conduction B.V.
  * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  * @link      https://conduction.nl
  *
@@ -150,6 +151,8 @@ class RunStepBus {
 	 * call site, in this signature, and in the cache.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-a-cli-turns-tool-calls-are-visible-in-the-chat
 	 */
 	public function record(
 		string $conversationId,
@@ -197,6 +200,8 @@ class RunStepBus {
 	 * @param string $conversationId The conversation.
 	 *
 	 * @return array<int, array<string, mixed>> The recorded steps, oldest first.
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-a-cli-turns-tool-calls-are-visible-in-the-chat
 	 */
 	public function read(string $conversationId): array {
 		if ($this->cache === null || $conversationId === '') {
@@ -230,6 +235,8 @@ class RunStepBus {
 	 * @param string $conversationId The conversation.
 	 *
 	 * @return array<int, array<string, mixed>> The recorded steps, oldest first.
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#scenario-steps-do-not-outlive-their-turn
 	 */
 	public function drain(string $conversationId): array {
 		$steps = $this->read(conversationId: $conversationId);
@@ -245,6 +252,8 @@ class RunStepBus {
 	 * @param string $conversationId The conversation.
 	 *
 	 * @return void
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#scenario-steps-do-not-outlive-their-turn
 	 */
 	public function clear(string $conversationId): void {
 		if ($this->cache === null || $conversationId === '') {

@@ -338,6 +338,8 @@ export default {
 		 * grows a dependency on the other.
 		 *
 		 * @return {Array<object>} The joined tools.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-saving-without-changing-anything-preserves-the-grants
 		 */
 		tools() {
 			// ⚠️ The two endpoints spell the SAME tool differently: the catalogue
@@ -383,6 +385,8 @@ export default {
 		 * Tools surviving the text and granted filters.
 		 *
 		 * @return {Array<object>} The filtered tools.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-saving-without-changing-anything-preserves-the-grants
 		 */
 		filteredTools() {
 			const needle = this.filter.trim().toLowerCase()
@@ -410,6 +414,8 @@ export default {
 		 * The clusters to render, each with its own verb columns and rows.
 		 *
 		 * @return {Array<object>} The clusters.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 		 */
 		visibleClusters() {
 			return this.buildClusters(this.filteredTools)
@@ -419,6 +425,8 @@ export default {
 		 * How many rights the draft currently holds.
 		 *
 		 * @return {number} The count.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-saving-without-changing-anything-preserves-the-grants
 		 */
 		grantedCount() {
 			return this.draftGrants.length
@@ -428,6 +436,8 @@ export default {
 		 * How many tools exist in total, before filtering.
 		 *
 		 * @return {number} The count.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 		 */
 		totalTools() {
 			return this.tools.length
@@ -437,6 +447,8 @@ export default {
 		 * Whether the draft differs from what is saved.
 		 *
 		 * @return {boolean} True when there are unsaved changes.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		dirty() {
 			if (this.draftGrants.length !== this.savedGrants.length) {
@@ -450,6 +462,13 @@ export default {
 
 	watch: {
 		agentId: {
+			/**
+			 * Reload the matrix when the agent changes.
+			 *
+			 * @return {void}
+			 *
+			 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-saving-without-changing-anything-preserves-the-grants
+			 */
 			handler() {
 				this.load()
 			},
@@ -457,6 +476,14 @@ export default {
 
 		dirty: {
 			immediate: true,
+			/**
+			 * Tell the host whether there are unsaved changes.
+			 *
+			 * @param {boolean} value Whether the draft differs from what is stored.
+			 * @return {void}
+			 *
+			 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
+			 */
 			handler(value) {
 				this.$emit('dirtyChanged', value)
 			},
@@ -476,6 +503,8 @@ export default {
 		 *
 		 * @param {string} id The tool id in either spelling.
 		 * @return {string} The normalised join key.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
 		 */
 		joinKey(id) {
 			return joinToolKey(id)
@@ -490,6 +519,8 @@ export default {
 		 * @param {string} id       The tool id, in any spelling.
 		 * @param {object} taxonomy The taxonomy row for this tool, if any.
 		 * @return {{verb: string, subject: string, specialLabel: string|null}} The parse.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
 		 */
 		parseVerbAndSubject(id, taxonomy) {
 			return parseToolId(id, taxonomy)
@@ -500,6 +531,8 @@ export default {
 		 *
 		 * @param {Array<object>} tools The tools to group.
 		 * @return {Array<object>} The clusters.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 		 */
 		buildClusters(tools) {
 			const clusters = new Map()
@@ -530,6 +563,8 @@ export default {
 		 *
 		 * @param {object} cluster The raw cluster.
 		 * @return {object} The shaped cluster.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 		 */
 		shapeCluster(cluster) {
 			// The five canonical columns are ALWAYS rendered, even where a verb
@@ -590,6 +625,8 @@ export default {
 		 *
 		 * @param {string} verb The verb.
 		 * @return {string} The label.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-the-legacy-grant-grammar-lives-in-exactly-one-place
 		 */
 		verbLabel(verb) {
 			const labels = {
@@ -612,6 +649,8 @@ export default {
 		 * @param {object} row The subject row.
 		 * @param {string} verb The verb.
 		 * @return {string} The label.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 		 */
 		ariaFor(cluster, row, verb) {
 			return t('hermiq', 'Grant {verb} on {subject} in {cluster}', {
@@ -636,6 +675,8 @@ export default {
 		 *
 		 * @param {string} id The cluster id.
 		 * @return {void}
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 		 */
 		toggleCluster(id) {
 			this.openClusters = {
@@ -649,6 +690,8 @@ export default {
 		 *
 		 * @param {string} id The tool id.
 		 * @return {boolean} True when drafted.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		isDrafted(id) {
 			// Compared on the normalised key, not the raw string: the same grant
@@ -666,6 +709,8 @@ export default {
 		 * @param {string} id The tool id.
 		 * @param {boolean} checked The new state.
 		 * @return {void}
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-two-constrained-grants-for-one-tool-both-survive
 		 */
 		toggleTool(id, checked) {
 			if (checked === true) {
@@ -687,6 +732,8 @@ export default {
 		 * Load the catalogue and the taxonomy together.
 		 *
 		 * @return {Promise<void>}
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-saving-without-changing-anything-preserves-the-grants
 		 */
 		async load() {
 			this.loading = true
@@ -738,6 +785,8 @@ export default {
 		 * Persist the draft. Called by the parent widget's title-bar button.
 		 *
 		 * @return {Promise<Array<string>>} The saved grants.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		async persist() {
 			await updateToolGrants(this.agentId, this.draftGrants)
@@ -750,6 +799,8 @@ export default {
 		 * Discard unsaved changes. Called by the parent widget's title bar.
 		 *
 		 * @return {void}
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-an-untouched-save-loses-nothing
 		 */
 		reset() {
 			this.draftGrants = [...this.savedGrants]
@@ -946,5 +997,15 @@ export default {
 	overflow: hidden;
 	clip: rect(0, 0, 0, 0);
 	white-space: nowrap;
+}
+
+/* The chevron's rotation is decoration — the open/closed state is already
+   carried by aria-expanded and by the rows themselves, so removing the
+   animation costs the reader nothing and spares anyone who asked for less
+   motion a spin on every cluster they open. */
+@media (prefers-reduced-motion: reduce) {
+	.grant-matrix__chevron {
+		transition: none;
+	}
 }
 </style>

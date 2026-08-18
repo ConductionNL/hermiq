@@ -576,4 +576,48 @@ class ChatControllerTest extends TestCase {
 		);
 
 	}//end testGetChatStatsUsesPaginatedTotals()
+
+	/**
+	 * `POST /api/chat/warm` with nothing to warm answers 200, not an error.
+	 *
+	 * The warm-up is an optimisation the following turn does not depend on, so
+	 * "there is nothing to warm" is a normal outcome and must be reported as
+	 * one. A 4xx here would give the chat a failure to handle for a request it
+	 * only made to save time.
+	 *
+	 * @return void
+	 */
+	public function testWarmWithoutIdentifiersIsNotAnError(): void {
+		$this->stubParams(['agentUuid' => '', 'conversation' => '']);
+
+		$response = $this->controller()->warm();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(['warmed' => false], $response->getData());
+
+	}//end testWarmWithoutIdentifiersIsNotAnError()
+
+	/**
+	 * A warm-up whose conversation lookup THROWS still answers 200.
+	 *
+	 * `findConversation()` throws rather than returning null when the
+	 * conversation is absent, so this is the live failure path and not a
+	 * hypothetical one. The endpoint's contract is that a failed warm-up is
+	 * invisible to the chat — if this ever returns 500, every chat that opens
+	 * on a stale conversation id starts reporting an error for a request the
+	 * user never made.
+	 *
+	 * @return void
+	 */
+	public function testWarmSwallowsAFailedLookup(): void {
+		$this->stubParams(['agentUuid' => 'agent-1', 'conversation' => 'gone']);
+		$this->objectService->method('find')
+			->willThrowException(new \RuntimeException('no such conversation'));
+
+		$response = $this->controller()->warm();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertFalse($response->getData()['warmed']);
+
+	}//end testWarmSwallowsAFailedLookup()
 }//end class
