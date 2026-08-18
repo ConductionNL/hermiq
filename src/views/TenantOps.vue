@@ -397,6 +397,9 @@ export default {
 				)
 			},
 
+			/**
+			 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
+			 */
 			set(option) {
 				this.selectedOrg = option ? option.value : ''
 				this.loadBudgets()
@@ -544,6 +547,7 @@ export default {
 		 *
 		 * @param {object} entry The budget to edit.
 		 * @return {void}
+		 * @spec openspec/changes/multi-tenant-ops/tasks.md#task-3-2
 		 */
 		openEditBudget(entry) {
 			this.editingBudget = entry
