@@ -344,6 +344,7 @@ export default {
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		heading() {
 			return this.effectiveSkill
@@ -391,6 +392,7 @@ export default {
 		 * (create — hermiq-skill-conversational-authoring's chat pre-fill).
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		resetForm() {
 			this.error = ''
