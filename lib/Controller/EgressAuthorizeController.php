@@ -85,6 +85,9 @@ class EgressAuthorizeController extends Controller {
 	 *                                      dependency-free — no second allowlist).
 	 * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
 	 *                                                    knobs `hermiq.webFetch` reads.
+	 * @param IThrottler $throttler Brute-force protection for rejected per-run tokens,
+	 *                              registered under THROTTLE_ACTION so a caller guessing
+	 *                              tokens is slowed rather than merely refused.
 	 */
 	public function __construct(
 		IRequest $request,

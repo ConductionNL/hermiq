@@ -239,7 +239,12 @@ class SkillBundleSerializer {
 			// already holds that uuid there.
 			$payload = $agent;
 			unset($payload['uuid'], $payload['id'], $payload['@self']);
-			$tree[self::AGENTS_PREFIX . $name . '.json'] = (json_encode($payload, (JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)) . "\n");
+			$encoded = json_encode(
+				$payload,
+				(JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+			);
+
+			$tree[self::AGENTS_PREFIX . $name . '.json'] = ($encoded . "\n");
 
 			$agentEntries[] = ['name' => $name];
 		}//end foreach

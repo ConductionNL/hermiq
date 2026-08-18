@@ -96,7 +96,11 @@ class AsyncStageDispatchService extends StageDispatchService {
 		string $jobKey = '',
 		array $collect = [],
 	): array {
-		$ceiling = ($timeoutMs > 0) ? $timeoutMs : self::DEFAULT_STAGE_TIMEOUT_MS;
+		$ceiling = self::DEFAULT_STAGE_TIMEOUT_MS;
+		if ($timeoutMs > 0) {
+			$ceiling = $timeoutMs;
+		}
+
 
 		$params = $this->buildParams(
 			repo: $repo,
@@ -207,7 +211,11 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 */
 	protected function mapAccepted(string $body): array {
 		$decoded = json_decode($body, true);
-		$jobId = is_array($decoded) === true ? trim((string)($decoded['jobId'] ?? '')) : '';
+		$jobId = '';
+		if (is_array($decoded) === true) {
+			$jobId = trim((string)($decoded['jobId'] ?? ''));
+		}
+
 
 		if ($jobId === '') {
 			// Fail loudly. A dispatch whose handle was lost is a stage running

@@ -163,6 +163,9 @@ class StageDispatchService {
 	 *                                this cannot be used to pull a proxied secret into the
 	 *                                container. Empty means the stage runs without a model,
 	 *                                which is every stage that shipped before this parameter.
+	 * @param array $collect Declares what the runner should hand back beyond the exit code
+	 *                       and output — the files or paths a later step reads. Empty means
+	 *                       the stage returns its result only, which is the default.
 	 *
 	 * @return array{exitCode: int, output: string, ref: string, files?: array} The stage result.
 	 *
@@ -392,6 +395,10 @@ class StageDispatchService {
 	 * @param string $toolRef Tool tree ref, or ''.
 	 * @param array $push Push declaration, or [] for a read-only stage.
 	 * @param string $pushCredentialId The injectable credential, or '' to reuse $credentialId.
+	 * @param string $llmCredentialId The injectable model credential, or '' when the stage
+	 *                                runs without a model.
+	 * @param array $collect What the runner should hand back beyond exit code and output,
+	 *                       or [] for the result alone.
 	 *
 	 * @return array The request payload.
 	 *
@@ -772,6 +779,19 @@ class StageDispatchService {
 		return $params;
 	}//end withCollect()
 
+	/**
+	 * Read the runner's response body as a stage result.
+	 *
+	 * ⚠️ A body with no `exitCode` is REFUSED rather than defaulted. Treating a
+	 * missing exit code as 0 would report a stage that never ran as a stage that
+	 * succeeded, which is the one failure mode a result mapper must not have.
+	 *
+	 * @param string $body The runner's raw response body.
+	 *
+	 * @return array The decoded stage result.
+	 *
+	 * @throws RuntimeException When the body is not a stage result.
+	 */
 	protected function mapResult(string $body): array {
 		$decoded = json_decode($body, true);
 		if (is_array($decoded) === false || array_key_exists('exitCode', $decoded) === false) {

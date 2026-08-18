@@ -51,8 +51,12 @@ namespace OCA\Hermiq\Service;
 use OCP\Http\Client\IClientService;
 use OCP\ICache;
 use OCP\ICacheFactory;
+use FilesystemIterator;
 use OCP\Server;
+use PharData;
 use Psr\Log\LoggerInterface;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use Throwable;
 
 /**
@@ -267,6 +271,9 @@ class GitHubTemplateCatalogService {
 	 * @param IClientService $clientService NC HTTP client factory (anonymous calls).
 	 * @param ICacheFactory $cacheFactory NC cache factory (short-TTL server cache).
 	 * @param LoggerInterface $logger PSR logger (secret-free diagnostics only).
+	 * @param \OCP\ITempManager $tempManager Allocates the scratch directory a downloaded
+	 *                                       tarball is extracted into, so the extraction
+	 *                                       never lands in a path this app chose itself.
 	 */
 	public function __construct(
 		private readonly IClientService $clientService,
@@ -683,14 +690,19 @@ class GitHubTemplateCatalogService {
 				return null;
 			}
 
-			$phar = new \PharData($archivePath);
+			$phar = new PharData($archivePath);
 			$phar->extractTo($extractDir, null, true);
 
 			// GitHub's tarball root is `{owner}-{repo}-{shortsha}/…` — exactly
 			// one top-level directory. Resolved by listing rather than assumed
 			// by name, since the short SHA is not knowable in advance.
+			$entries = scandir($extractDir);
+			if ($entries === false) {
+				return null;
+			}
+
 			$roots = array_values(array_filter(
-				scandir($extractDir) ?: [],
+				$entries,
 				static fn (string $entry): bool => ($entry !== '.' && $entry !== '..' && is_dir($extractDir . '/' . $entry))
 			));
 			if (count($roots) !== 1) {
@@ -699,8 +711,8 @@ class GitHubTemplateCatalogService {
 
 			$root = $extractDir . '/' . $roots[0];
 			$files = [];
-			$iterator = new \RecursiveIteratorIterator(
-				new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS)
+			$iterator = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS)
 			);
 			foreach ($iterator as $fileInfo) {
 				if ($fileInfo->isFile() === false) {
@@ -746,9 +758,9 @@ class GitHubTemplateCatalogService {
 	 * @return void
 	 */
 	private function removeDirectoryRecursive(string $path): void {
-		$iterator = new \RecursiveIteratorIterator(
-			new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
-			\RecursiveIteratorIterator::CHILD_FIRST
+		$iterator = new RecursiveIteratorIterator(
+			new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+			RecursiveIteratorIterator::CHILD_FIRST
 		);
 		foreach ($iterator as $fileInfo) {
 			if ($fileInfo->isDir() === true) {
@@ -1077,10 +1089,10 @@ class GitHubTemplateCatalogService {
 			// but wrong `0 installed` instead of surfacing the real 403. Logged
 			// here, at the one place that knows the real HTTP status, since
 			// nothing downstream can tell the difference once it sees null.
-			if (($result['rateLimited'] ?? false) === true) {
+			if ($result['rateLimited'] === true) {
 				$this->logger->warning(
 					'Hermiq GitHub template catalog: rate-limited fetching ' . $apiPath . ' — result will read as "file absent", not "fetch failed".',
-					['status' => ($result['status'] ?? 0)]
+					['status' => $result['status']]
 				);
 			}
 
