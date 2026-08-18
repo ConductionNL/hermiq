@@ -232,6 +232,9 @@
 						nodeStepLabel(node)
 					}}</span>
 					<span class="flow-builder__node-label">{{
+						/**
+						 * @spec openspec/specs/flow-canvas/spec.md
+						 */
 						nodeLabel(node)
 					}}</span>
 					<span
@@ -667,6 +670,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	setup() {
 		return { editor: useFlowEditorStore() }
 	},
@@ -703,6 +709,7 @@ export default {
 		 * The annotation id prefix, for the template.
 		 *
 		 * @return {string} The prefix.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		annotationPrefix() {
 			return ANNOTATION_ID_PREFIX
@@ -750,6 +757,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
 		id() {
 			this.editor.open(this.id)
 		},
@@ -768,6 +778,9 @@ export default {
 		window.addEventListener('mouseup', this.onLabelMouseUp)
 	},
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	beforeUnmount() {
 		window.removeEventListener('keydown', this.onKeydown)
 		window.removeEventListener('mousemove', this.onLabelMouseMove)
@@ -840,6 +853,7 @@ export default {
 		 *
 		 * @param {EventTarget|null} target The event target.
 		 * @return {boolean} Whether to leave the key alone.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		isTypingTarget(target) {
 			if (
@@ -958,6 +972,7 @@ export default {
 		 *
 		 * @param {object} edge The connection.
 		 * @return {object} Style bindings; empty for an unstyled edge.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		edgeStyle(edge) {
 			const style = {}
@@ -984,6 +999,7 @@ export default {
 		 * @param {string}      name     The marker name, or empty.
 		 * @param {string|null} fallback A marker to use when none is named.
 		 * @return {string|null} The `url(#…)` reference, or null for a bare end.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		markerRef(name, fallback = null) {
 			const markers = {
@@ -1035,6 +1051,7 @@ export default {
 		 *
 		 * @param {object} edge The connection.
 		 * @return {number} The fraction, 0.1–0.9.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		labelFraction(edge) {
 			const raw = Number(edge?.labelT)
@@ -1057,6 +1074,7 @@ export default {
 		 *
 		 * @param {MouseEvent} event The mousemove.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onLabelMouseMove(event) {
 			if (this.draggingLabelId === null) {
@@ -1096,6 +1114,7 @@ export default {
 		 * End the drag.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onLabelMouseUp() {
 			this.draggingLabelId = null
@@ -1106,6 +1125,7 @@ export default {
 		 *
 		 * @param {string} id The node id.
 		 * @return {{x: number, y: number}|null} The centre.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodeCentre(id) {
 			const node = this.editor.nodes.find((candidate) => candidate.id === id)
@@ -1125,6 +1145,7 @@ export default {
 		 * @param {object} edge The connection.
 		 * @param {MouseEvent} event The mousedown.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onLabelMouseDown(edge, event) {
 			this.draggingLabelId = edge.id
@@ -1140,6 +1161,7 @@ export default {
 		 * @param {object} edge  The connection.
 		 * @param {number} delta The fraction to move by.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nudgeLabel(edge, delta) {
 			this.editor.setEdgeFieldById(
@@ -1265,6 +1287,7 @@ export default {
 		 *
 		 * @param {MouseEvent} event The event.
 		 * @return {{x: number, y: number}|null} The canvas point, or null.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		canvasPointOf(event) {
 			const canvas = this.$refs.graph
@@ -1322,6 +1345,7 @@ export default {
 		 * Edit whatever the menu was raised on.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onContextEdit() {
 			const kind = this.editor.contextMenu?.kind
@@ -1338,6 +1362,7 @@ export default {
 		 * Copy the node the menu was raised on.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onContextCopy() {
 			const id = this.editor.contextMenu?.id
@@ -1369,6 +1394,7 @@ export default {
 		 * @param {Event}  event The pointer or focus event, for the anchor.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onPayloadHover(edge, event) {
 			const detail =
@@ -1421,6 +1447,7 @@ export default {
 		 * Back meaning "the page before the editor".
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async onSave() {
 			try {
@@ -1444,6 +1471,9 @@ export default {
 			}
 		},
 
+		/**
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
 		onContextData() {
 			const id = this.editor.contextMenu?.id
 			this.editor.contextMenu = null
@@ -1456,6 +1486,7 @@ export default {
 		 * Delete whatever the menu was raised on.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onContextDelete() {
 			const menu = this.editor.contextMenu
@@ -1710,6 +1741,7 @@ export default {
 		 *
 		 * @param {number} delta The change to apply.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		zoomBy(delta) {
 			const next = Math.min(
@@ -1730,6 +1762,7 @@ export default {
 		 * @param {number} payload.x Drop x-coordinate in canvas space.
 		 * @param {number} payload.y Drop y-coordinate in canvas space.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onCanvasDrop({ x, y }) {
 			// Create the type that was dragged. A drop with no type in flight
@@ -1748,6 +1781,7 @@ export default {
 		 * A completed run is already on the store; close and notify.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onRan() {
 			this.editor.showRun = false
@@ -1923,6 +1957,7 @@ export default {
 		 * @param {{x: number, y: number}} from Source centre.
 		 * @param {{x: number, y: number}} to   Target centre.
 		 * @return {{x: number, y: number}} The midpoint.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		edgeMidpoint(from, to) {
 			return this.edgeGeometry(from, to).mid
@@ -1961,6 +1996,7 @@ export default {
 		 * @param {{x: number, y: number}} from Source centre.
 		 * @param {{x: number, y: number}} to   Target centre.
 		 * @return {{d: string, mid: {x: number, y: number}}} Path and midpoint.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		edgeGeometry(from, to) {
 			const gap = 6
@@ -2005,6 +2041,7 @@ export default {
 		 * @param {object} from  Source centre.
 		 * @param {object} to    Target centre.
 		 * @return {Array<object>} Trimmed `[from, to]`.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		trimOn(axis, size, gap, from, to) {
 			const delta = to[axis] - from[axis]
@@ -2026,6 +2063,7 @@ export default {
 		 * @param {{x: number, y: number}} to       Trimmed target point.
 		 * @param {boolean}                vertical Whether the run is vertical.
 		 * @return {{d: string, mid: {x: number, y: number}}} Path and midpoint.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		elbow(from, to, vertical) {
 			const dx = to.x - from.x
