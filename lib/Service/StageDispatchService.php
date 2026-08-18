@@ -402,6 +402,8 @@ class StageDispatchService {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()`; see the reason
 	 *   stated there. This method is the boundary in question.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function buildParams(
 		string $repo,
@@ -572,6 +574,8 @@ class StageDispatchService {
 	 * @return string|null Base64 `.tar.gz`, or null when it could not be fetched.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function fetchToolArchive(string $credentialId, ?string $uid, string $repo, string $ref): ?string {
 		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
@@ -644,6 +648,8 @@ class StageDispatchService {
 	 * @throws RuntimeException When the broker is absent or refuses.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function resolveForgeToken(string $credentialId, ?string $uid): ?string {
 		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
@@ -713,6 +719,8 @@ class StageDispatchService {
 	 * @param string $body The response body.
 	 *
 	 * @return string The reason, or a static fallback.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function reasonFrom(string $body): string {
 		$decoded = json_decode($body, true);
@@ -768,6 +776,8 @@ class StageDispatchService {
 	 * @param array $collect Artefacts to read back out of the clone, or [].
 	 *
 	 * @return array The payload, with `collect` set only when one was declared.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function withCollect(array $params, array $collect): array {
 		if ($collect !== []) {
@@ -792,6 +802,8 @@ class StageDispatchService {
 	 *         The stage result.
 	 *
 	 * @throws RuntimeException When the body is not a stage result.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function mapResult(string $body): array {
 		$decoded = json_decode($body, true);
