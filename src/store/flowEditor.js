@@ -1571,6 +1571,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @param {string} id The place id.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		removeNode(id) {
 			this.flow.nodes = this.nodes.filter((node) => node.id !== id)
@@ -1673,6 +1674,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * Check the current document against the live engine.
 		 *
 		 * @return {Promise<object>} The verdict.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async validate() {
 			try {
