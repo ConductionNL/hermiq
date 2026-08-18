@@ -225,6 +225,7 @@ export default {
 		 * The run's step entries.
 		 *
 		 * @return {Array<object>} The log.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		log() {
 			return this.detail?.log || []
@@ -263,6 +264,7 @@ export default {
 		 *
 		 * @param {object} envelope The `{count, truncated, items}` envelope.
 		 * @return {string} Pretty JSON.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		pretty(envelope) {
 			return JSON.stringify(envelope?.items ?? envelope, null, 2)
