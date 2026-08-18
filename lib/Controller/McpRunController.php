@@ -693,6 +693,8 @@ class McpRunController extends Controller {
 	 * tests can override it without stubbing `php://input`.
 	 *
 	 * @return string The raw request body, or '' when unreadable.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');
