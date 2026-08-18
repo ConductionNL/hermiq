@@ -130,6 +130,7 @@ export default {
 		 * This agent's uuid from the route param.
 		 *
 		 * @return {string} The agent uuid.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		agentId() {
 			return this.$route.params.id
@@ -162,6 +163,7 @@ export default {
 		 * included, which is the only person it is meant to be writable for.
 		 *
 		 * @return {boolean} True when the current user is the agent's owner.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		isOwner() {
 			const user = getCurrentUser()
@@ -173,6 +175,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
+	 */
 	created() {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
@@ -188,6 +193,7 @@ export default {
 		 * @param {number}        index Index of the tab the event fired on.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		onTabKeydown(event, index) {
 			const last = this.tabs.length - 1
@@ -219,6 +225,7 @@ export default {
 		 * Load this agent (only used to resolve `owner` for the isOwner gate).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		async loadAgent() {
 			this.agent = await this.agentStore

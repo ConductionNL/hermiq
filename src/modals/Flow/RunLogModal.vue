@@ -107,6 +107,9 @@
 									</span>
 								</h3>
 								<pre class="run-log__json">{{
+									/**
+									 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+									 */
 									pretty(entry.input)
 								}}</pre>
 							</template>
@@ -188,6 +191,9 @@ export default {
 
 	emits: ['close'],
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+	 */
 	setup() {
 		return { editor: useFlowEditorStore() }
 	},
@@ -207,6 +213,7 @@ export default {
 		 * The run being read.
 		 *
 		 * @return {object|null} The run detail.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		detail() {
 			const id = this.editor.logModalRunId
@@ -227,6 +234,7 @@ export default {
 		 * The modal heading.
 		 *
 		 * @return {string} The heading.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		heading() {
 			return this.t('hermiq', 'Run log')
@@ -278,6 +286,7 @@ export default {
 		 * an operator is already reading.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		async loadActions() {
 			const found = {}

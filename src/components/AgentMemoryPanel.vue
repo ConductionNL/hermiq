@@ -125,6 +125,9 @@
 							{{ t('hermiq', 'Forgotten') }}
 						</span>
 						<span class="agent-memory-panel__entry-date">{{
+							/**
+							 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+							 */
 							formatDate(entry.createdAt)
 						}}</span>
 					</li>
@@ -184,6 +187,7 @@ export default {
 		 * The current memory entries.
 		 *
 		 * @return {Array<object>} The entry list.
+		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		entries() {
 			return Array.isArray(this.memory.entries) ? this.memory.entries : []
@@ -195,6 +199,7 @@ export default {
 		 * excludes soft-deleted entries from the budget.
 		 *
 		 * @return {number} The summed length.
+		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		charCount() {
 			return this.entries
@@ -206,6 +211,7 @@ export default {
 		 * The configured character budget.
 		 *
 		 * @return {number} The budget.
+		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		charBudget() {
 			return Number(this.memory.charBudget) || 8000
@@ -215,6 +221,7 @@ export default {
 		 * The budget-bar fill percentage (capped at 100).
 		 *
 		 * @return {number} The percentage.
+		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		budgetPct() {
 			if (this.charBudget <= 0) {
@@ -230,6 +237,9 @@ export default {
 	watch: {
 		agentId: {
 			immediate: true,
+			/**
+			 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
+			 */
 			handler() {
 				this.load()
 			},
@@ -274,6 +284,7 @@ export default {
 		 * Append a fact to the agent's memory.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async addFact() {
 			const text = this.newEntry.trim()
@@ -299,6 +310,7 @@ export default {
 		 * Consolidate the agent's memory (server de-duplicates when no strategy supplied).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-capability-detail-surface/specs/agent-management-ui/spec.md#requirement-agent-detail-manages-memory-in-place-mvp
 		 */
 		async consolidate() {
 			if (!this.agentId) {

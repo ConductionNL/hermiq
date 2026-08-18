@@ -144,6 +144,9 @@
 							</td>
 							<td>
 								<span :class="resultClass(row)">{{
+									/**
+									 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+									 */
 									resultLabel(row)
 								}}</span>
 							</td>
@@ -210,6 +213,7 @@ export default {
 		 * policy" rendered literally as "OpenRegister&#39;s AuditTrail policy".
 		 *
 		 * @return {string} The retention label.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		retentionLabel() {
 			return this.t(
@@ -224,6 +228,9 @@ export default {
 
 	watch: {
 		agentId: {
+			/**
+			 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
+			 */
 			handler() {
 				this.load()
 			},
@@ -237,6 +244,7 @@ export default {
 		 * Load this agent's oversight rows.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		async load() {
 			this.loading = true
@@ -259,6 +267,7 @@ export default {
 		 *
 		 * @param {string} format Either 'csv' or 'json'.
 		 * @return {void}
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		exportAs(format) {
 			window.location.href = toolInvocationsExportUrl(this.agentId, format)
@@ -282,6 +291,7 @@ export default {
 		 *
 		 * @param {string} digest The full digest.
 		 * @return {string} The shortened digest.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		shortDigest(digest) {
 			return digest.length > 12 ? `${digest.slice(0, 12)}…` : digest
@@ -320,6 +330,7 @@ export default {
 		 *
 		 * @param {object} row The oversight row.
 		 * @return {string} The class.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-7
 		 */
 		resultClass(row) {
 			const isError = !!(row.resultSummary && row.resultSummary.isError)

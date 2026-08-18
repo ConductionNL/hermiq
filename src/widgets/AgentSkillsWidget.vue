@@ -102,6 +102,7 @@ export default {
 		 * This agent's uuid from the route param.
 		 *
 		 * @return {string} The agent uuid.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
 		 */
 		agentId() {
 			return this.$route.params.id
@@ -129,6 +130,7 @@ export default {
 		 * Catalogue skills not yet installed on this agent, as attach options.
 		 *
 		 * @return {Array<object>} The attachable-skill options.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
 		 */
 		attachableSkillOptions() {
 			const installed = Array.isArray(this.agent && this.agent.skillInstalls)
@@ -143,6 +145,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
+	 */
 	created() {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
@@ -173,6 +178,7 @@ export default {
 		 * Attach the selected catalogue skill to this agent, then refresh.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
 		 */
 		async attachSkill() {
 			if (!this.skillToAttach) {
@@ -196,6 +202,7 @@ export default {
 		 *
 		 * @param {string} skillUuid The Skill UUID to detach.
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
 		 */
 		async detachSkill(skillUuid) {
 			this.skillBusy = true

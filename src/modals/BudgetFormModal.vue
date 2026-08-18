@@ -185,6 +185,7 @@ export default {
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
+		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 		 */
 		heading() {
 			return this.isEdit
@@ -197,6 +198,7 @@ export default {
 		 * tokenLimit/eurLimit, and (when scope=agent) an agentId.
 		 *
 		 * @return {boolean}
+		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 		 */
 		canSave() {
 			const hasLimit =
@@ -218,6 +220,9 @@ export default {
 				)
 			},
 
+			/**
+			 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+			 */
 			set(option) {
 				this.form.scope = option ? option.value : 'organisation'
 			},
@@ -242,6 +247,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
+		 */
 		show(open) {
 			if (open) {
 				this.resetForm()
@@ -254,6 +262,7 @@ export default {
 		 * An empty budget form.
 		 *
 		 * @return {object} The blank form model.
+		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 		 */
 		blankForm() {
 			return {
@@ -271,6 +280,7 @@ export default {
 		 * Seed the form from the `budget` prop (edit) or blank (create).
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 		 */
 		resetForm() {
 			this.error = ''
@@ -294,6 +304,7 @@ export default {
 		 * Build the budget payload from the form model.
 		 *
 		 * @return {object} The budget fields for create/update.
+		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 		 */
 		buildPayload() {
 			const payload = {
@@ -318,6 +329,7 @@ export default {
 		 * Persist the budget (create or update) and notify the parent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/multi-tenant-ops/spec.md#requirement-per-scope-budget-guardrails-soft-threshold-and-hard-cap
 		 */
 		async save() {
 			this.saving = true
