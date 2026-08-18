@@ -94,6 +94,7 @@ export default {
 		 * The agents as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
 		 */
 		agentOptions() {
 			return this.agents.map((agent) => ({
@@ -115,6 +116,7 @@ export default {
 		 * first one.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-memory/tasks.md#task-4-1
 		 */
 		async loadAgents() {
 			this.loading = true
