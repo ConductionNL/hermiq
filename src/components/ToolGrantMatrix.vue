@@ -119,8 +119,39 @@
 								<td
 									v-for="verb in cluster.verbs"
 									:key="verb"
-									class="grant-matrix__cell">
-									<span v-if="!row.tools[verb]" class="grant-matrix__absent" aria-hidden="true">—</span>
+									class="grant-matrix__cell"
+									:class="{ 'grant-matrix__cell--special': verb === 'special' }">
+									<!--
+										The SPECIAL column holds named actions, not one
+										anonymous tick. `sendMail` and `delegateAgent` are
+										different rights, so each carries its own label and
+										its description on hover — a bare checkbox under a
+										"SPECIAL" heading grants something the reader cannot
+										identify.
+									-->
+									<template v-if="verb === 'special'">
+										<span v-if="row.specials.length === 0" class="grant-matrix__absent" aria-hidden="true">—</span>
+										<span
+											v-for="special in row.specials"
+											:key="special.id"
+											class="grant-matrix__special"
+											:title="special.description">
+											<span class="grant-matrix__special-name">{{ special.specialLabel || special.id }}</span>
+											<AsteriskIcon
+												v-if="special.wildcard"
+												:size="16"
+												class="grant-matrix__wildcard" />
+											<NcCheckboxRadioSwitch
+												v-else
+												:modelValue="isDrafted(special.id)"
+												type="checkbox"
+												:disabled="!canEdit || saving"
+												:aria-label="t('hermiq', 'Grant {action} on {subject}', { action: special.specialLabel || special.id, subject: row.label })"
+												@update:modelValue="toggleTool(special.id, $event)" />
+										</span>
+									</template>
+
+									<span v-else-if="!row.tools[verb]" class="grant-matrix__absent" aria-hidden="true">—</span>
 
 									<!--
 										A wildcard grant is a THIRD state, not a ticked box.
@@ -173,7 +204,39 @@ let matrixUid = 0
 
 // The canonical verbs, in the order a person reads them. A cluster whose tools
 // use none of these gets its own verbs instead — see buildClusters().
-const CRUD = ['create', 'read', 'update', 'delete']
+// The canonical columns, in reading order. Every cluster shows all five even
+// where a verb is unused, so a row means the same thing in every foldout and
+// the eye can run down a column. `list` and `read` are separate because
+// "list the leads" and "open this lead" are different rights.
+const CANONICAL_VERBS = ['create', 'read', 'update', 'list', 'delete']
+
+// How a tool's own verb maps onto a canonical column.
+//
+// ⚠️ The taxonomy's `right` field is too coarse to drive this: it reports both
+// `lead_search` and `lead_get` as `read`, so both would land in one column and
+// one would overwrite the other. The verb in the tool's NAME is the finer
+// signal, so it wins, and `right` is only the fallback.
+const VERB_ALIASES = {
+	create: 'create', add: 'create', new: 'create',
+	list: 'list', search: 'list', find: 'list',
+	read: 'read', get: 'read', fetch: 'read',
+	update: 'update', edit: 'update', set: 'update', upsert: 'update',
+	delete: 'delete', remove: 'delete', destroy: 'delete',
+}
+
+// Leading words that are genuinely VERBS but have no canonical column. They
+// still split verb-from-subject, so `delegateAgent` becomes agent/delegate.
+//
+// ⚠️ The split only happens for a word on this list or in VERB_ALIASES.
+// Splitting on any leading lowercase run turned `webFetch` into subject
+// "fetch" with special "web" — "web" is not a verb, and the row named a thing
+// that does not exist. When the leading word is not a known verb the whole
+// name IS the action, and saying so is better than inventing a subject.
+const SPECIAL_VERBS = new Set([
+	'delegate', 'recommend', 'remember', 'recall', 'forget',
+	'send', 'convert', 'generate', 'log', 'promote', 'request',
+	'start', 'publish', 'render', 'sign', 'validate',
+])
 
 export default {
 	name: 'ToolGrantMatrix',
@@ -252,12 +315,18 @@ export default {
 					&& typeof tool.grantedBy === 'string'
 					&& tool.grantedBy !== tool.id
 
+				const parsed = this.parseVerbAndSubject(tool.id, taxonomy)
+
 				return {
 					id: tool.id,
 					description: tool.description ?? '',
 					app: taxonomy.app ?? null,
-					subject: taxonomy.group ?? tool.id,
-					verb: taxonomy.right ?? 'special',
+					subject: parsed.subject,
+					verb: parsed.verb,
+					// The tool's own verb, kept for the SPECIAL column's label:
+					// "delegateAgent" says what the checkbox grants, "special"
+					// says nothing.
+					specialLabel: parsed.specialLabel,
 					granted: tool.granted === true,
 					grantedBy: tool.grantedBy,
 					wildcard,
@@ -371,6 +440,122 @@ export default {
 		},
 
 		/**
+		 * Split a tool id into the column it belongs in and the thing it acts on.
+		 *
+		 * ⚠️ A tool id carries a VERB and a SUBJECT, and the first cut of this
+		 * widget used the whole thing as the subject — so `createNote`,
+		 * `createCalendarEvent` and `listFiles` each became their own row with a
+		 * single tick in one column, instead of `note`, `calendarEvent` and
+		 * `file` rows with the verb in its column. The grid degenerated into the
+		 * flat list it was meant to replace, one tool per line.
+		 *
+		 * Two id shapes exist and both are parsed here:
+		 *   `pipelinq.lead.search`  → app, subject, verb   (schema-derived)
+		 *   `hermiq.createNote`     → app, camelCase verb+subject (hand-written)
+		 *
+		 * A verb with no canonical column is a SPECIAL: it keeps its own name so
+		 * the checkbox can be labelled with what it actually grants.
+		 *
+		 * @param {string} id       The tool id, in either spelling.
+		 * @param {object} taxonomy The taxonomy row for this tool, if any.
+		 * @return {{verb: string, subject: string, specialLabel: string|null}} The parse.
+		 */
+		parseVerbAndSubject(id, taxonomy) {
+			// 🔑 If the producer DECLARED its subject and action, use them. The
+			// structure is data, not something to be recovered from a string:
+			// OpenRegister composes `{app}.{subject}.{action}` and now publishes
+			// all three as fields, so 90 of 173 tools need no parsing at all.
+			//
+			// Everything below this point is a FALLBACK for tools that declare
+			// nothing, and it is guesswork — it splits camelCase and
+			// singularises English. The fix for those is to declare their
+			// subject and action at the source, not to improve the guessing.
+			if (typeof taxonomy.subject === 'string' && taxonomy.subject !== ''
+				&& typeof taxonomy.action === 'string' && taxonomy.action !== '') {
+				return this.classify(taxonomy.action, taxonomy.subject)
+			}
+
+			const parts = this.joinKey(id).split('_').filter(Boolean)
+
+			// `app_subject_verb` — the schema-derived shape. The verb is its own
+			// segment, so no camelCase splitting is needed.
+			if (parts.length >= 3) {
+				const verb = parts[parts.length - 1]
+				const subject = parts.slice(1, -1).join('_')
+				return this.classify(verb, subject)
+			}
+
+			// `app_camelCaseName` — hand-written. Split the leading lowercase run
+			// off as the verb; whatever follows is the subject.
+			const name = parts.length === 2 ? parts[1] : (parts[0] ?? String(id))
+			const match = name.match(/^([a-z]+)([A-Z].*)$/)
+			const leading = match === null ? null : match[1]
+			const isVerb = leading !== null
+				&& (VERB_ALIASES[leading] !== undefined || SPECIAL_VERBS.has(leading) === true)
+
+			if (isVerb === true) {
+				const subject = match[2].charAt(0).toLowerCase() + match[2].slice(1)
+				return this.classify(leading, this.singularise(subject))
+			}
+
+			// Not a verb+subject at all (`webFetch`, `pipelineForecast`): the
+			// whole name is the action, and it names itself.
+			if (match !== null) {
+				return { verb: 'special', subject: name, specialLabel: name }
+			}
+
+			// No verb to find — fall back to the taxonomy's coarse right, and let
+			// the tool name stand as its own subject rather than inventing one.
+			return this.classify(taxonomy.right ?? 'special', name)
+		},
+
+		/**
+		 * Put a raw verb into its canonical column, or mark it special.
+		 *
+		 * @param {string} verb    The verb as written in the tool id.
+		 * @param {string} subject The subject the verb acts on.
+		 * @return {{verb: string, subject: string, specialLabel: string|null}} The classification.
+		 */
+		classify(verb, subject) {
+			const canonical = VERB_ALIASES[verb] ?? null
+			if (canonical !== null) {
+				return { verb: canonical, subject, specialLabel: null }
+			}
+
+			return { verb: 'special', subject, specialLabel: verb }
+		},
+
+		/**
+		 * Singularise an English plural, well enough for a row label.
+		 *
+		 * `listFiles` is a list of `file`, and the row should say so — otherwise
+		 * `readFile` and `listFiles` become two rows for one subject.
+		 *
+		 * @param {string} word The possibly-plural subject.
+		 * @return {string} The singular form.
+		 */
+		singularise(word) {
+			if (/[^aeiou]ies$/.test(word) === true) {
+				return word.slice(0, -3) + 'y'
+			}
+
+			// ⚠️ `s` is deliberately NOT in this group. With it, "courses" became
+			// "cours" — the rule assumed a sibilant stem plus "es", but the word
+			// is "course" plus "s". Genuine sibilant stems (box, church) keep the
+			// two-character strip; anything ending in "ses" falls through to the
+			// plain rule below and loses only its "s".
+			if (/(x|z|ch|sh)es$/.test(word) === true) {
+				return word.slice(0, -2)
+			}
+
+			if (/[^s]s$/.test(word) === true) {
+				return word.slice(0, -1)
+			}
+
+			return word
+		},
+
+		/**
 		 * Group tools into clusters, rows and verb columns.
 		 *
 		 * @param {Array<object>} tools The tools to group.
@@ -407,10 +592,15 @@ export default {
 		 * @return {object} The shaped cluster.
 		 */
 		shapeCluster(cluster) {
-			const present = new Set(cluster.tools.map((tool) => tool.verb))
-			const crud = CRUD.filter((verb) => present.has(verb))
-			const extra = [...present].filter((verb) => CRUD.includes(verb) === false).sort()
-			const verbs = crud.length > 0 ? [...crud, ...extra] : extra
+			// The five canonical columns are ALWAYS rendered, even where a verb
+			// is unused. A column that appears and disappears per cluster makes
+			// the grid unreadable: `delete` present in one foldout and absent in
+			// the next means the eye cannot run down a column, and an empty
+			// `delete` cell is itself information — nobody can delete this.
+			const hasSpecial = cluster.tools.some((tool) => tool.verb === 'special')
+			const verbs = hasSpecial === true
+				? [...CANONICAL_VERBS, 'special']
+				: [...CANONICAL_VERBS]
 
 			const rows = new Map()
 			for (const tool of cluster.tools) {
@@ -420,12 +610,21 @@ export default {
 						label: tool.subject,
 						description: '',
 						tools: {},
+						// Specials are a LIST, not one slot: a subject can carry
+						// several (upsertContact, forgetMemory), and collapsing
+						// them into one cell would silently hide all but one.
+						specials: [],
 					})
 				}
 
 				const row = rows.get(tool.subject)
-				row.tools[tool.verb] = tool
-				if (row.description === '' && Object.keys(row.tools).length === 1) {
+				if (tool.verb === 'special') {
+					row.specials.push(tool)
+				} else {
+					row.tools[tool.verb] = tool
+				}
+
+				if (row.description === '') {
 					row.description = tool.description
 				}
 			}
@@ -453,6 +652,7 @@ export default {
 				create: t('hermiq', 'Create'),
 				read: t('hermiq', 'Read'),
 				update: t('hermiq', 'Update'),
+				list: t('hermiq', 'List'),
 				delete: t('hermiq', 'Delete'),
 				special: t('hermiq', 'Special'),
 			}
@@ -770,6 +970,29 @@ export default {
 	align-items: center;
 	justify-content: center;
 	color: var(--color-primary-element);
+}
+
+/* Specials stack: one labelled control per action, so a subject carrying
+   several (upsertContact, forgetMemory) shows all of them rather than one. */
+.grant-matrix__cell--special {
+	text-align: start;
+}
+
+.grant-matrix__special {
+	display: inline-flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 2px;
+	margin-inline-end: 12px;
+	vertical-align: top;
+	cursor: help;
+}
+
+.grant-matrix__special-name {
+	font-family: var(--font-face-monospace, monospace);
+	font-size: 0.75em;
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
 }
 
 .hidden-visually {
