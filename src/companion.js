@@ -60,11 +60,12 @@ import '@conduction/nextcloud-vue/dist/nextcloud-vue.css'
 // why the build guard in package.json asserts the emitted size: a re-barrelled
 // import or a lost async boundary shows up only as a fatter bundle, and a fat
 // bundle on every page is exactly the failure this file is shaped to avoid.
-const CnAiCompanion = defineAsyncComponent(() =>
-	import(
-		/* webpackChunkName: "hermiq-companion-panel" */
-		'@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
-	),
+const CnAiCompanion = defineAsyncComponent(
+	() =>
+		import(
+			/* webpackChunkName: "hermiq-companion-panel" */
+			'@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
+		),
 )
 
 /**
@@ -112,7 +113,7 @@ function openFileId() {
 	const segments = window.location.pathname.split('/').filter((s) => s !== '')
 	const last = segments[segments.length - 1]
 
-	return (/^\d+$/.test(last ?? '') === true) ? Number(last) : null
+	return /^\d+$/.test(last ?? '') === true ? Number(last) : null
 }
 
 /**
@@ -175,14 +176,15 @@ function mount() {
 	//
 	// Props go at the top level in Vue 3's `h()`, not nested under `props`.
 	createApp({
-		render: () => h(CnAiCompanion, {
-			chatAppId: 'hermiq',
-			position: 'bottom-right',
-			// Carried so the assistant can be asked about the document on
-			// screen without the user pasting an id. Absent on pages that are
-			// not showing a file, which is most of them.
-			...(fileId !== null ? { contextFileId: fileId } : {}),
-		}),
+		render: () =>
+			h(CnAiCompanion, {
+				chatAppId: 'hermiq',
+				position: 'bottom-right',
+				// Carried so the assistant can be asked about the document on
+				// screen without the user pasting an id. Absent on pages that are
+				// not showing a file, which is most of them.
+				...(fileId !== null ? { contextFileId: fileId } : {}),
+			}),
 	}).mount(root)
 }
 

@@ -38,7 +38,9 @@ export async function getToolTaxonomy() {
  * @return {Promise<Array<string>>} The stored grant strings.
  */
 export async function getAgentGrants(agentId) {
-	const response = await axios.get(generateUrl(`/apps/hermiq/api/agents/${agentId}`))
+	const response = await axios.get(
+		generateUrl(`/apps/hermiq/api/agents/${agentId}`),
+	)
 
 	const tools = response.data?.tools
 	return Array.isArray(tools) ? tools : []

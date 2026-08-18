@@ -31,13 +31,14 @@ const source = fs.readFileSync(
 )
 const context = { module: { exports: {} }, exports: {} }
 vm.createContext(context)
-vm.runInContext(source.replace(/^export (function|const) /gm, '$1 ')
-	+ '\nmodule.exports = { parseVerbAndSubject, splitOnVerbSegment, singularise, joinKey,'
-	+ ' VERB_ALIASES, CANONICAL_VERBS, SPECIAL_VERBS }',
-context)
-const {
-	parseVerbAndSubject, singularise, joinKey, VERB_ALIASES, CANONICAL_VERBS,
-} = context.module.exports
+vm.runInContext(
+	source.replace(/^export (function|const) /gm, '$1 ')
+		+ '\nmodule.exports = { parseVerbAndSubject, splitOnVerbSegment, singularise, joinKey,'
+		+ ' VERB_ALIASES, CANONICAL_VERBS, SPECIAL_VERBS }',
+	context,
+)
+const { parseVerbAndSubject, singularise, joinKey, VERB_ALIASES, CANONICAL_VERBS } =
+	context.module.exports
 
 let failures = 0
 
@@ -56,38 +57,71 @@ function check(id, taxonomy, want) {
 			{ verb: got.verb, subject: got.subject, specialLabel: got.specialLabel },
 			want,
 		)
-		console.log(`  ok   ${id}  ->  ${got.subject} / ${got.specialLabel ?? got.verb}`)
+		console.log(
+			`  ok   ${id}  ->  ${got.subject} / ${got.specialLabel ?? got.verb}`,
+		)
 	} catch (error) {
 		failures++
 		console.log(`  FAIL ${id}`)
 		console.log(`       want ${JSON.stringify(want)}`)
-		console.log(`       got  ${JSON.stringify({ verb: got.verb, subject: got.subject, specialLabel: got.specialLabel })}`)
+		console.log(
+			`       got  ${JSON.stringify({ verb: got.verb, subject: got.subject, specialLabel: got.specialLabel })}`,
+		)
 	}
 }
 
 console.log('\nA declared subject and action are used verbatim')
 // Never parsed. These are 90 of the 177 tools on the live instance.
-check('docudesk_generatedDocument_search', { subject: 'generatedDocument', action: 'search' },
-	{ verb: 'list', subject: 'generatedDocument', specialLabel: null })
-check('pipelinq_lead_get', { subject: 'lead', action: 'get' },
-	{ verb: 'read', subject: 'lead', specialLabel: null })
+check(
+	'docudesk_generatedDocument_search',
+	{ subject: 'generatedDocument', action: 'search' },
+	{ verb: 'list', subject: 'generatedDocument', specialLabel: null },
+)
+check(
+	'pipelinq_lead_get',
+	{ subject: 'lead', action: 'get' },
+	{ verb: 'read', subject: 'lead', specialLabel: null },
+)
 // A declared subject is NOT singularised — it is already what the producer
 // meant, and "status" would become "statu".
-check('x_y_z', { subject: 'status', action: 'get' },
-	{ verb: 'read', subject: 'status', specialLabel: null })
+check(
+	'x_y_z',
+	{ subject: 'status', action: 'get' },
+	{ verb: 'read', subject: 'status', specialLabel: null },
+)
 
 console.log('\nTwo-segment snake ids keep their verb (the OpenRegister core)')
 // 🔴 These 30 previously lost the verb entirely: `parts.length === 2` was read
 // as `app_name`, so "list" was taken for an app prefix and thrown away, and all
 // 30 collapsed onto the coarse `right` field.
-check('list_registers', {}, { verb: 'list', subject: 'register', specialLabel: null })
+check(
+	'list_registers',
+	{},
+	{ verb: 'list', subject: 'register', specialLabel: null },
+)
 check('get_register', {}, { verb: 'read', subject: 'register', specialLabel: null })
-check('create_register', {}, { verb: 'create', subject: 'register', specialLabel: null })
-check('update_register', {}, { verb: 'update', subject: 'register', specialLabel: null })
-check('delete_register', {}, { verb: 'delete', subject: 'register', specialLabel: null })
+check(
+	'create_register',
+	{},
+	{ verb: 'create', subject: 'register', specialLabel: null },
+)
+check(
+	'update_register',
+	{},
+	{ verb: 'update', subject: 'register', specialLabel: null },
+)
+check(
+	'delete_register',
+	{},
+	{ verb: 'delete', subject: 'register', specialLabel: null },
+)
 check('search_objects', {}, { verb: 'list', subject: 'object', specialLabel: null })
 check('list_schemas', {}, { verb: 'list', subject: 'schema', specialLabel: null })
-check('list_applications', {}, { verb: 'list', subject: 'application', specialLabel: null })
+check(
+	'list_applications',
+	{},
+	{ verb: 'list', subject: 'application', specialLabel: null },
+)
 check('list_agents', {}, { verb: 'list', subject: 'agent', specialLabel: null })
 
 console.log('\nThree-segment snake ids are not read backwards')
@@ -96,35 +130,82 @@ check('cms_create_page', {}, { verb: 'create', subject: 'page', specialLabel: nu
 check('cms_list_pages', {}, { verb: 'list', subject: 'page', specialLabel: null })
 check('cms_create_menu', {}, { verb: 'create', subject: 'menu', specialLabel: null })
 check('cms_list_menus', {}, { verb: 'list', subject: 'menu', specialLabel: null })
-check('cms_add_menu_item', {}, { verb: 'create', subject: 'menu_item', specialLabel: null })
+check(
+	'cms_add_menu_item',
+	{},
+	{ verb: 'create', subject: 'menu_item', specialLabel: null },
+)
 
 console.log('\nThe schema-derived shape still parses verb-last when undeclared')
 // A known verb in FINAL position with two segments ahead of it is the only
 // case that is unambiguously `app_subject_verb`. Without this the fallback
 // would break every undeclared tool that does follow the schema shape.
-check('myapp_invoice_create', {}, { verb: 'create', subject: 'invoice', specialLabel: null })
-check('myapp_purchase_order_delete', {}, { verb: 'delete', subject: 'purchase_order', specialLabel: null })
+check(
+	'myapp_invoice_create',
+	{},
+	{ verb: 'create', subject: 'invoice', specialLabel: null },
+)
+check(
+	'myapp_purchase_order_delete',
+	{},
+	{ verb: 'delete', subject: 'purchase_order', specialLabel: null },
+)
 
 console.log('\ncamelCase ids are unaffected by the segment rule')
 // ⚠️ The regression risk of locating the verb by segment: `listFiles` must NOT
 // match as a verb segment, or the subject would be empty.
 check('hermiq_listFiles', {}, { verb: 'list', subject: 'file', specialLabel: null })
 check('hermiq_readFile', {}, { verb: 'read', subject: 'file', specialLabel: null })
-check('hermiq_sendEmail', {}, { verb: 'special', subject: 'email', specialLabel: 'send' })
-check('hermiq_delegateAgent', {}, { verb: 'special', subject: 'agent', specialLabel: 'delegate' })
-check('opencatalogi_searchCatalog', {}, { verb: 'list', subject: 'catalog', specialLabel: null })
-check('pipelinq_logContactmoment', {}, { verb: 'special', subject: 'contactmoment', specialLabel: 'log' })
+check(
+	'hermiq_sendEmail',
+	{},
+	{ verb: 'special', subject: 'email', specialLabel: 'send' },
+)
+check(
+	'hermiq_delegateAgent',
+	{},
+	{ verb: 'special', subject: 'agent', specialLabel: 'delegate' },
+)
+check(
+	'opencatalogi_searchCatalog',
+	{},
+	{ verb: 'list', subject: 'catalog', specialLabel: null },
+)
+check(
+	'pipelinq_logContactmoment',
+	{},
+	{ verb: 'special', subject: 'contactmoment', specialLabel: 'log' },
+)
 
 console.log('\nA name with no verb in it names itself')
 // ⚠️ "web" and "pipeline" are not verbs. Splitting on any leading lowercase run
 // invented the subjects "fetch" and "forecast", naming things that do not exist.
-check('hermiq_webSearch', {}, { verb: 'special', subject: 'webSearch', specialLabel: 'webSearch' })
-check('hermiq_webFetch', {}, { verb: 'special', subject: 'webFetch', specialLabel: 'webFetch' })
-check('pipelinq_pipelineForecast', {}, { verb: 'special', subject: 'pipelineForecast', specialLabel: 'pipelineForecast' })
+check(
+	'hermiq_webSearch',
+	{},
+	{ verb: 'special', subject: 'webSearch', specialLabel: 'webSearch' },
+)
+check(
+	'hermiq_webFetch',
+	{},
+	{ verb: 'special', subject: 'webFetch', specialLabel: 'webFetch' },
+)
+check(
+	'pipelinq_pipelineForecast',
+	{},
+	{
+		verb: 'special',
+		subject: 'pipelineForecast',
+		specialLabel: 'pipelineForecast',
+	},
+)
 
 console.log('\nDots and underscores are one separator')
-check('pipelinq.lead.search', { subject: 'lead', action: 'search' },
-	{ verb: 'list', subject: 'lead', specialLabel: null })
+check(
+	'pipelinq.lead.search',
+	{ subject: 'lead', action: 'search' },
+	{ verb: 'list', subject: 'lead', specialLabel: null },
+)
 assert.strictEqual(joinKey('pipelinq.lead.search'), 'pipelinq_lead_search')
 assert.strictEqual(joinKey(null), '')
 

@@ -80,21 +80,31 @@ test.describe('AI companion', () => {
 		await expect(launchers(page)).toHaveCount(1, { timeout: 20_000 })
 	})
 
-	test('mounts exactly once on a Files page that frames an office document', async ({ page }) => {
+	test('mounts exactly once on a Files page that frames an office document', async ({
+		page,
+	}) => {
 		// 🔴 The Files app opens a document by embedding a FULL Nextcloud page,
 		// same-origin, inside itself — so the init script runs twice on one
 		// screen. The outer one is the keeper; the inner is clipped by the
 		// frame.
-		await page.goto('/apps/files/files/25337?dir=/&openfile=true', { waitUntil: 'domcontentloaded' })
+		await page.goto('/apps/files/files/25337?dir=/&openfile=true', {
+			waitUntil: 'domcontentloaded',
+		})
 		await page.waitForTimeout(4_000)
 
 		await expect(launchers(page)).toHaveCount(1)
 
 		// And nothing inside the frame.
 		const framed = await page.evaluate(() => {
-			const frame = document.querySelector('iframe') as HTMLIFrameElement | null
+			const frame = document.querySelector(
+				'iframe',
+			) as HTMLIFrameElement | null
 			try {
-				return frame?.contentDocument?.querySelectorAll('#hermiq-companion-root').length ?? 0
+				return (
+					frame?.contentDocument?.querySelectorAll(
+						'#hermiq-companion-root',
+					).length ?? 0
+				)
 			} catch {
 				return 0
 			}
@@ -102,7 +112,7 @@ test.describe('AI companion', () => {
 		expect(framed).toBe(0)
 	})
 
-	test('does NOT double up on Hermiq\'s own pages', async ({ page }) => {
+	test("does NOT double up on Hermiq's own pages", async ({ page }) => {
 		// 🔴 CnAppRoot already renders a companion here. The guard used to test
 		// only the `app-hermiq` body class, which this instance never sets, so a
 		// second launcher mounted at the SAME coordinates as the first — one
@@ -119,7 +129,9 @@ test.describe('AI companion', () => {
 		await launchers(page).first().click()
 
 		const panel = page.locator(ROOT)
-		await expect(panel.getByRole('textbox').first()).toBeVisible({ timeout: 20_000 })
+		await expect(panel.getByRole('textbox').first()).toBeVisible({
+			timeout: 20_000,
+		})
 		await expect(panel).toContainText(/hermiq/i)
 
 		// The agent picker is the thing that makes the panel usable rather than
@@ -131,8 +143,13 @@ test.describe('AI companion', () => {
 		// version of this test asserted Escape, failed, and the failure was the
 		// test's assumption rather than a defect. Written down so the next
 		// person does not "fix" the component to satisfy a wrong expectation.
-		await panel.getByRole('button', { name: /close sidebar/i }).first().click()
-		await expect(panel.getByRole('textbox').first()).toBeHidden({ timeout: 10_000 })
+		await panel
+			.getByRole('button', { name: /close sidebar/i })
+			.first()
+			.click()
+		await expect(panel.getByRole('textbox').first()).toBeHidden({
+			timeout: 10_000,
+		})
 	})
 
 	test('accepts typed input and sends it', async ({ page }) => {
@@ -157,7 +174,9 @@ test.describe('AI companion', () => {
 	test('carries the open document as context on a file page', async ({ page }) => {
 		// The companion reads the open file id so the assistant can be asked
 		// about the document on screen without the user pasting an id.
-		await page.goto('/apps/files/files/25337?dir=/&openfile=true', { waitUntil: 'domcontentloaded' })
+		await page.goto('/apps/files/files/25337?dir=/&openfile=true', {
+			waitUntil: 'domcontentloaded',
+		})
 		await page.waitForTimeout(3_000)
 
 		const hasContext = await page.evaluate(() => {
@@ -167,19 +186,27 @@ test.describe('AI companion', () => {
 		expect(hasContext).toBe(true)
 	})
 
-	test('the companion bundle is served as JavaScript, not an error page', async ({ page }) => {
+	test('the companion bundle is served as JavaScript, not an error page', async ({
+		page,
+	}) => {
 		// ⚠️ The publicPath fault produced a 200 whose body was Nextcloud's HTML
 		// error page. A status-only check called that healthy; only the MIME
 		// type gave it away. Assert the type, not the status.
 		await page.goto('/apps/files/', { waitUntil: 'domcontentloaded' })
 
 		const probe = await page.evaluate(async () => {
-			const tag = document.querySelector('script[src*="hermiq-companion"]') as HTMLScriptElement | null
+			const tag = document.querySelector(
+				'script[src*="hermiq-companion"]',
+			) as HTMLScriptElement | null
 			if (tag === null) {
 				return { found: false, status: 0, type: '' }
 			}
 			const res = await fetch(tag.src)
-			return { found: true, status: res.status, type: res.headers.get('content-type') || '' }
+			return {
+				found: true,
+				status: res.status,
+				type: res.headers.get('content-type') || '',
+			}
 		})
 
 		expect(probe.found).toBe(true)
@@ -200,7 +227,9 @@ test.describe('AI companion', () => {
 
 		// Only OUR errors: the host page carries third-party noise this suite
 		// has no business failing on.
-		const ours = errors.filter((e) => /hermiq|companion|ChunkLoadError|not a constructor/i.test(e))
+		const ours = errors.filter((e) =>
+			/hermiq|companion|ChunkLoadError|not a constructor/i.test(e),
+		)
 		expect(ours, ours.join('\n')).toHaveLength(0)
 	})
 })

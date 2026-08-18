@@ -53,7 +53,14 @@
 				</NcCheckboxRadioSwitch>
 
 				<span class="grant-matrix__count">
-					{{ n('hermiq', '%n right granted', '%n rights granted', grantedCount) }}
+					{{
+						n(
+							'hermiq',
+							'%n right granted',
+							'%n rights granted',
+							grantedCount,
+						)
+					}}
 					·
 					{{ n('hermiq', '%n tool', '%n tools', totalTools) }}
 				</span>
@@ -62,9 +69,11 @@
 			<NcEmptyContent
 				v-if="visibleClusters.length === 0"
 				:name="t('hermiq', 'Nothing matches')"
-				:description="grantedOnly
-					? t('hermiq', 'No granted tool matches this filter.')
-					: t('hermiq', 'No tool matches this filter.')" />
+				:description="
+					grantedOnly
+						? t('hermiq', 'No granted tool matches this filter.')
+						: t('hermiq', 'No tool matches this filter.')
+				" />
 
 			<div
 				v-for="cluster in visibleClusters"
@@ -79,12 +88,28 @@
 					<ChevronDownIcon
 						:size="20"
 						class="grant-matrix__chevron"
-						:class="{ 'grant-matrix__chevron--open': isOpen(cluster.id) }" />
-					<span class="grant-matrix__cluster-name">{{ cluster.label }}</span>
+						:class="{
+							'grant-matrix__chevron--open': isOpen(cluster.id),
+						}" />
+					<span class="grant-matrix__cluster-name">{{
+						cluster.label
+					}}</span>
 					<span class="grant-matrix__cluster-meta">
-						{{ n('hermiq', '%n subject', '%n subjects', cluster.rows.length) }}
+						{{
+							n(
+								'hermiq',
+								'%n subject',
+								'%n subjects',
+								cluster.rows.length,
+							)
+						}}
 						<template v-if="cluster.grantedCount > 0">
-							· {{ t('hermiq', '{count} granted', { count: cluster.grantedCount }) }}
+							·
+							{{
+								t('hermiq', '{count} granted', {
+									count: cluster.grantedCount,
+								})
+							}}
 						</template>
 					</span>
 				</button>
@@ -111,8 +136,12 @@
 						<tbody>
 							<tr v-for="row in cluster.rows" :key="row.id">
 								<th scope="row" class="grant-matrix__subject">
-									<span class="grant-matrix__subject-name">{{ row.label }}</span>
-									<span v-if="row.description" class="grant-matrix__subject-desc">
+									<span class="grant-matrix__subject-name">{{
+										row.label
+									}}</span>
+									<span
+										v-if="row.description"
+										class="grant-matrix__subject-desc">
 										{{ row.description }}
 									</span>
 								</th>
@@ -120,7 +149,10 @@
 									v-for="verb in cluster.verbs"
 									:key="verb"
 									class="grant-matrix__cell"
-									:class="{ 'grant-matrix__cell--special': verb === 'special' }">
+									:class="{
+										'grant-matrix__cell--special':
+											verb === 'special',
+									}">
 									<!--
 										The SPECIAL column holds named actions, not one
 										anonymous tick. `sendMail` and `delegateAgent` are
@@ -130,13 +162,24 @@
 										identify.
 									-->
 									<template v-if="verb === 'special'">
-										<span v-if="row.specials.length === 0" class="grant-matrix__absent" aria-hidden="true">—</span>
+										<span
+											v-if="row.specials.length === 0"
+											class="grant-matrix__absent"
+											aria-hidden="true"
+											>—</span
+										>
 										<span
 											v-for="special in row.specials"
 											:key="special.id"
 											class="grant-matrix__special"
 											:title="special.description">
-											<span class="grant-matrix__special-name">{{ special.specialLabel || special.id }}</span>
+											<span
+												class="grant-matrix__special-name"
+												>{{
+													special.specialLabel
+													|| special.id
+												}}</span
+											>
 											<AsteriskIcon
 												v-if="special.wildcard"
 												:size="16"
@@ -146,12 +189,30 @@
 												:modelValue="isDrafted(special.id)"
 												type="checkbox"
 												:disabled="!canEdit || saving"
-												:aria-label="t('hermiq', 'Grant {action} on {subject}', { action: special.specialLabel || special.id, subject: row.label })"
-												@update:modelValue="toggleTool(special.id, $event)" />
+												:aria-label="
+													t(
+														'hermiq',
+														'Grant {action} on {subject}',
+														{
+															action:
+																special.specialLabel
+																|| special.id,
+															subject: row.label,
+														},
+													)
+												"
+												@update:modelValue="
+													toggleTool(special.id, $event)
+												" />
 										</span>
 									</template>
 
-									<span v-else-if="!row.tools[verb]" class="grant-matrix__absent" aria-hidden="true">—</span>
+									<span
+										v-else-if="!row.tools[verb]"
+										class="grant-matrix__absent"
+										aria-hidden="true"
+										>—</span
+									>
 
 									<!--
 										A wildcard grant is a THIRD state, not a ticked box.
@@ -163,7 +224,13 @@
 									<span
 										v-else-if="row.tools[verb].wildcard"
 										class="grant-matrix__wildcard"
-										:title="t('hermiq', 'Granted by the wildcard {grant}. Edit that grant to change it.', { grant: row.tools[verb].grantedBy })">
+										:title="
+											t(
+												'hermiq',
+												'Granted by the wildcard {grant}. Edit that grant to change it.',
+												{ grant: row.tools[verb].grantedBy },
+											)
+										">
 										<AsteriskIcon :size="16" />
 										<span class="hidden-visually">
 											{{ t('hermiq', 'Granted via wildcard') }}
@@ -176,7 +243,9 @@
 										type="checkbox"
 										:disabled="!canEdit || saving"
 										:aria-label="ariaFor(cluster, row, verb)"
-										@update:modelValue="toggleTool(row.tools[verb].id, $event)" />
+										@update:modelValue="
+											toggleTool(row.tools[verb].id, $event)
+										" />
 								</td>
 							</tr>
 						</tbody>
@@ -286,7 +355,8 @@ export default {
 				// A tool granted by something OTHER than its own id is held
 				// through a wildcard or verb subset. That is a different kind of
 				// grant and must not render as an ordinary tick.
-				const wildcard = tool.granted === true
+				const wildcard =
+					tool.granted === true
 					&& typeof tool.grantedBy === 'string'
 					&& tool.grantedBy !== tool.id
 
@@ -318,9 +388,11 @@ export default {
 			const needle = this.filter.trim().toLowerCase()
 
 			return this.tools.filter((tool) => {
-				if (this.grantedOnly === true
+				if (
+					this.grantedOnly === true
 					&& this.isDrafted(tool.id) === false
-					&& tool.wildcard === false) {
+					&& tool.wildcard === false
+				) {
 					return false
 				}
 
@@ -466,9 +538,10 @@ export default {
 			// the next means the eye cannot run down a column, and an empty
 			// `delete` cell is itself information — nobody can delete this.
 			const hasSpecial = cluster.tools.some((tool) => tool.verb === 'special')
-			const verbs = hasSpecial === true
-				? [...CANONICAL_VERBS, 'special']
-				: [...CANONICAL_VERBS]
+			const verbs =
+				hasSpecial === true
+					? [...CANONICAL_VERBS, 'special']
+					: [...CANONICAL_VERBS]
 
 			const rows = new Map()
 			for (const tool of cluster.tools) {
@@ -497,11 +570,14 @@ export default {
 				}
 			}
 
-			const shapedRows = [...rows.values()].sort((a, b) => a.label.localeCompare(b.label))
+			const shapedRows = [...rows.values()].sort((a, b) =>
+				a.label.localeCompare(b.label),
+			)
 
-			const label = cluster.id === '__none__'
-				? t('hermiq', 'No application')
-				: cluster.id
+			const label =
+				cluster.id === '__none__'
+					? t('hermiq', 'No application')
+					: cluster.id
 			const grantedCount = cluster.tools.filter(
 				(tool) => this.isDrafted(tool.id) || tool.wildcard,
 			).length

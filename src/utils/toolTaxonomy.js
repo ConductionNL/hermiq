@@ -35,11 +35,22 @@ export const CANONICAL_VERBS = ['create', 'read', 'update', 'list', 'delete']
  * @type {Object<string, string>}
  */
 export const VERB_ALIASES = {
-	create: 'create', add: 'create', new: 'create',
-	list: 'list', search: 'list', find: 'list',
-	read: 'read', get: 'read', fetch: 'read',
-	update: 'update', edit: 'update', set: 'update', upsert: 'update',
-	delete: 'delete', remove: 'delete', destroy: 'delete',
+	create: 'create',
+	add: 'create',
+	new: 'create',
+	list: 'list',
+	search: 'list',
+	find: 'list',
+	read: 'read',
+	get: 'read',
+	fetch: 'read',
+	update: 'update',
+	edit: 'update',
+	set: 'update',
+	upsert: 'update',
+	delete: 'delete',
+	remove: 'delete',
+	destroy: 'delete',
 }
 
 /**
@@ -56,9 +67,22 @@ export const VERB_ALIASES = {
  * @type {Set<string>}
  */
 export const SPECIAL_VERBS = new Set([
-	'delegate', 'recommend', 'remember', 'recall', 'forget',
-	'send', 'convert', 'generate', 'log', 'promote', 'request',
-	'start', 'publish', 'render', 'sign', 'validate',
+	'delegate',
+	'recommend',
+	'remember',
+	'recall',
+	'forget',
+	'send',
+	'convert',
+	'generate',
+	'log',
+	'promote',
+	'request',
+	'start',
+	'publish',
+	'render',
+	'sign',
+	'validate',
 ])
 
 /**
@@ -143,14 +167,16 @@ export function classify(verb, subject) {
  * @return {{verb: string, subject: string}|null} The split, or null when no segment is a verb.
  */
 export function splitOnVerbSegment(parts) {
-	const index = parts.findIndex(part =>
-		VERB_ALIASES[part] !== undefined || SPECIAL_VERBS.has(part) === true)
+	const index = parts.findIndex(
+		(part) =>
+			VERB_ALIASES[part] !== undefined || SPECIAL_VERBS.has(part) === true,
+	)
 
 	if (index === -1) {
 		return null
 	}
 
-	const isLast = index === (parts.length - 1)
+	const isLast = index === parts.length - 1
 	if (isLast === true && index >= 2) {
 		return { verb: parts[index], subject: parts.slice(1, index).join('_') }
 	}
@@ -205,8 +231,12 @@ export function parseVerbAndSubject(id, taxonomy = {}) {
 	// Everything below this point is a FALLBACK for tools that declare nothing,
 	// and it is guesswork. The fix for those is to declare their subject and
 	// action at the source, not to improve the guessing.
-	if (typeof taxonomy.subject === 'string' && taxonomy.subject !== ''
-		&& typeof taxonomy.action === 'string' && taxonomy.action !== '') {
+	if (
+		typeof taxonomy.subject === 'string'
+		&& taxonomy.subject !== ''
+		&& typeof taxonomy.action === 'string'
+		&& taxonomy.action !== ''
+	) {
 		return classify(taxonomy.action, taxonomy.subject)
 	}
 
@@ -223,8 +253,10 @@ export function parseVerbAndSubject(id, taxonomy = {}) {
 	const name = parts.length === 2 ? parts[1] : (parts[0] ?? String(id))
 	const match = name.match(/^([a-z]+)([A-Z].*)$/)
 	const leading = match === null ? null : match[1]
-	const isVerb = leading !== null
-		&& (VERB_ALIASES[leading] !== undefined || SPECIAL_VERBS.has(leading) === true)
+	const isVerb =
+		leading !== null
+		&& (VERB_ALIASES[leading] !== undefined
+			|| SPECIAL_VERBS.has(leading) === true)
 
 	if (isVerb === true) {
 		const subject = match[2].charAt(0).toLowerCase() + match[2].slice(1)

@@ -65,7 +65,10 @@ async function openFirstAgent(page: Page): Promise<string> {
 		return Array.isArray(list) && list.length > 0 ? String(list[0].id) : ''
 	})
 
-	expect(id, 'the instance must have at least one agent to grant tools to').not.toBe('')
+	expect(
+		id,
+		'the instance must have at least one agent to grant tools to',
+	).not.toBe('')
 
 	await page.goto(`/apps/hermiq/agents/${id}`, { waitUntil: 'domcontentloaded' })
 	await expect(page.getByText('Tool grants')).toBeVisible({ timeout: 30_000 })
@@ -87,11 +90,16 @@ test.describe('tool grant matrix', () => {
 		await login(page)
 	})
 
-	test('renders one cluster per app, each counting its subjects', async ({ page }) => {
+	test('renders one cluster per app, each counting its subjects', async ({
+		page,
+	}) => {
 		await openFirstAgent(page)
 
 		const count = await clusterToggles(page).count()
-		expect(count, 'the matrix should group tools into per-app clusters').toBeGreaterThan(3)
+		expect(
+			count,
+			'the matrix should group tools into per-app clusters',
+		).toBeGreaterThan(3)
 	})
 
 	test('a cluster opens to the five canonical columns', async ({ page }) => {
@@ -105,7 +113,9 @@ test.describe('tool grant matrix', () => {
 		const table = page.locator('table').first()
 		await expect(table).toBeVisible({ timeout: 10_000 })
 
-		const header = (await table.locator('thead').first().innerText()).toUpperCase()
+		const header = (
+			await table.locator('thead').first().innerText()
+		).toUpperCase()
 		for (const column of CANONICAL) {
 			expect(header, `the ${column} column must be present`).toContain(column)
 		}
@@ -118,8 +128,22 @@ test.describe('tool grant matrix', () => {
 		// a row called "create". A verb is never a thing a right acts ON, so a
 		// row named for one is proof the parse inverted — whatever the app.
 		const verbs = new Set([
-			'create', 'read', 'update', 'list', 'delete', 'get', 'set', 'add',
-			'search', 'find', 'remove', 'edit', 'new', 'fetch', 'upsert', 'destroy',
+			'create',
+			'read',
+			'update',
+			'list',
+			'delete',
+			'get',
+			'set',
+			'add',
+			'search',
+			'find',
+			'remove',
+			'edit',
+			'new',
+			'fetch',
+			'upsert',
+			'destroy',
 		])
 
 		const toggles = clusterToggles(page)
@@ -132,14 +156,22 @@ test.describe('tool grant matrix', () => {
 		// The subject cell is a `th[scope=row]`, not a `td` — the row header IS
 		// the subject, and the name is its own span so the description below it
 		// does not end up in the comparison.
-		const subjects = await page.locator('.grant-matrix__subject-name').allInnerTexts()
-		expect(subjects.length, 'the open clusters must actually contain rows').toBeGreaterThan(10)
+		const subjects = await page
+			.locator('.grant-matrix__subject-name')
+			.allInnerTexts()
+		expect(
+			subjects.length,
+			'the open clusters must actually contain rows',
+		).toBeGreaterThan(10)
 
 		const offenders = subjects
 			.map((text) => text.trim().toLowerCase())
 			.filter((label) => verbs.has(label))
 
-		expect(offenders, 'a subject row named after a verb means the id parsed backwards').toEqual([])
+		expect(
+			offenders,
+			'a subject row named after a verb means the id parsed backwards',
+		).toEqual([])
 	})
 
 	test('a cluster has fewer rows than it has tools', async ({ page }) => {
@@ -156,7 +188,7 @@ test.describe('tool grant matrix', () => {
 			})
 			const body = await response.json()
 			const perApp: Record<string, number> = {}
-			for (const tool of (body.results ?? [])) {
+			for (const tool of body.results ?? []) {
 				const app = String(tool.app ?? '')
 				perApp[app] = (perApp[app] ?? 0) + 1
 			}
@@ -178,11 +210,16 @@ test.describe('tool grant matrix', () => {
 			}
 
 			compared++
-			expect(subjects, `${app}: ${tools} tools collapsed into ${subjects} subjects`)
-				.toBeLessThan(tools)
+			expect(
+				subjects,
+				`${app}: ${tools} tools collapsed into ${subjects} subjects`,
+			).toBeLessThan(tools)
 		}
 
-		expect(compared, 'at least one app must have enough tools to prove collapsing').toBeGreaterThan(0)
+		expect(
+			compared,
+			'at least one app must have enough tools to prove collapsing',
+		).toBeGreaterThan(0)
 	})
 
 	test('a special verb is labelled with what it grants', async ({ page }) => {
@@ -197,16 +234,27 @@ test.describe('tool grant matrix', () => {
 			await toggles.nth(index).click()
 		}
 
-		const headers = (await page.locator('table thead').allInnerTexts()).join(' ').toUpperCase()
-		expect(headers, 'some app on this instance must have a non-canonical verb')
-			.toContain('SPECIAL')
+		const headers = (await page.locator('table thead').allInnerTexts())
+			.join(' ')
+			.toUpperCase()
+		expect(
+			headers,
+			'some app on this instance must have a non-canonical verb',
+		).toContain('SPECIAL')
 
 		// The name sits ABOVE its checkbox, which is what makes the tick
 		// meaningful: "special" alone says a right exists without saying which.
-		const named = await page.locator('.grant-matrix__special-name').allInnerTexts()
-		expect(named.length, 'a special column must carry its verb name').toBeGreaterThan(0)
+		const named = await page
+			.locator('.grant-matrix__special-name')
+			.allInnerTexts()
+		expect(
+			named.length,
+			'a special column must carry its verb name',
+		).toBeGreaterThan(0)
 		for (const label of named) {
-			expect(label.trim(), 'a special verb must be named, not blank').not.toBe('')
+			expect(label.trim(), 'a special verb must be named, not blank').not.toBe(
+				'',
+			)
 		}
 	})
 })
