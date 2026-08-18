@@ -863,6 +863,8 @@ class ToolOversightController extends Controller {
 	 * exercised unchanged.
 	 *
 	 * @return bool
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-5-tooloversightcontroller-routes-catalog-grants-invocations
 	 */
 	protected function richAuditAvailable(): bool {
 		return property_exists(AuditTrail::class, 'toolId');
