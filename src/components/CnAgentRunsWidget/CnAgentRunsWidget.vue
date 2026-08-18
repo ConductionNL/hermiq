@@ -126,6 +126,9 @@ export default {
 
 	methods: {
 		t,
+		/**
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
 		statusLabel(status) {
 			const map = {
 				ok: t('hermiq', 'Completed'),
