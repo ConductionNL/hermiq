@@ -716,6 +716,9 @@ export default {
 		},
 
 		/** @return {string} The current zoom, for the reset button's label. */
+		/**
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
 		zoomPercent() {
 			return `${Math.round(this.zoom * 100)}%`
 		},
@@ -769,6 +772,9 @@ export default {
 		this.editor.load(this.id)
 	},
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	mounted() {
 		window.addEventListener('keydown', this.onKeydown)
 		// Bound on the WINDOW, not the label: a drag that leaves the chip must
@@ -1171,6 +1177,9 @@ export default {
 			)
 		},
 
+		/**
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
 		onCanvasResize(payload) {
 			const id = String(payload?.id || '')
 			if (id.startsWith(ANNOTATION_ID_PREFIX)) {
@@ -1833,6 +1842,7 @@ export default {
 		 *
 		 * @param {object} node The place.
 		 * @return {string} The label.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodeLabel(node) {
 			return node.name || node.id
@@ -1941,6 +1951,7 @@ export default {
 		 *
 		 * @param {object} edge The step.
 		 * @return {object|null} The log entry.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		resultFor(edge) {
 			if (!edge) {
@@ -1969,6 +1980,7 @@ export default {
 		 * @param {{x: number, y: number}} from Source centre.
 		 * @param {{x: number, y: number}} to   Target centre.
 		 * @return {string} The path.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		edgePath(from, to) {
 			return this.edgeGeometry(from, to).d
