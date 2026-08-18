@@ -1039,6 +1039,11 @@ class ProviderFactory {
 	 * @throws ProviderUnavailableException When the turn cannot be governed (503).
 	 *
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$pooled` is a genuine two-mode
+	 *   selector, not a switch over two behaviours that wanted separate methods: a
+	 *   pooled token binds to a warmed process that outlives the turn, a per-turn
+	 *   token does not, and every call site passes it BY NAME (`pooled: true`).
 	 */
 	private function mintGovernedRunToken(
 		?string $agentId,
@@ -1526,6 +1531,13 @@ class ProviderFactory {
 	 *                    turn will need.
 	 *
 	 * @return bool True when a warm-up was dispatched.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$governed` is a genuine
+	 *   two-mode selector. The warmed process must be built EXACTLY as the first
+	 *   turn will build it — same argv, same token, same mcp config — so the
+	 *   posture is an input to one procedure rather than two procedures sharing a
+	 *   name. Splitting it would be the way to get the two out of step, which is
+	 *   the failure the warm-up exists to avoid. Passed by name at the call site.
 	 */
 	public function warmAnthropicCli(
 		string $credentialId,

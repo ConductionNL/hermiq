@@ -141,7 +141,7 @@ class McpRunController extends Controller {
 	 * @param ToolSearchService $toolSearchService Holds the run's resolved set for the approval gate.
 	 * @param IUserManager $userManager Resolves the token's user to an `IUser`.
 	 * @param IUserSession $userSession Impersonates that user for RBAC on dispatch.
-	 * @param IThrottler $throttler Rate-limits bearer-token attempts.
+	 * @param IThrottler $throttler Brute-force protection for run-token authentication.
 	 * @param RunStepBus $runStepBus Publishes run steps to whichever surface is watching.
 	 * @param LoggerInterface $logger PSR-3 logger (never receives a token value).
 	 *
@@ -730,6 +730,8 @@ class McpRunController extends Controller {
 	 * tests can override it without stubbing `php://input`.
 	 *
 	 * @return string The raw request body, or '' when unreadable.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-hermiq-serves-a-governed-mcp-endpoint-scoped-to-a-single-run
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');

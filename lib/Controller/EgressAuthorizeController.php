@@ -85,9 +85,7 @@ class EgressAuthorizeController extends Controller {
 	 *                                      dependency-free — no second allowlist).
 	 * @param WebResearchSettingsHandler $settingsHandler Reads the same allowlist/denylist/insecure
 	 *                                                    knobs `hermiq.webFetch` reads.
-	 * @param IThrottler $throttler Brute-force protection for rejected per-run tokens,
-	 *                              registered under THROTTLE_ACTION so a caller guessing
-	 *                              tokens is slowed rather than merely refused.
+	 * @param IThrottler $throttler Brute-force protection for rejected per-run tokens.
 	 */
 	public function __construct(
 		IRequest $request,
@@ -187,6 +185,8 @@ class EgressAuthorizeController extends Controller {
 	 * tests can override it without stubbing `php://input`.
 	 *
 	 * @return string The raw request body, or '' when unreadable.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');

@@ -103,6 +103,7 @@ class ObjectService {
 	 * @param bool $_rbac Whether RBAC applies.
 	 * @param bool $_multitenancy Whether multi-tenancy applies.
 	 * @param bool $silent Whether to skip event dispatch (mirrors the real service).
+	 * @param bool $_validation Whether schema validation applies (mirrors the real service).
 	 * @param array|null $uploadedFiles Uploaded files to attach (mirrors the real service).
 	 * @param \OCP\IUser|null $currentUser Acting user override (mirrors the real service).
 	 *
@@ -117,6 +118,11 @@ class ObjectService {
 		bool $_rbac = true,
 		bool $_multitenancy = true,
 		bool $silent = false,
+		// Position matters: the real service declares `$_validation` BETWEEN
+		// `$silent` and `$uploadedFiles`. A double that drifts from the real
+		// signature is a FATAL, not a failed assertion — PHP refuses to declare
+		// any subclass and the whole suite dies at load time, before it runs.
+		bool $_validation = true,
 		?array $uploadedFiles = null,
 		?\OCP\IUser $currentUser = null,
 		// openregister#2211 (insert-only saves) added this. A double that

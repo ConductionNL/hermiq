@@ -357,6 +357,7 @@ export default {
 		 * Load the user's broker credentials.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/web-research-tool/tasks.md#task-8-admin-settings-ui-for-the-web-research-backend
 		 */
 		async fetchCredentials() {
 			this.loadingCredentials = true

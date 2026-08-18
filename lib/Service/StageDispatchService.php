@@ -163,9 +163,8 @@ class StageDispatchService {
 	 *                                this cannot be used to pull a proxied secret into the
 	 *                                container. Empty means the stage runs without a model,
 	 *                                which is every stage that shipped before this parameter.
-	 * @param array $collect Declares what the runner should hand back beyond the exit code
-	 *                       and output — the files or paths a later step reads. Empty means
-	 *                       the stage returns its result only, which is the default.
+	 * @param array $collect Artefacts to read back out of the clone, or [] to collect
+	 *                       nothing. Passed through to the runner only when non-empty.
 	 *
 	 * @return array{exitCode: int, output: string, ref: string, files?: array} The stage result.
 	 *
@@ -395,15 +394,16 @@ class StageDispatchService {
 	 * @param string $toolRef Tool tree ref, or ''.
 	 * @param array $push Push declaration, or [] for a read-only stage.
 	 * @param string $pushCredentialId The injectable credential, or '' to reuse $credentialId.
-	 * @param string $llmCredentialId The injectable model credential, or '' when the stage
+	 * @param string $llmCredentialId The injectable model credential, or '' for a stage that
 	 *                                runs without a model.
-	 * @param array $collect What the runner should hand back beyond exit code and output,
-	 *                       or [] for the result alone.
+	 * @param array $collect Artefacts to read back out of the clone, or [].
 	 *
 	 * @return array The request payload.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()`; see the reason
 	 *   stated there. This method is the boundary in question.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function buildParams(
 		string $repo,
@@ -574,6 +574,8 @@ class StageDispatchService {
 	 * @return string|null Base64 `.tar.gz`, or null when it could not be fetched.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function fetchToolArchive(string $credentialId, ?string $uid, string $repo, string $ref): ?string {
 		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
@@ -646,6 +648,8 @@ class StageDispatchService {
 	 * @throws RuntimeException When the broker is absent or refuses.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function resolveForgeToken(string $credentialId, ?string $uid): ?string {
 		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
@@ -715,6 +719,8 @@ class StageDispatchService {
 	 * @param string $body The response body.
 	 *
 	 * @return string The reason, or a static fallback.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function reasonFrom(string $body): string {
 		$decoded = json_decode($body, true);
@@ -770,6 +776,8 @@ class StageDispatchService {
 	 * @param array $collect Artefacts to read back out of the clone, or [].
 	 *
 	 * @return array The payload, with `collect` set only when one was declared.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function withCollect(array $params, array $collect): array {
 		if ($collect !== []) {
@@ -780,17 +788,22 @@ class StageDispatchService {
 	}//end withCollect()
 
 	/**
-	 * Read the runner's response body as a stage result.
+	 * Map the runner's response body onto a stage result.
 	 *
-	 * ⚠️ A body with no `exitCode` is REFUSED rather than defaulted. Treating a
-	 * missing exit code as 0 would report a stage that never ran as a stage that
-	 * succeeded, which is the one failure mode a result mapper must not have.
+	 * `protected` for the same stated reason as `withCollect()` and `reasonFrom()`:
+	 * a shape check nothing exercises is a shape check that silently stops holding.
 	 *
-	 * @param string $body The runner's raw response body.
+	 * A body that is not a stage result throws — a command that ran and exited
+	 * non-zero is NOT that case, it is the result, and it is returned.
 	 *
-	 * @return array The decoded stage result.
+	 * @param string $body The raw response body from the runner.
+	 *
+	 * @return array{exitCode: int, output: string, ref: string, files?: array, push?: array}
+	 *         The stage result.
 	 *
 	 * @throws RuntimeException When the body is not a stage result.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function mapResult(string $body): array {
 		$decoded = json_decode($body, true);

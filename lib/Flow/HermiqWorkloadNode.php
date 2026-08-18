@@ -86,11 +86,12 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * @param StageDispatchService $stages The ExApp stage dispatcher.
 	 * @param IL10N $l10n Translations.
 	 * @param IURLGenerator $urls For the palette icon.
-	 * @param AsyncStageDispatchService|null $asyncStages The dispatcher used when a step
-	 *                                                    runs asynchronously. Null means
-	 *                                                    async is unavailable, and the
-	 *                                                    node refuses rather than quietly
-	 *                                                    falling back to a synchronous run.
+	 * @param AsyncStageDispatchService|null $asyncStages Optional async dispatcher; added
+	 *                                                    LAST so existing positional
+	 *                                                    construction keeps binding.
+	 *                                                    Null means async is unavailable
+	 *                                                    and the node REFUSES, rather than
+	 *                                                    quietly running synchronously.
 	 */
 	public function __construct(
 		private readonly StageDispatchService $stages,
@@ -329,7 +330,7 @@ class HermiqWorkloadNode implements IFlowNode {
 				json: $json,
 				owner: $owner,
 				credentialId: $credentialId,
-				pushCredentialId: $pushCredentialId
+				pushCredentialId: $pushCredentialId,
 			);
 		}
 

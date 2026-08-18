@@ -42,6 +42,7 @@ import FlaskOutline from 'vue-material-design-icons/FlaskOutline.vue'
 import ForumOutline from 'vue-material-design-icons/ForumOutline.vue'
 import Gauge from 'vue-material-design-icons/Gauge.vue'
 import History from 'vue-material-design-icons/History.vue'
+import KeyOutline from 'vue-material-design-icons/KeyOutline.vue'
 import LinkVariant from 'vue-material-design-icons/LinkVariant.vue'
 import MapMarkerPath from 'vue-material-design-icons/MapMarkerPath.vue'
 import MessageOutline from 'vue-material-design-icons/MessageOutline.vue'
@@ -105,6 +106,7 @@ export default {
 	ForumOutline,
 	Gauge,
 	History,
+	KeyOutline,
 	LinkVariant,
 	MapMarkerPath,
 	MessageOutline,

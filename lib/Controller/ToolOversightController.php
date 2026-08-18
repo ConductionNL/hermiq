@@ -71,6 +71,12 @@ use Throwable;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Sum of many small guard-and-shape
  *   endpoint methods (catalog, grants, invocations, export) — a governance read/write
  *   surface, not one tangled algorithm.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     Same shape, measured on length rather
+ *   than branches: the class is one routed endpoint per governance operation, each a
+ *   short guard-then-shape method, and roughly half its lines are the docblocks that
+ *   record WHY each endpoint's auth posture is what it is. Splitting it by line count
+ *   would put sibling endpoints over the same `Agent.tools` field in different files
+ *   and separate those auth rationales from the methods they govern.
  */
 class ToolOversightController extends Controller {
 
@@ -937,6 +943,8 @@ class ToolOversightController extends Controller {
 	 * exercised unchanged.
 	 *
 	 * @return bool
+	 *
+	 * @spec openspec/changes/archive/2026-07-13-agent-tool-governance-and-disclosure/tasks.md#task-5-tooloversightcontroller-routes-catalog-grants-invocations
 	 */
 	protected function richAuditAvailable(): bool {
 		return property_exists(AuditTrail::class, 'toolId');

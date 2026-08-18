@@ -140,6 +140,14 @@ use Throwable;
  * damage shows up as an empty tool catalogue rather than a fatal.
  *
  * @spec openspec/specs/nc-native-tools/spec.md#requirement-nc-native-capabilities-registered-as-imcptoolprovider-tools
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength) Measured, not waved through: of this
+ *   class's lines, `TOOL_DESCRIPTORS` alone is ~346 — a declarative table of tool
+ *   metadata (id, reach, description, inputSchema, hints) with no control flow in it
+ *   at all. The rule is counting a data literal. The table is deliberately adjacent to
+ *   the `invokeTool()` switch that dispatches it, because a descriptor whose id no
+ *   longer matches a case is a tool that advertises itself and then fails to run;
+ *   keeping the two in one file is what makes that mismatch visible in review.
  */
 class HermiqToolProvider implements IMcpToolProvider {
 
@@ -539,9 +547,13 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                           lazy Notes resolution all live there.
 	 * @param MailReadService $mailReadService Read-only mail (nc-mail-read-tools) —
 	 *                                         AI-feature gate and lazy Mail resolution live there.
-	 * @param ToolAccessRequestService $accessRequests Backs `requestToolAccess`: an agent that
-	 *                                                 hits a tool it lacks can ask its owner for
-	 *                                                 it instead of silently failing.
+	 * @param ToolAccessRequestService $accessRequests Discovery past the grant and the
+	 *                                                 request that can widen it
+	 *                                                 (tool-discovery-and-access-requests) —
+	 *                                                 backs `listAvailableTools` and
+	 *                                                 `requestToolAccess`. Raising a request
+	 *                                                 grants nothing; only the agent's owner
+	 *                                                 can write `Agent.tools`.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of thirteen distinct capabilities.

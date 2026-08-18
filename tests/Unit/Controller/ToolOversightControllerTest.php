@@ -705,4 +705,152 @@ class ToolOversightControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
 
 	}//end testToolInvocationsNotFound()
+
+	/**
+	 * Serve the agent object and the tool-access-request object from one `find()`.
+	 *
+	 * ⚠️ Keyed on the FIRST POSITIONAL argument only. `ToolOversightController`
+	 * calls `find(id: …, register: …, schema: …)` with NAMED arguments, but a
+	 * PHPUnit mock cannot observe argument names: it resolves them against the
+	 * real `ObjectService::find()` signature and then invokes this callback
+	 * POSITIONALLY. Matching on `$args[0]` (the id) is therefore the only
+	 * binding that cannot silently invert if a parameter is inserted upstream —
+	 * and the agent id and request id are distinct strings, so it is unambiguous.
+	 *
+	 * @param ObjectEntity|null $agent   The agent to serve for 'agent-1'.
+	 * @param array<string, mixed>|null $request The request payload for 'req-1'.
+	 *
+	 * @return void
+	 */
+	private function serveAgentAndRequest(?ObjectEntity $agent, ?array $request): void {
+		$this->objectService->method('find')->willReturnCallback(
+			function (...$args) use ($agent, $request): ?ObjectEntity {
+				$id = (string)($args[0] ?? '');
+				if ($id === 'agent-1') {
+					return $agent;
+				}
+
+				if ($id === 'req-1' && $request !== null) {
+					$entity = new ObjectEntity();
+					$entity->setUuid('req-1');
+					$entity->setObject($request);
+					return $entity;
+				}
+
+				return null;
+			}
+		);
+
+	}//end serveAgentAndRequest()
+
+	/**
+	 * A user who does not own the agent gets the SAME 404 as a missing request,
+	 * and nothing is written.
+	 *
+	 * This is the endpoint's IDOR guard. The refusal must not distinguish "not
+	 * yours" from "no such request": a distinct status would let any authenticated
+	 * user enumerate which tool-access requests exist on agents they do not own.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveToolAccessRequestRefusesNonOwnerWithoutWriting(): void {
+		// Owned by bob; the session user is alice.
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'bob'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->request->method('getParam')->willReturn('granted');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+	}//end testResolveToolAccessRequestRefusesNonOwnerWithoutWriting()
+
+	/**
+	 * A request belonging to a DIFFERENT agent cannot be resolved through this
+	 * agent's URL, even by that agent's legitimate owner.
+	 *
+	 * Without this check the owner of any agent could resolve any request in the
+	 * register by quoting its id under their own agent — and the grant would then
+	 * be written to THEIR agent, harvesting a tool another owner was asked for.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveToolAccessRequestRefusesRequestRaisedForAnotherAgent(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'alice'),
+			['agentId' => 'someone-elses-agent', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->request->method('getParam')->willReturn('granted');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+	}//end testResolveToolAccessRequestRefusesRequestRaisedForAnotherAgent()
+
+	/**
+	 * Only 'granted' and 'refused' are decisions; anything else is a 400 and
+	 * writes nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-an-agent-must-be-able-to-request-access-and-must-not-be-able-to-grant-it
+	 */
+	public function testResolveToolAccessRequestRejectsAnUnknownDecision(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->request->method('getParam')->willReturn('maybe');
+		$this->objectService->expects($this->never())->method('saveObject');
+
+		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+		$this->assertSame(Http::STATUS_BAD_REQUEST, $response->getStatus());
+
+	}//end testResolveToolAccessRequestRejectsAnUnknownDecision()
+
+	/**
+	 * The owner granting a request appends exactly the REQUESTED tool to
+	 * `Agent.tools`, preserving the grants already there.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveToolAccessRequestGrantAppendsTheRequestedTool(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => ['hermiq.listFiles']], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->request->method('getParam')->willReturn('granted');
+
+		$written = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$written): ObjectEntity {
+				// Positional for the same reason serveAgentAndRequest() is.
+				$written[] = $args[0];
+				return new ObjectEntity();
+			}
+		);
+
+		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertNotSame([], $written, 'the grant write never reached ObjectService');
+		$this->assertSame(
+			['hermiq.listFiles', 'hermiq.sendMail'],
+			$written[0]['tools'],
+			'granting must APPEND the requested tool, not replace the existing grants'
+		);
+
+	}//end testResolveToolAccessRequestGrantAppendsTheRequestedTool()
 }//end class

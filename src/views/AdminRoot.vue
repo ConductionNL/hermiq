@@ -210,6 +210,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/changes/taskprocessing-consume-ui/tasks.md#task-2-3
+	 */
 	mounted() {
 		this.refresh()
 		this.refreshWebResearch()

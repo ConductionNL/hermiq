@@ -70,6 +70,10 @@ class HealthController extends Controller {
 	/**
 	 * Health check JSON. Public endpoint.
 	 *
+	 * The rate limit is deliberately generous: monitoring polls this on a short
+	 * interval, and a ceiling that trips on a normal probe cadence turns the
+	 * health check into the outage it was meant to detect.
+	 *
 	 * @PublicPage
 	 * @NoCSRFRequired
 	 *

@@ -8,6 +8,9 @@
   NIST AI RMF) coverage percentage and the gap list (every control not `satisfied`),
   computed live from Hermiq's own existing governance data — never a hand-ticked
   status. An auditor's-pack export button reuses TenantOps.vue's exact
+  /**
+   * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
+   */
   downloadJson()/Blob-download pattern. Gated server-side by
   `compliance.view-dashboard`/`compliance.export-pack` (ActionAuthService, ADR-023);
   the frontend detects a 403 from the dashboard read itself (no separate capability
@@ -194,6 +197,7 @@ export default {
 		 * Column definitions for each framework's control CnDataTable.
 		 *
 		 * @return {Array<object>} CnDataTable column descriptors.
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		controlColumns() {
 			return [
@@ -216,6 +220,7 @@ export default {
 		 * state rather than a raw error (the real gate is server-side).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		async load() {
 			this.loading = true
@@ -246,6 +251,7 @@ export default {
 		 * Blob-download pattern as TenantOps.vue's exportAudit()).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		async exportPack() {
 			this.exporting = true
@@ -269,6 +275,7 @@ export default {
 		 * @param {object} data The payload to download.
 		 * @param {string} filename The download filename.
 		 * @return {void}
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		downloadJson(data, filename) {
 			const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -289,6 +296,7 @@ export default {
 		 *
 		 * @param {string} status One of satisfied/partial/unevidenced.
 		 * @return {string} The label.
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		statusLabel(status) {
 			const labels = {

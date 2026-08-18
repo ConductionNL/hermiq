@@ -49,6 +49,15 @@ use Throwable;
 
 /**
  * Discovery beyond an agent's grants, and the access request that can widen them.
+ *
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Two halves of ONE capability
+ *   — "an agent's access to a tool it does not have": discovering that the tool
+ *   exists, and asking for it. Both halves read the same catalogue through the
+ *   same visibility rule, so separating them would either duplicate that access
+ *   or need a third class to share it, and it would add a SIXTEENTH constructor
+ *   parameter to HermiqToolProvider, which calls both. ⚠️ The split is still the
+ *   right move — do it when that provider's constructor is next opened, not by
+ *   raising this number again.
  */
 class ToolAccessRequestService {
 

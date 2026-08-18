@@ -72,6 +72,17 @@ use Psr\Log\LoggerInterface;
  * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Route-for-route port of OR's
  * ChatController (5 endpoints, each with its ported guard/error paths); splitting
  * would break the structural-parity review against the OR original.
+ * @SuppressWarnings(PHPMD.ExcessiveClassLength)     The same ground, measured on
+ * length instead of branches. The endpoints and their OpenRegister read/write
+ * helpers are the port; moving the helpers into a service would put this class
+ * and its mirror out of correspondence, which is the one property the parity
+ * review depends on. ⚠️ It is 1126 lines against a 1000 threshold and the margin
+ * only goes one way — when the port no longer needs to mirror the original,
+ * extracting the seven object-access helpers is the split to make, not another
+ * line raised here.
+ * @SuppressWarnings(PHPMD.ExcessiveParameterList)   Constructor DI: each parameter is a
+ * distinct injected collaborator, not a logic-bearing argument list. Same reason
+ * carried by BudgetController, McpRunController and AgentTemplateController.
  */
 class ChatController extends Controller {
 	use SanitizesForSaveTrait;
@@ -353,16 +364,35 @@ class ChatController extends Controller {
 
 			return new JSONResponse(data: $result, statusCode: 200);
 		} catch (Exception $e) {
-			// Determine status code from exception or default to 500.
-			$statusCode = (int)$e->getCode();
-			if ($statusCode < 400 || $statusCode >= 600) {
-				$statusCode = 500;
-			}
+			return $this->sendMessageFailureResponse(exception: $e);
+		}//end try
+	}//end sendMessage()
 
-			$this->logSendMessageFailure(exception: $e, statusCode: $statusCode);
+	/**
+	 * Shape a failed `sendMessage()` into the response the frontend expects.
+	 *
+	 * Split out of `sendMessage()` because it is a second job: the try block
+	 * produces a turn, this produces an apology, and only one of them is what
+	 * the method is named after.
+	 *
+	 * @param Exception $exception The failure.
+	 *
+	 * @return JSONResponse The error response.
+	 *
+	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
+	 */
+	private function sendMessageFailureResponse(Exception $exception): JSONResponse {
+		// An exception code outside the HTTP range is not a status — a library
+		// throwing code 0 or 23 would otherwise become a nonsense response.
+		$statusCode = (int)$exception->getCode();
+		if ($statusCode < 400 || $statusCode >= 600) {
+			$statusCode = 500;
+		}
 
-			// Determine appropriate error message based on status code.
-			$errorType = match ($statusCode) {
+		$this->logSendMessageFailure(exception: $exception, statusCode: $statusCode);
+
+		$data = [
+			'error' => match ($statusCode) {
 				400 => $this->l10n->t('Missing conversation or agentUuid'),
 				401 => $this->l10n->t('Authentication required'),
 				403 => $this->l10n->t('Access denied'),
@@ -370,23 +400,19 @@ class ChatController extends Controller {
 				422 => $this->l10n->t('Message blocked by the organisation\'s guardrail policy'),
 				503 => $this->l10n->t('AI service not configured'),
 				default => $this->l10n->t('Failed to process message'),
-			};
+			},
+			'message' => $exception->getMessage(),
+		];
 
-			$data = [
-				'error' => $errorType,
-				'message' => $e->getMessage(),
-			];
+		// A stable errorCode lets the frontend key a translated message off the
+		// case rather than matching on exception message text
+		// (agent-guardrails, GuardrailBlockedException docblock).
+		if ($exception instanceof GuardrailBlockedException) {
+			$data['errorCode'] = 'guardrail_blocked';
+		}
 
-			// A stable errorCode lets the frontend key a translated message off
-			// the case rather than matching on exception message text
-			// (agent-guardrails, GuardrailBlockedException docblock).
-			if ($e instanceof GuardrailBlockedException) {
-				$data['errorCode'] = 'guardrail_blocked';
-			}
-
-			return new JSONResponse(data: $data, statusCode: $statusCode);
-		}//end try
-	}//end sendMessage()
+		return new JSONResponse(data: $data, statusCode: $statusCode);
+	}//end sendMessageFailureResponse()
 
 	/**
 	 * Log a sendMessage() failure at the level matching its severity.

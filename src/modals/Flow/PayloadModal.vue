@@ -103,6 +103,9 @@ export default {
 
 	emits: ['close'],
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+	 */
 	setup() {
 		return { editor: useFlowEditorStore() }
 	},
@@ -115,6 +118,7 @@ export default {
 		 * so the payload on a line is the entry of the node it leaves.
 		 *
 		 * @return {object|null} The log entry.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		entry() {
 			const detail =
@@ -158,6 +162,7 @@ export default {
 		 * missing run.
 		 *
 		 * @return {string} The explanation.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		emptyReason() {
 			if (this.editor.replayRunId === null) {
@@ -177,6 +182,7 @@ export default {
 		 * The modal heading.
 		 *
 		 * @return {string} The heading.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		heading() {
 			return this.editor.payloadNodeId
@@ -201,6 +207,7 @@ export default {
 		 * @param {string} nodeId The node id.
 		 *
 		 * @return {boolean} Whether the line records that node.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		namesNode(line, nodeId) {
 			const id = String(nodeId || '')
@@ -222,6 +229,7 @@ export default {
 		 *
 		 * @param {object} envelope The `{count, truncated, items}` envelope.
 		 * @return {string} Pretty JSON.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
 		 */
 		pretty(envelope) {
 			if (!envelope) {

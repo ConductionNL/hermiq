@@ -429,6 +429,8 @@ class MailReadService {
 	 * @param string $key The MAIL_CLASSES key.
 	 *
 	 * @return object|null The service, or null.
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
 	 */
 	protected function mail(string $key): ?object {
 		$class = (self::MAIL_CLASSES[$key] ?? '');

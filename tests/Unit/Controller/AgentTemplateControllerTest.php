@@ -901,4 +901,82 @@ class AgentTemplateControllerTest extends TestCase {
 		$this->assertSame(Http::STATUS_OK, $response->getStatus());
 
 	}//end testOwnerCanStillExportTheirAgent()
+
+	/**
+	 * exportPackage() refuses an unauthenticated caller and never reaches the service.
+	 *
+	 * `expects($this->never())` is the assertion that matters: a 401 alone would
+	 * also be printed by a controller that read the template first and refused
+	 * afterwards, and the read is the part that leaks.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+	 */
+	public function testExportPackageUnauthenticated(): void {
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->expects($this->never())->method('exportTemplate');
+
+		$response = $this->controller(
+			$service,
+			$this->createMock(ActionAuthService::class),
+			$this->session(null)
+		)->exportPackage('template-1');
+
+		$this->assertSame(Http::STATUS_UNAUTHORIZED, $response->getStatus());
+
+	}//end testExportPackageUnauthenticated()
+
+	/**
+	 * exportPackage() answers 404 when the template does not resolve.
+	 *
+	 * The tenant boundary is enforced one layer down: `exportTemplate()` reads
+	 * through `ObjectService::find()` with RBAC and multitenancy left at their
+	 * defaults, so another tenant's UUID resolves to null and arrives here. A
+	 * 404 rather than a 403 is deliberate — a 403 would make the endpoint an
+	 * existence oracle for ids in an organisation the caller cannot see.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+	 */
+	public function testExportPackageIsNotFoundForAnUnresolvableTemplate(): void {
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->method('exportTemplate')->willReturn(null);
+
+		$response = $this->controller(
+			$service,
+			$this->createMock(ActionAuthService::class),
+			$this->session('alice')
+		)->exportPackage('someone-elses-template');
+
+		$this->assertSame(Http::STATUS_NOT_FOUND, $response->getStatus());
+
+	}//end testExportPackageIsNotFoundForAnUnresolvableTemplate()
+
+	/**
+	 * POSITIVE CONTROL: an authenticated caller gets the package under `package`.
+	 *
+	 * Asserting the KEY as well as the status: the two refusals above both
+	 * return a body too, so a status-only assertion would pass against a
+	 * controller that answered 200 with an error payload.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/specs/agent-template-gallery/spec.md#requirement-an-agenttemplate-carries-no-secrets-and-no-tenant-data
+	 */
+	public function testExportPackageReturnsThePackage(): void {
+		$service = $this->createMock(AgentTemplateService::class);
+		$service->method('exportTemplate')->willReturn('{"name":"Example template"}');
+
+		$response = $this->controller(
+			$service,
+			$this->createMock(ActionAuthService::class),
+			$this->session('alice')
+		)->exportPackage('template-1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame('{"name":"Example template"}', $response->getData()['package']);
+
+	}//end testExportPackageReturnsThePackage()
 }//end class

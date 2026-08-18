@@ -76,6 +76,10 @@ class ChatHealthController extends Controller {
 	 * instance from a broken config service; the widget treats any non-200 as
 	 * "no AI" without branching.
 	 *
+	 * The rate limit is deliberately generous: monitoring polls this on a short
+	 * interval, and a ceiling that trips on a normal probe cadence turns the
+	 * health check into the outage it was meant to detect.
+	 *
 	 * @return JSONResponse 200 or 503 JSON response.
 	 *
 	 * @PublicPage

@@ -104,6 +104,9 @@
 				<div class="agent-template-github-store__card-title">
 					{{ card.name || card.owner + '/' + card.repo }}
 					<span class="agent-template-github-store__card-kind">{{
+						/**
+						 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+						 */
 						kindLabel(card.kind)
 					}}</span>
 				</div>
@@ -201,6 +204,7 @@ export default {
 		 * The kind-filter options (hermiq-github-store).
 		 *
 		 * @return {Array<object>} NcSelect options.
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		kindOptions() {
 			return [
@@ -221,6 +225,7 @@ export default {
 		 * for NcSelect (mirrors LlmProviderModal.vue's `credentialsFor()`).
 		 *
 		 * @return {Array<object>} NcSelect options.
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		githubCredentials() {
 			return this.credentials
@@ -232,6 +237,7 @@ export default {
 		 * Whether to show the "add a credential to raise limits" hint.
 		 *
 		 * @return {boolean}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		rateLimitHintVisible() {
 			return (
@@ -243,6 +249,7 @@ export default {
 		 * Whether to show the generic "could not reach GitHub" hint.
 		 *
 		 * @return {boolean}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		unreachableHintVisible() {
 			return (
@@ -251,6 +258,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
+	 */
 	mounted() {
 		this.fetchCredentials()
 		this.doSearch()
@@ -261,6 +271,7 @@ export default {
 		 * Load the caller's broker credentials (for the optional GitHub picker).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		async fetchCredentials() {
 			this.loadingCredentials = true
@@ -280,6 +291,7 @@ export default {
 		 * Debounce a typed search term before re-searching.
 		 *
 		 * @return {void}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		onQueryChange() {
 			clearTimeout(this.searchDebounceTimer)
@@ -291,6 +303,7 @@ export default {
 		 *
 		 * @param {string} kind The discovery kind.
 		 * @return {boolean}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		kindActive(kind) {
 			return (
@@ -304,6 +317,7 @@ export default {
 		 *
 		 * @param {string} kind The discovery kind.
 		 * @return {string}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		kindLabel(kind) {
 			return kind === KIND_SKILL
@@ -316,6 +330,7 @@ export default {
 		 *
 		 * @param {string} kind The discovery kind.
 		 * @return {string}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		unparseableHint(kind) {
 			return kind === KIND_SKILL
@@ -337,6 +352,7 @@ export default {
 		 * as a non-blocking hint.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		async doSearch() {
 			this.loading = true
@@ -395,6 +411,7 @@ export default {
 		 *
 		 * @param {object} card The result card.
 		 * @return {string} `kind:owner/repo`.
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		cardKey(card) {
 			return `${card.kind}:${card.owner}/${card.repo}`
@@ -409,6 +426,7 @@ export default {
 		 *
 		 * @param {object} card The result card to install.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-template-github-store/specs/agent-template-github-store/spec.md#requirement-the-system-must-provide-a-server-backed-search-for-hermiq-agent-template-repos
 		 */
 		async doInstall(card) {
 			this.installError = ''

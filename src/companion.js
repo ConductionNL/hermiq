@@ -21,49 +21,57 @@
  * @spec openspec/changes/companion-everywhere/specs/companion-everywhere/spec.md
  */
 
+// The CnAiCompanion import below is DEEP, not
+// `import { CnAiCompanion } from '@conduction/nextcloud-vue'`, and it is
+// deliberately STATIC. Both are load-bearing, and neither survives being
+// "tidied up", so the reasoning lives here rather than in a commit message.
+//
+// DEEP, because this bundle loads on EVERY Nextcloud page and its size is the
+// whole design constraint. The barrel pulls the entire component library, and not
+// by accident: webpack.config.js forces `sideEffects: true` across the published
+// nc-vue dist — it has to, because the compiled SFC wrapper attaches the render
+// function as a side effect, and tree-shaking that away renders every component
+// as an empty comment node, silently. With side effects on, nothing in an
+// imported module graph can be dropped, so naming one export off the barrel costs
+// all of them. Measured on the emitted entrypoint: barrel + shared chunks =
+// 14.1 MiB across three files, of which PHP attaches one. Deep + self-contained
+// (see the splitChunks predicate in webpack.config.js) = 3.1 MiB in ONE file.
+//
+// ⚠️ STATIC, because `defineAsyncComponent(() => import(...))` was tried and
+// measured: it cuts the eager bundle to 89 KB and then fails at runtime, twice
+// over. The splitChunks predicate has to exclude the async chunk by RUNTIME
+// rather than name, or the panel's nc-vue modules are hoisted straight back into
+// `hermiq-shared-nc-vue.js` — the chunk that is not on a Files page, which is the
+// entire problem this file exists to avoid. And webpack's `publicPath` resolves
+// to `/apps/hermiq/js/` while the app is served from `/custom_apps/hermiq/js/`,
+// so every async request 404s to Nextcloud's HTML error page ("Refused to execute
+// script ... MIME type ('text/html')"). That one has a known remedy this app is
+// missing — `output.publicPath = 'auto'`, which @nextcloud/webpack-vue-config
+// hardcodes wrongly for a custom_apps install, and which pipelinq and openbuild
+// already set. Setting it changes chunk resolution for `main` and `adminSettings`
+// too, so it needs those pages re-verified; it is not part of this fix.
 import { createApp, defineAsyncComponent, h } from 'vue'
 
 // 🔴 The component library's compiled stylesheet. Without it `.cn-ai-companion`
-// has NO rules at all: the element measures 0x0 with `position: static`, and
-// the panel inside it falls back to NcAppSidebar's bare default — docked to the
-// left edge at full height instead of the floating bottom-right companion. It
-// still opened, still worked, still passed every DOM assertion; it just looked
-// like a different, older component.
+// has NO rules at all: the element measures 0x0 with `position: static`, and the
+// panel inside it falls back to NcAppSidebar's bare default — docked to the left
+// edge at full height instead of the floating bottom-right companion. It still
+// opened, still worked, still passed every DOM assertion; it just looked like a
+// different, older component.
 //
 // `css/index.css` (which main.js imports) does NOT carry these rules — the
 // cn-ai-* styles live only in the compiled bundle, so importing the wrong one
 // looks like a fix and changes nothing.
 //
 // Checked before shipping it to EVERY page in the instance: the file has zero
-// bare element selectors (no `body`, `a`, `table`, `button` rules), so it
-// cannot restyle a host app.
+// bare element selectors (no `body`, `a`, `table`, `button` rules), so it cannot
+// restyle a host app.
 import '@conduction/nextcloud-vue/dist/nextcloud-vue.css'
 
-// TWO deliberate choices here, both of which exist because this bundle loads on
-// EVERY Nextcloud page in the instance.
-//
-// 1. A DEEP import, not `import { CnAiCompanion } from '@conduction/nextcloud-vue'`.
-//    The barrel pulls the entire component library, and not by accident:
-//    webpack.config.js forces `sideEffects: true` across the whole published
-//    nc-vue dist (it has to — the compiled SFC wrapper attaches the render
-//    function as a side effect, and tree-shaking it away renders every component
-//    as an empty comment node, silently). With side effects on, nothing in an
-//    imported module graph can be dropped, so naming one export off the barrel
-//    costs all of them. Reaching past the barrel keeps the graph to what this
-//    component actually needs.
-//
-// 2. An ASYNC component, so the companion's own code is a separate chunk fetched
-//    after the page is interactive rather than parsed inline on every page load.
-//    The eager cost is Vue plus this file.
-//
-// Both are load-bearing and neither is obvious from reading the diff, which is
-// why the build guard in package.json asserts the emitted size: a re-barrelled
-// import or a lost async boundary shows up only as a fatter bundle, and a fat
-// bundle on every page is exactly the failure this file is shaped to avoid.
 const CnAiCompanion = defineAsyncComponent(
 	() =>
 		import(
-			/* webpackChunkName: "hermiq-companion-panel" */
+			/* webpackChunkName: "companion-panel" */
 			'@conduction/nextcloud-vue/dist/esm/components/CnAiCompanion/CnAiCompanion.vue.js'
 		),
 )
@@ -71,34 +79,29 @@ const CnAiCompanion = defineAsyncComponent(
 /**
  * The Hermiq app's own pages already render a companion via CnAppRoot.
  *
- * 🔴 Checked from the URL **and** the body class, because the body class alone
- * was wrong. The original version tested only `app-hermiq`, on the reasoning
- * that it is "what Nextcloud itself considers the current app" — but on this
- * instance Hermiq's own pages carry an EMPTY body class, so the guard never
- * fired and a second companion mounted on top of CnAppRoot's. The two launchers
- * landed at the identical coordinates, which is why it looked like one button
- * and not like a bug.
+ * Detected from the URL. An earlier version of this file read
+ * `document.body.classList.contains('app-hermiq')` on the reasoning that "the body
+ * class is what Nextcloud itself considers the current app" — measured on
+ * Nextcloud 34, `document.body.className` is the EMPTY STRING on every page, and
+ * nothing else in the DOM names the active app either (no `OC.appName`, no
+ * `#content` class, no meta tag). The check could never fire, so the companion
+ * would have mounted a second time on top of the one CnAppRoot already renders.
  *
- * The URL objection in the original comment was that `/index.php/apps/hermiq/…`
- * and a sub-path install would be missed — both are handled by testing for the
- * segment anywhere in the path rather than anchoring at the start.
+ * The regex covers what the body-class approach was reaching for: `/apps/hermiq`
+ * and `/index.php/apps/hermiq`, the bare app root and any sub-path, and it will
+ * not match a longer app id that merely starts with `hermiq`.
  *
  * @return {boolean} True when this page is one of Hermiq's own.
  */
 function hermiqOwnsThisPage() {
-	if (document.body.classList.contains('app-hermiq') === true) {
-		return true
-	}
-
-	return window.location.pathname.includes('/apps/hermiq')
+	return /(^|\/)apps\/hermiq(\/|$)/.test(window.location.pathname)
 }
 
 /**
  * A file-viewing page can tell the companion which document is open.
  *
- * Read from the query string because that is what every office connector uses:
- * `/apps/onlyoffice/{fileId}` puts it in the path, the others use `?fileId=`.
- * Returning null is normal and means "no document context", not an error.
+ * Returning null is normal and means "no document context", not an error — most
+ * pages are not showing a file.
  *
  * @return {number|null} The open file's id, or null.
  */
@@ -109,11 +112,26 @@ function openFileId() {
 	}
 
 	// `/apps/onlyoffice/24753` and `/apps/eurooffice/24753` carry it as the last
-	// path segment.
+	// path segment; `richdocuments` uses the query string handled above.
 	const segments = window.location.pathname.split('/').filter((s) => s !== '')
 	const last = segments[segments.length - 1]
 
 	return /^\d+$/.test(last ?? '') === true ? Number(last) : null
+}
+
+/**
+ * The Nextcloud app whose page this is, from the URL.
+ *
+ * There is no DOM signal for it on Nextcloud 34 — no `OC.appName`, no body
+ * class, no meta tag (all three were checked). The path is what remains, and it
+ * is reliable: every app page is served under `/apps/<id>/`.
+ *
+ * @return {string} The app id, or 'unknown' when the path names none.
+ */
+function currentAppId() {
+	const match = window.location.pathname.match(/(?:^|\/)apps\/([^/]+)/)
+
+	return match ? match[1] : 'unknown'
 }
 
 /**
@@ -122,24 +140,15 @@ function openFileId() {
  * A dedicated container rather than an existing element: the host page belongs to
  * another app, and writing into its DOM is how one app breaks another's layout.
  *
+ * `createApp`, not `new Vue` — this app is pure Vue 3 (webpack aliases `vue$` to
+ * `vue.runtime.esm-bundler.js`). The Vue 2 constructor form threw
+ * `TypeError: r.default is not a constructor` on first load, which is also the
+ * proof that this bundle had never been run in a browser before.
+ *
  * @return {void}
  */
 function mount() {
 	if (hermiqOwnsThisPage() === true) {
-		return
-	}
-
-	// NEVER mount inside an iframe. The Files app opens an office document by
-	// embedding `/apps/eurooffice/<fileId>` — a FULL Nextcloud page, same-origin —
-	// inside itself, so this script runs twice on one screen and the user sees two
-	// hexes, the inner one clipped by the frame's edge.
-	//
-	// The guard is "am I framed", not a URL match, because the duplicate is caused
-	// by the embedding rather than by any particular app: anything Nextcloud frames
-	// this way reproduces it. The OUTER page is the one to keep — it owns the whole
-	// viewport, so its button is never clipped, and its context describes the page
-	// the user is actually looking at.
-	if (window.self !== window.top) {
 		return
 	}
 
@@ -149,15 +158,12 @@ function mount() {
 
 	const root = document.createElement('div')
 	root.id = 'hermiq-companion-root'
-
-	// 🔴 Above Nextcloud's header, which sits at z-index 2000.
-	//
-	// Without this the panel renders UNDERNEATH the header and its close button
-	// — which lands at y 8–42, inside the 50px header — is covered by
-	// `.header-start`. `elementFromPoint` at the button's own centre returned
-	// the header, not the button, so the panel could be opened and never
-	// closed. It looked correct in the DOM the whole time: present, visible,
-	// correctly sized. Only a real click found it.
+	// 🔴 ABOVE Nextcloud's header, which sits at z-index 2000. The panel's close
+	// button lands at y 8-42 — inside the 50px header — and with the root at
+	// `z-index: auto` the header won that overlap: `elementFromPoint` at the
+	// button's own centre returned `.header-start`, so the panel could be opened
+	// and never closed. It looked correct in the DOM the whole time: present,
+	// visible, correctly sized. Only a real click found it.
 	//
 	// 2001, not something larger: a genuine modal (Nextcloud uses far higher)
 	// must still win over an assistant panel.
@@ -168,22 +174,29 @@ function mount() {
 
 	const fileId = openFileId()
 
-	// ⚠️ Vue 3 `createApp`, not Vue 2 `new Vue().$mount()`. This app is on Vue
-	// 3.5, where the default export is not a constructor — the Vue 2 form threw
-	// `TypeError: r.default is not a constructor` at load, leaving an empty
-	// mount point and no companion on any page. `main.js` and
-	// `integration-leaf.js` were already on createApp; this file alone was not.
-	//
-	// Props go at the top level in Vue 3's `h()`, not nested under `props`.
 	createApp({
 		render: () =>
 			h(CnAiCompanion, {
 				chatAppId: 'hermiq',
 				position: 'bottom-right',
-				// Carried so the assistant can be asked about the document on
-				// screen without the user pasting an id. Absent on pages that are
-				// not showing a file, which is most of them.
-				...(fileId !== null ? { contextFileId: fileId } : {}),
+				// WHAT THE USER IS LOOKING AT — without this the agent is blind.
+				//
+				// nc-vue resolves the page context by injection from a CnAppRoot
+				// ancestor. Mounted standalone on a page belonging to another app
+				// there is no such ancestor, so it falls back to a default whose
+				// `appId` is the literal string 'unknown'. Measured: asked to change
+				// a word in the document on screen, the agent replied "I don't have
+				// a clear app context (it's showing as unknown)" and refused —
+				// correctly, since it genuinely could not tell what "this document"
+				// meant.
+				//
+				// This mount is the one place that DOES know, so it says so.
+				context: {
+					appId: currentAppId(),
+					pageKind: fileId !== null ? 'file' : 'custom',
+					route: { path: window.location.pathname },
+					...(fileId !== null ? { fileId } : {}),
+				},
 			}),
 	}).mount(root)
 }

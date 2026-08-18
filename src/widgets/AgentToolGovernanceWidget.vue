@@ -128,9 +128,23 @@ export default {
 		 * This agent's uuid from the route param.
 		 *
 		 * @return {string} The agent uuid.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		agentId() {
 			return this.$route.params.id
+		},
+
+		/**
+		 * The two peer surfaces, in tab order.
+		 *
+		 * @return {Array<{id: string, label: string}>} Tab descriptors.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
+		 */
+		tabs() {
+			return [
+				{ id: 'grants', label: t('hermiq', 'Tool grants') },
+				{ id: 'activity', label: t('hermiq', 'Tool activity') },
+			]
 		},
 
 		/**
@@ -148,6 +162,7 @@ export default {
 		 * included, which is the only person it is meant to be writable for.
 		 *
 		 * @return {boolean} True when the current user is the agent's owner.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		isOwner() {
 			const user = getCurrentUser()
@@ -159,6 +174,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
+	 */
 	created() {
 		this.agentStore = useAgentStore()
 		this.agentStore.registerObjectType('agent', 'agent', 'hermiq')
@@ -167,9 +185,46 @@ export default {
 
 	methods: {
 		/**
+		 * Roving-tabindex keyboard navigation across the tablist (WCAG 2.2 AA /
+		 * APG tabs pattern): arrows move AND activate, Home/End jump to the ends.
+		 *
+		 * @param {KeyboardEvent} event The keydown event.
+		 * @param {number}        index Index of the tab the event fired on.
+		 *
+		 * @return {void}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
+		 */
+		onTabKeydown(event, index) {
+			const last = this.tabs.length - 1
+			let next = null
+
+			if (event.key === 'ArrowRight') {
+				next = index === last ? 0 : index + 1
+			} else if (event.key === 'ArrowLeft') {
+				next = index === 0 ? last : index - 1
+			} else if (event.key === 'Home') {
+				next = 0
+			} else if (event.key === 'End') {
+				next = last
+			}
+
+			if (next === null) {
+				return
+			}
+
+			event.preventDefault()
+			this.activeTab = this.tabs[next].id
+			this.$nextTick(() => {
+				const buttons = this.$refs.tablist?.querySelectorAll('[role="tab"]')
+				buttons?.[next]?.focus()
+			})
+		},
+
+		/**
 		 * Load this agent (only used to resolve `owner` for the isOwner gate).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		async loadAgent() {
 			this.agent = await this.agentStore
@@ -182,6 +237,7 @@ export default {
 		 * data widget's `tools` display reflects the change.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-tool-governance-custom-widget-must-combine-tool-grants-and-tool-activity-audit-history
 		 */
 		async onSave() {
 			this.saving = true

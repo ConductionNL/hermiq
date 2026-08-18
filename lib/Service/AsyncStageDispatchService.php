@@ -80,6 +80,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()` exactly, deliberately:
 	 *   the two must accept the same stage, and a bundled array is the shape in which a field
 	 *   has already been silently dropped at this boundary once.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	public function dispatchAsync(
 		string $repo,
@@ -100,7 +102,6 @@ class AsyncStageDispatchService extends StageDispatchService {
 		if ($timeoutMs > 0) {
 			$ceiling = $timeoutMs;
 		}
-
 
 		$params = $this->buildParams(
 			repo: $repo,
@@ -157,6 +158,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @throws RuntimeException When the runner cannot be reached or answers nonsense.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) Mirrors `dispatch()`; AppAPI is resolved lazily.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	public function collect(string $jobId, ?string $uid = null): array {
 		$jobId = trim($jobId);
@@ -208,6 +211,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @return array{job: array{id: string, status: string}} The handle.
 	 *
 	 * @throws RuntimeException When the body carries no usable handle.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function mapAccepted(string $body): array {
 		$decoded = json_decode($body, true);
@@ -215,7 +220,6 @@ class AsyncStageDispatchService extends StageDispatchService {
 		if (is_array($decoded) === true) {
 			$jobId = trim((string)($decoded['jobId'] ?? ''));
 		}
-
 
 		if ($jobId === '') {
 			// Fail loudly. A dispatch whose handle was lost is a stage running
@@ -247,6 +251,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @param string $jobKey The caller's key, or '' to let the runner generate one.
 	 *
 	 * @return array The payload, with `jobKey` set only when one was supplied.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function withJobKey(array $params, string $jobKey): array {
 		$jobKey = trim($jobKey);
@@ -277,6 +283,8 @@ class AsyncStageDispatchService extends StageDispatchService {
 	 * @return mixed The response, or an array when the ExApp is unreachable.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) AppAPI is resolved lazily, as `dispatch()` does.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function callRunner(string $route, string $method, array $params, ?string $uid): mixed {
 		return Server::get(self::APP_API_PUBLIC_FUNCTIONS)->exAppRequest(
