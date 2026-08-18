@@ -34,6 +34,7 @@ export default {
 		 * This agent's uuid from the route param.
 		 *
 		 * @return {string} The agent uuid.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agentdetail-renders-as-a-detail-type-widget-grid
 		 */
 		agentId() {
 			return this.$route.params.id
