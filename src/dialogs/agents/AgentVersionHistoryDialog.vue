@@ -57,12 +57,18 @@
 						@update:modelValue="toggleSelected(version.id)">
 						<span class="agent-version-history-dialog__meta">
 							<span class="agent-version-history-dialog__date">{{
+								/**
+								 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+								 */
 								formatDate(version.timestamp)
 							}}</span>
 							<span class="agent-version-history-dialog__user">{{
 								version.user || t('hermiq', 'Unknown user')
 							}}</span>
 							<span class="agent-version-history-dialog__action">{{
+								/**
+								 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+								 */
 								actionLabel(version.action)
 							}}</span>
 						</span>
@@ -217,6 +223,7 @@ export default {
 		 * the current route's `:id` param.
 		 *
 		 * @return {string} The resolved agent uuid.
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		resolvedAgentId() {
 			return this.agentId || this.$route?.params?.id || ''
@@ -245,6 +252,9 @@ export default {
 		// without `immediate`.
 		show: {
 			immediate: true,
+			/**
+			 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+			 */
 			handler(open) {
 				if (open) {
 					this.selected = []
@@ -260,6 +270,7 @@ export default {
 		 * Load the agent's version history.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		async load() {
 			this.loading = true
@@ -282,6 +293,7 @@ export default {
 		 * when the caller did not already supply an explicit `canRollback`.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		async loadAgentForRollbackGate() {
 			if (this.canRollback !== null || !this.resolvedAgentId) {
@@ -310,6 +322,7 @@ export default {
 		 *
 		 * @param {string} id The version id.
 		 * @return {void}
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		toggleSelected(id) {
 			if (this.selected.includes(id)) {
@@ -325,6 +338,7 @@ export default {
 		 * relying on the list's newest-first order to pick a stable direction).
 		 *
 		 * @return {void}
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		compare() {
 			if (this.selected.length !== 2) {
@@ -343,6 +357,7 @@ export default {
 		 *
 		 * @param {object} version The version record to roll back to.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		async performRollback(version) {
 			this.rollingBackId = version.id
@@ -394,6 +409,7 @@ export default {
 		 *
 		 * @param {boolean} open The new open state.
 		 * @return {void}
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		onUpdateOpen(open) {
 			if (!open) {

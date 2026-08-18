@@ -88,6 +88,9 @@
 						<template v-if="factsheet.aiFeature.dpoAckBy">
 							— {{ t('hermiq', 'DPO-acknowledged by') }}
 							{{ factsheet.aiFeature.dpoAckBy }} ({{
+								/**
+								 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+								 */
 								formatDate(factsheet.aiFeature.dpoAckAt)
 							}})
 						</template>
@@ -205,6 +208,7 @@ export default {
 		 * the current route's `:id` param.
 		 *
 		 * @return {string} The resolved agent uuid.
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
 		resolvedAgentId() {
 			return this.agentId || this.$route?.params?.id || ''
@@ -218,6 +222,9 @@ export default {
 		// it would never run for that mount path without `immediate`.
 		show: {
 			immediate: true,
+			/**
+			 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
+			 */
 			handler(open) {
 				if (open) {
 					this.load()
@@ -233,6 +240,7 @@ export default {
 		 * than a raw error.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-7-frontend-agent-factsheet-dialog
 		 */
 		async load() {
 			if (!this.resolvedAgentId) {

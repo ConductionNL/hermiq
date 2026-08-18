@@ -675,6 +675,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @param {string} id The route id (`new` for a blank flow).
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async load(id) {
 			this.loading = true
@@ -702,6 +703,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * editor.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async loadNodeCatalog() {
 			try {
@@ -719,6 +721,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * Load the agents an agent step can choose from.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async loadAgents() {
 			try {
@@ -752,6 +755,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @param {string} id The route id.
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async open(id) {
 			this.selectedNodeId = null
@@ -947,6 +951,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @param {string} name The new label.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		setNodeName(name) {
 			if (this.selectedNodeId === null) {
@@ -1418,6 +1423,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {number} payload.x  New x-coordinate in canvas space.
 		 * @param {number} payload.y  New y-coordinate in canvas space.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		moveNode({ id, x, y }) {
 			this.flow.nodes = this.nodes.map((node) => {
@@ -1528,6 +1534,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @param {string|null} id The place id.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		selectNode(id) {
 			this.selectedNodeId = id
@@ -1541,6 +1548,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @param {string|null} id The step id.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		selectEdge(id) {
 			this.selectedEdgeId = id
@@ -1550,6 +1558,9 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		},
 
 		/** @return {void} Clear both selections. */
+		/**
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
 		clearSelection() {
 			this.selectedNodeId = null
 			this.selectedEdgeId = null
@@ -1578,6 +1589,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @param {string} id The step id.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		removeEdge(id) {
 			this.flow.edges = this.edges.filter((edge) => edge.id !== id)
@@ -1650,6 +1662,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * @param {string} key   The field.
 		 * @param {*}      value The value.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		setFlowField(key, value) {
 			this.flow = { ...this.flow, [key]: value }
@@ -1731,6 +1744,7 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 *
 		 * @param {object} subject `{uuid, register, schema}`.
 		 * @return {Promise<object>} The run.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async run(subject) {
 			// NO subject rather than a subject of empty strings. The engine

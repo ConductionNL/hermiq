@@ -326,6 +326,7 @@ export default {
 		 * Modal heading — differs for attach vs edit.
 		 *
 		 * @return {string} The localised heading.
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
 		 */
 		heading() {
 			return this.schedule
@@ -337,6 +338,9 @@ export default {
 		 * Two-way bridge between the `kind` string and the NcSelect option object.
 		 */
 		kindOption: {
+			/**
+			 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+			 */
 			get() {
 				return (
 					this.kindOptions.find(
@@ -386,6 +390,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+		 */
 		show(open) {
 			if (open) {
 				this.resetForm()
@@ -394,6 +401,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
+	 */
 	created() {
 		// Register the 'schedule' OpenRegister object type once (idempotent):
 		// register 'hermiq' + schema 'schedule' → CRUD at
@@ -408,6 +418,7 @@ export default {
 		 * the estimate line simply stays hidden when the request fails.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
 		 */
 		async loadEstimate() {
 			this.estimate = await getBudgetEstimate(this.agentId).catch(() => null)
@@ -417,6 +428,7 @@ export default {
 		 * An empty schedule form.
 		 *
 		 * @return {object} The blank form model.
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
 		 */
 		blankForm() {
 			return {
@@ -444,6 +456,7 @@ export default {
 		 * Seed the form from the `schedule` prop (edit) or blank (attach).
 		 *
 		 * @return {void}
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
 		 */
 		resetForm() {
 			this.error = ''
@@ -479,6 +492,7 @@ export default {
 		 * Build the OpenRegister schedule payload from the form model.
 		 *
 		 * @return {object} The schedule object body.
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
 		 */
 		buildPayload() {
 			const payload = {
@@ -539,6 +553,7 @@ export default {
 		 * Persist the schedule via the createObjectStore and notify the parent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-5-2
 		 */
 		async save() {
 			this.saving = true

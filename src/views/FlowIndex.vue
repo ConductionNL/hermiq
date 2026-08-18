@@ -67,6 +67,9 @@ export default {
 		Plus,
 	},
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	setup() {
 		return { editor: useFlowEditorStore() }
 	},
@@ -215,6 +218,7 @@ export default {
 		 *
 		 * @param {object} row The clicked flow.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		open(row) {
 			const id = row?.id || row?.uuid

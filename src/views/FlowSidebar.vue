@@ -238,6 +238,9 @@
 									{{ run.status || t('hermiq', 'unknown') }}
 								</span>
 								<span class="flow-sidebar__run-when">{{
+									/**
+									 * @spec openspec/specs/flow-canvas/spec.md
+									 */
 									formatWhen(run)
 								}}</span>
 							</span>
@@ -326,6 +329,9 @@
 											{{ t('hermiq', 'Received') }}
 										</h4>
 										<pre class="flow-sidebar__step-json">{{
+											/**
+											 * @spec openspec/specs/flow-canvas/spec.md
+											 */
 											prettyPayload(entry.input)
 										}}</pre>
 
@@ -588,6 +594,9 @@ export default {
 		Sitemap,
 	},
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	setup() {
 		return { editor: useFlowEditorStore() }
 	},
@@ -620,6 +629,7 @@ export default {
 		 * the palette badges and the node ids all say the same word.
 		 *
 		 * @return {Array<{value: string|null, label: string}>} The options.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		roleOptions() {
 			return [
@@ -802,6 +812,7 @@ export default {
 		 * The preflight verdict, in words.
 		 *
 		 * @return {string} The message, or '' when nothing has been checked.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		validationMessage() {
 			if (this.editor.validation === null) {
@@ -819,6 +830,9 @@ export default {
 		},
 
 		/** @return {string} Sidebar subtitle: what this flow reacts to. */
+		/**
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
 		subname() {
 			const trigger = this.editor.flow.trigger || ''
 			if (trigger === 'schedule') {
@@ -874,6 +888,7 @@ export default {
 		 * refetch; Refresh is there for a deliberate reload.
 		 *
 		 * @param {string} tab The newly active tab id.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		activeTab(tab) {
 			if (
@@ -940,6 +955,7 @@ export default {
 		 * @param {object} run The run.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async openRun(run) {
 			const id = run.uuid || run.id
@@ -977,6 +993,7 @@ export default {
 		 * @param {number} index The step's position in the log.
 		 *
 		 * @return {string} The key.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		stepKey(run, index) {
 			return `${run.uuid || run.id}#${index}`
@@ -994,6 +1011,7 @@ export default {
 		 * @param {object} entry The log entry.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		toggleStep(run, index, entry) {
 			const key = this.stepKey(run, index)
@@ -1034,6 +1052,7 @@ export default {
 		 * @param {object} run The run.
 		 *
 		 * @return {string} The summary.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		runSummary(run) {
 			const log = this.logOf(run)

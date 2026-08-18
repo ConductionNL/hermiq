@@ -160,6 +160,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
+		 */
 		show(open) {
 			if (open) {
 				this.revealedSecret = ''
@@ -174,6 +177,7 @@ export default {
 		 * Load the current webhook-secret status ({configured:false} when unconfigured).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		async loadStatus() {
 			this.status = await getScheduleWebhookSecretStatus(
@@ -198,6 +202,7 @@ export default {
 		 * message when the Clipboard API is unavailable.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		async copy() {
 			try {
@@ -217,6 +222,7 @@ export default {
 		 * Mint a new webhook signing secret for this schedule.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		async mint() {
 			this.busy = true
@@ -239,6 +245,7 @@ export default {
 		 * previous one immediately.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		async rotate() {
 			this.busy = true
@@ -260,6 +267,7 @@ export default {
 		 * Revoke this schedule's webhook signing secret.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		async revoke() {
 			this.busy = true

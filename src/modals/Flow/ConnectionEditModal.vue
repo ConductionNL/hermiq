@@ -214,6 +214,9 @@ export default {
 
 	emits: ['close'],
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	setup() {
 		return { editor: useFlowEditorStore() }
 	},
@@ -247,6 +250,7 @@ export default {
 		 * The connection being edited.
 		 *
 		 * @return {object|null} The selected edge.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		edge() {
 			return this.editor.selectedEdge
@@ -279,6 +283,7 @@ export default {
 		 * @param {Array<object>} options The vocabulary.
 		 * @param {string}        value   The stored value.
 		 * @return {object|null} The matching option.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		option(options, value) {
 			return (
@@ -292,6 +297,7 @@ export default {
 		 * that no longer exists would render an empty form over the canvas.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onRemove() {
 			const id = this.edge?.id

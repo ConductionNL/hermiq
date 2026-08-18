@@ -49,6 +49,9 @@
 					class="cn-agent-chat-tab__message"
 					:class="`cn-agent-chat-tab__message--${entry.role}`">
 					<span class="cn-agent-chat-tab__role">{{
+						/**
+						 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+						 */
 						roleLabel(entry.role)
 					}}</span>
 					<span class="cn-agent-chat-tab__text">{{ entry.text }}</span>
@@ -165,6 +168,9 @@ export default {
 			return role === 'user' ? t('hermiq', 'You') : t('hermiq', 'Agent')
 		},
 
+		/**
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
 		async reset() {
 			this.messages = []
 			this.draft = ''
@@ -203,6 +209,9 @@ export default {
 			}
 		},
 
+		/**
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
 		async fetchObject() {
 			const url = generateUrl(
 				'/apps/openregister/api/objects/{register}/{schema}/{id}',
@@ -223,6 +232,9 @@ export default {
 			return body && typeof body === 'object' ? body : {}
 		},
 
+		/**
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
 		async fetchSchema() {
 			const url = generateUrl('/apps/openregister/api/schemas/{id}', {
 				id: this.schema,
@@ -237,6 +249,9 @@ export default {
 			return body && typeof body === 'object' ? body : {}
 		},
 
+		/**
+		 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-the-user-is-told-the-object-contributed-no-context
+		 */
 		async send() {
 			const message = this.draft.trim()
 			if (message === '' || this.sending) {
