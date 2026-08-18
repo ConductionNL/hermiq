@@ -467,6 +467,7 @@ export default {
 		 *
 		 * @param {object} tool The catalogue row.
 		 * @return {void}
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		revokeExact(tool) {
 			this.draftGrants = this.draftGrants.filter((grant) => grant !== tool.id)
@@ -501,6 +502,7 @@ export default {
 		 *
 		 * @param {object} tool The catalogue row.
 		 * @return {string} The label.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		scopeLabel(tool) {
 			return tool.destructiveHint
