@@ -275,6 +275,7 @@ export default {
 		 * @param {object} data The payload to download.
 		 * @param {string} filename The download filename.
 		 * @return {void}
+		 * @spec openspec/changes/compliance-control-packs/tasks.md#task-6-frontend-compliance-dashboard-page
 		 */
 		downloadJson(data, filename) {
 			const blob = new Blob([JSON.stringify(data, null, 2)], {
