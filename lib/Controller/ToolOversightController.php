@@ -40,6 +40,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\Hermiq\Service\Engine\ToolGrantSet;
 use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -486,15 +487,19 @@ class ToolOversightController extends Controller {
 
 		$rawGrants = $this->request->getParam('grants');
 		if (is_array($rawGrants) === false) {
-			return new JSONResponse(['error' => 'grants must be an array of strings'], Http::STATUS_BAD_REQUEST);
+			return new JSONResponse(['error' => 'grants must be an array or a grant structure'], Http::STATUS_BAD_REQUEST);
 		}
 
-		$grants = [];
-		foreach ($rawGrants as $grant) {
-			if (is_string($grant) === true && $grant !== '') {
-				$grants[] = $grant;
-			}
-		}
+		// 🔑 STORED AS A STRUCTURE — app => subject => action => tool id.
+		//
+		// A caller may still PUT the legacy `string[]`; it is normalised here and
+		// written structured, so the shape converges without a migration window
+		// in which some agents are one shape and some the other.
+		//
+		// The tool id is carried, never rebuilt from the coordinates: `hermiq.
+		// listFiles` lives at (hermiq, file, list) and rebuilding gives
+		// `hermiq.file.list`, which is not a tool. See {@see ToolGrantSet}.
+		$grants = ToolGrantSet::fromStored(stored: $rawGrants)->toStored();
 
 		// Read the PREVIOUS waiver set before the write, so the audit can say
 		// which waivers were added and which removed rather than only what the
@@ -577,7 +582,9 @@ class ToolOversightController extends Controller {
 	 * survive — the sweep would otherwise silently drop it.
 	 *
 	 * @param ObjectEntity $agent The stored agent.
-	 * @param array<int, string> $grants The grant list to persist.
+	 * @param array<string, mixed> $grants The grants to persist — the structured
+	 *                                     app => subject => action => id form
+	 *                                     produced by {@see ToolGrantSet}.
 	 *
 	 * @return array<string, mixed> The payload to hand to `saveObject()`.
 	 *
@@ -611,9 +618,15 @@ class ToolOversightController extends Controller {
 			return [];
 		}
 
+		// ⚠️ Flattened through ToolGrantSet, not iterated directly. Grants are
+		// stored as a STRUCTURE now, so iterating the top level yields app names
+		// rather than grant strings — every waiver went unseen, and the audit
+		// event that exists precisely to make "who turned off approval" an
+		// answerable question stopped being written. Silent, and in the direction
+		// that loses an audit record rather than inventing one.
 		$waived = [];
-		foreach ($grants as $grant) {
-			if (is_string($grant) === true && str_ends_with($grant, ToolGrantResolver::WAIVER_FRAGMENT) === true) {
+		foreach (ToolGrantSet::fromStored(stored: $grants)->toGrantStrings() as $grant) {
+			if (str_ends_with($grant, ToolGrantResolver::WAIVER_FRAGMENT) === true) {
 				$waived[] = $grant;
 			}
 		}

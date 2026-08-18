@@ -30,6 +30,7 @@ use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\Hermiq\Service\Engine\ToolGrantSet;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -353,8 +354,23 @@ class ToolOversightControllerTest extends TestCase {
 
 		$response = $this->controller()->updateToolGrants('agent-1');
 
-		$this->assertSame(['pipelinq.lead.*', 'pipelinq.lead.delete'], $saved[0]['tools']);
-		$this->assertSame(['pipelinq.lead.*', 'pipelinq.lead.delete'], $response->getData()['tools']);
+		// 🔑 PERSISTED AS A STRUCTURE, even though the caller sent the legacy
+		// `string[]`. That is the point of the change: the shape converges on
+		// write, so there is never a period in which some agents are one shape
+		// and some the other, and no consumer has to split an id to learn which
+		// app or verb a grant is for.
+		$this->assertSame(
+			['pipelinq' => ['lead' => ['*' => ['pipelinq.lead.*'], 'delete' => ['pipelinq.lead.delete']]]],
+			$saved[0]['tools'],
+			'a legacy list sent by a caller must be normalised to the structure before it is stored'
+		);
+
+		// And the same grants come back out, unchanged in meaning.
+		$this->assertSame(
+			['pipelinq.lead.*', 'pipelinq.lead.delete'],
+			ToolGrantSet::fromStored($response->getData()['tools'])->toGrantStrings(),
+			'the response must describe exactly the grants that were requested'
+		);
 
 	}//end testUpdateToolGrantsPersistsForOwner()
 
