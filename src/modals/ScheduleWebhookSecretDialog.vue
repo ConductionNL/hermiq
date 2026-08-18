@@ -190,6 +190,7 @@ export default {
 		 *
 		 * @param {FocusEvent} event The focus event.
 		 * @return {void}
+		 * @spec openspec/changes/delivery-channels/tasks.md#task-7-frontend-scheduleformmodalvue-new-channels-schedulewebhooksecretdialogvue
 		 */
 		selectAll(event) {
 			if (event && event.target && typeof event.target.select === 'function') {
