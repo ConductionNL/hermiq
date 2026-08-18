@@ -113,6 +113,7 @@ export default {
 		 * skillInstalls uuids against the skills catalogue (falls back to the uuid).
 		 *
 		 * @return {Array<object>} The installed-skill options.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
 		 */
 		installedSkills() {
 			const installed = Array.isArray(this.agent && this.agent.skillInstalls)
@@ -159,6 +160,7 @@ export default {
 		 * Load this agent (for its skillInstalls) and the tenant's skill catalogue.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-skills-attach-or-detach-custom-widget-manages-the-agents-skill-installs
 		 */
 		async load() {
 			this.loading = true
