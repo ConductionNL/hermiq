@@ -374,6 +374,7 @@ export default {
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
+		 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
 		 */
 		heading() {
 			return this.effectiveAgent
@@ -420,6 +421,9 @@ export default {
 				)
 			},
 
+			/**
+			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
+			 */
 			set(option) {
 				this.form.provider = option ? option.value : ''
 				// Changing provider invalidates a model outside its allowlist.
