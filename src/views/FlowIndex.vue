@@ -156,6 +156,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	created() {
 		// `load` with no routed id: the list needs the collection, and passing
 		// `new` would also reset the editor's canvas to a blank flow, which is
