@@ -251,6 +251,7 @@ export default {
 		 * The engine's node types as picker options.
 		 *
 		 * @return {Array<{id: string, label: string, description: string}>} The options.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		typeOptions() {
 			return (this.editor.nodeCatalog || []).map((entry) => ({
@@ -277,6 +278,7 @@ export default {
 		 * What the engine says this node type does.
 		 *
 		 * @return {string} The description, or ''.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		typeDescription() {
 			return this.selectedType?.description || ''
