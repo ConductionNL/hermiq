@@ -206,6 +206,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
+		 */
 		show(open) {
 			if (open) {
 				this.resetForm()
@@ -312,6 +315,7 @@ export default {
 		 *
 		 * @param {number} index The case index.
 		 * @return {void}
+		 * @spec openspec/changes/agent-evals/tasks.md#task-9-evaldatasetformmodal--evaldatasetsvue
 		 */
 		removeCase(index) {
 			this.form.cases.splice(index, 1)
