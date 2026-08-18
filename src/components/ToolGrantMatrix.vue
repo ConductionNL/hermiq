@@ -239,12 +239,17 @@
 
 									<span v-else class="grant-matrix__grant">
 										<NcCheckboxRadioSwitch
-											:modelValue="isDrafted(row.tools[verb].id)"
+											:modelValue="
+												isDrafted(row.tools[verb].id)
+											"
 											type="checkbox"
 											:disabled="!canEdit || saving"
 											:aria-label="ariaFor(cluster, row, verb)"
 											@update:modelValue="
-												toggleTool(row.tools[verb].id, $event)
+												toggleTool(
+													row.tools[verb].id,
+													$event,
+												)
 											" />
 										<!--
 											The write/destructive marker is TEXT, not a
@@ -254,13 +259,18 @@
 											or deletes data.
 										-->
 										<span
-											v-if="classificationLabel(row.tools[verb]) !== ''"
+											v-if="
+												classificationLabel(row.tools[verb])
+												!== ''
+											"
 											class="grant-matrix__reach"
 											:class="{
 												'grant-matrix__reach--destructive':
 													row.tools[verb].destructive,
 											}"
-											:title="classificationLabel(row.tools[verb])"
+											:title="
+												classificationLabel(row.tools[verb])
+											"
 											aria-hidden="true">
 											{{
 												row.tools[verb].destructive
@@ -727,8 +737,8 @@ export default {
 				return ''
 			}
 
-			const kind
-				= tool.destructive === true
+			const kind =
+				tool.destructive === true
 					? t('hermiq', 'destructive')
 					: t('hermiq', 'write')
 

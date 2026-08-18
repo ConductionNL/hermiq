@@ -1300,7 +1300,11 @@
         "Special": "Special",
         "Subject": "Subject",
         "Tools could not be loaded": "Tools could not be loaded",
-        "Update": "Update"
+        "Update": "Update",
+        "{kind} — requires explicit grant": "{kind} — requires explicit grant",
+        "del": "del",
+        "destructive": "destructive",
+        "write": "write"
     },
     "plurals": ""
 }
