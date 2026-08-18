@@ -1033,6 +1033,7 @@ export default {
 		 * @param {object} envelope The `{count, truncated, items}` envelope.
 		 *
 		 * @return {string} Pretty JSON.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		prettyPayload(envelope) {
 			if (!envelope) {
@@ -1075,6 +1076,9 @@ export default {
 				: this.n('hermiq', '%n step', '%n steps', log.length)
 		},
 
+		/**
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
 		formatWhen(run) {
 			const raw = run.started || run.created || run.updated || ''
 			const when = new Date(raw)
@@ -1105,6 +1109,7 @@ export default {
 		 * Persist the flow, keeping the route in step when it gains an id.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		async save() {
 			try {
