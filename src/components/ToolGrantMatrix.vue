@@ -237,15 +237,38 @@
 										</span>
 									</span>
 
-									<NcCheckboxRadioSwitch
-										v-else
-										:modelValue="isDrafted(row.tools[verb].id)"
-										type="checkbox"
-										:disabled="!canEdit || saving"
-										:aria-label="ariaFor(cluster, row, verb)"
-										@update:modelValue="
-											toggleTool(row.tools[verb].id, $event)
-										" />
+									<span v-else class="grant-matrix__grant">
+										<NcCheckboxRadioSwitch
+											:modelValue="isDrafted(row.tools[verb].id)"
+											type="checkbox"
+											:disabled="!canEdit || saving"
+											:aria-label="ariaFor(cluster, row, verb)"
+											@update:modelValue="
+												toggleTool(row.tools[verb].id, $event)
+											" />
+										<!--
+											The write/destructive marker is TEXT, not a
+											colour and not an icon alone (WCAG 1.4.1). It
+											is the only place an operator learns that this
+											particular tick grants something that changes
+											or deletes data.
+										-->
+										<span
+											v-if="classificationLabel(row.tools[verb]) !== ''"
+											class="grant-matrix__reach"
+											:class="{
+												'grant-matrix__reach--destructive':
+													row.tools[verb].destructive,
+											}"
+											:title="classificationLabel(row.tools[verb])"
+											aria-hidden="true">
+											{{
+												row.tools[verb].destructive
+													? t('hermiq', 'del')
+													: t('hermiq', 'write')
+											}}
+										</span>
+									</span>
 								</td>
 							</tr>
 						</tbody>
@@ -374,6 +397,23 @@ export default {
 					// "delegateAgent" says what the checkbox grants, "special"
 					// says nothing.
 					specialLabel: parsed.specialLabel,
+					// 🔴 THE CLASSIFICATION IS CARRIED, NOT DROPPED. The catalogue
+					// states `scope` (read/write), `destructiveHint` and
+					// `requiresExplicitGrant`, and the flat editor this matrix
+					// replaced showed them as a warning-styled badge — never
+					// colour-only, the text carried the meaning. The first
+					// version of this component kept none of them, so a checkbox
+					// granting a destructive tool looked exactly like one
+					// granting a read. An e2e test caught it; the honest fix is
+					// to carry the classification, not to relax the test.
+					//
+					// ⚠️ `reach` is NOT this field. It is user/external/self/
+					// instance — WHERE the data goes, not whether the tool
+					// writes. Reading it as a write-classification marks every
+					// tool, which is the same as marking none.
+					scope: tool.scope === 'write' ? 'write' : 'read',
+					destructive: tool.destructiveHint === true,
+					requiresExplicitGrant: tool.requiresExplicitGrant === true,
 					granted: tool.granted === true,
 					grantedBy: tool.grantedBy,
 					wildcard,
@@ -653,11 +693,50 @@ export default {
 		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
 		 */
 		ariaFor(cluster, row, verb) {
-			return t('hermiq', 'Grant {verb} on {subject} in {cluster}', {
+			const base = t('hermiq', 'Grant {verb} on {subject} in {cluster}', {
 				verb: this.verbLabel(verb),
 				subject: row.label,
 				cluster: cluster.label,
 			})
+
+			// The classification belongs in the ACCESSIBLE NAME, not only in a
+			// visual badge: a screen-reader user ticking this box otherwise
+			// hears the same thing for a read and for a destructive grant.
+			const label = this.classificationLabel(row.tools[verb])
+			if (label === '') {
+				return base
+			}
+
+			return `${base} — ${label}`
+		},
+
+		/**
+		 * The operator-facing classification for one tool, or '' for a plain read.
+		 *
+		 * Spelled out rather than shown as a colour or an icon alone: this is
+		 * the one place a person learns that ticking a box grants something
+		 * that WRITES or DELETES, and colour alone fails WCAG 1.4.1.
+		 *
+		 * @param {object} tool The catalogue entry for this cell.
+		 * @return {string} The label, or '' when there is nothing to warn about.
+		 *
+		 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
+		 */
+		classificationLabel(tool) {
+			if (!tool || (tool.scope !== 'write' && tool.destructive !== true)) {
+				return ''
+			}
+
+			const kind
+				= tool.destructive === true
+					? t('hermiq', 'destructive')
+					: t('hermiq', 'write')
+
+			if (tool.requiresExplicitGrant !== true) {
+				return kind
+			}
+
+			return t('hermiq', '{kind} — requires explicit grant', { kind })
 		},
 
 		/**
@@ -997,6 +1076,31 @@ export default {
 	overflow: hidden;
 	clip: rect(0, 0, 0, 0);
 	white-space: nowrap;
+}
+
+.grant-matrix__grant {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+/* Text, not colour: the word is what carries the meaning, and the colour only
+   reinforces it (WCAG 1.4.1 — never colour alone). */
+.grant-matrix__reach {
+	font-size: 0.7em;
+	font-weight: bold;
+	text-transform: uppercase;
+	letter-spacing: 0.02em;
+	padding: 1px 4px;
+	border-radius: var(--border-radius-small, 4px);
+	border: 1px solid var(--color-border);
+	color: var(--color-text-maxcontrast);
+	white-space: nowrap;
+}
+
+.grant-matrix__reach--destructive {
+	color: var(--color-error-text, var(--color-error));
+	border-color: var(--color-error);
 }
 
 /* The chevron's rotation is decoration — the open/closed state is already
