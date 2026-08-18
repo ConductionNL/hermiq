@@ -261,6 +261,7 @@ export default {
 		 * a connection has no name of its own.
 		 *
 		 * @return {string} The heading.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		heading() {
 			if (!this.edge) {
