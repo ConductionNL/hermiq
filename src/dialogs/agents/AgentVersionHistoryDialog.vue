@@ -234,6 +234,7 @@ export default {
 		 * set, else the self-fetched agent's owner compared to the current user.
 		 *
 		 * @return {boolean} True when rollback should be offered.
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		resolvedCanRollback() {
 			if (this.canRollback !== null) {
@@ -382,6 +383,7 @@ export default {
 		 *
 		 * @param {string} action The audit action (create|update).
 		 * @return {string} The localised label.
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		actionLabel(action) {
 			if (action === 'create') {
@@ -395,6 +397,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The localised date, or '—'.
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		formatDate(value) {
 			if (!value) {
