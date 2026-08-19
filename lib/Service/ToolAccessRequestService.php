@@ -38,11 +38,11 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use DateTime;
-use DateTimeImmutable;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCP\Notification\IManager as INotificationManager;
+use DateTime;
+use DateTimeImmutable;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 use Throwable;
@@ -50,13 +50,14 @@ use Throwable;
 /**
  * Discovery beyond an agent's grants, and the access request that can widen them.
  *
- * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) The count is the SUM over many small
- *   helpers, not one dense method — every public entry point is under the per-method
- *   thresholds. Most of the branches are the same defensive shape repeated: OpenRegister
- *   is a soft runtime dependency here, so each read resolves it through the container and
- *   treats an absent service as an empty catalogue rather than an error. Collapsing that
- *   handling is what would make a missing OpenRegister surface as a fatal instead of a
- *   degraded tool list.
+ * @SuppressWarnings(PHPMD.ExcessiveClassComplexity) Two halves of ONE capability
+ *   — "an agent's access to a tool it does not have": discovering that the tool
+ *   exists, and asking for it. Both halves read the same catalogue through the
+ *   same visibility rule, so separating them would either duplicate that access
+ *   or need a third class to share it, and it would add a SIXTEENTH constructor
+ *   parameter to HermiqToolProvider, which calls both. ⚠️ The split is still the
+ *   right move — do it when that provider's constructor is next opened, not by
+ *   raising this number again.
  */
 class ToolAccessRequestService {
 
@@ -70,6 +71,17 @@ class ToolAccessRequestService {
 	 * @var int
 	 */
 	private const MAX_MATCHES = 25;
+
+	/**
+	 * The app reported for tools with no app segment in their id.
+	 *
+	 * OpenRegister's own tools (`get_object`, `search_objects`, `list_registers`)
+	 * are the register/object surface itself rather than any app's, so they get a
+	 * name that says that instead of the first word of the verb.
+	 *
+	 * @var string
+	 */
+	private const CORE_TOOL_APP = 'openregister';
 
 	/**
 	 * Register and schema holding the request records.
@@ -116,8 +128,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return array<string, mixed> Tool metadata — never anything dispatchable.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-an-agent-must-be-able-to-discover-tools-it-does-not-hold
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-discovery-must-be-scoped-to-what-the-acting-user-may-see
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function listAvailable(string $uid, ?string $agentId, string $query = ''): array {
 		$catalog = $this->catalog();
@@ -126,94 +137,201 @@ class ToolAccessRequestService {
 		}
 
 		$held = $this->heldIds(agentId: $agentId, catalog: $catalog);
-		$needle = strtolower(trim($query));
-		$out = [];
 
-		foreach ($catalog as $descriptor) {
-			$row = $this->visibleRow(descriptor: $descriptor, uid: $uid, needle: $needle, held: $held);
-			if ($row === null) {
-				continue;
-			}
+		$found = $this->collectMatches(
+			catalog: $catalog,
+			uid: $uid,
+			held: $held,
+			tokens: $this->tokenise(query: $query)
+		);
 
-			$out[] = $row;
-
-			if (count($out) >= self::MAX_MATCHES) {
-				break;
-			}
-		}//end foreach
+		$shown = count($found['tools']);
 
 		return [
-			'tools' => $out,
-			'note' => 'A tool with "held": false CANNOT be called. Use requestToolAccess to ask the owner for it.',
+			'tools' => $found['tools'],
+			'matched' => $found['matched'],
+			'shown' => $shown,
+			// Distinct tools, not raw catalogue rows — reporting the row count
+			// would tell the caller this instance has more capabilities than it does.
+			'totalInCatalog' => $found['distinct'],
+			'truncated' => ($found['matched'] > $shown),
+			'note' => $this->noteFor(
+				shown: $shown,
+				matched: $found['matched'],
+				distinct: $found['distinct']
+			),
 		];
 	}//end listAvailable()
 
 	/**
-	 * Shape one catalogue descriptor into a listing row, or null if it is filtered out.
+	 * Split a query into the words a tool is matched on.
 	 *
-	 * Extracted from `listAvailable()` so the per-descriptor identity, visibility
-	 * and keyword filters do not compound with the loop's own bookkeeping — the
-	 * two were one method and the branch count grew with every filter added.
+	 * Match on WORDS, not on the whole query as one substring. A model asking for
+	 * "CRM sales pipeline leads" is describing a capability, not quoting a tool
+	 * id, and `str_contains($haystack, 'crm sales pipeline leads')` can only ever
+	 * miss. Any token hitting is enough — recall matters more than precision
+	 * here, because the caller is choosing from the result rather than acting on
+	 * it.
 	 *
-	 * ⚠️ Returning null is the ONLY way this method excludes a tool. A caller that
-	 * treats a falsy return as "include with defaults" would publish tools the
-	 * acting user may not see, which is the disclosure `userMaySee()` prevents.
+	 * @param string $query The raw query.
 	 *
-	 * @param array<string, mixed> $descriptor The catalogue descriptor.
-	 * @param string               $uid        The acting user.
-	 * @param string               $needle     Lower-cased keyword filter, or '' for none.
-	 * @param array<string, mixed> $held       Ids the agent already holds, keyed by id.
-	 *
-	 * @return array<string, mixed>|null The listing row, or null when filtered out.
+	 * @return array<int, string> The tokens, all longer than two characters.
 	 */
-	private function visibleRow(array $descriptor, string $uid, string $needle, array $held): ?array {
-		$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
-		if (is_string($id) === false || $id === '') {
-			return null;
+	private function tokenise(string $query): array {
+		$split = preg_split('/[^a-z0-9]+/', strtolower(trim($query)));
+		if ($split === false) {
+			return [];
 		}
 
-		if ($this->userMaySee(uid: $uid, toolId: $id) === false) {
-			return null;
-		}
-
-		$description = (string)($descriptor['description'] ?? '');
-		if ($needle !== '' && str_contains(strtolower($id . ' ' . $description), $needle) === false) {
-			return null;
-		}
-
-		return [
-			'id' => $id,
-			'description' => $description,
-			'app' => $this->appOf(toolId: $id),
-			// The model needs to know a write is a write BEFORE it argues for
-			// it, and so does the human reading the request afterwards.
-			'reach' => $this->reachOf(descriptor: $descriptor),
-			'held' => isset($held[$id]),
-		];
-	}//end visibleRow()
+		return array_values(array_filter(
+			$split,
+			static fn (string $t): bool => ($t !== '' && strlen($t) > 2)
+		));
+	}//end tokenise()
 
 	/**
-	 * Classify a descriptor's reach as 'write' or 'read'.
+	 * Walk the catalogue and collect the tools this user may see.
 	 *
-	 * ⚠️ FAILS TOWARDS 'write'. A descriptor that declares neither `scope` nor
-	 * `readOnlyHint` is reported as a write, because the value is shown to the
-	 * human deciding whether to grant the tool: over-stating reach costs a
-	 * question, under-stating it buys a grant the owner did not mean to give.
+	 * ⚠️ GATE: the same tool id can arrive MORE THAN ONCE.
 	 *
-	 * @param array<string, mixed> $descriptor The catalogue descriptor.
+	 * Schema-derived tools are emitted per (register, schema) row, and this
+	 * instance has duplicate rows from repeated register imports — measured
+	 * 2026-08-17: 406 registers including FOUR DocuDesk ones, and schemas like
+	 * `huisstijl` and `generatedDocument` present three times each. The result
+	 * was 184 catalogue entries for 160 distinct tools, with eight docudesk tools
+	 * appearing exactly four times.
 	 *
-	 * @return string Either 'write' or 'read'.
+	 * That is not cosmetic here: duplicates consume the MAX_MATCHES budget, so a
+	 * caller asking about correspondence could be shown 25 entries covering
+	 * barely six distinct capabilities and conclude the rest do not exist.
+	 *
+	 * Deduplicating by id is deliberately done HERE rather than only fixing the
+	 * data: the derivation will re-emit duplicates for any instance whose rows
+	 * are duplicated, and discovery must not degrade because of it. First
+	 * descriptor for an id wins; they are copies of one another.
+	 *
+	 * @param array<int, array<string, mixed>> $catalog The tool catalogue.
+	 * @param string $uid The acting user.
+	 * @param array<string, mixed> $held The ids the agent already holds.
+	 * @param array<int, string> $tokens The query tokens; [] matches everything.
+	 *
+	 * @return array{tools: array<int, array<string, mixed>>, matched: int, distinct: int}
+	 */
+	private function collectMatches(array $catalog, string $uid, array $held, array $tokens): array {
+		$out = [];
+		$matched = 0;
+		$seen = [];
+
+		foreach ($catalog as $descriptor) {
+			$id = ($descriptor['mcpId'] ?? ($descriptor['name'] ?? null));
+			if (is_string($id) === false || $id === '' || isset($seen[$id]) === true) {
+				continue;
+			}
+
+			$seen[$id] = true;
+
+			if ($this->userMaySee(uid: $uid, toolId: $id) === false) {
+				continue;
+			}
+
+			$description = (string)($descriptor['description'] ?? '');
+			if ($this->matchesTokens(haystack: strtolower($id . ' ' . $description), tokens: $tokens) === false) {
+				continue;
+			}
+
+			// Count every match BEFORE the cap, so the caller can be told how much
+			// it is not seeing.
+			$matched++;
+			if (count($out) >= self::MAX_MATCHES) {
+				continue;
+			}
+
+			$out[] = [
+				'id' => $id,
+				'description' => $description,
+				'app' => $this->appOf(toolId: $id),
+				'reach' => $this->reachOf(descriptor: $descriptor),
+				'held' => isset($held[$id]),
+			];
+		}//end foreach
+
+		return ['tools' => $out, 'matched' => $matched, 'distinct' => count($seen)];
+	}//end collectMatches()
+
+	/**
+	 * Whether a tool's searchable text hits any query token.
+	 *
+	 * @param string $haystack The lower-cased id and description.
+	 * @param array<int, string> $tokens The query tokens; [] matches everything.
+	 *
+	 * @return bool True when the tool should be listed.
+	 */
+	private function matchesTokens(string $haystack, array $tokens): bool {
+		if ($tokens === []) {
+			return true;
+		}
+
+		foreach ($tokens as $token) {
+			if (str_contains($haystack, $token) === true) {
+				return true;
+			}
+		}
+
+		return false;
+	}//end matchesTokens()
+
+	/**
+	 * Whether a descriptor describes a read or a write.
+	 *
+	 * The model needs to know a write is a write BEFORE it argues for it, and so
+	 * does the human reading the request afterwards.
+	 *
+	 * @param array<string, mixed> $descriptor The tool descriptor.
+	 *
+	 * @return string `read` or `write`.
 	 */
 	private function reachOf(array $descriptor): string {
-		$declaredWrite = (($descriptor['scope'] ?? 'read') === 'write');
-		$notReadOnly = (($descriptor['readOnlyHint'] ?? false) === false);
-
-		if ($declaredWrite === true || $notReadOnly === true) {
+		if (($descriptor['scope'] ?? 'read') === 'write' || ($descriptor['readOnlyHint'] ?? false) === false) {
 			return 'write';
 		}
 
 		return 'read';
 	}//end reachOf()
+
+	/**
+	 * The note that travels with a result, warning when it is truncated.
+	 *
+	 * ⚠️ A TRUNCATED LIST THAT DOES NOT SAY SO READS AS THE WHOLE CATALOGUE.
+	 * This capped at 25 and `break`ed, so an unfiltered call returned the first
+	 * 25 tools in registration order and looked complete. Measured 2026-08-17:
+	 * 184 tools on this instance, of which the first 25 are cms/register/object
+	 * tools — so an agent asked for a lead reported "there is no CRM or leads
+	 * tool on this instance. I searched." and requested Deck and file tools
+	 * instead, while `pipelinq.lead.search` and `pipelinq.lead.get` sat
+	 * undisplayed. The model was reasoning correctly from a list that lied.
+	 *
+	 * @param int $shown How many tools were returned.
+	 * @param int $matched How many matched before the cap.
+	 * @param int $distinct How many distinct tools exist on the instance.
+	 *
+	 * @return string The note.
+	 */
+	private function noteFor(int $shown, int $matched, int $distinct): string {
+		$note = 'A tool with "held": false CANNOT be called. Use requestToolAccess to ask the owner for it.';
+		if ($matched <= $shown) {
+			return $note;
+		}
+
+		return $note . sprintf(
+			' ⚠️ SHOWING %d OF %d MATCHING TOOLS (%d total on this instance). This list is'
+			. ' INCOMPLETE — do NOT conclude a capability is absent from it. Call this tool'
+			. ' again with a narrower `query` (e.g. an app name or a noun like "lead",'
+			. ' "client", "invoice") before concluding anything does not exist.',
+			$shown,
+			$matched,
+			$distinct
+		);
+	}//end noteFor()
 
 	/**
 	 * Raise an access request. Grants nothing.
@@ -225,8 +343,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return array<string, mixed> The pending request, or an error.
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-an-agent-must-be-able-to-request-access-and-must-not-be-able-to-grant-it
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-requests-must-be-bounded-and-a-refusal-must-persist
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function request(string $uid, ?string $agentId, string $toolId, string $reason): array {
 		if ($agentId === null || $agentId === '') {
@@ -259,16 +376,14 @@ class ToolAccessRequestService {
 			];
 		}
 
-		$saved = $this->save(
-			data: [
-				'agentId' => $agentId,
-				'toolId' => $toolId,
-				'reason' => $reason,
-				'status' => 'pending',
-				'requestedBy' => $uid,
-				'requestedAt' => (new DateTimeImmutable())->format(DATE_ATOM),
-			]
-		);
+		$saved = $this->save(data: [
+			'agentId' => $agentId,
+			'toolId' => $toolId,
+			'reason' => $reason,
+			'status' => 'pending',
+			'requestedBy' => $uid,
+			'requestedAt' => (new DateTimeImmutable())->format(DATE_ATOM),
+		]);
 
 		$this->notifyOwner(agentId: $agentId, toolId: $toolId, subject: 'requested');
 
@@ -358,11 +473,25 @@ class ToolAccessRequestService {
 	 * @return string App id, or '' when undeterminable.
 	 */
 	private function appOf(string $toolId): string {
-		foreach (['.', '_'] as $separator) {
-			$position = strpos($toolId, $separator);
-			if ($position !== false && $position > 0) {
-				return substr($toolId, 0, $position);
-			}
+		// ⚠️ Only a DOTTED id names its app. `pipelinq.lead.get` is app-prefixed;
+		// `get_object` and `search_objects` are not — they are OpenRegister's own
+		// unprefixed tools, and splitting them on `_` reported apps called "get",
+		// "create", "update" and "delete" (five tools each, measured 2026-08-17).
+		//
+		// That lands in the one field meant to tell a model WHERE a capability
+		// lives, so a wrong answer here is worse than no answer: an agent looking
+		// for "which app handles objects" was being told "the get app".
+		$position = strpos($toolId, '.');
+		if ($position !== false && $position > 0) {
+			return substr($toolId, 0, $position);
+		}
+
+		// An underscored id is the alias form of a dotted one, so the app is
+		// recoverable only when the catalogue also carries the dotted id. It does
+		// not for OpenRegister's core tools, which genuinely have no app segment —
+		// they are the register/object surface itself.
+		if (str_contains($toolId, '_') === true) {
+			return self::CORE_TOOL_APP;
 		}
 
 		return '';
@@ -387,6 +516,31 @@ class ToolAccessRequestService {
 	}//end knownTool()
 
 	/**
+	 * An OpenRegister result as a plain array, whichever shape it arrived in.
+	 *
+	 * `ObjectService` returns an `ObjectEntity` on some paths and an already-
+	 * decoded array on others, and four call sites in this class were each
+	 * open-coding the same `is_array(...) ? ... : ->jsonSerialize()` ternary. One
+	 * helper, so a fifth caller cannot pick a fifth spelling — and so the
+	 * question "what does this return" is answered once.
+	 *
+	 * @param mixed $value The object service result.
+	 *
+	 * @return array<string, mixed> The decoded record.
+	 */
+	private function asRecord(mixed $value): array {
+		if (is_array($value) === true) {
+			return $value;
+		}
+
+		if (is_object($value) === true && method_exists($value, 'jsonSerialize') === true) {
+			return $value->jsonSerialize();
+		}
+
+		return [];
+	}//end asRecord()
+
+	/**
 	 * Load an agent object, or [] when unavailable.
 	 *
 	 * @param string|null $agentId The agent uuid.
@@ -405,11 +559,7 @@ class ToolAccessRequestService {
 				return [];
 			}
 
-			if (is_array($object) === true) {
-				return $object;
-			}
-
-			return $object->jsonSerialize();
+			return $this->asRecord(value: $object);
 		} catch (Throwable $e) {
 			return [];
 		}
@@ -436,11 +586,7 @@ class ToolAccessRequestService {
 			]);
 
 			foreach ($results as $row) {
-				if (is_array($row) === true) {
-					return $row;
-				}
-
-				return $row->jsonSerialize();
+				return $this->asRecord(value: $row);
 			}
 		} catch (Throwable $e) {
 			$this->logger->warning('[ToolAccessRequestService] request lookup failed: ' . $e->getMessage());
@@ -448,6 +594,111 @@ class ToolAccessRequestService {
 
 		return null;
 	}//end findRequest()
+
+	/**
+	 * The approvals an agent is currently waiting on, for the chat to show.
+	 *
+	 * Shaped as a GENERIC approval, not as a tool-access request: each item
+	 * carries its own `kind` and its own `resolveUrl`, so the chat posts a
+	 * decision where it is told to rather than knowing how any particular
+	 * approval is resolved. A future approval — fetching a URL, editing a file
+	 * that is not open — supplies its own two fields and needs no change in the
+	 * client at all.
+	 *
+	 * Read-only and safe to call on every turn: it neither creates nor resolves
+	 * anything.
+	 *
+	 * @param string|null $agentId The agent whose pending requests to list.
+	 *
+	 * @return array<int, array<string, mixed>> Pending approvals, oldest first.
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 */
+	public function pendingApprovals(?string $agentId): array {
+		if ($agentId === null || $agentId === '') {
+			return [];
+		}
+
+		// Every request record lives in an OpenRegister register, so without
+		// OpenRegister there is nothing pending — not an error. Asked here
+		// rather than answered by the catch below, because this method is
+		// called on EVERY turn: a per-turn exception is an expensive way to
+		// learn a fact that does not change (ADR-083 rule 1 — the reach is
+		// optional, so availability is established before reaching).
+		if ($this->openRegisterAvailable() === false) {
+			return [];
+		}
+
+		$out = [];
+		try {
+			$objectService = $this->container->get('OCA\OpenRegister\Service\ObjectService');
+			$results = $objectService->findAll([
+				'filters' => [
+					'register' => self::REGISTER_SLUG,
+					'schema' => self::REQUEST_SCHEMA,
+					'agentId' => $agentId,
+					'status' => 'pending',
+				],
+			]);
+
+			foreach ($results as $row) {
+				$record = $this->asRecord(value: $row);
+				$id = (string)($record['id'] ?? ($record['@self']['id'] ?? ''));
+				$toolId = (string)($record['toolId'] ?? '');
+				if ($id === '' || $toolId === '') {
+					continue;
+				}
+
+				$out[] = [
+					'id' => $id,
+					'kind' => 'tool-access',
+					// What the owner is deciding, in their words rather than the
+					// model's: the tool's identity and reach are facts, the
+					// reason beside them is agent-authored.
+					'title' => $toolId,
+					'app' => $this->appOf(toolId: $toolId),
+					'reach' => (string)($record['reach'] ?? 'read'),
+					'reason' => (string)($record['reason'] ?? ''),
+					'agentId' => $agentId,
+					'resolveUrl' => '/index.php/apps/hermiq/api/agents/'
+						. rawurlencode($agentId) . '/tool-access-requests/' . rawurlencode($id),
+				];
+			}
+		} catch (Throwable $e) {
+			$this->logger->warning(
+				'[ToolAccessRequestService] pending approvals lookup failed: ' . $e->getMessage()
+			);
+		}//end try
+
+		return $out;
+
+	}//end pendingApprovals()
+
+	/**
+	 * Whether OpenRegister is installed on this instance.
+	 *
+	 * The dependency is reached through the container rather than injected on
+	 * purpose: injecting it would make this whole service unconstructable on an
+	 * instance without OpenRegister, turning a clean empty result into a 500 —
+	 * which is the failure ADR-083 rule 3 exists to prevent. Establishing
+	 * availability first is what makes the deferred lookup the correct shape
+	 * rather than a hidden hard dependency.
+	 *
+	 * @return bool True when OpenRegister is installed.
+	 */
+	private function openRegisterAvailable(): bool {
+		try {
+			$appManager = $this->container->get(\OCP\App\IAppManager::class);
+			return $appManager->isInstalled('openregister');
+		} catch (Throwable $e) {
+			// Cannot establish availability ⇒ treat it as absent. Reporting
+			// "nothing pending" is correct here; guessing "available" would
+			// only move the failure one line down.
+			unset($e);
+			return false;
+		}//end try
+
+	}//end openRegisterAvailable()
 
 	/**
 	 * Persist a request record.
@@ -465,11 +716,7 @@ class ToolAccessRequestService {
 				schema: self::REQUEST_SCHEMA
 			);
 
-			if (is_array($saved) === true) {
-				return $saved;
-			}
-
-			return $saved->jsonSerialize();
+			return $this->asRecord(value: $saved);
 		} catch (Throwable $e) {
 			$this->logger->error('[ToolAccessRequestService] could not save request: ' . $e->getMessage());
 
@@ -491,7 +738,7 @@ class ToolAccessRequestService {
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-the-owner-must-be-notified-when-a-request-is-raised-and-when-access-is-granted
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
 	 */
 	public function notifyOwner(string $agentId, string $toolId, string $subject): void {
 		$agent = $this->loadAgent(agentId: $agentId);

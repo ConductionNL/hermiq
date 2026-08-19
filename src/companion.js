@@ -52,6 +52,22 @@
 // too, so it needs those pages re-verified; it is not part of this fix.
 import { createApp, defineAsyncComponent, h } from 'vue'
 
+// 🔴 The component library's compiled stylesheet. Without it `.cn-ai-companion`
+// has NO rules at all: the element measures 0x0 with `position: static`, and the
+// panel inside it falls back to NcAppSidebar's bare default — docked to the left
+// edge at full height instead of the floating bottom-right companion. It still
+// opened, still worked, still passed every DOM assertion; it just looked like a
+// different, older component.
+//
+// `css/index.css` (which main.js imports) does NOT carry these rules — the
+// cn-ai-* styles live only in the compiled bundle, so importing the wrong one
+// looks like a fix and changes nothing.
+//
+// Checked before shipping it to EVERY page in the instance: the file has zero
+// bare element selectors (no `body`, `a`, `table`, `button` rules), so it cannot
+// restyle a host app.
+import '@conduction/nextcloud-vue/dist/nextcloud-vue.css'
+
 const CnAiCompanion = defineAsyncComponent(
 	() =>
 		import(
@@ -142,6 +158,18 @@ function mount() {
 
 	const root = document.createElement('div')
 	root.id = 'hermiq-companion-root'
+	// 🔴 ABOVE Nextcloud's header, which sits at z-index 2000. The panel's close
+	// button lands at y 8-42 — inside the 50px header — and with the root at
+	// `z-index: auto` the header won that overlap: `elementFromPoint` at the
+	// button's own centre returned `.header-start`, so the panel could be opened
+	// and never closed. It looked correct in the DOM the whole time: present,
+	// visible, correctly sized. Only a real click found it.
+	//
+	// 2001, not something larger: a genuine modal (Nextcloud uses far higher)
+	// must still win over an assistant panel.
+	root.style.position = 'relative'
+	root.style.zIndex = '2001'
+
 	document.body.appendChild(root)
 
 	const fileId = openFileId()

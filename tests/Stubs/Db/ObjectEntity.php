@@ -187,6 +187,25 @@ class ObjectEntity {
 	}//end setObject()
 
 	/**
+	 * The entity as a plain array.
+	 *
+	 * ⚠️ Declared here because the REAL `ObjectEntity` declares it — it
+	 * `implements JsonSerializable`. Omitting it did not make a caller safer; it
+	 * made phpstan report "Call to an undefined method
+	 * ObjectEntity::jsonSerialize()" against a method that exists and works,
+	 * which is a hole in the stub being reported as a hole in the code.
+	 *
+	 * A stub is a claim about another class's surface. When it under-declares,
+	 * the analyser invents defects; when it over-declares, it hides them. Either
+	 * way the answer is the same: mirror the real surface.
+	 *
+	 * @return array<string,mixed>
+	 */
+	public function jsonSerialize(): array {
+		return $this->object;
+	}//end jsonSerialize()
+
+	/**
 	 * Get the soft-delete marker.
 	 *
 	 * 🔴 Null means "live". OpenRegister's API delete is a SOFT delete: it

@@ -556,7 +556,7 @@ class HermiqToolProvider implements IMcpToolProvider {
 	 *                                                 can write `Agent.tools`.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
-	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of twelve distinct capabilities.
+	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) DI of thirteen distinct capabilities.
 	 */
 	public function __construct(
 		// Promoted like every other dependency. These two were previously plain
