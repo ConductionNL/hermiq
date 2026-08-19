@@ -11,6 +11,11 @@
  * the tenant-writable object body — so it cannot be expressed as a plain declarative
  * property gate.
  *
+ * `riskCategory: unacceptable` (EU AI Act Art. 5 prohibited practice) is refused
+ * unconditionally, before any acknowledgement is even consulted — unlike `high`, no
+ * DPO sign-off can legitimise enabling a prohibited practice, so this is not a
+ * stricter version of the ack check but a separate, unwaivable denial.
+ *
  * OpenRegister's lifecycle engine resolves the transition's `requires` FQCN via the
  * server container (DI autowire — no Application.php registration needed) and calls
  * `check()` before the `enable` transition is persisted. A read-only verdict: the guard
@@ -90,6 +95,16 @@ class AiFeatureDpoAckGuard implements LifecycleGuardInterface {
 	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-2-1
 	 */
 	public function check(array $object, string $action, string $userId): GuardResult {
+		if (($object['riskCategory'] ?? null) === 'unacceptable') {
+			// EU AI Act Art. 5: a prohibited practice cannot be legitimised by any
+			// acknowledgement, DPO or otherwise. Unwaivable — checked before, and
+			// independently of, the ack lookup below.
+			return GuardResult::deny(
+				message: 'This AI feature is classified "unacceptable" (a prohibited practice under '
+					. 'EU AI Act Art. 5) and cannot be enabled, regardless of DPO acknowledgement.'
+			);
+		}
+
 		$slug = trim((string)($object['slug'] ?? ''));
 		if ($slug === '') {
 			// Fail-closed: without a slug the acknowledgement cannot be verified.

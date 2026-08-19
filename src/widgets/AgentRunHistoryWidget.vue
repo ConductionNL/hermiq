@@ -187,6 +187,9 @@
 											<span
 												class="agent-run-history-widget__trace-step-duration"
 												>{{
+													/**
+													 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
+													 */
 													stepDurationLabel(
 														step.durationMs,
 													)
@@ -339,6 +342,7 @@ export default {
 		 * This agent's uuid from the route param.
 		 *
 		 * @return {string} The agent uuid.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		agentId() {
 			return this.$route.params.id
@@ -348,6 +352,7 @@ export default {
 		 * The steps of the last replay preview.
 		 *
 		 * @return {Array<object>} The preview's ordered steps.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		replaySteps() {
 			if (!this.replayResult) {
@@ -358,6 +363,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
+	 */
 	created() {
 		this.scheduleStore = useScheduleStore()
 		this.scheduleStore.registerObjectType('schedule', 'schedule', 'hermiq')
@@ -394,6 +402,7 @@ export default {
 		 * Load the attached schedule and its run history.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		async load() {
 			try {
@@ -413,6 +422,7 @@ export default {
 		 * Load the run history for the attached schedule (non-blocking on error).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		async loadRuns() {
 			this.runsError = false
@@ -436,6 +446,7 @@ export default {
 		 *
 		 * @param {object} run The run record.
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		async toggleRunTrace(run) {
 			if (this.expandedRunId === run.id) {
@@ -464,6 +475,7 @@ export default {
 		 *
 		 * @param {object} run The run record whose trace is currently expanded.
 		 * @return {void}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		downloadTrace(run) {
 			const trace = this.runTraces[run.id]
@@ -489,6 +501,7 @@ export default {
 		 * AgentRunOperationsWidget's page-level "Run now" (no new endpoint).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		async reRun() {
 			if (!this.schedule || !this.schedule.id) {
@@ -525,6 +538,7 @@ export default {
 		 *
 		 * @param {object} run The run row to replay.
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		async replay(run) {
 			if (!this.schedule || !this.schedule.id || !run || !run.id) {
@@ -555,6 +569,7 @@ export default {
 		 *
 		 * @param {string} type The step type (gate_wait|context|history|llm|tool|delivery).
 		 * @return {string} The localised label.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		stepTypeLabel(type) {
 			const labels = {
@@ -573,6 +588,7 @@ export default {
 		 *
 		 * @param {number} ms The duration in milliseconds.
 		 * @return {string} The duration label.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		stepDurationLabel(ms) {
 			if (ms === null || ms === undefined) {
@@ -593,6 +609,7 @@ export default {
 		 *
 		 * @param {string} versionId The pinned agent version id.
 		 * @return {string} The short label, or a dash when absent.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		shortVersionLabel(versionId) {
 			if (!versionId) {
@@ -606,6 +623,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The localised date, or '—'.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		formatDate(value) {
 			if (!value) {
@@ -620,6 +638,7 @@ export default {
 		 *
 		 * @param {number} ms The duration in milliseconds.
 		 * @return {string} The duration label.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		durationLabel(ms) {
 			if (ms === null || ms === undefined) {
@@ -634,6 +653,7 @@ export default {
 		 *
 		 * @param {string} status The run's status.
 		 * @return {string} The badge modifier class.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		statusBadgeClass(status) {
 			if (
@@ -659,6 +679,7 @@ export default {
 		 *
 		 * @param {string} status The run's status.
 		 * @return {string} The localised status label.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-history-custom-widget-must-show-run-history-with-per-row-trace-expand-re-run-and-replay
 		 */
 		statusLabel(status) {
 			const labels = {

@@ -27,6 +27,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ChatController;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\Llm\ProviderFactory;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IL10N;
@@ -109,13 +112,22 @@ class ChatControllerTest extends TestCase {
 		$l10n = $this->createMock(IL10N::class);
 		$l10n->method('t')->willReturnCallback(static fn (string $text): string => $text);
 
+		// ⚠️ NAMED arguments, not positional. The three collaborators below were
+		// inserted in the MIDDLE of the constructor, and with positional
+		// arguments the logger silently slid into the `$runStepBus` slot — the
+		// suite failed with "must be of type RunStepBus, MockObject_Logger
+		// given", which is the loud version. The quiet version is an argument
+		// that happens to satisfy the next parameter's type.
 		return new ChatController(
-			$this->request,
-			$this->engine,
-			$this->objectService,
-			$this->userSession,
-			$l10n,
-			$this->logger
+			request: $this->request,
+			engine: $this->engine,
+			objectService: $this->objectService,
+			userSession: $this->userSession,
+			l10n: $l10n,
+			runStepBus: $this->createMock(RunStepBus::class),
+			providerFactory: $this->createMock(ProviderFactory::class),
+			accessRequests: $this->createMock(ToolAccessRequestService::class),
+			logger: $this->logger
 		);
 
 	}//end controller()
@@ -564,4 +576,48 @@ class ChatControllerTest extends TestCase {
 		);
 
 	}//end testGetChatStatsUsesPaginatedTotals()
+
+	/**
+	 * `POST /api/chat/warm` with nothing to warm answers 200, not an error.
+	 *
+	 * The warm-up is an optimisation the following turn does not depend on, so
+	 * "there is nothing to warm" is a normal outcome and must be reported as
+	 * one. A 4xx here would give the chat a failure to handle for a request it
+	 * only made to save time.
+	 *
+	 * @return void
+	 */
+	public function testWarmWithoutIdentifiersIsNotAnError(): void {
+		$this->stubParams(['agentUuid' => '', 'conversation' => '']);
+
+		$response = $this->controller()->warm();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertSame(['warmed' => false], $response->getData());
+
+	}//end testWarmWithoutIdentifiersIsNotAnError()
+
+	/**
+	 * A warm-up whose conversation lookup THROWS still answers 200.
+	 *
+	 * `findConversation()` throws rather than returning null when the
+	 * conversation is absent, so this is the live failure path and not a
+	 * hypothetical one. The endpoint's contract is that a failed warm-up is
+	 * invisible to the chat — if this ever returns 500, every chat that opens
+	 * on a stale conversation id starts reporting an error for a request the
+	 * user never made.
+	 *
+	 * @return void
+	 */
+	public function testWarmSwallowsAFailedLookup(): void {
+		$this->stubParams(['agentUuid' => 'agent-1', 'conversation' => 'gone']);
+		$this->objectService->method('find')
+			->willThrowException(new \RuntimeException('no such conversation'));
+
+		$response = $this->controller()->warm();
+
+		$this->assertSame(200, $response->getStatus());
+		$this->assertFalse($response->getData()['warmed']);
+
+	}//end testWarmSwallowsAFailedLookup()
 }//end class

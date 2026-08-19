@@ -449,7 +449,8 @@ class Engine {
 				cnAiContext: $cnAiContext,
 				contextPreamble: $contextPreamble,
 				trace: $trace,
-				dryRun: $dryRun
+				dryRun: $dryRun,
+				conversationId: $conversationId
 			);
 			$llmTime = microtime(true) - $llmStartTime;
 			if ($llmToken !== null) {

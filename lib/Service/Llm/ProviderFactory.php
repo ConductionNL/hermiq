@@ -141,9 +141,20 @@ class ProviderFactory {
 	 * Known limit, recorded not solved: `RUNNER_TIMEOUT_MS` is a container env var Hermiq
 	 * cannot read, so this tracks the runner's DEFAULT rather than its live value.
 	 *
+	 * ⚠️ Raised 120 -> 300 on 2026-08-17 for AGENTIC turns. A turn that answers one
+	 * question by making several tool calls spends roughly 5-10s per round trip, and
+	 * a realistic composite ("quote this client for 5 hours of dev work" — find the
+	 * client, find or create the lead, read the template, price it, write the file)
+	 * needs six or more. Measured: such a turn was cut off at 152s having already
+	 * started its pooled process, and the user saw "could not reach the ExApp",
+	 * which names the wrong cause entirely.
+	 *
+	 * The data is not the constraint — the OpenRegister lookups behind those calls
+	 * measured 176-364ms each. It is the model's own round trips.
+	 *
 	 * @var int
 	 */
-	private const RUNNER_CLI_TIMEOUT_SECONDS = 120;
+	private const RUNNER_CLI_TIMEOUT_SECONDS = 300;
 
 	/**
 	 * Slack (SECONDS) added to the runner's own timeout to form Hermiq's.
@@ -156,6 +167,38 @@ class ProviderFactory {
 	 * @var int
 	 */
 	private const CLI_DISPATCH_TIMEOUT_SLACK_SECONDS = 30;
+
+	/**
+	 * How long a pooled CLI process may live, in seconds, and therefore how long
+	 * its run token stays valid.
+	 *
+	 * ⚠️ THIS IS A SECURITY PARAMETER, not a tuning knob. The CLI reads its
+	 * `--mcp-config` once at startup and never re-reads it (measured 2026-08-17,
+	 * `REREAD=false`), so a pooled process cannot be handed a fresh token — its
+	 * original token must stay valid for as long as the process is reusable. That
+	 * is design D0.1 option 1, adopted deliberately, and it widens the window a
+	 * leaked token is useful in from one turn to this value.
+	 *
+	 * Raising it buys a higher pool hit rate and lengthens that window by exactly
+	 * the same amount. The runner is told this number rather than keeping its own,
+	 * so the process cap and the token TTL cannot drift apart.
+	 *
+	 * @var int
+	 */
+	private const POOL_PROCESS_LIFETIME_SECONDS = 600;
+
+	/**
+	 * How long to wait on a warm-up dispatch, in seconds.
+	 *
+	 * Short on purpose. The runner answers a warm-up as soon as it has SPAWNED
+	 * the process — it does not wait for the CLI to finish initialising — so
+	 * this only bounds the HTTP hop. A warm-up that cannot be dispatched
+	 * promptly is not worth making the caller wait for: the turn behind it works
+	 * either way.
+	 *
+	 * @var int
+	 */
+	private const WARM_TIMEOUT_SECONDS = 10;
 
 	/**
 	 * The personal credential scope — the ONLY scope an `anthropic-cli` (Claude Max/Pro
@@ -682,6 +725,9 @@ class ProviderFactory {
 	 *                             endpoint resolve the run's granted tools. Null on the
 	 *                             `http` path and on text-only `cli` turns, where it is
 	 *                             unused.
+	 * @param string $conversationId The conversation this turn belongs to. Threaded through
+	 *                               so a tool step published on the run-step bus reaches
+	 *                               the stream watching this conversation.
 	 *
 	 * @return string Generated response text (the final assistant turn).
 	 *
@@ -706,6 +752,7 @@ class ProviderFactory {
 		?callable $toolExecutor = null,
 		string $executionMode = 'http',
 		?string $agentId = null,
+		string $conversationId = '',
 	): string {
 		// `cli` routes the turn through the hermiq-llm-runner ExApp instead of the direct
 		// Messages API. Branch BEFORE any HTTP assembly: the two transports share nothing
@@ -716,7 +763,8 @@ class ProviderFactory {
 				model: $model,
 				messageHistory: $messageHistory,
 				functions: $functions,
-				agentId: $agentId
+				agentId: $agentId,
+				conversationId: $conversationId
 			);
 		}
 
@@ -833,6 +881,8 @@ class ProviderFactory {
 	 * @param array $functions OpenAI-style tool definitions. Non-empty ⇒ governed MCP turn.
 	 * @param string|null $agentId The acting agent's UUID (binds the per-run token). Required
 	 *                             for a tool-requiring turn; unused for a text-only one.
+	 * @param string $conversationId The conversation this turn belongs to, so a tool step
+	 *                               published on the run-step bus reaches the right stream.
 	 *
 	 * @return string The completion text.
 	 *
@@ -850,9 +900,15 @@ class ProviderFactory {
 		array $messageHistory,
 		array $functions = [],
 		?string $agentId = null,
+		string $conversationId = '',
 	): string {
 		$governedMcpConfig = null;
 		$runToken = null;
+
+		// A turn is POOLABLE only when it belongs to an identified conversation.
+		// Without one there is nothing safe to key a remembering process by, so the
+		// turn takes the cold path — the behaviour that shipped before pooling.
+		$poolKey = $this->poolKeyFor(conversationId: $conversationId, agentId: $agentId, model: $model);
 
 		// 1. Availability — each component named separately, before any secret is touched.
 		$this->assertCliRunnerAvailable();
@@ -883,7 +939,12 @@ class ProviderFactory {
 			// egress-only identity instead. Minting strictly here would 503 every
 			// title generation the moment `executionMode: cli` is switched on.
 			if (empty($functions) === false) {
-				$runToken = $this->mintGovernedRunToken(agentId: $agentId, uid: $uid);
+				$runToken = $this->mintGovernedRunToken(
+					agentId: $agentId,
+					uid: $uid,
+					conversationId: $conversationId,
+					pooled: ($poolKey !== '')
+				);
 				$governedMcpConfig = $this->buildGovernedMcpConfig(runToken: $runToken);
 			}
 
@@ -903,17 +964,64 @@ class ProviderFactory {
 				token: $token,
 				uid: $uid,
 				mcpConfig: $governedMcpConfig,
-				runToken: $runToken
+				runToken: $runToken,
+				poolKey: $poolKey
 			);
 		} finally {
 			// The run token dies with the turn (success, error, or timeout), so a token
 			// outliving its run has no legitimate caller.
-			if ($runToken !== null && $this->runTokenService !== null) {
+			//
+			// EXCEPT on a poolable turn. The CLI reads `--mcp-config` ONCE at startup
+			// and never re-reads it (measured 2026-08-17, `REREAD=false`), so a pooled
+			// process cannot be handed a fresh token: consuming here would kill the
+			// token its own next turn must present, and the failure is silent — the
+			// model simply reports it has no tools.
+			//
+			// This is design D0.1 option 1, adopted deliberately: the token's lifetime
+			// follows the pooled process instead of the turn. The window is bounded by
+			// the pool's idle/hard cap, which is therefore a SECURITY parameter and not
+			// merely a performance one. The token still expires on its own TTL if the
+			// runner never reaps.
+			$consume = ($runToken !== null && $this->runTokenService !== null);
+			if ($consume === true && $poolKey === '') {
 				$this->runTokenService->consume(token: $runToken);
 			}
 		}//end try
 
 	}//end callAnthropicCli()
+
+	/**
+	 * Derive the key a pooled CLI process is reused under, or '' for the cold path.
+	 *
+	 * The key is the CONVERSATION, plus the agent and model whose process it is.
+	 * That is narrower than the (agent, user) key design D1 originally proposed,
+	 * and the narrowing is not caution — it is required. A stream-json process
+	 * REMEMBERS its turns: measured 2026-08-17, a second turn recalled a canary
+	 * word with no history re-sent. Any key wider than one conversation therefore
+	 * carries one conversation's context into another's turn.
+	 *
+	 * The agent is in the key because a process's granted tool set is fixed at
+	 * startup (the CLI never re-reads `--mcp-config`), so two agents must never
+	 * share a process. The model is in the key because it is a startup argument.
+	 *
+	 * An empty conversation id yields '' — no pooling, cold path, previous
+	 * behaviour. That is the correct answer for title generation and any other
+	 * caller with no conversation to belong to.
+	 *
+	 * @param string      $conversationId The conversation UUID, or '' when unknown.
+	 * @param string|null $agentId        The acting agent UUID, or null.
+	 * @param string      $model          The model id (a startup argument).
+	 *
+	 * @return string The pool key, or '' when the turn must not be pooled.
+	 */
+	private function poolKeyFor(string $conversationId, ?string $agentId, string $model): string {
+		if ($conversationId === '' || $agentId === null || $agentId === '') {
+			return '';
+		}
+
+		// Hashed so the key carries no identifier into the runner's logs.
+		return hash('sha256', $conversationId . '|' . $agentId . '|' . $model);
+	}//end poolKeyFor()
 
 	/**
 	 * Mint the per-run token that authenticates the governed MCP + egress endpoints for a
@@ -922,14 +1030,27 @@ class ProviderFactory {
 	 *
 	 * @param string|null $agentId The acting agent's UUID.
 	 * @param string|null $uid The acting user's UID.
+	 * @param string      $conversationId The conversation the run belongs to, or ''.
+	 * @param bool        $pooled Whether the turn may be served by a pooled process,
+	 *                    in which case the token must outlive the turn (D0.1 option 1).
 	 *
 	 * @return string The minted run token (never logged, never on argv).
 	 *
 	 * @throws ProviderUnavailableException When the turn cannot be governed (503).
 	 *
 	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-a-turn-that-cannot-be-governed-fails-loudly-and-is-never-silently-tool-less
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$pooled` is a genuine two-mode
+	 *   selector, not a switch over two behaviours that wanted separate methods: a
+	 *   pooled token binds to a warmed process that outlives the turn, a per-turn
+	 *   token does not, and every call site passes it BY NAME (`pooled: true`).
 	 */
-	private function mintGovernedRunToken(?string $agentId, ?string $uid): string {
+	private function mintGovernedRunToken(
+		?string $agentId,
+		?string $uid,
+		string $conversationId = '',
+		bool $pooled = false,
+	): string {
 		if ($this->runTokenService === null) {
 			throw new ProviderUnavailableException(
 				'Anthropic executionMode "cli" cannot serve a tool-requiring turn: the governed run-token '
@@ -956,10 +1077,21 @@ class ProviderFactory {
 		}
 
 		try {
+			// A poolable turn's token must stay valid for as long as the process
+			// that holds it can be reused, because the CLI never re-reads the config
+			// it was given at startup. Otherwise the default per-run TTL applies and
+			// the token still dies with the turn.
+			$ttlSeconds = null;
+			if ($pooled === true) {
+				$ttlSeconds = self::POOL_PROCESS_LIFETIME_SECONDS + self::CLI_DISPATCH_TIMEOUT_SLACK_SECONDS;
+			}
+
 			return $this->runTokenService->mint(
 				runId: bin2hex(random_bytes(16)),
 				agentId: $agentId,
-				userId: $uid
+				userId: $uid,
+				conversationId: $conversationId,
+				ttlSeconds: $ttlSeconds
 			);
 		} catch (Throwable $e) {
 			$this->logger->error(
@@ -975,6 +1107,43 @@ class ProviderFactory {
 		}//end try
 
 	}//end mintGovernedRunToken()
+
+	/**
+	 * The token and MCP config a warm-up must be built with.
+	 *
+	 * ⚠️ Exactly ONE token is minted per call, and which one depends on the
+	 * posture. An earlier attempt at removing the `else` this replaced hoisted
+	 * the egress mint above the branch so both paths could share it — which
+	 * quietly minted a second, unused token on every governed warm-up. Minting
+	 * is a side effect, not a default value, and it does not belong in the slot
+	 * where a default would go.
+	 *
+	 * @param bool $governed Whether the warmed process is governed.
+	 * @param string|null $agentId The acting agent's UUID.
+	 * @param string|null $uid The acting user's UID.
+	 * @param string $conversationId The conversation being warmed for.
+	 *
+	 * @return array{0: string, 1: array|null} The run token and the MCP config, if any.
+	 */
+	private function mintWarmupToken(
+		bool $governed,
+		?string $agentId,
+		?string $uid,
+		string $conversationId
+	): array {
+		if ($governed === false) {
+			return [$this->mintEgressRunToken(agentId: $agentId, uid: $uid), null];
+		}
+
+		$runToken = $this->mintGovernedRunToken(
+			agentId: $agentId,
+			uid: $uid,
+			conversationId: $conversationId,
+			pooled: true
+		);
+
+		return [$runToken, $this->buildGovernedMcpConfig(runToken: $runToken)];
+	}//end mintWarmupToken()
 
 	/**
 	 * Mint the egress-only run identity for a TEXT-ONLY cli turn.
@@ -1287,7 +1456,118 @@ class ProviderFactory {
 	}//end assertPersonalScopeCredential()
 
 	/**
-	 * Dispatch one assembled turn to the runner over AppAPI and map the result.
+	 * Start the pooled CLI process for a conversation WITHOUT running a turn.
+	 *
+	 * The first question of a conversation is always the slow one, because
+	 * nobody has paid the process start yet — measured on this instance, 11.2s
+	 * for a trivial prompt cold against 3.2s warm. Called when the chat opens or
+	 * an agent is picked, this moves that cost to while the user is still
+	 * typing.
+	 *
+	 * Costs a process start and NOTHING else: no prompt is sent, so there is no
+	 * inference, no tokens and no vendor request. It is not a "hello" turn.
+	 *
+	 * Best-effort by contract — a warm-up that fails must be invisible, because
+	 * the turn that follows works exactly as it does today without it.
+	 *
+	 * @param string      $credentialId The credential to resolve.
+	 * @param string      $model        The model id (part of the pool key).
+	 * @param string|null $agentId      The acting agent's UUID.
+	 * @param string      $conversationId The conversation being opened.
+	 * @param bool        $governed     Whether the agent holds tools, so the
+	 *                    warmed process carries the same governed argv the real
+	 *                    turn will need.
+	 *
+	 * @return bool True when a warm-up was dispatched.
+	 *
+	 * @SuppressWarnings(PHPMD.BooleanArgumentFlag) `$governed` is a genuine
+	 *   two-mode selector. The warmed process must be built EXACTLY as the first
+	 *   turn will build it — same argv, same token, same mcp config — so the
+	 *   posture is an input to one procedure rather than two procedures sharing a
+	 *   name. Splitting it would be the way to get the two out of step, which is
+	 *   the failure the warm-up exists to avoid. Passed by name at the call site.
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-the-cli-process-is-warmed-before-the-first-question-not-by-it
+	 */
+	public function warmAnthropicCli(
+		string $credentialId,
+		string $model,
+		?string $agentId,
+		string $conversationId,
+		bool $governed = true,
+	): bool {
+		$poolKey = $this->poolKeyFor(conversationId: $conversationId, agentId: $agentId, model: $model);
+		if ($poolKey === '') {
+			return false;
+		}
+
+		try {
+			$this->assertCliRunnerAvailable();
+			$uid = $this->currentUid();
+
+			// The warmed process must be built EXACTLY as the first turn will
+			// build it — same governed argv, same token, same mcp config — or it
+			// is a process that turn cannot use and the warm-up is worse than
+			// useless: it occupies a pool slot and saves nothing.
+			[$runToken, $governedMcpConfig] = $this->mintWarmupToken(
+				governed: $governed,
+				agentId: $agentId,
+				uid: $uid,
+				conversationId: $conversationId
+			);
+
+			$token = $this->resolveCliToken(credentialId: $credentialId, uid: $uid);
+
+			$this->appApiPublicFunctions()->exAppRequest(
+				self::RUNNER_EXAPP_ID,
+				self::RUNNER_ROUTE,
+				$uid,
+				'POST',
+				[
+					'provider' => 'anthropic',
+					'model' => $model,
+					'messages' => [],
+					'credentialEnv' => ['CLAUDE_CODE_OAUTH_TOKEN' => $token],
+					'mcpConfig' => $governedMcpConfig,
+					'runToken' => $runToken,
+					'poolKey' => $poolKey,
+					'poolLifetimeSeconds' => self::POOL_PROCESS_LIFETIME_SECONDS,
+					'warmOnly' => true,
+				],
+				['timeout' => self::WARM_TIMEOUT_SECONDS]
+			);
+
+			return true;
+		} catch (Throwable $e) {
+			// Silent by design. A failed warm-up costs the user nothing but the
+			// speed-up they would have had.
+			$this->logger->debug(
+				'[ProviderFactory] CLI pool warm-up did not start',
+				['reason' => $e->getMessage()]
+			);
+
+			return false;
+		}//end try
+
+	}//end warmAnthropicCli()
+
+	/**
+	 * POST one turn to the `hermiq-llm-runner` ExApp and return its completion.
+	 *
+	 * The single place that speaks to the runner, so the request shape — and in
+	 * particular the exact `credentialEnv` key the runner's Anthropic adapter
+	 * allowlists — is stated once. A key outside that allowlist is dropped
+	 * WITHOUT an error, producing an unauthenticated CLI rather than a 400, so
+	 * this is not a detail that tolerates a second spelling elsewhere.
+	 *
+	 * @param string $model The model identifier; empty ⇒ the CLI's own default.
+	 * @param array $messageHistory Array of LLPhant Message objects.
+	 * @param string $token The broker-issued OAuth token, passed as credentialEnv.
+	 * @param string|null $uid The acting user, for the runner's own accounting.
+	 * @param array|null $mcpConfig The governed MCP config for a tool-requiring turn;
+	 *                              null for a text-only one.
+	 * @param string $runToken The per-run bearer token the MCP endpoint verifies.
+	 * @param string $poolKey Selects the runner's warmed process; empty ⇒ unpooled.
 	 *
 	 * Two AppAPI defaults are traps here and BOTH are overridden explicitly; neither is
 	 * visible in `exAppRequest()`'s signature:
@@ -1306,22 +1586,6 @@ class ProviderFactory {
 	 *    error, then status, then a usable `text`. Any other order reads an error string as the
 	 *    model's answer.
 	 *
-	 * @param string $model Model identifier; empty ⇒ the CLI's own
-	 *                      default.
-	 * @param array $messageHistory Array of LLPhant Message objects.
-	 * @param string $token The resolved subscription token (never logged).
-	 * @param string|null $uid The acting user's UID.
-	 * @param array<string,mixed>|null $mcpConfig The governed MCP server config for a tool-requiring
-	 *                                            turn (cli-runner-governed-mcp-and-egress), or null
-	 *                                            for a text-only turn. Carries the per-run bearer
-	 *                                            token in its `headers`; the runner writes it to a
-	 *                                            0600 file, never inline argv.
-	 * @param string $runToken The per-run token. Sent on EVERY cli turn (not just
-	 *                         a governed one) because the runner also presents it
-	 *                         to the egress proxy, which is the container's only
-	 *                         route out — a text-only turn without it could not
-	 *                         reach the provider at all.
-	 *
 	 * @return string The completion text.
 	 *
 	 * @throws ProviderUnavailableException On any transport, status, or shape failure (503).
@@ -1337,6 +1601,7 @@ class ProviderFactory {
 		?string $uid,
 		?array $mcpConfig = null,
 		string $runToken = '',
+		string $poolKey = '',
 	): string {
 		// `credentialEnv`'s key is EXACTLY the one the runner's anthropic adapter allowlists.
 		// A key outside the allowlist is dropped WITHOUT an error, which would yield an
@@ -1361,6 +1626,20 @@ class ProviderFactory {
 		// is the container's only route out.
 		if ($runToken !== '') {
 			$params['runToken'] = $runToken;
+		}
+
+		// The pool key is the CONVERSATION, never the agent or the user. A
+		// stream-json process REMEMBERS its turns (measured: a second turn recalled
+		// a canary with no history re-sent), so any key wider than one conversation
+		// carries one conversation's context into another's turn. Absent key = the
+		// runner takes the cold path, which is always correct and never pooled.
+		if ($poolKey !== '') {
+			$params['poolKey'] = $poolKey;
+			// Sent rather than configured separately in the runner: this bounds BOTH
+			// the process's reusable life and its token's validity, and the two
+			// drifting apart is precisely the failure that ends in a live process
+			// holding a dead token.
+			$params['poolLifetimeSeconds'] = self::POOL_PROCESS_LIFETIME_SECONDS;
 		}
 
 		$result = $this->appApiPublicFunctions()->exAppRequest(
