@@ -40,6 +40,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\Hermiq\Service\Engine\ToolGrantSet;
 use OCA\Hermiq\Service\Engine\ToolReachResolver;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\OpenRegister\Db\AuditTrail;
@@ -137,7 +138,8 @@ class ToolOversightController extends Controller {
 	 * @param IAppConfig $appConfig Reads `hermiq.tools.disclosureThreshold`.
 	 * @param IUserSession $userSession Resolves the requesting user.
 	 * @param IGroupManager $groupManager Instance-admin check for the oversight bypass.
-	 * @param ToolAccessRequestService $accessRequests Raises and announces tool-access requests.
+	 * @param ToolAccessRequestService $accessRequests Raises and resolves an agent's requests
+	 *                                                 for tools it has not been granted.
 	 * @param LoggerInterface $logger PSR-3 logger.
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Constructor DI: each parameter is a
@@ -287,13 +289,6 @@ class ToolOversightController extends Controller {
 	 * @NoAdminRequired
 	 *
 	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
-	 *
-	 * @SuppressWarnings(PHPMD.CyclomaticComplexity) Sequential guards (auth, the
-	 *   single 404 that covers "no agent"/"not yours"/"no request", decision-value
-	 *   validation, agent-match check, grants-shape validation) each add a branch
-	 *   on one linear write path.
-	 * @SuppressWarnings(PHPMD.NPathComplexity)      Same reasoning: independent
-	 *   early-return guards multiply paths without nested logic.
 	 */
 	public function resolveToolAccessRequest(string $agentId, string $requestId): JSONResponse {
 		$user = $this->userSession->getUser();
@@ -306,7 +301,7 @@ class ToolOversightController extends Controller {
 		// One refusal for "no such agent", "not yours" and "no such request":
 		// a distinct 404 would let a non-owner probe which requests exist.
 		$notYours = new JSONResponse(['error' => 'Not found'], Http::STATUS_NOT_FOUND);
-		if ($agent === null || $agent->getOwner() !== $user->getUID() || $user->getUID() === '') {
+		if ($this->ownsAgent(agent: $agent, uid: $user->getUID()) === false) {
 			return $notYours;
 		}
 
@@ -315,6 +310,86 @@ class ToolOversightController extends Controller {
 			return new JSONResponse(['error' => "decision must be 'granted' or 'refused'"], Http::STATUS_BAD_REQUEST);
 		}
 
+		$data = $this->findAccessRequest(requestId: $requestId, agentId: $agentId);
+		if ($data === null) {
+			return $notYours;
+		}
+
+		$toolId = (string)($data['toolId'] ?? '');
+
+		// From here the method WRITES. Every call below reaches storage or the
+		// notification bus, and an escaping Throwable would leave the caller an
+		// HTML error page in place of the JSON its client parses — so the write
+		// half is translated, while the guards above deliberately are not.
+		try {
+			if ($decision === 'granted' && $toolId !== '') {
+				$this->grantToolTo(agent: $agent, agentId: $agentId, toolId: $toolId);
+			}
+
+			$data['status'] = $decision;
+			$data['decidedBy'] = $user->getUID();
+			$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
+
+			$this->objectService->saveObject(
+				object: $data,
+				register: self::REGISTER_SLUG,
+				schema: 'toolAccessRequest',
+				uuid: $requestId
+			);
+
+			if ($decision === 'granted') {
+				$this->accessRequests->notifyOwner(agentId: $agentId, toolId: $toolId, subject: 'granted');
+			}
+		} catch (Throwable $e) {
+			$this->logger->error(
+				'Hermiq tool-access request resolution failed: ' . $e->getMessage(),
+				['exception' => $e, 'agentId' => $agentId, 'requestId' => $requestId]
+			);
+			return new JSONResponse(
+				['error' => 'Could not resolve the tool-access request'],
+				Http::STATUS_INTERNAL_SERVER_ERROR
+			);
+		}//end try
+
+		return new JSONResponse(['status' => $decision, 'toolId' => $toolId, 'agentId' => $agentId]);
+
+	}//end resolveToolAccessRequest()
+
+	/**
+	 * Whether this user owns this agent.
+	 *
+	 * ⚠️ An EMPTY uid never owns anything, even an agent whose stored owner is
+	 * also empty. Without that clause the two compare equal and an unowned agent
+	 * becomes everyone's — which is the shape of an authorization bypass rather
+	 * than a missing value.
+	 *
+	 * @param ObjectEntity|null $agent The agent, or null when it does not exist.
+	 * @param string $uid The acting user's id.
+	 *
+	 * @return bool True only when the agent exists and this user owns it.
+	 */
+	private function ownsAgent(?ObjectEntity $agent, string $uid): bool {
+		if ($agent === null || $uid === '') {
+			return false;
+		}
+
+		return ($agent->getOwner() === $uid);
+	}//end ownsAgent()
+
+	/**
+	 * Load an access request, but only if it belongs to this agent.
+	 *
+	 * ⚠️ Returns null for "no such request" AND for "a request that belongs to
+	 * someone else", deliberately — the caller turns both into the same 404 it
+	 * uses for "not your agent". Distinguishing them would let a non-owner probe
+	 * which requests exist by reading the difference between the two answers.
+	 *
+	 * @param string $requestId The request uuid.
+	 * @param string $agentId The agent it must belong to.
+	 *
+	 * @return array<string, mixed>|null The request data, or null when it is not this agent's.
+	 */
+	private function findAccessRequest(string $requestId, string $agentId): ?array {
 		try {
 			$requestObject = $this->objectService->find(
 				id: $requestId,
@@ -322,63 +397,55 @@ class ToolOversightController extends Controller {
 				schema: 'toolAccessRequest'
 			);
 		} catch (Throwable $e) {
-			return $notYours;
+			return null;
 		}
 
-		// `getObject()`, not `jsonSerialize()`. Two reasons, either sufficient:
-		// the latter is not on the entity's declared surface (phpstan/psalm both
-		// reject it), and it merges a `@self` metadata block plus a top-level
-		// `id` into the payload — which this method writes straight back via
-		// `saveObject()` below, so serialising would persist the metadata as
-		// object properties. Every other read of an OpenRegister object in this
-		// app uses `getObject()`; the keys read here (`agentId`, `toolId`) are
-		// payload properties, which is exactly what it returns.
-		$data = [];
-		if ($requestObject !== null) {
-			$data = $requestObject->getObject();
+		if ($requestObject === null) {
+			return null;
 		}
 
+		$data = $requestObject->jsonSerialize();
 		if (($data['agentId'] ?? '') !== $agentId) {
-			return $notYours;
+			return null;
 		}
 
-		$toolId = (string)($data['toolId'] ?? '');
-		if ($decision === 'granted' && $toolId !== '') {
-			$grants = ($agent->getObject()['tools'] ?? []);
-			if (is_array($grants) === false) {
-				$grants = [];
-			}
+		return $data;
+	}//end findAccessRequest()
 
-			if (in_array($toolId, $grants, true) === false) {
-				$grants[] = $toolId;
-			}
-
-			$this->objectService->saveObject(
-				object: $this->grantWritePayload(agent: $agent, grants: $grants),
-				register: self::REGISTER_SLUG,
-				schema: self::AGENT_SCHEMA,
-				uuid: $agentId
-			);
+	/**
+	 * Add one tool to an agent's grant list, idempotently.
+	 *
+	 * @param ObjectEntity $agent The agent object.
+	 * @param string $agentId The agent uuid.
+	 * @param string $toolId The tool to grant.
+	 *
+	 * @return void
+	 *
+	 * @throws Throwable When the grant cannot be persisted. Deliberately NOT
+	 *                   translated here: this helper widens an authorization
+	 *                   boundary, so a failed write must not be reported as a
+	 *                   success. The single caller
+	 *                   (`resolveToolAccessRequest()`) turns it into a 500.
+	 */
+	private function grantToolTo(ObjectEntity $agent, string $agentId, string $toolId): void {
+		$grants = ($agent->getObject()['tools'] ?? []);
+		if (is_array($grants) === false) {
+			$grants = [];
 		}
 
-		$data['status'] = $decision;
-		$data['decidedBy'] = $user->getUID();
-		$data['decidedAt'] = (new DateTimeImmutable())->format(DATE_ATOM);
+		// Idempotent: approving the same request twice must not list the tool
+		// twice, because the grant list is compared by value elsewhere.
+		if (in_array($toolId, $grants, true) === false) {
+			$grants[] = $toolId;
+		}
 
 		$this->objectService->saveObject(
-			object: $data,
+			object: $this->grantWritePayload(agent: $agent, grants: $grants),
 			register: self::REGISTER_SLUG,
-			schema: 'toolAccessRequest',
-			uuid: $requestId
+			schema: self::AGENT_SCHEMA,
+			uuid: $agentId
 		);
-
-		if ($decision === 'granted') {
-			$this->accessRequests->notifyOwner(agentId: $agentId, toolId: $toolId, subject: 'granted');
-		}
-
-		return new JSONResponse(['status' => $decision, 'toolId' => $toolId, 'agentId' => $agentId]);
-
-	}//end resolveToolAccessRequest()
+	}//end grantToolTo()
 
 	/**
 	 * Persist the `Agent.tools` grant array (owner-only, single write-path).
@@ -425,15 +492,10 @@ class ToolOversightController extends Controller {
 
 		$rawGrants = $this->request->getParam('grants');
 		if (is_array($rawGrants) === false) {
-			return new JSONResponse(['error' => 'grants must be an array of strings'], Http::STATUS_BAD_REQUEST);
+			return new JSONResponse(['error' => 'grants must be an array or a grant structure'], Http::STATUS_BAD_REQUEST);
 		}
 
-		$grants = [];
-		foreach ($rawGrants as $grant) {
-			if (is_string($grant) === true && $grant !== '') {
-				$grants[] = $grant;
-			}
-		}
+		$grants = $this->storableGrants(rawGrants: $rawGrants);
 
 		// Read the PREVIOUS waiver set before the write, so the audit can say
 		// which waivers were added and which removed rather than only what the
@@ -516,7 +578,9 @@ class ToolOversightController extends Controller {
 	 * survive — the sweep would otherwise silently drop it.
 	 *
 	 * @param ObjectEntity $agent The stored agent.
-	 * @param array<int, string> $grants The grant list to persist.
+	 * @param array<int, string> $grants The grants to persist — the list of
+	 *                                   grant strings `Agent.tools` declares,
+	 *                                   produced by {@see self::storableGrants()}.
 	 *
 	 * @return array<string, mixed> The payload to hand to `saveObject()`.
 	 *
@@ -538,6 +602,37 @@ class ToolOversightController extends Controller {
 	}//end grantWritePayload()
 
 	/**
+	 * Normalise submitted grants into the shape `Agent.tools` actually declares.
+	 *
+	 * 🔴 A LIST OF GRANT STRINGS, AND THE SCHEMA IS THE REASON.
+	 *
+	 * The structure is real — `ToolGrantSet` is app => subject => action => tool
+	 * id, and consumers read those coordinates instead of splitting an id — but
+	 * it lives in the DOMAIN, not in storage. `Agent.tools` is declared
+	 * `type: array`, and OpenRegister allows exactly ONE type per property: a
+	 * union (`["array","object"]`) is rejected by its importer, and omitting
+	 * `type` defaults the property to `string`, which is worse. Both were tried
+	 * against a live instance.
+	 *
+	 * Writing the structure therefore failed validation on EVERY save —
+	 * `Property 'tools' should be type 'array or null' but is 'object'` — so the
+	 * owner got a 500 on a save that changed nothing. Reads still accept either
+	 * shape ({@see ToolGrantSet::fromStored}), so an agent written structured by
+	 * an earlier build keeps working; only the write converges on the declared
+	 * shape.
+	 *
+	 * @param array<mixed> $rawGrants The submitted grants, in either shape.
+	 *
+	 * @return array<int, string> The grants as the schema declares them.
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-the-written-shape-is-the-one-the-schema-declares
+	 */
+	private function storableGrants(array $rawGrants): array {
+		return ToolGrantSet::fromStored(stored: $rawGrants)->toGrantStrings();
+
+	}//end storableGrants()
+
+	/**
 	 * The grant entries in a list that carry a `#noapproval` fragment.
 	 *
 	 * @param mixed $grants The stored `tools` value — typed loosely because it
@@ -550,9 +645,15 @@ class ToolOversightController extends Controller {
 			return [];
 		}
 
+		// ⚠️ Flattened through ToolGrantSet, not iterated directly. Grants are
+		// stored as a STRUCTURE now, so iterating the top level yields app names
+		// rather than grant strings — every waiver went unseen, and the audit
+		// event that exists precisely to make "who turned off approval" an
+		// answerable question stopped being written. Silent, and in the direction
+		// that loses an audit record rather than inventing one.
 		$waived = [];
-		foreach ($grants as $grant) {
-			if (is_string($grant) === true && str_ends_with($grant, ToolGrantResolver::WAIVER_FRAGMENT) === true) {
+		foreach (ToolGrantSet::fromStored(stored: $grants)->toGrantStrings() as $grant) {
+			if (str_ends_with($grant, ToolGrantResolver::WAIVER_FRAGMENT) === true) {
 				$waived[] = $grant;
 			}
 		}
