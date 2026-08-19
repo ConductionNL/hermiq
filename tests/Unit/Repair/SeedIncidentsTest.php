@@ -92,6 +92,7 @@ class SeedIncidentsTest extends TestCase {
 				// assertion: PHP refuses to declare the class and the whole
 				// suite dies before it runs.
 				bool $failIfExists = false,
+				bool $_unowned = false,
 			): ObjectEntity {
 				$this->saved[] = (array)$object;
 				$entity = new ObjectEntity();

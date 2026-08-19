@@ -173,6 +173,13 @@ class RecordingObjectService extends ObjectService {
 		// refuses to declare the class, so every test in the suite dies before
 		// it runs — which is what took all six PHPUnit matrix jobs down.
 		bool $failIfExists = false,
+		// Added by openregister (stamp the SYSTEM identity as owner even when a
+		// user session exists). Appended, so unlike $_validation above it needed
+		// no re-ordering — but it is the third such break, and it only surfaces
+		// where the REAL ObjectService is loaded: CI runs this suite against the
+		// OCP stubs, so the fatal appears locally (inside a booted Nextcloud)
+		// while CI stays green.
+		bool $_unowned = false,
 	): ObjectEntity {
 		$payload = (is_array($object) === true) ? $object : $object->getObject();
 		$this->saves[] = [

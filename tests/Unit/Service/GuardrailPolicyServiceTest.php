@@ -144,6 +144,7 @@ class GuardrailPolicyServiceTest extends TestCase {
 				// assertion: PHP refuses to declare the class and the whole
 				// suite dies before it runs.
 				bool $failIfExists = false,
+				bool $_unowned = false,
 			): ObjectEntity {
 				$data = is_array($object) ? $object : $object->getObject();
 				$self = (array)($data['@self'] ?? []);
