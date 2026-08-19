@@ -12,7 +12,7 @@
     <description lang="nl"><![CDATA[Hermiq brengt autonome AI-agents naar Nextcloud. Definieer een agent, geef deze tools, en laat hem volgens een schema draaien — dagelijkse rapportages, inbox-triage, monitoring, ochtendbriefings — allemaal binnen je eigen Nextcloud, afgeleverd in Nextcloud Talk. Agents, hun geheugen en hun zelflerende skills worden opgeslagen als OpenRegister-objecten, zodat elke run beheerd, controleerbaar en multi-tenant is.
 
 **Vereist:** [OpenRegister](https://apps.nextcloud.com/apps/openregister) 0.2.17-unstable.14 of hoger (installeer/upgrade via de [Nextcloud App Store](https://apps.nextcloud.com/apps/openregister)) — Hermiq's agent-engine (chat, geplande runs, flow-getriggerde agent-acties) roept OpenRegister's `ToolRegistryFacade` aan en luistert naar diens `AgentRunRequestedEvent`, die beide pas vanaf die OpenRegister-versie bestaan; de sectie "Agent-credentials" in Instellingen en de persoonlijke/organisatie-credentialresolutie hebben daarnaast OpenRegister's organisatiebrede credential broker nodig, die sinds diezelfde versie wordt geleverd.]]></description>
-    <version>0.1.33-unstable.20260819195439</version>
+    <version>0.1.33-unstable.20260819222147</version>
     <licence>EUPL-1.2</licence>
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
