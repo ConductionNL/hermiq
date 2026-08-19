@@ -293,8 +293,8 @@ test.describe('tool grant matrix', () => {
 			const missing = tools
 				.filter(
 					(tool: Record<string, unknown>) =>
-						String(tool.subject ?? '').trim() === '' ||
-						String(tool.action ?? '').trim() === '',
+						String(tool.subject ?? '').trim() === ''
+						|| String(tool.action ?? '').trim() === '',
 				)
 				.map(
 					(tool: Record<string, unknown>) =>
