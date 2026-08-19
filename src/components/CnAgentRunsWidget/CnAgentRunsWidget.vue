@@ -115,6 +115,9 @@ export default {
 	watch: {
 		objectId: {
 			immediate: true,
+			/**
+			 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+			 */
 			handler() {
 				this.refresh()
 			},
@@ -123,6 +126,9 @@ export default {
 
 	methods: {
 		t,
+		/**
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
 		statusLabel(status) {
 			const map = {
 				ok: t('hermiq', 'Completed'),
@@ -134,6 +140,9 @@ export default {
 			return map[status] || status
 		},
 
+		/**
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
 		async refresh() {
 			if (this.objectId === '') {
 				return
@@ -141,6 +150,9 @@ export default {
 			await Promise.all([this.loadAgents(), this.loadHistory()])
 		},
 
+		/**
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
 		async loadAgents() {
 			if (this.agents.length > 0) {
 				return
@@ -170,6 +182,9 @@ export default {
 			}
 		},
 
+		/**
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
 		async loadHistory() {
 			this.loadingHistory = true
 			try {
@@ -205,6 +220,9 @@ export default {
 			}
 		},
 
+		/**
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
 		toRun(entry) {
 			const ctx = entry.context || entry.changed || {}
 			const when = ctx.endedAt || entry.created || entry.timestamp || ''
@@ -215,6 +233,9 @@ export default {
 			}
 		},
 
+		/**
+		 * @spec openspec/changes/hermiq-agent-leaf/specs/agent-object-leaf/spec.md#requirement-per-object-agent-run-history-and-status
+		 */
 		async runAgent() {
 			if (!this.selectedAgent || this.dispatching) {
 				return

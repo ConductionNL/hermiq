@@ -334,6 +334,7 @@ export default {
 		 * then a create-mode package-paste result (task 2), else null.
 		 *
 		 * @return {object|null} The effective skill, or null when creating.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		effectiveSkill() {
 			return this.item || this.importedSkill
@@ -343,6 +344,7 @@ export default {
 		 * Modal heading — differs for create vs edit.
 		 *
 		 * @return {string} The localised heading.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		heading() {
 			return this.effectiveSkill
@@ -356,6 +358,7 @@ export default {
 		 * would be surprising to offer it while editing one).
 		 *
 		 * @return {boolean} True in create mode.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		showPastePackage() {
 			return !this.effectiveSkill
@@ -363,6 +366,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
+		 */
 		show(open) {
 			if (open) {
 				this.resetForm()
@@ -375,6 +381,7 @@ export default {
 		 * An empty skill form.
 		 *
 		 * @return {object} The blank form model.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		blankForm() {
 			return { name: '', description: '', frontmatter: '', body: '' }
@@ -385,6 +392,7 @@ export default {
 		 * (create — hermiq-skill-conversational-authoring's chat pre-fill).
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		resetForm() {
 			this.error = ''
@@ -429,6 +437,7 @@ export default {
 		 * Append a blank auxiliary file.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		addFile() {
 			const name = this.newFileName.trim()
@@ -453,6 +462,7 @@ export default {
 		 * @param {number} index The file index.
 		 * @param {string} nextName The new file name.
 		 * @return {void}
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		renameFile(index, nextName) {
 			const trimmed = (nextName || '').trim()
@@ -467,6 +477,7 @@ export default {
 		 *
 		 * @param {number} index The file index.
 		 * @return {void}
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		removeFile(index) {
 			this.files.splice(index, 1)
@@ -478,6 +489,7 @@ export default {
 		 * `#form-dialog` scoped slot).
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		handleClose() {
 			this.$emit('close')
@@ -494,6 +506,7 @@ export default {
 		 * pasted a full package into this field directly.
 		 *
 		 * @return {string} The raw frontmatter block (no fences).
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		buildFrontmatterBlock() {
 			const block = (this.form.frontmatter || '')
@@ -522,6 +535,7 @@ export default {
 		 * splitting it back into `frontmatter` + `body`.
 		 *
 		 * @return {string} The fenced package string.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		buildPackage() {
 			return `---\n${this.buildFrontmatterBlock()}\n---\n${this.form.body || ''}`
@@ -533,6 +547,7 @@ export default {
 		 * `installedOn`, provenance, `scanReport`, …) survive the PUT.
 		 *
 		 * @return {object} The skill payload for the generic object write path.
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		buildEditPayload() {
 			const base = this.effectiveSkill ? { ...this.effectiveSkill } : {}
@@ -565,6 +580,7 @@ export default {
 		 * this newly-created object).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/skills-catalog/spec.md#requirement-authored-skills-persist-through-the-existing-catalog-write-path-without-a-new-backend
 		 */
 		async importPastedPackage() {
 			const text = this.pasteText.trim()

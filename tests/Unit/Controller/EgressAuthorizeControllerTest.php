@@ -39,12 +39,6 @@ use Psr\Log\NullLogger;
 final class EgressAuthorizeControllerTest extends TestCase {
 
 	/**
-	 * A guard double whose DNS resolution is deterministic (a public address), so allow/deny
-	 * turns purely on the allowlist/denylist without a real network.
-	 *
-	 * @return WebResearchEgressGuard
-	 */
-	/**
 	 * Set by a test that wants to assert on brute-force bookkeeping; otherwise
 	 * every controller gets a fresh do-nothing throttler.
 	 *
@@ -66,6 +60,12 @@ final class EgressAuthorizeControllerTest extends TestCase {
 		return $this->createMock(IThrottler::class);
 	}//end throttlerStub()
 
+	/**
+	 * A guard double whose DNS resolution is deterministic (a public address), so allow/deny
+	 * turns purely on the allowlist/denylist without a real network.
+	 *
+	 * @return WebResearchEgressGuard
+	 */
 	private function guard(): WebResearchEgressGuard {
 		return new class extends WebResearchEgressGuard {
 			protected function resolveAddresses(string $host): array {

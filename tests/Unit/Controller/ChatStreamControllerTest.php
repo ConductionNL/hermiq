@@ -34,6 +34,8 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\ChatStreamController;
 use OCA\Hermiq\Service\Engine\Engine;
+use OCA\Hermiq\Service\Engine\RunStepBus;
+use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCA\Hermiq\Service\Engine\StreamYieldChannel;
 use OCA\Hermiq\Service\Engine\ToolGrantResolutionException;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -224,7 +226,9 @@ class ChatStreamControllerTest extends TestCase {
 			$this->userSession,
 			$this->createMock(IDBConnection::class),
 			$this->createMock(LoggerInterface::class),
-			$l10n
+			$l10n,
+			$this->createMock(RunStepBus::class),
+			$this->createMock(ToolAccessRequestService::class)
 		);
 		$controller->requestBody = $body;
 		return $controller;
