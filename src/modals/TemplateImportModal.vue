@@ -105,6 +105,7 @@ export default {
 		 *
 		 * @param {string} source The import source ('local' | 'org').
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-template-gallery/tasks.md#task-8-templateimportmodalvue-agentcatalogvue-entry-point
 		 */
 		async run(source) {
 			const pkg = this.importText.trim()

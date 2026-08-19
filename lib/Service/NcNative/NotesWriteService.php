@@ -256,6 +256,8 @@ class NotesWriteService {
 	 * "create a note" permanently untested rather than merely untestable here.
 	 *
 	 * @return object|null The Notes service, or null.
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-per-object-idor-guard-on-every-provider
 	 */
 	protected function notesService(): ?object {
 		if (class_exists(self::NOTES_SERVICE) === false) {

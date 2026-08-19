@@ -172,6 +172,7 @@ export default {
 		 * depending on read path; prefer `uuid`).
 		 *
 		 * @return {string} The template uuid.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 		 */
 		templateId() {
 			return this.row.uuid || this.row.id
@@ -183,6 +184,7 @@ export default {
 		 * user navigates on.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 		 */
 		async doInstantiate() {
 			this.busy = true
@@ -213,6 +215,7 @@ export default {
 		 * Navigate to the agent created by the last instantiate call.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 		 */
 		openInstantiatedAgent() {
 			const agentId = this.instantiateNote?.agent?.uuid
@@ -228,6 +231,7 @@ export default {
 		 * column updates.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 		 */
 		async doApprove() {
 			this.busy = true
@@ -249,6 +253,7 @@ export default {
 		 * Export this template to a shareable JSON package and show it.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 		 */
 		async doExport() {
 			this.error = ''
@@ -268,6 +273,7 @@ export default {
 		 * credentials itself on mount.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-agenttemplategallery-renders-as-an-index-type-list-page-with-write-actions-kept-behind-their-existing-guarded-endpoints
 		 */
 		openPublishModal() {
 			this.publishNotice = ''

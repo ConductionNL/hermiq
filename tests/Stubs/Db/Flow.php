@@ -37,6 +37,8 @@ use DateTime;
  * @method void setDescription(?string $description)
  * @method string|null getApp()
  * @method void setApp(?string $app)
+ * @method string|null getApplicationSlug()
+ * @method void setApplicationSlug(?string $applicationSlug)
  * @method boolean|null getEnabled()
  * @method void setEnabled(?bool $enabled)
  * @method string|null getTrigger()

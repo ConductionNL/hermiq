@@ -267,6 +267,8 @@ class WebResearchEgressGuard {
 	 * @param string $host The hostname (or IP literal) to resolve.
 	 *
 	 * @return string[] The resolved addresses (empty when resolution fails).
+	 *
+	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
 	 */
 	protected function resolveAddresses(string $host): array {
 		if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
@@ -299,6 +301,8 @@ class WebResearchEgressGuard {
 	 * @param int $type A `DNS_*` record type constant.
 	 *
 	 * @return array<int, array<string, mixed>>|false
+	 *
+	 * @spec openspec/changes/web-research-tool/specs/web-research-tool/spec.md#requirement-egress-guard-blocks-ssrf-shaped-destinations-for-webfetch
 	 */
 	protected function dnsGetRecord(string $hostname, int $type): array|false {
 		return dns_get_record($hostname, $type);
