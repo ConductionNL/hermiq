@@ -132,18 +132,43 @@ class SeedHydraTriageFlowTest extends TestCase {
 	}//end containerWith()
 
 	/**
-	 * The flow's edges, keyed by id.
+	 * A mock of an already-seeded `Flow`, routing magic `getName()` /
+	 * `getApplicationSlug()` / `setApplicationSlug()` calls through `__call` the
+	 * way the real `Entity::__call` does — `Flow` is a plain OCP Entity with no
+	 * concrete accessors of its own, so `createMock(Flow::class)` alone stubs
+	 * nothing usable without this.
 	 *
-	 * @return array<string, array> The edges.
+	 * @param string $name The value `getName()` returns.
+	 * @param string $applicationSlug The value `getApplicationSlug()` returns.
+	 * @param array<int, array{0: string, 1: mixed}> $calls Filled with
+	 *                                                       `[methodName, argument]` for every `set*` call the code under test makes,
+	 *                                                       so a test can assert what was written without a real entity.
+	 *
+	 * @return Flow&\PHPUnit\Framework\MockObject\MockObject
 	 */
-	private function edges(): array {
-		$edges = [];
-		foreach ($this->step()->flowObject()['edges'] as $edge) {
-			$edges[$edge['id']] = $edge;
-		}
+	private function existingFlowMock(string $name, string $applicationSlug, array &$calls = []) {
+		$flow = $this->createMock(Flow::class);
+		$flow->method('__call')->willReturnCallback(
+			function (string $method, array $arguments) use ($name, $applicationSlug, &$calls) {
+				if ($method === 'getName') {
+					return $name;
+				}
 
-		return $edges;
-	}//end edges()
+				if ($method === 'getApplicationSlug') {
+					return $applicationSlug;
+				}
+
+				if (str_starts_with($method, 'set') === true) {
+					$calls[] = [$method, ($arguments[0] ?? null)];
+					return null;
+				}
+
+				return null;
+			}
+		);
+
+		return $flow;
+	}//end existingFlowMock()
 
 	/**
 	 * The flow's nodes, keyed by id — which is where the WORK lives (ADR-065).
@@ -450,17 +475,25 @@ class SeedHydraTriageFlowTest extends TestCase {
 	 * this, `testRunInsertsTheFlowWhenTheStoreIsEmpty()` would also pass if
 	 * `run()` inserted unconditionally.
 	 *
+	 * The existing flow already carries a non-empty `applicationSlug` here, so
+	 * this is also the control for `testRunBackfillsApplicationSlugWhenEmpty()`:
+	 * `update()` must not fire either.
+	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#requirement-the-triage-loop-is-a-seeded-agentflow-not-bespoke-code
+	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-a-previously-set-application-slug-is-never-overwritten-req-003
 	 */
 	public function testRunDoesNotInsertWhenTheFlowIsAlreadyPresent(): void {
-		$existing = $this->createMock(Flow::class);
-		$existing->method('__call')->willReturn(SeedHydraTriageFlow::FLOW_NAME);
+		$existing = $this->existingFlowMock(
+			name: SeedHydraTriageFlow::FLOW_NAME,
+			applicationSlug: SeedHydraTriageFlow::APPLICATION_SLUG
+		);
 
 		$mapper = $this->createMock(FlowMapper::class);
 		$mapper->method('findAllFlows')->willReturn([$existing]);
 		$mapper->expects($this->never())->method('insert');
+		$mapper->expects($this->never())->method('update');
 
 		$container = $this->containerWith($mapper);
 
@@ -472,6 +505,98 @@ class SeedHydraTriageFlowTest extends TestCase {
 		$step->run($this->createMock(IOutput::class));
 
 	}//end testRunDoesNotInsertWhenTheFlowIsAlreadyPresent()
+
+	/**
+	 * 🔴 THE BACKFILL PATH (hydra-flow-application-slug-backfill).
+	 *
+	 * `run()` is skip-entirely-if-found: an already-seeded row never has its
+	 * `nodes`/`edges`/`enabled`/`owner` rewritten. `applicationSlug` is the one
+	 * deliberate exception, and only while it is still empty — every row seeded
+	 * before this change necessarily has no value there, since the column did
+	 * not exist yet. This is the write path for that backfill.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
+	 */
+	public function testRunBackfillsApplicationSlugWhenEmpty(): void {
+		$calls = [];
+		$existing = $this->existingFlowMock(
+			name: SeedHydraTriageFlow::FLOW_NAME,
+			applicationSlug: '',
+			calls: $calls
+		);
+
+		$mapper = $this->createMock(FlowMapper::class);
+		$mapper->method('findAllFlows')->willReturn([$existing]);
+		$mapper->expects($this->never())->method('insert');
+		$mapper->expects($this->once())->method('update')->with($existing);
+
+		$container = $this->containerWith($mapper);
+
+		$step = new SeedHydraTriageFlow(
+			container: $container,
+			logger: $this->createMock(LoggerInterface::class)
+		);
+
+		$step->run($this->createMock(IOutput::class));
+
+		$this->assertContains(
+			['setApplicationSlug', SeedHydraTriageFlow::APPLICATION_SLUG],
+			$calls,
+			'the found-but-empty flow must have applicationSlug set before update() persists it'
+		);
+
+	}//end testRunBackfillsApplicationSlugWhenEmpty()
+
+	/**
+	 * The new-flow create path also carries the application slug, not only the
+	 * backfill path — `flowObject()`'s documented shape is the source of truth a
+	 * test can assert without a live OpenRegister.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-the-seeded-hydra-triage-flow-declares-its-owning-application-req-001
+	 */
+	public function testFlowObjectDeclaresTheApplicationSlug(): void {
+		$flow = $this->step()->flowObject();
+
+		$this->assertSame(SeedHydraTriageFlow::APPLICATION_SLUG, $flow['applicationSlug']);
+		$this->assertSame('hydra-console', SeedHydraTriageFlow::APPLICATION_SLUG);
+
+	}//end testFlowObjectDeclaresTheApplicationSlug()
+
+	/**
+	 * 🔴 THE WRITE PATH for the create case: a brand-new flow is inserted WITH
+	 * `applicationSlug` already set, not left for a later backfill to fill in.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-the-seeded-hydra-triage-flow-declares-its-owning-application-req-001
+	 */
+	public function testRunInsertsTheFlowWithItsApplicationSlug(): void {
+		$mapper = $this->createMock(FlowMapper::class);
+		$mapper->method('findAllFlows')->willReturn([]);
+
+		$written = null;
+		$mapper->method('insert')->willReturnCallback(
+			function (Flow $flow) use (&$written): Flow {
+				$written = $flow;
+				return $flow;
+			}
+		);
+
+		$step = new SeedHydraTriageFlow(
+			container: $this->containerWith($mapper),
+			logger: $this->createMock(LoggerInterface::class)
+		);
+
+		$step->run($this->createMock(IOutput::class));
+
+		$this->assertNotNull($written, 'the flow must be written');
+		$this->assertSame(SeedHydraTriageFlow::APPLICATION_SLUG, $written->getApplicationSlug());
+
+	}//end testRunInsertsTheFlowWithItsApplicationSlug()
 
 	/**
 	 * 🔴 A FAILED seed records the exception class and message where a log tail
