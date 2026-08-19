@@ -402,6 +402,8 @@ class StageDispatchService {
 	 *
 	 * @SuppressWarnings(PHPMD.ExcessiveParameterList) Mirrors `dispatch()`; see the reason
 	 *   stated there. This method is the boundary in question.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function buildParams(
 		string $repo,
@@ -572,6 +574,8 @@ class StageDispatchService {
 	 * @return string|null Base64 `.tar.gz`, or null when it could not be fetched.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function fetchToolArchive(string $credentialId, ?string $uid, string $repo, string $ref): ?string {
 		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
@@ -644,6 +648,8 @@ class StageDispatchService {
 	 * @throws RuntimeException When the broker is absent or refuses.
 	 *
 	 * @SuppressWarnings(PHPMD.StaticAccess) See dispatch().
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function resolveForgeToken(string $credentialId, ?string $uid): ?string {
 		if (class_exists(BrokerHttpClient::BROKER_CLASS) === false) {
@@ -713,6 +719,8 @@ class StageDispatchService {
 	 * @param string $body The response body.
 	 *
 	 * @return string The reason, or a static fallback.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function reasonFrom(string $body): string {
 		$decoded = json_decode($body, true);
@@ -724,29 +732,6 @@ class StageDispatchService {
 	}//end reasonFrom()
 
 	/**
-	 * Map the runner's body onto the stage result.
-	 *
-	 * The shape is checked rather than assumed. A body that is not a stage
-	 * result means the runner answered something this does not understand,
-	 * and handing that on as `exitCode: 0` would read downstream as a PASS.
-	 *
-	 * ⚠️ THIS METHOD IS AN ALLOWLIST, so a key the runner returns and this does
-	 * not name is a key no flow can ever see. `push` is carried for exactly that
-	 * reason: without it a flow could declare a push, the runner could perform
-	 * it, and the run record would say only `exitCode: 0` — leaving "it pushed"
-	 * and "it found nothing to push" indistinguishable, which is the conflation
-	 * every other seam in this file is written to avoid.
-	 *
-	 * The key is ABSENT rather than `null` when the stage declared no push, so a
-	 * consumer can tell "this stage does not write" from "this stage wrote
-	 * nothing".
-	 *
-	 * @param string $body The response body.
-	 *
-	 * @return array{exitCode: int, output: string, ref: string} The stage result.
-	 *
-	 * @throws RuntimeException When the body is not a stage result.
-	 */
 	/**
 	 * Declare WHAT THE STAGE PRODUCES, not just what it printed.
 	 *
@@ -768,6 +753,8 @@ class StageDispatchService {
 	 * @param array $collect Artefacts to read back out of the clone, or [].
 	 *
 	 * @return array The payload, with `collect` set only when one was declared.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function withCollect(array $params, array $collect): array {
 		if ($collect !== []) {
@@ -784,7 +771,19 @@ class StageDispatchService {
 	 * a shape check nothing exercises is a shape check that silently stops holding.
 	 *
 	 * A body that is not a stage result throws — a command that ran and exited
-	 * non-zero is NOT that case, it is the result, and it is returned.
+	 * non-zero is NOT that case, it is the result, and it is returned. Handing an
+	 * unrecognised body on as `exitCode: 0` would read downstream as a PASS.
+	 *
+	 * ⚠️ THIS METHOD IS AN ALLOWLIST, so a key the runner returns and this does
+	 * not name is a key no flow can ever see. `push` is carried for exactly that
+	 * reason: without it a flow could declare a push, the runner could perform
+	 * it, and the run record would say only `exitCode: 0` — leaving "it pushed"
+	 * and "it found nothing to push" indistinguishable, which is the conflation
+	 * every other seam in this file is written to avoid.
+	 *
+	 * The key is ABSENT rather than `null` when the stage declared no push, so a
+	 * consumer can tell "this stage does not write" from "this stage wrote
+	 * nothing".
 	 *
 	 * @param string $body The raw response body from the runner.
 	 *
@@ -792,6 +791,8 @@ class StageDispatchService {
 	 *         The stage result.
 	 *
 	 * @throws RuntimeException When the body is not a stage result.
+	 *
+	 * @spec openspec/changes/exapp-stage-workload/specs/exapp-stage-workload/spec.md
 	 */
 	protected function mapResult(string $body): array {
 		$decoded = json_decode($body, true);

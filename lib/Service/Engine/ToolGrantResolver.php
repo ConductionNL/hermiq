@@ -1016,6 +1016,31 @@ class ToolGrantResolver {
 	 * @return array<int, string>
 	 */
 	private function sanitizeGrants(array $grants): array {
+		// 🔑 The ONE place a stored grant value enters this class, and therefore
+		// the one place the STRUCTURED shape has to be understood.
+		//
+		// `Agent.tools` is now app => subject => action => tool id (see
+		// {@see ToolGrantSet}); the legacy `string[]` still loads and still means
+		// exactly what it meant. Both are normalised to the grant grammar below,
+		// so every resolution rule — wildcard expansion, `:write`, default-deny,
+		// argument constraints — and every test covering them is untouched.
+		//
+		// Converting here rather than teaching this class a second input shape is
+		// deliberate: this is the most security-sensitive code in the app, and
+		// changing where grants are STORED should not mean rewriting how they are
+		// RESOLVED in the same change.
+		//
+		// ⚠️ A LEGACY LIST IS NOT ROUND-TRIPPED. It is passed through exactly as
+		// it arrived, because converting it to the structure and back REORDERS
+		// it: the structure groups by app, and a list interleaving two apps comes
+		// back grouped. `baseToolIds()` returns grants in order and its
+		// compatibility test asserts that order, so the round trip broke a
+		// promise the structure had no reason to touch. Only a value that is
+		// ALREADY structured goes through the set.
+		if (array_is_list($grants) === false) {
+			return ToolGrantSet::fromStored(stored: $grants)->toGrantStrings();
+		}
+
 		$clean = [];
 		foreach ($grants as $grant) {
 			if (is_string($grant) === true && $grant !== '') {

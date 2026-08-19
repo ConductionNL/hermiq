@@ -67,6 +67,10 @@ php occ app:enable hermiq
   the app for the first time.
 - Setting things up? See the **[Admin guide](/docs/category/admin-guide)** —
   manage the app's settings.
+- Need to know where Hermiq stands on EU/Dutch AI law? See **[Rules &
+  regulations](/docs/category/rules--regulations)**.
+- Want to see your organisation's coverage? See the **[Compliance
+  dashboard](/docs/compliance-dashboard)**.
 
 Free and open source under the EUPL-1.2 license. For support, contact
 support@conduction.nl.

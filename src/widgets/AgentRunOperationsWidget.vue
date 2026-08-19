@@ -154,6 +154,9 @@
 					:key="step.seq"
 					class="agent-run-ops-widget__trace-step">
 					<span class="agent-run-ops-widget__trace-step-type">{{
+						/**
+						 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
+						 */
 						stepTypeLabel(step.type)
 					}}</span>
 					<span class="agent-run-ops-widget__trace-step-name">{{
@@ -354,6 +357,7 @@ export default {
 		 * This agent's uuid from the route param.
 		 *
 		 * @return {string} The agent uuid.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		agentId() {
 			return this.$route.params.id
@@ -363,6 +367,7 @@ export default {
 		 * The steps of the last dry-run preview.
 		 *
 		 * @return {Array<object>} The preview's ordered steps.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		previewSteps() {
 			if (!this.previewResult) {
@@ -377,6 +382,7 @@ export default {
 		 * Human label for the schedule trigger.
 		 *
 		 * @return {string} The trigger label.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		triggerLabel() {
 			if (!this.schedule) {
@@ -392,6 +398,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
+	 */
 	created() {
 		this.scheduleStore = useScheduleStore()
 		this.scheduleStore.registerObjectType('schedule', 'schedule', 'hermiq')
@@ -403,6 +412,7 @@ export default {
 		 * Load the attached schedule, cost estimate, budget status and webhook status.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async load() {
 			try {
@@ -423,6 +433,7 @@ export default {
 		 * (non-fatal: both surfaces simply stay hidden when the requests fail).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async loadBudgetInfo() {
 			const [estimate, budgetStatus] = await Promise.all([
@@ -437,6 +448,7 @@ export default {
 		 * Load the webhook trigger status (non-fatal on error).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async loadWebhookStatus() {
 			try {
@@ -450,6 +462,7 @@ export default {
 		 * Create a webhook secret for this agent and reveal it once.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async createWebhook() {
 			this.webhookBusy = true
@@ -470,6 +483,7 @@ export default {
 		 * Rotate this agent's webhook secret and reveal the new one once.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async rotateWebhook() {
 			this.webhookBusy = true
@@ -490,6 +504,7 @@ export default {
 		 * Revoke this agent's webhook — disables it without deleting its configuration.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async revokeWebhook() {
 			this.webhookBusy = true
@@ -509,6 +524,7 @@ export default {
 		 * is dismissed.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		closeWebhookSecretDialog() {
 			this.showWebhookSecretDialog = false
@@ -521,6 +537,7 @@ export default {
 		 * `would-have-called` rather than invoked.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async dryRun() {
 			if (!this.schedule || !this.schedule.id) {
@@ -551,6 +568,7 @@ export default {
 		 * sibling AgentRunHistoryWidget reloads its run list.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async runNow() {
 			if (!this.schedule || !this.schedule.id) {
@@ -585,6 +603,7 @@ export default {
 		 * Reload after the schedule is attached/edited.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		async onScheduleSaved() {
 			await this.load()
@@ -596,6 +615,7 @@ export default {
 		 *
 		 * @param {string} type The step type (gate_wait|context|history|llm|tool|delivery).
 		 * @return {string} The localised label.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		stepTypeLabel(type) {
 			const labels = {
@@ -614,6 +634,7 @@ export default {
 		 *
 		 * @param {string} value The ISO timestamp.
 		 * @return {string} The localised date, or '—'.
+		 * @spec openspec/specs/manifest-driven-pages/spec.md#requirement-a-run-operations-custom-widget-combines-schedule-dry-run-run-now-budget-and-webhook
 		 */
 		formatDate(value) {
 			if (!value) {

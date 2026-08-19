@@ -195,6 +195,9 @@ export default {
 
 	emits: ['close'],
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	setup() {
 		return { editor: useFlowEditorStore() }
 	},
@@ -213,6 +216,7 @@ export default {
 		 * The node being edited.
 		 *
 		 * @return {object|null} The selected node.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		node() {
 			return this.editor.selectedNode
@@ -222,6 +226,7 @@ export default {
 		 * The modal heading.
 		 *
 		 * @return {string} The heading.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		heading() {
 			return this.node?.name || this.t('hermiq', 'Edit node')
@@ -236,6 +241,7 @@ export default {
 		 * the whole modal with it.
 		 *
 		 * @return {object} The config.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		config() {
 			return this.node?.config || {}
@@ -245,6 +251,7 @@ export default {
 		 * The engine's node types as picker options.
 		 *
 		 * @return {Array<{id: string, label: string, description: string}>} The options.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		typeOptions() {
 			return (this.editor.nodeCatalog || []).map((entry) => ({
@@ -258,6 +265,7 @@ export default {
 		 * The node's current type as an option.
 		 *
 		 * @return {object|null} The selected option.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		selectedType() {
 			return (
@@ -270,6 +278,7 @@ export default {
 		 * What the engine says this node type does.
 		 *
 		 * @return {string} The description, or ''.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		typeDescription() {
 			return this.selectedType?.description || ''
@@ -279,6 +288,7 @@ export default {
 		 * The chosen agent, for the agent-step pane.
 		 *
 		 * @return {object|null} The selected agent option.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		selectedAgent() {
 			return (
@@ -293,6 +303,7 @@ export default {
 		 * being typed.
 		 *
 		 * @return {string} Pretty-printed JSON.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		rawConfig() {
 			if (this.rawConfigDraft !== null) {
@@ -308,6 +319,7 @@ export default {
 		 * the template compiler would try to interpolate.
 		 *
 		 * @return {string} The hint.
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		jsonHint() {
 			const key = this.config.output || 'result'
@@ -352,6 +364,7 @@ export default {
 		 *
 		 * @param {string} value The textarea contents.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onRawConfig(value) {
 			this.rawConfigDraft = value
@@ -388,6 +401,7 @@ export default {
 		 * longer exists would render an empty form over the canvas.
 		 *
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		onRemove() {
 			const id = this.node?.id
