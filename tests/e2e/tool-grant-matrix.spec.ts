@@ -257,4 +257,64 @@ test.describe('tool grant matrix', () => {
 			)
 		}
 	})
+
+	test('every tool in the catalogue DECLARES its subject and action', async ({
+		page,
+	}) => {
+		// 🔴 The regression guard for the fix that made this suite's other
+		// assertions hold. The tests above pin what the matrix RENDERS; this
+		// pins what it is rendered FROM.
+		//
+		// 87 of 177 tools declared no `subject`/`action` at all. The matrix
+		// coped by parsing the id, which is why it was wrong about 35 of them
+		// while looking healthy. The fix was to DECLARE, and
+		// `ToolRegistryFacade::describeTools()` deliberately returns null rather
+		// than inferring — so a tool that forgets these keys produces no error,
+		// no warning, and no failing test anywhere. It simply arrives
+		// ungroupable and renders as a one-off row.
+		//
+		// ⚠️ That silence is exactly why this assertion has to exist. Without
+		// it, the next tool added without a declaration reintroduces the bug and
+		// every test above still passes.
+		await openFirstAgent(page)
+
+		const undeclared = await page.evaluate(async () => {
+			const response = await fetch('/apps/hermiq/api/agents/tools', {
+				headers: { 'OCS-APIRequest': 'true' },
+				credentials: 'include',
+			})
+			const body = await response.json()
+			const tools = body.results ?? body.data ?? body
+
+			if (Array.isArray(tools) === false) {
+				return { total: -1, missing: ['the endpoint returned no tool list'] }
+			}
+
+			const missing = tools
+				.filter(
+					(tool: Record<string, unknown>) =>
+						String(tool.subject ?? '').trim() === ''
+						|| String(tool.action ?? '').trim() === '',
+				)
+				.map(
+					(tool: Record<string, unknown>) =>
+						`${String(tool.name)} (subject=${String(tool.subject)} action=${String(tool.action)})`,
+				)
+
+			return { total: tools.length, missing }
+		})
+
+		// Check for the EXPECTED value, not merely against an absent one: an
+		// endpoint that answered with an error object would give `missing: []`
+		// and read as a pass.
+		expect(
+			undeclared.total,
+			'the catalogue must actually contain tools — 0 or -1 means the read failed, not that everything is declared',
+		).toBeGreaterThan(0)
+
+		expect(
+			undeclared.missing,
+			'every tool must declare a subject and an action; an undeclared one is invisible until it reaches the matrix',
+		).toEqual([])
+	})
 })

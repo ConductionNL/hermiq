@@ -98,6 +98,36 @@ function hermiqOwnsThisPage() {
 }
 
 /**
+ * Whether a Nextcloud user is signed in on this page.
+ *
+ * 🔴 The login page is a Nextcloud page like any other, so without this the
+ * companion mounted there: a floating assistant button in front of the login
+ * form, a 1.9 MB bundle downloaded before anyone has authenticated, and two
+ * calls to `/api/conversations` and `/api/agents` that both answered 401.
+ *
+ * ⚠️ Reads `head[data-user]` DIRECTLY rather than calling `getCurrentUser()`
+ * from `@nextcloud/auth`. The helper was tried first and returned null on a
+ * signed-in Files page — it resolves once, at module-evaluation time, and this
+ * script is an init script that runs before the value it caches is readable.
+ * The result was a guard that suppressed the companion EVERYWHERE, which is a
+ * worse bug than the one it fixes and is invisible unless you check the
+ * positive case. Measured on a live page: `head[data-user]` is `"admin"` while
+ * `getCurrentUser()` is null.
+ *
+ * Checked rather than inferred from the URL, because `/login` is not the only
+ * unauthenticated surface — public shares, the setup wizard and error pages all
+ * reach this script.
+ *
+ * @return {boolean} True when a user is signed in.
+ */
+function hasSession() {
+	// `OC.currentUser` carries the same uid and was considered as a second
+	// reading, but it is deprecated since Nextcloud 19 and the lint rule says
+	// so; one honest source beats a fallback the project has already retired.
+	return (document.head?.getAttribute('data-user') ?? '') !== ''
+}
+
+/**
  * A file-viewing page can tell the companion which document is open.
  *
  * Returning null is normal and means "no document context", not an error — most
@@ -149,6 +179,27 @@ function currentAppId() {
  */
 function mount() {
 	if (hermiqOwnsThisPage() === true) {
+		return
+	}
+
+	// Nobody signed in — see hasSession(). The companion is a per-user
+	// assistant, so there is nothing for it to be on an anonymous page.
+	if (hasSession() === false) {
+		return
+	}
+
+	// 🔴 Never inside a frame. The Files app opens a document by embedding a
+	// FULL Nextcloud page, same-origin, inside itself, so this script runs
+	// again in the inner document — and the library's singleton guard is
+	// `window`-scoped, which a frame boundary defeats by construction: the
+	// inner document has its own `window`, so it cannot see that the outer page
+	// already has a companion.
+	//
+	// The inner mount is invisible (the frame clips it), which is exactly why it
+	// survived: it costs a health probe and a second copy of the panel's state
+	// while showing nothing. Found by the e2e assertion that no
+	// `#hermiq-companion-root` exists inside the frame.
+	if (window.self !== window.top) {
 		return
 	}
 
