@@ -107,6 +107,9 @@
 								<span
 									class="eval-run-panel-widget__badge"
 									:class="[
+										/**
+										 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
+										 */
 										regressionBadgeClass(
 											runRow.regressionGateResult,
 										),
@@ -166,6 +169,9 @@
 											<td>{{ skillName(entry.skillId) }}</td>
 											<td>
 												{{
+													/**
+													 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
+													 */
 													passRateLabel(entry.passRateWith)
 												}}
 											</td>
@@ -273,6 +279,7 @@ export default {
 		 * This dataset's uuid from the route param.
 		 *
 		 * @return {string} The dataset uuid.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		datasetId() {
 			return this.$route.params.id
@@ -282,6 +289,7 @@ export default {
 		 * The caller's agents as NcSelect options.
 		 *
 		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		agentOptions() {
 			return this.agents.map((agent) => ({
@@ -562,6 +570,7 @@ export default {
 		 *
 		 * @param {number} passRate The 0..1 pass rate.
 		 * @return {string} A percentage label.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		passRateLabel(passRate) {
 			if (typeof passRate !== 'number') {
@@ -575,6 +584,7 @@ export default {
 		 *
 		 * @param {string} result The gate result.
 		 * @return {string} The label.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		regressionLabel(result) {
 			if (result === 'failed') {
@@ -592,6 +602,7 @@ export default {
 		 *
 		 * @param {string} result The gate result.
 		 * @return {string} The badge modifier class.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		regressionBadgeClass(result) {
 			if (result === 'failed') {
@@ -608,6 +619,7 @@ export default {
 		 *
 		 * @param {string} status The run status.
 		 * @return {string} The label.
+		 * @spec openspec/specs/agent-evals/spec.md#requirement-the-evaldataset-detail-surface-manages-skill-links-and-paired-runs
 		 */
 		statusLabel(status) {
 			const labels = {

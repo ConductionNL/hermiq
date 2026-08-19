@@ -133,6 +133,7 @@ export default {
 		 * actionsTaken are all required (matches the Incident schema).
 		 *
 		 * @return {boolean}
+		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		canSave() {
 			return (
@@ -144,6 +145,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
+		 */
 		show(open) {
 			if (open) {
 				this.resetForm()
@@ -156,6 +160,7 @@ export default {
 		 * A blank incident form.
 		 *
 		 * @return {object} The blank form model.
+		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		blankForm() {
 			return {
@@ -170,6 +175,7 @@ export default {
 		 * Seed the form from the default props (create-only; no edit mode).
 		 *
 		 * @return {void}
+		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		resetForm() {
 			this.error = ''
@@ -181,6 +187,7 @@ export default {
 		 * Persist the incident and notify the parent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-9-tenantopsvue-access-review-incidents-retention-ui
 		 */
 		async save() {
 			this.saving = true

@@ -52,6 +52,8 @@ final class NcNativeWriteToolDescriptors {
 	public const ALL = [
 			[
 				'id' => Application::APP_ID . '.createCalendarEvent',
+				'subject' => 'calendarEvent',
+				'action' => 'create',
 				// 🔴 `external`, NOT `user`, and this is the whole point of the
 				// tool's design. An event carrying attendees makes Nextcloud
 				// dispatch iMIP invitations — the effect lands in a third party's
@@ -95,6 +97,11 @@ final class NcNativeWriteToolDescriptors {
 			],
 			[
 				'id' => Application::APP_ID . '.upsertContact',
+				// `upsert`, not `create` or `update`. It may do EITHER, so
+				// declaring one of them would let a grant that reads as
+				// "may update existing contacts" also create new ones.
+				'subject' => 'contact',
+				'action' => 'upsert',
 				'reach' => ToolReachResolver::REACH_USER,
 				'name' => 'Save contact',
 				'description' => 'Create or update a contact in one of the acting user\'s own address books. The '
@@ -124,6 +131,8 @@ final class NcNativeWriteToolDescriptors {
 			],
 			[
 				'id' => Application::APP_ID . '.listNotes',
+				'subject' => 'note',
+				'action' => 'list',
 				'reach' => ToolReachResolver::REACH_USER,
 				'name' => 'List notes',
 				'description' => 'List the acting user\'s notes (titles and categories only, never bodies). '
@@ -140,6 +149,8 @@ final class NcNativeWriteToolDescriptors {
 			],
 			[
 				'id' => Application::APP_ID . '.createNote',
+				'subject' => 'note',
+				'action' => 'create',
 				'reach' => ToolReachResolver::REACH_USER,
 				'name' => 'Create note',
 				'description' => 'Create a note for the acting user. Requires the Notes app.',
@@ -159,6 +170,8 @@ final class NcNativeWriteToolDescriptors {
 			],
 			[
 				'id' => Application::APP_ID . '.updateNote',
+				'subject' => 'note',
+				'action' => 'update',
 				'reach' => ToolReachResolver::REACH_USER,
 				// 🔴 destructive, and NOT because it deletes. Notes keeps no
 				// version history, so replacing the content of a note a human wrote
