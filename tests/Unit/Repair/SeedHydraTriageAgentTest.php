@@ -285,4 +285,22 @@ class SeedHydraTriageAgentTest extends TestCase {
 		$this->assertStringContainsString('requires human approval', $object['prompt']);
 
 	}//end testThePromptTreatsObjectTextAsUntrusted()
+
+	/**
+	 * The seeded agent carries its owning application's slug from creation —
+	 * hermiq-agent-application-slug — so a brand-new install never needs the
+	 * separate `BackfillAgentApplicationSlug` repair step for this agent.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-seeded-hydra-triage-agent-declares-its-owning-application
+	 */
+	public function testTheSeededAgentDeclaresItsApplicationSlug(): void {
+		$step = $this->step(flowId: '', stageProperties: null);
+		$object = $step->agentObject(grants: $step->grants());
+
+		$this->assertSame(SeedHydraTriageAgent::APPLICATION_SLUG, $object['applicationSlug']);
+		$this->assertSame('hydra-console', SeedHydraTriageAgent::APPLICATION_SLUG);
+
+	}//end testTheSeededAgentDeclaresItsApplicationSlug()
 }//end class

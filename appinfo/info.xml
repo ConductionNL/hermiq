@@ -92,6 +92,13 @@
             <step>OCA\Hermiq\Repair\SeedHydraTriageFlow</step>
             <!-- @spec openspec/changes/hydra-console-agent-leaves/tasks.md#task-6-seed-the-hydra-triage-agent -->
             <step>OCA\Hermiq\Repair\SeedHydraTriageAgent</step>
+            <!-- @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug -->
+            <!-- Runs AFTER SeedHydraTriageAgent so a first-upgrade install's seeded
+                 "Hydra Triage" (which now sets applicationSlug at creation time) is
+                 already tagged and this step is a no-op for it; the other three
+                 hand-created agents have no seed step of their own, so this is
+                 their only path to getting the field backfilled. -->
+            <step>OCA\Hermiq\Repair\BackfillAgentApplicationSlug</step>
             <step>OCA\Hermiq\Repair\MigrateAgentData</step>
             <step>OCA\Hermiq\Repair\RemoveLegacyLlmKeys</step>
             <!-- @spec openspec/changes/talk-chat-bridge/tasks.md#1-bot-registration-and-lifecycle -->
