@@ -93,6 +93,7 @@ class SeedComplianceControlsTest extends TestCase {
 				// assertion: PHP refuses to declare the class and the whole
 				// suite dies before it runs.
 				bool $failIfExists = false,
+				bool $_unowned = false,
 			): ObjectEntity {
 				$payload = is_array($object) ? $object : $object->getObject();
 				$this->saved[] = ['schema' => (string)$schema, 'object' => $payload];

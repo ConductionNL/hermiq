@@ -106,6 +106,7 @@ class EvalRunServiceTest extends TestCase {
 				// assertion: PHP refuses to declare the class and the whole
 				// suite dies before it runs.
 				bool $failIfExists = false,
+				bool $_unowned = false,
 			): ObjectEntity {
 				$entity = new ObjectEntity();
 				$entity->setUuid('eval-run-uuid');
