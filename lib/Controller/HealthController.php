@@ -79,6 +79,10 @@ class HealthController extends Controller {
 	 *
 	 * @return JSONResponse
 	 *
+	 * The rate limit below is deliberately generous: monitoring polls this on a
+	 * short interval, and a ceiling that trips on a normal probe cadence turns
+	 * the health check into the outage it was meant to detect.
+	 *
 	 * @spec openspec/specs/observability/spec.md#REQ-OBS-002
 	 */
 	#[AnonRateLimit(limit: 240, period: 60)]

@@ -20,6 +20,22 @@ const appId = 'hermiq'
 // Each Nextcloud Dashboard widget needs its own webpack entry-point so the
 // widget's JS can be attached via `Util::addScript()` from PHP. Add a new
 // line here for every widget you create alongside `lib/Dashboard/<Foo>Widget.php`.
+// 🔴 Derive the chunk base URL from the SCRIPT'S OWN URL rather than the
+// hard-coded `/apps/<app>/js/` the shared Nextcloud config sets.
+//
+// This app is served from `custom_apps/`, so a dynamically imported chunk was
+// requested from `/apps/hermiq/js/…` — which answers **200 with
+// `text/html`**, Nextcloud's error page wearing a success code. The browser
+// then refused it on MIME grounds and the async component never loaded. Status
+// alone said everything was fine.
+//
+// `auto` is correct in both layouts, so this does not trade one hard-coded
+// path for another.
+webpackConfig.output = {
+	...(webpackConfig.output || {}),
+	publicPath: 'auto',
+}
+
 webpackConfig.entry = {
 	main: {
 		import: path.join(__dirname, 'src', 'main.js'),
@@ -37,10 +53,17 @@ webpackConfig.entry = {
 		import: path.join(__dirname, 'src', 'integration-leaf.js'),
 		filename: appId + '-agent-leaf.js',
 	},
-	// AI companion attached to EVERY page (companion-everywhere). The office
-	// editors are third-party apps -- onlyoffice, eurooffice, richdocuments --
-	// so there is no CnAppRoot of ours to switch the companion on inside. This
-	// bundle is the only seam that reaches them.
+	// AI companion attached to EVERY page (companion-everywhere), via
+	// `\OCP\Util::addInitScript('hermiq', 'hermiq-companion')` in Application.php.
+	// The office editors are third-party apps -- onlyoffice, eurooffice,
+	// richdocuments -- so there is no CnAppRoot of ours to switch the companion
+	// on inside. This bundle is the only seam that reaches them.
+	//
+	// 🔴 It was once MISSING from this map while the PHP side loaded it
+	// regardless, so `npm run build` cleaned `js/` and left the companion script
+	// 404ing — it vanished from every page, twice, and both times was restored
+	// by copying chunks in by hand rather than by adding it here. A build that
+	// does not produce what the app loads will keep deleting it.
 	companion: {
 		import: path.join(__dirname, 'src', 'companion.js'),
 		filename: appId + '-companion.js',
