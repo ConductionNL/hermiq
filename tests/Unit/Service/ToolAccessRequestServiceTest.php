@@ -146,6 +146,11 @@ class ToolAccessRequestServiceTest extends TestCase {
 		$userManager->method('get')->willReturn($user);
 		$appManager = $this->createMock(\OCP\App\IAppManager::class);
 		$appManager->method('isEnabledForUser')->willReturn($appsEnabled);
+		// `pendingApprovals()` asks whether OpenRegister is installed BEFORE
+		// reaching for it, so the double has to answer that question too —
+		// without this it returns false and every approval read is empty for a
+		// reason the test never intended.
+		$appManager->method('isInstalled')->willReturn($registerBroke === false);
 
 		$container = $this->createMock(ContainerInterface::class);
 		$container->method('get')->willReturnCallback(
@@ -515,4 +520,84 @@ class ToolAccessRequestServiceTest extends TestCase {
 		$service->notifyOwner('agent-1', 'hermiq.sendMail', 'requested');
 
 	}//end testNotifyOwnerDoesNothingWhenThereIsNoOwner()
+
+	/**
+	 * A pending request is offered to the chat as a generic approval.
+	 *
+	 * The shape matters as much as the content: each item carries its own
+	 * `kind` and `resolveUrl` so the chat posts a decision where it is told to
+	 * rather than knowing how a tool-access request is resolved.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 */
+	public function testPendingApprovalsDescribeHowToResolveThemselves(): void {
+		$service = $this->service(
+			catalog: [],
+			existing: [
+				'id' => 'req-1',
+				'agentId' => 'agent-1',
+				'toolId' => 'hermiq.sendMail',
+				'status' => 'pending',
+				'reason' => 'to email the report',
+			]
+		);
+
+		$approvals = $service->pendingApprovals('agent-1');
+
+		$this->assertCount(1, $approvals);
+		$this->assertSame('hermiq.sendMail', $approvals[0]['title']);
+		$this->assertSame('agent-1', $approvals[0]['agentId']);
+		$this->assertStringContainsString(
+			'tool-access-requests/req-1',
+			$approvals[0]['resolveUrl'],
+			'the chat must be told where to post the decision'
+		);
+	}//end testPendingApprovalsDescribeHowToResolveThemselves()
+
+	/**
+	 * With no agent there is nothing to approve, and nothing is looked up.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 */
+	public function testPendingApprovalsWithoutAnAgentAreEmpty(): void {
+		$service = $this->service(catalog: []);
+
+		$this->assertSame([], $service->pendingApprovals(null));
+		$this->assertSame([], $service->pendingApprovals(''));
+	}//end testPendingApprovalsWithoutAnAgentAreEmpty()
+
+	/**
+	 * 🔴 Without OpenRegister there is nothing pending — and no exception.
+	 *
+	 * This runs on EVERY turn, so the absence is established by ASKING
+	 * (`isInstalled`) rather than by reaching and catching: a per-turn
+	 * exception is an expensive way to learn a fact that does not change, and
+	 * an uncaught one would surface on a chat that merely opened.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md
+	 */
+	public function testPendingApprovalsAreEmptyWithoutOpenRegister(): void {
+		$service = $this->service(
+			catalog: [],
+			existing: [
+				'id' => 'req-1',
+				'agentId' => 'agent-1',
+				'toolId' => 'hermiq.sendMail',
+				'status' => 'pending',
+			],
+			registerBroke: true
+		);
+
+		$this->assertSame(
+			[],
+			$service->pendingApprovals('agent-1'),
+			'an absent OpenRegister means no approvals, not an error'
+		);
+	}//end testPendingApprovalsAreEmptyWithoutOpenRegister()
 }//end class

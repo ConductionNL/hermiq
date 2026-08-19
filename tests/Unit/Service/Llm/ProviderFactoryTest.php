@@ -1542,4 +1542,105 @@ class ProviderFactoryTest extends TestCase {
 		$this->addToAssertionCount(1);
 
 	}//end testTextOnlyCliTurnWithoutAnAgentIsNotRefusedForLackingOne()
+
+	/**
+	 * A warm-up with nothing to key a pooled process on does not start one.
+	 *
+	 * The pool key is `(conversation, agent, model)`. Missing any of the three
+	 * means the warmed process could not be matched to the turn that follows,
+	 * and a process the turn cannot use is worse than no warm-up at all: it
+	 * occupies a pool slot and saves nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-the-cli-process-is-warmed-before-the-first-question-not-by-it
+	 */
+	public function testWarmUpWithoutAPoolKeyStartsNothing(): void {
+		[$factory] = $this->factory();
+
+		$this->assertFalse(
+			$factory->warmAnthropicCli(
+				credentialId: 'cred-1',
+				model: 'claude-sonnet-4',
+				agentId: 'agent-1',
+				conversationId: ''
+			),
+			'no conversation means no pool key, so there is nothing to warm'
+		);
+
+		$this->assertFalse(
+			$factory->warmAnthropicCli(
+				credentialId: 'cred-1',
+				model: 'claude-sonnet-4',
+				agentId: null,
+				conversationId: 'conv-1'
+			),
+			'no agent means no pool key'
+		);
+
+		$this->assertFalse(
+			$factory->warmAnthropicCli(
+				credentialId: 'cred-1',
+				model: 'claude-sonnet-4',
+				agentId: '',
+				conversationId: 'conv-1'
+			),
+			'an empty agent id is not an agent'
+		);
+	}//end testWarmUpWithoutAPoolKeyStartsNothing()
+
+	/**
+	 * A warm-up that cannot start reports false instead of throwing.
+	 *
+	 * 🔴 This is the contract the whole feature rests on: the warm-up is an
+	 * optimisation the following turn does not depend on, so every failure —
+	 * no CLI runner installed, no credential, no AppAPI — must be INVISIBLE.
+	 * A throw here would surface on the chat's open, for a request the user
+	 * never made.
+	 *
+	 * In this unit environment the runner ExApp is genuinely absent, so this
+	 * exercises the real failure path rather than a simulated one.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-a-failed-warm-up-is-invisible-to-the-chat
+	 */
+	public function testAWarmUpThatCannotStartIsSilent(): void {
+		[$factory] = $this->factory();
+
+		$this->assertFalse(
+			$factory->warmAnthropicCli(
+				credentialId: 'cred-1',
+				model: 'claude-sonnet-4',
+				agentId: 'agent-1',
+				conversationId: 'conv-1'
+			),
+			'an unavailable runner must be reported as "not warmed", never thrown'
+		);
+	}//end testAWarmUpThatCannotStartIsSilent()
+
+	/**
+	 * The ungoverned warm-up path is equally silent.
+	 *
+	 * Both postures are asserted because they mint DIFFERENT tokens — exactly
+	 * one per call — and the branch that chooses between them is the one an
+	 * earlier refactor broke by hoisting a mint above it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/warm-start-and-cli-step-visibility/specs/warm-start-and-cli-step-visibility/spec.md#requirement-a-failed-warm-up-is-invisible-to-the-chat
+	 */
+	public function testAnUngovernedWarmUpIsAlsoSilent(): void {
+		[$factory] = $this->factory();
+
+		$this->assertFalse(
+			$factory->warmAnthropicCli(
+				credentialId: 'cred-1',
+				model: 'claude-sonnet-4',
+				agentId: 'agent-1',
+				conversationId: 'conv-1',
+				governed: false
+			)
+		);
+	}//end testAnUngovernedWarmUpIsAlsoSilent()
 }//end class

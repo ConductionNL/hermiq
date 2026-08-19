@@ -56,6 +56,8 @@ final class NcMailToolDescriptors {
 	public const ALL = [
 		[
 			'id' => Application::APP_ID . '.listMailAccounts',
+			'subject' => 'mailAccount',
+			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'List mail accounts',
 			'description' => 'List the acting user\'s own mail accounts (address and display name only — never '
@@ -72,6 +74,8 @@ final class NcMailToolDescriptors {
 		],
 		[
 			'id' => Application::APP_ID . '.listMailMessages',
+			'subject' => 'mailMessage',
+			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'List mail messages',
 			'description' => 'Page the envelopes of one of the acting user\'s mailboxes — subject, from, to, date, '
@@ -97,6 +101,8 @@ final class NcMailToolDescriptors {
 		],
 		[
 			'id' => Application::APP_ID . '.readMailMessage',
+			'subject' => 'mailMessage',
+			'action' => 'get',
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'Read mail message',
 			'description' => 'Read one of the acting user\'s messages: headers, plain-text body, and attachment '

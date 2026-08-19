@@ -89,6 +89,9 @@ class HermiqWorkloadNode implements IFlowNode {
 	 * @param AsyncStageDispatchService|null $asyncStages Optional async dispatcher; added
 	 *                                                    LAST so existing positional
 	 *                                                    construction keeps binding.
+	 *                                                    Null means async is unavailable
+	 *                                                    and the node REFUSES, rather than
+	 *                                                    quietly running synchronously.
 	 */
 	public function __construct(
 		private readonly StageDispatchService $stages,

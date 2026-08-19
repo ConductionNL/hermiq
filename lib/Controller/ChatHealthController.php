@@ -85,6 +85,10 @@ class ChatHealthController extends Controller {
 	 * @PublicPage
 	 * @NoCSRFRequired
 	 *
+	 * The rate limit below is deliberately generous: monitoring polls this on a
+	 * short interval, and a ceiling that trips on a normal probe cadence turns
+	 * the health check into the outage it was meant to detect.
+	 *
 	 * @spec openspec/changes/agent-engine-port/tasks.md#task-4-1
 	 */
 	#[AnonRateLimit(limit: 240, period: 60)]

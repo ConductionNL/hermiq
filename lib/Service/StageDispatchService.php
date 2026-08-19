@@ -732,29 +732,6 @@ class StageDispatchService {
 	}//end reasonFrom()
 
 	/**
-	 * Map the runner's body onto the stage result.
-	 *
-	 * The shape is checked rather than assumed. A body that is not a stage
-	 * result means the runner answered something this does not understand,
-	 * and handing that on as `exitCode: 0` would read downstream as a PASS.
-	 *
-	 * ⚠️ THIS METHOD IS AN ALLOWLIST, so a key the runner returns and this does
-	 * not name is a key no flow can ever see. `push` is carried for exactly that
-	 * reason: without it a flow could declare a push, the runner could perform
-	 * it, and the run record would say only `exitCode: 0` — leaving "it pushed"
-	 * and "it found nothing to push" indistinguishable, which is the conflation
-	 * every other seam in this file is written to avoid.
-	 *
-	 * The key is ABSENT rather than `null` when the stage declared no push, so a
-	 * consumer can tell "this stage does not write" from "this stage wrote
-	 * nothing".
-	 *
-	 * @param string $body The response body.
-	 *
-	 * @return array{exitCode: int, output: string, ref: string} The stage result.
-	 *
-	 * @throws RuntimeException When the body is not a stage result.
-	 */
 	/**
 	 * Declare WHAT THE STAGE PRODUCES, not just what it printed.
 	 *
@@ -794,7 +771,19 @@ class StageDispatchService {
 	 * a shape check nothing exercises is a shape check that silently stops holding.
 	 *
 	 * A body that is not a stage result throws — a command that ran and exited
-	 * non-zero is NOT that case, it is the result, and it is returned.
+	 * non-zero is NOT that case, it is the result, and it is returned. Handing an
+	 * unrecognised body on as `exitCode: 0` would read downstream as a PASS.
+	 *
+	 * ⚠️ THIS METHOD IS AN ALLOWLIST, so a key the runner returns and this does
+	 * not name is a key no flow can ever see. `push` is carried for exactly that
+	 * reason: without it a flow could declare a push, the runner could perform
+	 * it, and the run record would say only `exitCode: 0` — leaving "it pushed"
+	 * and "it found nothing to push" indistinguishable, which is the conflation
+	 * every other seam in this file is written to avoid.
+	 *
+	 * The key is ABSENT rather than `null` when the stage declared no push, so a
+	 * consumer can tell "this stage does not write" from "this stage wrote
+	 * nothing".
 	 *
 	 * @param string $body The raw response body from the runner.
 	 *
