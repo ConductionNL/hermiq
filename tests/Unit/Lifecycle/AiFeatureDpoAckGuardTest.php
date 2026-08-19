@@ -107,6 +107,28 @@ class AiFeatureDpoAckGuardTest extends TestCase {
 	}//end testNotAcknowledgedDenies()
 
 	/**
+	 * An `unacceptable`-risk feature is denied unconditionally, even when acknowledged,
+	 * and the ack lookup is never consulted (unwaivable, EU AI Act Art. 5).
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-6-1
+	 */
+	public function testUnacceptableRiskDeniesRegardlessOfAcknowledgement(): void {
+		$this->appConfig->expects($this->never())->method('getValueString');
+
+		$result = $this->guard->check(
+			['slug' => 'social-scoring-experiment', 'tenantId' => 'acme', 'riskCategory' => 'unacceptable'],
+			'enable',
+			'dpo'
+		);
+
+		$this->assertFalse($result->isAllowed());
+		$this->assertNotNull($result->getMessage());
+
+	}//end testUnacceptableRiskDeniesRegardlessOfAcknowledgement()
+
+	/**
 	 * A missing slug denies the transition (fail-closed) without reading config.
 	 *
 	 * @return void

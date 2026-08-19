@@ -28,8 +28,9 @@ namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use DateTime;
 use OCA\Hermiq\Controller\ToolOversightController;
-use OCA\Hermiq\Service\Engine\ToolGrantResolver;
 use OCA\Hermiq\Service\ToolAccessRequestService;
+use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\Hermiq\Service\Engine\ToolGrantSet;
 use OCA\OpenRegister\Db\AuditTrail;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
@@ -47,6 +48,7 @@ use OCP\IUserSession;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 /**
  * Tests for the tool-catalog / tool-grants / tool-invocations endpoints.
@@ -141,6 +143,9 @@ class ToolOversightControllerTest extends TestCase {
 	 * @return ToolOversightController
 	 */
 	private function controller(bool $richAvailable = false): ToolOversightController {
+		// ⚠️ `$accessRequests` sits BEFORE the logger in the constructor, so it
+		// goes here and not on the end — appending would put the logger in its
+		// slot and the anonymous class's own `$richAvailable` in the logger's.
 		return new class($this->request, $this->objectService, $this->toolRegistry, new ToolGrantResolver(), $this->auditTrailMapper, $this->appConfig, $this->userSession, $this->groupManager, $this->createMock(ToolAccessRequestService::class), $this->createMock(LoggerInterface::class), $richAvailable) extends ToolOversightController {
 			/**
 			 * @param bool $richAvailable Forced return value.
@@ -350,8 +355,26 @@ class ToolOversightControllerTest extends TestCase {
 
 		$response = $this->controller()->updateToolGrants('agent-1');
 
-		$this->assertSame(['pipelinq.lead.*', 'pipelinq.lead.delete'], $saved[0]['tools']);
-		$this->assertSame(['pipelinq.lead.*', 'pipelinq.lead.delete'], $response->getData()['tools']);
+		// 🔴 PERSISTED AS A LIST, because the schema is the contract.
+		//
+		// This assertion used to require the structure, and that requirement was
+		// wrong: `Agent.tools` is declared `type: array`, OpenRegister allows
+		// exactly ONE type per property, and a structured write therefore failed
+		// validation on EVERY save — an owner pressing Save on an unchanged
+		// matrix got a 500. Verified live before this was changed. The structure
+		// is the domain model (see ToolGrantSet); the stored shape is the list.
+		$this->assertSame(
+			['pipelinq.lead.*', 'pipelinq.lead.delete'],
+			$saved[0]['tools'],
+			'grants must be stored in the shape Agent.tools declares — a list of grant strings'
+		);
+
+		// And the same grants come back out, unchanged in meaning.
+		$this->assertSame(
+			['pipelinq.lead.*', 'pipelinq.lead.delete'],
+			ToolGrantSet::fromStored($response->getData()['tools'])->toGrantStrings(),
+			'the response must describe exactly the grants that were requested'
+		);
 
 	}//end testUpdateToolGrantsPersistsForOwner()
 
@@ -834,4 +857,77 @@ class ToolOversightControllerTest extends TestCase {
 		);
 
 	}//end testResolveToolAccessRequestGrantAppendsTheRequestedTool()
+
+	/**
+	 * A grant write that FAILS is reported as a failure, never as a success.
+	 *
+	 * 🔴 This method widens an authorization boundary. If the write throws and
+	 * the endpoint still answers 200, the owner is told the agent was granted a
+	 * tool it does not hold — and the next person to look at the request sees it
+	 * resolved. The translation exists so the failure is visible as a 500 rather
+	 * than as an HTML error page in place of the JSON the client parses.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveToolAccessRequestReportsAFailedWrite(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => []], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->request->method('getParam')->willReturn('granted');
+
+		$this->objectService->method('saveObject')
+			->willThrowException(new RuntimeException('storage is down'));
+
+		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+		$this->assertSame(
+			Http::STATUS_INTERNAL_SERVER_ERROR,
+			$response->getStatus(),
+			'a failed grant write must not answer 200'
+		);
+		$this->assertArrayHasKey('error', $response->getData());
+	}//end testResolveToolAccessRequestReportsAFailedWrite()
+
+	/**
+	 * A refusal is recorded without touching the agent's grants.
+	 *
+	 * The two decisions share one write path, and only one of them may widen a
+	 * grant — so "refused" is asserted on what it did NOT write.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/tool-discovery-and-access-requests/specs/tool-discovery-and-access-requests/spec.md#requirement-only-the-agents-owner-must-be-able-to-grant-a-request
+	 */
+	public function testResolveToolAccessRequestRefusalGrantsNothing(): void {
+		$this->serveAgentAndRequest(
+			$this->agent(['tools' => ['hermiq.listFiles']], 'alice'),
+			['agentId' => 'agent-1', 'toolId' => 'hermiq.sendMail', 'status' => 'pending']
+		);
+		$this->request->method('getParam')->willReturn('refused');
+
+		$written = [];
+		$this->objectService->method('saveObject')->willReturnCallback(
+			function (...$args) use (&$written): ObjectEntity {
+				$written[] = $args[0];
+				return new ObjectEntity();
+			}
+		);
+
+		$response = $this->controller()->resolveToolAccessRequest('agent-1', 'req-1');
+
+		$this->assertSame(Http::STATUS_OK, $response->getStatus());
+		$this->assertSame('refused', $response->getData()['status']);
+
+		foreach ($written as $payload) {
+			$this->assertNotContains(
+				'hermiq.sendMail',
+				($payload['tools'] ?? []),
+				'a refusal must never append the requested tool'
+			);
+		}
+	}//end testResolveToolAccessRequestRefusalGrantsNothing()
+
 }//end class
