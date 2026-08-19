@@ -444,6 +444,92 @@ class HermiqToolProviderTest extends TestCase {
 	}//end testEveryDescriptorDeclaresItsReach()
 
 	/**
+	 * Every descriptor declares a `subject` and an `action`.
+	 *
+	 * 🔴 Why this needs a test rather than a convention: an UNDECLARED subject
+	 * is INVISIBLE. `ToolRegistryFacade::describeTools()` deliberately returns
+	 * null rather than guessing one from the id — the right call, since a
+	 * consumer cannot tell an inferred subject from a real one — so a descriptor
+	 * that forgets these two keys produces no error, no warning and no failing
+	 * test. It simply arrives at the grant matrix as a tool nobody can group,
+	 * and the matrix renders it as a one-off row. That is how 87 of 177 tools
+	 * across the fleet ended up undeclared without anyone noticing.
+	 *
+	 * ⚠️ The `action` vocabulary is deliberately NOT closed to CRUD. Three of
+	 * these tools do something no CRUD verb describes — `sendMail` leaves the
+	 * instance irreversibly, `requestToolAccess` escalates privilege, and
+	 * `delegateAgent` hands the caller's authority to another agent. Filing any
+	 * of them under `create` would put the thing that escalates privilege in the
+	 * same grant bucket as the things it escalates privilege TO.
+	 *
+	 * @return void
+	 */
+	public function testEveryDescriptorDeclaresASubjectAndAnAction(): void {
+		$expected = [
+			'hermiq.listFiles' => ['file', 'list'],
+			'hermiq.readFile' => ['file', 'get'],
+			'hermiq.searchContacts' => ['contact', 'search'],
+			'hermiq.listCalendarEvents' => ['calendarEvent', 'list'],
+			// `send`, not `create`: irreversible and it reaches a third party.
+			'hermiq.sendMail' => ['mail', 'send'],
+			'hermiq.listDeckBoards' => ['deckBoard', 'list'],
+			'hermiq.searchTools' => ['tool', 'search'],
+			'hermiq.listAvailableTools' => ['tool', 'list'],
+			// `request`: this one asks a HUMAN for a grant.
+			'hermiq.requestToolAccess' => ['toolAccess', 'request'],
+			'hermiq.recommendCourses' => ['course', 'recommend'],
+			'hermiq.rememberMemory' => ['memory', 'create'],
+			'hermiq.recallMemory' => ['memory', 'search'],
+			'hermiq.forgetMemory' => ['memory', 'delete'],
+			'hermiq.webSearch' => ['web', 'search'],
+			'hermiq.webFetch' => ['web', 'get'],
+			// `delegate`: hands this agent's authority to another one.
+			'hermiq.delegateAgent' => ['agent', 'delegate'],
+			'hermiq.createCalendarEvent' => ['calendarEvent', 'create'],
+			// `upsert`: it may create OR update, so declaring either one alone
+			// would let a grant reading "may update contacts" also create them.
+			'hermiq.upsertContact' => ['contact', 'upsert'],
+			'hermiq.listNotes' => ['note', 'list'],
+			'hermiq.createNote' => ['note', 'create'],
+			'hermiq.updateNote' => ['note', 'update'],
+			'hermiq.listMailAccounts' => ['mailAccount', 'list'],
+			'hermiq.listMailMessages' => ['mailMessage', 'list'],
+			'hermiq.readMailMessage' => ['mailMessage', 'get'],
+		];
+
+		$tools = $this->provider('alice')->getTools();
+
+		foreach ($tools as $tool) {
+			$id = $tool['id'];
+
+			foreach (['subject', 'action'] as $key) {
+				$this->assertArrayHasKey(
+					$key,
+					$tool,
+					"{$id} declares no `{$key}`. An undeclared one is not an error anywhere — "
+					. 'describeTools() returns null rather than guessing, so the tool simply '
+					. 'arrives at the grant matrix ungroupable and renders as a one-off row.'
+				);
+				$this->assertNotSame('', trim((string)$tool[$key]), "{$id}: `{$key}` must not be empty.");
+			}
+
+			$this->assertArrayHasKey($id, $expected, "Unexpected tool id '{$id}' has no taxonomy expectation.");
+			$this->assertSame(
+				$expected[$id],
+				[$tool['subject'], $tool['action']],
+				"{$id}: subject/action mismatch."
+			);
+		}
+
+		$this->assertSame(
+			array_keys($expected),
+			array_column($tools, 'id'),
+			'Every expected tool id must be present exactly once, in order.'
+		);
+
+	}//end testEveryDescriptorDeclaresASubjectAndAnAction()
+
+	/**
 	 * 🔴 THE POSITIVE CONTROL for the axis itself.
 	 *
 	 * A `reach` that merely restates `scope` would be a second name for the same

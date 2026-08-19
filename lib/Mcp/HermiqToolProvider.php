@@ -166,6 +166,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 	private const TOOL_DESCRIPTORS = [
 		[
 			'id' => Application::APP_ID . '.listFiles',
+			'subject' => 'file',
+			'action' => 'list',
 			// The acting user's own files — nothing they could not already list.
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'List files',
@@ -182,6 +184,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.readFile',
+			'subject' => 'file',
+			'action' => 'get',
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'Read file',
 			'description' => 'Read the text content of a file in the acting user\'s Nextcloud folder (size-capped).',
@@ -197,6 +201,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.searchContacts',
+			'subject' => 'contact',
+			'action' => 'search',
 			// 🔴 `user`, NOT `instance`, even though the system addressbook
 			// surfaces other users' cards. Reach measures blast radius of EFFECT
 			// and DISCLOSURE, not the provenance of bytes read — a lookup here
@@ -218,6 +224,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.listCalendarEvents',
+			'subject' => 'calendarEvent',
+			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'List calendar events',
 			'description' => 'List upcoming events from the acting user\'s calendars within the next N days.',
@@ -233,6 +241,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.sendMail',
+			// `send`, not `create`. Sending is not creating a record someone can
+			// review before it leaves — it is irreversible and reaches a third
+			// party, and a matrix that files it under `create` invites granting
+			// it alongside "create a note".
+			'subject' => 'mail',
+			'action' => 'send',
 			// 🔴 The tool this whole axis exists for. Its `scope` is `create`,
 			// which reads as harmless — "makes a thing" — while the effect is
 			// irreversible and lands in a third party's inbox. `external` is the
@@ -259,6 +273,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.listDeckBoards',
+			'subject' => 'deckBoard',
+			'action' => 'list',
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'List Deck boards',
 			'description' => 'List the acting user\'s Deck boards (requires the Deck app).',
@@ -274,6 +290,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.searchTools',
+			'subject' => 'tool',
+			'action' => 'search',
 			// Reads the agent's own catalogue; touches nothing outside itself.
 			'reach' => ToolReachResolver::REACH_SELF,
 			'name' => 'Search tools',
@@ -293,6 +311,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.listAvailableTools',
+			'subject' => 'tool',
+			'action' => 'list',
 			// Reads the instance catalogue and the agent's own grants; writes nothing.
 			'reach' => ToolReachResolver::REACH_SELF,
 			'name' => 'List available tools',
@@ -313,6 +333,12 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.requestToolAccess',
+			// `request`, deliberately not a CRUD verb. This tool asks a HUMAN
+			// for a grant; forcing it into `create` would put the thing that
+			// escalates privilege in the same bucket as the things it escalates
+			// privilege to.
+			'subject' => 'toolAccess',
+			'action' => 'request',
 			// Writes an AccessRequest object and notifies the agent's owner.
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'Request tool access',
@@ -336,6 +362,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.recommendCourses',
+			'subject' => 'course',
+			'action' => 'recommend',
 			'reach' => ToolReachResolver::REACH_USER,
 			'name' => 'Recommend courses',
 			'description' => 'Get the acting learner\'s current ranked, explained next-best-course recommendations '
@@ -359,6 +387,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.rememberMemory',
+			'subject' => 'memory',
+			'action' => 'create',
 			'reach' => ToolReachResolver::REACH_SELF,
 			'name' => 'Remember a fact',
 			'description' => 'Append a durable fact to your own memory (scope: agent) or to what you know about the '
@@ -385,6 +415,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.recallMemory',
+			'subject' => 'memory',
+			'action' => 'search',
 			'reach' => ToolReachResolver::REACH_SELF,
 			'name' => 'Recall memory',
 			'description' => 'Search your own remembered facts, what you know about the acting user, and past '
@@ -407,6 +439,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.forgetMemory',
+			'subject' => 'memory',
+			'action' => 'delete',
 			// `delete` scope but `self` reach — reversible and private to the
 			// agent. It stays gated regardless, because gating is a UNION:
 			// reach only ever ADDS tools to the gate, it never removes one.
@@ -432,6 +466,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.webSearch',
+			'subject' => 'web',
+			'action' => 'search',
 			// Egress. `scope: read` made this look inert; the query itself leaves
 			// the instance, so the model's wording reaches a third party.
 			'reach' => ToolReachResolver::REACH_EXTERNAL,
@@ -452,6 +488,8 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.webFetch',
+			'subject' => 'web',
+			'action' => 'get',
 			// Fetches a CALLER-SUPPLIED url — the model chooses where the
 			// request goes, which is egress under model control.
 			'reach' => ToolReachResolver::REACH_EXTERNAL,
@@ -474,6 +512,11 @@ class HermiqToolProvider implements IMcpToolProvider {
 		],
 		[
 			'id' => Application::APP_ID . '.delegateAgent',
+			// `delegate` is its own verb because the thing it does is hand the
+			// caller's authority to another agent. No CRUD verb describes that,
+			// and picking the nearest one would understate it.
+			'subject' => 'agent',
+			'action' => 'delegate',
 			// `instance` as its OWN reach — but a delegation composes: the
 			// effective reach of a delegated run is the MAX of this and the
 			// delegate's, so handing work to an agent that can send mail is an
