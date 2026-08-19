@@ -67,6 +67,9 @@ export default {
 		Plus,
 	},
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	setup() {
 		return { editor: useFlowEditorStore() }
 	},
@@ -153,6 +156,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md
+	 */
 	created() {
 		// `load` with no routed id: the list needs the collection, and passing
 		// `new` would also reset the editor's canvas to a blank flow, which is
@@ -215,6 +221,7 @@ export default {
 		 *
 		 * @param {object} row The clicked flow.
 		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		open(row) {
 			const id = row?.id || row?.uuid

@@ -101,6 +101,7 @@ export default {
 		 * Modal heading.
 		 *
 		 * @return {string} The localised heading.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		heading() {
 			return this.t('hermiq', 'Deny approval')
@@ -110,6 +111,7 @@ export default {
 		 * The gated schedule's name, for context.
 		 *
 		 * @return {string} The schedule name, or an empty string.
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		scheduleName() {
 			return (
@@ -121,6 +123,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
+		 */
 		show(open) {
 			if (open) {
 				this.reason = ''
@@ -134,6 +139,7 @@ export default {
 		 * Deny the approval via the guarded endpoint and notify the parent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/human-approval-gate-ui/tasks.md#task-3-1
 		 */
 		async confirm() {
 			if (!this.approval || !this.approval.id) {

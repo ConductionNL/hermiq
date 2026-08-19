@@ -169,6 +169,27 @@ class SeedHydraTriageFlow implements IRepairStep {
 	public const TRIAGE_OUTPUT_KEY = 'triage';
 
 	/**
+	 * hydra-console's real OpenBuild application slug (hydra-flow-application-slug-backfill).
+	 *
+	 * The seeded flow is tagged with this so a consumer can select exactly hydra's
+	 * pipeline flow via `?app=hermiq&applicationSlug=hydra-console`, without also
+	 * matching hermiq's own unrelated demo/test flows that share `app=hermiq`.
+	 *
+	 * Verified against two independent live/source sources — NOT the per-version
+	 * schema-namespace register slug `openbuild-hydra-console-production`, which
+	 * names a REGISTER, not the Application:
+	 *
+	 *   1. openbuild's own `FlowAndAgentExportBundlerTest.php` passes the literal
+	 *      `'hydra-console'` as the exact `applicationSlug` filter value used to
+	 *      look up an application's bound objects.
+	 *   2. `GET /apps/openregister/api/objects/openbuild/application` returns the
+	 *      Application object named "Hydra Console" with `slug: "hydra-console"`.
+	 *
+	 * @var string
+	 */
+	public const APPLICATION_SLUG = 'hydra-console';
+
+	/**
 	 * Constructor.
 	 *
 	 * @param ContainerInterface $container Server container for lazy FlowMapper/ObjectService resolution
@@ -293,13 +314,17 @@ class SeedHydraTriageFlow implements IRepairStep {
 	/**
 	 * Seed the triage agentflow if one with the seeded name does not already exist;
 	 * an existing flow — including one an operator has since edited, re-owned or
-	 * enabled — is left completely untouched.
+	 * enabled — is left completely untouched, except for one narrow backfill: an
+	 * empty `applicationSlug` is filled in (hydra-flow-application-slug-backfill).
+	 * A non-empty `applicationSlug` — an operator's own retag, or a value a prior
+	 * run of this same backfill already wrote — is never overwritten.
 	 *
 	 * @param IOutput $output Repair output channel.
 	 *
 	 * @return void
 	 *
 	 * @spec openspec/changes/hydra-console-agent-leaves/specs/agent-object-leaf/spec.md#scenario-a-new-finding-triggers-the-seeded-triage-flow
+	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
 	 */
 	public function run(IOutput $output): void {
 		try {
@@ -312,8 +337,9 @@ class SeedHydraTriageFlow implements IRepairStep {
 		}
 
 		try {
-			if ($this->flowExists(mapper: $mapper) === true) {
-				$output->info('Hydra Triage flow already present — skipped.');
+			$existing = $this->findExisting(mapper: $mapper);
+			if ($existing !== null) {
+				$this->backfillApplicationSlug(mapper: $mapper, flow: $existing, output: $output);
 				$this->recordOutcome(outcome: 'present');
 				return;
 			}
@@ -332,6 +358,7 @@ class SeedHydraTriageFlow implements IRepairStep {
 			$flow->setNodes((array)($data['nodes'] ?? []));
 			$flow->setEdges((array)($data['edges'] ?? []));
 			$flow->setLimits((array)($data['limits'] ?? []));
+			$flow->setApplicationSlug(self::APPLICATION_SLUG);
 			$flow->setCreated(new DateTime());
 			$flow->setUpdated(new DateTime());
 
@@ -352,7 +379,7 @@ class SeedHydraTriageFlow implements IRepairStep {
 			// organisation therefore matches no equality predicate and is
 			// invisible to EVERY tenant, permanently.
 			//
-			// Worse, it is self-sealing: `flowExists()` below reads the mapper
+			// Worse, it is self-sealing: `findExisting()` below reads the mapper
 			// directly, with no organisation filter. It finds the orphan,
 			// concludes the flow is already present, and never re-seeds — so
 			// neither a reinstall nor an upgrade repairs it. That is precisely
@@ -423,6 +450,11 @@ class SeedHydraTriageFlow implements IRepairStep {
 			// `owner` a trigger-fired run is attributed to. See the class docblock.
 			'enabled' => false,
 			'owner' => '',
+			// Hydra-console's real OpenBuild application slug (hydra-flow-application-slug-backfill),
+			// so a consumer can select exactly hydra's pipeline flow via
+			// `?app=hermiq&applicationSlug=hydra-console`. Documented here for the same
+			// reason as `enabled`/`owner` above; `run()` sets it on `$flow` directly.
+			'applicationSlug' => self::APPLICATION_SLUG,
 			'nodes' => $this->nodes(),
 			'edges' => $this->edges(),
 			'limits' => ['maxNodes' => 20, 'maxIterations' => 20],
@@ -636,21 +668,64 @@ class SeedHydraTriageFlow implements IRepairStep {
 	}//end triageAgentUuid()
 
 	/**
-	 * Whether an agentflow with the seeded name already exists (system context, no RBAC).
+	 * The existing agentflow with the seeded name, or null when none exists yet
+	 * (system context, no RBAC).
 	 *
 	 * @param FlowMapper $mapper The flow store.
 	 *
-	 * @return bool True when a matching object exists.
+	 * @return Flow|null The matching flow, or null.
 	 */
-	private function flowExists(FlowMapper $mapper): bool {
+	private function findExisting(FlowMapper $mapper): ?Flow {
 		foreach ($mapper->findAllFlows(app: Application::APP_ID, limit: 500) as $flow) {
 			if ($flow->getName() === self::FLOW_NAME) {
-				return true;
+				return $flow;
 			}
 		}
 
-		return false;
-	}//end flowExists()
+		return null;
+	}//end findExisting()
+
+	/**
+	 * Fill `applicationSlug` on an already-seeded flow when it is still empty; a
+	 * value already present — an operator's own retag, or one a prior run of this
+	 * same backfill already wrote — is left completely untouched.
+	 *
+	 * Added by hydra-flow-application-slug-backfill. `run()` is otherwise
+	 * skip-entirely-if-found (see `findExisting()` and the class docblock) —
+	 * once seeded, this step never rewrites `nodes`, `edges`, or any other field
+	 * an operator might have changed. `applicationSlug` is filled in ONLY because
+	 * every row seeded before this change necessarily has it empty (the column
+	 * did not exist yet); there is no operator value to protect on that path.
+	 * Once set, it is protected exactly like every other field.
+	 *
+	 * @param FlowMapper $mapper The flow store.
+	 * @param Flow $flow The existing flow, read back from `findExisting()`.
+	 * @param IOutput $output Repair output channel.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
+	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-a-previously-set-application-slug-is-never-overwritten-req-003
+	 */
+	private function backfillApplicationSlug(FlowMapper $mapper, Flow $flow, IOutput $output): void {
+		$current = trim((string)($flow->getApplicationSlug() ?? ''));
+		if ($current !== '') {
+			$output->info('Hydra Triage flow already present — skipped.');
+			return;
+		}
+
+		try {
+			$flow->setApplicationSlug(self::APPLICATION_SLUG);
+			$mapper->update($flow);
+			$output->info('Hydra Triage flow already present — applicationSlug backfilled.');
+		} catch (Throwable $e) {
+			// Non-fatal: the flow itself is unchanged and fully functional without
+			// this field. A failed backfill simply retries on the next repair run.
+			$this->logger->warning(
+				'[hermiq] Could not backfill applicationSlug onto the Hydra Triage flow: ' . $e->getMessage()
+			);
+		}
+	}//end backfillApplicationSlug()
 
 	/**
 	 * Mint a v4 uuid for the seeded flow.

@@ -286,6 +286,7 @@ export default {
 		 * Load the tenant's AI features.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async load() {
 			this.loading = true
@@ -307,6 +308,7 @@ export default {
 		 *
 		 * @param {string} category The risk category.
 		 * @return {string} The localised label.
+		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		riskLabel(category) {
 			const labels = {
@@ -323,6 +325,7 @@ export default {
 		 *
 		 * @param {string} state The lifecycle state.
 		 * @return {string} The localised label.
+		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		lifecycleLabel(state) {
 			const labels = {
@@ -471,6 +474,7 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doAcknowledge(feature) {
 			this.busy = true
@@ -493,6 +497,7 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doEnable(feature) {
 			this.busy = true
@@ -515,6 +520,7 @@ export default {
 		 *
 		 * @param {object} feature The feature record.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/algoritmeregister-publication/specs/algoritmeregister-publication/spec.md#requirement-publication-is-delegated-to-the-fleet-publication-path-not-re-implemented
 		 */
 		async doDisable(feature) {
 			this.busy = true

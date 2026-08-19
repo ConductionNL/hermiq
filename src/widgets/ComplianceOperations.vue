@@ -232,6 +232,9 @@ export default {
 		}
 	},
 
+	/**
+	 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
+	 */
 	created() {
 		if (this.canManage) {
 			this.loadIncidents()
@@ -244,6 +247,7 @@ export default {
 		 * Fetch the AI Act audit export and download it as a JSON file.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 		 */
 		async exportAudit() {
 			this.exporting = true
@@ -268,6 +272,7 @@ export default {
 		 * @param {object} data The payload to download.
 		 * @param {string} filename The download filename.
 		 * @return {void}
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 		 */
 		downloadJson(data, filename) {
 			const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -288,6 +293,7 @@ export default {
 		 *
 		 * @param {string} value An ISO-8601 timestamp.
 		 * @return {string} The formatted date.
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 		 */
 		formatDate(value) {
 			if (!value) {
@@ -301,6 +307,7 @@ export default {
 		 * Load the organisation's incident records (agent-lifecycle-governance).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 		 */
 		async loadIncidents() {
 			this.incidentsLoading = true
@@ -322,6 +329,7 @@ export default {
 		 * Refresh the incident list after CreateIncidentDialog creates one.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 		 */
 		async onIncidentCreated() {
 			showSuccess(this.t('hermiq', 'Incident recorded.'))
@@ -332,6 +340,7 @@ export default {
 		 * Load the organisation's currently configured retention period.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 		 */
 		async loadRetention() {
 			this.retentionError = ''
@@ -351,6 +360,7 @@ export default {
 		 * inline error and leaves the displayed value unchanged.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/inapp-settings-section/spec.md#requirement-tenant-ops-must-retain-only-true-per-organisation-operational-controls
 		 */
 		async saveRetention() {
 			this.retentionSaving = true

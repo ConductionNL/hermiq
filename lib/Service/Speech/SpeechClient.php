@@ -195,6 +195,8 @@ class SpeechClient {
 	 * Whether the sidecar answers at all.
 	 *
 	 * @return bool True when reachable.
+	 *
+	 * @spec openspec/specs/nc-native-tools/spec.md#requirement-remote-systems-route-through-openconnector
 	 */
 	public function isAvailable(): bool {
 		try {

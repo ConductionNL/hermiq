@@ -185,6 +185,8 @@ class EgressAuthorizeController extends Controller {
 	 * tests can override it without stubbing `php://input`.
 	 *
 	 * @return string The raw request body, or '' when unreadable.
+	 *
+	 * @spec openspec/changes/cli-runner-governed-mcp-and-egress/specs/governed-cli-mcp-transport/spec.md#requirement-agent-internet-access-is-governed-at-two-layers-by-one-allowed-url-policy
 	 */
 	protected function readRawBody(): string {
 		$body = file_get_contents('php://input');
