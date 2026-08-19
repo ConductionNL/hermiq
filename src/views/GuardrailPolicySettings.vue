@@ -103,6 +103,9 @@
 						" />
 					<NcSelect
 						:modelValue="
+							/**
+							 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+							 */
 							guardrailActionOption(
 								guardrailPolicyDraft.inputPiiAction,
 								piiActionOptions,
@@ -330,6 +333,7 @@ export default {
 		 * PII/secret action pickers.
 		 *
 		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		piiActionOptions() {
 			return [
@@ -344,6 +348,7 @@ export default {
 		 * override attempt can only be refused, never partially masked).
 		 *
 		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		injectionActionOptions() {
 			return [
@@ -359,6 +364,7 @@ export default {
 		 * those are edited in place). Value `''` is the instance default.
 		 *
 		 * @return {Array<object>} The { label, value } options.
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		organisationOptions() {
 			const taken = new Set(
@@ -387,6 +393,7 @@ export default {
 		 * The currently-selected organisation option for the create picker.
 		 *
 		 * @return {?object} The matching option, or null.
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		selectedCreateOrganisation() {
 			return (
@@ -397,6 +404,9 @@ export default {
 		},
 	},
 
+	/**
+	 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
+	 */
 	created() {
 		if (this.canManage) {
 			this.loadGuardrailPolicies()
@@ -412,6 +422,7 @@ export default {
 		 * Load the caller-visible guardrail policies (agent-guardrails).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		async loadGuardrailPolicies() {
 			this.guardrailPolicyError = ''
@@ -431,6 +442,7 @@ export default {
 		 * @param {string} value The stored action value.
 		 * @param {Array<object>} options The option list to search.
 		 * @return {object} The matching option, or the first option as a fallback.
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		guardrailActionOption(value, options) {
 			return options.find((option) => option.value === value) || options[0]
@@ -441,6 +453,7 @@ export default {
 		 *
 		 * @param {object} policy The GuardrailPolicy record.
 		 * @return {string} The summary line.
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		guardrailPolicySummary(policy) {
 			const input = policy.inputFilters || {}
@@ -479,6 +492,7 @@ export default {
 		 * into the schema's `toolPolicy` array. Shared by create + edit.
 		 *
 		 * @return {Array<object>} The `{ toolId, classification }` rules.
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		parseToolPolicyDraft() {
 			return this.guardrailPolicyDraft.toolPolicyText
@@ -500,6 +514,7 @@ export default {
 		 * defaulting the organisation picker to the first available option.
 		 *
 		 * @return {void}
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		startCreateGuardrailPolicy() {
 			this.editingGuardrailPolicyId = null
@@ -521,6 +536,7 @@ export default {
 		 * POST /api/guardrail-policies (upsert-for-organisation server-side).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		async saveNewGuardrailPolicy() {
 			this.guardrailPolicySaving = true
@@ -561,6 +577,7 @@ export default {
 		 *
 		 * @param {object} policy The GuardrailPolicy record.
 		 * @return {void}
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		toggleGuardrailPolicyEdit(policy) {
 			this.creatingPolicy = false
@@ -597,6 +614,7 @@ export default {
 		 *
 		 * @param {object} policy The GuardrailPolicy record being edited.
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/inapp-settings-section/specs/inapp-settings-section/spec.md#requirement-guardrail-policy-administration-must-exist-in-exactly-one-place
 		 */
 		async saveGuardrailPolicy(policy) {
 			const toolPolicy = this.guardrailPolicyDraft.toolPolicyText

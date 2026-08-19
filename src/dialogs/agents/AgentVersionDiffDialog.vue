@@ -124,6 +124,7 @@ export default {
 		 * consistently across every comparison.
 		 *
 		 * @return {Array<string>} The changed field names.
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		fields() {
 			return Object.keys(this.diff || {})
@@ -131,6 +132,9 @@ export default {
 	},
 
 	watch: {
+		/**
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
+		 */
 		show(open) {
 			if (open) {
 				this.load()
@@ -143,6 +147,7 @@ export default {
 		 * Load the diff between fromId and toId.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		async load() {
 			if (!this.fromId || !this.toId) {
@@ -172,6 +177,7 @@ export default {
 		 *
 		 * @param {string} field The field key.
 		 * @return {string} The localised label.
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		fieldLabel(field) {
 			const labels = {
@@ -202,6 +208,7 @@ export default {
 		 *
 		 * @param {*} value The value to render.
 		 * @return {string} The display string.
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		formatValue(value) {
 			if (value === null || value === undefined || value === '') {
@@ -222,6 +229,7 @@ export default {
 		 *
 		 * @param {boolean} open The new open state.
 		 * @return {void}
+		 * @spec openspec/changes/agent-versioning/tasks.md#task-4-frontend-version-history-diff-and-one-click-rollback-on-agentdetail
 		 */
 		onUpdateOpen(open) {
 			if (!open) {

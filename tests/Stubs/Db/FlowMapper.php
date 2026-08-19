@@ -4,9 +4,10 @@
  * Test stub for OpenRegister's FlowMapper.
  *
  * Stands in for OCA\OpenRegister\Db\FlowMapper when OpenRegister is not
- * installed (standalone CI). Only the two entry points hermiq's seed step uses
+ * installed (standalone CI). Only the entry points hermiq's seed step uses
  * are declared, with the real signatures: `findAllFlows()` for the idempotency
- * check and `insert()` (inherited from QBMapper on the real class) for the write.
+ * check, `insert()` for the write, and `update()` (both inherited from QBMapper
+ * on the real class) for the applicationSlug backfill onto an existing row.
  *
  * Deliberately NOT a full mirror. Every method declared here is one this stub
  * promises hermiq may call, so keeping it to what is actually used keeps the
@@ -62,4 +63,15 @@ class FlowMapper {
 	public function insert(Flow $entity): Flow {
 		return $entity;
 	}//end insert()
+
+	/**
+	 * Update a flow. Provided by QBMapper on the real class.
+	 *
+	 * @param Flow $entity The flow to update.
+	 *
+	 * @return Flow The updated flow.
+	 */
+	public function update(Flow $entity): Flow {
+		return $entity;
+	}//end update()
 }//end class

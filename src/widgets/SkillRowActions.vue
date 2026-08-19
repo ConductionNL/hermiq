@@ -211,6 +211,7 @@ export default {
 		 * depending on read path; prefer `uuid`).
 		 *
 		 * @return {string} The skill uuid.
+		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
 		 */
 		skillId() {
 			return this.row.uuid || this.row.id
@@ -222,6 +223,7 @@ export default {
 		 * column updates.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
 		 */
 		async doApprove() {
 			this.busy = true
@@ -287,6 +289,7 @@ export default {
 		 * unavailable — surfaced as a note, not thrown).
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/specs/skills-marketplace/spec.md#requirement-a-skill-can-be-published-to-a-tagged-github-repository-as-the-primary-path
 		 */
 		async doPublish() {
 			this.busy = true

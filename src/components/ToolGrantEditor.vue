@@ -179,6 +179,9 @@
 								</td>
 								<td>
 									<span :class="scopeBadgeClass(tool)">{{
+										/**
+										 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
+										 */
 										scopeLabel(tool)
 									}}</span>
 								</td>
@@ -291,6 +294,7 @@ export default {
 		 * find their tool.
 		 *
 		 * @return {Array<object>} The tools to render.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		visibleTools() {
 			const tools = this.catalog?.tools ?? []
@@ -309,6 +313,7 @@ export default {
 		 * Whether the draft grant list differs from the last-saved one.
 		 *
 		 * @return {boolean} True when there are unsaved changes.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		dirty() {
 			if (this.draftGrants.length !== this.savedGrants.length) {
@@ -325,6 +330,7 @@ export default {
 		 * stays taggable so an operator can still type a grant we did not suggest.
 		 *
 		 * @return {Array<string>} The suggestion list.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		grantSuggestions() {
 			if (!this.catalog) {
@@ -347,6 +353,7 @@ export default {
 		 * The progressive-disclosure explanation shown when disclosure is active.
 		 *
 		 * @return {string} The message.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		disclosureMessage() {
 			return this.t(
@@ -362,6 +369,9 @@ export default {
 
 	watch: {
 		agentId: {
+			/**
+			 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
+			 */
 			handler() {
 				this.load()
 			},
@@ -375,6 +385,7 @@ export default {
 		 * Load the grant-annotated catalogue for this agent.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		async load() {
 			this.loading = true
@@ -406,6 +417,7 @@ export default {
 		 * Persist the draft grants, then reload the annotated catalogue.
 		 *
 		 * @return {Promise<void>}
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		async save() {
 			this.saving = true
@@ -430,6 +442,7 @@ export default {
 		 * Discard unsaved draft changes.
 		 *
 		 * @return {void}
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		reset() {
 			this.draftGrants = [...this.savedGrants]
@@ -441,6 +454,7 @@ export default {
 		 *
 		 * @param {object} tool The catalogue row.
 		 * @return {void}
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		grantExact(tool) {
 			if (!this.draftGrants.includes(tool.id)) {
@@ -453,6 +467,7 @@ export default {
 		 *
 		 * @param {object} tool The catalogue row.
 		 * @return {void}
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		revokeExact(tool) {
 			this.draftGrants = this.draftGrants.filter((grant) => grant !== tool.id)
@@ -474,6 +489,7 @@ export default {
 		 *
 		 * @param {object} tool The catalogue row.
 		 * @return {string} The badge class.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		scopeBadgeClass(tool) {
 			return tool.destructiveHint
@@ -486,6 +502,7 @@ export default {
 		 *
 		 * @param {object} tool The catalogue row.
 		 * @return {string} The label.
+		 * @spec openspec/changes/agent-tool-governance-and-disclosure/tasks.md#task-6
 		 */
 		scopeLabel(tool) {
 			return tool.destructiveHint
