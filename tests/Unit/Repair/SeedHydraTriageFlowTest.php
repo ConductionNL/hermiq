@@ -550,6 +550,61 @@ class SeedHydraTriageFlowTest extends TestCase {
 	}//end testRunBackfillsApplicationSlugWhenEmpty()
 
 	/**
+	 * A FAILED backfill is non-fatal: the flow itself is unchanged and fully
+	 * functional without `applicationSlug`, so a write error on that one column
+	 * must not surface as a repair-step failure — it is logged and the next
+	 * repair run simply retries it.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/hydra-flow-application-slug-backfill/specs/hydra-flow-application-slug/spec.md#requirement-an-already-seeded-flow-with-no-application-slug-is-backfilled-req-002
+	 */
+	public function testRunLogsAndSurvivesWhenBackfillUpdateFails(): void {
+		$existing = $this->existingFlowMock(
+			name: SeedHydraTriageFlow::FLOW_NAME,
+			applicationSlug: ''
+		);
+
+		$mapper = $this->createMock(FlowMapper::class);
+		$mapper->method('findAllFlows')->willReturn([$existing]);
+		$mapper->method('update')->willThrowException(
+			new RuntimeException('a backfill write failure')
+		);
+
+		$logger = $this->createMock(LoggerInterface::class);
+		$logger->expects($this->once())->method('warning')->with(
+			$this->stringContains('Could not backfill applicationSlug')
+		);
+
+		$container = $this->containerWith($mapper);
+
+		$recorded = [];
+		$appConfig = $this->createMock(IAppConfig::class);
+		$appConfig->method('setValueString')->willReturnCallback(
+			function (string $app, string $key, string $value) use (&$recorded): bool {
+				$recorded[$key] = $value;
+				return true;
+			}
+		);
+
+		$step = new SeedHydraTriageFlow(
+			container: $container,
+			logger: $logger,
+			appConfig: $appConfig
+		);
+
+		// Must NOT throw — a failed backfill may not break the install it is part of.
+		$step->run($this->createMock(IOutput::class));
+
+		$this->assertSame(
+			'present',
+			$recorded[SeedHydraTriageFlow::OUTCOME_KEY] ?? null,
+			'the flow was found and is otherwise intact — only its applicationSlug backfill failed'
+		);
+
+	}//end testRunLogsAndSurvivesWhenBackfillUpdateFails()
+
+	/**
 	 * The new-flow create path also carries the application slug, not only the
 	 * backfill path — `flowObject()`'s documented shape is the source of truth a
 	 * test can assert without a live OpenRegister.
