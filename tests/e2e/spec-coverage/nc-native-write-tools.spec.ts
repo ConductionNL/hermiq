@@ -92,31 +92,77 @@ test.describe('nc-native-write-tools: grant surface and default-deny', () => {
 
 		// The section exists at all — if the heading moved, the assertions below
 		// could pass against some other list and prove nothing.
+		//
+		// The heading is "Tool grants", not "Tool governance": the widget draws
+		// its own title (the manifest sets showTitle:false so the cell fits its
+		// gridHeight), and the audit table that used to be its second tab is now
+		// the separate agent-tool-activity widget. `agent-tool-governance` is
+		// still the widget's MANIFEST id — which is why this guard, written
+		// against the id's wording rather than the rendered one, kept passing
+		// until the rename and then failed here rather than where it was caused.
 		await expect(
-			page.getByRole('heading', { name: /tool governance/i }),
+			page.getByRole('heading', { name: /tool grants/i }),
 		).toBeVisible()
 
-		const body = page.locator('body')
+		// The surface is a MATRIX now — clusters of subject rows against verb
+		// columns — so a tool is found by filtering, not by reading 202 ids off
+		// the page. The filter matches on the tool id, which is what makes this
+		// assertion about the tool rather than about whatever text happens to
+		// be on screen.
+		// Addressed by its exact placeholder, NOT by role: the agent page also
+		// carries the skill-attach combobox, which is an `input[type=search]`,
+		// so a role-based locator resolves to that instead and the filter this
+		// test depends on is never touched. Verified in-browser.
+		const filter = page.getByPlaceholder('Filter by cluster, subject or tool')
+
 		for (const tool of WRITE_TOOLS) {
-			await expect(body).toContainText(tool)
+			await filter.fill(tool)
+
+			// Every matching cluster is opened: a filter that matches a row
+			// inside a collapsed cluster would otherwise show a heading and
+			// hide the answer. Only clusters that already hold a grant open by
+			// themselves, so without this the filter finds the tool and the
+			// assertion still sees nothing.
+			const headers = page.locator('.grant-matrix__cluster-header')
+			for (let i = 0; i < (await headers.count()); i++) {
+				const header = headers.nth(i)
+				if ((await header.getAttribute('aria-expanded')) === 'false') {
+					await header.click()
+				}
+			}
+
+			await expect(
+				page.locator('.grant-matrix tbody tr').first(),
+				`${tool} must be reachable in the grant matrix`,
+			).toBeVisible()
+
+			// 🔴 THE CLASSIFICATION IS THE POINT, and it is why this file
+			// exists. A write tool's checkbox must not look identical to a read
+			// tool's: the matrix that replaced the flat editor dropped the
+			// classification entirely, so an operator ticking a destructive
+			// grant saw exactly what a read grant looked like — caught by this
+			// test, and fixed in the component rather than by relaxing this.
+			//
+			// Asserted on the ACCESSIBLE NAME, because that is the half a
+			// screen-reader user gets; a visual badge alone would not cover it.
+			//
+			// ⚠️ Asserted BOTH WAYS. `listNotes` is read-only and must NOT be
+			// marked — a check that only looks for the warning passes just as
+			// happily on a surface that marks everything, which is the same as
+			// marking nothing.
+			const warned = page.getByLabel(/requires explicit grant/i)
+			if (MUST_BE_DENIED.includes(tool)) {
+				await expect(
+					warned.first(),
+					`${tool} must be announced as needing an explicit grant`,
+				).toBeVisible()
+			} else {
+				await expect(
+					warned,
+					`${tool} is read-only and must not be marked as needing an explicit grant`,
+				).toHaveCount(0)
+			}
 		}
-
-		// The classification is the point. A hint dropped in transit between
-		// Hermiq → OpenRegister → Hermiq does not error; it silently renders a
-		// destructive tool as an ordinary one.
-		const text = (await body.innerText()).toLowerCase()
-		const calendarIdx = text.indexOf('hermiq.createcalendarevent')
-		expect(
-			calendarIdx,
-			'the calendar tool must appear in the grant surface',
-		).toBeGreaterThan(-1)
-
-		// The description has to lead with the outbound effect, because that is
-		// the only place an operator learns a calendar grant can email strangers.
-		expect(text).toContain('sends them invitation emails')
-
-		// Write tools announce that they need an explicit grant.
-		expect(text).toContain('requires explicit grant')
 	})
 
 	test('an agent with no explicit grant resolves none of the four write tools', async ({

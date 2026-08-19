@@ -122,6 +122,10 @@ class ResponseGenerationHandler {
 	 *                     instead of actually invoked. False (every
 	 *                     pre-existing caller) is byte-for-byte
 	 *                     unchanged behavior.
+	 * @param string $conversationId The conversation this turn belongs to, so a step
+	 *                               published on the run-step bus reaches the right
+	 *                               stream and the performance log can be joined to
+	 *                               the runner's own timings.
 	 *
 	 * @return string Generated response text.
 	 *
@@ -159,6 +163,7 @@ class ResponseGenerationHandler {
 		string $contextPreamble = '',
 		?RunTraceCollector $trace = null,
 		bool $dryRun = false,
+		string $conversationId = '',
 	): string {
 		$startTime = microtime(true);
 		$agentData = [];
@@ -298,6 +303,13 @@ class ResponseGenerationHandler {
 
 			$llmStartTime = microtime(true);
 
+			// ⚠️ Declared HERE, not inside the anthropic branch that sets it. The
+			// performance log below reads it on EVERY provider path, so on
+			// fireworks — or any path that is not anthropic — it was an undefined
+			// variable. `?? ''` hid that on one of the two reads; the other
+			// compares it to null and would emit a warning on every turn.
+			$cliAgentId = null;
+
 			if ($driver->provider === 'fireworks') {
 				// Fireworks uses direct HTTP (ported callFireworksChatAPIWithHistory —
 				// now ProviderFactory::callFireworksChat). Function calling is not
@@ -356,7 +368,6 @@ class ResponseGenerationHandler {
 				// Bind the per-run token (cli-runner-governed-mcp-and-egress) so a
 				// tool-requiring `cli` turn is governed via Hermiq's MCP endpoint rather
 				// than refused. Null on the `http` path / agent-less chat.
-				$cliAgentId = null;
 				if ($agent !== null) {
 					$cliAgentId = (string)$agent->getUuid();
 				}
@@ -371,7 +382,8 @@ class ResponseGenerationHandler {
 					toolExecutor: $toolExecutor,
 					executionMode: $driver->executionMode,
 					agentId: $cliAgentId,
-					maxTokens: $driver->maxTokens
+					maxTokens: $driver->maxTokens,
+					conversationId: $conversationId
 				);
 				$llmTime = microtime(true) - $llmStartTime;
 
@@ -425,11 +437,34 @@ class ResponseGenerationHandler {
 
 			$totalTime = microtime(true) - $startTime;
 
+			// The join key the runner also prints. Built here rather than inline
+			// in the log array so the coding standard's no-inline-if rule is met
+			// without burying a hash in a ternary nobody can read.
+			$turnKey = '';
+			if ($conversationId !== '' && $cliAgentId !== null) {
+				$turnKey = substr(
+					hash('sha256', $conversationId . '|' . $cliAgentId . '|' . $driver->model),
+					0,
+					12
+				);
+			}
+
 			$this->logger->info(
 				message: '[ResponseGenerationHandler] Response generated - PERFORMANCE',
 				context: [
 					'file' => __FILE__,
 					'line' => __LINE__,
+					// CORRELATION. Without these this line cannot be joined to
+					// anything: the runner logs its own timings and pool hit/miss
+					// against a HASHED pool key, so the two halves of a turn — what
+					// Hermiq measured and what the CLI actually did — could not be
+					// matched up. `turnKey` is the first 12 chars of the same
+					// sha256 the runner prints, which is what makes the join
+					// possible; it is a hash, so it names no user or conversation
+					// in the log.
+					'conversationId' => $conversationId,
+					'agentId' => ($cliAgentId ?? ''),
+					'turnKey' => $turnKey,
 					'provider' => $driver->provider,
 					'model' => $driver->model,
 					'responseLength' => strlen($response),
