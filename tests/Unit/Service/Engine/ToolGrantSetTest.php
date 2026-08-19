@@ -256,4 +256,83 @@ class ToolGrantSetTest extends TestCase {
 
 		$this->assertSame(['hermiq.listFiles'], $set->toGrantStrings());
 	}//end testDuplicateGrantsCollapse()
+
+	/**
+	 * Two constrained grants for ONE tool are both kept.
+	 *
+	 * 🔴 The entry is APPENDED, not assigned. `runFlow?flowId=A` and
+	 * `runFlow?flowId=B` are two distinct capabilities sharing an id, and
+	 * assigning at those coordinates keeps only the last — silently revoking the
+	 * other. Nothing errors; the agent simply stops being able to run flow A.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-two-constrained-grants-for-one-tool-both-survive
+	 */
+	public function testTwoConstraintsOnOneToolBothSurvive(): void {
+		$set = ToolGrantSet::fromGrantStrings(
+			ids: ['hermiq.runFlow?flowId=A', 'hermiq.runFlow?flowId=B']
+		);
+
+		$grants = $set->toGrantStrings();
+
+		$this->assertContains('hermiq.runFlow?flowId=A', $grants);
+		$this->assertContains('hermiq.runFlow?flowId=B', $grants);
+		$this->assertCount(2, $grants, 'neither constrained grant may displace the other');
+	}//end testTwoConstraintsOnOneToolBothSurvive()
+
+	/**
+	 * A bare grant and a constrained one for the same tool coexist.
+	 *
+	 * A bare grant means "every target", so it is WIDER than its constrained
+	 * sibling — but it still may not displace it, because the stored list is
+	 * what the next save writes back and dropping either changes what the agent
+	 * holds.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#scenario-two-constrained-grants-for-one-tool-both-survive
+	 */
+	public function testABareGrantDoesNotDisplaceItsConstrainedSibling(): void {
+		$grants = ToolGrantSet::fromGrantStrings(
+			ids: ['hermiq.runFlow', 'hermiq.runFlow?flowId=A']
+		)->toGrantStrings();
+
+		$this->assertContains('hermiq.runFlow', $grants);
+		$this->assertContains('hermiq.runFlow?flowId=A', $grants);
+	}//end testABareGrantDoesNotDisplaceItsConstrainedSibling()
+
+	/**
+	 * Entries that are not usable grant strings are skipped, not stored.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
+	 */
+	public function testUnusableEntriesAreSkipped(): void {
+		$set = ToolGrantSet::fromGrantStrings(
+			ids: ['hermiq.listFiles', '', 42, null, ['nested'], 'pipelinq.lead.search']
+		);
+
+		$this->assertSame(
+			['hermiq.listFiles', 'pipelinq.lead.search'],
+			$set->toGrantStrings()
+		);
+	}//end testUnusableEntriesAreSkipped()
+
+	/**
+	 * An empty grant list is empty, and grants nothing.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/structured-tool-grants/specs/structured-tool-grants/spec.md#requirement-tool-grants-are-a-structure-in-the-domain-and-a-list-in-storage
+	 */
+	public function testAnEmptyListGrantsNothing(): void {
+		$set = ToolGrantSet::fromGrantStrings(ids: []);
+
+		$this->assertTrue($set->isEmpty());
+		$this->assertSame([], $set->toGrantStrings());
+		$this->assertSame([], $set->toolIds());
+		$this->assertFalse($set->has(app: 'hermiq', subject: 'listFiles', action: 'listFiles'));
+	}//end testAnEmptyListGrantsNothing()
 }//end class
