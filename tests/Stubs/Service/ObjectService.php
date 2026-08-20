@@ -132,6 +132,11 @@ class ObjectService {
 		// assertion: PHP refuses to declare the class and the whole
 		// suite dies before it runs.
 		bool $failIfExists = false,
+		// openregister added this (stamp the SYSTEM identity as owner even when a
+		// user session exists). This stub is what CI loads — the real class is
+		// absent there — so a drift here is invisible in CI and only fatals when
+		// the suite runs inside a booted Nextcloud, where the real class wins.
+		bool $_unowned = false,
 	): ObjectEntity {
 		return new ObjectEntity();
 	}//end saveObject()
