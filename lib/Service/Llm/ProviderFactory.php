@@ -413,7 +413,7 @@ class ProviderFactory {
 			),
 			'nextcloud' => $this->createNextcloudDriver(),
 			default => throw new ProviderUnavailableException("Unsupported chat provider: {$chatProvider}"),
-		};//end match
+		};// End match.
 
 		// Tenant-model-policy: the single enforcement chokepoint. Runs AFTER the
 		// agent override is applied (createOllamaDriver()/createOpenAiDriver()/
