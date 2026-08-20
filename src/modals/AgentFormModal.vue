@@ -211,6 +211,53 @@
 					placeholder="5" />
 			</template>
 
+			<!--
+			  Speech (speech-services). The engine choice is a PRIVACY choice, so
+			  the options say where the audio goes rather than naming an API —
+			  the person configuring an agent for a case file cannot be expected
+			  to know that "browser" means Google's servers in Chrome.
+			-->
+			<div class="agent-form__field">
+				<NcSelect
+					v-model="form.voiceInputEngine"
+					:options="voiceEngineOptions"
+					:clearable="false"
+					label="label"
+					:inputLabel="t('hermiq', 'Dictation (speech to text)')" />
+				<p class="agent-form__hint">
+					{{ t('hermiq', 'Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.') }}
+				</p>
+			</div>
+
+			<div class="agent-form__field">
+				<NcSelect
+					v-model="form.voiceOutputEngine"
+					:options="voiceEngineOptions"
+					:clearable="false"
+					label="label"
+					:inputLabel="t('hermiq', 'Spoken replies (text to speech)')" />
+			</div>
+
+			<div class="agent-form__field">
+				<NcTextField
+					v-model="form.voiceSilenceTimeout"
+					type="number"
+					:label="t('hermiq', 'Silence before the microphone closes (ms)')"
+					placeholder="2500" />
+				<p class="agent-form__hint">
+					{{ t('hermiq', 'How long a pause may last before dictation stops. The text stays in the message box — dictation never sends by itself. 0 keeps the microphone open until you stop it.') }}
+				</p>
+			</div>
+
+			<div class="agent-form__field">
+				<NcCheckboxRadioSwitch v-model="form.voiceConversationEnabled">
+					{{ t('hermiq', 'Allow spoken conversation') }}
+				</NcCheckboxRadioSwitch>
+				<p class="agent-form__hint">
+					{{ t('hermiq', 'Adds a hands-free control beside the microphone: your turn is sent when you stop speaking and the reply is spoken back. Off by default, because auto-sending on a pause can post a half-finished thought.') }}
+				</p>
+			</div>
+
 			<div class="agent-form__actions">
 				<NcButton :disabled="saving" @click="handleClose">
 					{{ t('hermiq', 'Cancel') }}
@@ -341,6 +388,27 @@ export default {
 
 	computed: {
 		/**
+		 * The speech-engine choices, labelled by WHERE THE AUDIO GOES.
+		 *
+		 * 🔴 Not "Browser / Local / Auto". The person configuring an agent for a
+		 * case file has no way to know that the browser's speech API streams the
+		 * microphone to Google in Chrome and to Apple in Safari — it is called
+		 * "browser", which reads as "on this device". A label that hides the
+		 * destination makes the privacy decision impossible to take, so the
+		 * destination IS the label.
+		 *
+		 * @return {Array<{value: string, label: string}>} The options.
+		 */
+		voiceEngineOptions() {
+			return [
+				{ value: 'auto', label: t('hermiq', 'Automatic — fastest available') },
+				{ value: 'browser', label: t('hermiq', 'Browser — instant, audio goes to the browser vendor') },
+				{ value: 'local', label: t('hermiq', 'On this instance — private, slower') },
+				{ value: 'off', label: t('hermiq', 'Off — no speech for this agent') },
+			]
+		},
+
+		/**
 		 * The icon sources this form offers.
 		 *
 		 * MDI is absent from the map on purpose: the picker lazy-loads
@@ -422,6 +490,9 @@ export default {
 			},
 
 			/**
+			 * @param {{value: string, label: string}|null} option The picked provider, or null when cleared.
+			 *
+			 * @return {void}
 			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
 			 */
 			set(option) {
@@ -570,6 +641,9 @@ export default {
 		show: {
 			immediate: true,
 			/**
+			 * @param {boolean} open Whether the modal is now open.
+			 *
+			 * @return {Promise<void>}
 			 * @spec openspec/changes/agent-management-ui/tasks.md#task-4-1
 			 */
 			async handler(open) {
@@ -662,7 +736,25 @@ export default {
 				searchObjects: true,
 				searchFiles: true,
 				ragNumSources: '',
+				voiceInputEngine: this.voiceEngineOption('auto'),
+				voiceOutputEngine: this.voiceEngineOption('auto'),
+				voiceSilenceTimeout: '',
+				voiceConversationEnabled: false,
 			}
+		},
+
+		/**
+		 * One engine option object for the pickers.
+		 *
+		 * @param {string} value The stored value (`auto`, `browser`, `local`, `off`).
+		 *
+		 * @return {{value: string, label: string}} The matching option, or the first.
+		 */
+		voiceEngineOption(value) {
+			return (
+				this.voiceEngineOptions.find((option) => option.value === value)
+				|| this.voiceEngineOptions[0]
+			)
 		},
 
 		/**
@@ -699,6 +791,13 @@ export default {
 				searchObjects: source.searchObjects !== false,
 				searchFiles: source.searchFiles !== false,
 				ragNumSources: source.ragNumSources ?? '',
+				voiceInputEngine: this.voiceEngineOption(source.voiceInputEngine || 'auto'),
+				voiceOutputEngine: this.voiceEngineOption(source.voiceOutputEngine || 'auto'),
+				// '' rather than 2500: an empty field means "unset, use the
+				// default", and pre-filling the default would silently write it
+				// onto every agent that is edited for an unrelated reason.
+				voiceSilenceTimeout: source.voiceSilenceTimeout ?? '',
+				voiceConversationEnabled: source.voiceConversationEnabled === true,
 			}
 		},
 
@@ -889,6 +988,20 @@ export default {
 				enableRag: this.form.enableRag,
 				searchObjects: this.form.searchObjects,
 				searchFiles: this.form.searchFiles,
+
+				// The pickers hold `{value, label}` objects; the schema holds
+				// the value. Sending the object would store `[object Object]`
+				// and the agent would read as an unrecognised engine — which
+				// normalises to `auto`, i.e. an agent pinned to the private
+				// engine would quietly become one that may use the browser's.
+				voiceInputEngine: (this.form.voiceInputEngine || {}).value || 'auto',
+				voiceOutputEngine: (this.form.voiceOutputEngine || {}).value || 'auto',
+				voiceConversationEnabled: this.form.voiceConversationEnabled,
+			}
+
+			const voiceSilenceTimeout = Number(this.form.voiceSilenceTimeout)
+			if (this.form.voiceSilenceTimeout !== '' && Number.isInteger(voiceSilenceTimeout) && voiceSilenceTimeout >= 0) {
+				payload.voiceSilenceTimeout = voiceSilenceTimeout
 			}
 
 			const temperature = Number(this.form.temperature)
