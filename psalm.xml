@@ -25,6 +25,13 @@
         <UndefinedDocblockClass errorLevel="suppress"/>
         <UndefinedClass>
             <errorLevel type="suppress">
+                <!-- Nextcloud's legacy bootstrap class. There is no OCP
+                     interface for registering another app's autoloader, so the
+                     ADR-040 prelude in AppInfo\OpenRegisterAutoloader has to
+                     call OC_App::registerAutoloading() directly. It is
+                     server-private and therefore absent from nextcloud/ocp.
+                     Same suppression, same reason, as doriath's psalm.xml. -->
+                <referencedClass name="OC_App"/>
                 <!-- Nextcloud OCP Classes -->
                 <referencedClass name="OCP\AppFramework\App"/>
                 <referencedClass name="OCP\AppFramework\Bootstrap\IBootstrap"/>
@@ -67,6 +74,7 @@
                 <referencedClass name="OCA\OpenRegister\Db\ObjectEntity"/>
                 <referencedClass name="OCA\OpenRegister\Db\RegisterMapper"/>
                 <referencedClass name="OCA\OpenRegister\Db\SchemaMapper"/>
+                <referencedClass name="OCA\OpenRegister\Db\AuditTrailMapper"/>
                 <referencedClass name="OCA\OpenRegister\Event\DeepLinkRegistrationEvent"/>
                 <referencedClass name="OCA\OpenRegister\Event\ObjectCreatingEvent"/>
                 <referencedClass name="OCA\OpenRegister\Event\ObjectCreatedEvent"/>
@@ -81,6 +89,18 @@
                 <referencedClass name="OCA\OpenRegister\Service\RiskLevelService"/>
                 <referencedClass name="OCA\OpenRegister\Db\EntityRelationMapper"/>
                 <referencedClass name="OCA\OpenRegister\Mcp\IMcpToolProvider"/>
+                <!-- Nextcloud Talk (spreed) — optional runtime dependency, resolved lazily -->
+                <referencedClass name="OCA\Talk\Manager"/>
+                <referencedClass name="OCA\Talk\Room"/>
+                <referencedClass name="OCA\Talk\Chat\ChatManager"/>
+                <!-- spreed declares this in lib/Participant.php as OCA\Talk\Participant.
+                     `OCA\Talk\Model\Participant` was an invented namespace, refuted in
+                     8cbb9253 (the test stub sat there and could never satisfy
+                     createMock(OCA\Talk\Participant::class)); the entry is corrected
+                     rather than dropped so the real class stays covered. -->
+                <referencedClass name="OCA\Talk\Participant"/>
+                <referencedClass name="OCA\Talk\Service\ParticipantService"/>
+                <referencedClass name="OCA\Talk\Service\NoteToSelfService"/>
                 <!-- Additional OCP infrastructure types used across the fleet -->
                 <referencedClass name="OCP\AppFramework\Bootstrap\IBootContext"/>
                 <referencedClass name="OCP\AppFramework\Bootstrap\IRegistrationContext"/>
@@ -96,38 +116,57 @@
                 <referencedClass name="GuzzleHttp\Exception\GuzzleException"/>
             </errorLevel>
         </UndefinedClass>
-        <UndefinedMagicMethod errorLevel="suppress"/>
+        <!-- ── Suppressions below are LIVE: each one was measured on e6ce0b12 and
+             hides a non-zero number of findings. The count is the claim; re-measure
+             it before trusting it, by deleting the line and running psalm.
+             Measured 2026-08-12, PHP 8.4.22, `lib/` only:
+               RedundantCast 142 · PossiblyUnusedMethod 90 · UnusedClass 61 ·
+               PossiblyUnusedReturnValue 20 · UnusedVariable 9 · InvalidArgument 7 ·
+               RedundantCondition 6 · InvalidArrayOffset 2 · InvalidReturnType 1 ·
+               InvalidReturnStatement 1 · RedundantFunctionCall 1 · UnusedProperty 1
+             Eighteen further handlers used to sit in this block. Every one of them
+             suppressed ZERO findings, so they asserted debt this app does not have
+             while silently disarming the check for debt it might acquire — including
+             UndefinedInterfaceMethod, InvalidMethodCall and UndefinedMagicMethod,
+             the exact families behind the fleet's live __call defects. They are gone;
+             the checks are now live.
+
+             ⚠️ A PSALM SUPPRESSION CAN COVER A DIFFERENTLY-NAMED ISSUE TYPE.
+             `UnusedProperty` reports 0 findings of its own, so it read as free to
+             delete — but deleting it surfaces one `PossiblyUnusedProperty`, which is
+             NOT separately listed here and was green only because `UnusedProperty`
+             was masking it. "Type X reports zero" is therefore not the same claim as
+             "removing X's suppression changes nothing"; only the second one is worth
+             acting on, and only a full run of the real config can establish it.
+
+             What `UnusedProperty` currently hides, in full — the whole of its debt:
+             `DelegationFrame::$parentRunId` (lib/Service/Engine/DelegationContext.php:91)
+             is written at construction and never READ anywhere in `lib/`. It is not a
+             bug: the delegation AuditTrail's parent linkage is built independently from
+             `$callerFrame?->runId` (DelegationService.php:572), which carries the same
+             value. The field is redundant with that, and is read only by
+             DelegationContextTest. Removal timeline: whenever DelegationFrame is next
+             touched, either drop the field or have writeDelegationAudit() read it
+             instead of recomputing the same value. ── -->
+        <UnusedProperty errorLevel="suppress"/>
         <UnusedClass errorLevel="suppress"/>
         <PossiblyUnusedMethod errorLevel="suppress"/>
-        <UnusedMethod errorLevel="suppress"/>
-        <UnusedProperty errorLevel="suppress"/>
-        <PossiblyUnusedParam errorLevel="suppress"/>
-        <UnusedDocblockParam errorLevel="suppress"/>
         <UnusedVariable errorLevel="suppress"/>
         <PossiblyUnusedReturnValue errorLevel="suppress"/>
         <RedundantCondition errorLevel="suppress"/>
         <RedundantFunctionCall errorLevel="suppress"/>
         <RedundantCast errorLevel="suppress"/>
-        <InvalidDocblock errorLevel="suppress"/>
-        <MoreSpecificImplementedParamType errorLevel="suppress"/>
-        <MissingDependency errorLevel="suppress"/>
-        <UnevaluatedCode errorLevel="suppress"/>
-        <NoValue errorLevel="suppress"/>
-        <TypeDoesNotContainNull errorLevel="suppress"/>
-        <TypeDoesNotContainType errorLevel="suppress"/>
         <InvalidArrayOffset errorLevel="suppress"/>
-        <InvalidCast errorLevel="suppress"/>
         <InvalidArgument errorLevel="suppress"/>
         <InvalidReturnType errorLevel="suppress"/>
         <InvalidReturnStatement errorLevel="suppress"/>
-        <MismatchingDocblockReturnType errorLevel="suppress"/>
-        <EmptyArrayAccess errorLevel="suppress"/>
-        <ImplementedReturnTypeMismatch errorLevel="suppress"/>
-        <InvalidMethodCall errorLevel="suppress"/>
-        <UndefinedInterfaceMethod errorLevel="suppress"/>
-        <MissingTemplateParam errorLevel="suppress"/>
     </issueHandlers>
     <extraFiles>
         <directory name="vendor/nextcloud/ocp" />
+        <!-- Declaration-only stubs for OpenRegister/Talk contracts (soft runtime
+             dependencies). Scanned, never analysed, never autoloaded at runtime;
+             the real classes win whenever OpenRegister is enabled. Same
+             "share the contract" pattern as nldesign (2e0eab2). -->
+        <directory name="tests/Stubs" />
     </extraFiles>
 </psalm>

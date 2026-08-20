@@ -1,0 +1,1 @@
+Placeholder so the fleet-canonical psalm.xml/phpstan.neon `lib/Resources/template` ignore path resolves (no-op for hermiq, which ships no template snapshot).

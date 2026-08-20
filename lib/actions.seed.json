@@ -1,4 +1,24 @@
 {
   "$comment": "ADR-023 action-authorization matrix seed. Each entry maps a dot-separated action name to an array of group IDs allowed to invoke it. The special 'admin' group means Nextcloud admins; admins always pass regardless. Empty array or ['admin'] means admin-only. Admins customize via Admin Settings > App Template > Actions. Add entries below as the app grows — one per ActionAuthService::requireAction() call site. Template ships with an example commented pattern; remove the $comment field and add real actions when implementing your app.",
-  "actions": {}
+  "actions": {
+    "aifeature.acknowledge": ["admin"],
+    "aifeature.enable": ["admin"],
+    "aifeature.disable": ["admin"],
+    "aifeature.publish-to-algoritmeregister": ["admin"],
+    "aifeature.withdraw-from-algoritmeregister": ["admin"],
+    "skill.approve-quarantined": ["admin"],
+    "skill.override-scan-verdict": ["admin"],
+    "skill.publish-hub": ["admin"],
+    "skill.attest-maturity": ["admin"],
+    "skill.review-draft": ["admin"],
+    "agenttemplate.approve-quarantined": ["admin"],
+    "agenttemplate.override-scan-verdict": ["admin"],
+    "tenantops.attest-review": ["admin"],
+    "tenantops.reassign-agent": ["admin"],
+    "tenantops.create-incident": ["admin"],
+    "tenantops.update-retention": ["admin"],
+    "compliance.view-dashboard": ["admin"],
+    "compliance.export-pack": ["admin"],
+    "compliance.view-factsheet": ["admin"]
+  }
 }

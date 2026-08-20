@@ -1,0 +1,279 @@
+<!--
+  - SPDX-FileCopyrightText: 2026 Conduction B.V.
+  - SPDX-License-Identifier: EUPL-1.2
+-->
+<template>
+	<NcModal :show="show" size="large" :name="heading" @close="$emit('close')">
+		<div class="payload" data-testid="flow-payload">
+			<h2 class="payload__title">
+				{{ heading }}
+			</h2>
+
+			<p v-if="!entry" class="payload__hint">
+				{{ emptyReason }}
+			</p>
+
+			<template v-else>
+				<!--
+					The bound is stated, always. A truncated list that does not
+					say it is truncated is worse than a count: a reader
+					comparing five items against a node that processed ten
+					thousand concludes the flow dropped data.
+				-->
+				<NcNoteCard
+					v-if="entry.output && entry.output.truncated"
+					type="warning">
+					{{
+						n(
+							'hermiq',
+							'Showing the first item of %n.',
+							'Showing the first items of %n.',
+							entry.output.count,
+						)
+					}}
+				</NcNoteCard>
+
+				<!--
+					RECEIVED first, then returned — the order the step ran in.
+					Printing the output above the input asks the reader to work
+					backwards through a transformation to see what caused it,
+					and the whole point of showing both is the before/after.
+				-->
+				<h3 class="payload__subtitle">
+					{{
+						t('hermiq', 'What {node} received', {
+							node: entry.transition,
+						})
+					}}
+				</h3>
+				<pre class="payload__json">{{ pretty(entry.input) }}</pre>
+
+				<h3 class="payload__subtitle">
+					{{
+						t('hermiq', 'What {node} returned', {
+							node: entry.transition,
+						})
+					}}
+				</h3>
+				<p class="payload__hint">
+					{{ t('hermiq', 'The input of whatever comes next.') }}
+				</p>
+				<pre class="payload__json">{{ pretty(entry.output) }}</pre>
+			</template>
+
+			<div class="payload__actions">
+				<NcButton type="primary" @click="$emit('close')">
+					{{ t('hermiq', 'Close') }}
+				</NcButton>
+			</div>
+		</div>
+	</NcModal>
+</template>
+
+<script>
+import { translatePlural as n, translate as t } from '@nextcloud/l10n'
+import { NcButton, NcModal, NcNoteCard } from '@nextcloud/vue'
+import { useFlowEditorStore } from '../../store/flowEditor.js'
+
+/**
+ * PayloadModal — the JSON that passed along one connection in one run.
+ *
+ * Shows the OUTPUT of the node the connection leaves, which is by definition
+ * the input of the node it reaches, and the input that node itself received —
+ * so a reader can see the transformation rather than infer it.
+ *
+ * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+ */
+export default {
+	name: 'PayloadModal',
+
+	components: {
+		NcButton,
+		NcModal,
+		NcNoteCard,
+	},
+
+	props: {
+		/** Whether the modal is open. */
+		show: {
+			type: Boolean,
+			default: false,
+		},
+	},
+
+	emits: ['close'],
+
+	/**
+	 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+	 */
+	setup() {
+		return { editor: useFlowEditorStore() }
+	},
+
+	computed: {
+		/**
+		 * The log entry for the node this connection leaves.
+		 *
+		 * A connection has no record of its own — a run records TRANSITIONS —
+		 * so the payload on a line is the entry of the node it leaves.
+		 *
+		 * @return {object|null} The log entry.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+		 */
+		entry() {
+			const detail =
+				this.editor.replayRunId === null
+					? null
+					: this.editor.runDetail[this.editor.replayRunId]
+			if (!detail) {
+				return null
+			}
+
+			// Asked from the NODE: answer for that node directly.
+			const node = this.editor.payloadNodeId
+			if (node) {
+				return (
+					(detail.log || []).find((line) => this.namesNode(line, node))
+					|| null
+				)
+			}
+
+			// Asked from a LINE: a run records transitions, not edges, so the
+			// payload on a line is the entry of the node it LEAVES.
+			const edge = (this.editor.edges || []).find(
+				(candidate) => candidate.id === this.editor.payloadEdgeId,
+			)
+			if (!edge) {
+				return null
+			}
+
+			return (
+				(detail.log || []).find((line) => this.namesNode(line, edge.from))
+				|| null
+			)
+		},
+
+		/**
+		 * Why there is nothing to show, when there is nothing to show.
+		 *
+		 * "No run is open" and "this node did not run" are different answers and
+		 * only the second is about the node. Before this the modal said the same
+		 * blank thing for both, which read as a broken payload rather than a
+		 * missing run.
+		 *
+		 * @return {string} The explanation.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+		 */
+		emptyReason() {
+			if (this.editor.replayRunId === null) {
+				return this.t(
+					'hermiq',
+					'No run is open. Choose a run under Runs to see what passed through here.',
+				)
+			}
+
+			return this.t(
+				'hermiq',
+				'This node did not run in the selected run, so nothing was recorded for it.',
+			)
+		},
+
+		/**
+		 * The modal heading.
+		 *
+		 * @return {string} The heading.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+		 */
+		heading() {
+			return this.editor.payloadNodeId
+				? this.t('hermiq', 'What this node received and returned')
+				: this.t('hermiq', 'What passed along this connection')
+		},
+	},
+
+	methods: {
+		t,
+		n,
+
+		/**
+		 * Whether a log line is the one for this node.
+		 *
+		 * EXACT match on the recorded transition, never `includes()`. A node id
+		 * is a free-form string, so a substring test makes `end1` match a line
+		 * recorded for `end11` — and it matched the wrong step silently, which
+		 * is worse than matching none.
+		 *
+		 * @param {object} line   The log line.
+		 * @param {string} nodeId The node id.
+		 *
+		 * @return {boolean} Whether the line records that node.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+		 */
+		namesNode(line, nodeId) {
+			const id = String(nodeId || '')
+
+			return (
+				String(line.transition || '') === id
+				|| String(line.node || '') === id
+				|| String(line.step || '') === id
+			)
+		},
+
+		/**
+		 * Format a payload envelope for reading.
+		 *
+		 * Shows the ITEMS rather than the envelope: `count` and `truncated`
+		 * are reported above in words, and printing them again inside the JSON
+		 * would put bookkeeping in the middle of the data an operator came to
+		 * read.
+		 *
+		 * @param {object} envelope The `{count, truncated, items}` envelope.
+		 * @return {string} Pretty JSON.
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-selecting-a-run-replays-its-path-on-the-canvas
+		 */
+		pretty(envelope) {
+			if (!envelope) {
+				return this.t('hermiq', 'Not recorded.')
+			}
+
+			return JSON.stringify(envelope.items ?? envelope, null, 2)
+		},
+	},
+}
+</script>
+
+<style scoped>
+.payload {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 20px;
+}
+
+.payload__title,
+.payload__subtitle {
+	margin: 0;
+}
+
+.payload__hint {
+	color: var(--color-text-maxcontrast);
+	font-size: 0.9em;
+	margin: 0;
+}
+
+.payload__json {
+	max-height: 40vh;
+	overflow: auto;
+	padding: 10px;
+	border-radius: var(--border-radius-large);
+	background-color: var(--color-background-dark);
+	font-family: monospace;
+	font-size: 0.85em;
+	white-space: pre;
+}
+
+.payload__actions {
+	display: flex;
+	justify-content: flex-end;
+}
+</style>

@@ -1,0 +1,440 @@
+{
+  "src/App.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/api/evals.js": {
+    "eqeqeq": {
+      "count": 1
+    }
+  },
+  "src/api/flows.js": {
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/components/AgentMemoryPanel.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    }
+  },
+  "src/components/AgentSelector.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    }
+  },
+  "src/components/CnAgentChatTab/CnAgentChatTab.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/components/CnAgentRunsWidget/CnAgentRunsWidget.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/components/TalkDeliverySettings.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/components/ToolGrantEditor.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 5
+    }
+  },
+  "src/components/ToolInvocationTable.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    }
+  },
+  "src/components/settings/TalkBridgeSettings.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 4
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/dialogs/CreateIncidentDialog.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/dialogs/DeadEndWarningDialog.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/dialogs/RunFlowDialog.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/dialogs/StepResultDialog.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/dialogs/agents/AgentVersionDiffDialog.vue": {
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/dialogs/agents/AgentVersionHistoryDialog.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 4
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "vue/custom-event-name-casing": {
+      "count": 1
+    }
+  },
+  "src/modals/AgentFormModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/modals/AgentTemplatePublishModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/ApprovalDenyModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/BudgetFormModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/ChatSettingsModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/ConversationDeleteModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/ConversationRenameModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/EvalDatasetFormModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 3
+    }
+  },
+  "src/modals/Flow/ConnectionEditModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 3
+    }
+  },
+  "src/modals/Flow/NodeEditModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    },
+    "no-useless-assignment": {
+      "count": 1
+    }
+  },
+  "src/modals/Flow/PayloadModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/Flow/RunLogModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/LlmProviderModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/modals/ScheduleFormModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/ScheduleWebhookSecretDialog.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/SkillDraftEditModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    }
+  },
+  "src/modals/SkillDraftRejectModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    }
+  },
+  "src/modals/SkillFormModal.vue": {
+    "@nextcloud/l10n-non-breaking-space": {
+      "count": 1
+    },
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 4
+    }
+  },
+  "src/modals/SkillGithubPublishModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/SkillImportModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 4
+    }
+  },
+  "src/modals/SkillInstallModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/modals/SkillScorecardModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/modals/TemplateImportModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 4
+    }
+  },
+  "src/modals/WebResearchSettingsModal.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    },
+    "vue/no-useless-v-bind": {
+      "count": 1
+    }
+  },
+  "src/modals/WebhookSecretDialog.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/store/flowEditor.js": {
+    "no-console": {
+      "count": 3
+    },
+    "no-unused-vars": {
+      "count": 4
+    }
+  },
+  "src/store/modules/object.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/store/modules/settings.js": {
+    "no-console": {
+      "count": 2
+    }
+  },
+  "src/views/AdminRoot.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/views/AiFeatureRegister.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 5
+    }
+  },
+  "src/views/ApprovalInbox.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    }
+  },
+  "src/views/Chat.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 11
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 9
+    },
+    "vue/multi-word-component-names": {
+      "count": 1
+    }
+  },
+  "src/views/ComplianceDashboard.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/views/FlowBuilder.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 9
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/views/FlowIndex.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/views/FlowSidebar.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 4
+    }
+  },
+  "src/views/GuardrailPolicySettings.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 5
+    }
+  },
+  "src/views/TenantOps.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 7
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/widgets/AgentEvalBaselineWidget.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 3
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 1
+    }
+  },
+  "src/widgets/AgentRunHistoryWidget.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 5
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 3
+    }
+  },
+  "src/widgets/AgentRunOperationsWidget.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 4
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 5
+    }
+  },
+  "src/widgets/AgentSkillsWidget.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/widgets/AgentTemplateGithubStore.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/widgets/AgentTemplateRowActions.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 5
+    }
+  },
+  "src/widgets/ComplianceOperations.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 3
+    }
+  },
+  "src/widgets/EvalRunPanelWidget.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    }
+  },
+  "src/widgets/SkillDraftReview.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 4
+    }
+  },
+  "src/widgets/SkillEvalEvidence.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 1
+    }
+  },
+  "src/widgets/SkillLinkPanel.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    },
+    "@typescript-eslint/no-unused-vars": {
+      "count": 2
+    }
+  },
+  "src/widgets/SkillMaturityScorecard.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 2
+    }
+  },
+  "src/widgets/SkillRowActions.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 6
+    }
+  },
+  "src/widgets/SkillVersionHistory.vue": {
+    "@nextcloud/no-deprecated-library-props": {
+      "count": 3
+    }
+  }
+}

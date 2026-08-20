@@ -1,0 +1,11 @@
+{
+  "label": "Rules & regulations",
+  "position": 14,
+  "collapsible": true,
+  "collapsed": true,
+  "link": {
+    "type": "generated-index",
+    "title": "Rules & regulations",
+    "description": "How Hermiq is designed to help you meet EU and Dutch AI-related law — and exactly where that help stops and your own responsibility begins."
+  }
+}

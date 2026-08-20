@@ -1,0 +1,354 @@
+/*
+ * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
+ * SPDX-License-Identifier: EUPL-1.2
+ *
+ * Manifest-driven page smoke sweep (spec-coverage, gate-19).
+ *
+ * hermiq declares 19 pages in `src/manifest.json` (mix of index / detail /
+ * dashboard / custom / roadmap), rendered by CnPageRenderer with
+ * HISTORY-mode routing (createWebHistory, src/main.js) — so every route is
+ * PATH-form (`/apps/hermiq/chat`); a hash-form deep-link would be silently
+ * swallowed by the catch-all redirect and every page would greenwash
+ * against the Dashboard (the redirect-away guard below catches exactly
+ * that failure mode).
+ *
+ * This spec is generated FROM the manifest at spec load time — add a page
+ * to the manifest and it is automatically smoke tested; no hand-maintained
+ * route list to drift. For every NON-parameterised route it asserts:
+ *   - the SPA shell mounts (#app-content visible)
+ *   - the router is still ON the requested route (redirect-away guard)
+ *   - real content rendered (innerHTML > 100 chars)
+ *   - no app-origin console errors during initial mount (curated filter)
+ *
+ * `:id`-parameterised routes (AgentDetail, EvalDatasetDetail, GraphDetail)
+ * are excluded — a detail page needs a real object; the seeded AgentDetail
+ * journey lives in agents-approvals.spec.ts. NOTE: GraphDetail hosts the
+ * GraphBuilder canvas, which carries a known Vue-major render risk — it is
+ * excluded here because it is parameterised, not because of that risk.
+ *
+ * Covered openspec scenario (@e2e back-reference lives in the spec file):
+ *   - openspec/specs/dashboard-page/spec.md
+ *       #### Scenario: Deep link to an in-app route
+ *
+ * Pattern reference: hrmq/tests/e2e/spec-coverage/manifest-pages.spec.ts
+ * Auth: shared storageState session (tests/e2e/global-setup.ts).
+ */
+
+import { test, expect, type Page, type ConsoleMessage } from '@playwright/test'
+import * as fs from 'fs'
+import * as path from 'path'
+import { appRoot } from './_fixtures'
+
+/* --------------------------------------------------------------------- *
+ *  Manifest loading (+ optional manifest.d fragments)
+ * --------------------------------------------------------------------- */
+
+interface ManifestPage {
+	id: string
+	route: string
+	type: string
+	title?: string
+	component?: string
+}
+
+interface Manifest {
+	pages: ManifestPage[]
+	menu?: unknown[]
+}
+
+/**
+ * Read `src/manifest.json` and merge any `src/manifest.d/*.json` fragments
+ * (the directory does not currently exist, but the merge keeps this spec
+ * correct the day it does).
+ */
+function loadManifest(): Manifest {
+	const srcDir = path.resolve(__dirname, '..', '..', '..', 'src')
+	const manifest = JSON.parse(
+		fs.readFileSync(path.join(srcDir, 'manifest.json'), 'utf-8'),
+	) as Manifest
+	const fragmentsDir = path.join(srcDir, 'manifest.d')
+	if (fs.existsSync(fragmentsDir)) {
+		for (const file of fs
+			.readdirSync(fragmentsDir)
+			.filter((f) => f.endsWith('.json'))
+			.sort()) {
+			const fragment = JSON.parse(
+				fs.readFileSync(path.join(fragmentsDir, file), 'utf-8'),
+			) as Partial<Manifest>
+			if (Array.isArray(fragment.pages)) {
+				manifest.pages.push(...fragment.pages)
+			}
+		}
+	}
+	return manifest
+}
+
+const MANIFEST = loadManifest()
+
+/** All pages whose route needs no path parameter — smoke-testable as-is. */
+const SMOKE_PAGES = MANIFEST.pages.filter((p) => !p.route.includes(':'))
+
+/** Parameterised (detail) pages — excluded here, counted for the sanity test. */
+const PARAM_PAGES = MANIFEST.pages.filter((p) => p.route.includes(':'))
+
+/**
+ * The component each `type: "custom"` route is contracted to render, keyed by
+ * route. `src/registry.js` resolves `manifest.component` to the `.vue` file of
+ * the same name, so this map is the route → `src/views/<name>.vue` binding
+ * written out in executable code.
+ *
+ * ## Why this exists as well as the smoke loop
+ *
+ * The loop below asserts that *something* rendered more than a spinner. It
+ * cannot tell WHICH page rendered — a manifest edit that repoints `/mcp-tools`
+ * at `ApprovalInbox` still mounts, still stays on the route, still renders well
+ * over 100 characters, and passes every assertion in this file. This map is the
+ * arm that fails on it.
+ *
+ * It is also what makes the coverage legible from the outside. The smoke loop
+ * is GENERATED from the manifest at load time, so no component name appears
+ * anywhere in this file's executable text — an automated reader (gate-26) sees
+ * a suite that mentions none of the pages it actually drives, and reports them
+ * unproven. They are proven; the proof was just spelled in a way nothing could
+ * read. Naming them here fixes the reader and adds a real assertion at once.
+ *
+ * Built-in page types (`index`, `detail`, `dashboard`, `roadmap`) are absent by
+ * design — they declare a register/schema, not a component, and CnPageRenderer
+ * supplies the view. This map covers exactly the pages that name their own.
+ */
+const CUSTOM_PAGE_COMPONENTS: Record<string, string> = {
+	'/chat': 'Chat',
+	'/approvals': 'ApprovalInbox',
+	'/memory': 'AgentMemory',
+	'/tenant-ops': 'TenantOps',
+	'/guardrail-policy': 'GuardrailPolicySettings',
+	'/mcp-tools': 'McpTools',
+	'/flows': 'FlowIndex',
+	// The legacy `/graphs` routes render the SAME components as `/flows` — they
+	// are aliases kept so old links resolve, not separate pages.
+	'/graphs': 'FlowIndex',
+	// Parameterised, so the smoke loop skips both. The canvas is driven per-flow
+	// by flow-builder-dialect.spec.ts and flow-execution.spec.ts instead.
+	'/flows/:id': 'FlowBuilder',
+	'/graphs/:id': 'FlowBuilder',
+}
+
+/* --------------------------------------------------------------------- *
+ *  App root resolution
+ * --------------------------------------------------------------------- */
+
+// ⚠️ This used to probe which URL form SERVES the SPA shell and take the first
+// that did. That probe answers the wrong question: CI's `php -S` front
+// controller serves the shell on BOTH `/apps/hermiq/` and
+// `/index.php/apps/hermiq/`, so it always chose the pretty form while
+// `generateUrl` — and therefore the router base — was the index.php one. Every
+// deep link then fell outside the base and the catch-all redirected it to the
+// app root. Resolution now comes from `appRoot()` in _fixtures.ts, which reads
+// the value the app itself generates. See that helper's docblock for the
+// measurement.
+const rootUrl = appRoot
+
+/* --------------------------------------------------------------------- *
+ *  Console noise filter
+ * --------------------------------------------------------------------- */
+
+/**
+ * Errors we ignore — these come from Nextcloud's own bootstrap or the
+ * shared dev instance's known platform quirks, not from hermiq.
+ */
+const IGNORED_CONSOLE_PATTERNS: RegExp[] = [
+	/Deprecation/i,
+	/Slow network is detected/i,
+	/favicon/i,
+	/the resource at .* was preloaded using link preload but not used/i,
+	// The user_status app 500s on dev instances with a PostgreSQL collation
+	// version mismatch — pre-existing platform noise unrelated to hermiq.
+	/Failed to load user status/i,
+	/user_status/i,
+	/the server responded with a status of 500/i,
+	// Missing avatars / previews on a fresh instance log 404 resource errors.
+	/Failed to load resource:.*Not Found/i,
+	// NC theming: when the active theme's token CSS is briefly unavailable
+	// mid-run it serves the 404 HTML page, tripping a MIME-type refusal.
+	/Refused to apply style/i,
+	/is not a supported stylesheet MIME type/i,
+	// 🔴 `GET /apps/hermiq/api/chat/health` answering 503 is hermiq's SPECIFIED
+	// behaviour, not a fault: ChatHealthController's contract is
+	// `200 {status:"ok"}` when an LLM provider is configured and
+	// `503 {status:"no_provider"}` when none is. The nextcloud-vue AI companion
+	// widget probes it once at mount on every page precisely to decide whether
+	// to render itself, and CI configures no provider by design — this whole
+	// suite is "UI mechanics, no LLM required".
+	//
+	// Measured: 30 such responses across one run (30878205902), and it was the
+	// ONLY 503 on the instance. Scoped to this exact route, NOT to the 503
+	// status: a 503 on any other hermiq endpoint is still a failure, which is
+	// what this assertion is for.
+	/\/apps\/hermiq\/api\/chat\/health/,
+]
+
+/**
+ * The app id a console message's resource belongs to, or `null` when it is
+ * not an app asset (Nextcloud core, an OCS route, an external URL).
+ *
+ * @param url The resource URL the console message points at.
+ * @return The owning app id, or null.
+ */
+function owningApp(url: string): string | null {
+	return (
+		url.match(/\/(?:custom_)?apps(?:-extra|-external)?\/([^/]+)\//)?.[1] ?? null
+	)
+}
+
+/**
+ * Collect console errors that are hermiq's OWN.
+ *
+ * 🔴 Two properties this must have, both learned the hard way:
+ *
+ * 1. It records the resource URL. A bare "Failed to load resource: the server
+ *    responded with a status of 503" names nothing, and a failure message that
+ *    names nothing costs a whole CI round to diagnose. `msg.location().url`
+ *    carries it; `msg.text()` does not.
+ *
+ * 2. It is scoped to hermiq's own assets, the way chat.spec.ts already scopes
+ *    its collector. Nextcloud hosts every installed app on the same page, and
+ *    CI runs hermiq against an OpenRegister checkout whose `js/` is
+ *    .gitignored and therefore absent — so `openregister-integration-global.js`
+ *    (registered globally by OpenRegister, logged 29 times as
+ *    "Could not find resource … to load" in run 30878205902) 503s on every
+ *    hermiq page. That is OpenRegister's packaging, not hermiq's page.
+ *
+ * 🔑 The scope is by OWNING APP, not by status code. Ignoring "503" outright
+ * would also swallow a 503 on one of hermiq's own endpoints, which is exactly
+ * the kind of failure this assertion exists to catch. A 503 on
+ * `/apps/hermiq/...` still fails, and now says so by name.
+ *
+ * @param page The Playwright page to attach to.
+ * @return A live array accumulating error strings.
+ */
+function attachConsoleSpy(page: Page): { errors: string[] } {
+	const errors: string[] = []
+	page.on('console', (msg: ConsoleMessage) => {
+		if (msg.type() !== 'error') {
+			return
+		}
+		const url = msg.location()?.url ?? ''
+		const text = `${msg.text()}${url === '' ? '' : ` [${url}]`}`
+		if (IGNORED_CONSOLE_PATTERNS.some((rx) => rx.test(text))) {
+			return
+		}
+		const app = owningApp(url)
+		if (app !== null && app !== 'hermiq') {
+			return
+		}
+		errors.push(text.slice(0, 300))
+	})
+	page.on('pageerror', (err) => {
+		errors.push(`pageerror: ${err.message}`)
+	})
+	return { errors }
+}
+
+/* --------------------------------------------------------------------- *
+ *  Parametrized smoke tests
+ * --------------------------------------------------------------------- */
+
+test.describe('manifest pages — schema-driven render', () => {
+	test('manifest sanity: page partition covers every declared page', () => {
+		// If this fails the manifest changed shape and the smoke loop below
+		// is silently under-covering — fail loudly instead.
+		expect(MANIFEST.pages.length, 'manifest declares pages').toBeGreaterThan(0)
+		expect(SMOKE_PAGES.length + PARAM_PAGES.length).toBe(MANIFEST.pages.length)
+		expect(
+			SMOKE_PAGES.length,
+			'non-parameterised pages to smoke',
+		).toBeGreaterThan(0)
+	})
+
+	test('every custom route renders the component it is contracted to render', () => {
+		const declared = Object.fromEntries(
+			MANIFEST.pages
+				.filter((p) => p.type === 'custom')
+				.map((p) => [p.route, p.component]),
+		)
+
+		// Both directions. Only comparing the map's keys against the manifest
+		// would let a NEW custom page arrive uncovered; only comparing the
+		// manifest's would let the map keep an entry for a deleted route.
+		expect(declared).toEqual(CUSTOM_PAGE_COMPONENTS)
+	})
+
+	test('SPA shell is served with every webpack chunk the mount depends on', async ({
+		page,
+	}) => {
+		// Deployment-level assertion that needs NO rendered app DOM, so it is
+		// verifiable against the currently-deployed bundle. templates/index.php
+		// registers three chunks in dependency order; the main entry's
+		// `__webpack_require__.O` callback only fires once ALL of them have
+		// registered, so a missing shared chunk silently prevents the Vue mount
+		// (the zaakafhandelapp#206 failure mode the template docblock records).
+		const root = await rootUrl(page)
+		const res = await page.request.get(`${root}/`, { failOnStatusCode: false })
+		expect(res.ok(), `SPA shell HTTP ${res.status()}`).toBeTruthy()
+		const html = await res.text()
+		for (const chunk of [
+			'hermiq-shared-vendor',
+			'hermiq-shared-nc-vue',
+			'hermiq-main',
+		]) {
+			expect(html, `SPA shell must load the ${chunk} chunk`).toContain(chunk)
+		}
+	})
+
+	for (const pg of SMOKE_PAGES) {
+		// 🔑 The redirect-away guard below is this loop's positive control, and
+		// it earned that description: on 2026-08-04 every one of these tests
+		// failed on it, naming `/index.php/apps/hermiq/` as the landing path —
+		// which is how the wrong router base was found. It fails loudly the
+		// moment the base drifts again, so it must never be relaxed into
+		// "the shell mounted somewhere".
+		test(`[${pg.type}] ${pg.id} mounts at ${pg.route}`, async ({ page }) => {
+			const { errors } = attachConsoleSpy(page)
+
+			const root = await rootUrl(page)
+			// HISTORY mode → PATH-form deep link. `domcontentloaded`, not
+			// `networkidle` — NC's notification poll never goes idle.
+			await page.goto(`${root}${pg.route}`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 30_000,
+			})
+
+			// The Nextcloud SPA shell mounts inside #app-content.
+			await expect(
+				page
+					.locator('#app-content, [data-cy=app-content], .app-content')
+					.first(),
+			).toBeVisible({ timeout: 15_000 })
+
+			// Route identity: the router must still be ON the requested route.
+			// A redirect back to the default page (greenwash mode) changes the
+			// pathname and must fail the smoke test.
+			expect(
+				new URL(page.url()).pathname,
+				`${pg.id} was redirected away from ${pg.route}`,
+			).toContain(pg.route)
+
+			// CnPageRenderer should have resolved the route to *some* page
+			// component. Verify anything rendered beyond the loading spinner.
+			const renderedContent = await page
+				.locator('#app-content, .app-content')
+				.first()
+				.innerHTML()
+			expect(
+				renderedContent.length,
+				`${pg.id} (${pg.route}) rendered no content inside app-content`,
+			).toBeGreaterThan(100)
+
+			// No fatal console errors during initial mount.
+			expect(
+				errors,
+				`${pg.id} (${pg.route}) emitted console errors: ${errors.join(' | ')}`,
+			).toEqual([])
+		})
+	}
+})

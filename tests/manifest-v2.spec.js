@@ -37,8 +37,23 @@ const V2_SCHEMA_URL_SUFFIX = 'app-manifest-v2.schema.json'
 
 const V2_SCHEMA_CANDIDATES = [
 	process.env.APP_MANIFEST_V2_SCHEMA,
-	path.join(REPO_ROOT, 'node_modules', '@conduction', 'nextcloud-vue', 'src', 'schemas', 'app-manifest-v2.schema.json'),
-	path.join(REPO_ROOT, '..', 'nextcloud-vue', 'src', 'schemas', 'app-manifest-v2.schema.json'),
+	path.join(
+		REPO_ROOT,
+		'node_modules',
+		'@conduction',
+		'nextcloud-vue',
+		'src',
+		'schemas',
+		'app-manifest-v2.schema.json',
+	),
+	path.join(
+		REPO_ROOT,
+		'..',
+		'nextcloud-vue',
+		'src',
+		'schemas',
+		'app-manifest-v2.schema.json',
+	),
 	'/tmp/worktrees/nc-vue-manifest-v2-renderer/src/schemas/app-manifest-v2.schema.json',
 ].filter(Boolean)
 
@@ -94,15 +109,19 @@ function structuralLintV2(manifest) {
 	if (typeof manifest.$schema !== 'string') {
 		errors.push('top-level: $schema (string) is required for v2 manifests')
 	} else if (!manifest.$schema.endsWith(V2_SCHEMA_URL_SUFFIX)) {
-		errors.push(`top-level: $schema must end with "${V2_SCHEMA_URL_SUFFIX}", got "${manifest.$schema}"`)
+		errors.push(
+			`top-level: $schema must end with "${V2_SCHEMA_URL_SUFFIX}", got "${manifest.$schema}"`,
+		)
 	}
 
 	// 2. version, menu, pages required
 	if (!manifest.version || typeof manifest.version !== 'string') {
 		errors.push('top-level: version (string) is required')
 	}
-	if (!Array.isArray(manifest.menu)) errors.push('top-level: menu (array) is required')
-	if (!Array.isArray(manifest.pages)) errors.push('top-level: pages (array) is required')
+	if (!Array.isArray(manifest.menu))
+		errors.push('top-level: menu (array) is required')
+	if (!Array.isArray(manifest.pages))
+		errors.push('top-level: pages (array) is required')
 
 	for (let i = 0; i < (manifest.pages || []).length; i++) {
 		const page = manifest.pages[i]
@@ -110,17 +129,26 @@ function structuralLintV2(manifest) {
 
 		// 3. No top-level layout[] (v1 remnant)
 		if (Object.prototype.hasOwnProperty.call(page, 'layout')) {
-			errors.push(`pages[${i}] (id="${page.id}"): top-level layout[] is not allowed in v2 — use widgets[] with gridX/gridY`)
+			errors.push(
+				`pages[${i}] (id="${page.id}"): top-level layout[] is not allowed in v2 — use widgets[] with gridX/gridY`,
+			)
 		}
 
 		// 4. No config.sidebarTabs (v1 remnant)
 		if (page.config && page.config.sidebarTabs) {
-			errors.push(`pages[${i}] (id="${page.id}"): config.sidebarTabs is not allowed in v2 — lift to top-level widgets[] with slot: "sidebar"`)
+			errors.push(
+				`pages[${i}] (id="${page.id}"): config.sidebarTabs is not allowed in v2 — lift to top-level widgets[] with slot: "sidebar"`,
+			)
 		}
 
 		// 5. type: "custom" requires _note
-		if (page.type === 'custom' && (!page._note || typeof page._note !== 'string')) {
-			errors.push(`pages[${i}] (id="${page.id}"): type: "custom" requires a non-empty _note field (ADR-036)`)
+		if (
+			page.type === 'custom'
+			&& (!page._note || typeof page._note !== 'string')
+		) {
+			errors.push(
+				`pages[${i}] (id="${page.id}"): type: "custom" requires a non-empty _note field (ADR-036)`,
+			)
 		}
 
 		// 6. widgets[] entries (when present) must have required fields
@@ -131,21 +159,35 @@ function structuralLintV2(manifest) {
 					errors.push(`pages[${i}].widgets[${w}]: must be an object`)
 					continue
 				}
-				for (const field of ['widgetKey', 'slot', 'gridX', 'gridY', 'gridWidth', 'gridHeight']) {
+				for (const field of [
+					'widgetKey',
+					'slot',
+					'gridX',
+					'gridY',
+					'gridWidth',
+					'gridHeight',
+				]) {
 					if (widget[field] === undefined) {
-						errors.push(`pages[${i}].widgets[${w}]: missing required field "${field}"`)
+						errors.push(
+							`pages[${i}].widgets[${w}]: missing required field "${field}"`,
+						)
 					}
 				}
 				// sidebar slot: gridWidth must be 1
 				if (widget.slot === 'sidebar' && widget.gridWidth !== 1) {
-					errors.push(`pages[${i}].widgets[${w}] (slot=sidebar): gridWidth must be exactly 1, got ${widget.gridWidth}`)
+					errors.push(
+						`pages[${i}].widgets[${w}] (slot=sidebar): gridWidth must be exactly 1, got ${widget.gridWidth}`,
+					)
 				}
 				// gridX + gridWidth <= 12 (for non-sidebar slots)
 				if (widget.slot !== 'sidebar') {
 					const gx = typeof widget.gridX === 'number' ? widget.gridX : NaN
-					const gw = typeof widget.gridWidth === 'number' ? widget.gridWidth : NaN
+					const gw =
+						typeof widget.gridWidth === 'number' ? widget.gridWidth : NaN
 					if (!isNaN(gx) && !isNaN(gw) && gx + gw > 12) {
-						errors.push(`pages[${i}].widgets[${w}]: gridX (${gx}) + gridWidth (${gw}) exceeds 12`)
+						errors.push(
+							`pages[${i}].widgets[${w}]: gridX (${gx}) + gridWidth (${gw}) exceeds 12`,
+						)
 					}
 				}
 			}
@@ -164,7 +206,9 @@ function main() {
 	const manifest = loadJson(MANIFEST_PATH)
 	console.log(`[manifest-v2.spec] manifest: ${MANIFEST_PATH}`)
 	console.log(`[manifest-v2.spec] manifest.version: ${manifest.version}`)
-	console.log(`[manifest-v2.spec] manifest.$schema: ${manifest.$schema || '(absent)'}`)
+	console.log(
+		`[manifest-v2.spec] manifest.$schema: ${manifest.$schema || '(absent)'}`,
+	)
 	console.log(`[manifest-v2.spec] pages: ${(manifest.pages || []).length}`)
 
 	// Quick structural check first (fast, no deps)
@@ -179,8 +223,12 @@ function main() {
 	const schemaPath = findSchemaPath()
 	if (!schemaPath) {
 		console.warn('[manifest-v2.spec] v2 schema not found in any candidate path.')
-		console.warn('[manifest-v2.spec] nc-vue PRs #254/#255/#256 not yet merged; falling back to structural-only check.')
-		console.log('[manifest-v2.spec] structural-only: PASS (Ajv schema unavailable)')
+		console.warn(
+			'[manifest-v2.spec] nc-vue PRs #254/#255/#256 not yet merged; falling back to structural-only check.',
+		)
+		console.log(
+			'[manifest-v2.spec] structural-only: PASS (Ajv schema unavailable)',
+		)
 		process.exit(0)
 	}
 	console.log(`[manifest-v2.spec] schema: ${schemaPath}`)
@@ -211,7 +259,11 @@ function main() {
 				if (!widget) continue
 				const gx = widget.gridX
 				const gw = widget.gridWidth
-				if (typeof gx === 'number' && typeof gw === 'number' && gx + gw > 12) {
+				if (
+					typeof gx === 'number'
+					&& typeof gw === 'number'
+					&& gx + gw > 12
+				) {
 					postErrors.push(
 						`pages[${i}].widgets[${w}] (widgetKey="${widget.widgetKey}"): gridX (${gx}) + gridWidth (${gw}) exceeds 12`,
 					)

@@ -1,0 +1,16 @@
+{
+  "name": "hermiq-llm-runner",
+  "version": "0.1.0",
+  "description": "Hardened Nextcloud AppAPI ExApp sidecar that runs vendor LLM CLIs (claude, OpenAI, Grok) as an LLM transport for Hermiq. Container half of the llm-cli-runner-exapp change.",
+  "license": "EUPL-1.2",
+  "author": "Conduction B.V. <info@conduction.nl>",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "bash test/test.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
