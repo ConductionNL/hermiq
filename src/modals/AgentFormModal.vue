@@ -225,7 +225,12 @@
 					label="label"
 					:inputLabel="t('hermiq', 'Dictation (speech to text)')" />
 				<p class="agent-form__hint">
-					{{ t('hermiq', 'Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.') }}
+					{{
+						t(
+							'hermiq',
+							'Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.',
+						)
+					}}
 				</p>
 			</div>
 
@@ -245,7 +250,12 @@
 					:label="t('hermiq', 'Silence before the microphone closes (ms)')"
 					placeholder="2500" />
 				<p class="agent-form__hint">
-					{{ t('hermiq', 'How long a pause may last before dictation stops. The text stays in the message box — dictation never sends by itself. 0 keeps the microphone open until you stop it.') }}
+					{{
+						t(
+							'hermiq',
+							'How long a pause may last before dictation stops. The text stays in the message box — dictation never sends by itself. 0 keeps the microphone open until you stop it.',
+						)
+					}}
 				</p>
 			</div>
 
@@ -254,7 +264,12 @@
 					{{ t('hermiq', 'Allow spoken conversation') }}
 				</NcCheckboxRadioSwitch>
 				<p class="agent-form__hint">
-					{{ t('hermiq', 'Adds a hands-free control beside the microphone: your turn is sent when you stop speaking and the reply is spoken back. Off by default, because auto-sending on a pause can post a half-finished thought.') }}
+					{{
+						t(
+							'hermiq',
+							'Adds a hands-free control beside the microphone: your turn is sent when you stop speaking and the reply is spoken back. Off by default, because auto-sending on a pause can post a half-finished thought.',
+						)
+					}}
 				</p>
 			</div>
 
@@ -398,13 +413,29 @@ export default {
 		 * destination IS the label.
 		 *
 		 * @return {Array<{value: string, label: string}>} The options.
+		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
 		 */
 		voiceEngineOptions() {
 			return [
-				{ value: 'auto', label: t('hermiq', 'Automatic — fastest available') },
-				{ value: 'browser', label: t('hermiq', 'Browser — instant, audio goes to the browser vendor') },
-				{ value: 'local', label: t('hermiq', 'On this instance — private, slower') },
-				{ value: 'off', label: t('hermiq', 'Off — no speech for this agent') },
+				{
+					value: 'auto',
+					label: t('hermiq', 'Automatic — fastest available'),
+				},
+				{
+					value: 'browser',
+					label: t(
+						'hermiq',
+						'Browser — instant, audio goes to the browser vendor',
+					),
+				},
+				{
+					value: 'local',
+					label: t('hermiq', 'On this instance — private, slower'),
+				},
+				{
+					value: 'off',
+					label: t('hermiq', 'Off — no speech for this agent'),
+				},
 			]
 		},
 
@@ -749,6 +780,7 @@ export default {
 		 * @param {string} value The stored value (`auto`, `browser`, `local`, `off`).
 		 *
 		 * @return {{value: string, label: string}} The matching option, or the first.
+		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
 		 */
 		voiceEngineOption(value) {
 			return (
@@ -791,8 +823,12 @@ export default {
 				searchObjects: source.searchObjects !== false,
 				searchFiles: source.searchFiles !== false,
 				ragNumSources: source.ragNumSources ?? '',
-				voiceInputEngine: this.voiceEngineOption(source.voiceInputEngine || 'auto'),
-				voiceOutputEngine: this.voiceEngineOption(source.voiceOutputEngine || 'auto'),
+				voiceInputEngine: this.voiceEngineOption(
+					source.voiceInputEngine || 'auto',
+				),
+				voiceOutputEngine: this.voiceEngineOption(
+					source.voiceOutputEngine || 'auto',
+				),
 				// '' rather than 2500: an empty field means "unset, use the
 				// default", and pre-filling the default would silently write it
 				// onto every agent that is edited for an unrelated reason.
@@ -995,12 +1031,17 @@ export default {
 				// normalises to `auto`, i.e. an agent pinned to the private
 				// engine would quietly become one that may use the browser's.
 				voiceInputEngine: (this.form.voiceInputEngine || {}).value || 'auto',
-				voiceOutputEngine: (this.form.voiceOutputEngine || {}).value || 'auto',
+				voiceOutputEngine:
+					(this.form.voiceOutputEngine || {}).value || 'auto',
 				voiceConversationEnabled: this.form.voiceConversationEnabled,
 			}
 
 			const voiceSilenceTimeout = Number(this.form.voiceSilenceTimeout)
-			if (this.form.voiceSilenceTimeout !== '' && Number.isInteger(voiceSilenceTimeout) && voiceSilenceTimeout >= 0) {
+			if (
+				this.form.voiceSilenceTimeout !== ''
+				&& Number.isInteger(voiceSilenceTimeout)
+				&& voiceSilenceTimeout >= 0
+			) {
 				payload.voiceSilenceTimeout = voiceSilenceTimeout
 			}
 

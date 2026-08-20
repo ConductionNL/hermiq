@@ -113,6 +113,12 @@ class SpeechController extends Controller {
 	 *
 	 * @return JSONResponse `{text, language, engine}`, or `{error}` with 400/502.
 	 *
+	 * @no-admin-idor-exempt No object identifier is accepted or resolved. The
+	 *   caller uploads audio and receives that audio's transcript; there is no
+	 *   id to substitute and therefore no other user's object to reach. The one
+	 *   thing worth bounding is volume, which the size cap and the rate limit
+	 *   do. If this method ever gains a parameter naming stored audio, the
+	 *   exemption stops being true and must go.
 	 * @spec openspec/specs/speech-services/spec.md#requirement-no-audio-leaves-the-instance
 	 */
 	#[NoAdminRequired]
@@ -120,7 +126,11 @@ class SpeechController extends Controller {
 	public function transcribe(): JSONResponse {
 		$upload = $this->request->getUploadedFile(key: 'audio');
 
-		if (is_array($upload) === false || ($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+		// ⚠️ NO `is_array()` GUARD HERE. `getUploadedFile()` is declared to return
+		// an array, so phpstan reads the guard as dead code — and it is right:
+		// the shape to check is the upload's own `error` slot, which is what
+		// distinguishes "no file" and "upload failed" from a usable clip.
+		if (($upload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
 			return new JSONResponse(data: ['error' => 'No audio was uploaded.'], statusCode: 400);
 		}
 
@@ -174,6 +184,10 @@ class SpeechController extends Controller {
 	 *
 	 * @return DataDownloadResponse|JSONResponse WAV audio, or `{error}`.
 	 *
+	 * @no-admin-idor-exempt No object identifier is accepted or resolved. The
+	 *   caller supplies the text and receives that text spoken back; nothing is
+	 *   read from storage, so there is no other user's object to reach. Volume
+	 *   is bounded by the length cap and the rate limit.
 	 * @spec openspec/specs/speech-services/spec.md#requirement-no-audio-leaves-the-instance
 	 */
 	#[NoAdminRequired]
