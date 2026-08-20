@@ -5,9 +5,9 @@
  *
  * Stands in for OCA\OpenRegister\Service\ObjectService when OpenRegister is not
  * installed (standalone CI: php:8.3-cli + OCP stubs). Mirrors only the method
- * surface Hermiq's ScheduleService consumes: setRegister/setSchema context
- * chaining, findAll, saveObject, deleteObject. The real class ships with
- * OpenRegister at runtime.
+ * surface Hermiq's ScheduleService/BackfillAgentApplicationSlug consume:
+ * setRegister/setSchema context chaining, findAll, saveObject, patchObject,
+ * deleteObject. The real class ships with OpenRegister at runtime.
  *
  * @category Test
  * @package  OCA\OpenRegister\Service
@@ -24,6 +24,8 @@ declare(strict_types=1);
 namespace OCA\OpenRegister\Service;
 
 use OCA\OpenRegister\Db\ObjectEntity;
+use OCA\OpenRegister\Db\Register;
+use OCA\OpenRegister\Db\Schema;
 
 /**
  * Minimal ObjectService stub for standalone unit runs.
@@ -138,6 +140,33 @@ class ObjectService {
 	): ObjectEntity {
 		return new ObjectEntity();
 	}//end saveObject()
+
+	/**
+	 * PATCH-semantic partial update: merge `$data` onto the stored object and
+	 * save the merged result. Unlike `saveObject()`, a key absent from `$data`
+	 * leaves the stored value untouched.
+	 *
+	 * @param string $objectId Object id, uuid or slug.
+	 * @param array $data Partial object data to merge.
+	 * @param Register|string|int|null $register Optional register scope.
+	 * @param Schema|string|int|null $schema Optional schema scope.
+	 * @param bool $_rbac Whether RBAC applies.
+	 * @param bool $_multitenancy Whether multi-tenancy applies.
+	 * @param \OCP\IUser|null $currentUser Acting user override.
+	 *
+	 * @return ObjectEntity
+	 */
+	public function patchObject(
+		string $objectId,
+		array $data,
+		Register|string|int|null $register = null,
+		Schema|string|int|null $schema = null,
+		bool $_rbac = true,
+		bool $_multitenancy = true,
+		?\OCP\IUser $currentUser = null,
+	): ObjectEntity {
+		return new ObjectEntity();
+	}//end patchObject()
 
 	/**
 	 * Unified paginated/faceted search (`_search` full-text term, `_limit`, ...).

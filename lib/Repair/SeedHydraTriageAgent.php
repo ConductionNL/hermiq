@@ -106,6 +106,18 @@ class SeedHydraTriageAgent implements IRepairStep {
 	public const AGENT_NAME = 'Hydra Triage';
 
 	/**
+	 * hydra-console's real OpenBuild application slug (hermiq-agent-application-slug),
+	 * set on the agent at creation time — see
+	 * `SeedHydraTriageFlow::APPLICATION_SLUG` for the two independent live/source
+	 * confirmations this value rests on. An agent already seeded before this field
+	 * existed is backfilled separately by `BackfillAgentApplicationSlug`, which never
+	 * touches an agent this constant already tagged.
+	 *
+	 * @var string
+	 */
+	public const APPLICATION_SLUG = 'hydra-console';
+
+	/**
 	 * The registry id of the flow-invocation tool the command grant narrows.
 	 *
 	 * OpenRegister's `FlowMcpToolProvider` contributes it; Hermiq consumes it. It is
@@ -266,6 +278,7 @@ class SeedHydraTriageAgent implements IRepairStep {
 				. 'results — and proposes the next state-machine move. Read-only over the hydra register; its '
 				. 'one command, when configured, is an approval-gated flow invocation.',
 			'icon' => 'RobotOutline',
+			'applicationSlug' => self::APPLICATION_SLUG,
 			'active' => true,
 			'isPrivate' => false,
 			// Not downgradable by any request body, tool argument or prompt content:
