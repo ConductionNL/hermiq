@@ -2,8 +2,8 @@
     "openapi": "3.0.0",
     "info": {
         "title": "Hermiq Register",
-        "description": "Hermiq register v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
-        "version": "0.28.0"
+        "description": "Hermiq register v0.29.0 — speech-services: Agent gains four OPTIONAL voice* fields — voiceInputEngine and voiceOutputEngine (auto|browser|local|off), voiceSilenceTimeout (ms), voiceConversationEnabled. They decide whether a given agent's dictation goes to the browser's recogniser (in Chrome: Google's servers) or to this instance's whisper, and a 'local' agent NEVER falls back to the browser. ⚠️ voice* rather than talk*: talkEnabled already exists and means Nextcloud Talk rooms, not microphones. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.28.0 — hermiq-agent-application-slug: Agent gains the OPTIONAL applicationSlug (the owning external Application's slug, e.g. hydra-console for the four Hydra-* agents), mirroring Flow.applicationSlug (hydra-flow-application-slug). Empty for an agent hermiq owns outright; never required. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.27.0 — Hermiq register v0.25.0 — tool-discovery-and-access-requests: adds the ToolAccessRequest schema. An agent can now discover a capability it does not hold and ASK for it; the request notifies the agent owner and grants nothing on its own. ⚠️ THE VERSION BUMP IS THE POINT: the import is gated on info.version, so a schema shipped without one is inert on every existing install with no error anywhere. Previous v0.24.0 — Schedule autonomous AI agents in Nextcloud. v0.24.0 — agent-object-owner-authorization: Agent gains an authorization block granting read to authenticated users. create/update/delete are OMITTED ON PURPOSE — OpenRegister fails closed on an action a non-empty block does not list, so omission is what makes writes owner-only (owners and admins are admitted before that check). Do NOT 'complete' the block by adding write actions: that reopens a reproduced hole in which any authenticated user could rewrite any agent's tool grants, prompt, model and delegationAllowlist. `scope: private` was rejected — it covers every action and would close reads for invited users too. Previously v0.23.0 — v0.23.0 — talk-agent-sessions: Conversation gains the OPTIONAL talkRoomOrigin ('created' when Hermiq created the room for this session, 'bound' when Hermiq was invited into or delivered into a room somebody else owns). It decides whether the agent treats every human message in the room as a turn or applies the mention gate, so the value is STORED rather than inferred from the room's shape — inferring it would silently flip that behaviour the moment a second person is invited. Unset reads as 'bound', which",
+        "version": "0.29.0"
     },
     "x-openregister": {
         "type": "application",
@@ -1917,9 +1917,9 @@
             "Agent": {
                 "slug": "agent",
                 "icon": "RobotOutline",
-                "version": "0.5.0",
+                "version": "0.6.0",
                 "title": "Agent",
-                "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target). v0.5.0 (hermiq-agent-application-slug): gains the OPTIONAL applicationSlug.",
+                "description": "An autonomous AI agent: its LLM provider/model configuration, RAG and quota settings, visibility, and tool whitelist. Tenant scope (owner/organisation) is inherited from ObjectEntity and not declared here. Also carries the agent-lifecycle-governance offboarding flag, periodic review attestation, its sub-agent-delegation allowlist, and whether it requires human approval before running (including as a delegation target). v0.5.0 (hermiq-agent-application-slug): gains the OPTIONAL applicationSlug. v0.6.0 (speech-services): gains the four voice* fields — which engine transcribes, which speaks, the silence that closes the microphone, and whether spoken conversation is offered. ⚠️ voice* is NOT talkEnabled: that one is about Nextcloud Talk rooms, this family is about microphones, and naming a voice flag 'talk*' would collide with it.",
                 "type": "object",
                 "required": [
                     "name"
@@ -2158,6 +2158,32 @@
                         "default": false,
                         "title": "Reachable from Talk",
                         "description": "When true, this agent may be conversed with from a Nextcloud Talk room in which the Hermiq bot is enabled. Defaults to false, and is only half of the requirement: a Talk moderator must ALSO enable the bot in the room, so neither switch alone activates the bridge and installing the feature changes no behaviour until an operator opts in deliberately."
+                    },
+                    "voiceInputEngine": {
+                        "type": "string",
+                        "enum": ["auto", "browser", "local", "off"],
+                        "default": "auto",
+                        "title": "Dictation engine",
+                        "description": "Which engine turns speech into text for this agent. NOT the same axis as talkEnabled, which is about Nextcloud Talk rooms; this is about microphones. 'browser' uses the browser's own speech recognition: instant, live, and in Chrome it streams the microphone to Google's servers — fine for a shopping list, wrong for a case file. 'local' uses this instance's speech service: private, and slower (measured ~3s per sentence on CPU with faster-whisper-base, ~80s with the large model). 'auto' prefers the browser and falls back to local where the browser has no speech API at all, which is every Firefox user. 'off' offers no microphone. A 'local' agent NEVER falls back to the browser, even when the speech service is down — silently sending confidential audio to a cloud engine is the failure this setting exists to prevent."
+                    },
+                    "voiceOutputEngine": {
+                        "type": "string",
+                        "enum": ["auto", "browser", "local", "off"],
+                        "default": "auto",
+                        "title": "Spoken replies engine",
+                        "description": "Which engine speaks this agent's replies aloud when the user has spoken replies switched on. Same four values and the same no-silent-fallback rule as the dictation engine, and a separate setting because the risks are not symmetric: dictation sends the user's own words to the engine, while synthesis sends the agent's reply — which may quote the record even when the user said nothing sensitive."
+                    },
+                    "voiceSilenceTimeout": {
+                        "type": "integer",
+                        "default": 2500,
+                        "title": "Silence before the microphone closes (ms)",
+                        "description": "How long a pause may last during dictation before the microphone is released, in milliseconds. 0 keeps it open until the user stops it. Per agent because the rhythm is a property of the work: dictating a case note leaves longer gaps than answering a question. In dictation this only releases the microphone — the text stays in the composer unsent. In conversation mode it is also what ends your turn."
+                    },
+                    "voiceConversationEnabled": {
+                        "type": "boolean",
+                        "default": false,
+                        "title": "Spoken conversation",
+                        "description": "When true, the composer offers a hands-free conversation control beside the microphone: your turn is sent automatically when you stop speaking, the reply is spoken, and the microphone reopens. Defaults to false because auto-sending on a silence turns a pause for thought into a sent message, which is a reasonable trade only where someone chose it. Dictation (microphone) and conversation (headset) are separate controls precisely so that pressing one never does the other."
                     }
                 },
                 "authorization": {
