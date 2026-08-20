@@ -54,7 +54,7 @@
     "gridstack": "^13.1.2",
     "marked": "^18.0.10",
     "node-polyfill-webpack-plugin": "4.0.0",
-    "pinia": "^2.1.7",
+    "pinia": "^4.0.3",
     "vue": "^3.5.41",
     "vue-material-design-icons": "^5.3.0",
     "vue-router": "^4.6.4"
