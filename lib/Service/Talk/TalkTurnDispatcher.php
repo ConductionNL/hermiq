@@ -153,14 +153,14 @@ class TalkTurnDispatcher {
 					continue;
 				}
 
-				// Called dynamically because ITriggerableProvider is absent from
-				// the pinned OCP (see TRIGGERABLE_PROVIDER). The is_a() check
-				// above is what guarantees the method exists here.
+				// Called dynamically because ITriggerableProvider was absent from
+				// the OCP this app used to pin (see TRIGGERABLE_PROVIDER). The
+				// pinned OCP now ships it, so the is_a() narrowing above makes
+				// the callable concrete and the is_callable() guard this
+				// replaces could never be false.
 				$trigger = [$provider, 'trigger'];
-				if (is_callable($trigger) === true) {
-					$trigger();
-					$triggered = true;
-				}
+				$trigger();
+				$triggered = true;
 			}
 		} catch (Throwable $e) {
 			// A runner that cannot be nudged is not an error: the queued job

@@ -287,7 +287,9 @@ class ToolGrantResolver {
 			}
 		}
 
-		return array_values(array_keys($resolved));
+		// `array_keys()` already returns a list — the array_values() this
+		// replaces was a no-op.
+		return array_keys($resolved);
 	}//end resolve()
 
 	/**
@@ -374,7 +376,9 @@ class ToolGrantResolver {
 			$ids[$base] = true;
 		}
 
-		return array_values(array_keys($ids));
+		// `array_keys()` already returns a list — the array_values() this
+		// replaces was a no-op.
+		return array_keys($ids);
 	}//end baseToolIds()
 
 	/**

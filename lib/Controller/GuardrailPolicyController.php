@@ -342,9 +342,11 @@ class GuardrailPolicyController extends Controller {
 	 */
 	private function resolveActiveOrganisation(string $uid): string {
 		try {
-			if (method_exists($this->organisationMapper, 'getActiveOrganisationWithFallback') === true) {
-				return (string)($this->organisationMapper->getActiveOrganisationWithFallback($uid) ?? '');
-			}
+			// OpenRegister's OrganisationMapper declares
+			// getActiveOrganisationWithFallback() on both `main` and
+			// `development`, so the method_exists() probe this replaces could
+			// never be false.
+			return (string)($this->organisationMapper->getActiveOrganisationWithFallback($uid) ?? '');
 		} catch (Throwable $e) {
 			$this->logger->warning('Hermiq could not resolve active organisation: ' . $e->getMessage(), ['exception' => $e]);
 		}

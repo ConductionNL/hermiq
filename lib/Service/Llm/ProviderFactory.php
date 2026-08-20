@@ -586,17 +586,10 @@ class ProviderFactory {
 		$response = (string)$psrResponse->getBody();
 
 		if ($httpCode !== 200) {
-			$errorData = [];
-			if (is_string($response) === true) {
-				$errorData = json_decode($response, true);
-			}
-
-			$fallbackError = 'Unknown error';
-			if (is_string($response) === true) {
-				$fallbackError = $response;
-			}
-
-			$errorMessage = $errorData['error']['message'] ?? $errorData['error'] ?? $fallbackError;
+			// `$response` is cast to string above, so the four `is_string()`
+			// guards that used to wrap these assignments were unreachable.
+			$errorData = json_decode($response, true);
+			$errorMessage = $errorData['error']['message'] ?? $errorData['error'] ?? $response;
 
 			if ($httpCode === 401 || $httpCode === 403) {
 				throw new Exception('Authentication failed. Please check your Fireworks API key.');
@@ -613,18 +606,10 @@ class ProviderFactory {
 			throw new Exception("Fireworks API error (HTTP {$httpCode}): {$errorMessage}");
 		}//end if
 
-		$data = [];
-		if (is_string($response) === true) {
-			$data = json_decode($response, true);
-		}
+		$data = json_decode($response, true);
 
 		if (isset($data['choices'][0]['message']['content']) === false) {
-			$responseStr = 'Invalid response';
-			if (is_string($response) === true) {
-				$responseStr = $response;
-			}
-
-			throw new Exception('Unexpected Fireworks API response format: ' . $responseStr);
+			throw new Exception('Unexpected Fireworks API response format: ' . $response);
 		}
 
 		return $data['choices'][0]['message']['content'];
