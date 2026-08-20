@@ -513,29 +513,22 @@ class ToolOversightController extends Controller {
 				uuid: $agentId
 			);
 
-			// 🔴 The audit must never be able to fail the write it describes.
-			//
-			// `auditWaiverChange()` already swallows its own write errors, but
-			// that catch is INSIDE the method — it cannot protect the call
-			// itself. `saveObject()`'s return type is not guaranteed across
-			// OpenRegister versions, so passing it into an `ObjectEntity`
-			// parameter can raise a TypeError right here, outside any of that
-			// protection, and the owner then gets a 500 on a grant write that
-			// actually SUCCEEDED. Checking the type first removes the whole
-			// class of failure rather than the one instance of it.
-			if (($updated instanceof ObjectEntity) === true) {
-				$this->auditWaiverChange(
-					agent: $updated,
-					before: $waiversBefore,
-					after: $this->waiverEntries(grants: $grants),
-					actor: $user->getUID()
-				);
-			}
+			// The audit must never be able to fail the write it describes, and
+			// `auditWaiverChange()` swallows its own write errors. The two
+			// `instanceof ObjectEntity` guards that used to stand here were
+			// written because `saveObject()`'s return type was thought to vary
+			// across OpenRegister versions — it does not: both `main` and
+			// `development` declare `saveObject(): ObjectEntity` as a hard
+			// return type, which PHP itself enforces, so neither guard could be
+			// false and passing `$updated` on can never raise a TypeError here.
+			$this->auditWaiverChange(
+				agent: $updated,
+				before: $waiversBefore,
+				after: $this->waiverEntries(grants: $grants),
+				actor: $user->getUID()
+			);
 
-			$savedTools = $grants;
-			if (($updated instanceof ObjectEntity) === true) {
-				$savedTools = ($updated->getObject()['tools'] ?? $grants);
-			}
+			$savedTools = ($updated->getObject()['tools'] ?? $grants);
 
 			return new JSONResponse(['agentId' => $agentId, 'tools' => $savedTools]);
 		} catch (DoesNotExistException $e) {

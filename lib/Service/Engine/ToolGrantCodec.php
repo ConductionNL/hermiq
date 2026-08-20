@@ -98,14 +98,18 @@ final class ToolGrantCodec {
 
 		$pairs = [];
 		foreach ($args as $key => $value) {
-			$rendered = (string)$value;
+			// The array case is handled FIRST. The unconditional `(string)$value`
+			// that used to open this loop ran for arrays too, raising an
+			// "Array to string conversion" warning on a value the next line then
+			// overwrote — the output was right, the warning was noise.
 			if (is_array($value) === true) {
 				// A closed value set, spelled the way the resolver's constraint
 				// grammar reads it back.
-				$rendered = 'in:' . implode(',', $value);
+				$pairs[] = $key . '=in:' . implode(',', $value);
+				continue;
 			}
 
-			$pairs[] = $key . '=' . $rendered;
+			$pairs[] = $key . '=' . (string)$value;
 		}
 
 		return $id . '?' . implode('&', $pairs);

@@ -285,6 +285,11 @@ class SkillMarketplaceService {
 	 * @param string $now This sync's timestamp.
 	 * @param array<string,mixed>|null $outcome Out-param: the per-skill outcome.
 	 *
+	 * @param-out array<string,mixed> $outcome This method always assigns an
+	 *            outcome, so callers can read it unconditionally on return —
+	 *            the `|null` in the accepted type is only there so a caller may
+	 *            pass an uninitialised variable in.
+	 *
 	 * @return ObjectEntity The saved skill.
 	 *
 	 * @spec openspec/changes/skill-install-idempotency/specs/skills-marketplace/spec.md#requirement-curated-state-survives-an-update

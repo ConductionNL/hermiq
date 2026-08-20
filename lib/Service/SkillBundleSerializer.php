@@ -150,6 +150,16 @@ class SkillBundleSerializer {
 	 * @param array|null $droppedAgents OUT: every agent this call did NOT
 	 *                                  bundle, same shape as `$dropped`.
 	 *
+	 * Both OUT params are initialised to `[]` on entry and never set back to
+	 * null, so on return they are always arrays. Saying so lets callers use
+	 * `count($dropped)` without a null check — without these tags the inferred
+	 * `array|null` leaked into `SkillController::bundlePublish()`'s response
+	 * literal and PHPStan 2 reported the whole JSONResponse payload as an
+	 * unresolvable type.
+	 *
+	 * @param-out array<int, array<string, string>> $dropped
+	 * @param-out array<int, array<string, string>> $droppedAgents
+	 *
 	 * @return array<string, string> The `path => contents` bundle tree.
 	 *
 	 * @spec openspec/changes/skill-bundle-publish/specs/skills-marketplace/spec.md#requirement-many-skills-publish-to-a-single-repository
