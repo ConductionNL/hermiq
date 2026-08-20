@@ -278,7 +278,7 @@
 					{{ t('hermiq', 'Cancel') }}
 				</NcButton>
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="saving || !form.name"
 					@click="save">
 					<template v-if="saving" #icon>
@@ -826,9 +826,11 @@ export default {
 				voiceInputEngine: this.voiceEngineOption(
 					source.voiceInputEngine || 'auto',
 				),
+
 				voiceOutputEngine: this.voiceEngineOption(
 					source.voiceOutputEngine || 'auto',
 				),
+
 				// '' rather than 2500: an empty field means "unset, use the
 				// default", and pre-filling the default would silently write it
 				// onto every agent that is edited for an unrelated reason.
@@ -1033,6 +1035,7 @@ export default {
 				voiceInputEngine: (this.form.voiceInputEngine || {}).value || 'auto',
 				voiceOutputEngine:
 					(this.form.voiceOutputEngine || {}).value || 'auto',
+
 				voiceConversationEnabled: this.form.voiceConversationEnabled,
 			}
 
