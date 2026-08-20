@@ -403,19 +403,6 @@ export default {
 
 	computed: {
 		/**
-		 * The speech-engine choices, labelled by WHERE THE AUDIO GOES.
-		 *
-		 * 🔴 Not "Browser / Local / Auto". The person configuring an agent for a
-		 * case file has no way to know that the browser's speech API streams the
-		 * microphone to Google in Chrome and to Apple in Safari — it is called
-		 * "browser", which reads as "on this device". A label that hides the
-		 * destination makes the privacy decision impossible to take, so the
-		 * destination IS the label.
-		 *
-		 * @return {Array<{value: string, label: string}>} The options.
-		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
-		 */
-		/**
 		 * The dictation-engine picker's selection, as the option object NcSelect
 		 * wants, over the plain value the form stores.
 		 *
@@ -423,6 +410,10 @@ export default {
 		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
 		 */
 		voiceInputEngineOption: {
+			/**
+			 * @return {{value: string, label: string}} The selected option.
+			 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
+			 */
 			get() {
 				return this.optionForEngine(this.form.voiceInputEngine)
 			},
@@ -445,6 +436,10 @@ export default {
 		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
 		 */
 		voiceOutputEngineOption: {
+			/**
+			 * @return {{value: string, label: string}} The selected option.
+			 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
+			 */
 			get() {
 				return this.optionForEngine(this.form.voiceOutputEngine)
 			},
@@ -460,6 +455,19 @@ export default {
 			},
 		},
 
+		/**
+		 * The speech-engine choices, labelled by WHERE THE AUDIO GOES.
+		 *
+		 * 🔴 Not "Browser / Local / Auto". The person configuring an agent for a
+		 * case file has no way to know that the browser's speech API streams the
+		 * microphone to Google in Chrome and to Apple in Safari — it is called
+		 * "browser", which reads as "on this device". A label that hides the
+		 * destination makes the privacy decision impossible to take, so the
+		 * destination IS the label.
+		 *
+		 * @return {Array<{value: string, label: string}>} The options.
+		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
+		 */
 		voiceEngineOptions() {
 			return [
 				{
