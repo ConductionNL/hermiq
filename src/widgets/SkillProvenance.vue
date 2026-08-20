@@ -288,6 +288,6 @@ export default {
 
 .skill-provenance__fact dd {
 	margin: 2px 0 0;
-	word-break: break-word;
+	overflow-wrap: break-word;
 }
 </style>

@@ -1516,7 +1516,7 @@ export default {
 .chat-page__text {
 	font-size: 14px;
 	line-height: 1.6;
-	word-wrap: break-word;
+	overflow-wrap: break-word;
 }
 
 .chat-page__text :deep(p) {

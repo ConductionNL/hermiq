@@ -632,7 +632,7 @@ export default {
 
 .skill-draft-review__diff-text {
 	white-space: pre-wrap;
-	word-break: break-word;
+	overflow-wrap: break-word;
 }
 
 .skill-draft-review__refs {
