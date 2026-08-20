@@ -308,6 +308,7 @@
                         }
                     },
                     "correlationId": {
+                        "readOnly": true,
                         "type": "string",
                         "title": "Correlation ID",
                         "description": "Idempotency key for a flow-triggered, webhook-triggered, or guardrail toolcall approval. For sourceType=flow/webhook it is the dispatch's own correlationId; for sourceType=toolcall it is hash('sha256', agentId+toolId+ksorted-arguments) — scheduleId serves this role for sourceType=schedule."
@@ -600,6 +601,7 @@
                         "description": "Activation state, managed by the OpenRegister lifecycle engine (never set directly)."
                     },
                     "tenantId": {
+                        "readOnly": true,
                         "type": "string",
                         "title": "Tenant ID",
                         "description": "The hermiq multi-tenancy scope used to key the DPO acknowledgement."
@@ -2732,6 +2734,7 @@
                         "description": "The leaf app the signals were read from; hard-coded to scholiq at this revision, kept generic for a future second adapter."
                     },
                     "tenantId": {
+                        "readOnly": true,
                         "type": "string",
                         "title": "Tenant ID",
                         "description": "Mirrors the source app's tenant_id — multi-tenant isolation, not translated."
@@ -3599,6 +3602,7 @@
                         "$ref": "agentflow"
                     },
                     "correlationId": {
+                        "readOnly": true,
                         "type": "string",
                         "title": "Correlation id",
                         "description": "Ties this run to the triggering event or schedule, so every record produced by one trigger can be found together."
