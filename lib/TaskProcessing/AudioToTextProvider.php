@@ -25,6 +25,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\TaskProcessing;
 
 use OCA\Hermiq\Service\Speech\SpeechClient;
+use OCP\Files\File;
+use OCP\Files\SimpleFS\ISimpleFile;
 use OCP\TaskProcessing\EShapeType;
 use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\ShapeDescriptor;
@@ -205,8 +207,27 @@ class AudioToTextProvider implements ISynchronousProvider {
 	public function process(?string $userId, array $input, callable $reportProgress): array {
 		$audio = ($input['input'] ?? null);
 
-		// Nextcloud hands a file resource for audio inputs; accept either that or
-		// raw bytes rather than assuming one and failing obscurely on the other.
+		// 🔴 NEXTCLOUD HANDS AN `OCP\Files\File` NODE, NOT A RESOURCE AND NOT BYTES.
+		// This method used to accept only the latter two, so EVERY audio2text task
+		// failed with the message below — measured 2026-08-20 on task 3, the first
+		// such task ever scheduled on the dev instance:
+		//
+		//   RuntimeException: No audio was supplied to transcribe.
+		//   Manager.php:1139 → AudioToTextProvider->process('admin',
+		//     ['input' => OC\Files\Node\File], Closure)
+		//
+		// It read as a sidecar problem and was not: the request never left PHP.
+		// Nothing caught it because the provider had no caller — the sidecar was
+		// unreachable from this container until the network fix in the speech
+		// compose, so the queue count for this task type was zero.
+		//
+		// All three shapes are accepted rather than the one this version happens
+		// to pass: the ISimpleFile/File split differs by input source, and a
+		// provider that guesses is a provider that breaks on the next caller.
+		if ($audio instanceof File === true || $audio instanceof ISimpleFile === true) {
+			$audio = $audio->getContent();
+		}
+
 		if (is_resource($audio) === true) {
 			$audio = stream_get_contents($audio);
 		}

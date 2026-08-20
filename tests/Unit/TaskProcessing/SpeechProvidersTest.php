@@ -21,6 +21,8 @@ namespace OCA\Hermiq\Tests\Unit\TaskProcessing;
 use OCA\Hermiq\Service\Speech\SpeechClient;
 use OCA\Hermiq\TaskProcessing\AudioToTextProvider;
 use OCA\Hermiq\TaskProcessing\TextToSpeechProvider;
+use OCP\Files\File;
+use OCP\Files\SimpleFS\ISimpleFile;
 use OCP\TaskProcessing\TaskTypes\AudioToText;
 use OCP\TaskProcessing\TaskTypes\TextToSpeech;
 use PHPUnit\Framework\TestCase;
@@ -86,8 +88,71 @@ class SpeechProvidersTest extends TestCase {
 	}//end testTranscriptionReportsTheLanguageActuallyUsed()
 
 	/**
-	 * A stream input is read rather than rejected — Nextcloud hands a file
-	 * resource for audio, and assuming raw bytes would fail obscurely.
+	 * 🔴 THE SHAPE NEXTCLOUD ACTUALLY PASSES: an `OCP\Files\File` NODE.
+	 *
+	 * This is the case the suite was missing, and its absence is the whole
+	 * reason the provider shipped broken. `testTranscriptionAcceptsAStreamInput`
+	 * below asserts a resource is accepted, its docblock says "Nextcloud hands a
+	 * file resource for audio" — and Nextcloud does not. Measured on NC 34.0.0
+	 * against the real Manager: every `core:audio2text` task failed with
+	 * `RuntimeException: No audio was supplied to transcribe.`, the trace showing
+	 * `AudioToTextProvider->process('admin', ['input' => OC\Files\Node\File], …)`.
+	 *
+	 * A green suite proved only that the provider handles the two shapes nobody
+	 * sends. Nothing else noticed because the sidecar was unreachable from the
+	 * Nextcloud container, so the provider had never had a caller at all — the
+	 * task queue held zero tasks of this type, ever.
+	 *
+	 * @return void
+	 */
+	public function testTranscriptionAcceptsAFileNode(): void {
+		$file = $this->createMock(File::class);
+		$file->method('getContent')->willReturn('AUDIOBYTES');
+
+		$speech = $this->createMock(SpeechClient::class);
+		$speech->expects($this->once())
+			->method('transcribe')
+			->with('AUDIOBYTES', 'nl')
+			->willReturn(['text' => 'gelukt', 'language' => 'nl', 'engine' => 'e']);
+
+		$out = (new AudioToTextProvider($speech, $this->createMock(LoggerInterface::class)))
+			->process('alice', ['input' => $file, 'language' => 'nl'], $this->progress());
+
+		$this->assertSame('gelukt', $out['output']);
+
+	}//end testTranscriptionAcceptsAFileNode()
+
+	/**
+	 * The other node shape. `ISimpleFile` is not a `File`, and which one arrives
+	 * depends on where the audio came from — a provider that handles one and
+	 * throws on the other is broken for half its callers.
+	 *
+	 * @return void
+	 */
+	public function testTranscriptionAcceptsASimpleFile(): void {
+		$file = $this->createMock(ISimpleFile::class);
+		$file->method('getContent')->willReturn('AUDIOBYTES');
+
+		$speech = $this->createMock(SpeechClient::class);
+		$speech->expects($this->once())
+			->method('transcribe')
+			->with('AUDIOBYTES', '')
+			->willReturn(['text' => 'ok', 'language' => 'nl', 'engine' => 'e']);
+
+		$out = (new AudioToTextProvider($speech, $this->createMock(LoggerInterface::class)))
+			->process('alice', ['input' => $file], $this->progress());
+
+		$this->assertSame('ok', $out['output']);
+
+	}//end testTranscriptionAcceptsASimpleFile()
+
+	/**
+	 * A stream input is read rather than rejected.
+	 *
+	 * ⚠️ This docblock used to claim "Nextcloud hands a file resource for audio".
+	 * It does not — see `testTranscriptionAcceptsAFileNode` above. The resource
+	 * path is kept because other TaskProcessing callers may pass one, but it is
+	 * no longer the case this suite treats as the real one.
 	 *
 	 * @return void
 	 */
