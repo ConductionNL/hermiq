@@ -219,7 +219,7 @@
 			-->
 			<div class="agent-form__field">
 				<NcSelect
-					v-model="form.voiceInputEngine"
+					v-model="voiceInputEngineOption"
 					:options="voiceEngineOptions"
 					:clearable="false"
 					label="label"
@@ -236,7 +236,7 @@
 
 			<div class="agent-form__field">
 				<NcSelect
-					v-model="form.voiceOutputEngine"
+					v-model="voiceOutputEngineOption"
 					:options="voiceEngineOptions"
 					:clearable="false"
 					label="label"
@@ -415,6 +415,51 @@ export default {
 		 * @return {Array<{value: string, label: string}>} The options.
 		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
 		 */
+		/**
+		 * The dictation-engine picker's selection, as the option object NcSelect
+		 * wants, over the plain value the form stores.
+		 *
+		 * @return {{value: string, label: string}} The selected option.
+		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
+		 */
+		voiceInputEngineOption: {
+			get() {
+				return this.optionForEngine(this.form.voiceInputEngine)
+			},
+
+			/**
+			 * @param {{value: string}|null} option The picked engine.
+			 *
+			 * @return {void}
+			 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
+			 */
+			set(option) {
+				this.form.voiceInputEngine = option ? option.value : 'auto'
+			},
+		},
+
+		/**
+		 * The same for the spoken-replies engine.
+		 *
+		 * @return {{value: string, label: string}} The selected option.
+		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
+		 */
+		voiceOutputEngineOption: {
+			get() {
+				return this.optionForEngine(this.form.voiceOutputEngine)
+			},
+
+			/**
+			 * @param {{value: string}|null} option The picked engine.
+			 *
+			 * @return {void}
+			 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
+			 */
+			set(option) {
+				this.form.voiceOutputEngine = option ? option.value : 'auto'
+			},
+		},
+
 		voiceEngineOptions() {
 			return [
 				{
@@ -767,26 +812,45 @@ export default {
 				searchObjects: true,
 				searchFiles: true,
 				ragNumSources: '',
-				voiceInputEngine: this.voiceEngineOption('auto'),
-				voiceOutputEngine: this.voiceEngineOption('auto'),
+				voiceInputEngine: 'auto',
+				voiceOutputEngine: 'auto',
 				voiceSilenceTimeout: '',
 				voiceConversationEnabled: false,
 			}
 		},
 
 		/**
-		 * One engine option object for the pickers.
+		 * 🔴 DELIBERATELY GONE: a `voiceEngineOption(value)` helper that resolved
+		 * the picker's `{value, label}` object by reading the `voiceEngineOptions`
+		 * COMPUTED — and `blankForm()` called it from `data()`.
+		 *
+		 * Vue initialises `data` BEFORE computeds, so `this.voiceEngineOptions`
+		 * was undefined there and `.find()` threw while the component was being
+		 * created. The modal never mounted, and neither did the page holding it:
+		 * two e2e specs failed on the agents index — `AgentCatalog mounts at
+		 * /agents` — with no mention of a modal anywhere in the failure.
+		 *
+		 * The form now stores the VALUE and the pickers bind through get/set
+		 * computeds, which is the same shape `providerOption` above already uses.
+		 * Nothing in `data()` reaches for a computed any more.
+		 */
+
+		/**
+		 * The picker option for a stored engine value.
+		 *
+		 * ⚠️ A METHOD, NOT A COMPUTED, and only ever called from computeds and
+		 * the template — never from `data()`. See the note above for what
+		 * happened the last time this resolution ran too early.
 		 *
 		 * @param {string} value The stored value (`auto`, `browser`, `local`, `off`).
 		 *
 		 * @return {{value: string, label: string}} The matching option, or the first.
 		 * @spec openspec/specs/speech-services/spec.md#requirement-speech-policy-is-per-agent
 		 */
-		voiceEngineOption(value) {
-			return (
-				this.voiceEngineOptions.find((option) => option.value === value)
-				|| this.voiceEngineOptions[0]
-			)
+		optionForEngine(value) {
+			const options = this.voiceEngineOptions
+
+			return options.find((option) => option.value === value) || options[0]
 		},
 
 		/**
@@ -823,13 +887,8 @@ export default {
 				searchObjects: source.searchObjects !== false,
 				searchFiles: source.searchFiles !== false,
 				ragNumSources: source.ragNumSources ?? '',
-				voiceInputEngine: this.voiceEngineOption(
-					source.voiceInputEngine || 'auto',
-				),
-
-				voiceOutputEngine: this.voiceEngineOption(
-					source.voiceOutputEngine || 'auto',
-				),
+				voiceInputEngine: source.voiceInputEngine || 'auto',
+				voiceOutputEngine: source.voiceOutputEngine || 'auto',
 
 				// '' rather than 2500: an empty field means "unset, use the
 				// default", and pre-filling the default would silently write it
@@ -1032,9 +1091,10 @@ export default {
 				// and the agent would read as an unrecognised engine — which
 				// normalises to `auto`, i.e. an agent pinned to the private
 				// engine would quietly become one that may use the browser's.
-				voiceInputEngine: (this.form.voiceInputEngine || {}).value || 'auto',
-				voiceOutputEngine:
-					(this.form.voiceOutputEngine || {}).value || 'auto',
+				// The form now holds the value itself, and the pickers convert
+				// through `voiceInputEngineOption` / `voiceOutputEngineOption`.
+				voiceInputEngine: this.form.voiceInputEngine || 'auto',
+				voiceOutputEngine: this.form.voiceOutputEngine || 'auto',
 
 				voiceConversationEnabled: this.form.voiceConversationEnabled,
 			}
