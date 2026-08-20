@@ -36,7 +36,7 @@
     "extends @nextcloud/browserslist-config"
   ],
   "dependencies": {
-    "@babel/core": "^7.29.0",
+    "@babel/core": "^8.0.1",
     "@babel/preset-env": "^8.0.2",
     "@conduction/nextcloud-vue": "^2.9.0",
     "@nextcloud/auth": "^2.5.0",
@@ -52,7 +52,7 @@
     "dexie": "^4.4.5",
     "dompurify": "^3.4.11",
     "gridstack": "^13.0.2",
-    "marked": "^18.0.9",
+    "marked": "^18.0.10",
     "node-polyfill-webpack-plugin": "4.0.0",
     "pinia": "^2.1.7",
     "vue": "^3.5.41",
@@ -72,7 +72,7 @@
     }
   },
   "devDependencies": {
-    "@cyclonedx/cyclonedx-npm": "^5.0.0",
+    "@cyclonedx/cyclonedx-npm": "^6.0.1",
     "@nextcloud/browserslist-config": "^3.0.1",
     "@nextcloud/eslint-config": "^9.0.1",
     "@nextcloud/prettier-config": "^1.2.0",
@@ -101,7 +101,7 @@
     "vue-eslint-parser": "^10.3.0",
     "vue-loader": "^17.4.2",
     "webpack": "^5.106.2",
-    "webpack-cli": "^6.0.1"
+    "webpack-cli": "^7.2.2"
   },
   "prettier": "@nextcloud/prettier-config"
 }
