@@ -552,6 +552,20 @@ test.describe('speech-services: the policy is editable and it persists', () => {
 			.locator('li[role="option"]', { hasText: 'On this instance' })
 			.first()
 			.click()
+
+		// 🔴 CONFIRM THE PICKER TOOK IT BEFORE SAVING. Without this the test
+		// saved whatever the picker happened to hold and only noticed at the
+		// final API read, which then failed as `Expected "local", Received
+		// "auto"` — a wrong STORED value, which reads as a broken save path
+		// rather than as a click that never landed. Measured: one failure and
+		// one pass across two consecutive runs of this test alone.
+		//
+		// NcSelect renders its option list asynchronously, so the click can beat
+		// the list into existence. Asserting the selection here gives Playwright
+		// something to retry on and puts the failure at the step that actually
+		// went wrong.
+		await expect(form).toContainText('On this instance')
+
 		await form.getByRole('button', { name: /^save$/i }).click()
 		await expect(form).toBeHidden({ timeout: 20_000 })
 
