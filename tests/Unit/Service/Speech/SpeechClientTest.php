@@ -172,19 +172,30 @@ class SpeechClientTest extends TestCase {
 	}//end testConfiguredModelAndBaseUrlAreUsed()
 
 	/**
-	 * The default transcription model is the deepdml turbo conversion — NOT a
-	 * `Systran/...` turbo id, which does not exist and which HuggingFace answers
-	 * with 401 rather than 404, so a wrong default would read as an auth failure.
+	 * 🔴 THE DEFAULT TRANSCRIPTION MODEL RUNS ON A CPU.
+	 *
+	 * It used to be `deepdml/faster-whisper-large-v3-turbo-ct2`, a GPU model:
+	 * measured 2026-08-20 on a CPU-only host, warm, through the Nextcloud path,
+	 * a 4.6s clip took 81s with it and 3.1s with this one. A default nobody can
+	 * use is not a quality choice — the caller gives up long before the
+	 * transcript exists and the feature reads as broken rather than as
+	 * misconfigured. A GPU host raises it through `speech_stt_model`.
+	 *
+	 * ⚠️ The vendor prefixes are NOT interchangeable, and this test pins the
+	 * pairing rather than just the size: Systran publishes small/base but no
+	 * large-v3 TURBO conversion, deepdml publishes the turbo one, and
+	 * HuggingFace answers a non-existent repo with 401 rather than 404 — so a
+	 * mismatched id reads as an auth failure while the sidecar crash-loops.
 	 *
 	 * @return void
 	 */
-	public function testDefaultTranscriptionModelIsTheOneThatExists(): void {
+	public function testDefaultTranscriptionModelIsACpuModelThatExists(): void {
 		$result = $this->client('{"text":"x"}')->transcribe('A');
 
-		$this->assertSame('deepdml/faster-whisper-large-v3-turbo-ct2', $result['engine']);
-		$this->assertStringNotContainsStringIgnoringCase('systran', $result['engine']);
+		$this->assertSame('Systran/faster-whisper-base', $result['engine']);
+		$this->assertStringNotContainsStringIgnoringCase('turbo', $result['engine']);
 
-	}//end testDefaultTranscriptionModelIsTheOneThatExists()
+	}//end testDefaultTranscriptionModelIsACpuModelThatExists()
 
 	/**
 	 * An unreachable sidecar raises rather than returning a plausible empty result.

@@ -84,14 +84,25 @@ class SpeechClient {
 	/**
 	 * Default transcription model.
 	 *
-	 * ⚠️ `deepdml/...`, NOT `Systran/...`. Systran publishes a large-v3
-	 * CTranslate2 conversion but no turbo one, and HuggingFace answers a
-	 * non-existent repo with 401 rather than 404 — so a wrong id reads as an auth
-	 * failure while the sidecar crash-loops.
+	 * 🔴 A CPU MODEL, DELIBERATELY. This used to default to
+	 * `deepdml/faster-whisper-large-v3-turbo-ct2`, which is a GPU model: measured
+	 * 2026-08-20 on a CPU-only host, warm, through the Nextcloud path, a 4.6s
+	 * clip took **81s** with it and **3.1s** with this one. A default nobody can
+	 * use is not a quality choice — the caller times out long before the
+	 * transcript exists, and the feature reads as broken rather than as
+	 * misconfigured.
+	 *
+	 * An instance with a GPU should raise this deliberately:
+	 * `occ config:app:set hermiq speech_stt_model --value="deepdml/faster-whisper-large-v3-turbo-ct2"`.
+	 *
+	 * ⚠️ THE VENDOR PREFIX IS NOT INTERCHANGEABLE. Systran publishes small/base
+	 * conversions but no large-v3 TURBO one, and `deepdml` publishes the turbo
+	 * one. HuggingFace answers a non-existent repo with **401, not 404**, so a
+	 * wrong id reads as an auth failure while the sidecar crash-loops.
 	 *
 	 * @var string
 	 */
-	private const DEFAULT_STT_MODEL = 'deepdml/faster-whisper-large-v3-turbo-ct2';
+	private const DEFAULT_STT_MODEL = 'Systran/faster-whisper-base';
 
 	/**
 	 * Default synthesis model.

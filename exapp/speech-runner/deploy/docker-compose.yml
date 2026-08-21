@@ -188,7 +188,13 @@ services:
         set -e
         uvicorn --factory --host 0.0.0.0 speaches.main:create_app &
         until python3 -c "import urllib.request;urllib.request.urlopen('http://localhost:8000/health',timeout=2)" 2>/dev/null; do sleep 2; done
-        for m in deepdml/faster-whisper-large-v3-turbo-ct2 speaches-ai/Kokoro-82M-v1.0-ONNX; do
+        # 🔴 THE FIRST ID MUST MATCH `SpeechClient::DEFAULT_STT_MODEL`. Speaches
+        # does not lazily download: a default naming a model this primer did not
+        # install 404s with "Model '<id>' is not installed locally" on the first
+        # dictation, which reads as a broken feature rather than a missing file.
+        # large-v3-turbo is primed as well so a GPU host can switch to it by
+        # setting `speech_stt_model` alone, with no second priming round.
+        for m in Systran/faster-whisper-base deepdml/faster-whisper-large-v3-turbo-ct2 speaches-ai/Kokoro-82M-v1.0-ONNX; do
           echo "priming $$m"
           python3 -c "import urllib.request;urllib.request.urlopen(urllib.request.Request('http://localhost:8000/v1/models/$$m',method='POST'),timeout=3600)"
         done
