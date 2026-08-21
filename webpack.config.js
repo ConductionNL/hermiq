@@ -148,12 +148,18 @@ webpackConfig.resolve = webpackConfig.resolve || {}
 // NOTE: deliberately NO `resolve.modules = [<app>/node_modules, 'node_modules']`.
 // Pinning the app's top-level node_modules first defeats npm's nested resolution,
 // so a package that legitimately needs its OWN nested copy of a dependency gets
-// the hoisted one instead. Concretely: @nextcloud/dialogs is built against
-// @vueuse/core <=12 (it imports `toValue`, removed in v13) and npm nests
-// @vueuse/core@11 under it, while @nextcloud/vue needs @vueuse/components@14 and
-// its v14-only symbols. Forcing top-level resolution gave the dialogs chunk
-// @vueuse/core@14 -> "export 'toValue' was not found". Standard node resolution
-// (nested first) lets each consumer get the version it was built against.
+// the hoisted one instead. The tree really does hold two incompatible
+// @vueuse/core lines: @conduction/nextcloud-vue is built against <=12 (it imports
+// `toValue`, removed in v13) and resolves 11.3.0, while @nextcloud/vue needs
+// @vueuse/components@14 and its v14-only symbols. Forcing top-level resolution
+// gave the consumer of the older line @vueuse/core@14 -> "export 'toValue' was
+// not found". Standard node resolution (nested first) lets each consumer get the
+// version it was built against.
+//
+// This note used to name @nextcloud/dialogs as the <=12 consumer. That was true
+// of v6; v7 depends on @vueuse/core ^14.3.0 and its published dist references
+// vueuse ZERO times, so dialogs no longer constrains this either way. The
+// constraint itself is unchanged — only which package carries it.
 webpackConfig.resolve.alias = {
 	...(webpackConfig.resolve.alias || {}),
 	'@': path.resolve(__dirname, 'src'),
@@ -184,13 +190,24 @@ webpackConfig.resolve.alias = {
 		__dirname,
 		'node_modules/@nextcloud/vue/dist/index.mjs',
 	),
-	// @nextcloud/dialogs v6 ships its stylesheet at dist/style.css via the exports
+	// @nextcloud/dialogs ships its stylesheet at dist/style.css via the exports
 	// map; the aliased lib imports '@nextcloud/dialogs/style.css' — resolve it here.
 	'@nextcloud/dialogs/style.css$': path.resolve(
 		__dirname,
 		'node_modules/@nextcloud/dialogs/dist/style.css',
 	),
-	'@nextcloud/dialogs': path.resolve(__dirname, 'node_modules/@nextcloud/dialogs'),
+	// v7 went ESM-only, exactly like @nextcloud/vue v9 above: `exports` declares
+	// only `.` -> ./dist/index.mjs under an `import` condition, with no `main` and
+	// no `module`. The DIRECTORY alias that served v6 therefore resolves to a
+	// folder with no entry point, and webpack reports it as `Can't resolve
+	// '@nextcloud/dialogs'` — 18 of them, one per importing SFC. Nothing in the
+	// message hints that the package is installed and correct; it reads as a
+	// missing dependency. Point at the explicit entry file, with `$` so the
+	// `/style.css` subpath above still wins.
+	'@nextcloud/dialogs$': path.resolve(
+		__dirname,
+		'node_modules/@nextcloud/dialogs/dist/index.mjs',
+	),
 	// Force the lib's transitive @nextcloud/axios import to resolve to
 	// the app's installed copy. Without the `$` exact-match suffix,
 	// webpack would walk up to the lib's own node_modules and load a
