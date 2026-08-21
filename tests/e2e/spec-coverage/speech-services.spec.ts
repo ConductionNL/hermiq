@@ -212,8 +212,20 @@ async function openCompanion(page: Page): Promise<void> {
 	// a while on a busy instance — waiting for it before clicking is the
 	// difference between "the panel did not open" and "the click went nowhere
 	// because there was nothing there yet".
+	//
+	// And when it never arrives at all, a RELOAD is the repair: the init script
+	// either evaluated or it did not, and waiting longer on a page that already
+	// finished loading only spends the timeout. Measured across nine runs on
+	// this box, this was the residual flake after the click retry — always
+	// "cn-ai-fab not found", never a wrong assertion.
 	const fab = page.locator(FAB).first()
-	await expect(fab).toBeVisible({ timeout: 30_000 })
+	try {
+		await expect(fab).toBeVisible({ timeout: 20_000 })
+	} catch (e) {
+		await page.reload({ waitUntil: 'domcontentloaded' })
+		await dismissTour(page)
+		await expect(fab).toBeVisible({ timeout: 30_000 })
+	}
 
 	const composer = page.locator('[data-testid="cn-ai-input-textarea"]')
 
