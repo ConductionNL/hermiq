@@ -27,12 +27,16 @@ When an agent's speech policy selects the on-instance engine, audio and transcri
 the instance's own speech sidecar, and the sidecar MUST have no route off the host.
 
 #### Scenario: A confidential agent dictates
+
+@e2e tests/e2e/spec-coverage/speech-services.spec.ts
 - GIVEN an agent whose `voiceInputEngine` is `local`
 - WHEN the user dictates a message
 - THEN the audio MUST be sent only to the instance's speech service
 - AND no browser speech recognition API may be started for that dictation
 
 #### Scenario: The sidecar is jailed
+
+@e2e exclude Container network posture, not a UI surface; asserted by reading /proc/net/route inside the sidecar and by an outbound call that must fail (docs/exapp-runner.md step 5).
 - GIVEN the speech sidecar is running
 - WHEN its network configuration is inspected
 - THEN it MUST have no default route
@@ -43,6 +47,8 @@ The system MUST NOT substitute a browser/cloud speech engine when the agent's po
 engine, even when the local engine is unavailable.
 
 #### Scenario: The speech service is down and the agent is local-only
+
+@e2e tests/e2e/spec-coverage/speech-services.spec.ts
 - GIVEN an agent whose `voiceInputEngine` is `local`
 - AND the speech service is unreachable
 - WHEN the user presses the microphone
@@ -54,6 +60,8 @@ The system MUST determine local-speech availability by reaching the speech servi
 its configuration.
 
 #### Scenario: Configured but unreachable
+
+@e2e exclude Backend reachability probe; asserted by SpeechControllerTest::testCapabilitiesReportsUnreachable and by the composer test that consumes a false answer.
 - GIVEN `speech_base_url` names a host that does not resolve
 - WHEN a client asks whether local speech is available
 - THEN the answer MUST be that it is unavailable
@@ -63,6 +71,8 @@ The `core:audio2text` provider MUST accept the audio input shapes Nextcloud's Ta
 supplies, including an `OCP\Files\File` node.
 
 #### Scenario: A scheduled audio2text task
+
+@e2e exclude TaskProcessing queue behaviour has no UI; asserted by SpeechProvidersTest plus a live OCS schedule + occ taskprocessing:worker round trip.
 - GIVEN a scheduled `core:audio2text` task whose input is a file in the user's storage
 - WHEN the task is processed
 - THEN the task MUST reach `STATUS_SUCCESSFUL`
@@ -74,11 +84,15 @@ how long a silence may last before the microphone is released, and whether spoke
 offered at all.
 
 #### Scenario: Two agents, two policies
+
+@e2e tests/e2e/spec-coverage/speech-services.spec.ts
 - GIVEN agent A configured for the browser engine and agent B configured for the local engine
 - WHEN the user switches the composer from A to B
 - THEN the composer MUST use each agent's own engine for that agent's dictation
 
 #### Scenario: Speech switched off entirely
+
+@e2e tests/e2e/spec-coverage/speech-services.spec.ts
 - GIVEN an agent whose `voiceInputEngine` is `off`
 - WHEN the composer renders for that agent
 - THEN no microphone control may be offered
@@ -88,6 +102,8 @@ Dictation MUST place the transcript in the composer and leave sending to the use
 on a silence is permitted only in conversation mode, which the user enters by an explicit control.
 
 #### Scenario: The speaker pauses to think
+
+@e2e tests/e2e/spec-coverage/speech-services.spec.ts
 - GIVEN dictation is running
 - WHEN the speaker stops talking for longer than the configured silence
 - THEN the microphone MUST be released
@@ -98,6 +114,8 @@ The microphone control MUST indicate its actual state — recording or idle — 
 click would perform, and MUST distinguish the two by more than colour alone.
 
 #### Scenario: Recording
+
+@e2e tests/e2e/spec-coverage/speech-services.spec.ts
 - GIVEN dictation is running
 - WHEN the user looks at the microphone control
 - THEN it MUST read as active

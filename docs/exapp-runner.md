@@ -298,10 +298,20 @@ curl -u user:pass -H 'OCS-APIRequest: true' \
 
 ### 4a. Pick a model that matches the hardware
 
-⚠️ **The default is a GPU model.** `deepdml/faster-whisper-large-v3-turbo-ct2` on
-CPU is roughly 12–18× realtime, which is not "slow", it is unusable — a
-five-second sentence takes over a minute, and the caller times out long before
-the transcript exists.
+**The default is `Systran/faster-whisper-base` — a CPU model**, and that is
+deliberate. It used to be `deepdml/faster-whisper-large-v3-turbo-ct2`, which on
+CPU is roughly 12–18× realtime: not "slow", unusable. A five-second sentence
+took over a minute and the caller timed out long before the transcript existed,
+so the feature read as broken rather than as misconfigured.
+
+**A GPU host should raise it deliberately:**
+
+```bash
+occ config:app:set hermiq speech_stt_model \
+  --value="deepdml/faster-whisper-large-v3-turbo-ct2"
+```
+
+The primer installs both, so that switch needs no second priming round.
 
 Measured 2026-08-20 on a Ryzen 7 5800H (14 vCPU, CPU-only), same 4.6s Dutch clip,
 model already resident, timed **through the Nextcloud path** (`occ
@@ -317,11 +327,8 @@ taskprocessing:worker` → provider → sidecar) unless noted:
 Kokoro synthesis, for comparison: 9.3s for a short sentence through the same
 path.
 
-So a CPU deployment wants:
-
-```bash
-occ config:app:set hermiq speech_stt_model --value="Systran/faster-whisper-base"
-```
+A CPU deployment needs no action — `faster-whisper-base` is the default. The row
+that needs a decision is the GPU one, above.
 
 `WHISPER__COMPUTE_TYPE=int8` is set in the compose file and is worth 1.5× on its
 own; the model choice is worth another 6×. Raising `WHISPER__CPU_THREADS` is
