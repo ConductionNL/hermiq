@@ -51,6 +51,7 @@ import {
 	TEST_PREFIX,
 	appRoot,
 	deleteObject,
+	dismissTour,
 	harvestToken,
 	resolveRegisterSchema,
 	seedAgent,
@@ -98,6 +99,23 @@ async function pinComposerContext(
 	agent: Record<string, unknown>,
 	localAvailable: boolean,
 ): Promise<void> {
+	// 🔴 THE LAUNCHER FAILS CLOSED WITHOUT AN LLM PROVIDER, and CI configures
+	// none: `CnAiCompanion` probes `/api/chat/health` once at mount and simply
+	// does not render the button on a non-2xx. Locally the dev instance has a
+	// provider and the button appears; in CI it never did, so every composer
+	// test failed on "cn-ai-fab not found" — a missing provider reported as a
+	// missing feature.
+	//
+	// Stubbed rather than skipped: a suite that skips itself in CI is a suite
+	// that only ever runs where somebody happens to be looking. Nothing under
+	// test here is the health probe.
+	await page.route('**/apps/hermiq/api/chat/health', async (route) => {
+		await route.fulfill({
+			status: 200,
+			contentType: 'application/json',
+			body: JSON.stringify({ status: 'ok', capabilities: ['chat', 'stream'] }),
+		})
+	})
 	await page.route('**/apps/hermiq/api/agents', async (route) => {
 		await route.fulfill({
 			status: 200,
@@ -184,6 +202,11 @@ async function stubMicrophone(page: Page): Promise<void> {
  */
 async function openCompanion(page: Page): Promise<void> {
 	await page.goto('/apps/files/', { waitUntil: 'domcontentloaded' })
+
+	// A fresh instance opens its onboarding wizard over everything, and a modal
+	// that intercepts pointer events reports as "the button is not clickable"
+	// rather than as "something is in front of it".
+	await dismissTour(page)
 
 	// ⚠️ THE LAUNCHER IS MOUNTED BY A LATE INIT SCRIPT, so it can be absent for
 	// a while on a busy instance — waiting for it before clicking is the
@@ -478,6 +501,13 @@ test.describe('speech-services: the policy is editable and it persists', () => {
 		await page.goto(`${root}/agents/${seeded.id}`, {
 			waitUntil: 'domcontentloaded',
 		})
+
+		// 🔴 A FRESH INSTANCE OPENS ITS ONBOARDING WIZARD OVER EVERYTHING. In CI
+		// this test failed with "locator resolved to <button …edit-agent>" and
+		// then a click timeout — the button was found, visible and enabled, and
+		// a `cn-wizard-dialog` modal in front of it swallowed every click. The
+		// failure names the button, never the thing covering it.
+		await dismissTour(page)
 
 		// ⚠️ Wait for the detail page to exist BEFORE reaching for its actions.
 		// Clicking straight after `goto` failed once on an instance still
