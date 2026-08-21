@@ -17,19 +17,19 @@
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
     <documentation>
-        <user>https://codeberg.org/Conduction/hermiq</user>
-        <admin>https://codeberg.org/Conduction/hermiq</admin>
-        <developer>https://codeberg.org/Conduction/hermiq</developer>
+        <user>https://github.com/ConductionNL/hermiq</user>
+        <admin>https://github.com/ConductionNL/hermiq</admin>
+        <developer>https://github.com/ConductionNL/hermiq</developer>
     </documentation>
     <category>integration</category>
-    <website>https://codeberg.org/Conduction/hermiq</website>
-    <discussion>https://codeberg.org/Conduction/hermiq/issues</discussion>
-    <bugs>https://codeberg.org/Conduction/hermiq/issues</bugs>
-    <repository>https://codeberg.org/Conduction/hermiq</repository>
+    <website>https://github.com/ConductionNL/hermiq</website>
+    <discussion>https://github.com/ConductionNL/hermiq/issues</discussion>
+    <bugs>https://github.com/ConductionNL/hermiq/issues</bugs>
+    <repository>https://github.com/ConductionNL/hermiq</repository>
 
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-dashboard.png</screenshot>
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-agents.png</screenshot>
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-skills.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-dashboard.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-agents.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-skills.png</screenshot>
 
     <dependencies>
         <!--
