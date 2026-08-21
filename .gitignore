@@ -119,3 +119,11 @@ composer.phar
 # block the real one has, and its relative imports do not resolve from src/ —
 # which is what broke eslint the moment it was accidentally committed.
 /src/Chat.vue
+
+# Operator secrets. `exapp/*/deploy/.env` carries APP_SECRET — the 128-char
+# value Nextcloud mints when an ExApp registers. It is required to start the
+# runner and must never reach the repository: it is a live credential for an
+# app that executes vendor LLM CLIs.
+.env
+*/.env
+**/deploy/.env
