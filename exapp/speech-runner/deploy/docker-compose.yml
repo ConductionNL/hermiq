@@ -75,12 +75,59 @@ services:
       # slow on CPU, while the client gave up. A timeout is not evidence about
       # the network.
       - HF_HUB_OFFLINE=1
+      # 🔴 WITHOUT THIS, CTranslate2 RUNS THE MODEL IN WHATEVER PRECISION IT WAS
+      # CONVERTED TO — float16 for the turbo conversion below — and float16 on
+      # CPU is EMULATED. Measured on this compose, same 4.6s clip, model already
+      # resident (`model already loaded` in the log, so not a cold-load
+      # artefact): 81s unset vs 55s with int8. Free 1.5×, no accuracy cost worth
+      # the name at this size.
+      #
+      # ⚠️ int8 is not enough on its own — the model choice dominates. Same clip,
+      # same int8: large-v3-turbo 55s, `Systran/faster-whisper-small` 13s,
+      # `Systran/faster-whisper-base` 6.7s. A CPU-only deployment should point
+      # `speech_stt_model` at one of the small ones; large-v3-turbo on CPU is
+      # ~12× realtime and unusable interactively.
+      - WHISPER__COMPUTE_TYPE=int8
+      # ⚠️ `WHISPER__CPU_THREADS` IS DELIBERATELY NOT SET, AND THAT IS A
+      # MEASURED CHOICE RATHER THAN AN OVERSIGHT. Raising it to 8 looked like a
+      # 1.5× win when timed against the sidecar directly, and vanished when
+      # timed through the path that actually ships (occ taskprocessing:worker →
+      # provider → sidecar): same clip, `small` + int8, model warm, 19.4s at the
+      # default versus 17.5s and 23.0s across two runs at 8 threads. The
+      # run-to-run variance is larger than the effect, so the setting bought
+      # nothing but a number to defend.
     volumes:
       # Persist weights so a restart is not a multi-GB re-download, and so an
       # air-gapped instance keeps working once primed.
       - hermiq-speech-models:/home/ubuntu/.cache/huggingface
-    ports:
-      - '127.0.0.1:8000:8000'
+    # ⚠️ THERE IS DELIBERATELY NO `ports:` HERE ANY MORE, AND ITS ABSENCE IS THE
+    # HONEST VERSION OF WHAT WAS ALREADY HAPPENING.
+    #
+    # This file used to publish `127.0.0.1:8000:8000`. It never worked: Docker
+    # cannot NAT a published port into a container attached ONLY to an
+    # `internal: true` network, and it says nothing when you ask it to —
+    # `docker ps` shows a bare `8000/tcp`, `docker port hermiq-speech` prints
+    # nothing, and no process listens on the host. So the publish and the
+    # network jail contradicted each other, and the network won, silently.
+    #
+    # The cost of that was not theoretical: Nextcloud's `speech_base_url` was
+    # set to `http://hermiq-speech:8000`, which resolves from nowhere, so
+    # AudioToText/TextToSpeech were ADVERTISED to every TaskProcessing consumer
+    # while being reachable by nobody. Measured 2026-08-20: zero `core:audio2text`
+    # tasks had ever been scheduled on the dev instance.
+    #
+    # To reach the sidecar, join its network rather than publishing a port —
+    # this keeps the jail intact, because the sidecar still gets no gateway:
+    #
+    #   docker network connect <project>_speech-jailed <nextcloud-container>
+    #
+    # Verified after doing exactly that: `getent hosts hermiq-speech` resolves
+    # from the Nextcloud container and `/health` answers 200, while the
+    # sidecar's own `/proc/net/route` still has NO `00000000` (default) entry
+    # and an outbound call to huggingface.co still fails.
+    #
+    # For ad-hoc operator calls (priming, probing), use `docker exec` — see the
+    # PRIMING note at the bottom of this file.
     networks:
       # `internal: true` ⇒ Docker installs NO gateway, so this container has no
       # route off the host at all. Same single line that jails llm-runner.
@@ -171,11 +218,22 @@ volumes:
 # Speaches does NOT lazily download a model on first use; it 404s with
 # "Model '<id>' is not installed locally". Install both before first use:
 #
-#   curl -X POST http://127.0.0.1:8000/v1/models/deepdml/faster-whisper-large-v3-turbo-ct2
-#   curl -X POST http://127.0.0.1:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX
+#   docker compose --profile prime run --rm speech-primer
+#
+# ⚠️ NOT `curl http://127.0.0.1:8000/...`, which is what this note used to say.
+# There is no host port and there never was — see the `ports:` note above. The
+# serving container is reachable only from inside its jailed network, so an
+# operator reaches it with `docker exec`:
+#
+#   docker exec hermiq-speech curl -X POST http://localhost:8000/v1/models/<model-id>
+#
+# (`curl` IS present in this pinned image — measured 2026-08-20. The healthcheck
+# below is still written in Python because it must survive an image bump that
+# drops it, but an operator typing a one-off command can use either.)
 #
 # `GET /v1/registry?task=text-to-speech` lists valid ids — worth consulting,
-# since a wrong id fails the same way a missing one does.
+# since a wrong id fails the same way a missing one does. It needs egress, so
+# run it from the `speech-primer` container, not the serving one.
 #
 # Verified end to end on this compose: Kokoro synthesised "One sidecar now
 # serves both directions." and Whisper large-v3-turbo transcribed it back word

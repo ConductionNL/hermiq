@@ -109,6 +109,17 @@ class SpeechClient {
 	private const TIMEOUT_SECONDS = 900;
 
 	/**
+	 * Bound for the reachability probe.
+	 *
+	 * Deliberately nothing like `TIMEOUT_SECONDS`: this one answers a question
+	 * the UI is waiting on, and an unreachable sidecar must read as unreachable
+	 * within a second or two rather than hanging the control that asked.
+	 *
+	 * @var int
+	 */
+	private const HEALTH_TIMEOUT_SECONDS = 3;
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IClientService $clientService HTTP client factory.
@@ -230,6 +241,41 @@ class SpeechClient {
 		return $decoded;
 
 	}//end post()
+
+	/**
+	 * Whether the sidecar answers at all.
+	 *
+	 * 🔴 REACHES IT. A configuration read would have reported "available" for the
+	 * entire period during which `speech_base_url` pointed at a hostname that
+	 * resolved from nowhere — the sidecar sat on a jailed network with nothing
+	 * else attached, and Nextcloud advertised transcription to every consumer
+	 * regardless. Configuration is not reachability.
+	 *
+	 * Short timeout on purpose: this answers a UI question — "may I offer the
+	 * private engine?" — and a caller that waits fifteen minutes has already
+	 * lost. A slow inference call is a different question with a different
+	 * budget (`TIMEOUT_SECONDS`).
+	 *
+	 * @return bool True when `/health` answered 200.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-no-audio-leaves-the-instance
+	 */
+	public function isReachable(): bool {
+		try {
+			$client = $this->clientService->newClient();
+			$response = $client->get(
+				$this->baseUrl() . '/health',
+				['timeout' => self::HEALTH_TIMEOUT_SECONDS]
+			);
+
+			return $response->getStatusCode() === 200;
+		} catch (Throwable $e) {
+			$this->logger->debug('Hermiq: speech sidecar unreachable', ['exception' => $e]);
+
+			return false;
+		}
+
+	}//end isReachable()
 
 	/**
 	 * POST to the sidecar and return the body verbatim.

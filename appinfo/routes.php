@@ -502,6 +502,19 @@ return [
         // Chat health probe (PublicPage — widget probes before authenticating).
         ['name' => 'chatHealth#health', 'url' => '/api/chat/health', 'verb' => 'GET'],
 
+        // Speech-services, composer-facing half: synchronous transcription and
+        // synthesis for the AI composer's microphone. The TaskProcessing
+        // providers stay for Assistant/Talk — see SpeechController for why a
+        // chat composer cannot use them (file ids and polling).
+        //
+        // `capabilities` REACHES the sidecar rather than reading config: the
+        // frontend uses it to decide whether the private engine may be offered,
+        // and the fallback is a cloud engine, so a wrong answer sends audio
+        // off-instance.
+        ['name' => 'speech#transcribe',   'url' => '/api/speech/transcriptions', 'verb' => 'POST'],
+        ['name' => 'speech#synthesise',   'url' => '/api/speech/speech', 'verb' => 'POST'],
+        ['name' => 'speech#capabilities', 'url' => '/api/speech/capabilities', 'verb' => 'GET'],
+
         // SSE streaming chat endpoint (six-event envelope, hydra ADR-034 Decision 6).
         ['name' => 'chatStream#stream', 'url' => '/api/chat/stream', 'verb' => 'POST'],
 

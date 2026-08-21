@@ -38,7 +38,7 @@
   "dependencies": {
     "@babel/core": "^8.0.1",
     "@babel/preset-env": "^8.0.2",
-    "@conduction/nextcloud-vue": "^2.7.0",
+    "@conduction/nextcloud-vue": "^2.9.0",
     "@nextcloud/auth": "^2.5.0",
     "@nextcloud/axios": "~2.5.2",
     "@nextcloud/dialogs": "^6.0.0",

@@ -25,6 +25,8 @@ declare(strict_types=1);
 namespace OCA\Hermiq\TaskProcessing;
 
 use OCA\Hermiq\Service\Speech\SpeechClient;
+use OCP\Files\File;
+use OCP\Files\SimpleFS\ISimpleFile;
 use OCP\TaskProcessing\EShapeType;
 use OCP\TaskProcessing\ISynchronousProvider;
 use OCP\TaskProcessing\ShapeDescriptor;
@@ -60,6 +62,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * The provider id.
 	 *
 	 * @return string The id.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getId(): string {
 		return 'hermiq:audio2text';
@@ -70,6 +74,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * The human-readable name.
 	 *
 	 * @return string The name.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getName(): string {
 		return 'Hermiq (local Whisper)';
@@ -80,6 +86,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * The task type served.
 	 *
 	 * @return string The task type id.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getTaskTypeId(): string {
 		return AudioToText::ID;
@@ -93,6 +101,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * an optimistic figure here produces spurious timeouts rather than speed.
 	 *
 	 * @return int Seconds.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getExpectedRuntime(): int {
 		return 120;
@@ -103,6 +113,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * Optional inputs.
 	 *
 	 * @return array<string, ShapeDescriptor> The shape.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalInputShape(): array {
 		return [
@@ -121,6 +133,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * transcript is diagnosable rather than invisible.
 	 *
 	 * @return array<string, ShapeDescriptor> The shape.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalOutputShape(): array {
 		return [
@@ -133,6 +147,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * Input enum values.
 	 *
 	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getInputShapeEnumValues(): array {
 		return [];
@@ -143,6 +159,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * Input defaults.
 	 *
 	 * @return array<array-key, numeric|string> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getInputShapeDefaults(): array {
 		return [];
@@ -153,6 +171,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * Optional input enum values.
 	 *
 	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalInputShapeEnumValues(): array {
 		return [];
@@ -163,6 +183,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * Optional input defaults.
 	 *
 	 * @return array<array-key, numeric|string> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalInputShapeDefaults(): array {
 		return [];
@@ -173,6 +195,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * Output enum values.
 	 *
 	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOutputShapeEnumValues(): array {
 		return [];
@@ -183,6 +207,8 @@ class AudioToTextProvider implements ISynchronousProvider {
 	 * Optional output enum values.
 	 *
 	 * @return array<array-key, array<array-key, ShapeEnumValue>> Empty.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-taskprocessing-providers-accept-the-input-nextcloud-passes
 	 */
 	public function getOptionalOutputShapeEnumValues(): array {
 		return [];
@@ -205,8 +231,27 @@ class AudioToTextProvider implements ISynchronousProvider {
 	public function process(?string $userId, array $input, callable $reportProgress): array {
 		$audio = ($input['input'] ?? null);
 
-		// Nextcloud hands a file resource for audio inputs; accept either that or
-		// raw bytes rather than assuming one and failing obscurely on the other.
+		// 🔴 NEXTCLOUD HANDS AN `OCP\Files\File` NODE, NOT A RESOURCE AND NOT BYTES.
+		// This method used to accept only the latter two, so EVERY audio2text task
+		// failed with the message below — measured 2026-08-20 on task 3, the first
+		// such task ever scheduled on the dev instance:
+		//
+		//   RuntimeException: No audio was supplied to transcribe.
+		//   Manager.php:1139 → AudioToTextProvider->process('admin',
+		//     ['input' => OC\Files\Node\File], Closure)
+		//
+		// It read as a sidecar problem and was not: the request never left PHP.
+		// Nothing caught it because the provider had no caller — the sidecar was
+		// unreachable from this container until the network fix in the speech
+		// compose, so the queue count for this task type was zero.
+		//
+		// All three shapes are accepted rather than the one this version happens
+		// to pass: the ISimpleFile/File split differs by input source, and a
+		// provider that guesses is a provider that breaks on the next caller.
+		if ($audio instanceof File === true || $audio instanceof ISimpleFile === true) {
+			$audio = $audio->getContent();
+		}
+
 		if (is_resource($audio) === true) {
 			$audio = stream_get_contents($audio);
 		}

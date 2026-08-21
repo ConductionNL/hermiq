@@ -1304,7 +1304,18 @@
         "{kind} — requires explicit grant": "{kind} — requires explicit grant",
         "del": "del",
         "destructive": "destructive",
-        "write": "write"
+        "write": "write",
+        "Adds a hands-free control beside the microphone: your turn is sent when you stop speaking and the reply is spoken back. Off by default, because auto-sending on a pause can post a half-finished thought.": "Adds a hands-free control beside the microphone: your turn is sent when you stop speaking and the reply is spoken back. Off by default, because auto-sending on a pause can post a half-finished thought.",
+        "Allow spoken conversation": "Allow spoken conversation",
+        "Automatic — fastest available": "Automatic — fastest available",
+        "Browser — instant, audio goes to the browser vendor": "Browser — instant, audio goes to the browser vendor",
+        "Dictation (speech to text)": "Dictation (speech to text)",
+        "How long a pause may last before dictation stops. The text stays in the message box — dictation never sends by itself. 0 keeps the microphone open until you stop it.": "How long a pause may last before dictation stops. The text stays in the message box — dictation never sends by itself. 0 keeps the microphone open until you stop it.",
+        "Off — no speech for this agent": "Off — no speech for this agent",
+        "On this instance — private, slower": "On this instance — private, slower",
+        "Silence before the microphone closes (ms)": "Silence before the microphone closes (ms)",
+        "Spoken replies (text to speech)": "Spoken replies (text to speech)",
+        "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.": "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor."
     },
     "plurals": ""
 }
