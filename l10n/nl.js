@@ -1,9 +1,7 @@
-{
-    "translations": {
-        "%n step": [
-            "%n stap",
-            "%n stappen"
-        ],
+OC.L10N.register(
+    "hermiq",
+    {
+        "%n step": ["%n stap","%n stappen"],
         "Flow actions": "Flow-acties",
         "Open full size": "Op volledige grootte openen",
         "Received": "Ontvangen",
@@ -45,10 +43,7 @@
         "Search node types": "Zoek nodetypes",
         "Select a connection on the canvas — the line between two nodes — to describe it. What a step DOES is on the node.": "Selecteer een verbinding op het canvas — de lijn tussen twee nodes — om die te beschrijven. Wat een stap DOET staat op de node.",
         "Select a node on the canvas to edit it.": "Selecteer een node op het canvas om die te bewerken.",
-        "Showing the first item of %n.": [
-            "Toont het eerste item van %n.",
-            "Toont de eerste items van %n."
-        ],
+        "Showing the first item of %n.": ["Toont het eerste item van %n.","Toont de eerste items van %n."],
         "Showing the first items of %n.": "Toont de eerste items van %n.",
         "Start": "Start",
         "The API key is not set here: it is resolved when the agent runs, from your personal credential or your organisation's, under Settings → Agent credentials.": "De API-sleutel wordt hier niet ingesteld: die wordt bepaald wanneer de agent draait, vanuit je persoonlijke credential of die van je organisatie, onder Instellingen → Agent-credentials.",
@@ -98,25 +93,16 @@
         "\"Satisfied\" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.": "\"Voldaan\" betekent dat Hermiq deze control kan onderbouwen met zijn eigen governance-gegevens — het is geen certificering van naleving door een bevoegde auditor.",
         "%n case": "%n case",
         "%n cases": "%n cases",
-        "%n connection": [
-            "%n verbinding",
-            "%n verbindingen"
-        ],
+        "%n connection": ["%n verbinding","%n verbindingen"],
         "%n connections": "%n verbindingen",
         "%n entries": "%n items",
         "%n entry": "%n item",
-        "%n node": [
-            "%n node",
-            "%n nodes"
-        ],
+        "%n node": ["%n node","%n nodes"],
         "%n nodes": "%n knooppunten",
         "%n nodes have nowhere to send their work.": "%n knooppunten kunnen hun werk nergens naartoe sturen.",
         "%n suggested skill could not be found in your organisation and was skipped.": "%n voorgestelde skill kon niet worden gevonden in je organisatie en is overgeslagen.",
         "%n suggested skills could not be found in your organisation and were skipped.": "%n voorgestelde skills konden niet worden gevonden in je organisatie en zijn overgeslagen.",
-        "%n tool": [
-            "%n tool",
-            "%n tools"
-        ],
+        "%n tool": ["%n tool","%n tools"],
         "%n tools": "%n tools",
         "%n trigger node starts this flow.": "%n trigger-node start deze flow.",
         "%n trigger nodes start this flow.": "%n trigger-nodes starten deze flow.",
@@ -495,10 +481,7 @@
         "Export auditor's pack": "Auditorpakket exporteren",
         "Export skill": "Skill exporteren",
         "Export template": "Template exporteren",
-        "Exported %n record.": [
-            "%n record geëxporteerd.",
-            "%n records geëxporteerd."
-        ],
+        "Exported %n record.": ["%n record geëxporteerd.","%n records geëxporteerd."],
         "Exported %n records.": "%n records geëxporteerd.",
         "Exported package": "Geëxporteerd pakket",
         "Package contents": "Inhoud van het pakket",
@@ -1310,15 +1293,9 @@
         "{ms} ms": "{ms} ms",
         "{percent}% coverage": "{percent}% dekking",
         "{count} granted": "{count} toegekend",
-        "%n right granted": [
-            "%n recht toegekend",
-            "%n rechten toegekend"
-        ],
+        "%n right granted": ["%n recht toegekend","%n rechten toegekend"],
         "%n rights granted": "%n rechten toegekend",
-        "%n subject": [
-            "%n onderwerp",
-            "%n onderwerpen"
-        ],
+        "%n subject": ["%n onderwerp","%n onderwerpen"],
         "%n subjects": "%n onderwerpen",
         "Create": "Aanmaken",
         "Filter by cluster, subject or tool": "Filter op cluster, onderwerp of tool",
@@ -1350,6 +1327,5 @@
         "How long a pause may last before dictation stops. The text stays in the message box — dictation never sends by itself. 0 keeps the microphone open until you stop it.": "Hoe lang een pauze mag duren voordat het dicteren stopt. De tekst blijft in het berichtvak staan — dicteren verstuurt nooit uit zichzelf. Met 0 blijft de microfoon open totdat je hem zelf stopt.",
         "Adds a hands-free control beside the microphone: your turn is sent when you stop speaking and the reply is spoken back. Off by default, because auto-sending on a pause can post a half-finished thought.": "Voegt naast de microfoon een handsfree knop toe: jouw beurt wordt verstuurd zodra je stopt met praten en het antwoord wordt voorgelezen. Standaard uit, omdat automatisch versturen bij een pauze een half afgemaakte gedachte kan posten."
     },
-    "plurals": "",
-    "pluralForm": "nplurals=2; plural=(n != 1);"
-}
+    "nplurals=2; plural=(n != 1);"
+)
