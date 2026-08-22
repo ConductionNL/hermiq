@@ -16,6 +16,8 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
+use DateTimeImmutable;
+use DateTimeInterface;
 use OCA\OpenRegister\Service\ObjectService;
 use Psr\Log\LoggerInterface;
 
@@ -102,6 +104,51 @@ class AiOversightService {
      * @spec openspec/changes/ai-oversight-advisory-approvals/specs/ai-oversight/spec.md
      */
     public function record(array $record): ?string {
+        if ($this->accepts(record: $record) === false) {
+            return null;
+        }
+
+        $decidedAt = (string) ($record['decidedAt'] ?? '');
+        if ($decidedAt === '') {
+            $decidedAt = (new DateTimeImmutable())->format(DateTimeInterface::RFC3339);
+        }
+
+        try {
+            $saved = $this->objectService->saveObject(
+                object: $this->toApproval(record: $record, decidedAt: $decidedAt),
+                register: self::REGISTER_SLUG,
+                schema: self::APPROVAL_SCHEMA,
+                _rbac: false,
+                _multitenancy: false
+            );
+        } catch (\Throwable $e) {
+            // Logged and swallowed BY CONTRACT: the origin app has already
+            // completed the user's action, and failing its request after the
+            // fact would turn an audit outage into a functional one. The
+            // consumer sees isHandled() === false and can retry.
+            $this->logger->error(
+                'AI oversight: could not record advisory decision',
+                ['error' => $e->getMessage(), 'originApp' => (string) $record['originApp']]
+            );
+            return null;
+        }//end try
+
+        return $saved->getUuid();
+
+    }//end record()
+
+
+    /**
+     * Whether this record can be stored as evidence at all.
+     *
+     * Split out of record() so the write path reads as one statement and the
+     * refusal rules can be read without it.
+     *
+     * @param array<string, mixed> $record The decision record.
+     *
+     * @return boolean True when the record may be written.
+     */
+    private function accepts(array $record): bool {
         $missing = [];
         foreach (self::REQUIRED as $key) {
             if (isset($record[$key]) === false || (string) $record[$key] === '') {
@@ -117,7 +164,7 @@ class AiOversightService {
                 'AI oversight: refusing advisory record, missing required key(s)',
                 ['missing' => $missing, 'originApp' => ($record['originApp'] ?? '?')]
             );
-            return null;
+            return false;
         }
 
         $action = (string) $record['humanAction'];
@@ -126,14 +173,23 @@ class AiOversightService {
                 'AI oversight: refusing advisory record, unknown humanAction',
                 ['humanAction' => $action, 'allowed' => array_keys(self::ACTION_STATUS)]
             );
-            return null;
+            return false;
         }
 
-        $decidedAt = (string) ($record['decidedAt'] ?? '');
-        if ($decidedAt === '') {
-            $decidedAt = (new \DateTimeImmutable())->format(\DateTimeInterface::RFC3339);
-        }
+        return true;
 
+    }//end accepts()
+
+
+    /**
+     * Build the advisory Approval object from an accepted record.
+     *
+     * @param array<string, mixed> $record    The decision record.
+     * @param string               $decidedAt The resolved decision timestamp.
+     *
+     * @return array<string, mixed> The object to persist.
+     */
+    private function toApproval(array $record, string $decidedAt): array {
         // Both numbers stay NULL when the caller did not report them: a
         // confidence of 0.0 and "no confidence reported" are different facts,
         // and coercing the second into the first would invent certainty the
@@ -148,8 +204,8 @@ class AiOversightService {
             $responseTimeMs = (int) $record['responseTimeMs'];
         }
 
-        $object = [
-            'status'      => self::ACTION_STATUS[$action],
+        return [
+            'status'      => self::ACTION_STATUS[(string) $record['humanAction']],
             'sourceType'  => 'advisory',
             // Both stamps carry the decision time. An advisory Approval is
             // terminal at creation — there is no interval between "asked" and
@@ -176,29 +232,7 @@ class AiOversightService {
             ],
         ];
 
-        try {
-            $saved = $this->objectService->saveObject(
-                object: $object,
-                register: self::REGISTER_SLUG,
-                schema: self::APPROVAL_SCHEMA,
-                _rbac: false,
-                _multitenancy: false
-            );
-        } catch (\Throwable $e) {
-            // Logged and swallowed BY CONTRACT: the origin app has already
-            // completed the user's action, and failing its request after the
-            // fact would turn an audit outage into a functional one. The
-            // consumer sees isHandled() === false and can retry.
-            $this->logger->error(
-                'AI oversight: could not record advisory decision',
-                ['error' => $e->getMessage(), 'originApp' => (string) $record['originApp']]
-            );
-            return null;
-        }
-
-        return $saved->getUuid();
-
-    }//end record()
+    }//end toApproval()
 
 
 }//end class
