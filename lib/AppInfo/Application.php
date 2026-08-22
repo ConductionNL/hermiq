@@ -28,6 +28,8 @@ namespace OCA\Hermiq\AppInfo;
 
 use OCA\Hermiq\Listener\AgentBotLifecycleListener;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
+use OCA\Hermiq\Event\AiOversightRecordedEvent;
+use OCA\Hermiq\Listener\AiOversightRecordedListener;
 use OCA\Hermiq\Listener\RegisterAgentLeafListener;
 use OCA\Hermiq\Listener\TalkApprovalReactionListener;
 use OCA\Hermiq\Listener\TalkBotInvokeListener;
@@ -121,6 +123,17 @@ class Application extends App implements IBootstrap {
 		$context->registerEventListener(
 			event: AgentRunRequestedEvent::class,
 			listener: AgentRunRequestedListener::class
+		);
+
+		// Hermiq owns human oversight; the apps that run AI against their own
+		// domain objects own the moment the human decides. This is how the
+		// second tells the first, so Art. 14 evidence lands in one register
+		// rather than one per app. Unlike the run-request listener above this
+		// one is synchronous: it stores a fact the user already produced, and
+		// the consumer reads isHandled() right after dispatch.
+		$context->registerEventListener(
+			event: AiOversightRecordedEvent::class,
+			listener: AiOversightRecordedListener::class
 		);
 
 		// Each Talk-enabled agent carries its own Talk bot, because the bot
