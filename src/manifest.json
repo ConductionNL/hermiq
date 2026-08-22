@@ -1280,7 +1280,7 @@
 			"title": "AI oversight",
 			"_note": "EU AI Act Art. 14 evidence for AI suggestions that were NOT gated: what the model proposed and what the human did with it. Deliberately a SEPARATE surface from /approvals — that one is an inbox of pending decisions somebody must act on, this one is a closed record nobody can act on, and mixing an actionable queue with an audit log makes both harder to read. Both are Approval objects (sourceType=advisory) so the Art. 14 trail stays in ONE register. A dashboard rather than an index page because the manifest schema allows a fixed filter only on a widget data source, and this surface must never show the gating variants.",
 			"config": {
-				"subtitle": "Recorded human decisions on AI suggestions (EU AI Act Art. 14)",
+				"description": "Recorded human decisions on AI suggestions (EU AI Act Art. 14)",
 				"widgets": [
 					{
 						"id": "aio-accepted",
