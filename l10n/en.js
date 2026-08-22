@@ -1,28 +1,20 @@
-{
-    "translations": {
+OC.L10N.register(
+    "hermiq",
+    {
         "\"Satisfied\" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.": "\"Satisfied\" means Hermiq can evidence this control from its own governance data — it is not a certification of compliance by a qualified auditor.",
         "%n case": "%n case",
         "%n cases": "%n cases",
-        "%n connection": [
-            "%n connection",
-            "%n connections"
-        ],
+        "%n connection": ["%n connection","%n connections"],
         "%n connections": "%n connections",
         "%n entries": "%n entries",
         "%n entry": "%n entry",
-        "%n node": [
-            "%n node",
-            "%n nodes"
-        ],
+        "%n node": ["%n node","%n nodes"],
         "%n nodes": "%n nodes",
         "%n nodes have nowhere to send their work.": "%n nodes have nowhere to send their work.",
         "%n steps": "%n steps",
         "%n suggested skill could not be found in your organisation and was skipped.": "%n suggested skill could not be found in your organisation and was skipped.",
         "%n suggested skills could not be found in your organisation and were skipped.": "%n suggested skills could not be found in your organisation and were skipped.",
-        "%n tool": [
-            "%n tool",
-            "%n tools"
-        ],
+        "%n tool": ["%n tool","%n tools"],
         "%n tools": "%n tools",
         "%n trigger node starts this flow.": "%n trigger node starts this flow.",
         "%n trigger nodes start this flow.": "%n trigger nodes start this flow.",
@@ -395,10 +387,7 @@
         "Export auditor's pack": "Export auditor's pack",
         "Export skill": "Export skill",
         "Export template": "Export template",
-        "Exported %n record.": [
-            "Exported %n record.",
-            "Exported %n records."
-        ],
+        "Exported %n record.": ["Exported %n record.","Exported %n records."],
         "Exported %n records.": "Exported %n records.",
         "Exported package": "Exported package",
         "Extra files an agent may read alongside SKILL.md (optional).": "Extra files an agent may read alongside SKILL.md (optional).",
@@ -1317,6 +1306,5 @@
         "Spoken replies (text to speech)": "Spoken replies (text to speech)",
         "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor.": "Where this agent’s dictated audio is transcribed. “On this instance” never leaves the server and is slower; “browser” is instant and, in most browsers, sends the audio to the browser vendor."
     },
-    "plurals": "",
-    "pluralForm": "nplurals=2; plural=(n != 1);"
-}
+    "nplurals=2; plural=(n != 1);"
+)

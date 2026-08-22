@@ -18,6 +18,8 @@
     "format:fix": "prettier --write \"**/*.{js,ts,vue,css,scss}\"",
     "stylelint-fix": "stylelint \"src/**/*.{vue,scss,css}\" --fix",
     "check:manifest": "node tests/validate-manifest.js",
+    "l10n:build": "node scripts/build-l10n-js.js",
+    "check:l10n-js": "node scripts/build-l10n-js.js --check",
     "check:manifest-v2": "node tests/manifest-v2.spec.js",
     "check:register": "node tests/validate-register.js",
     "check:registry": "node tests/registry.spec.js",
