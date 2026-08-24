@@ -2350,17 +2350,12 @@ export default {
    sibling of our slot content, so it cannot be given a class from inside the
    slot — `:has()` reads the role off the card we DID render. */
 .flow-builder
-	:deep(
-		.cn-flow-node:has(.flow-builder__node--trigger)
-			.cn-flow-node__handle
-	) {
+	:deep(.cn-flow-node:has(.flow-builder__node--trigger) .cn-flow-node__handle) {
 	background-color: var(--color-success, #46ba61);
 }
 
 .flow-builder
-	:deep(
-		.cn-flow-node:has(.flow-builder__node--end) .cn-flow-node__handle
-	) {
+	:deep(.cn-flow-node:has(.flow-builder__node--end) .cn-flow-node__handle) {
 	background-color: var(--color-error, #e9322d);
 }
 

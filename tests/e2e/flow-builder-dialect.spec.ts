@@ -129,10 +129,7 @@ async function openFlow(page: Page, id: string): Promise<void> {
 	// Canvas first, then the dialogs: a node renders underneath a modal, so
 	// waiting on it is what proves the app has booted far enough for the
 	// first-run dialogs to have mounted and be dismissable.
-	await page
-		.locator('.cn-flow-node')
-		.first()
-		.waitFor({ state: 'visible' })
+	await page.locator('.cn-flow-node').first().waitFor({ state: 'visible' })
 	await dismissFirstRun(page)
 }
 
@@ -205,33 +202,31 @@ test.describe('flow builder — the node is the action', () => {
 
 		const ports = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document
-				.querySelectorAll('.cn-flow-node')
-				.forEach((wrapper) => {
-					const label =
-						wrapper
-							.querySelector('.flow-builder__node-label')
-							?.textContent?.trim() ?? ''
-					const sides: string[] = []
+			document.querySelectorAll('.cn-flow-node').forEach((wrapper) => {
+				const label =
 					wrapper
-						.querySelectorAll('.cn-flow-node__handle')
-						.forEach((handle) => {
-							// Vue Flow marks the OUTPUT port with
-							// `--source`; the input port carries no
-							// modifier at all. The old canvas named both
-							// sides explicitly (`--in` / `--out`), so the
-							// test asked "is it in?" — asking "is it out?"
-							// is the same question against the class that
-							// actually exists now.
-							const kind = handle.classList.contains(
-								'cn-flow-node__handle--source',
-							)
-								? 'out'
-								: 'in'
-							sides.push(kind)
-						})
-					read[label] = sides
-				})
+						.querySelector('.flow-builder__node-label')
+						?.textContent?.trim() ?? ''
+				const sides: string[] = []
+				wrapper
+					.querySelectorAll('.cn-flow-node__handle')
+					.forEach((handle) => {
+						// Vue Flow marks the OUTPUT port with
+						// `--source`; the input port carries no
+						// modifier at all. The old canvas named both
+						// sides explicitly (`--in` / `--out`), so the
+						// test asked "is it in?" — asking "is it out?"
+						// is the same question against the class that
+						// actually exists now.
+						const kind = handle.classList.contains(
+							'cn-flow-node__handle--source',
+						)
+							? 'out'
+							: 'in'
+						sides.push(kind)
+					})
+				read[label] = sides
+			})
 
 			return read
 		})
@@ -260,21 +255,19 @@ test.describe('flow builder — the node is the action', () => {
 
 		const branches = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document
-				.querySelectorAll('.cn-flow-node')
-				.forEach((wrapper) => {
-					const label =
-						wrapper
-							.querySelector('.flow-builder__node-label')
-							?.textContent?.trim() ?? ''
-					const names: string[] = []
+			document.querySelectorAll('.cn-flow-node').forEach((wrapper) => {
+				const label =
 					wrapper
-						.querySelectorAll('.cn-flow-node__handle--source')
-						.forEach((handle) => {
-							names.push(handle.getAttribute('aria-label') ?? '')
-						})
-					read[label] = names
-				})
+						.querySelector('.flow-builder__node-label')
+						?.textContent?.trim() ?? ''
+				const names: string[] = []
+				wrapper
+					.querySelectorAll('.cn-flow-node__handle--source')
+					.forEach((handle) => {
+						names.push(handle.getAttribute('aria-label') ?? '')
+					})
+				read[label] = names
+			})
 
 			return read
 		})
@@ -310,21 +303,19 @@ test.describe('flow builder — the node is the action', () => {
 		// produces an identical edge and the choice the author made is lost.
 		const portIds = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document
-				.querySelectorAll('.cn-flow-node')
-				.forEach((wrapper) => {
-					const label =
-						wrapper
-							.querySelector('.flow-builder__node-label')
-							?.textContent?.trim() ?? ''
-					const ids: string[] = []
+			document.querySelectorAll('.cn-flow-node').forEach((wrapper) => {
+				const label =
 					wrapper
-						.querySelectorAll('.cn-flow-node__handle--source')
-						.forEach((handle) => {
-							ids.push(handle.getAttribute('aria-label') ?? '')
-						})
-					read[label] = ids
-				})
+						.querySelector('.flow-builder__node-label')
+						?.textContent?.trim() ?? ''
+				const ids: string[] = []
+				wrapper
+					.querySelectorAll('.cn-flow-node__handle--source')
+					.forEach((handle) => {
+						ids.push(handle.getAttribute('aria-label') ?? '')
+					})
+				read[label] = ids
+			})
 
 			return read
 		})
@@ -407,11 +398,9 @@ test.describe('flow builder — chrome and links', () => {
 		// while proving nothing, which is the exact failure the comment above
 		// says it exists to catch.
 		const scale = async () =>
-			await page
-				.locator('.vue-flow__transformationpane')
-				.evaluate((el) => {
-					return new DOMMatrix(getComputedStyle(el).transform).a
-				})
+			await page.locator('.vue-flow__transformationpane').evaluate((el) => {
+				return new DOMMatrix(getComputedStyle(el).transform).a
+			})
 
 		expect(await scale()).toBeCloseTo(1, 2)
 
