@@ -2386,14 +2386,30 @@ class ScheduleService {
 
 		$candidate = $this->userManager->get($actingUser);
 		if ($candidate === null || $candidate->isEnabled() === false) {
-			$this->logger->warning(
+			// 🔴 REFUSE. Do not fall back to the schedule owner here.
+			//
+			// The two absent cases are not the same thing. An agent that declares
+			// NO actingUser has expressed no preference, so the schedule's own
+			// identity applies and the fallback above is right. An agent that
+			// DECLARES one which no longer resolves is a different situation: an
+			// author stated an identity, and quietly substituting a different one
+			// runs the turn as somebody the author did not choose — with that
+			// person's rights, attributed to them in the audit trail.
+			//
+			// That is the shape ADR-099 exists to remove: a default-valued read
+			// turning missing data into wrong behaviour rather than into an error.
+			// Disabling the account is also how a departure is normally
+			// processed, so the likeliest trigger for this branch is precisely
+			// the case where running as the owner instead is least acceptable.
+			throw new RuntimeException(
 				sprintf(
-					"Hermiq agent %s declares actingUser '%s', which is not an existing, active user — falling back to the schedule owner.",
+					'Hermiq agent %s declares actingUser "%s", which is not an existing, active user. '
+					. 'The run is refused rather than executed as the schedule owner — an author who named '
+					. 'an identity did not consent to a different one being substituted.',
 					$agentId,
 					$actingUser
 				)
 			);
-			return $fallbackOwner;
 		}
 
 		return $actingUser;
