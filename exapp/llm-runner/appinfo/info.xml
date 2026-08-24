@@ -31,9 +31,9 @@ it. See exapp/llm-runner/README.md for the full hardening model and deployment.
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <category>tools</category>
     <category>integration</category>
-    <website>https://codeberg.org/Conduction/hermiq</website>
-    <bugs>https://codeberg.org/Conduction/hermiq/issues</bugs>
-    <repository>https://codeberg.org/Conduction/hermiq</repository>
+    <website>https://github.com/ConductionNL/hermiq</website>
+    <bugs>https://github.com/ConductionNL/hermiq/issues</bugs>
+    <repository>https://github.com/ConductionNL/hermiq</repository>
 
     <dependencies>
         <nextcloud min-version="32" max-version="34"/>

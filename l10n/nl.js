@@ -1047,7 +1047,7 @@ OC.L10N.register(
         "Soft threshold crossed for the current period.": "Zachte drempel overschreden voor de huidige periode.",
         "Soft-threshold warning (%)": "Waarschuwing bij zachte drempel (%)",
         "Source": "Bron",
-        "Source code (Codeberg)": "Broncode (Codeberg)",
+        "Source code (GitHub)": "Broncode (GitHub)",
         "Sources": "Bronnen",
         "Spend this period": "Uitgaven deze periode",
         "Split into frontmatter + body": "Opsplitsen in frontmatter + inhoud",

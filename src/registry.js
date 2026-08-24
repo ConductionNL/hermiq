@@ -35,7 +35,7 @@
 //   3. Add a manifest page entry with type: "custom", component: "<your-key>",
 //      and a _note explaining why a standard page type was not feasible.
 //
-// See: https://codeberg.org/Conduction/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
+// See: https://github.com/ConductionNL/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
 
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
