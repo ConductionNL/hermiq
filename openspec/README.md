@@ -12,7 +12,7 @@ This folder contains feature specifications, architectural decisions, and implem
 | `architecture/` | App-specific Architectural Decision Records (ADRs) |
 | `changes/` | Individual change directories, each with a full set of specification artifacts (created on first change) |
 
-> If `app-config.json` has `"requiresOpenRegister": true`, install [OpenRegister](https://codeberg.org/Conduction/openregister) before enabling this app. Set to `false` if your app does not use OpenRegister.
+> If `app-config.json` has `"requiresOpenRegister": true`, install [OpenRegister](https://github.com/ConductionNL/openregister) before enabling this app. Set to `false` if your app does not use OpenRegister.
 
 ## app-config.json — Key Fields
 

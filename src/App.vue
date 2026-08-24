@@ -78,10 +78,10 @@
 						</li>
 						<li>
 							<a
-								href="https://codeberg.org/Conduction/hermiq"
+								href="https://github.com/ConductionNL/hermiq"
 								target="_blank"
 								rel="noopener noreferrer"
-								>{{ t('hermiq', 'Source code (Codeberg)') }}</a
+								>{{ t('hermiq', 'Source code (GitHub)') }}</a
 							>
 						</li>
 					</ul>

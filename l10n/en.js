@@ -942,7 +942,7 @@ OC.L10N.register(
         "Soft threshold crossed for the current period.": "Soft threshold crossed for the current period.",
         "Soft-threshold warning (%)": "Soft-threshold warning (%)",
         "Source": "Source",
-        "Source code (Codeberg)": "Source code (Codeberg)",
+        "Source code (GitHub)": "Source code (GitHub)",
         "Sources": "Sources",
         "Spend this period": "Spend this period",
         "Split into frontmatter + body": "Split into frontmatter + body",
