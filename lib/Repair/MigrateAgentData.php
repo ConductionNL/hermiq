@@ -67,6 +67,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -93,6 +94,7 @@ use Throwable;
  *   guards — the complexity tracks the legacy catalogue, not one algorithm.
  */
 class MigrateAgentData implements IRepairStep {
+	use RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -290,6 +292,26 @@ class MigrateAgentData implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses the write for 'Anonymous'. Without it this migration copies
+		// nothing and says so only in a warning, which does not fail an upgrade.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->runInner(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * The migration itself.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function runInner(object $objectService, IOutput $output): void {
 		$this->danglingCount = 0;
 		$previouslyReported = $this->loadReportedUnmigratable();
 		$this->reportedUnmigratable = $previouslyReported;
@@ -341,7 +363,7 @@ class MigrateAgentData implements IRepairStep {
 			)
 		);
 
-	}//end run()
+	}//end runInner()
 
 	/**
 	 * Migrate `openregister_agents` → `Agent` objects (uuid + owner/organisation preserved).

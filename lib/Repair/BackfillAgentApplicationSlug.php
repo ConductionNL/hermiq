@@ -64,6 +64,7 @@ use Throwable;
  * @spec openspec/changes/hermiq-agent-application-slug/specs/hermiq-agent-application-slug/spec.md#requirement-the-four-hydra-console-agents-are-backfilled-with-their-application-slug
  */
 class BackfillAgentApplicationSlug implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -148,6 +149,26 @@ class BackfillAgentApplicationSlug implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses the write for 'Anonymous'. Without it this backfill patches
+		// nothing and says so only in a warning, which does not fail an upgrade.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->runInner(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * The backfill itself.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function runInner(object $objectService, IOutput $output): void {
 		$backfilled = 0;
 		$skipped = 0;
 		foreach (self::AGENT_NAMES as $name) {
@@ -166,7 +187,7 @@ class BackfillAgentApplicationSlug implements IRepairStep {
 			. $skipped . ' already present or absent.'
 		);
 
-	}//end run()
+	}//end runInner()
 
 	/**
 	 * Backfill one agent's `applicationSlug` when it is currently empty.
