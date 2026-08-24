@@ -51,6 +51,7 @@ use Throwable;
  * @spec openspec/specs/agent-evals/spec.md#requirement-an-evaldataset-links-skills-via-skillrefs-per-the-relation-dialect
  */
 class SeedPairedEvalDataset implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -131,6 +132,28 @@ class SeedPairedEvalDataset implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses `create` for 'Anonymous'. A per-call `_rbac: false` is not
+		// sufficient on its own — measured in a sibling app, a step flagging
+		// every one of its own writes still failed eight times, because the
+		// refusals arrive from writes further down the call chain.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->seedDatasetObjects(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * Seed the paired eval dataset when it is not present yet.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function seedDatasetObjects(object $objectService, IOutput $output): void {
 		try {
 			if ($this->findByName(objectService: $objectService, schema: self::DATASET_SCHEMA, name: self::DATASET_NAME) !== null) {
 				$output->info(self::DATASET_NAME . ' seed already present — skipped.');
@@ -157,7 +180,7 @@ class SeedPairedEvalDataset implements IRepairStep {
 			$this->logger->error('[hermiq] ' . self::DATASET_NAME . ' seed failed: ' . $e->getMessage());
 		}//end try
 
-	}//end run()
+	}//end seedDatasetObjects()
 
 	/**
 	 * The seed EvalDataset payload — three municipality-context cases, ONE linked

@@ -54,6 +54,7 @@ use Throwable;
  * @spec openspec/changes/hermiq-skill-conversational-authoring/tasks.md#task-1-seedskillcreator-repair-step-infoxml-registration
  */
 class SeedSkillCreator implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -124,6 +125,28 @@ class SeedSkillCreator implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses `create` for 'Anonymous'. A per-call `_rbac: false` is not
+		// sufficient on its own — measured in a sibling app, a step flagging
+		// every one of its own writes still failed eight times, because the
+		// refusals arrive from writes further down the call chain.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->seedSkill(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * Seed or refresh the skill-creator skill.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function seedSkill(object $objectService, IOutput $output): void {
 		try {
 			$existing = $this->findByName(objectService: $objectService);
 			if ($existing !== null) {
@@ -178,7 +201,7 @@ class SeedSkillCreator implements IRepairStep {
 			$this->logger->error('[hermiq] skill-creator seed failed: ' . $e->getMessage());
 		}//end try
 
-	}//end run()
+	}//end seedSkill()
 
 	/**
 	 * The seeded skill's raw agentskills.io YAML frontmatter block (stored verbatim — the
