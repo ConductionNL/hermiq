@@ -1597,11 +1597,12 @@
 						"id": "done",
 						"sinceVersion": "0.1.38",
 						"placement": "center",
-						"title": "You're all set",
-						"body": "That's the tour. Open Settings any time to re-run this walkthrough or the setup wizard.",
+						"title": "That's the tour",
+						"body": "Settings re-runs this walkthrough or the setup wizard whenever you want. The documentation covers what the tour did not.",
+						"task": "Open the documentation to keep going",
 						"target": {
-							"kind": "page",
-							"ref": "Dashboard"
+							"kind": "nav-item",
+							"ref": "Documentation"
 						},
 						"advanceOn": {
 							"type": "manual"
