@@ -2315,11 +2315,11 @@ export default {
  *
  * So the frame is declared once, explicitly, on the wrapper. It is restated
  * rather than left to the canvas's own scoped rule because that rule ties on
- * specificity with anything written here — `:deep(.cn-graph-canvas__node)`
- * compiles to `[data-v-builder] .cn-graph-canvas__node`, (0,2,0), exactly
- * matching `.cn-graph-canvas__node[data-v-canvas]` — so which one won came down
+ * specificity with anything written here — `:deep(.cn-flow-node)`
+ * compiles to `[data-v-builder] .cn-flow-node`, (0,2,0), exactly
+ * matching `.cn-flow-node[data-v-canvas]` — so which one won came down
  * to bundle order. Anchoring on `.flow-builder` settles it at (0,3,0). */
-.flow-builder :deep(.cn-graph-canvas__node) {
+.flow-builder :deep(.cn-flow-node) {
 	border: 2px solid var(--color-border);
 	background-color: var(--color-main-background);
 	border-radius: var(--border-radius-large, 8px);
@@ -2328,7 +2328,7 @@ export default {
 	overflow: hidden;
 }
 
-.flow-builder :deep(.cn-graph-canvas__node--selected) {
+.flow-builder :deep(.cn-flow-node--selected) {
 	border-color: var(--color-primary-element);
 }
 
@@ -2338,7 +2338,7 @@ export default {
    Sized explicitly because Nextcloud's global button rules give every <button>
    a minimum height: the port is declared 16x16 round in the canvas and measured
    16x34 on screen, a bar rather than a dot. */
-.flow-builder :deep(.cn-graph-canvas__handle) {
+.flow-builder :deep(.cn-flow-node__handle) {
 	width: 16px;
 	height: 16px;
 	min-height: 16px;
@@ -2351,15 +2351,15 @@ export default {
    slot — `:has()` reads the role off the card we DID render. */
 .flow-builder
 	:deep(
-		.cn-graph-canvas__node:has(.flow-builder__node--trigger)
-			.cn-graph-canvas__handle
+		.cn-flow-node:has(.flow-builder__node--trigger)
+			.cn-flow-node__handle
 	) {
 	background-color: var(--color-success, #46ba61);
 }
 
 .flow-builder
 	:deep(
-		.cn-graph-canvas__node:has(.flow-builder__node--end) .cn-graph-canvas__handle
+		.cn-flow-node:has(.flow-builder__node--end) .cn-flow-node__handle
 	) {
 	background-color: var(--color-error, #e9322d);
 }
@@ -2464,7 +2464,7 @@ export default {
 	the geometry the canvas laid out is unchanged and the note does not shift by
 	two pixels when it stops being a card.
 */
-:deep(.cn-graph-canvas__node:has(.flow-builder__annotation)) {
+:deep(.cn-flow-node:has(.flow-builder__annotation)) {
 	background-color: transparent;
 	border-color: transparent;
 }
