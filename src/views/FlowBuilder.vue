@@ -165,10 +165,13 @@
 					Edited in place. A note is one field, and sending an author
 					to a modal to type one line is more chrome than the content.
 				-->
-				<div v-if="node.isAnnotation" class="flow-builder__annotation">
+				<!-- `node` here is VUE FLOW's node: `id` stays at the top level,
+				     but everything the document owns lives in `data` — see
+				     nodesWithPorts(). -->
+				<div v-if="node.data.isAnnotation" class="flow-builder__annotation">
 					<textarea
 						class="flow-builder__annotation-text"
-						:value="node.text"
+						:value="node.data.text"
 						:aria-label="t('hermiq', 'Note')"
 						:placeholder="t('hermiq', 'Write a note…')"
 						@mousedown.stop
@@ -221,26 +224,26 @@
 						// — nothing points at it, so paint it as a start —
 						// which colours an unconnected step as an entry point
 						// and makes a flow that can never fire look finished.
-						[`flow-builder__node--${editor.roleOfNodeType(node.type)}`]: true,
-						'flow-builder__node--untyped': !node.type,
+						[`flow-builder__node--${editor.roleOfNodeType(node.data.type)}`]: true,
+						'flow-builder__node--untyped': !node.data.type,
 						'flow-builder__node--replayed':
 							editor.replayedNodeIds.includes(node.id),
 					}"
-					@dblclick.stop="onNodeEdit(node)"
-					@contextmenu.prevent.stop="onNodeContext(node, $event)">
+					@dblclick.stop="onNodeEdit(node.data)"
+					@contextmenu.prevent.stop="onNodeContext(node.data, $event)">
 					<span class="flow-builder__node-step">{{
-						nodeStepLabel(node)
+						nodeStepLabel(node.data)
 					}}</span>
 					<span class="flow-builder__node-label">{{
 						/**
 						 * @spec openspec/specs/flow-canvas/spec.md
 						 */
-						nodeLabel(node)
+						nodeLabel(node.data)
 					}}</span>
 					<span
-						v-if="nodeConfigSummary(node)"
+						v-if="nodeConfigSummary(node.data)"
 						class="flow-builder__node-config">
-						{{ nodeConfigSummary(node) }}
+						{{ nodeConfigSummary(node.data) }}
 					</span>
 					<span
 						v-if="editor.markingByNode[node.id]"
@@ -736,7 +739,34 @@ export default {
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodesWithPorts() {
-			const nodes = (this.editor.nodes || []).map((node) => ({
+			// VUE FLOW'S `type` SELECTS A COMPONENT, NOT A DOMAIN KIND.
+			//
+			// This used to spread the document node straight onto the canvas,
+			// which was right for the old bespoke canvas but is not for Vue
+			// Flow: it read `type: 'openregister.set-fields'` as the name of a
+			// node COMPONENT, found none registered, and fell back to its own
+			// built-in node. The result was a canvas of empty boxes — the
+			// wrappers were in the DOM at the correct coordinates, with nothing
+			// drawn inside them, which reads as "the flow has no nodes".
+			//
+			// `type: 'default'` routes every step through CnFlowNode, which is
+			// what renders the `#node` slot below. The domain node travels in
+			// `data`, so a new step type still draws instead of vanishing.
+			//
+			// `position` accepts both spellings: the server stores
+			// `position: {x, y}` while the editor writes flat `x`/`y` in memory.
+			const toCanvasNode = (node) => ({
+				id: node.id,
+				type: 'default',
+				position: {
+					x: Number(node.x ?? node.position?.x) || 0,
+					y: Number(node.y ?? node.position?.y) || 0,
+				},
+
+				data: node,
+			})
+
+			const nodes = (this.editor.nodes || []).map((node) => toCanvasNode({
 				...node,
 				ports: this.portsForNode(node),
 			}))
@@ -748,7 +778,7 @@ export default {
 			// to deadlock a flow.
 			//
 			// No ports: nothing connects to a note.
-			const notes = (this.editor.flow.annotations || []).map((note) => ({
+			const notes = (this.editor.flow.annotations || []).map((note) => toCanvasNode({
 				...note,
 				id: `${ANNOTATION_ID_PREFIX}${note.id}`,
 				ports: [],
