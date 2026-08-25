@@ -762,6 +762,7 @@ export default {
 					x: Number(node.x ?? node.position?.x) || 0,
 					y: Number(node.y ?? node.position?.y) || 0,
 				},
+
 				data: node,
 			})
 
