@@ -2076,13 +2076,33 @@ class ScheduleService {
 		// Agent-capability-profile: on the engine-enabled path only, an Agent may name
 		// an actingUser to impersonate instead of the schedule owner. Resolved BEFORE
 		// impersonation so the whole turn (conversation + messages + tool writes) runs
-		// as that identity; falls back to $owner (silently, logged) when unset/invalid.
+		// as that identity; falls back to $owner (silently, logged) when it is UNSET.
+		// A DECLARED one that does not resolve refuses the run instead — see
+		// resolveActingUser().
 		// Sub-agent-delegation: `$forceOwner` skips this resolution entirely — `$owner`
 		// (the parent's already-impersonated acting uid) is used verbatim, so a target
 		// agent's own `actingUser` can never launder attribution via delegation.
 		$impersonateAs = $owner;
 		if ($forceOwner === false && $this->isEngineEnabled() === true) {
-			$impersonateAs = $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
+			// 🔴 A REFUSAL MUST NOT LEAVE THE OWNER IN THE AUDIT RECORD.
+			//
+			// `lastRunAsUser` was pre-seeded with $owner above (and again by the
+			// runNow/dispatch callers), and `writeRunAudit()` publishes it as
+			// "the identity that actually ran the turn". Letting the throw escape
+			// with that value intact writes the exact substitution this refusal
+			// exists to prevent: the run is attributed to the schedule owner in
+			// the append-only trail while never having run as anybody at all.
+			// Refusing in the control flow and conceding in the record is not a
+			// refusal.
+			//
+			// Blanked rather than set to the unresolvable uid: nobody ran this
+			// turn, and naming the ghost would read as "the turn ran as them".
+			try {
+				$impersonateAs = $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
+			} catch (Throwable $e) {
+				$this->lastRunAsUser = '';
+				throw $e;
+			}
 		}
 
 		$this->lastRunAsUser = $impersonateAs;
