@@ -225,7 +225,20 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		}
 
 		$outKey = (string)($config['output'] ?? 'result');
-		$owner = (string)($config['owner'] ?? ($context['triggeredBy'] ?? ''));
+		// 🔴 The flow document does NOT get to name the identity.
+		//
+		// This read used to be `$config['owner'] ?? $context['triggeredBy']`, and
+		// Integriq's FlowOwner names it by hand as "the anti-pattern this class
+		// exists to avoid, not the template". A flow document is authored by
+		// anyone who may edit flows, so letting it name the identity its steps run
+		// as is an authoring-time privilege escalation: write `owner: admin` into
+		// a node and the turn executes with admin's rights, attributed to admin.
+		//
+		// ADR-099: identity NARROWS along an invocation chain and never widens.
+		// A step may act as its caller, or refuse. Widening needs a delegation
+		// grant checked against the CALLER, which is a record — not a key in the
+		// document being checked.
+		$owner = (string)($context['triggeredBy'] ?? '');
 		$org = (string)($config['organisation'] ?? '');
 
 		$out = [];
