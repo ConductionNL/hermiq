@@ -363,6 +363,22 @@ class SeedAiFeaturesTest extends TestCase {
 			 */
 			public array $attempted = [];
 
+			/**
+			 * 🔴 DECLARE A CONSTRUCTOR EVEN WITH NOTHING TO CONSTRUCT.
+			 *
+			 * Without one this subclass INHERITS the parent's, and the parent is
+			 * a different class in each environment: the test stub takes no
+			 * arguments, while the real OpenRegister ObjectService takes 38. A
+			 * standalone run therefore passes and CI — where the real app is
+			 * installed alongside hermiq — raises `ArgumentCountError: Too few
+			 * arguments … 0 passed … and exactly 38 expected`. Declaring an empty
+			 * one overrides both.
+			 *
+			 * @return void
+			 */
+			public function __construct() {
+			}
+
 			public function runAsSystem(callable $operation): mixed {
 				return $operation();
 			}
