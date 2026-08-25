@@ -1,6 +1,8 @@
+diff --git a/src/Chat/OllamaChat.php b/src/Chat/OllamaChat.php
+index b4e28a6..ff44e43 100644
 --- a/src/Chat/OllamaChat.php
 +++ b/src/Chat/OllamaChat.php
-@@ -42,6 +42,14 @@
+@@ -42,6 +42,14 @@ class OllamaChat implements ChatInterface
      /** @var CalledFunction[] */
      public array $functionsCalled = [];
  
@@ -15,7 +17,7 @@
      public function __construct(protected OllamaConfig $config, private readonly LoggerInterface $logger = new NullLogger())
      {
          if (! isset($config->model)) {
-@@ -183,6 +191,13 @@
+@@ -183,6 +191,13 @@ class OllamaChat implements ChatInterface
          $this->logger->debug($contents);
          $json = Utility::decodeJson($contents);
  
