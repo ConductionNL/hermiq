@@ -996,6 +996,8 @@ export default {
 		 *
 		 * @param {Array<object>} changes Vue Flow's change stream.
 		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-a-node-dragged-on-the-canvas-keeps-where-it-was-put
 		 */
 		onCanvasNodesChange(changes) {
 			for (const change of changes || []) {
