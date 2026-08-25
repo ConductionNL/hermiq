@@ -55,6 +55,7 @@ use Throwable;
  * @spec openspec/specs/skill-self-improvement/spec.md#requirement-a-seeded-pending-draft-demonstrates-the-review-surface
  */
 class SeedSkillDraftExample implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -144,6 +145,28 @@ class SeedSkillDraftExample implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses `create` for 'Anonymous'. A per-call `_rbac: false` is not
+		// sufficient on its own — measured in a sibling app, a step flagging
+		// every one of its own writes still failed eight times, because the
+		// refusals arrive from writes further down the call chain.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->seedDraft(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * Seed the draft example when its skill is present.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function seedDraft(object $objectService, IOutput $output): void {
 		try {
 			$skill = $this->findSkillByName(objectService: $objectService, name: self::SEED_SKILL_NAME);
 			if ($skill === null) {
@@ -198,7 +221,7 @@ class SeedSkillDraftExample implements IRepairStep {
 			$this->logger->error('[hermiq] skill draft example seed failed: ' . $e->getMessage());
 		}//end try
 
-	}//end run()
+	}//end seedDraft()
 
 	/**
 	 * The seeded draft payload: `awaiting-approval`, threshold trigger, provenance

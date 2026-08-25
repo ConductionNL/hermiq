@@ -102,6 +102,15 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 	 */
 	private function objectServiceReturning(array $agents, array &$patchCalls = []) {
 		$objectService = $this->createMock(ObjectService::class);
+		// runAsSystem MUST invoke its callable — a bare createMock() stubs it to
+		// return null without running anything, so the backfill's body would
+		// silently not execute and every assertion would fail against an empty
+		// store. A fake that does not model the contract makes a CORRECT change
+		// look broken, the mirror of one that omits the method and lets a broken
+		// change look green.
+		$objectService->method('runAsSystem')->willReturnCallback(
+			static fn (callable $operation) => $operation()
+		);
 		$objectService->method('setRegister')->willReturnSelf();
 		$objectService->method('setSchema')->willReturnSelf();
 		$objectService->method('findAll')->willReturnCallback(
@@ -293,6 +302,15 @@ class BackfillAgentApplicationSlugTest extends TestCase {
 		$agent = $this->agentMock(name: 'Hydra Triage', uuid: 'uuid-1', applicationSlug: '');
 
 		$objectService = $this->createMock(ObjectService::class);
+		// runAsSystem MUST invoke its callable — a bare createMock() stubs it to
+		// return null without running anything, so the backfill's body would
+		// silently not execute and every assertion would fail against an empty
+		// store. A fake that does not model the contract makes a CORRECT change
+		// look broken, the mirror of one that omits the method and lets a broken
+		// change look green.
+		$objectService->method('runAsSystem')->willReturnCallback(
+			static fn (callable $operation) => $operation()
+		);
 		$objectService->method('setRegister')->willReturnSelf();
 		$objectService->method('setSchema')->willReturnSelf();
 		$objectService->method('findAll')->willReturnCallback(

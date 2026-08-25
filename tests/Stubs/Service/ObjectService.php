@@ -33,6 +33,31 @@ use OCA\OpenRegister\Db\Schema;
 class ObjectService {
 
 	/**
+	 * Run a callable under OpenRegister's system identity.
+	 *
+	 * 🔴 A STUB THAT OMITS A METHOD CANNOT FAIL WHEN PRODUCTION NEEDS IT.
+	 * `RunsUnderSystemIdentity::withSystemIdentity()` probes with
+	 * `method_exists()`, so while this stub lacked `runAsSystem()` every
+	 * standalone run silently took the fall-through branch — the branch that
+	 * exists only for instances without OpenRegister. The elevated path, which
+	 * is the entire point of the helper, was never executed outside CI, and a
+	 * repair step that forgot it would still have looked green here.
+	 *
+	 * The real method is `SystemOperationContext::run($operation)`: it invokes
+	 * the callable and returns its value. Invoking it here is what makes this
+	 * stub model the contract rather than merely satisfy the probe — a stub
+	 * that returned null without running anything would make every CORRECT
+	 * seeder look broken.
+	 *
+	 * @param callable $operation The work to run elevated.
+	 *
+	 * @return mixed Whatever $operation returns.
+	 */
+	public function runAsSystem(callable $operation): mixed {
+		return $operation();
+	}//end runAsSystem()
+
+	/**
 	 * Set the active register context.
 	 *
 	 * @param mixed $register Register slug/id/entity.

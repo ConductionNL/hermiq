@@ -489,6 +489,17 @@ class MigrateAgentDataTest extends TestCase {
 		);
 
 		$objectService = $this->createMock(ObjectService::class);
+
+		// runAsSystem MUST invoke its callable. A bare createMock() stubs it to
+		// return null without running anything, so the migration's whole body
+		// would silently not execute and every assertion would fail against an
+		// empty store — a fake that does not model the contract makes a CORRECT
+		// change look broken, the mirror of one that omits the method and lets a
+		// broken change look green. The step needs the identity because an
+		// upgrade has no session and OpenRegister refuses 'Anonymous' writes.
+		$objectService->method('runAsSystem')->willReturnCallback(
+			static fn (callable $operation) => $operation()
+		);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) {
 				if (in_array((string)$id, $this->existing, true) === true) {
