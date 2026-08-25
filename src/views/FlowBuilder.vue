@@ -710,8 +710,19 @@ export default {
 					// `arrow` is the fallback rather than a hard default, so
 					// that `none` stays a real choice: an author who removed an
 					// arrowhead did not ask for it back.
-					markerEnd: this.markerRef(edge.endMarker, this.arrowId),
-					markerStart: this.markerRef(edge.startMarker),
+					//
+					// ⚠️ ABSENT IS `undefined`, NEVER `null`. Vue Flow's
+					// getMarkerId() guards `typeof marker === 'undefined'` and
+					// `'string'`, then falls through to `Object.keys(marker)` —
+					// and `typeof null === 'object'`, so a null marker sails
+					// past both guards and throws. That throw happens while the
+					// edge renders, so it takes the LINE down with it: 93 edges
+					// in the store, 187 TypeErrors, and not one line drawn.
+					// `markerRef` returns null because null is what removes an
+					// SVG attribute; this is the boundary where that spelling
+					// stops being right.
+					markerEnd: this.markerRef(edge.endMarker, this.arrowId) ?? undefined,
+					markerStart: this.markerRef(edge.startMarker) ?? undefined,
 					style: this.edgeStyle(edge),
 					class: {
 						'flow-builder__step--selected':
