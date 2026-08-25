@@ -1,6 +1,8 @@
+diff --git a/src/Chat/OllamaChat.php b/src/Chat/OllamaChat.php
+index 3bf5908..cb31d15 100644
 --- a/src/Chat/OllamaChat.php
 +++ b/src/Chat/OllamaChat.php
-@@ -257,6 +257,13 @@
+@@ -257,6 +257,13 @@ class OllamaChat implements ChatInterface
       */
      protected function sendRequest(string $method, string $path, array $json): ResponseInterface
      {

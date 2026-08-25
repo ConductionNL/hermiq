@@ -1,0 +1,27 @@
+{
+    "_hash": "1abf20509b9645edb5d9e82d48ce0c3cb14f3c802835841aa9e11a0f9e6b96cb",
+    "patches": {
+        "theodo-group/llphant": [
+            {
+                "package": "theodo-group/llphant",
+                "description": "Forward think:false + keep_alive:-1 to the Ollama API (qwen3 ~5x speedup, no idle-unload wedge) — drop when LLPhant adds a per-call keep_alive/think model option",
+                "url": "patches/llphant-ollama-think-keepalive.patch",
+                "sha256": "d559b7bfe6e7bca72cb3d2865c4021b7898e4ee0957adf3be03f6d1145cc900b",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            },
+            {
+                "package": "theodo-group/llphant",
+                "description": "Capture Ollama token/latency usage on OllamaChat::$lastUsage so the Engine can record per-run cost (run-analytics) — drop when LLPhant exposes response usage",
+                "url": "patches/llphant-ollama-usage-capture.patch",
+                "sha256": "530a35a3698879914e85a721a6226c08a348bc8ed7710c37a04f489db8d9a640",
+                "depth": 1,
+                "extra": {
+                    "provenance": "root"
+                }
+            }
+        ]
+    }
+}
