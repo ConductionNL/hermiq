@@ -104,6 +104,26 @@ class HermiqWorkloadNodeTest extends TestCase {
 	}//end node()
 
 	/**
+	 * The run context a node is handed, carrying the acting identity.
+	 *
+	 * 🔴 These tests used to supply the identity as `config['owner']` and pass an
+	 * EMPTY context. That is why removing the config override broke twelve of
+	 * them at once — the fixture depended on the very escalation path ADR-099
+	 * removes, and no test exercised the way a node actually receives an identity
+	 * in production.
+	 *
+	 * A node is a CALLEE. It acts as whoever invoked it, which reaches it through
+	 * the run context; it does not name an identity in the document that anyone
+	 * who may edit flows can write. Passing a real context here means these tests
+	 * now exercise the production path rather than a fixture-only one.
+	 *
+	 * @return array The run context.
+	 */
+	private function runContext(): array {
+		return ['triggeredBy' => 'ruben'];
+	}//end runContext()
+
+	/**
 	 * A workable configuration.
 	 *
 	 * @return array The config.
@@ -124,7 +144,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testNonZeroExitCodeIsDataNotAFailure(): void {
 		$node = $this->nodeReturning(['exitCode' => 18, 'output' => '18 gate(s) failed', 'ref' => 'abc123']);
 
-		$out = $node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
+		$out = $node->execute([['json' => []]], $this->config(), $this->runContext());
 
 		// 18, not an exception and not a boolean: hydra reads this number.
 		$this->assertSame(18, $out[0]['json']['stage']['exitCode']);
@@ -150,7 +170,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 		// dispatcher — green for the opposite of the reason it claims.
 		$this->expectException(RuntimeException::class);
 		$this->expectExceptionMessage('the ExApp is not running');
-		$node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
+		$node->execute([['json' => []]], $this->config(), $this->runContext());
 
 	}//end testADispatchFailurePropagates()
 
@@ -233,9 +253,8 @@ class HermiqWorkloadNodeTest extends TestCase {
 				'repo' => '{{issue.repo}}',
 				'ref' => '{{issue.branch}}',
 				'command' => ['scripts/run-hydra-gates.sh', '--base', '{{base}}'],
-				'owner' => 'ruben',
 			],
-			[]
+			$this->runContext()
 		);
 
 		$this->assertSame('https://github.com/ConductionNL/hydra', $this->lastCall[0]);
@@ -252,7 +271,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testTheOutputKeyIsConfigurable(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => 'ok', 'ref' => 'r']);
 
-		$out = $node->execute([['json' => []]], ($this->config() + ['output' => 'gates', 'owner' => 'ruben']), []);
+		$out = $node->execute([['json' => []]], ($this->config() + ['output' => 'gates']), $this->runContext());
 
 		$this->assertArrayHasKey('gates', $out[0]['json']);
 		$this->assertArrayNotHasKey('stage', $out[0]['json']);
@@ -270,7 +289,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testEveryItemIsRunAndPaired(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$out = $node->execute([['json' => ['n' => 1]], ['json' => ['n' => 2]]], ($this->config() + ['owner' => 'ruben']), []);
+		$out = $node->execute([['json' => ['n' => 1]], ['json' => ['n' => 2]]], $this->config(), $this->runContext());
 
 		$this->assertCount(2, $out);
 		$this->assertSame(0, $out[0]['pairedItem']['item']);
@@ -365,8 +384,8 @@ class HermiqWorkloadNodeTest extends TestCase {
 
 		$out = $node->execute(
 			[['json' => ['n' => 1]], ['json' => ['n' => 2]]],
-			($this->config() + ['owner' => 'ruben', 'credentialId' => 'cred-uuid-1']),
-			[]
+			($this->config() + ['credentialId' => 'cred-uuid-1']),
+			$this->runContext()
 		);
 
 		foreach ($out as $item) {
@@ -388,7 +407,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testNoCredentialMeansNoCredentialAttribution(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$out = $node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
+		$out = $node->execute([['json' => []]], $this->config(), $this->runContext());
 
 		$this->assertSame('ruben', $out[0]['json']['stage']['owner']);
 		$this->assertNull($out[0]['json']['stage']['credential_owner']);
@@ -411,8 +430,8 @@ class HermiqWorkloadNodeTest extends TestCase {
 
 		$node->execute(
 			[['json' => ['tool' => 'https://github.com/ConductionNL/hydra']]],
-			($this->config() + ['owner' => 'ruben', 'toolRepo' => '{{tool}}', 'toolRef' => 'development']),
-			[]
+			($this->config() + ['toolRepo' => '{{tool}}', 'toolRef' => 'development']),
+			$this->runContext()
 		);
 
 		// Positional order of dispatch(): repo, ref, command, uid, credentialId,
@@ -433,7 +452,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testNoToolTreeMeansTheCommandComesFromTheTarget(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
+		$node->execute([['json' => []]], $this->config(), $this->runContext());
 
 		$this->assertSame('', $this->lastCall[6]);
 		$this->assertSame('', $this->lastCall[7]);
@@ -455,8 +474,8 @@ class HermiqWorkloadNodeTest extends TestCase {
 
 		$node->execute(
 			[['json' => ['forgeCredential' => '35327e7a-cafe-4a21-8ffe-6195d52f9579']]],
-			($this->config() + ['owner' => 'ruben', 'credentialId' => '{{forgeCredential}}']),
-			[]
+			($this->config() + ['credentialId' => '{{forgeCredential}}']),
+			$this->runContext()
 		);
 
 		// Positional: repo, ref, command, uid, credentialId, ...
@@ -480,7 +499,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 	public function testAStageWithoutAPushDeclarationStaysReadOnly(): void {
 		$node = $this->nodeReturning(['exitCode' => 0, 'output' => '', 'ref' => '']);
 
-		$node->execute([['json' => []]], ($this->config() + ['owner' => 'ruben']), []);
+		$node->execute([['json' => []]], $this->config(), $this->runContext());
 
 		// Positional: repo, ref, command, uid, credentialId, timeoutMs, toolRepo, toolRef, push, pushCredentialId.
 		$this->assertSame([], $this->lastCall[8]);
@@ -507,7 +526,6 @@ class HermiqWorkloadNodeTest extends TestCase {
 			[['json' => ['issueNumber' => '493', 'slug' => 'builder-write-access']]],
 			(
 				$this->config() + [
-					'owner' => 'ruben',
 					'push' => [
 						'branch' => 'feature/{{issueNumber}}/{{slug}}',
 						'issue' => '{{issueNumber}}',
@@ -517,7 +535,7 @@ class HermiqWorkloadNodeTest extends TestCase {
 					],
 				]
 			),
-			[]
+			$this->runContext()
 		);
 
 		$push = $this->lastCall[8];
@@ -550,13 +568,12 @@ class HermiqWorkloadNodeTest extends TestCase {
 			[['json' => ['pushCred' => '55003b23-6262-495e-b0ab-2e221ba5e17c']]],
 			(
 				$this->config() + [
-					'owner' => 'ruben',
 					'credentialId' => '35327e7a-cafe-4a21-8ffe-6195d52f9579',
 					'pushCredentialId' => '{{pushCred}}',
 					'push' => ['branch' => 'feature/1/x', 'issue' => '1'],
 				]
 			),
-			[]
+			$this->runContext()
 		);
 
 		$this->assertSame('35327e7a-cafe-4a21-8ffe-6195d52f9579', $this->lastCall[4]);
@@ -614,8 +631,8 @@ class HermiqWorkloadNodeTest extends TestCase {
 
 		$node->execute(
 			[['json' => []]],
-			($this->config() + ['owner' => 'ruben', 'push' => ['branch' => 'feature/1/x']]),
-			[]
+			($this->config() + ['push' => ['branch' => 'feature/1/x']]),
+			$this->runContext()
 		);
 
 	}//end testAnUnfencedPushIsRefusedOnExecuteToo()
@@ -631,4 +648,44 @@ class HermiqWorkloadNodeTest extends TestCase {
 		$this->assertSame('hermiq.workload-step', $node->getId());
 
 	}//end testItRegistersAsTheWorkloadStep()
+
+	/**
+	 * 🔴 A DOCUMENT-SUPPLIED `owner` CANNOT NAME THE IDENTITY.
+	 *
+	 * The negative control for the escalation this change removes. A flow
+	 * document is authored by anyone who may edit flows, so when the node read
+	 * `$config['owner'] ?? $context['triggeredBy']`, writing `owner: admin` into a
+	 * node made the step run with admin's rights and be attributed to admin.
+	 *
+	 * The assertion is that the CONTEXT identity survives while a conflicting
+	 * config one is ignored. Asserting only "the context identity is used" would
+	 * pass against the old code too, because the old code also used the context
+	 * whenever config carried nothing — the conflict is what distinguishes them.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-identity-narrows/specs/agent-identity/spec.md
+	 */
+	public function testAConfigSuppliedOwnerCannotOverrideTheCallersIdentity(): void {
+		$node = $this->nodeReturning(['exitCode' => 0, 'output' => 'done', 'ref' => 'abc123']);
+
+		$out = $node->execute(
+			[['json' => []]],
+			($this->config() + ['owner' => 'admin']),
+			$this->runContext()
+		);
+
+		$result = ($out[0]['json']['stage'] ?? []);
+
+		$this->assertSame(
+			'ruben',
+			($result['owner'] ?? null),
+			'the caller\'s identity must win; a document may not name the identity its steps run as'
+		);
+		$this->assertNotSame(
+			'admin',
+			($result['owner'] ?? null),
+			'a config-supplied owner is an authoring-time escalation and must be ignored'
+		);
+	}//end testAConfigSuppliedOwnerCannotOverrideTheCallersIdentity()
 }//end class
