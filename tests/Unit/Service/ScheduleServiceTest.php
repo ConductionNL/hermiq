@@ -2159,23 +2159,36 @@ class ScheduleServiceTest extends TestCase {
 	}//end testActingUserOverridesOwnerImpersonation()
 
 	/**
-	 * agent-capability-profile: an actingUser naming a nonexistent user falls back to
-	 * the schedule owner — the run is NOT failed by a misconfigured profile field.
+	 * An actingUser naming a nonexistent user REFUSES the run (ADR-099).
+	 *
+	 * 🔴 This inverts `agent-capability-profile` task 3-1, which required that a
+	 * misconfigured profile field must not fail the run. That reasoning valued
+	 * availability, and it is the wrong trade here.
+	 *
+	 * The two absent cases are not the same thing. An agent that declares NO
+	 * actingUser has expressed no preference, so the schedule's own identity
+	 * applies — that fallback is kept and tested separately. An agent that
+	 * DECLARES one which no longer resolves is different: an author stated an
+	 * identity, and running as the schedule owner instead executes the turn with
+	 * somebody else's rights and attributes it to them in the audit trail.
+	 *
+	 * Disabling an account is also how a departure is normally processed, so the
+	 * likeliest trigger for this branch is precisely the case where substituting
+	 * the owner is least acceptable — the person who left is replaced by the
+	 * person who happened to own the schedule.
 	 *
 	 * @return void
 	 *
-	 * @spec openspec/changes/agent-capability-profile/tasks.md#task-3-1
+	 * @spec openspec/changes/agent-identity-narrows/specs/agent-identity/spec.md
 	 */
-	public function testActingUserFallsBackToOwnerWhenNonexistent(): void {
+	public function testADeclaredButUnresolvableActingUserRefusesTheRun(): void {
 		$this->appConfig = $this->createMock(IAppConfig::class);
 		$this->appConfig->method('getValueString')->willReturn('true');
 
 		$this->engine = $this->createMock(Engine::class);
-		$this->engine->expects($this->once())->method('processMessage')->with(
-			$this->anything(),
-			$this->equalTo('alice'),
-			$this->anything()
-		)->willReturn(['message' => 'engine output', 'usage' => []]);
+		// The turn must never start. Asserting this is the point: a refusal that
+		// still ran the agent would be a refusal in name only.
+		$this->engine->expects($this->never())->method('processMessage');
 		$this->service = $this->makeService();
 
 		$agentObject = new ObjectEntity();
@@ -2203,10 +2216,18 @@ class ScheduleServiceTest extends TestCase {
 			)
 		);
 
-		$this->assertSame('ok', $this->auditCalls[0]['context']['status'], 'An invalid actingUser must not fail the run.');
-		$this->assertSame('alice', $this->auditCalls[0]['context']['runAsUser']);
+		$this->assertNotSame(
+			'ok',
+			$this->auditCalls[0]['context']['status'],
+			'a declared identity that does not resolve must not be silently replaced by the schedule owner'
+		);
+		$this->assertNotSame(
+			'alice',
+			($this->auditCalls[0]['context']['runAsUser'] ?? null),
+			'the schedule owner must not be substituted for the identity the author named'
+		);
 
-	}//end testActingUserFallsBackToOwnerWhenNonexistent()
+	}//end testADeclaredButUnresolvableActingUserRefusesTheRun()
 
 	/**
 	 * agent-capability-profile: actingUser is never consulted on the flag-off (legacy
