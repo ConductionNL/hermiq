@@ -26,11 +26,11 @@
 			showBackground
 			showControls
 			showMiniMap
-			@nodes-change="onCanvasNodesChange"
-			@node-select="onCanvasSelect($event)"
-			@canvas-click="onCanvasClick"
+			@nodesChange="onCanvasNodesChange"
+			@nodeSelect="onCanvasSelect($event)"
+			@canvasClick="onCanvasClick"
 			@connect="editor.connect($event)"
-			@canvas-drop="onCanvasDrop"
+			@canvasDrop="onCanvasDrop"
 			@contextmenu.prevent="onCanvasContext">
 			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
 			     in one direction, which a plain line does not convey. The line
@@ -773,10 +773,12 @@ export default {
 				data: node,
 			})
 
-			const nodes = (this.editor.nodes || []).map((node) => toCanvasNode({
-				...node,
-				ports: this.portsForNode(node),
-			}))
+			const nodes = (this.editor.nodes || []).map((node) =>
+				toCanvasNode({
+					...node,
+					ports: this.portsForNode(node),
+				}),
+			)
 
 			// Annotations ride the same render list, because the canvas is what
 			// positions things in canvas space — but they are NOT nodes in the
@@ -785,12 +787,14 @@ export default {
 			// to deadlock a flow.
 			//
 			// No ports: nothing connects to a note.
-			const notes = (this.editor.flow.annotations || []).map((note) => toCanvasNode({
-				...note,
-				id: `${ANNOTATION_ID_PREFIX}${note.id}`,
-				ports: [],
-				isAnnotation: true,
-			}))
+			const notes = (this.editor.flow.annotations || []).map((note) =>
+				toCanvasNode({
+					...note,
+					id: `${ANNOTATION_ID_PREFIX}${note.id}`,
+					ports: [],
+					isAnnotation: true,
+				}),
+			)
 
 			return [...nodes, ...notes]
 		},
