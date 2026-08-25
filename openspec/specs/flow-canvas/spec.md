@@ -417,3 +417,37 @@ the flow where it was.
 - **WHEN** the link is followed
 - **THEN** it MUST open in a new tab and the editor MUST retain its unsaved state
 - @e2e exclude covered by the run-log component tests
+
+### Requirement: A node dragged on the canvas keeps where it was put
+
+Dragging a node MUST reach the flow document, so the position survives a save
+and a reload.
+
+The canvas reports node changes as a STREAM, not as a single "moved" event: the
+same stream carries selection, dimension measurement and removal, and a drag in
+progress reports continuously with `dragging: true` until the pointer is
+released. A consumer that persists every entry writes a revision per animation
+frame; one that listens for a "moved" event that the canvas does not emit
+persists nothing at all.
+
+Only SETTLED position changes are written — a change of type `position`, no
+longer `dragging`, carrying an actual position.
+
+#### Scenario: A drag survives the reload
+
+- **GIVEN** a saved flow open on the canvas
+- **WHEN** a node is dragged to a new place and the flow is saved
+- **AND** the flow is opened again
+- **THEN** the node MUST be where it was left
+- @e2e exclude — pointer-drag against a live canvas; the stream-to-document
+  contract is asserted at the component level, and the failure this guards
+  against was silent rather than visible: the node moved on screen and the
+  document was never told.
+
+#### Scenario: A drag in progress is not persisted
+
+- **GIVEN** a node being dragged
+- **WHEN** the canvas reports intermediate positions with `dragging: true`
+- **THEN** none of them MUST be written to the document
+- **AND** only the position at release MUST be
+- @e2e exclude — same reason; asserted where the change stream is handled.

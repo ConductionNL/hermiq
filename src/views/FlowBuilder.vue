@@ -5,25 +5,32 @@
 
 <template>
 	<div class="flow-builder">
+		<!-- DRIVEN BY VUE FLOW, NOT AROUND IT.
+		     This passed six props the canvas no longer has (`selectedNodeId`,
+		     `nodeWidth`, `nodeHeight`, `zoom`, `showGrid`, `resizable`) and
+		     listened for three events it no longer emits (`nodeMove`,
+		     `nodeResize`, `update:zoom`) — so node drags reached nothing and
+		     the zoom controls drove a prop that had been deleted.
+
+		     `nodeWidth`/`nodeHeight` went when the canvas moved to Vue Flow,
+		     which MEASURES the rendered node; guessing its size is the class of
+		     bug that removal was for. `fitView` is what frames a graph on load,
+		     and nothing was asking for it. -->
 		<CnGraphCanvas
 			ref="graph"
 			:nodes="nodesWithPorts"
 			:edges="editor.canvasEdges"
-			:selectedNodeId="editor.selectedNodeId"
-			:nodeWidth="nodeWidth"
-			:nodeHeight="nodeHeight"
-			:zoom="zoom"
 			:minZoom="minZoom"
 			:maxZoom="maxZoom"
-			showGrid
-			resizable
-			@update:zoom="zoom = $event"
+			fitView
+			showBackground
+			showControls
+			showMiniMap
+			@nodesChange="onCanvasNodesChange"
 			@nodeSelect="onCanvasSelect($event)"
 			@canvasClick="onCanvasClick"
-			@nodeMove="onCanvasMove($event)"
 			@connect="editor.connect($event)"
 			@canvasDrop="onCanvasDrop"
-			@nodeResize="onCanvasResize($event)"
 			@contextmenu.prevent="onCanvasContext">
 			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
 			     in one direction, which a plain line does not convey. The line
@@ -766,10 +773,12 @@ export default {
 				data: node,
 			})
 
-			const nodes = (this.editor.nodes || []).map((node) => toCanvasNode({
-				...node,
-				ports: this.portsForNode(node),
-			}))
+			const nodes = (this.editor.nodes || []).map((node) =>
+				toCanvasNode({
+					...node,
+					ports: this.portsForNode(node),
+				}),
+			)
 
 			// Annotations ride the same render list, because the canvas is what
 			// positions things in canvas space — but they are NOT nodes in the
@@ -778,12 +787,14 @@ export default {
 			// to deadlock a flow.
 			//
 			// No ports: nothing connects to a note.
-			const notes = (this.editor.flow.annotations || []).map((note) => toCanvasNode({
-				...note,
-				id: `${ANNOTATION_ID_PREFIX}${note.id}`,
-				ports: [],
-				isAnnotation: true,
-			}))
+			const notes = (this.editor.flow.annotations || []).map((note) =>
+				toCanvasNode({
+					...note,
+					id: `${ANNOTATION_ID_PREFIX}${note.id}`,
+					ports: [],
+					isAnnotation: true,
+				}),
+			)
 
 			return [...nodes, ...notes]
 		},
@@ -970,6 +981,42 @@ export default {
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
+		/**
+		 * Vue Flow reports node changes as a STREAM; this picks the settled
+		 * moves out of it.
+		 *
+		 * The canvas emits `nodes-change` for selection, dimension measurement,
+		 * removal and dragging alike, and a drag reports continuously with
+		 * `dragging: true` until the pointer is released. Persisting every one
+		 * of those would write a row per animation frame.
+		 *
+		 * This replaces the old `@nodeMove`, which the canvas stopped emitting
+		 * when it moved to Vue Flow — so until now a dragged node moved on
+		 * screen and the document never heard about it.
+		 *
+		 * @param {Array<object>} changes Vue Flow's change stream.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-a-node-dragged-on-the-canvas-keeps-where-it-was-put
+		 */
+		onCanvasNodesChange(changes) {
+			for (const change of changes || []) {
+				if (change.type !== 'position' || change.dragging === true) {
+					continue
+				}
+
+				if (change.position === undefined || change.position === null) {
+					continue
+				}
+
+				this.onCanvasMove({
+					id: change.id,
+					x: change.position.x,
+					y: change.position.y,
+				})
+			}
+		},
+
 		onCanvasMove(payload) {
 			const id = String(payload?.id || '')
 			if (id.startsWith(ANNOTATION_ID_PREFIX)) {
@@ -2350,11 +2397,17 @@ export default {
  * matching `.cn-flow-node[data-v-canvas]` — so which one won came down
  * to bundle order. Anchoring on `.flow-builder` settles it at (0,3,0). */
 .flow-builder :deep(.cn-flow-node) {
-	border: 2px solid var(--color-border);
-	background-color: var(--color-main-background);
-	border-radius: var(--border-radius-large, 8px);
-	/* Clips the body's role accent to the card's curve, so the accent needs no
-	   radius of its own — which is what drew the second frame. */
+	/* THE CARD IS THE NODE COMPONENT'S. WE ONLY CLIP IT.
+	 *
+	 * This used to restate `border`, `background-color` and `border-radius`
+	 * here, with the same values CnFlowNode already sets — three declarations
+	 * that existed to win a specificity tie against a rule saying the same
+	 * thing. That is the container-in-container: two owners for one card, kept
+	 * in step by hand.
+	 *
+	 * CnFlowNode owns the frame. What is genuinely ours is the clip, so the
+	 * body's role accent follows the card's curve instead of drawing a second
+	 * corner over it. */
 	overflow: hidden;
 }
 
