@@ -59,7 +59,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service\Engine;
 
 use Exception;
-use OCA\Hermiq\Cron\ConversationTitleJob;
+use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
 use OCA\Hermiq\Service\GuardrailBlockedException;
 use OCA\Hermiq\Service\GuardrailPolicyService;
 use OCA\Hermiq\Service\Talk\ConversationParticipation;

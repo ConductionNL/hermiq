@@ -16,7 +16,7 @@ OpenRegister does not fill (ADR-001, ADR-002).
 
 ## What Changes
 
-- Add `Hermiq\Cron\ScheduleTask extends OCP\BackgroundJob\TimedJob`: one polling
+- Add `Hermiq\BackgroundJob\ScheduleTask extends OCP\BackgroundJob\TimedJob`: one polling
   task, `setInterval(~300s)`, `setAllowParallelRuns(false)`, time-sensitive. It
   delegates all logic to `ScheduleService` (copying OpenConnector's `JobTask`
   wrapper pattern).
@@ -54,7 +54,7 @@ This is the **second change in the ADR-032 chain** and `depends_on`
 
 ## Impact
 
-- **Code (net-new):** `lib/Cron/ScheduleTask.php`, `lib/Service/ScheduleService.php`.
+- **Code (net-new):** `lib/BackgroundJob/ScheduleTask.php`, `lib/Service/ScheduleService.php`.
 - **Dependency:** `composer.json` gains `dragonmantank/cron-expression`.
 - **Config:** `appinfo/info.xml` registers the background job (single
   `<background-jobs>` block).

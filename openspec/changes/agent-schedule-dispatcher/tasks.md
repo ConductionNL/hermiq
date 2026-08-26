@@ -3,11 +3,11 @@
 ## 1. Dependency and registration
 
 - [x] 1.1 Add `dragonmantank/cron-expression` to `composer.json` and update `composer.lock`.
-- [x] 1.2 Register `Hermiq\Cron\ScheduleTask` as a single `<background-jobs>` entry in `appinfo/info.xml` (one block only — avoid the double-block upgrade crash).
+- [x] 1.2 Register `Hermiq\BackgroundJob\ScheduleTask` as a single `<background-jobs>` entry in `appinfo/info.xml` (one block only — avoid the double-block upgrade crash).
 
 ## 2. ScheduleTask (TimedJob wrapper)
 
-- [x] 2.1 Create `lib/Cron/ScheduleTask.php` extending `OCP\BackgroundJob\TimedJob`, with SPDX docblock.
+- [x] 2.1 Create `lib/BackgroundJob/ScheduleTask.php` extending `OCP\BackgroundJob\TimedJob`, with SPDX docblock.
 - [x] 2.2 In the constructor call `setInterval(300)`, `setTimeSensitivity(IJob::TIME_SENSITIVE)`, `setAllowParallelRuns(false)`; delegate `run()` to `ScheduleService::run()`.
 
 ## 3. ScheduleService (dispatch logic)

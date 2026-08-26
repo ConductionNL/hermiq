@@ -94,7 +94,7 @@ not user-invoked tools.
 ## Impact
 
 - **Code:** `lib/Service/Talk/TalkTurnDispatcher.php` (claim + immediate path),
-  `lib/Cron/TalkTurnJob.php` (claim check), `lib/Service/Talk/TalkTurnService.php`
+  `lib/BackgroundJob/TalkTurnJob.php` (claim check), `lib/Service/Talk/TalkTurnService.php`
   (progressive delivery hooks, agent-to-agent chain budget),
   `lib/Service/Talk/TalkBridge.php` (message editing, per-agent bot registration),
   `lib/Service/Talk/TalkBotInstaller.php` (one bot per Talk-enabled agent),

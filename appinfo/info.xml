@@ -50,10 +50,10 @@
     <!-- @spec openspec/changes/skills-marketplace/tasks.md#task-3-1 -->
     <!-- Single <background-jobs> block only — a second block causes an NC upgrade 500. -->
     <background-jobs>
-        <job>OCA\Hermiq\Cron\ScheduleTask</job>
-        <job>OCA\Hermiq\Cron\SkillCuratorTask</job>
-        <job>OCA\Hermiq\Cron\SkillLearningsPromotionTask</job>
-        <job>OCA\Hermiq\Cron\SkillConsolidationTask</job>
+        <job>OCA\Hermiq\BackgroundJob\ScheduleTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillCuratorTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillLearningsPromotionTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillConsolidationTask</job>
     </background-jobs>
 
     <!-- @spec openspec/architecture/adr-023-action-authorization.md -->

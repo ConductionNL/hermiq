@@ -8,7 +8,7 @@
       OpenRegister is already a hard Hermiq dependency).
 - [x] 1.2 Mode validation + enqueue failure handling — both logged, never thrown,
       so a broken listener can never fail OpenRegister's `dispatchTyped()` call.
-- [x] 1.3 Create `lib/Cron/AgentRunRequestedJob.php` — a one-shot `QueuedJob`
+- [x] 1.3 Create `lib/BackgroundJob/AgentRunRequestedJob.php` — a one-shot `QueuedJob`
       (ADR-002 thin wrapper) delegating entirely to `FlowAgentRunService::run()`.
 
 ## 2. FlowAgentRunService (governed dispatch)

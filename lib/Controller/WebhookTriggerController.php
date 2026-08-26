@@ -49,7 +49,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Controller;
 
 use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Cron\WebhookAgentRunJob;
+use OCA\Hermiq\BackgroundJob\WebhookAgentRunJob;
 use OCA\Hermiq\Service\WebhookSecretService;
 use OCP\AppFramework\Controller;
 use OCP\AppFramework\Http;

@@ -32,7 +32,7 @@ feature):
 1. **`agent-schedule-schema`** (this change, kind `config`) — declares the `Schedule`
    schema so schedule objects can be persisted and validated by OpenRegister.
 2. **`agent-schedule-dispatcher`** (kind `code`, `depends_on: [agent-schedule-schema]`) —
-   adds `Hermiq\Cron\ScheduleTask extends TimedJob` + `Hermiq\Service\ScheduleService`
+   adds `Hermiq\BackgroundJob\ScheduleTask extends TimedJob` + `Hermiq\Service\ScheduleService`
    that polls due `Schedule` objects and fires the bound OpenRegister agent under the
    owner's identity, advancing run-state before the agent turn (at-most-once / crash
    safety) and delegating delivery.

@@ -31,7 +31,7 @@ skill. This change builds the Hermiq-ownable surface of that spec on top of skil
   - `publishToHub(skillId, hubId)` — serialise via the skills-catalog `SkillSerializer`
     and route the outbound submission through **OpenConnector `CallService`** (no direct
     HTTP); a structured error when no hub connector is configured.
-- Add `lib/Cron/SkillCuratorTask.php` (`TimedJob` → `SkillMarketplaceService::curate()`),
+- Add `lib/BackgroundJob/SkillCuratorTask.php` (`TimedJob` → `SkillMarketplaceService::curate()`),
   registered in `appinfo/info.xml` alongside the existing dispatcher job (single
   `<background-jobs>` block — a second block breaks the NC upgrade).
 - Add `lib/Controller/SkillMarketplaceController.php` + routes (install-from-source,
@@ -41,7 +41,7 @@ skill. This change builds the Hermiq-ownable surface of that spec on top of skil
 
 - Affected specs: `skills-marketplace` (idea → active, with documented scan/hub seams).
 - Affected code: `lib/Settings/hermiq_register.json`, `lib/Service/SkillMarketplaceService.php`,
-  `lib/Cron/SkillCuratorTask.php`, `lib/Controller/SkillMarketplaceController.php`,
+  `lib/BackgroundJob/SkillCuratorTask.php`, `lib/Controller/SkillMarketplaceController.php`,
   `appinfo/routes.php`, `appinfo/info.xml`, `src/views/SkillsCatalog.vue`,
   `src/api/skills.js`, `tests/Unit/Service/SkillMarketplaceServiceTest.php`.
 - Seams (documented, not implemented): the content **security scan** (no OR scanner

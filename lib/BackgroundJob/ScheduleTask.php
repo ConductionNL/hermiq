@@ -11,7 +11,7 @@
  * (ADR-002).
  *
  * @category Cron
- * @package  OCA\Hermiq\Cron
+ * @package  OCA\Hermiq\BackgroundJob
  *
  * @author    Conduction Development Team <info@conduction.nl>
  * @copyright 2026 Conduction B.V.
@@ -24,7 +24,7 @@
 
 declare(strict_types=1);
 
-namespace OCA\Hermiq\Cron;
+namespace OCA\Hermiq\BackgroundJob;
 
 use OCA\Hermiq\Service\ScheduleService;
 use OCP\AppFramework\Utility\ITimeFactory;

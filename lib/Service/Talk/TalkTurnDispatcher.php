@@ -43,7 +43,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service\Talk;
 
-use OCA\Hermiq\Cron\TalkTurnJob;
+use OCA\Hermiq\BackgroundJob\TalkTurnJob;
 use OCP\BackgroundJob\IJobList;
 use OCP\TaskProcessing\IManager as ITaskProcessingManager;
 use Psr\Log\LoggerInterface;

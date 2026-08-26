@@ -48,7 +48,7 @@ in OpenRegister; ADR-023: the acting user governs every read).
   result is filtered by re-checking the *underlying record* as the acting user: a node
   whose `sourceRef` the acting user cannot read is dropped; an edge is returned only
   when BOTH endpoints survive that check.
-- `lib/Cron/GraphExtractionJob.php` (new, `QueuedJob`): extracts entities/relations
+- `lib/BackgroundJob/GraphExtractionJob.php` (new, `QueuedJob`): extracts entities/relations
   from one source batch, running as the acting user who enqueued it (the same
   impersonate-and-restore pattern the Talk turn path already specifies), reading
   objects via `ObjectService`, files via `IRootFolder`, mail via the shipped mail read
@@ -91,7 +91,7 @@ behaviour and the semantic/hybrid degradation notes are untouched by this change
 ## Impact
 
 - **Code:** `lib/Settings/hermiq_register.json`, new `lib/Service/Graph/GraphService.php`,
-  new `lib/Cron/GraphExtractionJob.php`, `lib/Service/Engine/ContextRetrievalHandler.php`
+  new `lib/BackgroundJob/GraphExtractionJob.php`, `lib/Service/Engine/ContextRetrievalHandler.php`
   (graph mode branch), tool registration for the two graph tools, plus unit tests.
 - **OpenRegister-side seams (explicit, out of scope here — see design.md):** graph
   storage stays ordinary OR objects (no OR change needed); a *native* graph/traversal
