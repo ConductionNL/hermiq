@@ -169,19 +169,13 @@
              "share the contract" pattern as nldesign (2e0eab2). -->
         <directory name="tests/Stubs" />
         <!--
-            The CAPABILITY grammar is read from its REAL source, never a stub.
-
-            ADR-099 §5 moved ToolGrantSet/Codec/Resolver, ToolReachResolver and
-            ToolGrantResolutionException into OCA\OpenRegister\Service\Capability.
-            A declaration-only stub would be a second copy of ~2,400 lines of
-            security-relevant parsing; tests/bootstrap.php sets out why this repo
-            refuses to keep one.
-
-            Both topologies put OpenRegister beside hermiq — CI checks additional
-            apps out at server/apps/openregister next to server/apps/hermiq, and
-            the dev tree has apps-extra/openregister next to apps-extra/hermiq —
-            so the relative path is the same in both.
+            tests/Stubs above now also covers the ADR-099 §5 capability grammar
+            (tests/Stubs/Service/Capability). Those stubs are DECLARATION-ONLY and
+            every body throws: static analysis needs the class to resolve because
+            the php-quality job does not check out OpenRegister, while every test
+            runs against the REAL source that tests/bootstrap.php maps under a
+            longer PSR-4 prefix. A signature drift surfaces in the test run rather
+            than hiding behind a stub that answers.
         -->
-        <directory name="../openregister/lib/Service/Capability" />
     </extraFiles>
 </psalm>
