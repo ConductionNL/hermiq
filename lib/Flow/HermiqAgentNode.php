@@ -238,7 +238,25 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		// A step may act as its caller, or refuse. Widening needs a delegation
 		// grant checked against the CALLER, which is a record — not a key in the
 		// document being checked.
-		$owner = (string)($context['triggeredBy'] ?? '');
+		//
+		// 🔴 `runAs` FIRST, `triggeredBy` only as a fallback. The two are
+		// deliberately different fields on a run and answer different questions:
+		// `triggeredBy` is PROVENANCE — who caused this — and `runAs` is
+		// AUTHORIZATION, whose rights the work uses. They are equal for a run a
+		// person started and DIFFER for a scheduled one, where the cause is a
+		// schedule and the acting identity is the user its trigger declares. An
+		// agent turn is an access decision, so it reads the authorization field.
+		//
+		// The fallback is a COMPATIBILITY SHIM with a known end, not a design.
+		// `runAs` reaches the node context from openregister#2835; an engine
+		// older than that build sets only `triggeredBy`, and on such an engine
+		// `triggeredBy` IS the only identity there has ever been — so falling
+		// back reproduces exactly the old behaviour rather than inventing one.
+		// Reading `runAs` alone would make this node refuse every turn against an
+		// engine that has not been upgraded yet, which is an outage rather than a
+		// safety property. Remove the fallback once the fleet's target instances
+		// are known to carry #2835.
+		$owner = trim((string)($context['runAs'] ?? ($context['triggeredBy'] ?? '')));
 		$org = (string)($config['organisation'] ?? '');
 
 		$out = [];
