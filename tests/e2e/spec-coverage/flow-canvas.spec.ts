@@ -149,10 +149,15 @@ test.describe('flow-canvas — a connection is drawn, and carries its title', ()
 			`the flow stores ${stored} connection(s); the canvas drew none`,
 		).toBeAttached({ timeout: 20_000 })
 
-		expect(
-			await drawn.count(),
+		// ⚠️ `not.toHaveCount(0)`, NOT `expect(await drawn.count())`. A count
+		// awaited into a plain expect is a SNAPSHOT of the DOM at that instant
+		// and cannot retry, so on a canvas that is still mounting it reports
+		// zero and reads as "the feature is missing" rather than "not yet".
+		// The web-first form polls until the deadline.
+		await expect(
+			drawn,
 			'every stored connection should draw at least one line',
-		).toBeGreaterThan(0)
+		).not.toHaveCount(0, { timeout: 20_000 })
 
 		const fatal = errors.filter(
 			(e) =>
