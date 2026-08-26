@@ -319,9 +319,6 @@
     }
   },
   "src/views/FlowBuilder.vue": {
-    "@nextcloud/no-deprecated-library-props": {
-      "count": 9
-    },
     "@typescript-eslint/no-unused-vars": {
       "count": 1
     }

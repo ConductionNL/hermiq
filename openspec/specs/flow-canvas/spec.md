@@ -248,13 +248,33 @@ an arrowhead did not ask for it back.
 - **GIVEN** a label moved to a third of the way along its connection
 - **WHEN** the graph is panned, zoomed or auto-sorted
 - **THEN** the label MUST still sit a third of the way along that connection
-- @e2e exclude covered by the canvas's component tests
+- @e2e exclude covered by nextcloud-vue `tests/components/CnFlowEdge.spec.js`
 
 #### Scenario: The keyboard moves a label
 - **GIVEN** a focused connection label
 - **WHEN** the arrow keys are pressed
 - **THEN** it MUST move along its line, without a pointer
-- @e2e exclude covered by the canvas's component tests
+- @e2e exclude covered by nextcloud-vue `tests/components/CnFlowEdge.spec.js`
+
+<!--
+⚠️ THESE TWO STAND-DOWNS WERE FALSE FOR AS LONG AS THEY EXISTED.
+
+They read "covered by the canvas's component tests", and there were none: the
+canvas had no edge component to test. The `#edge` slot this app passed had been
+removed from CnGraphCanvas, Vue drops an unmatched slot in silence, and so the
+label — with its keyboard path, its context menu and the replay payload control
+— rendered nothing at all while every gate stayed green.
+
+An exclusion reason names the OTHER PLACE a behaviour is proved. If it does not
+name a file, nobody can check that the other place exists. Both now name one.
+-->
+
+#### Scenario: A connection with no title draws no chip
+- **GIVEN** a connection whose `title` is empty
+- **WHEN** the canvas renders it
+- **THEN** no label control MUST be drawn for it
+- **AND** an empty chip MUST NOT appear in its place
+- @e2e exclude covered by nextcloud-vue `tests/components/CnFlowEdge.spec.js`
 
 ### Requirement: A flow MUST have a trigger and an end
 
