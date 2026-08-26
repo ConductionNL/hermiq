@@ -721,7 +721,8 @@ export default {
 					// `markerRef` returns null because null is what removes an
 					// SVG attribute; this is the boundary where that spelling
 					// stops being right.
-					markerEnd: this.markerRef(edge.endMarker, this.arrowId) ?? undefined,
+					markerEnd:
+						this.markerRef(edge.endMarker, this.arrowId) ?? undefined,
 					markerStart: this.markerRef(edge.startMarker) ?? undefined,
 					style: this.edgeStyle(edge),
 					class: {
@@ -1954,7 +1955,6 @@ export default {
 
 			return this.editor.resultByEdge[this.editor.transitionName(edge)] || null
 		},
-
 	},
 }
 </script>
