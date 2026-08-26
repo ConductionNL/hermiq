@@ -44,6 +44,27 @@ use UnexpectedValueException;
 /**
  * Runs an agent turn as one step of an OpenRegister flow.
  *
+ * WHICH IDENTITY A TURN ACTS AS
+ *
+ * `context['runAs']` first, `context['triggeredBy']` only as a fallback. The two
+ * are deliberately different fields on a run and answer different questions:
+ * `triggeredBy` is PROVENANCE — who caused this — and `runAs` is AUTHORIZATION,
+ * whose rights the work uses. They are equal for a run a person started and
+ * DIFFER for a scheduled one, where the cause is a schedule and the acting
+ * identity is the user its trigger declares. An agent turn is an access
+ * decision, so it reads the authorization field; reading provenance for one is
+ * how a turn comes to execute with one person's rights while the record names
+ * another.
+ *
+ * ⚠️ THE FALLBACK IS A COMPATIBILITY SHIM WITH A KNOWN END, not a design.
+ * `runAs` reaches the node context from openregister#2835. An engine older than
+ * that build sets only `triggeredBy`, and on such an engine `triggeredBy` IS the
+ * only identity there has ever been — so falling back reproduces the old
+ * behaviour rather than inventing one. Reading `runAs` alone would make this
+ * node refuse every turn against an un-upgraded instance, which is an outage
+ * dressed as a safety property. Remove the fallback once the fleet's target
+ * instances are known to carry #2835.
+ *
  * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
@@ -239,23 +260,8 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		// grant checked against the CALLER, which is a record — not a key in the
 		// document being checked.
 		//
-		// 🔴 `runAs` FIRST, `triggeredBy` only as a fallback. The two are
-		// deliberately different fields on a run and answer different questions:
-		// `triggeredBy` is PROVENANCE — who caused this — and `runAs` is
-		// AUTHORIZATION, whose rights the work uses. They are equal for a run a
-		// person started and DIFFER for a scheduled one, where the cause is a
-		// schedule and the acting identity is the user its trigger declares. An
-		// agent turn is an access decision, so it reads the authorization field.
-		//
-		// The fallback is a COMPATIBILITY SHIM with a known end, not a design.
-		// `runAs` reaches the node context from openregister#2835; an engine
-		// older than that build sets only `triggeredBy`, and on such an engine
-		// `triggeredBy` IS the only identity there has ever been — so falling
-		// back reproduces exactly the old behaviour rather than inventing one.
-		// Reading `runAs` alone would make this node refuse every turn against an
-		// engine that has not been upgraded yet, which is an outage rather than a
-		// safety property. Remove the fallback once the fleet's target instances
-		// are known to carry #2835.
+		// 🔴 `runAs` (AUTHORIZATION) first; `triggeredBy` (PROVENANCE) is a
+		// compatibility fallback — see the class docblock, including its removal.
 		$owner = trim((string)($context['runAs'] ?? ($context['triggeredBy'] ?? '')));
 		$org = (string)($config['organisation'] ?? '');
 
