@@ -82,7 +82,7 @@
     "@nextcloud/stylelint-config": "^3.2.2",
     "@nextcloud/webpack-vue-config": "^6.0.1",
     "@playwright/test": "^1.61.1",
-    "@typescript-eslint/parser": "^8.67.0",
+    "@typescript-eslint/parser": "^8.68.0",
     "@vue/compiler-sfc": "^3.5.13",
     "@vue/test-utils": "^2.4.6",
     "ajv": "^8.17.1",
