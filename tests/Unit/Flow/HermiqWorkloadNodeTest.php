@@ -688,4 +688,64 @@ class HermiqWorkloadNodeTest extends TestCase {
 			'a config-supplied owner is an authoring-time escalation and must be ignored'
 		);
 	}//end testAConfigSuppliedOwnerCannotOverrideTheCallersIdentity()
+
+	/**
+	 * 🔴 `runAs` OUTRANKS `triggeredBy` WHEN THEY DISAGREE.
+	 *
+	 * The conflict is the whole test. The two keys are equal for a run a person
+	 * started, so a case where only one is present passes against BOTH the old
+	 * code and the new — it distinguishes nothing. They differ exactly where it
+	 * matters: a scheduled run, whose cause is a schedule and whose acting
+	 * identity is the user its trigger declares.
+	 *
+	 * Reading provenance for an access decision is how a stage comes to execute
+	 * with one person's rights while the record names another.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-identity-narrows/specs/agent-identity/spec.md
+	 */
+	public function testRunAsOutranksTriggeredByWhenTheyDisagree(): void {
+		$node = $this->nodeReturning(['exitCode' => 0, 'output' => 'done', 'ref' => 'abc123']);
+
+		$out = $node->execute(
+			[['json' => []]],
+			$this->config(),
+			['triggeredBy' => 'schedule-cause', 'runAs' => 'ruben']
+		);
+
+		$result = ($out[0]['json']['stage'] ?? []);
+
+		$this->assertSame(
+			'ruben',
+			($result['owner'] ?? null),
+			'a stage is an access decision, so it must read the authorization field'
+		);
+		$this->assertNotSame(
+			'schedule-cause',
+			($result['owner'] ?? null),
+			'provenance answers "who caused this", not "whose rights does it use"'
+		);
+	}//end testRunAsOutranksTriggeredByWhenTheyDisagree()
+
+	/**
+	 * POSITIVE CONTROL: an engine that sets only `triggeredBy` still works.
+	 *
+	 * The fallback is a compatibility shim for engines older than
+	 * openregister#2835, and it has to be proven present. Without this, a change
+	 * that dropped the fallback would pass the test above and silently refuse
+	 * every stage on an un-upgraded instance — an outage that looks like a safety
+	 * property.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-identity-narrows/specs/agent-identity/spec.md
+	 */
+	public function testAnEngineWithoutRunAsStillAttributesTheStage(): void {
+		$node = $this->nodeReturning(['exitCode' => 0, 'output' => 'done', 'ref' => 'abc123']);
+
+		$out = $node->execute([['json' => []]], $this->config(), ['triggeredBy' => 'ruben']);
+
+		$this->assertSame('ruben', ($out[0]['json']['stage']['owner'] ?? null));
+	}//end testAnEngineWithoutRunAsStillAttributesTheStage()
 }//end class

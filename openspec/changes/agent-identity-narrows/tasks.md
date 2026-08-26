@@ -16,5 +16,27 @@ Implements ADR-099 in hermiq. Supersedes `agent-capability-profile` task 3-1.
 
 ## 3. Follow-ups, deliberately not here
 
-- [ ] 3.1 Switch both nodes from `context['triggeredBy']` to `context['runAs']`. The key exists on openregister `development` (#2835) but reading it before hermiq's target instances carry that build would break these nodes against the running engine.
+- [x] 3.1 Switch both nodes from `context['triggeredBy']` to `context['runAs']`.
+
+  Done as `runAs` FIRST with `triggeredBy` as a fallback, rather than as a
+  straight swap. The two answer different questions — `triggeredBy` is PROVENANCE
+  (who caused this), `runAs` is AUTHORIZATION (whose rights the work uses) — and
+  they are equal for a run a person started, differing exactly where it matters:
+  a scheduled run, whose cause is a schedule and whose acting identity is the
+  user its trigger declares. An agent turn and a workload stage are both access
+  decisions, so they read the authorization field.
+
+  ⚠️ **The fallback is a COMPATIBILITY SHIM with a known end, not a design.**
+  `runAs` reaches the node context from openregister#2835. On an engine older
+  than that build `triggeredBy` is the only identity there has ever been, so
+  falling back reproduces the old behaviour rather than inventing one. Reading
+  `runAs` alone would make these nodes refuse every turn against an un-upgraded
+  instance — an outage that looks like a safety property. Remove the fallback
+  once the fleet's target instances are known to carry #2835.
+
+  Both tests assert the CONFLICT (`triggeredBy: schedule-cause`, `runAs: ruben`),
+  because a case where only one key is present passes against the old code too
+  and distinguishes nothing. Each is paired with a positive control proving the
+  fallback still works. Verified by reverting the node line: exactly one test
+  fails, and restoring it makes it pass.
 - [ ] 3.2 Relocate the capability-grant grammar (`ToolGrantSet`, `ToolGrantCodec`, `ToolReachResolver`) to OpenRegister per ADR-099 §5 — a relocation WITH its tests, not a rewrite. That codec carries a measured scar (35 of 87 tools parsed wrong) and ADR-095's persistence constraint; a rewrite-while-moving reopens both.
