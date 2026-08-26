@@ -33,7 +33,7 @@
 
 ## 3. Extraction
 
-- [ ] 3.1 Create `lib/Cron/GraphExtractionJob.php` (`QueuedJob`, pure wrapper like
+- [ ] 3.1 Create `lib/BackgroundJob/GraphExtractionJob.php` (`QueuedJob`, pure wrapper like
       `TalkTurnJob`) + an extraction service: job argument carries the enqueueing
       user; impersonate-and-restore around the whole run.
 - [ ] 3.2 Source readers: OpenRegister objects (`ObjectService`), files

@@ -35,7 +35,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Controller;
 
 use OCA\Hermiq\Controller\WebhookTriggerController;
-use OCA\Hermiq\Cron\WebhookAgentRunJob;
+use OCA\Hermiq\BackgroundJob\WebhookAgentRunJob;
 use OCA\Hermiq\Service\WebhookSecretService;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCP\AppFramework\Http;

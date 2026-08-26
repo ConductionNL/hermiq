@@ -26,7 +26,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Listener;
 
-use OCA\Hermiq\Cron\AgentRunRequestedJob;
+use OCA\Hermiq\BackgroundJob\AgentRunRequestedJob;
 use OCA\Hermiq\Listener\AgentRunRequestedListener;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCP\BackgroundJob\IJobList;

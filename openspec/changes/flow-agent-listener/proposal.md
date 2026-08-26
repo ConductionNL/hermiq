@@ -44,7 +44,7 @@ see `design.md`'s event contract table, copied from the OpenRegister change's
   with the event's flattened payload. The listener itself never runs the agent —
   keeping it fast means the triggering OpenRegister save/request never blocks on an
   LLM call.
-- **`lib/Cron/AgentRunRequestedJob.php`** (new) — a one-shot `QueuedJob` (ADR-002
+- **`lib/BackgroundJob/AgentRunRequestedJob.php`** (new) — a one-shot `QueuedJob` (ADR-002
   thin wrapper) that delegates the entire governed dispatch to
   `FlowAgentRunService::run()`.
 - **`lib/Service/FlowAgentRunService.php`** (new) — the governed dispatch:

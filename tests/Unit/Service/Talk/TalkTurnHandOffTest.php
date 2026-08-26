@@ -29,7 +29,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service\Talk;
 
-use OCA\Hermiq\Cron\TalkTurnJob;
+use OCA\Hermiq\BackgroundJob\TalkTurnJob;
 use OCA\Hermiq\Service\Talk\TalkTurnDispatcher;
 use OCA\Hermiq\Service\Talk\TalkTurnService;
 use OCP\AppFramework\Utility\ITimeFactory;
@@ -42,7 +42,7 @@ use Psr\Log\LoggerInterface;
  * Both hand-offs converge on one service.
  *
  * @covers \OCA\Hermiq\Service\Talk\TalkTurnDispatcher
- * @covers \OCA\Hermiq\Cron\TalkTurnJob
+ * @covers \OCA\Hermiq\BackgroundJob\TalkTurnJob
  *
  * @spec openspec/changes/talk-chat-bridge/specs/talk-chat-bridge/spec.md#requirement-turn-hand-off-is-event-driven-when-possible-and-queued-otherwise
  */

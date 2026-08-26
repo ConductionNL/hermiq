@@ -13,7 +13,7 @@ one-shot semantics, plus at-most-once crash safety.
 ## Goals / Non-Goals
 
 **Goals:**
-- One `Hermiq\Cron\ScheduleTask extends TimedJob` that polls all due schedules per
+- One `Hermiq\BackgroundJob\ScheduleTask extends TimedJob` that polls all due schedules per
   tick (NC registers one job; internal polling, not one job per row).
 - `Hermiq\Service\ScheduleService::run()` that selects due+enabled schedules,
   commits run-state before the agent turn, impersonates the owner, delegates
