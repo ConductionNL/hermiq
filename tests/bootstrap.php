@@ -19,6 +19,51 @@ $autoloader = require __DIR__ . '/../vendor/autoload.php';
 $autoloader->addPsr4('OCA\\OpenRegister\\', __DIR__ . '/Stubs/');
 $autoloader->addPsr4('OCA\\Talk\\', __DIR__ . '/Stubs/Talk/');
 
+// ── The CAPABILITY grammar is loaded from OpenRegister's REAL SOURCE, never a stub.
+//
+// ADR-099 §5 moved `ToolGrantSet`, `ToolGrantCodec`, `ToolGrantResolver`,
+// `ToolReachResolver` and `ToolGrantResolutionException` out of
+// `OCA\Hermiq\Service\Engine` and into `OCA\OpenRegister\Service\Capability`.
+// Fifteen hermiq test classes exercise them, and most do so for their BEHAVIOUR
+// — the grant grammar, the argument-constraint parser, the waiver matcher.
+//
+// 🔴 THERE IS DELIBERATELY NO STUB FOR THIS NAMESPACE, and there must never be
+// one. A stub of a value class is a second copy of the rules, and this repo has
+// already paid for that: `tests/Stubs/Service/Mcp/ToolRegistryFacade.php` drifted
+// from the real facade by one method (`describeTools()`), and every matrix cell
+// in which OpenRegister failed to enable errored on the missing method instead
+// of exercising the controller. That was a 3-method facade. This is ~2,400 lines
+// of security-relevant parsing whose codec carries a measured scar — 35 of 87
+// tools parsed wrong — so a stubbed copy would not merely drift, it would make
+// fifteen test classes validate a fake while reporting green.
+//
+// A LONGER PSR-4 PREFIX WINS over the blanket stub mapping above regardless of
+// registration order, so this cannot be defeated by someone reordering the file.
+//
+// WHERE THE SOURCE IS. Both topologies put OpenRegister beside hermiq:
+//   * CI  — the quality workflow checks the app out at `server/apps/<name>` and
+//           additional apps at `server/apps/openregister`, so `../openregister`.
+//   * dev — `apps-extra/hermiq` next to `apps-extra/openregister`, same relative
+//           path.
+// `HERMIQ_OPENREGISTER_PATH` overrides both for an unusual layout.
+//
+// If none resolves, NOTHING is registered. The class is then genuinely absent
+// and the affected tests ERROR loudly, which is the correct outcome: an absent
+// dependency must not be able to masquerade as a passing suite.
+$capabilityRoots = array_filter(
+	[
+		getenv('HERMIQ_OPENREGISTER_PATH') ?: null,
+		__DIR__ . '/../../openregister',
+	]
+);
+foreach ($capabilityRoots as $capabilityRoot) {
+	$capabilityDir = rtrim((string)$capabilityRoot, '/') . '/lib/Service/Capability';
+	if (is_dir($capabilityDir) === true) {
+		$autoloader->addPsr4('OCA\\OpenRegister\\Service\\Capability\\', $capabilityDir);
+		break;
+	}
+}
+
 // OCP\Files\IRootFolder extends the private OC\Hooks\Emitter interface, absent from the
 // nextcloud/ocp stubs. Register it lazily so standalone runs can mock IRootFolder; the
 // real interface ships with the Nextcloud server. (Formerly an autoload-dev classmap.)

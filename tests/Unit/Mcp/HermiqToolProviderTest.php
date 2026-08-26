@@ -44,7 +44,7 @@ namespace OCA\Hermiq\Tests\Unit\Mcp;
 use OCA\Hermiq\Mcp\HermiqToolProvider;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
-use OCA\Hermiq\Service\Engine\ToolReachResolver;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\WebResearch\WebFetchService;
 use OCA\Hermiq\Service\WebResearch\WebSearchClient;

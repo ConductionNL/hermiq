@@ -32,6 +32,21 @@ parameters:
         # category, so the contract must be resolvable.
         - tests/Stubs
 
+        # 🔴 THE CAPABILITY GRAMMAR IS SCANNED FROM ITS REAL SOURCE, NOT A STUB.
+        #
+        # ADR-099 §5 moved ToolGrantSet/Codec/Resolver, ToolReachResolver and
+        # ToolGrantResolutionException into OCA\OpenRegister\Service\Capability.
+        # A declaration-only stub would be a second copy of ~2,400 lines of
+        # security-relevant parsing, and tests/bootstrap.php explains at length
+        # why this repo refuses to keep one (the ToolRegistryFacade stub already
+        # drifted by a method and broke a whole matrix leg).
+        #
+        # Both topologies put OpenRegister beside hermiq — CI checks additional
+        # apps out at server/apps/openregister next to server/apps/hermiq, and the
+        # dev tree has apps-extra/openregister next to apps-extra/hermiq — so the
+        # relative path is the same in both.
+        - ../openregister/lib/Service/Capability
+
     ignoreErrors:
         # OC\Security\CSRF is server-internal (no OCP equivalent yet for CsrfTokenManager etc.)
         - '#unknown class OC\\Security\\CSRF\\#'

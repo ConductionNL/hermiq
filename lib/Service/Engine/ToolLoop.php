@@ -68,6 +68,13 @@ use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\IAppConfig;
 use OCP\IUserSession;
+// 🔴 THESE TWO USED TO NEED NO IMPORT — see the note in FacadeToolInvoker. They
+// lived in this namespace until ADR-099 §5 moved the capability grammar to
+// OpenRegister; a relocation that only rewrote files with an explicit `use`
+// would leave this class referencing classes that are no longer here, and PHP
+// would not say so until the line ran.
+use OCA\OpenRegister\Service\Capability\ToolGrantResolutionException;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use Psr\Log\LoggerInterface;
 
 /**
