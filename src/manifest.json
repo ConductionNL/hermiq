@@ -732,7 +732,7 @@
 			"type": "dashboard",
 			"title": "Dashboard",
 			"config": {
-				"description": "Run metrics across your agents — success rate, latency and token usage.",
+				"description": "Run metrics across your agents: success rate, latency and token usage.",
 				"headerActions": [
 					{
 						"id": "new-agent",
@@ -1476,7 +1476,7 @@
 				"id": "welcome",
 				"type": "info",
 				"title": "Welcome to Hermiq",
-				"body": "Hermiq runs autonomous agents against a local LLM. Point it at your Ollama host and test the connection once — agents can't run without a reachable model."
+				"body": "Hermiq runs autonomous agents against a local LLM. Point it at your Ollama host and test the connection once. Agents can't run without a reachable model."
 			},
 			{
 				"id": "llm-endpoint",
@@ -1554,7 +1554,7 @@
 						"placement": "center",
 						"allowManualNext": true,
 						"title": "Your agent catalog",
-						"body": "This is where your agents live. Use New to create one — give it a prompt, pick a model, and add optional tools and skills.",
+						"body": "This is where your agents live. Use New to create one, then give it a prompt, pick a model, and add optional tools and skills.",
 						"target": {
 							"kind": "page",
 							"ref": "AgentCatalog"
