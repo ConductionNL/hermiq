@@ -1554,7 +1554,7 @@
 						"placement": "center",
 						"allowManualNext": true,
 						"title": "Your agent catalog",
-						"body": "This is where your agents live. Use New to create one, then give it a prompt, pick a model, and add optional tools and skills.",
+						"body": "This is where your agents live. Use New to create one: give it a prompt, pick a model, and add optional tools and skills.",
 						"target": {
 							"kind": "page",
 							"ref": "AgentCatalog"
