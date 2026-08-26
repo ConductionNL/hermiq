@@ -1,13 +1,21 @@
 <?php
 
-declare(strict_types=1);
 /**
- * @license EUPL-1.2
- * @copyright Copyright (c) 2026, Conduction B.V. <info@conduction.nl>
+ * Repair step for removing the background-job registrations left behind by the
+ * move out of the retired `OCA\Hermiq\Cron` namespace.
+ *
+ * @category Repair
+ * @package  OCA\Hermiq\Repair
+ *
+ * @author    Conduction Development Team <info@conduction.nl>
+ * @copyright 2026 Conduction B.V.
+ * @license   EUPL-1.2 https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
  *
  * SPDX-FileCopyrightText: 2026 Conduction B.V. <info@conduction.nl>
  * SPDX-License-Identifier: EUPL-1.2
  */
+
+declare(strict_types=1);
 
 
 namespace OCA\Hermiq\Repair;
@@ -44,6 +52,13 @@ use Throwable;
  * Idempotent: `IJobList::remove()` on an absent class is a no-op, so a fresh
  * install passes through unchanged and re-running costs one DELETE matching
  * nothing.
+ *
+ * @spec exclude No canonical spec covers the OCA\Hermiq\Cron ->
+ *  OCA\Hermiq\BackgroundJob move. ADR-100 Decision 3 is an architecture
+ *  record, not a capability spec, and the jobs' behaviour is unchanged — only
+ *  where their classes live. Pointing this at a spec describing what the jobs
+ *  DO would claim conformance to a requirement that says nothing about
+ *  registration cleanup.
  */
 class RemoveRetiredCronJobs implements IRepairStep {
 
@@ -88,6 +103,9 @@ class RemoveRetiredCronJobs implements IRepairStep {
 	 * The step's name, as shown by `occ upgrade`.
 	 *
 	 * @return string The name.
+	 *
+	 * @spec exclude See the class docblock — no capability spec covers the
+	 *  namespace move this step cleans up after.
 	 */
 	public function getName(): string {
 		return 'Remove background-job registrations for the retired Hermiq\Cron namespace';
@@ -104,6 +122,9 @@ class RemoveRetiredCronJobs implements IRepairStep {
 	 * @param IOutput $output The upgrade output.
 	 *
 	 * @return void
+	 *
+	 * @spec exclude See the class docblock — no capability spec covers the
+	 *  namespace move this step cleans up after.
 	 */
 	public function run(IOutput $output): void {
 		foreach (self::RETIRED_JOB_CLASSES as $class) {
