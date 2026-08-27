@@ -30,7 +30,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Mcp;
 
 use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Engine\ToolReachResolver;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 
 /**

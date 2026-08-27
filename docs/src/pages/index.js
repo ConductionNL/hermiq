@@ -195,8 +195,8 @@ export default function Home() {
           title="Hermiq"
           tagline={TAGLINE}
           primaryCta={{
-            label: 'View on Codeberg',
-            href: 'https://codeberg.org/Conduction/hermiq',
+            label: 'View on GitHub',
+            href: 'https://github.com/ConductionNL/hermiq',
             tone: 'orange',
           }}
           secondaryCta={{ label: 'Read the docs', href: '/docs/intro' }}

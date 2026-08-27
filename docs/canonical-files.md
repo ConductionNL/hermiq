@@ -7,13 +7,13 @@ carry per-app values, which are app-private, and which should never exist in
 a repo root.
 
 The authoritative architecture decision is
-[ADR-033 in hydra](https://codeberg.org/Conduction/hydra/src/branch/development/openspec/architecture/adr-033-root-config-consolidation.md);
+[ADR-033 in hydra](https://github.com/ConductionNL/hydra/blob/development/openspec/architecture/adr-033-root-config-consolidation.md);
 this doc is the developer-facing summary. When the two disagree, ADR-033 wins.
 
 ## Tier A — Strictly canonical (byte-for-byte synced)
 
 Identical across every fleet app. When the template's copy changes, the
-[`hydra/scripts/fleet-sync/`](https://codeberg.org/Conduction/hydra/src/branch/development/scripts/fleet-sync)
+[`hydra/scripts/fleet-sync/`](https://github.com/ConductionNL/hydra/blob/development/scripts/fleet-sync)
 tool — run locally by a developer — opens a PR on every app in the fleet.
 
 | File | What it does |
@@ -163,7 +163,7 @@ a canonical change. That's a small cost paid for a real security
 improvement.
 
 Full design rationale + the sync script are in
-[`hydra/scripts/fleet-sync/`](https://codeberg.org/Conduction/hydra/src/branch/development/scripts/fleet-sync).
+[`hydra/scripts/fleet-sync/`](https://github.com/ConductionNL/hydra/blob/development/scripts/fleet-sync).
 
 ## What's NOT in scope
 

@@ -59,7 +59,7 @@ const config = createConfig({
              plus the standard node_modules bucket. */
           exclude: ['**/node_modules/**', 'src/**'],
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://codeberg.org/Conduction/hermiq/src/branch/development/docs/',
+          editUrl: 'https://github.com/ConductionNL/hermiq/blob/development/docs/',
         },
         blog: false,
         theme: {
@@ -84,8 +84,8 @@ const config = createConfig({
         label: 'Documentation',
       },
       {
-        href: 'https://codeberg.org/Conduction/hermiq',
-        label: 'Codeberg',
+        href: 'https://github.com/ConductionNL/hermiq',
+        label: 'GitHub',
         position: 'right',
       },
       { type: 'localeDropdown', position: 'right' },

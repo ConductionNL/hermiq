@@ -1,5 +1,5 @@
 {
-	"$schema": "https://codeberg.org/Conduction/nextcloud-vue/raw/branch/main/src/schemas/app-manifest-v2.schema.json",
+	"$schema": "https://github.com/ConductionNL/nextcloud-vue/raw/main/src/schemas/app-manifest-v2.schema.json",
 	"version": "0.6.0",
 	"dependencies": [
 		"openregister"
@@ -121,7 +121,16 @@
 			"label": "Flows",
 			"icon": "Sitemap",
 			"route": "FlowIndex",
-			"order": 16
+			"section": "settings",
+			"order": 96
+		},
+		{
+			"id": "AiOversightMenu",
+			"label": "AI oversight",
+			"icon": "ShieldCheckOutline",
+			"route": "AiOversight",
+			"section": "settings",
+			"order": 97
 		}
 	],
 	"pages": [
@@ -724,7 +733,7 @@
 			"type": "dashboard",
 			"title": "Dashboard",
 			"config": {
-				"description": "Run metrics across your agents — success rate, latency and token usage.",
+				"description": "Run metrics across your agents: success rate, latency and token usage.",
 				"headerActions": [
 					{
 						"id": "new-agent",
@@ -1264,6 +1273,199 @@
 			"title": "Flow",
 			"_note": "Legacy path — see FlowIndexLegacyRedirect. Carries the same sidebarComponent as FlowDetail: without it an old link would open the canvas with no controls, which is worse than a 404 because it looks like the editor is broken rather than like the URL is old.",
 			"sidebarComponent": "FlowSidebar"
+		},
+		{
+			"id": "AiOversight",
+			"route": "/ai-oversight",
+			"type": "dashboard",
+			"title": "AI oversight",
+			"_note": "EU AI Act Art. 14 evidence for AI suggestions that were NOT gated: what the model proposed and what the human did with it. Deliberately a SEPARATE surface from /approvals — that one is an inbox of pending decisions somebody must act on, this one is a closed record nobody can act on, and mixing an actionable queue with an audit log makes both harder to read. Both are Approval objects (sourceType=advisory) so the Art. 14 trail stays in ONE register. A dashboard rather than an index page because the manifest schema allows a fixed filter only on a widget data source, and this surface must never show the gating variants.",
+			"config": {
+				"description": "Recorded human decisions on AI suggestions (EU AI Act Art. 14)",
+				"widgets": [
+					{
+						"id": "aio-accepted",
+						"title": "Accepted",
+						"type": "stats-block",
+						"props": {
+							"countLabel": "decisions",
+							"variant": "success"
+						},
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "approval",
+							"filters": {
+								"sourceType": "advisory",
+								"status": "approved"
+							}
+						}
+					},
+					{
+						"id": "aio-overridden",
+						"title": "Overridden",
+						"type": "stats-block",
+						"props": {
+							"countLabel": "decisions",
+							"variant": "warning"
+						},
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "approval",
+							"filters": {
+								"sourceType": "advisory",
+								"status": "overridden"
+							}
+						}
+					},
+					{
+						"id": "aio-rejected",
+						"title": "Rejected",
+						"type": "stats-block",
+						"props": {
+							"countLabel": "decisions",
+							"variant": "error"
+						},
+						"dataSource": {
+							"register": "hermiq",
+							"schema": "approval",
+							"filters": {
+								"sourceType": "advisory",
+								"status": "denied"
+							}
+						}
+					},
+					{
+						"id": "aio-log",
+						"title": "Oversight log",
+						"type": "object-table",
+						"content": {
+							"source": {
+								"register": "hermiq",
+								"schema": "approval",
+								"filter": {
+									"sourceType": "advisory"
+								},
+								"order": {
+									"decidedAt": "desc"
+								},
+								"limit": 50
+							},
+							"columns": [
+								{
+									"key": "decidedAt",
+									"label": "Decided at"
+								},
+								{
+									"key": "advisoryContext.originApp",
+									"label": "App"
+								},
+								{
+									"key": "advisoryContext.suggestionType",
+									"label": "Suggestion"
+								},
+								{
+									"key": "advisoryContext.model",
+									"label": "Model"
+								},
+								{
+									"key": "status",
+									"label": "Human decision",
+									"cellClass": "cn-cell--strong"
+								},
+								{
+									"key": "decidedBy",
+									"label": "By"
+								}
+							],
+							"rowRoute": "AiOversightDetail",
+							"emptyText": "No AI oversight decisions recorded yet"
+						}
+					}
+				],
+				"layout": [
+					{
+						"id": 1,
+						"widgetId": "aio-accepted",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 4,
+						"gridHeight": 3
+					},
+					{
+						"id": 2,
+						"widgetId": "aio-overridden",
+						"gridX": 4,
+						"gridY": 0,
+						"gridWidth": 4,
+						"gridHeight": 3
+					},
+					{
+						"id": 3,
+						"widgetId": "aio-rejected",
+						"gridX": 8,
+						"gridY": 0,
+						"gridWidth": 4,
+						"gridHeight": 3
+					},
+					{
+						"id": 4,
+						"widgetId": "aio-log",
+						"gridX": 0,
+						"gridY": 3,
+						"gridWidth": 12,
+						"gridHeight": 9
+					}
+				]
+			}
+		},
+		{
+			"id": "AiOversightDetail",
+			"route": "/ai-oversight/:id",
+			"type": "detail",
+			"title": "AI oversight decision",
+			"config": {
+				"register": "hermiq",
+				"schema": "approval",
+				"_note": "IMMUTABLE record of one human decision on an AI suggestion. No lifecycleActions and no edit/delete: an advisory Approval is terminal at creation and an oversight entry that can be changed is not evidence. One Data widget carries the whole record including advisoryContext; register-level history is a sidebar tab.",
+				"widgets": [
+					{
+						"id": "aio-data",
+						"type": "data",
+						"title": "Decision",
+						"icon": "ShieldCheckOutline",
+						"content": {
+							"columns": 2
+						}
+					}
+				],
+				"layout": [
+					{
+						"id": "1",
+						"widgetId": "aio-data",
+						"gridX": 0,
+						"gridY": 0,
+						"gridWidth": 12,
+						"gridHeight": 8,
+						"showTitle": false
+					}
+				],
+				"sidebar": {
+					"enabled": true,
+					"showMetadata": true,
+					"tabs": [
+						{
+							"id": "audit",
+							"label": "History",
+							"icon": "History",
+							"widgets": [
+								{
+									"type": "audit"
+								}
+							]
+						}
+					]
+				}
+			}
 		}
 	],
 	"setup": {
@@ -1275,7 +1477,7 @@
 				"id": "welcome",
 				"type": "info",
 				"title": "Welcome to Hermiq",
-				"body": "Hermiq runs autonomous agents against a local LLM. Point it at your Ollama host and test the connection once — agents can't run without a reachable model."
+				"body": "Hermiq runs autonomous agents against a local LLM. Point it at your Ollama host and test the connection once. Agents can't run without a reachable model."
 			},
 			{
 				"id": "llm-endpoint",
@@ -1353,7 +1555,7 @@
 						"placement": "center",
 						"allowManualNext": true,
 						"title": "Your agent catalog",
-						"body": "This is where your agents live. Use New to create one — give it a prompt, pick a model, and add optional tools and skills.",
+						"body": "This is where your agents live. Use New to create one: give it a prompt, pick a model, and add optional tools and skills.",
 						"target": {
 							"kind": "page",
 							"ref": "AgentCatalog"
@@ -1396,11 +1598,12 @@
 						"id": "done",
 						"sinceVersion": "0.1.38",
 						"placement": "center",
-						"title": "You're all set",
-						"body": "That's the tour. Open Settings any time to re-run this walkthrough or the setup wizard.",
+						"title": "That's the tour",
+						"body": "Settings re-runs this walkthrough or the setup wizard whenever you want. The documentation covers what the tour did not.",
+						"task": "Open the documentation to keep going",
 						"target": {
-							"kind": "page",
-							"ref": "Dashboard"
+							"kind": "nav-item",
+							"ref": "Documentation"
 						},
 						"advanceOn": {
 							"type": "manual"

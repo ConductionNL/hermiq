@@ -30,6 +30,15 @@ parameters:
         # enabled. Same "share the contract" pattern as nldesign (2e0eab2):
         # phpstan refuses to ignoreErrors the "implements unknown interface"
         # category, so the contract must be resolvable.
+        # This now also covers tests/Stubs/Service/Capability — the ADR-099 §5
+        # grammar that moved to OpenRegister. Those stubs are DECLARATION-ONLY and
+        # every body throws, which is what keeps the split honest: static analysis
+        # needs the class to resolve (the `php-quality` job does NOT check out
+        # OpenRegister, so without them thirteen call sites are unknown-class
+        # errors and the gate goes quiet on all of them), while every test runs
+        # against the REAL source that tests/bootstrap.php maps under a longer
+        # PSR-4 prefix. A signature drift therefore surfaces in the test run; it
+        # cannot hide behind a stub that answers.
         - tests/Stubs
 
     ignoreErrors:
@@ -47,3 +56,19 @@ parameters:
         - '#on an unknown class OCA\\Talk\\#'
         - '#has invalid return type OCA\\Talk\\#'
         - '#should return OCA\\Talk\\[a-zA-Z\\]+ but returns mixed#'
+        # Nextcloud Mail (OCA\Mail) — the same optional-runtime-dependency shape
+        # as OCA\Talk above, but it surfaces differently. MailReadService probes
+        # for the Mail service classes with class_exists() before resolving them
+        # from the container. Because the Mail app is not in static analysis and
+        # MAIL_CLASSES holds literal class-name strings, PHPStan 2 can prove the
+        # probe is always FALSE and reports function.impossibleType.
+        #
+        # That verdict is correct about the analysis environment and wrong about
+        # production: the probe is precisely what makes the soft dependency safe,
+        # and deleting it would turn "Mail is not installed" from a null return
+        # into a container exception. Scoped to the one file and identifier so it
+        # cannot mask an impossible condition anywhere else.
+        -
+            message: '#Call to function class_exists\(\) with .* will always evaluate to false#'
+            identifier: function.impossibleType
+            path: lib/Service/NcNative/MailReadService.php

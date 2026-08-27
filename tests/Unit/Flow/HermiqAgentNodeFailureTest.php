@@ -195,4 +195,83 @@ class HermiqAgentNodeFailureTest extends TestCase {
 		$this->assertSame('Looks reasonable to me.', $out[0]['json']['result']);
 
 	}//end testProseIsFineWhenNoJsonWasPromised()
+
+	/**
+	 * A node that records the owner it was asked to act as.
+	 *
+	 * @param array $seen Filled with the owner the schedule service received.
+	 *
+	 * @return HermiqAgentNode The node.
+	 */
+	private function nodeRecordingOwner(array &$seen): HermiqAgentNode {
+		$schedule = $this->createMock(ScheduleService::class);
+		$schedule->method('runAgentAsOwner')->willReturnCallback(
+			static function (...$args) use (&$seen): string {
+				$seen[] = ($args[0] ?? null);
+
+				return 'ok';
+			}
+		);
+
+		$l10n = $this->createMock(IL10N::class);
+		$l10n->method('t')->willReturnArgument(0);
+
+		return new HermiqAgentNode(
+			scheduleService: $schedule,
+			l10n: $l10n,
+			urls: $this->createMock(IURLGenerator::class)
+		);
+	}//end nodeRecordingOwner()
+
+	/**
+	 * 🔴 `runAs` OUTRANKS `triggeredBy` WHEN THEY DISAGREE.
+	 *
+	 * The conflict is the whole test. The two keys are equal for a run a person
+	 * started, so a case where only one is present passes against BOTH the old
+	 * code and the new — it distinguishes nothing. They differ exactly where it
+	 * matters: a scheduled run, whose cause is a schedule and whose acting
+	 * identity is the user its trigger declares.
+	 *
+	 * An agent turn is an access decision. Reading provenance for one is how a
+	 * turn comes to execute with one person's rights while the record names
+	 * another.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-identity-narrows/specs/agent-identity/spec.md
+	 */
+	public function testRunAsOutranksTriggeredByWhenTheyDisagree(): void {
+		$seen = [];
+		$node = $this->nodeRecordingOwner($seen);
+
+		$node->execute(
+			$this->oneItem(),
+			['agentId' => self::AGENT_ID],
+			['triggeredBy' => 'schedule-cause', 'runAs' => 'ruben']
+		);
+
+		$this->assertSame(['ruben'], $seen, 'an agent turn must act as the run\'s authorization subject');
+	}//end testRunAsOutranksTriggeredByWhenTheyDisagree()
+
+	/**
+	 * POSITIVE CONTROL: an engine that sets only `triggeredBy` still runs.
+	 *
+	 * The fallback is a compatibility shim for engines older than
+	 * openregister#2835, and it has to be proven present. Without this, a change
+	 * that dropped the fallback would pass the test above and silently refuse
+	 * every turn on an un-upgraded instance — an outage that looks like a safety
+	 * property.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-identity-narrows/specs/agent-identity/spec.md
+	 */
+	public function testAnEngineWithoutRunAsStillNamesTheCaller(): void {
+		$seen = [];
+		$node = $this->nodeRecordingOwner($seen);
+
+		$node->execute($this->oneItem(), ['agentId' => self::AGENT_ID], ['triggeredBy' => 'ruben']);
+
+		$this->assertSame(['ruben'], $seen);
+	}//end testAnEngineWithoutRunAsStillNamesTheCaller()
 }//end class

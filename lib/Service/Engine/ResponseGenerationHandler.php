@@ -526,10 +526,11 @@ class ResponseGenerationHandler {
 	): string {
 		$ollamaWithTools = (($chat instanceof OllamaChat) === true && $hasTools === true);
 
-		if ($channel !== null
-			&& $ollamaWithTools === false
-			&& method_exists($chat, 'generateStreamOfText') === true
-		) {
+		// Both branches of `$chat`'s OpenAIChat|OllamaChat type declare
+		// generateStreamOfText(), so the method_exists() conjunct this replaces
+		// could never be false. A provider that advertises streaming but cannot
+		// deliver still throws MissingFeatureException, which is caught below.
+		if ($channel !== null && $ollamaWithTools === false) {
 			try {
 				return $this->streamChat(chat: $chat, messageHistory: $messageHistory, channel: $channel);
 			} catch (MissingFeatureException $e) {

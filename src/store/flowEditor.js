@@ -316,10 +316,25 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 		 * `id` is the LINE's id, not the step's: the canvas keys its `v-for` on
 		 * it, and reusing the step id would give both halves of every split the
 		 * same key — Vue would reuse one DOM node for two lines and drop the
-		 * other. The step is reached through `.edge`.
+		 * other. The step is reached through `data.edge`.
+		 *
+		 * ⚠️ `type` NAMES A COMPONENT, NOT A ROUTER. Vue Flow reads it to pick
+		 * which component draws the line; `default` is the canvas's CnFlowEdge,
+		 * which is what carries the label, the payload control and the context
+		 * menu. The router travels in `data.lineType` beside it.
+		 *
+		 * These lines carried NO `type` and no marker at all, so every one fell
+		 * back to Vue Flow's plain bezier with no arrowhead — curves that cross
+		 * nodes and double back the moment a flow stops being a straight chain.
+		 * That is what "the lines are disorderly" was describing, and the fix is
+		 * an option we had never set rather than a layout engine of our own.
+		 *
+		 * The DRAWING of a line — its markers, colour, width and dashes — is
+		 * added by the view, which is where the marker element ids live. This
+		 * getter stays about the document.
 		 *
 		 * @param {object} state The flow-editor store state.
-		 * @return {Array<object>} `{id, source, target, edge}` per line.
+		 * @return {Array<object>} `{id, source, target, type, data}` per line.
 		 */
 		canvasEdges: (state) => {
 			const lines = []
@@ -330,7 +345,14 @@ export const useFlowEditorStore = defineStore('flowEditor', {
 							id: `${edge.id}:${source}:${target}`,
 							source,
 							target,
-							edge,
+							type: 'default',
+							data: {
+								// PER EDGE, and the document wins: one awkward
+								// line can be rerouted without moving a node.
+								lineType: edge.lineType || 'smoothstep',
+								labelT: edge.labelT,
+								edge,
+							},
 						})
 					}
 				}

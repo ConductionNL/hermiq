@@ -45,6 +45,7 @@ use Throwable;
  * @spec openspec/changes/compliance-control-packs/tasks.md#task-2-seed-the-catalogue-idempotently
  */
 class SeedComplianceControls implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -108,6 +109,28 @@ class SeedComplianceControls implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses `create` for 'Anonymous'. A per-call `_rbac: false` is NOT
+		// sufficient on its own — measured in a sibling app, a step with a flag
+		// on every one of its own writes still failed eight times, because the
+		// refusals arrive from writes further down the call chain.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->seedPacks(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * Seed the frameworks and controls that are not present yet.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function seedPacks(object $objectService, IOutput $output): void {
 		$frameworksSeeded = 0;
 		foreach ($this->seedFrameworks() as $framework) {
 			try {
@@ -161,7 +184,7 @@ class SeedComplianceControls implements IRepairStep {
 			'Compliance-control-packs seed complete (' . $frameworksSeeded . ' framework(s), ' . $controlsSeeded . ' control(s) new).'
 		);
 
-	}//end run()
+	}//end seedPacks()
 
 	/**
 	 * The seed ControlFramework rows (design.md Seed Data).

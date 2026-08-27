@@ -25,6 +25,13 @@
  *    emit "failed to write conversation <uuid>: Property 'agentId' should be type
  *    'string' but is 'null'" eight times per repair, an error describing the symptom
  *    from a step that had already decided to carry on.
+ *
+ *    An unmigratable row is WARNED ABOUT ONCE. The source rows stay in OR's tables
+ *    forever (this step never deletes), so without a memory the same warning re-fires on
+ *    every `occ upgrade` for the lifetime of the install — a permanent false alarm about
+ *    a condition that cannot change. Reported uuids are recorded in the
+ *    `agent-data-migration.unmigratable` app-config key; later runs skip them with a
+ *    debug log line only. A NEW unmigratable row still warns normally.
  *  - Reads OR's tables directly via IDBConnection (they belong to OR and may be absent on
  *    a fresh install): each table is guarded with a table-exists check and skipped
  *    gracefully. This deviates from tasks.md §1.2 (inject OR mappers) on purpose — a raw
@@ -60,6 +67,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\Hermiq\AppInfo\Application;
+use OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
 use OCP\IAppConfig;
@@ -86,6 +94,7 @@ use Throwable;
  *   guards — the complexity tracks the legacy catalogue, not one algorithm.
  */
 class MigrateAgentData implements IRepairStep {
+	use RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -108,6 +117,15 @@ class MigrateAgentData implements IRepairStep {
 	 * @var int
 	 */
 	private const PAGE_SIZE = 500;
+
+	/**
+	 * IAppConfig key (app `hermiq`) holding the JSON array of conversation uuids already
+	 * reported as unmigratable, so the warning fires once per row instead of once per
+	 * upgrade forever.
+	 *
+	 * @var string
+	 */
+	private const UNMIGRATABLE_KEY = 'agent-data-migration.unmigratable';
 
 	/**
 	 * Source table → target schema slug map, in FK-dependency order (parents first) so an
@@ -211,6 +229,13 @@ class MigrateAgentData implements IRepairStep {
 	private int $danglingCount = 0;
 
 	/**
+	 * Conversation uuids already reported as unmigratable in an earlier run (warn-once).
+	 *
+	 * @var array<int, string>
+	 */
+	private array $reportedUnmigratable = [];
+
+	/**
 	 * Constructor.
 	 *
 	 * @param IDBConnection $db Core DB connection — reads OR's source tables directly.
@@ -267,7 +292,29 @@ class MigrateAgentData implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses the write for 'Anonymous'. Without it this migration copies
+		// nothing and says so only in a warning, which does not fail an upgrade.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->runInner(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * The migration itself.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function runInner(object $objectService, IOutput $output): void {
 		$this->danglingCount = 0;
+		$previouslyReported = $this->loadReportedUnmigratable();
+		$this->reportedUnmigratable = $previouslyReported;
 
 		// Id → uuid maps, built across the whole pass (including already-migrated rows) so a
 		// child table's FK resolution works on a re-run / partial migration too.
@@ -296,6 +343,15 @@ class MigrateAgentData implements IRepairStep {
 			messageIdToUuid: $messageIdToUuid
 		);
 
+		if ($this->reportedUnmigratable !== $previouslyReported) {
+			$encoded = json_encode(array_values($this->reportedUnmigratable));
+			if (is_string($encoded) === false) {
+				$encoded = '[]';
+			}
+
+			$this->appConfig->setValueString(Application::APP_ID, self::UNMIGRATABLE_KEY, $encoded);
+		}
+
 		$output->info(
 			sprintf(
 				'agent-data migration complete: %d agents, %d conversations, %d messages, %d feedback new; %d dangling FK(s) nulled.',
@@ -307,7 +363,7 @@ class MigrateAgentData implements IRepairStep {
 			)
 		);
 
-	}//end run()
+	}//end runInner()
 
 	/**
 	 * Migrate `openregister_agents` → `Agent` objects (uuid + owner/organisation preserved).
@@ -386,13 +442,15 @@ class MigrateAgentData implements IRepairStep {
 			}
 
 			$data = $this->buildData(row: $row, fields: self::CONVERSATION_FIELDS);
-			$data['agentId'] = $this->resolveFk(
-				sourceId: $this->intOrNull(value: ($row['agent_id'] ?? null)),
-				map: $agentIdToUuid,
-				fromUuid: $uuid,
-				label: 'Conversation.agentId',
-				output: $output
-			);
+			// Resolved directly instead of via resolveFk(): that helper warns
+			// "nulled (row still migrated)" for a dangling id, which is wrong
+			// on both counts here — an agentless conversation is SKIPPED, and
+			// the skip branch below does its own (warn-once) reporting.
+			$agentSourceId = $this->intOrNull(value: ($row['agent_id'] ?? null));
+			$data['agentId'] = null;
+			if ($agentSourceId !== null && $agentSourceId !== 0) {
+				$data['agentId'] = ($agentIdToUuid[$agentSourceId] ?? null);
+			}
 
 			// `agentId` is REQUIRED on the Conversation schema — a conversation
 			// that runs against no agent is not a conversation. resolveFk()
@@ -405,15 +463,26 @@ class MigrateAgentData implements IRepairStep {
 			// — an error describing the symptom, from a step that had already
 			// decided to continue. Skipping says the true thing: these
 			// conversations reference agents that no longer exist, so there is
-			// nothing to migrate them ONTO.
+			// nothing to migrate them ONTO. The warning fires ONCE per row:
+			// the source row can never become migratable, so re-warning on
+			// every later upgrade is a permanent false alarm.
 			if ($data['agentId'] === null) {
 				$skipped++;
+				if (in_array($uuid, $this->reportedUnmigratable, true) === true) {
+					$this->logger->debug(
+						'[hermiq] agent-data-migration: conversation ' . $uuid
+						. ' still references a missing agent — already reported, skipped quietly.'
+					);
+					continue;
+				}
+
 				$message = sprintf(
 					'Conversation %s references a missing agent; not migrated (a Conversation requires an agent).',
 					$uuid
 				);
 				$output->warning('hermiq: ' . $message);
 				$this->logger->warning('[hermiq] agent-data-migration: ' . $message);
+				$this->reportedUnmigratable[] = $uuid;
 				continue;
 			}
 
@@ -869,6 +938,35 @@ class MigrateAgentData implements IRepairStep {
 	private function camelCase(string $column): string {
 		return lcfirst(str_replace(' ', '', ucwords(str_replace('_', ' ', $column))));
 	}//end camelCase()
+
+	/**
+	 * The conversation uuids already reported as unmigratable in earlier runs.
+	 *
+	 * Stored as a JSON array in the `agent-data-migration.unmigratable` app-config key.
+	 * Anything unreadable (missing key, invalid JSON, non-array, non-string entries)
+	 * degrades to "not reported yet" — the worst case is one repeated warning, never a
+	 * silently swallowed one.
+	 *
+	 * @return array<int, string> The previously reported uuids.
+	 */
+	private function loadReportedUnmigratable(): array {
+		$raw = $this->appConfig->getValueString(Application::APP_ID, self::UNMIGRATABLE_KEY, '[]');
+		if ($raw === '') {
+			return [];
+		}
+
+		try {
+			$decoded = json_decode($raw, associative: true, depth: 8, flags: JSON_THROW_ON_ERROR);
+		} catch (\JsonException) {
+			return [];
+		}
+
+		if (is_array($decoded) === false) {
+			return [];
+		}
+
+		return array_values(array_filter($decoded, 'is_string'));
+	}//end loadReportedUnmigratable()
 
 	/**
 	 * Whether the in-app agent engine feature flag (`hermiq`.`engine.enabled`) is on.

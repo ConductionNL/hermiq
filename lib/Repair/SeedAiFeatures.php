@@ -44,6 +44,7 @@ use Throwable;
  * @spec openspec/changes/ai-feature-governance-register/tasks.md#task-5-1
  */
 class SeedAiFeatures implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -100,6 +101,29 @@ class SeedAiFeatures implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses `create` for 'Anonymous'. The per-call `_rbac: false` below is
+		// NOT sufficient on its own — measured in a sibling app, a step with a
+		// flag on every one of its own writes still failed eight times, because
+		// the refusals arrive from writes further down the call chain where no
+		// per-call flag reaches.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->seedFeatureRows(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * Seed the AI features that are not present yet.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function seedFeatureRows(object $objectService, IOutput $output): void {
 		$seeded = 0;
 		foreach ($this->seedFeatures() as $feature) {
 			try {
@@ -123,7 +147,7 @@ class SeedAiFeatures implements IRepairStep {
 
 		$output->info('AI-feature seed complete (' . $seeded . ' new).');
 
-	}//end run()
+	}//end seedFeatureRows()
 
 	/**
 	 * The realistic AiFeature seed payloads.

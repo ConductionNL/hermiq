@@ -248,13 +248,33 @@ an arrowhead did not ask for it back.
 - **GIVEN** a label moved to a third of the way along its connection
 - **WHEN** the graph is panned, zoomed or auto-sorted
 - **THEN** the label MUST still sit a third of the way along that connection
-- @e2e exclude covered by the canvas's component tests
+- @e2e exclude covered by nextcloud-vue `tests/components/CnFlowEdge.spec.js`
 
 #### Scenario: The keyboard moves a label
 - **GIVEN** a focused connection label
 - **WHEN** the arrow keys are pressed
 - **THEN** it MUST move along its line, without a pointer
-- @e2e exclude covered by the canvas's component tests
+- @e2e exclude covered by nextcloud-vue `tests/components/CnFlowEdge.spec.js`
+
+<!--
+⚠️ THESE TWO STAND-DOWNS WERE FALSE FOR AS LONG AS THEY EXISTED.
+
+They read "covered by the canvas's component tests", and there were none: the
+canvas had no edge component to test. The `#edge` slot this app passed had been
+removed from CnGraphCanvas, Vue drops an unmatched slot in silence, and so the
+label — with its keyboard path, its context menu and the replay payload control
+— rendered nothing at all while every gate stayed green.
+
+An exclusion reason names the OTHER PLACE a behaviour is proved. If it does not
+name a file, nobody can check that the other place exists. Both now name one.
+-->
+
+#### Scenario: A connection with no title draws no chip
+- **GIVEN** a connection whose `title` is empty
+- **WHEN** the canvas renders it
+- **THEN** no label control MUST be drawn for it
+- **AND** an empty chip MUST NOT appear in its place
+- @e2e exclude covered by nextcloud-vue `tests/components/CnFlowEdge.spec.js`
 
 ### Requirement: A flow MUST have a trigger and an end
 
@@ -417,3 +437,37 @@ the flow where it was.
 - **WHEN** the link is followed
 - **THEN** it MUST open in a new tab and the editor MUST retain its unsaved state
 - @e2e exclude covered by the run-log component tests
+
+### Requirement: A node dragged on the canvas keeps where it was put
+
+Dragging a node MUST reach the flow document, so the position survives a save
+and a reload.
+
+The canvas reports node changes as a STREAM, not as a single "moved" event: the
+same stream carries selection, dimension measurement and removal, and a drag in
+progress reports continuously with `dragging: true` until the pointer is
+released. A consumer that persists every entry writes a revision per animation
+frame; one that listens for a "moved" event that the canvas does not emit
+persists nothing at all.
+
+Only SETTLED position changes are written — a change of type `position`, no
+longer `dragging`, carrying an actual position.
+
+#### Scenario: A drag survives the reload
+
+- **GIVEN** a saved flow open on the canvas
+- **WHEN** a node is dragged to a new place and the flow is saved
+- **AND** the flow is opened again
+- **THEN** the node MUST be where it was left
+- @e2e exclude — pointer-drag against a live canvas; the stream-to-document
+  contract is asserted at the component level, and the failure this guards
+  against was silent rather than visible: the node moved on screen and the
+  document was never told.
+
+#### Scenario: A drag in progress is not persisted
+
+- **GIVEN** a node being dragged
+- **WHEN** the canvas reports intermediate positions with `dragging: true`
+- **THEN** none of them MUST be written to the document
+- **AND** only the position at release MUST be
+- @e2e exclude — same reason; asserted where the change stream is handled.

@@ -177,12 +177,25 @@ cd exapp/speech-runner/deploy
 docker compose --profile prime run --rm speech-primer
 ```
 
-Or against a running container:
+Or against a running container — **through `docker exec`**, because there is no
+host port:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/v1/models/deepdml/faster-whisper-large-v3-turbo-ct2
-curl -X POST http://127.0.0.1:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX
+docker exec hermiq-speech curl -X POST \
+  http://localhost:8000/v1/models/deepdml/faster-whisper-large-v3-turbo-ct2
+docker exec hermiq-speech curl -X POST \
+  http://localhost:8000/v1/models/speaches-ai/Kokoro-82M-v1.0-ONNX
 ```
+
+:::danger `curl http://127.0.0.1:8000/…` never worked, and said nothing
+This page used to give the commands above without `docker exec`. Docker **cannot
+NAT a published port into a container attached only to an `internal: true`
+network**, and it does not complain: `docker ps` shows a bare `8000/tcp`,
+`docker port hermiq-speech` prints nothing at all, and no process listens on the
+host. The compose file's `ports:` entry and its network jail contradicted each
+other, and the network won, silently. The `ports:` entry has been removed rather
+than left there implying a reachability that never existed.
+:::
 
 :::danger Use a fresh volume
 Speaches runs as `ubuntu` (uid 1000). The single-purpose Whisper/Kokoro images run
@@ -210,23 +223,122 @@ cd exapp/speech-runner/deploy
 docker compose up -d
 ```
 
+### 3a. Let Nextcloud reach it — the step that was missing
+
+The sidecar is on a jailed network of its own, so **Nextcloud cannot reach it
+until you join that network**. Attach the Nextcloud container, rather than
+publishing a port or giving the sidecar a route:
+
+```bash
+docker network connect <compose-project>_speech-jailed <nextcloud-container>
+docker exec -u www-data <nextcloud-container> \
+  php occ config:app:set hermiq speech_base_url --value="http://hermiq-speech:8000"
+```
+
+This costs nothing in posture, and it is worth being precise about why: the
+sidecar still gets **no gateway**. Verified after doing it — `/proc/net/route`
+inside `hermiq-speech` holds exactly one entry, its own subnet, with no
+`00000000` (default) destination, and an outbound call to `huggingface.co` still
+fails, while the Nextcloud container resolves `hermiq-speech` and gets `200` from
+`/health`.
+
+:::danger Skipping this makes Nextcloud advertise speech it cannot perform
+`registerTaskProcessingProvider()` succeeds whether or not the sidecar is
+reachable, so `GET /ocs/v2.php/taskprocessing/tasktypes` offers `core:audio2text`
+and `core:text2speech` to Assistant, Talk and every other consumer regardless.
+Measured on the dev instance 2026-08-20: both task types advertised, `getent
+hosts hermiq-speech` failing from the Nextcloud container, and **zero
+`core:audio2text` tasks ever scheduled** — the feature looked present and had
+never once run.
+:::
+
 ### 4. Verify — round trip, not health endpoints
 
 A `/health` 200 proves the process is listening, not that inference works.
 Synthesise and transcribe back:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/v1/audio/speech \
+docker exec hermiq-speech curl -X POST http://localhost:8000/v1/audio/speech \
   -H 'Content-Type: application/json' \
   -d '{"model":"speaches-ai/Kokoro-82M-v1.0-ONNX","input":"Round trip.","voice":"af_heart","response_format":"wav"}' \
   -o /tmp/rt.wav
 
-curl -X POST http://127.0.0.1:8000/v1/audio/transcriptions \
+docker exec hermiq-speech curl -X POST http://localhost:8000/v1/audio/transcriptions \
   -F file=@/tmp/rt.wav \
   -F model=deepdml/faster-whisper-large-v3-turbo-ct2 -F language=en
 ```
 
 The transcript should match the input text.
+
+:::danger That round trip does not exercise Nextcloud at all
+It proves the sidecar works. It says nothing about the provider in between, and
+the provider is where this broke: `AudioToTextProvider::process()` accepted raw
+bytes and stream resources, while Nextcloud hands an **`OCP\Files\File` node**, so
+every task failed with `No audio was supplied to transcribe.` before a single
+byte reached the sidecar. The unit suite was green throughout — it asserted the
+two shapes nobody sends.
+
+Verify through the layer that ships:
+
+```bash
+# upload a clip, then schedule a real task against its file id
+curl -u user:pass -T clip.wav \
+  "http://localhost:8080/remote.php/dav/files/user/clip.wav"
+curl -u user:pass -H 'OCS-APIRequest: true' -H 'Content-Type: application/json' \
+  -X POST "http://localhost:8080/ocs/v2.php/taskprocessing/schedule" \
+  -d '{"type":"core:audio2text","appId":"hermiq","customId":"probe","input":{"input":<fileId>,"language":"nl"}}'
+
+occ taskprocessing:worker --once --taskTypes=core:audio2text
+curl -u user:pass -H 'OCS-APIRequest: true' \
+  "http://localhost:8080/ocs/v2.php/taskprocessing/task/<id>"
+```
+
+`STATUS_SUCCESSFUL` with text in `output` is the only evidence that counts.
+:::
+
+### 4a. Pick a model that matches the hardware
+
+**The default is `Systran/faster-whisper-base` — a CPU model**, and that is
+deliberate. It used to be `deepdml/faster-whisper-large-v3-turbo-ct2`, which on
+CPU is roughly 12–18× realtime: not "slow", unusable. A five-second sentence
+took over a minute and the caller timed out long before the transcript existed,
+so the feature read as broken rather than as misconfigured.
+
+**A GPU host should raise it deliberately:**
+
+```bash
+occ config:app:set hermiq speech_stt_model \
+  --value="deepdml/faster-whisper-large-v3-turbo-ct2"
+```
+
+The primer installs both, so that switch needs no second priming round.
+
+Measured 2026-08-20 on a Ryzen 7 5800H (14 vCPU, CPU-only), same 4.6s Dutch clip,
+model already resident, timed **through the Nextcloud path** (`occ
+taskprocessing:worker` → provider → sidecar) unless noted:
+
+| `speech_stt_model` | compute type | warm latency |
+| --- | --- | --- |
+| `large-v3-turbo` | default (float) | **81s** (sidecar-direct) |
+| `large-v3-turbo` | `int8` | 55s (sidecar-direct) |
+| `Systran/faster-whisper-small` | `int8` | 17–23s |
+| `Systran/faster-whisper-base` | `int8` | **3.1–3.3s** (4.3s cold) |
+
+Kokoro synthesis, for comparison: 9.3s for a short sentence through the same
+path.
+
+A CPU deployment needs no action — `faster-whisper-base` is the default. The row
+that needs a decision is the GPU one, above.
+
+`WHISPER__COMPUTE_TYPE=int8` is set in the compose file and is worth 1.5× on its
+own; the model choice is worth another 6×. Raising `WHISPER__CPU_THREADS` is
+**not** worth anything measurable — 8 threads gave 17.5s and 23.0s against 19.4s
+at the default, variance larger than the effect.
+
+⚠️ Nothing in the table is evidence about **accuracy**. The probe clip was an
+English Kokoro voice reading Dutch, so every transcript in that experiment was
+mangled by the input. Judge model quality on real speech from a real microphone,
+not on synthesised audio.
 
 ### 5. Confirm the jail is real
 

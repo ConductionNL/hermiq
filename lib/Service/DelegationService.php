@@ -46,8 +46,8 @@ use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\DelegationFrame;
-use OCA\Hermiq\Service\Engine\ToolGrantResolver;
-use OCA\Hermiq\Service\Engine\ToolReachResolver;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\OpenRegister\Db\AuditTrailMapper;
 use OCA\OpenRegister\Db\ObjectEntity;
 use OCA\OpenRegister\Service\ObjectService;
@@ -202,7 +202,7 @@ class DelegationService {
 	 */
 	public function delegate(string $callerAgentId, string $targetAgentId, string $task): array {
 		$callerFrame = $this->delegationContext->current();
-		$callerOrganisation = ($callerFrame?->organisation ?? '');
+		$callerOrganisation = ($callerFrame->organisation ?? '');
 
 		$refusal = $this->checkSelfAndCycle(callerAgentId: $callerAgentId, targetAgentId: $targetAgentId);
 		if ($refusal !== null) {
@@ -393,7 +393,7 @@ class DelegationService {
 	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	private function checkBounds(?DelegationFrame $frame): ?array {
-		$depth = ($frame?->depth ?? 0);
+		$depth = ($frame->depth ?? 0);
 		if (($depth + 1) > $this->maxDepth()) {
 			return $this->refuse(
 				code: 'delegation_depth_exceeded',
@@ -401,7 +401,7 @@ class DelegationService {
 			);
 		}
 
-		$fanOut = ($frame?->fanOutCount ?? 0);
+		$fanOut = ($frame->fanOutCount ?? 0);
 		if (($fanOut + 1) > $this->maxFanOut()) {
 			return $this->refuse(
 				code: 'delegation_fanout_exceeded',

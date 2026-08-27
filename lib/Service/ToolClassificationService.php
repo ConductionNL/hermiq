@@ -49,7 +49,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Service;
 
-use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 
 /**
  * Fail-safe-closed side-effect classification for dry-run tool neutralisation.

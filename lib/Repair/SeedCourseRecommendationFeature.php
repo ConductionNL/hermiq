@@ -47,6 +47,7 @@ use Throwable;
  * @spec openspec/changes/ai-course-recommendations/tasks.md#task-5-1
  */
 class SeedCourseRecommendationFeature implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -110,6 +111,28 @@ class SeedCourseRecommendationFeature implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses `create` for 'Anonymous'. A per-call `_rbac: false` is not
+		// sufficient on its own — measured in a sibling app, a step flagging
+		// every one of its own writes still failed eight times, because the
+		// refusals arrive from writes further down the call chain.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->seedFeature(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * Seed the course-recommendations feature when it is not present yet.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function seedFeature(object $objectService, IOutput $output): void {
 		try {
 			if ($this->slugExists(objectService: $objectService) === true) {
 				$output->info('course-recommendations AI feature already exists — skipping.');
@@ -140,7 +163,7 @@ class SeedCourseRecommendationFeature implements IRepairStep {
 			$this->logger->error('[hermiq] course-recommendations AiFeature seed failed: ' . $e->getMessage());
 		}//end try
 
-	}//end run()
+	}//end seedFeature()
 
 	/**
 	 * Whether the `course-recommendations` AiFeature already exists (system context, no RBAC).

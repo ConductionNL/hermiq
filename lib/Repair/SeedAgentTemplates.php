@@ -50,6 +50,7 @@ use Throwable;
  * @spec openspec/changes/agent-template-gallery/tasks.md#task-6-seedagenttemplates-repair-step
  */
 class SeedAgentTemplates implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -109,6 +110,29 @@ class SeedAgentTemplates implements IRepairStep {
 			return;
 		}
 
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses `create` for 'Anonymous'. The per-call `_rbac: false` below is
+		// NOT sufficient on its own — measured in a sibling app, a step with a
+		// flag on every one of its own writes still failed eight times, because
+		// the refusals arrive from writes further down the call chain where no
+		// per-call flag reaches.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$this->seedTemplates(objectService: $objectService, output: $output);
+			}
+		);
+	}//end run()
+
+	/**
+	 * Seed the starter templates that are not present yet.
+	 *
+	 * @param object $objectService OpenRegister's ObjectService.
+	 * @param IOutput $output Progress reporting.
+	 *
+	 * @return void
+	 */
+	private function seedTemplates(object $objectService, IOutput $output): void {
 		$seeded = 0;
 		foreach ($this->starterTemplates() as $template) {
 			try {
@@ -141,7 +165,7 @@ class SeedAgentTemplates implements IRepairStep {
 
 		$output->info('Agent-template seed complete (' . $seeded . ' new).');
 
-	}//end run()
+	}//end seedTemplates()
 
 	/**
 	 * The 5 starter templates (proposal.md's user-research journeys).

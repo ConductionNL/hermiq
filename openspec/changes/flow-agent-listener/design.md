@@ -152,7 +152,7 @@ silent no-op (no listener registered) — existing objects keep flowing
 
 ### Backend (new)
 - `lib/Listener/AgentRunRequestedListener.php`
-- `lib/Cron/AgentRunRequestedJob.php`
+- `lib/BackgroundJob/AgentRunRequestedJob.php`
 - `lib/Service/FlowAgentRunService.php`
 - `tests/Stubs/Event/AgentRunRequestedEvent.php`
 - `tests/Unit/Listener/AgentRunRequestedListenerTest.php`

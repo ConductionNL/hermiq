@@ -94,7 +94,7 @@ namespace OCA\Hermiq\Mcp;
 use OCA\Hermiq\AppInfo\Application;
 use OCA\Hermiq\Service\CourseRecommendationEngine;
 use OCA\Hermiq\Service\DelegationService;
-use OCA\Hermiq\Service\Engine\ToolReachResolver;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\Hermiq\Service\MemoryService;
 use OCA\Hermiq\Service\NcNative\MailReadService;
 use OCA\Hermiq\Service\NcNative\NcNativeWriteService;

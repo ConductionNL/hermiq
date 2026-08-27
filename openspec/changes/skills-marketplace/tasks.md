@@ -13,7 +13,7 @@
 
 ## 3. Curator background job
 
-- [x] 3.1 Add `lib/Cron/SkillCuratorTask.php` (`TimedJob`, daily) delegating to `SkillMarketplaceService::curate()` (thin wrapper, ADR-002). Register it in `appinfo/info.xml` inside the SINGLE existing `<background-jobs>` block (a second block breaks the NC upgrade).
+- [x] 3.1 Add `lib/BackgroundJob/SkillCuratorTask.php` (`TimedJob`, daily) delegating to `SkillMarketplaceService::curate()` (thin wrapper, ADR-002). Register it in `appinfo/info.xml` inside the SINGLE existing `<background-jobs>` block (a second block breaks the NC upgrade).
 
 ## 4. Controller + routes
 

@@ -196,7 +196,7 @@ class DelegationContext {
 	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	public function depth(): int {
-		return ($this->current()?->depth ?? 0);
+		return ($this->current()->depth ?? 0);
 	}//end depth()
 
 	/**
@@ -208,7 +208,7 @@ class DelegationContext {
 	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-self-delegation-and-delegation-cycles-are-refused
 	 */
 	public function ancestorAgentIds(): array {
-		return ($this->current()?->ancestorAgentIds ?? []);
+		return ($this->current()->ancestorAgentIds ?? []);
 	}//end ancestorAgentIds()
 
 	/**
@@ -238,6 +238,6 @@ class DelegationContext {
 	 * @spec openspec/changes/sub-agent-delegation/specs/sub-agent-delegation/spec.md#requirement-delegation-depth-and-fan-out-are-bounded
 	 */
 	public function fanOutCount(): int {
-		return ($this->current()?->fanOutCount ?? 0);
+		return ($this->current()->fanOutCount ?? 0);
 	}//end fanOutCount()
 }//end class

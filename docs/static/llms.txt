@@ -17,10 +17,10 @@ Hermiq is an open-source app for the Nextcloud workspace, built on the @conducti
 ## Optional
 
 - [Install](https://hermiq.conduction.nl/installation): how to install from the Nextcloud app store.
-- [Repository](https://codeberg.org/Conduction/hermiq): source code and issue tracker.
+- [Repository](https://github.com/ConductionNL/hermiq): source code and issue tracker.
 - [App page on conduction.nl](https://www.conduction.nl/apps/hermiq): product positioning, pricing, support paths.
 
 ## Contact
 
 - Email: info@conduction.nl
-- Codeberg: https://codeberg.org/Conduction
+- GitHub: https://github.com/ConductionNL

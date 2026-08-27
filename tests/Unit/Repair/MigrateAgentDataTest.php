@@ -87,6 +87,20 @@ class MigrateAgentDataTest extends TestCase {
 	private array $impersonated = [];
 
 	/**
+	 * Raw JSON the `agent-data-migration.unmigratable` app-config key returns (warn-once memory).
+	 *
+	 * @var string
+	 */
+	private string $storedUnmigratable = '[]';
+
+	/**
+	 * Values the step persisted back into the unmigratable app-config key, in call order.
+	 *
+	 * @var array<int, string>
+	 */
+	private array $persistedUnmigratable = [];
+
+	/**
 	 * Reset captured state before each test.
 	 *
 	 * @return void
@@ -97,6 +111,8 @@ class MigrateAgentDataTest extends TestCase {
 		$this->warnings = [];
 		$this->existing = [];
 		$this->impersonated = [];
+		$this->storedUnmigratable = '[]';
+		$this->persistedUnmigratable = [];
 
 	}//end setUp()
 
@@ -243,6 +259,98 @@ class MigrateAgentDataTest extends TestCase {
 	}//end testAConversationWithAMissingAgentIsReportedAndSkipped()
 
 	/**
+	 * The first report of an unmigratable conversation is recorded, so the
+	 * warning fires once per row instead of once per upgrade forever.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#an-unresolvable-foreign-key-is-skipped-not-fatal
+	 */
+	public function testAnUnmigratableConversationIsRecordedForWarnOnce(): void {
+		$db = $this->makeDb(
+			tables: [
+				'openregister_agents' => [],
+				'openregister_conversations' => [$this->conversationRow(42, 'conv-uuid-42', 999, 'alice')],
+			]
+		);
+		$subject = $this->makeSubject(db: $db, flag: 'true');
+
+		$subject->run($this->makeOutput());
+
+		$this->assertNotEmpty($this->persistedUnmigratable, 'The reported uuid must be persisted for later runs.');
+		$this->assertContains(
+			'conv-uuid-42',
+			(json_decode(end($this->persistedUnmigratable), true) ?: []),
+			'The persisted record must carry the reported uuid.'
+		);
+
+	}//end testAnUnmigratableConversationIsRecordedForWarnOnce()
+
+	/**
+	 * An unmigratable conversation that was already reported stays quiet: the
+	 * source row can never become migratable (this step never deletes it), so
+	 * re-warning on every later upgrade is a permanent false alarm.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#an-unresolvable-foreign-key-is-skipped-not-fatal
+	 */
+	public function testAnAlreadyReportedUnmigratableConversationStaysQuiet(): void {
+		$this->storedUnmigratable = '["conv-uuid-42"]';
+		$db = $this->makeDb(
+			tables: [
+				'openregister_agents' => [],
+				'openregister_conversations' => [$this->conversationRow(42, 'conv-uuid-42', 999, 'alice')],
+			]
+		);
+		$subject = $this->makeSubject(db: $db, flag: 'true');
+
+		$subject->run($this->makeOutput());
+
+		$this->assertSame(
+			[],
+			$this->savedFor(schema: 'conversation'),
+			'The row is still unmigratable and must not be written.'
+		);
+		$this->assertSame([], $this->warnings, 'An already-reported row must not warn again.');
+		$this->assertSame([], $this->persistedUnmigratable, 'Nothing new to record — the key must not be rewritten.');
+
+	}//end testAnAlreadyReportedUnmigratableConversationStaysQuiet()
+
+	/**
+	 * A NEW unmigratable conversation still warns even when another row was
+	 * already reported — the warn-once memory is per row, not per install.
+	 *
+	 * @return void
+	 *
+	 * @spec openspec/changes/agent-data-migration/specs/agent-data-migration/spec.md#an-unresolvable-foreign-key-is-skipped-not-fatal
+	 */
+	public function testANewUnmigratableConversationStillWarns(): void {
+		$this->storedUnmigratable = '["conv-uuid-42"]';
+		$db = $this->makeDb(
+			tables: [
+				'openregister_agents' => [],
+				'openregister_conversations' => [
+					$this->conversationRow(42, 'conv-uuid-42', 999, 'alice'),
+					$this->conversationRow(44, 'conv-uuid-44', 998, 'alice'),
+				],
+			]
+		);
+		$subject = $this->makeSubject(db: $db, flag: 'true');
+
+		$subject->run($this->makeOutput());
+
+		$this->assertCount(1, $this->warnings, 'Exactly the new row must warn.');
+		$this->assertStringContainsString('conv-uuid-44', $this->warnings[0]);
+		$this->assertEqualsCanonicalizing(
+			['conv-uuid-42', 'conv-uuid-44'],
+			(json_decode(end($this->persistedUnmigratable), true) ?: []),
+			'The record must now carry both uuids.'
+		);
+
+	}//end testANewUnmigratableConversationStillWarns()
+
+	/**
 	 * A dangling reference does not stop the rest of the migration.
 	 *
 	 * This is the requirement the spec actually states — "continue processing
@@ -356,9 +464,42 @@ class MigrateAgentDataTest extends TestCase {
 	 */
 	private function makeSubject(IDBConnection $db, string $flag): MigrateAgentData {
 		$appConfig = $this->createMock(IAppConfig::class);
-		$appConfig->method('getValueString')->willReturn($flag);
+		$appConfig->method('getValueString')->willReturnCallback(
+			function (string $app, string $key, string $default = '') use ($flag): string {
+				if ($key === 'engine.enabled') {
+					return $flag;
+				}
+
+				if ($key === 'agent-data-migration.unmigratable') {
+					return $this->storedUnmigratable;
+				}
+
+				return $default;
+			}
+		);
+		$appConfig->method('setValueString')->willReturnCallback(
+			function (string $app, string $key, string $value): bool {
+				if ($key === 'agent-data-migration.unmigratable') {
+					$this->persistedUnmigratable[] = $value;
+					$this->storedUnmigratable = $value;
+				}
+
+				return true;
+			}
+		);
 
 		$objectService = $this->createMock(ObjectService::class);
+
+		// runAsSystem MUST invoke its callable. A bare createMock() stubs it to
+		// return null without running anything, so the migration's whole body
+		// would silently not execute and every assertion would fail against an
+		// empty store — a fake that does not model the contract makes a CORRECT
+		// change look broken, the mirror of one that omits the method and lets a
+		// broken change look green. The step needs the identity because an
+		// upgrade has no session and OpenRegister refuses 'Anonymous' writes.
+		$objectService->method('runAsSystem')->willReturnCallback(
+			static fn (callable $operation) => $operation()
+		);
 		$objectService->method('find')->willReturnCallback(
 			function (mixed $id, ?array $extend = [], bool $files = false, mixed $register = null, mixed $schema = null) {
 				if (in_array((string)$id, $this->existing, true) === true) {

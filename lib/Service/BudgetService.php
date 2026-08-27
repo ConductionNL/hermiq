@@ -330,13 +330,15 @@ class BudgetService {
 		$scheduleUuids = $this->loadScheduleUuidsForScope(scope: $scope, organisation: $organisation, agentId: $agentId);
 		$tokensUsed = $this->currentUsageTokens(scheduleUuids: $scheduleUuids, start: $window['start'], end: $window['end']);
 
+		// `isset()` is already false for null, so the `!== null` conjunct these
+		// two conditions used to carry was unreachable.
 		$tokenLimit = null;
-		if (isset($data['tokenLimit']) === true && $data['tokenLimit'] !== null && $data['tokenLimit'] !== '') {
+		if (isset($data['tokenLimit']) === true && $data['tokenLimit'] !== '') {
 			$tokenLimit = (int)$data['tokenLimit'];
 		}
 
 		$eurLimit = null;
-		if (isset($data['eurLimit']) === true && $data['eurLimit'] !== null && $data['eurLimit'] !== '') {
+		if (isset($data['eurLimit']) === true && $data['eurLimit'] !== '') {
 			$eurLimit = (float)$data['eurLimit'];
 		}
 

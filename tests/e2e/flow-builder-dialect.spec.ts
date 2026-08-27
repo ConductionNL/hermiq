@@ -129,10 +129,7 @@ async function openFlow(page: Page, id: string): Promise<void> {
 	// Canvas first, then the dialogs: a node renders underneath a modal, so
 	// waiting on it is what proves the app has booted far enough for the
 	// first-run dialogs to have mounted and be dismissable.
-	await page
-		.locator('.cn-graph-canvas__node')
-		.first()
-		.waitFor({ state: 'visible' })
+	await page.locator('.cn-flow-node').first().waitFor({ state: 'visible' })
 	await dismissFirstRun(page)
 }
 
@@ -144,7 +141,7 @@ test.describe('flow builder — the node is the action', () => {
 		// document. Each edge has a single `from`/`to` after the inversion, so
 		// one edge is one line — the old 17-places/19-lines arithmetic belonged
 		// to the pre-inversion shape.
-		await expect(page.locator('.cn-graph-canvas__node')).toHaveCount(16)
+		await expect(page.locator('.cn-flow-node')).toHaveCount(16)
 		await expect(page.locator('.flow-builder__edge')).toHaveCount(16)
 	})
 
@@ -205,26 +202,31 @@ test.describe('flow builder — the node is the action', () => {
 
 		const ports = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document
-				.querySelectorAll('.cn-graph-canvas__node')
-				.forEach((wrapper) => {
-					const label =
-						wrapper
-							.querySelector('.flow-builder__node-label')
-							?.textContent?.trim() ?? ''
-					const sides: string[] = []
+			document.querySelectorAll('.cn-flow-node').forEach((wrapper) => {
+				const label =
 					wrapper
-						.querySelectorAll('.cn-graph-canvas__handle')
-						.forEach((handle) => {
-							const kind = handle.classList.contains(
-								'cn-graph-canvas__handle--in',
-							)
-								? 'in'
-								: 'out'
-							sides.push(kind)
-						})
-					read[label] = sides
-				})
+						.querySelector('.flow-builder__node-label')
+						?.textContent?.trim() ?? ''
+				const sides: string[] = []
+				wrapper
+					.querySelectorAll('.cn-flow-node__handle')
+					.forEach((handle) => {
+						// Vue Flow marks the OUTPUT port with
+						// `--source`; the input port carries no
+						// modifier at all. The old canvas named both
+						// sides explicitly (`--in` / `--out`), so the
+						// test asked "is it in?" — asking "is it out?"
+						// is the same question against the class that
+						// actually exists now.
+						const kind = handle.classList.contains(
+							'cn-flow-node__handle--source',
+						)
+							? 'out'
+							: 'in'
+						sides.push(kind)
+					})
+				read[label] = sides
+			})
 
 			return read
 		})
@@ -253,21 +255,19 @@ test.describe('flow builder — the node is the action', () => {
 
 		const branches = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document
-				.querySelectorAll('.cn-graph-canvas__node')
-				.forEach((wrapper) => {
-					const label =
-						wrapper
-							.querySelector('.flow-builder__node-label')
-							?.textContent?.trim() ?? ''
-					const names: string[] = []
+			document.querySelectorAll('.cn-flow-node').forEach((wrapper) => {
+				const label =
 					wrapper
-						.querySelectorAll('.cn-graph-canvas__handle--out')
-						.forEach((handle) => {
-							names.push(handle.getAttribute('aria-label') ?? '')
-						})
-					read[label] = names
-				})
+						.querySelector('.flow-builder__node-label')
+						?.textContent?.trim() ?? ''
+				const names: string[] = []
+				wrapper
+					.querySelectorAll('.cn-flow-node__handle--source')
+					.forEach((handle) => {
+						names.push(handle.getAttribute('aria-label') ?? '')
+					})
+				read[label] = names
+			})
 
 			return read
 		})
@@ -303,21 +303,19 @@ test.describe('flow builder — the node is the action', () => {
 		// produces an identical edge and the choice the author made is lost.
 		const portIds = await page.evaluate(() => {
 			const read: Record<string, string[]> = {}
-			document
-				.querySelectorAll('.cn-graph-canvas__node')
-				.forEach((wrapper) => {
-					const label =
-						wrapper
-							.querySelector('.flow-builder__node-label')
-							?.textContent?.trim() ?? ''
-					const ids: string[] = []
+			document.querySelectorAll('.cn-flow-node').forEach((wrapper) => {
+				const label =
 					wrapper
-						.querySelectorAll('.cn-graph-canvas__handle--out')
-						.forEach((handle) => {
-							ids.push(handle.getAttribute('aria-label') ?? '')
-						})
-					read[label] = ids
-				})
+						.querySelector('.flow-builder__node-label')
+						?.textContent?.trim() ?? ''
+				const ids: string[] = []
+				wrapper
+					.querySelectorAll('.cn-flow-node__handle--source')
+					.forEach((handle) => {
+						ids.push(handle.getAttribute('aria-label') ?? '')
+					})
+				read[label] = ids
+			})
 
 			return read
 		})
@@ -348,7 +346,7 @@ test.describe('flow builder — the node is the action', () => {
 		// connection point, and made two ports on one side touch.
 		const size = await page.evaluate(() => {
 			const handle = document.querySelector(
-				'.cn-graph-canvas__handle',
+				'.cn-flow-node__handle',
 			) as HTMLElement | null
 
 			return handle ? { w: handle.offsetWidth, h: handle.offsetHeight } : null
@@ -392,8 +390,15 @@ test.describe('flow builder — chrome and links', () => {
 		// button label alone would pass even while the canvas sat pinned at 1,
 		// which is exactly what it did when the consumer never bound `zoom` and
 		// the wheel's `update:zoom` went nowhere.
+		// `.vue-flow__transformationpane` is Vue Flow's equivalent of the old
+		// canvas's `__world`: it is the element the pan/zoom matrix is written
+		// to. Confirmed in a running instance — the viewport, container and
+		// pane around it all read `transform: none`, so reading any of those
+		// would report a constant scale of 1 and this assertion would pass
+		// while proving nothing, which is the exact failure the comment above
+		// says it exists to catch.
 		const scale = async () =>
-			await page.locator('.cn-graph-canvas__world').evaluate((el) => {
+			await page.locator('.vue-flow__transformationpane').evaluate((el) => {
 				return new DOMMatrix(getComputedStyle(el).transform).a
 			})
 
@@ -424,7 +429,7 @@ test.describe('flow builder — chrome and links', () => {
 		})
 		await dismissFirstRun(page)
 
-		await expect(page.locator('.cn-graph-canvas__node').first()).toBeVisible()
+		await expect(page.locator('.cn-flow-node').first()).toBeVisible()
 		await expect(page.locator('.flow-builder__edge')).toHaveCount(16)
 
 		// The sidebar comes with it. Without its sidebarComponent an old link

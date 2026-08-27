@@ -47,6 +47,7 @@ use Throwable;
  * @spec openspec/changes/agent-lifecycle-governance/tasks.md#task-1-declarative-schema-changes-incident-agent-tenantcontrol
  */
 class SeedIncidents implements IRepairStep {
+	use \OCA\Hermiq\Repair\Support\RunsUnderSystemIdentity;
 
 	/**
 	 * OpenRegister register slug that holds Hermiq objects.
@@ -112,13 +113,21 @@ class SeedIncidents implements IRepairStep {
 			return;
 		}
 
-		$seeded = 0;
+		// Under a system identity: an upgrade has no session, and OpenRegister
+		// refuses `create` for 'Anonymous'. Without it this seed writes nothing
+		// and says so only in a warning, which does not fail an upgrade.
+		$this->withSystemIdentity(
+			objectService: $objectService,
+			work: function () use ($objectService, $output): void {
+				$seeded = 0;
 
-		foreach ($this->seedRows() as $row) {
-			$seeded += $this->seedIfMissing(objectService: $objectService, output: $output, row: $row);
-		}
+				foreach ($this->seedRows() as $row) {
+					$seeded += $this->seedIfMissing(objectService: $objectService, output: $output, row: $row);
+				}
 
-		$output->info('Incident seed complete (' . $seeded . ' new).');
+				$output->info('Incident seed complete (' . $seeded . ' new).');
+			}
+		);
 
 	}//end run()
 
