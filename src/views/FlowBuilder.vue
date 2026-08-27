@@ -1021,6 +1021,20 @@ export default {
 			}
 		},
 
+		/**
+		 * Route a canvas move to the node or the annotation it names.
+		 *
+		 * The canvas moves anything it draws, and nodes and annotations share
+		 * one id space on it — but the editor keeps them apart. An annotation
+		 * id handed to `moveNode()` would move nothing while the note appeared
+		 * to travel under the pointer, so the prefix decides which store the
+		 * new position belongs to, and is stripped before the id crosses over.
+		 *
+		 * @param {object} payload `{id, x, y}` from the canvas.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
 		onCanvasMove(payload) {
 			const id = String(payload?.id || '')
 			if (id.startsWith(ANNOTATION_ID_PREFIX)) {
@@ -1034,18 +1048,6 @@ export default {
 			this.editor.moveNode(payload)
 		},
 
-		/**
-		 * Route a canvas resize to the node or the annotation it names.
-		 *
-		 * Same split as `onCanvasMove`: the canvas resizes anything it draws,
-		 * and an annotation id handed to `resizeNode()` would resize nothing
-		 * while the note appeared to change under the pointer.
-		 *
-		 * @param {object} payload `{id, width, height}` from the canvas.
-		 * @return {void}
-		 *
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
 		/**
 		 * A connection's own drawing style, when it declares one.
 		 *
