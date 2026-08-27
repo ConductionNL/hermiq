@@ -39,4 +39,44 @@ Implements ADR-099 in hermiq. Supersedes `agent-capability-profile` task 3-1.
   and distinguishes nothing. Each is paired with a positive control proving the
   fallback still works. Verified by reverting the node line: exactly one test
   fails, and restoring it makes it pass.
-- [ ] 3.2 Relocate the capability-grant grammar (`ToolGrantSet`, `ToolGrantCodec`, `ToolReachResolver`) to OpenRegister per ADR-099 §5 — a relocation WITH its tests, not a rewrite. That codec carries a measured scar (35 of 87 tools parsed wrong) and ADR-095's persistence constraint; a rewrite-while-moving reopens both.
+- [x] 3.2 Relocate the capability-grant grammar to OpenRegister per ADR-099 §5 — a relocation WITH its tests, not a rewrite.
+
+  openregister#2868 (receives) + hermiq#563 (repoints and deletes). Five classes
+  moved verbatim: only the namespace, the `@package` tag, the `@covers` tag and
+  the class TITLE changed. That constraint is mechanical as well as editorial —
+  the codec carries a measured scar (35 of 87 tools parsed wrong) and ADR-095's
+  persistence constraint, and a rewrite-while-moving reopens both.
+
+  **Conservation check, measured on both sides.** `development` ran 1834 tests /
+  5776 assertions; the branch runs 1776 / 5623. The difference is 58 tests and
+  153 assertions — exactly what openregister#2868 gained. A relocation that
+  quietly dropped a case shows up here as a mismatch, not as a failure.
+
+  ⚠️ **Four of five test files moved.** `ToolGrantResolverTest` stayed: it builds
+  its catalog from nine of hermiq's real tool providers, so it is an integration
+  test against a CATALOG, not a unit test of the grammar. Moving it would have
+  meant rewriting its fixtures.
+
+  🔴 **The move nearly turned fifteen test classes into fake-validators.**
+  `tests/bootstrap.php` maps `OCA\OpenRegister\` at `tests/Stubs/`, so the naive
+  move resolved the grammar to a stub. The split that resolves it: the bootstrap
+  maps the REAL source under a longer PSR-4 prefix (which wins regardless of
+  registration order), and the stubs that remain are DECLARATION-ONLY with
+  throwing bodies — enough for PHPStan and Psalm in the `php-quality` job, which
+  does not check out OpenRegister, and incapable of answering an authorization
+  question. Measured both ways: 1776 tests green with the real source, 91 loud
+  errors without it.
+
+  🔴 **`FacadeToolInvoker` and `ToolLoop` needed imports nothing would have
+  flagged** — they referenced the moved classes with no `use` at all, sharing the
+  namespace. A grep-driven relocation finds neither, and PHP says nothing until
+  the line runs.
+
+  `CheckOpenRegisterCompatibility` now names `ToolGrantResolver`: the grammar
+  used to live here, so no OpenRegister could be too old to supply it; now one
+  can.
+
+  ⚠️ **Merge order.** hermiq#563 cannot land until an OpenRegister build carrying
+  `OCA\OpenRegister\Service\Capability` is on `development` — hermiq's CI pulls
+  `additional-apps` at `ref: development`, so the ordering is enforced by the
+  build rather than by a note.

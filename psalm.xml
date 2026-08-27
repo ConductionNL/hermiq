@@ -168,5 +168,14 @@
              the real classes win whenever OpenRegister is enabled. Same
              "share the contract" pattern as nldesign (2e0eab2). -->
         <directory name="tests/Stubs" />
+        <!--
+            tests/Stubs above now also covers the ADR-099 §5 capability grammar
+            (tests/Stubs/Service/Capability). Those stubs are DECLARATION-ONLY and
+            every body throws: static analysis needs the class to resolve because
+            the php-quality job does not check out OpenRegister, while every test
+            runs against the REAL source that tests/bootstrap.php maps under a
+            longer PSR-4 prefix. A signature drift surfaces in the test run rather
+            than hiding behind a stub that answers.
+        -->
     </extraFiles>
 </psalm>
