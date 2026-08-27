@@ -112,9 +112,14 @@ const PARAM_PAGES = MANIFEST.pages.filter((p) => p.route.includes(':'))
  * unproven. They are proven; the proof was just spelled in a way nothing could
  * read. Naming them here fixes the reader and adds a real assertion at once.
  *
- * Built-in page types (`index`, `detail`, `dashboard`, `roadmap`) are absent by
- * design — they declare a register/schema, not a component, and CnPageRenderer
- * supplies the view. This map covers exactly the pages that name their own.
+ * Built-in page types (`index`, `detail`, `dashboard`, `roadmap`, `flow`) are
+ * absent by design — they name no component, and CnPageRenderer supplies the
+ * view. This map covers exactly the pages that name their own.
+ *
+ * The four flow routes (`/flows`, `/graphs`, and their `/:id` forms) left this
+ * map when they stopped being custom pages: the list is an `index` over the
+ * named `flows` source and the editor is the shared `flow` type, so there is no
+ * app component left to pin. What they render is nc-vue's to prove.
  */
 const CUSTOM_PAGE_COMPONENTS: Record<string, string> = {
 	'/chat': 'Chat',
@@ -123,14 +128,6 @@ const CUSTOM_PAGE_COMPONENTS: Record<string, string> = {
 	'/tenant-ops': 'TenantOps',
 	'/guardrail-policy': 'GuardrailPolicySettings',
 	'/mcp-tools': 'McpTools',
-	'/flows': 'FlowIndex',
-	// The legacy `/graphs` routes render the SAME components as `/flows` — they
-	// are aliases kept so old links resolve, not separate pages.
-	'/graphs': 'FlowIndex',
-	// Parameterised, so the smoke loop skips both. The canvas is driven per-flow
-	// by flow-builder-dialect.spec.ts and flow-execution.spec.ts instead.
-	'/flows/:id': 'FlowBuilder',
-	'/graphs/:id': 'FlowBuilder',
 }
 
 /* --------------------------------------------------------------------- *

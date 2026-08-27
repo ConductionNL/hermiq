@@ -424,8 +424,11 @@ test.describe('hermiq regression: the engine runs a flow from the browser', () =
 		})
 		await dismissOnboarding(page)
 
+		// The toolbar is the shared canvas's now (`cn-flow-detail__toolbar`), not
+		// the app's old `.flow-builder__verbs`. The assertion below is unchanged
+		// and is the point of this test: a save must not rewrite node types.
 		const save = page
-			.locator('.flow-builder__verbs')
+			.locator('.cn-flow-detail__toolbar')
 			.getByRole('button', { name: 'Save' })
 		await expect(save).toBeEnabled({ timeout: 30_000 })
 		await save.click()

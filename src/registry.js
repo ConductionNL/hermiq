@@ -36,7 +36,7 @@
 //      and a _note explaining why a standard page type was not feasible.
 //
 // See: https://github.com/ConductionNL/hydra → openspec/architecture/adr-036-universal-widget-manifest.md
-
+import { CnFlowSidebar } from '@conduction/nextcloud-vue'
 import AgentFactsheetDialog from './dialogs/AgentFactsheetDialog.vue'
 import AgentVersionHistoryDialog from './dialogs/agents/AgentVersionHistoryDialog.vue'
 import EmailField from './formFields/EmailField.vue'
@@ -48,9 +48,6 @@ import TemplateImportModal from './modals/TemplateImportModal.vue'
 import AgentMemory from './views/AgentMemory.vue'
 import ApprovalInbox from './views/ApprovalInbox.vue'
 import Chat from './views/Chat.vue'
-import FlowBuilder from './views/FlowBuilder.vue'
-import FlowIndex from './views/FlowIndex.vue'
-import FlowSidebar from './views/FlowSidebar.vue'
 import TenantOps from './views/TenantOps.vue'
 import AgentEvalBaselineWidget from './widgets/AgentEvalBaselineWidget.vue'
 import AgentMemoryWidget from './widgets/AgentMemoryWidget.vue'
@@ -252,38 +249,17 @@ export default {
 	},
 
 	/**
-	 * The list of hermiq's flows. A custom page rather than a `type:index`
-	 * because a `type:index` is an OBJECT index bound to a register+schema, and
-	 * a flow is not an object (`flow-storage/spec.md`) — there is no pair to
-	 * point it at. It still renders CnIndexPage; only the source is different.
-	 */
-	FlowIndex: {
-		kind: 'page',
-		component: FlowIndex,
-	},
-
-	/**
-	 * Visual editor for the flows the engine walks. A custom page because it is
-	 * a canvas over a node/edge document, not a record list — no built-in page
-	 * type (index/detail/dashboard) can express direct-manipulation authoring.
-	 * Browsing/searching flows is the sibling FlowIndex page; this one is
-	 * reached per-flow from it. Geometry comes from the shared canvas in
-	 * nc-vue; the place cards, step routing and run/trace are hermiq's.
-	 */
-	FlowBuilder: {
-		kind: 'page',
-		component: FlowBuilder,
-	},
-
-	/**
 	 * The flow editor's controls, resolved via FlowDetail's `sidebarComponent`
 	 * so CnPageRenderer hands it to CnAppRoot's #sidebar slot — Nextcloud's
-	 * real app sidebar, the same place CnObjectSidebar renders. Shares state
-	 * with the canvas through the flow-editor store.
+	 * real app sidebar, the same place CnObjectSidebar renders.
+	 *
+	 * This is the SHARED sidebar, not one of hermiq's own. The flow list and
+	 * editor are now the shared `index` and `flow` page types, so the only
+	 * flow component this app still registers is the one the manifest names.
 	 */
-	FlowSidebar: {
+	CnFlowSidebar: {
 		kind: 'page',
-		component: FlowSidebar,
+		component: CnFlowSidebar,
 	},
 
 	// -------------------------------------------------------------------------

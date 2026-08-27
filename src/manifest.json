@@ -1243,36 +1243,46 @@
 		{
 			"id": "FlowIndex",
 			"route": "/flows",
-			"type": "custom",
-			"component": "FlowIndex",
+			"type": "index",
 			"title": "Flows",
-			"_note": "Custom page, NOT type:index. A type:index page is an OBJECT index bound to a register+schema, and a flow is not an object: flow-storage/spec.md says a flow definition SHALL NOT be stored as an OpenRegister object, so there is no register/schema pair to point at. This used to declare hermiq/agentflow — a duplicate mirror of the native flow rows — so the list showed objects while the engine ran the native rows, free to drift. FlowIndex.vue still renders CnIndexPage; only the source changed, to OpenRegister's /api/flows?app=hermiq through the same store the canvas uses."
+			"_note": "An ordinary index over the named `flows` source. A flow lives in OpenRegister's native flow table rather than a register/schema pair, so an object-backed index had nothing to bind to and this was a custom page over FlowIndex.vue; `config.entitySource` closes that. The list reads the one native store the engine runs, so what an author sees and what executes cannot drift.",
+			"config": {
+				"entitySource": "flows",
+				"app": "hermiq"
+			}
 		},
 		{
 			"id": "FlowIndexLegacyRedirect",
 			"route": "/graphs",
-			"type": "custom",
-			"component": "FlowIndex",
+			"type": "index",
 			"title": "Flows",
-			"_note": "Legacy path. Hermiq called flows 'graphs' until hermiq-flow-rename, and those URLs are pasted into Hydra issues, run logs and PR bodies — including the sequencer's. The manifest has no redirect field, so the old path is declared as a second page onto the same component rather than left to 404. Remove once the old links have aged out."
+			"_note": "Legacy path. Hermiq called flows 'graphs' until hermiq-flow-rename, and those URLs are pasted into Hydra issues, run logs and PR bodies. The manifest has no redirect field, so the old path is declared as a second page onto the same page type rather than left to 404. Remove once the old links have aged out.",
+			"config": {
+				"entitySource": "flows",
+				"app": "hermiq"
+			}
 		},
 		{
 			"id": "FlowDetail",
 			"route": "/flows/:id",
-			"type": "custom",
-			"component": "FlowBuilder",
+			"type": "flow",
 			"title": "Flow",
-			"_note": "Custom page: a direct-manipulation canvas over a flow definition (drag to place, drag-to-connect, per-STEP config, run + trace). No built-in page type expresses flow authoring — index/detail/dashboard are all record-shaped. Controls live in the NcAppSidebar so the canvas gets the full width. The definition is OpenRegister's native flow (/api/flows), never a hermiq object: a node is a PLACE and carries no config, an edge is the STEP that runs.",
-			"sidebarComponent": "FlowSidebar"
+			"_note": "The shared `flow` page type: CnFlowEditorPage over CnFlowDetail, the same canvas every other app uses. This was a custom page over FlowBuilder.vue, a parallel editor with its own store and API client - which flow-storage/spec.md forbids outright (\"No other app SHALL own a flow store, a flow controller, or a flow execution service\"). Controls are the shared CnFlowSidebar so the canvas keeps full width.",
+			"sidebarComponent": "CnFlowSidebar",
+			"config": {
+				"app": "hermiq"
+			}
 		},
 		{
 			"id": "FlowDetailLegacyRedirect",
 			"route": "/graphs/:id",
-			"type": "custom",
-			"component": "FlowBuilder",
+			"type": "flow",
 			"title": "Flow",
-			"_note": "Legacy path — see FlowIndexLegacyRedirect. Carries the same sidebarComponent as FlowDetail: without it an old link would open the canvas with no controls, which is worse than a 404 because it looks like the editor is broken rather than like the URL is old.",
-			"sidebarComponent": "FlowSidebar"
+			"_note": "Legacy path - see FlowIndexLegacyRedirect. Carries the same sidebarComponent as FlowDetail: without it an old link would open the canvas with no controls, which is worse than a 404 because it looks like the editor is broken rather than like the URL is old.",
+			"sidebarComponent": "CnFlowSidebar",
+			"config": {
+				"app": "hermiq"
+			}
 		},
 		{
 			"id": "AiOversight",
