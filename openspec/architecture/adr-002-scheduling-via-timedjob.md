@@ -17,7 +17,7 @@ per job. Neither maps cleanly onto a Nextcloud app.
 ## Decision
 
 Model each schedule as an OpenRegister **`Schedule`** object and register **one**
-`Hermiq\Cron\ScheduleTask extends TimedJob` that, on each tick, **polls all due schedules
+`Hermiq\BackgroundJob\ScheduleTask extends TimedJob` that, on each tick, **polls all due schedules
 and dispatches them internally**. Compute next-run times with `dragonmantank/cron-expression`
 (cron), simple arithmetic (interval), or the stored timestamp (once). Delegate execution to
 OpenRegister's `AgentHandler`/`ChatService` (Hermiq runs no agent engine). Copy OpenConnector's

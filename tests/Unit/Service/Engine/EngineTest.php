@@ -27,7 +27,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use Exception;
-use OCA\Hermiq\Cron\ConversationTitleJob;
+use OCA\Hermiq\BackgroundJob\ConversationTitleJob;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\Hermiq\Service\Engine\ContextRetrievalHandler;
 use OCA\Hermiq\Service\Engine\ConversationManagementHandler;

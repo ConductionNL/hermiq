@@ -5,147 +5,107 @@
 
 <template>
 	<div class="flow-builder">
+		<!-- DRIVEN BY VUE FLOW, NOT AROUND IT.
+		     This passed six props the canvas no longer has (`selectedNodeId`,
+		     `nodeWidth`, `nodeHeight`, `zoom`, `showGrid`, `resizable`) and
+		     listened for three events it no longer emits (`nodeMove`,
+		     `nodeResize`, `update:zoom`) — so node drags reached nothing and
+		     the zoom controls drove a prop that had been deleted.
+
+		     `nodeWidth`/`nodeHeight` went when the canvas moved to Vue Flow,
+		     which MEASURES the rendered node; guessing its size is the class of
+		     bug that removal was for. `fitView` is what frames a graph on load,
+		     and nothing was asking for it. -->
 		<CnGraphCanvas
 			ref="graph"
 			:nodes="nodesWithPorts"
-			:edges="editor.canvasEdges"
-			:selectedNodeId="editor.selectedNodeId"
-			:nodeWidth="nodeWidth"
-			:nodeHeight="nodeHeight"
-			:zoom="zoom"
+			:edges="canvasEdges"
 			:minZoom="minZoom"
 			:maxZoom="maxZoom"
-			showGrid
-			resizable
-			@update:zoom="zoom = $event"
+			fitView
+			showBackground
+			showControls
+			showMiniMap
+			@nodesChange="onCanvasNodesChange"
 			@nodeSelect="onCanvasSelect($event)"
+			@edgeSelect="onCanvasEdgeSelect($event)"
+			@edgeLabelClick="onEdgeLabelClick"
+			@edgeLabelMove="onEdgeLabelMove"
+			@edgeLabelContext="onEdgeLabelContext"
 			@canvasClick="onCanvasClick"
-			@nodeMove="onCanvasMove($event)"
 			@connect="editor.connect($event)"
 			@canvasDrop="onCanvasDrop"
-			@nodeResize="onCanvasResize($event)"
 			@contextmenu.prevent="onCanvasContext">
-			<!-- Orthogonal routing plus an explicit arrowhead: a flow has to read
-			     in one direction, which a plain line does not convey. The line
-			     carries only its own title now — the behaviour moved to the
-			     node — and when a run produced a result for this hop, the label
-			     opens it. -->
-			<!-- `edge` here is one drawable LINE; `edge.edge` is the connection
-			     it came from. A split draws several lines from one node, so
-			     selection always goes through the connection's own id. -->
-			<template #edge="{ edge, from, to }">
-				<g
-					class="flow-builder__step"
-					:class="{
-						'flow-builder__step--selected':
-							edge.edge.id === editor.selectedEdgeId,
-						'flow-builder__step--unassigned': isUnassigned(edge.edge),
-						'flow-builder__step--replayed': wasFollowed(edge.edge),
-					}">
-					<path
-						class="flow-builder__edge"
-						:d="edgePath(from, to)"
-						fill="none"
-						:style="edgeStyle(edge.edge)"
-						:marker-start="markerRef(edge.edge.startMarker)"
-						:marker-end="markerRef(edge.edge.endMarker, arrowId)"
-						@click.stop="editor.selectEdge(edge.edge.id)"
-						@contextmenu.prevent.stop="
-							onEdgeContext(edge.edge, $event)
-						" />
+			<!-- THE LINE IS DRAWN BY VUE FLOW; ONLY THE LABEL IS OURS.
 
-					<!-- The line's own label, and nothing else. Under the old
-					     reading the step rode here and this chip named it; the
-					     step now lives on the node, so a chip here would either
-					     be blank on every edge of a migrated flow (which is
-					     exactly the "No step type" that appeared 16 times) or
-					     duplicate the card. An edge with no title draws no chip
-					     at all rather than an empty one. -->
-					<!--
-						The label SLIDES ALONG ITS LINE. `labelT` is a fraction of
-						the way from source to target, stored on the edge, so a
-						label pushed clear of a crossing line stays clear when the
-						graph is panned, zoomed or re-laid-out — a pixel offset
-						would not.
+			     What stood here was a `#edge` slot returning SVG: an orthogonal
+			     router, an arrowhead marker, midpoint arithmetic and a chip,
+			     around 120 lines of it. The slot was removed when the canvas
+			     moved to Vue Flow and **nothing said so** — Vue drops a slot the
+			     child does not render, silently — so all of it compiled, passed
+			     review, and drew nothing at all.
 
-						Dragged with the pointer, and moved with the arrow keys
-						when focused: a drag is a pointer gesture and cannot be
-						the only way to perform an action (WCAG 2.1 AA 2.1.1).
-					-->
-					<g
-						v-if="edgeLabel(edge.edge)"
-						class="flow-builder__step-label"
-						:class="{
-							'flow-builder__step-label--dragging':
-								draggingLabelId === edge.edge.id,
-						}"
-						:transform="`translate(${labelPoint(edge.edge, from, to).x}, ${labelPoint(edge.edge, from, to).y})`"
-						role="button"
-						tabindex="0"
-						:aria-label="stepAriaLabel(edge.edge)"
-						@click.stop="onStepClick(edge.edge)"
-						@keydown.enter.stop="onStepClick(edge.edge)"
-						@keydown.left.stop.prevent="nudgeLabel(edge.edge, -0.05)"
-						@keydown.right.stop.prevent="nudgeLabel(edge.edge, 0.05)"
-						@mousedown.stop="onLabelMouseDown(edge.edge, $event)"
-						@contextmenu.prevent.stop="onEdgeContext(edge.edge, $event)">
-						<rect
-							class="flow-builder__step-chip"
-							:width="chipWidth(edge.edge)"
-							:x="-chipWidth(edge.edge) / 2"
-							y="-11"
-							height="22"
-							rx="11" />
-						<text
-							text-anchor="middle"
-							dominant-baseline="central"
-							class="flow-builder__step-text">
-							{{ edgeLabel(edge.edge) }}
-						</text>
-						<circle
-							v-if="resultFor(edge.edge)"
-							class="flow-builder__step-result"
-							:class="`flow-builder__step-result--${resultFor(edge.edge).status}`"
-							:cx="chipWidth(edge.edge) / 2 - 2"
-							cy="-9"
-							r="5" />
-					</g>
+			     Everything that vanished with it is restored here: the title on
+			     the line, moving that title along the line (by pointer AND by
+			     arrow key, WCAG 2.1 AA 2.1.1), the context menu, and the payload
+			     control that is the entire point of a replay.
 
-					<!--
-						The payload control: the JSON that passed along this
-						line — the output of the node it leaves, which is the
-						input of the node it reaches. Only on a line the
-						replayed run actually followed, because on any other
-						line there is nothing to show.
+			     Routing, arrowheads and label geometry are no longer ours to
+			     write. `edge.data.edge` is the stored connection; `edge.id` is
+			     the LINE's id, because a split draws several lines from one
+			     connection. -->
+			<template #edge-label="{ edge }">
+				<!-- The line's own title, and nothing else. Under the old
+				     reading the step rode here and this chip named it; the step
+				     now lives on the node, so a chip here would either be blank
+				     on every edge of a migrated flow (which is exactly the "No
+				     step type" that appeared 16 times) or duplicate the card.
 
-						This is the point of the replay. A status says a flow
-						"ran fine"; when it ran fine and produced the wrong
-						answer, what an operator needs is what actually moved.
-					-->
-					<g
-						v-if="wasFollowed(edge.edge)"
-						class="flow-builder__payload"
-						:transform="`translate(${edgeMidpoint(from, to).x + chipWidth(edge.edge) / 2 + 14}, ${edgeMidpoint(from, to).y})`"
-						role="button"
-						tabindex="0"
-						:aria-label="
-							t('hermiq', 'Show what passed along this connection')
-						"
-						@click.stop="editor.payloadEdgeId = edge.edge.id"
-						@keydown.enter.stop="editor.payloadEdgeId = edge.edge.id"
-						@mouseenter="onPayloadHover(edge.edge, $event)"
-						@mouseleave="hoverPayload = null"
-						@focus="onPayloadHover(edge.edge, $event)"
-						@blur="hoverPayload = null">
-						<circle r="10" class="flow-builder__payload-dot" />
-						<text
-							text-anchor="middle"
-							dominant-baseline="central"
-							class="flow-builder__payload-text">
-							{}
-						</text>
-					</g>
-				</g>
+				     INERT ON PURPOSE. The canvas wraps this in the focusable
+				     control and owns the arrow keys that slide it along its
+				     line, so an author gets that alternative to dragging
+				     whether or not this view remembers to offer it. An edge
+				     with no title renders nothing here, and the canvas then
+				     draws no chip at all rather than an empty one. -->
+				<template v-if="edgeLabel(edge.data.edge)">
+					<span class="flow-builder__step-text">{{
+						edgeLabel(edge.data.edge)
+					}}</span>
+					<span
+						v-if="resultFor(edge.data.edge)"
+						class="flow-builder__step-result"
+						:class="`flow-builder__step-result--${resultFor(edge.data.edge).status}`" />
+				</template>
+			</template>
+
+			<!--
+				The payload control: the JSON that passed along this line — the
+				output of the node it leaves, which is the input of the node it
+				reaches. Only on a line the replayed run actually followed,
+				because on any other line there is nothing to show.
+
+				This is the point of the replay. A status says a flow "ran
+				fine"; when it ran fine and produced the wrong answer, what an
+				operator needs is what actually moved.
+
+				BESIDE the label rather than inside it: the label's wrapper is a
+				button, and this has to be activatable in its own right.
+			-->
+			<template #edge-adornment="{ edge }">
+				<NcButton
+					v-if="wasFollowed(edge.data.edge)"
+					variant="tertiary"
+					class="flow-builder__payload"
+					:aria-label="
+						t('hermiq', 'Show what passed along this connection')
+					"
+					@click.stop="editor.payloadEdgeId = edge.data.edge.id"
+					@mouseenter="onPayloadHover(edge.data.edge, $event)"
+					@mouseleave="hoverPayload = null"
+					@focus="onPayloadHover(edge.data.edge, $event)"
+					@blur="hoverPayload = null">
+					{}
+				</NcButton>
 			</template>
 
 			<!-- The card says what the node DOES; the line says only where it
@@ -165,10 +125,13 @@
 					Edited in place. A note is one field, and sending an author
 					to a modal to type one line is more chrome than the content.
 				-->
-				<div v-if="node.isAnnotation" class="flow-builder__annotation">
+				<!-- `node` here is VUE FLOW's node: `id` stays at the top level,
+				     but everything the document owns lives in `data` — see
+				     nodesWithPorts(). -->
+				<div v-if="node.data.isAnnotation" class="flow-builder__annotation">
 					<textarea
 						class="flow-builder__annotation-text"
-						:value="node.text"
+						:value="node.data.text"
 						:aria-label="t('hermiq', 'Note')"
 						:placeholder="t('hermiq', 'Write a note…')"
 						@mousedown.stop
@@ -179,7 +142,7 @@
 							)
 						" />
 					<NcButton
-						type="tertiary"
+						variant="tertiary"
 						class="flow-builder__annotation-remove"
 						:aria-label="t('hermiq', 'Remove note')"
 						@mousedown.stop
@@ -221,26 +184,26 @@
 						// — nothing points at it, so paint it as a start —
 						// which colours an unconnected step as an entry point
 						// and makes a flow that can never fire look finished.
-						[`flow-builder__node--${editor.roleOfNodeType(node.type)}`]: true,
-						'flow-builder__node--untyped': !node.type,
+						[`flow-builder__node--${editor.roleOfNodeType(node.data.type)}`]: true,
+						'flow-builder__node--untyped': !node.data.type,
 						'flow-builder__node--replayed':
 							editor.replayedNodeIds.includes(node.id),
 					}"
-					@dblclick.stop="onNodeEdit(node)"
-					@contextmenu.prevent.stop="onNodeContext(node, $event)">
+					@dblclick.stop="onNodeEdit(node.data)"
+					@contextmenu.prevent.stop="onNodeContext(node.data, $event)">
 					<span class="flow-builder__node-step">{{
-						nodeStepLabel(node)
+						nodeStepLabel(node.data)
 					}}</span>
 					<span class="flow-builder__node-label">{{
 						/**
 						 * @spec openspec/specs/flow-canvas/spec.md
 						 */
-						nodeLabel(node)
+						nodeLabel(node.data)
 					}}</span>
 					<span
-						v-if="nodeConfigSummary(node)"
+						v-if="nodeConfigSummary(node.data)"
 						class="flow-builder__node-config">
-						{{ nodeConfigSummary(node) }}
+						{{ nodeConfigSummary(node.data) }}
 					</span>
 					<span
 						v-if="editor.markingByNode[node.id]"
@@ -326,7 +289,7 @@
 				role="group"
 				:aria-label="t('hermiq', 'Flow actions')">
 				<NcButton
-					type="primary"
+					variant="primary"
 					:disabled="editor.saving || !editor.flow.name"
 					@click="onSave">
 					<template #icon>
@@ -336,7 +299,7 @@
 					{{ t('hermiq', 'Save') }}
 				</NcButton>
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:disabled="!editor.flow.id"
 					@click="editor.showRun = true">
 					<template #icon>
@@ -344,14 +307,14 @@
 					</template>
 					{{ t('hermiq', 'Run…') }}
 				</NcButton>
-				<NcButton type="secondary" @click="editor.validate()">
+				<NcButton variant="secondary" @click="editor.validate()">
 					<template #icon>
 						<CheckDecagram :size="20" />
 					</template>
 					{{ t('hermiq', 'Check') }}
 				</NcButton>
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:disabled="editor.nodes.length === 0"
 					:aria-label="t('hermiq', 'Auto sort')"
 					@click="editor.autoSort()">
@@ -366,7 +329,7 @@
 				role="group"
 				:aria-label="t('hermiq', 'Zoom')">
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:disabled="zoom <= minZoom"
 					:aria-label="t('hermiq', 'Zoom out')"
 					@click="zoomBy(-zoomStep)">
@@ -375,13 +338,13 @@
 					</template>
 				</NcButton>
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:aria-label="t('hermiq', 'Reset zoom to 100%')"
 					@click="zoom = 1">
 					{{ zoomPercent }}
 				</NcButton>
 				<NcButton
-					type="secondary"
+					variant="secondary"
 					:disabled="zoom >= maxZoom"
 					:aria-label="t('hermiq', 'Zoom in')"
 					@click="zoomBy(zoomStep)">
@@ -404,7 +367,7 @@
 			<NcButton
 				v-if="!editor.sidebarOpen"
 				class="flow-builder__sidebar-toggle"
-				type="secondary"
+				variant="secondary"
 				:aria-label="t('hermiq', 'Open the flow sidebar')"
 				@click="editor.sidebarOpen = true">
 				<template #icon>
@@ -681,12 +644,11 @@ export default {
 		return {
 			arrowId: 'flow-builder-arrow',
 			resultDialog: null,
-			// The connection whose label is being slid along its line.
-			draggingLabelId: null,
-			// Node box size. Shared with the canvas and with edge trimming, which
-			// has to know where a card ends to stop the arrowhead short of it.
-			nodeWidth: 200,
-			nodeHeight: 80,
+			// `nodeWidth`/`nodeHeight` were here so that hand-drawn edges could
+			// work out where a card ended and stop the arrowhead short of it.
+			// Vue Flow MEASURES the rendered node, so the guess — and the whole
+			// class of bug where the guess disagreed with what the slot drew —
+			// went with the geometry.
 			// Zoom is OWNED here. CnGraphCanvas takes it as a prop and reports
 			// changes through `update:zoom` — it never mutates it — so a canvas
 			// whose consumer does not bind it is pinned at 1 forever and the
@@ -724,6 +686,60 @@ export default {
 		},
 
 		/**
+		 * The lines, each carrying how it should be DRAWN.
+		 *
+		 * Same division as `nodesWithPorts` below: the store owns the document,
+		 * the view owns the drawing. Markers name SVG elements this template
+		 * defines, so the mapping belongs on this side of the line.
+		 *
+		 * Selection, the unassigned warning and the replay marking are `class`
+		 * on the edge rather than classes on a wrapper we draw ourselves —
+		 * there is no wrapper any more. Vue Flow puts the class on the element
+		 * it renders for the line.
+		 *
+		 * @return {Array<object>} The lines, ready for the canvas.
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		canvasEdges() {
+			return this.editor.canvasEdges.map((line) => {
+				const edge = line.data.edge
+
+				return {
+					...line,
+					// `arrow` is the fallback rather than a hard default, so
+					// that `none` stays a real choice: an author who removed an
+					// arrowhead did not ask for it back.
+					//
+					// ⚠️ ABSENT IS `undefined`, NEVER `null`. Vue Flow's
+					// getMarkerId() guards `typeof marker === 'undefined'` and
+					// `'string'`, then falls through to `Object.keys(marker)` —
+					// and `typeof null === 'object'`, so a null marker sails
+					// past both guards and throws. That throw happens while the
+					// edge renders, so it takes the LINE down with it: 93 edges
+					// in the store, 187 TypeErrors, and not one line drawn.
+					// `markerRef` returns null because null is what removes an
+					// SVG attribute; this is the boundary where that spelling
+					// stops being right.
+					markerEnd:
+						this.markerRef(edge.endMarker, this.arrowId) ?? undefined,
+					markerStart: this.markerRef(edge.startMarker) ?? undefined,
+					style: this.edgeStyle(edge),
+					class: {
+						'flow-builder__step--selected':
+							edge.id === this.editor.selectedEdgeId,
+						'flow-builder__step--unassigned': this.isUnassigned(edge),
+						'flow-builder__step--replayed': this.wasFollowed(edge),
+					},
+					data: {
+						...line.data,
+						labelAriaLabel: this.stepAriaLabel(edge),
+					},
+				}
+			})
+		},
+
+		/**
 		 * The nodes, each carrying the ports the canvas should draw for it.
 		 *
 		 * Built here rather than in the store because it is a presentation
@@ -736,10 +752,39 @@ export default {
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
 		nodesWithPorts() {
-			const nodes = (this.editor.nodes || []).map((node) => ({
-				...node,
-				ports: this.portsForNode(node),
-			}))
+			// VUE FLOW'S `type` SELECTS A COMPONENT, NOT A DOMAIN KIND.
+			//
+			// This used to spread the document node straight onto the canvas,
+			// which was right for the old bespoke canvas but is not for Vue
+			// Flow: it read `type: 'openregister.set-fields'` as the name of a
+			// node COMPONENT, found none registered, and fell back to its own
+			// built-in node. The result was a canvas of empty boxes — the
+			// wrappers were in the DOM at the correct coordinates, with nothing
+			// drawn inside them, which reads as "the flow has no nodes".
+			//
+			// `type: 'default'` routes every step through CnFlowNode, which is
+			// what renders the `#node` slot below. The domain node travels in
+			// `data`, so a new step type still draws instead of vanishing.
+			//
+			// `position` accepts both spellings: the server stores
+			// `position: {x, y}` while the editor writes flat `x`/`y` in memory.
+			const toCanvasNode = (node) => ({
+				id: node.id,
+				type: 'default',
+				position: {
+					x: Number(node.x ?? node.position?.x) || 0,
+					y: Number(node.y ?? node.position?.y) || 0,
+				},
+
+				data: node,
+			})
+
+			const nodes = (this.editor.nodes || []).map((node) =>
+				toCanvasNode({
+					...node,
+					ports: this.portsForNode(node),
+				}),
+			)
 
 			// Annotations ride the same render list, because the canvas is what
 			// positions things in canvas space — but they are NOT nodes in the
@@ -748,12 +793,14 @@ export default {
 			// to deadlock a flow.
 			//
 			// No ports: nothing connects to a note.
-			const notes = (this.editor.flow.annotations || []).map((note) => ({
-				...note,
-				id: `${ANNOTATION_ID_PREFIX}${note.id}`,
-				ports: [],
-				isAnnotation: true,
-			}))
+			const notes = (this.editor.flow.annotations || []).map((note) =>
+				toCanvasNode({
+					...note,
+					id: `${ANNOTATION_ID_PREFIX}${note.id}`,
+					ports: [],
+					isAnnotation: true,
+				}),
+			)
 
 			return [...nodes, ...notes]
 		},
@@ -776,12 +823,12 @@ export default {
 	 * @spec openspec/specs/flow-canvas/spec.md
 	 */
 	mounted() {
+		// The label drag used to be tracked here, on the WINDOW, because a drag
+		// that leaves the chip has to keep tracking and has to end even if the
+		// pointer is released outside the canvas. That is still true — it is
+		// just no longer this view's problem: the canvas owns the label and
+		// reports where it was put.
 		window.addEventListener('keydown', this.onKeydown)
-		// Bound on the WINDOW, not the label: a drag that leaves the chip must
-		// keep tracking, and must end even if the pointer is released outside
-		// the canvas.
-		window.addEventListener('mousemove', this.onLabelMouseMove)
-		window.addEventListener('mouseup', this.onLabelMouseUp)
 	},
 
 	/**
@@ -789,8 +836,6 @@ export default {
 	 */
 	beforeUnmount() {
 		window.removeEventListener('keydown', this.onKeydown)
-		window.removeEventListener('mousemove', this.onLabelMouseMove)
-		window.removeEventListener('mouseup', this.onLabelMouseUp)
 	},
 
 	methods: {
@@ -940,6 +985,42 @@ export default {
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
+		/**
+		 * Vue Flow reports node changes as a STREAM; this picks the settled
+		 * moves out of it.
+		 *
+		 * The canvas emits `nodes-change` for selection, dimension measurement,
+		 * removal and dragging alike, and a drag reports continuously with
+		 * `dragging: true` until the pointer is released. Persisting every one
+		 * of those would write a row per animation frame.
+		 *
+		 * This replaces the old `@nodeMove`, which the canvas stopped emitting
+		 * when it moved to Vue Flow — so until now a dragged node moved on
+		 * screen and the document never heard about it.
+		 *
+		 * @param {Array<object>} changes Vue Flow's change stream.
+		 * @return {void}
+		 *
+		 * @spec openspec/specs/flow-canvas/spec.md#requirement-a-node-dragged-on-the-canvas-keeps-where-it-was-put
+		 */
+		onCanvasNodesChange(changes) {
+			for (const change of changes || []) {
+				if (change.type !== 'position' || change.dragging === true) {
+					continue
+				}
+
+				if (change.position === undefined || change.position === null) {
+					continue
+				}
+
+				this.onCanvasMove({
+					id: change.id,
+					x: change.position.x,
+					y: change.position.y,
+				})
+			}
+		},
+
 		onCanvasMove(payload) {
 			const id = String(payload?.id || '')
 			if (id.startsWith(ANNOTATION_ID_PREFIX)) {
@@ -1038,159 +1119,89 @@ export default {
 		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
-		labelPoint(edge, from, to) {
-			const t = this.labelFraction(edge)
-			if (t === 0.5) {
-				// The midpoint comes from the router, which knows the orthogonal
-				// path — not the straight line between the two centres.
-				return this.edgeMidpoint(from, to)
-			}
-
-			return {
-				x: from.x + (to.x - from.x) * t,
-				y: from.y + (to.y - from.y) * t,
-			}
-		},
-
 		/**
-		 * A connection's stored label position, clamped into the line.
+		 * Store a label's new place on its line.
 		 *
-		 * @param {object} edge The connection.
-		 * @return {number} The fraction, 0.1–0.9.
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		labelFraction(edge) {
-			const raw = Number(edge?.labelT)
-			if (Number.isFinite(raw) === false) {
-				return 0.5
-			}
-
-			// Never all the way to an endpoint: a label sitting on a node is
-			// unreadable and unclickable, and it hides the port it covers.
-			return Math.min(0.9, Math.max(0.1, raw))
-		},
-
-		/**
-		 * Slide the dragged label to wherever the pointer is on its line.
+		 * The label's geometry, the pointer drag and the arrow keys are all the
+		 * canvas's now; what arrives here is the finished answer. `labelT` is a
+		 * FRACTION (0 = source, 1 = target) and is stored as one, which is what
+		 * makes the position survive a pan, a zoom and an auto-sort: the label
+		 * keeps its place ON THE LINE rather than its place on the screen.
 		 *
-		 * The fraction is the PROJECTION of the pointer onto the source→target
-		 * vector, so the label follows the pointer along the line and ignores
-		 * how far off it the pointer strays — dragging sideways does not throw
-		 * the label off its own connection.
-		 *
-		 * @param {MouseEvent} event The mousemove.
+		 * @param {{id: string, labelT: number}} payload The line and fraction.
+		 *   `id` is the LINE's id, so the connection is recovered from it.
 		 * @return {void}
+		 *
 		 * @spec openspec/specs/flow-canvas/spec.md
 		 */
-		onLabelMouseMove(event) {
-			if (this.draggingLabelId === null) {
+		onEdgeLabelMove({ id, labelT }) {
+			const edge = this.edgeOfLine(id)
+			if (edge === null) {
 				return
 			}
 
-			const edge = this.editor.edges.find(
-				(candidate) => candidate.id === this.draggingLabelId,
+			this.editor.setEdgeFieldById(edge.id, 'labelT', labelT)
+		},
+
+		/**
+		 * Open what a connection's label points at.
+		 *
+		 * @param {string} id The LINE's id.
+		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		onEdgeLabelClick(id) {
+			const edge = this.edgeOfLine(id)
+			if (edge !== null) {
+				this.onStepClick(edge)
+			}
+		},
+
+		/**
+		 * Right-clicking a label opens the same menu as right-clicking its line.
+		 *
+		 * @param {{id: string, event: MouseEvent}} payload The line and event.
+		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		onEdgeLabelContext({ id, event }) {
+			const edge = this.edgeOfLine(id)
+			if (edge !== null) {
+				this.onEdgeContext(edge, event)
+			}
+		},
+
+		/**
+		 * Selecting a line selects the connection it was drawn from.
+		 *
+		 * @param {object} payload Vue Flow's `{ edge }`.
+		 * @return {void}
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		onCanvasEdgeSelect(payload) {
+			const edge = this.edgeOfLine(payload?.edge?.id)
+			if (edge !== null) {
+				this.editor.selectEdge(edge.id)
+			}
+		},
+
+		/**
+		 * The connection a drawn line came from.
+		 *
+		 * A split renders one connection as several lines, each with its own id,
+		 * so selection and editing always have to travel back to the connection
+		 * — acting on the line would act on half a step.
+		 *
+		 * @param {string} id The line's id.
+		 * @return {object|null} The connection, or null if it has gone.
+		 * @spec openspec/specs/flow-canvas/spec.md
+		 */
+		edgeOfLine(id) {
+			const line = this.editor.canvasEdges.find(
+				(candidate) => candidate.id === id,
 			)
-			const line = edge
-				? this.editor.canvasEdges.find((drawn) => drawn.edge.id === edge.id)
-				: null
-			if (!edge || !line) {
-				return
-			}
 
-			const from = this.nodeCentre(line.edge.from?.[0])
-			const to = this.nodeCentre(line.edge.to?.[0])
-			const point = this.canvasPointOf(event)
-			if (!from || !to || point === null) {
-				return
-			}
-
-			const dx = to.x - from.x
-			const dy = to.y - from.y
-			const lengthSquared = dx * dx + dy * dy
-			if (lengthSquared === 0) {
-				return
-			}
-
-			const t =
-				((point.x - from.x) * dx + (point.y - from.y) * dy) / lengthSquared
-			this.editor.setEdgeFieldById(edge.id, 'labelT', t)
-		},
-
-		/**
-		 * End the drag.
-		 *
-		 * @return {void}
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		onLabelMouseUp() {
-			this.draggingLabelId = null
-		},
-
-		/**
-		 * A node's centre in canvas space.
-		 *
-		 * @param {string} id The node id.
-		 * @return {{x: number, y: number}|null} The centre.
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		nodeCentre(id) {
-			const node = this.editor.nodes.find((candidate) => candidate.id === id)
-			if (node === undefined) {
-				return null
-			}
-
-			return {
-				x: (node.x || 0) + this.nodeWidth / 2,
-				y: (node.y || 0) + this.nodeHeight / 2,
-			}
-		},
-
-		/**
-		 * Begin sliding a label along its line.
-		 *
-		 * @param {object} edge The connection.
-		 * @param {MouseEvent} event The mousedown.
-		 * @return {void}
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		onLabelMouseDown(edge, event) {
-			this.draggingLabelId = edge.id
-			this.dragLabelFrom = null
-			// The canvas owns pan and zoom, so it is the only thing that can
-			// turn a client point into a canvas one.
-			this.dragLabelStart = this.canvasPointOf(event)
-		},
-
-		/**
-		 * Move a label by a step, from the keyboard.
-		 *
-		 * @param {object} edge  The connection.
-		 * @param {number} delta The fraction to move by.
-		 * @return {void}
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		nudgeLabel(edge, delta) {
-			this.editor.setEdgeFieldById(
-				edge.id,
-				'labelT',
-				this.labelFraction(edge) + delta,
-			)
-		},
-
-		/**
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		onCanvasResize(payload) {
-			const id = String(payload?.id || '')
-			if (id.startsWith(ANNOTATION_ID_PREFIX)) {
-				this.editor.resizeAnnotation({
-					...payload,
-					id: id.slice(ANNOTATION_ID_PREFIX.length),
-				})
-				return
-			}
-
-			this.editor.resizeNode(payload)
+			return line ? line.data.edge : null
 		},
 
 		/**
@@ -1931,22 +1942,6 @@ export default {
 		},
 
 		/**
-		 * Chip width for a step label, sized to its text.
-		 *
-		 * Measured from the character count rather than the DOM: an SVG text
-		 * node has no width until it is laid out, so a chip sized after the fact
-		 * flickers on every render.
-		 *
-		 * @param {object} edge The connection.
-		 * @return {number} The width in canvas units.
-		 *
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		chipWidth(edge) {
-			return Math.max(56, this.edgeLabel(edge).length * 6.5 + 20)
-		},
-
-		/**
 		 * The last run's entry for this step, or null when it did not run.
 		 *
 		 * @param {object} edge The step.
@@ -1959,161 +1954,6 @@ export default {
 			}
 
 			return this.editor.resultByEdge[this.editor.transitionName(edge)] || null
-		},
-
-		/**
-		 * Midpoint of an edge, where the step label sits. Taken from the same
-		 * geometry the path uses, so the label always lands on the line.
-		 *
-		 * @param {{x: number, y: number}} from Source centre.
-		 * @param {{x: number, y: number}} to   Target centre.
-		 * @return {{x: number, y: number}} The midpoint.
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		edgeMidpoint(from, to) {
-			return this.edgeGeometry(from, to).mid
-		},
-
-		/**
-		 * The SVG `d` for one edge.
-		 *
-		 * @param {{x: number, y: number}} from Source centre.
-		 * @param {{x: number, y: number}} to   Target centre.
-		 * @return {string} The path.
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		edgePath(from, to) {
-			return this.edgeGeometry(from, to).d
-		},
-
-		/**
-		 * Route one edge and report where its middle is.
-		 *
-		 * Two decisions, in order:
-		 *
-		 * 1. Trim the endpoints from the node CENTRES (what the canvas hands the
-		 *    slot) back to the node borders, plus a small gap. Drawn centre to
-		 *    centre, the last stretch — the arrowhead included — sits under the
-		 *    target card, so the flow reads as an undirected line.
-		 *
-		 * 2. Bend only when a straight run would not fit. Two cards whose boxes
-		 *    still overlap across the run have a straight line available that
-		 *    leaves one border and meets the other, so that is what they get.
-		 *    Bending on any difference in centres produced a wide staircase for
-		 *    a modest offset and, for a near-aligned pair, two corner arcs with
-		 *    a zero-length leg between them — a visible wobble in place of a
-		 *    line. A corner should mean "these nodes are not in line", not
-		 *    "these nodes are a few pixels apart".
-		 *
-		 * @param {{x: number, y: number}} from Source centre.
-		 * @param {{x: number, y: number}} to   Target centre.
-		 * @return {{d: string, mid: {x: number, y: number}}} Path and midpoint.
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		edgeGeometry(from, to) {
-			const gap = 6
-			// Keep a little of the shared span on either side of a straight run,
-			// so it reads as leaving the card rather than clipping its corner.
-			const margin = 24
-			const vertical = Math.abs(to.y - from.y) >= Math.abs(to.x - from.x)
-
-			const [a, b] = vertical
-				? this.trimOn('y', this.nodeHeight, gap, from, to)
-				: this.trimOn('x', this.nodeWidth, gap, from, to)
-
-			const across = vertical
-				? Math.abs(to.x - from.x)
-				: Math.abs(to.y - from.y)
-			const span = vertical ? this.nodeWidth : this.nodeHeight
-			if (across <= span - margin) {
-				// Straight run down (or across) the middle of the shared span.
-				const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
-				const [start, end] = vertical
-					? [
-							{ x: mid.x, y: a.y },
-							{ x: mid.x, y: b.y },
-						]
-					: [
-							{ x: a.x, y: mid.y },
-							{ x: b.x, y: mid.y },
-						]
-
-				return { d: `M ${start.x} ${start.y} L ${end.x} ${end.y}`, mid }
-			}
-
-			return this.elbow(a, b, vertical)
-		},
-
-		/**
-		 * Pull both endpoints in along one axis by half a node plus a gap.
-		 *
-		 * @param {string} axis  `'x'` or `'y'`.
-		 * @param {number} size  The node's extent on that axis.
-		 * @param {number} gap   Clearance to leave beyond the border.
-		 * @param {object} from  Source centre.
-		 * @param {object} to    Target centre.
-		 * @return {Array<object>} Trimmed `[from, to]`.
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		trimOn(axis, size, gap, from, to) {
-			const delta = to[axis] - from[axis]
-			const inset = Math.min(size / 2 + gap, Math.abs(delta) / 2)
-			const step = Math.sign(delta) * inset
-
-			return [
-				{ ...from, [axis]: from[axis] + step },
-				{ ...to, [axis]: to[axis] - step },
-			]
-		},
-
-		/**
-		 * Orthogonal path between two already-trimmed points, with rounded
-		 * corners: out along the run axis to the halfway line, across, then on
-		 * to the target. Only reached when the nodes are genuinely out of line.
-		 *
-		 * @param {{x: number, y: number}} from     Trimmed source point.
-		 * @param {{x: number, y: number}} to       Trimmed target point.
-		 * @param {boolean}                vertical Whether the run is vertical.
-		 * @return {{d: string, mid: {x: number, y: number}}} Path and midpoint.
-		 * @spec openspec/specs/flow-canvas/spec.md
-		 */
-		elbow(from, to, vertical) {
-			const dx = to.x - from.x
-			const dy = to.y - from.y
-			// A corner radius must never eat more than half of either leg.
-			const rad = Math.min(12, Math.abs(dx) / 2, Math.abs(dy) / 2)
-			const sx = Math.sign(dx)
-			const sy = Math.sign(dy)
-
-			if (vertical) {
-				const midY = from.y + dy / 2
-
-				return {
-					mid: { x: from.x + dx / 2, y: midY },
-					d: [
-						`M ${from.x} ${from.y}`,
-						`L ${from.x} ${midY - rad * sy}`,
-						`Q ${from.x} ${midY} ${from.x + rad * sx} ${midY}`,
-						`L ${to.x - rad * sx} ${midY}`,
-						`Q ${to.x} ${midY} ${to.x} ${midY + rad * sy}`,
-						`L ${to.x} ${to.y}`,
-					].join(' '),
-				}
-			}
-
-			const midX = from.x + dx / 2
-
-			return {
-				mid: { x: midX, y: from.y + dy / 2 },
-				d: [
-					`M ${from.x} ${from.y}`,
-					`L ${midX - rad * sx} ${from.y}`,
-					`Q ${midX} ${from.y} ${midX} ${from.y + rad * sy}`,
-					`L ${midX} ${to.y - rad * sy}`,
-					`Q ${midX} ${to.y} ${midX + rad * sx} ${to.y}`,
-					`L ${to.x} ${to.y}`,
-				].join(' '),
-			}
 		},
 	},
 }
@@ -2315,20 +2155,26 @@ export default {
  *
  * So the frame is declared once, explicitly, on the wrapper. It is restated
  * rather than left to the canvas's own scoped rule because that rule ties on
- * specificity with anything written here — `:deep(.cn-graph-canvas__node)`
- * compiles to `[data-v-builder] .cn-graph-canvas__node`, (0,2,0), exactly
- * matching `.cn-graph-canvas__node[data-v-canvas]` — so which one won came down
+ * specificity with anything written here — `:deep(.cn-flow-node)`
+ * compiles to `[data-v-builder] .cn-flow-node`, (0,2,0), exactly
+ * matching `.cn-flow-node[data-v-canvas]` — so which one won came down
  * to bundle order. Anchoring on `.flow-builder` settles it at (0,3,0). */
-.flow-builder :deep(.cn-graph-canvas__node) {
-	border: 2px solid var(--color-border);
-	background-color: var(--color-main-background);
-	border-radius: var(--border-radius-large, 8px);
-	/* Clips the body's role accent to the card's curve, so the accent needs no
-	   radius of its own — which is what drew the second frame. */
+.flow-builder :deep(.cn-flow-node) {
+	/* THE CARD IS THE NODE COMPONENT'S. WE ONLY CLIP IT.
+	 *
+	 * This used to restate `border`, `background-color` and `border-radius`
+	 * here, with the same values CnFlowNode already sets — three declarations
+	 * that existed to win a specificity tie against a rule saying the same
+	 * thing. That is the container-in-container: two owners for one card, kept
+	 * in step by hand.
+	 *
+	 * CnFlowNode owns the frame. What is genuinely ours is the clip, so the
+	 * body's role accent follows the card's curve instead of drawing a second
+	 * corner over it. */
 	overflow: hidden;
 }
 
-.flow-builder :deep(.cn-graph-canvas__node--selected) {
+.flow-builder :deep(.cn-flow-node--selected) {
 	border-color: var(--color-primary-element);
 }
 
@@ -2338,7 +2184,7 @@ export default {
    Sized explicitly because Nextcloud's global button rules give every <button>
    a minimum height: the port is declared 16x16 round in the canvas and measured
    16x34 on screen, a bar rather than a dot. */
-.flow-builder :deep(.cn-graph-canvas__handle) {
+.flow-builder :deep(.cn-flow-node__handle) {
 	width: 16px;
 	height: 16px;
 	min-height: 16px;
@@ -2350,17 +2196,12 @@ export default {
    sibling of our slot content, so it cannot be given a class from inside the
    slot — `:has()` reads the role off the card we DID render. */
 .flow-builder
-	:deep(
-		.cn-graph-canvas__node:has(.flow-builder__node--trigger)
-			.cn-graph-canvas__handle
-	) {
+	:deep(.cn-flow-node:has(.flow-builder__node--trigger) .cn-flow-node__handle) {
 	background-color: var(--color-success, #46ba61);
 }
 
 .flow-builder
-	:deep(
-		.cn-graph-canvas__node:has(.flow-builder__node--end) .cn-graph-canvas__handle
-	) {
+	:deep(.cn-flow-node:has(.flow-builder__node--end) .cn-flow-node__handle) {
 	background-color: var(--color-error, #e9322d);
 }
 
@@ -2464,7 +2305,7 @@ export default {
 	the geometry the canvas laid out is unchanged and the note does not shift by
 	two pixels when it stops being a card.
 */
-:deep(.cn-graph-canvas__node:has(.flow-builder__annotation)) {
+:deep(.cn-flow-node:has(.flow-builder__annotation)) {
 	background-color: transparent;
 	border-color: transparent;
 }

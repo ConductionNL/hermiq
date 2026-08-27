@@ -17,19 +17,19 @@
     <author mail="info@conduction.nl" homepage="https://www.conduction.nl/">Conduction</author>
     <namespace>Hermiq</namespace>
     <documentation>
-        <user>https://codeberg.org/Conduction/hermiq</user>
-        <admin>https://codeberg.org/Conduction/hermiq</admin>
-        <developer>https://codeberg.org/Conduction/hermiq</developer>
+        <user>https://github.com/ConductionNL/hermiq</user>
+        <admin>https://github.com/ConductionNL/hermiq</admin>
+        <developer>https://github.com/ConductionNL/hermiq</developer>
     </documentation>
     <category>integration</category>
-    <website>https://codeberg.org/Conduction/hermiq</website>
-    <discussion>https://codeberg.org/Conduction/hermiq/issues</discussion>
-    <bugs>https://codeberg.org/Conduction/hermiq/issues</bugs>
-    <repository>https://codeberg.org/Conduction/hermiq</repository>
+    <website>https://github.com/ConductionNL/hermiq</website>
+    <discussion>https://github.com/ConductionNL/hermiq/issues</discussion>
+    <bugs>https://github.com/ConductionNL/hermiq/issues</bugs>
+    <repository>https://github.com/ConductionNL/hermiq</repository>
 
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-dashboard.png</screenshot>
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-agents.png</screenshot>
-    <screenshot>https://codeberg.org/Conduction/hermiq/raw/branch/main/img/screenshot-skills.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-dashboard.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-agents.png</screenshot>
+    <screenshot>https://raw.githubusercontent.com/ConductionNL/hermiq/development/img/screenshot-skills.png</screenshot>
 
     <dependencies>
         <!--
@@ -50,10 +50,10 @@
     <!-- @spec openspec/changes/skills-marketplace/tasks.md#task-3-1 -->
     <!-- Single <background-jobs> block only — a second block causes an NC upgrade 500. -->
     <background-jobs>
-        <job>OCA\Hermiq\Cron\ScheduleTask</job>
-        <job>OCA\Hermiq\Cron\SkillCuratorTask</job>
-        <job>OCA\Hermiq\Cron\SkillLearningsPromotionTask</job>
-        <job>OCA\Hermiq\Cron\SkillConsolidationTask</job>
+        <job>OCA\Hermiq\BackgroundJob\ScheduleTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillCuratorTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillLearningsPromotionTask</job>
+        <job>OCA\Hermiq\BackgroundJob\SkillConsolidationTask</job>
     </background-jobs>
 
     <!-- @spec openspec/architecture/adr-023-action-authorization.md -->
@@ -70,6 +70,25 @@
     -->
     <repair-steps>
         <post-migration>
+            <!--
+                The background jobs moved from OCA\Hermiq\Cron to
+                OCA\Hermiq\BackgroundJob in #557. The <job> entries above are a
+                REGISTRATION instruction, not a description of state: on upgrade
+                Nextcloud ADDS a job it does not have, but never removes one
+                whose class disappeared — it cannot tell a renamed class from
+                one merely unavailable this boot.
+
+                Measured on a live instance carrying the equivalent opencatalogi
+                move: oc_jobs still held OCA\OpenCatalogi\Cron\DirectorySync
+                beside its replacement. A row naming a missing class fails to
+                build on every cron tick, and logs rather than raises.
+
+                First in the block: it removes rows rather than creating
+                anything, so nothing below depends on it, and running it early
+                keeps the dead registrations from being observed by the seed
+                steps that follow.
+            -->
+            <step>OCA\Hermiq\Repair\RemoveRetiredCronJobs</step>
             <step>OCA\Hermiq\Repair\CheckOpenRegisterCompatibility</step>
             <step>OCA\Hermiq\Repair\InitializeSettings</step>
             <step>OCA\Hermiq\Repair\InitializeActions</step>

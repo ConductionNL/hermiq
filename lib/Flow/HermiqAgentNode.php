@@ -44,6 +44,27 @@ use UnexpectedValueException;
 /**
  * Runs an agent turn as one step of an OpenRegister flow.
  *
+ * WHICH IDENTITY A TURN ACTS AS
+ *
+ * `context['runAs']` first, `context['triggeredBy']` only as a fallback. The two
+ * are deliberately different fields on a run and answer different questions:
+ * `triggeredBy` is PROVENANCE — who caused this — and `runAs` is AUTHORIZATION,
+ * whose rights the work uses. They are equal for a run a person started and
+ * DIFFER for a scheduled one, where the cause is a schedule and the acting
+ * identity is the user its trigger declares. An agent turn is an access
+ * decision, so it reads the authorization field; reading provenance for one is
+ * how a turn comes to execute with one person's rights while the record names
+ * another.
+ *
+ * ⚠️ THE FALLBACK IS A COMPATIBILITY SHIM WITH A KNOWN END, not a design.
+ * `runAs` reaches the node context from openregister#2835. An engine older than
+ * that build sets only `triggeredBy`, and on such an engine `triggeredBy` IS the
+ * only identity there has ever been — so falling back reproduces the old
+ * behaviour rather than inventing one. Reading `runAs` alone would make this
+ * node refuse every turn against an un-upgraded instance, which is an outage
+ * dressed as a safety property. Remove the fallback once the fleet's target
+ * instances are known to carry #2835.
+ *
  * @spec openspec/changes/consume-or-flow-engine/specs/or-flow-consumer/spec.md
  */
 class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
@@ -225,7 +246,23 @@ class HermiqAgentNode implements IFlowNode, IFlowNodeLogActions {
 		}
 
 		$outKey = (string)($config['output'] ?? 'result');
-		$owner = (string)($config['owner'] ?? ($context['triggeredBy'] ?? ''));
+		// 🔴 The flow document does NOT get to name the identity.
+		//
+		// This read used to be `$config['owner'] ?? $context['triggeredBy']`, and
+		// Integriq's FlowOwner names it by hand as "the anti-pattern this class
+		// exists to avoid, not the template". A flow document is authored by
+		// anyone who may edit flows, so letting it name the identity its steps run
+		// as is an authoring-time privilege escalation: write `owner: admin` into
+		// a node and the turn executes with admin's rights, attributed to admin.
+		//
+		// ADR-099: identity NARROWS along an invocation chain and never widens.
+		// A step may act as its caller, or refuse. Widening needs a delegation
+		// grant checked against the CALLER, which is a record — not a key in the
+		// document being checked.
+		//
+		// 🔴 `runAs` (AUTHORIZATION) first; `triggeredBy` (PROVENANCE) is a
+		// compatibility fallback — see the class docblock, including its removal.
+		$owner = trim((string)($context['runAs'] ?? ($context['triggeredBy'] ?? '')));
 		$org = (string)($config['organisation'] ?? '');
 
 		$out = [];

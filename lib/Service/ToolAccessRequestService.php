@@ -39,7 +39,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Service;
 
 use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCP\Notification\IManager as INotificationManager;
 use DateTime;
 use DateTimeImmutable;

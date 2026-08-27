@@ -216,7 +216,40 @@ class HermiqWorkloadNode implements IFlowNode {
 		$this->assertConfigured(config: $config);
 
 		$outKey = (string)($config['output'] ?? 'stage');
-		$owner = trim((string)($config['owner'] ?? ($context['triggeredBy'] ?? '')));
+		// 🔴 The flow document does NOT get to name the identity.
+		//
+		// This read used to be `$config['owner'] ?? $context['triggeredBy']`, and
+		// Integriq's FlowOwner names it by hand as "the anti-pattern this class
+		// exists to avoid, not the template". A flow document is authored by
+		// anyone who may edit flows, so letting it name the identity its steps run
+		// as is an authoring-time privilege escalation: write `owner: admin` into
+		// a node and the turn executes with admin's rights, attributed to admin.
+		//
+		// ADR-099: identity NARROWS along an invocation chain and never widens.
+		// A step may act as its caller, or refuse. Widening needs a delegation
+		// grant checked against the CALLER, which is a record — not a key in the
+		// document being checked.
+		//
+		// 🔴 `runAs` FIRST, `triggeredBy` only as a fallback. The two are
+		// deliberately different fields on a run and answer different questions:
+		// `triggeredBy` is PROVENANCE — who caused this — and `runAs` is
+		// AUTHORIZATION, whose rights the work uses. They are equal for a run a
+		// person started and DIFFER for a scheduled one, where the cause is a
+		// schedule and the acting identity is the user its trigger declares. A
+		// workload stage is an access decision, so it reads the authorization
+		// field — and it is also what lands in hydra's record as the stage's
+		// credential owner, which must name who the work RAN AS.
+		//
+		// The fallback is a COMPATIBILITY SHIM with a known end, not a design.
+		// `runAs` reaches the node context from openregister#2835; an engine
+		// older than that build sets only `triggeredBy`, and on such an engine
+		// `triggeredBy` IS the only identity there has ever been — so falling
+		// back reproduces exactly the old behaviour rather than inventing one.
+		// Reading `runAs` alone would make this node refuse every stage against
+		// an engine that has not been upgraded yet, which is an outage rather
+		// than a safety property. Remove the fallback once the fleet's target
+		// instances are known to carry #2835.
+		$owner = trim((string)($context['runAs'] ?? ($context['triggeredBy'] ?? '')));
 
 		// ATTRIBUTION IS MANDATORY, and refusing here is the point rather than a
 		// side effect. hydra's record answers "who ran this, on whose

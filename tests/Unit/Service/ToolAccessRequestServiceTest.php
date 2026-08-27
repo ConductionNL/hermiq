@@ -30,7 +30,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Tests\Unit\Service;
 
-use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\Hermiq\Service\ToolAccessRequestService;
 use OCP\Notification\IManager as INotificationManager;
 use PHPUnit\Framework\TestCase;

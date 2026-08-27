@@ -38,7 +38,7 @@ declare(strict_types=1);
 
 namespace OCA\Hermiq\Listener;
 
-use OCA\Hermiq\Cron\AgentRunRequestedJob;
+use OCA\Hermiq\BackgroundJob\AgentRunRequestedJob;
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
 use OCP\BackgroundJob\IJobList;
 use OCP\EventDispatcher\Event;

@@ -54,7 +54,7 @@ Clone the repo and build:
 
 ```bash
 cd /var/www/html/custom_apps
-git clone https://codeberg.org/Conduction/hermiq.git hermiq
+git clone https://github.com/ConductionNL/hermiq.git hermiq
 cd hermiq
 npm install && npm run build
 php occ app:enable hermiq

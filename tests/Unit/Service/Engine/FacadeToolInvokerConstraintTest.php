@@ -30,7 +30,7 @@ namespace OCA\Hermiq\Tests\Unit\Service\Engine;
 
 use OCA\Hermiq\Service\Engine\FacadeToolInvoker;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
-use OCA\Hermiq\Service\Engine\ToolGrantResolver;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use PHPUnit\Framework\TestCase;
 

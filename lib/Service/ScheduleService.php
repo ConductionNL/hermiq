@@ -35,7 +35,7 @@ use DateInterval;
 use DateTimeImmutable;
 use DateTimeZone;
 use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Cron\SkillLearningsCaptureJob;
+use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\Engine\DelegationContext;
 use OCA\Hermiq\Service\Engine\Engine;
 use OCA\Hermiq\Service\Engine\RunTraceCollector;
@@ -2076,13 +2076,33 @@ class ScheduleService {
 		// Agent-capability-profile: on the engine-enabled path only, an Agent may name
 		// an actingUser to impersonate instead of the schedule owner. Resolved BEFORE
 		// impersonation so the whole turn (conversation + messages + tool writes) runs
-		// as that identity; falls back to $owner (silently, logged) when unset/invalid.
+		// as that identity; falls back to $owner (silently, logged) when it is UNSET.
+		// A DECLARED one that does not resolve refuses the run instead — see
+		// resolveActingUser().
 		// Sub-agent-delegation: `$forceOwner` skips this resolution entirely — `$owner`
 		// (the parent's already-impersonated acting uid) is used verbatim, so a target
 		// agent's own `actingUser` can never launder attribution via delegation.
 		$impersonateAs = $owner;
 		if ($forceOwner === false && $this->isEngineEnabled() === true) {
-			$impersonateAs = $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
+			// 🔴 A REFUSAL MUST NOT LEAVE THE OWNER IN THE AUDIT RECORD.
+			//
+			// `lastRunAsUser` was pre-seeded with $owner above (and again by the
+			// runNow/dispatch callers), and `writeRunAudit()` publishes it as
+			// "the identity that actually ran the turn". Letting the throw escape
+			// with that value intact writes the exact substitution this refusal
+			// exists to prevent: the run is attributed to the schedule owner in
+			// the append-only trail while never having run as anybody at all.
+			// Refusing in the control flow and conceding in the record is not a
+			// refusal.
+			//
+			// Blanked rather than set to the unresolvable uid: nobody ran this
+			// turn, and naming the ghost would read as "the turn ran as them".
+			try {
+				$impersonateAs = $this->resolveActingUser(agentId: $agentId, fallbackOwner: $owner);
+			} catch (Throwable $e) {
+				$this->lastRunAsUser = '';
+				throw $e;
+			}
 		}
 
 		$this->lastRunAsUser = $impersonateAs;
@@ -2386,14 +2406,30 @@ class ScheduleService {
 
 		$candidate = $this->userManager->get($actingUser);
 		if ($candidate === null || $candidate->isEnabled() === false) {
-			$this->logger->warning(
+			// 🔴 REFUSE. Do not fall back to the schedule owner here.
+			//
+			// The two absent cases are not the same thing. An agent that declares
+			// NO actingUser has expressed no preference, so the schedule's own
+			// identity applies and the fallback above is right. An agent that
+			// DECLARES one which no longer resolves is a different situation: an
+			// author stated an identity, and quietly substituting a different one
+			// runs the turn as somebody the author did not choose — with that
+			// person's rights, attributed to them in the audit trail.
+			//
+			// That is the shape ADR-099 exists to remove: a default-valued read
+			// turning missing data into wrong behaviour rather than into an error.
+			// Disabling the account is also how a departure is normally
+			// processed, so the likeliest trigger for this branch is precisely
+			// the case where running as the owner instead is least acceptable.
+			throw new RuntimeException(
 				sprintf(
-					"Hermiq agent %s declares actingUser '%s', which is not an existing, active user — falling back to the schedule owner.",
+					'Hermiq agent %s declares actingUser "%s", which is not an existing, active user. '
+					. 'The run is refused rather than executed as the schedule owner — an author who named '
+					. 'an identity did not consent to a different one being substituted.',
 					$agentId,
 					$actingUser
 				)
 			);
-			return $fallbackOwner;
 		}
 
 		return $actingUser;

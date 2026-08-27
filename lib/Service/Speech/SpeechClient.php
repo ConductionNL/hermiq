@@ -84,14 +84,25 @@ class SpeechClient {
 	/**
 	 * Default transcription model.
 	 *
-	 * ⚠️ `deepdml/...`, NOT `Systran/...`. Systran publishes a large-v3
-	 * CTranslate2 conversion but no turbo one, and HuggingFace answers a
-	 * non-existent repo with 401 rather than 404 — so a wrong id reads as an auth
-	 * failure while the sidecar crash-loops.
+	 * 🔴 A CPU MODEL, DELIBERATELY. This used to default to
+	 * `deepdml/faster-whisper-large-v3-turbo-ct2`, which is a GPU model: measured
+	 * 2026-08-20 on a CPU-only host, warm, through the Nextcloud path, a 4.6s
+	 * clip took **81s** with it and **3.1s** with this one. A default nobody can
+	 * use is not a quality choice — the caller times out long before the
+	 * transcript exists, and the feature reads as broken rather than as
+	 * misconfigured.
+	 *
+	 * An instance with a GPU should raise this deliberately:
+	 * `occ config:app:set hermiq speech_stt_model --value="deepdml/faster-whisper-large-v3-turbo-ct2"`.
+	 *
+	 * ⚠️ THE VENDOR PREFIX IS NOT INTERCHANGEABLE. Systran publishes small/base
+	 * conversions but no large-v3 TURBO one, and `deepdml` publishes the turbo
+	 * one. HuggingFace answers a non-existent repo with **401, not 404**, so a
+	 * wrong id reads as an auth failure while the sidecar crash-loops.
 	 *
 	 * @var string
 	 */
-	private const DEFAULT_STT_MODEL = 'deepdml/faster-whisper-large-v3-turbo-ct2';
+	private const DEFAULT_STT_MODEL = 'Systran/faster-whisper-base';
 
 	/**
 	 * Default synthesis model.
@@ -107,6 +118,17 @@ class SpeechClient {
 	 * @var int
 	 */
 	private const TIMEOUT_SECONDS = 900;
+
+	/**
+	 * Bound for the reachability probe.
+	 *
+	 * Deliberately nothing like `TIMEOUT_SECONDS`: this one answers a question
+	 * the UI is waiting on, and an unreachable sidecar must read as unreachable
+	 * within a second or two rather than hanging the control that asked.
+	 *
+	 * @var int
+	 */
+	private const HEALTH_TIMEOUT_SECONDS = 3;
 
 	/**
 	 * Constructor.
@@ -230,6 +252,41 @@ class SpeechClient {
 		return $decoded;
 
 	}//end post()
+
+	/**
+	 * Whether the sidecar answers at all.
+	 *
+	 * 🔴 REACHES IT. A configuration read would have reported "available" for the
+	 * entire period during which `speech_base_url` pointed at a hostname that
+	 * resolved from nowhere — the sidecar sat on a jailed network with nothing
+	 * else attached, and Nextcloud advertised transcription to every consumer
+	 * regardless. Configuration is not reachability.
+	 *
+	 * Short timeout on purpose: this answers a UI question — "may I offer the
+	 * private engine?" — and a caller that waits fifteen minutes has already
+	 * lost. A slow inference call is a different question with a different
+	 * budget (`TIMEOUT_SECONDS`).
+	 *
+	 * @return bool True when `/health` answered 200.
+	 *
+	 * @spec openspec/specs/speech-services/spec.md#requirement-no-audio-leaves-the-instance
+	 */
+	public function isReachable(): bool {
+		try {
+			$client = $this->clientService->newClient();
+			$response = $client->get(
+				$this->baseUrl() . '/health',
+				['timeout' => self::HEALTH_TIMEOUT_SECONDS]
+			);
+
+			return $response->getStatusCode() === 200;
+		} catch (Throwable $e) {
+			$this->logger->debug('Hermiq: speech sidecar unreachable', ['exception' => $e]);
+
+			return false;
+		}
+
+	}//end isReachable()
 
 	/**
 	 * POST to the sidecar and return the body verbatim.

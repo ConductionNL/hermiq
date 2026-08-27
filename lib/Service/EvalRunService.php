@@ -55,7 +55,7 @@ use DateTimeImmutable;
 use DateTimeZone;
 use InvalidArgumentException;
 use OCA\Hermiq\AppInfo\Application;
-use OCA\Hermiq\Cron\SkillLearningsCaptureJob;
+use OCA\Hermiq\BackgroundJob\SkillLearningsCaptureJob;
 use OCA\Hermiq\Service\Engine\ContextAssembler;
 use OCA\OpenRegister\Db\Agent;
 use OCA\OpenRegister\Db\AuditTrailMapper;
