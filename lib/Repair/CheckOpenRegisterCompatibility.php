@@ -45,6 +45,7 @@ declare(strict_types=1);
 namespace OCA\Hermiq\Repair;
 
 use OCA\OpenRegister\Event\AgentRunRequestedEvent;
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
@@ -81,6 +82,15 @@ class CheckOpenRegisterCompatibility implements IRepairStep {
 	private const REQUIRED_CLASSES = [
 		ToolRegistryFacade::class => 'OCA\OpenRegister\Service\Mcp\ToolRegistryFacade (OpenRegister #297)',
 		AgentRunRequestedEvent::class => 'OCA\OpenRegister\Event\AgentRunRequestedEvent (OpenRegister #306)',
+		// 🔴 ADDED WITH THE ADR-099 §5 RELOCATION. The capability grammar used to
+		// live in this app, so no version of OpenRegister could be too old to
+		// supply it. Now it can — and without this entry a stale instance would
+		// surface as a bare "Class ... not found" from inside a TOOL CALL, at
+		// whatever hour an agent next ran, rather than as a clear message at
+		// upgrade time. `ToolGrantResolver` is the one to name: every other moved
+		// class arrived in the same commit, and listing five would suggest they
+		// can be present independently.
+		ToolGrantResolver::class => 'OCA\OpenRegister\Service\Capability\ToolGrantResolver (ADR-099 §5 relocation)',
 	];
 
 	/**

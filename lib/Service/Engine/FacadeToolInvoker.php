@@ -139,6 +139,15 @@ use OCA\Hermiq\Service\ApprovalService;
 use OCA\Hermiq\Service\RedactionService;
 use OCA\Hermiq\Service\ToolClassificationService;
 use OCA\Hermiq\Service\ToolSearchService;
+// 🔴 THESE TWO USED TO NEED NO IMPORT. `ToolGrantResolver` and
+// `ToolReachResolver` lived in this very namespace until ADR-099 §5 moved the
+// capability grammar to OpenRegister, so PHP resolved them for free. A
+// relocation that only rewrote the files carrying an explicit `use` would have
+// left this class referencing two classes that no longer exist here — and PHP
+// would not have said so until the line ran, at which point it is a fatal in
+// the middle of a tool call rather than a failure to load.
+use OCA\OpenRegister\Service\Capability\ToolGrantResolver;
+use OCA\OpenRegister\Service\Capability\ToolReachResolver;
 use OCA\OpenRegister\Service\Mcp\ToolRegistryFacade;
 
 /**
