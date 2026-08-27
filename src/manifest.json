@@ -121,7 +121,8 @@
 			"label": "Flows",
 			"icon": "Sitemap",
 			"route": "FlowIndex",
-			"order": 16
+			"section": "settings",
+			"order": 96
 		},
 		{
 			"id": "AiOversightMenu",
