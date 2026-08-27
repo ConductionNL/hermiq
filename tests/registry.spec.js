@@ -82,6 +82,25 @@ function parseRegistry(srcPath) {
 	//      import Foo from './foo.vue'
 	//    Becomes:
 	//      const Foo = { __vueStub: true }
+	//    NAMED imports first — `import { A, B as C } from 'x'`. The default-import
+	//    pattern below matches `import Foo from`, where `\w+` cannot match `{ ... }`,
+	//    so a named import survived the rewrite intact and `vm.runInNewContext`
+	//    rejected the WHOLE file with "Cannot use import statement outside a
+	//    module" — a parse error that names neither the import nor the line.
+	//
+	//    There were none until the registry began importing a shared component
+	//    (CnFlowSidebar) from @conduction/nextcloud-vue rather than declaring its
+	//    own. The stub is the same: this spec reads the registry's METADATA, and
+	//    never calls a component.
+	src = src.replace(/import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"]/g, (_, names) => {
+		return names
+			.split(',')
+			.map((n) => n.trim().split(/\s+as\s+/).pop().trim())
+			.filter(Boolean)
+			.map((n) => `const ${n} = { __vueStub: true }`)
+			.join('; ')
+	})
+
 	src = src.replace(/import\s+(\w+)\s+from\s+['"][^'"]+['"]/g, (_, name) => {
 		return `const ${name} = { __vueStub: true }`
 	})
