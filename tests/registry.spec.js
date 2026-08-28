@@ -92,14 +92,23 @@ function parseRegistry(srcPath) {
 	//    (CnFlowSidebar) from @conduction/nextcloud-vue rather than declaring its
 	//    own. The stub is the same: this spec reads the registry's METADATA, and
 	//    never calls a component.
-	src = src.replace(/import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"]/g, (_, names) => {
-		return names
-			.split(',')
-			.map((n) => n.trim().split(/\s+as\s+/).pop().trim())
-			.filter(Boolean)
-			.map((n) => `const ${n} = { __vueStub: true }`)
-			.join('; ')
-	})
+	src = src.replace(
+		/import\s+\{([^}]+)\}\s+from\s+['"][^'"]+['"]/g,
+		(_, names) => {
+			return names
+				.split(',')
+				.map((n) =>
+					n
+						.trim()
+						.split(/\s+as\s+/)
+						.pop()
+						.trim(),
+				)
+				.filter(Boolean)
+				.map((n) => `const ${n} = { __vueStub: true }`)
+				.join('; ')
+		},
+	)
 
 	src = src.replace(/import\s+(\w+)\s+from\s+['"][^'"]+['"]/g, (_, name) => {
 		return `const ${name} = { __vueStub: true }`
