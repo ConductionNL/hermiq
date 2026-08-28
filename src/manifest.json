@@ -1,6 +1,6 @@
 {
 	"$schema": "https://github.com/ConductionNL/nextcloud-vue/raw/main/src/schemas/app-manifest-v2.schema.json",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"dependencies": [
 		"openregister"
 	],
@@ -1602,6 +1602,24 @@
 						"advanceOn": {
 							"type": "route-match",
 							"route": "Settings"
+						}
+					},
+					{
+						"id": "see-flows",
+						"sinceVersion": "0.7.0",
+						"placement": "right",
+						"optional": true,
+						"allowManualNext": true,
+						"title": "Where the automation lives",
+						"body": "Flows are what happens without anyone clicking: an agent that runs on a schedule, a hand-off that fires when a task completes. This is where you read and edit them. Nothing to build now.",
+						"task": "Open Flows in the menu",
+						"target": {
+							"kind": "nav-item",
+							"ref": "FlowIndex"
+						},
+						"advanceOn": {
+							"type": "route-match",
+							"route": "FlowIndex"
 						}
 					},
 					{
